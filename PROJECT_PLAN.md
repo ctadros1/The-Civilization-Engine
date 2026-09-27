@@ -72,6 +72,9 @@ organized to avoid that.
 - **No hand-authored buildings or landmarks.** Everything is grammar-generated.
 - **No direct player governance.** The player never places buildings, zones or
   enacts laws; god tools only (§2).
+- **No player terrain editing.** God tools can't reshape terrain; that's a
+  future consideration (§8). The people's small-scale earthworks *are* in
+  scope (§5.1).
 - **No Mac or console builds.** Windows only; the Mac is for planning.
 - **No mod manager, localization, achievements, goals or win conditions.**
 
@@ -120,10 +123,14 @@ autosave. A typical session is 30–120 minutes.
 | Inject people & ideas | Spawn a family (M1); introduce a technology (M3); introduce an ideology or agitator (M4); migration wave (M5) | M1–M5 |
 | Nudge individuals | Whisper to a notable (a suggested goal they evaluate like any other); bless or curse a person or firm (luck modifier) | M4 |
 | Disasters & events | Fire, plague, flood, drought, storm (M6); earthquake (M8) | M6, M8 |
-| World edits | Place or remove resource deposits (M3); reshape terrain and change climate (after spike S1 proves runtime terrain edits, target M8–M9) | M3, M8+ |
+| World edits | Place or remove resource deposits (M3); change climate (M9) | M3, M9 |
 
 Every god-tool use is a recorded input (§3.5), so replays and branches stay
 exact.
+
+**The player cannot reshape terrain.** A terraforming god tool is a future
+consideration only (§8). The *people* can terraform a little through
+earthworks (§5.1).
 
 ---
 
@@ -448,6 +455,20 @@ points** agents control (plot).
   - Planned: grid, radial, linear, axial (cardo/decumanus), each with
     parameters: block size, road hierarchy widths, plaza frequency.
   - Parcel subdivision: recursive oriented-bounding-box splits.
+- **Earthworks (the people terraform a little):** programs that edit the
+  heightfield locally.
+  - Leveling plots for foundations.
+  - Road cut-and-fill and grading.
+  - Quarry and clay pits.
+  - Irrigation and drainage ditches.
+  - Farm terraces.
+  - Small embankments and levees.
+
+  Earthworks are construction projects that consume labor and tools over time,
+  are gated by technology, and are recorded in world state. Each one is
+  **bounded**: a local patch with a volume limited by labor, and ditches and
+  levees change local drainage only. There's no large-scale reshaping: no land
+  reclamation, river diversion or hill removal.
 
 **Agent decision points:**
 
@@ -457,6 +478,9 @@ points** agents control (plot).
 - What program to build, and how big (budget), how tall (land value, tech).
 - Style: the owner's taste vector, modulated by prestige copying.
 - When to repair, upgrade or demolish.
+- Whether to level a sloped plot or build on the slope, terrace a hillside for
+  farming, dig irrigation or drainage, or open a quarry. Public earthworks such
+  as levees after a flood go through the law pipeline as public works.
 - Governments decide **whether a planning institution exists**. If it does, it
   picks a plan template and parameters, zoning, and **building codes**. For
   example, masonry becomes mandatory after a fire, but only if someone proposes
@@ -753,6 +777,10 @@ content footprint. This is the main defense against the content multiplier
   erosion, river network, climate bands, soils, deposits.
   - Default world is 16 × 16 km: a 2 m heightfield (8192²) and 8 m sim land
     cells (2048²).
+  - After generation, terrain changes **only through the people's earthworks**
+    (§5.1). These are small local patches: the kernel owns the heightfield and
+    streams each edited patch to UE as a delta. The player never edits
+    terrain.
   - **How UE renders runtime-generated terrain in a packaged build is
     unresolved** (spike S1, §7). UE Landscape editing APIs are editor-centric;
     Virtual Heightfield Mesh and Mesh Terrain are experimental.
@@ -838,13 +866,18 @@ M1.**
   - **Spike S1, runtime terrain** (first two weeks), deciding among:
     1. Tiled runtime mesh terrain (dynamic or procedural mesh with CPU LOD,
        runtime virtual texture material).
-    2. A fixed-size Landscape whose heightmap is updated at runtime, if the
+    2. A fixed-size Landscape whose heightmap is written at world load, if the
        runtime APIs work in a packaged build.
     3. Virtual Heightfield Mesh or Mesh Terrain (experimental).
 
-    Criteria: works in a packaged Win64 build; 60 fps over 16 km²; supports
-    runtime edits (roads, quarries, god-tool reshaping); PCG and foliage work
-    on it.
+    Criteria:
+    - Works in a packaged Win64 build.
+    - 60 fps over 16 km².
+    - Applies small local edit patches streamed from the kernel (earthworks:
+      leveling, cut-and-fill, pits, ditches, terraces) without a visible hitch.
+    - PCG and foliage work on it.
+
+    Player-scale reshaping is not a criterion.
   - `EngineBridge` plugin in commons: DLL load, sim threads, triple buffer,
     trip interpolation.
   - `BuildingAssembler` with the first vernacular kit.
@@ -870,6 +903,8 @@ M1.**
   - Grammar v2: houses, workshops, storehouses; 1–2 storeys.
   - **Style vector v0** with prestige copying.
   - Seasons in sim and visuals.
+  - **Earthworks v1:** plot leveling, quarry and clay pits, irrigation
+    ditches, farm terraces.
   - Accelerated mode (daily step) with the mode-consistency test.
   - God tools: introduce a technology, place a deposit.
   - Firm and market panels.
@@ -923,6 +958,8 @@ M1.**
   - Fake interiors.
   - Incident panels, coverage maps.
   - Stone/brick/tile kit.
+  - Levees and embankments as public-works earthworks, which people can
+    propose after floods.
   - God tools: fire, plague, flood, drought, storm.
 - *Demo:* a cholera outbreak traced to a well; a great fire leads to a
   proposed masonry code; a siege ends in annexation.
@@ -952,7 +989,8 @@ M1.**
   - Grammar v3: 3–4 storeys, monuments and landmark templates, style drift
     fully live.
   - Crowd LOD at scale.
-  - Earthquake god tool; terrain reshaping if S1 allows it.
+  - Road cut-and-fill and grading for the road hierarchy (earthworks).
+  - Earthquake god tool (damages buildings; terrain unchanged).
   - **Scale gate: 10–50k agents at 60 fps, with Accelerated Max at ≥1 year per
     minute.**
 - *Demo:* a 30k-person planned capital next to an organic port town, with
@@ -1047,6 +1085,9 @@ M1.**
 7. **World shape:** coasts and oceans, multiple biomes per map, map sizes
    beyond 16 km.
 8. **When healthcare and education become full services** (currently M10).
+9. **Player terrain editing (future consideration, not planned):** a god tool
+   to reshape terrain. Revisit after v1, building on the earthworks edit path
+   that S1 and M3 establish.
 
 ---
 
@@ -1063,7 +1104,8 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Platform:** Windows only.
 - **Performance target:** 60 fps at 1440p with DLSS/TSR allowed.
 - **Player role:** observer with god tools; no direct building, zoning or law-making.
-- **God tools:** disasters and events, world edits, injecting people and ideas, nudging individuals, all recorded as inputs.
+- **God tools:** disasters and events, world edits (resource deposits, climate), injecting people and ideas, nudging individuals, all recorded as inputs.
+- **Terrain editing (2026-09-27):** the people terraform a little through bounded earthworks (leveling, cut-and-fill, pits, ditches, terraces, small levees). The player can't reshape terrain; that's a future consideration only.
 - **Reuse:** new code reusing Genesis/Prometheus patterns; engine-agnostic code shared through `engine-commons`, pinned by tag.
 - **Technology:** full progression from an authored technology graph with no era gates; discovery and diffusion driven by each society's institutions.
 - **Default start:** early agrarian; start point configurable as a known-technology set.

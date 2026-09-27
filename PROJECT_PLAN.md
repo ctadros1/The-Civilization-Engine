@@ -70,6 +70,11 @@ organized to avoid that.
 - **No tactical or naval combat.** War is operational (§5.5).
 - **No multi-viewer or co-op**, though the architecture keeps multi-viewer cheap.
 - **No hand-authored buildings or landmarks.** Everything is grammar-generated.
+- **No physics-based construction or structural solver.** Construction is
+  staged and structures fail by rule (§5.1), not by simulated physics. A real
+  structural solver is a future consideration (§8). Physics-based building,
+  with people placing individual stones and beams, is out of scope; that's
+  Prometheus's question.
 - **No direct player governance.** The player never places buildings, zones or
   enacts laws; god tools only (§2).
 - **No player terrain editing.** God tools can't reshape terrain; that's a
@@ -241,9 +246,14 @@ agent/firm/office decision         kernel state                     Unreal
 - The **kernel stores only `BuildingSpec`** (tens of bytes). Geometry is
   derived, never saved.
 - `civ-grammar` is **one Rust crate compiled into the same DLL**. The kernel
-  uses it for derived facts (capacity, fire load); UE calls `grammar_expand`
-  over FFI for geometry. The web observer draws footprints from the same specs.
-  There is one source of truth, and it is deterministic.
+  uses it for derived facts: capacity, fire load, and the spans and loads the
+  structural rules need (§5.1). UE calls `grammar_expand` over FFI for
+  geometry. The web observer draws footprints from the same specs. There is
+  one source of truth, and it is deterministic.
+- **Construction stages come from the grammar too.** `grammar_expand` tags
+  every piece with a stage (foundation, frame, walls, roof, finish). The
+  kernel's `ConstructionProject` reports progress per stage, and UE reveals
+  exactly the pieces that have been built.
 - Layout works the same way. The kernel owns the road graph, parcels and land
   use; UE renders roads as spline meshes and uses runtime PCG for dressing.
 
@@ -424,6 +434,8 @@ only, with no statistical inference. The checks:
 - Crime correlates positively with poverty.
 - Waterborne epidemics cluster on contaminated sources.
 - At least two of the five seeds end with differently labeled regimes.
+- Structural failures per 1,000 buildings per year stay within a tuned band
+  (§5.1).
 
 A failure blocks the milestone. Five seeds is a smoke test; it is never scaled
 up into a campaign.
@@ -492,6 +504,49 @@ points** agents control (plot).
 - Contact with other cultures through trade, conquest and migration.
 - Ideology, e.g. austerity values lower ornament.
 - Climate and material availability, which act as hard constraints.
+
+**Construction and structural integrity.** People visibly build, and what they
+build can fail because of how it was built. There's no physics engine and no
+load solver.
+
+- **Visible construction:**
+  - A `ConstructionProject` advances stage by stage (foundation, frame, walls,
+    roof, finish) as labor and materials are spent.
+  - Workers are real agents hauling materials from storehouses, quarries and
+    markets on ordinary trips.
+  - Scaffolding and centering frames appear and come down.
+  - A project that runs out of money, materials or workers stops, and the
+    half-built building stays visible until work resumes or it's abandoned.
+- **Structural rules:** each structure has a **structural margin**, computed
+  when it's finished and again whenever something changes.
+  - *Capacity* comes from material strength class × technique × builder
+    skill × foundation fit.
+  - *Demand* comes from span, storeys and load, slope and soil, plus events:
+    floods, storms, fire damage, earthquakes, overloading (an army crossing a
+    bridge).
+  - The margin decays with age and poor upkeep.
+  - At each check, the chance of failure rises steeply as the margin shrinks.
+    Partial failures (cracks, sagging, closure) come before full collapse.
+  - A collapse kills or injures the real people inside or on top.
+- **Bridges:** span and load limits per technique are authored in content data:
+  timber beam, rope suspension, timber truss, and the stone arch (with
+  centering) once it's discovered.
+- **Learning:**
+  - Each culture holds a **trust score per technique**. A collapse lowers
+    trust, so builders avoid the technique or over-build; long survival raises
+    it.
+  - The builder, whether a person or a firm, takes the reputational hit.
+  - A collapse enters the chronicle, and anyone can propose a building-code
+    response through the law pipeline.
+  - Negligence becomes a crime only if some polity's law makes it one.
+- **Agent decision points:**
+  - Builders choose the technique and how much to over-build (safety vs.
+    cost), shaped by budget, law, reputation and trust.
+  - Corrupt officials can approve substandard public works (M7).
+- **Rendering:** collapse is purely cosmetic in UE. The affected module
+  instances are swapped for pre-fractured pieces that fall under Chaos physics,
+  then replaced by the rubble state the kernel reports. The debris never feeds
+  back into the simulation.
 
 ### 5.2 Government & law
 
@@ -732,6 +787,10 @@ primitives it unlocks). **There are no era gates.**
 with adoption filtered by norms and law. A society can know something and
 forbid it.
 
+**Engineering techniques** are technology nodes too: lime mortar, the arch and
+centering, the timber truss, pile foundations, and so on. Each raises the
+structural capacity or maximum span for certain materials (§5.1).
+
 **Size:** the v1 graph has about 150–250 nodes, from early agrarian to
 pre-industrial. **Rule:** a node only enters the graph together with its
 content footprint. This is the main defense against the content multiplier
@@ -797,8 +856,11 @@ content footprint. This is the main defense against the content multiplier
   - Kit families: timber, wattle, thatch and earth vernacular (M2–M3); stone,
     brick, tile and plaster (M4–M8); fortification kit (M5).
   - Terrain materials and vegetation (free Megascans/Fab).
-  - Crowd characters and roughly 15 animation loops: walk, carry, farm,
-    hammer, sit, talk, fight, flee.
+  - Crowd characters and roughly 15 animation loops: walk, carry, haul, lift,
+    farm, hammer, sit, talk, fight, flee.
+  - Construction-site kit: scaffolding, ladders, centering frames, material
+    piles, a treadwheel crane.
+  - Pre-fractured versions of kit modules for cosmetic collapse debris.
   - Props: carts, stalls, tools, boats.
   - Budget: Fab packs only where free content doesn't cover it.
 
@@ -823,8 +885,8 @@ M1.**
 |---|---|---|---|
 | M0 | Foundations | 1–2 wks | Web |
 | M1 | A band settles | 3–5 wks | Web |
-| M2 | First light in Unreal | 4–6 wks | UE + panels |
-| M3 | Village economy | 4–6 wks | UE |
+| M2 | First light in Unreal | 5–7 wks | UE + panels |
+| M3 | Village economy | 6–8 wks | UE |
 | M4 | Councils, law & crime | 6–8 wks | UE |
 | M5 | Neighbors | 4–6 wks | UE |
 | M6 | Towns & their troubles | 6–8 wks | UE |
@@ -881,6 +943,8 @@ M1.**
   - `EngineBridge` plugin in commons: DLL load, sim threads, triple buffer,
     trip interpolation.
   - `BuildingAssembler` with the first vernacular kit.
+  - **Visible construction:** pieces appear stage by stage as labor is spent;
+    scaffolding; workers hauling materials.
   - Crowd v0; day/night; UMG HUD with time controls.
   - M1 web panels embedded through the WebBrowser widget.
   - Git LFS for `.uasset`, `.umap`, `.blend`, `.fbx` and texture sources,
@@ -901,6 +965,9 @@ M1.**
   - Posted-price markets.
   - Tech graph v0 (about 30 nodes) with discovery.
   - Grammar v2: houses, workshops, storehouses; 1–2 storeys.
+  - **Structural rules v0:** storeys vs. wall material, builder skill,
+    foundation on a slope, age and upkeep. Partial failures and collapses show
+    up in the chronicle. Technique trust per culture.
   - **Style vector v0** with prestige copying.
   - Seasons in sim and visuals.
   - **Earthworks v1:** plot leveling, quarry and clay pits, irrigation
@@ -941,6 +1008,8 @@ M1.**
   - Diplomacy states and treaties with ratification.
   - Tributary relations.
   - Fortification kit.
+  - **Bridges** on the new roads, with span and load limits per technique
+    (timber beam, rope, truss; the stone arch once discovered).
   - God tool: migration wave.
 - *Demo:* two settlements trade, their prices converge, one adopts the
   other's roof style, and a treaty fails ratification.
@@ -960,6 +1029,8 @@ M1.**
   - Stone/brick/tile kit.
   - Levees and embankments as public-works earthworks, which people can
     propose after floods.
+  - Floods, storms and fire damage feed structural demand; a collapse can
+    prompt building-code proposals.
   - God tools: fire, plague, flood, drought, storm.
 - *Demo:* a cholera outbreak traced to a well; a great fire leads to a
   proposed masonry code; a siege ends in annexation.
@@ -990,6 +1061,8 @@ M1.**
     fully live.
   - Crowd LOD at scale.
   - Road cut-and-fill and grading for the road hierarchy (earthworks).
+  - Earthquakes act through structural margins; taller buildings and longer
+    spans need the matching techniques.
   - Earthquake god tool (damages buildings; terrain unchanged).
   - **Scale gate: 10–50k agents at 60 fps, with Accelerated Max at ≥1 year per
     minute.**
@@ -1067,6 +1140,10 @@ M1.**
    *Mitigation:* operational only, with statistical battles.
 6. **UX polish on data-dense panels** takes longer than expected for every
    system. Each milestone's estimate already includes its panels.
+7. **Collapse tuning.** Too frequent and it's irritating; too rare and nobody
+   notices. *Mitigation:* a band for structural failures per 1,000 buildings
+   per year on the sanity dashboard (§4.7), tuned by eye. Failures should be
+   concentrated on new techniques, unskilled builders and neglected upkeep.
 
 ### Open questions
 
@@ -1088,6 +1165,11 @@ M1.**
 9. **Player terrain editing (future consideration, not planned):** a god tool
    to reshape terrain. Revisit after v1, building on the earthworks edit path
    that S1 and M3 establish.
+10. **Real structural analysis (future consideration, not planned):** a load
+    solver over real structural members (beams, columns, walls with sizes),
+    run only on events such as completion or damage. People would choose
+    spans and beam sizes and could get them wrong. Revisit after v1 if the
+    rule-based margins feel too coarse.
 
 ---
 
@@ -1105,6 +1187,7 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Performance target:** 60 fps at 1440p with DLSS/TSR allowed.
 - **Player role:** observer with god tools; no direct building, zoning or law-making.
 - **God tools:** disasters and events, world edits (resource deposits, climate), injecting people and ideas, nudging individuals, all recorded as inputs.
+- **Physical building (2026-09-27):** construction is visible and staged (M2), and structures fail by rules for structural margin, with technique trust per culture (M3, then M5, M6 and M8). Collapse debris is cosmetic Chaos only. A real structural solver is a future consideration; physics-based building is out of scope (Prometheus's territory).
 - **Terrain editing (2026-09-27):** the people terraform a little through bounded earthworks (leveling, cut-and-fill, pits, ditches, terraces, small levees). The player can't reshape terrain; that's a future consideration only.
 - **Reuse:** new code reusing Genesis/Prometheus patterns; engine-agnostic code shared through `engine-commons`, pinned by tag.
 - **Technology:** full progression from an authored technology graph with no era gates; discovery and diffusion driven by each society's institutions.

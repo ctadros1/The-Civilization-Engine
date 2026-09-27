@@ -43,10 +43,11 @@ organized to avoid that.
    are no preregistered campaigns, power estimates or null criteria.
 5. **The kernel owns truth. Unreal draws and forwards commands, and decides
    nothing.**
-6. **Determinism is an engineering tool** for save/load, bug replay and
-   regression tests, not a scientific apparatus.
+6. **Determinism is not a goal.** Every world plays out differently, even from
+   the same seed. Saves are snapshots. Bugs are reproduced from the snapshot
+   taken before them, not by exact replay.
 7. **ADRs only for decisions that are expensive to reverse**: schema,
-   persistence, the FFI boundary, determinism policy. If a milestone needs more
+   persistence, the FFI boundary. If a milestone needs more
    than about three ADRs, it is too big and gets split.
 
 ### v1 is NOT trying to do
@@ -130,8 +131,8 @@ autosave. A typical session is 30–120 minutes.
 | Disasters & events | Fire, plague, flood, drought, storm (M6); earthquake (M8) | M6, M8 |
 | World edits | Place or remove resource deposits (M3); change climate (M9) | M3, M9 |
 
-Every god-tool use is a recorded input (§3.5), so replays and branches stay
-exact.
+Every god-tool use is logged in the chronicle, so its consequences can be
+traced.
 
 **The player cannot reshape terrain.** A terraforming god tool is a future
 consideration only (§8). The *people* can terraform a little through
@@ -149,12 +150,12 @@ earthworks (§5.1).
 │  UE game thread / render thread               Sim worker threads (owned by the plugin)  │
 │  ┌────────────────────────────┐   commands    ┌────────────────────────────────────┐    │
 │  │ EngineBridge plugin (C++)  │──────────────►│ civ kernel (Rust cdylib via C ABI) │    │
-│  │  • frame reader            │  (FFI queue)  │  • deterministic tick scheduler    │    │
+│  │  • frame reader            │  (FFI queue)  │  • multithreaded tick scheduler    │    │
 │  │  • interpolation of trips  │◄──────────────│  • agents, notables, economy,      │    │
 │  │  • BuildingAssembler ──────┼──┐  frames    │    polity, services, diplomacy     │    │
-│  │  • crowd, PCG dressing     │  │ (triple    │  • input log + snapshots           │    │
+│  │  • crowd, PCG dressing     │  │ (triple    │  • snapshots + autosave            │    │
 │  │  • UMG HUD + time controls │  │  buffer)   │  • civ-grammar (same DLL) ◄────────┼──┐ │
-│  │  • WebBrowser panels ◄─────┼──┼──WS 127.0.0.1──  localhost WS host (in-DLL)    │  │ │
+│  │  • WebBrowser panels ◄─────┼──┼──WS 127.0.0.1──  localhost WS host (in-DLL)     │  │ │
 │  └────────────────────────────┘  │            └────────────────────────────────────┘  │ │
 │                                  └─ grammar_expand(BuildingSpec) over FFI ────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
@@ -188,8 +189,8 @@ Headless (same kernel crates, no UE):
 
 | Area | Choice | Why |
 |---|---|---|
-| Kernel | Rust (pinned toolchain), plain data-oriented tables with generational IDs, no ECS framework; parallel systems via rayon over deterministic partitions with ordered reductions | Same proven pattern as Genesis/Prometheus; determinism is easier to hold without a framework scheduler |
-| Numerics | f64, the `libm` crate for transcendental functions, no fast-math | Bit-identical results across Windows and macOS for free, so a save replays on either machine |
+| Kernel | Rust (pinned toolchain), plain data-oriented tables with generational IDs, no ECS framework; parallel systems via rayon, throughput first | Same proven storage pattern as Genesis/Prometheus; plain tables keep the hot loops simple and fast |
+| Numerics | f64 with ordinary platform math | Exact reproducibility isn't a goal (§1 rule 6), so there are no cross-platform float constraints |
 | Boundary schema | **Recommended: FlatBuffers** (generated Rust, C++ and TS readers). At M0, first check whether Genesis's `sim-protocol` already covers this; if so, lift it into commons instead | One schema file instead of three hand-maintained decoders, with documented evolution rules |
 | FFI | C ABI via `cbindgen`; `catch_unwind` at every exported function; Rust panics become error codes plus a crash snapshot | Panics must never unwind into UE |
 | Authored content | Text data files (RON/TOML) in `content/`, schema-validated and hot-reloadable in dev | Agents author data well; the primitives stay visible and editable |
@@ -209,8 +210,8 @@ engine-specific concepts: no "agent", "settlement" or "organism" types.
 |---|---|
 | `commons-wire` | Frame envelope (snapshot, delta, events, commands, query/response), schema versioning, transports (FFI ring buffer, WebSocket, recording file) |
 | `commons-persist` | Container format: magic, container and schema versions, named sections, per-section and whole-state checksums, a content-pack fingerprint, and refusal (never repair) on mismatch. The same posture as Prometheus's `sim-persist` |
-| `commons-rng` | Keyed, purpose-tagged deterministic RNG derivation |
-| `commons-record` | Recording and input-log format for replay |
+| `commons-rng` | Keyed, purpose-tagged deterministic RNG derivation. Prometheus and Genesis need it; TCE doesn't |
+| `commons-record` | Recording format for frame streams a viewer can play back (Prometheus's replay mode; TCE could use it to record a world for later viewing) |
 | `EngineBridge` (UE plugin) | Rust DLL loading/unloading, sim-thread hosting, triple-buffer frame reader, trip interpolation, instance-pool management, camera rigs (city, follow, cinematic), WebBrowser panel host. **Supports two sources: live FFI (this project) and recording (Prometheus V1)** |
 | `web-kit` (TS) | Inspector, timeline, chart and table components, and the WebSocket client for `commons-wire` |
 
@@ -249,7 +250,8 @@ agent/firm/office decision         kernel state                     Unreal
   uses it for derived facts: capacity, fire load, and the spans and loads the
   structural rules need (§5.1). UE calls `grammar_expand` over FFI for
   geometry. The web observer draws footprints from the same specs. There is
-  one source of truth, and it is deterministic.
+  one source of truth: the same spec always expands to the same building, so
+  buildings don't change shape when a save is reloaded.
 - **Construction stages come from the grammar too.** `grammar_expand` tags
   every piece with a stage (foundation, frame, walls, roof, finish). The
   kernel's `ConstructionProject` reports progress per stage, and UE reveals
@@ -257,15 +259,14 @@ agent/firm/office decision         kernel state                     Unreal
 - Layout works the same way. The kernel owns the road graph, parcels and land
   use; UE renders roads as spline meshes and uses runtime PCG for dressing.
 
-### 3.5 Determinism, save/load, stability
+### 3.5 Save/load and stability
 
-- **Input log.** Every non-kernel input is recorded with its tick: god tools,
-  speed-mode changes (§4.4), and LLM responses once they exist.
-  Snapshot + input log = exact replay.
-- **Snapshots** use `commons-persist`, with a content-pack fingerprint.
-  Changing the authored content changes the fingerprint. Old snapshots still
-  load when the schema is compatible, but exact replay then isn't guaranteed,
-  and the UI says so.
+- **Not deterministic by design.** Runs aren't reproducible from a seed, and
+  that's intended (§1 rule 6). A seed only varies world generation. Nothing is
+  recorded for exact replay.
+- **Snapshots** use `commons-persist`, with a content-pack fingerprint. Old
+  snapshots still load when the schema is compatible; the save browser notes
+  when the content has changed since the save was made.
 - **Autosave:** rolling, every in-game month or 5 real minutes, whichever comes
   first. Keep the last N. Writes are crash-safe (temp file, fsync, rename,
   verify checksum).
@@ -286,7 +287,7 @@ The Civilization Engine/
   decisions/                # ADRs (rule 7)
   kernel/                   # Rust workspace
     crates/
-      civ-core              # ids, tables, tick scheduler, time, RNG, input log
+      civ-core              # ids, tables, tick scheduler, time, RNG
       civ-world             # world-gen: terrain, hydrology, climate, soils, deposits
       civ-agents            # citizens, needs, schedules, utility decisions, demography, culture
       civ-notables          # deliberation layer + Deliberator trait
@@ -327,7 +328,8 @@ The Civilization Engine/
   - Household, property and wealth, occupation, schedule template.
 - **Decisions:** utility-based choice over an authored action catalogue.
   Considerations include needs, prices, wages, norms, *perceived* enforcement of
-  laws, relationships and personality. Choices use softmax with keyed RNG.
+  laws, relationships and personality. Choices are weighted-random (softmax), so people don't all make the
+  identical best choice.
 - **Cadence:** day-to-day actions (work, eat, shop, socialize, commute) run in
   the activity scheduler. Life decisions run monthly or seasonally: marry,
   have children, migrate, change job, found a household or firm, join a
@@ -351,9 +353,7 @@ The Civilization Engine/
   on the notable's goals and on predicted support, using coalition arithmetic
   over the factions.
 - **`Deliberator` trait:** the rule-based backend is the only one in v1. An
-  `LlmDeliberator` (local or API) can be plugged in later. Its responses are
-  recorded in the input log keyed by request hash, so replays stay exact. **Off
-  by default.**
+  `LlmDeliberator` (local or API) can be plugged in later. **Off by default.**
 
 ### 4.3 Population and settlement targets
 
@@ -392,7 +392,7 @@ The Civilization Engine/
 | Accelerated | 60x, 600x, Max | Each agent's day is resolved **statistically in one daily step**: hours worked, purchases, contacts sampled from co-location pools, crimes and fires sampled from the same motive and ignition models |
 
 Both modes call the **same decision functions** at different granularity.
-Switches happen at day boundaries and are recorded inputs. **Target:** at 50k
+Switches happen at day boundaries. **Target:** at 50k
 agents, Accelerated Max reaches at least 1 in-game year per real minute. A
 century is then under two hours, which is what an endless, early-agrarian-start
 world needs.
@@ -424,7 +424,7 @@ research result.
 
 ### 4.7 Sanity dashboard and smoke seeds (the anti-research guardrail)
 
-A headless nightly run: **5 fixed seeds × 50 in-game years**, using thresholds
+A headless nightly run: **5 worlds × 50 in-game years**, using thresholds
 only, with no statistical inference. The checks:
 
 - Population neither goes extinct nor explodes.
@@ -830,8 +830,8 @@ content footprint. This is the main defense against the content multiplier
 - **UE PCG:** runtime generation (`GenerateAtRuntime`) for *dressing*:
   vegetation, crops by season, fences, rubble, market clutter, street
   furniture. It reads kernel masks for land use, fertility and condition.
-  Buildings stay with the grammar, for determinism and parity with the web
-  observer.
+  Buildings stay with the grammar, so they match the kernel's derived facts
+  and the web observer.
 - **Terrain:** Rust `civ-world` generates it: heightfield with hydraulic
   erosion, river network, climate bands, soils, deposits.
   - Default world is 16 × 16 km: a 2 m heightfield (8192²) and 8 m sim land
@@ -896,15 +896,15 @@ M1.**
 **M0: Foundations.**
 - *Contents:*
   - The repo, CLAUDE.md/AGENTS.md, and the `engine-commons` repo with
-    `commons-rng`, `commons-persist` and `commons-wire` v0.
-  - Kernel skeleton: tables, tick scheduler, input log.
+    `commons-persist` and `commons-wire` v0.
+  - Kernel skeleton: tables, tick scheduler, snapshots.
   - `civ-world` terrain and rivers from a seed.
   - `civ-host` CLI with a WebSocket host; a web shell with a PixiJS map.
   - Windows CI on GitHub Actions: `cargo test`, clippy, and the content
     validator.
 - *Demo:* generate a world from a seed and pan it in the browser. Save/load
-  round-trips bit-exactly.
-- *Proves:* toolchain, schema, determinism, persistence.
+  round-trips with nothing lost.
+- *Proves:* toolchain, schema, persistence.
 - *Defers:* all simulation.
 
 **M1: A band settles.**
@@ -1117,9 +1117,10 @@ M1.**
 7. **Web panels in UE (CEF):** performance, input focus and packaging quirks.
    - *Mitigation:* prove it in M2, with a fallback to UMG for the highest-traffic
      panels.
-8. **Determinism under parallelism.**
-   - *Mitigation:* deterministic partitions, ordered reductions, and a replay
-     check in CI.
+8. **Parallel update bugs.** Without determinism, race-driven bugs won't
+   reproduce exactly.
+   - *Mitigation:* double-buffered state for what agents read, snapshots
+     before failures, tracing, and statistical regression tests.
 
 ### Scope risks (most likely to balloon)
 
@@ -1196,7 +1197,7 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Time skips:** undecided; deferred to M9.
 - **Scale:** largest city 10–50k at first, growing with optimization. Settlements: start with 2–3 and grow later.
 - **Cognition:** two tiers, every citizen on utility AI plus about 1% (≤ 500) notables with a deliberation layer.
-- **LLMs:** a pluggable `Deliberator`, off by default; responses recorded for replay.
+- **LLMs:** a pluggable `Deliberator`, off by default.
 - **Spatial LOD:** full simulation everywhere now; aggregate cohort model later (M9), shared with time skips.
 - **1x speed:** daily life visible (1 in-game day per about 15 min); Accelerated mode resolves days statistically.
 - **Buildings:** all procedural (a Rust grammar plus a Nanite kit assembled at runtime), including monuments; no hand-authored landmarks.
@@ -1230,5 +1231,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - *(Recommended, not asked)* **Houdini:** skipped for v1, since its outputs must be baked for packaged builds; Blender Geometry Nodes for kit variants.
 - *(Recommended, not asked)* **PCG:** runtime dressing only, not buildings.
 - *(Recommended, not asked)* **Schema format:** FlatBuffers, unless Genesis's `sim-protocol` generalizes better (decided in M0).
-- *(Recommended, not asked)* **Numerics:** f64 plus `libm`, for cross-platform determinism.
+- **Determinism (2026-09-27): not a goal.** Every world plays out differently, even from the same seed. Saves are snapshots; there's no exact replay, input log, or cross-platform float constraint. Parallelism is throughput-first.
 - *(Recommended, not asked)* **Anti-research guardrails:** usable-milestone bar, time-boxed emergence with `NUDGE:` entries, 5-seed smoke dashboard, cap of about 3 ADRs per milestone.

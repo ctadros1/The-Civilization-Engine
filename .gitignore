@@ -1,0 +1,40 @@
+# OS and editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Rust
+target/
+
+# Web
+node_modules/
+web/dist/
+*.tsbuildinfo
+
+# Unreal Engine
+unreal/Binaries/
+unreal/Intermediate/
+unreal/Saved/
+unreal/DerivedDataCache/
+unreal/.vs/
+unreal/Plugins/*/Binaries/
+unreal/Plugins/*/Intermediate/
+*.sln
+*.VC.db
+*.suo
+
+# Blender backups
+*.blend1
+*.blend2
+
+# Simulation outputs
+saves/
+recordings/
+*.record

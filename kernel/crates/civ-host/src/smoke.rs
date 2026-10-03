@@ -208,18 +208,20 @@ fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<String> {
             sim.land().fields.len()
         ));
     }
-    // In their first weeks households claim ground for their homes and begin their huts, on
-    // ground nobody else has claimed.
+    // In their first weeks most households claim ground for their homes and begin their huts,
+    // on ground nobody else has claimed. A household short of hands may put its fields first and
+    // build after sowing.
     let land = sim.land();
-    let unhoused = sim
+    let households = sim.people().households.len();
+    let begun = sim
         .people()
         .households
         .iter()
-        .filter(|(_, h)| !land.buildings.iter().any(|b| b.household == h.id))
+        .filter(|(_, h)| land.buildings.iter().any(|b| b.household == h.id))
         .count();
-    if unhoused > 0 {
+    if begun * 2 < households {
         failures.push(format!(
-            "{unhoused} households have not begun a home within {DAYS} days"
+            "only {begun} of {households} households began a home within {DAYS} days"
         ));
     }
     let crowded = land

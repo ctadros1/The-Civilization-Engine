@@ -329,7 +329,7 @@ pub fn candidates(
                     continue;
                 };
                 let walk = patch.walk_min;
-                // Work as long as daylight allows, within the authored range.
+                // How long daylight allows, after the walk there and back.
                 let room = if def.daylight_only {
                     f.daylight_left_min - 2.0 * walk - 20.0
                 } else {
@@ -339,7 +339,12 @@ pub fn candidates(
                     excluded.push((id, Reason::NotInDark));
                     continue;
                 }
-                let minutes = room.min(f64::from(def.max_minutes)).max(1.0);
+                // Work until a load is full, or as long as daylight and the authored range allow.
+                let fill = limits.carry_kg / (patch.kg_per_hour * f.capacity).max(1e-9) * 60.0;
+                let minutes = room
+                    .min(f64::from(def.max_minutes))
+                    .min(fill.max(f64::from(def.min_minutes)))
+                    .max(1.0);
                 let hours = minutes / 60.0;
                 let kg = (patch.kg_per_hour * hours * f.capacity).min(limits.carry_kg);
                 // A trip's worth saturates with what it brings (a response curve, research
@@ -382,9 +387,10 @@ pub fn candidates(
                             continue;
                         }
                         // A load is worth what it brings toward what is still needed: two thirds
-                        // for a full one.
+                        // for a full one, or for one that brings all that is still missing.
                         let useful = kg.min(patch.need_kg);
-                        let worth = useful / (useful + limits.carry_kg / 2.0).max(1e-6);
+                        let scale = patch.need_kg.min(limits.carry_kg);
+                        let worth = useful / (useful + scale / 2.0).max(1e-6);
                         term(&mut terms, Reason::Shelter, w.w_shelter * worth);
                         term(
                             &mut terms,
@@ -629,39 +635,42 @@ pub fn candidates(
     (out, excluded)
 }
 
-/// Softmax choice with a temperature proportional to the spread of the totals. `u` is a uniform
-/// draw in [0, 1). Returns the chosen index, its probability and the temperature.
+/// Softmax choice among the acceptable options (research 01-09 §4.3): those worth more than doing
+/// nothing (a positive total), or every option when none is. The temperature is proportional to
+/// the spread of the acceptable totals. `u` is a uniform draw in [0, 1). Returns the chosen index,
+/// its probability and the temperature. An option whose costs outweigh what it brings is never
+/// taken while something worthwhile can be done, so random draws do not pile up useless work.
 pub fn choose(totals: &[f32], w: &DecisionParams, u: f64) -> (usize, f64, f64) {
     if totals.is_empty() {
         return (0, 1.0, 0.0);
     }
-    let n = totals.len() as f64;
-    let mean = totals.iter().map(|&t| f64::from(t)).sum::<f64>() / n;
-    let var = totals
-        .iter()
-        .map(|&t| (f64::from(t) - mean).powi(2))
-        .sum::<f64>()
-        / n;
+    let acceptable: Vec<usize> = (0..totals.len()).filter(|&i| totals[i] > 0.0).collect();
+    let pool: Vec<usize> = if acceptable.is_empty() {
+        (0..totals.len()).collect()
+    } else {
+        acceptable
+    };
+    let values: Vec<f64> = pool.iter().map(|&i| f64::from(totals[i])).collect();
+    let n = values.len() as f64;
+    let mean = values.iter().sum::<f64>() / n;
+    let var = values.iter().map(|t| (t - mean).powi(2)).sum::<f64>() / n;
     let temperature = (w.temperature_sd_fraction * var.sqrt()).max(w.min_temperature);
-    let max = totals
+    let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let weights: Vec<f64> = values
         .iter()
-        .map(|&t| f64::from(t))
-        .fold(f64::NEG_INFINITY, f64::max);
-    let weights: Vec<f64> = totals
-        .iter()
-        .map(|&t| ((f64::from(t) - max) / temperature).exp())
+        .map(|t| ((t - max) / temperature).exp())
         .collect();
     let sum: f64 = weights.iter().sum();
     let mut acc = 0.0;
     let target = u * sum;
-    for (i, wt) in weights.iter().enumerate() {
+    for (k, wt) in weights.iter().enumerate() {
         acc += wt;
         if target < acc {
-            return (i, wt / sum, temperature);
+            return (pool[k], wt / sum, temperature);
         }
     }
     let last = weights.len() - 1;
-    (last, weights[last] / sum, temperature)
+    (pool[last], weights[last] / sum, temperature)
 }
 
 #[cfg(test)]
@@ -703,6 +712,27 @@ mod tests {
         // The last sliver of the distribution goes to the weakest option.
         let (i, _, _) = choose(&totals, &w, 0.999_999_9);
         assert_eq!(i, 2);
+    }
+
+    #[test]
+    fn options_worth_less_than_nothing_are_not_taken_while_one_is_worth_something() {
+        let w = weights();
+        // Gathering firewood nobody needs, when tired: its costs outweigh it.
+        let totals = [1.0f32, -0.5, -2.0, 3.0];
+        for k in 0..100 {
+            let (i, _, _) = choose(&totals, &w, f64::from(k) / 100.0);
+            assert!(i == 0 || i == 3, "chose {i}");
+        }
+        // When nothing is worth doing, every option is possible and the least bad most likely.
+        let bad = [-1.0f32, -0.2, -3.0];
+        let mut picks = [0usize; 3];
+        for k in 0..1000 {
+            picks[choose(&bad, &w, f64::from(k) / 1000.0).0] += 1;
+        }
+        assert!(
+            picks[1] > picks[0] && picks[0] > picks[2] && picks[2] > 0,
+            "{picks:?}"
+        );
     }
 
     #[test]

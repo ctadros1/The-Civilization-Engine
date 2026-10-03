@@ -359,9 +359,20 @@ fn a_band_sows_reaps_and_threshes_its_first_harvest() {
     assert!(grain > 0.0, "the threshed grain is in store");
 }
 
+/// One world run from 1 March to 11 November, ten days past the day households want to be under
+/// a roof by.
+fn until_winter() -> &'static Sim {
+    static WINTER: OnceLock<Sim> = OnceLock::new();
+    WINTER.get_or_init(|| {
+        let mut sim = new_world(3, 0);
+        sim.advance_minutes(255 * 24 * 60).expect("advances");
+        sim
+    })
+}
+
 #[test]
 fn households_raise_their_huts_and_are_under_a_roof_before_winter() {
-    let sim = first_season();
+    let sim = until_winter();
     let rules = sim.rules().clone();
     let land = sim.land();
     let hut = &rules.catalog.buildings[rules.people.home_program];
@@ -377,7 +388,7 @@ fn households_raise_their_huts_and_are_under_a_roof_before_winter() {
         let b = huts[0];
         assert_eq!(b.plot, plots[0].id);
         assert_eq!(plots[0].rect, civ_agents::build::plot_rect(&b.spec, hut));
-        // They live in it, it sleeps them all, and its roof is on by the end of September.
+        // They live in it, it sleeps them all, and its roof is on by winter.
         assert_eq!(h.home, civ_agents::build::centre_m(&b.spec));
         let e = civ_grammar::expand_hut(&b.spec, &hut.rules).expect("a valid design");
         assert!(e.sleeping_places as usize >= h.members.len());

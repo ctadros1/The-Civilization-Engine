@@ -109,12 +109,16 @@ pub fn new_world(
         sim.advance_minutes(i64::from(options.days) * civ_core::time::MINUTES_PER_DAY)?;
         let fields = &sim.land().fields;
         let ha: f64 = fields.iter().map(|f| f.area_ha()).sum();
+        let huts = &sim.land().buildings;
         println!(
-            "lived {} days in {:.1} s: {} people, {} fields ({ha:.2} ha), {} chronicle entries",
+            "lived {} days in {:.1} s: {} people, {} fields ({ha:.2} ha), {} huts ({} roofed), {} \
+             chronicle entries",
             options.days,
             lived.elapsed().as_secs_f64(),
             sim.people().living(),
             fields.len(),
+            huts.len(),
+            huts.iter().filter(|b| b.roofed()).count(),
             sim.people().chronicle.len()
         );
     }

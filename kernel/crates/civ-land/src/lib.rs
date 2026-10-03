@@ -22,7 +22,9 @@
 pub mod buildings;
 pub mod fields;
 
-pub use buildings::{BuildWork, Building, Plot, PlotUse, STAGE_DONE_SLACK_H, workable_h};
+pub use buildings::{
+    BuildWork, Building, MATERIAL_SLACK_KG, Plot, PlotUse, STAGE_DONE_SLACK_H, workable_h,
+};
 pub use fields::{CropParams, Field, FieldStage, FieldTask, RectCm, WorkDone};
 
 use civ_core::time::{DAYS_PER_YEAR, MONTH_STARTS};
@@ -352,6 +354,26 @@ pub fn season_weight(season: &[f64; 12], day: i64) -> f64 {
     season[a] * (1.0 - t) + season[b] * t
 }
 
+/// What stands of a plant-like resource on `day` once its stock has settled into the yearly cycle,
+/// as a multiple of what would stand if it grew at an even rate all year. Production follows the
+/// season and a share `loss_per_day` of the stock goes each day ([`Land::advance_to_day`]), so
+/// what stands lags what grows: a resource that lasts most of a year (reeds) still stands in late
+/// winter from last summer's growth, while one that rots in weeks follows the season closely. The
+/// exact periodic solution of the daily step, summed over a year; 1 for an even season.
+pub fn standing_weight(season: &[f64; 12], loss_per_day: f64, day: i64) -> f64 {
+    if loss_per_day <= 0.0 {
+        return season_weight(season, day);
+    }
+    let keep = (-loss_per_day).exp();
+    let mut sum = 0.0;
+    let mut decay = 1.0;
+    for k in 0..DAYS_PER_YEAR {
+        sum += decay * season_weight(season, day - k);
+        decay *= keep;
+    }
+    sum * (1.0 - keep) / (1.0 - decay)
+}
+
 fn classify(params: &LandParams, t: &PatchTerrain) -> u8 {
     for (i, rule) in params.habitats.iter().enumerate() {
         let ok = rule
@@ -575,27 +597,64 @@ impl Land {
         out
     }
 
-    /// Fills resource `r` at its equilibrium on `day`: production over loss for plant-like
-    /// stocks, carrying capacity for animals. Used when a world is created, and for a resource
-    /// added to the content after a world was saved.
+    /// Fills resource `r` at its equilibrium on `day`: what the yearly cycle of production and
+    /// loss leaves standing for plant-like stocks, carrying capacity for animals. Used when a world
+    /// is created, and for a resource added to the content after a world was saved.
     pub fn fill_equilibrium(&mut self, params: &LandParams, r: usize, day: i64) {
+        let standing = self.standing(params, r, day);
         for p in 0..self.patches.len() {
-            self.stocks[r][p] = self.equilibrium(params, r, p, day) as f32;
+            self.stocks[r][p] = self.equilibrium_at(params, r, p, standing) as f32;
         }
     }
 
     /// The stock resource `r` tends to in patch `p` on `day`, units.
     pub fn equilibrium(&self, params: &LandParams, r: usize, p: usize, day: i64) -> f64 {
+        self.equilibrium_at(params, r, p, self.standing(params, r, day))
+    }
+
+    /// What stands of resource `r` on `day` relative to an even year ([`standing_weight`]; 1 for
+    /// animals). The same for every patch, so it is worked out once per resource and day.
+    pub fn standing(&self, params: &LandParams, r: usize, day: i64) -> f64 {
+        match &params.resources[r].growth {
+            Growth::Plant {
+                loss_per_day,
+                season,
+                ..
+            } => standing_weight(season, *loss_per_day, day),
+            Growth::Animal { .. } => 1.0,
+        }
+    }
+
+    /// The stock resource `r` tends to in patch `p`, given its `standing` weight for the day.
+    fn equilibrium_at(&self, params: &LandParams, r: usize, p: usize, standing: f64) -> f64 {
         match &params.resources[r].growth {
             Growth::Plant { loss_per_day, .. } => {
                 if *loss_per_day > 0.0 {
-                    self.production(params, r, p, day) / loss_per_day
+                    self.even_production(params, r, p) * standing / loss_per_day
                 } else {
                     0.0
                 }
             }
             Growth::Animal { .. } => self.capacity(params, r, p),
         }
+    }
+
+    /// Production of plant-like resource `r` in patch `p` on a day of season weight 1, units.
+    fn even_production(&self, params: &LandParams, r: usize, p: usize) -> f64 {
+        let Growth::Plant {
+            production_per_ha_yr,
+            ..
+        } = &params.resources[r].growth
+        else {
+            return 0.0;
+        };
+        let res = &params.resources[r];
+        let class = self.patches.class[p] as usize;
+        production_per_ha_yr.get(class).copied().unwrap_or(0.0)
+            * self.patches.resource_ha(res, p)
+            * f64::from(self.patches.richness[p])
+            * self.climate.factor
+            / DAYS_PER_YEAR as f64
     }
 
     /// Production of plant-like resource `r` in patch `p` on day `day`, units (0 for animals).
@@ -637,8 +696,14 @@ impl Land {
     /// The harvest rate a patch of resource `r` gives at its equilibrium on `day`, units per
     /// person-hour: what people expect of a patch they have not worked.
     pub fn typical_rate(&self, params: &LandParams, r: usize, p: usize, day: i64) -> f64 {
+        self.typical_rate_at(params, r, p, self.standing(params, r, day))
+    }
+
+    /// [`Land::typical_rate`], given the resource's `standing` weight for the day
+    /// ([`Land::standing`]), for callers that ask about many patches.
+    pub fn typical_rate_at(&self, params: &LandParams, r: usize, p: usize, standing: f64) -> f64 {
         let res = &params.resources[r];
-        let eq = self.equilibrium(params, r, p, day);
+        let eq = self.equilibrium_at(params, r, p, standing);
         let half = res.half_rate_stock_per_ha * self.patches.resource_ha(res, p);
         if eq <= 0.0 || half <= 0.0 {
             0.0
@@ -656,8 +721,9 @@ impl Land {
         const STEPS: u32 = 12;
         let res = &params.resources[r];
         let n = self.patches.len();
+        let standing = self.standing(params, r, day);
         let stock: Vec<f64> = (0..n)
-            .map(|p| self.equilibrium(params, r, p, day))
+            .map(|p| self.equilibrium_at(params, r, p, standing))
             .collect();
         let area: Vec<f64> = (0..n).map(|p| self.patches.resource_ha(res, p)).collect();
         let dt = hours.max(0.0) / f64::from(STEPS);
@@ -1270,6 +1336,35 @@ mod tests {
         let mut b = Land::create(&map(), &p, 5, 400);
         b.advance_to_day(&p, 5, 7 * 365);
         assert_eq!(a.climate, b.climate);
+    }
+
+    #[test]
+    fn what_stands_lags_what_grows_by_how_long_it_lasts() {
+        // Reeds: they grow from late spring to early autumn and last most of a year.
+        let reeds = [0.0, 0.0, 0.0, 0.5, 1.5, 2.5, 2.5, 2.5, 1.5, 0.5, 0.5, 0.0];
+        let (slow, fast) = (0.004, 0.03);
+        // An even season stands evenly.
+        for day in [0, 59, 200] {
+            assert!((standing_weight(&[1.0; 12], slow, day) - 1.0).abs() < 1e-9);
+        }
+        // Over a year what stands averages what grows.
+        let mean: f64 = (0..365)
+            .map(|d| standing_weight(&reeds, slow, d))
+            .sum::<f64>()
+            / 365.0;
+        assert!((mean - 1.0).abs() < 0.01, "{mean}");
+        // It is the yearly cycle of the daily step: one day on, it is what was kept plus what grew.
+        let keep = (-slow).exp();
+        for day in [10, 100, 250] {
+            let next = standing_weight(&reeds, slow, day) * keep
+                + season_weight(&reeds, day + 1) * (1.0 - keep);
+            assert!((standing_weight(&reeds, slow, day + 1) - next).abs() < 1e-9);
+        }
+        // On 1 March nothing grows, yet last summer's reeds still stand; something that rots in
+        // weeks has all but gone.
+        assert_eq!(season_weight(&reeds, 59), 0.0);
+        assert!(standing_weight(&reeds, slow, 59) > 0.4);
+        assert!(standing_weight(&reeds, fast, 59) < 0.1);
     }
 
     #[test]

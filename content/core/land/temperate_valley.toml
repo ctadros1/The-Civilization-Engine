@@ -148,8 +148,9 @@ half_rate_stock_per_ha = 1000.0
 
 [resource.plant]
 # Kilograms of building-size poles and rods per hectare per year by habitat: a part of the 2-5 t of
-# wood woodland grows a year (research 03-06 §2.5); tuning values.
-production_per_ha_yr = [0.0, 150.0, 100.0, 600.0, 150.0]
+# wood woodland grows a year (research 03-06 §2.5), and the alder and willow of wet margins and
+# river terraces; tuning values.
+production_per_ha_yr = [0.0, 400.0, 300.0, 600.0, 150.0]
 loss_per_day = 0.0005            # poles grow past use or die: about 17 % a year (a tuning value)
 season = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 

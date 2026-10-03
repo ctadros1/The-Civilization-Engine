@@ -69,16 +69,26 @@ pub struct BuildWork {
     pub finished: Option<Stage>,
 }
 
+/// Material a stage can be short of without its work being held up, kilograms per slot: the last
+/// scraps are found about the site (a tuning value). Without it, stores that spoil a little
+/// between cutting and use could leave a stage forever a few hundred grams short.
+pub const MATERIAL_SLACK_KG: f64 = 0.5;
+
 /// Hours of a stage needing `labour_h` and `materials_kg` (per slot) that can still be done,
 /// `done_h` already done, with `held_kg` of each slot's material at hand.
 pub fn workable_h(labour_h: f64, done_h: f64, materials_kg: &[f64], held_kg: &[f64]) -> f64 {
-    let mut hours = (labour_h - done_h).max(0.0);
+    let left = (labour_h - done_h).max(0.0);
+    let mut hours = left;
     if labour_h <= 0.0 {
         return hours;
     }
     for (need, held) in materials_kg.iter().zip(held_kg) {
         if *need > 0.0 {
-            hours = hours.min(held.max(0.0) / (need / labour_h));
+            let per_h = need / labour_h;
+            let held = held.max(0.0);
+            if per_h * left > held + MATERIAL_SLACK_KG {
+                hours = hours.min(held / per_h);
+            }
         }
     }
     hours
@@ -202,6 +212,20 @@ mod tests {
         assert!(b.finished() && b.stage().is_none());
         // Finished, it takes no more work.
         assert_eq!(b.work(10.0, 10.0, &[], &[], SimTime::ZERO).hours, 0.0);
+    }
+
+    #[test]
+    fn a_stage_is_not_held_up_by_its_last_scraps_of_material() {
+        let mut b = building();
+        b.stage = Stage::Walls.index() as u8;
+        // 93 h of walls needing 186 kg of rods: 2 kg an hour. With 92.9 h done, 0.2 kg is left
+        // to put in and none is at hand: the scraps about the site do.
+        b.work_h = 92.9;
+        assert!((workable_h(93.0, 92.9, &[0.0, 186.0], &[0.0, 0.0]) - 0.1).abs() < 1e-4);
+        let done = b.work(1.0, 93.0, &[0.0, 186.0], &[0.0, 0.0], SimTime::ZERO);
+        assert_eq!(done.finished, Some(Stage::Walls));
+        // More than the slack short, the work waits for the material.
+        assert_eq!(workable_h(93.0, 90.0, &[0.0, 186.0], &[0.0, 0.0]), 0.0);
     }
 
     #[test]

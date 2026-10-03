@@ -267,16 +267,22 @@ fn choose_site(ctx: &Ctx, params: &PeopleParams, d: &mut Draws, size: u32) -> Op
     let patches = &ctx.land.patches;
     let radius = band.site_radius_m as f32;
     let today = ctx.now.day_index();
-    // Resources that yield food, with the food energy of one unit of their stock.
-    let food_resources: Vec<(usize, f64)> = ctx
+    // Resources that yield food, with the food energy of one unit of their stock and what of them
+    // stands today.
+    let food_resources: Vec<(usize, f64, f64)> = ctx
         .land_params
         .resources
         .iter()
         .enumerate()
         .filter_map(|(r, res)| {
             let good = ctx.catalog.goods.get(res.good)?;
-            (good.purpose == GoodUse::Food && good.kcal_per_kg > 0.0)
-                .then_some((r, res.unit_kg * good.kcal_per_kg))
+            (good.purpose == GoodUse::Food && good.kcal_per_kg > 0.0).then(|| {
+                (
+                    r,
+                    res.unit_kg * good.kcal_per_kg,
+                    ctx.land.standing(ctx.land_params, r, today),
+                )
+            })
         })
         .collect();
     // Land that can be cropped within a field walk, against the area the band means to crop
@@ -326,8 +332,8 @@ fn choose_site(ctx: &Ctx, params: &PeopleParams, d: &mut Draws, size: u32) -> Op
             if distance > radius {
                 continue;
             }
-            for &(r, kcal_per_unit) in &food_resources {
-                food += ctx.land.typical_rate(ctx.land_params, r, p, today) * kcal_per_unit;
+            for &(r, kcal_per_unit, standing) in &food_resources {
+                food += ctx.land.typical_rate_at(ctx.land_params, r, p, standing) * kcal_per_unit;
             }
         }
         // Distance to fresh water, searched in rings up to 512 m.

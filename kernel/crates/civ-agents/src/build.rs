@@ -20,6 +20,13 @@ use crate::params::{BuildingDef, GoodDef};
 pub const PLOT_GAP_CM: i32 = 100;
 /// Least distance between a plot and the settlement's hearth, metres (a tuning value).
 const HEARTH_GAP_M: f64 = 4.0;
+/// Hours a household reckons each load of building material takes to cut and carry home: about
+/// an hour's work and the walk there and back (a tuning value).
+pub const HAUL_H_PER_LOAD: f64 = 1.5;
+/// Share of its working hours a farming household reckons it can spare for building when it
+/// weighs how pressing its roof is (a tuning value: fields, food, water and firewood take the
+/// rest).
+pub const BUILD_LABOUR_SHARE: f64 = 0.5;
 /// Step between the rings of points tried when a home's own ground is not clear, metres.
 const SEARCH_STEP_M: f64 = 2.0;
 /// Points tried on each ring.
@@ -305,6 +312,12 @@ impl HomeWork {
         for (n, held) in need.iter_mut().zip(stores) {
             *n = (*n - held.max(0.0)).max(0.0);
         }
+        // What the scraps about the site make up is not worth a trip.
+        for n in &mut need {
+            if *n <= civ_land::MATERIAL_SLACK_KG {
+                *n = 0.0;
+            }
+        }
         need
     }
 }
@@ -320,12 +333,13 @@ pub fn roof_deadline(since: i64, roof_by_day: u16) -> i64 {
     }
 }
 
-/// How pressing building is on day `day`: the hours left until the roof is on over the hours a
-/// household giving `labour_per_day` can put in before `deadline`. Once the deadline has passed,
-/// what is left over one day's work.
+/// How pressing building is on day `day`: the hours of work left until the roof is on (building,
+/// and bringing what it is built of) over the hours a household giving `labour_per_day` can spare
+/// for it ([`BUILD_LABOUR_SHARE`]) before `deadline`. Once the deadline has passed, what is left
+/// over one day's work.
 pub fn urgency(hours_left: f64, deadline: i64, labour_per_day: f64, day: i64) -> f64 {
     let days = (deadline - day).max(1) as f64;
-    hours_left.max(0.0) / (labour_per_day.max(1e-6) * days)
+    hours_left.max(0.0) / ((labour_per_day * BUILD_LABOUR_SHARE).max(1e-6) * days)
 }
 
 #[cfg(test)]
@@ -489,12 +503,12 @@ mod tests {
         assert_eq!(roof_deadline(59, 304), 304);
         // Begun in December: by day 304 of the next year.
         assert_eq!(roof_deadline(340, 304), 365 + 304);
-        // 400 hours at 15 a day: plenty of time in March, pressing by October, and overdue
-        // after the deadline stays overdue.
+        // 400 hours, with half of 15 hours a day to spare: plenty of time in March, pressing by
+        // October, and overdue after the deadline stays overdue.
         let march = urgency(400.0, 304, 15.0, 59);
         let october = urgency(400.0, 304, 15.0, 290);
-        assert!(march < 0.2 && october > 1.5, "{march} {october}");
-        assert_eq!(urgency(400.0, 304, 15.0, 400), 400.0 / 15.0);
+        assert!(march < 0.3 && october > 3.0, "{march} {october}");
+        assert_eq!(urgency(400.0, 304, 15.0, 400), 400.0 / 7.5);
         assert_eq!(urgency(0.0, 304, 15.0, 100), 0.0);
     }
 }

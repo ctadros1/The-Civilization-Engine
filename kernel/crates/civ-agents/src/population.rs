@@ -1009,9 +1009,12 @@ impl Population {
         let (build_need, build_urgency) = match &plan {
             Ok(p) => {
                 let def = &ctx.catalog.buildings[p.def];
-                let hours = p.work.hours_left(Stage::Roof);
+                let need = p.work.need_by_good(def, Stage::Roof, &stores, goods.len());
+                // The work left counts the loads still to be cut and carried home.
+                let loads = need.iter().sum::<f64>() / params.household.carry_kg.max(1e-6);
+                let hours = p.work.hours_left(Stage::Roof) + loads * build::HAUL_H_PER_LOAD;
                 (
-                    p.work.need_by_good(def, Stage::Roof, &stores, goods.len()),
+                    need,
                     build::urgency(hours, p.deadline, labour_per_day, today),
                 )
             }

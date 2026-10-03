@@ -1,6 +1,8 @@
 # The Civilization Engine: Project Plan
 
 Status: plan of record, written 2026-09-27 from the planning interview.
+Implementation (2026-10-03): **M0 Foundations is implemented**; M1 is next. The README lists
+what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
 (i9 13th gen, RTX 4070 Ti with 12 GB VRAM, 64 GB DDR5).
 
@@ -202,7 +204,9 @@ Headless (same kernel crates, no UE):
 ### 3.3 Shared code with Prometheus and Genesis (`engine-commons`)
 
 A separate repo (suggested: `ctadros1/Engine-Commons`) holds code that isn't
-specific to any one engine. **Admission rule:** code goes in only if at least
+specific to any one engine. *Until a second engine adopts it, it is staged in this repository as
+its own Cargo workspace under `commons/`; extracting it is a `git subtree split` (see
+`commons/README.md`).* **Admission rule:** code goes in only if at least
 two engines use it, or will within one milestone. It must contain no
 engine-specific concepts: no "agent", "settlement" or "organism" types.
 
@@ -287,8 +291,10 @@ The Civilization Engine/
   decisions/                # ADRs (rule 7)
   kernel/                   # Rust workspace
     crates/
-      civ-core              # ids, tables, tick scheduler, time, RNG
-      civ-world             # world-gen: terrain, hydrology, climate, soils, deposits
+      civ-core              # ids, tables, tick scheduler, time, RNG                  (M0)
+      civ-world             # world-gen: terrain, hydrology, climate, soils, deposits  (M0: terrain, water)
+      civ-content           # content compiler: packs, diagnostics, fingerprints      (M0)
+      civ-sim               # composition root: world state, save/load, payloads      (M0)
       civ-agents            # citizens, needs, schedules, utility decisions, demography, culture
       civ-notables          # deliberation layer + Deliberator trait
       civ-tech              # technology graph, discovery, diffusion
@@ -297,14 +303,15 @@ The Civilization Engine/
       civ-services          # incidents: water/disease, crime/justice, fire, transport
       civ-diplomacy         # relations, treaties, armies, war, sovereignty changes
       civ-grammar           # building + layout grammars; reads art/kits manifest
-      civ-schema            # boundary schema (commons-wire)
+      civ-schema            # boundary + save schemas (FlatBuffers)                   (M0)
       civ-ffi               # cdylib for UE
-      civ-host              # headless CLI + WS host
-  content/                  # authored primitives (RON/TOML) + validator
-  web/                      # TS panels + 2D observer
+      civ-host              # headless CLI + WS host                                  (M0)
+  commons/                  # engine-commons, staged until a second engine adopts it   (M0)
+  content/                  # authored primitives (TOML) + validator                   (M0)
+  web/                      # TS panels + 2D observer                                  (M0 shell)
   unreal/                   # UE project; Plugins/EngineBridge vendored from commons
   art/                      # Blender sources, kit manifests (sockets, sizes, style tags)
-  tools/                    # UE Python import pipeline, content checks, smoke-seed runner
+  tools/                    # run scripts, schema codegen; later the UE import pipeline
 ```
 
 ---
@@ -906,6 +913,13 @@ M1.**
   round-trips with nothing lost.
 - *Proves:* toolchain, schema, persistence.
 - *Defers:* all simulation.
+- *Outcome (2026-10-03):* implemented. One command (`tools/run.ps1` or `tools/run.sh`) builds
+  and opens the observer. It covers the new-world dialog, the map, save, load, autosave, crash
+  recovery, and panels with empty, loading and error states. The smoke seeds pass, and the demo is
+  recorded in `assets/m0/`. Deviations:
+  - `engine-commons` is staged in-repo rather than in its own repository (§3.3).
+  - With no people yet, the M0 smoke seeds check terrain and water against fixed thresholds,
+    the exact save round trip, and 50 in-game years of clock (§4.7).
 
 **M1: A band settles.**
 - *Contents:*
@@ -1171,6 +1185,14 @@ M1.**
     run only on events such as completion or damage. People would choose
     spans and beam sizes and could get them wrong. Revisit after v1 if the
     rule-based margins feel too coarse.
+11. **Terrain grid artifacts (from M0):** erosion follows D8 directions, which leaves
+    occasional straight valleys and creases visible in close hillshade, and serrated
+    valley-floor edges. A multiple-flow-direction or D∞ erosion step is the likely fix. Revisit
+    when terrain is first seen up close in Unreal (M2). Closed basins also need Fill–Spill–Merge
+    once arid presets exist (M3).
+12. **Movement streaming (M1–M2):** research 01-07 warns that trip start and end events alone
+    are not enough once congestion, interruptions or acceleration change a trip. Plan movement
+    descriptions on paths with corrections from the start, not as a retrofit.
 
 ---
 
@@ -1233,3 +1255,13 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - *(Recommended, not asked)* **Schema format:** FlatBuffers, unless Genesis's `sim-protocol` generalizes better (decided in M0).
 - **Determinism (2026-09-27): not a goal.** Every world plays out differently, even from the same seed. Saves are snapshots; there's no exact replay, input log, or cross-platform float constraint. Parallelism is throughput-first.
 - *(Recommended, not asked)* **Anti-research guardrails:** usable-milestone bar, time-boxed emergence with `NUDGE:` entries, 5-seed smoke dashboard, cap of about 3 ADRs per milestone.
+- **Boundary schema (2026-10-03, ADR-0001):** a `commons-wire` envelope (56-byte header; frame kinds with delivery contracts; world epochs) carrying FlatBuffers payloads. Genesis's envelope pattern is adopted; its hand-written, engine-specific bodies are not.
+- **Saves (2026-10-03, ADR-0002):** the `commons-persist` chunked container with FlatBuffers sections. Refusal, never repair; every save is a new immutable generation; save → load → save must reproduce every section's digest.
+- **`engine-commons` location (2026-10-03):** staged in this repository under `commons/` as its own workspace until a second engine adopts it, then split into `ctadros1/Engine-Commons` and pinned by tag.
+- **Content format (2026-10-03):** TOML only; unknown and missing fields are errors. RON is not used.
+- **World sizes (2026-10-03):** 8 m cells; new worlds are 2, 4, 8 or 16 km a side, 16 km by default (§6). A world starts paused on 1 March, year 1, at 06:00.
+- **Speeds (2026-10-03):** 1x is 96 simulated seconds per real second (a day per 15 minutes). Until agents exist, the speeds offered are Pause, 1x, 3x and 10x.
+- **Observer stack (2026-10-03):** the web shell is plain TypeScript (no UI framework) with Vite and PixiJS 8. `civ-host` serves the shell and the socket from one origin, on 127.0.0.1:7420. The shell exposes `window.__TCE__` test hooks.
+- **Autosave and recovery (2026-10-03):** autosave every in-game month or 5 real minutes while the world has changed, and also before a world is replaced and at exit. The 5 newest are kept. A session marker doubles as the last-good-save pointer. Crash snapshots are kept for diagnosis and never offered for recovery.
+- **M0 smoke seeds (2026-10-03):** 2 presets × 5 seeds at 8 km, checking fixed thresholds for relief, land, gentle ground and rivers, the exact save round trip, and 50 years of clock. The population checks of §4.7 join once agents exist.
+- **Generated code (2026-10-03):** flatc is pinned at 25.12.19 and the generated Rust and TypeScript are committed. CI rebuilds flatc and fails if they are stale.

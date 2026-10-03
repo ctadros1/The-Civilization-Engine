@@ -1,0 +1,157 @@
+# CI for The Civilization Engine (plan §7, M0; research 01-11 §4.6).
+#
+# - kernel: Windows, the target platform. Formatting, lints and tests for both Rust workspaces
+#   (tests in the optimized `simcheck` profile with debug assertions), then the content validator
+#   and the smoke seeds.
+# - web: the observer shell's build, unit tests and browser tests against a real civ-host.
+# - schema: the committed FlatBuffers code must match the schema (flatc 25.12.19, built from source).
+#
+# Actions are pinned to commit SHAs (tag in the comment). The Rust toolchain is pinned by
+# rust-toolchain.toml; Node by the version below.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+
+jobs:
+  kernel:
+    name: Kernel (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Toolchain (from rust-toolchain.toml)
+        run: |
+          rustup show active-toolchain
+          rustc --version
+          cargo --version
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: |
+            commons -> target
+            kernel -> target
+
+      - name: Commons — formatting
+        working-directory: commons
+        run: cargo fmt --all -- --check
+
+      - name: Commons — lints
+        working-directory: commons
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Commons — tests
+        working-directory: commons
+        run: cargo test --workspace --locked
+
+      - name: Kernel — formatting
+        working-directory: kernel
+        run: cargo fmt --all -- --check
+
+      - name: Kernel — lints
+        working-directory: kernel
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Kernel — checked optimized tests
+        working-directory: kernel
+        run: cargo test --workspace --locked --profile simcheck
+
+      - name: Content validator
+        working-directory: kernel
+        run: cargo run --locked --profile simcheck -p civ-host -- content validate
+
+      - name: Smoke seeds
+        working-directory: kernel
+        run: cargo run --locked --profile simcheck -p civ-host -- smoke
+
+  web:
+    name: Web observer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        working-directory: web
+        run: npm ci
+
+      - name: Type-check and build
+        working-directory: web
+        run: npm run build
+
+      - name: Unit tests
+        working-directory: web
+        run: npm test
+
+      - name: Toolchain (from rust-toolchain.toml)
+        run: rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: kernel -> target
+
+      - name: Build civ-host
+        working-directory: kernel
+        run: cargo build --locked --release -p civ-host
+
+      - name: Browser
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests
+        working-directory: web
+        run: npm run test:e2e
+
+      - name: Browser test artifacts
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-results
+          path: web/test-results/
+          if-no-files-found: ignore
+
+  schema:
+    name: Generated schema code
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Cached flatc
+        id: flatc
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/flatc
+          key: flatc-25.12.19-ubuntu-24.04
+
+      - name: Build flatc 25.12.19
+        if: steps.flatc.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch v25.12.19 https://github.com/google/flatbuffers "$RUNNER_TEMP/flatbuffers"
+          cmake -S "$RUNNER_TEMP/flatbuffers" -B "$RUNNER_TEMP/flatbuffers/build" \
+            -DCMAKE_BUILD_TYPE=Release -DFLATBUFFERS_BUILD_TESTS=OFF
+          cmake --build "$RUNNER_TEMP/flatbuffers/build" --target flatc --parallel 4
+          mkdir -p ~/flatc
+          cp "$RUNNER_TEMP/flatbuffers/build/flatc" ~/flatc/
+
+      - name: Generated code matches the schema
+        run: FLATC="$HOME/flatc/flatc" tools/gen-schema.sh --check

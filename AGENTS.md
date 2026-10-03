@@ -84,13 +84,17 @@ cargo run --release -p civ-host -- save info|verify <file>
 npm ci && npm run build && npm test
 npm run test:e2e                                       # needs dist/ and a built civ-host
 
+# The kernel library for Unreal (ADR-0005): build, check the header, publish to dist/
+tools/build-kernel-dll.ps1     # Windows, with the PDB; tools/build-kernel-dll.sh elsewhere
+
 # Generated schema code (needs flatc 25.12.19)
 tools/gen-schema.sh            # regenerate
 tools/gen-schema.sh --check    # what CI runs
 ```
 
 `.github/workflows/ci.yml` runs all of this. The Windows lane covers the kernel, commons,
-content and smoke seeds; Ubuntu lanes cover the web shell and schema freshness. Keep it green.
+content and smoke seeds; a second Windows job builds the kernel library and keeps it as an
+artifact; Ubuntu lanes cover the web shell and schema freshness. Keep it green.
 `.github/workflows/nightly.yml` runs the ten-year smoke seeds nightly on `main` and on pull
 requests into it; run them yourself before a change to how people live, farm, build or die.
 

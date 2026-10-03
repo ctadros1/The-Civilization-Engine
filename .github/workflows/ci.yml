@@ -1,8 +1,10 @@
 # CI for The Civilization Engine (plan §7, M0; research 01-11 §4.6).
 #
 # - kernel: Windows, the target platform. Formatting, lints and tests for both Rust workspaces
-#   (tests in the optimized `simcheck` profile with debug assertions), then the content validator
-#   and the smoke seeds.
+#   (tests in the optimized `simcheck` profile with debug assertions, including the C harness of
+#   the kernel library built with MSVC), then the content validator and the smoke seeds.
+# - kernel-library: Windows. Builds tce_kernel.dll as Unreal will load it (ADR-0005), with
+#   tools/build-kernel-dll.ps1, and keeps it, its PDB, header and manifest as an artifact.
 # - web: the observer shell's build, unit tests and browser tests against a real civ-host.
 # - schema: the committed FlatBuffers code must match the schema (flatc 25.12.19, built from source).
 #
@@ -76,6 +78,31 @@ jobs:
       - name: Smoke seeds
         working-directory: kernel
         run: cargo run --locked --profile simcheck -p civ-host -- smoke
+
+  kernel-library:
+    name: Kernel library (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Toolchain (from rust-toolchain.toml)
+        run: rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: kernel -> target
+
+      - name: Build and publish tce_kernel.dll
+        shell: pwsh
+        run: tools\build-kernel-dll.ps1 -Dest "$env:RUNNER_TEMP\tce_kernel"
+
+      - name: The library, its symbols, header and manifest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tce_kernel-x86_64-pc-windows-msvc
+          path: ${{ runner.temp }}/tce_kernel/
+          if-no-files-found: error
 
   web:
     name: Web observer

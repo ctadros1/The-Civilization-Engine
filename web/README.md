@@ -36,6 +36,16 @@ detail as fast as the machine allows, shown as a task you can cancel; the world 
 gets there and is autosaved. **Add a family** (on the map) sends a family where you next click:
 it joins the nearest settlement within 600 m or camps there. Esc cancels.
 
+## The panels alone
+
+`?view=panels` shows the panels without the map, for a host that draws the world itself: Unreal's
+WebBrowser widget opens the address the kernel library's `panel_url` gives (ADR-0005 §6), which
+carries a `?token=` the page passes to its socket. Without a map, showing a place (a settlement
+or person link) dispatches a `tce:focus` event on `window` whose `detail` is `{ x, y }` in metres
+east and south, for the host to move its camera; the host can open someone in the inspector with
+`window.__TCE__.select(id)`. The socket refuses pages from other sites, so a page must be served
+from this machine.
+
 ## Test hooks
 
 `window.__TCE__` (mirroring Genesis's `window.__OBS__`) exposes plain-data state for tests and

@@ -581,6 +581,20 @@ dialog label {
   color: var(--warn);
 }
 
+/* Panels alone (`?view=panels`), beside a world another host draws (ADR-0005 §6). */
+.panels-only .workspace {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+.panels-only .map-pane {
+  display: none;
+}
+
+.panels-only .side {
+  border-left: none;
+}
+
 @media (max-width: 900px) {
   .workspace {
     grid-template-columns: 1fr;

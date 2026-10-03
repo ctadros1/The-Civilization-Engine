@@ -16,17 +16,21 @@ fn the_committed_header_matches_the_exports() {
         .expect("the header generates");
     let mut generated = Vec::new();
     bindings.write(&mut generated);
+    // A Windows checkout may have turned line ends into CRLF, in the header and in
+    // `cbindgen.toml`, whose header comment is copied into it.
+    let generated = String::from_utf8(generated)
+        .expect("UTF-8")
+        .replace("\r\n", "\n");
     let path = crate_dir.join("include").join("tce_kernel.h");
     if std::env::var_os("TCE_BLESS").is_some() {
         std::fs::write(&path, &generated).expect("the header writes");
         return;
     }
-    // A Windows checkout may have turned the line ends into CRLF.
     let committed = std::fs::read_to_string(&path)
         .unwrap_or_default()
         .replace("\r\n", "\n");
     assert!(
-        committed.as_bytes() == generated.as_slice(),
+        committed == generated,
         "include/tce_kernel.h is stale; run `TCE_BLESS=1 cargo test -p civ-ffi --test header`"
     );
 }

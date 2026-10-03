@@ -36,6 +36,12 @@ const map = new MapView();
 /** `epoch:worldId` of the world on the map. */
 let shownWorld = "";
 
+/**
+ * `?view=panels`: the panels alone, for a host that draws the world itself, as Unreal does
+ * (ADR-0005 §6).
+ */
+const PANELS_ONLY = new URLSearchParams(location.search).get("view") === "panels";
+
 /** Decision receipts the inspector asks for. */
 const DECISIONS_SHOWN = 8;
 /** Least real time between refreshes of the inspected person, milliseconds. */
@@ -337,11 +343,11 @@ bindUi(store, {
   focusPerson: (id) => {
     select(id);
     const brief = store.state.snapshot?.people.find((p) => p.id === id);
-    if (brief) map.centreOn(brief.x, brief.y, 1);
+    if (brief) lookAt(brief.x, brief.y, 1);
   },
   focusSettlement: (id) => {
     const s = store.state.snapshot?.settlements.find((x) => x.id === id);
-    if (s) map.centreOn(s.x, s.y, 0.5);
+    if (s) lookAt(s.x, s.y, 0.5);
   },
   runAhead: async (minutes) => {
     const clock = store.state.snapshot?.clock;
@@ -422,7 +428,23 @@ declare global {
 }
 window.__TCE__ = hooks;
 
+/**
+ * Shows a place: centres the map on it, or, with the panels alone, asks the host drawing the
+ * world to look there with a `tce:focus` event on `window` (detail: metres east and south).
+ */
+function lookAt(xM: number, yM: number, minScale: number): void {
+  if (PANELS_ONLY) window.dispatchEvent(new CustomEvent("tce:focus", { detail: { x: xM, y: yM } }));
+  else map.centreOn(xM, yM, minScale);
+}
+
 async function start(): Promise<void> {
+  if (PANELS_ONLY) {
+    // The host draws the world itself; the panels need no map or WebGL.
+    document.body.classList.add("panels-only");
+    store.update({ mapAvailable: false });
+    client.start();
+    return;
+  }
   try {
     await map.mount(byId("map"));
   } catch (e) {

@@ -61,6 +61,14 @@ opt-level = 3
 [profile.release]
 lto = "thin"
 
+# The kernel library Unreal loads (ADR-0005; research 01-06 §2.1): optimized as for release, with
+# full debug information kept (a PDB beside the DLL on Windows) so a crash inside it can be read.
+# Panics must unwind, so they can be caught at the C interface.
+[profile.dll]
+inherits = "release"
+debug = "full"
+strip = "none"
+
 # Optimized, with debug assertions and overflow checks: how CI runs the kernel tests
 # (research 01-11 §4.2).
 [profile.simcheck]

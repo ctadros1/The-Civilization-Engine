@@ -3,7 +3,9 @@
 Status: plan of record, written 2026-09-27 from the planning interview.
 Implementation (2026-10-03): **M0 Foundations and M1 A band settles are implemented** (people,
 foraging, farming, huts, births, deaths and families, worn trails, the first god tool and running
-ahead). The README lists what exists, what is planned and the known limitations.
+ahead). **M2 is in progress:** its kernel side (the kernel as a library with a C interface, the
+panels alone) is implemented; its Unreal work needs the Windows PC. The README lists what exists,
+what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
 (i9 13th gen, RTX 4070 Ti with 12 GB VRAM, 64 GB DDR5).
 
@@ -992,6 +994,21 @@ M1.**
 - *Proves:* the in-process boundary, runtime assembly with Nanite, the shared
   UE layer, the panel embedding.
 - *Defers:* seasons and weather visuals, fake interiors, style variety.
+- *Progress (2026-10-03):* the kernel side is implemented, in a cloud session without Unreal:
+  - The kernel library `tce_kernel` and its C interface, ABI 1.0 ([ADR-0005](decisions/0005-kernel-c-interface.md)):
+    one export with a versioned table; frames submitted, polled in order and snapshots copied
+    into caller memory; panics fault the kernel. Its header is generated and checked; a C harness
+    loads it at run time as the plugin will, under GCC, Clang and MSVC.
+  - Its panel server for the WebBrowser widget, behind a per-kernel token, and a panels-only
+    view of the web shell (`?view=panels`) that asks the host to look at places.
+  - `tools/build-kernel-dll.*` builds and publishes the library with its PDB, header and
+    manifest; CI keeps each Windows build as an artifact. Git LFS patterns for Unreal and art
+    binaries.
+
+  Remaining, all on the Windows PC with Unreal: spike S1, the `EngineBridge` plugin (loading,
+  frame reading, trip interpolation), the `BuildingAssembler` and its first kit, visible
+  construction, crowds, day and night, the UMG HUD, hosting the panels in the WebBrowser widget,
+  the C++ readers of the schema, and a packaged Win64 build.
 
 **M3: Village economy.**
 - *Contents:*
@@ -1344,3 +1361,7 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Ten-year smoke seeds (2026-10-03, slice G, §4.7):** `smoke --years 10` lives each smoke world for ten years after its first month and checks it at every year's end: nobody stuck between events; no population or land problems; at most three times the founders; from the second year, at least 80 % of households under their own roof; and in the first year, a first trail out. A band may fail (05-06 §5.2), so dying out is checked across the set: at least half the bands must keep 10 or more people. Runs differ, so the thresholds leave room for chance. The ten worlds take about 8 minutes on 4 cores, so they run nightly and on pull requests into `main` (`nightly.yml`); per-push CI keeps the 30-day run. §4.7's other checks (prices, Gini, firm and settlement sizes, crime, epidemics, regimes, structural failures) arrive with the systems they check, and its 5 worlds × 50 years with the Accelerated mode.
 - **NUDGE: founding risk over ten years (2026-10-03):** in two ten-year runs of the ten smoke worlds, eight bands lived on with 29–61 people (from 40), and both bands of seed 1 failed both times (in the second run, in their sixth and eighth years). In the failure examined closely (river valley, seed 1), a famine in the sixth spring sent nine households away within three months: asking for food evens out stores, so households run out together. Founding failure is plausible (05-06 §5.2), but its rate is not calibrated. Revisit with livestock, preserving, a second crop, households leaving to found a daughter settlement, and help between settlements.
 - **Wire 1.7 and save schema 8 (2026-10-03):** `SpawnFamily { at }` and `RunUntil { minute }` commands (additive). Saves gain chronicle code 14, a family the observer sent; schema-7 saves load as they are.
+- **The kernel's C interface (2026-10-03, ADR-0005):** the kernel builds as the library `tce_kernel` (`civ-ffi`), a transport for the same engine thread and frames `civ-host` serves. One export, `tce_get_api`, hands back a versioned table (ABI 1.0, append-only within a major); buffers belong to the caller; ordered frames are polled and snapshots copied, numbered; every function catches panics and faults the kernel; a kernel that cannot start is still returned, failed, with its reason. There is no `Hello` over it: the first frame polled is the `Welcome`. `unsafe` is allowed there, and only there besides generated code, each block with a `SAFETY:` note.
+- **The observer socket is guarded (2026-10-03):** the socket refuses pages from other sites (a browser's `Origin` must be 127.0.0.1, `localhost` or `[::1]`), and the library's panel server also requires a 128-bit token per kernel in its address (research 14-10 §4.5). Until now, any web page open in the same browser could have driven a running host.
+- **The panels alone (2026-10-03):** `?view=panels` shows the web shell's panels without the map or WebGL, for Unreal's WebBrowser widget. Showing a place dispatches a `tce:focus` event (metres east and south) for the host to move its camera; the host opens someone in the inspector with `window.__TCE__.select(id)`. Research 14-10 recommends a native bridge or middleware (Gameface, CEF) for the packaged game; the panels talk through one client module, so the transport can change later (ADR-0005 §6).
+- **Building the library (2026-10-03):** `tools/build-kernel-dll.ps1` (Windows, with the PDB) and `.sh` build the `dll` profile (release with full debug information, research 01-06 §2.1), check the header, and publish the library, header and a manifest (ABI, target, revision, SHA-256) into `dist/tce_kernel/<target>/` or a given folder. CI keeps each Windows build as an artifact. Git LFS patterns cover `.uasset`, `.umap`, `.blend`, `.fbx` and texture sources under `art/`; screenshots and recordings under `assets/` stay in plain git.

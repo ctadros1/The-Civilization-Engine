@@ -13,6 +13,9 @@ Thumbs.db
 # Rust
 target/
 
+# Built kernel libraries (tools/build-kernel-dll.*)
+dist/
+
 # Web
 node_modules/
 web/dist/

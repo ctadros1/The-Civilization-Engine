@@ -17,6 +17,7 @@ import {
   formatSpeed,
   formatWhen,
 } from "./format.js";
+import { FIELD_LEGEND } from "./fields.js";
 import { HostError } from "./net/client.js";
 import type {
   ChronicleEntry,
@@ -784,7 +785,13 @@ export function bindUi(store: Store, actions: Actions): void {
     const key = JSON.stringify([
       world?.worldId ?? null,
       people.length,
-      settlements.map((s) => [s.id, s.population, Math.floor(s.foodDays), s.foodShort]),
+      settlements.map((s) => [
+        s.id,
+        s.population,
+        Math.floor(s.foodDays),
+        s.foodShort,
+        Math.round(s.harvestKg / 100),
+      ]),
       state.welcome?.activities.length ?? 0,
     ]);
     if (key === peopleKey) return;
@@ -808,6 +815,7 @@ export function bindUi(store: Store, actions: Actions): void {
         {},
         link(s.name, () => actions.focusSettlement(s.id)),
         ` · ${s.population} people · food for ${formatDays(s.foodDays)}`,
+        s.harvestKg > 0 ? ` · harvest so far ${formatKg(s.harvestKg)}` : "",
         s.foodShort ? el("span", { className: "badge warn", text: "short of food" }) : "",
         el("span", { className: "since", text: `founded ${formatSimMinute(s.foundedMinute)}` }),
       ),
@@ -818,13 +826,20 @@ export function bindUi(store: Store, actions: Actions): void {
         text: "Click a person on the map to see what they are doing, and why.",
       }),
     );
-    const legend = el("ul", { className: "legend" });
+    const legend = el("ul", { className: "legend activities" });
     for (const a of state.welcome?.activities ?? []) {
       const swatch = el("span", { className: "swatch" });
       swatch.style.background = cssColour(activityColour(a));
       legend.append(el("li", {}, swatch, a.name));
     }
     nodes.push(legend);
+    const fieldLegend = el("ul", { className: "legend fields" });
+    for (const f of FIELD_LEGEND) {
+      const swatch = el("span", { className: "swatch square" });
+      swatch.style.background = cssColour(f.fill);
+      fieldLegend.append(el("li", {}, swatch, f.label));
+    }
+    nodes.push(el("p", { className: "legend-title", text: "Fields" }), fieldLegend);
     peopleBody.replaceChildren(...nodes);
   };
 

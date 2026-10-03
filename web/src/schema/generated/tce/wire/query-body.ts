@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 
 import { GetChronicle } from '../../tce/wire/get-chronicle.js';
+import { GetFields } from '../../tce/wire/get-fields.js';
 import { GetHydrography } from '../../tce/wire/get-hydrography.js';
 import { GetPerson } from '../../tce/wire/get-person.js';
 import { GetRaster } from '../../tce/wire/get-raster.js';
@@ -17,13 +18,14 @@ export enum QueryBody {
   ListSaves = 3,
   GetTrips = 4,
   GetPerson = 5,
-  GetChronicle = 6
+  GetChronicle = 6,
+  GetFields = 7
 }
 
 export function unionToQueryBody(
   type: QueryBody,
-  accessor: (obj:GetChronicle|GetHydrography|GetPerson|GetRaster|GetTrips|ListSaves) => GetChronicle|GetHydrography|GetPerson|GetRaster|GetTrips|ListSaves|null
-): GetChronicle|GetHydrography|GetPerson|GetRaster|GetTrips|ListSaves|null {
+  accessor: (obj:GetChronicle|GetFields|GetHydrography|GetPerson|GetRaster|GetTrips|ListSaves) => GetChronicle|GetFields|GetHydrography|GetPerson|GetRaster|GetTrips|ListSaves|null
+): GetChronicle|GetFields|GetHydrography|GetPerson|GetRaster|GetTrips|ListSaves|null {
   switch(QueryBody[type]) {
     case 'NONE': return null; 
     case 'GetRaster': return accessor(new GetRaster())! as GetRaster;
@@ -32,15 +34,16 @@ export function unionToQueryBody(
     case 'GetTrips': return accessor(new GetTrips())! as GetTrips;
     case 'GetPerson': return accessor(new GetPerson())! as GetPerson;
     case 'GetChronicle': return accessor(new GetChronicle())! as GetChronicle;
+    case 'GetFields': return accessor(new GetFields())! as GetFields;
     default: return null;
   }
 }
 
 export function unionListToQueryBody(
   type: QueryBody, 
-  accessor: (index: number, obj:GetChronicle|GetHydrography|GetPerson|GetRaster|GetTrips|ListSaves) => GetChronicle|GetHydrography|GetPerson|GetRaster|GetTrips|ListSaves|null, 
+  accessor: (index: number, obj:GetChronicle|GetFields|GetHydrography|GetPerson|GetRaster|GetTrips|ListSaves) => GetChronicle|GetFields|GetHydrography|GetPerson|GetRaster|GetTrips|ListSaves|null, 
   index: number
-): GetChronicle|GetHydrography|GetPerson|GetRaster|GetTrips|ListSaves|null {
+): GetChronicle|GetFields|GetHydrography|GetPerson|GetRaster|GetTrips|ListSaves|null {
   switch(QueryBody[type]) {
     case 'NONE': return null; 
     case 'GetRaster': return accessor(index, new GetRaster())! as GetRaster;
@@ -49,6 +52,7 @@ export function unionListToQueryBody(
     case 'GetTrips': return accessor(index, new GetTrips())! as GetTrips;
     case 'GetPerson': return accessor(index, new GetPerson())! as GetPerson;
     case 'GetChronicle': return accessor(index, new GetChronicle())! as GetChronicle;
+    case 'GetFields': return accessor(index, new GetFields())! as GetFields;
     default: return null;
   }
 }

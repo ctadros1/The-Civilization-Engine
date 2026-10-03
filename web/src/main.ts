@@ -47,6 +47,7 @@ const client = new HostClient(socketUrl(), {
     syncMap();
     map.setPeople(snapshot.people, snapshot.settlements, snapshot.clock);
     void syncChronicle();
+    void syncFields();
     void refreshPerson(false);
   },
   events: (items) => store.update({ events: mergeEvents(store.state.events, items) }),
@@ -78,6 +79,37 @@ async function syncChronicle(): Promise<void> {
     console.warn(`tce: the chronicle could not be read: ${String(e)}`);
   } finally {
     chronicleBusy = false;
+  }
+}
+
+/** `world:revision:day` of the fields on the map. */
+let fieldsKey = "";
+let fieldsBusy = false;
+
+/** Fetches the fields when one changed stage, and once a simulated day for their progress. */
+async function syncFields(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const clock = s?.clock;
+  const key =
+    world && clock && s.fieldsRev !== 0
+      ? `${store.state.epoch}:${world.worldId}:${s.fieldsRev}:${clock.year}-${clock.month}-${clock.day}`
+      : "";
+  if (key === fieldsKey || fieldsBusy) return;
+  if (!key) {
+    fieldsKey = "";
+    map.setFields([]);
+    return;
+  }
+  fieldsBusy = true;
+  try {
+    const { fields } = await client.fields();
+    fieldsKey = key;
+    map.setFields(fields);
+  } catch (e) {
+    console.warn(`tce: the fields could not be read: ${String(e)}`);
+  } finally {
+    fieldsBusy = false;
   }
 }
 
@@ -141,9 +173,10 @@ map.onPointer = (info: PointerInfo | null) => {
     return;
   }
   const height = info.elevationM === null ? "" : ` · ${Math.round(info.elevationM)} m`;
+  const field = info.field ? ` · field: ${info.field.status}` : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}`;
+    `${height} · ${info.water ?? ""}${field}`;
 };
 
 const scaleBar = byId("scalebar-bar");
@@ -208,6 +241,7 @@ const hooks = {
       events: s.events.map((e) => ({ kind: e.kind, text: e.text })),
       people: s.snapshot?.people.length ?? 0,
       settlements: s.snapshot?.settlements.map((x) => ({ name: x.name, population: x.population })) ?? [],
+      fieldsRev: s.snapshot?.fieldsRev ?? 0,
       chronicle: s.chronicle.map((e) => e.spans.map((x) => x.text).join("")),
       selected: s.selected
         ? { id: s.selected.id, name: s.selected.info?.name ?? null, doing: s.selected.info?.doing ?? null }

@@ -248,6 +248,13 @@ export class HostClient {
     return body.person;
   }
 
+  /** Every field, with the revision it is at. */
+  async fields(): Promise<{ rev: number; fields: M.FieldInfo[] }> {
+    const body = await this.query(M.getFields());
+    if (body.kind !== "fields") throw new HostError("internal", "expected fields");
+    return { rev: body.rev, fields: body.fields };
+  }
+
   async chronicle(
     afterSeq: number,
     limit: number,

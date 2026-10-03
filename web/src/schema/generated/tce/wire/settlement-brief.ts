@@ -62,8 +62,13 @@ foodShort():boolean {
   return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
 }
 
+harvestKg():number {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
 static startSettlementBrief(builder:flatbuffers.Builder) {
-  builder.startObject(7);
+  builder.startObject(8);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -92,6 +97,10 @@ static addFoodDays(builder:flatbuffers.Builder, foodDays:number) {
 
 static addFoodShort(builder:flatbuffers.Builder, foodShort:boolean) {
   builder.addFieldInt8(6, +foodShort, +false);
+}
+
+static addHarvestKg(builder:flatbuffers.Builder, harvestKg:number) {
+  builder.addFieldFloat32(7, harvestKg, 0.0);
 }
 
 static endSettlementBrief(builder:flatbuffers.Builder):flatbuffers.Offset {

@@ -177,6 +177,7 @@ describe("people payloads", () => {
         population: 40,
         foodDays: 1.5,
         foodShort: true,
+        harvestKg: 0,
       },
     ]);
     expect(s.chronicleHead).toBe(2);

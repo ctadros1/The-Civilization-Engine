@@ -8,14 +8,18 @@
 // - Drag or arrow keys pan, the wheel or +/- zoom, 0 fits the map.
 // - People are dots coloured by what they are doing, moved along their trips between snapshots;
 //   a click selects one. Settlements show their hearth and name.
+// - Fields are rectangles coloured by where they are in their year; the pointer readout names the
+//   field under it.
 
 import { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 
+import { fieldAt, fieldLook } from "../fields.js";
 import type { HostClient } from "../net/client.js";
 import {
   RasterLayer,
   type ActivityInfo,
   type Clock,
+  type FieldInfo,
   type Hydrography,
   type PersonBrief,
   type SettlementBrief,
@@ -57,6 +61,8 @@ export interface PointerInfo {
   cellY: number;
   elevationM: number | null;
   water: "land" | "river" | "lake" | "ocean" | null;
+  /** The field under the pointer, if any. */
+  field: FieldInfo | null;
 }
 
 /** A shaded raster region with the samples behind it. */
@@ -124,6 +130,8 @@ export class MapView {
   private riversVisible = true;
   private lastPointer: { x: number; y: number } | null = null;
   private shadeOptions: ShadeOptions | null = null;
+  private readonly fieldsLayer = new Graphics();
+  private fields: FieldInfo[] = [];
   private readonly settlementLayer = new Container();
   private readonly peopleLayer = new Graphics();
   private people: PersonBrief[] = [];
@@ -159,6 +167,7 @@ export class MapView {
       this.terrain,
       this.detail,
       this.rivers,
+      this.fieldsLayer,
       this.settlementLayer,
       this.peopleLayer,
     );
@@ -201,6 +210,8 @@ export class MapView {
     this.settlements = [];
     this.settlementsKey = "";
     for (const child of this.settlementLayer.removeChildren()) child.destroy();
+    this.fields = [];
+    this.fieldsLayer.clear();
     this.peopleLayer.clear();
     this.trips.clear();
     this.clock = null;
@@ -225,6 +236,18 @@ export class MapView {
       this.settlements = settlements;
       this.drawSettlements();
     }
+  }
+
+  /** The fields, as the host last listed them. */
+  setFields(fields: FieldInfo[]): void {
+    this.fields = fields;
+    const g = this.fieldsLayer;
+    g.clear();
+    for (const f of fields) {
+      const look = fieldLook(f);
+      g.rect(f.x, f.y, f.w, f.h).fill({ color: look.fill, alpha: look.alpha });
+    }
+    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
   }
 
   /** Marks a person as selected (or nobody). */
@@ -563,6 +586,7 @@ export class MapView {
       cellY,
       elevationM: patch.elev[i] ?? null,
       water: WATER_NAMES[patch.water[i] ?? -1] ?? null,
+      field: fieldAt(this.fields, xM, yM),
     };
   }
 
@@ -740,6 +764,7 @@ export class MapView {
       people: this.people.length,
       tripsCached: this.trips.size,
       settlements: this.settlements.map((s) => s.name),
+      fields: this.fields.length,
       selected: this.selected,
       camera: { x: this.world.x, y: this.world.y, scale: this.scale },
       screen: this.app ? [this.app.screen.width, this.app.screen.height] : null,

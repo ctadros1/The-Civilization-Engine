@@ -127,6 +127,58 @@ describe("decoders", () => {
       people: [],
       settlements: [],
       chronicleHead: 0,
+      fieldsRev: 0,
+    });
+  });
+
+  it("builds a fields query and decodes the fields", () => {
+    const query = W.Query.getRootAsQuery(bb(M.getFields()));
+    expect(query.bodyType()).toBe(W.QueryBody.GetFields);
+
+    const b = new flatbuffers.Builder(256);
+    const status = b.createString("growing; ripe in about 20 days");
+    W.FieldInfo.startFieldInfo(b);
+    W.FieldInfo.addId(b, 41n);
+    W.FieldInfo.addHousehold(b, 7n);
+    W.FieldInfo.addSettlement(b, 3n);
+    W.FieldInfo.addMin(b, W.Vec2.createVec2(b, 100, 250));
+    W.FieldInfo.addSize(b, W.Vec2.createVec2(b, 50, 50));
+    W.FieldInfo.addStage(b, W.FieldStage.Sown);
+    W.FieldInfo.addStageSinceMinute(b, 129_600n);
+    W.FieldInfo.addProgress(b, 0.5);
+    W.FieldInfo.addExpectedKg(b, 220);
+    W.FieldInfo.addHarvests(b, 1);
+    W.FieldInfo.addStatus(b, status);
+    const field = W.FieldInfo.endFieldInfo(b);
+    const list = W.Fields.createFieldsVector(b, [field]);
+    const fields = W.Fields.createFields(b, 99n, list);
+    const response = W.Response.createResponse(b, W.ResponseBody.Fields, fields);
+    const body = M.decodeResponse(finish(b, response));
+    expect(body).toEqual({
+      kind: "fields",
+      rev: 99,
+      fields: [
+        {
+          id: 41,
+          household: 7,
+          settlement: 3,
+          x: 100,
+          y: 250,
+          w: 50,
+          h: 50,
+          crop: 0,
+          stage: "sown",
+          stageSinceMinute: 129_600,
+          progress: 0.5,
+          newGround: false,
+          woodland: false,
+          ripe: false,
+          expectedKg: 220,
+          sheavesKg: 0,
+          harvests: 1,
+          status: "growing; ripe in about 20 days",
+        },
+      ],
     });
   });
 

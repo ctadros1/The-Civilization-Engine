@@ -87,8 +87,13 @@ chronicleHead():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+fieldsRev():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 22);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startSnapshot(builder:flatbuffers.Builder) {
-  builder.startObject(9);
+  builder.startObject(10);
 }
 
 static addWorld(builder:flatbuffers.Builder, worldOffset:flatbuffers.Offset) {
@@ -149,6 +154,10 @@ static startSettlementsVector(builder:flatbuffers.Builder, numElems:number) {
 
 static addChronicleHead(builder:flatbuffers.Builder, chronicleHead:bigint) {
   builder.addFieldInt64(8, chronicleHead, BigInt('0'));
+}
+
+static addFieldsRev(builder:flatbuffers.Builder, fieldsRev:bigint) {
+  builder.addFieldInt64(9, fieldsRev, BigInt('0'));
 }
 
 static endSnapshot(builder:flatbuffers.Builder):flatbuffers.Offset {

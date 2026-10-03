@@ -30,6 +30,15 @@ export interface GoodInfo {
   kcalPerKg: number;
 }
 
+export interface CropInfo {
+  id: string;
+  /** "Emmer wheat" */
+  name: string;
+  /** Indexes into Welcome.goods: the grain it yields and the seed it is sown from. */
+  good: number;
+  seedGood: number;
+}
+
 export interface Welcome {
   host: string;
   version: string;
@@ -49,6 +58,8 @@ export interface Welcome {
   bandSizeDefault: number;
   /** The goods catalogue, in the order stores and loads refer to. */
   goods: GoodInfo[];
+  /** The crops catalogue, in the order fields refer to. */
+  crops: CropInfo[];
 }
 
 export interface WorldInfo {
@@ -132,6 +143,8 @@ export interface SettlementBrief {
   foodDays: number;
   /** Its food has run short and not yet recovered. */
   foodShort: boolean;
+  /** Grain threshed from its fields this harvest, kilograms. */
+  harvestKg: number;
 }
 
 export interface Snapshot {
@@ -145,6 +158,38 @@ export interface Snapshot {
   settlements: SettlementBrief[];
   /** The newest chronicle entry's sequence number (0 = none). */
   chronicleHead: number;
+  /** Changes whenever a field is marked out or changes stage (0 = no fields). */
+  fieldsRev: number;
+}
+
+export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
+
+/** A field people work (M1 slice C). */
+export interface FieldInfo {
+  id: number;
+  household: number;
+  settlement: number;
+  /** North-west corner and size, metres. */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** An index into Welcome.crops. */
+  crop: number;
+  stage: FieldStage;
+  stageSinceMinute: number;
+  /** Share of the work of the stage under way that is done, 0–1. */
+  progress: number;
+  /** Ground not yet broken for a first crop, and whether it is woodland to clear first. */
+  newGround: boolean;
+  woodland: boolean;
+  /** Sown and ripe, waiting to be reaped. */
+  ripe: boolean;
+  expectedKg: number;
+  sheavesKg: number;
+  harvests: number;
+  /** Rendered by the kernel: "growing; ripe in about 20 days". */
+  status: string;
 }
 
 export type EventKind =
@@ -347,7 +392,8 @@ export type ResponseBody =
   | { kind: "saves"; saves: SaveEntry[] }
   | { kind: "trips"; trips: TripInfo[] }
   | { kind: "person"; person: PersonInfo }
-  | { kind: "chronicle"; entries: ChronicleEntry[]; head: number };
+  | { kind: "chronicle"; entries: ChronicleEntry[]; head: number }
+  | { kind: "fields"; rev: number; fields: FieldInfo[] };
 
 export type ErrorCode =
   | "unknown"
@@ -478,6 +524,12 @@ export function getPerson(id: number, decisions: number): Uint8Array {
   return query(b, W.QueryBody.GetPerson, W.GetPerson.createGetPerson(b, BigInt(id), decisions));
 }
 
+export function getFields(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetFields.startGetFields(b);
+  return query(b, W.QueryBody.GetFields, W.GetFields.endGetFields(b));
+}
+
 export function getChronicle(afterSeq: number, limit: number): Uint8Array {
   const b = new flatbuffers.Builder(32);
   return query(
@@ -523,6 +575,12 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
       kcalPerKg: g.kcalPerKg(),
     });
   }
+  const crops: CropInfo[] = [];
+  for (let i = 0; i < w.cropsLength(); i++) {
+    const c = w.crops(i);
+    if (!c) continue;
+    crops.push({ id: c.id() ?? "", name: c.name() ?? "", good: c.good(), seedGood: c.seedGood() });
+  }
   const reasons: Record<number, string> = {};
   for (let i = 0; i < w.reasonsLength(); i++) {
     const r = w.reasons(i);
@@ -544,6 +602,7 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
     bandSizeMax: w.bandSizeMax(),
     bandSizeDefault: w.bandSizeDefault(),
     goods,
+    crops,
   };
 }
 
@@ -618,6 +677,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     people: personBriefs(s),
     settlements: settlementBriefs(s),
     chronicleHead: Number(s.chronicleHead()),
+    fieldsRev: Number(s.fieldsRev()),
   };
 }
 
@@ -660,6 +720,7 @@ function settlementBriefs(s: W.Snapshot): SettlementBrief[] {
       population: t.population(),
       foodDays: t.foodDays(),
       foodShort: t.foodShort(),
+      harvestKg: t.harvestKg(),
     });
   }
   return out;
@@ -838,6 +899,47 @@ function chronicle(c: W.Chronicle): { entries: ChronicleEntry[]; head: number } 
   return { entries, head: Number(c.head()) };
 }
 
+const FIELD_STAGES: Record<number, FieldStage> = {
+  [W.FieldStage.Fallow]: "fallow",
+  [W.FieldStage.Prepared]: "prepared",
+  [W.FieldStage.Sown]: "sown",
+  [W.FieldStage.Reaped]: "reaped",
+};
+
+function fields(f: W.Fields): { rev: number; fields: FieldInfo[] } {
+  const out: FieldInfo[] = [];
+  const info = new W.FieldInfo();
+  const v = new W.Vec2();
+  for (let i = 0; i < f.fieldsLength(); i++) {
+    const x = f.fields(i, info);
+    if (!x) continue;
+    const min = x.min(v);
+    const [mx, my] = [min?.x() ?? 0, min?.y() ?? 0];
+    const size = x.size(v);
+    out.push({
+      id: Number(x.id()),
+      household: Number(x.household()),
+      settlement: Number(x.settlement()),
+      x: mx,
+      y: my,
+      w: size?.x() ?? 0,
+      h: size?.y() ?? 0,
+      crop: x.crop(),
+      stage: FIELD_STAGES[x.stage()] ?? "fallow",
+      stageSinceMinute: Number(x.stageSinceMinute()),
+      progress: x.progress(),
+      newGround: x.newGround(),
+      woodland: x.woodland(),
+      ripe: x.ripe(),
+      expectedKg: x.expectedKg(),
+      sheavesKg: x.sheavesKg(),
+      harvests: x.harvests(),
+      status: x.status() ?? "",
+    });
+  }
+  return { rev: Number(f.rev()), fields: out };
+}
+
 function scoredOption(o: W.ScoredOption): ScoredOption {
   const terms: Term[] = [];
   for (let k = 0; k < o.termsLength(); k++) {
@@ -967,6 +1069,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const c = r.body(new W.Chronicle()) as W.Chronicle | null;
       if (!c) break;
       return { kind: "chronicle", ...chronicle(c) };
+    }
+    case W.ResponseBody.Fields: {
+      const f = r.body(new W.Fields()) as W.Fields | null;
+      if (!f) break;
+      return { kind: "fields", ...fields(f) };
     }
     default:
       break;

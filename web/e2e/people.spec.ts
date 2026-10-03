@@ -1,6 +1,7 @@
-// M1, slices A and B, end to end: a new world begins with a founding band; people appear on the
+// M1, slices A to C, end to end: a new world begins with a founding band; people appear on the
 // map, move along their trips while the clock runs, and the inspector says what someone is doing
-// and why, and what their household has in store; the chronicle records the arrival.
+// and why, and what their household has in store; the chronicle records the arrival; the band
+// marks out fields, and the map shows them.
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -44,8 +45,8 @@ test("a founding band lives on the map and explains itself", async ({ page }) =>
     expect(s.settlements).toHaveLength(1);
     expect(s.settlements[0]?.population).toBe(30);
     await expect(page.locator("#people-body")).toContainText("30 people");
-    await expect(page.locator("#people-body .legend")).toContainText("Gather plants");
-    await expect(page.locator("#people-body .legend")).toContainText("Gather firewood");
+    await expect(page.locator("#people-body .legend.activities")).toContainText("Gather plants");
+    await expect(page.locator("#people-body .legend.activities")).toContainText("Gather firewood");
     await expect(page.locator("#people-body")).toContainText(/food for \d[\d,]* days/);
     await expect(page.locator("#chronicle li")).toHaveCount(2);
     await expect(page.locator("#chronicle")).toContainText("A band of 30 people arrived");
@@ -95,12 +96,18 @@ test("a founding band lives on the map and explains itself", async ({ page }) =>
     });
     expect(moved).toBeGreaterThan(0);
     await expect(inspector).toContainText("Why");
+    // Arriving in March, they mark out fields and start breaking ground; the map shows them.
+    await page.waitForFunction(() => window.__TCE__.map().fields > 0, undefined, {
+      timeout: 120_000,
+    });
+    expect((await state(page)).fieldsRev).toBeGreaterThan(0);
     await snap(page, "m1-running");
     await page.getByRole("button", { name: "Pause" }).click();
 
-    // Closing the inspector returns to the summary.
+    // Closing the inspector returns to the summary, with the field legend.
     await page.getByRole("button", { name: "Close the inspector" }).click();
     await expect(page.locator("#people-body")).toContainText("Click a person on the map");
+    await expect(page.locator("#people-body .legend.fields")).toContainText("new ground");
     expect((await state(page)).lastError).toBeNull();
   } finally {
     await host.stop();

@@ -110,9 +110,16 @@ pub fn new_world(
         let fields = &sim.land().fields;
         let ha: f64 = fields.iter().map(|f| f.area_ha()).sum();
         let huts = &sim.land().buildings;
+        let records = &sim.people().records;
+        let born = records
+            .values()
+            .filter(|r| r.origin == civ_agents::Origin::Born)
+            .count();
+        let died = records.values().filter(|r| r.died.is_some()).count();
+        let left = records.values().filter(|r| r.left.is_some()).count();
         println!(
-            "lived {} days in {:.1} s: {} people, {} fields ({ha:.2} ha), {} huts ({} roofed), {} \
-             chronicle entries",
+            "lived {} days in {:.1} s: {} people ({born} born, {died} died, {left} left), {} \
+             fields ({ha:.2} ha), {} huts ({} roofed), {} chronicle entries",
             options.days,
             lived.elapsed().as_secs_f64(),
             sim.people().living(),

@@ -21,7 +21,7 @@ use crate::decide::{
     self, BuildOption, Facts, FieldOption, GiverOption, Limits, PatchOption, WaterOption,
 };
 use crate::farm::{self, FarmView, Site};
-use crate::history::{ChronicleEvent, ChronicleKind, PersonRecord, Reason, Receipt};
+use crate::history::{ChronicleEvent, ChronicleKind, PersonRecord, Reason, Receipt, Union};
 use crate::needs;
 use crate::params::{
     Behavior, Catalog, GoodDef, GoodUse, HouseholdParams, PeopleParams, interpolate,
@@ -30,6 +30,10 @@ use crate::person::{
     Activity, Household, KnownPatch, Load, Person, Step, Target, Trip, food_kcal, fuel_kg,
     reserve_food_kcal,
 };
+
+mod life;
+
+pub use life::{depleted, extra_kcal_day};
 
 /// Purpose tag for decision draws (ADR-0003 keyed randomness).
 pub const PURPOSE_DECIDE: u64 = 0x6465_6369_6465_3031; // "decide01"
@@ -142,6 +146,8 @@ pub struct Population {
     pub records: BTreeMap<PermanentId, PersonRecord>,
     /// The chronicle, oldest first.
     pub chronicle: Vec<ChronicleEvent>,
+    /// Every couple there has been, oldest first (research 04-08 §5.1).
+    pub unions: Vec<Union>,
     /// The last trip id handed out.
     pub next_trip: u64,
     index: HashMap<PermanentId, Handle<Person>>,
@@ -161,6 +167,8 @@ pub struct Population {
     home_sites: HashMap<PermanentId, (i64, Option<NewHome>)>,
     /// Per building, what each of its stages needs (its design never changes). Derived.
     stage_needs: HashMap<PermanentId, Vec<StageNeeds>>,
+    /// Households whose last member died today, with that member (within a day's step only).
+    emptied: Vec<(PermanentId, PermanentId)>,
 }
 
 /// A hut a household would begin: its design (which says where it stands) and what each stage
@@ -252,6 +260,12 @@ pub fn bmr(p: &Person, now: SimTime, params: &PeopleParams) -> f64 {
     let age = p.age_years(now);
     let mass = needs::mass_kg(&params.energy, p.sex, age);
     needs::bmr_kcal_day(&params.energy, p.sex, age, mass)
+}
+
+/// Energy a person spends a minute at physical activity level `par`, kcal: their basal metabolism
+/// times the level, and what a pregnancy costs (research 05-02 §2.4).
+pub fn burn_rate(p: &Person, now: SimTime, params: &PeopleParams, par: f64) -> f32 {
+    ((bmr(p, now, params) * par + extra_kcal_day(p, now, params)) / 1440.0) as f32
 }
 
 /// Hunger now: 0 while full, rising to 1 over the hunger ramp, plus deficit units.
@@ -377,7 +391,7 @@ impl Population {
                 )),
             }
             match self.records.get(&p.id) {
-                Some(r) if r.died.is_none() => {}
+                Some(r) if r.died.is_none() && r.left.is_none() => {}
                 _ => out.push(format!("person {} has no living record", p.id)),
             }
             if usize::from(p.act.def) >= catalog_len.max(1) {
@@ -437,7 +451,7 @@ impl Population {
             if *id != r.id || id.get() >= next_id {
                 out.push(format!("record {id} is filed under the wrong id"));
             }
-            if r.died.is_none() && self.person(*id).is_none() {
+            if r.died.is_none() && r.left.is_none() && self.person(*id).is_none() {
                 out.push(format!("record {id} is alive but the person is missing"));
             }
         }
@@ -445,6 +459,51 @@ impl Population {
             if e.seq != i as u64 + 1 {
                 out.push(format!("chronicle entry {} is out of sequence", e.seq));
                 break;
+            }
+        }
+        for (_, p) in self.people.iter() {
+            if let Some(q) = p.partner
+                && self
+                    .person(q)
+                    .is_none_or(|x| x.partner != Some(p.id) || x.sex == p.sex)
+            {
+                out.push(format!(
+                    "person {}'s partner {q} is not partnered with them",
+                    p.id
+                ));
+            }
+            if p.sex == crate::needs::Sex::Male && p.repro != crate::person::Repro::Open {
+                out.push(format!("person {} is a man with a pregnancy", p.id));
+            }
+            if let crate::person::Repro::Pregnant { conceived, due, .. } = p.repro
+                && due <= conceived
+            {
+                out.push(format!("person {}'s pregnancy ends before it began", p.id));
+            }
+            if !(p.fecundity.is_finite() && p.fecundity >= 0.0) {
+                out.push(format!(
+                    "person {} has a fecundity that is not a number",
+                    p.id
+                ));
+            }
+            if p.nursing.is_some_and(|c| !self.records.contains_key(&c)) {
+                out.push(format!("person {} nurses a child nobody knows", p.id));
+            }
+        }
+        for u in &self.unions {
+            if !(self.records.contains_key(&u.woman) && self.records.contains_key(&u.man)) {
+                out.push(format!(
+                    "a union of {} and {} names nobody known",
+                    u.woman, u.man
+                ));
+            } else if u.ended.is_none()
+                && (self.person(u.woman).and_then(|p| p.partner) != Some(u.man)
+                    || self.person(u.man).and_then(|p| p.partner) != Some(u.woman))
+            {
+                out.push(format!(
+                    "the union of {} and {} has not ended but they are not partners",
+                    u.woman, u.man
+                ));
             }
         }
         out
@@ -1391,7 +1450,7 @@ impl Population {
             minutes,
         };
         settle(p, now, params);
-        p.burn_kcal_min = (bmr(p, now, params) * params.energy.walk_par / 1440.0) as f32;
+        p.burn_kcal_min = burn_rate(p, now, params, params.energy.walk_par);
         p.asleep = false;
         p.company = 0.0;
         p.trip = Some(trip);
@@ -1465,7 +1524,7 @@ impl Population {
             ) => (def_par, false, 0.0),
             None => (params.energy.idle_par, false, 0.0),
         };
-        p.burn_kcal_min = (bmr(p, now, params) * par / 1440.0) as f32;
+        p.burn_kcal_min = burn_rate(p, now, params, par);
         p.asleep = asleep;
         p.company = company as f32;
         p.trip = None;
@@ -1552,7 +1611,7 @@ impl Population {
             Some(Step::Wait { .. } | Step::Deposit) | None => {}
         }
         if let Some(p) = self.people.get_mut(h) {
-            p.burn_kcal_min = (bmr(p, now, params) * params.energy.idle_par / 1440.0) as f32;
+            p.burn_kcal_min = burn_rate(p, now, params, params.energy.idle_par);
             p.asleep = false;
         }
     }
@@ -1921,7 +1980,31 @@ impl Population {
         if load.kg <= 0.0 {
             return;
         }
-        // A shared good goes to every household of the settlement, by members.
+        let mut kg = f64::from(load.kg);
+        // A shared good is shared out of what the household can spare: it first keeps what
+        // brings its food to the days it tries to keep, and the rest goes to every household of
+        // the settlement, by members (research 06-01 §2.3 and §3.2: help comes from disposable
+        // surplus, after a household's own subsistence). In plenty, all of a kill is shared; in
+        // hunger, a family keeps what it catches.
+        if good.shared
+            && settlement.is_some()
+            && good.kcal_per_kg > 0.0
+            && let Some(x) = self.households.get_mut(own)
+        {
+            let members = x.members.len().max(1);
+            x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
+            x.stores.resize(goods.len(), 0.0);
+            let target = params.household.food_target_days
+                * members as f64
+                * params.household.daily_kcal_per_person;
+            let short = (target - food_kcal(&x.stores, goods).0).max(0.0);
+            let keep = kg.min(short / good.kcal_per_kg);
+            x.stores[g] += keep;
+            kg -= keep;
+        }
+        if kg <= 0.0 {
+            return;
+        }
         let recipients: Vec<(Handle<Household>, usize)> = match (good.shared, settlement) {
             (true, Some(s)) => self
                 .households
@@ -1937,7 +2020,7 @@ impl Population {
                 let members = x.members.len().max(1);
                 x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
                 x.stores.resize(goods.len(), 0.0);
-                x.stores[g] += f64::from(load.kg) * n as f64 / total;
+                x.stores[g] += kg * n as f64 / total;
             }
         }
     }
@@ -1968,9 +2051,10 @@ impl Population {
             .then(|| kcal / (members as f64 * params.household.daily_kcal_per_person).max(1.0))
     }
 
-    /// The end of a day: notes in the chronicle when a settlement's food runs short, and when it
-    /// has enough again (with a gap between the two, so a store hovering near the line is not
-    /// noted every day).
+    /// The end of a day: the season turns for every field, harvests and food shortages are noted
+    /// in the chronicle (with a gap between running short and recovering, so a store hovering
+    /// near the line is not noted every day), and then a day of life: births, deaths, couples and
+    /// the households they make (see `life`). Newborns' first decisions go to `ctx.schedule`.
     pub fn on_day(&mut self, ctx: &mut Ctx) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         // The season turns for every field: a sowing window passes, a crop left standing is lost.
@@ -2020,6 +2104,8 @@ impl Population {
             let (name, place) = (s.name.clone(), s.hearth_m);
             self.chronicle_push(now, kind, Vec::new(), Some(id), Some(place), days, name);
         }
+        // Births, deaths, couples and the households they make.
+        self.live_day(ctx);
     }
 }
 
@@ -2170,6 +2256,9 @@ mod tests {
             short_food_days: 2.0,
             recovered_food_days: 5.0,
             daily_kcal_per_person: 2100.0,
+            leave_at_depletion: 0.3,
+            leave_per_day: 0.1,
+            leave_unless_ripe_within_days: 30.0,
         }
     }
 

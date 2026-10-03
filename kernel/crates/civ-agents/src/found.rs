@@ -10,23 +10,24 @@ use civ_core::{PermanentId, Rng64, SimTime};
 use civ_world::nav::TravelField;
 use civ_world::{WATER_LAKE, WATER_LAND, WATER_RIVER, terrain};
 
-use crate::history::{ChronicleKind, Origin, PersonRecord};
+use crate::demography;
+use crate::history::{ChronicleKind, Origin, PersonRecord, Union};
 use crate::needs::Sex;
-use crate::params::{GoodUse, PeopleParams};
-use crate::person::{Activity, Household, Load, Person, Target, Traits};
+use crate::params::{GoodUse, PeopleParams, step_at};
+use crate::person::{Activity, Household, Load, Person, Repro, Target, Traits};
 use crate::population::{Ctx, Population, cell_centre, cell_of};
 use crate::{decide, farm};
 
 /// Purpose tag for founding draws.
 pub const PURPOSE_BAND: u64 = 0x6261_6e64_3030_3031; // "band0001"
 /// Longest walk from the hearth to a home, seconds.
-const HOME_REACH_SECONDS: f32 = 300.0;
+pub(crate) const HOME_REACH_SECONDS: f32 = 300.0;
 /// Farthest a home moves from where its family wanted it, cells.
 const HOME_SEARCH_CELLS: i64 = 8;
 
 /// Where a family makes its home: the wanted point if it is on dry ground reachable from the
 /// hearth, otherwise the centre of the nearest such cell within a few cells.
-fn home_site(
+pub(crate) fn home_site(
     map: &civ_world::WorldMap,
     near: &TravelField,
     wanted: (f32, f32),
@@ -128,7 +129,7 @@ fn plan_family(params: &PeopleParams, d: &mut Draws) -> Vec<Member> {
     let mut t = 19.0 + 1.5 * d.normal();
     while t < mother_age - 0.75 {
         let age = mother_age - t;
-        if d.unit() < params.mortality.survival(age) {
+        if d.unit() < params.mortality.siler.survival(age) {
             family.push(Member {
                 sex: if d.unit() < 0.5 {
                     Sex::Female
@@ -181,6 +182,89 @@ fn plan_family(params: &PeopleParams, d: &mut Draws) -> Vec<Member> {
         });
     }
     family
+}
+
+/// The couple at the head of a founding family: how long they have been partners, and where the
+/// mother is in the reproductive cycle (research 05-01 §5.4: a mixture of pregnant, nursing and
+/// other states, never a crowd of newly paired adults who all conceive at once).
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Couple {
+    since: SimTime,
+    /// Nursing her youngest child (its index in the family) until `until`.
+    nursing: Option<usize>,
+    until: Option<SimTime>,
+    /// Pregnant since, until, and whether it ends in a loss.
+    pregnant: Option<(SimTime, SimTime, bool)>,
+}
+
+impl Couple {
+    /// The mother's state; `ids` are the family's permanent ids (the father is the second).
+    fn repro(&self, ids: &[PermanentId]) -> Repro {
+        match (self.pregnant, self.until) {
+            (Some((conceived, due, loss)), _) => Repro::Pregnant {
+                conceived,
+                due,
+                father: ids.get(1).copied(),
+                loss,
+            },
+            (None, Some(until)) => Repro::Recovering { until },
+            (None, None) => Repro::Open,
+        }
+    }
+}
+
+fn founding_couple(
+    params: &PeopleParams,
+    family: &[Member],
+    now: SimTime,
+    d: &mut Draws,
+) -> Couple {
+    let f = &params.fertility;
+    let year = civ_core::time::MINUTES_PER_YEAR as f64;
+    let ago = |years: f64| now.plus_minutes(-(years * year) as i64);
+    let mother_age = family[0].age;
+    let youngest = (2..family.len())
+        .filter(|&i| family[i].mother == Some(0))
+        .min_by(|&a, &b| family[a].age.total_cmp(&family[b].age));
+    let eldest = (2..family.len())
+        .filter(|&i| family[i].mother == Some(0))
+        .map(|i| family[i].age)
+        .fold(0.0f64, f64::max);
+    let together = if eldest > 0.0 {
+        (eldest + 1.0).min(mother_age - 15.0)
+    } else {
+        d.range(0.2, (mother_age - 16.0).max(0.3))
+    };
+    let mut couple = Couple {
+        since: ago(together.max(0.1)),
+        nursing: None,
+        until: None,
+        pregnant: None,
+    };
+    let recovery_years = demography::recovery_days(f, &mut d.0) / 365.0;
+    let open_since = match youngest {
+        Some(i) if family[i].age < recovery_years => {
+            couple.nursing = Some(i);
+            couple.until = Some(ago(family[i].age - recovery_years));
+            return couple;
+        }
+        Some(i) => family[i].age - recovery_years,
+        None => together,
+    };
+    // Open for `open_since` years: she is pregnant about as often as an open woman's cycle of
+    // waiting and gestation leaves her so (nine months against a mean wait of 1/q).
+    let q = f.conception_per_month * step_at(&f.age_factor, mother_age);
+    if q <= 0.0 || d.unit() >= 9.0 * q / (1.0 + 9.0 * q) {
+        return couple;
+    }
+    let gestation_years = f.pregnancy_days / 365.0;
+    let along = d.unit() * gestation_years.min(open_since.max(0.0));
+    let conceived = ago(along);
+    let (due, loss) = demography::pregnancy_course(f, mother_age - along, conceived, &mut d.0);
+    if due > now {
+        couple.pregnant = Some((conceived, due, loss));
+    }
+    couple
 }
 
 /// Removes member `i` of a family, keeping the other members' parent links right.
@@ -461,6 +545,7 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
             sheltered: false,
         });
         households.push(hh_id);
+        let couple = founding_couple(params, family, now, &mut d);
         for (mi, m) in family.iter().enumerate() {
             let list = if m.sex == Sex::Male {
                 &params.names.male
@@ -497,6 +582,7 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
                     sex: m.sex,
                     born,
                     died: None,
+                    left: None,
                     mother,
                     father,
                     origin: Origin::Founder,
@@ -542,9 +628,34 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
                 carrying: Load::default(),
                 draws: 0,
                 receipts: Default::default(),
+                partner: match mi {
+                    0 => Some(ids[1]),
+                    1 => Some(ids[0]),
+                    _ => None,
+                },
+                repro: if mi == 0 {
+                    couple.repro(&ids)
+                } else {
+                    Repro::Open
+                },
+                fecundity: match m.sex {
+                    Sex::Female => demography::fecundity(&params.fertility, &mut d.0),
+                    Sex::Male => 1.0,
+                },
+                nursing: if mi == 0 {
+                    couple.nursing.map(|i| ids[i])
+                } else {
+                    None
+                },
             });
             people.push(id);
         }
+        pop.unions.push(Union {
+            woman: ids[0],
+            man: ids[1],
+            since: couple.since,
+            ended: None,
+        });
     }
     pop.chronicle_push(
         now,
@@ -580,7 +691,7 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
 mod tests {
     use super::*;
     use crate::params::{
-        BandParams, DecisionParams, EnergyParams, FarmParams, HouseholdParams, NameParams, Siler,
+        BandParams, DecisionParams, EnergyParams, FarmParams, HouseholdParams, NameParams,
         SleepParams, SocialParams,
     };
     use civ_world::nav::NavParams;
@@ -641,6 +752,9 @@ mod tests {
                 short_food_days: 2.0,
                 recovered_food_days: 5.0,
                 daily_kcal_per_person: 2100.0,
+                leave_at_depletion: 0.3,
+                leave_per_day: 0.1,
+                leave_unless_ripe_within_days: 30.0,
             },
             decision: DecisionParams {
                 temperature_sd_fraction: 0.35,
@@ -684,13 +798,9 @@ mod tests {
                 site_w_flood: 3.0,
                 site_flood_hand_m: 1.5,
             },
-            mortality: Siler {
-                a: 0.351,
-                b: 0.895,
-                c: 0.011,
-                d: 6.70e-6,
-                e: 0.125,
-            },
+            mortality: crate::demography::tests::mortality(),
+            fertility: crate::demography::tests::fertility(),
+            family: crate::demography::tests::family(),
             names: NameParams::default(),
             farm: FarmParams {
                 crop: 0,

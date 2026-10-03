@@ -487,6 +487,94 @@ impl<'a> ::flatbuffers::Verifiable for Sex {
 
 impl ::flatbuffers::SimpleToVerifyInSlice for Sex {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_REPRO: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_REPRO: u8 = 2;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_REPRO: [Repro; 3] = [
+  Repro::Open,
+  Repro::Pregnant,
+  Repro::Recovering,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct Repro(pub u8);
+#[allow(non_upper_case_globals)]
+impl Repro {
+  pub const Open: Self = Self(0);
+  pub const Pregnant: Self = Self(1);
+  pub const Recovering: Self = Self(2);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 2;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Open,
+    Self::Pregnant,
+    Self::Recovering,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Open => Some("Open"),
+      Self::Pregnant => Some("Pregnant"),
+      Self::Recovering => Some("Recovering"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for Repro {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for Repro {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for Repro {
+    type Output = Repro;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for Repro {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for Repro {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for Repro {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_ORIGIN: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MAX_ORIGIN: u8 = 2;
@@ -4837,6 +4925,14 @@ impl<'a> Person<'a> {
   pub const VT_DRAWS: ::flatbuffers::VOffsetT = 46;
   pub const VT_CARRY_GOOD: ::flatbuffers::VOffsetT = 48;
   pub const VT_CARRY_KG: ::flatbuffers::VOffsetT = 50;
+  pub const VT_PARTNER: ::flatbuffers::VOffsetT = 52;
+  pub const VT_REPRO: ::flatbuffers::VOffsetT = 54;
+  pub const VT_CONCEIVED: ::flatbuffers::VOffsetT = 56;
+  pub const VT_REPRO_UNTIL: ::flatbuffers::VOffsetT = 58;
+  pub const VT_PREGNANCY_FATHER: ::flatbuffers::VOffsetT = 60;
+  pub const VT_LOSS: ::flatbuffers::VOffsetT = 62;
+  pub const VT_FECUNDITY: ::flatbuffers::VOffsetT = 64;
+  pub const VT_NURSING: ::flatbuffers::VOffsetT = 66;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4848,6 +4944,11 @@ impl<'a> Person<'a> {
     args: &'args PersonArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Person<'bldr>> {
     let mut builder = PersonBuilder::new(_fbb);
+    builder.add_nursing(args.nursing);
+    builder.add_pregnancy_father(args.pregnancy_father);
+    builder.add_repro_until(args.repro_until);
+    builder.add_conceived(args.conceived);
+    builder.add_partner(args.partner);
     builder.add_draws(args.draws);
     builder.add_needs_at(args.needs_at);
     builder.add_satiety_until(args.satiety_until);
@@ -4856,6 +4957,7 @@ impl<'a> Person<'a> {
     builder.add_mother(args.mother);
     builder.add_born(args.born);
     builder.add_id(args.id);
+    builder.add_fecundity(args.fecundity);
     builder.add_carry_kg(args.carry_kg);
     builder.add_carry_good(args.carry_good);
     builder.add_carry_water_l(args.carry_water_l);
@@ -4870,6 +4972,8 @@ impl<'a> Person<'a> {
     if let Some(x) = args.pos { builder.add_pos(x); }
     if let Some(x) = args.traits { builder.add_traits(x); }
     if let Some(x) = args.given { builder.add_given(x); }
+    builder.add_loss(args.loss);
+    builder.add_repro(args.repro);
     builder.add_asleep(args.asleep);
     builder.add_sex(args.sex);
     builder.finish()
@@ -5044,6 +5148,62 @@ impl<'a> Person<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(Person::VT_CARRY_KG, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn partner(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Person::VT_PARTNER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn repro(&self) -> Repro {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Repro>(Person::VT_REPRO, Some(Repro::Open)).unwrap()}
+  }
+  #[inline]
+  pub fn conceived(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Person::VT_CONCEIVED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn repro_until(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Person::VT_REPRO_UNTIL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn pregnancy_father(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Person::VT_PREGNANCY_FATHER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn loss(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(Person::VT_LOSS, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn fecundity(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Person::VT_FECUNDITY, Some(1.0)).unwrap()}
+  }
+  #[inline]
+  pub fn nursing(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Person::VT_NURSING, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Person<'_> {
@@ -5076,6 +5236,14 @@ impl ::flatbuffers::Verifiable for Person<'_> {
      .visit_field::<u64>("draws", Self::VT_DRAWS, false)?
      .visit_field::<i32>("carry_good", Self::VT_CARRY_GOOD, false)?
      .visit_field::<f32>("carry_kg", Self::VT_CARRY_KG, false)?
+     .visit_field::<u64>("partner", Self::VT_PARTNER, false)?
+     .visit_field::<Repro>("repro", Self::VT_REPRO, false)?
+     .visit_field::<i64>("conceived", Self::VT_CONCEIVED, false)?
+     .visit_field::<i64>("repro_until", Self::VT_REPRO_UNTIL, false)?
+     .visit_field::<u64>("pregnancy_father", Self::VT_PREGNANCY_FATHER, false)?
+     .visit_field::<bool>("loss", Self::VT_LOSS, false)?
+     .visit_field::<f32>("fecundity", Self::VT_FECUNDITY, false)?
+     .visit_field::<u64>("nursing", Self::VT_NURSING, false)?
      .finish();
     Ok(())
   }
@@ -5105,6 +5273,14 @@ pub struct PersonArgs<'a> {
     pub draws: u64,
     pub carry_good: i32,
     pub carry_kg: f32,
+    pub partner: u64,
+    pub repro: Repro,
+    pub conceived: i64,
+    pub repro_until: i64,
+    pub pregnancy_father: u64,
+    pub loss: bool,
+    pub fecundity: f32,
+    pub nursing: u64,
 }
 impl<'a> Default for PersonArgs<'a> {
   #[inline]
@@ -5134,6 +5310,14 @@ impl<'a> Default for PersonArgs<'a> {
       draws: 0,
       carry_good: -1,
       carry_kg: 0.0,
+      partner: 0,
+      repro: Repro::Open,
+      conceived: 0,
+      repro_until: 0,
+      pregnancy_father: 0,
+      loss: false,
+      fecundity: 1.0,
+      nursing: 0,
     }
   }
 }
@@ -5240,6 +5424,38 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(Person::VT_CARRY_KG, carry_kg, 0.0);
   }
   #[inline]
+  pub fn add_partner(&mut self, partner: u64) {
+    self.fbb_.push_slot::<u64>(Person::VT_PARTNER, partner, 0);
+  }
+  #[inline]
+  pub fn add_repro(&mut self, repro: Repro) {
+    self.fbb_.push_slot::<Repro>(Person::VT_REPRO, repro, Repro::Open);
+  }
+  #[inline]
+  pub fn add_conceived(&mut self, conceived: i64) {
+    self.fbb_.push_slot::<i64>(Person::VT_CONCEIVED, conceived, 0);
+  }
+  #[inline]
+  pub fn add_repro_until(&mut self, repro_until: i64) {
+    self.fbb_.push_slot::<i64>(Person::VT_REPRO_UNTIL, repro_until, 0);
+  }
+  #[inline]
+  pub fn add_pregnancy_father(&mut self, pregnancy_father: u64) {
+    self.fbb_.push_slot::<u64>(Person::VT_PREGNANCY_FATHER, pregnancy_father, 0);
+  }
+  #[inline]
+  pub fn add_loss(&mut self, loss: bool) {
+    self.fbb_.push_slot::<bool>(Person::VT_LOSS, loss, false);
+  }
+  #[inline]
+  pub fn add_fecundity(&mut self, fecundity: f32) {
+    self.fbb_.push_slot::<f32>(Person::VT_FECUNDITY, fecundity, 1.0);
+  }
+  #[inline]
+  pub fn add_nursing(&mut self, nursing: u64) {
+    self.fbb_.push_slot::<u64>(Person::VT_NURSING, nursing, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonBuilder {
@@ -5281,6 +5497,14 @@ impl ::core::fmt::Debug for Person<'_> {
       ds.field("draws", &self.draws());
       ds.field("carry_good", &self.carry_good());
       ds.field("carry_kg", &self.carry_kg());
+      ds.field("partner", &self.partner());
+      ds.field("repro", &self.repro());
+      ds.field("conceived", &self.conceived());
+      ds.field("repro_until", &self.repro_until());
+      ds.field("pregnancy_father", &self.pregnancy_father());
+      ds.field("loss", &self.loss());
+      ds.field("fecundity", &self.fecundity());
+      ds.field("nursing", &self.nursing());
       ds.finish()
   }
 }
@@ -5853,6 +6077,8 @@ impl<'a> PersonRecord<'a> {
   pub const VT_MOTHER: ::flatbuffers::VOffsetT = 18;
   pub const VT_FATHER: ::flatbuffers::VOffsetT = 20;
   pub const VT_ORIGIN: ::flatbuffers::VOffsetT = 22;
+  pub const VT_LEFT: ::flatbuffers::VOffsetT = 24;
+  pub const VT_LEFT_AT: ::flatbuffers::VOffsetT = 26;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -5864,12 +6090,14 @@ impl<'a> PersonRecord<'a> {
     args: &'args PersonRecordArgs<'args>
   ) -> ::flatbuffers::WIPOffset<PersonRecord<'bldr>> {
     let mut builder = PersonRecordBuilder::new(_fbb);
+    builder.add_left_at(args.left_at);
     builder.add_father(args.father);
     builder.add_mother(args.mother);
     builder.add_died_at(args.died_at);
     builder.add_born(args.born);
     builder.add_id(args.id);
     if let Some(x) = args.given { builder.add_given(x); }
+    builder.add_left(args.left);
     builder.add_origin(args.origin);
     builder.add_cause(args.cause);
     builder.add_died(args.died);
@@ -5948,6 +6176,20 @@ impl<'a> PersonRecord<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<Origin>(PersonRecord::VT_ORIGIN, Some(Origin::Founder)).unwrap()}
   }
+  #[inline]
+  pub fn left(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(PersonRecord::VT_LEFT, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn left_at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(PersonRecord::VT_LEFT_AT, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonRecord<'_> {
@@ -5966,6 +6208,8 @@ impl ::flatbuffers::Verifiable for PersonRecord<'_> {
      .visit_field::<u64>("mother", Self::VT_MOTHER, false)?
      .visit_field::<u64>("father", Self::VT_FATHER, false)?
      .visit_field::<Origin>("origin", Self::VT_ORIGIN, false)?
+     .visit_field::<bool>("left", Self::VT_LEFT, false)?
+     .visit_field::<i64>("left_at", Self::VT_LEFT_AT, false)?
      .finish();
     Ok(())
   }
@@ -5981,6 +6225,8 @@ pub struct PersonRecordArgs<'a> {
     pub mother: u64,
     pub father: u64,
     pub origin: Origin,
+    pub left: bool,
+    pub left_at: i64,
 }
 impl<'a> Default for PersonRecordArgs<'a> {
   #[inline]
@@ -5996,6 +6242,8 @@ impl<'a> Default for PersonRecordArgs<'a> {
       mother: 0,
       father: 0,
       origin: Origin::Founder,
+      left: false,
+      left_at: 0,
     }
   }
 }
@@ -6046,6 +6294,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonRecordBuilder<'a, 'b, A
     self.fbb_.push_slot::<Origin>(PersonRecord::VT_ORIGIN, origin, Origin::Founder);
   }
   #[inline]
+  pub fn add_left(&mut self, left: bool) {
+    self.fbb_.push_slot::<bool>(PersonRecord::VT_LEFT, left, false);
+  }
+  #[inline]
+  pub fn add_left_at(&mut self, left_at: i64) {
+    self.fbb_.push_slot::<i64>(PersonRecord::VT_LEFT_AT, left_at, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonRecordBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonRecordBuilder {
@@ -6073,6 +6329,8 @@ impl ::core::fmt::Debug for PersonRecord<'_> {
       ds.field("mother", &self.mother());
       ds.field("father", &self.father());
       ds.field("origin", &self.origin());
+      ds.field("left", &self.left());
+      ds.field("left_at", &self.left_at());
       ds.finish()
   }
 }
@@ -6308,6 +6566,170 @@ impl ::core::fmt::Debug for ChronicleEntry<'_> {
       ds.finish()
   }
 }
+pub enum UnionOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Union<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Union<'a> {
+  type Inner = Union<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Union<'a> {
+  pub const VT_WOMAN: ::flatbuffers::VOffsetT = 4;
+  pub const VT_MAN: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SINCE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_ENDED: ::flatbuffers::VOffsetT = 10;
+  pub const VT_ENDED_AT: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Union { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args UnionArgs
+  ) -> ::flatbuffers::WIPOffset<Union<'bldr>> {
+    let mut builder = UnionBuilder::new(_fbb);
+    builder.add_ended_at(args.ended_at);
+    builder.add_since(args.since);
+    builder.add_man(args.man);
+    builder.add_woman(args.woman);
+    builder.add_ended(args.ended);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn woman(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Union::VT_WOMAN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn man(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Union::VT_MAN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn since(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Union::VT_SINCE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ended(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(Union::VT_ENDED, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn ended_at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Union::VT_ENDED_AT, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Union<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("woman", Self::VT_WOMAN, false)?
+     .visit_field::<u64>("man", Self::VT_MAN, false)?
+     .visit_field::<i64>("since", Self::VT_SINCE, false)?
+     .visit_field::<bool>("ended", Self::VT_ENDED, false)?
+     .visit_field::<i64>("ended_at", Self::VT_ENDED_AT, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct UnionArgs {
+    pub woman: u64,
+    pub man: u64,
+    pub since: i64,
+    pub ended: bool,
+    pub ended_at: i64,
+}
+impl<'a> Default for UnionArgs {
+  #[inline]
+  fn default() -> Self {
+    UnionArgs {
+      woman: 0,
+      man: 0,
+      since: 0,
+      ended: false,
+      ended_at: 0,
+    }
+  }
+}
+
+pub struct UnionBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> UnionBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_woman(&mut self, woman: u64) {
+    self.fbb_.push_slot::<u64>(Union::VT_WOMAN, woman, 0);
+  }
+  #[inline]
+  pub fn add_man(&mut self, man: u64) {
+    self.fbb_.push_slot::<u64>(Union::VT_MAN, man, 0);
+  }
+  #[inline]
+  pub fn add_since(&mut self, since: i64) {
+    self.fbb_.push_slot::<i64>(Union::VT_SINCE, since, 0);
+  }
+  #[inline]
+  pub fn add_ended(&mut self, ended: bool) {
+    self.fbb_.push_slot::<bool>(Union::VT_ENDED, ended, false);
+  }
+  #[inline]
+  pub fn add_ended_at(&mut self, ended_at: i64) {
+    self.fbb_.push_slot::<i64>(Union::VT_ENDED_AT, ended_at, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> UnionBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    UnionBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Union<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Union<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Union");
+      ds.field("woman", &self.woman());
+      ds.field("man", &self.man());
+      ds.field("since", &self.since());
+      ds.field("ended", &self.ended());
+      ds.field("ended_at", &self.ended_at());
+      ds.finish()
+  }
+}
 pub enum HistoryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -6326,6 +6748,7 @@ impl<'a> ::flatbuffers::Follow<'a> for History<'a> {
 impl<'a> History<'a> {
   pub const VT_RECORDS: ::flatbuffers::VOffsetT = 4;
   pub const VT_CHRONICLE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_UNIONS: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6337,6 +6760,7 @@ impl<'a> History<'a> {
     args: &'args HistoryArgs<'args>
   ) -> ::flatbuffers::WIPOffset<History<'bldr>> {
     let mut builder = HistoryBuilder::new(_fbb);
+    if let Some(x) = args.unions { builder.add_unions(x); }
     if let Some(x) = args.chronicle { builder.add_chronicle(x); }
     if let Some(x) = args.records { builder.add_records(x); }
     builder.finish()
@@ -6357,6 +6781,13 @@ impl<'a> History<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ChronicleEntry>>>>(History::VT_CHRONICLE, None)}
   }
+  #[inline]
+  pub fn unions(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Union<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Union>>>>(History::VT_UNIONS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for History<'_> {
@@ -6367,6 +6798,7 @@ impl ::flatbuffers::Verifiable for History<'_> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PersonRecord>>>>("records", Self::VT_RECORDS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ChronicleEntry>>>>("chronicle", Self::VT_CHRONICLE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Union>>>>("unions", Self::VT_UNIONS, false)?
      .finish();
     Ok(())
   }
@@ -6374,6 +6806,7 @@ impl ::flatbuffers::Verifiable for History<'_> {
 pub struct HistoryArgs<'a> {
     pub records: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PersonRecord<'a>>>>>,
     pub chronicle: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ChronicleEntry<'a>>>>>,
+    pub unions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Union<'a>>>>>,
 }
 impl<'a> Default for HistoryArgs<'a> {
   #[inline]
@@ -6381,6 +6814,7 @@ impl<'a> Default for HistoryArgs<'a> {
     HistoryArgs {
       records: None,
       chronicle: None,
+      unions: None,
     }
   }
 }
@@ -6397,6 +6831,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HistoryBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_chronicle(&mut self, chronicle: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<ChronicleEntry<'b >>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(History::VT_CHRONICLE, chronicle);
+  }
+  #[inline]
+  pub fn add_unions(&mut self, unions: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Union<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(History::VT_UNIONS, unions);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HistoryBuilder<'a, 'b, A> {
@@ -6418,6 +6856,7 @@ impl ::core::fmt::Debug for History<'_> {
     let mut ds = f.debug_struct("History");
       ds.field("records", &self.records());
       ds.field("chronicle", &self.chronicle());
+      ds.field("unions", &self.unions());
       ds.finish()
   }
 }

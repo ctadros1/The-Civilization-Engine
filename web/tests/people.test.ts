@@ -237,6 +237,29 @@ describe("people payloads", () => {
     const nobody = M.decodeResponse(e.asUint8Array());
     if (nobody.kind !== "person") throw new Error(nobody.kind);
     expect([nobody.person.carryGood, nobody.person.stores]).toEqual([-1, []]);
+    expect([nobody.person.partner, nobody.person.family]).toEqual([0, []]);
+  });
+
+  it("decode a person's partner and the kernel's sentences about their family", () => {
+    const b = new flatbuffers.Builder(256);
+    const lines = [
+      b.createString("Partner of Bram for 12 years."),
+      b.createString("Expecting a child, due in about 3 months."),
+    ];
+    const family = W.PersonInfo.createFamilyVector(b, lines);
+    W.PersonInfo.startPersonInfo(b);
+    W.PersonInfo.addId(b, 21n);
+    W.PersonInfo.addPartner(b, 22n);
+    W.PersonInfo.addFamily(b, family);
+    const body = W.PersonInfo.endPersonInfo(b);
+    b.finish(W.Response.createResponse(b, W.ResponseBody.PersonInfo, body));
+    const r = M.decodeResponse(b.asUint8Array());
+    if (r.kind !== "person") throw new Error(r.kind);
+    expect(r.person.partner).toBe(22);
+    expect(r.person.family).toEqual([
+      "Partner of Bram for 12 years.",
+      "Expecting a child, due in about 3 months.",
+    ]);
 
     const w = new flatbuffers.Builder(256);
     const id = w.createString("core:good/meat");

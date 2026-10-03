@@ -46,8 +46,13 @@ alive():boolean {
   return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
 }
 
+left():boolean {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+}
+
 static startKinLink(builder:flatbuffers.Builder) {
-  builder.startObject(4);
+  builder.startObject(5);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -66,17 +71,22 @@ static addAlive(builder:flatbuffers.Builder, alive:boolean) {
   builder.addFieldInt8(3, +alive, +false);
 }
 
+static addLeft(builder:flatbuffers.Builder, left:boolean) {
+  builder.addFieldInt8(4, +left, +false);
+}
+
 static endKinLink(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createKinLink(builder:flatbuffers.Builder, id:bigint, nameOffset:flatbuffers.Offset, relationOffset:flatbuffers.Offset, alive:boolean):flatbuffers.Offset {
+static createKinLink(builder:flatbuffers.Builder, id:bigint, nameOffset:flatbuffers.Offset, relationOffset:flatbuffers.Offset, alive:boolean, left:boolean):flatbuffers.Offset {
   KinLink.startKinLink(builder);
   KinLink.addId(builder, id);
   KinLink.addName(builder, nameOffset);
   KinLink.addRelation(builder, relationOffset);
   KinLink.addAlive(builder, alive);
+  KinLink.addLeft(builder, left);
   return KinLink.endKinLink(builder);
 }
 }

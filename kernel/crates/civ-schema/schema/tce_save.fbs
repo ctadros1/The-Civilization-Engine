@@ -201,6 +201,9 @@ table Trip {
 
 enum Sex : ubyte { Female = 0, Male = 1 }
 
+// Schema 6: where a woman is in the reproductive cycle.
+enum Repro : ubyte { Open = 0, Pregnant = 1, Recovering = 2 }
+
 table Person {
   id: ulong (id: 0);
   given: string (id: 1);
@@ -230,7 +233,20 @@ table Person {
   // Schema 3: the good carried, as an index into People.goods, or -1; and how much, kilograms.
   carry_good: int = -1 (id: 22);
   carry_kg: float (id: 23);
+  // Schema 6: their partner (0 = none); a woman's place in the reproductive cycle (pregnant
+  // since `conceived` by `pregnancy_father` (0 = unknown), ending at `repro_until` in a loss if
+  // `loss`; or recovering until `repro_until`); her lasting fecundability; the child she nurses
+  // (0 = none).
+  partner: ulong (id: 24);
+  repro: Repro (id: 25);
+  conceived: long (id: 26);
+  repro_until: long (id: 27);
+  pregnancy_father: ulong (id: 28);
+  loss: bool (id: 29);
+  fecundity: float = 1.0 (id: 30);
+  nursing: ulong (id: 31);
 }
+
 
 table People {
   // Activity content ids at save time; Activity.def indexes this list.
@@ -302,6 +318,9 @@ table PersonRecord {
   mother: ulong (id: 7);
   father: ulong (id: 8);
   origin: Origin (id: 9);
+  // Schema 6: they left the world alive (their household gave up and left the valley).
+  left: bool (id: 10);
+  left_at: long (id: 11);
 }
 
 table ChronicleEntry {
@@ -317,9 +336,20 @@ table ChronicleEntry {
   name: string (id: 8);
 }
 
+// Schema 6: a couple, kept forever.
+table Union {
+  woman: ulong (id: 0);
+  man: ulong (id: 1);
+  since: long (id: 2);
+  ended: bool (id: 3);
+  ended_at: long (id: 4);
+}
+
 table History {
   records: [PersonRecord] (id: 0);
   chronicle: [ChronicleEntry] (id: 1);
+  // Schema 6: every couple there has been, oldest first.
+  unions: [Union] (id: 2);
 }
 
 // Section "receipts": why people chose what they did, a bounded ring per person.

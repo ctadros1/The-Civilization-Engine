@@ -40,6 +40,28 @@ struct Fixture {
     /// Its plots and buildings.
     first_plots: Vec<civ_land::Plot>,
     first_buildings: Vec<civ_land::Building>,
+    /// Who was partnered with whom, where each woman was in her cycle, and the unions.
+    first_families: Vec<Family>,
+    first_unions: Vec<civ_agents::Union>,
+}
+
+type Family = (
+    civ_core::PermanentId,
+    Option<civ_core::PermanentId>,
+    civ_agents::Repro,
+    f32,
+    Option<civ_core::PermanentId>,
+);
+
+fn families(sim: &Sim) -> Vec<Family> {
+    let mut out: Vec<Family> = sim
+        .people()
+        .people
+        .iter()
+        .map(|(_, p)| (p.id, p.partner, p.repro, p.fecundity, p.nursing))
+        .collect();
+    out.sort_by_key(|f| f.0);
+    out
 }
 
 /// One world, generated once, run for a while and saved.
@@ -82,6 +104,8 @@ fn fixture() -> &'static Fixture {
             first_fields: sim.land().fields.clone(),
             first_plots: sim.land().plots.clone(),
             first_buildings: sim.land().buildings.clone(),
+            first_families: families(&sim),
+            first_unions: sim.people().unions.clone(),
         }
     })
 }
@@ -374,7 +398,54 @@ fn plots_and_buildings_load_as_they_were_saved() {
 }
 
 #[test]
-fn a_version_5_save_without_its_builds_section_is_refused() {
+fn couples_and_pregnancies_survive_a_save_and_load() {
+    let fx = fixture();
+    assert!(!fx.first_unions.is_empty(), "the saved world has couples");
+    assert!(
+        fx.first_families
+            .iter()
+            .any(|f| !matches!(f.2, civ_agents::Repro::Open)),
+        "and women expecting or nursing"
+    );
+    let loaded = load_first();
+    assert_eq!(families(&loaded), fx.first_families);
+    assert_eq!(loaded.people().unions, fx.first_unions);
+}
+
+#[test]
+fn slice_d_saves_load_with_their_couples_and_no_one_expecting() {
+    // A schema-5 save has no couples or pregnancies: they are inferred from the households.
+    let sim = load_first();
+    let sections = persist::encode_sections(&sim);
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V5;
+    let path = republish("slice-d", &info, &sections);
+    let mut migrated = persist::load(&path, content()).expect("a schema-5 save loads");
+    assert!(migrated.is_dirty(), "the migration is new state");
+    for (_, p) in migrated.people().people.iter() {
+        assert_eq!(p.repro, civ_agents::Repro::Open);
+        assert_eq!(p.nursing, None);
+    }
+    let couples = migrated
+        .people()
+        .people
+        .iter()
+        .filter(|(_, p)| p.partner.is_some())
+        .count();
+    assert!(
+        couples
+            >= 2 * fixture()
+                .first_unions
+                .len()
+                .min(migrated.people().households.len())
+    );
+    migrated
+        .advance_minutes(24 * 60)
+        .expect("a migrated world runs");
+}
+
+#[test]
+fn a_save_without_its_builds_section_is_refused() {
     let sim = load_first();
     let sections: Vec<SectionData> = persist::encode_sections(&sim)
         .into_iter()

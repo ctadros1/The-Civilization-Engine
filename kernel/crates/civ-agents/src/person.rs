@@ -158,6 +158,31 @@ pub struct Traits {
     pub risk: f32,
 }
 
+/// Where a woman is in the reproductive cycle (research 05-01 §1.4: a state machine; 04-08
+/// §1.5: a union does not switch fertility on by itself).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Repro {
+    /// Can conceive, if of age and living with her partner.
+    Open,
+    /// Pregnant since `conceived` by `father`. On `due` the pregnancy ends: in a birth, or in a
+    /// loss if `loss` (drawn at conception with the rest of its course).
+    Pregnant {
+        /// When she conceived.
+        conceived: SimTime,
+        /// When it ends.
+        due: SimTime,
+        /// The father, if known.
+        father: Option<PermanentId>,
+        /// It ends in a loss.
+        loss: bool,
+    },
+    /// Cannot conceive until `until` (after a birth or a loss).
+    Recovering {
+        /// When she can again.
+        until: SimTime,
+    },
+}
+
 /// A living person.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Person {
@@ -205,6 +230,15 @@ pub struct Person {
     pub draws: u64,
     /// Recent decision receipts, oldest first.
     pub receipts: VecDeque<Receipt>,
+    /// Their partner, while both live.
+    pub partner: Option<PermanentId>,
+    /// Where a woman is in the reproductive cycle (always `Open` for a man).
+    pub repro: Repro,
+    /// A woman's lasting fecundability factor (research 05-01 §4.5: fertility is heterogeneous);
+    /// 1 for a man.
+    pub fecundity: f32,
+    /// The child a mother is nursing, until she can conceive again.
+    pub nursing: Option<PermanentId>,
 }
 
 impl Person {

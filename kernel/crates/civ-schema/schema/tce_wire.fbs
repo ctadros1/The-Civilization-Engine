@@ -461,9 +461,11 @@ table Decision {
 table KinLink {
   id: ulong (id: 0);
   name: string (id: 1);
-  // "mother", "father", "child", "brother", "sister", "partner".
+  // "mother", "father", "son", "daughter", "brother", "sister", "partner", "former partner".
   relation: string (id: 2);
   alive: bool (id: 3);
+  // M1 slice E: they left the valley alive (`alive` is false).
+  left: bool (id: 4);
 }
 
 // A good in a household's store.
@@ -512,6 +514,13 @@ table PersonInfo {
   carry_kg: float (id: 29);
   stores: [StoreLine] (id: 30);
   household_fuel_days: float (id: 31);
+  // M1 slice E: their partner (0 = none), and their family life in sentences rendered by the
+  // kernel ("Expecting a child, due in about 3 months.", "Nursing Wren.").
+  partner: ulong (id: 32);
+  family: [string] (id: 33);
+  // When they left the valley alive (0 = they did not; `alive` is then false and `died_minute`
+  // 0).
+  left_minute: long (id: 34);
 }
 
 // A field people work (M1 slice C).

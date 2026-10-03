@@ -224,8 +224,30 @@ householdFuelDays():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
+partner():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 68);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
+family(index: number):string
+family(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+family(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 70);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+familyLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 70);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+leftMinute():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 72);
+  return offset ? this.bb!.readInt64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(32);
+  builder.startObject(35);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -399,6 +421,30 @@ static startStoresVector(builder:flatbuffers.Builder, numElems:number) {
 
 static addHouseholdFuelDays(builder:flatbuffers.Builder, householdFuelDays:number) {
   builder.addFieldFloat32(31, householdFuelDays, 0.0);
+}
+
+static addPartner(builder:flatbuffers.Builder, partner:bigint) {
+  builder.addFieldInt64(32, partner, BigInt('0'));
+}
+
+static addFamily(builder:flatbuffers.Builder, familyOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(33, familyOffset, 0);
+}
+
+static createFamilyVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startFamilyVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addLeftMinute(builder:flatbuffers.Builder, leftMinute:bigint) {
+  builder.addFieldInt64(34, leftMinute, BigInt('0'));
 }
 
 static endPersonInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

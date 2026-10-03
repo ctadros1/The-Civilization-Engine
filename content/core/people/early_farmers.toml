@@ -34,10 +34,12 @@ satiety_hours = 5.0              # research 04-01 §3.2: satiety time constant 2
 hunger_ramp_hours = 3.0
 deficit_unit_kcal = 3000.0
 max_surplus_kcal = 2000.0
-# What the body can draw on in a shortage: fat and some lean tissue (a tuning value; the
-# research gives famine thresholds as BMI, not as a store of energy). With it, a deficit grows
-# hunger but has a floor.
-reserve_kcal_per_kg = 1000.0
+# What the body can draw on in a shortage before it fails: fat and lean tissue down to about a
+# third of body mass lost, at roughly 6,000 kcal a kilogram of mixed tissue (a tuning value: the
+# research gives famine thresholds as BMI, not as a store of energy, and warns against counting
+# every kilogram lost alike, 05-02 §5.3). With it, a deficit grows hunger but has a floor, and
+# the share of it drawn is what hunger's hazards follow.
+reserve_kcal_per_kg = 2000.0
 # Seed is eaten only once a person has drawn this share of that reserve (a tuning value; research
 # 08-02 §2.3: households can eat seed in a crisis, at the cost of the next sowing), and never the
 # seed to sow again the ground a household already crops (§10: protect a minimum viable reserve).
@@ -76,6 +78,13 @@ fuel_target_days = 3.0
 short_food_days = 2.0
 recovered_food_days = 5.0
 daily_kcal_per_person = 2100.0   # band average (research 05-02 §2.2)
+# A household out of food whose members have drawn on average this share of their bodies' reserve,
+# with no crop of its own ripening within a month, may give up and leave the valley, with this
+# chance a day (research 05-06 §1.4: famine migration follows expected access to food; §5.2: a
+# founding can fail, and its households withdraw). Tuning values.
+leave_at_depletion = 0.3
+leave_per_day = 0.1
+leave_unless_ripe_within_days = 30.0
 
 [decision]                       # utility points; softmax over each activity's best target (research 01-09 §4.3)
 temperature_sd_fraction = 0.35
@@ -108,10 +117,12 @@ min_families = 6
 camp_candidates = 48
 site_radius_m = 2000.0
 # Food carried in: until dependable production plus one to three months (research 10-01 §2.3;
-# 05-06 §5.4 tests 6-12 months for crop-dependent founding). Arriving in March, a band can break
-# only so much ground in its first spring, so its first harvest feeds it for about half a year;
-# production it can depend on comes with the second. A year of food covers the gap.
-provisions_days = 365.0
+# 05-06 §5.4: budget to the next reliable food supply, testing 6-12 months for crop-dependent
+# founding). Arriving in March, a band can break only so much ground in its first spring, and with
+# hand tools it crops all it needs only by its third harvest; a poor second harvest then empties
+# its stores. Eighteen months of food carries it to the third (a tuning value). It also stands for
+# the herds real colonists drove in, which M1 does not have.
+provisions_days = 545.0
 provisions_good = "core:good/provisions"
 # Seed carried in: about a quarter hectare's worth a person at 90 kg/ha, roughly what a band can
 # break and sow in its first spring (a tuning value).
@@ -148,3 +159,80 @@ b = 0.895
 c = 0.011
 d = 6.70e-6
 e = 0.125
+# Hunger makes illness deadlier; it modifies this hazard and is not a second copy of it (research
+# 05-02 §1.6). A person who has drawn half their body's reserve is 2.63 times as likely to die
+# (05-02 §2.7: moderately underweight children), rising as 2.63^(4d²) with the share d drawn, to
+# at most 11.6 times (severe wasting).
+hunger_ratio_at_half = 2.63
+hunger_ratio_max = 11.6
+# A body at the end of its reserve fails: this hazard a day there, rising as the twentieth power of
+# the share drawn, so it matters only near the end (a tuning value; 05-02 §2.7 gives no "dies after
+# N days" rule).
+exhaustion_per_day = 0.05
+exhaustion_power = 20.0
+# Mothers' deaths in childbirth per live birth: 750 per 100,000 (05-01 §2.2: England 1750-1800;
+# 1,050 to 500 across 1700-1850).
+maternal_death_per_birth = 0.0075
+
+[fertility]                      # a reproductive state machine (research 05-01 §1.4-1.5, 04-08 §1.5)
+# Chance a fecund woman living with her partner conceives in a month at her most fecund ages
+# (04-08 §2.3: start at 0.20, explore 0.10-0.30). With the spacing below, 0.10 brings a band's
+# fertility, birth intervals and first births into the research envelope (05-01 §2.2: TFR mean
+# 5.98, intervals 24-48 months, Agta first birth 20.1); a tuning value.
+conception_per_month = 0.10
+# Fecundability from each age until the next, relative to the peak: the shape of 05-01 §2.3's
+# high-fertility schedule (a tuning value).
+age_factor = [[15.0, 0.30], [20.0, 1.0], [30.0, 0.85], [35.0, 0.6], [40.0, 0.25], [45.0, 0.02], [50.0, 0.0]]
+# Women differ lastingly (05-01 §4.5): a lognormal factor with mean 1 and this spread of its log.
+fecundity_sd = 0.5
+# Hunger lowers fecundability smoothly, without a threshold (05-02 §4.3): it halves for each third
+# of the body's reserve drawn (a tuning value).
+hunger_halving = 0.33
+# A pregnancy at term: 266 days from conception, give or take 10.
+pregnancy_days = 266.0
+pregnancy_sd_days = 10.0
+# Chance a pregnancy is lost, by the mother's age at conception (05-01 §2.2, Norwegian registers:
+# 9.8 % at 25-29, 53.6 % at 45 and over; the ages between are interpolated, a tuning value).
+loss_by_age = [[0.0, 0.09], [25.0, 0.098], [30.0, 0.12], [35.0, 0.18], [40.0, 0.33], [45.0, 0.536]]
+# A loss comes 6 to 20 weeks after conception (a tuning value).
+loss_days = [42.0, 140.0]
+# After a birth a mother cannot conceive for about 20 months, give or take 7, at least 6 (05-01
+# §1.5: Amele mothers conceived about 19 months after a birth; !Kung spacing about 44 months).
+recovery_months = 20.0
+recovery_sd_months = 7.0
+recovery_min_months = 6.0
+loss_recovery_months = 1.0
+# A nursing child's death ends its mother's recovery within two months (05-01 §1.5).
+weaned_recovery_months = 2.0
+boys_per_100_girls = 105.0       # 05-01 §2.2
+# What a pregnancy costs its mother by trimester, kcal a day (05-02 §2.4). A nursing child's food
+# is counted as its own: it eats from its household's store.
+pregnancy_kcal_day = [85.0, 285.0, 475.0]
+
+[family]                         # couples and households (research 04-08 §1.1-1.4, 06-01 §1.3-1.4)
+# Unpartnered women and men look for a partner between these ages, with this chance a month: an
+# age schedule with persistent nonmarriage, not a wedding age (04-08 §2.1). Tuned so first unions
+# come at about 16-25 for women and 18-28 for men (a tuning value).
+seek_min_age_female = 16.0
+seek_min_age_male = 18.0
+seek_max_age_female = 45.0
+seek_max_age_male = 60.0
+seek_per_month_female = 0.04
+seek_per_month_male = 0.03
+# How much older a man may be than his partner, years (negative: younger); the gap people look for,
+# and the points a candidate loses for each year away from it (tuning values).
+age_gap_years = [-2.0, 14.0]
+preferred_gap_years = 3.0
+w_gap_per_year = 0.5
+# No couple shares a parent or grandparent, or has one partner descend from the other within two
+# generations: parents, siblings, half-siblings, first cousins, aunts and uncles. This is this
+# people's rule, not a universal one (06-01 §1.4).
+kin_exclusion_generations = 2
+# A new couple sets up a household of its own (06-01 §1.3: residence is its own rule;
+# "new_household", "his_household" or "her_household"). Someone who keeps a household with no
+# other adult is joined there whatever the rule.
+residence = "new_household"
+# From this age someone can keep a household; younger children left alone go to their kin.
+independent_age = 15.0
+# A child's personality regresses on the mean of its parents' by this share (research 04-03 §1.2).
+trait_heritability = 0.4

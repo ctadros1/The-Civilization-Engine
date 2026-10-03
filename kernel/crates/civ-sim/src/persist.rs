@@ -18,7 +18,8 @@
 //!
 //! **Schema versions.** Version 2 (M1) added the land and people sections; version 3 replaced
 //! food counted in kilocalories with goods; version 4 added fields; version 5 added plots and
-//! buildings. A version-1 save (M0) is migrated as it loads: its
+//! buildings; version 6 added couples, pregnancies and unions. A version-1 save (M0) is migrated
+//! as it loads: its
 //! land is classified and grown from the loaded content, exactly as for a new world, and it has no
 //! people yet, which is a valid world (ADR-0003 §4). A version-2 save is migrated as
 //! [`agents`] describes. A migrated world is written at the current version the next time it is
@@ -59,6 +60,9 @@ pub const SCHEMA_V3: u32 = 3;
 /// The schema version of M1 slice C saves, which have fields but no plots or buildings (see
 /// [`agents`]).
 pub const SCHEMA_V4: u32 = 4;
+/// The schema version of M1 slice D saves, which have buildings but no couples or pregnancies
+/// (see [`agents`]).
+pub const SCHEMA_V5: u32 = 5;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");
@@ -361,6 +365,7 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
             next_permanent_id,
             info.schema_version,
             now,
+            world_meta.seed,
         )?;
         (d.land, d.people, d.events, d.redecide)
     };

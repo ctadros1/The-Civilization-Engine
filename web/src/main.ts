@@ -291,6 +291,8 @@ const hooks = {
     };
   },
   peopleOnScreen: () => map.peopleOnScreen(),
+  briefs: () =>
+    store.state.snapshot?.people.map((p) => ({ id: p.id, sex: p.sex, ageYears: p.ageYears })) ?? [],
   select: (id: number | null) => select(id),
   map: () => map.debugState(),
   pointerAt: (x: number, y: number) => map.pointerInfo(x, y),

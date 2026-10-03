@@ -9,7 +9,7 @@ use std::collections::HashSet;
 use civ_agents::history::{self, Span};
 use civ_agents::params::GoodUse;
 use civ_agents::person::{food_kcal, fuel_kg};
-use civ_agents::{Cause, Origin, Person, Receipt, Scored, Sex, Step, Target, population};
+use civ_agents::{Cause, Origin, Person, Receipt, Repro, Scored, Sex, Step, Target, population};
 use civ_core::PermanentId;
 use civ_schema::flatbuffers::{FlatBufferBuilder, ForwardsUOffset, Vector, WIPOffset};
 use civ_schema::wire;
@@ -460,7 +460,22 @@ fn kin(sim: &Sim, id: PermanentId) -> Vec<(PermanentId, &'static str)> {
     if let Some(f) = me.father {
         out.push((f, "father"));
     }
-    let mut partners = Vec::new();
+    // Partners from the unions they were in; for a world older than unions, the other parent of
+    // their children.
+    let mut partners: Vec<PermanentId> = sim
+        .people
+        .unions
+        .iter()
+        .filter_map(|u| {
+            if u.woman == id {
+                Some(u.man)
+            } else if u.man == id {
+                Some(u.woman)
+            } else {
+                None
+            }
+        })
+        .collect();
     for r in records.values() {
         if r.id == id {
             continue;
@@ -503,6 +518,86 @@ fn kin(sim: &Sim, id: PermanentId) -> Vec<(PermanentId, &'static str)> {
     out
 }
 
+/// "21 years", "8 months", "a few days".
+fn how_long(minutes: i64) -> String {
+    let days = minutes.max(0) as f64 / 1440.0;
+    let years = days / 365.0;
+    if years >= 2.0 {
+        format!("{} years", years.floor() as i64)
+    } else if years >= 1.0 {
+        "a year".to_owned()
+    } else if days >= 61.0 {
+        format!("{} months", (days / 30.4).floor() as i64)
+    } else if days >= 14.0 {
+        format!("{} weeks", (days / 7.0).floor() as i64)
+    } else {
+        "a few days".to_owned()
+    }
+}
+
+/// "in about 3 months", "in about 5 days".
+fn in_about(minutes: i64) -> String {
+    let days = minutes.max(0) as f64 / 1440.0;
+    if days < 1.5 {
+        "any day now".to_owned()
+    } else if days < 14.0 {
+        format!("in about {} days", days.round() as i64)
+    } else if days < 60.0 {
+        format!("in about {} weeks", (days / 7.0).round() as i64)
+    } else {
+        format!("in about {} months", (days / 30.4).round() as i64)
+    }
+}
+
+/// A living person's family life in sentences, as the inspector shows it: their partner and since
+/// when, or their widowhood; a pregnancy once it shows (the kernel knows more, such as whether it
+/// will be lost, and does not say); the child they nurse.
+pub fn family_notes(sim: &Sim, p: &Person) -> Vec<String> {
+    let (now, pop) = (sim.now(), &sim.people);
+    let mine = |u: &&civ_agents::Union| u.woman == p.id || u.man == p.id;
+    let other = |u: &civ_agents::Union| if u.woman == p.id { u.man } else { u.woman };
+    let mut out = Vec::new();
+    if let Some(q) = p.partner {
+        match pop
+            .unions
+            .iter()
+            .rev()
+            .filter(mine)
+            .find(|u| u.ended.is_none())
+        {
+            Some(u) => out.push(format!(
+                "Partner of {} for {}.",
+                pop.name_of(q),
+                how_long(now.minutes() - u.since.minutes())
+            )),
+            None => out.push(format!("Partner of {}.", pop.name_of(q))),
+        }
+    } else if let Some(u) = pop.unions.iter().rev().find(mine)
+        && let Some(ended) = u.ended
+    {
+        out.push(format!(
+            "Widowed when {} died in year {}.",
+            pop.name_of(other(u)),
+            ended.date().year
+        ));
+    }
+    if let Repro::Pregnant { conceived, .. } = p.repro {
+        let weeks = (now.minutes() - conceived.minutes()) / (7 * 1440);
+        if weeks >= 8 {
+            let days = sim.rules.people.fertility.pregnancy_days;
+            let due = conceived.plus_minutes((days * 1440.0) as i64);
+            out.push(format!(
+                "Expecting a child, due {}.",
+                in_about(due.minutes() - now.minutes())
+            ));
+        }
+    }
+    if let Some(child) = p.nursing.and_then(|c| pop.person(c)) {
+        out.push(format!("Nursing {}.", child.given));
+    }
+    out
+}
+
 /// A `Response` describing one person, living or dead, with up to `decisions` receipts.
 pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, QueryError> {
     let pid =
@@ -533,7 +628,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         Origin::Born => "born here",
         Origin::Spawned => "brought by the observer",
     });
-    let age_at = record.died.map_or(now, |(at, _)| at);
+    let age_at = record.died.map(|(at, _)| at).or(record.left).unwrap_or(now);
     let age =
         (age_at.minutes() - record.born.minutes()) as f64 / civ_core::time::MINUTES_PER_YEAR as f64;
     let kin: Vec<_> = kin(sim, pid)
@@ -548,6 +643,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
                     name: Some(name),
                     relation: Some(relation),
                     alive: pop.person(k).is_some(),
+                    left: pop.records.get(&k).is_some_and(|r| r.left.is_some()),
                 },
             )
         })
@@ -565,6 +661,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         cause: Some(cause),
         origin: Some(origin),
         kin: Some(kin),
+        left_minute: record.left.map_or(0, |t| t.minutes()),
         ..Default::default()
     };
     let pos;
@@ -647,10 +744,17 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.household_food_days = food_days as f32;
         args.household_water_days = water_days as f32;
         args.household_fuel_days = fuel_days as f32;
+        let notes: Vec<_> = family_notes(sim, p)
+            .iter()
+            .map(|n| fbb.create_string(n))
+            .collect();
+        let notes = fbb.create_vector(&notes);
         args.stores = Some(lines);
         args.decisions = Some(receipts);
         args.traits = Some(traits);
         args.pos = Some(&pos);
+        args.partner = p.partner.map_or(0, PermanentId::get);
+        args.family = Some(notes);
     }
     let body = wire::PersonInfo::create(&mut fbb, &args);
     Ok(response(fbb, wire::ResponseBody::PersonInfo, body))
@@ -659,6 +763,18 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn spans_of_time_read_plainly() {
+        let day = 1440;
+        assert_eq!(how_long(21 * 365 * day + 100), "21 years");
+        assert_eq!(how_long(400 * day), "a year");
+        assert_eq!(how_long(100 * day), "3 months");
+        assert_eq!(how_long(20 * day), "2 weeks");
+        assert_eq!(how_long(3 * day), "a few days");
+        assert_eq!(in_about(day), "any day now");
+        assert_eq!(in_about(90 * day), "in about 3 months");
+    }
 
     #[test]
     fn bearings_read_like_a_compass() {

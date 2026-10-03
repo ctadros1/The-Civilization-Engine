@@ -669,7 +669,9 @@ export function bindUi(store: Store, actions: Actions): void {
         text: `${p.sex === "female" ? "Female" : "Male"} · ${formatPersonAge(p.ageYears)} · ${p.origin}`,
       }),
     ];
-    if (!p.alive) {
+    if (!p.alive && p.leftMinute > 0) {
+      nodes.push(el("p", { text: `Left the valley ${formatSimMinute(p.leftMinute)}.` }));
+    } else if (!p.alive) {
       nodes.push(
         el("p", { text: `Died ${formatSimMinute(p.diedMinute)}${p.cause ? ` of ${p.cause}` : ""}.` }),
       );
@@ -747,12 +749,13 @@ export function bindUi(store: Store, actions: Actions): void {
         nodes.push(el("p", { className: "empty", text: "No decisions recorded yet." }));
       }
     }
-    if (p.kin.length > 0) {
+    if (p.kin.length > 0 || p.family.length > 0) {
       nodes.push(
         el(
           "div",
           { className: "kin" },
           el("h4", { text: "Family" }),
+          ...p.family.map((line) => el("p", { className: "family-note", text: line })),
           el(
             "ul",
             {},
@@ -761,7 +764,7 @@ export function bindUi(store: Store, actions: Actions): void {
                 "li",
                 {},
                 link(k.name, () => actions.focusPerson(k.id)),
-                ` ${k.relation}${k.alive ? "" : " (dead)"}`,
+                ` ${k.relation}${k.alive ? "" : k.left ? " (left)" : " (dead)"}`,
               ),
             ),
           ),

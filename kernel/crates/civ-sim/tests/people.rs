@@ -6,8 +6,9 @@ use std::path::Path;
 use std::sync::OnceLock;
 use std::sync::atomic::AtomicBool;
 
-use civ_agents::{Behavior, ChronicleKind, population};
+use civ_agents::{Behavior, ChronicleKind, Origin, Repro, Sex, population};
 use civ_content::ContentRegistry;
+use civ_core::PermanentId;
 use civ_sim::persist;
 use civ_sim::{NewWorld, Sim};
 
@@ -78,6 +79,53 @@ fn a_new_world_begins_with_a_founding_band() {
         .people()
         .problems(sim.ids().peek_next(), sim.rules().catalog.activities.len());
     assert!(problems.is_empty(), "{problems:?}");
+}
+
+#[test]
+fn the_band_arrives_as_couples_some_expecting_and_some_nursing() {
+    // Research 05-01 §5.4: a mixture of unions and reproductive states, never a crowd of newly
+    // paired adults who all conceive at once.
+    let (mut pregnant, mut nursing, mut open) = (0, 0, 0);
+    for seed in [3, 5, 8] {
+        let sim = new_world(seed, 0);
+        let pop = sim.people();
+        assert_eq!(
+            pop.unions.len(),
+            pop.households.len(),
+            "a couple heads each family"
+        );
+        for (_, h) in pop.households.iter() {
+            let partnered: Vec<_> = h
+                .members
+                .iter()
+                .filter_map(|m| pop.person(*m))
+                .filter(|p| p.partner.is_some())
+                .collect();
+            assert_eq!(partnered.len(), 2, "household {}", h.id);
+            assert_ne!(partnered[0].sex, partnered[1].sex);
+            assert_eq!(partnered[0].partner, Some(partnered[1].id));
+        }
+        for (_, p) in pop.people.iter() {
+            match p.repro {
+                Repro::Pregnant { conceived, due, .. } => {
+                    assert!(conceived <= sim.now() && due > sim.now());
+                    assert_eq!(p.sex, Sex::Female);
+                    pregnant += 1;
+                }
+                Repro::Recovering { until } => {
+                    assert!(until > sim.now() && p.nursing.is_some());
+                    nursing += 1;
+                }
+                Repro::Open => open += 1,
+            }
+            if p.sex == Sex::Female {
+                assert!(p.fecundity > 0.0);
+            }
+        }
+        let problems = pop.problems(sim.ids().peek_next(), sim.rules().catalog.activities.len());
+        assert!(problems.is_empty(), "{problems:?}");
+    }
+    assert!(pregnant > 0 && nursing > 0 && open > pregnant + nursing);
 }
 
 #[test]
@@ -360,23 +408,31 @@ fn a_band_sows_reaps_and_threshes_its_first_harvest() {
 }
 
 /// One world run from 1 March to 11 November, ten days past the day households want to be under
-/// a roof by.
-fn until_winter() -> &'static Sim {
-    static WINTER: OnceLock<Sim> = OnceLock::new();
+/// a roof by, and the households it began with.
+fn until_winter() -> &'static (Sim, Vec<PermanentId>) {
+    static WINTER: OnceLock<(Sim, Vec<PermanentId>)> = OnceLock::new();
     WINTER.get_or_init(|| {
         let mut sim = new_world(3, 0);
+        let founding = sim.people().households.iter().map(|(_, h)| h.id).collect();
         sim.advance_minutes(255 * 24 * 60).expect("advances");
-        sim
+        (sim, founding)
     })
 }
 
 #[test]
 fn households_raise_their_huts_and_are_under_a_roof_before_winter() {
-    let sim = until_winter();
+    let (sim, founding) = until_winter();
     let rules = sim.rules().clone();
     let land = sim.land();
     let hut = &rules.catalog.buildings[rules.people.home_program];
-    for (_, h) in sim.people().households.iter() {
+    // The households the band arrived in (couples who set up their own households later in the
+    // year may still be building).
+    for (_, h) in sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, h)| founding.contains(&h.id))
+    {
         // One plot and one hut each, claimed for its home.
         let plots: Vec<_> = land.plots.iter().filter(|p| p.household == h.id).collect();
         let huts: Vec<_> = land
@@ -388,10 +444,16 @@ fn households_raise_their_huts_and_are_under_a_roof_before_winter() {
         let b = huts[0];
         assert_eq!(b.plot, plots[0].id);
         assert_eq!(plots[0].rect, civ_agents::build::plot_rect(&b.spec, hut));
-        // They live in it, it sleeps them all, and its roof is on by winter.
+        // They live in it, it sleeps all who lived there when it was designed (children born
+        // since crowd in), and its roof is on by winter.
         assert_eq!(h.home, civ_agents::build::centre_m(&b.spec));
         let e = civ_grammar::expand_hut(&b.spec, &hut.rules).expect("a valid design");
-        assert!(e.sleeping_places as usize >= h.members.len());
+        let born = h
+            .members
+            .iter()
+            .filter(|m| sim.people().records[m].origin == civ_agents::Origin::Born)
+            .count();
+        assert!(e.sleeping_places as usize + born >= h.members.len());
         assert!(b.roofed(), "household {}'s hut: stage {}", h.id, b.stage);
         assert!(h.sheltered, "a roofed household keeps its stores under it");
     }
@@ -424,6 +486,92 @@ fn households_raise_their_huts_and_are_under_a_roof_before_winter() {
     assert_eq!(roofs, 1);
     let problems = land.problems(sim.map(), rules.land.habitats.len(), sim.ids().peek_next());
     assert!(problems.is_empty(), "{problems:?}");
+}
+
+#[test]
+fn children_are_born_to_couples_and_the_chronicle_notes_every_birth_and_death() {
+    let (sim, _) = until_winter();
+    let pop = sim.people();
+    let year = 365.0 * 24.0 * 60.0;
+    let born: Vec<_> = pop
+        .records
+        .values()
+        .filter(|r| r.origin == Origin::Born)
+        .collect();
+    assert!(
+        !born.is_empty(),
+        "mothers expecting when the band arrived have given birth by winter"
+    );
+    for r in &born {
+        let mother = &pop.records[&r.mother.expect("a mother")];
+        assert_eq!(mother.sex, Sex::Female);
+        let age = (r.born.minutes() - mother.born.minutes()) as f64 / year;
+        assert!((15.0..50.0).contains(&age), "a mother of {age:.1}");
+        let noted = pop
+            .chronicle
+            .iter()
+            .any(|e| e.kind == ChronicleKind::Born && e.people.first() == Some(&r.id));
+        assert!(noted, "{}'s birth is in the chronicle", r.given);
+        // A child lives with its mother while she lives.
+        if let (Some(child), Some(m)) = (pop.person(r.id), pop.person(mother.id)) {
+            assert_eq!(child.household, m.household);
+        }
+    }
+    for r in pop.records.values().filter(|r| r.died.is_some()) {
+        assert!(pop.person(r.id).is_none());
+        let noted = pop
+            .chronicle
+            .iter()
+            .any(|e| e.kind == ChronicleKind::Died && e.people.first() == Some(&r.id));
+        assert!(noted, "{}'s death is in the chronicle", r.given);
+    }
+    // Every chronicle entry names people the records know.
+    for e in &pop.chronicle {
+        for p in &e.people {
+            assert!(pop.records.contains_key(p), "entry {} names {p}", e.seq);
+        }
+    }
+    let problems = pop.problems(sim.ids().peek_next(), sim.rules().catalog.activities.len());
+    assert!(problems.is_empty(), "{problems:?}");
+}
+
+#[test]
+fn households_out_of_food_and_worn_down_give_up_and_leave() {
+    // Research 05-06 §5.2: a founding can fail, and its households withdraw. A band arriving with
+    // half a day's food, quick to give up, is soon gone; nobody it leaves behind is stranded.
+    let mut hungry = content().clone();
+    hungry.people.params.band.provisions_days = 0.5;
+    hungry.people.params.household.leave_at_depletion = 0.02;
+    hungry.people.params.household.leave_per_day = 1.0;
+    let mut sim = world_with(&hungry, 3);
+    sim.advance_minutes(20 * 24 * 60).expect("advances");
+    let pop = sim.people();
+    let left: Vec<_> = pop.records.values().filter(|r| r.left.is_some()).collect();
+    assert!(!left.is_empty(), "hungry households left");
+    let noted: Vec<_> = pop
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == ChronicleKind::Left)
+        .collect();
+    assert!(!noted.is_empty());
+    for r in &left {
+        assert!(pop.person(r.id).is_none() && r.died.is_none());
+        assert!(
+            noted.iter().any(|e| e.people.contains(&r.id)),
+            "{} left in a noted household",
+            r.given
+        );
+    }
+    let problems = pop.problems(sim.ids().peek_next(), sim.rules().catalog.activities.len());
+    assert!(problems.is_empty(), "{problems:?}");
+    // The land they leave stands abandoned, and the world saves and loads with it.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "gone").expect("saves");
+    let loaded = persist::load(&saved.path, &hungry).expect("a world with abandoned land loads");
+    assert_eq!(loaded.people().records, sim.people().records);
 }
 
 #[test]

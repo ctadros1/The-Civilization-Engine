@@ -8883,6 +8883,7 @@ impl<'a> KinLink<'a> {
   pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
   pub const VT_RELATION: ::flatbuffers::VOffsetT = 8;
   pub const VT_ALIVE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_LEFT: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -8897,6 +8898,7 @@ impl<'a> KinLink<'a> {
     builder.add_id(args.id);
     if let Some(x) = args.relation { builder.add_relation(x); }
     if let Some(x) = args.name { builder.add_name(x); }
+    builder.add_left(args.left);
     builder.add_alive(args.alive);
     builder.finish()
   }
@@ -8930,6 +8932,13 @@ impl<'a> KinLink<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(KinLink::VT_ALIVE, Some(false)).unwrap()}
   }
+  #[inline]
+  pub fn left(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(KinLink::VT_LEFT, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for KinLink<'_> {
@@ -8942,6 +8951,7 @@ impl ::flatbuffers::Verifiable for KinLink<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("relation", Self::VT_RELATION, false)?
      .visit_field::<bool>("alive", Self::VT_ALIVE, false)?
+     .visit_field::<bool>("left", Self::VT_LEFT, false)?
      .finish();
     Ok(())
   }
@@ -8951,6 +8961,7 @@ pub struct KinLinkArgs<'a> {
     pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub relation: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub alive: bool,
+    pub left: bool,
 }
 impl<'a> Default for KinLinkArgs<'a> {
   #[inline]
@@ -8960,6 +8971,7 @@ impl<'a> Default for KinLinkArgs<'a> {
       name: None,
       relation: None,
       alive: false,
+      left: false,
     }
   }
 }
@@ -8986,6 +8998,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> KinLinkBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<bool>(KinLink::VT_ALIVE, alive, false);
   }
   #[inline]
+  pub fn add_left(&mut self, left: bool) {
+    self.fbb_.push_slot::<bool>(KinLink::VT_LEFT, left, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> KinLinkBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     KinLinkBuilder {
@@ -9007,6 +9023,7 @@ impl ::core::fmt::Debug for KinLink<'_> {
       ds.field("name", &self.name());
       ds.field("relation", &self.relation());
       ds.field("alive", &self.alive());
+      ds.field("left", &self.left());
       ds.finish()
   }
 }
@@ -9058,6 +9075,9 @@ impl<'a> PersonInfo<'a> {
   pub const VT_CARRY_KG: ::flatbuffers::VOffsetT = 62;
   pub const VT_STORES: ::flatbuffers::VOffsetT = 64;
   pub const VT_HOUSEHOLD_FUEL_DAYS: ::flatbuffers::VOffsetT = 66;
+  pub const VT_PARTNER: ::flatbuffers::VOffsetT = 68;
+  pub const VT_FAMILY: ::flatbuffers::VOffsetT = 70;
+  pub const VT_LEFT_MINUTE: ::flatbuffers::VOffsetT = 72;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -9069,6 +9089,8 @@ impl<'a> PersonInfo<'a> {
     args: &'args PersonInfoArgs<'args>
   ) -> ::flatbuffers::WIPOffset<PersonInfo<'bldr>> {
     let mut builder = PersonInfoBuilder::new(_fbb);
+    builder.add_left_minute(args.left_minute);
+    builder.add_partner(args.partner);
     builder.add_until_minute(args.until_minute);
     builder.add_since_minute(args.since_minute);
     builder.add_settlement(args.settlement);
@@ -9076,6 +9098,7 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.family { builder.add_family(x); }
     builder.add_household_fuel_days(args.household_fuel_days);
     if let Some(x) = args.stores { builder.add_stores(x); }
     builder.add_carry_kg(args.carry_kg);
@@ -9329,6 +9352,27 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(PersonInfo::VT_HOUSEHOLD_FUEL_DAYS, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn partner(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PersonInfo::VT_PARTNER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn family(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PersonInfo::VT_FAMILY, None)}
+  }
+  #[inline]
+  pub fn left_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(PersonInfo::VT_LEFT_MINUTE, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -9369,6 +9413,9 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<f32>("carry_kg", Self::VT_CARRY_KG, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, StoreLine>>>("stores", Self::VT_STORES, false)?
      .visit_field::<f32>("household_fuel_days", Self::VT_HOUSEHOLD_FUEL_DAYS, false)?
+     .visit_field::<u64>("partner", Self::VT_PARTNER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("family", Self::VT_FAMILY, false)?
+     .visit_field::<i64>("left_minute", Self::VT_LEFT_MINUTE, false)?
      .finish();
     Ok(())
   }
@@ -9406,6 +9453,9 @@ pub struct PersonInfoArgs<'a> {
     pub carry_kg: f32,
     pub stores: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, StoreLine>>>,
     pub household_fuel_days: f32,
+    pub partner: u64,
+    pub family: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub left_minute: i64,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -9443,6 +9493,9 @@ impl<'a> Default for PersonInfoArgs<'a> {
       carry_kg: 0.0,
       stores: None,
       household_fuel_days: 0.0,
+      partner: 0,
+      family: None,
+      left_minute: 0,
     }
   }
 }
@@ -9581,6 +9634,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<f32>(PersonInfo::VT_HOUSEHOLD_FUEL_DAYS, household_fuel_days, 0.0);
   }
   #[inline]
+  pub fn add_partner(&mut self, partner: u64) {
+    self.fbb_.push_slot::<u64>(PersonInfo::VT_PARTNER, partner, 0);
+  }
+  #[inline]
+  pub fn add_family(&mut self, family: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_FAMILY, family);
+  }
+  #[inline]
+  pub fn add_left_minute(&mut self, left_minute: i64) {
+    self.fbb_.push_slot::<i64>(PersonInfo::VT_LEFT_MINUTE, left_minute, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -9630,6 +9695,9 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("carry_kg", &self.carry_kg());
       ds.field("stores", &self.stores());
       ds.field("household_fuel_days", &self.household_fuel_days());
+      ds.field("partner", &self.partner());
+      ds.field("family", &self.family());
+      ds.field("left_minute", &self.left_minute());
       ds.finish()
   }
 }

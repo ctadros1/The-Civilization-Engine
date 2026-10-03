@@ -221,6 +221,34 @@ pub enum Cause {
     Childbirth,
 }
 
+impl Cause {
+    /// Every cause.
+    pub const ALL: [Cause; 3] = [Cause::Unspecified, Cause::Starvation, Cause::Childbirth];
+
+    /// The key a chronicle entry keeps it as.
+    pub fn key(self) -> &'static str {
+        match self {
+            Cause::Unspecified => "unspecified",
+            Cause::Starvation => "starvation",
+            Cause::Childbirth => "childbirth",
+        }
+    }
+
+    /// The cause with a key.
+    pub fn from_key(key: &str) -> Option<Cause> {
+        Cause::ALL.into_iter().find(|c| c.key() == key)
+    }
+
+    /// In words, as the inspector says it.
+    pub fn label(self) -> &'static str {
+        match self {
+            Cause::Unspecified => "illness or accident",
+            Cause::Starvation => "hunger",
+            Cause::Childbirth => "childbirth",
+        }
+    }
+}
+
 /// A person, kept forever (ADR-0003).
 #[derive(Clone, Debug, PartialEq)]
 pub struct PersonRecord {
@@ -234,6 +262,8 @@ pub struct PersonRecord {
     pub born: SimTime,
     /// Death time and cause.
     pub died: Option<(SimTime, Cause)>,
+    /// When they left the world alive (their household gave up and left the valley).
+    pub left: Option<SimTime>,
     /// Mother.
     pub mother: Option<PermanentId>,
     /// Father.
@@ -259,6 +289,59 @@ pub enum ChronicleKind {
     HarvestIn,
     /// A settlement's first home was roofed: `people` names who finished it.
     FirstRoof,
+    /// A child was born: `people` is the child, its mother and (if known) its father.
+    Born,
+    /// Someone died: `people` is them, `number` their age in years and `name` the cause's key
+    /// ([`Cause::key`]).
+    Died,
+    /// Two people became partners: `people` is the woman and the man, `number` where they live
+    /// ([`Moved`] as a number).
+    Paired,
+    /// Children left without an older member of their household went to live with kin or
+    /// neighbours: `people` is the eldest of the household that took them in, then the children.
+    TakenIn,
+    /// A household gave up and left the valley: `people` is its members, eldest first, and
+    /// `number` how many they were.
+    Left,
+}
+
+/// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
+/// only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Moved {
+    /// They set up a household of their own.
+    NewHousehold = 0,
+    /// The woman moved into the man's household.
+    HerToHis = 1,
+    /// The man moved into the woman's household.
+    HisToHers = 2,
+    /// They already lived together.
+    Stayed = 3,
+}
+
+impl Moved {
+    /// The value with this number.
+    pub fn from_number(n: f64) -> Moved {
+        match n.round() as i64 {
+            1 => Moved::HerToHis,
+            2 => Moved::HisToHers,
+            3 => Moved::Stayed,
+            _ => Moved::NewHousehold,
+        }
+    }
+}
+
+/// A couple, kept forever (research 04-08 §5.1: a union is its own record, not a household).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Union {
+    /// The woman.
+    pub woman: PermanentId,
+    /// The man.
+    pub man: PermanentId,
+    /// When they became partners.
+    pub since: SimTime,
+    /// When it ended (one of them died), if it has.
+    pub ended: Option<SimTime>,
 }
 
 /// A chronicle entry: structured facts, rendered to text when read (ADR-0003).
@@ -295,8 +378,108 @@ pub enum Span {
 
 /// Renders an entry. `name_of` gives a person's name (alive or dead).
 pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -> Vec<Span> {
-    let _ = name_of;
+    let person = |i: usize| event.people.get(i).map(|&id| Span::Person(id, name_of(id)));
     match event.kind {
+        ChronicleKind::Born => {
+            let Some(child) = person(0) else {
+                return vec![Span::Text("A child was born.".to_owned())];
+            };
+            let mut spans = vec![child, Span::Text(" was born".to_owned())];
+            match (person(1), person(2)) {
+                (Some(mother), Some(father)) => {
+                    spans.push(Span::Text(" to ".to_owned()));
+                    spans.push(mother);
+                    spans.push(Span::Text(" and ".to_owned()));
+                    spans.push(father);
+                }
+                (Some(mother), None) => {
+                    spans.push(Span::Text(" to ".to_owned()));
+                    spans.push(mother);
+                }
+                _ => {}
+            }
+            spans.push(Span::Text(".".to_owned()));
+            spans
+        }
+        ChronicleKind::Died => {
+            let Some(who) = person(0) else {
+                return vec![Span::Text("Someone died.".to_owned())];
+            };
+            let age = age_text(event.number);
+            let how = match Cause::from_key(&event.name) {
+                Some(Cause::Starvation) => format!(" died of hunger, {age}."),
+                Some(Cause::Childbirth) => format!(" died in childbirth, {age}."),
+                _ => format!(" died, {age}."),
+            };
+            vec![who, Span::Text(how)]
+        }
+        ChronicleKind::Paired => {
+            let (Some(woman), Some(man)) = (person(0), person(1)) else {
+                return vec![Span::Text("Two people became partners.".to_owned())];
+            };
+            let mut spans = vec![
+                woman.clone(),
+                Span::Text(" and ".to_owned()),
+                man.clone(),
+                Span::Text(" became partners".to_owned()),
+            ];
+            match Moved::from_number(event.number) {
+                Moved::NewHousehold => spans.push(Span::Text(
+                    " and set up a household of their own.".to_owned(),
+                )),
+                Moved::HerToHis => {
+                    spans.push(Span::Text("; ".to_owned()));
+                    spans.push(woman);
+                    spans.push(Span::Text(" moved into his household.".to_owned()));
+                }
+                Moved::HisToHers => {
+                    spans.push(Span::Text("; ".to_owned()));
+                    spans.push(man);
+                    spans.push(Span::Text(" moved into her household.".to_owned()));
+                }
+                Moved::Stayed => spans.push(Span::Text(".".to_owned())),
+            }
+            spans
+        }
+        ChronicleKind::Left => {
+            let Some(eldest) = person(0) else {
+                return vec![Span::Text("A household left.".to_owned())];
+            };
+            let n = event.number.round() as i64;
+            let mut spans = vec![Span::Text("The household of ".to_owned()), eldest];
+            spans.push(Span::Text(if n > 1 {
+                format!(" ({n} people) gave up and left ")
+            } else {
+                " gave up and left ".to_owned()
+            }));
+            spans.push(settlement(event));
+            spans.push(Span::Text(".".to_owned()));
+            spans
+        }
+        ChronicleKind::TakenIn => {
+            let Some(taker) = person(0) else {
+                return vec![Span::Text("Children were taken in.".to_owned())];
+            };
+            let children: Vec<Span> = (1..event.people.len()).filter_map(person).collect();
+            let mut spans = Vec::new();
+            for (i, c) in children.iter().enumerate() {
+                if i > 0 {
+                    spans.push(Span::Text(
+                        if i + 1 == children.len() {
+                            " and "
+                        } else {
+                            ", "
+                        }
+                        .to_owned(),
+                    ));
+                }
+                spans.push(c.clone());
+            }
+            spans.push(Span::Text(" went to live in the household of ".to_owned()));
+            spans.push(taker);
+            spans.push(Span::Text(".".to_owned()));
+            spans
+        }
         ChronicleKind::BandArrived => vec![Span::Text(format!(
             "A band of {} people arrived.",
             event.number as u64
@@ -355,6 +538,24 @@ fn settlement(event: &ChronicleEvent) -> Span {
     match event.settlement {
         Some(id) => Span::Settlement(id, event.name.clone()),
         None => Span::Text(event.name.clone()),
+    }
+}
+
+/// "aged 34", "aged 5 months", "aged 3 days".
+pub fn age_text(years: f64) -> String {
+    let days = (years * 365.0).floor().max(0.0);
+    if days < 1.0 {
+        "on the day of their birth".to_owned()
+    } else if days < 60.0 {
+        format!(
+            "aged {} day{}",
+            days as i64,
+            if days < 2.0 { "" } else { "s" }
+        )
+    } else if years < 2.0 {
+        format!("aged {} months", (years * 12.0).floor() as i64)
+    } else {
+        format!("aged {}", years.floor() as i64)
     }
 }
 

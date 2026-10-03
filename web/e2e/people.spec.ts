@@ -1,7 +1,8 @@
-// M1, slices A to D, end to end: a new world begins with a founding band; people appear on the
-// map, move along their trips while the clock runs, and the inspector says what someone is doing
-// and why, and what their household has in store; the chronicle records the arrival; the band
-// marks out fields and begins its huts, and the map shows them.
+// M1, slices A to E, end to end: a new world begins with a founding band of families; people
+// appear on the map, move along their trips while the clock runs, and the inspector says what
+// someone is doing and why, what their household has in store and who their family are; the
+// chronicle records the arrival; the band marks out fields and begins its huts, and the map shows
+// them.
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -77,6 +78,17 @@ test("a founding band lives on the map and explains itself", async ({ page }) =>
     await expect(inspector).toContainText("firewood for");
     await expect(inspector).toContainText(/Stores.*Provisions [\d,.]+ kg/);
     await snap(page, "m1-inspector");
+
+    // The band arrives as families: a founding parent's inspector names their partner, in the
+    // kernel's words, and their children.
+    const parent = await page.evaluate(
+      () => window.__TCE__.briefs().find((p) => p.ageYears >= 26 && p.ageYears <= 40)?.id,
+    );
+    if (parent == null) throw new Error("no founding parent");
+    await page.evaluate((id) => window.__TCE__.select(id), parent);
+    await page.waitForFunction((id) => window.__TCE__.state().selected?.id === id, parent);
+    await expect(inspector.locator(".kin")).toContainText(/Partner of \w+ for (\d+ years|a year)\./);
+    await expect(inspector.locator(".kin")).toContainText("partner");
 
     // Run the clock: the clock moves, decisions accumulate, and walkers move between snapshots.
     const start = (await state(page)).clock?.minute ?? 0;

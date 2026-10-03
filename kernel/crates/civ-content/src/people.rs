@@ -2,8 +2,9 @@
 //! Every field is required: an omitted number is an error, never a silent engine default.
 
 use civ_agents::params::{
-    BandParams, DecisionParams, EnergyParams, FarmParams, HouseholdParams, NameParams,
-    PeopleParams, Siler, SleepParams, SocialParams,
+    BandParams, DecisionParams, EnergyParams, FamilyParams, FarmParams, FertilityParams,
+    HouseholdParams, MortalityParams, NameParams, PeopleParams, Residence, Siler, SleepParams,
+    SocialParams,
 };
 use civ_world::nav::NavParams;
 use serde::Deserialize;
@@ -34,6 +35,8 @@ pub(crate) struct PeopleFile {
     pub farm: Farm,
     pub build: Build,
     pub mortality: Mortality,
+    pub fertility: Fertility,
+    pub family: Family,
 }
 
 #[derive(Debug, Deserialize)]
@@ -122,6 +125,9 @@ pub(crate) struct Household {
     pub short_food_days: f64,
     pub recovered_food_days: f64,
     pub daily_kcal_per_person: f64,
+    pub leave_at_depletion: f64,
+    pub leave_per_day: f64,
+    pub leave_unless_ripe_within_days: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -181,6 +187,50 @@ pub(crate) struct Mortality {
     pub c: f64,
     pub d: f64,
     pub e: f64,
+    pub hunger_ratio_at_half: f64,
+    pub hunger_ratio_max: f64,
+    pub exhaustion_per_day: f64,
+    pub exhaustion_power: f64,
+    pub maternal_death_per_birth: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Fertility {
+    pub conception_per_month: f64,
+    pub age_factor: Vec<[f64; 2]>,
+    pub fecundity_sd: f64,
+    pub hunger_halving: f64,
+    pub pregnancy_days: f64,
+    pub pregnancy_sd_days: f64,
+    pub loss_by_age: Vec<[f64; 2]>,
+    pub loss_days: [f64; 2],
+    pub recovery_months: f64,
+    pub recovery_sd_months: f64,
+    pub recovery_min_months: f64,
+    pub loss_recovery_months: f64,
+    pub weaned_recovery_months: f64,
+    pub boys_per_100_girls: f64,
+    pub pregnancy_kcal_day: [f64; 3],
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Family {
+    pub seek_min_age_female: f64,
+    pub seek_min_age_male: f64,
+    pub seek_max_age_female: f64,
+    pub seek_max_age_male: f64,
+    pub seek_per_month_female: f64,
+    pub seek_per_month_male: f64,
+    pub age_gap_years: [f64; 2],
+    pub preferred_gap_years: f64,
+    pub w_gap_per_year: f64,
+    pub kin_exclusion_generations: u32,
+    /// `new_household`, `his_household` or `her_household`.
+    pub residence: String,
+    pub independent_age: f64,
+    pub trait_heritability: f64,
 }
 
 fn pairs(v: &[[f64; 2]]) -> Vec<(f64, f64)> {
@@ -292,6 +342,9 @@ impl PeopleFile {
                 short_food_days: h.short_food_days,
                 recovered_food_days: h.recovered_food_days,
                 daily_kcal_per_person: h.daily_kcal_per_person,
+                leave_at_depletion: h.leave_at_depletion,
+                leave_per_day: h.leave_per_day,
+                leave_unless_ripe_within_days: h.leave_unless_ripe_within_days,
             },
             decision: DecisionParams {
                 temperature_sd_fraction: d.temperature_sd_fraction,
@@ -346,12 +399,55 @@ impl PeopleFile {
                 site_candidates: self.farm.site_candidates,
             },
             home_program,
-            mortality: Siler {
-                a: m.a,
-                b: m.b,
-                c: m.c,
-                d: m.d,
-                e: m.e,
+            mortality: MortalityParams {
+                siler: Siler {
+                    a: m.a,
+                    b: m.b,
+                    c: m.c,
+                    d: m.d,
+                    e: m.e,
+                },
+                hunger_ratio_at_half: m.hunger_ratio_at_half,
+                hunger_ratio_max: m.hunger_ratio_max,
+                exhaustion_per_day: m.exhaustion_per_day,
+                exhaustion_power: m.exhaustion_power,
+                maternal_death_per_birth: m.maternal_death_per_birth,
+            },
+            fertility: {
+                let f = &self.fertility;
+                FertilityParams {
+                    conception_per_month: f.conception_per_month,
+                    age_factor: pairs(&f.age_factor),
+                    fecundity_sd: f.fecundity_sd,
+                    hunger_halving: f.hunger_halving,
+                    pregnancy_days: f.pregnancy_days,
+                    pregnancy_sd_days: f.pregnancy_sd_days,
+                    loss_by_age: pairs(&f.loss_by_age),
+                    loss_days: f.loss_days,
+                    recovery_months: f.recovery_months,
+                    recovery_sd_months: f.recovery_sd_months,
+                    recovery_min_months: f.recovery_min_months,
+                    loss_recovery_months: f.loss_recovery_months,
+                    weaned_recovery_months: f.weaned_recovery_months,
+                    boys_per_100_girls: f.boys_per_100_girls,
+                    pregnancy_kcal_day: f.pregnancy_kcal_day,
+                }
+            },
+            family: {
+                let y = &self.family;
+                FamilyParams {
+                    seek_min_age: [y.seek_min_age_female, y.seek_min_age_male],
+                    seek_max_age: [y.seek_max_age_female, y.seek_max_age_male],
+                    seek_per_month: [y.seek_per_month_female, y.seek_per_month_male],
+                    age_gap_years: y.age_gap_years,
+                    preferred_gap_years: y.preferred_gap_years,
+                    w_gap_per_year: y.w_gap_per_year,
+                    kin_exclusion_generations: y.kin_exclusion_generations,
+                    residence: Residence::from_name(&y.residence)
+                        .unwrap_or(Residence::NewHousehold),
+                    independent_age: y.independent_age,
+                    trait_heritability: y.trait_heritability,
+                }
             },
             names,
         }
@@ -487,6 +583,13 @@ impl PeopleFile {
             h.daily_kcal_per_person,
             &mut p,
         );
+        unit("household.leave_at_depletion", h.leave_at_depletion, &mut p);
+        unit("household.leave_per_day", h.leave_per_day, &mut p);
+        non_negative(
+            "household.leave_unless_ripe_within_days",
+            h.leave_unless_ripe_within_days,
+            &mut p,
+        );
         let d = &self.decision;
         positive(
             "decision.temperature_sd_fraction",
@@ -583,6 +686,120 @@ impl PeopleFile {
         if m.b <= 0.0 || m.e <= 0.0 {
             p.push("`mortality.b` and `mortality.e` must be positive".to_owned());
         }
+        if !(m.hunger_ratio_at_half.is_finite() && m.hunger_ratio_at_half >= 1.0) {
+            p.push("`mortality.hunger_ratio_at_half` must be at least 1".to_owned());
+        }
+        if !(m.hunger_ratio_max.is_finite() && m.hunger_ratio_max >= m.hunger_ratio_at_half) {
+            p.push(
+                "`mortality.hunger_ratio_max` must be at least `mortality.hunger_ratio_at_half`"
+                    .to_owned(),
+            );
+        }
+        non_negative("mortality.exhaustion_per_day", m.exhaustion_per_day, &mut p);
+        positive("mortality.exhaustion_power", m.exhaustion_power, &mut p);
+        unit(
+            "mortality.maternal_death_per_birth",
+            m.maternal_death_per_birth,
+            &mut p,
+        );
+        let f = &self.fertility;
+        unit(
+            "fertility.conception_per_month",
+            f.conception_per_month,
+            &mut p,
+        );
+        for (name, table) in [
+            ("fertility.age_factor", &f.age_factor),
+            ("fertility.loss_by_age", &f.loss_by_age),
+        ] {
+            ascending(name, table.iter().map(|x| x[0]), &mut p);
+        }
+        for &[_, v] in &f.age_factor {
+            if !(v.is_finite() && (0.0..=2.0).contains(&v)) {
+                p.push(format!(
+                    "fertility age factors must be between 0 and 2 (got {v})"
+                ));
+            }
+        }
+        for &[_, v] in &f.loss_by_age {
+            unit("fertility.loss_by_age", v, &mut p);
+        }
+        non_negative("fertility.fecundity_sd", f.fecundity_sd, &mut p);
+        positive("fertility.hunger_halving", f.hunger_halving, &mut p);
+        positive("fertility.pregnancy_days", f.pregnancy_days, &mut p);
+        non_negative("fertility.pregnancy_sd_days", f.pregnancy_sd_days, &mut p);
+        if !(f.loss_days[0].is_finite()
+            && f.loss_days[0] >= 1.0
+            && f.loss_days[1] >= f.loss_days[0]
+            && f.loss_days[1] < f.pregnancy_days)
+        {
+            p.push(
+                "`fertility.loss_days` must be [from, to] with 1 <= from <= to < pregnancy_days"
+                    .to_owned(),
+            );
+        }
+        positive("fertility.recovery_months", f.recovery_months, &mut p);
+        non_negative("fertility.recovery_sd_months", f.recovery_sd_months, &mut p);
+        non_negative(
+            "fertility.recovery_min_months",
+            f.recovery_min_months,
+            &mut p,
+        );
+        non_negative(
+            "fertility.loss_recovery_months",
+            f.loss_recovery_months,
+            &mut p,
+        );
+        non_negative(
+            "fertility.weaned_recovery_months",
+            f.weaned_recovery_months,
+            &mut p,
+        );
+        non_negative("fertility.boys_per_100_girls", f.boys_per_100_girls, &mut p);
+        for v in f.pregnancy_kcal_day {
+            non_negative("fertility.pregnancy_kcal_day", v, &mut p);
+        }
+        let y = &self.family;
+        for (name, lo, hi) in [
+            ("female", y.seek_min_age_female, y.seek_max_age_female),
+            ("male", y.seek_min_age_male, y.seek_max_age_male),
+        ] {
+            if !(lo.is_finite() && hi.is_finite() && lo >= 10.0 && hi > lo) {
+                p.push(format!(
+                    "`family.seek_min_age_{name}` must be at least 10 and below `family.seek_max_age_{name}`"
+                ));
+            }
+        }
+        unit(
+            "family.seek_per_month_female",
+            y.seek_per_month_female,
+            &mut p,
+        );
+        unit("family.seek_per_month_male", y.seek_per_month_male, &mut p);
+        if !(y.age_gap_years[0].is_finite() && y.age_gap_years[1] >= y.age_gap_years[0]) {
+            p.push("`family.age_gap_years` must be [from, to] with from <= to".to_owned());
+        }
+        if !(y.age_gap_years[0]..=y.age_gap_years[1]).contains(&y.preferred_gap_years) {
+            p.push(
+                "`family.preferred_gap_years` must lie within `family.age_gap_years`".to_owned(),
+            );
+        }
+        non_negative("family.w_gap_per_year", y.w_gap_per_year, &mut p);
+        if y.kin_exclusion_generations > 6 {
+            p.push("`family.kin_exclusion_generations` must be at most 6".to_owned());
+        }
+        if Residence::from_name(&y.residence).is_none() {
+            let names: Vec<&str> = Residence::ALL.iter().map(|r| r.name()).collect();
+            p.push(format!(
+                "`family.residence` must be one of {} (got `{}`)",
+                names.join(", "),
+                y.residence
+            ));
+        }
+        if !(y.independent_age.is_finite() && (10.0..=25.0).contains(&y.independent_age)) {
+            p.push("`family.independent_age` must be between 10 and 25".to_owned());
+        }
+        unit("family.trait_heritability", y.trait_heritability, &mut p);
         p
     }
 }

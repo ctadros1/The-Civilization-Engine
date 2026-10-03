@@ -34,6 +34,12 @@
 //! households are not yet under a roof. A building keeps its design whatever the loaded content
 //! says; one whose program the content no longer has stands as it is, and work on it stops.
 //! Whether a household's stores are under a roof is not saved: it follows from its buildings.
+//!
+//! **Schema 5 → 6.** Couples, pregnancies and unions arrived with version 6. In an older save the
+//! couple at the head of each household (a woman and a man who share a child, or else the first
+//! unrelated woman and man it lists) become partners, every woman draws her lasting
+//! fecundability, and nobody is pregnant or nursing yet. A field, plot or building whose
+//! household is no more stands abandoned.
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{Read, Seek};
@@ -41,7 +47,7 @@ use std::io::{Read, Seek};
 use civ_agents::history::{ChronicleEvent, ChronicleKind, Origin, PersonRecord};
 use civ_agents::{
     Activity, AgentEvent, Cause, Household, KnownPatch, Load, Person, Population, Reason, Receipt,
-    Scored, Sex, Step, Target, Term, Traits, Trip,
+    Repro, Scored, Sex, Step, Target, Term, Traits, Trip, Union,
 };
 use civ_core::scheduler::PendingEvent;
 use civ_core::{PermanentId, SimTime};
@@ -56,7 +62,8 @@ use civ_world::WorldMap;
 use commons_persist::{SectionData, SectionTag, SnapshotReader};
 
 use super::{
-    LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, finish, section, single_chunk, unreadable,
+    LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, finish, section, single_chunk,
+    unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -141,10 +148,13 @@ enum Schema {
     V4,
     /// Plots and buildings.
     V5,
+    /// Partners, pregnancies and unions.
+    V6,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
 /// later), taken at `now`.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn decode<R: Read + Seek>(
     reader: &mut SnapshotReader<R>,
     rules: &Rules,
@@ -152,12 +162,14 @@ pub(super) fn decode<R: Read + Seek>(
     next_id: u64,
     version: u32,
     now: SimTime,
+    seed: u64,
 ) -> Result<Decoded, LoadError> {
     let schema = match version {
         SCHEMA_V2 => Schema::V2,
         SCHEMA_V3 => Schema::V3,
         SCHEMA_V4 => Schema::V4,
-        SAVE_SCHEMA_VERSION => Schema::V5,
+        SCHEMA_V5 => Schema::V5,
+        SAVE_SCHEMA_VERSION => Schema::V6,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -181,9 +193,13 @@ pub(super) fn decode<R: Read + Seek>(
         people.insert_person(p);
     }
     let bytes = single_chunk(reader, SECTION_HISTORY)?;
-    let (records, chronicle) = decode_history(&bytes)?;
+    let (records, chronicle, unions) = decode_history(&bytes)?;
     people.records = records;
     people.chronicle = chronicle;
+    people.unions = unions;
+    if schema < Schema::V6 {
+        people.infer_couples(&rules.people, seed, now);
+    }
     let bytes = single_chunk(reader, SECTION_RECEIPTS)?;
     decode_receipts(&bytes, rules, &mut people)?;
     let bytes = single_chunk(reader, SECTION_EVENTS)?;
@@ -208,21 +224,8 @@ pub(super) fn decode<R: Read + Seek>(
             problems.push(format!("household {} names a missing settlement", h.id));
         }
     }
-    for f in &land.fields {
-        if people.household(f.household).is_none() {
-            problems.push(format!("field {} belongs to a missing household", f.id));
-        }
-    }
-    for p in &land.plots {
-        if people.household(p.household).is_none() {
-            problems.push(format!("plot {} belongs to a missing household", p.id));
-        }
-    }
-    for b in &land.buildings {
-        if people.household(b.household).is_none() {
-            problems.push(format!("building {} belongs to a missing household", b.id));
-        }
-    }
+    // A field, plot or building may belong to a household that is no more (it died out with no
+    // kin to inherit): it stands abandoned. Its owner's id was allocated, which the land checks.
     if !problems.is_empty() {
         return Err(LoadError::Invalid(problems));
     }
@@ -632,6 +635,22 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
             },
         )
     });
+    let (repro, conceived, repro_until, pregnancy_father, loss) = match p.repro {
+        Repro::Open => (save::Repro::Open, 0, 0, 0, false),
+        Repro::Pregnant {
+            conceived,
+            due,
+            father,
+            loss,
+        } => (
+            save::Repro::Pregnant,
+            conceived.minutes(),
+            due.minutes(),
+            raw(father),
+            loss,
+        ),
+        Repro::Recovering { until } => (save::Repro::Recovering, 0, until.minutes(), 0, false),
+    };
     save::Person::create(
         fbb,
         &save::PersonArgs {
@@ -659,6 +678,14 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
             draws: p.draws,
             carry_good: p.carrying.good.map_or(-1, i32::from),
             carry_kg: p.carrying.kg,
+            partner: raw(p.partner),
+            repro,
+            conceived,
+            repro_until,
+            pregnancy_father,
+            loss,
+            fecundity: p.fecundity,
+            nursing: raw(p.nursing),
         },
     )
 }
@@ -774,6 +801,27 @@ fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedP
             carrying: carried(&p, &goods, rules, schema, person_id)?,
             draws: p.draws(),
             receipts: VecDeque::new(),
+            partner: id(p.partner()),
+            repro: match p.repro() {
+                save::Repro::Open => Repro::Open,
+                save::Repro::Pregnant => Repro::Pregnant {
+                    conceived: time(p.conceived()),
+                    due: time(p.repro_until()),
+                    father: id(p.pregnancy_father()),
+                    loss: p.loss(),
+                },
+                save::Repro::Recovering => Repro::Recovering {
+                    until: time(p.repro_until()),
+                },
+                other => {
+                    return Err(LoadError::Malformed(format!(
+                        "person {person_id} is in reproductive state {}",
+                        other.0
+                    )));
+                }
+            },
+            fecundity: p.fecundity(),
+            nursing: id(p.nursing()),
         });
     }
     Ok((people, root.next_trip(), redecide))
@@ -793,7 +841,7 @@ fn carried(
             Some((g, kg)) if kg > 0.0 => (Some(g), kg as f32),
             _ => (None, 0.0),
         },
-        Schema::V3 | Schema::V4 | Schema::V5 => match p.carry_good() {
+        Schema::V3 | Schema::V4 | Schema::V5 | Schema::V6 => match p.carry_good() {
             -1 => (None, 0.0),
             i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
                 // A good the content no longer has is dropped.
@@ -896,7 +944,7 @@ fn decode_households(
                 }
                 (now, Vec::new())
             }
-            Schema::V3 | Schema::V4 | Schema::V5 => {
+            Schema::V3 | Schema::V4 | Schema::V5 | Schema::V6 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -963,6 +1011,11 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::FirstSowing => 5,
         ChronicleKind::HarvestIn => 6,
         ChronicleKind::FirstRoof => 7,
+        ChronicleKind::Born => 8,
+        ChronicleKind::Died => 9,
+        ChronicleKind::Paired => 10,
+        ChronicleKind::TakenIn => 11,
+        ChronicleKind::Left => 12,
     }
 }
 
@@ -975,6 +1028,11 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         5 => Some(ChronicleKind::FirstSowing),
         6 => Some(ChronicleKind::HarvestIn),
         7 => Some(ChronicleKind::FirstRoof),
+        8 => Some(ChronicleKind::Born),
+        9 => Some(ChronicleKind::Died),
+        10 => Some(ChronicleKind::Paired),
+        11 => Some(ChronicleKind::TakenIn),
+        12 => Some(ChronicleKind::Left),
         _ => None,
     }
 }
@@ -1010,6 +1068,8 @@ fn encode_history(pop: &Population) -> Vec<u8> {
                     cause,
                     mother: raw(r.mother),
                     father: raw(r.father),
+                    left: r.left.is_some(),
+                    left_at: r.left.map_or(0, SimTime::minutes),
                     origin: match r.origin {
                         Origin::Founder => save::Origin::Founder,
                         Origin::Born => save::Origin::Born,
@@ -1044,17 +1104,39 @@ fn encode_history(pop: &Population) -> Vec<u8> {
         })
         .collect();
     let chronicle = fbb.create_vector(&chronicle);
+    let unions: Vec<_> = pop
+        .unions
+        .iter()
+        .map(|u| {
+            save::Union::create(
+                &mut fbb,
+                &save::UnionArgs {
+                    woman: u.woman.get(),
+                    man: u.man.get(),
+                    since: u.since.minutes(),
+                    ended: u.ended.is_some(),
+                    ended_at: u.ended.map_or(0, SimTime::minutes),
+                },
+            )
+        })
+        .collect();
+    let unions = fbb.create_vector(&unions);
     let root = save::History::create(
         &mut fbb,
         &save::HistoryArgs {
             records: Some(records),
             chronicle: Some(chronicle),
+            unions: Some(unions),
         },
     );
     finish(fbb, root)
 }
 
-type DecodedHistory = (BTreeMap<PermanentId, PersonRecord>, Vec<ChronicleEvent>);
+type DecodedHistory = (
+    BTreeMap<PermanentId, PersonRecord>,
+    Vec<ChronicleEvent>,
+    Vec<Union>,
+);
 
 fn decode_history(bytes: &[u8]) -> Result<DecodedHistory, LoadError> {
     let root =
@@ -1092,6 +1174,7 @@ fn decode_history(bytes: &[u8]) -> Result<DecodedHistory, LoadError> {
                 sex: sex_of(r.sex())?,
                 born: time(r.born()),
                 died: r.died().then(|| (time(r.died_at()), cause)),
+                left: r.left().then(|| time(r.left_at())),
                 mother: id(r.mother()),
                 father: id(r.father()),
                 origin,
@@ -1122,7 +1205,16 @@ fn decode_history(bytes: &[u8]) -> Result<DecodedHistory, LoadError> {
             name: e.name().unwrap_or_default().to_owned(),
         });
     }
-    Ok((records, chronicle))
+    let mut unions = Vec::new();
+    for u in root.unions().iter().flatten() {
+        unions.push(Union {
+            woman: required(u.woman(), "a union's woman")?,
+            man: required(u.man(), "a union's man")?,
+            since: time(u.since()),
+            ended: u.ended().then(|| time(u.ended_at())),
+        });
+    }
+    Ok((records, chronicle, unions))
 }
 
 // ---- receipts ----------------------------------------------------------------------------------

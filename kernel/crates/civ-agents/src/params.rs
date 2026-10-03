@@ -1,6 +1,7 @@
 //! Authored parameters of people and their activities. Filled by `civ-content`; nothing here has
 //! a default, so every number is visible in a content file with its source.
 
+use civ_core::time::DAYS_PER_YEAR;
 use civ_land::{CropParams, FieldTask};
 use civ_world::nav::NavParams;
 
@@ -297,6 +298,13 @@ pub struct HouseholdParams {
     pub recovered_food_days: f64,
     /// Food energy a person needs per day on average, kcal (for days-of-supply arithmetic).
     pub daily_kcal_per_person: f64,
+    /// A household out of food whose members have drawn on average this share of their bodies'
+    /// reserve may give up and leave the valley...
+    pub leave_at_depletion: f64,
+    /// ...with this chance a day...
+    pub leave_per_day: f64,
+    /// ...unless a crop of theirs ripens within this many days.
+    pub leave_unless_ripe_within_days: f64,
 }
 
 /// How choices are scored and sampled (research 01-09 §4.3, 04-07 §2.3).
@@ -446,6 +454,170 @@ impl Siler {
     }
 }
 
+/// Mortality: an all-cause baseline by age, what hunger adds to it, and childbirth (research
+/// 05-01 §1.2–1.3, 05-02 §1.6 and §2.7). Hunger modifies the hazard; it is not a second copy of
+/// it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MortalityParams {
+    /// The baseline hazard by age.
+    pub siler: Siler,
+    /// How many times as likely to die a person is who has drawn half their body's reserve; the
+    /// ratio is `ratio^(4·d²)` for a share `d` drawn, up to `hunger_ratio_max`.
+    pub hunger_ratio_at_half: f64,
+    /// The most hunger multiplies the baseline hazard by.
+    pub hunger_ratio_max: f64,
+    /// Hazard per day of a body that has drawn all its reserve.
+    pub exhaustion_per_day: f64,
+    /// How steeply that hazard rises toward the end of the reserve: `exhaustion_per_day · d^power`.
+    pub exhaustion_power: f64,
+    /// Mothers' deaths per live birth.
+    pub maternal_death_per_birth: f64,
+}
+
+impl MortalityParams {
+    /// Hazards per year at `age` for a body that has drawn the share `depleted` (0–1) of its
+    /// reserve: the baseline, and what hunger adds to it.
+    pub fn hazards(&self, age: f64, depleted: f64) -> (f64, f64) {
+        let base = self.siler.hazard(age.max(0.0));
+        let d = depleted.clamp(0.0, 1.0);
+        let ratio = self
+            .hunger_ratio_at_half
+            .max(1.0)
+            .powf(4.0 * d * d)
+            .min(self.hunger_ratio_max.max(1.0));
+        let exhaustion =
+            self.exhaustion_per_day * DAYS_PER_YEAR as f64 * d.powf(self.exhaustion_power);
+        (base, base * (ratio - 1.0) + exhaustion)
+    }
+}
+
+/// Conception, pregnancy and the months after a birth (research 05-01 §1.4–1.5 and §2.2, 04-08
+/// §1.5 and §2.3): a state machine whose output, not its input, is a fertility schedule.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FertilityParams {
+    /// Chance a fecund woman living with her partner conceives in a month, at her most fecund
+    /// ages.
+    pub conception_per_month: f64,
+    /// Fecundability relative to that, from each age (years) until the next: `(age, factor)`,
+    /// ascending; nothing below the first age.
+    pub age_factor: Vec<(f64, f64)>,
+    /// Standard deviation of the logarithm of each woman's lasting fecundability factor (mean 1).
+    pub fecundity_sd: f64,
+    /// Fecundability halves for each this share of the body's reserve drawn.
+    pub hunger_halving: f64,
+    /// Days from conception to a birth at term: mean and standard deviation.
+    pub pregnancy_days: f64,
+    /// Standard deviation of `pregnancy_days`.
+    pub pregnancy_sd_days: f64,
+    /// Chance a pregnancy is lost, from each age of the mother at conception until the next.
+    pub loss_by_age: Vec<(f64, f64)>,
+    /// Days after conception a loss comes: from, to.
+    pub loss_days: [f64; 2],
+    /// Months after a live birth before the mother can conceive: mean.
+    pub recovery_months: f64,
+    /// Standard deviation of `recovery_months`.
+    pub recovery_sd_months: f64,
+    /// Fewest months of `recovery_months`.
+    pub recovery_min_months: f64,
+    /// Months after a loss before she can conceive.
+    pub loss_recovery_months: f64,
+    /// Months after a nursing child dies before its mother can conceive.
+    pub weaned_recovery_months: f64,
+    /// Boys born per 100 girls.
+    pub boys_per_100_girls: f64,
+    /// Extra energy a pregnancy costs its mother in each trimester, kcal a day.
+    pub pregnancy_kcal_day: [f64; 3],
+}
+
+/// Where a new couple lives (research 06-01 §1.3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Residence {
+    /// A household of their own.
+    NewHousehold,
+    /// The man's household.
+    HisHousehold,
+    /// The woman's household.
+    HerHousehold,
+}
+
+impl Residence {
+    /// Every residence rule, in a fixed order.
+    pub const ALL: [Residence; 3] = [
+        Residence::NewHousehold,
+        Residence::HisHousehold,
+        Residence::HerHousehold,
+    ];
+
+    /// The authored name of a residence rule.
+    pub fn name(self) -> &'static str {
+        match self {
+            Residence::NewHousehold => "new_household",
+            Residence::HisHousehold => "his_household",
+            Residence::HerHousehold => "her_household",
+        }
+    }
+
+    /// The residence rule with an authored name.
+    pub fn from_name(name: &str) -> Option<Residence> {
+        Residence::ALL.into_iter().find(|r| r.name() == name)
+    }
+}
+
+/// Couples and households (research 04-08 §1.1, §1.4 and §2.1; 06-01 §1.3–1.4 and §2.4).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FamilyParams {
+    /// Ages from which women and men look for a partner: `[female, male]`.
+    pub seek_min_age: [f64; 2],
+    /// Ages after which they no longer look: `[female, male]`.
+    pub seek_max_age: [f64; 2],
+    /// Chance an unpartnered woman or man of those ages looks in a month: `[female, male]`.
+    pub seek_per_month: [f64; 2],
+    /// How much older than the woman the man of a couple may be, years: from (negative: younger)
+    /// and to.
+    pub age_gap_years: [f64; 2],
+    /// The gap people look for, years (the man older).
+    pub preferred_gap_years: f64,
+    /// Points a candidate loses per year away from that gap.
+    pub w_gap_per_year: f64,
+    /// No couple shares an ancestor within this many generations, or has one partner descend from
+    /// the other within them (2: parents, siblings, half-siblings, first cousins, aunts and
+    /// uncles).
+    pub kin_exclusion_generations: u32,
+    /// Where a new couple lives.
+    pub residence: Residence,
+    /// Age from which someone can keep a household without an older member.
+    pub independent_age: f64,
+    /// How much of the mean of its parents' personality a child inherits (the regression of
+    /// offspring on mid-parent).
+    pub trait_heritability: f64,
+}
+
+impl FamilyParams {
+    /// Index of a sex in the `[female, male]` pairs.
+    pub fn of(sex: crate::needs::Sex) -> usize {
+        match sex {
+            crate::needs::Sex::Female => 0,
+            crate::needs::Sex::Male => 1,
+        }
+    }
+
+    /// Whether someone of `sex` and `age` looks for a partner (and can be one).
+    pub fn seeks_at(&self, sex: crate::needs::Sex, age: f64) -> bool {
+        let i = Self::of(sex);
+        age >= self.seek_min_age[i] && age < self.seek_max_age[i]
+    }
+}
+
+/// The value of a step table at `x`: the factor of the last age at or below it, 0 below the
+/// first.
+pub fn step_at(table: &[(f64, f64)], x: f64) -> f64 {
+    table
+        .iter()
+        .take_while(|(age, _)| *age <= x)
+        .last()
+        .map_or(0.0, |(_, v)| *v)
+}
+
 /// Names (research 06-07): given names by sex, and parts for place names.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct NameParams {
@@ -487,8 +659,12 @@ pub struct PeopleParams {
     /// Building: the program households build their home to, by index in the catalog's
     /// buildings.
     pub home_program: usize,
-    /// Mortality (used for founding ages in M1's first slice; hazards follow).
-    pub mortality: Siler,
+    /// Mortality.
+    pub mortality: MortalityParams,
+    /// Conception, pregnancy and birth.
+    pub fertility: FertilityParams,
+    /// Couples and households.
+    pub family: FamilyParams,
     /// Names.
     pub names: NameParams,
 }

@@ -601,6 +601,10 @@ impl Sim {
                             schedule: &mut pending,
                         };
                         people.on_day(&mut ctx);
+                        // Newborns decide what to do first.
+                        for (t, e) in pending.drain(..) {
+                            let _ = followups.schedule(t, PHASE_AGENT, SimEvent::Agent(e));
+                        }
                     }
                     Cadence::Month => advance.months += 1,
                     Cadence::Year => advance.years += 1,

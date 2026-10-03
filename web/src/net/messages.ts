@@ -378,6 +378,8 @@ export interface KinLink {
   name: string;
   relation: string;
   alive: boolean;
+  /** They left the valley alive. */
+  left: boolean;
 }
 
 export interface PersonInfo {
@@ -419,6 +421,12 @@ export interface PersonInfo {
   traits: number[];
   x: number;
   y: number;
+  /** Their partner (0 = none). */
+  partner: number;
+  /** Their family life in sentences rendered by the kernel ("Nursing Wren."). */
+  family: string[];
+  /** When they left the valley alive (0 = they did not). */
+  leftMinute: number;
 }
 
 export type ResponseBody =
@@ -1081,6 +1089,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
         name: l.name() ?? "",
         relation: l.relation() ?? "",
         alive: l.alive(),
+        left: l.left(),
       });
     }
   }
@@ -1129,6 +1138,9 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     traits: Array.from(p.traitsArray() ?? []),
     x: pos?.x() ?? 0,
     y: pos?.y() ?? 0,
+    partner: Number(p.partner()),
+    family: Array.from({ length: p.familyLength() }, (_, k) => p.family(k) ?? ""),
+    leftMinute: Number(p.leftMinute()),
   };
 }
 

@@ -37,5 +37,11 @@ if ($stale) {
 }
 
 Set-Location (Join-Path $root "kernel")
-cargo run --release --locked -p civ-host -- serve --open @args
+cargo build --release --locked -p civ-host
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+# Run the binary itself, not through `cargo run`: cargo keeps its child in a job object that
+# Windows kills as soon as the window closes, before the host can save the world.
+$target = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { "target" }
+& (Join-Path $target "release\civ-host.exe") serve --open @args
 exit $LASTEXITCODE

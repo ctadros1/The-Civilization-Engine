@@ -139,6 +139,86 @@ impl Default for TerrainParams {
 }
 
 impl TerrainParams {
+    /// Every parameter as a (name, value) pair in a fixed order: for content fingerprints and for
+    /// showing a world's provenance. The destructuring is exhaustive on purpose, so adding a
+    /// field fails to compile until it is listed here.
+    pub fn named_values(&self) -> Vec<(&'static str, f64)> {
+        let TerrainParams {
+            context_factor,
+            outlet_edges,
+            base_level_m,
+            initial_relief_m,
+            regional_slope,
+            trunk_inflow_km2,
+            window_offset,
+            uplift_mm_per_yr,
+            lowland_uplift_fraction,
+            range_scale_km,
+            basin_strength,
+            erodibility,
+            erodibility_variation,
+            area_exponent,
+            channel_initiation_km2,
+            diffusivity_m2_per_yr,
+            talus_slope,
+            endorheic_depth_m,
+            coarse_iterations,
+            coarse_dt_years,
+            fine_iterations,
+            fine_dt_years,
+            detail_amplitude,
+            routing_jitter,
+            floodplain_min_area_km2,
+            floodplain_width_factor,
+            sea_level_m,
+            precipitation_mm_per_yr,
+            evapotranspiration_mm_per_yr,
+            lake_evaporation_mm_per_yr,
+            channel_area_km2,
+            min_lake_depth_m,
+            min_lake_area_m2,
+            channel_width_coefficient,
+        } = *self;
+        vec![
+            ("context_factor", context_factor),
+            ("outlet_edges", f64::from(outlet_edges)),
+            ("base_level_m", base_level_m),
+            ("initial_relief_m", initial_relief_m),
+            ("regional_slope", regional_slope),
+            ("trunk_inflow_km2", trunk_inflow_km2),
+            ("window_offset", window_offset),
+            ("uplift_mm_per_yr", uplift_mm_per_yr),
+            ("lowland_uplift_fraction", lowland_uplift_fraction),
+            ("range_scale_km", range_scale_km),
+            ("basin_strength", basin_strength),
+            ("erodibility", erodibility),
+            ("erodibility_variation", erodibility_variation),
+            ("area_exponent", area_exponent),
+            ("channel_initiation_km2", channel_initiation_km2),
+            ("diffusivity_m2_per_yr", diffusivity_m2_per_yr),
+            ("talus_slope", talus_slope),
+            ("endorheic_depth_m", endorheic_depth_m),
+            ("coarse_iterations", f64::from(coarse_iterations)),
+            ("coarse_dt_years", coarse_dt_years),
+            ("fine_iterations_0", f64::from(fine_iterations[0])),
+            ("fine_iterations_1", f64::from(fine_iterations[1])),
+            ("fine_iterations_2", f64::from(fine_iterations[2])),
+            ("fine_dt_years", fine_dt_years),
+            ("detail_amplitude", detail_amplitude),
+            ("routing_jitter", routing_jitter),
+            ("floodplain_min_area_km2", floodplain_min_area_km2),
+            ("floodplain_width_factor", floodplain_width_factor),
+            ("sea_level_m", sea_level_m),
+            ("precipitation_mm_per_yr", precipitation_mm_per_yr),
+            ("evapotranspiration_mm_per_yr", evapotranspiration_mm_per_yr),
+            ("lake_evaporation_mm_per_yr", lake_evaporation_mm_per_yr),
+            ("channel_area_km2", channel_area_km2),
+            ("min_lake_depth_m", min_lake_depth_m),
+            ("min_lake_area_m2", min_lake_area_m2),
+            ("channel_width_coefficient", channel_width_coefficient),
+        ]
+    }
+
     /// Mean annual runoff from land, m per year.
     pub fn runoff_m_per_yr(&self) -> f64 {
         ((self.precipitation_mm_per_yr - self.evapotranspiration_mm_per_yr) / 1000.0).max(0.0)

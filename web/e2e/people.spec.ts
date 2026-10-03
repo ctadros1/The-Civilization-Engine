@@ -1,6 +1,6 @@
-// M1, slice A, end to end: a new world begins with a founding band; people appear on the map,
-// move along their trips while the clock runs, and the inspector says what someone is doing and
-// why; the chronicle records the arrival.
+// M1, slices A and B, end to end: a new world begins with a founding band; people appear on the
+// map, move along their trips while the clock runs, and the inspector says what someone is doing
+// and why, and what their household has in store; the chronicle records the arrival.
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -45,6 +45,8 @@ test("a founding band lives on the map and explains itself", async ({ page }) =>
     expect(s.settlements[0]?.population).toBe(30);
     await expect(page.locator("#people-body")).toContainText("30 people");
     await expect(page.locator("#people-body .legend")).toContainText("Gather plants");
+    await expect(page.locator("#people-body .legend")).toContainText("Gather firewood");
+    await expect(page.locator("#people-body")).toContainText(/food for \d[\d,]* days/);
     await expect(page.locator("#chronicle li")).toHaveCount(2);
     await expect(page.locator("#chronicle")).toContainText("A band of 30 people arrived");
     const settlementName = s.settlements[0]?.name ?? "";
@@ -71,6 +73,8 @@ test("a founding band lives on the map and explains itself", async ({ page }) =>
     await expect(inspector).toContainText("Why");
     await expect(inspector).toContainText("likely");
     await expect(inspector.getByRole("meter", { name: "Hunger" })).toBeVisible();
+    await expect(inspector).toContainText("firewood for");
+    await expect(inspector).toContainText(/Stores.*Provisions [\d,.]+ kg/);
     await snap(page, "m1-inspector");
 
     // Run the clock: the clock moves, decisions accumulate, and walkers move between snapshots.

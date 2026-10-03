@@ -120,3 +120,16 @@ export function formatPoints(points: number): string {
   const text = Math.abs(points).toFixed(1);
   return points < 0 ? `\u2212${text}` : `+${text}`;
 }
+
+/** "4.2 days", "212 days", "1 day": a supply measured in days of use. */
+export function formatDays(days: number): string {
+  const d = Math.max(0, days);
+  const text = d < 10 ? d.toFixed(1) : Math.round(d).toLocaleString("en-US");
+  return `${text} day${text === "1.0" || text === "1" ? "" : "s"}`;
+}
+
+/** "3.4 kg", "6,354 kg". */
+export function formatKg(kg: number): string {
+  const k = Math.max(0, kg);
+  return `${k < 10 ? k.toFixed(1) : Math.round(k).toLocaleString("en-US")} kg`;
+}

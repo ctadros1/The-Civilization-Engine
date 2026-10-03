@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatBytes,
+  formatDays,
   formatDistance,
+  formatKg,
   formatSimMinute,
   formatSpeed,
   simDate,
@@ -125,5 +127,17 @@ describe("event log", () => {
     const capped = mergeEvents([], many);
     expect(capped.length).toBe(MAX_EVENTS);
     expect(capped[0]!.id).toBe(11);
+  });
+});
+
+describe("supplies", () => {
+  it("read as days and kilograms", () => {
+    expect(formatDays(4.24)).toBe("4.2 days");
+    expect(formatDays(1)).toBe("1.0 day");
+    expect(formatDays(212.4)).toBe("212 days");
+    expect(formatDays(1234.6)).toBe("1,235 days");
+    expect(formatDays(-3)).toBe("0.0 days");
+    expect(formatKg(3.44)).toBe("3.4 kg");
+    expect(formatKg(6354.2)).toBe("6,354 kg");
   });
 });

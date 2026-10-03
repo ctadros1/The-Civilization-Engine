@@ -770,3 +770,23 @@ button.link:hover {
   color: var(--muted);
   font-size: 12px;
 }
+
+.badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.badge.warn {
+  color: var(--bg);
+  background: var(--warn);
+}
+
+#people-body p > .since {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}

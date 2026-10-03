@@ -143,6 +143,8 @@ describe("people payloads", () => {
     W.SettlementBrief.addHearth(b, W.Vec2.createVec2(b, 100, 200));
     W.SettlementBrief.addFoundedMinute(b, 85_320n);
     W.SettlementBrief.addPopulation(b, 40);
+    W.SettlementBrief.addFoodDays(b, 1.5);
+    W.SettlementBrief.addFoodShort(b, true);
     const settlement = W.SettlementBrief.endSettlementBrief(b);
     const settlements = W.Snapshot.createSettlementsVector(b, [settlement]);
     W.Snapshot.startSnapshot(b);
@@ -166,7 +168,16 @@ describe("people payloads", () => {
       },
     ]);
     expect(s.settlements).toEqual([
-      { id: 3, name: "Alderford", x: 100, y: 200, foundedMinute: 85_320, population: 40 },
+      {
+        id: 3,
+        name: "Alderford",
+        x: 100,
+        y: 200,
+        foundedMinute: 85_320,
+        population: 40,
+        foodDays: 1.5,
+        foodShort: true,
+      },
     ]);
     expect(s.chronicleHead).toBe(2);
   });
@@ -186,6 +197,58 @@ describe("people payloads", () => {
       bb(M.newWorld({ seed: 1n, presetId: "p", sizeCells: 256, name: "n", bandSize: 30 })),
     );
     expect((nw.body(new W.NewWorld()) as W.NewWorld).bandSize()).toBe(30);
+  });
+
+  it("decode a person's stores and load, and the goods they refer to", () => {
+    const b = new flatbuffers.Builder(256);
+    const name = b.createString("Ilse");
+    W.PersonInfo.startStoresVector(b, 2);
+    // Structs are written back to front.
+    W.StoreLine.createStoreLine(b, 3, 14.5);
+    W.StoreLine.createStoreLine(b, 1, 812.25);
+    const stores = b.endVector();
+    W.PersonInfo.startPersonInfo(b);
+    W.PersonInfo.addId(b, 12n);
+    W.PersonInfo.addName(b, name);
+    W.PersonInfo.addAlive(b, true);
+    W.PersonInfo.addCarryGood(b, 2);
+    W.PersonInfo.addCarryKg(b, 12.5);
+    W.PersonInfo.addCarryFoodKcal(b, 7500);
+    W.PersonInfo.addHouseholdFuelDays(b, 2.5);
+    W.PersonInfo.addStores(b, stores);
+    const body = W.PersonInfo.endPersonInfo(b);
+    b.finish(W.Response.createResponse(b, W.ResponseBody.PersonInfo, body));
+    const r = M.decodeResponse(b.asUint8Array());
+    if (r.kind !== "person") throw new Error(r.kind);
+    expect(r.person.stores).toEqual([
+      { good: 1, kg: 812.25 },
+      { good: 3, kg: 14.5 },
+    ]);
+    expect([r.person.carryGood, r.person.carryKg, r.person.carryFoodKcal]).toEqual([2, 12.5, 7500]);
+    expect(r.person.householdFuelDays).toBe(2.5);
+
+    // Someone carrying nothing has no good: -1, not the first good.
+    const e = new flatbuffers.Builder(64);
+    W.PersonInfo.startPersonInfo(e);
+    W.PersonInfo.addId(e, 13n);
+    const empty = W.PersonInfo.endPersonInfo(e);
+    e.finish(W.Response.createResponse(e, W.ResponseBody.PersonInfo, empty));
+    const nobody = M.decodeResponse(e.asUint8Array());
+    if (nobody.kind !== "person") throw new Error(nobody.kind);
+    expect([nobody.person.carryGood, nobody.person.stores]).toEqual([-1, []]);
+
+    const w = new flatbuffers.Builder(256);
+    const id = w.createString("core:good/meat");
+    const goodName = w.createString("Meat");
+    const purpose = w.createString("food");
+    const good = W.GoodInfo.createGoodInfo(w, id, goodName, purpose, 1500);
+    const goods = W.Welcome.createGoodsVector(w, [good]);
+    W.Welcome.startWelcome(w);
+    W.Welcome.addGoods(w, goods);
+    w.finish(W.Welcome.endWelcome(w));
+    expect(M.decodeWelcome(w.asUint8Array()).goods).toEqual([
+      { id: "core:good/meat", name: "Meat", purpose: "food", kcalPerKg: 1500 },
+    ]);
   });
 
   it("decode a chronicle with links", () => {

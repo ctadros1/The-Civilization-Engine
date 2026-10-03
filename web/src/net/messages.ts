@@ -20,6 +20,16 @@ export interface ActivityInfo {
   doing: string;
 }
 
+export interface GoodInfo {
+  id: string;
+  /** "Meat" */
+  name: string;
+  /** "food" or "fuel" */
+  purpose: string;
+  /** Food energy, kcal per kilogram (0 for fuel). */
+  kcalPerKg: number;
+}
+
 export interface Welcome {
   host: string;
   version: string;
@@ -37,6 +47,8 @@ export interface Welcome {
   bandSizeMin: number;
   bandSizeMax: number;
   bandSizeDefault: number;
+  /** The goods catalogue, in the order stores and loads refer to. */
+  goods: GoodInfo[];
 }
 
 export interface WorldInfo {
@@ -116,6 +128,10 @@ export interface SettlementBrief {
   y: number;
   foundedMinute: number;
   population: number;
+  /** Days of food in its households' stores at its people's needs. */
+  foodDays: number;
+  /** Its food has run short and not yet recovered. */
+  foodShort: boolean;
 }
 
 export interface Snapshot {
@@ -270,6 +286,12 @@ export interface Decision {
   needs: number[];
 }
 
+export interface StoreLine {
+  /** An index into Welcome.goods. */
+  good: number;
+  kg: number;
+}
+
 export interface KinLink {
   id: number;
   name: string;
@@ -300,10 +322,17 @@ export interface PersonInfo {
   sleepPressure: number;
   loneliness: number;
   energyKcal: number;
+  /** Food energy of what they carry, kcal. */
   carryFoodKcal: number;
+  /** The good carried (an index into Welcome.goods), or -1. */
+  carryGood: number;
+  carryKg: number;
   carryWaterL: number;
   householdFoodDays: number;
   householdWaterDays: number;
+  householdFuelDays: number;
+  /** The household's goods in store. */
+  stores: StoreLine[];
   /** Newest first. */
   decisions: Decision[];
   traits: number[];
@@ -483,6 +512,17 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
     if (!a) continue;
     activities.push({ id: a.id() ?? "", name: a.name() ?? "", doing: a.doing() ?? "" });
   }
+  const goods: GoodInfo[] = [];
+  for (let i = 0; i < w.goodsLength(); i++) {
+    const g = w.goods(i);
+    if (!g) continue;
+    goods.push({
+      id: g.id() ?? "",
+      name: g.name() ?? "",
+      purpose: g.purpose() ?? "",
+      kcalPerKg: g.kcalPerKg(),
+    });
+  }
   const reasons: Record<number, string> = {};
   for (let i = 0; i < w.reasonsLength(); i++) {
     const r = w.reasons(i);
@@ -503,6 +543,7 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
     bandSizeMin: w.bandSizeMin(),
     bandSizeMax: w.bandSizeMax(),
     bandSizeDefault: w.bandSizeDefault(),
+    goods,
   };
 }
 
@@ -617,6 +658,8 @@ function settlementBriefs(s: W.Snapshot): SettlementBrief[] {
       y: hearth?.y() ?? 0,
       foundedMinute: Number(t.foundedMinute()),
       population: t.population(),
+      foodDays: t.foodDays(),
+      foodShort: t.foodShort(),
     });
   }
   return out;
@@ -847,6 +890,11 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     const d = p.decisions(k);
     if (d) decisions.push(decision(d));
   }
+  const stores: StoreLine[] = [];
+  for (let k = 0; k < p.storesLength(); k++) {
+    const line = p.stores(k);
+    if (line) stores.push({ good: line.good(), kg: line.kg() });
+  }
   const pos = p.pos();
   return {
     id: Number(p.id()),
@@ -871,9 +919,13 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     loneliness: p.loneliness(),
     energyKcal: p.energyKcal(),
     carryFoodKcal: p.carryFoodKcal(),
+    carryGood: p.carryGood(),
+    carryKg: p.carryKg(),
     carryWaterL: p.carryWaterL(),
     householdFoodDays: p.householdFoodDays(),
     householdWaterDays: p.householdWaterDays(),
+    householdFuelDays: p.householdFuelDays(),
+    stores,
     decisions,
     traits: Array.from(p.traitsArray() ?? []),
     x: pos?.x() ?? 0,

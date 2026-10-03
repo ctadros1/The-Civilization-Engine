@@ -5,7 +5,9 @@ import {
   formatAge,
   formatBytes,
   formatClockTime,
+  formatDays,
   formatDistance,
+  formatKg,
   formatMapSize,
   formatPercent,
   formatPersonAge,
@@ -701,11 +703,21 @@ export function bindUi(store: Store, actions: Actions): void {
       needs.append(
         el("dt", { text: "At home" }),
         el("dd", {
-          text: `food for ${p.householdFoodDays.toFixed(1)} days · water for ${p.householdWaterDays.toFixed(1)} days`,
+          text: `food for ${formatDays(p.householdFoodDays)} · firewood for ${formatDays(p.householdFuelDays)} · water for ${formatDays(p.householdWaterDays)}`,
         }),
       );
+      const goods = welcome?.goods ?? [];
+      const stored = p.stores
+        .filter((s) => s.kg >= 0.5)
+        .map((s) => `${goods[s.good]?.name ?? "?"} ${formatKg(s.kg)}`);
+      if (stored.length > 0) {
+        needs.append(el("dt", { text: "Stores" }), el("dd", { text: stored.join(" · ") }));
+      }
+      const load = goods[p.carryGood];
       const carrying = [
-        p.carryFoodKcal > 0 ? `${Math.round(p.carryFoodKcal).toLocaleString()} kcal of food` : "",
+        load && p.carryKg > 0
+          ? `${formatKg(p.carryKg)} of ${load.name.toLowerCase()}${p.carryFoodKcal > 0 ? ` (${Math.round(p.carryFoodKcal).toLocaleString()} kcal)` : ""}`
+          : "",
         p.carryWaterL > 0 ? `${p.carryWaterL.toFixed(0)} L of water` : "",
       ].filter(Boolean);
       if (carrying.length > 0) {
@@ -772,7 +784,7 @@ export function bindUi(store: Store, actions: Actions): void {
     const key = JSON.stringify([
       world?.worldId ?? null,
       people.length,
-      settlements.map((s) => [s.id, s.population]),
+      settlements.map((s) => [s.id, s.population, Math.floor(s.foodDays), s.foodShort]),
       state.welcome?.activities.length ?? 0,
     ]);
     if (key === peopleKey) return;
@@ -795,7 +807,9 @@ export function bindUi(store: Store, actions: Actions): void {
         "p",
         {},
         link(s.name, () => actions.focusSettlement(s.id)),
-        ` · ${s.population} people · founded ${formatSimMinute(s.foundedMinute)}`,
+        ` · ${s.population} people · food for ${formatDays(s.foodDays)}`,
+        s.foodShort ? el("span", { className: "badge warn", text: "short of food" }) : "",
+        el("span", { className: "since", text: `founded ${formatSimMinute(s.foundedMinute)}` }),
       ),
     );
     nodes.push(

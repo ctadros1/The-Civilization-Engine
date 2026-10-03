@@ -295,6 +295,7 @@ The Civilization Engine/
       civ-world             # world-gen: terrain, hydrology, climate, soils, deposits  (M0: terrain, water)
       civ-content           # content compiler: packs, diagnostics, fingerprints      (M0)
       civ-sim               # composition root: world state, save/load, payloads      (M0)
+      civ-land              # habitat patches, wild stocks, fields, plots, path wear, settlements (M1)
       civ-agents            # citizens, needs, schedules, utility decisions, demography, culture
       civ-notables          # deliberation layer + Deliberator trait
       civ-tech              # technology graph, discovery, diffusion
@@ -1265,3 +1266,8 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Autosave and recovery (2026-10-03):** autosave every in-game month or 5 real minutes while the world has changed, and also before a world is replaced and at exit. The 5 newest are kept. A session marker doubles as the last-good-save pointer. Crash snapshots are kept for diagnosis and never offered for recovery.
 - **M0 smoke seeds (2026-10-03):** 2 presets × 5 seeds at 8 km, checking fixed thresholds for relief, land, gentle ground and rivers, the exact save round trip, and 50 years of clock. The population checks of §4.7 join once agents exist.
 - **Generated code (2026-10-03):** flatc is pinned at 25.12.19 and the generated Rust and TypeScript are committed. CI rebuilds flatc and fails if they are stale.
+- **People, movement and history (2026-10-03, ADR-0003):** people and households are plain tables with permanent ids; activities are versioned so stale events do nothing; needs are lazy; randomness is keyed by purpose, person and a saved counter. Trips are routes with cumulative timings and revisions; M1's snapshot carries one entry per person and trip geometry is queried. Person records and chronicle events are kept forever, decision receipts in a ring of 64 per person.
+- **Buildings, land and paths (2026-10-03, ADR-0004):** `BuildingSpec` stores the realised design (footprint in centimetres, authoritative) and `civ-grammar` expands it purely, with golden hashes and a grammar version. Habitat patches (128 m) and their stocks are saved; fields and plots are entities; path wear is saved per 8 m cell with a trail bit, and trail polylines are derived.
+- **`civ-land` (2026-10-03):** a crate the original layout did not list, for land state that changes over time (stocks, fields, plots, wear, settlements). `civ-world` stays pure world generation. Dependency order: `civ-core` ← `civ-world` ← `civ-grammar` ← `civ-land` ← `civ-agents` ← `civ-content` ← `civ-sim` ← `civ-host`.
+- **Founding band (2026-10-03):** a new world starts with one founding group of 40 people (30–50 allowed) in at least six unrelated families, with ages, unions and children drawn from the life table. Research 05-01's viability estimate: bands of 20 fall below 10 people in about a quarter of five-seed runs; bands of 40 almost never do.
+- **Hut grammar in M1 (2026-10-03):** the one building program's rules are Rust code with every dimension from content; authored rule graphs wait for grammar v2 (M3).

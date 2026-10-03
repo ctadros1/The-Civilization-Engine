@@ -9,6 +9,8 @@ the milestone is too big and gets split.
 |---|---|---|---|
 | [0001](0001-boundary-schema.md) | Boundary schema: `commons-wire` envelope with FlatBuffers payloads | Accepted | M0 |
 | [0002](0002-snapshot-container.md) | Snapshots: `commons-persist` chunked container with FlatBuffers sections | Accepted | M0 |
+| [0003](0003-people-movement-history.md) | People, movement and history in the kernel, saves and boundary | Accepted | M1 |
+| [0004](0004-buildings-land-paths.md) | Building specs, land state and paths | Accepted | M1 |
 
 ## Template
 

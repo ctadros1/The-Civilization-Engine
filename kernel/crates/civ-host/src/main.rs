@@ -2,6 +2,7 @@
 
 #![forbid(unsafe_code)]
 
+use std::io::Write as _;
 use std::net::Ipv4Addr;
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -145,6 +146,9 @@ fn main() -> ExitCode {
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("civ_host=info,warn")),
         )
         .with_writer(std::io::stderr)
+        // A closed terminal or a broken `| tee` must not turn every log line into a panic: the
+        // fallback report of a failed write uses `eprintln!`, which panics when stderr is gone.
+        .log_internal_errors(false)
         .init();
     let cli = Cli::parse();
     let result = match cli.command.unwrap_or(Command::Serve(ServeArgs::default())) {
@@ -207,11 +211,17 @@ fn serve(args: ServeArgs) -> anyhow::Result<ExitCode> {
         if args.open {
             open_browser(&url);
         }
-        axum::serve(listener, app)
+        let served = axum::serve(listener, app)
             .with_graceful_shutdown(shutdown_signal())
-            .await?;
-        println!("Stopping: the world is saved if it changed.");
+            .await;
+        // The terminal may be gone by now (a closed window, a killed `| tee`), and `println!`
+        // panics then. Nothing may stop the save.
+        let _ = writeln!(
+            std::io::stdout(),
+            "Stopping: the world is saved if it changed."
+        );
         tokio::task::spawn_blocking(move || engine.shutdown()).await?;
+        served?;
         Ok(ExitCode::SUCCESS)
     })
 }

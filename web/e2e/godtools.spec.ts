@@ -1,6 +1,6 @@
 // M1 slice G, end to end: the observer runs ahead a day in full detail (a task that pauses the
-// clock where it arrives), then sends a family to the village with the map tool; the chronicle
-// names it as the observer's doing.
+// clock where it arrives) and the inspector follows, then sends a family to the village with the
+// map tool; the chronicle names it as the observer's doing.
 
 import { expect, test } from "@playwright/test";
 
@@ -26,6 +26,10 @@ test("the observer runs ahead and sends a family", async ({ page }) => {
       { timeout: 120_000 },
     );
 
+    // Inspect someone, so the inspector has to follow the run ahead.
+    const someone = (await page.evaluate(() => window.__TCE__.briefs()))[0]!;
+    await page.evaluate((id) => window.__TCE__.select(id), someone.id);
+
     // Run ahead a day: the clock moves on by a day and waits there.
     const before = (await state(page)).clock!;
     await page.getByLabel("Run ahead").selectOption({ label: "a day" });
@@ -41,6 +45,17 @@ test("the observer runs ahead and sends a family", async ({ page }) => {
     expect(after.minute).toBe(before.minute + 1440);
     expect(after.paused).toBe(true);
     await expect(page.locator("#events")).toContainText("Ran ahead to");
+    // The inspector catches up with the day the world stopped on, although the paused world
+    // sends no more snapshots.
+    await page.waitForFunction(
+      () => {
+        const s = window.__TCE__.state();
+        const until = s.selected?.untilMinute;
+        return until != null && !!s.clock && until >= s.clock.minute;
+      },
+      undefined,
+      { timeout: 10_000 },
+    );
 
     // Send a family to the village with the map tool.
     const people = (await state(page)).people;

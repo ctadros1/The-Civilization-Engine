@@ -73,16 +73,21 @@ async function syncChronicle(): Promise<void> {
   const have = store.state.chronicle.at(-1)?.seq ?? 0;
   if (!world || chronicleBusy || head <= have) return;
   chronicleBusy = true;
+  let ok = false;
   try {
     const { entries } = await client.chronicle(have, 256);
     if (historyWorld !== key) return;
     const known = store.state.chronicle.at(-1)?.seq ?? 0;
     store.update({ chronicle: store.state.chronicle.concat(entries.filter((e) => e.seq > known)) });
+    ok = true;
   } catch (e) {
     console.warn(`tce: the chronicle could not be read: ${String(e)}`);
   } finally {
     chronicleBusy = false;
   }
+  // Entries may have come while these were on their way, and the snapshot that announced them
+  // may be the last one for a while (a paused world sends none).
+  if (ok) void syncChronicle();
 }
 
 /** `world:revision:day` of the fields on the map. */
@@ -105,21 +110,26 @@ async function syncFields(): Promise<void> {
     return;
   }
   fieldsBusy = true;
+  let ok = false;
   try {
     const { fields } = await client.fields();
     fieldsKey = key;
     map.setFields(fields);
+    ok = true;
   } catch (e) {
     console.warn(`tce: the fields could not be read: ${String(e)}`);
   } finally {
     fieldsBusy = false;
   }
+  if (ok) void syncFields();
 }
 
 /** `world:revision` of the buildings on the map, and when they were last asked for. */
 let buildingsKey = "";
 let buildingsBusy = false;
 let buildingsAskedAt = 0;
+/** An ask held back by the rate limit, so the last change is always fetched. */
+let buildingsTimer = 0;
 /** Least real time between fetches of the buildings while work moves on, milliseconds. */
 const BUILDINGS_REFRESH_MS = 500;
 
@@ -137,20 +147,30 @@ async function syncBuildings(): Promise<void> {
   }
   // A new world's buildings come at once; work moving on is shown at most twice a second.
   const now = performance.now();
-  if (buildingsKey.startsWith(`${worldKey}:`) && now - buildingsAskedAt < BUILDINGS_REFRESH_MS) {
+  const waited = now - buildingsAskedAt;
+  if (buildingsKey.startsWith(`${worldKey}:`) && waited < BUILDINGS_REFRESH_MS) {
+    if (!buildingsTimer) {
+      buildingsTimer = window.setTimeout(() => {
+        buildingsTimer = 0;
+        void syncBuildings();
+      }, BUILDINGS_REFRESH_MS - waited);
+    }
     return;
   }
   buildingsBusy = true;
   buildingsAskedAt = now;
+  let ok = false;
   try {
     const { buildings } = await client.buildings();
     buildingsKey = key;
     map.setBuildings(buildings);
+    ok = true;
   } catch (e) {
     console.warn(`tce: the buildings could not be read: ${String(e)}`);
   } finally {
     buildingsBusy = false;
   }
+  if (ok) void syncBuildings();
 }
 
 /** `world:revision` of the paths on the map. */
@@ -169,26 +189,47 @@ async function syncPaths(): Promise<void> {
     return;
   }
   pathsBusy = true;
+  let ok = false;
   try {
     const paths = await client.paths();
     pathsKey = key;
     map.setPaths(paths);
+    ok = true;
   } catch (e) {
     console.warn(`tce: the paths could not be read: ${String(e)}`);
   } finally {
     pathsBusy = false;
   }
+  if (ok) void syncPaths();
 }
 
 let personBusy = false;
 let personAskedAt = 0;
+/** Another ask is due once the one on its way is answered. */
+let personAgain = false;
+/** An ask held back by the rate limit, so the inspector never stops on a stale answer. */
+let personTimer = 0;
 
 /** Asks the host about the inspected person again (at most once a second unless `force`). */
 async function refreshPerson(force: boolean): Promise<void> {
   const selected = store.state.selected;
-  if (!selected || personBusy) return;
-  if (!force && performance.now() - personAskedAt < PERSON_REFRESH_MS) return;
+  if (!selected) return;
+  if (personBusy) {
+    personAgain = true;
+    return;
+  }
+  const waited = performance.now() - personAskedAt;
+  if (!force && waited < PERSON_REFRESH_MS) {
+    if (!personTimer) {
+      personTimer = window.setTimeout(() => {
+        personTimer = 0;
+        void refreshPerson(false);
+      }, PERSON_REFRESH_MS - waited);
+    }
+    return;
+  }
   personBusy = true;
+  personAgain = false;
   personAskedAt = performance.now();
   const id = selected.id;
   try {
@@ -203,6 +244,8 @@ async function refreshPerson(force: boolean): Promise<void> {
   } finally {
     personBusy = false;
   }
+  // Someone else was chosen, or the world moved on, while this ask was on its way.
+  if (personAgain) void refreshPerson(store.state.selected?.id !== id);
 }
 
 function select(id: number | null): void {
@@ -345,7 +388,12 @@ const hooks = {
       buildingsRev: s.snapshot?.buildingsRev ?? 0,
       chronicle: s.chronicle.map((e) => e.spans.map((x) => x.text).join("")),
       selected: s.selected
-        ? { id: s.selected.id, name: s.selected.info?.name ?? null, doing: s.selected.info?.doing ?? null }
+        ? {
+            id: s.selected.id,
+            name: s.selected.info?.name ?? null,
+            doing: s.selected.info?.doing ?? null,
+            untilMinute: s.selected.info?.untilMinute ?? null,
+          }
         : null,
     };
   },

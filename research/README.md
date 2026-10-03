@@ -2,14 +2,11 @@
 
 170 deep-research topics across 16 domains, from the simulation engine to how each part of a society works. 165 are needed before v1 (M0–M8); the rest come after. Priorities: 100 High, 63 Medium, 7 Low.
 
-## How to use
+## Research files
 
-1. Pick the next topic from **By milestone** below: finish a milestone's High topics before that milestone starts.
-2. Open the topic file and copy the prompt block into ChatGPT Pro deep research. Each prompt is self-contained.
-3. Save the report next to the prompt as `<same-name>.report.md` and set the topic's **Status** to Done.
-4. When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log.
+Each topic link below points to a Markdown file in its domain folder. A completed file contains the research report in place of the original prompt; a pending file still contains its prompt and status table. This keeps the topic links valid while reports are collected.
 
-Status lives in each topic file, not in this index.
+When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log.
 
 **Priority:** **High** means the milestone's core design depends on it. **Medium** improves fidelity or reduces risk and can be done during the milestone. **Low** is polish or post-v1.
 

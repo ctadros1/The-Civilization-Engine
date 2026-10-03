@@ -1,40 +1,429 @@
-# Runtime-generated terrain in packaged UE5 builds
+# Runtime-generated terrain for TCE in packaged Unreal Engine 5.8
 
-| Field | Value |
-|---|---|
-| ID | 14-01 |
-| Needed by | M2 (First light in Unreal) |
-| Priority | High |
-| Informs | PROJECT_PLAN.md §6, §7 (spike S1) |
-| Status | Not started |
+**Engineering assessment as of September 27, 2026**
 
-**Why TCE needs this:** Spike S1 must decide how Unreal renders TCE's procedurally generated terrain and applies small earthwork edits at runtime.
+## Executive recommendation
 
-## Prompt
+**Use a Rust-owned, tiled heightfield as TCE’s authoritative terrain representation. For S1, test a pre-created, non-Nanite Unreal Landscape driven by Errant Landscape Runtime first. Keep chunked heightfield meshes through Realtime Mesh Component as the fallback.**
 
-Copy everything in the block below into ChatGPT Pro deep research.
+That recommendation separates two decisions:
 
-```text
-Deep research request: Runtime-generated terrain in packaged UE5 builds
+* **World representation:** Rust owns elevations, soil, earthworks, persistence, and simulation queries.
+* **Rendering implementation:** Unreal receives bounded updates and maintains the visible surface, collision, materials, and vegetation.
 
-Context: I'm building The Civilization Engine (TCE), an endless, realistic agent-based simulation. Autonomous people found settlements, grow them into cities, and develop their own governments, laws, economies, technologies and architecture from authored building blocks. Nothing about history is scripted, and every world turns out differently. A Rust simulation kernel simulates 10k–50k individual people with visible daily life over decades to centuries, starting from early agrarian technology with no fixed eras. Unreal Engine 5 renders it on a Windows PC. Spike S1 must decide how Unreal renders TCE's procedurally generated terrain and applies small earthwork edits at runtime.
+Errant is worth testing before building a terrain renderer because it explicitly supports runtime changes to standard Landscape heightmaps, weightmaps, and collision, including procedural generation while a game loads and World Partition streaming. Its June 2026 update added runtime-generated texture inputs and collision-update notifications. These capabilities closely match TCE’s requirements. [Errant Photon](https://documentation.errantphoton.com/landscape/runtime/introduction/)
 
-Research question: What is the best way to render a procedurally generated 16×16 km terrain in a packaged Unreal Engine 5.8 build, with small local edits streamed in at runtime?
+**Do not choose native UE5.8 Mesh Terrain merely because it is new.** Its documented workflow still compiles editor-created terrain sections for use in cooked games; that is different from generating and modifying terrain inside the executable. Likewise, stock Landscape Patch APIs do not constitute a supported packaged-runtime editing system. [Epic Games Developers](https://dev.epicgames.com/documentation/unreal-engine/crafting-mesh-terrain-in-unreal-engine)
 
-Cover:
-- Landscape runtime APIs (what works outside the editor), dynamic mesh terrain, Virtual Heightfield Mesh, Mesh Terrain, third-party options (e.g. Voxel Plugin)
-- LOD, collision, runtime virtual texture materials, foliage and PCG compatibility
-- Applying small local edits without hitches
-- Performance on RTX 4070 Ti-class GPUs; shipped examples
+There is an important qualification: **I found no reproducible benchmark demonstrating this exact workload—UE5.8, 256 km², runtime edits, realistic vegetation, and RTX 4070 Ti at 1440p.** The recommendation is based on documented capabilities and integration risk, not a measured claim that one solution achieves TCE’s complete 60 fps target. The acceptance tests below should decide the implementation.
 
-Deliver an engineering report:
-1. Options: the main techniques and how each works.
-2. Trade-offs: performance, complexity and maturity, with benchmarks where available.
-3. Precedents: shipped games, engines, open-source projects and papers that do this, and what they learned.
-4. Recommendation: the best fit for TCE's constraints (Rust kernel loaded as a DLL inside Unreal Engine 5.8 on Windows; i9 13th gen, 64 GB RAM, RTX 4070 Ti with 12 GB VRAM; 60 fps at 1440p; a solo developer working with AI coding agents), including pitfalls.
-5. Sources: link documentation, papers, talks and code, and note which versions the information applies to (as of 2026).
-```
+---
 
-## Report
+# 1. Options: what actually works at runtime
 
-Save the finished report next to this file as `01-ue-runtime-terrain.report.md`, then change **Status** above to Done.
+## 1.1 Standard Landscape: good runtime renderer, incomplete runtime authoring solution
+
+A cooked Landscape is a reasonable way to render a large heightfield. The distinction is between **using an existing Landscape at runtime** and **creating or modifying its terrain data through supported runtime APIs**.
+
+The strongest current warning is in Epic’s UE5.8 `ULandscapePatchComponent` documentation: its implementation belongs to the editor Landscape Patch plugin, and the API commentary explicitly says runtime Landscape editing is not yet supported. The presence of `BlueprintCallable` functions on that class does not make it a packaged-game terrain API. [Epic Games Developers](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/LandscapePatch/ULandscapePatchComponent)
+
+Community examples demonstrate lower-level heightmap changes and collision reconstruction, but they are not equivalent to a complete, supported pipeline covering packaged builds, streaming proxies, materials, collision, and save/load. Treat such examples as source-level experiments rather than a production contract. [Epic Developer Community Forums](https://forums.unrealengine.com/t/knowledge-base-runtime-landscape-editing/631305)
+
+**What this means for TCE:** do not base S1 on “call Landscape import or patch functions after startup” without immediately proving that code in a Shipping build. A custom engine implementation is possible, but it makes you responsible for maintaining Landscape internals.
+
+### Nanite Landscape does not remove this problem
+
+Epic’s Nanite Landscape workflow builds an additional representation. It retains non-Nanite Landscape data for other systems, including Runtime Virtual Texturing and water-related functionality. Therefore, enabling Nanite neither makes ordinary Landscape editing into a supported runtime workflow nor eliminates the original terrain data. [Epic Games Developers](https://dev.epicgames.com/documentation/en-us/unreal-engine/using-nanite-with-landscapes-in-unreal-engine)
+
+For the first editable-terrain implementation, **use conventional Landscape rendering rather than assuming its Nanite representation will follow runtime earthworks.**
+
+---
+
+## 1.2 Errant Landscape Runtime: the strongest integration-first candidate
+
+Errant adds runtime terrain modification to Unreal’s existing Landscape rather than replacing it with a separate terrain renderer.
+
+Its 1.7 release introduced several particularly relevant features: stamp inputs can be generic `UTexture` objects, including render targets generated by another system; runtime updates can be queued by bounds; a collision-update delegate is exposed; and runtime grass refreshing is available. The release notes also report fixes for packaged-game navigation updates and cooking problems. [Errant Photon](https://documentation.errantphoton.com/blog/landscape-1-7/)
+
+### How TCE would use it
+
+Cook a **flat Landscape scaffold** with the required extent and component layout. After launching the executable, Rust generates a world seed and terrain tiles. Unreal uploads those elevations through the runtime extension.
+
+**The topology and allocation scaffold are cooked; the mountains, valleys, rivers, and earthworks are not.** This satisfies runtime procedural topography without requiring arbitrary Landscape component creation in Shipping.
+
+Errant offers two useful update models:
+
+| Brush model | Documented behavior | TCE use |
+| --- | --- | --- |
+| Dynamic brush | Retained, movable, removable; intended for tens to hundreds of brushes | Temporary modifiers or a bounded set of replaceable terrain inputs |
+| Static brush | Applied into cached layer textures, then destroyed; intended for large accumulated brush counts | Permanent earthwork changes without retaining every brush as an active object |
+
+Multiple brushes can be combined into one bounds-based `UElRtWorldSubsystem::QueueRender` request. That is directly useful for batching earthworks during time acceleration. [Errant Photon](https://documentation.errantphoton.com/landscape/runtime/spawning/)
+
+### Restrictions that matter
+
+Runtime Errant Landscape currently documents **no Nanite support**, **no standard headless dedicated-server support**, and no automatic change to underlying Physical Materials when runtime weightmaps are painted. Those are runtime-specific limitations; broader product claims about Nanite or platform support should not override them. [Errant Photon](https://documentation.errantphoton.com/landscape/runtime/introduction/)
+
+Runtime-editable weightmaps require preparation before cooking and are limited to non-weight-blended layers. RVT invalidation remains the game’s responsibility. Grass flushing can rebuild a whole component and cause visible flicker. [Errant Photon](https://documentation.errantphoton.com/landscape/runtime/setup/)
+
+**Version confidence:** the vendor promises support for the latest Unreal release and its predecessor. However, I did not inspect a licensed UE5.8 binary or run it. An exact-version packaged smoke test is still required. Source access is an optional purchase; for a long-lived simulation project, I would regard it as important insurance. [Errant Photon](https://documentation.errantphoton.com/installation/)
+
+**Assessment:** best first candidate for a solo developer who wants native Landscape integration and modest heightfield earthworks. Its decisive risk is **the amount of work triggered by a small edit**, not whether it can draw a mountain.
+
+---
+
+## 1.3 Native procedural and dynamic meshes: runtime-capable, but not terrain engines
+
+### `UProceduralMeshComponent`
+
+PMC accepts runtime triangle geometry and supports asynchronous physics cooking. Epic still labels the component experimental. `UpdateMeshSection` can update an existing section without changing topology, which is useful when earthworks only move vertices. [Epic Games Developers](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/ProceduralMeshComponent/UProceduralMeshComponent)
+
+It is a straightforward reference implementation, but TCE would still need terrain LOD, streaming, seam handling, material integration, and update scheduling.
+
+### `UDynamicMeshComponent`
+
+DMC provides a richer editable mesh representation and APIs for partial render updates. Its implementation exposes fast vertex-change notifications and supports deferred/asynchronous collision-update workflows. These facilities are better matched to localized mesh editing than rebuilding a large component after every change. [Epic Games Developers](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/GeometryFramework/UDynamicMeshComponent)
+
+There are two important traps:
+
+**First, distinguish runtime mesh classes from editor generation helpers.** `UDynamicMesh`, `UDynamicMeshComponent`, and `ADynamicMeshActor` have runtime uses; `AGeneratedDynamicMeshActor` and its generated-mesh rebuild event are editor-oriented.
+
+**Second, do not infer lighting support from geometry support.** Epic’s current Geometry Scripting documentation lists hardware ray tracing support for dynamic meshes, but not native Nanite or Lumen support. Hardware ray tracing support alone is not proof of a complete Lumen integration. [Epic Games Developers](https://dev.epicgames.com/documentation/unreal-engine/geometry-scripting-users-guide-in-unreal-engine?lang=en-US)
+
+**Assessment:** excellent for a correctness prototype, local special geometry, or a custom terrain system. Less attractive as the sole foundation of a solo-developed, fully integrated 256 km² terrain renderer.
+
+---
+
+## 1.4 Realtime Mesh Component: preferred custom-mesh foundation
+
+Realtime Mesh Component, or RMC, provides an alternative runtime rendering path with configurable mesh streams, LOD support, and asynchronous collision facilities. Its free Core is MIT-licensed; the current project advertises UE5.5–5.8 support. It is a mesh framework, not a complete terrain generator. [GitHub](https://github.com/TriAxis-Games/RealtimeMeshComponent)
+
+For TCE, the straightforward implementation is:
+
+> Rust height tiles → regular-grid mesh patches → quadtree-selected LODs → RMC rendering and local collision.
+
+You retain control over patch size, CPU work, visible mesh density, and collision residency. You also inherit responsibility for cracks, morphing, world streaming, material data, and vegetation placement.
+
+### Important 2026 change: runtime Nanite is no longer categorically unavailable
+
+RMC’s **plugin version 5.4.0, dated July 2026**, advertises runtime Nanite generation on unmodified UE5.5–5.8, plus runtime Lumen card and signed-distance-field generation. These are newer capabilities associated with its paid offerings; they should not be attributed automatically to free Core. [TriAxis Games](https://triaxis.games/realtime-mesh/changelog/)
+
+This is meaningful, but it is not yet a reason to make TCE depend on runtime Nanite reconstruction for every shovel operation. Measure generation latency, memory, lighting updates, and repeated small edits separately.
+
+**Assessment:** strongest fallback when native Landscape update granularity or resolution is unacceptable. More development work than Errant, but a cleaner match to explicit Rust-owned terrain data.
+
+---
+
+## 1.5 UE5.8 Mesh Terrain: promising authoring system, not the documented runtime solution
+
+Mesh Terrain allows terrain to be represented with arbitrary meshes rather than a single-valued heightfield, enabling features such as overhangs and more flexible geometry. It is experimental in UE5.8. [Epic Games Developers](https://dev.epicgames.com/documentation/unreal-engine/mesh-terrain-in-unreal-engine)
+
+The critical workflow distinction is that **preview sections are editor-only**. Epic directs developers to generate compiled sections for PIE and cooked games, using Mesh Partition within a World Partition level. [Epic Games Developers](https://dev.epicgames.com/documentation/unreal-engine/crafting-mesh-terrain-in-unreal-engine)
+
+That proves packaged rendering of compiled Mesh Terrain. It does **not** establish a supported packaged workflow for generating its sections from a new Rust seed and continually editing them.
+
+**Assessment:** useful for authored environments and worth monitoring. Do not select it for S1 unless a minimal executable independently proves the required runtime creation and update path.
+
+---
+
+## 1.6 Virtual Heightfield Mesh: a rendering technique, not a full terrain system
+
+VHM renders a heightfield derived from virtual-texture data and exposes LOD and height-bound-related controls. Its UE5.8 component remains under the experimental Virtual Heightfield Mesh plugin. Its API presentation also separates it from ordinary collision, physics, and navigation responsibilities. [Epic Games Developers](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/VirtualHeightfieldMesh/UVirtualHeightfieldMeshComponent)
+
+Its appeal is a largely GPU-driven surface that can follow height data without conventional large mesh uploads.
+
+However, TCE would still need an authoritative height representation, a collision solution, correct bounds/min-max data, material-page invalidation, and persistence. A surface that looks displaced is not sufficient evidence that agents, physics, and navigation agree with it.
+
+**Assessment:** potentially useful as a specialized rendering layer. Too many additional responsibilities to make it the first solo-developer implementation.
+
+---
+
+## 1.7 Voxel Plugin 2: valuable when volumetric editing is actually required
+
+Voxel terrain becomes attractive when TCE requires caves, tunnels, undercuts, or removal of material beneath another surface.
+
+Voxel Plugin documents runtime stamps and sculpting. Its guidance distinguishes inexpensive-to-apply procedural stamps from sculpt operations that materialize edits; it recommends sculpting for many small changes. Asynchronous editing variants exist, while synchronous calls can block the game thread. [Voxel Plugin Documentation](https://docs.voxelplugin.com/knowledgebase/blueprints/runtime-edits-and-sculpting)
+
+It also supplies terrain-aware PCG sampling and local collision-generation facilities. However, version-specific instructions matter: the 2.0p8 changelog replaces older Voxel-specific navigation-invoker behavior with standard Unreal navigation invokers. [Voxel Plugin Documentation](https://docs.voxelplugin.com/knowledgebase/foliage/using-pcg-on-voxel-terrains)
+
+**The immediate problem is version support.** The public latest documentation identifies **2.0p8, v2 beta**, and explicitly targets **UE5.6 and UE5.7**, not UE5.8. That does not prove a compatible private build is impossible, but it leaves a material compatibility gate unresolved. [Voxel Plugin Documentation](https://docs.voxelplugin.com/)
+
+**Assessment:** reconsider when volumetric terrain becomes a core requirement. For roads, terraces, foundations, embankments, and most surface ditches, it introduces capabilities and integration work TCE may not need.
+
+---
+
+# 2. Trade-offs and performance
+
+## 2.1 A 256 km² world does not require 256 km² of full-resolution geometry
+
+The following are **calculated storage sizes**, not Unreal benchmarks. They assume an exactly 16,000 m square, inclusive boundary samples, and no compression.
+
+| Sampling | Height samples | Height-only storage |
+| --- | --- | --- |
+| 2 m spacing, 16-bit height | 8,001² | Approximately 122 MiB |
+| 1 m spacing, 16-bit height | 16,001² | Approximately 488 MiB |
+| 1 m spacing, 32-bit height | 16,001² | Approximately 977 MiB |
+
+These sizes are manageable in a 64 GB host **as terrain data**, though soil, hydrology, materials, caches, and simulation state add substantially.
+
+The corresponding full-resolution 1 m mesh contains **512 million triangles**. At an illustrative 32 bytes per vertex and 32-bit triangle indices, vertices plus indices alone require approximately **13.35 GiB**—already beyond the card’s 12 GB VRAM, before textures or any other scene content.
+
+Therefore:
+
+> **Keep world data persistent; keep detailed render geometry and physics data local.**
+
+Geometry clipmaps demonstrate this principle explicitly: nested regular grids retain a bounded visible working set and update incrementally as the observer moves. CDLOD offers a related quadtree approach using regular grids and continuous distance-dependent LOD. [NVIDIA Developer](https://developer.nvidia.com/gpugems/gpugems2/part-i-geometric-complexity/chapter-2-terrain-rendering-using-gpu-based-geometry)
+
+### Resolution is a gameplay decision
+
+A roughly 1 m grid can represent broad grades and foundations, but not every narrow ditch or sharply defined shovel cut satisfactorily. Halving grid spacing quadruples sample count.
+
+Before selecting the renderer, S1 should establish whether TCE needs:
+
+**Broad earthworks:** approximately metre-scale ground geometry, with finer appearance supplied by materials and small meshes.
+
+**Fine editable ground:** sub-metre geometric detail around settlements, potentially requiring adaptive local mesh density.
+
+The second requirement strengthens the case for custom chunked meshes. A fixed-resolution Landscape is less flexible than a renderer whose patches can carry different local geometric resolutions.
+
+---
+
+## 2.2 LOD and collision should have different residency policies
+
+For an RMC implementation, my starting design would use **64–128 m render patches**, with larger quadtree parents at distance. These are proposed starting values, not proven optima.
+
+At 1 m sampling, a 64 m patch contains 65² vertices and 8,192 triangles. That bounds an individual update reasonably, while still requiring batching and LOD selection to prevent excessive component and draw-call counts.
+
+Use geometric-error or screen-space-error selection, hysteresis, and edge stitching or morphing. Simply selecting independent LODs for adjacent chunks produces a seam-management problem; regular-grid LOD algorithms exist specifically to address this. [GitHub](https://github.com/fstrugar/CDLOD)
+
+For Landscape, start from valid Landscape component dimensions rather than treating an arbitrary image dimension as a valid layout. Epic’s technical guide explains the relationship between sections, components, duplicated boundary vertices, and performance. [Epic Games Developers](https://dev.epicgames.com/documentation/en-us/unreal-engine/landscape-technical-guide-in-unreal-engine)
+
+For **either** renderer, my recommendation is to keep detailed Chaos collision around interactive observation areas and physics objects—not around every remotely simulated person. Rust should answer ordinary terrain-height and traversability questions directly.
+
+**Fifty thousand simulated people should not imply fifty thousand terrain traces, CharacterMovement components, or navigation invokers per frame.**
+
+---
+
+## 2.3 Materials, RVT, foliage, and PCG
+
+### Runtime Virtual Texturing
+
+Treat RVT as a **derived appearance cache**, not terrain authority.
+
+Epic documents RVT as an on-demand rendering/cache mechanism that can receive material contributions from supported scene primitives. Sampling RVT in a material and writing geometry into RVT are distinct integration requirements. [Epic Games Developers](https://dev.epicgames.com/documentation/en-us/unreal-engine/runtime-virtual-texturing-in-unreal-engine)
+
+For DMC or RMC, verify the exact UE5.8 renderer’s writer behavior rather than relying on old claims that dynamic meshes categorically cannot write RVT—or assuming support without testing.
+
+After an earthwork update, invalidate the affected area. UE5.8 exposes bounds-based invalidation through `URuntimeVirtualTextureComponent::Invalidate`. Include both the old and new affected bounds where necessary. [Epic Games Developers](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/URuntimeVirtualTextureComponent)
+
+Also test shadow and lighting response. A correct main-pass mesh does not prove that RVT, shadow caches, and indirect-lighting representations have all updated correctly.
+
+### Foliage and PCG
+
+PCG runtime generation is supported in standalone builds and provides generation sources, hierarchical grids, scheduling controls, and cleanup. It is not restricted to editor generation. [Epic Games Developers](https://dev.epicgames.com/documentation/en-us/unreal-engine/using-pcg-generation-modes-in-unreal-engine)
+
+For TCE, I would use:
+
+* Native Landscape sampling with the Errant path.
+* A custom Rust-backed terrain sampler with the mesh path.
+* Stable instance identities, with local adjustment or removal after edits.
+
+That last point matters for simulation consistency: a felled tree must not return because a PCG cell regenerated.
+
+Generate decorative detail around cameras and relevant observation regions. Do not make every simulated citizen a procedural-content generation source. Coalesce vegetation changes after multiple nearby earthworks instead of rebuilding vegetation for each individual operation.
+
+---
+
+## 2.4 What the available benchmarks actually establish
+
+| Evidence | Reported result | What it does—and does not—show |
+| --- | --- | --- |
+| GPU Gems 2 geometry clipmaps, 2005 | On a GeForce 6800 GT at 1024×768: 130 fps rendering-only with frustum culling; approximately 87 fps while moving over decompressed terrain, or 120 fps for synthesized terrain | Demonstrates bounded terrain rendering and incremental updates. It does not include UE5 lighting, modern vegetation, Chaos, or TCE. |
+| `nolmoonen/terrain3`, OpenGL demo | Author reports approximately 0.013–0.017 ms update and 0.14–0.18 ms rendering on RTX 2070/Ryzen 5 2600 at 1080p, with 10 cm finest spacing | A narrowly scoped procedural clipmap demonstration, not an independently reproduced whole-game result. |
+| Voxel Plugin 2.0p8 | Vendor reports generation improvements up to 2× and experimental vertex deduplication savings up to 40% VRAM | Relative implementation improvements, not absolute performance for a 256 km² UE5.8 scene. |
+
+Sources: the original chapter, demo author, and plugin changelog respectively. [NVIDIA Developer](https://developer.nvidia.com/gpugems/gpugems2/part-i-geometric-complexity/chapter-2-terrain-rendering-using-gpu-based-geometry)
+
+**None of these numbers should be extrapolated into an RTX 4070 Ti frame-rate prediction.**
+
+The engineering implication is narrower: terrain geometry can have a bounded cost largely independent of total map size. TCE’s real bottleneck may instead be material complexity, vegetation, shadows, collision publication, or work competing with the Rust simulation.
+
+---
+
+# 3. Precedents and lessons
+
+## Deep Rock Galactic: runtime procedural destruction can ship in Unreal
+
+Ghost Ship Games’ Epic interview describes a fully destructible, procedurally generated environment and identifies mesh generation as a key technical challenge in the prototype. Engine source access helped the team address problems. This is a genuine precedent for shipping custom procedural/destructible environments rather than relying on conventional authored terrain alone. [Unreal Engine](https://www.unrealengine.com/en-US/spotlights/how-ghost-ship-games-found-success-with-deep-rock-galactic)
+
+**Lesson for TCE:** a custom mesh route is viable, but it is a subsystem to engineer and maintain—not an automatic feature of using Unreal. DRG’s bounded cave missions do not establish performance for a realistic 256 km² civilization world.
+
+## Cold Response: unusually relevant UE5.8 operational evidence
+
+The developer’s 2026 updates report migration to **UE5.8.1**, persistent terrain-related changes, and use of Errant Landscape persistent-layer brushes when controlling navigation updates. They also describe streaming-boundary collision failures and engine-level fixes. The game is in Early Access and uses a custom engine build. [Steam Community](https://steamcommunity.com/app/3831420)
+
+**Lesson for TCE:** collision lifetimes, navigation invalidation, and streaming synchronization deserve first-class tests. This is useful integration evidence, but not proof that stock Errant on unmodified UE5.8 meets TCE’s performance target.
+
+## The Witcher 3: large-world terrain is a whole streaming system
+
+CD Projekt’s GDC material covers terrain creation/rendering and the broader visibility and streaming problems of a large open world. It is an authored-world precedent, not evidence of arbitrary packaged runtime terrain editing. [GDC Vault](https://www.gdcvault.com/play/1020197/Landscape-Creation-and-Rendering-in)
+
+**Lesson for TCE:** terrain rendering cannot be evaluated separately from vegetation, shadows, visibility, and streaming. An empty terrain fly-through is only the first benchmark scene.
+
+## Open-source references worth studying
+
+**cashgenUE** is a particularly relevant historical Unreal prototype: runtime tiled terrain, multithreaded generation, LOD, and collision. Its documented target is **UE4.25**, so use it for architecture and test ideas, not as a UE5.8 drop-in dependency. [GitHub](https://github.com/midgen/cashgenUE)
+
+**Terrain3D for Godot** documents a clipmap-based architecture with sparse terrain regions. It also makes a useful distinction between visual terrain outside allocated regions and collision-backed terrain. That is a reminder to define “terrain exists” separately for rendering and simulation. [Terrain3D Documentation](https://terrain3d.readthedocs.io/en/stable/docs/system_architecture.html)
+
+**CDLOD and GPU geometry clipmaps** remain useful algorithmic references. Their durable contribution is controlling the visible working set and transitions; their old graphics APIs and timing results are not implementation recommendations for UE5.8. [GitHub](https://github.com/fstrugar/CDLOD)
+
+---
+
+# 4. Recommended TCE architecture and S1 acceptance tests
+
+## 4.1 Keep terrain ownership entirely in Rust
+
+My proposed authoritative terrain record is:
+
+> **Generator version + seed + tiled elevations + surface/soil state + materialized edit deltas + tile revision numbers.**
+
+Unreal should not be the only place where an earthwork exists. In particular, do not make GPU heightmap readback the normal mechanism for discovering the terrain state needed by Rust.
+
+The kernel should own height queries, slope, soil quantities, construction grading, hydrological changes, and persistence. Unreal maintains a visual and physical projection of that state.
+
+Use a narrow C ABI with explicit buffer ownership. Transfer tile snapshots or changed rectangles in batches; do not expose Rust containers directly or issue individual cross-DLL calls for every person.
+
+A terrain update should contain at least a tile identifier, revision, dirty sample rectangle, height data, and relevant surface changes. Worker jobs consume immutable snapshots; the Unreal adapter applies results through the appropriate engine-owned execution paths.
+
+**Important numerical detail:** make Rust height interpolation agree with the triangulated collision surface where exact contact matters. Bilinear interpolation over four heights is not generally identical to interpolation across the mesh’s two triangles.
+
+---
+
+## 4.2 First implementation: Errant-backed Landscape
+
+For S1, I recommend this sequence:
+
+**Create the carrier.** Cook a flat, World Partition Landscape covering the fixed world extent, with prepared runtime-editable material layers. Choose valid component dimensions and scale the grid to the desired physical size.
+
+Errant recommends relatively large sections/components and multiple components per proxy for large landscapes. Its documented starting configuration is 255×255-quads sections, 2×2 sections per component, and World Partition grid size of at least two. [Errant Photon](https://documentation.errantphoton.com/landscape/runtime/setup/)
+
+**Install runtime topography.** Feed Rust-generated height data after executable startup. Verify initial heights, component bounds, collision, streaming, and far views before adding visual complexity.
+
+**Choose one consistent edit representation.** Errant’s static cached layer is additive; replacing an existing base requires a dynamic brush with Replace blending. Do not accidentally apply a whole absolute height tile as an incremental delta. [Errant Photon](https://documentation.errantphoton.com/landscape/runtime/setup/)
+
+**Checkpoint terrain, not an endless replay.** Rust should save materialized changed tiles. A century-old world should not require replaying millions of individual shovel events merely to reconstruct the visible ground.
+
+**Keep Nanite disabled for this path.** Test conventional terrain rendering with the intended lighting and shadow configuration.
+
+The critical measurement is **edit amplification**: how much heightmap, collision, vegetation, and material work does a 4 m² edit actually trigger? Larger Landscape components may reduce rendering overhead but increase the work associated with localized changes. S1 must measure that trade-off rather than choosing component size solely from a large-landscape recommendation.
+
+Also measure the residency of Errant’s cached layers. Do not assume that World Partition unloading a Landscape proxy automatically gives the exact cache-memory behavior TCE needs.
+
+---
+
+## 4.3 Fallback: RMC heightfield patches
+
+Switch to RMC when the Landscape path fails a required gate—for example, unacceptable collision spikes, insufficient local geometric resolution, or problematic cache/streaming behavior.
+
+Keep the Rust data model unchanged. Replace only the Unreal adapter.
+
+The starting mesh design should use regular-grid patches, bounded collision chunks, coarse quadtree parents, shared boundary sampling, and versioned asynchronous jobs. For ordinary earthworks, preserve mesh topology and update positions/normals rather than reconstructing arbitrary connectivity.
+
+RMC’s LOD and mesh-stream facilities reduce rendering-framework work, but TCE still owns the terrain hierarchy and streaming policy. Its 2026 API changes also make exact-version pinning important; older examples may use interfaces retired by the current release. [GitHub](https://github.com/TriAxis-Games/RealtimeMeshComponent)
+
+Test the required lighting and RVT behavior immediately. Do not complete the geometry implementation and discover later that the intended material/lighting pipeline depends on untested Pro features.
+
+I would not initially write a custom Nanite builder, custom VHM integration, and custom Landscape runtime patcher in parallel. That would turn S1 into three engine projects.
+
+---
+
+## 4.4 Apply edits as bounded transactions
+
+The following is a proposed update protocol, not a claim that any plugin performs all these steps automatically.
+
+**Commit and coalesce.** Rust applies simulation changes and unions overlapping dirty rectangles. During fast-forward, Unreal should receive the newest relevant surface, not every intermediate shovel animation.
+
+**Prepare asynchronously.** Generate changed render data, collision input, normal-border samples, and affected parent LOD data from an immutable tile revision. Include a halo around edits where neighboring normals or interpolation depend on changed samples.
+
+**Publish under a frame budget.** Limit uploads and engine-object changes per frame. Reject completed work whose tile revision has already been superseded.
+
+**Replace collision safely.** Keep the previous valid collision until its replacement is ready. Asynchronous cooking is only one stage; scene insertion and downstream invalidation must also fit the frame budget.
+
+**Coordinate occupied surfaces.** When terrain changes under a visible person or physics object, either publish compatible visual/collision states together or explicitly manage the transition. A temporary missing collider is not acceptable merely because an update is asynchronous.
+
+**Refresh dependent systems locally.** Update affected RVT bounds, foliage, navigation, and other terrain consumers. Errant’s collision-update delegate is useful as a completion signal, but the adapter still needs revision tracking and controlled downstream work. [Errant Photon](https://documentation.errantphoton.com/blog/landscape-1-7/)
+
+**Persist and test re-entry.** Unloading, reloading, teleporting, and restarting must reconstruct the same terrain. Duplicate update delivery must not double-apply an additive edit.
+
+For TCE, this transactional behavior is more important than shaving a small amount from an isolated terrain draw call.
+
+---
+
+## 4.5 S1 benchmark plan
+
+Test **one exact UE5.8 patch version**, first in packaged Development and then Shipping. Choose a random seed after process startup to prove the terrain was not baked.
+
+| Test | Required coverage |
+| --- | --- |
+| Runtime generation | Multiple seeds; full 16×16 km extent; correct collision and material assignment |
+| Local editing | 2×2 m, 8×8 m, and 32×32 m edits; cuts and fills; component/chunk boundaries; edits beneath occupied surfaces |
+| Update pressure | Controlled 1, 10, and 100 edits/second; overlapping edits; road/foundation batches; accelerated-simulation bursts |
+| Streaming | Ground travel, elevated city views, fast traversal, teleporting between settlements, unloading during outstanding jobs |
+| Persistence | Save/load, process restart, repeated chunk re-entry, and a large accumulated edit history |
+| Integration | Representative vegetation, roads, buildings, RVT, shadows, chosen GI, and a concurrent Rust simulation workload |
+
+Record **p50, p95, p99, and worst-frame timings**, not just average fps. Track game thread, render thread, worker utilization, collision completion, GPU passes, VRAM, and edit-to-visible latency. Separate cold-start and first-use behavior from warmed steady-state tests.
+
+### Proposed acceptance budgets
+
+These are **engineering targets for S1**, not published benchmark results:
+
+| Metric | Initial target |
+| --- | --- |
+| Complete application frame time | 16.67 ms for 60 fps; CPU and GPU assessed separately |
+| Terrain-attributable GPU work, including associated passes | Approximately 2–3 ms starting budget |
+| Game-thread terrain publication/collision integration | ≤1 ms at p99 |
+| Small local edit visibly applied | ≤100 ms |
+| Replacement collision ready | ≤200 ms where delayed publication is safe |
+| Terrain working-set allocation | Start with a 1–2 GB budget and measure all associated caches |
+| Total VRAM allocation | Aim below approximately 10 GB to retain headroom |
+| Steady-state terrain-induced stalls | No >33.3 ms stalls in the agreed stress suite |
+
+An occupied-surface update cannot simply tolerate a 200 ms mismatch; it needs coordinated publication or controlled object adjustment.
+
+Use **native 1440p with frame generation disabled** as the diagnostic baseline. Record an additional upscaled configuration separately. Upscaling results should not conceal simulation or collision bottlenecks.
+
+### The selection rule
+
+**Choose Errant** when its packaged build passes correctness, streaming, edit-latency, and memory tests with the required terrain resolution.
+
+**Choose RMC** when bounded mesh/collision patches are necessary to pass those tests, and its material/lighting integration also passes.
+
+**Revisit Voxel** when tunnels and volumetric excavation become indispensable and an explicitly supported UE5.8-compatible release is established.
+
+---
+
+# 5. Source and version guide
+
+The citations above link the supporting evidence. These are the most useful starting points for implementation and review:
+
+| Source | Version/date and purpose |
+| --- | --- |
+| [Epic: Landscape Patch API](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/LandscapePatch/ULandscapePatchComponent?utm_source=chatgpt.com) | UE5.8; authoritative editor/runtime warning |
+| [Epic: Crafting Mesh Terrain](https://dev.epicgames.com/documentation/unreal-engine/crafting-mesh-terrain-in-unreal-engine?utm_source=chatgpt.com) | UE5.8 experimental; preview versus compiled sections |
+| [Epic: Geometry Scripting guide](https://dev.epicgames.com/documentation/unreal-engine/geometry-scripting-users-guide-in-unreal-engine?lang=en-US&utm_source=chatgpt.com) | Current UE5 documentation; runtime classes and rendering limitations |
+| [Errant Landscape 1.7 release notes](https://documentation.errantphoton.com/blog/landscape-1-7/?utm_source=chatgpt.com) and [runtime setup](https://documentation.errantphoton.com/landscape/runtime/setup/?utm_source=chatgpt.com) | June 15, 2026 release, with subsequent patch notes; runtime inputs, completion events, cooking and integration requirements |
+| [RMC code](https://github.com/TriAxis-Games/RealtimeMeshComponent?utm_source=chatgpt.com) and [changelog](https://triaxis.games/realtime-mesh/changelog/?utm_source=chatgpt.com) | Core source; plugin v5.4.0, July 2026; advertised UE5.5–5.8 support |
+| [Voxel Plugin documentation](https://docs.voxelplugin.com/?utm_source=chatgpt.com) | Public latest 2.0p8 beta; explicitly targets UE5.6–5.7 |
+| [Epic: Runtime Virtual Texturing](https://dev.epicgames.com/documentation/en-us/unreal-engine/runtime-virtual-texturing-in-unreal-engine?utm_source=chatgpt.com) and [PCG generation modes](https://dev.epicgames.com/documentation/en-us/unreal-engine/using-pcg-generation-modes-in-unreal-engine?utm_source=chatgpt.com) | Current integration and runtime scheduling documentation |
+| [GPU Gems 2: GPU geometry clipmaps](https://developer.nvidia.com/gpugems/gpugems2/part-i-geometric-complexity/chapter-2-terrain-rendering-using-gpu-based-geometry?utm_source=chatgpt.com) | Asirvatham and Hoppe, 2005; algorithm, implementation, and scoped measurements |
+| [CDLOD paper and source repository](https://github.com/fstrugar/CDLOD?utm_source=chatgpt.com) | Filip Strugar, 2010; continuous distance-dependent terrain LOD |
+| [The Witcher 3 terrain talk](https://www.gdcvault.com/play/1020197/Landscape-Creation-and-Rendering-in?utm_source=chatgpt.com) | GDC 2014; large-world terrain production/rendering precedent |
+| [cashgenUE](https://github.com/midgen/cashgenUE?utm_source=chatgpt.com) and [Terrain3D architecture](https://terrain3d.readthedocs.io/en/stable/docs/system_architecture.html?utm_source=chatgpt.com) | UE4.25 historical runtime prototype; separate Godot clipmap architecture reference |
+
+**Bottom line:** TCE does not initially need a universal destructible-world engine. It needs a reliable, bounded-cost projection of Rust-owned terrain into Unreal. Start by testing whether Errant can provide that projection while preserving native Landscape integration. Keep the data contract independent so that failure means replacing the renderer—not rewriting the civilization simulation.
+
+---
+
+[Original ChatGPT research conversation](https://chatgpt.com/g/g-p-6ab9247582ac8191ba7a44a8a3ea0556/c/6ab92963-3368-83ea-bfa1-ed9564a788af)

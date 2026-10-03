@@ -135,6 +135,9 @@ pub fn validate(map: &WorldMap) -> Vec<String> {
         if lake.level_m > lake.spill_m + 1e-3 {
             problems.push(format!("lake {} stands above its spill level", lake.id));
         }
+        if lake.outlet_cell.is_some_and(|c| c as usize >= n) {
+            problems.push(format!("lake {} has an outlet off the map", lake.id));
+        }
         if counts.get(k + 1).copied().unwrap_or(0) != lake.cell_count {
             problems.push(format!(
                 "lake {} cell count disagrees with the raster",
@@ -150,6 +153,10 @@ pub fn validate(map: &WorldMap) -> Vec<String> {
         }
         if reach.cells.is_empty() {
             problems.push(format!("reach {k} has no cells"));
+            continue;
+        }
+        if reach.cells.iter().any(|&c| c as usize >= n) {
+            problems.push(format!("reach {k} has a cell off the map"));
             continue;
         }
         for pair in reach.cells.windows(2) {

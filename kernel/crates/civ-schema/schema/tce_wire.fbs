@@ -1,0 +1,273 @@
+// The Civilization Engine boundary schema: payloads of commons-wire frames (ADR-0001).
+//
+// The root table of a payload is chosen by the frame kind:
+//   Hello -> Hello, Welcome -> Welcome, Snapshot -> Snapshot, Events -> Events,
+//   Command -> Command, Query -> Query, Response -> Response, Error -> ErrorInfo.
+//
+// Evolution rules (ADR-0001): every field has an explicit id; never renumber, reuse, retype or
+// remove a field (deprecate it); never reorder enum values or union members; append only.
+// Additive changes bump the schema minor (civ-schema WIRE_SCHEMA_MINOR); anything else is a
+// major bump and an ADR.
+
+namespace tce.wire;
+
+enum RasterLayer : ubyte { Elevation = 0, Water = 1, DrainageArea = 2, LakeId = 3 }
+
+enum RasterFormat : ubyte { U8 = 0, U16 = 1, U32 = 2, F32 = 3 }
+
+enum EventKind : ubyte { Info = 0, WorldCreated = 1, Saved = 2, Loaded = 3, Autosaved = 4, Warning = 5, Failure = 6 }
+
+enum ErrorCode : ushort { Unknown = 0, BadRequest = 1, Busy = 2, NoWorld = 3, NotFound = 4, Incompatible = 5, Internal = 6 }
+
+struct Vec2 {
+  x: float;
+  y: float;
+}
+
+// ---- Handshake ---------------------------------------------------------------------------
+
+table Hello {
+  client: string (id: 0);
+}
+
+table PresetInfo {
+  id: string (id: 0);
+  name: string (id: 1);
+  description: string (id: 2);
+  is_default: bool (id: 3);
+}
+
+table Welcome {
+  host: string (id: 0);
+  version: string (id: 1);
+  presets: [PresetInfo] (id: 2);
+  // Map sizes the host offers, in cells per side.
+  map_sizes: [uint] (id: 3);
+  cell_size_m: float (id: 4);
+  content_fingerprint: string (id: 5);
+}
+
+// ---- Snapshot: replaceable host and world state --------------------------------------------
+
+table Clock {
+  // Simulation minutes since the calendar origin.
+  minute: long (id: 0);
+  year: long (id: 1);
+  month: ubyte (id: 2);
+  day: ubyte (id: 3);
+  hour: ubyte (id: 4);
+  minute_of_hour: ubyte (id: 5);
+  season: string (id: 6);
+  paused: bool (id: 7);
+  // Simulated seconds per real second while running.
+  speed: float (id: 8);
+}
+
+table WorldInfo {
+  world_id: string (id: 0);
+  name: string (id: 1);
+  seed: ulong (id: 2);
+  preset_id: string (id: 3);
+  width: uint (id: 4);
+  height: uint (id: 5);
+  cell_size_m: float (id: 6);
+  sea_level_m: float (id: 7);
+  min_elevation_m: float (id: 8);
+  max_elevation_m: float (id: 9);
+  generator_version: uint (id: 10);
+  lakes: uint (id: 11);
+  reaches: uint (id: 12);
+  river_length_km: float (id: 13);
+  max_discharge_m3s: float (id: 14);
+  gentle_land_fraction: float (id: 15);
+  land_fraction: float (id: 16);
+  ocean_fraction: float (id: 17);
+  // Generation of the last save this world was written to or loaded from (0 = unsaved).
+  generation: ulong (id: 18);
+  // The world was made with different content than is loaded now.
+  content_changed: bool (id: 19);
+  created_unix_ms: long (id: 20);
+}
+
+table Task {
+  name: string (id: 0);
+  stage: string (id: 1);
+  fraction: float (id: 2);
+  cancellable: bool (id: 3);
+}
+
+// Offered after the host stopped unexpectedly: the last good save to resume from.
+table Recovery {
+  reason: string (id: 0);
+  save_file: string (id: 1);
+  save_label: string (id: 2);
+  sim_minute: long (id: 3);
+  world_name: string (id: 4);
+}
+
+table Snapshot {
+  world: WorldInfo (id: 0);
+  clock: Clock (id: 1);
+  task: Task (id: 2);
+  recovery: Recovery (id: 3);
+  last_error: string (id: 4);
+  // Unix milliseconds of the last autosave of the current world (0 = none yet).
+  last_autosave_unix_ms: long (id: 5);
+}
+
+// ---- Events: ordered log -------------------------------------------------------------------
+
+table Event {
+  id: ulong (id: 0);
+  sim_minute: long (id: 1);
+  unix_ms: long (id: 2);
+  kind: EventKind (id: 3);
+  text: string (id: 4);
+}
+
+table Events {
+  events: [Event] (id: 0);
+}
+
+// ---- Commands: change state ----------------------------------------------------------------
+
+table NewWorld {
+  seed: ulong (id: 0);
+  preset_id: string (id: 1);
+  size_cells: uint (id: 2);
+  name: string (id: 3);
+}
+
+table SaveWorld {
+  label: string (id: 0);
+}
+
+table LoadWorld {
+  // A file name from SaveList.
+  file: string (id: 0);
+}
+
+table SetClock {
+  paused: bool (id: 0);
+  speed: float (id: 1);
+}
+
+table CancelTask {}
+
+table RecoverWorld {
+  // true: load the offered save; false: dismiss the offer.
+  accept: bool (id: 0);
+}
+
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld }
+
+table Command {
+  body: CommandBody (id: 1);
+}
+
+// ---- Queries: read state -------------------------------------------------------------------
+
+table GetRaster {
+  layer: RasterLayer (id: 0);
+  // Downsampling level: each level halves the resolution.
+  level: ubyte (id: 1);
+  // Region in cells of the requested level.
+  x0: uint (id: 2);
+  y0: uint (id: 3);
+  width: uint (id: 4);
+  height: uint (id: 5);
+}
+
+table GetHydrography {
+  // Polyline simplification tolerance, metres.
+  tolerance_m: float (id: 0);
+}
+
+table ListSaves {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves }
+
+table Query {
+  body: QueryBody (id: 1);
+}
+
+// ---- Responses -----------------------------------------------------------------------------
+
+table Ack {
+  message: string (id: 0);
+}
+
+table RasterTile {
+  layer: RasterLayer (id: 0);
+  level: ubyte (id: 1);
+  x0: uint (id: 2);
+  y0: uint (id: 3);
+  width: uint (id: 4);
+  height: uint (id: 5);
+  format: RasterFormat (id: 6);
+  // value = raw * scale + offset (for quantised formats).
+  scale: float (id: 7);
+  offset: float (id: 8);
+  // Little-endian samples, row-major.
+  data: [ubyte] (id: 9);
+  // Size of the whole layer at this level.
+  full_width: uint (id: 10);
+  full_height: uint (id: 11);
+}
+
+table Reach {
+  id: uint (id: 0);
+  order: ubyte (id: 1);
+  discharge_m3s: float (id: 2);
+  width_m: float (id: 3);
+  // Reach this one flows into at a confluence, or -1.
+  downstream: int (id: 4);
+  // Metres from the map's north-west corner.
+  points: [Vec2] (id: 5);
+}
+
+table LakeInfo {
+  id: uint (id: 0);
+  level_m: float (id: 1);
+  area_m2: float (id: 2);
+  closed: bool (id: 3);
+  centroid: Vec2 (id: 4);
+}
+
+table Hydrography {
+  reaches: [Reach] (id: 0);
+  lakes: [LakeInfo] (id: 1);
+}
+
+table SaveEntry {
+  file: string (id: 0);
+  world_name: string (id: 1);
+  label: string (id: 2);
+  // "manual", "auto" or "crash".
+  kind: string (id: 3);
+  generation: ulong (id: 4);
+  created_unix_ms: long (id: 5);
+  sim_minute: long (id: 6);
+  size_bytes: ulong (id: 7);
+  // This build can load it.
+  compatible: bool (id: 8);
+  // It was written with different content than is loaded now.
+  content_changed: bool (id: 9);
+  note: string (id: 10);
+  world_id: string (id: 11);
+}
+
+table SaveList {
+  saves: [SaveEntry] (id: 0);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList }
+
+table Response {
+  body: ResponseBody (id: 1);
+}
+
+table ErrorInfo {
+  code: ErrorCode (id: 0);
+  message: string (id: 1);
+}

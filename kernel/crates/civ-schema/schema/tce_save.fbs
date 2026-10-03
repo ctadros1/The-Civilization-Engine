@@ -1,0 +1,108 @@
+// The Civilization Engine save schema: payloads of commons-persist sections (ADR-0002).
+//
+// This is the durable world model, deliberately separate from the boundary schema: it stores
+// authoritative state only. Derived data (drainage area, presentation shading, geometry) is
+// rebuilt on load. Same evolution rules as tce_wire.fbs; a section's version in the container
+// manifest names the encoding of its payload.
+
+namespace tce.save;
+
+// Section "meta": who and what this world is, and how it was made.
+table Param {
+  name: string (id: 0);
+  value: double (id: 1);
+}
+
+table Meta {
+  world_name: string (id: 0);
+  seed: ulong (id: 1);
+  preset_id: string (id: 2);
+  generator_version: uint (id: 3);
+  width: uint (id: 4);
+  height: uint (id: 5);
+  cell_size_m: float (id: 6);
+  sea_level_m: float (id: 7);
+  created_unix_ms: long (id: 8);
+  // Effective generation parameters, by name (provenance; terrain is not regenerated from them).
+  params: [Param] (id: 9);
+  precipitation_mm_per_yr: float (id: 10);
+  evapotranspiration_mm_per_yr: float (id: 11);
+  lake_evaporation_mm_per_yr: float (id: 12);
+}
+
+// Section "clock": simulation time and the scheduler's state.
+table Clock {
+  minute: long (id: 0);
+  paused: bool (id: 1);
+  speed: float (id: 2);
+  scheduler_seq: ulong (id: 3);
+  tiebreak_state: [ulong] (id: 4);
+  next_permanent_id: ulong (id: 5);
+}
+
+// Section "content": what content the world was made with.
+table Pack {
+  id: string (id: 0);
+  version: string (id: 1);
+  artifact_fingerprint: [ubyte] (id: 2);
+}
+
+table Content {
+  fingerprint: [ubyte] (id: 0);
+  packs: [Pack] (id: 1);
+}
+
+// Section "raster", one chunk per tile and layer.
+enum Layer : ubyte { Elevation = 0, Receivers = 1, Water = 2, LakeId = 3 }
+
+table RasterTile {
+  layer: Layer (id: 0);
+  x0: uint (id: 1);
+  y0: uint (id: 2);
+  width: uint (id: 3);
+  height: uint (id: 4);
+  // Little-endian samples, row-major: f32 elevation, u8 receivers, u8 water, u32 lake ids.
+  data: [ubyte] (id: 5);
+}
+
+// Section "hydro": lakes, river reaches and boundary inflows.
+table Lake {
+  id: uint (id: 0);
+  level_m: float (id: 1);
+  spill_m: float (id: 2);
+  closed: bool (id: 3);
+  cell_count: uint (id: 4);
+  area_m2: double (id: 5);
+  volume_m3: double (id: 6);
+  catchment_m2: double (id: 7);
+  // -1 = none.
+  outlet_cell: long (id: 8);
+  centroid_x_m: float (id: 9);
+  centroid_y_m: float (id: 10);
+}
+
+enum Terminus : ubyte { Junction = 0, Lake = 1, Outlet = 2, Sink = 3 }
+
+table Reach {
+  id: uint (id: 0);
+  cells: [uint] (id: 1);
+  // -1 = none.
+  downstream: long (id: 2);
+  terminus: Terminus (id: 3);
+  terminus_lake: uint (id: 4);
+  order: ubyte (id: 5);
+  discharge_m3s: float (id: 6);
+  width_m: float (id: 7);
+  drainage_area_km2: float (id: 8);
+}
+
+table Inflow {
+  cell: uint (id: 0);
+  area_m2: double (id: 1);
+}
+
+table Hydro {
+  lakes: [Lake] (id: 0);
+  reaches: [Reach] (id: 1);
+  inflows: [Inflow] (id: 2);
+}

@@ -12,6 +12,14 @@ export interface PresetInfo {
   isDefault: boolean;
 }
 
+export interface ActivityInfo {
+  id: string;
+  /** "Gather plants" */
+  name: string;
+  /** "gathering wild plants" */
+  doing: string;
+}
+
 export interface Welcome {
   host: string;
   version: string;
@@ -22,6 +30,13 @@ export interface Welcome {
   defaultMapSize: number;
   speed1x: number;
   speedMultipliers: number[];
+  /** The activity catalogue, in the order people's activity indices refer to. */
+  activities: ActivityInfo[];
+  /** Labels of decision-receipt reasons, by code. */
+  reasons: Record<number, string>;
+  bandSizeMin: number;
+  bandSizeMax: number;
+  bandSizeDefault: number;
 }
 
 export interface WorldInfo {
@@ -75,6 +90,34 @@ export interface Recovery {
   worldName: string;
 }
 
+export type Sex = "female" | "male";
+
+/** One living person as the snapshot carries them (ADR-0003 §2.3). */
+export interface PersonBrief {
+  id: number;
+  /** Where they are at the snapshot's minute, metres from the north-west corner. */
+  x: number;
+  y: number;
+  /** Index into Welcome.activities. */
+  activity: number;
+  /** The walk they are on (0 = none) and its revision. */
+  trip: number;
+  tripRev: number;
+  sex: Sex;
+  ageYears: number;
+  household: number;
+  asleep: boolean;
+}
+
+export interface SettlementBrief {
+  id: number;
+  name: string;
+  x: number;
+  y: number;
+  foundedMinute: number;
+  population: number;
+}
+
 export interface Snapshot {
   world: WorldInfo | null;
   clock: Clock | null;
@@ -82,6 +125,10 @@ export interface Snapshot {
   recovery: Recovery | null;
   lastError: string | null;
   lastAutosaveUnixMs: number;
+  people: PersonBrief[];
+  settlements: SettlementBrief[];
+  /** The newest chronicle entry's sequence number (0 = none). */
+  chronicleHead: number;
 }
 
 export type EventKind =
@@ -173,11 +220,105 @@ export interface SaveEntry {
   note: string;
 }
 
+/** A walk: a route with the minutes after departure at each vertex (ADR-0003 §2). */
+export interface TripInfo {
+  id: number;
+  rev: number;
+  person: number;
+  departMinute: number;
+  /** x, y pairs in metres. */
+  points: Float32Array;
+  minutes: Float32Array;
+}
+
+export interface Span {
+  kind: "text" | "person" | "settlement";
+  text: string;
+  id: number;
+}
+
+export interface ChronicleEntry {
+  seq: number;
+  minute: number;
+  spans: Span[];
+}
+
+export interface Term {
+  reason: number;
+  points: number;
+}
+
+export interface ScoredOption {
+  /** Index into Welcome.activities; 65535 = an activity the content no longer has. */
+  activity: number;
+  /** Rendered by the kernel: "home", "the hearth", "woodland 600 m east of home". */
+  target: string;
+  total: number;
+  terms: Term[];
+}
+
+/** Why a person chose what they did, recorded when they chose it. */
+export interface Decision {
+  minute: number;
+  chosen: ScoredOption | null;
+  runnerUp: ScoredOption | null;
+  others: ScoredOption[];
+  excluded: { activity: number; reason: number }[];
+  probability: number;
+  temperature: number;
+  /** Hunger, sleep drive, loneliness (0–1), days of food, days of water. */
+  needs: number[];
+}
+
+export interface KinLink {
+  id: number;
+  name: string;
+  relation: string;
+  alive: boolean;
+}
+
+export interface PersonInfo {
+  id: number;
+  name: string;
+  sex: Sex;
+  bornMinute: number;
+  ageYears: number;
+  alive: boolean;
+  diedMinute: number;
+  cause: string;
+  origin: string;
+  household: number;
+  settlement: number;
+  settlementName: string;
+  kin: KinLink[];
+  activity: number;
+  /** Rendered by the kernel: "walking to woodland 600 m east of home (gathering wild plants)". */
+  doing: string;
+  sinceMinute: number;
+  untilMinute: number;
+  hunger: number;
+  sleepPressure: number;
+  loneliness: number;
+  energyKcal: number;
+  carryFoodKcal: number;
+  carryWaterL: number;
+  householdFoodDays: number;
+  householdWaterDays: number;
+  /** Newest first. */
+  decisions: Decision[];
+  traits: number[];
+  x: number;
+  y: number;
+}
+
 export type ResponseBody =
   | { kind: "ack"; message: string }
   | { kind: "raster"; tile: RasterTile }
   | { kind: "hydrography"; hydrography: Hydrography }
-  | { kind: "saves"; saves: SaveEntry[] };
+  | { kind: "saves"; saves: SaveEntry[] }
+  | { kind: "trips"; trips: TripInfo[] }
+  | { kind: "person"; person: PersonInfo }
+  | { kind: "chronicle"; entries: ChronicleEntry[]; head: number };
 
 export type ErrorCode =
   | "unknown"
@@ -223,11 +364,20 @@ export function newWorld(args: {
   presetId: string;
   sizeCells: number;
   name: string;
+  /** People in the founding band; 0 = the content's default. */
+  bandSize?: number;
 }): Uint8Array {
   const b = new flatbuffers.Builder(128);
   const preset = b.createString(args.presetId);
   const name = b.createString(args.name);
-  const body = W.NewWorld.createNewWorld(b, args.seed, preset, args.sizeCells, name);
+  const body = W.NewWorld.createNewWorld(
+    b,
+    args.seed,
+    preset,
+    args.sizeCells,
+    name,
+    args.bandSize ?? 0,
+  );
   return command(b, W.CommandBody.NewWorld, body);
 }
 
@@ -288,6 +438,26 @@ export function listSaves(): Uint8Array {
   return query(b, W.QueryBody.ListSaves, W.ListSaves.endListSaves(b));
 }
 
+export function getTrips(ids: number[]): Uint8Array {
+  const b = new flatbuffers.Builder(32 + ids.length * 8);
+  const vector = W.GetTrips.createIdsVector(b, ids.map((id) => BigInt(id)));
+  return query(b, W.QueryBody.GetTrips, W.GetTrips.createGetTrips(b, vector));
+}
+
+export function getPerson(id: number, decisions: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  return query(b, W.QueryBody.GetPerson, W.GetPerson.createGetPerson(b, BigInt(id), decisions));
+}
+
+export function getChronicle(afterSeq: number, limit: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  return query(
+    b,
+    W.QueryBody.GetChronicle,
+    W.GetChronicle.createGetChronicle(b, BigInt(afterSeq), limit),
+  );
+}
+
 // ---- Decoders ---------------------------------------------------------------------------------
 
 function bb(payload: Uint8Array): flatbuffers.ByteBuffer {
@@ -307,6 +477,17 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
       isDefault: p.isDefault(),
     });
   }
+  const activities: ActivityInfo[] = [];
+  for (let i = 0; i < w.activitiesLength(); i++) {
+    const a = w.activities(i);
+    if (!a) continue;
+    activities.push({ id: a.id() ?? "", name: a.name() ?? "", doing: a.doing() ?? "" });
+  }
+  const reasons: Record<number, string> = {};
+  for (let i = 0; i < w.reasonsLength(); i++) {
+    const r = w.reasons(i);
+    if (r) reasons[r.code()] = r.label() ?? "";
+  }
   return {
     host: w.host() ?? "",
     version: w.version() ?? "",
@@ -317,8 +498,15 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
     defaultMapSize: w.defaultMapSize(),
     speed1x: w.speed1x(),
     speedMultipliers: Array.from(w.speedMultipliersArray() ?? []),
+    activities,
+    reasons,
+    bandSizeMin: w.bandSizeMin(),
+    bandSizeMax: w.bandSizeMax(),
+    bandSizeDefault: w.bandSizeDefault(),
   };
 }
+
+const sexOf = (s: W.Sex): Sex => (s === W.Sex.Male ? "male" : "female");
 
 function worldInfo(w: W.WorldInfo): WorldInfo {
   return {
@@ -386,7 +574,52 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
       : null,
     lastError: s.lastError() || null,
     lastAutosaveUnixMs: Number(s.lastAutosaveUnixMs()),
+    people: personBriefs(s),
+    settlements: settlementBriefs(s),
+    chronicleHead: Number(s.chronicleHead()),
   };
+}
+
+function personBriefs(s: W.Snapshot): PersonBrief[] {
+  const out: PersonBrief[] = [];
+  const brief = new W.PersonBrief();
+  const v = new W.Vec2();
+  for (let i = 0; i < s.peopleLength(); i++) {
+    const p = s.people(i, brief);
+    if (!p) continue;
+    const pos = p.pos(v);
+    out.push({
+      id: Number(p.id()),
+      x: pos?.x() ?? 0,
+      y: pos?.y() ?? 0,
+      activity: p.activity(),
+      trip: Number(p.trip()),
+      tripRev: p.tripRev(),
+      sex: sexOf(p.sex()),
+      ageYears: p.ageYears(),
+      household: Number(p.household()),
+      asleep: p.asleep(),
+    });
+  }
+  return out;
+}
+
+function settlementBriefs(s: W.Snapshot): SettlementBrief[] {
+  const out: SettlementBrief[] = [];
+  for (let i = 0; i < s.settlementsLength(); i++) {
+    const t = s.settlements(i);
+    if (!t) continue;
+    const hearth = t.hearth();
+    out.push({
+      id: Number(t.id()),
+      name: t.name() ?? "",
+      x: hearth?.x() ?? 0,
+      y: hearth?.y() ?? 0,
+      foundedMinute: Number(t.foundedMinute()),
+      population: t.population(),
+    });
+  }
+  return out;
 }
 
 const EVENT_KINDS: Record<number, EventKind> = {
@@ -511,6 +744,143 @@ function saveEntries(list: W.SaveList): SaveEntry[] {
   return out;
 }
 
+function points(n: number, at: (k: number, v: W.Vec2) => W.Vec2 | null): Float32Array {
+  const out = new Float32Array(n * 2);
+  const v = new W.Vec2();
+  for (let k = 0; k < n; k++) {
+    const p = at(k, v);
+    if (!p) continue;
+    out[2 * k] = p.x();
+    out[2 * k + 1] = p.y();
+  }
+  return out;
+}
+
+function trips(t: W.Trips): TripInfo[] {
+  const out: TripInfo[] = [];
+  for (let i = 0; i < t.tripsLength(); i++) {
+    const trip = t.trips(i);
+    if (!trip) continue;
+    out.push({
+      id: Number(trip.id()),
+      rev: trip.rev(),
+      person: Number(trip.person()),
+      departMinute: Number(trip.departMinute()),
+      points: points(trip.pointsLength(), (k, v) => trip.points(k, v)),
+      minutes: (trip.minutesArray() ?? new Float32Array()).slice(),
+    });
+  }
+  return out;
+}
+
+const SPAN_KINDS: Record<number, Span["kind"]> = {
+  [W.SpanKind.Text]: "text",
+  [W.SpanKind.Person]: "person",
+  [W.SpanKind.Settlement]: "settlement",
+};
+
+function chronicle(c: W.Chronicle): { entries: ChronicleEntry[]; head: number } {
+  const entries: ChronicleEntry[] = [];
+  for (let i = 0; i < c.entriesLength(); i++) {
+    const e = c.entries(i);
+    if (!e) continue;
+    const spans: Span[] = [];
+    for (let k = 0; k < e.spansLength(); k++) {
+      const s = e.spans(k);
+      if (!s) continue;
+      spans.push({ kind: SPAN_KINDS[s.kind()] ?? "text", text: s.text() ?? "", id: Number(s.id()) });
+    }
+    entries.push({ seq: Number(e.seq()), minute: Number(e.minute()), spans });
+  }
+  return { entries, head: Number(c.head()) };
+}
+
+function scoredOption(o: W.ScoredOption): ScoredOption {
+  const terms: Term[] = [];
+  for (let k = 0; k < o.termsLength(); k++) {
+    const t = o.terms(k);
+    if (t) terms.push({ reason: t.reason(), points: t.points() });
+  }
+  return { activity: o.activity(), target: o.target() ?? "", total: o.total(), terms };
+}
+
+function decision(d: W.Decision): Decision {
+  const others: ScoredOption[] = [];
+  for (let k = 0; k < d.othersLength(); k++) {
+    const o = d.others(k);
+    if (o) others.push(scoredOption(o));
+  }
+  const excluded: Decision["excluded"] = [];
+  for (let k = 0; k < d.excludedLength(); k++) {
+    const x = d.excluded(k);
+    if (x) excluded.push({ activity: x.activity(), reason: x.reason() });
+  }
+  const chosen = d.chosen();
+  const runnerUp = d.runnerUp();
+  return {
+    minute: Number(d.minute()),
+    chosen: chosen ? scoredOption(chosen) : null,
+    runnerUp: runnerUp ? scoredOption(runnerUp) : null,
+    others,
+    excluded,
+    probability: d.probability(),
+    temperature: d.temperature(),
+    needs: Array.from(d.needsArray() ?? []),
+  };
+}
+
+function personInfo(p: W.PersonInfo): PersonInfo {
+  const kin: KinLink[] = [];
+  for (let k = 0; k < p.kinLength(); k++) {
+    const l = p.kin(k);
+    if (l) {
+      kin.push({
+        id: Number(l.id()),
+        name: l.name() ?? "",
+        relation: l.relation() ?? "",
+        alive: l.alive(),
+      });
+    }
+  }
+  const decisions: Decision[] = [];
+  for (let k = 0; k < p.decisionsLength(); k++) {
+    const d = p.decisions(k);
+    if (d) decisions.push(decision(d));
+  }
+  const pos = p.pos();
+  return {
+    id: Number(p.id()),
+    name: p.name() ?? "",
+    sex: sexOf(p.sex()),
+    bornMinute: Number(p.bornMinute()),
+    ageYears: p.ageYears(),
+    alive: p.alive(),
+    diedMinute: Number(p.diedMinute()),
+    cause: p.cause() ?? "",
+    origin: p.origin() ?? "",
+    household: Number(p.household()),
+    settlement: Number(p.settlement()),
+    settlementName: p.settlementName() ?? "",
+    kin,
+    activity: p.activity(),
+    doing: p.doing() ?? "",
+    sinceMinute: Number(p.sinceMinute()),
+    untilMinute: Number(p.untilMinute()),
+    hunger: p.hunger(),
+    sleepPressure: p.sleepPressure(),
+    loneliness: p.loneliness(),
+    energyKcal: p.energyKcal(),
+    carryFoodKcal: p.carryFoodKcal(),
+    carryWaterL: p.carryWaterL(),
+    householdFoodDays: p.householdFoodDays(),
+    householdWaterDays: p.householdWaterDays(),
+    decisions,
+    traits: Array.from(p.traitsArray() ?? []),
+    x: pos?.x() ?? 0,
+    y: pos?.y() ?? 0,
+  };
+}
+
 export function decodeResponse(payload: Uint8Array): ResponseBody {
   const r = W.Response.getRootAsResponse(bb(payload));
   switch (r.bodyType()) {
@@ -530,6 +900,21 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const l = r.body(new W.SaveList()) as W.SaveList | null;
       if (!l) break;
       return { kind: "saves", saves: saveEntries(l) };
+    }
+    case W.ResponseBody.Trips: {
+      const t = r.body(new W.Trips()) as W.Trips | null;
+      if (!t) break;
+      return { kind: "trips", trips: trips(t) };
+    }
+    case W.ResponseBody.PersonInfo: {
+      const p = r.body(new W.PersonInfo()) as W.PersonInfo | null;
+      if (!p) break;
+      return { kind: "person", person: personInfo(p) };
+    }
+    case W.ResponseBody.Chronicle: {
+      const c = r.body(new W.Chronicle()) as W.Chronicle | null;
+      if (!c) break;
+      return { kind: "chronicle", ...chronicle(c) };
     }
     default:
       break;

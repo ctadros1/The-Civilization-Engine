@@ -57,6 +57,15 @@
         </section>
 
         <aside class="side">
+          <section class="panel people-panel" aria-labelledby="people-heading">
+            <h2 id="people-heading">People</h2>
+            <div class="panel-body" id="people-body"></div>
+          </section>
+          <section class="panel chronicle-panel" aria-labelledby="chronicle-heading">
+            <h2 id="chronicle-heading">Chronicle</h2>
+            <ol class="chronicle" id="chronicle" aria-live="polite"></ol>
+            <p class="empty" id="chronicle-empty">Nothing has been recorded yet.</p>
+          </section>
           <section class="panel" aria-labelledby="world-heading">
             <h2 id="world-heading">World</h2>
             <div class="panel-body" id="world-body"></div>
@@ -93,6 +102,9 @@
           <button type="button" id="nw-seed-random">Random</button>
         </div>
         <p class="hint">On a given version, the same landscape, size and seed always make the same terrain.</p>
+        <label for="nw-band">Founding band</label>
+        <input id="nw-band" name="band" type="number" inputmode="numeric" />
+        <p class="hint" id="nw-band-hint"></p>
         <p class="form-error" id="nw-error" role="alert" hidden></p>
         <div class="dialog-buttons">
           <button type="button" id="nw-cancel">Cancel</button>

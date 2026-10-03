@@ -124,6 +124,9 @@ describe("decoders", () => {
       recovery: null,
       lastError: null,
       lastAutosaveUnixMs: 0,
+      people: [],
+      settlements: [],
+      chronicleHead: 0,
     });
   });
 

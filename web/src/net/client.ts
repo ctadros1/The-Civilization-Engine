@@ -234,4 +234,26 @@ export class HostClient {
     if (body.kind !== "saves") throw new HostError("internal", "expected a save list");
     return body.saves;
   }
+
+  /** The routes of trips under way; ids that are not returned have ended. */
+  async trips(ids: number[]): Promise<M.TripInfo[]> {
+    const body = await this.query(M.getTrips(ids));
+    if (body.kind !== "trips") throw new HostError("internal", "expected trips");
+    return body.trips;
+  }
+
+  async person(id: number, decisions: number): Promise<M.PersonInfo> {
+    const body = await this.query(M.getPerson(id, decisions));
+    if (body.kind !== "person") throw new HostError("internal", "expected a person");
+    return body.person;
+  }
+
+  async chronicle(
+    afterSeq: number,
+    limit: number,
+  ): Promise<{ entries: M.ChronicleEntry[]; head: number }> {
+    const body = await this.query(M.getChronicle(afterSeq, limit));
+    if (body.kind !== "chronicle") throw new HostError("internal", "expected the chronicle");
+    return { entries: body.entries, head: body.head };
+  }
 }

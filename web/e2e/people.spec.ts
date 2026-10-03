@@ -1,0 +1,104 @@
+// M1, slice A, end to end: a new world begins with a founding band; people appear on the map,
+// move along their trips while the clock runs, and the inspector says what someone is doing and
+// why; the chronicle records the arrival.
+
+import { expect, test, type Page } from "@playwright/test";
+
+import { startHost, tempSaves } from "./host.js";
+
+const shots = process.env.TCE_SHOTS_DIR;
+
+async function snap(page: Page, name: string): Promise<void> {
+  if (shots) await page.screenshot({ path: `${shots}/${name}.png` });
+}
+
+const state = (page: Page) => page.evaluate(() => window.__TCE__.state());
+
+test("a founding band lives on the map and explains itself", async ({ page }) => {
+  const host = await startHost(tempSaves());
+  try {
+    page.on("pageerror", (e) => console.log(`page error: ${e.message}`));
+    await page.goto(host.url);
+    await page.waitForFunction(() => window.__TCE__?.state().connection === "open");
+
+    // The new-world dialog offers the band size, within the content's limits.
+    await page.getByRole("button", { name: "New world" }).click();
+    const band = page.getByLabel("Founding band");
+    await expect(band).toHaveValue("40");
+    await band.fill("400");
+    await page.getByLabel("Name").fill("Band Valley");
+    await page.getByLabel("Size").selectOption("512");
+    await page.getByLabel("Seed").fill("3");
+    await page.getByRole("button", { name: "Create", exact: true }).click();
+    await expect(page.locator("#nw-error")).toContainText("30 to 50 people");
+    await band.fill("30");
+    await page.getByRole("button", { name: "Create", exact: true }).click();
+    await page.waitForFunction(
+      () => window.__TCE__.state().people === 30 && window.__TCE__.map().state === "ready",
+      undefined,
+      { timeout: 180_000 },
+    );
+
+    // The settlement, the legend and the chronicle.
+    const s = await state(page);
+    expect(s.settlements).toHaveLength(1);
+    expect(s.settlements[0]?.population).toBe(30);
+    await expect(page.locator("#people-body")).toContainText("30 people");
+    await expect(page.locator("#people-body .legend")).toContainText("Gather plants");
+    await expect(page.locator("#chronicle li")).toHaveCount(2);
+    await expect(page.locator("#chronicle")).toContainText("A band of 30 people arrived");
+    const settlementName = s.settlements[0]?.name ?? "";
+    await expect(page.locator("#chronicle")).toContainText(`They made camp at ${settlementName}.`);
+
+    // Following the settlement link centres the map on the camp; then click a person there.
+    await page.locator("#chronicle").getByRole("button", { name: settlementName }).click();
+    await page.getByRole("button", { name: "Zoom in" }).click();
+    await page.getByRole("button", { name: "Zoom in" }).click();
+    const canvas = page.locator("#map canvas");
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("no map canvas");
+    const people = await page.evaluate(() => window.__TCE__.peopleOnScreen());
+    const target = people.find(
+      (p) => p.sx > 20 && p.sy > 20 && p.sx < box.width - 20 && p.sy < box.height - 20,
+    );
+    if (!target) throw new Error("nobody on screen");
+    await page.mouse.click(box.x + target.sx, box.y + target.sy);
+    await page.waitForFunction(() => window.__TCE__.state().selected?.name != null);
+    const selected = (await state(page)).selected;
+    expect(selected?.doing).toBeTruthy();
+    const inspector = page.locator("#people-body");
+    await expect(inspector.locator("h3")).toHaveText(selected?.name ?? "");
+    await expect(inspector).toContainText("Why");
+    await expect(inspector).toContainText("likely");
+    await expect(inspector.getByRole("meter", { name: "Hunger" })).toBeVisible();
+    await snap(page, "m1-inspector");
+
+    // Run the clock: the clock moves, decisions accumulate, and walkers move between snapshots.
+    const start = (await state(page)).clock?.minute ?? 0;
+    await page.getByRole("radio", { name: "10×" }).click();
+    await page.waitForFunction((m) => (window.__TCE__.state().clock?.minute ?? 0) > m + 240, start, {
+      timeout: 120_000,
+    });
+    const moved = await page.evaluate(async () => {
+      const before = new Map(window.__TCE__.peopleOnScreen().map((p) => [p.id, [p.sx, p.sy]]));
+      await new Promise((r) => setTimeout(r, 1500));
+      let count = 0;
+      for (const p of window.__TCE__.peopleOnScreen()) {
+        const b = before.get(p.id);
+        if (b && Math.hypot(p.sx - b[0]!, p.sy - b[1]!) > 0.5) count++;
+      }
+      return count;
+    });
+    expect(moved).toBeGreaterThan(0);
+    await expect(inspector).toContainText("Why");
+    await snap(page, "m1-running");
+    await page.getByRole("button", { name: "Pause" }).click();
+
+    // Closing the inspector returns to the summary.
+    await page.getByRole("button", { name: "Close the inspector" }).click();
+    await expect(page.locator("#people-body")).toContainText("Click a person on the map");
+    expect((await state(page)).lastError).toBeNull();
+  } finally {
+    await host.stop();
+  }
+});

@@ -6,11 +6,30 @@
 // - Rivers are vector polylines from the hydrography, drawn at their channel width but never
 //   thinner than about a pixel.
 // - Drag or arrow keys pan, the wheel or +/- zoom, 0 fits the map.
+// - People are dots coloured by what they are doing, moved along their trips between snapshots;
+//   a click selects one. Settlements show their hearth and name.
 
-import { Application, Container, Graphics, Sprite, Texture } from "pixi.js";
+import { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 
 import type { HostClient } from "../net/client.js";
-import { RasterLayer, type Hydrography, type WorldInfo } from "../net/messages.js";
+import {
+  RasterLayer,
+  type ActivityInfo,
+  type Clock,
+  type Hydrography,
+  type PersonBrief,
+  type SettlementBrief,
+  type TripInfo,
+  type WorldInfo,
+} from "../net/messages.js";
+import {
+  activityColour,
+  estimateMinute,
+  missingTrips,
+  personPosition,
+  pruneTrips,
+  spread,
+} from "../people.js";
 import {
   WATER_LAKE,
   WATER_LAND,
@@ -62,6 +81,11 @@ const DETAIL_TILE = 256;
 const MAX_DETAIL_TILES = 96;
 const MAX_IN_FLIGHT = 4;
 const RIVER_COLOUR = 0x3a74ad;
+const HEARTH_COLOUR = 0xd9653b;
+/** Screen radius of an adult's dot, pixels. */
+const PERSON_PX = 4.5;
+/** How close a click must be to a person to select them, pixels. */
+const PICK_PX = 12;
 
 const WATER_NAMES: Record<number, PointerInfo["water"]> = {
   [WATER_LAND]: "land",
@@ -100,11 +124,24 @@ export class MapView {
   private riversVisible = true;
   private lastPointer: { x: number; y: number } | null = null;
   private shadeOptions: ShadeOptions | null = null;
+  private readonly settlementLayer = new Container();
+  private readonly peopleLayer = new Graphics();
+  private people: PersonBrief[] = [];
+  private settlements: SettlementBrief[] = [];
+  private settlementsKey = "";
+  private clock: Clock | null = null;
+  private clockAt = 0;
+  private trips = new Map<number, TripInfo>();
+  private tripsInFlight = false;
+  private colours: number[] = [];
+  private selected: number | null = null;
 
   status: MapStatus = { state: "empty", message: "" };
   onStatus: (status: MapStatus) => void = () => {};
   onPointer: (info: PointerInfo | null) => void = () => {};
   onCamera: () => void = () => {};
+  /** A click on the map: the person under it, or null for empty ground. */
+  onSelect: (id: number | null) => void = () => {};
 
   /** Creates the renderer inside `el`. Throws when the browser cannot render (no WebGL). */
   async mount(el: HTMLElement): Promise<void> {
@@ -118,7 +155,13 @@ export class MapView {
     });
     this.app = app;
     el.appendChild(app.canvas);
-    this.world.addChild(this.terrain, this.detail, this.rivers);
+    this.world.addChild(
+      this.terrain,
+      this.detail,
+      this.rivers,
+      this.settlementLayer,
+      this.peopleLayer,
+    );
     app.stage.addChild(this.world);
     this.attachInput(app.canvas);
     app.renderer.on("resize", () => {
@@ -154,7 +197,158 @@ export class MapView {
     this.hydro = null;
     this.info = null;
     this.inFlight = 0;
+    this.people = [];
+    this.settlements = [];
+    this.settlementsKey = "";
+    for (const child of this.settlementLayer.removeChildren()) child.destroy();
+    this.peopleLayer.clear();
+    this.trips.clear();
+    this.clock = null;
     this.setStatus("empty");
+  }
+
+  /** The activity catalogue, for dot colours. */
+  setActivities(activities: ActivityInfo[]): void {
+    this.colours = activities.map((a) => activityColour(a));
+  }
+
+  /** The people, settlements and clock of the latest snapshot. */
+  setPeople(people: PersonBrief[], settlements: SettlementBrief[], clock: Clock | null): void {
+    this.people = people;
+    this.clock = clock;
+    this.clockAt = performance.now();
+    pruneTrips(people, this.trips);
+    void this.fetchTrips();
+    const key = JSON.stringify(settlements.map((s) => [s.id, s.name, s.population]));
+    if (key !== this.settlementsKey) {
+      this.settlementsKey = key;
+      this.settlements = settlements;
+      this.drawSettlements();
+    }
+  }
+
+  /** Marks a person as selected (or nobody). */
+  setSelected(id: number | null): void {
+    this.selected = id;
+  }
+
+  private async fetchTrips(): Promise<void> {
+    const client = this.client;
+    if (this.tripsInFlight || !client) return;
+    const wanted = missingTrips(this.people, this.trips).slice(0, 256);
+    if (wanted.length === 0) return;
+    const generation = this.generation;
+    this.tripsInFlight = true;
+    try {
+      const trips = await client.trips(wanted);
+      if (generation !== this.generation) return;
+      for (const trip of trips) this.trips.set(trip.id, trip);
+    } catch (e) {
+      console.warn(`tce: trips could not be loaded: ${String(e)}`);
+    } finally {
+      this.tripsInFlight = false;
+    }
+  }
+
+  /** The simulation minute being drawn. */
+  private minuteNow(): number {
+    return this.clock ? estimateMinute(this.clock, this.clockAt, performance.now()) : 0;
+  }
+
+  private drawSettlements(): void {
+    for (const child of this.settlementLayer.removeChildren()) child.destroy();
+    for (const s of this.settlements) {
+      const marker = new Container();
+      marker.position.set(s.x, s.y);
+      const hearth = new Graphics();
+      hearth.circle(0, 0, 5).fill({ color: HEARTH_COLOUR }).stroke({ width: 1.5, color: 0x1a1e22 });
+      const label = new Text({
+        text: `${s.name} · ${s.population}`,
+        style: {
+          fontFamily: "system-ui, sans-serif",
+          fontSize: 13,
+          fill: 0xf3eee6,
+          stroke: { color: 0x1a1e22, width: 3 },
+        },
+      });
+      label.anchor.set(0.5, 1.6);
+      marker.addChild(hearth, label);
+      this.settlementLayer.addChild(marker);
+    }
+    this.scaleSettlements();
+  }
+
+  /** Keeps settlement markers the same size on screen at any zoom. */
+  private scaleSettlements(): void {
+    const s = 1 / this.scale;
+    for (const marker of this.settlementLayer.children) marker.scale.set(s);
+  }
+
+  /** Where each person is drawn now, metres: on their trips, with people at one spot spread
+   * apart by a few pixels. */
+  private drawnPositions(): [number, number][] {
+    const t = this.minuteNow();
+    const pxM = 1 / this.scale;
+    const at = this.people.map((p) => personPosition(p, this.trips, t));
+    return spread(at, 2.2 * PERSON_PX * pxM, 0.75);
+  }
+
+  private drawPeople(): void {
+    const g = this.peopleLayer;
+    g.clear();
+    if (this.people.length === 0) return;
+    const pxM = 1 / this.scale;
+    const positions = this.drawnPositions();
+    let selectedAt: [number, number, number] | null = null;
+    for (const [i, p] of this.people.entries()) {
+      const [x, y] = positions[i]!;
+      const r = (p.ageYears < 3 ? 0.55 : p.ageYears < 12 ? 0.72 : 1) * PERSON_PX * pxM;
+      g.circle(x, y, r).fill({
+        color: this.colours[p.activity] ?? 0xffffff,
+        alpha: p.asleep ? 0.6 : 1,
+      });
+      g.stroke({ width: pxM, color: 0x14181b, alpha: 0.9 });
+      if (p.id === this.selected) selectedAt = [x, y, r];
+    }
+    if (selectedAt) {
+      const [x, y, r] = selectedAt;
+      g.circle(x, y, r + 3 * pxM).stroke({ width: 2 * pxM, color: 0xffffff });
+    }
+  }
+
+  /** Screen positions of the people being drawn, for picking and tests. */
+  peopleOnScreen(): { id: number; sx: number; sy: number }[] {
+    const positions = this.drawnPositions();
+    return this.people.map((p, i) => {
+      const [x, y] = positions[i]!;
+      return { id: p.id, sx: this.world.x + x * this.scale, sy: this.world.y + y * this.scale };
+    });
+  }
+
+  /** The person nearest a screen point, within picking distance. */
+  personAt(sx: number, sy: number): number | null {
+    let best: number | null = null;
+    let bestD = PICK_PX;
+    for (const p of this.peopleOnScreen()) {
+      const d = Math.hypot(p.sx - sx, p.sy - sy);
+      if (d <= bestD) {
+        best = p.id;
+        bestD = d;
+      }
+    }
+    return best;
+  }
+
+  /** Centres the view on a point, zooming in to at least `minScale` pixels per metre. */
+  centreOn(x: number, y: number, minScale = 1): void {
+    const app = this.app;
+    if (!app || !this.info) return;
+    const { max } = this.limits();
+    const s = Math.min(max, Math.max(this.scale, minScale));
+    this.world.scale.set(s);
+    this.world.position.set(app.screen.width / 2 - x * s, app.screen.height / 2 - y * s);
+    this.clampPosition();
+    this.cameraChanged = true;
   }
 
   /** Loads and shows a world. */
@@ -286,14 +480,17 @@ export class MapView {
       "World map. Drag or use the arrow keys to pan; scroll or press + and - to zoom; 0 fits the map.",
     );
     let drag: { x: number; y: number; wx: number; wy: number } | null = null;
+    let moved = 0;
     canvas.addEventListener("pointerdown", (e) => {
       canvas.setPointerCapture(e.pointerId);
       canvas.focus();
       drag = { x: e.clientX, y: e.clientY, wx: this.world.x, wy: this.world.y };
+      moved = 0;
       canvas.classList.add("dragging");
     });
     canvas.addEventListener("pointermove", (e) => {
       if (drag) {
+        moved = Math.max(moved, Math.hypot(e.clientX - drag.x, e.clientY - drag.y));
         this.world.position.set(drag.wx + e.clientX - drag.x, drag.wy + e.clientY - drag.y);
         this.clampPosition();
         this.cameraChanged = true;
@@ -306,7 +503,11 @@ export class MapView {
       drag = null;
       canvas.classList.remove("dragging");
     };
-    canvas.addEventListener("pointerup", end);
+    canvas.addEventListener("pointerup", (e) => {
+      const click = drag !== null && moved < 5;
+      end(e);
+      if (click && this.info) this.onSelect(this.personAt(e.offsetX, e.offsetY));
+    });
     canvas.addEventListener("pointercancel", end);
     canvas.addEventListener("pointerleave", () => {
       this.lastPointer = null;
@@ -366,15 +567,21 @@ export class MapView {
   }
 
   private frame(): void {
-    if (!this.cameraChanged || !this.info || !this.base) return;
-    this.cameraChanged = false;
-    const scale = this.scale;
-    if (this.riverScale === 0 || Math.abs(Math.log(scale / this.riverScale)) > 0.15) {
-      this.drawRivers();
+    if (!this.info || !this.base) return;
+    if (this.cameraChanged) {
+      this.cameraChanged = false;
+      const scale = this.scale;
+      if (this.riverScale === 0 || Math.abs(Math.log(scale / this.riverScale)) > 0.15) {
+        this.drawRivers();
+      }
+      this.updateDetail();
+      this.scaleSettlements();
+      if (this.lastPointer) {
+        this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+      }
+      this.onCamera();
     }
-    this.updateDetail();
-    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
-    this.onCamera();
+    this.drawPeople();
   }
 
   private drawRivers(): void {
@@ -530,6 +737,10 @@ export class MapView {
       detailTiles: [...this.tiles.values()].filter((t) => t.patch).length,
       detailVisible: this.detail.visible && this.wantsDetail(),
       reaches: this.hydro?.reaches.length ?? 0,
+      people: this.people.length,
+      tripsCached: this.trips.size,
+      settlements: this.settlements.map((s) => s.name),
+      selected: this.selected,
       camera: { x: this.world.x, y: this.world.y, scale: this.scale },
       screen: this.app ? [this.app.screen.width, this.app.screen.height] : null,
     };

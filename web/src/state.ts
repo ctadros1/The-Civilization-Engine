@@ -3,11 +3,24 @@
 
 import type { MapStatus } from "./map/view.js";
 import type { ConnectionStatus } from "./net/client.js";
-import type { EventItem, Snapshot, Welcome } from "./net/messages.js";
+import type {
+  ChronicleEntry,
+  EventItem,
+  PersonInfo,
+  Snapshot,
+  Welcome,
+} from "./net/messages.js";
 
 export interface Notice {
   kind: "error" | "info";
   text: string;
+}
+
+/** The person the inspector shows, and what the host last said about them. */
+export interface Selection {
+  id: number;
+  info: PersonInfo | null;
+  error: string | null;
 }
 
 export interface AppState {
@@ -25,6 +38,10 @@ export interface AppState {
   notice: Notice | null;
   /** The host error the player dismissed. */
   dismissedError: string | null;
+  /** The person being inspected. */
+  selected: Selection | null;
+  /** The chronicle of the world on show, oldest first. */
+  chronicle: ChronicleEntry[];
 }
 
 export const MAX_EVENTS = 300;
@@ -40,6 +57,8 @@ export function initialState(): AppState {
     mapAvailable: true,
     notice: null,
     dismissedError: null,
+    selected: null,
+    chronicle: [],
   };
 }
 

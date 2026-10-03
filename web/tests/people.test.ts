@@ -1,0 +1,218 @@
+import * as flatbuffers from "flatbuffers";
+import { describe, expect, it } from "vitest";
+
+import * as M from "../src/net/messages.js";
+import {
+  activityColour,
+  estimateMinute,
+  missingTrips,
+  personPosition,
+  positionOnTrip,
+  pruneTrips,
+  spread,
+} from "../src/people.js";
+import * as W from "../src/schema/generated/tce/wire.js";
+
+const bb = (bytes: Uint8Array) => new flatbuffers.ByteBuffer(bytes);
+
+function trip(id: number, rev = 0): M.TripInfo {
+  return {
+    id,
+    rev,
+    person: 7,
+    departMinute: 100,
+    points: new Float32Array([0, 0, 10, 0, 10, 20]),
+    minutes: new Float32Array([0, 1, 3]),
+  };
+}
+
+function brief(id: number, tripId = 0, tripRev = 0): M.PersonBrief {
+  return {
+    id,
+    x: 50,
+    y: 60,
+    activity: 0,
+    trip: tripId,
+    tripRev,
+    sex: "female",
+    ageYears: 30,
+    household: 1,
+    asleep: false,
+  };
+}
+
+describe("trips", () => {
+  it("interpolate between vertices like civ-agents Trip::position_at", () => {
+    const t = trip(1);
+    expect(positionOnTrip(t, 90)).toEqual([0, 0]);
+    expect(positionOnTrip(t, 100.5)).toEqual([5, 0]);
+    expect(positionOnTrip(t, 102)).toEqual([10, 10]);
+    expect(positionOnTrip(t, 500)).toEqual([10, 20]);
+  });
+
+  it("place walkers on known trips and others where the snapshot put them", () => {
+    const trips = new Map([[1, trip(1, 2)]]);
+    expect(personPosition(brief(7, 1, 2), trips, 100.5)).toEqual([5, 0]);
+    // A stale revision or an unknown trip falls back to the snapshot position.
+    expect(personPosition(brief(7, 1, 3), trips, 100.5)).toEqual([50, 60]);
+    expect(personPosition(brief(7, 9), trips, 100.5)).toEqual([50, 60]);
+    expect(personPosition(brief(7), trips, 100.5)).toEqual([50, 60]);
+  });
+
+  it("are fetched when missing or stale and dropped when finished", () => {
+    const trips = new Map([
+      [1, trip(1, 0)],
+      [2, trip(2, 0)],
+    ]);
+    const people = [brief(1, 1, 0), brief(2, 3, 0), brief(3, 2, 1), brief(4)];
+    expect(missingTrips(people, trips)).toEqual([3, 2]);
+    pruneTrips([brief(1, 1, 0)], trips);
+    expect([...trips.keys()]).toEqual([1]);
+  });
+});
+
+describe("spreading", () => {
+  it("puts people at one spot on a ring and leaves others alone", () => {
+    const out = spread(
+      [
+        [10, 10],
+        [10.2, 10.1],
+        [50, 50],
+      ],
+      2,
+      0.75,
+    );
+    expect(out[2]).toEqual([50, 50]);
+    expect(Math.hypot(out[0]![0] - 10, out[0]![1] - 10)).toBeCloseTo(2);
+    expect(Math.hypot(out[0]![0] - out[1]![0], out[0]![1] - out[1]![1])).toBeGreaterThan(3);
+  });
+});
+
+describe("the clock estimate", () => {
+  const clock: M.Clock = {
+    minute: 1000,
+    year: 1,
+    month: 3,
+    day: 1,
+    hour: 6,
+    minuteOfHour: 0,
+    season: "spring",
+    paused: false,
+    speed: 960,
+  };
+  it("runs on at the clock's speed and stops while paused", () => {
+    expect(estimateMinute(clock, 0, 500)).toBeCloseTo(1008);
+    expect(estimateMinute({ ...clock, paused: true }, 0, 500)).toBe(1000);
+  });
+  it("never runs more than a real second ahead", () => {
+    expect(estimateMinute(clock, 0, 60_000)).toBe(1016);
+    expect(estimateMinute({ ...clock, speed: 96 }, 0, 60_000)).toBe(1001.6);
+  });
+});
+
+describe("activity colours", () => {
+  it("are stable per content id and distinct for the core activities", () => {
+    const a = activityColour({ id: "core:activity/sleep", name: "Sleep", doing: "sleeping" });
+    const b = activityColour({ id: "core:activity/eat", name: "Eat", doing: "eating" });
+    const modded = { id: "mod:activity/weave", name: "Weave", doing: "weaving" };
+    expect(a).not.toBe(b);
+    expect(activityColour(modded)).toBe(activityColour(modded));
+    expect(activityColour(undefined)).toBe(0xffffff);
+  });
+});
+
+describe("people payloads", () => {
+  it("decode from a snapshot", () => {
+    const b = new flatbuffers.Builder(256);
+    W.PersonBrief.startPersonBrief(b);
+    W.PersonBrief.addId(b, 12n);
+    W.PersonBrief.addPos(b, W.Vec2.createVec2(b, 3.5, 4.5));
+    W.PersonBrief.addActivity(b, 2);
+    W.PersonBrief.addTrip(b, 9n);
+    W.PersonBrief.addTripRev(b, 1);
+    W.PersonBrief.addSex(b, W.Sex.Male);
+    W.PersonBrief.addAgeYears(b, 31.5);
+    W.PersonBrief.addHousehold(b, 4n);
+    W.PersonBrief.addAsleep(b, true);
+    const person = W.PersonBrief.endPersonBrief(b);
+    const people = W.Snapshot.createPeopleVector(b, [person]);
+    const name = b.createString("Alderford");
+    W.SettlementBrief.startSettlementBrief(b);
+    W.SettlementBrief.addId(b, 3n);
+    W.SettlementBrief.addName(b, name);
+    W.SettlementBrief.addHearth(b, W.Vec2.createVec2(b, 100, 200));
+    W.SettlementBrief.addFoundedMinute(b, 85_320n);
+    W.SettlementBrief.addPopulation(b, 40);
+    const settlement = W.SettlementBrief.endSettlementBrief(b);
+    const settlements = W.Snapshot.createSettlementsVector(b, [settlement]);
+    W.Snapshot.startSnapshot(b);
+    W.Snapshot.addPeople(b, people);
+    W.Snapshot.addSettlements(b, settlements);
+    W.Snapshot.addChronicleHead(b, 2n);
+    b.finish(W.Snapshot.endSnapshot(b));
+    const s = M.decodeSnapshot(b.asUint8Array());
+    expect(s.people).toEqual([
+      {
+        id: 12,
+        x: 3.5,
+        y: 4.5,
+        activity: 2,
+        trip: 9,
+        tripRev: 1,
+        sex: "male",
+        ageYears: 31.5,
+        household: 4,
+        asleep: true,
+      },
+    ]);
+    expect(s.settlements).toEqual([
+      { id: 3, name: "Alderford", x: 100, y: 200, foundedMinute: 85_320, population: 40 },
+    ]);
+    expect(s.chronicleHead).toBe(2);
+  });
+
+  it("build people queries the generated reader understands", () => {
+    const trips = W.Query.getRootAsQuery(bb(M.getTrips([4, 5])));
+    expect(trips.bodyType()).toBe(W.QueryBody.GetTrips);
+    const ids = trips.body(new W.GetTrips()) as W.GetTrips;
+    expect([ids.ids(0), ids.ids(1), ids.idsLength()]).toEqual([4n, 5n, 2]);
+    const person = W.Query.getRootAsQuery(bb(M.getPerson(12, 8)));
+    const p = person.body(new W.GetPerson()) as W.GetPerson;
+    expect([p.id(), p.decisions()]).toEqual([12n, 8]);
+    const chronicle = W.Query.getRootAsQuery(bb(M.getChronicle(3, 50)));
+    const c = chronicle.body(new W.GetChronicle()) as W.GetChronicle;
+    expect([c.afterSeq(), c.limit()]).toEqual([3n, 50]);
+    const nw = W.Command.getRootAsCommand(
+      bb(M.newWorld({ seed: 1n, presetId: "p", sizeCells: 256, name: "n", bandSize: 30 })),
+    );
+    expect((nw.body(new W.NewWorld()) as W.NewWorld).bandSize()).toBe(30);
+  });
+
+  it("decode a chronicle with links", () => {
+    const b = new flatbuffers.Builder(256);
+    const t1 = b.createString("They made camp at ");
+    const s1 = W.Span.createSpan(b, W.SpanKind.Text, t1, 0n);
+    const t2 = b.createString("Alderford");
+    const s2 = W.Span.createSpan(b, W.SpanKind.Settlement, t2, 3n);
+    const spans = W.ChronicleEntry.createSpansVector(b, [s1, s2]);
+    const entry = W.ChronicleEntry.createChronicleEntry(b, 2n, 85_320n, spans);
+    const entries = W.Chronicle.createEntriesVector(b, [entry]);
+    const body = W.Chronicle.createChronicle(b, entries, 2n);
+    b.finish(W.Response.createResponse(b, W.ResponseBody.Chronicle, body));
+    const r = M.decodeResponse(b.asUint8Array());
+    expect(r).toEqual({
+      kind: "chronicle",
+      head: 2,
+      entries: [
+        {
+          seq: 2,
+          minute: 85_320,
+          spans: [
+            { kind: "text", text: "They made camp at ", id: 0 },
+            { kind: "settlement", text: "Alderford", id: 3 },
+          ],
+        },
+      ],
+    });
+  });
+});

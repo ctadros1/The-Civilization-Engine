@@ -95,3 +95,28 @@ export function formatAge(unixMs: number, now = Date.now()): string {
 export function formatMapSize(cells: number, cellSizeM: number): string {
   return `${cells} cells · ${formatDistance(cells * cellSizeM)}`;
 }
+
+/** "07:12" for a simulation minute, with the date when it is not on `today`'s day. */
+export function formatClockTime(minute: number, today?: number): string {
+  const d = simDate(minute);
+  const time = `${two(d.hour)}:${two(d.minute)}`;
+  if (today === undefined || Math.floor(minute / MINUTES_PER_DAY) === Math.floor(today / MINUTES_PER_DAY)) {
+    return time;
+  }
+  return `${MONTHS[d.month - 1] ?? "?"} ${d.day}, ${time}`;
+}
+
+/** "34", or "8 months" under two years. */
+export function formatPersonAge(years: number): string {
+  if (years < 2) {
+    const months = Math.max(0, Math.floor(years * 12));
+    return `${months} month${months === 1 ? "" : "s"}`;
+  }
+  return String(Math.floor(years));
+}
+
+/** "+4.2" / "−1.0" utility points. */
+export function formatPoints(points: number): string {
+  const text = Math.abs(points).toFixed(1);
+  return points < 0 ? `\u2212${text}` : `+${text}`;
+}

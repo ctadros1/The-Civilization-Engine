@@ -42,7 +42,8 @@ Before changing anything:
 | `kernel/` | The Rust workspace (no Unreal dependency, ever). |
 | `kernel/crates/civ-core` | Ids, handles, the 365-day calendar, the event-and-cadence scheduler, RNG. |
 | `kernel/crates/civ-world` | World generation: terrain, lakes, rivers. Pure functions of their inputs. Also walking (`nav`) and terrain measures (`terrain`). |
-| `kernel/crates/civ-land` | Land that changes: habitat patches, wild stocks, the climate year, settlements (ADR-0004). |
+| `kernel/crates/civ-grammar` | Building grammars: a pure expansion of a saved design into parts, outline and per-stage needs, with golden hashes (ADR-0004). M1 has the hut. |
+| `kernel/crates/civ-land` | Land that changes: habitat patches, wild stocks, the climate year, settlements, fields, plots and buildings (ADR-0004). |
 | `kernel/crates/civ-agents` | People: needs, decisions, activities, trips, households, founding bands, history (ADR-0003). |
 | `kernel/crates/civ-content` | The content compiler: TOML packs, stable diagnostics, fingerprints. |
 | `kernel/crates/civ-schema` | FlatBuffers schemas and generated Rust (boundary and saves). |
@@ -55,9 +56,10 @@ Before changing anything:
 | `research/` | Deep-research reports, indexed by milestone. |
 | `tools/` | `run.sh` / `run.ps1` (launch), `gen-schema.sh` (FlatBuffers codegen). |
 
-Dependency direction: `civ-core` ← `civ-world` ← `civ-land` ← `civ-agents` ← `civ-content` ←
-`civ-sim` ← `civ-host` (`civ-grammar` joins between `civ-world` and `civ-land` with the hut).
-Domain crates (`civ-core`, `civ-world`, `civ-land`, `civ-agents`) never use generated schema
+Dependency direction: `civ-core` ← `civ-world` ← `civ-grammar` ← `civ-land` ← `civ-agents` ←
+`civ-content` ← `civ-sim` ← `civ-host`. `civ-grammar` depends on nothing, so Unreal can call the
+same expansion over FFI (plan §3.4).
+Domain crates (`civ-core`, `civ-world`, `civ-grammar`, `civ-land`, `civ-agents`) never use generated schema
 types. Conversion happens only in `civ-sim` (world payloads, save sections) and `civ-host`
 (session payloads); see ADR-0001.
 

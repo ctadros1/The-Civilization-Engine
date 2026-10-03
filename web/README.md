@@ -1,6 +1,7 @@
 # Web observer
 
-The M0 web shell: TypeScript, Vite and PixiJS 8, without a UI framework. `civ-host serve` serves
+The web observer (the M0 shell, and M1's people, fields and huts): TypeScript, Vite and PixiJS 8,
+without a UI framework. `civ-host serve` serves
 the built files from `web/dist` and the observer socket at `/ws` from the same origin.
 
 ```sh
@@ -21,7 +22,9 @@ another port. `?host=127.0.0.1:7421` in the page URL connects to a host directly
 | `src/wire/envelope.ts` | The commons-wire envelope, hand-written; must match `commons/crates/commons-wire/tests/golden.json`. |
 | `src/net/messages.ts` | Builds commands and queries, decodes the host's payloads. The only module that touches generated code. |
 | `src/net/client.ts` | The WebSocket: handshake, correlation ids, reconnect with backoff. |
-| `src/map/` | Terrain shading (`shade.ts`) and the PixiJS map with detail tiles (`view.ts`). |
+| `src/map/` | Terrain shading (`shade.ts`) and the PixiJS map with detail tiles, people, fields and huts (`view.ts`). |
+| `src/people.ts`, `src/fields.ts`, `src/buildings.ts` | How people, fields and huts look on the map and what lies under a point: pure functions, unit tested. Huts are drawn from the shape the kernel expands, never designed here. |
+| `src/format.ts` | Numbers, distances and simulated times in words. |
 | `src/ui.ts`, `src/state.ts`, `src/main.ts` | Panels, dialogs, the store, and wiring. |
 | `src/schema/generated/` | FlatBuffers TypeScript from `kernel/crates/civ-schema/schema/tce_wire.fbs`. Never edit; run `tools/gen-schema.sh`. |
 | `e2e/` | Playwright specs; they start their own `civ-host` against a temporary saves folder. |

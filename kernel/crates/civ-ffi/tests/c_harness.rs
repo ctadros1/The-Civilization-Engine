@@ -2,75 +2,13 @@
 //! the built library (ADR-0005): the library loads at run time, C drives a kernel through the
 //! table, and C and Rust agree on every structure's size and field offsets.
 
+mod common;
+
 use std::mem::offset_of;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 
 use tce_kernel::{TceApiV1, TceBytes, TceConfig, TcePanelConfig, TceVersions};
-
-/// The library cargo built for this test run, next to the test binary.
-fn library() -> PathBuf {
-    let name = format!(
-        "{}tce_kernel{}",
-        std::env::consts::DLL_PREFIX,
-        std::env::consts::DLL_SUFFIX
-    );
-    let exe = std::env::current_exe().expect("the test's path");
-    let deps = exe.parent().expect("the deps folder");
-    [
-        deps.to_path_buf(),
-        deps.parent().expect("the profile folder").to_path_buf(),
-    ]
-    .into_iter()
-    .map(|dir| dir.join(&name))
-    .find(|path| path.exists())
-    .unwrap_or_else(|| panic!("{name} was not built next to {}", exe.display()))
-}
-
-/// Compiles the harness into `dir` and returns the executable.
-fn compile(dir: &Path) -> PathBuf {
-    let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let source = crate_dir.join("tests").join("harness.c");
-    let include = crate_dir.join("include");
-    let exe = dir.join(format!("harness{}", std::env::consts::EXE_SUFFIX));
-    let compiler = cc::Build::new()
-        .target(env!("TCE_FFI_TARGET"))
-        .host(env!("TCE_FFI_HOST"))
-        .opt_level(0)
-        .cargo_metadata(false)
-        .try_get_compiler()
-        .expect("a C compiler");
-    let mut command = compiler.to_command();
-    if compiler.is_like_msvc() {
-        command
-            .arg("/nologo")
-            .arg("/W3")
-            .arg("/WX")
-            .arg(format!("/I{}", include.display()))
-            .arg(&source)
-            .arg(format!("/Fe{}", exe.display()))
-            .arg(format!("/Fo{}\\", dir.display()));
-    } else {
-        command
-            .args(["-std=c11", "-Wall", "-Wextra", "-Werror"])
-            .arg("-I")
-            .arg(&include)
-            .arg(&source)
-            .arg("-o")
-            .arg(&exe);
-        if cfg!(target_os = "linux") {
-            command.arg("-ldl");
-        }
-    }
-    let output = command.output().expect("the C compiler runs");
-    assert!(
-        output.status.success(),
-        "the harness did not compile:\n{}\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    exe
-}
 
 /// The sizes and field offsets Rust gives each structure, as the harness prints them for C.
 fn rust_layouts() -> Vec<(&'static str, Vec<usize>)> {
@@ -141,12 +79,18 @@ fn rust_layouts() -> Vec<(&'static str, Vec<usize>)> {
 #[test]
 fn c_loads_the_library_and_drives_a_kernel_with_the_same_layouts() {
     let dir = tempfile::tempdir().expect("temp dir");
-    let exe = compile(dir.path());
+    let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let exe = common::compile(
+        &crate_dir.join("tests").join("harness.c"),
+        &[crate_dir.join("include")],
+        false,
+        dir.path(),
+    );
     let saves = dir.path().join("saves");
     let content = civ_content::find_content_root(Path::new(env!("CARGO_MANIFEST_DIR")))
         .expect("content/ is above the crate");
     let output = Command::new(&exe)
-        .arg(library())
+        .arg(common::library())
         .arg(&content)
         .arg(&saves)
         .output()

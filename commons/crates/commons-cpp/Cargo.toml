@@ -1,0 +1,16 @@
+[package]
+name = "commons-cpp"
+description = "Builds and runs the tests of engine-commons' C++ (commons/cpp: the frame envelope and timed paths for C++ hosts) with the system compiler."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dev-dependencies]
+cc = "1.6.0"
+serde = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

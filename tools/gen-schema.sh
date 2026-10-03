@@ -14,6 +14,7 @@ expected="25.12.19"
 schema_dir="$root/kernel/crates/civ-schema/schema"
 rust_out="$root/kernel/crates/civ-schema/src/generated"
 ts_out="$root/web/src/schema/generated"
+cpp_out="$root/kernel/crates/civ-schema/cpp"
 
 version="$("$flatc" --version | awk '{print $3}')"
 if [[ "$version" != "$expected" ]]; then
@@ -22,23 +23,26 @@ if [[ "$version" != "$expected" ]]; then
 fi
 
 generate() {
-  local rust_dir="$1" ts_dir="$2"
-  rm -rf "$rust_dir" "$ts_dir"
-  mkdir -p "$rust_dir" "$ts_dir"
+  local rust_dir="$1" ts_dir="$2" cpp_dir="$3"
+  rm -rf "$rust_dir" "$ts_dir" "$cpp_dir"
+  mkdir -p "$rust_dir" "$ts_dir" "$cpp_dir"
   "$flatc" --rust --gen-all -o "$rust_dir" "$schema_dir/tce_wire.fbs" "$schema_dir/tce_save.fbs"
   "$flatc" --ts --gen-all -o "$ts_dir" "$schema_dir/tce_wire.fbs"
+  # C++ readers and builders of the boundary schema, for C++ hosts such as the Unreal plugin
+  # (ADR-0005). They need the FlatBuffers runtime in commons/cpp/third_party/flatbuffers.
+  "$flatc" --cpp --cpp-std c++17 --scoped-enums -o "$cpp_dir" "$schema_dir/tce_wire.fbs"
 }
 
 if [[ "${1:-}" == "--check" ]]; then
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
-  generate "$tmp/rust" "$tmp/ts"
-  diff -r "$tmp/rust" "$rust_out" && diff -r "$tmp/ts" "$ts_out" || {
+  generate "$tmp/rust" "$tmp/ts" "$tmp/cpp"
+  diff -r "$tmp/rust" "$rust_out" && diff -r "$tmp/ts" "$ts_out" && diff -r "$tmp/cpp" "$cpp_out" || {
     echo "generated schema code is stale: run tools/gen-schema.sh and commit the result" >&2
     exit 1
   }
   echo "generated schema code is up to date"
 else
-  generate "$rust_out" "$ts_out"
-  echo "regenerated $rust_out and $ts_out"
+  generate "$rust_out" "$ts_out" "$cpp_out"
+  echo "regenerated $rust_out, $ts_out and $cpp_out"
 fi

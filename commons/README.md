@@ -12,10 +12,11 @@ It must contain no engine-specific concepts: no "agent", "settlement" or "organi
 |---|---|---|
 | [`commons-wire`](crates/commons-wire) | **Implemented (v0, M0)** | Frame envelope, frame kinds and delivery contracts, schema versioning, sequencer. [ADR-0001](../decisions/0001-boundary-schema.md) |
 | [`commons-persist`](crates/commons-persist) | **Implemented (v0, M0)** | Chunked snapshot container, crash-safe publication, generation directories. [ADR-0002](../decisions/0002-snapshot-container.md) |
-| `commons-wire` transports | Planned (M2) | FFI ring buffer, recording file. The WebSocket transport currently lives in `civ-host`. |
+| [`cpp`](cpp) | **Implemented (M2)** | Header-only C++17 for C++ hosts such as the Unreal plugin: `commons_wire.hpp`, the frame envelope, tested against the same golden vectors as Rust and TypeScript; `timed_path.hpp`, positions along timed paths (trip interpolation); and the FlatBuffers C++ runtime in `third_party/`. Built and tested with the system compiler by [`crates/commons-cpp`](crates/commons-cpp) |
+| `commons-wire` transports | Planned | Recording file. The WebSocket transport lives in `civ-host`; TCE's in-process transport is its C interface (`civ-ffi`, ADR-0005). |
 | `commons-rng` | Planned | Keyed deterministic RNG; needed by Prometheus and Genesis, not by TCE. |
 | `commons-record` | Planned | Recording format for frame streams a viewer can play back. |
-| `EngineBridge` (UE plugin) | Planned (M2) | DLL hosting, triple-buffer frame reader, trip interpolation, panel host. |
+| `EngineBridge` (UE plugin) | Planned (M2, on the Windows PC) | DLL hosting, frame reading, trip interpolation and the panel host inside Unreal; its engine-agnostic C++ core is in `cpp/`. |
 | `web-kit` (TS) | Planned (M1–M2) | Inspector, timeline, chart components and the `commons-wire` client. The envelope decoder currently lives in `web/src/wire/`. |
 
 ## Build and test

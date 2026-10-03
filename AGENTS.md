@@ -50,7 +50,7 @@ Before changing anything:
 | `kernel/crates/civ-sim` | The composition root: a world's state, save/load, boundary payloads. |
 | `kernel/crates/civ-host` | The command line and the localhost observer server. |
 | `kernel/crates/civ-ffi` | The kernel's C interface: the `tce_kernel` library Unreal loads, with its generated header `include/tce_kernel.h` (ADR-0005). |
-| `commons/` | `engine-commons`, staged in-repo: `commons-wire` (frame envelope), `commons-persist` (snapshot container). Engine-agnostic. |
+| `commons/` | `engine-commons`, staged in-repo: `commons-wire` (frame envelope), `commons-persist` (snapshot container), and `cpp/` (the envelope and timed paths in header-only C++ for C++ hosts, tested by `crates/commons-cpp`). Engine-agnostic. |
 | `content/` | Authored packs (`content/core`). See `content/README.md`. |
 | `web/` | The web observer (TypeScript, Vite, PixiJS). See `web/README.md`. |
 | `decisions/` | ADRs. |
@@ -87,7 +87,7 @@ npm run test:e2e                                       # needs dist/ and a built
 # The kernel library for Unreal (ADR-0005): build, check the header, publish to dist/
 tools/build-kernel-dll.ps1     # Windows, with the PDB; tools/build-kernel-dll.sh elsewhere
 
-# Generated schema code (needs flatc 25.12.19)
+# Generated schema code: Rust, TypeScript and C++ (needs flatc 25.12.19)
 tools/gen-schema.sh            # regenerate
 tools/gen-schema.sh --check    # what CI runs
 ```

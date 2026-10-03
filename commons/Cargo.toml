@@ -6,7 +6,7 @@
 # repository (`ctadros1/Engine-Commons`) when a second engine adopts it is a directory move.
 [workspace]
 resolver = "3"
-members = ["crates/commons-wire", "crates/commons-persist"]
+members = ["crates/commons-wire", "crates/commons-persist", "crates/commons-cpp"]
 
 [workspace.package]
 version = "0.1.0"

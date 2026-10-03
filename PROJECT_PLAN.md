@@ -1004,11 +1004,15 @@ M1.**
   - `tools/build-kernel-dll.*` builds and publishes the library with its PDB, header and
     manifest; CI keeps each Windows build as an artifact. Git LFS patterns for Unreal and art
     binaries.
+  - The C++ the plugin needs, without Unreal: generated C++ readers and builders of the wire
+    schema, the frame envelope and trip interpolation in header-only C++17 (`commons/cpp`), and
+    a C++ host test that loads the library, reads its frames, builds a command and sees the world
+    it asked for.
 
   Remaining, all on the Windows PC with Unreal: spike S1, the `EngineBridge` plugin (loading,
   frame reading, trip interpolation), the `BuildingAssembler` and its first kit, visible
   construction, crowds, day and night, the UMG HUD, hosting the panels in the WebBrowser widget,
-  the C++ readers of the schema, and a packaged Win64 build.
+  and a packaged Win64 build.
 
 **M3: Village economy.**
 - *Contents:*
@@ -1365,3 +1369,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **The observer socket is guarded (2026-10-03):** the socket refuses pages from other sites (a browser's `Origin` must be 127.0.0.1, `localhost` or `[::1]`), and the library's panel server also requires a 128-bit token per kernel in its address (research 14-10 §4.5). Until now, any web page open in the same browser could have driven a running host.
 - **The panels alone (2026-10-03):** `?view=panels` shows the web shell's panels without the map or WebGL, for Unreal's WebBrowser widget. Showing a place dispatches a `tce:focus` event (metres east and south) for the host to move its camera; the host opens someone in the inspector with `window.__TCE__.select(id)`. Research 14-10 recommends a native bridge or middleware (Gameface, CEF) for the packaged game; the panels talk through one client module, so the transport can change later (ADR-0005 §6).
 - **Building the library (2026-10-03):** `tools/build-kernel-dll.ps1` (Windows, with the PDB) and `.sh` build the `dll` profile (release with full debug information, research 01-06 §2.1), check the header, and publish the library, header and a manifest (ABI, target, revision, SHA-256) into `dist/tce_kernel/<target>/` or a given folder. CI keeps each Windows build as an artifact. Git LFS patterns cover `.uasset`, `.umap`, `.blend`, `.fbx` and texture sources under `art/`; screenshots and recordings under `assets/` stay in plain git.
+- **C++ for the plugin (2026-10-03):** flatc also generates C++ readers and builders of the wire schema (`kernel/crates/civ-schema/cpp`, checked with the Rust and TypeScript). The FlatBuffers C++ runtime headers (v25.12.19, Apache-2.0) are vendored in `commons/cpp/third_party`. `commons/cpp` holds header-only C++17 for any C++ host: the frame envelope, tested against the golden vectors the Rust and TypeScript decoders use, and timed-path interpolation, tested with the web observer's cases. A C++ host test drives the kernel library as the plugin will. These are compiled with warnings as errors by GCC and Clang here and by MSVC in CI.

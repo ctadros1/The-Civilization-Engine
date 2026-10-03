@@ -21,6 +21,7 @@ use civ_world::{MapStats, WorldMap};
 
 use crate::Sim;
 
+pub mod buildings;
 pub mod fields;
 pub mod people;
 

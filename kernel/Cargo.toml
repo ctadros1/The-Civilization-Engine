@@ -17,6 +17,7 @@ publish = false
 civ-agents = { path = "crates/civ-agents" }
 civ-content = { path = "crates/civ-content" }
 civ-core = { path = "crates/civ-core" }
+civ-grammar = { path = "crates/civ-grammar" }
 civ-land = { path = "crates/civ-land" }
 civ-schema = { path = "crates/civ-schema" }
 civ-sim = { path = "crates/civ-sim" }

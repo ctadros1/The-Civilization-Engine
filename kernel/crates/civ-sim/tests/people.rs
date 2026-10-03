@@ -298,13 +298,22 @@ fn households_break_ground_keep_firewood_and_gather() {
     assert!(problems.is_empty(), "{problems:?}");
 }
 
+/// One world run through its first season, from 1 March to the end of September, shared by the
+/// tests that only read it.
+fn first_season() -> &'static Sim {
+    static SEASON: OnceLock<Sim> = OnceLock::new();
+    SEASON.get_or_init(|| {
+        let mut sim = new_world(3, 0);
+        sim.advance_minutes(212 * 24 * 60).expect("advances");
+        sim
+    })
+}
+
 #[test]
 fn a_band_sows_reaps_and_threshes_its_first_harvest() {
-    let mut sim = new_world(3, 0);
+    let sim = first_season();
     let rules = sim.rules().clone();
     let crop = &rules.catalog.crops[rules.people.farm.crop];
-    // From 1 March to the end of September.
-    sim.advance_minutes(212 * 24 * 60).expect("advances");
     let chronicle = &sim.people().chronicle;
     let sown = chronicle
         .iter()
@@ -348,6 +357,62 @@ fn a_band_sows_reaps_and_threshes_its_first_harvest() {
         })
         .sum();
     assert!(grain > 0.0, "the threshed grain is in store");
+}
+
+#[test]
+fn households_raise_their_huts_and_are_under_a_roof_before_winter() {
+    let sim = first_season();
+    let rules = sim.rules().clone();
+    let land = sim.land();
+    let hut = &rules.catalog.buildings[rules.people.home_program];
+    for (_, h) in sim.people().households.iter() {
+        // One plot and one hut each, claimed for its home.
+        let plots: Vec<_> = land.plots.iter().filter(|p| p.household == h.id).collect();
+        let huts: Vec<_> = land
+            .buildings
+            .iter()
+            .filter(|b| b.household == h.id)
+            .collect();
+        assert_eq!((plots.len(), huts.len()), (1, 1), "household {}", h.id);
+        let b = huts[0];
+        assert_eq!(b.plot, plots[0].id);
+        assert_eq!(plots[0].rect, civ_agents::build::plot_rect(&b.spec, hut));
+        // They live in it, it sleeps them all, and its roof is on by the end of September.
+        assert_eq!(h.home, civ_agents::build::centre_m(&b.spec));
+        let e = civ_grammar::expand_hut(&b.spec, &hut.rules).expect("a valid design");
+        assert!(e.sleeping_places as usize >= h.members.len());
+        assert!(b.roofed(), "household {}'s hut: stage {}", h.id, b.stage);
+        assert!(h.sheltered, "a roofed household keeps its stores under it");
+    }
+    // Plots never overlap one another, or a field.
+    for (i, p) in land.plots.iter().enumerate() {
+        for q in &land.plots[i + 1..] {
+            assert!(
+                !p.rect.near(&q.rect, 0),
+                "plots {} and {} overlap",
+                p.id,
+                q.id
+            );
+        }
+        for f in &land.fields {
+            assert!(
+                !p.rect.near(&f.rect, 0),
+                "plot {} overlaps field {}",
+                p.id,
+                f.id
+            );
+        }
+    }
+    // The first roof of the settlement is noted once.
+    let roofs = sim
+        .people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == ChronicleKind::FirstRoof)
+        .count();
+    assert_eq!(roofs, 1);
+    let problems = land.problems(sim.map(), rules.land.habitats.len(), sim.ids().peek_next());
+    assert!(problems.is_empty(), "{problems:?}");
 }
 
 #[test]

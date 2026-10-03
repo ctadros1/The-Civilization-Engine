@@ -9,11 +9,17 @@ use std::collections::{BTreeMap, HashMap};
 
 use civ_core::time::MINUTES_PER_DAY;
 use civ_core::{GenTable, Handle, IdAllocator, PermanentId, Rng64, SimTime};
-use civ_land::{CropParams, Field, FieldStage, FieldTask, Land, LandParams};
+use civ_grammar::{BuildingSpec, Stage, StageNeeds};
+use civ_land::{
+    Building, CropParams, Field, FieldStage, FieldTask, Land, LandParams, Plot, PlotUse,
+};
 use civ_world::nav::{NavGrid, RouteResult, TravelField};
 use civ_world::{WATER_LAKE, WATER_RIVER, WorldMap};
 
-use crate::decide::{self, Facts, FieldOption, GiverOption, Limits, PatchOption, WaterOption};
+use crate::build::{self, HomeWork};
+use crate::decide::{
+    self, BuildOption, Facts, FieldOption, GiverOption, Limits, PatchOption, WaterOption,
+};
 use crate::farm::{self, FarmView, Site};
 use crate::history::{ChronicleEvent, ChronicleKind, PersonRecord, Reason, Receipt};
 use crate::needs;
@@ -38,6 +44,9 @@ const FIELD_REFRESH_DAYS: i64 = 30;
 const WAIT_AFTER_FAILURE_MIN: u32 = 10;
 /// Most routes kept in the route cache before it is emptied.
 const ROUTE_CACHE_MAX: usize = 50_000;
+/// Farthest a household moves its home from where it stands to find clear ground to build on,
+/// metres (a tuning value).
+const HOME_SHIFT_M: f64 = 30.0;
 
 /// A route at standard walking speed: vertices (cell centres) and seconds to each.
 type CachedRoute = std::sync::Arc<(Vec<(f32, f32)>, Vec<f32>)>;
@@ -147,6 +156,30 @@ pub struct Population {
     priors: Vec<Prior>,
     /// Per household, the new ground it would mark out for a field, as found on a day.
     sites: HashMap<PermanentId, (i64, Option<Site>)>,
+    /// Per household without a home under way, the hut it would build and where, as found on a
+    /// day.
+    home_sites: HashMap<PermanentId, (i64, Option<NewHome>)>,
+    /// Per building, what each of its stages needs (its design never changes). Derived.
+    stage_needs: HashMap<PermanentId, Vec<StageNeeds>>,
+}
+
+/// A hut a household would begin: its design (which says where it stands) and what each stage
+/// needs.
+#[derive(Clone, Debug)]
+struct NewHome {
+    spec: BuildingSpec,
+    stages: Vec<StageNeeds>,
+}
+
+/// What a household's home needs: the building under way (or the one it would begin), the work
+/// left on it, the program it follows and the day it wants its roof by.
+#[derive(Clone, Debug)]
+struct HomePlan {
+    building: Option<PermanentId>,
+    spec: BuildingSpec,
+    work: HomeWork,
+    def: usize,
+    deadline: i64,
 }
 
 /// The terrain cell under a point.
@@ -289,6 +322,19 @@ impl Population {
         self.routes.clear();
         self.priors.clear();
         self.sites.clear();
+        self.home_sites.clear();
+        self.stage_needs.clear();
+    }
+
+    /// Brings every household's shelter up to date with the land's buildings: a household whose
+    /// home has its roof on keeps its stores under it (after loading, where it is not saved).
+    pub fn derive_shelter(&mut self, land: &Land) {
+        for (_, h) in self.households.iter_mut() {
+            h.sheltered = land
+                .buildings
+                .iter()
+                .any(|b| b.household == h.id && b.roofed());
+        }
     }
 
     /// A living person by permanent id.
@@ -632,6 +678,138 @@ impl Population {
         site
     }
 
+    /// What each stage of `building` needs (expanded once per building).
+    fn needs_of(
+        &mut self,
+        building: &Building,
+        def: &crate::params::BuildingDef,
+    ) -> Option<Vec<StageNeeds>> {
+        if let Some(n) = self.stage_needs.get(&building.id) {
+            return Some(n.clone());
+        }
+        let needs = build::stage_needs(&building.spec, def)?;
+        self.stage_needs.insert(building.id, needs.clone());
+        Some(needs)
+    }
+
+    /// What household `hh`'s home needs: its building under way, or else the hut it would begin
+    /// and where (found once a day: its home if the ground there is clear, else the nearest clear
+    /// ground within reach of the hearth). `Built` once its home is finished; `NoPlace` when
+    /// there is no program to build to or no clear ground.
+    fn home_plan(
+        &mut self,
+        ctx: &Ctx,
+        hh: &Household,
+        hearth: Option<(f32, f32)>,
+        field_key: PermanentId,
+    ) -> Result<HomePlan, Reason> {
+        let catalog = ctx.catalog;
+        let mut built = false;
+        for b in ctx.land.buildings.iter().filter(|b| b.household == hh.id) {
+            if b.finished() {
+                built = true;
+                continue;
+            }
+            let def = catalog
+                .building_index(&b.spec.program)
+                .ok_or(Reason::NoPlace)?;
+            let needs = self
+                .needs_of(b, &catalog.buildings[def])
+                .ok_or(Reason::NoPlace)?;
+            return Ok(HomePlan {
+                building: Some(b.id),
+                spec: b.spec.clone(),
+                work: HomeWork::of(b, needs),
+                def,
+                deadline: build::roof_deadline(
+                    b.started.day_index(),
+                    catalog.buildings[def].roof_by_day,
+                ),
+            });
+        }
+        if built {
+            return Err(Reason::Built);
+        }
+        let def = ctx.params.home_program;
+        let program = catalog.buildings.get(def).ok_or(Reason::NoPlace)?;
+        let day = ctx.now.day_index();
+        let found = match self.home_sites.get(&hh.id) {
+            Some((seen, site)) if *seen == day => site.clone(),
+            _ => {
+                let reach = self.homes.get(&field_key).map(|f| &f.reach);
+                let residents = hh.members.len().max(1);
+                let design_at = |at: (f32, f32)| {
+                    let reachable =
+                        reach.is_none_or(|r| r.seconds_to(cell_of(ctx.map, at)).is_some());
+                    reachable.then(|| build::design(program, &catalog.goods, residents, at, hearth))
+                };
+                let site = build::home_site(
+                    ctx.land,
+                    ctx.map,
+                    ctx.nav,
+                    program,
+                    &design_at,
+                    hh.home,
+                    hearth,
+                    HOME_SHIFT_M,
+                )
+                .and_then(|spec| {
+                    let stages = build::stage_needs(&spec, program)?;
+                    Some(NewHome { spec, stages })
+                });
+                self.home_sites.insert(hh.id, (day, site.clone()));
+                site
+            }
+        };
+        let site = found.ok_or(Reason::NoPlace)?;
+        Ok(HomePlan {
+            building: None,
+            spec: site.spec,
+            work: HomeWork::begin(site.stages),
+            def,
+            deadline: build::roof_deadline(day, program.roof_by_day),
+        })
+    }
+
+    /// Household `household` claims the ground for the hut it planned today and begins it: the
+    /// plot is marked out, the building is begun, and the household's home moves to it. `None`
+    /// if the ground is no longer clear.
+    fn begin_home(&mut self, ctx: &mut Ctx, household: PermanentId) -> Option<PermanentId> {
+        let (_, site) = self.home_sites.remove(&household)?;
+        let site = site?;
+        let def = ctx.catalog.buildings.get(ctx.params.home_program)?;
+        let rect = build::plot_rect(&site.spec, def);
+        if !build::plot_clear(ctx.land, ctx.map, ctx.nav, &rect) {
+            return None;
+        }
+        let (plot, id) = (ctx.ids.allocate(), ctx.ids.allocate());
+        ctx.land.plots.push(Plot {
+            id: plot,
+            household,
+            rect,
+            use_: PlotUse::Dwelling,
+            since: ctx.now,
+        });
+        ctx.land.buildings.push(Building {
+            id,
+            household,
+            plot,
+            spec: site.spec.clone(),
+            stage: 0,
+            work_h: 0.0,
+            started: ctx.now,
+            stage_since: ctx.now,
+        });
+        self.stage_needs.insert(id, site.stages);
+        let at = build::centre_m(&site.spec);
+        if let Some(&hd) = self.hh_index.get(&household)
+            && let Some(x) = self.households.get_mut(hd)
+        {
+            x.home = at;
+        }
+        Some(id)
+    }
+
     /// The household of `hh`'s settlement that could give it the most food now, when it holds
     /// `held` kcal of a need of `kcal_day` a day and is short; the walk to its home is counted
     /// from the settlement's hearth (from `field_key`'s travel field).
@@ -825,6 +1003,20 @@ impl Population {
             Some(c) if wants_land => self.site_for(ctx, &hh, field_key, c),
             _ => None,
         };
+        // Building: the home under way or the one the household would begin, what it still has
+        // to bring for it, and how pressing it is.
+        let plan = self.home_plan(ctx, &hh, hearth, field_key);
+        let (build_need, build_urgency) = match &plan {
+            Ok(p) => {
+                let def = &ctx.catalog.buildings[p.def];
+                let hours = p.work.hours_left(Stage::Roof);
+                (
+                    p.work.need_by_good(def, Stage::Roof, &stores, goods.len()),
+                    build::urgency(hours, p.deadline, labour_per_day, today),
+                )
+            }
+            Err(_) => (Vec::new(), 0.0),
+        };
         let home = self.homes.get(&field_key);
         let water = home.and_then(|f| {
             f.water.map(|(cell, s)| WaterOption {
@@ -855,6 +1047,15 @@ impl Population {
             let stored_days = match good.purpose {
                 GoodUse::Food => held * good.kcal_per_kg / kcal_day.max(1.0),
                 GoodUse::Fuel => held / household_fuel_day.max(1e-6),
+                GoodUse::Material => 0.0,
+            };
+            // A material is worth bringing only toward what the household is building.
+            let (need_kg, urgency) = match good.purpose {
+                GoodUse::Material => (
+                    build_need.get(res.good).copied().unwrap_or(0.0),
+                    build_urgency,
+                ),
+                GoodUse::Food | GoodUse::Fuel => (0.0, 0.0),
             };
             let kind = place_kinds.get(def).copied().flatten()?;
             // What the settlement knows of this resource, by place.
@@ -898,6 +1099,8 @@ impl Population {
                             purpose: good.purpose,
                             kcal_per_kg: good.kcal_per_kg,
                             stored_days,
+                            need_kg,
+                            urgency,
                             at: cell_centre(map, cell as usize),
                         },
                     ));
@@ -918,6 +1121,29 @@ impl Population {
             view.best(task, f64::from(a.max_minutes) / 60.0, site.as_ref(), &walk)
         };
         let giver = self.best_giver(ctx, &hh, field_key, kcal_day, food_all);
+        let build = plan.as_ref().map_err(|why| *why).and_then(|p| {
+            let def = &catalog.buildings[p.def];
+            let held = p.work.held_by_slot(def, &stores);
+            let at = build::centre_m(&p.spec);
+            let at_home = (at.0 - hh.home.0).abs() < 1.0 && (at.1 - hh.home.1).abs() < 1.0;
+            let walk_min = if at_home {
+                0.0
+            } else {
+                let secs = reach.and_then(|r| r.seconds_to(cell_of(map, at)));
+                f64::from(secs.ok_or(Reason::Unreachable)?) / 60.0
+            };
+            Ok(BuildOption {
+                building: p.building,
+                at,
+                walk_min,
+                workable_h: p.work.workable_h(&held),
+                left_h: p
+                    .work
+                    .needs()
+                    .map_or(0.0, |s| (s.labour_h - p.work.done_h).max(0.0)),
+                urgency: build_urgency,
+            })
+        });
         let (cands, excluded) = decide::candidates(
             &catalog.activities,
             &params.decision,
@@ -927,6 +1153,7 @@ impl Population {
             &best_field,
             water,
             giver,
+            build,
         );
         let Some(p) = self.people.get_mut(h) else {
             return;
@@ -992,13 +1219,31 @@ impl Population {
             }
             receipt.chosen.target = target;
         }
+        let mut steps = chosen.steps.clone();
+        if target == Target::NewBuilding {
+            // Ground for a home is claimed when someone sets to work on it; the household's home
+            // moves there.
+            target = self
+                .begin_home(ctx, hh_id)
+                .map_or(Target::None, Target::Building);
+            receipt.chosen.target = target;
+            if let Some(new_home) = self.household(hh_id).map(|x| x.home) {
+                for s in &mut steps {
+                    if let Step::Walk { to } = s
+                        && *to == hh.home
+                    {
+                        *to = new_home;
+                    }
+                }
+            }
+        }
         let Some(p) = self.people.get_mut(h) else {
             return;
         };
         p.act = Activity {
             def: chosen.scored.def,
             target,
-            steps: chosen.steps.clone(),
+            steps,
             step: 0,
             started: now,
             step_started: now,
@@ -1208,9 +1453,13 @@ impl Population {
             Some(Behavior::Eat | Behavior::Rest | Behavior::Play) => {
                 (def_par, false, params.social.household_quality)
             }
-            Some(Behavior::Gather | Behavior::FetchWater | Behavior::Farm | Behavior::Ask) => {
-                (def_par, false, 0.0)
-            }
+            Some(
+                Behavior::Gather
+                | Behavior::FetchWater
+                | Behavior::Farm
+                | Behavior::Ask
+                | Behavior::Build,
+            ) => (def_par, false, 0.0),
             None => (params.energy.idle_par, false, 0.0),
         };
         p.burn_kcal_min = (bmr(p, now, params) * par / 1440.0) as f32;
@@ -1285,6 +1534,14 @@ impl Population {
                     if let Target::Household(giver) = p.act.target {
                         let household = p.household;
                         self.give_food(ctx, giver, household);
+                    }
+                }
+                Some(Behavior::Build) => {
+                    if let Target::Building(building) = p.act.target {
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now));
+                        let hours = f64::from(minutes) / 60.0 * eff;
+                        let (who, household) = (p.id, p.household);
+                        self.build_work(ctx, who, household, building, hours);
                     }
                 }
                 _ => {}
@@ -1476,6 +1733,12 @@ impl Population {
             if let Some(g) = x.stores.get_mut(crop.good) {
                 *g += done.grain_kg - to_seed;
             }
+            // Threshing leaves the straw at home too.
+            if let Some((good, kg_per_kg)) = crop.straw
+                && let Some(s) = x.stores.get_mut(good)
+            {
+                *s += done.grain_kg * kg_per_kg;
+            }
         }
         let settlement = x.settlement;
         let Some(si) = settlement.and_then(|s| ctx.land.settlements.iter().position(|x| x.id == s))
@@ -1495,6 +1758,85 @@ impl Population {
             self.chronicle_push(
                 now,
                 ChronicleKind::FirstSowing,
+                vec![who],
+                settlement,
+                Some(place),
+                0.0,
+                name,
+            );
+        }
+    }
+
+    /// Applies `hours` of a capable adult's work by person `who` of `household` to its building
+    /// `building`: the stage under way advances as far as the work and the materials in the
+    /// household's store allow, and the materials it uses leave the store. When the roof goes
+    /// on, the household's stores are under it from then on.
+    fn build_work(
+        &mut self,
+        ctx: &mut Ctx,
+        who: PermanentId,
+        household: PermanentId,
+        building: PermanentId,
+        hours: f64,
+    ) {
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let Some(bi) = ctx
+            .land
+            .buildings
+            .iter()
+            .position(|b| b.id == building && b.household == household)
+        else {
+            return;
+        };
+        let Some(def) = ctx
+            .catalog
+            .building_index(&ctx.land.buildings[bi].spec.program)
+            .and_then(|i| ctx.catalog.buildings.get(i))
+        else {
+            return;
+        };
+        let Some(needs) = self.needs_of(&ctx.land.buildings[bi], def) else {
+            return;
+        };
+        let Some(&hd) = self.hh_index.get(&household) else {
+            return;
+        };
+        let Some(x) = self.households.get_mut(hd) else {
+            return;
+        };
+        let members = x.members.len().max(1);
+        x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
+        x.stores.resize(goods.len(), 0.0);
+        let work = HomeWork::of(&ctx.land.buildings[bi], needs);
+        let Some(stage) = work.needs() else {
+            return;
+        };
+        let held = work.held_by_slot(def, &x.stores);
+        let done =
+            ctx.land.buildings[bi].work(hours, stage.labour_h, &stage.materials_kg, &held, now);
+        for (slot, kg) in done.used_kg.iter().enumerate() {
+            if let Some(s) = def.materials.get(slot).and_then(|&g| x.stores.get_mut(g)) {
+                *s = (*s - kg).max(0.0);
+            }
+        }
+        if done.finished != Some(Stage::Roof) {
+            return;
+        }
+        // Stores were settled to now above, so they spoil at the sheltered rates from here on.
+        x.sheltered = true;
+        let settlement = x.settlement;
+        let first = !self
+            .chronicle
+            .iter()
+            .any(|e| e.kind == ChronicleKind::FirstRoof && e.settlement == settlement);
+        let name = settlement
+            .and_then(|s| ctx.land.settlements.iter().find(|x| x.id == s))
+            .map(|s| s.name.clone());
+        if let (true, Some(name)) = (first, name) {
+            let place = build::centre_m(&ctx.land.buildings[bi].spec);
+            self.chronicle_push(
+                now,
+                ChronicleKind::FirstRoof,
                 vec![who],
                 settlement,
                 Some(place),
@@ -1859,6 +2201,7 @@ mod tests {
             cooked,
             shared: false,
             reserve: false,
+            sheltered_half_life_days: 0.0,
         };
         vec![
             good("grain", GoodUse::Food, 3000.0, 1000.0, false),

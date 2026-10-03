@@ -4,6 +4,8 @@
 
 export { Ack } from './wire/ack.js';
 export { ActivityInfo } from './wire/activity-info.js';
+export { BuildingInfo } from './wire/building-info.js';
+export { Buildings } from './wire/buildings.js';
 export { CancelTask } from './wire/cancel-task.js';
 export { Chronicle } from './wire/chronicle.js';
 export { ChronicleEntry } from './wire/chronicle-entry.js';
@@ -21,6 +23,7 @@ export { Exclusion } from './wire/exclusion.js';
 export { FieldInfo } from './wire/field-info.js';
 export { FieldStage } from './wire/field-stage.js';
 export { Fields } from './wire/fields.js';
+export { GetBuildings } from './wire/get-buildings.js';
 export { GetChronicle } from './wire/get-chronicle.js';
 export { GetFields } from './wire/get-fields.js';
 export { GetHydrography } from './wire/get-hydrography.js';

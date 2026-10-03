@@ -687,10 +687,10 @@ pub struct CommandBodyUnionTableOffset {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_QUERY_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_QUERY_BODY: u8 = 7;
+pub const ENUM_MAX_QUERY_BODY: u8 = 8;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 8] = [
+pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 9] = [
   QueryBody::NONE,
   QueryBody::GetRaster,
   QueryBody::GetHydrography,
@@ -699,6 +699,7 @@ pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 8] = [
   QueryBody::GetPerson,
   QueryBody::GetChronicle,
   QueryBody::GetFields,
+  QueryBody::GetBuildings,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -714,9 +715,10 @@ impl QueryBody {
   pub const GetPerson: Self = Self(5);
   pub const GetChronicle: Self = Self(6);
   pub const GetFields: Self = Self(7);
+  pub const GetBuildings: Self = Self(8);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 7;
+  pub const ENUM_MAX: u8 = 8;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::GetRaster,
@@ -726,6 +728,7 @@ impl QueryBody {
     Self::GetPerson,
     Self::GetChronicle,
     Self::GetFields,
+    Self::GetBuildings,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -738,6 +741,7 @@ impl QueryBody {
       Self::GetPerson => Some("GetPerson"),
       Self::GetChronicle => Some("GetChronicle"),
       Self::GetFields => Some("GetFields"),
+      Self::GetBuildings => Some("GetBuildings"),
       _ => None,
     }
   }
@@ -885,10 +889,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for SpanKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_RESPONSE_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_RESPONSE_BODY: u8 = 8;
+pub const ENUM_MAX_RESPONSE_BODY: u8 = 9;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 9] = [
+pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 10] = [
   ResponseBody::NONE,
   ResponseBody::Ack,
   ResponseBody::RasterTile,
@@ -898,6 +902,7 @@ pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 9] = [
   ResponseBody::PersonInfo,
   ResponseBody::Chronicle,
   ResponseBody::Fields,
+  ResponseBody::Buildings,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -914,9 +919,10 @@ impl ResponseBody {
   pub const PersonInfo: Self = Self(6);
   pub const Chronicle: Self = Self(7);
   pub const Fields: Self = Self(8);
+  pub const Buildings: Self = Self(9);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 8;
+  pub const ENUM_MAX: u8 = 9;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::Ack,
@@ -927,6 +933,7 @@ impl ResponseBody {
     Self::PersonInfo,
     Self::Chronicle,
     Self::Fields,
+    Self::Buildings,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -940,6 +947,7 @@ impl ResponseBody {
       Self::PersonInfo => Some("PersonInfo"),
       Self::Chronicle => Some("Chronicle"),
       Self::Fields => Some("Fields"),
+      Self::Buildings => Some("Buildings"),
       _ => None,
     }
   }
@@ -4087,6 +4095,7 @@ impl<'a> Snapshot<'a> {
   pub const VT_SETTLEMENTS: ::flatbuffers::VOffsetT = 18;
   pub const VT_CHRONICLE_HEAD: ::flatbuffers::VOffsetT = 20;
   pub const VT_FIELDS_REV: ::flatbuffers::VOffsetT = 22;
+  pub const VT_BUILDINGS_REV: ::flatbuffers::VOffsetT = 24;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4098,6 +4107,7 @@ impl<'a> Snapshot<'a> {
     args: &'args SnapshotArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Snapshot<'bldr>> {
     let mut builder = SnapshotBuilder::new(_fbb);
+    builder.add_buildings_rev(args.buildings_rev);
     builder.add_fields_rev(args.fields_rev);
     builder.add_chronicle_head(args.chronicle_head);
     builder.add_last_autosave_unix_ms(args.last_autosave_unix_ms);
@@ -4182,6 +4192,13 @@ impl<'a> Snapshot<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(Snapshot::VT_FIELDS_REV, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn buildings_rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Snapshot::VT_BUILDINGS_REV, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Snapshot<'_> {
@@ -4200,6 +4217,7 @@ impl ::flatbuffers::Verifiable for Snapshot<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<SettlementBrief>>>>("settlements", Self::VT_SETTLEMENTS, false)?
      .visit_field::<u64>("chronicle_head", Self::VT_CHRONICLE_HEAD, false)?
      .visit_field::<u64>("fields_rev", Self::VT_FIELDS_REV, false)?
+     .visit_field::<u64>("buildings_rev", Self::VT_BUILDINGS_REV, false)?
      .finish();
     Ok(())
   }
@@ -4215,6 +4233,7 @@ pub struct SnapshotArgs<'a> {
     pub settlements: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SettlementBrief<'a>>>>>,
     pub chronicle_head: u64,
     pub fields_rev: u64,
+    pub buildings_rev: u64,
 }
 impl<'a> Default for SnapshotArgs<'a> {
   #[inline]
@@ -4230,6 +4249,7 @@ impl<'a> Default for SnapshotArgs<'a> {
       settlements: None,
       chronicle_head: 0,
       fields_rev: 0,
+      buildings_rev: 0,
     }
   }
 }
@@ -4280,6 +4300,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SnapshotBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(Snapshot::VT_FIELDS_REV, fields_rev, 0);
   }
   #[inline]
+  pub fn add_buildings_rev(&mut self, buildings_rev: u64) {
+    self.fbb_.push_slot::<u64>(Snapshot::VT_BUILDINGS_REV, buildings_rev, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SnapshotBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SnapshotBuilder {
@@ -4307,6 +4331,7 @@ impl ::core::fmt::Debug for Snapshot<'_> {
       ds.field("settlements", &self.settlements());
       ds.field("chronicle_head", &self.chronicle_head());
       ds.field("fields_rev", &self.fields_rev());
+      ds.field("buildings_rev", &self.buildings_rev());
       ds.finish()
   }
 }
@@ -6227,6 +6252,84 @@ impl ::core::fmt::Debug for GetFields<'_> {
       ds.finish()
   }
 }
+pub enum GetBuildingsOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetBuildings<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GetBuildings<'a> {
+  type Inner = GetBuildings<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GetBuildings<'a> {
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GetBuildings { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    _args: &'args GetBuildingsArgs
+  ) -> ::flatbuffers::WIPOffset<GetBuildings<'bldr>> {
+    let mut builder = GetBuildingsBuilder::new(_fbb);
+    builder.finish()
+  }
+
+}
+
+impl ::flatbuffers::Verifiable for GetBuildings<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetBuildingsArgs {
+}
+impl<'a> Default for GetBuildingsArgs {
+  #[inline]
+  fn default() -> Self {
+    GetBuildingsArgs {
+    }
+  }
+}
+
+pub struct GetBuildingsBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GetBuildingsBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GetBuildingsBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetBuildingsBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GetBuildings<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GetBuildings<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GetBuildings");
+      ds.finish()
+  }
+}
 pub enum QueryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -6381,6 +6484,21 @@ impl<'a> Query<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_get_buildings(&self) -> Option<GetBuildings<'a>> {
+    if self.body_type() == QueryBody::GetBuildings {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { GetBuildings::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Query<'_> {
@@ -6398,6 +6516,7 @@ impl ::flatbuffers::Verifiable for Query<'_> {
           QueryBody::GetPerson => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetPerson>>("QueryBody::GetPerson", pos),
           QueryBody::GetChronicle => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetChronicle>>("QueryBody::GetChronicle", pos),
           QueryBody::GetFields => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetFields>>("QueryBody::GetFields", pos),
+          QueryBody::GetBuildings => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetBuildings>>("QueryBody::GetBuildings", pos),
           _ => Ok(()),
         }
      })?
@@ -6496,6 +6615,13 @@ impl ::core::fmt::Debug for Query<'_> {
         },
         QueryBody::GetFields => {
           if let Some(x) = self.body_as_get_fields() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        QueryBody::GetBuildings => {
+          if let Some(x) = self.body_as_get_buildings() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -9971,6 +10097,555 @@ impl ::core::fmt::Debug for Fields<'_> {
       ds.finish()
   }
 }
+pub enum BuildingInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct BuildingInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for BuildingInfo<'a> {
+  type Inner = BuildingInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> BuildingInfo<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_PROGRAM: ::flatbuffers::VOffsetT = 10;
+  pub const VT_CENTRE: ::flatbuffers::VOffsetT = 12;
+  pub const VT_RADIUS_M: ::flatbuffers::VOffsetT = 14;
+  pub const VT_ROOF_RADIUS_M: ::flatbuffers::VOffsetT = 16;
+  pub const VT_DOOR: ::flatbuffers::VOffsetT = 18;
+  pub const VT_DOOR_DIR: ::flatbuffers::VOffsetT = 20;
+  pub const VT_STAGE: ::flatbuffers::VOffsetT = 22;
+  pub const VT_STAGE_NAME: ::flatbuffers::VOffsetT = 24;
+  pub const VT_PROGRESS: ::flatbuffers::VOffsetT = 26;
+  pub const VT_ROOFED: ::flatbuffers::VOffsetT = 28;
+  pub const VT_OUTLINE: ::flatbuffers::VOffsetT = 30;
+  pub const VT_POSTS: ::flatbuffers::VOffsetT = 32;
+  pub const VT_PLOT_MIN: ::flatbuffers::VOffsetT = 34;
+  pub const VT_PLOT_SIZE: ::flatbuffers::VOffsetT = 36;
+  pub const VT_FLOOR_M2: ::flatbuffers::VOffsetT = 38;
+  pub const VT_SLEEPS: ::flatbuffers::VOffsetT = 40;
+  pub const VT_STARTED_MINUTE: ::flatbuffers::VOffsetT = 42;
+  pub const VT_STATUS: ::flatbuffers::VOffsetT = 44;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    BuildingInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args BuildingInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<BuildingInfo<'bldr>> {
+    let mut builder = BuildingInfoBuilder::new(_fbb);
+    builder.add_started_minute(args.started_minute);
+    builder.add_settlement(args.settlement);
+    builder.add_household(args.household);
+    builder.add_id(args.id);
+    if let Some(x) = args.status { builder.add_status(x); }
+    builder.add_sleeps(args.sleeps);
+    builder.add_floor_m2(args.floor_m2);
+    if let Some(x) = args.plot_size { builder.add_plot_size(x); }
+    if let Some(x) = args.plot_min { builder.add_plot_min(x); }
+    if let Some(x) = args.posts { builder.add_posts(x); }
+    if let Some(x) = args.outline { builder.add_outline(x); }
+    builder.add_progress(args.progress);
+    if let Some(x) = args.stage_name { builder.add_stage_name(x); }
+    builder.add_door_dir(args.door_dir);
+    if let Some(x) = args.door { builder.add_door(x); }
+    builder.add_roof_radius_m(args.roof_radius_m);
+    builder.add_radius_m(args.radius_m);
+    if let Some(x) = args.centre { builder.add_centre(x); }
+    if let Some(x) = args.program { builder.add_program(x); }
+    builder.add_roofed(args.roofed);
+    builder.add_stage(args.stage);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(BuildingInfo::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(BuildingInfo::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(BuildingInfo::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn program(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_PROGRAM, None)}
+  }
+  #[inline]
+  pub fn centre(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(BuildingInfo::VT_CENTRE, None)}
+  }
+  #[inline]
+  pub fn radius_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(BuildingInfo::VT_RADIUS_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn roof_radius_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(BuildingInfo::VT_ROOF_RADIUS_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn door(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(BuildingInfo::VT_DOOR, None)}
+  }
+  #[inline]
+  pub fn door_dir(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(BuildingInfo::VT_DOOR_DIR, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn stage(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(BuildingInfo::VT_STAGE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn stage_name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_STAGE_NAME, None)}
+  }
+  #[inline]
+  pub fn progress(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(BuildingInfo::VT_PROGRESS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn roofed(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(BuildingInfo::VT_ROOFED, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn outline(&self) -> Option<::flatbuffers::Vector<'a, Vec2>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, Vec2>>>(BuildingInfo::VT_OUTLINE, None)}
+  }
+  #[inline]
+  pub fn posts(&self) -> Option<::flatbuffers::Vector<'a, Vec2>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, Vec2>>>(BuildingInfo::VT_POSTS, None)}
+  }
+  #[inline]
+  pub fn plot_min(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(BuildingInfo::VT_PLOT_MIN, None)}
+  }
+  #[inline]
+  pub fn plot_size(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(BuildingInfo::VT_PLOT_SIZE, None)}
+  }
+  #[inline]
+  pub fn floor_m2(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(BuildingInfo::VT_FLOOR_M2, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn sleeps(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(BuildingInfo::VT_SLEEPS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn started_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(BuildingInfo::VT_STARTED_MINUTE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn status(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_STATUS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("program", Self::VT_PROGRAM, false)?
+     .visit_field::<Vec2>("centre", Self::VT_CENTRE, false)?
+     .visit_field::<f32>("radius_m", Self::VT_RADIUS_M, false)?
+     .visit_field::<f32>("roof_radius_m", Self::VT_ROOF_RADIUS_M, false)?
+     .visit_field::<Vec2>("door", Self::VT_DOOR, false)?
+     .visit_field::<f32>("door_dir", Self::VT_DOOR_DIR, false)?
+     .visit_field::<u8>("stage", Self::VT_STAGE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("stage_name", Self::VT_STAGE_NAME, false)?
+     .visit_field::<f32>("progress", Self::VT_PROGRESS, false)?
+     .visit_field::<bool>("roofed", Self::VT_ROOFED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, Vec2>>>("outline", Self::VT_OUTLINE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, Vec2>>>("posts", Self::VT_POSTS, false)?
+     .visit_field::<Vec2>("plot_min", Self::VT_PLOT_MIN, false)?
+     .visit_field::<Vec2>("plot_size", Self::VT_PLOT_SIZE, false)?
+     .visit_field::<f32>("floor_m2", Self::VT_FLOOR_M2, false)?
+     .visit_field::<u32>("sleeps", Self::VT_SLEEPS, false)?
+     .visit_field::<i64>("started_minute", Self::VT_STARTED_MINUTE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("status", Self::VT_STATUS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct BuildingInfoArgs<'a> {
+    pub id: u64,
+    pub household: u64,
+    pub settlement: u64,
+    pub program: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub centre: Option<&'a Vec2>,
+    pub radius_m: f32,
+    pub roof_radius_m: f32,
+    pub door: Option<&'a Vec2>,
+    pub door_dir: f32,
+    pub stage: u8,
+    pub stage_name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub progress: f32,
+    pub roofed: bool,
+    pub outline: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, Vec2>>>,
+    pub posts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, Vec2>>>,
+    pub plot_min: Option<&'a Vec2>,
+    pub plot_size: Option<&'a Vec2>,
+    pub floor_m2: f32,
+    pub sleeps: u32,
+    pub started_minute: i64,
+    pub status: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for BuildingInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    BuildingInfoArgs {
+      id: 0,
+      household: 0,
+      settlement: 0,
+      program: None,
+      centre: None,
+      radius_m: 0.0,
+      roof_radius_m: 0.0,
+      door: None,
+      door_dir: 0.0,
+      stage: 0,
+      stage_name: None,
+      progress: 0.0,
+      roofed: false,
+      outline: None,
+      posts: None,
+      plot_min: None,
+      plot_size: None,
+      floor_m2: 0.0,
+      sleeps: 0,
+      started_minute: 0,
+      status: None,
+    }
+  }
+}
+
+pub struct BuildingInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(BuildingInfo::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(BuildingInfo::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(BuildingInfo::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_program(&mut self, program: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_PROGRAM, program);
+  }
+  #[inline]
+  pub fn add_centre(&mut self, centre: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(BuildingInfo::VT_CENTRE, centre);
+  }
+  #[inline]
+  pub fn add_radius_m(&mut self, radius_m: f32) {
+    self.fbb_.push_slot::<f32>(BuildingInfo::VT_RADIUS_M, radius_m, 0.0);
+  }
+  #[inline]
+  pub fn add_roof_radius_m(&mut self, roof_radius_m: f32) {
+    self.fbb_.push_slot::<f32>(BuildingInfo::VT_ROOF_RADIUS_M, roof_radius_m, 0.0);
+  }
+  #[inline]
+  pub fn add_door(&mut self, door: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(BuildingInfo::VT_DOOR, door);
+  }
+  #[inline]
+  pub fn add_door_dir(&mut self, door_dir: f32) {
+    self.fbb_.push_slot::<f32>(BuildingInfo::VT_DOOR_DIR, door_dir, 0.0);
+  }
+  #[inline]
+  pub fn add_stage(&mut self, stage: u8) {
+    self.fbb_.push_slot::<u8>(BuildingInfo::VT_STAGE, stage, 0);
+  }
+  #[inline]
+  pub fn add_stage_name(&mut self, stage_name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_STAGE_NAME, stage_name);
+  }
+  #[inline]
+  pub fn add_progress(&mut self, progress: f32) {
+    self.fbb_.push_slot::<f32>(BuildingInfo::VT_PROGRESS, progress, 0.0);
+  }
+  #[inline]
+  pub fn add_roofed(&mut self, roofed: bool) {
+    self.fbb_.push_slot::<bool>(BuildingInfo::VT_ROOFED, roofed, false);
+  }
+  #[inline]
+  pub fn add_outline(&mut self, outline: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , Vec2>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_OUTLINE, outline);
+  }
+  #[inline]
+  pub fn add_posts(&mut self, posts: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , Vec2>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_POSTS, posts);
+  }
+  #[inline]
+  pub fn add_plot_min(&mut self, plot_min: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(BuildingInfo::VT_PLOT_MIN, plot_min);
+  }
+  #[inline]
+  pub fn add_plot_size(&mut self, plot_size: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(BuildingInfo::VT_PLOT_SIZE, plot_size);
+  }
+  #[inline]
+  pub fn add_floor_m2(&mut self, floor_m2: f32) {
+    self.fbb_.push_slot::<f32>(BuildingInfo::VT_FLOOR_M2, floor_m2, 0.0);
+  }
+  #[inline]
+  pub fn add_sleeps(&mut self, sleeps: u32) {
+    self.fbb_.push_slot::<u32>(BuildingInfo::VT_SLEEPS, sleeps, 0);
+  }
+  #[inline]
+  pub fn add_started_minute(&mut self, started_minute: i64) {
+    self.fbb_.push_slot::<i64>(BuildingInfo::VT_STARTED_MINUTE, started_minute, 0);
+  }
+  #[inline]
+  pub fn add_status(&mut self, status: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_STATUS, status);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    BuildingInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<BuildingInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for BuildingInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("BuildingInfo");
+      ds.field("id", &self.id());
+      ds.field("household", &self.household());
+      ds.field("settlement", &self.settlement());
+      ds.field("program", &self.program());
+      ds.field("centre", &self.centre());
+      ds.field("radius_m", &self.radius_m());
+      ds.field("roof_radius_m", &self.roof_radius_m());
+      ds.field("door", &self.door());
+      ds.field("door_dir", &self.door_dir());
+      ds.field("stage", &self.stage());
+      ds.field("stage_name", &self.stage_name());
+      ds.field("progress", &self.progress());
+      ds.field("roofed", &self.roofed());
+      ds.field("outline", &self.outline());
+      ds.field("posts", &self.posts());
+      ds.field("plot_min", &self.plot_min());
+      ds.field("plot_size", &self.plot_size());
+      ds.field("floor_m2", &self.floor_m2());
+      ds.field("sleeps", &self.sleeps());
+      ds.field("started_minute", &self.started_minute());
+      ds.field("status", &self.status());
+      ds.finish()
+  }
+}
+pub enum BuildingsOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Buildings<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Buildings<'a> {
+  type Inner = Buildings<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Buildings<'a> {
+  pub const VT_REV: ::flatbuffers::VOffsetT = 4;
+  pub const VT_BUILDINGS: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Buildings { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args BuildingsArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Buildings<'bldr>> {
+    let mut builder = BuildingsBuilder::new(_fbb);
+    builder.add_rev(args.rev);
+    if let Some(x) = args.buildings { builder.add_buildings(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Buildings::VT_REV, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn buildings(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BuildingInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BuildingInfo>>>>(Buildings::VT_BUILDINGS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Buildings<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("rev", Self::VT_REV, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BuildingInfo>>>>("buildings", Self::VT_BUILDINGS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct BuildingsArgs<'a> {
+    pub rev: u64,
+    pub buildings: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BuildingInfo<'a>>>>>,
+}
+impl<'a> Default for BuildingsArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    BuildingsArgs {
+      rev: 0,
+      buildings: None,
+    }
+  }
+}
+
+pub struct BuildingsBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingsBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_rev(&mut self, rev: u64) {
+    self.fbb_.push_slot::<u64>(Buildings::VT_REV, rev, 0);
+  }
+  #[inline]
+  pub fn add_buildings(&mut self, buildings: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<BuildingInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Buildings::VT_BUILDINGS, buildings);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingsBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    BuildingsBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Buildings<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Buildings<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Buildings");
+      ds.field("rev", &self.rev());
+      ds.field("buildings", &self.buildings());
+      ds.finish()
+  }
+}
 pub enum ResponseOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -10140,6 +10815,21 @@ impl<'a> Response<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_buildings(&self) -> Option<Buildings<'a>> {
+    if self.body_type() == ResponseBody::Buildings {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Buildings::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Response<'_> {
@@ -10158,6 +10848,7 @@ impl ::flatbuffers::Verifiable for Response<'_> {
           ResponseBody::PersonInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<PersonInfo>>("ResponseBody::PersonInfo", pos),
           ResponseBody::Chronicle => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Chronicle>>("ResponseBody::Chronicle", pos),
           ResponseBody::Fields => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Fields>>("ResponseBody::Fields", pos),
+          ResponseBody::Buildings => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Buildings>>("ResponseBody::Buildings", pos),
           _ => Ok(()),
         }
      })?
@@ -10263,6 +10954,13 @@ impl ::core::fmt::Debug for Response<'_> {
         },
         ResponseBody::Fields => {
           if let Some(x) = self.body_as_fields() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ResponseBody::Buildings => {
+          if let Some(x) = self.body_as_buildings() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

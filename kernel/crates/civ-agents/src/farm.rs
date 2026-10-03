@@ -394,7 +394,9 @@ pub fn find_site(
         if rect.x < 0 || rect.y < 0 || rect.x + rect.w > map_w_cm || rect.y + rect.h > map_h_cm {
             continue;
         }
-        if land.fields.iter().any(|f| f.rect.near(&rect, FIELD_GAP_CM)) {
+        if land.fields.iter().any(|f| f.rect.near(&rect, FIELD_GAP_CM))
+            || land.plots.iter().any(|p| p.rect.near(&rect, FIELD_GAP_CM))
+        {
             continue;
         }
         let clear_of_homes = homes.iter().all(|&(hx, hy)| {
@@ -478,6 +480,7 @@ mod tests {
             tend_h_per_ha: 200.0,
             reap_h_per_ha: 280.0,
             thresh_h_per_kg: 0.1,
+            straw: None,
         }
     }
 

@@ -8,6 +8,7 @@ publish.workspace = true
 
 [dependencies]
 civ-core = { workspace = true }
+civ-grammar = { workspace = true }
 civ-world = { workspace = true }
 
 [lints]

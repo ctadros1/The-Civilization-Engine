@@ -35,12 +35,20 @@ pub(crate) struct CropFile {
     pub tend_h_per_ha: f64,
     pub reap_h_per_ha: f64,
     pub thresh_h_per_kg: f64,
+    /// The good the straw is kept as (a good id), and how much of it a kilogram of grain leaves:
+    /// both or neither.
+    pub straw_good: Option<String>,
+    pub straw_kg_per_kg: Option<f64>,
 }
 
 impl CropFile {
     /// The parameters, with its goods resolved by `good_index` (`None` if one is unknown, which
     /// the cross-file check reports).
     pub fn params(&self, good_index: &dyn Fn(&str) -> Option<usize>) -> Option<CropParams> {
+        let straw = match (&self.straw_good, self.straw_kg_per_kg) {
+            (Some(good), Some(kg)) => Some((good_index(good)?, kg)),
+            _ => None,
+        };
         Some(CropParams {
             id: self.id.clone(),
             name: self.name.clone(),
@@ -61,6 +69,7 @@ impl CropFile {
             tend_h_per_ha: self.tend_h_per_ha,
             reap_h_per_ha: self.reap_h_per_ha,
             thresh_h_per_kg: self.thresh_h_per_kg,
+            straw,
         })
     }
 
@@ -97,6 +106,15 @@ impl CropFile {
             ("untended_loss", self.untended_loss),
         ] {
             share(name, v, &mut p);
+        }
+        match (&self.straw_good, self.straw_kg_per_kg) {
+            (Some(_), Some(kg)) if !(kg.is_finite() && kg >= 0.0) => {
+                p.push(format!("`straw_kg_per_kg` must be zero or more (got {kg})"));
+            }
+            (Some(_), None) | (None, Some(_)) => {
+                p.push("`straw_good` and `straw_kg_per_kg` go together".to_owned());
+            }
+            _ => {}
         }
         if self.standing_loss_per_day <= 0.0 {
             p.push("`standing_loss_per_day` must be above 0, so an unreaped crop ends".to_owned());

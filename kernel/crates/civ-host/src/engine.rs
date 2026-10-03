@@ -419,6 +419,10 @@ impl Engine {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::fields::fields_response(&w.sim)),
             },
+            Request::GetBuildings => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::buildings::buildings_response(&w.sim)),
+            },
             Request::ListSaves => {
                 match session::list_saves(&self.config.saves_root, &self.config.content) {
                     Ok(entries) => Reply::Response(protocol::save_list_response(&entries)),

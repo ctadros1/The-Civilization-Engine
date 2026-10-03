@@ -4,6 +4,8 @@
 //! - [`needs`]: closed-form need and body arithmetic (lazy needs).
 //! - [`person`]: people, households, activities, trips.
 //! - [`decide`]: scoring candidate activities and sampling one.
+//! - [`farm`]: what a household plans to grow, and what its field work is worth.
+//! - [`build`]: the hut a household designs, the ground it claims, and the work left on it.
 //! - [`population`]: the tables and the event-driven activity engine.
 //! - [`found`]: a founding band arriving and choosing its camp.
 //! - [`history`]: person records, decision receipts and the chronicle.
@@ -13,6 +15,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod build;
 pub mod decide;
 pub mod farm;
 pub mod found;

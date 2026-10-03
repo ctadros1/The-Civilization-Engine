@@ -24,11 +24,13 @@ fn real(path: &str) -> String {
         .replace("\r\n", "\n")
 }
 
-/// The real people, land, names, activity, good and crop files (`(path in the pack, body)`), which
+/// The real people, land, names, activity, good, crop and building files (`(path in the pack, body)`), which
 /// every world needs; fixtures add presets and override files.
 fn people_files() -> Vec<(String, String)> {
     let mut out = Vec::new();
-    for dir in ["people", "land", "names", "activity", "good", "crop"] {
+    for dir in [
+        "people", "land", "names", "activity", "good", "crop", "building",
+    ] {
         let mut paths: Vec<_> = std::fs::read_dir(repo_content().join("core").join(dir))
             .expect("real content directory")
             .map(|e| e.expect("entry").path())
@@ -52,7 +54,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 3
+kernel_content_api = 4
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -470,6 +472,115 @@ fn crops_and_field_work_check_their_numbers() {
 }
 
 #[test]
+fn buildings_check_their_numbers_and_materials() {
+    let preset = real_preset();
+    let reg = registry(load_fixture(&[("worldgen/river_valley.toml", &preset)]));
+    let hut = &reg.catalog.buildings[reg.people.params.home_program];
+    assert_eq!(hut.id, "core:building/hut");
+    let goods: Vec<&str> = hut
+        .materials
+        .iter()
+        .map(|&g| reg.catalog.goods[g].id.as_str())
+        .collect();
+    assert_eq!(
+        goods,
+        vec!["core:good/timber", "core:good/timber", "core:good/thatch"]
+    );
+    assert_eq!(hut.pitch_centideg, 4500);
+    let real_hut = real("building/hut.toml");
+    for (from, to, code, needle) in [
+        (
+            "grammar = \"hut\"",
+            "grammar = \"tower\"",
+            "E3001",
+            "unknown grammar",
+        ),
+        (
+            "pitch_deg = 45.0 ",
+            "pitch_deg = 30.0 ",
+            "E3001",
+            "`pitch_deg`",
+        ),
+        ("post_h = 2.0 ", "post_h = 0.0 ", "E3001", "`rules.post_h`"),
+        (
+            "roof_by_day = 304",
+            "roof_by_day = 400",
+            "E3001",
+            "`roof_by_day`",
+        ),
+        (
+            "thatch = \"core:good/thatch\"",
+            "thatch = \"core:good/grain\"",
+            "E3001",
+            "must be a material",
+        ),
+        (
+            "thatch = \"core:good/thatch\"",
+            "thatch = \"core:good/slate\"",
+            "E2006",
+            "core:good/slate",
+        ),
+    ] {
+        let body = real_hut.replace(from, to);
+        assert_ne!(body, real_hut, "{needle}: the edit applies");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("building/hut.toml", &body),
+        ]);
+        assert!(
+            codes(&report).contains(&code),
+            "{needle}: {:?}",
+            codes(&report)
+        );
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.code == code && d.message.contains(needle)),
+            "{needle}"
+        );
+    }
+    // People build their homes to a program that exists.
+    let people = real("people/early_farmers.toml").replace(
+        "home_program = \"core:building/hut\"",
+        "home_program = \"core:building/longhouse\"",
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("people/early_farmers.toml", &people),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    assert!(report.diagnostics[0].message.contains("build.home_program"));
+    // A material is never eaten, cooked, kept back or shared, and a roof never speeds spoiling.
+    let timber = real("good/timber.toml");
+    for (path, body, needle) in [
+        (
+            "good/timber.toml",
+            timber.replace("shared = false", "shared = true"),
+            "`shared` must be false",
+        ),
+        (
+            "good/timber.toml",
+            timber.replace("kcal_per_kg = 0.0", "kcal_per_kg = 10.0"),
+            "not eaten",
+        ),
+        (
+            "good/grain.toml",
+            real("good/grain.toml").replace(
+                "sheltered_half_life_days = 4932.0",
+                "sheltered_half_life_days = 100.0",
+            ),
+            "never makes a good spoil faster",
+        ),
+    ] {
+        assert_ne!(body, real(path), "{needle}: the edit applies");
+        let report = load_fixture(&[("worldgen/river_valley.toml", &preset), (path, &body)]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(report.diagnostics[0].message.contains(needle), "{needle}");
+    }
+}
+
+#[test]
 fn goods_check_their_purpose() {
     let preset = real_preset();
     for (path, from, to, needle) in [
@@ -639,6 +750,7 @@ fn the_fingerprint_covers_every_kind() {
             "half_life_days = 4.0",
         ),
         ("crop/emmer.toml", "grow_days = 120", "grow_days = 125"),
+        ("building/hut.toml", "post_kg = 22.0", "post_kg = 23.0"),
     ] {
         let body = real(path).replace(from, to);
         assert_ne!(body, real(path), "{path}: the edit applies");

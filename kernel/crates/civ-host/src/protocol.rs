@@ -74,6 +74,8 @@ pub enum Request {
     },
     /// Read every field.
     GetFields,
+    /// Read every building.
+    GetBuildings,
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -281,6 +283,7 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                     })
                 }
                 wire::QueryBody::GetFields => Ok(Request::GetFields),
+                wire::QueryBody::GetBuildings => Ok(Request::GetBuildings),
                 other => Err(format!("unknown query {}", other.0)),
             }
         }
@@ -447,6 +450,9 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
         .map(|sim| civ_sim::frames::people::settlement_briefs(&mut fbb, sim));
     let chronicle_head = parts.sim.map_or(0, civ_sim::frames::people::chronicle_head);
     let fields_rev = parts.sim.map_or(0, civ_sim::frames::fields::fields_rev);
+    let buildings_rev = parts
+        .sim
+        .map_or(0, civ_sim::frames::buildings::buildings_rev);
     let task = parts.task.map(|t| {
         let name = fbb.create_string(&t.name);
         let stage = fbb.create_string(&t.stage);
@@ -490,6 +496,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
             settlements,
             chronicle_head,
             fields_rev,
+            buildings_rev,
         },
     );
     finish(fbb, root)

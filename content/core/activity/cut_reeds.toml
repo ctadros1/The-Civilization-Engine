@@ -1,0 +1,15 @@
+# Cutting and bundling reeds and tall grass for thatch, and carrying them home (tuning starting
+# points). Only done while the household needs thatch for a roof.
+kind = "activity"
+id = "core:activity/cut_reeds"
+name = "Cut reeds"
+doing = "cutting reeds"
+behavior = "gather"
+resource = "reeds"
+par = 3.5
+min_age_years = 10.0
+max_age_years = 70.0
+min_minutes = 30
+max_minutes = 60
+daylight_only = true
+max_walk_minutes = 45

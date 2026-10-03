@@ -210,6 +210,9 @@ table Snapshot {
   // M1 slice C: changes whenever a field is marked out or changes stage (0 = no fields). Fetch
   // the fields with GetFields when it differs from the revision last fetched.
   fields_rev: ulong (id: 9);
+  // M1 slice D: changes whenever ground is claimed for a building or a building's work moves on
+  // (0 = none). Fetch them with GetBuildings when it differs from the revision last fetched.
+  buildings_rev: ulong (id: 10);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -305,7 +308,10 @@ table GetChronicle {
 // Every field, with its state (M1 slice C).
 table GetFields {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields }
+// Every building, with its state and what its grammar expands it to (M1 slice D).
+table GetBuildings {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings }
 
 table Query {
   body: QueryBody (id: 1);
@@ -542,7 +548,49 @@ table Fields {
   fields: [FieldInfo] (id: 1);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields }
+// A building and the ground it stands on (M1 slice D). Geometry is expanded by the kernel from the
+// building's saved design (civ-grammar); the observer only draws it.
+table BuildingInfo {
+  id: ulong (id: 0);
+  household: ulong (id: 1);
+  settlement: ulong (id: 2);
+  // The program's display name: "Hut".
+  program: string (id: 3);
+  // Centre and radius of the wall line, and radius of the roof's edge, metres.
+  centre: Vec2 (id: 4);
+  radius_m: float (id: 5);
+  roof_radius_m: float (id: 6);
+  // The doorway's middle, metres, and the direction it faces, radians from east toward south.
+  door: Vec2 (id: 7);
+  door_dir: float (id: 8);
+  // The stage under way (0 foundation, 1 frame, 2 walls, 3 roof, 4 finish; 5 once finished),
+  // its name, and the share of its work done, 0-1.
+  stage: ubyte (id: 9);
+  stage_name: string (id: 10);
+  progress: float (id: 11);
+  roofed: bool (id: 12);
+  // The outer face of the walls, metres, going round from the door.
+  outline: [Vec2] (id: 13);
+  // Where the posts stand, metres.
+  posts: [Vec2] (id: 14);
+  // The plot it stands on: north-west corner and size, metres.
+  plot_min: Vec2 (id: 15);
+  plot_size: Vec2 (id: 16);
+  // Floor area, square metres, and the people it sleeps.
+  floor_m2: float (id: 17);
+  sleeps: uint (id: 18);
+  started_minute: long (id: 19);
+  // Its state in words, rendered by the kernel: "walls going up (40%); waiting for timber".
+  status: string (id: 20);
+}
+
+table Buildings {
+  // The snapshot revision these buildings are at.
+  rev: ulong (id: 0);
+  buildings: [BuildingInfo] (id: 1);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings }
 
 table Response {
   body: ResponseBody (id: 1);

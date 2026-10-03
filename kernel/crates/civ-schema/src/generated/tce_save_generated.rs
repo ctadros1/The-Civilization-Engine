@@ -197,10 +197,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for Terminus {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_TARGET_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_TARGET_KIND: u8 = 7;
+pub const ENUM_MAX_TARGET_KIND: u8 = 9;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 8] = [
+pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 10] = [
   TargetKind::None,
   TargetKind::Home,
   TargetKind::Hearth,
@@ -209,6 +209,8 @@ pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 8] = [
   TargetKind::Field,
   TargetKind::NewField,
   TargetKind::Household,
+  TargetKind::Building,
+  TargetKind::NewBuilding,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -224,9 +226,11 @@ impl TargetKind {
   pub const Field: Self = Self(5);
   pub const NewField: Self = Self(6);
   pub const Household: Self = Self(7);
+  pub const Building: Self = Self(8);
+  pub const NewBuilding: Self = Self(9);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 7;
+  pub const ENUM_MAX: u8 = 9;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::None,
     Self::Home,
@@ -236,6 +240,8 @@ impl TargetKind {
     Self::Field,
     Self::NewField,
     Self::Household,
+    Self::Building,
+    Self::NewBuilding,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -248,6 +254,8 @@ impl TargetKind {
       Self::Field => Some("Field"),
       Self::NewField => Some("NewField"),
       Self::Household => Some("Household"),
+      Self::Building => Some("Building"),
+      Self::NewBuilding => Some("NewBuilding"),
       _ => None,
     }
   }
@@ -746,6 +754,166 @@ impl<'a> ::flatbuffers::Verifiable for FieldStage {
 }
 
 impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_PLOT_USE: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_PLOT_USE: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_PLOT_USE: [PlotUse; 1] = [
+  PlotUse::Dwelling,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct PlotUse(pub u8);
+#[allow(non_upper_case_globals)]
+impl PlotUse {
+  pub const Dwelling: Self = Self(0);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 0;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Dwelling,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Dwelling => Some("Dwelling"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for PlotUse {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for PlotUse {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for PlotUse {
+    type Output = PlotUse;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for PlotUse {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for PlotUse {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for PlotUse {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_FOOTPRINT_KIND: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_FOOTPRINT_KIND: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_FOOTPRINT_KIND: [FootprintKind; 1] = [
+  FootprintKind::Round,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct FootprintKind(pub u8);
+#[allow(non_upper_case_globals)]
+impl FootprintKind {
+  pub const Round: Self = Self(0);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 0;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Round,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Round => Some("Round"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for FootprintKind {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for FootprintKind {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for FootprintKind {
+    type Output = FootprintKind;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for FootprintKind {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for FootprintKind {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for FootprintKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_EVENT_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
@@ -7353,6 +7521,877 @@ impl ::core::fmt::Debug for Fields<'_> {
     let mut ds = f.debug_struct("Fields");
       ds.field("crops", &self.crops());
       ds.field("fields", &self.fields());
+      ds.finish()
+  }
+}
+pub enum PlotOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Plot<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Plot<'a> {
+  type Inner = Plot<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Plot<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 6;
+  pub const VT_X_CM: ::flatbuffers::VOffsetT = 8;
+  pub const VT_Y_CM: ::flatbuffers::VOffsetT = 10;
+  pub const VT_W_CM: ::flatbuffers::VOffsetT = 12;
+  pub const VT_H_CM: ::flatbuffers::VOffsetT = 14;
+  pub const VT_PURPOSE: ::flatbuffers::VOffsetT = 16;
+  pub const VT_SINCE: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Plot { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args PlotArgs
+  ) -> ::flatbuffers::WIPOffset<Plot<'bldr>> {
+    let mut builder = PlotBuilder::new(_fbb);
+    builder.add_since(args.since);
+    builder.add_household(args.household);
+    builder.add_id(args.id);
+    builder.add_h_cm(args.h_cm);
+    builder.add_w_cm(args.w_cm);
+    builder.add_y_cm(args.y_cm);
+    builder.add_x_cm(args.x_cm);
+    builder.add_purpose(args.purpose);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Plot::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Plot::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn x_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(Plot::VT_X_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn y_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(Plot::VT_Y_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn w_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(Plot::VT_W_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn h_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(Plot::VT_H_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn purpose(&self) -> PlotUse {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<PlotUse>(Plot::VT_PURPOSE, Some(PlotUse::Dwelling)).unwrap()}
+  }
+  #[inline]
+  pub fn since(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Plot::VT_SINCE, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Plot<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<i32>("x_cm", Self::VT_X_CM, false)?
+     .visit_field::<i32>("y_cm", Self::VT_Y_CM, false)?
+     .visit_field::<i32>("w_cm", Self::VT_W_CM, false)?
+     .visit_field::<i32>("h_cm", Self::VT_H_CM, false)?
+     .visit_field::<PlotUse>("purpose", Self::VT_PURPOSE, false)?
+     .visit_field::<i64>("since", Self::VT_SINCE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct PlotArgs {
+    pub id: u64,
+    pub household: u64,
+    pub x_cm: i32,
+    pub y_cm: i32,
+    pub w_cm: i32,
+    pub h_cm: i32,
+    pub purpose: PlotUse,
+    pub since: i64,
+}
+impl<'a> Default for PlotArgs {
+  #[inline]
+  fn default() -> Self {
+    PlotArgs {
+      id: 0,
+      household: 0,
+      x_cm: 0,
+      y_cm: 0,
+      w_cm: 0,
+      h_cm: 0,
+      purpose: PlotUse::Dwelling,
+      since: 0,
+    }
+  }
+}
+
+pub struct PlotBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlotBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(Plot::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(Plot::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_x_cm(&mut self, x_cm: i32) {
+    self.fbb_.push_slot::<i32>(Plot::VT_X_CM, x_cm, 0);
+  }
+  #[inline]
+  pub fn add_y_cm(&mut self, y_cm: i32) {
+    self.fbb_.push_slot::<i32>(Plot::VT_Y_CM, y_cm, 0);
+  }
+  #[inline]
+  pub fn add_w_cm(&mut self, w_cm: i32) {
+    self.fbb_.push_slot::<i32>(Plot::VT_W_CM, w_cm, 0);
+  }
+  #[inline]
+  pub fn add_h_cm(&mut self, h_cm: i32) {
+    self.fbb_.push_slot::<i32>(Plot::VT_H_CM, h_cm, 0);
+  }
+  #[inline]
+  pub fn add_purpose(&mut self, purpose: PlotUse) {
+    self.fbb_.push_slot::<PlotUse>(Plot::VT_PURPOSE, purpose, PlotUse::Dwelling);
+  }
+  #[inline]
+  pub fn add_since(&mut self, since: i64) {
+    self.fbb_.push_slot::<i64>(Plot::VT_SINCE, since, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlotBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    PlotBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Plot<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Plot<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Plot");
+      ds.field("id", &self.id());
+      ds.field("household", &self.household());
+      ds.field("x_cm", &self.x_cm());
+      ds.field("y_cm", &self.y_cm());
+      ds.field("w_cm", &self.w_cm());
+      ds.field("h_cm", &self.h_cm());
+      ds.field("purpose", &self.purpose());
+      ds.field("since", &self.since());
+      ds.finish()
+  }
+}
+pub enum PlotsOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Plots<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Plots<'a> {
+  type Inner = Plots<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Plots<'a> {
+  pub const VT_PLOTS: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Plots { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args PlotsArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Plots<'bldr>> {
+    let mut builder = PlotsBuilder::new(_fbb);
+    if let Some(x) = args.plots { builder.add_plots(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn plots(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Plot<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Plot>>>>(Plots::VT_PLOTS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Plots<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Plot>>>>("plots", Self::VT_PLOTS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct PlotsArgs<'a> {
+    pub plots: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Plot<'a>>>>>,
+}
+impl<'a> Default for PlotsArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    PlotsArgs {
+      plots: None,
+    }
+  }
+}
+
+pub struct PlotsBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlotsBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_plots(&mut self, plots: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Plot<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Plots::VT_PLOTS, plots);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlotsBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    PlotsBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Plots<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Plots<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Plots");
+      ds.field("plots", &self.plots());
+      ds.finish()
+  }
+}
+pub enum BuildingSpecOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct BuildingSpec<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for BuildingSpec<'a> {
+  type Inner = BuildingSpec<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> BuildingSpec<'a> {
+  pub const VT_PROGRAM: ::flatbuffers::VOffsetT = 4;
+  pub const VT_VERSION: ::flatbuffers::VOffsetT = 6;
+  pub const VT_FOOTPRINT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_X_CM: ::flatbuffers::VOffsetT = 10;
+  pub const VT_Y_CM: ::flatbuffers::VOffsetT = 12;
+  pub const VT_RADIUS_CM: ::flatbuffers::VOffsetT = 14;
+  pub const VT_STOREYS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_PARAMS: ::flatbuffers::VOffsetT = 18;
+  pub const VT_MATERIALS: ::flatbuffers::VOffsetT = 20;
+  pub const VT_STYLE_SEED: ::flatbuffers::VOffsetT = 22;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    BuildingSpec { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args BuildingSpecArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<BuildingSpec<'bldr>> {
+    let mut builder = BuildingSpecBuilder::new(_fbb);
+    builder.add_style_seed(args.style_seed);
+    if let Some(x) = args.materials { builder.add_materials(x); }
+    if let Some(x) = args.params { builder.add_params(x); }
+    builder.add_radius_cm(args.radius_cm);
+    builder.add_y_cm(args.y_cm);
+    builder.add_x_cm(args.x_cm);
+    if let Some(x) = args.program { builder.add_program(x); }
+    builder.add_version(args.version);
+    builder.add_storeys(args.storeys);
+    builder.add_footprint(args.footprint);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn program(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingSpec::VT_PROGRAM, None)}
+  }
+  #[inline]
+  pub fn version(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(BuildingSpec::VT_VERSION, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn footprint(&self) -> FootprintKind {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<FootprintKind>(BuildingSpec::VT_FOOTPRINT, Some(FootprintKind::Round)).unwrap()}
+  }
+  #[inline]
+  pub fn x_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(BuildingSpec::VT_X_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn y_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(BuildingSpec::VT_Y_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn radius_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(BuildingSpec::VT_RADIUS_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn storeys(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(BuildingSpec::VT_STOREYS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn params(&self) -> Option<::flatbuffers::Vector<'a, i32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, i32>>>(BuildingSpec::VT_PARAMS, None)}
+  }
+  #[inline]
+  pub fn materials(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(BuildingSpec::VT_MATERIALS, None)}
+  }
+  #[inline]
+  pub fn style_seed(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(BuildingSpec::VT_STYLE_SEED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for BuildingSpec<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("program", Self::VT_PROGRAM, false)?
+     .visit_field::<u16>("version", Self::VT_VERSION, false)?
+     .visit_field::<FootprintKind>("footprint", Self::VT_FOOTPRINT, false)?
+     .visit_field::<i32>("x_cm", Self::VT_X_CM, false)?
+     .visit_field::<i32>("y_cm", Self::VT_Y_CM, false)?
+     .visit_field::<i32>("radius_cm", Self::VT_RADIUS_CM, false)?
+     .visit_field::<u8>("storeys", Self::VT_STOREYS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, i32>>>("params", Self::VT_PARAMS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("materials", Self::VT_MATERIALS, false)?
+     .visit_field::<u64>("style_seed", Self::VT_STYLE_SEED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct BuildingSpecArgs<'a> {
+    pub program: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub version: u16,
+    pub footprint: FootprintKind,
+    pub x_cm: i32,
+    pub y_cm: i32,
+    pub radius_cm: i32,
+    pub storeys: u8,
+    pub params: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, i32>>>,
+    pub materials: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub style_seed: u64,
+}
+impl<'a> Default for BuildingSpecArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    BuildingSpecArgs {
+      program: None,
+      version: 0,
+      footprint: FootprintKind::Round,
+      x_cm: 0,
+      y_cm: 0,
+      radius_cm: 0,
+      storeys: 0,
+      params: None,
+      materials: None,
+      style_seed: 0,
+    }
+  }
+}
+
+pub struct BuildingSpecBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingSpecBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_program(&mut self, program: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingSpec::VT_PROGRAM, program);
+  }
+  #[inline]
+  pub fn add_version(&mut self, version: u16) {
+    self.fbb_.push_slot::<u16>(BuildingSpec::VT_VERSION, version, 0);
+  }
+  #[inline]
+  pub fn add_footprint(&mut self, footprint: FootprintKind) {
+    self.fbb_.push_slot::<FootprintKind>(BuildingSpec::VT_FOOTPRINT, footprint, FootprintKind::Round);
+  }
+  #[inline]
+  pub fn add_x_cm(&mut self, x_cm: i32) {
+    self.fbb_.push_slot::<i32>(BuildingSpec::VT_X_CM, x_cm, 0);
+  }
+  #[inline]
+  pub fn add_y_cm(&mut self, y_cm: i32) {
+    self.fbb_.push_slot::<i32>(BuildingSpec::VT_Y_CM, y_cm, 0);
+  }
+  #[inline]
+  pub fn add_radius_cm(&mut self, radius_cm: i32) {
+    self.fbb_.push_slot::<i32>(BuildingSpec::VT_RADIUS_CM, radius_cm, 0);
+  }
+  #[inline]
+  pub fn add_storeys(&mut self, storeys: u8) {
+    self.fbb_.push_slot::<u8>(BuildingSpec::VT_STOREYS, storeys, 0);
+  }
+  #[inline]
+  pub fn add_params(&mut self, params: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , i32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingSpec::VT_PARAMS, params);
+  }
+  #[inline]
+  pub fn add_materials(&mut self, materials: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingSpec::VT_MATERIALS, materials);
+  }
+  #[inline]
+  pub fn add_style_seed(&mut self, style_seed: u64) {
+    self.fbb_.push_slot::<u64>(BuildingSpec::VT_STYLE_SEED, style_seed, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingSpecBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    BuildingSpecBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<BuildingSpec<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for BuildingSpec<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("BuildingSpec");
+      ds.field("program", &self.program());
+      ds.field("version", &self.version());
+      ds.field("footprint", &self.footprint());
+      ds.field("x_cm", &self.x_cm());
+      ds.field("y_cm", &self.y_cm());
+      ds.field("radius_cm", &self.radius_cm());
+      ds.field("storeys", &self.storeys());
+      ds.field("params", &self.params());
+      ds.field("materials", &self.materials());
+      ds.field("style_seed", &self.style_seed());
+      ds.finish()
+  }
+}
+pub enum BuildingOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Building<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Building<'a> {
+  type Inner = Building<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Building<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PLOT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_SPEC: ::flatbuffers::VOffsetT = 10;
+  pub const VT_STAGE: ::flatbuffers::VOffsetT = 12;
+  pub const VT_WORK_H: ::flatbuffers::VOffsetT = 14;
+  pub const VT_STARTED: ::flatbuffers::VOffsetT = 16;
+  pub const VT_STAGE_SINCE: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Building { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args BuildingArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Building<'bldr>> {
+    let mut builder = BuildingBuilder::new(_fbb);
+    builder.add_stage_since(args.stage_since);
+    builder.add_started(args.started);
+    builder.add_plot(args.plot);
+    builder.add_household(args.household);
+    builder.add_id(args.id);
+    builder.add_work_h(args.work_h);
+    if let Some(x) = args.spec { builder.add_spec(x); }
+    builder.add_stage(args.stage);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Building::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Building::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn plot(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Building::VT_PLOT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn spec(&self) -> Option<BuildingSpec<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<BuildingSpec>>(Building::VT_SPEC, None)}
+  }
+  #[inline]
+  pub fn stage(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(Building::VT_STAGE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn work_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Building::VT_WORK_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn started(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Building::VT_STARTED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn stage_since(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Building::VT_STAGE_SINCE, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Building<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<u64>("plot", Self::VT_PLOT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<BuildingSpec>>("spec", Self::VT_SPEC, false)?
+     .visit_field::<u8>("stage", Self::VT_STAGE, false)?
+     .visit_field::<f32>("work_h", Self::VT_WORK_H, false)?
+     .visit_field::<i64>("started", Self::VT_STARTED, false)?
+     .visit_field::<i64>("stage_since", Self::VT_STAGE_SINCE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct BuildingArgs<'a> {
+    pub id: u64,
+    pub household: u64,
+    pub plot: u64,
+    pub spec: Option<::flatbuffers::WIPOffset<BuildingSpec<'a>>>,
+    pub stage: u8,
+    pub work_h: f32,
+    pub started: i64,
+    pub stage_since: i64,
+}
+impl<'a> Default for BuildingArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    BuildingArgs {
+      id: 0,
+      household: 0,
+      plot: 0,
+      spec: None,
+      stage: 0,
+      work_h: 0.0,
+      started: 0,
+      stage_since: 0,
+    }
+  }
+}
+
+pub struct BuildingBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(Building::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(Building::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_plot(&mut self, plot: u64) {
+    self.fbb_.push_slot::<u64>(Building::VT_PLOT, plot, 0);
+  }
+  #[inline]
+  pub fn add_spec(&mut self, spec: ::flatbuffers::WIPOffset<BuildingSpec<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<BuildingSpec>>(Building::VT_SPEC, spec);
+  }
+  #[inline]
+  pub fn add_stage(&mut self, stage: u8) {
+    self.fbb_.push_slot::<u8>(Building::VT_STAGE, stage, 0);
+  }
+  #[inline]
+  pub fn add_work_h(&mut self, work_h: f32) {
+    self.fbb_.push_slot::<f32>(Building::VT_WORK_H, work_h, 0.0);
+  }
+  #[inline]
+  pub fn add_started(&mut self, started: i64) {
+    self.fbb_.push_slot::<i64>(Building::VT_STARTED, started, 0);
+  }
+  #[inline]
+  pub fn add_stage_since(&mut self, stage_since: i64) {
+    self.fbb_.push_slot::<i64>(Building::VT_STAGE_SINCE, stage_since, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    BuildingBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Building<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Building<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Building");
+      ds.field("id", &self.id());
+      ds.field("household", &self.household());
+      ds.field("plot", &self.plot());
+      ds.field("spec", &self.spec());
+      ds.field("stage", &self.stage());
+      ds.field("work_h", &self.work_h());
+      ds.field("started", &self.started());
+      ds.field("stage_since", &self.stage_since());
+      ds.finish()
+  }
+}
+pub enum BuildsOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Builds<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Builds<'a> {
+  type Inner = Builds<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Builds<'a> {
+  pub const VT_BUILDINGS: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Builds { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args BuildsArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Builds<'bldr>> {
+    let mut builder = BuildsBuilder::new(_fbb);
+    if let Some(x) = args.buildings { builder.add_buildings(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn buildings(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Building<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Building>>>>(Builds::VT_BUILDINGS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Builds<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Building>>>>("buildings", Self::VT_BUILDINGS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct BuildsArgs<'a> {
+    pub buildings: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Building<'a>>>>>,
+}
+impl<'a> Default for BuildsArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    BuildsArgs {
+      buildings: None,
+    }
+  }
+}
+
+pub struct BuildsBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildsBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_buildings(&mut self, buildings: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Building<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Builds::VT_BUILDINGS, buildings);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildsBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    BuildsBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Builds<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Builds<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Builds");
+      ds.field("buildings", &self.buildings());
       ds.finish()
   }
 }

@@ -9,6 +9,7 @@ name = "Meat"
 purpose = "food"
 kcal_per_kg = 1500.0
 half_life_days = 3.0
+sheltered_half_life_days = 0.0    # a roof makes no difference
 cooked = true
 shared = true
 reserve = false

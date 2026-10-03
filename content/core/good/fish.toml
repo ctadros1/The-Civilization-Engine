@@ -7,6 +7,7 @@ name = "Fish"
 purpose = "food"
 kcal_per_kg = 600.0
 half_life_days = 2.0
+sheltered_half_life_days = 0.0    # a roof makes no difference
 cooked = true
 shared = false
 reserve = false

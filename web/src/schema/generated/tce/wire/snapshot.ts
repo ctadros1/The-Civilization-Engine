@@ -92,8 +92,13 @@ fieldsRev():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+buildingsRev():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startSnapshot(builder:flatbuffers.Builder) {
-  builder.startObject(10);
+  builder.startObject(11);
 }
 
 static addWorld(builder:flatbuffers.Builder, worldOffset:flatbuffers.Offset) {
@@ -158,6 +163,10 @@ static addChronicleHead(builder:flatbuffers.Builder, chronicleHead:bigint) {
 
 static addFieldsRev(builder:flatbuffers.Builder, fieldsRev:bigint) {
   builder.addFieldInt64(9, fieldsRev, BigInt('0'));
+}
+
+static addBuildingsRev(builder:flatbuffers.Builder, buildingsRev:bigint) {
+  builder.addFieldInt64(10, buildingsRev, BigInt('0'));
 }
 
 static endSnapshot(builder:flatbuffers.Builder):flatbuffers.Offset {

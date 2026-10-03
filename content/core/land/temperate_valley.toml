@@ -132,3 +132,43 @@ half_rate_stock_per_ha = 500.0
 production_per_ha_yr = [0.0, 100.0, 150.0, 500.0, 150.0]
 loss_per_day = 0.0002            # decay: about 7 % a year (a tuning value)
 season = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+[[resource]]
+id = "poles"
+name = "Poles"
+good = "core:good/timber"
+unit_kg = 1.0
+discrete = false
+in_water = false
+range_patches = 1
+# Felling and trimming poles and cutting rods with stone tools: a tuning value (the research gives
+# no rate; 11-04 §2.2 counts felling and preparation apart from building).
+max_rate_per_hour = 20.0
+half_rate_stock_per_ha = 1000.0
+
+[resource.plant]
+# Kilograms of building-size poles and rods per hectare per year by habitat: a part of the 2-5 t of
+# wood woodland grows a year (research 03-06 §2.5); tuning values.
+production_per_ha_yr = [0.0, 150.0, 100.0, 600.0, 150.0]
+loss_per_day = 0.0005            # poles grow past use or die: about 17 % a year (a tuning value)
+season = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+[[resource]]
+id = "reeds"
+name = "Reeds and tall grass"
+good = "core:good/thatch"
+unit_kg = 1.0
+discrete = false
+in_water = false
+range_patches = 1
+# Research 11-04 §3: collecting the grass for one roof took about 60 person-hours.
+max_rate_per_hour = 30.0
+half_rate_stock_per_ha = 300.0
+
+[resource.plant]
+# Kilograms of stems fit for thatch per hectare per year by habitat: reed beds on wet margins,
+# tall grass on floodplains and uplands. Tuning values: the research gives no thatch yields.
+production_per_ha_yr = [0.0, 4000.0, 800.0, 0.0, 300.0]
+loss_per_day = 0.004             # standing stems fall and rot within about a year (a tuning value)
+# Grows from late spring to early autumn and stands through the winter.
+season = [0.0, 0.0, 0.0, 0.5, 1.5, 2.5, 2.5, 2.5, 1.5, 0.5, 0.5, 0.0]

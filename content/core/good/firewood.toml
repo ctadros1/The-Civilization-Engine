@@ -6,6 +6,7 @@ name = "Firewood"
 purpose = "fuel"
 kcal_per_kg = 0.0
 half_life_days = 0.0
+sheltered_half_life_days = 0.0    # a roof makes no difference
 cooked = false
 shared = false
 reserve = false

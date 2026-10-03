@@ -40,6 +40,8 @@ pub enum Reason {
     Harvest = 13,
     /// Field work left against the work the household can still do before the season closes.
     Deadline = 14,
+    /// A roof over the household's sleepers and stores.
+    Shelter = 15,
     /// Excluded: there is no food at home.
     NoFood = 100,
     /// Excluded: too young.
@@ -66,11 +68,17 @@ pub enum Reason {
     NotShort = 111,
     /// Excluded: no household nearby can spare food.
     NoOneToAsk = 112,
+    /// Excluded: the materials the work needs are not at home.
+    NoMaterials = 113,
+    /// Excluded: the household's home is built.
+    Built = 114,
+    /// Excluded: nothing being built needs it.
+    NotNeeded = 115,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 27] = [
+    pub const ALL: [Reason; 31] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -85,6 +93,7 @@ impl Reason {
         Reason::FuelShortage,
         Reason::Harvest,
         Reason::Deadline,
+        Reason::Shelter,
         Reason::NoFood,
         Reason::TooYoung,
         Reason::TooOld,
@@ -98,6 +107,9 @@ impl Reason {
         Reason::NoFieldWork,
         Reason::NotShort,
         Reason::NoOneToAsk,
+        Reason::NoMaterials,
+        Reason::Built,
+        Reason::NotNeeded,
     ];
 
     /// The reason with this code.
@@ -122,6 +134,7 @@ impl Reason {
             Reason::FuelShortage => "firewood running short",
             Reason::Harvest => "food for the year ahead",
             Reason::Deadline => "the season will not wait",
+            Reason::Shelter => "a roof before winter",
             Reason::NoFood => "no food at home",
             Reason::TooYoung => "too young",
             Reason::TooOld => "too old",
@@ -135,6 +148,9 @@ impl Reason {
             Reason::NoFieldWork => "no field needs it now",
             Reason::NotShort => "not short of food",
             Reason::NoOneToAsk => "no one nearby can spare food",
+            Reason::NoMaterials => "nothing to build with at home",
+            Reason::Built => "their home is built",
+            Reason::NotNeeded => "nothing being built needs it",
         }
     }
 }
@@ -241,6 +257,8 @@ pub enum ChronicleKind {
     FirstSowing,
     /// A settlement's harvest was in: `number` is the grain threshed, kilograms.
     HarvestIn,
+    /// A settlement's first home was roofed: `people` names who finished it.
+    FirstRoof,
 }
 
 /// A chronicle entry: structured facts, rendered to text when read (ADR-0003).
@@ -311,6 +329,11 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 " was in: {} kg of grain.",
                 thousands(event.number.round().max(0.0) as u64)
             )),
+        ],
+        ChronicleKind::FirstRoof => vec![
+            Span::Text("The first hut at ".to_owned()),
+            settlement(event),
+            Span::Text(" was roofed.".to_owned()),
         ],
     }
 }

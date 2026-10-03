@@ -1,0 +1,43 @@
+# A round post-built hut with wattle-and-daub walls and a conical thatched roof: the one building
+# program of M1 (plan §7; ADR-0004 §2). The grammar is code (`civ-grammar`); every dimension,
+# labour and material figure is here. Labour is in person-hours of a capable adult; pd8 is eight
+# of them (research 11-04 §2.2). A hut for five comes to about 500 hours of building, 1 t of
+# timber and 1.7 t of thatch, before the materials are cut and carried.
+kind = "building"
+id = "core:building/hut"
+name = "Hut"
+grammar = "hut"
+eave_cm = 180                    # head height at the wall (tuning)
+pitch_deg = 45.0                 # 11-01 §3: grass thatch wants at least 45° to shed rain
+roof_by_day = 304                # 1 November: under a roof before winter (tuning)
+
+[materials]
+timber = "core:good/timber"      # posts and rafters
+wattle = "core:good/timber"      # rods, cut like poles
+thatch = "core:good/thatch"
+
+[rules]
+radius_cm = [150, 400]
+eave_cm = [150, 250]
+pitch_deg = [45.0, 55.0]
+post_spacing_cm = 100            # tuning
+post_diameter_cm = 12            # tuning
+posthole_depth_cm = 60           # tuning
+wall_thickness_cm = 15           # tuning
+roof_overhang_cm = 50            # tuning
+thatch_thickness_cm = 30         # tuning
+hearth_cm = 80                   # tuning
+floor_base_m2 = 6.0              # 10-06 §2.3: 6 m² plus 4.8 m² a resident, 30 m² for five
+floor_m2_per_sleeper = 4.8
+groundwork_h_per_m2 = 3.0        # 11-04 §2.6: groundworks, floor and completion 20-40 pd8 for 30 m², split with finish
+posthole_h = 0.5                 # 11-04 §2.2: digging 0.25-0.8 pd8/m³; a posthole is about 0.03 m³, setting out included (tuning)
+post_h = 2.0                     # 11-04 §2.2: pole-and-lashing frame 0.1-0.5 pd8/m² of footprint; posts and rafters
+rafter_h = 1.6                   # together come to about 0.3 pd8/m² for 30 m²
+wattle_h_per_m2 = 1.0            # weaving wattle: the research gives no figure (tuning)
+daub_h_per_m2 = 2.0              # 11-04 §2.2: cob 1.5-4 pd8/m³; 15 cm of daub is about 1.7 pd8/m³
+thatch_h_per_m2 = 2.4            # 11-04 §2.2: fixing thatch 0.2-0.6 pd8/m² of roof
+finish_h_per_m2 = 3.0            # 11-04 §2.6, with groundwork
+post_kg = 22.0                   # 11-08 §2.1: a 12 cm post 2.4 m long at 760 kg/m³
+rafter_kg = 21.0                 # an 8 cm rafter about 5 m long, the same wood
+wattle_kg_per_m2 = 6.0           # the research gives no figure (tuning)
+thatch_kg_per_m2 = 30.0          # 11-01 §3: wet thatch about 40 kg/m²; dry, less

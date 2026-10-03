@@ -25,11 +25,13 @@ pub enum Behavior {
     Farm,
     /// Ask a household of the settlement that can spare food for some, when short.
     Ask,
+    /// Work on the household's home: the stage under way, with the materials at hand.
+    Build,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 9] = [
+    pub const ALL: [Behavior; 10] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -39,6 +41,7 @@ impl Behavior {
         Behavior::Play,
         Behavior::Farm,
         Behavior::Ask,
+        Behavior::Build,
     ];
 
     /// The authored name of a behavior.
@@ -53,6 +56,7 @@ impl Behavior {
             Behavior::Play => "play",
             Behavior::Farm => "farm",
             Behavior::Ask => "ask",
+            Behavior::Build => "build",
         }
     }
 
@@ -100,6 +104,8 @@ pub enum GoodUse {
     Food,
     /// Burned for cooking and warmth.
     Fuel,
+    /// Built with.
+    Material,
 }
 
 impl GoodUse {
@@ -108,12 +114,13 @@ impl GoodUse {
         match self {
             GoodUse::Food => "food",
             GoodUse::Fuel => "fuel",
+            GoodUse::Material => "material",
         }
     }
 
     /// The use with an authored name.
     pub fn from_name(name: &str) -> Option<GoodUse> {
-        [GoodUse::Food, GoodUse::Fuel]
+        [GoodUse::Food, GoodUse::Fuel, GoodUse::Material]
             .into_iter()
             .find(|u| u.name() == name)
     }
@@ -132,6 +139,8 @@ pub struct GoodDef {
     pub kcal_per_kg: f64,
     /// Days for half of a stored amount to spoil; 0 means it keeps.
     pub half_life_days: f64,
+    /// The same under a roof; 0 means a roof makes no difference.
+    pub sheltered_half_life_days: f64,
     /// It must be cooked over a fire before it is eaten.
     pub cooked: bool,
     /// When brought home it is shared among every household of the settlement.
@@ -149,6 +158,27 @@ pub struct Catalog {
     pub goods: Vec<GoodDef>,
     /// Crops, in content id order. Their index is how fields refer to them.
     pub crops: Vec<CropParams>,
+    /// Building programs, in content id order.
+    pub buildings: Vec<BuildingDef>,
+}
+
+/// An authored building program (M1: the hut) with what people decide when they design one.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BuildingDef {
+    /// Content id, for example `core:building/hut`.
+    pub id: String,
+    /// Display name.
+    pub name: String,
+    /// The grammar's rules: every dimension, labour and material figure.
+    pub rules: civ_grammar::HutRules,
+    /// The good each material slot is made of, by index in the goods.
+    pub materials: Vec<usize>,
+    /// Wall height people build to, centimetres.
+    pub eave_cm: i32,
+    /// Roof pitch people build to, hundredths of a degree.
+    pub pitch_centideg: i32,
+    /// The day of the year a household wants to be under a roof by.
+    pub roof_by_day: u16,
 }
 
 impl Catalog {
@@ -165,6 +195,11 @@ impl Catalog {
     /// The crop with this content id.
     pub fn crop_index(&self, id: &str) -> Option<usize> {
         self.crops.iter().position(|c| c.id == id)
+    }
+
+    /// The building program with this content id.
+    pub fn building_index(&self, id: &str) -> Option<usize> {
+        self.buildings.iter().position(|b| b.id == id)
     }
 }
 
@@ -292,6 +327,8 @@ pub struct DecisionParams {
     /// Points per unit of urgency: field work left over the work the household can still do
     /// before the season closes.
     pub w_deadline: f64,
+    /// Points for building a household's roof, and for gathering what it is built of.
+    pub w_shelter: f64,
     /// Days of household food a gathering trip must bring to be worth half as much as a very
     /// large haul.
     pub trip_half_worth_days: f64,
@@ -447,6 +484,9 @@ pub struct PeopleParams {
     pub band: BandParams,
     /// Farming.
     pub farm: FarmParams,
+    /// Building: the program households build their home to, by index in the catalog's
+    /// buildings.
+    pub home_program: usize,
     /// Mortality (used for founding ages in M1's first slice; hazards follow).
     pub mortality: Siler,
     /// Names.

@@ -208,6 +208,40 @@ fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<String> {
             sim.land().fields.len()
         ));
     }
+    // In their first weeks households claim ground for their homes and begin their huts, on
+    // ground nobody else has claimed.
+    let land = sim.land();
+    let unhoused = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, h)| !land.buildings.iter().any(|b| b.household == h.id))
+        .count();
+    if unhoused > 0 {
+        failures.push(format!(
+            "{unhoused} households have not begun a home within {DAYS} days"
+        ));
+    }
+    let crowded = land
+        .plots
+        .iter()
+        .enumerate()
+        .filter(|(i, p)| {
+            land.plots[i + 1..].iter().any(|q| p.rect.near(&q.rect, 0))
+                || land.fields.iter().any(|f| p.rect.near(&f.rect, 0))
+        })
+        .count();
+    if crowded > 0 {
+        failures.push(format!("{crowded} plots overlap another plot or a field"));
+    }
+    let problems = land.problems(
+        sim.map(),
+        sim.rules().land.habitats.len(),
+        sim.ids().peek_next(),
+    );
+    if let Some(first) = problems.first() {
+        failures.push(format!("{} land problems, first: {first}", problems.len()));
+    }
     failures
 }
 

@@ -37,6 +37,9 @@ struct Fixture {
     first_info: SnapshotInfo,
     /// The fields of the world as it was saved.
     first_fields: Vec<civ_land::Field>,
+    /// Its plots and buildings.
+    first_plots: Vec<civ_land::Plot>,
+    first_buildings: Vec<civ_land::Building>,
 }
 
 /// One world, generated once, run for a while and saved.
@@ -77,6 +80,8 @@ fn fixture() -> &'static Fixture {
             first,
             first_info,
             first_fields: sim.land().fields.clone(),
+            first_plots: sim.land().plots.clone(),
+            first_buildings: sim.land().buildings.clone(),
         }
     })
 }
@@ -127,8 +132,9 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 8 land, field and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 8);
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 10 land, field, plot, building and
+    // people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 10);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -346,11 +352,74 @@ fn a_version_4_save_without_its_fields_section_is_refused() {
 }
 
 #[test]
+fn plots_and_buildings_load_as_they_were_saved() {
+    let fx = fixture();
+    // In their first days households claim ground for their homes and begin their huts.
+    assert!(
+        !fx.first_buildings.is_empty(),
+        "the saved world has buildings"
+    );
+    let loaded = load_first();
+    assert_eq!(loaded.land().plots, fx.first_plots);
+    assert_eq!(loaded.land().buildings, fx.first_buildings);
+    // Shelter is not saved: it follows from the buildings.
+    for (_, h) in loaded.people().households.iter() {
+        let roofed = loaded
+            .land()
+            .buildings
+            .iter()
+            .any(|b| b.household == h.id && b.roofed());
+        assert_eq!(h.sheltered, roofed, "household {}", h.id);
+    }
+}
+
+#[test]
+fn a_version_5_save_without_its_builds_section_is_refused() {
+    let sim = load_first();
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_BUILDS)
+        .collect();
+    let path = republish("no-builds", &fixture().first_info, &sections);
+    assert!(persist::load(&path, content()).is_err());
+}
+
+#[test]
+fn slice_c_saves_load_without_buildings_and_build_again() {
+    let sim = load_first();
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_PLOTS && s.tag != agents::SECTION_BUILDS)
+        .collect();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V4;
+    let path = republish("slice-c", &info, &sections);
+    let mut migrated = persist::load(&path, content()).expect("a schema-4 save loads");
+    assert!(migrated.is_dirty(), "the migration is new state");
+    assert!(migrated.land().buildings.is_empty() && migrated.land().plots.is_empty());
+    assert_eq!(migrated.land().fields, fixture().first_fields);
+    migrated
+        .advance_minutes(24 * 60)
+        .expect("a migrated world runs");
+    assert!(
+        !migrated.land().buildings.is_empty(),
+        "households begin their homes again"
+    );
+}
+
+#[test]
 fn slice_b_saves_load_without_fields_and_farm_again() {
     let sim = load_first();
     let sections: Vec<SectionData> = persist::encode_sections(&sim)
         .into_iter()
-        .filter(|s| s.tag != agents::SECTION_FIELDS)
+        .filter(|s| {
+            ![
+                agents::SECTION_FIELDS,
+                agents::SECTION_PLOTS,
+                agents::SECTION_BUILDS,
+            ]
+            .contains(&s.tag)
+        })
         .collect();
     let mut info = fixture().first_info.clone();
     info.schema_version = persist::SCHEMA_V3;
@@ -552,6 +621,58 @@ fn snapshot_tables_decode() {
     );
     assert_eq!(clock.minute_of_hour(), 7);
     assert_eq!(clock.season(), Some("spring"));
+}
+
+#[test]
+fn every_building_is_described_with_its_expanded_shape() {
+    let sim = load_first();
+    let payload = frames::buildings::buildings_response(&sim);
+    let response = flatbuffers::root::<wire::Response>(&payload).expect("a response");
+    let list = response.body_as_buildings().expect("buildings");
+    assert_eq!(list.rev(), frames::buildings::buildings_rev(&sim));
+    assert_ne!(list.rev(), 0, "a world with buildings has a revision");
+    let infos = list.buildings().expect("a list");
+    assert_eq!(infos.len(), sim.land().buildings.len());
+    for (info, b) in infos.iter().zip(&sim.land().buildings) {
+        assert_eq!(info.id(), b.id.get());
+        assert_eq!(info.program(), Some("Hut"));
+        assert_eq!(info.stage(), b.stage);
+        let centre = info.centre().expect("a centre");
+        assert_eq!(
+            (centre.x(), centre.y()),
+            civ_agents::build::centre_m(&b.spec)
+        );
+        // The walls' outline goes round the centre, outside the wall line; the roof reaches past
+        // it; the posts stand on the wall line.
+        let outline = info.outline().expect("an outline");
+        assert_eq!(outline.len(), 32);
+        for p in outline.iter() {
+            let r = (p.x() - centre.x()).hypot(p.y() - centre.y());
+            assert!(r >= info.radius_m() && r < info.roof_radius_m(), "{r}");
+        }
+        let posts = info.posts().expect("posts");
+        assert!(posts.len() >= 6);
+        for p in posts.iter() {
+            let r = (p.x() - centre.x()).hypot(p.y() - centre.y());
+            assert!((r - info.radius_m()).abs() < 0.02, "{r}");
+        }
+        // It stands on its plot, and sleeps its household.
+        let (min, size) = (
+            info.plot_min().expect("plot"),
+            info.plot_size().expect("plot"),
+        );
+        assert!(min.x() < centre.x() && centre.x() < min.x() + size.x());
+        assert!(min.y() < centre.y() && centre.y() < min.y() + size.y());
+        let members = sim
+            .people()
+            .household(b.household)
+            .expect("household")
+            .members
+            .len();
+        assert!(info.sleeps() as usize >= members);
+        assert!(info.floor_m2() > 0.0);
+        assert!(!info.status().unwrap_or_default().is_empty());
+    }
 }
 
 #[test]

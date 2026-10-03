@@ -224,6 +224,7 @@ name = "civ-agents"
 version = "0.1.0"
 dependencies = [
  "civ-core",
+ "civ-grammar",
  "civ-land",
  "civ-world",
 ]
@@ -234,6 +235,7 @@ version = "0.1.0"
 dependencies = [
  "blake3",
  "civ-agents",
+ "civ-grammar",
  "civ-land",
  "civ-world",
  "serde",
@@ -248,6 +250,10 @@ version = "0.1.0"
 dependencies = [
  "proptest",
 ]
+
+[[package]]
+name = "civ-grammar"
+version = "0.1.0"
 
 [[package]]
 name = "civ-host"
@@ -281,6 +287,7 @@ name = "civ-land"
 version = "0.1.0"
 dependencies = [
  "civ-core",
+ "civ-grammar",
  "civ-world",
 ]
 
@@ -299,6 +306,7 @@ dependencies = [
  "civ-agents",
  "civ-content",
  "civ-core",
+ "civ-grammar",
  "civ-land",
  "civ-schema",
  "civ-world",

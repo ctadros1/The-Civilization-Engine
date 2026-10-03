@@ -91,6 +91,7 @@ w_work = 2.5
 w_fuel = 6.0
 w_farm = 8.0                     # field work is worth the food it brings for the year ahead
 w_deadline = 6.0                 # per unit of work left over the work that can still be done in time
+w_shelter = 4.0                  # building the household's roof, and bringing what it is made of (tuning)
 trip_half_worth_days = 0.25      # a trip bringing a quarter of a household-day of food is worth half
 w_water = 8.0
 w_walk_hour = 2.0
@@ -137,6 +138,9 @@ work_hours_per_day = 6.0         # field work a capable adult gives a day: 6 h o
 field_m = 50.0                   # a new field is 50 m square, 0.25 ha (03-04 §5.1: soil patches 0.25-1 ha)
 max_walk_minutes = 30.0          # the farthest walk to a field (10-01 §2.3: 15-60 minutes one way)
 site_candidates = 24             # places looked at when marking out a new field
+
+[build]
+home_program = "core:building/hut" # what a household builds its home to
 
 [mortality]                      # Siler hazard, Hadza fit (research 05-01 §1.2): 1q0 216, e0 34
 a = 0.351

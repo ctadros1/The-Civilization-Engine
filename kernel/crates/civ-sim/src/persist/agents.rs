@@ -11,6 +11,8 @@
 //! | `receipts` | recent decision receipts per person |
 //! | `events` | the scheduler's pending events |
 //! | `fields` | fields and their crops (schema 4) |
+//! | `plots` | ground households have claimed (schema 5) |
+//! | `builds` | buildings: their designs and how far their construction has gone (schema 5) |
 //!
 //! Activities, habitats, resources and goods are saved by content id, so a world still loads after
 //! the content adds, removes or reorders them. Where saved state names something the loaded
@@ -27,6 +29,11 @@
 //!
 //! **Schema 3 → 4.** Fields arrived with version 4; a version-2 or 3 save has none. A field whose
 //! crop the loaded content no longer has is dropped.
+//!
+//! **Schema 4 → 5.** Plots and buildings arrived with version 5; an older save has none, and its
+//! households are not yet under a roof. A building keeps its design whatever the loaded content
+//! says; one whose program the content no longer has stands as it is, and work on it stops.
+//! Whether a household's stores are under a roof is not saved: it follows from its buildings.
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{Read, Seek};
@@ -38,14 +45,19 @@ use civ_agents::{
 };
 use civ_core::scheduler::PendingEvent;
 use civ_core::{PermanentId, SimTime};
-use civ_land::{ClimateYear, Field, FieldStage, Land, Patches, RectCm, Settlement};
+use civ_grammar::{BuildingSpec, Footprint};
+use civ_land::{
+    Building, ClimateYear, Field, FieldStage, Land, Patches, Plot, PlotUse, RectCm, Settlement,
+};
 use civ_schema::SAVE_SCHEMA_VERSION;
 use civ_schema::flatbuffers::{self, FlatBufferBuilder, WIPOffset};
 use civ_schema::save;
 use civ_world::WorldMap;
 use commons_persist::{SectionData, SectionTag, SnapshotReader};
 
-use super::{LoadError, SCHEMA_V2, SCHEMA_V3, finish, section, single_chunk, unreadable};
+use super::{
+    LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, finish, section, single_chunk, unreadable,
+};
 use crate::{Rules, Sim, SimEvent};
 
 /// Section: habitat patches and wild stocks.
@@ -64,6 +76,10 @@ pub const SECTION_RECEIPTS: SectionTag = SectionTag::new("receipts");
 pub const SECTION_EVENTS: SectionTag = SectionTag::new("events");
 /// Section: fields (schema 4).
 pub const SECTION_FIELDS: SectionTag = SectionTag::new("fields");
+/// Section: plots (schema 5).
+pub const SECTION_PLOTS: SectionTag = SectionTag::new("plots");
+/// Section: buildings (schema 5).
+pub const SECTION_BUILDS: SectionTag = SectionTag::new("builds");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -100,6 +116,8 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         ),
         section(SECTION_EVENTS, 0, encode_events(sim)),
         section(SECTION_FIELDS, 0, encode_fields(&sim.land.fields, rules)),
+        section(SECTION_PLOTS, 0, encode_plots(&sim.land.plots)),
+        section(SECTION_BUILDS, 0, encode_buildings(&sim.land.buildings)),
     ]
 }
 
@@ -113,7 +131,7 @@ pub(super) struct Decoded {
 }
 
 /// What a schema version stores, for the decoders.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum Schema {
     /// M1 slice A: food in kilocalories.
     V2,
@@ -121,6 +139,8 @@ enum Schema {
     V3,
     /// Fields.
     V4,
+    /// Plots and buildings.
+    V5,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -136,7 +156,8 @@ pub(super) fn decode<R: Read + Seek>(
     let schema = match version {
         SCHEMA_V2 => Schema::V2,
         SCHEMA_V3 => Schema::V3,
-        SAVE_SCHEMA_VERSION => Schema::V4,
+        SCHEMA_V4 => Schema::V4,
+        SAVE_SCHEMA_VERSION => Schema::V5,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -167,10 +188,17 @@ pub(super) fn decode<R: Read + Seek>(
     decode_receipts(&bytes, rules, &mut people)?;
     let bytes = single_chunk(reader, SECTION_EVENTS)?;
     let events = decode_events(&bytes)?;
-    if schema == Schema::V4 {
+    if schema >= Schema::V4 {
         let bytes = single_chunk(reader, SECTION_FIELDS)?;
         land.fields = decode_fields(&bytes, rules)?;
     }
+    if schema >= Schema::V5 {
+        let bytes = single_chunk(reader, SECTION_PLOTS)?;
+        land.plots = decode_plots(&bytes)?;
+        let bytes = single_chunk(reader, SECTION_BUILDS)?;
+        land.buildings = decode_buildings(&bytes)?;
+    }
+    people.derive_shelter(&land);
 
     let mut problems = land.problems(map, rules.land.habitats.len(), next_id);
     problems.extend(people.problems(next_id, rules.catalog.activities.len()));
@@ -183,6 +211,16 @@ pub(super) fn decode<R: Read + Seek>(
     for f in &land.fields {
         if people.household(f.household).is_none() {
             problems.push(format!("field {} belongs to a missing household", f.id));
+        }
+    }
+    for p in &land.plots {
+        if people.household(p.household).is_none() {
+            problems.push(format!("plot {} belongs to a missing household", p.id));
+        }
+    }
+    for b in &land.buildings {
+        if people.household(b.household).is_none() {
+            problems.push(format!("building {} belongs to a missing household", b.id));
         }
     }
     if !problems.is_empty() {
@@ -269,6 +307,8 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
         Target::Field(f) => (save::TargetKind::Field, 0, f.get()),
         Target::NewField => (save::TargetKind::NewField, 0, 0),
         Target::Household(h) => (save::TargetKind::Household, 0, h.get()),
+        Target::Building(b) => (save::TargetKind::Building, 0, b.get()),
+        Target::NewBuilding => (save::TargetKind::NewBuilding, 0, 0),
     }
 }
 
@@ -282,6 +322,8 @@ fn target_of(kind: save::TargetKind, index: u32, id: u64) -> Result<Target, Load
         save::TargetKind::Field => Target::Field(required(id, "a field target")?),
         save::TargetKind::NewField => Target::NewField,
         save::TargetKind::Household => Target::Household(required(id, "a household target")?),
+        save::TargetKind::Building => Target::Building(required(id, "a building target")?),
+        save::TargetKind::NewBuilding => Target::NewBuilding,
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",
@@ -420,6 +462,8 @@ fn decode_land(bytes: &[u8], rules: &Rules, map: &WorldMap) -> Result<Land, Load
         settlements: Vec::new(),
         // Read from their own section (schema 4 on).
         fields: Vec::new(),
+        plots: Vec::new(),
+        buildings: Vec::new(),
     };
     // A grid of the wrong size is reported by `Land::problems`; only fill stocks on a sound one.
     if land.patches.class.len() == n
@@ -749,7 +793,7 @@ fn carried(
             Some((g, kg)) if kg > 0.0 => (Some(g), kg as f32),
             _ => (None, 0.0),
         },
-        Schema::V3 | Schema::V4 => match p.carry_good() {
+        Schema::V3 | Schema::V4 | Schema::V5 => match p.carry_good() {
             -1 => (None, 0.0),
             i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
                 // A good the content no longer has is dropped.
@@ -852,7 +896,7 @@ fn decode_households(
                 }
                 (now, Vec::new())
             }
-            Schema::V3 | Schema::V4 => {
+            Schema::V3 | Schema::V4 | Schema::V5 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -901,6 +945,8 @@ fn decode_households(
             water_l: h.water_l(),
             water_at: time(h.water_at()),
             known,
+            // Derived from the buildings once the land is read.
+            sheltered: false,
         });
     }
     Ok(out)
@@ -916,6 +962,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::FoodRecovered => 4,
         ChronicleKind::FirstSowing => 5,
         ChronicleKind::HarvestIn => 6,
+        ChronicleKind::FirstRoof => 7,
     }
 }
 
@@ -927,6 +974,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         4 => Some(ChronicleKind::FoodRecovered),
         5 => Some(ChronicleKind::FirstSowing),
         6 => Some(ChronicleKind::HarvestIn),
+        7 => Some(ChronicleKind::FirstRoof),
         _ => None,
     }
 }
@@ -1367,6 +1415,170 @@ fn decode_fields(bytes: &[u8], rules: &Rules) -> Result<Vec<Field>, LoadError> {
             sown_day: f.sown_day(),
             sheaves_kg: f.sheaves_kg(),
             harvests: f.harvests(),
+        });
+    }
+    Ok(out)
+}
+
+// ---- plots and builds --------------------------------------------------------------------------
+
+fn encode_plots(plots: &[Plot]) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let list: Vec<_> = plots
+        .iter()
+        .map(|p| {
+            save::Plot::create(
+                &mut fbb,
+                &save::PlotArgs {
+                    id: p.id.get(),
+                    household: p.household.get(),
+                    x_cm: p.rect.x,
+                    y_cm: p.rect.y,
+                    w_cm: p.rect.w,
+                    h_cm: p.rect.h,
+                    purpose: match p.use_ {
+                        PlotUse::Dwelling => save::PlotUse::Dwelling,
+                    },
+                    since: p.since.minutes(),
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let root = save::Plots::create(&mut fbb, &save::PlotsArgs { plots: Some(list) });
+    finish(fbb, root)
+}
+
+fn decode_plots(bytes: &[u8]) -> Result<Vec<Plot>, LoadError> {
+    let root =
+        flatbuffers::root::<save::Plots>(bytes).map_err(|e| unreadable(SECTION_PLOTS, &e))?;
+    let mut out = Vec::new();
+    for p in root.plots().iter().flatten() {
+        let id = required(p.id(), "a plot")?;
+        let use_ = match p.purpose() {
+            save::PlotUse::Dwelling => PlotUse::Dwelling,
+            other => {
+                return Err(LoadError::Malformed(format!(
+                    "plot {id} has use {}",
+                    other.0
+                )));
+            }
+        };
+        out.push(Plot {
+            id,
+            household: required(p.household(), "a plot's household")?,
+            rect: RectCm {
+                x: p.x_cm(),
+                y: p.y_cm(),
+                w: p.w_cm(),
+                h: p.h_cm(),
+            },
+            use_,
+            since: time(p.since()),
+        });
+    }
+    Ok(out)
+}
+
+fn encode_buildings(buildings: &[Building]) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let list: Vec<_> = buildings
+        .iter()
+        .map(|b| {
+            let s = &b.spec;
+            let program = fbb.create_string(&s.program);
+            let params = fbb.create_vector(&s.params);
+            let materials: Vec<&str> = s.materials.iter().map(String::as_str).collect();
+            let materials = strings(&mut fbb, &materials);
+            let Footprint::Round { x, y, radius } = s.footprint;
+            let spec = save::BuildingSpec::create(
+                &mut fbb,
+                &save::BuildingSpecArgs {
+                    program: Some(program),
+                    version: s.version,
+                    footprint: save::FootprintKind::Round,
+                    x_cm: x,
+                    y_cm: y,
+                    radius_cm: radius,
+                    storeys: s.storeys,
+                    params: Some(params),
+                    materials: Some(materials),
+                    style_seed: s.style_seed,
+                },
+            );
+            save::Building::create(
+                &mut fbb,
+                &save::BuildingArgs {
+                    id: b.id.get(),
+                    household: b.household.get(),
+                    plot: b.plot.get(),
+                    spec: Some(spec),
+                    stage: b.stage,
+                    work_h: b.work_h,
+                    started: b.started.minutes(),
+                    stage_since: b.stage_since.minutes(),
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let root = save::Builds::create(
+        &mut fbb,
+        &save::BuildsArgs {
+            buildings: Some(list),
+        },
+    );
+    finish(fbb, root)
+}
+
+fn decode_buildings(bytes: &[u8]) -> Result<Vec<Building>, LoadError> {
+    let root =
+        flatbuffers::root::<save::Builds>(bytes).map_err(|e| unreadable(SECTION_BUILDS, &e))?;
+    let mut out = Vec::new();
+    for b in root.buildings().iter().flatten() {
+        let id = required(b.id(), "a building")?;
+        let Some(s) = b.spec() else {
+            return Err(LoadError::Malformed(format!("building {id} has no design")));
+        };
+        let footprint = match s.footprint() {
+            save::FootprintKind::Round => Footprint::Round {
+                x: s.x_cm(),
+                y: s.y_cm(),
+                radius: s.radius_cm(),
+            },
+            other => {
+                return Err(LoadError::Malformed(format!(
+                    "building {id} has footprint kind {}",
+                    other.0
+                )));
+            }
+        };
+        let saved: Vec<i32> = s.params().map(|v| v.iter().collect()).unwrap_or_default();
+        if saved.len() > 8 {
+            return Err(LoadError::Malformed(format!(
+                "building {id} has {} parameters; a design has at most 8",
+                saved.len()
+            )));
+        }
+        let mut params = [0; 8];
+        params[..saved.len()].copy_from_slice(&saved);
+        out.push(Building {
+            id,
+            household: required(b.household(), "a building's household")?,
+            plot: required(b.plot(), "a building's plot")?,
+            spec: BuildingSpec {
+                program: s.program().unwrap_or_default().to_owned(),
+                version: s.version(),
+                footprint,
+                storeys: s.storeys(),
+                params,
+                materials: read_strings(s.materials()),
+                style_seed: s.style_seed(),
+            },
+            stage: b.stage(),
+            work_h: b.work_h(),
+            started: time(b.started()),
+            stage_since: time(b.stage_since()),
         });
     }
     Ok(out)

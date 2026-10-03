@@ -54,6 +54,9 @@ pub struct CropParams {
     pub reap_h_per_ha: f64,
     /// Work to thresh and clean the grain, person-hours per kilogram.
     pub thresh_h_per_kg: f64,
+    /// The straw threshing leaves: the good it is kept as (by index in the content's goods) and
+    /// kilograms of it per kilogram of grain.
+    pub straw: Option<(usize, f64)>,
 }
 
 impl CropParams {
@@ -454,6 +457,7 @@ pub(crate) mod tests {
             tend_h_per_ha: 200.0,
             reap_h_per_ha: 250.0,
             thresh_h_per_kg: 0.5,
+            straw: None,
         }
     }
 

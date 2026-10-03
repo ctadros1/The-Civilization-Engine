@@ -1,0 +1,13 @@
+# Poles for posts and rafters, and rods for wattle, felled and trimmed with stone axes. Oak
+# weighs about 760 kg/m³ seasoned (research 11-08 §2.1). Wood left in the open checks and rots
+# slowly: the half-life is a tuning value (the research gives no figure).
+kind = "good"
+id = "core:good/timber"
+name = "Timber"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 1825.0
+sheltered_half_life_days = 0.0   # kept outside, by the work
+cooked = false
+shared = false
+reserve = false

@@ -32,7 +32,15 @@ pub(crate) struct PeopleFile {
     pub decision: Decision,
     pub band: Band,
     pub farm: Farm,
+    pub build: Build,
     pub mortality: Mortality,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Build {
+    /// The program a household builds its home to: a building id.
+    pub home_program: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -130,6 +138,7 @@ pub(crate) struct Decision {
     pub w_fuel: f64,
     pub w_farm: f64,
     pub w_deadline: f64,
+    pub w_shelter: f64,
     pub trip_half_worth_days: f64,
     pub w_water: f64,
     pub w_walk_hour: f64,
@@ -208,10 +217,16 @@ fn unit(name: &str, v: f64, problems: &mut Vec<String>) {
 }
 
 impl PeopleFile {
-    /// The parameters, with the given names and the indexes of the provisions good and the crop.
-    /// Field by field on purpose: a new parameter fails to compile here until the authoring
-    /// format carries it.
-    pub fn params(&self, names: NameParams, provisions_good: usize, crop: usize) -> PeopleParams {
+    /// The parameters, with the given names and the indexes of the provisions good, the crop and
+    /// the home program. Field by field on purpose: a new parameter fails to compile here until
+    /// the authoring format carries it.
+    pub fn params(
+        &self,
+        names: NameParams,
+        provisions_good: usize,
+        crop: usize,
+        home_program: usize,
+    ) -> PeopleParams {
         let (w, e, s, so, h, d, b, m) = (
             &self.walking,
             &self.energy,
@@ -290,6 +305,7 @@ impl PeopleFile {
                 w_fuel: d.w_fuel,
                 w_farm: d.w_farm,
                 w_deadline: d.w_deadline,
+                w_shelter: d.w_shelter,
                 trip_half_worth_days: d.trip_half_worth_days,
                 w_water: d.w_water,
                 w_walk_hour: d.w_walk_hour,
@@ -329,6 +345,7 @@ impl PeopleFile {
                 max_walk_minutes: self.farm.max_walk_minutes,
                 site_candidates: self.farm.site_candidates,
             },
+            home_program,
             mortality: Siler {
                 a: m.a,
                 b: m.b,
@@ -497,6 +514,7 @@ impl PeopleFile {
             ("w_fuel", d.w_fuel),
             ("w_farm", d.w_farm),
             ("w_deadline", d.w_deadline),
+            ("w_shelter", d.w_shelter),
             ("w_water", d.w_water),
             ("w_walk_hour", d.w_walk_hour),
             ("w_effort", d.w_effort),

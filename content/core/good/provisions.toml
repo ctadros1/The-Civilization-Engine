@@ -8,6 +8,7 @@ name = "Provisions"
 purpose = "food"
 kcal_per_kg = 3000.0
 half_life_days = 1100.0
+sheltered_half_life_days = 2400.0 # under a roof the 10 % a year of 08-01 §2.2
 cooked = false
 shared = false
 reserve = false

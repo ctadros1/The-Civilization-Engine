@@ -79,6 +79,11 @@ pub struct PatchOption {
     pub kcal_per_kg: f64,
     /// Days of the household's need it already holds of this good.
     pub stored_days: f64,
+    /// For a material: kilograms of it the household still needs for what it is building,
+    /// beyond what it holds (0 for food and fuel).
+    pub need_kg: f64,
+    /// For a material: how pressing the building it is for is ([`BuildOption::urgency`]).
+    pub urgency: f64,
     /// Where to stand, metres.
     pub at: (f32, f32),
 }
@@ -107,6 +112,25 @@ pub struct FieldOption {
     /// The work brings food within days (reaping and threshing), so a shortage presses on it as
     /// on gathering.
     pub soon: bool,
+}
+
+/// Work on the household's home: which building (or a new one), where, the stage under way and
+/// how much of it can be done with the materials at home.
+#[derive(Clone, Copy, Debug)]
+pub struct BuildOption {
+    /// The building, or `None` for a home not yet begun.
+    pub building: Option<PermanentId>,
+    /// Where to work, metres.
+    pub at: (f32, f32),
+    /// One-way walk, minutes.
+    pub walk_min: f64,
+    /// Hours of a capable adult's work the materials at home allow on the stage under way.
+    pub workable_h: f64,
+    /// Hours of a capable adult's work the stage under way still needs, materials aside.
+    pub left_h: f64,
+    /// Building work left over the work the household can still do before it wants to be under
+    /// a roof.
+    pub urgency: f64,
 }
 
 /// A household of the settlement that could spare food: who, the walk to its home, and the food
@@ -196,7 +220,7 @@ fn walk_home_first(f: &Facts) -> Vec<Step> {
 
 /// Scores every activity. Returns the candidates and the exclusions. `best_field` gives each
 /// farm activity its best field, or the reason there is none; `giver` is the household that
-/// could best spare food.
+/// could best spare food; `build` is the work on the household's home, or why there is none.
 #[allow(clippy::too_many_arguments)]
 pub fn candidates(
     defs: &[ActivityDef],
@@ -207,6 +231,7 @@ pub fn candidates(
     best_field: &dyn Fn(usize) -> Result<FieldOption, Reason>,
     water: Option<WaterOption>,
     giver: Option<GiverOption>,
+    build: Result<BuildOption, Reason>,
 ) -> (Vec<Candidate>, Vec<(u16, Reason)>) {
     let mut out = Vec::new();
     let mut excluded = Vec::new();
@@ -351,6 +376,22 @@ pub fn candidates(
                             term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
                         }
                     }
+                    GoodUse::Material => {
+                        if patch.need_kg <= 0.0 {
+                            excluded.push((id, Reason::NotNeeded));
+                            continue;
+                        }
+                        // A load is worth what it brings toward what is still needed: two thirds
+                        // for a full one.
+                        let useful = kg.min(patch.need_kg);
+                        let worth = useful / (useful + limits.carry_kg / 2.0).max(1e-6);
+                        term(&mut terms, Reason::Shelter, w.w_shelter * worth);
+                        term(
+                            &mut terms,
+                            Reason::Deadline,
+                            w.w_deadline * patch.urgency.clamp(0.0, 2.0) * worth,
+                        );
+                    }
                 }
                 term(
                     &mut terms,
@@ -441,6 +482,75 @@ pub fn candidates(
                     vec![Step::Walk { to: field.at }, work, Step::Walk { to: f.home }]
                 };
                 let target = field.field.map_or(Target::NewField, Target::Field);
+                out.push(finish(id, target, terms, steps));
+            }
+            Behavior::Build => {
+                let option = match build {
+                    Ok(option) => option,
+                    Err(why) => {
+                        excluded.push((id, why));
+                        continue;
+                    }
+                };
+                let room = f.daylight_left_min - 2.0 * option.walk_min - 20.0;
+                let room = if def.daylight_only {
+                    room
+                } else {
+                    f64::from(def.max_minutes)
+                };
+                if room < f64::from(def.min_minutes) {
+                    excluded.push((id, Reason::NotInDark));
+                    continue;
+                }
+                // As long as daylight and the materials at hand allow, within the authored range;
+                // a shorter session only to finish the stage.
+                let workable = option.workable_h * 60.0 / f.capacity.max(0.05);
+                let left = option.left_h * 60.0 / f.capacity.max(0.05);
+                if workable <= 0.0 || workable < f64::from(def.min_minutes).min(left) {
+                    excluded.push((id, Reason::NoMaterials));
+                    continue;
+                }
+                let minutes = room
+                    .min(f64::from(def.max_minutes))
+                    .min(workable)
+                    .max(f64::from(def.min_minutes).min(workable))
+                    .max(1.0);
+                let hours = minutes / 60.0;
+                term(&mut terms, Reason::Shelter, w.w_shelter);
+                term(
+                    &mut terms,
+                    Reason::Deadline,
+                    w.w_deadline * option.urgency.clamp(0.0, 2.0),
+                );
+                if option.walk_min > 0.5 {
+                    term(
+                        &mut terms,
+                        Reason::Walking,
+                        -w.w_walk_hour * 2.0 * option.walk_min / 60.0,
+                    );
+                }
+                term(
+                    &mut terms,
+                    Reason::Effort,
+                    -w.w_effort * (def.par - 1.0).max(0.0) * hours * f.sleep_pressure,
+                );
+                let work = Step::Work {
+                    minutes: minutes.round().max(1.0) as u32,
+                };
+                let steps = if option.walk_min > 0.5 {
+                    vec![
+                        Step::Walk { to: option.at },
+                        work,
+                        Step::Walk { to: f.home },
+                    ]
+                } else {
+                    let mut steps = walk_home_first(f);
+                    steps.push(work);
+                    steps
+                };
+                let target = option
+                    .building
+                    .map_or(Target::NewBuilding, Target::Building);
                 out.push(finish(id, target, terms, steps));
             }
             Behavior::Ask => {
@@ -571,6 +681,7 @@ mod tests {
             w_fuel: 6.0,
             w_farm: 8.0,
             w_deadline: 6.0,
+            w_shelter: 4.0,
             trip_half_worth_days: 0.25,
             w_water: 6.0,
             w_walk_hour: 1.0,

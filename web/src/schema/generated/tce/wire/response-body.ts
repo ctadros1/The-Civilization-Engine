@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 
 import { Ack } from '../../tce/wire/ack.js';
+import { Buildings } from '../../tce/wire/buildings.js';
 import { Chronicle } from '../../tce/wire/chronicle.js';
 import { Fields } from '../../tce/wire/fields.js';
 import { Hydrography } from '../../tce/wire/hydrography.js';
@@ -21,13 +22,14 @@ export enum ResponseBody {
   Trips = 5,
   PersonInfo = 6,
   Chronicle = 7,
-  Fields = 8
+  Fields = 8,
+  Buildings = 9
 }
 
 export function unionToResponseBody(
   type: ResponseBody,
-  accessor: (obj:Ack|Chronicle|Fields|Hydrography|PersonInfo|RasterTile|SaveList|Trips) => Ack|Chronicle|Fields|Hydrography|PersonInfo|RasterTile|SaveList|Trips|null
-): Ack|Chronicle|Fields|Hydrography|PersonInfo|RasterTile|SaveList|Trips|null {
+  accessor: (obj:Ack|Buildings|Chronicle|Fields|Hydrography|PersonInfo|RasterTile|SaveList|Trips) => Ack|Buildings|Chronicle|Fields|Hydrography|PersonInfo|RasterTile|SaveList|Trips|null
+): Ack|Buildings|Chronicle|Fields|Hydrography|PersonInfo|RasterTile|SaveList|Trips|null {
   switch(ResponseBody[type]) {
     case 'NONE': return null; 
     case 'Ack': return accessor(new Ack())! as Ack;
@@ -38,15 +40,16 @@ export function unionToResponseBody(
     case 'PersonInfo': return accessor(new PersonInfo())! as PersonInfo;
     case 'Chronicle': return accessor(new Chronicle())! as Chronicle;
     case 'Fields': return accessor(new Fields())! as Fields;
+    case 'Buildings': return accessor(new Buildings())! as Buildings;
     default: return null;
   }
 }
 
 export function unionListToResponseBody(
   type: ResponseBody, 
-  accessor: (index: number, obj:Ack|Chronicle|Fields|Hydrography|PersonInfo|RasterTile|SaveList|Trips) => Ack|Chronicle|Fields|Hydrography|PersonInfo|RasterTile|SaveList|Trips|null, 
+  accessor: (index: number, obj:Ack|Buildings|Chronicle|Fields|Hydrography|PersonInfo|RasterTile|SaveList|Trips) => Ack|Buildings|Chronicle|Fields|Hydrography|PersonInfo|RasterTile|SaveList|Trips|null, 
   index: number
-): Ack|Chronicle|Fields|Hydrography|PersonInfo|RasterTile|SaveList|Trips|null {
+): Ack|Buildings|Chronicle|Fields|Hydrography|PersonInfo|RasterTile|SaveList|Trips|null {
   switch(ResponseBody[type]) {
     case 'NONE': return null; 
     case 'Ack': return accessor(index, new Ack())! as Ack;
@@ -57,6 +60,7 @@ export function unionListToResponseBody(
     case 'PersonInfo': return accessor(index, new PersonInfo())! as PersonInfo;
     case 'Chronicle': return accessor(index, new Chronicle())! as Chronicle;
     case 'Fields': return accessor(index, new Fields())! as Fields;
+    case 'Buildings': return accessor(index, new Buildings())! as Buildings;
     default: return null;
   }
 }

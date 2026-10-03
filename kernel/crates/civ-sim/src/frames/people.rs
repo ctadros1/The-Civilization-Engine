@@ -275,7 +275,36 @@ pub fn describe_target(sim: &Sim, home: (f32, f32), target: Target) -> String {
         },
         Target::NewField => "new ground".to_owned(),
         Target::Household(id) => household_name(sim, id),
+        Target::Building(id) => match sim.land.buildings.iter().find(|b| b.id == id) {
+            Some(b) => {
+                let name = program_name(sim, &b.spec.program);
+                let at = civ_agents::build::centre_m(&b.spec);
+                if (at.0 - home.0).abs() < 1.0 && (at.1 - home.1).abs() < 1.0 {
+                    format!("the {name} at home")
+                } else {
+                    format!("a {name} {} of home", bearing(home, at))
+                }
+            }
+            None => "a building".to_owned(),
+        },
+        Target::NewBuilding => {
+            let program = sim
+                .rules
+                .catalog
+                .buildings
+                .get(sim.rules.people.home_program)
+                .map_or("", |b| b.id.as_str());
+            format!("a new {}", program_name(sim, program))
+        }
     }
+}
+
+/// A building program's name in running text: "hut".
+fn program_name(sim: &Sim, program: &str) -> String {
+    sim.rules.catalog.building_index(program).map_or_else(
+        || "building".to_owned(),
+        |i| sim.rules.catalog.buildings[i].name.to_lowercase(),
+    )
 }
 
 /// A household in words, by its eldest member: "Ada's household".
@@ -328,6 +357,18 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
                     format!("{what}, {place}")
                 }
                 Target::Household(_) => format!("{what} at {place}"),
+                Target::Building(id) => {
+                    match sim
+                        .land
+                        .buildings
+                        .iter()
+                        .find(|b| b.id == id)
+                        .and_then(|b| b.stage())
+                    {
+                        Some(stage) => format!("{what}: the {}", stage.name()),
+                        None => what.to_owned(),
+                    }
+                }
                 _ => what.to_owned(),
             }
         }

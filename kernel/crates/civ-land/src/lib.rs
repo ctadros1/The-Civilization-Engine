@@ -12,13 +12,17 @@
 //! - **Climate**: one yearly factor shared by the whole map, an AR(1) series around 1, scales
 //!   production (03-06 §5.2, 08-01 §2.3).
 //! - **Settlements**: the places people found.
+//! - **Fields, plots and buildings**: ground people crop, ground they claim for their homes, and
+//!   what they build there ([`fields`], [`buildings`]).
 //!
 //! This crate knows nothing about people: it is told what is gathered and where.
 
 #![forbid(unsafe_code)]
 
+pub mod buildings;
 pub mod fields;
 
+pub use buildings::{BuildWork, Building, Plot, PlotUse, STAGE_DONE_SLACK_H, workable_h};
 pub use fields::{CropParams, Field, FieldStage, FieldTask, RectCm, WorkDone};
 
 use civ_core::time::{DAYS_PER_YEAR, MONTH_STARTS};
@@ -290,6 +294,10 @@ pub struct Land {
     pub settlements: Vec<Settlement>,
     /// Fields, in the order they were marked out. Saved.
     pub fields: Vec<Field>,
+    /// Plots, in the order they were claimed. Saved.
+    pub plots: Vec<Plot>,
+    /// Buildings, in the order they were begun. Saved.
+    pub buildings: Vec<Building>,
 }
 
 /// Summary of a patch's terrain, for classification.
@@ -440,6 +448,8 @@ impl Land {
             },
             settlements: Vec::new(),
             fields: Vec::new(),
+            plots: Vec::new(),
+            buildings: Vec::new(),
         };
         // Start each stock at its equilibrium for the season a year ago, then grow a year.
         for r in 0..params.resources.len() {
@@ -521,6 +531,45 @@ impl Land {
             }
             if !inside || !finite {
                 out.push(format!("field {} is outside the map or malformed", f.id));
+            }
+        }
+        let inside = |r: &RectCm| {
+            r.w > 0
+                && r.h > 0
+                && r.x >= 0
+                && r.y >= 0
+                && f64::from(r.x) + f64::from(r.w) <= w_cm
+                && f64::from(r.y) + f64::from(r.h) <= h_cm
+        };
+        for p in &self.plots {
+            if !ids.insert(p.id) || p.id.get() >= next_id || p.household.get() >= next_id {
+                out.push(format!("plot {} has a duplicate or unallocated id", p.id));
+            }
+            if !inside(&p.rect) {
+                out.push(format!("plot {} is outside the map or malformed", p.id));
+            }
+        }
+        for b in &self.buildings {
+            if !ids.insert(b.id) || b.id.get() >= next_id || b.household.get() >= next_id {
+                out.push(format!(
+                    "building {} has a duplicate or unallocated id",
+                    b.id
+                ));
+            }
+            if !self.plots.iter().any(|p| p.id == b.plot) {
+                out.push(format!("building {} stands on no known plot", b.id));
+            }
+            let civ_grammar::Footprint::Round { x, y, radius } = b.spec.footprint;
+            let ok = radius > 0
+                && inside(&RectCm {
+                    x: x - radius,
+                    y: y - radius,
+                    w: 2 * radius,
+                    h: 2 * radius,
+                });
+            let stages = civ_grammar::Stage::ALL.len();
+            if !ok || usize::from(b.stage) > stages || !(b.work_h.is_finite() && b.work_h >= 0.0) {
+                out.push(format!("building {} is outside the map or malformed", b.id));
             }
         }
         out

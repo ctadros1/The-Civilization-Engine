@@ -162,7 +162,9 @@ table Settlements {
 
 // Section "people": living people and what they are doing.
 // Field (schema 4) names a field by `target_id`; NewField is new ground weighed in a decision.
-enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7 }
+// Building (schema 5) names a building by `target_id`; NewBuilding is a home not yet begun,
+// weighed in a decision.
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9 }
 
 enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3 }
 
@@ -401,6 +403,67 @@ table Fields {
   // Crop content ids at save time.
   crops: [string] (id: 0);
   fields: [Field] (id: 1);
+}
+
+// Section "plots" (schema 5): ground households have claimed (ADR-0004 §3). A plot outlives
+// its building.
+enum PlotUse : ubyte { Dwelling = 0 }
+
+table Plot {
+  id: ulong (id: 0);
+  household: ulong (id: 1);
+  // Integer centimetres from the map's north-west corner: west and north edges, width, height.
+  x_cm: int (id: 2);
+  y_cm: int (id: 3);
+  w_cm: int (id: 4);
+  h_cm: int (id: 5);
+  purpose: PlotUse (id: 6);
+  since: long (id: 7);
+}
+
+table Plots {
+  plots: [Plot] (id: 0);
+}
+
+// Section "builds" (schema 5): buildings as their builders designed them, and how far their
+// construction has gone (ADR-0004 §2). The design is authoritative; its parts, outline and
+// needs are expanded from it with the grammar version it records.
+enum FootprintKind : ubyte { Round = 0 }
+
+table BuildingSpec {
+  // The program's content id, for example `core:building/hut`.
+  program: string (id: 0);
+  // The grammar version it was designed under.
+  version: ushort (id: 1);
+  footprint: FootprintKind (id: 2);
+  // Round: the centre and the radius of the wall line, integer centimetres.
+  x_cm: int (id: 3);
+  y_cm: int (id: 4);
+  radius_cm: int (id: 5);
+  storeys: ubyte (id: 6);
+  // Up to eight integer parameters, the program's to name (a hut: eave height, roof pitch,
+  // door direction).
+  params: [int] (id: 7);
+  // The good each material slot is made of, as content ids.
+  materials: [string] (id: 8);
+  style_seed: ulong (id: 9);
+}
+
+table Building {
+  id: ulong (id: 0);
+  household: ulong (id: 1);
+  plot: ulong (id: 2);
+  spec: BuildingSpec (id: 3);
+  // The stage under way (0 foundation .. 4 finish); 5 once finished.
+  stage: ubyte (id: 4);
+  // Person-hours done on the stage under way.
+  work_h: float (id: 5);
+  started: long (id: 6);
+  stage_since: long (id: 7);
+}
+
+table Builds {
+  buildings: [Building] (id: 0);
 }
 
 // Section "events": the scheduler's pending events.

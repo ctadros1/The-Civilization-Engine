@@ -22,3 +22,5 @@ sow_h_per_ha = 120.0             # ...of which sowing is taken to be a sixth
 tend_h_per_ha = 200.0            # 08-02 §3.2: weeding and tending 25 days/ha
 reap_h_per_ha = 280.0            # 08-02 §3.2: harvest and field collection 35 days/ha (flint sickles 250-333 h/ha, §3.1)
 thresh_h_per_kg = 0.1            # 08-02 §3.2: threshing, drying and sorting 10 days/ha at 800 kg/ha
+straw_good = "core:good/thatch"  # long straw for roofs
+straw_kg_per_kg = 1.0            # tuning: old wheats grow 1.5-2 kg of straw per kg of grain; sickles leave the rest as stubble

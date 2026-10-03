@@ -180,6 +180,7 @@ mod tests {
             tend_h_per_ha: 200.0,
             reap_h_per_ha: 280.0,
             thresh_h_per_kg: 0.1,
+            straw: None,
         }
     }
 

@@ -32,6 +32,11 @@ pub enum Target {
     NewField,
     /// Another household, by permanent id (asked for food).
     Household(PermanentId),
+    /// A building, by permanent id.
+    Building(PermanentId),
+    /// A home not yet begun (an option weighed, never an activity's target: a chosen one is
+    /// marked out at once).
+    NewBuilding,
 }
 
 /// One step of an activity.
@@ -293,6 +298,9 @@ pub struct Household {
     pub water_at: SimTime,
     /// Patches they have gathered in, and what they found.
     pub known: Vec<KnownPatch>,
+    /// Their stores are under a roof: goods spoil at their sheltered rates. Derived from their
+    /// buildings (not saved); stores are settled whenever it changes.
+    pub sheltered: bool,
 }
 
 impl Household {
@@ -308,9 +316,9 @@ impl Household {
         self.water_at = t;
     }
 
-    /// The stores at `t`: every good spoils by its half-life, and firewood burns at
-    /// `fuel_kg_per_day(day)` kilograms on each day (the household's total). Exact for any split
-    /// of time.
+    /// The stores at `t`: every good spoils by its half-life (its sheltered one under a roof),
+    /// and firewood burns at `fuel_kg_per_day(day)` kilograms on each day (the household's
+    /// total). Exact for any split of time.
     pub fn stores_at_time(
         &self,
         t: SimTime,
@@ -325,8 +333,13 @@ impl Household {
         let days = (t1 - t0) as f64 / MINUTES_PER_DAY as f64;
         let mut burned = burned_kg(t0, t1, fuel_kg_per_day);
         for (kg, g) in out.iter_mut().zip(goods) {
-            if g.half_life_days > 0.0 {
-                *kg *= 0.5f64.powf(days / g.half_life_days);
+            let half_life = if self.sheltered && g.sheltered_half_life_days > 0.0 {
+                g.sheltered_half_life_days
+            } else {
+                g.half_life_days
+            };
+            if half_life > 0.0 {
+                *kg *= 0.5f64.powf(days / half_life);
             }
             if g.purpose == GoodUse::Fuel && burned > 0.0 {
                 let take = burned.min(*kg);
@@ -438,6 +451,7 @@ mod tests {
             water_l: 100.0,
             water_at: SimTime::ZERO,
             known: Vec::new(),
+            sheltered: false,
         }
     }
 
@@ -451,12 +465,33 @@ mod tests {
             cooked,
             shared: false,
             reserve: false,
+            sheltered_half_life_days: 0.0,
         };
         vec![
             good("meat", GoodUse::Food, 1500.0, 3.0, true),
             good("nuts", GoodUse::Food, 5000.0, 0.0, false),
             good("wood", GoodUse::Fuel, 0.0, 0.0, false),
         ]
+    }
+
+    #[test]
+    fn a_roof_slows_the_spoiling_of_what_it_shelters() {
+        let mut goods = goods();
+        // Nuts that spoil with a half-life of 100 days in the open and 400 under a roof.
+        goods[1].half_life_days = 100.0;
+        goods[1].sheltered_half_life_days = 400.0;
+        let mut h = household(vec![8.0, 8.0, 0.0]);
+        let t = SimTime::from_minutes(400 * 1440);
+        let open = h.stores_at_time(t, &goods, &|_| 0.0);
+        h.sheltered = true;
+        let roofed = h.stores_at_time(t, &goods, &|_| 0.0);
+        assert!((open[1] - 0.5).abs() < 1e-9, "four half-lives: {}", open[1]);
+        assert!(
+            (roofed[1] - 4.0).abs() < 1e-9,
+            "one half-life: {}",
+            roofed[1]
+        );
+        assert_eq!(open[0], roofed[0], "a roof does nothing for fresh meat");
     }
 
     #[test]

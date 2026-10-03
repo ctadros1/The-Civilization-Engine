@@ -12,7 +12,7 @@
 //!   record, so reformatting a file does not mark every save as "content changed".
 //!
 //! Kinds so far: world-generation presets (M0); the people profile, the land profile, name lists,
-//! activities, goods and crops (M1). Later milestones add technologies, offices and the rest of the
+//! activities, goods, crops and building programs (M1). Later milestones add technologies, offices and the rest of the
 //! plan's primitives, each as a new `kind`.
 
 #![forbid(unsafe_code)]
@@ -28,6 +28,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 mod activity;
+mod building;
 mod crop;
 mod good;
 mod land;
@@ -38,7 +39,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 3;
+pub const KERNEL_CONTENT_API: u32 = 4;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -63,7 +64,7 @@ pub enum Severity {
 /// | E2003 | An id's kind segment does not match the file's `kind` |
 /// | E2004 | The file's path does not match its id (`<kind>/<name>.toml`) |
 /// | E2005 | Two definitions share an id |
-/// | E2006 | A reference names something that is not defined (a name list, a land resource, a good, a crop) |
+/// | E2006 | A reference names something that is not defined (a name list, a land resource, a good, a crop, a building program) |
 /// | E3001 | A value is out of its allowed range |
 /// | E3002 | The `kind` is unknown, or missing |
 /// | E3003 | Not exactly one world-generation preset is marked `default = true` |
@@ -173,7 +174,8 @@ pub struct ContentRegistry {
     pub people: PeopleProfile,
     /// The land profile.
     pub land: LandProfile,
-    /// Activities, goods and crops, each in id order, with references resolved.
+    /// Activities, goods, crops and building programs, each in id order, with references
+    /// resolved.
     pub catalog: Catalog,
     /// BLAKE3 of the effective content (see the crate docs).
     pub fingerprint: [u8; 32],
@@ -219,7 +221,7 @@ impl LoadReport {
 
     /// The report as JSON: `{ "ok": bool, "fingerprint": hex|null, "packs": [...], "presets":
     /// [ids], "people": id|null, "land": id|null, "activities": [ids], "goods": [ids],
-    /// "crops": [ids], "diagnostics": [...] }`.
+    /// "crops": [ids], "buildings": [ids], "diagnostics": [...] }`.
     pub fn to_json(&self) -> String {
         let r = self.registry.as_ref();
         let json = serde_json::json!({
@@ -239,6 +241,9 @@ impl LoadReport {
                 .unwrap_or_default(),
             "crops": r
                 .map(|r| r.catalog.crops.iter().map(|c| c.id.clone()).collect::<Vec<_>>())
+                .unwrap_or_default(),
+            "buildings": r
+                .map(|r| r.catalog.buildings.iter().map(|b| b.id.clone()).collect::<Vec<_>>())
                 .unwrap_or_default(),
             "diagnostics": self.diagnostics,
         });
@@ -384,6 +389,7 @@ struct Parsed {
     activities: Vec<Def<activity::ActivityFile>>,
     goods: Vec<Def<good::GoodFile>>,
     crops: Vec<Def<crop::CropFile>>,
+    buildings: Vec<Def<building::BuildingFile>>,
     /// Files declaring `kind = "people"`, parsed or not (so a broken profile is not also
     /// reported as a missing one).
     people_files: usize,
@@ -616,9 +622,40 @@ fn resolve(
                 missing(c, parsed, &d.rel, field, id);
             }
         }
+        if let Some(id) = &d.file.straw_good
+            && good_index(id).is_none()
+        {
+            missing(c, parsed, &d.rel, "straw_good", id);
+        }
         crops.extend(d.file.params(&good_index));
     }
     crops.sort_by(|a, b| a.id.cmp(&b.id));
+    let mut buildings = Vec::new();
+    for d in &parsed.buildings {
+        let mut ok = true;
+        for (slot, id) in d.file.materials.slots() {
+            match good_index(id).map(|g| &goods[g]) {
+                None => {
+                    missing(c, parsed, &d.rel, &format!("materials.{slot}"), id);
+                    ok = false;
+                }
+                Some(g) if g.purpose != GoodUse::Material => {
+                    c.push(
+                        "E3001",
+                        &d.rel,
+                        None,
+                        format!("`materials.{slot}` must be a material; `{id}` is not"),
+                    );
+                    ok = false;
+                }
+                Some(_) => {}
+            }
+        }
+        if ok {
+            buildings.extend(d.file.def(&good_index));
+        }
+    }
+    buildings.sort_by(|a, b| a.id.cmp(&b.id));
     let people = match parsed.people.as_slice() {
         [d] => {
             let names = parsed.names.iter().find(|n| n.file.id == d.file.names);
@@ -628,6 +665,18 @@ fn resolve(
             let crop = crops.iter().position(|x| x.id == d.file.farm.crop);
             if crop.is_none() {
                 missing(c, parsed, &d.rel, "farm.crop", &d.file.farm.crop);
+            }
+            let home = buildings
+                .iter()
+                .position(|x| x.id == d.file.build.home_program);
+            if home.is_none() {
+                missing(
+                    c,
+                    parsed,
+                    &d.rel,
+                    "build.home_program",
+                    &d.file.build.home_program,
+                );
             }
             let provisions = &d.file.band.provisions_good;
             let good = good_index(provisions);
@@ -641,14 +690,14 @@ fn resolve(
                 ),
                 Some(_) => {}
             }
-            match (names, good, crop) {
-                (Some(n), Some(g), Some(crop)) if goods[g].purpose == GoodUse::Food => {
+            match (names, good, crop, home) {
+                (Some(n), Some(g), Some(crop), Some(home)) if goods[g].purpose == GoodUse::Food => {
                     Some(PeopleProfile {
                         id: d.file.id.clone(),
                         pack: d.pack.clone(),
                         name: d.file.name.clone(),
                         description: d.file.description.clone(),
-                        params: d.file.params(n.file.params(), g, crop),
+                        params: d.file.params(n.file.params(), g, crop, home),
                     })
                 }
                 _ => None,
@@ -690,6 +739,7 @@ fn resolve(
             activities,
             goods,
             crops,
+            buildings,
         },
     )
 }
@@ -705,6 +755,7 @@ fn parsed_tables(parsed: &Parsed) -> Vec<(&str, &toml::Table)> {
     all.extend(tables(&parsed.activities, |f| &f.id));
     all.extend(tables(&parsed.goods, |f| &f.id));
     all.extend(tables(&parsed.crops, |f| &f.id));
+    all.extend(tables(&parsed.buildings, |f| &f.id));
     all
 }
 
@@ -774,7 +825,7 @@ fn range_problems(c: &mut Collector, rel: &str, problems: Vec<String>) {
     }
 }
 
-const KINDS: [&str; 7] = [
+const KINDS: [&str; 8] = [
     worldgen::KIND,
     people::KIND,
     land::KIND,
@@ -782,6 +833,7 @@ const KINDS: [&str; 7] = [
     activity::KIND,
     good::KIND,
     crop::KIND,
+    building::KIND,
 ];
 
 fn compile_file(
@@ -893,6 +945,16 @@ fn compile_file(
             if check_identity(c, pack, rel, &file.id, crop::ID_KIND, seen_ids) {
                 range_problems(c, rel, file.problems());
                 parsed.crops.push(def(rel, pack, file, table));
+            }
+        }
+        building::KIND => {
+            let Some(file) = parse::<building::BuildingFile>(c, rel, source) else {
+                return;
+            };
+            debug_assert_eq!(file.kind, building::KIND, "dispatched on kind");
+            if check_identity(c, pack, rel, &file.id, building::ID_KIND, seen_ids) {
+                range_problems(c, rel, file.problems());
+                parsed.buildings.push(def(rel, pack, file, table));
             }
         }
         "" => c.push(

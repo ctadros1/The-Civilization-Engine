@@ -452,6 +452,7 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
                 * params.household.water_target_days,
             water_at: now,
             known: Vec::new(),
+            sheltered: false,
         });
         households.push(hh_id);
         for (mi, m) in family.iter().enumerate() {
@@ -647,6 +648,7 @@ mod tests {
                 w_fuel: 6.0,
                 w_farm: 8.0,
                 w_deadline: 6.0,
+                w_shelter: 4.0,
                 trip_half_worth_days: 0.25,
                 w_water: 8.0,
                 w_walk_hour: 2.0,
@@ -694,6 +696,7 @@ mod tests {
                 max_walk_minutes: 30.0,
                 site_candidates: 24,
             },
+            home_program: 0,
         }
     }
 

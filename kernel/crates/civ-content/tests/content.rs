@@ -9,9 +9,12 @@ fn repo_content() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../content")
 }
 
+/// The river valley preset with LF line endings, so the edits below match on any checkout (Git for
+/// Windows checks text out with CRLF by default).
 fn real_preset() -> String {
     std::fs::read_to_string(repo_content().join("core/worldgen/river_valley.toml"))
         .expect("the river valley preset exists")
+        .replace("\r\n", "\n")
 }
 
 const PACK: &str = r#"
@@ -196,6 +199,12 @@ fn the_semantic_fingerprint_follows_meaning_not_formatting() {
         same.packs[0].artifact_fingerprint,
         base.packs[0].artifact_fingerprint
     );
+
+    // So do line endings: a save made from a Windows checkout (CRLF) loads elsewhere without a
+    // spurious "content changed" note.
+    let crlf = real_preset().replace('\n', "\r\n");
+    let same = registry(load_fixture(&[("worldgen/river_valley.toml", &crlf)]));
+    assert_eq!(same.fingerprint, base.fingerprint);
 
     // A changed value changes it.
     let changed = real_preset().replace("talus_slope = 0.85", "talus_slope = 0.86");

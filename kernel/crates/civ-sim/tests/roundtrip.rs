@@ -9,7 +9,7 @@ use civ_content::ContentRegistry;
 use civ_schema::flatbuffers::{self, FlatBufferBuilder};
 use civ_schema::{SAVE_ENGINE_TAG, SAVE_SCHEMA_VERSION, save, wire};
 use civ_sim::frames::{self, RasterQuery};
-use civ_sim::persist::{self, LoadError, SECTION_RECEIVERS};
+use civ_sim::persist::{self, LoadError, SECTION_RECEIVERS, agents};
 use civ_sim::{NewWorld, Sim};
 use commons_persist::{
     ChunkInfo, DEFAULT_ZSTD_LEVEL, Published, SaveDir, SaveKind, SectionData, SnapshotInfo,
@@ -48,6 +48,7 @@ fn fixture() -> &'static Fixture {
                 seed: 5,
                 preset_id: PRESET.to_owned(),
                 size_cells: SIDE,
+                band_size: 0,
             },
             content(),
             &mut |_| {},
@@ -123,8 +124,9 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk sections and 4 rasters of 2×2 tiles.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4);
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 7 land and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 7);
+    assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
         .expect("opens")
@@ -145,6 +147,7 @@ fn a_loaded_map_equals_a_regenerated_one() {
             seed: 5,
             preset_id: PRESET.to_owned(),
             size_cells: SIDE,
+            band_size: 0,
         },
         content(),
         &mut |_| {},
@@ -252,6 +255,98 @@ fn an_inconsistent_world_is_refused_even_with_good_checksums() {
             assert!(problems.iter().any(|p| p.contains("cycle")), "{problems:?}");
         }
         other => panic!("expected an invalid-world refusal, got {other:?}"),
+    }
+}
+
+#[test]
+fn m0_saves_load_as_worlds_without_people() {
+    let sim = load_first();
+    let m0_sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| {
+            ![
+                agents::SECTION_LAND,
+                agents::SECTION_SETTLE,
+                agents::SECTION_PEOPLE,
+                agents::SECTION_HOUSES,
+                agents::SECTION_HISTORY,
+                agents::SECTION_RECEIPTS,
+                agents::SECTION_EVENTS,
+            ]
+            .contains(&s.tag)
+        })
+        .collect();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V1;
+    let path = republish("m0", &info, &m0_sections);
+    assert!(persist::describe(&path, content()).compatible);
+    let mut migrated = persist::load(&path, content()).expect("an M0 save loads");
+    assert_eq!(migrated.people().living(), 0, "nobody yet");
+    assert!(
+        !migrated.land().patches.is_empty(),
+        "the land is classified"
+    );
+    assert_eq!(
+        migrated.land().stocks.len(),
+        content().land.params.resources.len()
+    );
+    assert!(migrated.is_dirty(), "the migration is new state");
+    migrated
+        .advance_minutes(3 * 24 * 60)
+        .expect("an empty world runs");
+
+    // Saved again, it is a version-2 save.
+    let saved = persist::save(
+        &mut migrated,
+        &scratch_dir("m0-again"),
+        SaveKind::Manual,
+        "",
+    )
+    .expect("saves");
+    let info = commons_persist::SnapshotReader::open_file(&saved.path, Default::default())
+        .expect("opens")
+        .info()
+        .clone();
+    assert_eq!(info.schema_version, SAVE_SCHEMA_VERSION);
+    let reloaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(reloaded.people().living(), 0);
+}
+
+#[test]
+fn a_version_2_save_without_its_people_sections_is_refused() {
+    let sim = load_first();
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_HOUSES)
+        .collect();
+    let path = republish("no-houses", &fixture().first_info, &sections);
+    assert!(persist::load(&path, content()).is_err());
+}
+
+#[test]
+fn people_whose_activity_left_the_content_decide_again() {
+    let sim = load_first();
+    // The activity most people are doing.
+    let mut counts = std::collections::BTreeMap::new();
+    for (_, p) in sim.people().people.iter() {
+        *counts.entry(p.act.def).or_insert(0usize) += 1;
+    }
+    let (&busiest, &doing) = counts.iter().max_by_key(|(_, n)| **n).expect("people");
+    let gone = sim.rules().catalog.activities[usize::from(busiest)]
+        .id
+        .clone();
+    let mut changed = content().clone();
+    changed.catalog.activities.retain(|a| a.id != gone);
+    changed.fingerprint[0] ^= 1;
+
+    let mut loaded = persist::load(&fixture().first.path, &changed).expect("still loads");
+    assert!(loaded.content_changed());
+    assert!(loaded.is_dirty(), "{doing} people must decide again");
+    loaded.advance_minutes(2).expect("advances");
+    let catalog = &loaded.rules().catalog;
+    assert!(catalog.index_of(&gone).is_none());
+    for (_, p) in loaded.people().people.iter() {
+        assert!(usize::from(p.act.def) < catalog.activities.len());
     }
 }
 
@@ -450,6 +545,7 @@ fn unknown_presets_are_refused() {
             seed: 1,
             preset_id: "core:worldgen/nowhere".to_owned(),
             size_cells: 256,
+            band_size: 0,
         },
         content(),
         &mut |_| {},

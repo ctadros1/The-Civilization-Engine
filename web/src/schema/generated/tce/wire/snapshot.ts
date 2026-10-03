@@ -5,7 +5,9 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { Clock } from '../../tce/wire/clock.js';
+import { PersonBrief } from '../../tce/wire/person-brief.js';
 import { Recovery } from '../../tce/wire/recovery.js';
+import { SettlementBrief } from '../../tce/wire/settlement-brief.js';
 import { Task } from '../../tce/wire/task.js';
 import { WorldInfo } from '../../tce/wire/world-info.js';
 
@@ -60,8 +62,33 @@ lastAutosaveUnixMs():bigint {
   return offset ? this.bb!.readInt64(this.bb_pos + offset) : BigInt('0');
 }
 
+people(index: number, obj?:PersonBrief):PersonBrief|null {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? (obj || new PersonBrief()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+peopleLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+settlements(index: number, obj?:SettlementBrief):SettlementBrief|null {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? (obj || new SettlementBrief()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+settlementsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+chronicleHead():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startSnapshot(builder:flatbuffers.Builder) {
-  builder.startObject(6);
+  builder.startObject(9);
 }
 
 static addWorld(builder:flatbuffers.Builder, worldOffset:flatbuffers.Offset) {
@@ -86,6 +113,42 @@ static addLastError(builder:flatbuffers.Builder, lastErrorOffset:flatbuffers.Off
 
 static addLastAutosaveUnixMs(builder:flatbuffers.Builder, lastAutosaveUnixMs:bigint) {
   builder.addFieldInt64(5, lastAutosaveUnixMs, BigInt('0'));
+}
+
+static addPeople(builder:flatbuffers.Builder, peopleOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(6, peopleOffset, 0);
+}
+
+static createPeopleVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startPeopleVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addSettlements(builder:flatbuffers.Builder, settlementsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(7, settlementsOffset, 0);
+}
+
+static createSettlementsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startSettlementsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addChronicleHead(builder:flatbuffers.Builder, chronicleHead:bigint) {
+  builder.addFieldInt64(8, chronicleHead, BigInt('0'));
 }
 
 static endSnapshot(builder:flatbuffers.Builder):flatbuffers.Offset {

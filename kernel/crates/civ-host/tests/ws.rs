@@ -317,6 +317,7 @@ async fn an_observer_creates_saves_and_loads_a_world() {
                     preset_id: Some(preset_id),
                     size_cells: 256,
                     name: Some(name),
+                    band_size: 32,
                 },
             )
             .as_union_value()
@@ -382,6 +383,102 @@ async fn an_observer_creates_saves_and_loads_a_world() {
     client
         .wait_snapshot(|s| s.clock().is_some_and(|c| c.minute() > start + 5))
         .await;
+
+    // The founding band is in the snapshot; the chronicle, a person and trips can be asked for.
+    let snapshot = client
+        .snapshot
+        .as_ref()
+        .expect("a snapshot")
+        .payload
+        .clone();
+    let snapshot = flatbuffers::root::<wire::Snapshot>(&snapshot).expect("decodes");
+    let people: Vec<(u64, u64)> = snapshot
+        .people()
+        .iter()
+        .flatten()
+        .map(|p| (p.id(), p.trip()))
+        .collect();
+    assert_eq!(people.len(), 32, "the band asked for");
+    assert_eq!(snapshot.settlements().map(|s| s.len()), Some(1));
+    assert_eq!(snapshot.chronicle_head(), 2);
+    let chronicle = client
+        .request(
+            FrameKind::Query,
+            query(wire::QueryBody::GetChronicle, |fbb| {
+                wire::GetChronicle::create(
+                    fbb,
+                    &wire::GetChronicleArgs {
+                        after_seq: 0,
+                        limit: 10,
+                    },
+                )
+                .as_union_value()
+            }),
+        )
+        .await;
+    let chronicle = flatbuffers::root::<wire::Response>(&chronicle.payload)
+        .expect("decodes")
+        .body_as_chronicle()
+        .expect("a chronicle");
+    let entries: Vec<_> = chronicle.entries().iter().flatten().collect();
+    assert_eq!(entries.len(), 2);
+    assert!(
+        entries[1]
+            .spans()
+            .iter()
+            .flatten()
+            .any(|s| s.kind() == wire::SpanKind::Settlement),
+        "the settlement is a link"
+    );
+    let first = people[0].0;
+    let person = client
+        .request(
+            FrameKind::Query,
+            query(wire::QueryBody::GetPerson, move |fbb| {
+                wire::GetPerson::create(
+                    fbb,
+                    &wire::GetPersonArgs {
+                        id: first,
+                        decisions: 4,
+                    },
+                )
+                .as_union_value()
+            }),
+        )
+        .await;
+    assert_eq!(
+        person.meta.kind,
+        FrameKind::Response,
+        "{}",
+        error_text(&person)
+    );
+    let person = flatbuffers::root::<wire::Response>(&person.payload)
+        .expect("decodes")
+        .body_as_person_info()
+        .expect("a person");
+    assert!(person.alive());
+    assert!(!person.name().unwrap_or_default().is_empty());
+    assert!(!person.doing().unwrap_or_default().is_empty());
+    assert!(person.decisions().is_some_and(|d| !d.is_empty()));
+    let asked: Vec<u64> = people.iter().map(|p| p.1).filter(|&t| t != 0).collect();
+    let asked_for_query = asked.clone();
+    let trips = client
+        .request(
+            FrameKind::Query,
+            query(wire::QueryBody::GetTrips, move |fbb| {
+                let ids = fbb.create_vector(&asked_for_query);
+                wire::GetTrips::create(fbb, &wire::GetTripsArgs { ids: Some(ids) }).as_union_value()
+            }),
+        )
+        .await;
+    let trips = flatbuffers::root::<wire::Response>(&trips.payload)
+        .expect("decodes")
+        .body_as_trips()
+        .expect("trips");
+    for t in trips.trips().iter().flatten() {
+        assert!(asked.contains(&t.id()));
+        assert!(t.points().is_some_and(|p| p.len() >= 2));
+    }
 
     // Save, list, load.
     client

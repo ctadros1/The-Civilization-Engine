@@ -1,5 +1,6 @@
 //! Boundary payloads built from a world (ADR-0001): the world and clock tables of a `Snapshot`,
-//! and the `Response` bodies of raster and hydrography queries.
+//! and the `Response` bodies of raster and hydrography queries. People, settlements, trips and
+//! the chronicle are in [`people`].
 //!
 //! Rasters are served at power-of-two downsampling levels, so a client can show a whole 2048² map
 //! without moving 16 MB. Level `L` has `ceil(side / 2^L)` cells per side, each summarising the
@@ -19,6 +20,8 @@ use civ_schema::wire;
 use civ_world::{MapStats, WorldMap};
 
 use crate::Sim;
+
+pub mod people;
 
 /// Largest region one raster query may ask for, in cells of its level.
 pub const MAX_QUERY_CELLS: u64 = 1024 * 1024;

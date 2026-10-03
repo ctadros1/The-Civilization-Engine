@@ -1,0 +1,102 @@
+# How the people of a world live: bodies, sleep, company, households, choices and founding bands.
+# Values are research figures where the research gives one (cited) and tuning starting points
+# otherwise; they are checked against the smoke thresholds, not calibrated. See content/README.md.
+kind = "people"
+id = "core:people/early_farmers"
+name = "Early farmers"
+description = "A band of early farmers arriving in an unsettled valley with seed grain and a few weeks of food."
+names = "core:names/valley_folk"
+
+latitude_deg = 48.0              # mid-latitude temperate: 16 h days in June, 8.4 h in December
+# Walking speed and work capacity by age: [age years, factor]. Children and elders are slower and
+# less productive (research 04-12 §1.8: no "child = half an adult" constant).
+walk_speed_by_age = [[0.0, 0.0], [2.0, 0.45], [6.0, 0.7], [12.0, 0.95], [16.0, 1.0], [55.0, 1.0], [70.0, 0.8], [85.0, 0.6]]
+capacity_by_age = [[0.0, 0.0], [5.0, 0.1], [9.0, 0.35], [13.0, 0.65], [17.0, 0.9], [22.0, 1.0], [50.0, 1.0], [62.0, 0.8], [75.0, 0.5], [90.0, 0.25]]
+
+[walking]                        # Tobler's hiking function (research 01-08)
+top_speed_kmh = 6.0              # at a 5 % descent; 5 km/h on the flat
+slope_sensitivity = 3.5
+best_slope_offset = 0.05
+offtrail_factor = 0.6            # unworn ground; a worn trail restores full speed
+wading_factor = 0.25             # speed while wading a fordable river
+ford_max_discharge_m3s = 3.0     # mean discharge a river can be waded at
+max_slope = 1.0                  # 45 degrees
+
+[energy]                         # FAO/WHO/UNU Schofield equations (research 05-02 §2.1)
+bmr_band_starts = [0.0, 3.0, 10.0, 18.0, 30.0, 60.0]
+bmr_male = [[59.512, -30.4], [22.706, 504.3], [17.686, 658.2], [15.057, 692.2], [11.472, 873.1], [11.711, 587.7]]
+bmr_female = [[58.317, -31.1], [20.315, 485.9], [13.384, 692.6], [14.818, 486.6], [8.126, 845.6], [9.082, 658.5]]
+# Body mass, [age years, male kg, female kg]: small-bodied early farmers (research 05-02 §2.1).
+mass_by_age = [[0.0, 3.4, 3.3], [1.0, 9.8, 9.2], [5.0, 18.0, 17.5], [10.0, 29.0, 29.0], [15.0, 48.0, 46.0], [20.0, 60.0, 52.0], [60.0, 60.0, 52.0], [80.0, 56.0, 48.0]]
+walk_par = 3.2                   # walking with a light load
+idle_par = 1.4
+satiety_hours = 5.0              # research 04-01 §3.2: satiety time constant 2-6 h
+hunger_ramp_hours = 3.0
+deficit_unit_kcal = 3000.0
+max_surplus_kcal = 2000.0
+meal_minutes = 25
+
+[sleep]                          # two-process model (research 04-02 §2.2)
+tau_awake_h = 18.2
+tau_asleep_h = 4.2
+wake_pressure = 0.12
+min_hours = 4.0
+max_hours = 10.5                 # sleep period 6.9-8.5 h, longer in winter
+nap_min_minutes = 20.0           # daytime naps are short; a night's sleep runs to about sunrise
+nap_max_minutes = 90.0
+day_factor = 0.15
+bedtime_after_sunset_hours = 3.3 # sleep onset about 3.3 h after sunset (research 04-02)
+
+[social]                         # relatedness eases toward the quality of company (research 04-01 §2.3)
+tau_h = 36.0
+quality_per_companion = 0.2
+household_quality = 0.45
+
+[household]
+water_l_per_person_day = 20.0    # research 10-01 §2.1
+carry_water_l = 15.0             # 10-25 L per trip
+water_target_days = 1.5
+food_target_days = 5.0
+carry_food_kcal = 12000.0        # 4-6 kg of roots, nuts and greens
+daily_kcal_per_person = 2100.0   # band average (research 05-02 §2.2)
+
+[decision]                       # utility points; softmax over each activity's best target (research 01-09 §4.3)
+temperature_sd_fraction = 0.35
+min_temperature = 0.4
+w_hunger = 10.0
+w_sleep = 14.0
+w_social = 5.0
+w_food = 10.0
+w_work = 2.5
+trip_half_worth_days = 0.25      # a trip bringing a quarter of a household-day of food is worth half
+w_water = 8.0
+w_walk_hour = 2.0
+w_effort = 0.8
+w_dark = 6.0
+w_rest = 1.0
+w_play = 3.0
+
+[band]                           # research 05-01 §4.5: bands of 40 in at least six unrelated families
+default_size = 40
+min_size = 30                    # the plan's decision log: 30-50 allowed
+max_size = 50
+min_families = 6
+camp_candidates = 48
+site_radius_m = 2000.0
+provisions_days = 30.0
+elder_chance = 0.3
+young_adult_chance = 0.35
+birth_spacing_months = 36.0      # research 05-01 §2.2: intervals 28-48 months
+site_max_slope = 0.06
+site_w_food = 3.0
+site_w_water_per_100m = 1.0
+site_w_slope_per_pct = 0.5
+site_w_flood = 3.0
+site_flood_hand_m = 1.5
+
+[mortality]                      # Siler hazard, Hadza fit (research 05-01 §1.2): 1q0 216, e0 34
+a = 0.351
+b = 0.895
+c = 0.011
+d = 6.70e-6
+e = 0.125

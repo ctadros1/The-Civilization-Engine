@@ -1,0 +1,12 @@
+kind = "activity"
+id = "core:activity/play"
+name = "Play"
+doing = "playing"
+behavior = "play"
+par = 2.5
+min_age_years = 2.0
+max_age_years = 12.0
+min_minutes = 45
+max_minutes = 45
+daylight_only = true
+max_walk_minutes = 0

@@ -1,0 +1,9 @@
+# Given names and place-name parts (research 06-07). Invented, neutral-sounding names: no real
+# culture's name stock is implied.
+kind = "names"
+id = "core:names/valley_folk"
+name = "Valley folk"
+male = ["Arden", "Bram", "Corin", "Dace", "Edrin", "Fenn", "Garet", "Hal", "Iver", "Jory", "Kael", "Loren", "Marek", "Nils", "Oren", "Pell", "Quill", "Rennick", "Soren", "Tam", "Ulric", "Vane", "Wil", "Yorick", "Ash", "Brin", "Cael", "Dorran", "Esk", "Fal"]
+female = ["Ada", "Brisa", "Cerys", "Delia", "Elin", "Fara", "Greta", "Hesta", "Isla", "Jessa", "Kira", "Lena", "Mira", "Nessa", "Orla", "Pia", "Rhea", "Sela", "Tova", "Una", "Vesna", "Wren", "Yara", "Alma", "Bryn", "Cora", "Dara", "Ember", "Freya", "Gwen"]
+place_first = ["Alder", "Ash", "Birch", "Elm", "Hazel", "Oak", "Rush", "Reed", "Sedge", "Stone", "Thorn", "Willow", "Fern", "Heron", "Otter", "Wren"]
+place_second = ["ford", "mere", "field", "holt", "brook", "hollow", "stead", "bank", "wick", "dale"]

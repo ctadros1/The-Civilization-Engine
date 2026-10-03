@@ -1,14 +1,15 @@
 //! Smoke seeds (plan §4.7): a few worlds per preset, checked against fixed thresholds. No
 //! statistics; any failure blocks the milestone.
 //!
-//! M0 has no population, so the checks cover what exists: terrain and water, the save round trip,
-//! and the clock running 50 in-game years.
+//! The checks cover terrain and water, the save round trip, and a month of the founding band's
+//! life: they settle, keep water at home, and nobody is ever stuck between events. Checks on a
+//! population over years arrive with births and deaths (plan §7, M1).
 
 use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
 
 use civ_content::ContentRegistry;
-use civ_core::time::MINUTES_PER_YEAR;
+use civ_core::time::MINUTES_PER_DAY;
 use civ_schema::SAVE_EXTENSION;
 use civ_sim::{NewWorld, Sim, persist};
 use civ_world::MapStats;
@@ -22,8 +23,8 @@ pub const MIN_NOT_OCEAN: f32 = 0.5;
 pub const MIN_GENTLE: f32 = 0.05;
 /// Least total river length, km.
 pub const MIN_RIVER_KM: f32 = 0.5;
-/// In-game years the clock must run.
-pub const YEARS: i64 = 50;
+/// In-game days the founding band lives.
+pub const DAYS: i64 = 30;
 
 /// What to run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -108,6 +109,71 @@ fn check_round_trip(sim: &mut Sim, content: &ContentRegistry) -> Result<(), Stri
     Ok(())
 }
 
+/// Lives the founding band's first month and checks what must always hold.
+fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<String> {
+    let mut failures = Vec::new();
+    if let Some(why) = sim.founding_problem() {
+        return vec![format!("the founding band could not settle: {why}")];
+    }
+    let band = content.people.params.band.default_size as usize;
+    if sim.people().living() != band {
+        failures.push(format!(
+            "{} people arrived instead of {band}",
+            sim.people().living()
+        ));
+    }
+    match sim.advance_minutes(DAYS * MINUTES_PER_DAY) {
+        Ok(advance) if i64::from(advance.days) == DAYS => {}
+        Ok(advance) => failures.push(format!(
+            "the clock crossed {} day boundaries in {DAYS} days",
+            advance.days
+        )),
+        Err(e) => failures.push(format!("the clock stopped: {e}")),
+    }
+    let now = sim.now();
+    let stuck = sim
+        .people()
+        .people
+        .iter()
+        .filter(|(_, p)| p.act.step_ends < now)
+        .count();
+    if stuck > 0 {
+        failures.push(format!("{stuck} people are stuck between events"));
+    }
+    let problems = sim
+        .people()
+        .problems(sim.ids().peek_next(), sim.rules().catalog.activities.len());
+    if let Some(first) = problems.first() {
+        failures.push(format!(
+            "{} population problems, first: {first}",
+            problems.len()
+        ));
+    }
+    let homeless = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, h)| {
+            let cell = civ_agents::population::cell_of(sim.map(), h.home);
+            !sim.nav().walkable(cell)
+        })
+        .count();
+    if homeless > 0 {
+        failures.push(format!("{homeless} homes stand where nobody can walk"));
+    }
+    let per_person = content.people.params.household.water_l_per_person_day;
+    let dry = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, h)| h.water_at_time(now, h.members.len() as f64 * per_person) <= 0.0)
+        .count();
+    if dry > 0 {
+        failures.push(format!("{dry} households have no water"));
+    }
+    failures
+}
+
 /// Runs every preset with seeds `1..=seeds`, reporting each result as it finishes.
 pub fn run(
     content: &ContentRegistry,
@@ -124,6 +190,7 @@ pub fn run(
                     seed,
                     preset_id: preset.id.clone(),
                     size_cells: options.size,
+                    band_size: 0,
                 },
                 content,
                 &mut |_| {},
@@ -144,14 +211,7 @@ pub fn run(
                     if let Err(e) = check_round_trip(&mut sim, content) {
                         result.failures.push(e);
                     }
-                    match sim.advance_minutes(YEARS * MINUTES_PER_YEAR) {
-                        Ok(advance) if i64::from(advance.years) == YEARS => {}
-                        Ok(advance) => result.failures.push(format!(
-                            "the clock crossed {} year boundaries in {YEARS} years",
-                            advance.years
-                        )),
-                        Err(e) => result.failures.push(format!("the clock stopped: {e}")),
-                    }
+                    result.failures.extend(check_people(&mut sim, content));
                 }
             }
             result.elapsed = started.elapsed();

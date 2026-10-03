@@ -7,8 +7,10 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
+civ-agents = { workspace = true }
 civ-content = { workspace = true }
 civ-core = { workspace = true }
+civ-land = { workspace = true }
 civ-schema = { workspace = true }
 civ-world = { workspace = true }
 commons-persist = { workspace = true }

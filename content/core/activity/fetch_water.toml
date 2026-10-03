@@ -1,0 +1,12 @@
+kind = "activity"
+id = "core:activity/fetch_water"
+name = "Fetch water"
+doing = "fetching water"
+behavior = "fetch_water"
+par = 3.5
+min_age_years = 7.0
+max_age_years = 80.0
+min_minutes = 5                  # filling the vessels
+max_minutes = 5
+daylight_only = true
+max_walk_minutes = 45

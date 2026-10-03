@@ -11,9 +11,15 @@
 //! | `content` | 1 | fingerprint and packs of the content the state was produced with |
 //! | `hydro` | 1 | lakes, river reaches, inflows from beyond the map |
 //! | `r-elev`, `r-recv`, `r-water`, `r-lake` | one per 512² tile | the authoritative rasters |
+//! | `land`, `settle`, `people`, `houses`, `history`, `receipts`, `events` | 1 each | land and people (see [`agents`]) |
 //!
-//! The world id, the snapshot's own id and its parent live in the container header. Drainage area
-//! is derived and rebuilt on load.
+//! The world id, the snapshot's own id and its parent live in the container header. Drainage area,
+//! the walking grid and the people's indexes are derived and rebuilt on load.
+//!
+//! **Schema versions.** Version 2 (M1) added the land and people sections. A version-1 save (M0)
+//! is migrated as it loads: its land is classified and grown from the loaded content, exactly as
+//! for a new world, and it has no people yet, which is a valid world (ADR-0003 §4). The migrated
+//! world is written as version 2 the next time it is saved.
 //!
 //! Loading refuses, never repairs. A file that is incomplete or corrupt, comes from another engine
 //! or an unknown schema version, or describes a world that breaks its invariants is not loaded. A
@@ -23,8 +29,12 @@ use std::fmt;
 use std::io::{Read, Seek};
 use std::path::{Path, PathBuf};
 
+use std::sync::Arc;
+
+use civ_agents::{AgentEvent, Population};
 use civ_content::ContentRegistry;
 use civ_core::{IdAllocator, Scheduler, SimTime};
+use civ_land::Land;
 use civ_schema::flatbuffers::{self, FlatBufferBuilder, InvalidFlatbuffer};
 use civ_schema::{SAVE_ENGINE_TAG, SAVE_SCHEMA_VERSION, save};
 use civ_world::{Climate, Inflow, Lake, RiverReach, Terminus, WorldMap};
@@ -33,7 +43,12 @@ use commons_persist::{
     SectionTag, SnapshotInfo, SnapshotReader,
 };
 
-use crate::{ContentStamp, MAX_SPEED, Sim, WorldMeta};
+use crate::{ContentStamp, MAX_SPEED, PHASE_AGENT, Rules, Sim, SimEvent, WorldMeta};
+
+pub mod agents;
+
+/// The schema version of M0 saves, which have no land or people sections.
+pub const SCHEMA_V1: u32 = 1;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");
@@ -201,6 +216,7 @@ pub fn encode_sections(sim: &Sim) -> Vec<SectionData> {
             sections.push(section(tag, index as u32, encode_tile(map, layer, tile)));
         }
     }
+    sections.extend(agents::encode(sim));
     sections
 }
 
@@ -258,13 +274,9 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
         .filter(|v| v.len() == 4)
         .map(|v| [v.get(0), v.get(1), v.get(2), v.get(3)])
         .ok_or_else(|| LoadError::Malformed("the scheduler state is missing".to_owned()))?;
-    let scheduler = Scheduler::restore(
-        SimTime::from_minutes(clock.minute()),
-        clock.scheduler_seq(),
-        tiebreak,
-        Vec::new(),
-    )
-    .ok_or_else(|| LoadError::Malformed("the scheduler state is invalid".to_owned()))?;
+    let (clock_minute, scheduler_seq, paused) =
+        (clock.minute(), clock.scheduler_seq(), clock.paused());
+    let next_permanent_id = clock.next_permanent_id();
     let speed = clock.speed();
     if !(speed.is_finite() && speed > 0.0) {
         return Err(LoadError::Malformed(format!(
@@ -325,19 +337,52 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
     }
     map.rebuild_derived();
 
+    let rules = Arc::new(Rules::of(content));
+    let now = SimTime::from_minutes(clock_minute);
+    let (land, people, events, redecide) = if info.schema_version == SCHEMA_V1 {
+        // An M0 world: land as a new world would have it, and nobody yet.
+        let land = Land::create(&map, &rules.land, world_meta.seed, now.day_index());
+        (land, Population::new(), Vec::new(), Vec::new())
+    } else {
+        let d = agents::decode(&mut reader, &rules, &map, next_permanent_id)?;
+        (d.land, d.people, d.events, d.redecide)
+    };
+    let mut scheduler = Scheduler::restore(now, scheduler_seq, tiebreak, events)
+        .ok_or_else(|| LoadError::Malformed("the scheduler state is invalid".to_owned()))?;
+    // A person whose activity the loaded content no longer has decides again in a minute. Their
+    // pending event carries the old version and does nothing.
+    let mut people = people;
+    let mut changed = info.schema_version == SCHEMA_V1;
+    for who in redecide {
+        if let Some(version) = people.restart(who) {
+            let _ = scheduler.schedule(
+                now.plus_minutes(1),
+                PHASE_AGENT,
+                SimEvent::Agent(AgentEvent::Step {
+                    person: who,
+                    version,
+                }),
+            );
+            changed = true;
+        }
+    }
+
     let mut sim = Sim::assemble(
         world_meta,
         map,
         scheduler,
-        IdAllocator::from_next(clock.next_permanent_id()),
+        IdAllocator::from_next(next_permanent_id),
         ContentStamp::of(content),
+        rules,
+        land,
+        people,
     );
-    sim.paused = clock.paused();
+    sim.paused = paused;
     sim.speed = speed;
     sim.content_changed = saved_fingerprint != content.fingerprint;
     sim.last_snapshot = Some(info.snapshot_id);
     sim.generation = info.generation;
-    sim.dirty = false;
+    sim.dirty = changed;
     Ok(sim)
 }
 
@@ -635,10 +680,10 @@ fn unreadable(tag: SectionTag, e: &InvalidFlatbuffer) -> LoadError {
 fn check_compatible(info: &SnapshotInfo) -> Result<(), LoadError> {
     info.expect_engine(SAVE_ENGINE_TAG)
         .map_err(|e| LoadError::Incompatible(e.to_string()))?;
-    if info.schema_version != SAVE_SCHEMA_VERSION {
+    if info.schema_version != SAVE_SCHEMA_VERSION && info.schema_version != SCHEMA_V1 {
         return Err(LoadError::Incompatible(format!(
-            "it uses world schema version {}; this build reads version {SAVE_SCHEMA_VERSION} and \
-             has no migration for it",
+            "it uses world schema version {}; this build reads versions {SCHEMA_V1} to \
+             {SAVE_SCHEMA_VERSION}",
             info.schema_version
         )));
     }

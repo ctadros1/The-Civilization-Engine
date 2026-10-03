@@ -17,16 +17,46 @@ fn real_preset() -> String {
         .replace("\r\n", "\n")
 }
 
+/// A file of the real core pack, with LF line endings.
+fn real(path: &str) -> String {
+    std::fs::read_to_string(repo_content().join("core").join(path))
+        .unwrap_or_else(|e| panic!("{path}: {e}"))
+        .replace("\r\n", "\n")
+}
+
+/// The real people, land, names and activity files (`(path in the pack, body)`), which every
+/// world needs; fixtures add presets and override files.
+fn people_files() -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    for dir in ["people", "land", "names", "activity"] {
+        let mut paths: Vec<_> = std::fs::read_dir(repo_content().join("core").join(dir))
+            .expect("real content directory")
+            .map(|e| e.expect("entry").path())
+            .collect();
+        paths.sort();
+        for path in paths {
+            let name = path
+                .file_name()
+                .expect("name")
+                .to_string_lossy()
+                .into_owned();
+            let rel = format!("{dir}/{name}");
+            out.push((rel.clone(), real(&rel)));
+        }
+    }
+    out
+}
+
 const PACK: &str = r#"
 id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 1
+kernel_content_api = 2
 "#;
 
-/// Writes a pack named `core` containing the given files and loads it.
-fn load_fixture(files: &[(&str, &str)]) -> LoadReport {
+/// Writes a pack named `core` containing exactly the given files and loads it.
+fn load_files(files: &[(&str, &str)]) -> LoadReport {
     let dir = tempfile::tempdir().expect("tempdir");
     let core = dir.path().join("core");
     std::fs::create_dir_all(core.join("worldgen")).expect("mkdir");
@@ -37,6 +67,19 @@ fn load_fixture(files: &[(&str, &str)]) -> LoadReport {
         std::fs::write(full, body).expect("write");
     }
     load(dir.path())
+}
+
+/// Like [`load_files`], with the real people, land, names and activities underneath: the given
+/// files are added, replacing a real file at the same path.
+fn load_fixture(files: &[(&str, &str)]) -> LoadReport {
+    let base = people_files();
+    let mut all: Vec<(&str, &str)> = base
+        .iter()
+        .filter(|(path, _)| files.iter().all(|(p, _)| p != path))
+        .map(|(p, b)| (p.as_str(), b.as_str()))
+        .collect();
+    all.extend_from_slice(files);
+    load_files(&all)
 }
 
 fn codes(report: &LoadReport) -> Vec<&'static str> {
@@ -70,6 +113,24 @@ fn the_repository_content_is_clean() {
     assert_eq!(reg.default_preset().id, "core:worldgen/river_valley");
     assert!(reg.preset("core:worldgen/ria_coast").is_some());
     assert_eq!(reg.packs.len(), 1);
+    assert_eq!(reg.people.id, "core:people/early_farmers");
+    assert!(!reg.people.params.names.female.is_empty(), "names resolved");
+    assert_eq!(reg.land.id, "core:land/temperate_valley");
+    let ids: Vec<&str> = reg
+        .catalog
+        .activities
+        .iter()
+        .map(|a| a.id.as_str())
+        .collect();
+    let mut sorted = ids.clone();
+    sorted.sort_unstable();
+    assert_eq!(ids, sorted, "activities are in id order");
+    let gather = &reg.catalog.activities[reg
+        .catalog
+        .index_of("core:activity/gather_plants")
+        .expect("gathering exists")];
+    let resource = gather.resource.expect("gathering names a resource");
+    assert_eq!(reg.land.params.resources[resource].id, "wild_plants");
 }
 
 #[test]
@@ -213,10 +274,190 @@ fn the_semantic_fingerprint_follows_meaning_not_formatting() {
 }
 
 #[test]
+fn people_and_land_profiles_are_needed_exactly_once() {
+    let preset = real_preset();
+    let mut without_people: Vec<(String, String)> = people_files()
+        .into_iter()
+        .filter(|(p, _)| !p.starts_with("people/"))
+        .collect();
+    without_people.push(("worldgen/river_valley.toml".into(), preset.clone()));
+    let files: Vec<(&str, &str)> = without_people
+        .iter()
+        .map(|(p, b)| (p.as_str(), b.as_str()))
+        .collect();
+    assert_eq!(codes(&load_files(&files)), vec!["E3004"]);
+
+    let second = real("land/temperate_valley.toml")
+        .replace("core:land/temperate_valley", "core:land/second");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/second.toml", &second),
+    ]);
+    assert_eq!(codes(&report), vec!["E3004"]);
+    assert!(report.diagnostics[0].message.contains("found 2"));
+}
+
+#[test]
+fn references_must_resolve() {
+    let preset = real_preset();
+    let people = real("people/early_farmers.toml")
+        .replace("\"core:names/valley_folk\"", "\"core:names/elsewhere\"");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("people/early_farmers.toml", &people),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("core:names/elsewhere")
+    );
+
+    // A broken name list is reported once, not again as missing.
+    let names = real("names/valley_folk.toml").replace("male = [", "mail = [");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("names/valley_folk.toml", &names),
+    ]);
+    assert_eq!(codes(&report), vec!["E1001"]);
+
+    let gather = real("activity/gather_plants.toml").replace("\"wild_plants\"", "\"fish\"");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("activity/gather_plants.toml", &gather),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    assert_eq!(
+        report.diagnostics[0].file,
+        "core/activity/gather_plants.toml"
+    );
+}
+
+#[test]
+fn activities_check_their_behavior() {
+    let preset = real_preset();
+    let gather = real("activity/gather_plants.toml");
+    for (body, needle) in [
+        (
+            gather.replace("\"gather\"", "\"fly\""),
+            "unknown behavior `fly`",
+        ),
+        (
+            gather.replace("resource = \"wild_plants\"\n", ""),
+            "names the `resource`",
+        ),
+        (
+            real("activity/rest.toml").replace(
+                "behavior = \"rest\"",
+                "behavior = \"rest\"\nresource = \"wild_plants\"",
+            ),
+            "only `gather` activities",
+        ),
+        (gather.replace("par = 3.0", "par = 0.5"), "`par`"),
+        (
+            gather.replace("min_minutes = 60", "min_minutes = 600"),
+            "minutes",
+        ),
+    ] {
+        let path = if body.contains("core:activity/rest") {
+            "activity/rest.toml"
+        } else {
+            "activity/gather_plants.toml"
+        };
+        let report = load_fixture(&[("worldgen/river_valley.toml", &preset), (path, &body)]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(
+            report.diagnostics[0].message.contains(needle),
+            "{needle}: {}",
+            report.diagnostics[0].message
+        );
+    }
+}
+
+#[test]
+fn profiles_check_their_ranges_and_fields() {
+    let preset = real_preset();
+    let land = real("land/temperate_valley.toml").replace(
+        "production_per_ha_yr = [0.0, 9000.0, 6000.0, 5000.0, 2500.0]",
+        "production_per_ha_yr = [0.0, 9000.0]",
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("one production figure per habitat")
+    );
+
+    // Unknown fields are caught inside nested tables too.
+    let people = real("people/early_farmers.toml").replace("[sleep]", "[sleep]\ntau_awak_h = 18.0");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("people/early_farmers.toml", &people),
+    ]);
+    assert_eq!(codes(&report), vec!["E1001"]);
+    assert!(report.diagnostics[0].line.is_some());
+
+    let people = real("people/early_farmers.toml").replace("min_size = 30", "min_size = 55");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("people/early_farmers.toml", &people),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+}
+
+#[test]
+fn the_fingerprint_covers_every_kind() {
+    let preset = real_preset();
+    let base = registry(load_fixture(&[("worldgen/river_valley.toml", &preset)]));
+
+    // Key order, comments and `3` for `3.0` keep the meaning.
+    let gather = real("activity/gather_plants.toml");
+    let reordered = format!(
+        "# moved par to the end\n{}par = 3\n",
+        gather.replace("par = 3.0\n", "")
+    );
+    let same = registry(load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("activity/gather_plants.toml", &reordered),
+    ]));
+    assert_eq!(same.fingerprint, base.fingerprint);
+
+    for (path, from, to) in [
+        ("activity/gather_plants.toml", "par = 3.0", "par = 3.1"),
+        ("people/early_farmers.toml", "w_play = 3.0", "w_play = 3.5"),
+        (
+            "land/temperate_valley.toml",
+            "loss_per_day = 0.03",
+            "loss_per_day = 0.04",
+        ),
+        ("names/valley_folk.toml", "\"Arden\"", "\"Arlen\""),
+    ] {
+        let body = real(path).replace(from, to);
+        assert_ne!(body, real(path), "{path}: the edit applies");
+        let changed = registry(load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            (path, &body),
+        ]));
+        assert_ne!(changed.fingerprint, base.fingerprint, "{path}");
+    }
+}
+
+#[test]
 fn json_reports_are_machine_readable() {
     let report = load_fixture(&[("worldgen/elsewhere.toml", &real_preset())]);
     let json: serde_json::Value = serde_json::from_str(&report.to_json()).expect("valid JSON");
     assert_eq!(json["ok"], false);
     assert_eq!(json["diagnostics"][0]["code"], "E2004");
     assert_eq!(json["diagnostics"][0]["severity"], "error");
+
+    let ok = load_fixture(&[("worldgen/river_valley.toml", &real_preset())]);
+    let json: serde_json::Value = serde_json::from_str(&ok.to_json()).expect("valid JSON");
+    assert_eq!(json["ok"], true);
+    assert_eq!(json["people"], "core:people/early_farmers");
+    assert_eq!(json["land"], "core:land/temperate_valley");
+    assert!(json["activities"].as_array().is_some_and(|a| a.len() >= 7));
 }

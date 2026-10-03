@@ -106,3 +106,239 @@ table Hydro {
   reaches: [Reach] (id: 1);
   inflows: [Inflow] (id: 2);
 }
+
+// ---- People and land (ADR-0003, ADR-0004; schema version 2) --------------------------------
+//
+// Permanent ids are ulong, 0 meaning "none". Times are minutes since the calendar origin.
+// Activities and resources are referred to by content id through a per-section dictionary, so a
+// world still loads after content adds, removes or reorders them.
+
+struct Point {
+  x: float;
+  y: float;
+}
+
+// Section "land": the habitat patch grid and its wild stocks.
+table Land {
+  cols: uint (id: 0);
+  rows: uint (id: 1);
+  patch_cells: uint (id: 2);
+  cell_size_m: float (id: 3);
+  // Habitat ids at save time; `class` indexes this list.
+  habitats: [string] (id: 4);
+  class: [ubyte] (id: 5);
+  richness: [float] (id: 6);
+  // Resource ids at save time; `stocks` holds one run of patches per resource, in this order.
+  resources: [string] (id: 7);
+  stocks: [float] (id: 8);
+  stock_day: long (id: 9);
+  climate_year: long (id: 10);
+  climate_deviate: double (id: 11);
+  climate_factor: double (id: 12);
+}
+
+// Section "settle": settlements.
+table Settlement {
+  id: ulong (id: 0);
+  name: string (id: 1);
+  founded: long (id: 2);
+  hearth: Point (id: 3);
+}
+
+table Settlements {
+  settlements: [Settlement] (id: 0);
+}
+
+// Section "people": living people and what they are doing.
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4 }
+
+enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3 }
+
+table Step {
+  kind: StepKind (id: 0);
+  // Walk destination.
+  to: Point (id: 1);
+  // Work or wait length.
+  minutes: uint (id: 2);
+}
+
+table Activity {
+  // Index into People.activities.
+  def: uint (id: 0);
+  target_kind: TargetKind (id: 1);
+  target_index: uint (id: 2);
+  steps: [Step] (id: 3);
+  step: ubyte (id: 4);
+  started: long (id: 5);
+  step_started: long (id: 6);
+  step_ends: long (id: 7);
+  version: uint (id: 8);
+}
+
+table Trip {
+  id: ulong (id: 0);
+  rev: uint (id: 1);
+  depart: long (id: 2);
+  points: [Point] (id: 3);
+  minutes: [float] (id: 4);
+}
+
+enum Sex : ubyte { Female = 0, Male = 1 }
+
+table Person {
+  id: ulong (id: 0);
+  given: string (id: 1);
+  sex: Sex (id: 2);
+  born: long (id: 3);
+  mother: ulong (id: 4);
+  father: ulong (id: 5);
+  household: ulong (id: 6);
+  // Openness, conscientiousness, extraversion, agreeableness, neuroticism, risk.
+  traits: [float] (id: 7);
+  pos: Point (id: 8);
+  energy_kcal: float (id: 9);
+  satiety_until: long (id: 10);
+  sleep_pressure: float (id: 11);
+  relatedness: float (id: 12);
+  needs_at: long (id: 13);
+  burn_kcal_min: float (id: 14);
+  asleep: bool (id: 15);
+  company: float (id: 16);
+  activity: Activity (id: 17);
+  // Absent while not walking.
+  trip: Trip (id: 18);
+  carry_food_kcal: float (id: 19);
+  carry_water_l: float (id: 20);
+  draws: ulong (id: 21);
+}
+
+table People {
+  // Activity content ids at save time; Activity.def indexes this list.
+  activities: [string] (id: 0);
+  people: [Person] (id: 1);
+  // The last trip id handed out.
+  next_trip: ulong (id: 2);
+}
+
+// Section "houses": households.
+struct KnownPatch {
+  patch: uint;
+  rate: float;
+  seen_day: long;
+}
+
+table Household {
+  id: ulong (id: 0);
+  members: [ulong] (id: 1);
+  home: Point (id: 2);
+  settlement: ulong (id: 3);
+  food_kcal: double (id: 4);
+  water_l: double (id: 5);
+  water_at: long (id: 6);
+  known: [KnownPatch] (id: 7);
+}
+
+table Households {
+  households: [Household] (id: 0);
+}
+
+// Section "history": everyone who ever lived here, and the chronicle. Kept forever.
+enum Origin : ubyte { Founder = 0, Born = 1, Spawned = 2 }
+
+enum Cause : ubyte { Unspecified = 0, Starvation = 1, Childbirth = 2 }
+
+table PersonRecord {
+  id: ulong (id: 0);
+  given: string (id: 1);
+  sex: Sex (id: 2);
+  born: long (id: 3);
+  died: bool (id: 4);
+  died_at: long (id: 5);
+  cause: Cause (id: 6);
+  mother: ulong (id: 7);
+  father: ulong (id: 8);
+  origin: Origin (id: 9);
+}
+
+table ChronicleEntry {
+  seq: ulong (id: 0);
+  at: long (id: 1);
+  // civ_agents::ChronicleKind, numbered append-only.
+  kind: ushort (id: 2);
+  people: [ulong] (id: 3);
+  settlement: ulong (id: 4);
+  has_place: bool (id: 5);
+  place: Point (id: 6);
+  number: double (id: 7);
+  name: string (id: 8);
+}
+
+table History {
+  records: [PersonRecord] (id: 0);
+  chronicle: [ChronicleEntry] (id: 1);
+}
+
+// Section "receipts": why people chose what they did, a bounded ring per person.
+struct Term {
+  reason: ushort;
+  points: float;
+}
+
+table Scored {
+  // Index into Receipts.activities.
+  def: uint (id: 0);
+  target_kind: TargetKind (id: 1);
+  target_index: uint (id: 2);
+  total: float (id: 3);
+  terms: [Term] (id: 4);
+}
+
+struct OtherOption {
+  def: uint;
+  total: float;
+}
+
+struct Exclusion {
+  def: uint;
+  reason: ushort;
+}
+
+table Receipt {
+  at: long (id: 0);
+  chosen: Scored (id: 1);
+  runner_up: Scored (id: 2);
+  others: [OtherOption] (id: 3);
+  excluded: [Exclusion] (id: 4);
+  probability: float (id: 5);
+  temperature: float (id: 6);
+  // Hunger, sleep drive, loneliness, days of food, days of water.
+  needs: [float] (id: 7);
+}
+
+table PersonReceipts {
+  person: ulong (id: 0);
+  receipts: [Receipt] (id: 1);
+}
+
+table Receipts {
+  // Activity content ids at save time.
+  activities: [string] (id: 0);
+  people: [PersonReceipts] (id: 1);
+}
+
+// Section "events": the scheduler's pending events.
+enum EventKind : ubyte { AgentStep = 0 }
+
+table PendingEvent {
+  at: long (id: 0);
+  phase: ubyte (id: 1);
+  tiebreak: ulong (id: 2);
+  seq: ulong (id: 3);
+  kind: EventKind (id: 4);
+  person: ulong (id: 5);
+  version: uint (id: 6);
+}
+
+table PendingEvents {
+  events: [PendingEvent] (id: 0);
+}

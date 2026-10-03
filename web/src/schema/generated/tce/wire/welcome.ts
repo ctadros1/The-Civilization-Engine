@@ -4,7 +4,9 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { ActivityInfo } from '../../tce/wire/activity-info.js';
 import { PresetInfo } from '../../tce/wire/preset-info.js';
+import { ReasonInfo } from '../../tce/wire/reason-info.js';
 
 
 export class Welcome {
@@ -101,8 +103,43 @@ speedMultipliersArray():Float32Array|null {
   return offset ? new Float32Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
 }
 
+activities(index: number, obj?:ActivityInfo):ActivityInfo|null {
+  const offset = this.bb!.__offset(this.bb_pos, 22);
+  return offset ? (obj || new ActivityInfo()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+activitiesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 22);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+reasons(index: number, obj?:ReasonInfo):ReasonInfo|null {
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? (obj || new ReasonInfo()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+reasonsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+bandSizeMin():number {
+  const offset = this.bb!.__offset(this.bb_pos, 26);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
+bandSizeMax():number {
+  const offset = this.bb!.__offset(this.bb_pos, 28);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
+bandSizeDefault():number {
+  const offset = this.bb!.__offset(this.bb_pos, 30);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
 static startWelcome(builder:flatbuffers.Builder) {
-  builder.startObject(9);
+  builder.startObject(14);
 }
 
 static addHost(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset) {
@@ -187,12 +224,56 @@ static startSpeedMultipliersVector(builder:flatbuffers.Builder, numElems:number)
   builder.startVector(4, numElems, 4);
 }
 
+static addActivities(builder:flatbuffers.Builder, activitiesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(9, activitiesOffset, 0);
+}
+
+static createActivitiesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startActivitiesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addReasons(builder:flatbuffers.Builder, reasonsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(10, reasonsOffset, 0);
+}
+
+static createReasonsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startReasonsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addBandSizeMin(builder:flatbuffers.Builder, bandSizeMin:number) {
+  builder.addFieldInt32(11, bandSizeMin, 0);
+}
+
+static addBandSizeMax(builder:flatbuffers.Builder, bandSizeMax:number) {
+  builder.addFieldInt32(12, bandSizeMax, 0);
+}
+
+static addBandSizeDefault(builder:flatbuffers.Builder, bandSizeDefault:number) {
+  builder.addFieldInt32(13, bandSizeDefault, 0);
+}
+
 static endWelcome(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset, versionOffset:flatbuffers.Offset, presetsOffset:flatbuffers.Offset, mapSizesOffset:flatbuffers.Offset, cellSizeM:number, contentFingerprintOffset:flatbuffers.Offset, defaultMapSize:number, speed1x:number, speedMultipliersOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset, versionOffset:flatbuffers.Offset, presetsOffset:flatbuffers.Offset, mapSizesOffset:flatbuffers.Offset, cellSizeM:number, contentFingerprintOffset:flatbuffers.Offset, defaultMapSize:number, speed1x:number, speedMultipliersOffset:flatbuffers.Offset, activitiesOffset:flatbuffers.Offset, reasonsOffset:flatbuffers.Offset, bandSizeMin:number, bandSizeMax:number, bandSizeDefault:number):flatbuffers.Offset {
   Welcome.startWelcome(builder);
   Welcome.addHost(builder, hostOffset);
   Welcome.addVersion(builder, versionOffset);
@@ -203,6 +284,11 @@ static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset,
   Welcome.addDefaultMapSize(builder, defaultMapSize);
   Welcome.addSpeed1x(builder, speed1x);
   Welcome.addSpeedMultipliers(builder, speedMultipliersOffset);
+  Welcome.addActivities(builder, activitiesOffset);
+  Welcome.addReasons(builder, reasonsOffset);
+  Welcome.addBandSizeMin(builder, bandSizeMin);
+  Welcome.addBandSizeMax(builder, bandSizeMax);
+  Welcome.addBandSizeDefault(builder, bandSizeDefault);
   return Welcome.endWelcome(builder);
 }
 }

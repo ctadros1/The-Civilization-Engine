@@ -19,6 +19,8 @@ enum EventKind : ubyte { Info = 0, WorldCreated = 1, Saved = 2, Loaded = 3, Auto
 
 enum ErrorCode : ushort { Unknown = 0, BadRequest = 1, Busy = 2, NoWorld = 3, NotFound = 4, Incompatible = 5, Internal = 6 }
 
+enum Sex : ubyte { Female = 0, Male = 1 }
+
 struct Vec2 {
   x: float;
   y: float;
@@ -37,6 +39,21 @@ table PresetInfo {
   is_default: bool (id: 3);
 }
 
+// An authored activity, in the order PersonBrief.activity and decisions index.
+table ActivityInfo {
+  id: string (id: 0);
+  // "Gather plants".
+  name: string (id: 1);
+  // "gathering wild plants".
+  doing: string (id: 2);
+}
+
+// A consideration or exclusion reason that decision receipts refer to by code.
+table ReasonInfo {
+  code: ushort (id: 0);
+  label: string (id: 1);
+}
+
 table Welcome {
   host: string (id: 0);
   version: string (id: 1);
@@ -50,6 +67,13 @@ table Welcome {
   // Simulated seconds per real second at 1x, and the speeds offered, as multiples of 1x.
   speed_1x: float (id: 7);
   speed_multipliers: [float] (id: 8);
+  // The activity catalogue and receipt reasons (M1).
+  activities: [ActivityInfo] (id: 9);
+  reasons: [ReasonInfo] (id: 10);
+  // Founding band sizes the new-world dialog offers.
+  band_size_min: uint (id: 11);
+  band_size_max: uint (id: 12);
+  band_size_default: uint (id: 13);
 }
 
 // ---- Snapshot: replaceable host and world state --------------------------------------------
@@ -110,6 +134,32 @@ table Recovery {
   world_name: string (id: 4);
 }
 
+// One living person, compactly (ADR-0003 §2.3). Trip geometry is fetched with GetTrips when an
+// observer sees a trip id or revision it does not have.
+table PersonBrief {
+  id: ulong (id: 0);
+  // Where they are at the snapshot's minute, metres from the map's north-west corner.
+  pos: Vec2 (id: 1);
+  // Index into Welcome.activities.
+  activity: ushort (id: 2);
+  // The walk they are on (0 = none) and its revision.
+  trip: ulong (id: 3);
+  trip_rev: uint (id: 4);
+  sex: Sex (id: 5);
+  age_years: float (id: 6);
+  household: ulong (id: 7);
+  asleep: bool (id: 8);
+}
+
+table SettlementBrief {
+  id: ulong (id: 0);
+  name: string (id: 1);
+  hearth: Vec2 (id: 2);
+  founded_minute: long (id: 3);
+  // Living people whose household belongs to it.
+  population: uint (id: 4);
+}
+
 table Snapshot {
   world: WorldInfo (id: 0);
   clock: Clock (id: 1);
@@ -118,6 +168,10 @@ table Snapshot {
   last_error: string (id: 4);
   // Unix milliseconds of the last autosave of the current world (0 = none yet).
   last_autosave_unix_ms: long (id: 5);
+  // M1: the living, the settlements, and the newest chronicle entry's sequence number (0 = none).
+  people: [PersonBrief] (id: 6);
+  settlements: [SettlementBrief] (id: 7);
+  chronicle_head: ulong (id: 8);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -141,6 +195,8 @@ table NewWorld {
   preset_id: string (id: 1);
   size_cells: uint (id: 2);
   name: string (id: 3);
+  // People in the founding band; 0 = the content's default.
+  band_size: uint (id: 4);
 }
 
 table SaveWorld {
@@ -190,7 +246,25 @@ table GetHydrography {
 
 table ListSaves {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves }
+// Trip geometry by trip id.
+table GetTrips {
+  ids: [ulong] (id: 0);
+}
+
+// Everything the inspector shows about one person, living or dead.
+table GetPerson {
+  id: ulong (id: 0);
+  // Decision receipts to include, newest first (at most 64).
+  decisions: uint (id: 1);
+}
+
+// Chronicle entries with sequence numbers after `after_seq`, oldest first.
+table GetChronicle {
+  after_seq: ulong (id: 0);
+  limit: uint (id: 1);
+}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle }
 
 table Query {
   body: QueryBody (id: 1);
@@ -266,7 +340,121 @@ table SaveList {
   saves: [SaveEntry] (id: 0);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList }
+table TripInfo {
+  id: ulong (id: 0);
+  rev: uint (id: 1);
+  person: ulong (id: 2);
+  // Departure, simulation minutes since the calendar origin.
+  depart_minute: long (id: 3);
+  // Route vertices, metres, and minutes after departure at each.
+  points: [Vec2] (id: 4);
+  minutes: [float] (id: 5);
+}
+
+table Trips {
+  // The trips that are still under way; ids not listed have ended.
+  trips: [TripInfo] (id: 0);
+}
+
+enum SpanKind : ubyte { Text = 0, Person = 1, Settlement = 2 }
+
+// A piece of kernel-rendered text: plain, or a link to a person or settlement.
+table Span {
+  kind: SpanKind (id: 0);
+  text: string (id: 1);
+  id: ulong (id: 2);
+}
+
+table ChronicleEntry {
+  seq: ulong (id: 0);
+  minute: long (id: 1);
+  spans: [Span] (id: 2);
+}
+
+table Chronicle {
+  entries: [ChronicleEntry] (id: 0);
+  // The newest entry's sequence number.
+  head: ulong (id: 1);
+}
+
+// One consideration's contribution to an option, in utility points.
+struct Term {
+  reason: ushort;
+  points: float;
+}
+
+struct Exclusion {
+  activity: ushort;
+  reason: ushort;
+}
+
+table ScoredOption {
+  // Index into Welcome.activities; 65535 = an activity the content no longer has.
+  activity: ushort (id: 0);
+  // What it was aimed at, rendered by the kernel ("home", "the hearth", "a patch 600 m east").
+  target: string (id: 1);
+  total: float (id: 2);
+  terms: [Term] (id: 3);
+}
+
+// Why a person chose what they did, recorded when they chose it (ADR-0003 §3).
+table Decision {
+  minute: long (id: 0);
+  chosen: ScoredOption (id: 1);
+  runner_up: ScoredOption (id: 2);
+  // Further options, totals only.
+  others: [ScoredOption] (id: 3);
+  excluded: [Exclusion] (id: 4);
+  probability: float (id: 5);
+  temperature: float (id: 6);
+  // Hunger, sleep drive, loneliness (0-1 scales), and the household's days of food and water.
+  needs: [float] (id: 7);
+}
+
+table KinLink {
+  id: ulong (id: 0);
+  name: string (id: 1);
+  // "mother", "father", "child", "brother", "sister", "partner".
+  relation: string (id: 2);
+  alive: bool (id: 3);
+}
+
+table PersonInfo {
+  id: ulong (id: 0);
+  name: string (id: 1);
+  sex: Sex (id: 2);
+  born_minute: long (id: 3);
+  age_years: float (id: 4);
+  alive: bool (id: 5);
+  died_minute: long (id: 6);
+  cause: string (id: 7);
+  // "one of the founding band", "born here".
+  origin: string (id: 8);
+  household: ulong (id: 9);
+  settlement: ulong (id: 10);
+  settlement_name: string (id: 11);
+  kin: [KinLink] (id: 12);
+  // The living only: what they are doing now, rendered by the kernel.
+  activity: ushort (id: 13);
+  doing: string (id: 14);
+  since_minute: long (id: 15);
+  until_minute: long (id: 16);
+  hunger: float (id: 17);
+  sleep_pressure: float (id: 18);
+  loneliness: float (id: 19);
+  energy_kcal: float (id: 20);
+  carry_food_kcal: float (id: 21);
+  carry_water_l: float (id: 22);
+  household_food_days: float (id: 23);
+  household_water_days: float (id: 24);
+  // Newest first.
+  decisions: [Decision] (id: 25);
+  // Openness, conscientiousness, extraversion, agreeableness, neuroticism, risk (standard scores).
+  traits: [float] (id: 26);
+  pos: Vec2 (id: 27);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle }
 
 table Response {
   body: ResponseBody (id: 1);

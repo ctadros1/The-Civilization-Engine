@@ -39,9 +39,13 @@ pub fn content_validate(root: &Path, json: bool) -> ExitCode {
         }
         match &report.registry {
             Some(registry) => println!(
-                "content OK: {} pack(s), {} world preset(s), fingerprint {}",
+                "content OK: {} pack(s), {} world preset(s), people `{}`, land `{}`, {} \
+                 activities, fingerprint {}",
                 registry.packs.len(),
                 registry.presets.len(),
+                registry.people.id,
+                registry.land.id,
+                registry.catalog.activities.len(),
                 registry.fingerprint_hex()
             ),
             None => println!("content has {} error(s)", report.error_count()),
@@ -85,6 +89,7 @@ pub fn new_world(
             seed: options.seed,
             preset_id,
             size_cells: options.size,
+            band_size: 0,
         },
         content,
         &mut |p| {

@@ -34,11 +34,13 @@ mod floodplain;
 pub mod grid;
 mod hydro;
 mod lem;
+pub mod nav;
 pub mod noise;
 pub mod params;
 mod refine;
 pub mod rivers;
 mod routing;
+pub mod terrain;
 mod validate;
 
 pub use params::TerrainParams;

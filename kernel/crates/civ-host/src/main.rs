@@ -326,7 +326,8 @@ fn run_smoke(args: SmokeArgs) -> anyhow::Result<ExitCode> {
     let content = commands::load_content(&layout.content)?;
     println!(
         "Smoke seeds: {} preset(s) × {} seed(s) at {}² cells; thresholds: relief ≥ {} m, land ≥ \
-         {:.0}%, gentle land ≥ {:.0}%, rivers ≥ {} km, exact save round trip, {} years of clock",
+         {:.0}%, gentle land ≥ {:.0}%, rivers ≥ {} km, exact save round trip, {} days of the \
+         founding band",
         content.presets.len(),
         args.seeds,
         args.size,
@@ -334,7 +335,7 @@ fn run_smoke(args: SmokeArgs) -> anyhow::Result<ExitCode> {
         smoke::MIN_NOT_OCEAN * 100.0,
         smoke::MIN_GENTLE * 100.0,
         smoke::MIN_RIVER_KM,
-        smoke::YEARS
+        smoke::DAYS
     );
     println!("{}", smoke::header());
     let results = smoke::run(

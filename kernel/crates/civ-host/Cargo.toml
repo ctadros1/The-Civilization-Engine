@@ -16,6 +16,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow = { workspace = true }
 axum = { workspace = true }
+civ-agents = { workspace = true }
 civ-content = { workspace = true }
 civ-core = { workspace = true }
 civ-schema = { workspace = true }

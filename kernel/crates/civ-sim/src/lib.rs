@@ -2,12 +2,13 @@
 //! the host performs on it.
 //!
 //! - [`Sim`] owns a world: its identity, the clock and scheduler, the permanent-id counter, the
-//!   terrain and water (immutable after generation, shared by `Arc`), and the content it runs
-//!   with. One thread drives it.
+//!   terrain and water (immutable after generation, shared by `Arc`), the land and its wild
+//!   stocks, the people, and the content it runs with. One thread drives it.
 //! - [`persist`] saves it as, and loads it from, `commons-persist` generations (ADR-0002).
 //! - [`frames`] builds boundary payloads from it (ADR-0001).
 //!
-//! M0 has no agents: advancing time moves the clock and delivers cadence boundaries, nothing else.
+//! Advancing time delivers cadence boundaries (a day boundary grows and wastes the land's
+//! stocks) and the people's scheduled events, in time order (ADR-0003).
 
 #![forbid(unsafe_code)]
 
@@ -18,9 +19,13 @@ use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
+use civ_agents::params::{Catalog, PeopleParams};
+use civ_agents::{AgentEvent, Ctx, Founded, Population};
 use civ_content::ContentRegistry;
 use civ_core::time::DEFAULT_WORLD_START;
 use civ_core::{Cadence, Date, Due, IdAllocator, ScheduleError, Scheduler, SimTime};
+use civ_land::{Land, LandParams};
+use civ_world::nav::NavGrid;
 use civ_world::{GenError, GenerateRequest, MapStats, Progress, WorldMap};
 
 /// Simulation cell size of new worlds, metres (plan §6).
@@ -52,6 +57,8 @@ pub struct NewWorld {
     pub preset_id: String,
     /// Cells per side; the map is square.
     pub size_cells: u32,
+    /// People in the founding band; 0 means the people profile's default.
+    pub band_size: u32,
 }
 
 /// Who and what a world is. Fixed when the world is created.
@@ -119,9 +126,38 @@ impl ContentStamp {
     }
 }
 
-/// Events the kernel schedules. M0 has none; activities and trips arrive in M1.
+/// Events the kernel schedules.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SimEvent {}
+pub enum SimEvent {
+    /// A person's activity step ends (ADR-0003).
+    Agent(AgentEvent),
+}
+
+/// Scheduler phase of people's events.
+pub const PHASE_AGENT: u8 = 1;
+
+/// What a world's people and land run by. Compiled from the loaded content, never saved: a world
+/// saved with other content runs by the content loaded now (the save browser says so).
+#[derive(Debug)]
+pub struct Rules {
+    /// How people live.
+    pub people: PeopleParams,
+    /// Habitats and wild resources.
+    pub land: LandParams,
+    /// The activities people can do.
+    pub catalog: Catalog,
+}
+
+impl Rules {
+    /// The rules of the loaded content.
+    pub fn of(content: &ContentRegistry) -> Rules {
+        Rules {
+            people: content.people.params.clone(),
+            land: content.land.params.clone(),
+            catalog: content.catalog.clone(),
+        }
+    }
+}
 
 /// What one advance of the clock did.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -141,6 +177,15 @@ pub struct Advance {
 pub enum SimError {
     /// The content has no preset with this id.
     UnknownPreset(String),
+    /// A founding band must have between the people profile's smallest and largest size.
+    InvalidBandSize {
+        /// What was asked for.
+        size: u32,
+        /// The smallest band allowed.
+        min: u32,
+        /// The largest band allowed.
+        max: u32,
+    },
     /// Speeds must be finite, positive and at most [`MAX_SPEED`].
     InvalidSpeed(f32),
     /// World generation failed or was cancelled.
@@ -153,6 +198,10 @@ impl fmt::Display for SimError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SimError::UnknownPreset(id) => write!(f, "there is no world preset `{id}`"),
+            SimError::InvalidBandSize { size, min, max } => write!(
+                f,
+                "a founding band of {size} is out of range ({min} to {max} people)"
+            ),
             SimError::InvalidSpeed(speed) => write!(
                 f,
                 "speed {speed} is out of range (1 to {MAX_SPEED} simulated seconds per second)"
@@ -179,6 +228,16 @@ pub struct Sim {
     carry_seconds: f64,
     content: ContentStamp,
     content_changed: bool,
+    /// What the people and land run by (from the loaded content).
+    rules: Arc<Rules>,
+    /// Where people can walk, and how fast. Derived from the map and the rules.
+    nav: Arc<NavGrid>,
+    /// Habitat patches, wild stocks and settlements.
+    land: Land,
+    /// People, households and their history.
+    people: Population,
+    /// Why the founding band could not settle, when it could not. Not saved.
+    founding_problem: Option<String>,
     /// The snapshot this state was last written to or loaded from.
     last_snapshot: Option<[u8; 16]>,
     /// That snapshot's generation number (0 = never saved).
@@ -225,6 +284,18 @@ impl Sim {
         let preset = content
             .preset(&request.preset_id)
             .ok_or_else(|| SimError::UnknownPreset(request.preset_id.clone()))?;
+        let band = &content.people.params.band;
+        let band_size = match request.band_size {
+            0 => band.default_size,
+            size if (band.min_size..=band.max_size).contains(&size) => size,
+            size => {
+                return Err(SimError::InvalidBandSize {
+                    size,
+                    min: band.min_size,
+                    max: band.max_size,
+                });
+            }
+        };
         let generate = GenerateRequest {
             seed: request.seed,
             width_cells: request.size_cells,
@@ -263,28 +334,85 @@ impl Sim {
             u64::from_le_bytes(world_id[..8].try_into().unwrap_or([0; 8])),
         ]);
         let scheduler = Scheduler::new(DEFAULT_WORLD_START, tiebreak_seed);
-        Ok(Sim::assemble(
+        let rules = Arc::new(Rules::of(content));
+        progress(Progress {
+            stage: "Growing wild plants",
+            fraction: 1.0,
+        });
+        let land = Land::create(
+            &map,
+            &rules.land,
+            request.seed,
+            DEFAULT_WORLD_START.day_index(),
+        );
+        let mut sim = Sim::assemble(
             meta,
             map,
             scheduler,
             IdAllocator::new(),
             ContentStamp::of(content),
-        ))
+            rules,
+            land,
+            Population::new(),
+        );
+        progress(Progress {
+            stage: "The first people arrive",
+            fraction: 1.0,
+        });
+        if let Err(why) = sim.found_band(band_size) {
+            sim.founding_problem = Some(why);
+        }
+        Ok(sim)
+    }
+
+    /// Brings a founding band of `size` people to the world now. They choose where to camp.
+    pub fn found_band(&mut self, size: u32) -> Result<Founded, String> {
+        let now = self.now();
+        let mut pending = Vec::new();
+        let founded = {
+            let mut ctx = Ctx {
+                now,
+                seed: self.meta.seed,
+                map: &self.map,
+                nav: &self.nav,
+                land: &mut self.land,
+                land_params: &self.rules.land,
+                params: &self.rules.people,
+                catalog: &self.rules.catalog,
+                ids: &mut self.ids,
+                schedule: &mut pending,
+            };
+            civ_agents::found_band(&mut self.people, &mut ctx, size)
+        };
+        for (at, event) in pending {
+            // Agent events are never scheduled before the next minute.
+            let _ = self
+                .scheduler
+                .schedule(at, PHASE_AGENT, SimEvent::Agent(event));
+        }
+        self.dirty = true;
+        founded
     }
 
     /// Puts a world together from its parts, paused at 1x and never saved.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn assemble(
         meta: WorldMeta,
         map: WorldMap,
         mut scheduler: Scheduler<SimEvent>,
         ids: IdAllocator,
         content: ContentStamp,
+        rules: Arc<Rules>,
+        land: Land,
+        mut people: Population,
     ) -> Sim {
         // Subscriptions are code, not state (civ-core scheduler docs).
         for cadence in [Cadence::Day, Cadence::Month, Cadence::Year] {
             scheduler.subscribe(cadence);
         }
         let stats = map.stats();
+        let nav = Arc::new(NavGrid::new(&map, rules.people.nav));
+        people.rebuild_indexes();
         Sim {
             meta,
             map: Arc::new(map),
@@ -296,6 +424,11 @@ impl Sim {
             carry_seconds: 0.0,
             content,
             content_changed: false,
+            rules,
+            nav,
+            land,
+            people,
+            founding_problem: None,
             last_snapshot: None,
             generation: 0,
             dirty: true,
@@ -352,6 +485,36 @@ impl Sim {
         self.content_changed
     }
 
+    /// What the people and land run by.
+    pub fn rules(&self) -> &Arc<Rules> {
+        &self.rules
+    }
+
+    /// Where people can walk.
+    pub fn nav(&self) -> &Arc<NavGrid> {
+        &self.nav
+    }
+
+    /// Habitat patches, wild stocks and settlements.
+    pub fn land(&self) -> &Land {
+        &self.land
+    }
+
+    /// People, households and their history.
+    pub fn people(&self) -> &Population {
+        &self.people
+    }
+
+    /// Why the founding band of a new world could not settle, when it could not.
+    pub fn founding_problem(&self) -> Option<&str> {
+        self.founding_problem.as_deref()
+    }
+
+    /// Number of pending scheduled events.
+    pub fn pending_events(&self) -> usize {
+        self.scheduler.pending()
+    }
+
     /// The snapshot this state was last written to or loaded from.
     pub fn last_snapshot(&self) -> Option<[u8; 16]> {
         self.last_snapshot
@@ -406,15 +569,53 @@ impl Sim {
             minutes,
             ..Advance::default()
         };
-        self.scheduler
-            .advance_to(target, |due, _| match due {
-                Due::Cadence { cadence, .. } => match cadence {
-                    Cadence::Day => advance.days += 1,
+        let Sim {
+            meta,
+            map,
+            scheduler,
+            ids,
+            rules,
+            nav,
+            land,
+            people,
+            ..
+        } = self;
+        let mut pending = Vec::new();
+        scheduler
+            .advance_to(target, |due, followups| match due {
+                Due::Cadence { cadence, at } => match cadence {
+                    Cadence::Day => {
+                        advance.days += 1;
+                        // The day that just ended is complete.
+                        land.advance_to_day(&rules.land, meta.seed, at.day_index() - 1);
+                    }
                     Cadence::Month => advance.months += 1,
                     Cadence::Year => advance.years += 1,
                     _ => {}
                 },
-                Due::Event { event, .. } => match event {},
+                Due::Event {
+                    at,
+                    event: SimEvent::Agent(event),
+                    ..
+                } => {
+                    let mut ctx = Ctx {
+                        now: at,
+                        seed: meta.seed,
+                        map,
+                        nav,
+                        land,
+                        land_params: &rules.land,
+                        params: &rules.people,
+                        catalog: &rules.catalog,
+                        ids,
+                        schedule: &mut pending,
+                    };
+                    people.on_event(&mut ctx, event);
+                    for (t, e) in pending.drain(..) {
+                        // Never before the current instant: agents schedule at least a minute on.
+                        let _ = followups.schedule(t, PHASE_AGENT, SimEvent::Agent(e));
+                    }
+                }
             })
             .map_err(SimError::Schedule)?;
         self.dirty = true;

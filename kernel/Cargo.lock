@@ -220,10 +220,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
+name = "civ-agents"
+version = "0.1.0"
+dependencies = [
+ "civ-core",
+ "civ-land",
+ "civ-world",
+]
+
+[[package]]
 name = "civ-content"
 version = "0.1.0"
 dependencies = [
  "blake3",
+ "civ-agents",
+ "civ-land",
  "civ-world",
  "serde",
  "serde_json",
@@ -244,6 +255,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "civ-agents",
  "civ-content",
  "civ-core",
  "civ-schema",
@@ -264,6 +276,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "civ-land"
+version = "0.1.0"
+dependencies = [
+ "civ-core",
+ "civ-world",
+]
+
+[[package]]
 name = "civ-schema"
 version = "0.1.0"
 dependencies = [
@@ -275,8 +295,10 @@ dependencies = [
 name = "civ-sim"
 version = "0.1.0"
 dependencies = [
+ "civ-agents",
  "civ-content",
  "civ-core",
+ "civ-land",
  "civ-schema",
  "civ-world",
  "commons-persist",

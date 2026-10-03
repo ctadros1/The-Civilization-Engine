@@ -395,6 +395,26 @@ impl Engine {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::hydrography_response(w.sim.map(), tolerance_m)),
             },
+            Request::GetTrips { ids } => match &self.world {
+                None => no_world(),
+                Some(w) => match frames::people::trips_response(&w.sim, &ids) {
+                    Ok(payload) => Reply::Response(payload),
+                    Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e.to_string()),
+                },
+            },
+            Request::GetPerson { id, decisions } => match &self.world {
+                None => no_world(),
+                Some(w) => match frames::people::person_response(&w.sim, id, decisions) {
+                    Ok(payload) => Reply::Response(payload),
+                    Err(e) => Reply::Error(wire::ErrorCode::NotFound, e.to_string()),
+                },
+            },
+            Request::GetChronicle { after_seq, limit } => match &self.world {
+                None => no_world(),
+                Some(w) => {
+                    Reply::Response(frames::people::chronicle_response(&w.sim, after_seq, limit))
+                }
+            },
             Request::ListSaves => {
                 match session::list_saves(&self.config.saves_root, &self.config.content) {
                     Ok(entries) => Reply::Response(protocol::save_list_response(&entries)),
@@ -966,6 +986,7 @@ mod tests {
                 seed: 9,
                 preset_id: PRESET.to_owned(),
                 size_cells: 256,
+                band_size: 0,
             }));
             assert!(matches!(reply, Reply::Response(_)), "{reply:?}");
             self.finish_task();
@@ -1060,6 +1081,7 @@ mod tests {
             seed: 1,
             preset_id: PRESET.to_owned(),
             size_cells: 300,
+            band_size: 0,
         };
         assert_eq!(
             error_code(&h.ask(Request::NewWorld(new_world.clone()))),
@@ -1099,6 +1121,7 @@ mod tests {
                 seed: 3,
                 preset_id: PRESET.to_owned(),
                 size_cells: 2048,
+                band_size: 0,
             })),
             Reply::Response(_)
         ));

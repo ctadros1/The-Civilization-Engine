@@ -53,6 +53,25 @@ pub enum Request {
     },
     /// List the saves.
     ListSaves,
+    /// Read the routes of trips under way.
+    GetTrips {
+        /// Trip ids.
+        ids: Vec<u64>,
+    },
+    /// Read about one person.
+    GetPerson {
+        /// Permanent id.
+        id: u64,
+        /// Decision receipts to include.
+        decisions: u32,
+    },
+    /// Read chronicle entries.
+    GetChronicle {
+        /// Entries after this sequence number.
+        after_seq: u64,
+        /// Most entries to return.
+        limit: u32,
+    },
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -182,6 +201,7 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         seed: b.seed(),
                         preset_id: b.preset_id().unwrap_or_default().to_owned(),
                         size_cells: b.size_cells(),
+                        band_size: b.band_size(),
                     }))
                 }
                 wire::CommandBody::SaveWorld => {
@@ -236,6 +256,28 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                     })
                 }
                 wire::QueryBody::ListSaves => Ok(Request::ListSaves),
+                wire::QueryBody::GetTrips => {
+                    let b = query.body_as_get_trips().ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetTrips {
+                        ids: b.ids().map(|v| v.iter().collect()).unwrap_or_default(),
+                    })
+                }
+                wire::QueryBody::GetPerson => {
+                    let b = query.body_as_get_person().ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetPerson {
+                        id: b.id(),
+                        decisions: b.decisions(),
+                    })
+                }
+                wire::QueryBody::GetChronicle => {
+                    let b = query
+                        .body_as_get_chronicle()
+                        .ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetChronicle {
+                        after_seq: b.after_seq(),
+                        limit: b.limit(),
+                    })
+                }
                 other => Err(format!("unknown query {}", other.0)),
             }
         }
@@ -270,6 +312,40 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
         })
         .collect();
     let presets = fbb.create_vector(&presets);
+    let activities: Vec<_> = content
+        .catalog
+        .activities
+        .iter()
+        .map(|a| {
+            let id = fbb.create_string(&a.id);
+            let name = fbb.create_string(&a.name);
+            let doing = fbb.create_string(&a.doing);
+            wire::ActivityInfo::create(
+                &mut fbb,
+                &wire::ActivityInfoArgs {
+                    id: Some(id),
+                    name: Some(name),
+                    doing: Some(doing),
+                },
+            )
+        })
+        .collect();
+    let activities = fbb.create_vector(&activities);
+    let reasons: Vec<_> = civ_agents::Reason::ALL
+        .iter()
+        .map(|r| {
+            let label = fbb.create_string(r.label());
+            wire::ReasonInfo::create(
+                &mut fbb,
+                &wire::ReasonInfoArgs {
+                    code: *r as u16,
+                    label: Some(label),
+                },
+            )
+        })
+        .collect();
+    let reasons = fbb.create_vector(&reasons);
+    let band = &content.people.params.band;
     let map_sizes = fbb.create_vector(&civ_sim::MAP_SIZES);
     let multipliers = fbb.create_vector(&civ_sim::SPEED_MULTIPLIERS);
     let host = fbb.create_string("civ-host");
@@ -287,6 +363,11 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
             default_map_size: civ_sim::DEFAULT_MAP_SIZE,
             speed_1x: civ_sim::SPEED_1X,
             speed_multipliers: Some(multipliers),
+            activities: Some(activities),
+            reasons: Some(reasons),
+            band_size_min: band.min_size,
+            band_size_max: band.max_size,
+            band_size_default: band.default_size,
         },
     );
     finish(fbb, root)
@@ -314,6 +395,13 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
         .sim
         .map(|sim| civ_sim::frames::world_info(&mut fbb, sim));
     let clock = parts.sim.map(|sim| civ_sim::frames::clock(&mut fbb, sim));
+    let people = parts
+        .sim
+        .map(|sim| civ_sim::frames::people::person_briefs(&mut fbb, sim));
+    let settlements = parts
+        .sim
+        .map(|sim| civ_sim::frames::people::settlement_briefs(&mut fbb, sim));
+    let chronicle_head = parts.sim.map_or(0, civ_sim::frames::people::chronicle_head);
     let task = parts.task.map(|t| {
         let name = fbb.create_string(&t.name);
         let stage = fbb.create_string(&t.stage);
@@ -353,6 +441,9 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
             recovery,
             last_error,
             last_autosave_unix_ms: parts.last_autosave_unix_ms,
+            people,
+            settlements,
+            chronicle_head,
         },
     );
     finish(fbb, root)

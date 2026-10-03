@@ -1,0 +1,57 @@
+# How land is classified and what grows wild on it (ADR-0004; research 03-06, 08-01, 10-01).
+# Production is what people can actually gather, not what the land grows: most of a forest's
+# food goes to animals, rots or cannot be reached. Starting points, checked by the smoke seeds.
+kind = "land"
+id = "core:land/temperate_valley"
+name = "Temperate valley"
+patch_cells = 16                 # 128 m patches at 8 m cells (research 03-06 §5.1)
+channel_area_km2 = 1.0           # drainage that counts as a stream when measuring height above it
+richness_min = 0.6
+richness_max = 1.4
+richness_feature_m = 1500.0
+climate_cv = 0.25                # research 08-01 §2.3: crop CV 0.25-0.35
+climate_autocorrelation = 0.3    # 0.2-0.4
+
+# Habitats, first match wins (research 03-06 §5.1, 10-01 §5.5).
+[[habitat]]
+id = "water"
+name = "Open water"
+min_water_fraction = 0.5
+arable = false
+
+[[habitat]]
+id = "wetland"
+name = "Wet margin"
+max_median_hand_m = 0.3
+arable = false
+
+[[habitat]]
+id = "floodplain"
+name = "Floodplain and terrace"
+max_mean_slope = 0.05
+max_median_hand_m = 6.0
+arable = true
+
+[[habitat]]
+id = "woodland"
+name = "Lower-slope woodland"
+max_mean_slope = 0.15
+arable = false
+
+[[habitat]]
+id = "upland"
+name = "Upland"
+arable = false
+
+[[resource]]
+id = "wild_plants"
+name = "Wild plant food"
+unit = "kcal"
+# Gatherable kcal per hectare per year by habitat, in the habitat order above. Research 03-06
+# §2.1: door-to-door plant returns 300-1,500 kcal per person-hour.
+production_per_ha_yr = [0.0, 9000.0, 6000.0, 5000.0, 2500.0]
+loss_per_day = 0.03              # rot and wildlife: food left standing lasts about a month
+# Monthly weights, January first: greens in spring, berries in summer, nuts in autumn, little in winter.
+season = [0.2, 0.2, 0.5, 1.0, 1.4, 1.5, 1.6, 1.7, 1.8, 1.4, 0.5, 0.2]
+max_rate_per_hour = 1500.0
+half_rate_stock_per_ha = 300.0

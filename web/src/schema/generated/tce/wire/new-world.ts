@@ -46,8 +46,13 @@ name(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+bandSize():number {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
 static startNewWorld(builder:flatbuffers.Builder) {
-  builder.startObject(4);
+  builder.startObject(5);
 }
 
 static addSeed(builder:flatbuffers.Builder, seed:bigint) {
@@ -66,17 +71,22 @@ static addName(builder:flatbuffers.Builder, nameOffset:flatbuffers.Offset) {
   builder.addFieldOffset(3, nameOffset, 0);
 }
 
+static addBandSize(builder:flatbuffers.Builder, bandSize:number) {
+  builder.addFieldInt32(4, bandSize, 0);
+}
+
 static endNewWorld(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createNewWorld(builder:flatbuffers.Builder, seed:bigint, presetIdOffset:flatbuffers.Offset, sizeCells:number, nameOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createNewWorld(builder:flatbuffers.Builder, seed:bigint, presetIdOffset:flatbuffers.Offset, sizeCells:number, nameOffset:flatbuffers.Offset, bandSize:number):flatbuffers.Offset {
   NewWorld.startNewWorld(builder);
   NewWorld.addSeed(builder, seed);
   NewWorld.addPresetId(builder, presetIdOffset);
   NewWorld.addSizeCells(builder, sizeCells);
   NewWorld.addName(builder, nameOffset);
+  NewWorld.addBandSize(builder, bandSize);
   return NewWorld.endNewWorld(builder);
 }
 }

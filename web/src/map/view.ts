@@ -13,12 +13,15 @@
 // - Buildings show what their construction has reached: the plot, postholes and posts, the walls'
 //   outline, and the thatch, from the shape the kernel expands; the readout names the one under
 //   the pointer.
+// - Worn ground shows as trodden earth, one texture a 64-cell tile, and the trails the kernel
+//   traced through it as lines; the readout names a trail under the pointer.
 
 import { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 
 import { buildingAt, buildingLook } from "../buildings.js";
 import { fieldAt, fieldLook } from "../fields.js";
 import type { HostClient } from "../net/client.js";
+import { TRAIL_COLOUR, pathAt, smoothed, trailLook, wornPixels } from "../paths.js";
 import {
   RasterLayer,
   type ActivityInfo,
@@ -26,6 +29,7 @@ import {
   type Clock,
   type FieldInfo,
   type Hydrography,
+  type PathsInfo,
   type PersonBrief,
   type SettlementBrief,
   type TripInfo,
@@ -70,6 +74,8 @@ export interface PointerInfo {
   field: FieldInfo | null;
   /** The building under the pointer, if any. */
   building: BuildingInfo | null;
+  /** The worn ground under the pointer, if any. */
+  path: { wear: number; trail: boolean } | null;
 }
 
 /** A shaded raster region with the samples behind it. */
@@ -144,6 +150,10 @@ export class MapView {
   private fields: FieldInfo[] = [];
   private readonly buildingsLayer = new Graphics();
   private buildings: BuildingInfo[] = [];
+  private readonly wornLayer = new Container();
+  private readonly trailsLayer = new Graphics();
+  private paths: PathsInfo | null = null;
+  private trailScale = 0;
   private readonly settlementLayer = new Container();
   private readonly peopleLayer = new Graphics();
   private people: PersonBrief[] = [];
@@ -178,6 +188,8 @@ export class MapView {
     this.world.addChild(
       this.terrain,
       this.detail,
+      this.wornLayer,
+      this.trailsLayer,
       this.rivers,
       this.fieldsLayer,
       this.buildingsLayer,
@@ -227,6 +239,7 @@ export class MapView {
     this.fieldsLayer.clear();
     this.buildings = [];
     this.buildingsLayer.clear();
+    this.setPaths(null);
     this.peopleLayer.clear();
     this.trips.clear();
     this.clock = null;
@@ -300,6 +313,50 @@ export class MapView {
       }
     }
     if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** The worn ground and the trails, as the host last surveyed them (null for none). */
+  setPaths(paths: PathsInfo | null): void {
+    this.paths = paths;
+    for (const child of this.wornLayer.removeChildren()) {
+      child.destroy({ texture: true, textureSource: true });
+    }
+    if (paths && paths.tileCells > 0) {
+      const tc = paths.tileCells;
+      const sideM = tc * this.cellM();
+      for (const tile of paths.worn) {
+        const sprite = new Sprite(texture(wornPixels(tile, tc), tc, tc));
+        sprite.x = (tile.index % paths.tilesX) * sideM;
+        sprite.y = Math.floor(tile.index / paths.tilesX) * sideM;
+        sprite.width = sideM;
+        sprite.height = sideM;
+        this.wornLayer.addChild(sprite);
+      }
+    }
+    this.drawTrails();
+    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  private drawTrails(): void {
+    const g = this.trailsLayer;
+    g.clear();
+    this.trailScale = this.scale;
+    if (!this.paths) return;
+    const pxM = 1 / Math.max(this.scale, 1e-6);
+    for (const t of this.paths.trails) {
+      const p = smoothed(t.points);
+      if (p.length < 2) continue;
+      const look = trailLook(t);
+      g.moveTo(p[0]![0], p[0]![1]);
+      for (let k = 1; k < p.length; k++) g.lineTo(p[k]![0], p[k]![1]);
+      g.stroke({
+        width: Math.max(look.widthM, 1.2 * pxM),
+        color: TRAIL_COLOUR,
+        alpha: look.alpha,
+        cap: "round",
+        join: "round",
+      });
+    }
   }
 
   /** Marks a person as selected (or nobody). */
@@ -641,6 +698,7 @@ export class MapView {
       water: WATER_NAMES[patch.water[i] ?? -1] ?? null,
       field: fieldAt(this.fields, xM, yM),
       building: buildingAt(this.buildings, xM, yM),
+      path: pathAt(this.paths, cellX, cellY),
     };
   }
 
@@ -651,6 +709,9 @@ export class MapView {
       const scale = this.scale;
       if (this.riverScale === 0 || Math.abs(Math.log(scale / this.riverScale)) > 0.15) {
         this.drawRivers();
+      }
+      if (this.trailScale === 0 || Math.abs(Math.log(scale / this.trailScale)) > 0.15) {
+        this.drawTrails();
       }
       this.updateDetail();
       this.scaleSettlements();
@@ -821,6 +882,8 @@ export class MapView {
       fields: this.fields.length,
       buildings: this.buildings.length,
       roofed: this.buildings.filter((b) => b.roofed).length,
+      wornTiles: this.paths?.worn.length ?? 0,
+      trails: this.paths?.trails.length ?? 0,
       selected: this.selected,
       camera: { x: this.world.x, y: this.world.y, scale: this.scale },
       screen: this.app ? [this.app.screen.width, this.app.screen.height] : null,

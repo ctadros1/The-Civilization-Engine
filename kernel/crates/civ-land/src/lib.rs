@@ -21,11 +21,13 @@
 
 pub mod buildings;
 pub mod fields;
+pub mod paths;
 
 pub use buildings::{
     BuildWork, Building, MATERIAL_SLACK_KG, Plot, PlotUse, STAGE_DONE_SLACK_H, workable_h,
 };
 pub use fields::{CropParams, Field, FieldStage, FieldTask, RectCm, WorkDone};
+pub use paths::{PathParams, Trail, Wear, WearTile};
 
 use civ_core::time::{DAYS_PER_YEAR, MONTH_STARTS};
 use civ_core::{PermanentId, Rng64, SimTime};
@@ -133,6 +135,8 @@ pub struct LandParams {
     pub climate_cv: f64,
     /// Year-to-year autocorrelation of the climate factor.
     pub climate_autocorrelation: f64,
+    /// How walking wears the ground.
+    pub paths: PathParams,
 }
 
 impl ResourceParams {
@@ -300,6 +304,8 @@ pub struct Land {
     pub plots: Vec<Plot>,
     /// Buildings, in the order they were begun. Saved.
     pub buildings: Vec<Building>,
+    /// Ground worn by walking. Saved.
+    pub wear: Wear,
 }
 
 /// Summary of a patch's terrain, for classification.
@@ -472,6 +478,7 @@ impl Land {
             fields: Vec::new(),
             plots: Vec::new(),
             buildings: Vec::new(),
+            wear: Wear::new(map.width, map.height, map.cell_size_m),
         };
         // Start each stock at its equilibrium for the season a year ago, then grow a year.
         for r in 0..params.resources.len() {
@@ -1078,6 +1085,12 @@ mod tests {
             ],
             climate_cv: 0.0,
             climate_autocorrelation: 0.3,
+            paths: PathParams {
+                wear_per_walk: 0.01,
+                half_life_days: 120.0,
+                trail_at: 0.3,
+                trail_until: 0.15,
+            },
         }
     }
 

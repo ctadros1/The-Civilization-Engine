@@ -88,31 +88,57 @@ impl Route {
     }
 }
 
-/// Fastest travel times from one cell to every cell within a time limit.
+/// Fastest travel times from one cell to every cell within a time limit. Kept densely over the
+/// box of cells the limit could reach at the top speed.
 #[derive(Clone, Debug, Default)]
 pub struct TravelField {
-    seconds: HashMap<u32, f32>,
+    /// Map width, cells.
+    map_width: usize,
+    /// The box: first column and row, width and height, cells.
+    x0: usize,
+    y0: usize,
+    w: usize,
+    h: usize,
+    /// Seconds per cell of the box; infinite where not reached.
+    seconds: Vec<f32>,
+    /// Reached cells (map indices), nearest first.
+    reached: Vec<u32>,
 }
 
 impl TravelField {
+    fn slot(&self, cell: usize) -> Option<usize> {
+        if self.map_width == 0 {
+            return None;
+        }
+        let (x, y) = (cell % self.map_width, cell / self.map_width);
+        if x < self.x0 || y < self.y0 || x >= self.x0 + self.w || y >= self.y0 + self.h {
+            return None;
+        }
+        Some((y - self.y0) * self.w + (x - self.x0))
+    }
+
     /// Seconds to reach `cell`, if it is within the field's limit.
     pub fn seconds_to(&self, cell: usize) -> Option<f32> {
-        self.seconds.get(&(cell as u32)).copied()
+        let s = self.seconds[self.slot(cell)?];
+        s.is_finite().then_some(s)
     }
 
     /// Number of cells reached.
     pub fn len(&self) -> usize {
-        self.seconds.len()
+        self.reached.len()
     }
 
     /// Whether no cell was reached.
     pub fn is_empty(&self) -> bool {
-        self.seconds.is_empty()
+        self.reached.is_empty()
     }
 
-    /// Every reached cell with its travel time, in no particular order.
+    /// Every reached cell with its travel time, nearest first.
     pub fn iter(&self) -> impl Iterator<Item = (usize, f32)> + '_ {
-        self.seconds.iter().map(|(&c, &s)| (c as usize, s))
+        self.reached.iter().map(|&c| {
+            let c = c as usize;
+            (c, self.seconds_to(c).unwrap_or(f32::INFINITY))
+        })
     }
 }
 
@@ -319,41 +345,215 @@ impl NavGrid {
         max_seconds: f32,
         trail: &dyn Fn(usize) -> f32,
     ) -> TravelField {
-        let mut seconds: HashMap<u32, f32> = HashMap::new();
         if from >= self.width * self.height {
-            return TravelField { seconds };
+            return TravelField::default();
         }
+        // No cell beyond what the top speed reaches in the limit can be reached.
+        let radius = (f64::from(max_seconds) * self.params.top_speed_ms() / self.cell_m).ceil();
+        let r = if radius.is_finite() && radius < (self.width.max(self.height) as f64) {
+            radius as usize + 1
+        } else {
+            self.width.max(self.height)
+        };
+        let (fx, fy) = (from % self.width, from / self.width);
+        let (x0, y0) = (fx.saturating_sub(r), fy.saturating_sub(r));
+        let (x1, y1) = ((fx + r).min(self.width - 1), (fy + r).min(self.height - 1));
+        let mut field = TravelField {
+            map_width: self.width,
+            x0,
+            y0,
+            w: x1 - x0 + 1,
+            h: y1 - y0 + 1,
+            seconds: Vec::new(),
+            reached: Vec::new(),
+        };
+        let bw = field.w;
+        field.seconds = vec![f32::INFINITY; bw * field.h];
+        // Each cell's trail factor, asked once.
+        let mut trails = vec![f32::NAN; bw * field.h];
         let mut open = BinaryHeap::new();
-        seconds.insert(from as u32, 0.0);
+        field.seconds[(fy - y0) * bw + (fx - x0)] = 0.0;
         open.push(Open {
             f: 0.0,
             g: 0.0,
             cell: from as u32,
         });
         while let Some(Open { g, cell, .. }) = open.pop() {
-            if seconds.get(&cell).is_some_and(|&s| g > s) {
+            let i = cell as usize;
+            let (x, y) = (i % self.width, i / self.width);
+            if g > field.seconds[(y - y0) * bw + (x - x0)] {
                 continue;
             }
-            let i = cell as usize;
-            for (j, dist) in self.neighbours(i) {
-                let Some(step) = self.step_seconds(elevation, i, j, dist, trail(j)) else {
+            field.reached.push(cell);
+            for (&(dx, dy), dist) in D8.iter().zip(D8_DIST) {
+                let (nx, ny) = (x as i64 + i64::from(dx), y as i64 + i64::from(dy));
+                if nx < x0 as i64 || ny < y0 as i64 || nx > x1 as i64 || ny > y1 as i64 {
+                    continue;
+                }
+                let (nx, ny) = (nx as usize, ny as usize);
+                let j = ny * self.width + nx;
+                let sj = (ny - y0) * bw + (nx - x0);
+                if trails[sj].is_nan() {
+                    trails[sj] = trail(j);
+                }
+                let Some(step) = self.step_seconds(elevation, i, j, dist, trails[sj]) else {
                     continue;
                 };
                 let ng = g + step;
-                if ng > max_seconds {
+                if ng > max_seconds || ng >= field.seconds[sj] {
                     continue;
                 }
-                if seconds.get(&(j as u32)).is_none_or(|&s| ng < s) {
-                    seconds.insert(j as u32, ng);
-                    open.push(Open {
-                        f: ng,
-                        g: ng,
-                        cell: j as u32,
-                    });
-                }
+                field.seconds[sj] = ng;
+                open.push(Open {
+                    f: ng,
+                    g: ng,
+                    cell: j as u32,
+                });
             }
         }
-        TravelField { seconds }
+        field
+    }
+
+    /// Ground height at a point, metres: bilinear between cell centres.
+    fn height_at(&self, elevation: &[f32], (x, y): (f32, f32)) -> f64 {
+        let c = self.cell_m as f32;
+        let (u, v) = (x / c - 0.5, y / c - 0.5);
+        let (max_x, max_y) = ((self.width - 1) as f32, (self.height - 1) as f32);
+        let (u, v) = (u.clamp(0.0, max_x), v.clamp(0.0, max_y));
+        let (x0, y0) = (u.floor() as usize, v.floor() as usize);
+        let (x1, y1) = ((x0 + 1).min(self.width - 1), (y0 + 1).min(self.height - 1));
+        let (fx, fy) = (f64::from(u - x0 as f32), f64::from(v - y0 as f32));
+        let z = |x: usize, y: usize| f64::from(elevation[y * self.width + x]);
+        let top = z(x0, y0) * (1.0 - fx) + z(x1, y0) * fx;
+        let bottom = z(x0, y1) * (1.0 - fx) + z(x1, y1) * fx;
+        top * (1.0 - fy) + bottom * fy
+    }
+
+    /// Seconds to walk in a straight line from `a` to `b` (metres) at the standard speed, the
+    /// ground sampled every half cell; `None` if the line crosses ground that cannot be walked or
+    /// a step too steep.
+    pub fn segment_seconds(
+        &self,
+        elevation: &[f32],
+        a: (f32, f32),
+        b: (f32, f32),
+        trail: &dyn Fn(usize) -> f32,
+    ) -> Option<f32> {
+        let p = &self.params;
+        let len = f64::from(((b.0 - a.0).powi(2) + (b.1 - a.1).powi(2)).sqrt());
+        if len == 0.0 {
+            return Some(0.0);
+        }
+        let steps = (len / (self.cell_m * 0.5)).ceil().max(1.0) as u32;
+        let run = len / f64::from(steps);
+        let mut prev = a;
+        let mut z_prev = self.height_at(elevation, a);
+        let mut total = 0.0f64;
+        for s in 1..=steps {
+            let t = s as f32 / steps as f32;
+            let q = (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t);
+            let mid = ((prev.0 + q.0) * 0.5, (prev.1 + q.1) * 0.5);
+            let (cx, cy) = (
+                (mid.0 / self.cell_m as f32).floor(),
+                (mid.1 / self.cell_m as f32).floor(),
+            );
+            if cx < 0.0 || cy < 0.0 || cx >= self.width as f32 || cy >= self.height as f32 {
+                return None;
+            }
+            let cell = cy as usize * self.width + cx as usize;
+            let ground = f64::from(self.ground[cell]);
+            if ground <= 0.0 {
+                return None;
+            }
+            let z = self.height_at(elevation, q);
+            let slope = (z - z_prev) / run;
+            if slope.abs() > p.max_slope {
+                return None;
+            }
+            let surface = p.offtrail_factor
+                + (1.0 - p.offtrail_factor) * f64::from(trail(cell).clamp(0.0, 1.0));
+            total += run / (p.tobler_ms(slope) * surface * ground);
+            prev = q;
+            z_prev = z;
+        }
+        Some(total as f32)
+    }
+
+    /// The route as a polyline in metres with the seconds from the start at each vertex, pulled
+    /// straight wherever a straight line is walkable and no slower than the route it replaces.
+    /// A grid route steps only along eight directions; people walk straight across open ground and
+    /// keep to the route only where it pays (a trail, a ford, a way round a slope).
+    pub fn straighten(
+        &self,
+        elevation: &[f32],
+        route: &Route,
+        trail: &dyn Fn(usize) -> f32,
+    ) -> (Vec<(f32, f32)>, Vec<f32>) {
+        let c = self.cell_m as f32;
+        let w = self.width;
+        let centre = |i: u32| {
+            let i = i as usize;
+            (((i % w) as f32 + 0.5) * c, ((i / w) as f32 + 0.5) * c)
+        };
+        let n = route.cells.len();
+        if n <= 2 {
+            let pts = route.cells.iter().map(|&i| centre(i)).collect();
+            return (pts, route.seconds.clone());
+        }
+        let mut pts = vec![centre(route.cells[0])];
+        let mut secs = vec![0.0f32];
+        let mut i = 0usize;
+        // A straight line must not be slower than the route by more than rounding.
+        let ok = |i: usize, j: usize| -> Option<f32> {
+            let s = self.segment_seconds(
+                elevation,
+                centre(route.cells[i]),
+                centre(route.cells[j]),
+                trail,
+            )?;
+            let along = route.seconds[j] - route.seconds[i];
+            (s <= along * 1.0001 + 1e-3).then_some(s)
+        };
+        while i < n - 1 {
+            // The farthest vertex a straight line reaches: grow the step while lines hold, then
+            // narrow down between the last that held and the first that did not.
+            let mut good = i + 1;
+            let mut good_s = route.seconds[i + 1] - route.seconds[i];
+            let mut step = 2;
+            let mut bad = None;
+            while good < n - 1 {
+                let j = (i + step).min(n - 1);
+                match ok(i, j) {
+                    Some(s) => {
+                        good = j;
+                        good_s = s;
+                        step *= 2;
+                    }
+                    None => {
+                        bad = Some(j);
+                        break;
+                    }
+                }
+            }
+            if let Some(mut hi) = bad {
+                let mut lo = good;
+                while hi - lo > 1 {
+                    let mid = (lo + hi) / 2;
+                    match ok(i, mid) {
+                        Some(s) => {
+                            lo = mid;
+                            good = mid;
+                            good_s = s;
+                        }
+                        None => hi = mid,
+                    }
+                }
+            }
+            pts.push(centre(route.cells[good]));
+            secs.push(secs.last().copied().unwrap_or(0.0) + good_s);
+            i = good;
+        }
+        (pts, secs)
     }
 
     /// The route as a polyline of cell centres in metres, simplified to within `tolerance_m`,
@@ -640,6 +840,68 @@ mod tests {
                 assert!((r.total_seconds() - exact).abs() <= 1e-3 * exact.max(1.0));
             }
         }
+    }
+
+    #[test]
+    fn open_ground_is_walked_straight_and_faster_than_the_grid_allows() {
+        let map = flat(64, 64);
+        let nav = NavGrid::new(&map, params());
+        let off = |_: usize| 0.0;
+        let route = found(nav.route(&map.elevation, 0, 20 * 64 + 40, &off, 1_000_000));
+        let (pts, secs) = nav.straighten(&map.elevation, &route, &off);
+        assert_eq!(pts.len(), 2, "one straight line: {pts:?}");
+        let metres = ((40.0f64).powi(2) + 20.0f64.powi(2)).sqrt() * 8.0;
+        let expected = metres / (params().tobler_ms(0.0) * 0.6);
+        let total = f64::from(*secs.last().expect("non-empty"));
+        assert!(
+            (total - expected).abs() < 0.01 * expected,
+            "{total} against {expected}"
+        );
+        assert!(
+            secs.last() < route.seconds.last(),
+            "shorter than the grid's route"
+        );
+    }
+
+    #[test]
+    fn straightened_routes_keep_out_of_water_and_to_trails_that_pay() {
+        let mut map = flat(48, 48);
+        for y in 0..40 {
+            map.water[y * 48 + 24] = WATER_LAKE;
+        }
+        let nav = NavGrid::new(&map, params());
+        let off = |_: usize| 0.0;
+        let route = found(nav.route(&map.elevation, 10 * 48 + 8, 10 * 48 + 40, &off, 1_000_000));
+        let (pts, secs) = nav.straighten(&map.elevation, &route, &off);
+        assert!(pts.len() >= 3, "round the end of the lake: {pts:?}");
+        for w in pts.windows(2) {
+            assert!(
+                nav.segment_seconds(&map.elevation, w[0], w[1], &off)
+                    .is_some()
+            );
+        }
+        assert!(secs.last() <= route.seconds.last());
+
+        // An L-shaped trail: the corner is cut only if leaving the trail is not slower.
+        let map = flat(64, 64);
+        let nav = NavGrid::new(&map, params());
+        let on_l = |c: usize| {
+            let (x, y) = (c % 64, c / 64);
+            if (y == 5 && x <= 45) || (x == 45 && y >= 5) {
+                1.0
+            } else {
+                0.0
+            }
+        };
+        let route = found(nav.route(&map.elevation, 5 * 64 + 5, 45 * 64 + 45, &on_l, 1_000_000));
+        let (pts, secs) = nav.straighten(&map.elevation, &route, &on_l);
+        let total = *secs.last().expect("non-empty");
+        assert!(total <= *route.seconds.last().expect("non-empty") * 1.001);
+        assert!(
+            pts.iter()
+                .any(|&(x, y)| (x - 45.5 * 8.0).abs() < 9.0 && (y - 5.5 * 8.0).abs() < 9.0),
+            "keeps to the trail round its corner: {pts:?}"
+        );
     }
 
     #[test]

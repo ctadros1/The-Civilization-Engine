@@ -255,6 +255,12 @@ export class HostClient {
     return { rev: body.rev, buildings: body.buildings };
   }
 
+  async paths(): Promise<M.PathsInfo> {
+    const body = await this.query(M.getPaths());
+    if (body.kind !== "paths") throw new HostError("internal", "expected paths");
+    return body.paths;
+  }
+
   /** Every field, with the revision it is at. */
   async fields(): Promise<{ rev: number; fields: M.FieldInfo[] }> {
     const body = await this.query(M.getFields());

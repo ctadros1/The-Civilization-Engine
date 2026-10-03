@@ -489,6 +489,50 @@ fn households_raise_their_huts_and_are_under_a_roof_before_winter() {
 }
 
 #[test]
+fn walking_wears_trails_out_from_the_village() {
+    let (sim, _) = until_winter();
+    let land = sim.land();
+    let wear = &land.wear;
+    let hearth = land.settlements.first().expect("a settlement").hearth_m;
+    let trails = wear.trails();
+    let metres: f32 = trails.iter().map(|t| t.length_m()).sum();
+    assert!(
+        metres > 500.0,
+        "{} trails, {metres:.0} m, worn in by the first winter",
+        trails.len()
+    );
+    let from_village = trails.iter().any(|t| {
+        t.points
+            .iter()
+            .any(|&(x, y)| ((x - hearth.0).powi(2) + (y - hearth.1).powi(2)).sqrt() < 60.0)
+    });
+    assert!(from_village, "trails start at the village");
+    assert!(
+        wear.max_factor() > 0.5,
+        "the busiest ground is well worn: {}",
+        wear.max_factor()
+    );
+    assert!(wear.problems().is_empty(), "{:?}", wear.problems());
+    let noted: Vec<_> = sim
+        .people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == ChronicleKind::FirstTrail)
+        .collect();
+    assert_eq!(noted.len(), 1, "the first trail is noted once");
+    assert!(noted[0].number >= f64::from(population::FIRST_TRAIL_M));
+    let text: String = civ_agents::history::render(noted[0], &|_| String::new())
+        .into_iter()
+        .map(|s| match s {
+            civ_agents::history::Span::Text(t)
+            | civ_agents::history::Span::Person(_, t)
+            | civ_agents::history::Span::Settlement(_, t) => t,
+        })
+        .collect();
+    assert!(text.starts_with("The first trail out of "), "{text}");
+}
+
+#[test]
 fn children_are_born_to_couples_and_the_chronicle_notes_every_birth_and_death() {
     let (sim, _) = until_winter();
     let pop = sim.people();

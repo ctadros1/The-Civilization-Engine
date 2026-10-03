@@ -156,9 +156,9 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 10 land, field, plot, building and
-    // people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 10);
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 11 land, field, plot, building,
+    // wear and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 11);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -445,6 +445,89 @@ fn slice_d_saves_load_with_their_couples_and_no_one_expecting() {
 }
 
 #[test]
+fn slice_e_saves_load_with_untrodden_ground() {
+    // A schema-6 save has no wear section: nobody had worn the ground yet.
+    let sim = load_first();
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_WEAR)
+        .collect();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V6;
+    let path = republish("slice-e", &info, &sections);
+    let mut migrated = persist::load(&path, content()).expect("a schema-6 save loads");
+    assert!(migrated.land().wear.tiles().is_empty());
+    assert!(migrated.land().wear.trails().is_empty());
+    migrated
+        .advance_minutes(24 * 60)
+        .expect("a migrated world runs");
+    assert!(
+        !migrated.land().wear.tiles().is_empty(),
+        "and its people wear the ground again"
+    );
+}
+
+#[test]
+fn a_save_without_its_wear_section_is_refused() {
+    let sim = load_first();
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_WEAR)
+        .collect();
+    let path = republish("no-wear", &fixture().first_info, &sections);
+    assert!(persist::load(&path, content()).is_err());
+}
+
+#[test]
+fn worn_ground_and_its_trails_survive_a_save_and_load() {
+    let mut sim = Sim::create(
+        &NewWorld {
+            name: "Trodden".to_owned(),
+            seed: 5,
+            preset_id: PRESET.to_owned(),
+            size_cells: SIDE,
+            band_size: 0,
+        },
+        content(),
+        &mut |_| {},
+        &AtomicBool::new(false),
+    )
+    .expect("generates");
+    // Past two monthly surveys.
+    sim.advance_minutes(70 * 24 * 60).expect("advances");
+    let dir = scratch_dir("trodden");
+    let saved = persist::save(&mut sim, &dir, SaveKind::Manual, "trodden").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    let day = sim.now().day_index();
+    let params = &sim.rules().land.paths;
+    let before = sim.land().wear.current(day, params);
+    let after = loaded.land().wear.current(day, params);
+    assert!(!before.is_empty(), "the band wore the ground");
+    assert_eq!(before.len(), after.len());
+    for (a, b) in before.iter().zip(&after) {
+        assert_eq!(a.index, b.index);
+        assert_eq!(a.trail, b.trail, "trail states are kept as saved");
+        let worst = a
+            .wear
+            .iter()
+            .zip(&b.wear)
+            .map(|(x, y)| (x - y).abs())
+            .fold(0.0f32, f32::max);
+        assert!(worst <= 1.0 / 65535.0, "wear kept to 16 bits: {worst}");
+    }
+    let trail_cells: u32 = after
+        .iter()
+        .map(|t| t.trail.iter().map(|w| w.count_ones()).sum::<u32>())
+        .sum();
+    assert!(trail_cells > 0, "trails were worn in 70 days");
+    assert!(
+        !loaded.land().wear.trails().is_empty(),
+        "and are traced again on load"
+    );
+    assert!(loaded.land().wear.max_factor() > 0.0, "routes see them");
+}
+
+#[test]
 fn a_save_without_its_builds_section_is_refused() {
     let sim = load_first();
     let sections: Vec<SectionData> = persist::encode_sections(&sim)
@@ -692,6 +775,33 @@ fn snapshot_tables_decode() {
     );
     assert_eq!(clock.minute_of_hour(), 7);
     assert_eq!(clock.season(), Some("spring"));
+}
+
+#[test]
+fn the_worn_ground_and_trails_are_described_as_surveyed() {
+    let sim = load_first();
+    let payload = frames::paths::paths_response(&sim);
+    let response = flatbuffers::root::<wire::Response>(&payload).expect("a response");
+    let paths = response.body_as_paths().expect("paths");
+    assert_eq!(paths.rev(), frames::paths::paths_rev(&sim));
+    assert_ne!(paths.rev(), 0, "a loaded world has been surveyed");
+    assert_eq!(paths.tiles_x(), SIDE.div_ceil(64));
+    assert_eq!(paths.tile_cells(), 64);
+    let worn = paths.worn().expect("worn tiles");
+    let wear = &sim.land().wear;
+    assert_eq!(worn.len(), wear.tiles().len());
+    assert!(!worn.is_empty(), "three days of walking wore the ground");
+    for (tile, (index, cells, trail)) in worn.iter().zip(wear.surveyed_tiles()) {
+        assert_eq!(tile.index(), index);
+        assert_eq!(tile.wear().expect("wear").bytes(), cells);
+        assert_eq!(tile.trail().expect("trail").len(), trail.len());
+    }
+    let trails = paths.trails().expect("trails");
+    assert_eq!(trails.len(), wear.trails().len());
+    for (info, t) in trails.iter().zip(wear.trails()) {
+        assert_eq!(info.points().expect("points").len(), t.points.len());
+        assert!(info.length_m() > 0.0 && (0.0..=1.0).contains(&info.wear()));
+    }
 }
 
 #[test]

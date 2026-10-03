@@ -403,13 +403,16 @@ impl Sim {
         ids: IdAllocator,
         content: ContentStamp,
         rules: Arc<Rules>,
-        land: Land,
+        mut land: Land,
         mut people: Population,
     ) -> Sim {
         // Subscriptions are code, not state (civ-core scheduler docs).
         for cadence in [Cadence::Day, Cadence::Month, Cadence::Year] {
             scheduler.subscribe(cadence);
         }
+        // The routing view and the trails are derived from the worn ground.
+        land.wear
+            .survey(scheduler.now().day_index(), &rules.land.paths);
         let stats = map.stats();
         let nav = Arc::new(NavGrid::new(&map, rules.people.nav));
         people.rebuild_indexes();
@@ -606,7 +609,12 @@ impl Sim {
                             let _ = followups.schedule(t, PHASE_AGENT, SimEvent::Agent(e));
                         }
                     }
-                    Cadence::Month => advance.months += 1,
+                    Cadence::Month => {
+                        advance.months += 1;
+                        // People plan their routes on the paths as they stand this month.
+                        land.wear.survey(at.day_index(), &rules.land.paths);
+                        people.note_trails(land, at);
+                    }
                     Cadence::Year => advance.years += 1,
                     _ => {}
                 },

@@ -1,6 +1,6 @@
 //! Land profiles (`kind = "land"`): habitat rules and wild resources (ADR-0004).
 
-use civ_land::{Growth, HabitatRule, LandParams, ResourceParams};
+use civ_land::{Growth, HabitatRule, LandParams, PathParams, ResourceParams};
 use serde::Deserialize;
 
 /// The `kind` value of a land profile.
@@ -21,8 +21,19 @@ pub(crate) struct LandFile {
     pub richness_feature_m: f64,
     pub climate_cv: f64,
     pub climate_autocorrelation: f64,
+    pub paths: Paths,
     pub habitat: Vec<Habitat>,
     pub resource: Vec<Resource>,
+}
+
+/// How walking wears the ground (research 10-03 §1.1, §2.2).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Paths {
+    pub wear_per_walk: f64,
+    pub wear_half_life_days: f64,
+    pub trail_at: f64,
+    pub trail_until: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -133,6 +144,12 @@ impl LandFile {
             resources,
             climate_cv: self.climate_cv,
             climate_autocorrelation: self.climate_autocorrelation,
+            paths: PathParams {
+                wear_per_walk: self.paths.wear_per_walk,
+                half_life_days: self.paths.wear_half_life_days,
+                trail_at: self.paths.trail_at,
+                trail_until: self.paths.trail_until,
+            },
         })
     }
 
@@ -159,6 +176,18 @@ impl LandFile {
         }
         if !(-0.99..=0.99).contains(&self.climate_autocorrelation) {
             p.push("`climate_autocorrelation` must be between -0.99 and 0.99".to_owned());
+        }
+        let w = &self.paths;
+        if !(w.wear_per_walk > 0.0 && w.wear_per_walk < 1.0) {
+            p.push("`paths.wear_per_walk` must be above 0 and below 1".to_owned());
+        }
+        if !(w.wear_half_life_days.is_finite() && w.wear_half_life_days >= 1.0) {
+            p.push("`paths.wear_half_life_days` must be at least 1".to_owned());
+        }
+        if !(w.trail_until > 0.0 && w.trail_until <= w.trail_at && w.trail_at < 1.0) {
+            p.push(
+                "trails must satisfy 0 < `paths.trail_until` <= `paths.trail_at` < 1".to_owned(),
+            );
         }
         if self.habitat.is_empty() || self.habitat.len() > 32 {
             p.push("a land profile needs 1 to 32 habitats".to_owned());

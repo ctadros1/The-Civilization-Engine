@@ -19,6 +19,7 @@ import {
 } from "./format.js";
 import { BUILDING_LEGEND } from "./buildings.js";
 import { FIELD_LEGEND } from "./fields.js";
+import { PATH_LEGEND } from "./paths.js";
 import { HostError } from "./net/client.js";
 import type {
   ChronicleEntry,
@@ -851,6 +852,13 @@ export function bindUi(store: Store, actions: Actions): void {
       hutLegend.append(el("li", {}, swatch, h.label));
     }
     nodes.push(el("p", { className: "legend-title", text: "Huts" }), hutLegend);
+    const pathLegend = el("ul", { className: "legend paths" });
+    for (const p of PATH_LEGEND) {
+      const swatch = el("span", { className: "swatch square" });
+      swatch.style.background = cssColour(p.fill);
+      pathLegend.append(el("li", {}, swatch, p.label));
+    }
+    nodes.push(el("p", { className: "legend-title", text: "Paths" }), pathLegend);
     peopleBody.replaceChildren(...nodes);
   };
 

@@ -10,11 +10,12 @@ use std::collections::{BTreeMap, HashMap};
 use civ_core::time::MINUTES_PER_DAY;
 use civ_core::{GenTable, Handle, IdAllocator, PermanentId, Rng64, SimTime};
 use civ_grammar::{BuildingSpec, Stage, StageNeeds};
+use civ_land::paths::cells_along;
 use civ_land::{
     Building, CropParams, Field, FieldStage, FieldTask, Land, LandParams, Plot, PlotUse,
 };
 use civ_world::nav::{NavGrid, RouteResult, TravelField};
-use civ_world::{WATER_LAKE, WATER_RIVER, WorldMap};
+use civ_world::{WATER_LAKE, WATER_LAND, WATER_RIVER, WorldMap};
 
 use crate::build::{self, HomeWork};
 use crate::decide::{
@@ -39,10 +40,8 @@ pub use life::{depleted, extra_kcal_day};
 pub const PURPOSE_DECIDE: u64 = 0x6465_6369_6465_3031; // "decide01"
 /// Most cells one route search may expand.
 const ROUTE_BUDGET: usize = 600_000;
-/// Route simplification tolerance, metres (ADR-0003: about 4 m).
-const TRIP_TOLERANCE_M: f32 = 4.0;
-/// Days a settlement's travel-time field is reused before it is recomputed. Walking costs do not
-/// change until trails wear in, so this only bounds how stale a field can get.
+/// Days a settlement's travel-time field is reused before it is recomputed. It is walked out again
+/// sooner when the paths are surveyed, since walking costs change then.
 const FIELD_REFRESH_DAYS: i64 = 30;
 /// Minutes a person waits before deciding again when a walk cannot be routed.
 const WAIT_AFTER_FAILURE_MIN: u32 = 10;
@@ -51,8 +50,13 @@ const ROUTE_CACHE_MAX: usize = 50_000;
 /// Farthest a household moves its home from where it stands to find clear ground to build on,
 /// metres (a tuning value).
 const HOME_SHIFT_M: f64 = 30.0;
+/// A settlement's first trail, for the chronicle: at least this long, metres...
+pub const FIRST_TRAIL_M: f32 = 150.0;
+/// ...and passing within this of the settlement's hearth, metres.
+pub const FIRST_TRAIL_NEAR_M: f32 = 80.0;
 
-/// A route at standard walking speed: vertices (cell centres) and seconds to each.
+/// A route at standard walking speed, pulled straight across open ground: vertices (cell centres)
+/// and seconds to each.
 type CachedRoute = std::sync::Arc<(Vec<(f32, f32)>, Vec<f32>)>;
 
 /// Something a person scheduled.
@@ -119,6 +123,8 @@ struct Places {
 struct HomeField {
     cell: usize,
     day: i64,
+    /// The paths survey it was walked out on ([`civ_land::Wear::rev`]).
+    rev: u32,
     water: Option<(u32, f32)>,
     /// Per kind of place (the index in `Population::places`), blocks by walking time to their
     /// cell, seconds.
@@ -155,9 +161,11 @@ pub struct Population {
     homes: HashMap<PermanentId, HomeField>,
     /// The kinds of place gathering trips go to.
     places: Vec<Places>,
-    /// Routes by (from cell, to cell); `None` when there is none. Derived: walking costs do not
-    /// change while routes are kept (trail wear will empty it when it arrives).
+    /// Routes by (from cell, to cell); `None` when there is none. Derived: kept until the paths
+    /// are next surveyed, when walking costs change.
     routes: HashMap<(u32, u32), Option<CachedRoute>>,
+    /// The paths survey the routes were planned on ([`civ_land::Wear::rev`]).
+    routes_rev: u32,
     /// Per activity, what a trip is expected to bring from each patch today.
     priors: Vec<Prior>,
     /// Per household, the new ground it would mark out for a field, as found on a day.
@@ -188,6 +196,18 @@ struct HomePlan {
     work: HomeWork,
     def: usize,
     deadline: i64,
+}
+
+/// Distance from `p` to the segment `a`–`b`, metres.
+fn segment_distance(p: (f32, f32), a: (f32, f32), b: (f32, f32)) -> f32 {
+    let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+    let len2 = dx * dx + dy * dy;
+    let t = if len2 > 0.0 {
+        (((p.0 - a.0) * dx + (p.1 - a.1) * dy) / len2).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    ((p.0 - a.0 - t * dx).powi(2) + (p.1 - a.1 - t * dy).powi(2)).sqrt()
 }
 
 /// The terrain cell under a point.
@@ -649,17 +669,20 @@ impl Population {
     fn home_field(&mut self, ctx: &Ctx, key: PermanentId, origin: (f32, f32)) {
         let cell = cell_of(ctx.map, origin);
         let day = ctx.now.day_index();
+        let rev = ctx.land.wear.rev();
         if let Some(f) = self.homes.get(&key)
             && f.cell == cell
+            && f.rev == rev
             && day - f.day < FIELD_REFRESH_DAYS
         {
             return;
         }
         self.ensure_places(ctx);
         let reach = Self::field_reach_seconds(ctx.catalog);
+        let wear = &ctx.land.wear;
         let field = ctx
             .nav
-            .travel_field(&ctx.map.elevation, cell, reach, &|_| 0.0);
+            .travel_field(&ctx.map.elevation, cell, reach, &|c| wear.factor(c));
         let water = nearest_water(ctx.map, &field);
         let places = self
             .places
@@ -683,6 +706,7 @@ impl Population {
             HomeField {
                 cell,
                 day,
+                rev,
                 water,
                 places,
                 reach: field,
@@ -1391,9 +1415,16 @@ impl Population {
         let from_cell = cell_of(ctx.map, p.pos);
         let to_cell = cell_of(ctx.map, to);
         let speed = interpolate(&params.walk_speed_by_age, p.age_years(now)).max(0.05);
+        let wear = &ctx.land.wear;
+        if wear.rev() != self.routes_rev {
+            self.routes.clear();
+            self.routes_rev = wear.rev();
+        }
         let (points, minutes): (Vec<(f32, f32)>, Vec<f32>) = if from_cell == to_cell {
             let d = ((to.0 - p.pos.0).powi(2) + (to.1 - p.pos.1).powi(2)).sqrt();
-            let v = params.nav.tobler_ms(0.0) * params.nav.offtrail_factor * speed;
+            let surface = params.nav.offtrail_factor
+                + (1.0 - params.nav.offtrail_factor) * f64::from(wear.factor(from_cell));
+            let v = params.nav.tobler_ms(0.0) * surface * speed;
             let m = (f64::from(d) / v / 60.0) as f32;
             (vec![p.pos, to], vec![0.0, m])
         } else {
@@ -1401,19 +1432,22 @@ impl Population {
             let cached = match self.routes.get(&key) {
                 Some(known) => known.clone(),
                 None => {
-                    // No trails yet: walking is off-trail everywhere.
+                    // Planned on the paths as last surveyed; with no worn ground the search can
+                    // assume off-trail walking everywhere and stays tight.
                     let routed = ctx.nav.route_bounded(
                         &ctx.map.elevation,
                         from_cell,
                         to_cell,
-                        &|_| 0.0,
-                        0.0,
+                        &|c| wear.factor(c),
+                        wear.max_factor(),
                         ROUTE_BUDGET,
                     );
                     let found = match routed {
-                        RouteResult::Found(route) => Some(std::sync::Arc::new(
-                            ctx.nav.polyline(&route, TRIP_TOLERANCE_M),
-                        )),
+                        RouteResult::Found(route) => Some(std::sync::Arc::new(ctx.nav.straighten(
+                            &ctx.map.elevation,
+                            &route,
+                            &|c| wear.factor(c),
+                        ))),
                         RouteResult::Unreachable | RouteResult::BudgetExhausted => None,
                     };
                     if self.routes.len() >= ROUTE_CACHE_MAX {
@@ -1546,7 +1580,15 @@ impl Population {
         match step {
             Some(Step::Walk { to }) => {
                 p.pos = to;
-                p.trip = None;
+                if let Some(trip) = p.trip.take() {
+                    let map = ctx.map;
+                    let mut cells =
+                        cells_along(&trip.points, map.cell_size_m, map.width, map.height);
+                    cells.retain(|&c| map.water[c as usize] == WATER_LAND);
+                    ctx.land
+                        .wear
+                        .walk(&cells, now.day_index(), &ctx.land_params.paths);
+                }
             }
             Some(Step::Work { minutes }) => match def.as_ref().map(|d| d.behavior) {
                 Some(Behavior::Sleep) => p.asleep = false,
@@ -1905,6 +1947,44 @@ impl Population {
                 0.0,
                 name,
             );
+        }
+    }
+
+    /// After the paths were surveyed: notes in the chronicle each settlement whose first trail out
+    /// has been worn in, a trail at least [`FIRST_TRAIL_M`] long that passes within
+    /// [`FIRST_TRAIL_NEAR_M`] of its hearth.
+    pub fn note_trails(&mut self, land: &Land, now: SimTime) {
+        for s in &land.settlements {
+            let noted = self
+                .chronicle
+                .iter()
+                .any(|e| e.kind == ChronicleKind::FirstTrail && e.settlement == Some(s.id));
+            if noted {
+                continue;
+            }
+            let best = land
+                .wear
+                .trails()
+                .iter()
+                .filter(|t| {
+                    t.length_m() >= FIRST_TRAIL_M
+                        && t.points
+                            .windows(2)
+                            .any(|w| segment_distance(s.hearth_m, w[0], w[1]) <= FIRST_TRAIL_NEAR_M)
+                })
+                .max_by(|a, b| a.length_m().total_cmp(&b.length_m()));
+            if let Some(t) = best {
+                let middle = t.points[t.points.len() / 2];
+                self.chronicle_push(
+                    now,
+                    ChronicleKind::FirstTrail,
+                    Vec::new(),
+                    Some(s.id),
+                    Some(middle),
+                    f64::from(t.length_m()),
+                    s.name.clone(),
+                );
+            }
         }
     }
 

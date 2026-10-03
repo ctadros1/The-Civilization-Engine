@@ -18,6 +18,18 @@ richness_feature_m = 1500.0
 climate_cv = 0.25                # research 08-01 §2.3: crop CV 0.25-0.35
 climate_autocorrelation = 0.3    # 0.2-0.4
 
+# Walking wears the ground of each 8 m cell it crosses; unused wear fades as plants grow back
+# (research 10-03 §1.1: dw/dt = aq(1 - w) - bw). Starting values from the research's sensitivity
+# ranges (10-03 §2.2), which it marks as uncalibrated: a walk wears 0.002-0.02 of what is left, and
+# unused wear halves in 30-365 days. A cell walked about every four days settles at trail wear.
+[paths]
+wear_per_walk = 0.01
+wear_half_life_days = 120.0
+# A cell becomes trail at this wear and stays trail until it fades below the lower figure, so a
+# trail outlives a season out of use (tuning values).
+trail_at = 0.3
+trail_until = 0.15
+
 # Habitats, first match wins (research 03-06 §5.1, 10-01 §5.5).
 [[habitat]]
 id = "water"

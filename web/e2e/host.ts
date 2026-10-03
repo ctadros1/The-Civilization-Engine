@@ -1,6 +1,6 @@
 // Starts and stops civ-host for end-to-end tests.
 
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -24,6 +24,18 @@ export function hostBinary(): string {
 
 export function tempSaves(): string {
   return mkdtempSync(path.join(tmpdir(), "tce-e2e-saves-"));
+}
+
+/** Makes a world with `civ-host new` in `saves` (for example lived some days), and waits. */
+export function makeWorld(saves: string, args: string[]): void {
+  const done = spawnSync(hostBinary(), ["new", "--saves", saves, ...args], {
+    cwd: repo,
+    encoding: "utf8",
+    timeout: 120_000,
+  });
+  if (done.status !== 0) {
+    throw new Error(`civ-host new failed (${done.status}):\n${done.stdout}\n${done.stderr}`);
+  }
 }
 
 export interface Host {

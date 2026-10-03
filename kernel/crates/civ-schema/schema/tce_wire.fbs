@@ -213,6 +213,9 @@ table Snapshot {
   // M1 slice D: changes whenever ground is claimed for a building or a building's work moves on
   // (0 = none). Fetch them with GetBuildings when it differs from the revision last fetched.
   buildings_rev: ulong (id: 10);
+  // M1 slice F: changes whenever the paths are surveyed, monthly and on load (0 = never). Fetch
+  // the worn ground and trails with GetPaths when it differs from the revision last fetched.
+  paths_rev: ulong (id: 11);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -311,7 +314,10 @@ table GetFields {}
 // Every building, with its state and what its grammar expands it to (M1 slice D).
 table GetBuildings {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings }
+// The worn ground and the trails, as last surveyed (M1 slice F).
+table GetPaths {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths }
 
 table Query {
   body: QueryBody (id: 1);
@@ -599,7 +605,36 @@ table Buildings {
   buildings: [BuildingInfo] (id: 1);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings }
+// Ground worn by walking in one tile of cells (M1 slice F), as last surveyed.
+table WornTile {
+  // Tile row × tiles per row + tile column.
+  index: uint (id: 0);
+  // Wear of each cell, row by row, 0-255 for 0-1.
+  wear: [ubyte] (id: 1);
+  // Whether each cell is trail, one bit per cell, row by row (bit k of word k / 64).
+  trail: [ulong] (id: 2);
+}
+
+// A trail traced through trail cells, from end to end or junction to junction.
+table TrailInfo {
+  // Vertices, metres.
+  points: [Vec2] (id: 0);
+  // Mean wear of the cells it runs through, 0-1.
+  wear: float (id: 1);
+  length_m: float (id: 2);
+}
+
+table Paths {
+  // The snapshot revision these paths are at.
+  rev: ulong (id: 0);
+  // Tiles per row, and cells per tile side.
+  tiles_x: uint (id: 1);
+  tile_cells: uint (id: 2);
+  worn: [WornTile] (id: 3);
+  trails: [TrailInfo] (id: 4);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths }
 
 table Response {
   body: ResponseBody (id: 1);

@@ -303,6 +303,9 @@ pub enum ChronicleKind {
     /// A household gave up and left the valley: `people` is its members, eldest first, and
     /// `number` how many they were.
     Left,
+    /// The first trail out of a settlement was worn in: `number` is its length, metres, and
+    /// `place` its middle.
+    FirstTrail,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -517,6 +520,14 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             Span::Text("The first hut at ".to_owned()),
             settlement(event),
             Span::Text(" was roofed.".to_owned()),
+        ],
+        ChronicleKind::FirstTrail => vec![
+            Span::Text("The first trail out of ".to_owned()),
+            settlement(event),
+            Span::Text(format!(
+                " was worn in, {} m long.",
+                thousands(event.number.round().max(0.0) as u64)
+            )),
         ],
     }
 }

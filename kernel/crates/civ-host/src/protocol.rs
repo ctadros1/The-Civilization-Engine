@@ -76,6 +76,8 @@ pub enum Request {
     GetFields,
     /// Read every building.
     GetBuildings,
+    /// Read the worn ground and the trails.
+    GetPaths,
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -284,6 +286,7 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                 }
                 wire::QueryBody::GetFields => Ok(Request::GetFields),
                 wire::QueryBody::GetBuildings => Ok(Request::GetBuildings),
+                wire::QueryBody::GetPaths => Ok(Request::GetPaths),
                 other => Err(format!("unknown query {}", other.0)),
             }
         }
@@ -453,6 +456,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
     let buildings_rev = parts
         .sim
         .map_or(0, civ_sim::frames::buildings::buildings_rev);
+    let paths_rev = parts.sim.map_or(0, civ_sim::frames::paths::paths_rev);
     let task = parts.task.map(|t| {
         let name = fbb.create_string(&t.name);
         let stage = fbb.create_string(&t.stage);
@@ -497,6 +501,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
             chronicle_head,
             fields_rev,
             buildings_rev,
+            paths_rev,
         },
     );
     finish(fbb, root)

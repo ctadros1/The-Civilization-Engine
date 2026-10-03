@@ -117,15 +117,19 @@ pub fn new_world(
             .count();
         let died = records.values().filter(|r| r.died.is_some()).count();
         let left = records.values().filter(|r| r.left.is_some()).count();
+        let trails = sim.land().wear.trails();
+        let trail_km: f32 = trails.iter().map(|t| t.length_m()).sum::<f32>() / 1000.0;
         println!(
             "lived {} days in {:.1} s: {} people ({born} born, {died} died, {left} left), {} \
-             fields ({ha:.2} ha), {} huts ({} roofed), {} chronicle entries",
+             fields ({ha:.2} ha), {} huts ({} roofed), {} trails ({trail_km:.1} km), {} \
+             chronicle entries",
             options.days,
             lived.elapsed().as_secs_f64(),
             sim.people().living(),
             fields.len(),
             huts.len(),
             huts.iter().filter(|b| b.roofed()).count(),
+            trails.len(),
             sim.people().chronicle.len()
         );
     }

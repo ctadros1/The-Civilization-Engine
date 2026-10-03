@@ -53,7 +53,8 @@ use civ_core::scheduler::PendingEvent;
 use civ_core::{PermanentId, SimTime};
 use civ_grammar::{BuildingSpec, Footprint};
 use civ_land::{
-    Building, ClimateYear, Field, FieldStage, Land, Patches, Plot, PlotUse, RectCm, Settlement,
+    Building, ClimateYear, Field, FieldStage, Land, Patches, PathParams, Plot, PlotUse, RectCm,
+    Settlement, Wear, WearTile,
 };
 use civ_schema::SAVE_SCHEMA_VERSION;
 use civ_schema::flatbuffers::{self, FlatBufferBuilder, WIPOffset};
@@ -62,8 +63,8 @@ use civ_world::WorldMap;
 use commons_persist::{SectionData, SectionTag, SnapshotReader};
 
 use super::{
-    LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, finish, section, single_chunk,
-    unreadable,
+    LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -87,6 +88,8 @@ pub const SECTION_FIELDS: SectionTag = SectionTag::new("fields");
 pub const SECTION_PLOTS: SectionTag = SectionTag::new("plots");
 /// Section: buildings (schema 5).
 pub const SECTION_BUILDS: SectionTag = SectionTag::new("builds");
+/// Section (schema 7): ground worn by walking.
+pub const SECTION_WEAR: SectionTag = SectionTag::new("wear");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -125,6 +128,11 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         section(SECTION_FIELDS, 0, encode_fields(&sim.land.fields, rules)),
         section(SECTION_PLOTS, 0, encode_plots(&sim.land.plots)),
         section(SECTION_BUILDS, 0, encode_buildings(&sim.land.buildings)),
+        section(
+            SECTION_WEAR,
+            0,
+            encode_wear(&sim.land.wear, sim.now().day_index(), &rules.land.paths),
+        ),
     ]
 }
 
@@ -150,6 +158,8 @@ enum Schema {
     V5,
     /// Partners, pregnancies and unions.
     V6,
+    /// Worn ground.
+    V7,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -169,7 +179,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V3 => Schema::V3,
         SCHEMA_V4 => Schema::V4,
         SCHEMA_V5 => Schema::V5,
-        SAVE_SCHEMA_VERSION => Schema::V6,
+        SCHEMA_V6 => Schema::V6,
+        SAVE_SCHEMA_VERSION => Schema::V7,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -214,9 +225,15 @@ pub(super) fn decode<R: Read + Seek>(
         let bytes = single_chunk(reader, SECTION_BUILDS)?;
         land.buildings = decode_buildings(&bytes)?;
     }
+    // Before schema 7 nobody had worn the ground: it starts untrodden.
+    if schema >= Schema::V7 {
+        let bytes = single_chunk(reader, SECTION_WEAR)?;
+        land.wear = decode_wear(&bytes, map, now.day_index())?;
+    }
     people.derive_shelter(&land);
 
     let mut problems = land.problems(map, rules.land.habitats.len(), next_id);
+    problems.extend(land.wear.problems());
     problems.extend(people.problems(next_id, rules.catalog.activities.len()));
     let settlements: Vec<PermanentId> = land.settlements.iter().map(|s| s.id).collect();
     for (_, h) in people.households.iter() {
@@ -467,6 +484,8 @@ fn decode_land(bytes: &[u8], rules: &Rules, map: &WorldMap) -> Result<Land, Load
         fields: Vec::new(),
         plots: Vec::new(),
         buildings: Vec::new(),
+        // Read from its own section (schema 7 on).
+        wear: Wear::new(map.width, map.height, map.cell_size_m),
     };
     // A grid of the wrong size is reported by `Land::problems`; only fill stocks on a sound one.
     if land.patches.class.len() == n
@@ -841,7 +860,7 @@ fn carried(
             Some((g, kg)) if kg > 0.0 => (Some(g), kg as f32),
             _ => (None, 0.0),
         },
-        Schema::V3 | Schema::V4 | Schema::V5 | Schema::V6 => match p.carry_good() {
+        Schema::V3 | Schema::V4 | Schema::V5 | Schema::V6 | Schema::V7 => match p.carry_good() {
             -1 => (None, 0.0),
             i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
                 // A good the content no longer has is dropped.
@@ -944,7 +963,7 @@ fn decode_households(
                 }
                 (now, Vec::new())
             }
-            Schema::V3 | Schema::V4 | Schema::V5 | Schema::V6 => {
+            Schema::V3 | Schema::V4 | Schema::V5 | Schema::V6 | Schema::V7 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -1016,6 +1035,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Paired => 10,
         ChronicleKind::TakenIn => 11,
         ChronicleKind::Left => 12,
+        ChronicleKind::FirstTrail => 13,
     }
 }
 
@@ -1033,6 +1053,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         10 => Some(ChronicleKind::Paired),
         11 => Some(ChronicleKind::TakenIn),
         12 => Some(ChronicleKind::Left),
+        13 => Some(ChronicleKind::FirstTrail),
         _ => None,
     }
 }
@@ -1677,6 +1698,55 @@ fn decode_buildings(bytes: &[u8]) -> Result<Vec<Building>, LoadError> {
 }
 
 // ---- events ------------------------------------------------------------------------------------
+
+fn encode_wear(wear: &Wear, day: i64, params: &PathParams) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let tiles: Vec<_> = wear
+        .current(day, params)
+        .iter()
+        .map(|t| {
+            let quantized: Vec<u16> = t
+                .wear
+                .iter()
+                .map(|&w| (w.clamp(0.0, 1.0) * 65535.0).round() as u16)
+                .collect();
+            let wear = fbb.create_vector(&quantized);
+            let trail = fbb.create_vector(&t.trail);
+            save::WearTile::create(
+                &mut fbb,
+                &save::WearTileArgs {
+                    index: t.index,
+                    wear: Some(wear),
+                    trail: Some(trail),
+                },
+            )
+        })
+        .collect();
+    let tiles = fbb.create_vector(&tiles);
+    let root = save::Wear::create(&mut fbb, &save::WearArgs { tiles: Some(tiles) });
+    finish(fbb, root)
+}
+
+fn decode_wear(bytes: &[u8], map: &WorldMap, day: i64) -> Result<Wear, LoadError> {
+    let w = flatbuffers::root::<save::Wear>(bytes).map_err(|e| unreadable(SECTION_WEAR, &e))?;
+    let tiles = w
+        .tiles()
+        .map(|v| {
+            v.iter()
+                .map(|t| WearTile {
+                    index: t.index(),
+                    day,
+                    wear: t
+                        .wear()
+                        .map(|v| v.iter().map(|q| f32::from(q) / 65535.0).collect())
+                        .unwrap_or_default(),
+                    trail: t.trail().map(|v| v.iter().collect()).unwrap_or_default(),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(Wear::new(map.width, map.height, map.cell_size_m).with_tiles(tiles))
+}
 
 fn encode_events(sim: &Sim) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();

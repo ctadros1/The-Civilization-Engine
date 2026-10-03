@@ -496,6 +496,21 @@ table Builds {
   buildings: [Building] (id: 0);
 }
 
+// Section "wear" (schema 7): ground worn by walking (ADR-0004 §4), in 64 × 64-cell tiles where
+// people have walked, as it stood when saved. The routing view and the trails are derived.
+table WearTile {
+  // Tile row × tiles per row + tile column.
+  index: uint (id: 0);
+  // Wear of each cell, row by row, 0-65535 for 0-1.
+  wear: [ushort] (id: 1);
+  // Whether each cell is trail, one bit per cell, row by row (bit k of word k / 64).
+  trail: [ulong] (id: 2);
+}
+
+table Wear {
+  tiles: [WearTile] (id: 0);
+}
+
 // Section "events": the scheduler's pending events.
 enum EventKind : ubyte { AgentStep = 0 }
 

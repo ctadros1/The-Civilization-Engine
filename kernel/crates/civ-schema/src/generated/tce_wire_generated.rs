@@ -687,10 +687,10 @@ pub struct CommandBodyUnionTableOffset {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_QUERY_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_QUERY_BODY: u8 = 8;
+pub const ENUM_MAX_QUERY_BODY: u8 = 9;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 9] = [
+pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 10] = [
   QueryBody::NONE,
   QueryBody::GetRaster,
   QueryBody::GetHydrography,
@@ -700,6 +700,7 @@ pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 9] = [
   QueryBody::GetChronicle,
   QueryBody::GetFields,
   QueryBody::GetBuildings,
+  QueryBody::GetPaths,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -716,9 +717,10 @@ impl QueryBody {
   pub const GetChronicle: Self = Self(6);
   pub const GetFields: Self = Self(7);
   pub const GetBuildings: Self = Self(8);
+  pub const GetPaths: Self = Self(9);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 8;
+  pub const ENUM_MAX: u8 = 9;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::GetRaster,
@@ -729,6 +731,7 @@ impl QueryBody {
     Self::GetChronicle,
     Self::GetFields,
     Self::GetBuildings,
+    Self::GetPaths,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -742,6 +745,7 @@ impl QueryBody {
       Self::GetChronicle => Some("GetChronicle"),
       Self::GetFields => Some("GetFields"),
       Self::GetBuildings => Some("GetBuildings"),
+      Self::GetPaths => Some("GetPaths"),
       _ => None,
     }
   }
@@ -889,10 +893,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for SpanKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_RESPONSE_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_RESPONSE_BODY: u8 = 9;
+pub const ENUM_MAX_RESPONSE_BODY: u8 = 10;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 10] = [
+pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 11] = [
   ResponseBody::NONE,
   ResponseBody::Ack,
   ResponseBody::RasterTile,
@@ -903,6 +907,7 @@ pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 10] = [
   ResponseBody::Chronicle,
   ResponseBody::Fields,
   ResponseBody::Buildings,
+  ResponseBody::Paths,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -920,9 +925,10 @@ impl ResponseBody {
   pub const Chronicle: Self = Self(7);
   pub const Fields: Self = Self(8);
   pub const Buildings: Self = Self(9);
+  pub const Paths: Self = Self(10);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 9;
+  pub const ENUM_MAX: u8 = 10;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::Ack,
@@ -934,6 +940,7 @@ impl ResponseBody {
     Self::Chronicle,
     Self::Fields,
     Self::Buildings,
+    Self::Paths,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -948,6 +955,7 @@ impl ResponseBody {
       Self::Chronicle => Some("Chronicle"),
       Self::Fields => Some("Fields"),
       Self::Buildings => Some("Buildings"),
+      Self::Paths => Some("Paths"),
       _ => None,
     }
   }
@@ -4096,6 +4104,7 @@ impl<'a> Snapshot<'a> {
   pub const VT_CHRONICLE_HEAD: ::flatbuffers::VOffsetT = 20;
   pub const VT_FIELDS_REV: ::flatbuffers::VOffsetT = 22;
   pub const VT_BUILDINGS_REV: ::flatbuffers::VOffsetT = 24;
+  pub const VT_PATHS_REV: ::flatbuffers::VOffsetT = 26;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4107,6 +4116,7 @@ impl<'a> Snapshot<'a> {
     args: &'args SnapshotArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Snapshot<'bldr>> {
     let mut builder = SnapshotBuilder::new(_fbb);
+    builder.add_paths_rev(args.paths_rev);
     builder.add_buildings_rev(args.buildings_rev);
     builder.add_fields_rev(args.fields_rev);
     builder.add_chronicle_head(args.chronicle_head);
@@ -4199,6 +4209,13 @@ impl<'a> Snapshot<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(Snapshot::VT_BUILDINGS_REV, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn paths_rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Snapshot::VT_PATHS_REV, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Snapshot<'_> {
@@ -4218,6 +4235,7 @@ impl ::flatbuffers::Verifiable for Snapshot<'_> {
      .visit_field::<u64>("chronicle_head", Self::VT_CHRONICLE_HEAD, false)?
      .visit_field::<u64>("fields_rev", Self::VT_FIELDS_REV, false)?
      .visit_field::<u64>("buildings_rev", Self::VT_BUILDINGS_REV, false)?
+     .visit_field::<u64>("paths_rev", Self::VT_PATHS_REV, false)?
      .finish();
     Ok(())
   }
@@ -4234,6 +4252,7 @@ pub struct SnapshotArgs<'a> {
     pub chronicle_head: u64,
     pub fields_rev: u64,
     pub buildings_rev: u64,
+    pub paths_rev: u64,
 }
 impl<'a> Default for SnapshotArgs<'a> {
   #[inline]
@@ -4250,6 +4269,7 @@ impl<'a> Default for SnapshotArgs<'a> {
       chronicle_head: 0,
       fields_rev: 0,
       buildings_rev: 0,
+      paths_rev: 0,
     }
   }
 }
@@ -4304,6 +4324,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SnapshotBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(Snapshot::VT_BUILDINGS_REV, buildings_rev, 0);
   }
   #[inline]
+  pub fn add_paths_rev(&mut self, paths_rev: u64) {
+    self.fbb_.push_slot::<u64>(Snapshot::VT_PATHS_REV, paths_rev, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SnapshotBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SnapshotBuilder {
@@ -4332,6 +4356,7 @@ impl ::core::fmt::Debug for Snapshot<'_> {
       ds.field("chronicle_head", &self.chronicle_head());
       ds.field("fields_rev", &self.fields_rev());
       ds.field("buildings_rev", &self.buildings_rev());
+      ds.field("paths_rev", &self.paths_rev());
       ds.finish()
   }
 }
@@ -6330,6 +6355,84 @@ impl ::core::fmt::Debug for GetBuildings<'_> {
       ds.finish()
   }
 }
+pub enum GetPathsOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetPaths<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GetPaths<'a> {
+  type Inner = GetPaths<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GetPaths<'a> {
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GetPaths { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    _args: &'args GetPathsArgs
+  ) -> ::flatbuffers::WIPOffset<GetPaths<'bldr>> {
+    let mut builder = GetPathsBuilder::new(_fbb);
+    builder.finish()
+  }
+
+}
+
+impl ::flatbuffers::Verifiable for GetPaths<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetPathsArgs {
+}
+impl<'a> Default for GetPathsArgs {
+  #[inline]
+  fn default() -> Self {
+    GetPathsArgs {
+    }
+  }
+}
+
+pub struct GetPathsBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GetPathsBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GetPathsBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetPathsBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GetPaths<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GetPaths<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GetPaths");
+      ds.finish()
+  }
+}
 pub enum QueryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -6499,6 +6602,21 @@ impl<'a> Query<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_get_paths(&self) -> Option<GetPaths<'a>> {
+    if self.body_type() == QueryBody::GetPaths {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { GetPaths::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Query<'_> {
@@ -6517,6 +6635,7 @@ impl ::flatbuffers::Verifiable for Query<'_> {
           QueryBody::GetChronicle => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetChronicle>>("QueryBody::GetChronicle", pos),
           QueryBody::GetFields => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetFields>>("QueryBody::GetFields", pos),
           QueryBody::GetBuildings => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetBuildings>>("QueryBody::GetBuildings", pos),
+          QueryBody::GetPaths => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetPaths>>("QueryBody::GetPaths", pos),
           _ => Ok(()),
         }
      })?
@@ -6622,6 +6741,13 @@ impl ::core::fmt::Debug for Query<'_> {
         },
         QueryBody::GetBuildings => {
           if let Some(x) = self.body_as_get_buildings() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        QueryBody::GetPaths => {
+          if let Some(x) = self.body_as_get_paths() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -10714,6 +10840,430 @@ impl ::core::fmt::Debug for Buildings<'_> {
       ds.finish()
   }
 }
+pub enum WornTileOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WornTile<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WornTile<'a> {
+  type Inner = WornTile<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WornTile<'a> {
+  pub const VT_INDEX: ::flatbuffers::VOffsetT = 4;
+  pub const VT_WEAR: ::flatbuffers::VOffsetT = 6;
+  pub const VT_TRAIL: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WornTile { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WornTileArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<WornTile<'bldr>> {
+    let mut builder = WornTileBuilder::new(_fbb);
+    if let Some(x) = args.trail { builder.add_trail(x); }
+    if let Some(x) = args.wear { builder.add_wear(x); }
+    builder.add_index(args.index);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn index(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WornTile::VT_INDEX, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn wear(&self) -> Option<::flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u8>>>(WornTile::VT_WEAR, None)}
+  }
+  #[inline]
+  pub fn trail(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(WornTile::VT_TRAIL, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WornTile<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("index", Self::VT_INDEX, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u8>>>("wear", Self::VT_WEAR, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("trail", Self::VT_TRAIL, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WornTileArgs<'a> {
+    pub index: u32,
+    pub wear: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u8>>>,
+    pub trail: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+}
+impl<'a> Default for WornTileArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WornTileArgs {
+      index: 0,
+      wear: None,
+      trail: None,
+    }
+  }
+}
+
+pub struct WornTileBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WornTileBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_index(&mut self, index: u32) {
+    self.fbb_.push_slot::<u32>(WornTile::VT_INDEX, index, 0);
+  }
+  #[inline]
+  pub fn add_wear(&mut self, wear: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WornTile::VT_WEAR, wear);
+  }
+  #[inline]
+  pub fn add_trail(&mut self, trail: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WornTile::VT_TRAIL, trail);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WornTileBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WornTileBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WornTile<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WornTile<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WornTile");
+      ds.field("index", &self.index());
+      ds.field("wear", &self.wear());
+      ds.field("trail", &self.trail());
+      ds.finish()
+  }
+}
+pub enum TrailInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TrailInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for TrailInfo<'a> {
+  type Inner = TrailInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> TrailInfo<'a> {
+  pub const VT_POINTS: ::flatbuffers::VOffsetT = 4;
+  pub const VT_WEAR: ::flatbuffers::VOffsetT = 6;
+  pub const VT_LENGTH_M: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    TrailInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args TrailInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<TrailInfo<'bldr>> {
+    let mut builder = TrailInfoBuilder::new(_fbb);
+    builder.add_length_m(args.length_m);
+    builder.add_wear(args.wear);
+    if let Some(x) = args.points { builder.add_points(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn points(&self) -> Option<::flatbuffers::Vector<'a, Vec2>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, Vec2>>>(TrailInfo::VT_POINTS, None)}
+  }
+  #[inline]
+  pub fn wear(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TrailInfo::VT_WEAR, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn length_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TrailInfo::VT_LENGTH_M, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for TrailInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, Vec2>>>("points", Self::VT_POINTS, false)?
+     .visit_field::<f32>("wear", Self::VT_WEAR, false)?
+     .visit_field::<f32>("length_m", Self::VT_LENGTH_M, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TrailInfoArgs<'a> {
+    pub points: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, Vec2>>>,
+    pub wear: f32,
+    pub length_m: f32,
+}
+impl<'a> Default for TrailInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TrailInfoArgs {
+      points: None,
+      wear: 0.0,
+      length_m: 0.0,
+    }
+  }
+}
+
+pub struct TrailInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TrailInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_points(&mut self, points: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , Vec2>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TrailInfo::VT_POINTS, points);
+  }
+  #[inline]
+  pub fn add_wear(&mut self, wear: f32) {
+    self.fbb_.push_slot::<f32>(TrailInfo::VT_WEAR, wear, 0.0);
+  }
+  #[inline]
+  pub fn add_length_m(&mut self, length_m: f32) {
+    self.fbb_.push_slot::<f32>(TrailInfo::VT_LENGTH_M, length_m, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TrailInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    TrailInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<TrailInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for TrailInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("TrailInfo");
+      ds.field("points", &self.points());
+      ds.field("wear", &self.wear());
+      ds.field("length_m", &self.length_m());
+      ds.finish()
+  }
+}
+pub enum PathsOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Paths<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Paths<'a> {
+  type Inner = Paths<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Paths<'a> {
+  pub const VT_REV: ::flatbuffers::VOffsetT = 4;
+  pub const VT_TILES_X: ::flatbuffers::VOffsetT = 6;
+  pub const VT_TILE_CELLS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_WORN: ::flatbuffers::VOffsetT = 10;
+  pub const VT_TRAILS: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Paths { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args PathsArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Paths<'bldr>> {
+    let mut builder = PathsBuilder::new(_fbb);
+    builder.add_rev(args.rev);
+    if let Some(x) = args.trails { builder.add_trails(x); }
+    if let Some(x) = args.worn { builder.add_worn(x); }
+    builder.add_tile_cells(args.tile_cells);
+    builder.add_tiles_x(args.tiles_x);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Paths::VT_REV, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn tiles_x(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Paths::VT_TILES_X, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn tile_cells(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Paths::VT_TILE_CELLS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn worn(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WornTile<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WornTile>>>>(Paths::VT_WORN, None)}
+  }
+  #[inline]
+  pub fn trails(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TrailInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TrailInfo>>>>(Paths::VT_TRAILS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Paths<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("rev", Self::VT_REV, false)?
+     .visit_field::<u32>("tiles_x", Self::VT_TILES_X, false)?
+     .visit_field::<u32>("tile_cells", Self::VT_TILE_CELLS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WornTile>>>>("worn", Self::VT_WORN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TrailInfo>>>>("trails", Self::VT_TRAILS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct PathsArgs<'a> {
+    pub rev: u64,
+    pub tiles_x: u32,
+    pub tile_cells: u32,
+    pub worn: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WornTile<'a>>>>>,
+    pub trails: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TrailInfo<'a>>>>>,
+}
+impl<'a> Default for PathsArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    PathsArgs {
+      rev: 0,
+      tiles_x: 0,
+      tile_cells: 0,
+      worn: None,
+      trails: None,
+    }
+  }
+}
+
+pub struct PathsBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PathsBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_rev(&mut self, rev: u64) {
+    self.fbb_.push_slot::<u64>(Paths::VT_REV, rev, 0);
+  }
+  #[inline]
+  pub fn add_tiles_x(&mut self, tiles_x: u32) {
+    self.fbb_.push_slot::<u32>(Paths::VT_TILES_X, tiles_x, 0);
+  }
+  #[inline]
+  pub fn add_tile_cells(&mut self, tile_cells: u32) {
+    self.fbb_.push_slot::<u32>(Paths::VT_TILE_CELLS, tile_cells, 0);
+  }
+  #[inline]
+  pub fn add_worn(&mut self, worn: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WornTile<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Paths::VT_WORN, worn);
+  }
+  #[inline]
+  pub fn add_trails(&mut self, trails: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<TrailInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Paths::VT_TRAILS, trails);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PathsBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    PathsBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Paths<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Paths<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Paths");
+      ds.field("rev", &self.rev());
+      ds.field("tiles_x", &self.tiles_x());
+      ds.field("tile_cells", &self.tile_cells());
+      ds.field("worn", &self.worn());
+      ds.field("trails", &self.trails());
+      ds.finish()
+  }
+}
 pub enum ResponseOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -10898,6 +11448,21 @@ impl<'a> Response<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_paths(&self) -> Option<Paths<'a>> {
+    if self.body_type() == ResponseBody::Paths {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Paths::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Response<'_> {
@@ -10917,6 +11482,7 @@ impl ::flatbuffers::Verifiable for Response<'_> {
           ResponseBody::Chronicle => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Chronicle>>("ResponseBody::Chronicle", pos),
           ResponseBody::Fields => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Fields>>("ResponseBody::Fields", pos),
           ResponseBody::Buildings => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Buildings>>("ResponseBody::Buildings", pos),
+          ResponseBody::Paths => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Paths>>("ResponseBody::Paths", pos),
           _ => Ok(()),
         }
      })?
@@ -11029,6 +11595,13 @@ impl ::core::fmt::Debug for Response<'_> {
         },
         ResponseBody::Buildings => {
           if let Some(x) = self.body_as_buildings() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ResponseBody::Paths => {
+          if let Some(x) = self.body_as_paths() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

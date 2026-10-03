@@ -63,6 +63,9 @@ pub const SCHEMA_V4: u32 = 4;
 /// The schema version of M1 slice D saves, which have buildings but no couples or pregnancies
 /// (see [`agents`]).
 pub const SCHEMA_V5: u32 = 5;
+/// The schema version of M1 slice E saves, which have couples but no worn ground (see
+/// [`agents`]).
+pub const SCHEMA_V6: u32 = 6;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

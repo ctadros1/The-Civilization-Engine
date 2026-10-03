@@ -23,6 +23,7 @@ use crate::Sim;
 
 pub mod buildings;
 pub mod fields;
+pub mod paths;
 pub mod people;
 
 /// Largest region one raster query may ask for, in cells of its level.

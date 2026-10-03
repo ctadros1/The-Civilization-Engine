@@ -129,7 +129,46 @@ describe("decoders", () => {
       chronicleHead: 0,
       fieldsRev: 0,
       buildingsRev: 0,
+      pathsRev: 0,
     });
+  });
+
+  it("builds a paths query and decodes the worn ground and trails", () => {
+    const query = W.Query.getRootAsQuery(bb(M.getPaths()));
+    expect(query.bodyType()).toBe(W.QueryBody.GetPaths);
+
+    const b = new flatbuffers.Builder(8192);
+    const cells = new Uint8Array(64 * 64);
+    cells[5] = 200;
+    cells[64 + 1] = 40;
+    const wear = W.WornTile.createWearVector(b, cells);
+    // Cell 5 is trail (bit 5 of word 0), and cell 100 (bit 36 of word 1).
+    const words = new Array<bigint>(64).fill(0n);
+    words[0] = 1n << 5n;
+    words[1] = 1n << 36n;
+    const trail = W.WornTile.createTrailVector(b, words);
+    const tile = W.WornTile.createWornTile(b, 9, wear, trail);
+    const worn = W.Paths.createWornVector(b, [tile]);
+    W.TrailInfo.startPointsVector(b, 2);
+    W.Vec2.createVec2(b, 300, 40);
+    W.Vec2.createVec2(b, 100, 40);
+    const points = b.endVector();
+    const info = W.TrailInfo.createTrailInfo(b, points, 0.75, 200);
+    const trails = W.Paths.createTrailsVector(b, [info]);
+    const paths = W.Paths.createPaths(b, 12n, 4, 64, worn, trails);
+    const response = W.Response.createResponse(b, W.ResponseBody.Paths, paths);
+    const body = M.decodeResponse(finish(b, response));
+    expect(body.kind).toBe("paths");
+    if (body.kind !== "paths") return;
+    const p = body.paths;
+    expect([p.rev, p.tilesX, p.tileCells]).toEqual([12, 4, 64]);
+    expect(p.worn).toHaveLength(1);
+    expect(p.worn[0]!.index).toBe(9);
+    expect(p.worn[0]!.wear[5]).toBe(200);
+    expect(p.worn[0]!.wear[65]).toBe(40);
+    const trailCells = [...p.worn[0]!.trail.entries()].filter(([, v]) => v === 1).map(([k]) => k);
+    expect(trailCells).toEqual([5, 100]);
+    expect(p.trails).toEqual([{ points: [[100, 40], [300, 40]], wear: 0.75, lengthM: 200 }]);
   });
 
   it("builds a buildings query and decodes the buildings", () => {

@@ -162,6 +162,8 @@ export interface Snapshot {
   fieldsRev: number;
   /** Changes whenever ground is claimed for a building or work on one moves on (0 = none). */
   buildingsRev: number;
+  /** Changes whenever the paths are surveyed: monthly, and when a world is made or loaded. */
+  pathsRev: number;
 }
 
 export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
@@ -192,6 +194,35 @@ export interface FieldInfo {
   harvests: number;
   /** Rendered by the kernel: "growing; ripe in about 20 days". */
   status: string;
+}
+
+/** Ground worn by walking in one tile of cells (M1 slice F), as last surveyed. */
+export interface WornTile {
+  /** Tile row × tiles per row + tile column. */
+  index: number;
+  /** Wear of each cell, row by row, 0–255 for 0–1. */
+  wear: Uint8Array;
+  /** 1 where the cell is trail, row by row. */
+  trail: Uint8Array;
+}
+
+/** A trail traced through trail cells (M1 slice F). */
+export interface TrailInfo {
+  /** Vertices, metres. */
+  points: [number, number][];
+  /** Mean wear of its cells, 0–1. */
+  wear: number;
+  lengthM: number;
+}
+
+/** The worn ground and the trails, as last surveyed. */
+export interface PathsInfo {
+  rev: number;
+  /** Tiles per row, and cells per tile side. */
+  tilesX: number;
+  tileCells: number;
+  worn: WornTile[];
+  trails: TrailInfo[];
 }
 
 /** A building and the ground it stands on (M1 slice D), as the kernel expands its design. */
@@ -438,7 +469,8 @@ export type ResponseBody =
   | { kind: "person"; person: PersonInfo }
   | { kind: "chronicle"; entries: ChronicleEntry[]; head: number }
   | { kind: "fields"; rev: number; fields: FieldInfo[] }
-  | { kind: "buildings"; rev: number; buildings: BuildingInfo[] };
+  | { kind: "buildings"; rev: number; buildings: BuildingInfo[] }
+  | { kind: "paths"; paths: PathsInfo };
 
 export type ErrorCode =
   | "unknown"
@@ -579,6 +611,12 @@ export function getBuildings(): Uint8Array {
   const b = new flatbuffers.Builder(16);
   W.GetBuildings.startGetBuildings(b);
   return query(b, W.QueryBody.GetBuildings, W.GetBuildings.endGetBuildings(b));
+}
+
+export function getPaths(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetPaths.startGetPaths(b);
+  return query(b, W.QueryBody.GetPaths, W.GetPaths.endGetPaths(b));
 }
 
 export function getChronicle(afterSeq: number, limit: number): Uint8Array {
@@ -730,6 +768,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     chronicleHead: Number(s.chronicleHead()),
     fieldsRev: Number(s.fieldsRev()),
     buildingsRev: Number(s.buildingsRev()),
+    pathsRev: Number(s.pathsRev()),
   };
 }
 
@@ -1045,6 +1084,47 @@ function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
   return { rev: Number(f.rev()), buildings: out };
 }
 
+/** Trail bits, 64 cells a word, as one byte a cell (1 = trail). */
+function trailMask(t: W.WornTile, cells: number): Uint8Array {
+  const out = new Uint8Array(cells);
+  for (let k = 0; k < t.trailLength(); k++) {
+    const word = t.trail(k) ?? 0n;
+    const lo = Number(word & 0xffffffffn);
+    const hi = Number(word >> 32n);
+    for (let b = 0; b < 32; b++) {
+      if ((lo >>> b) & 1) out[k * 64 + b] = 1;
+      if ((hi >>> b) & 1) out[k * 64 + 32 + b] = 1;
+    }
+  }
+  return out;
+}
+
+function paths(f: W.Paths): PathsInfo {
+  const tileCells = f.tileCells();
+  const cells = tileCells * tileCells;
+  const worn: WornTile[] = [];
+  const tile = new W.WornTile();
+  for (let i = 0; i < f.wornLength(); i++) {
+    const t = f.worn(i, tile);
+    if (!t) continue;
+    // Copied: the view points into a buffer the client reuses.
+    const wear = new Uint8Array(t.wearArray() ?? new Uint8Array(cells));
+    worn.push({ index: t.index(), wear, trail: trailMask(t, cells) });
+  }
+  const trails: TrailInfo[] = [];
+  const info = new W.TrailInfo();
+  for (let i = 0; i < f.trailsLength(); i++) {
+    const t = f.trails(i, info);
+    if (!t) continue;
+    trails.push({
+      points: vec2List(t.pointsLength(), (k, p) => t.points(k, p)),
+      wear: t.wear(),
+      lengthM: t.lengthM(),
+    });
+  }
+  return { rev: Number(f.rev()), tilesX: f.tilesX(), tileCells, worn, trails };
+}
+
 function scoredOption(o: W.ScoredOption): ScoredOption {
   const terms: Term[] = [];
   for (let k = 0; k < o.termsLength(); k++) {
@@ -1188,6 +1268,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Buildings()) as W.Buildings | null;
       if (!f) break;
       return { kind: "buildings", ...buildings(f) };
+    }
+    case W.ResponseBody.Paths: {
+      const f = r.body(new W.Paths()) as W.Paths | null;
+      if (!f) break;
+      return { kind: "paths", paths: paths(f) };
     }
     default:
       break;

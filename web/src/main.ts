@@ -6,6 +6,7 @@ import "./styles.css";
 
 import { formatDistance } from "./format.js";
 import { MapView, type PointerInfo } from "./map/view.js";
+import { pathWords } from "./paths.js";
 import { HostClient, HostError } from "./net/client.js";
 import * as M from "./net/messages.js";
 import { Store, initialState, mergeEvents } from "./state.js";
@@ -49,6 +50,7 @@ const client = new HostClient(socketUrl(), {
     void syncChronicle();
     void syncFields();
     void syncBuildings();
+    void syncPaths();
     void refreshPerson(false);
   },
   events: (items) => store.update({ events: mergeEvents(store.state.events, items) }),
@@ -151,6 +153,33 @@ async function syncBuildings(): Promise<void> {
   }
 }
 
+/** `world:revision` of the paths on the map. */
+let pathsKey = "";
+let pathsBusy = false;
+
+/** Fetches the worn ground and trails when the host has surveyed them again. */
+async function syncPaths(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const key = world && s.pathsRev !== 0 ? `${store.state.epoch}:${world.worldId}:${s.pathsRev}` : "";
+  if (key === pathsKey || pathsBusy) return;
+  if (!key) {
+    pathsKey = "";
+    map.setPaths(null);
+    return;
+  }
+  pathsBusy = true;
+  try {
+    const paths = await client.paths();
+    pathsKey = key;
+    map.setPaths(paths);
+  } catch (e) {
+    console.warn(`tce: the paths could not be read: ${String(e)}`);
+  } finally {
+    pathsBusy = false;
+  }
+}
+
 let personBusy = false;
 let personAskedAt = 0;
 
@@ -212,12 +241,13 @@ map.onPointer = (info: PointerInfo | null) => {
   }
   const height = info.elevationM === null ? "" : ` · ${Math.round(info.elevationM)} m`;
   const field = info.field ? ` · field: ${info.field.status}` : "";
+  const path = info.path && !info.building ? ` · ${pathWords(info.path)}` : "";
   const building = info.building
     ? ` · ${info.building.program.toLowerCase()}: ${info.building.status}`
     : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}${field}${building}`;
+    `${height} · ${info.water ?? ""}${path}${field}${building}`;
 };
 
 const scaleBar = byId("scalebar-bar");

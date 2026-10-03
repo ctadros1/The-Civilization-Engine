@@ -8834,6 +8834,232 @@ impl ::core::fmt::Debug for Builds<'_> {
       ds.finish()
   }
 }
+pub enum WearTileOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WearTile<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WearTile<'a> {
+  type Inner = WearTile<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WearTile<'a> {
+  pub const VT_INDEX: ::flatbuffers::VOffsetT = 4;
+  pub const VT_WEAR: ::flatbuffers::VOffsetT = 6;
+  pub const VT_TRAIL: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WearTile { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WearTileArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<WearTile<'bldr>> {
+    let mut builder = WearTileBuilder::new(_fbb);
+    if let Some(x) = args.trail { builder.add_trail(x); }
+    if let Some(x) = args.wear { builder.add_wear(x); }
+    builder.add_index(args.index);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn index(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WearTile::VT_INDEX, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn wear(&self) -> Option<::flatbuffers::Vector<'a, u16>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u16>>>(WearTile::VT_WEAR, None)}
+  }
+  #[inline]
+  pub fn trail(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(WearTile::VT_TRAIL, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WearTile<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("index", Self::VT_INDEX, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u16>>>("wear", Self::VT_WEAR, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("trail", Self::VT_TRAIL, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WearTileArgs<'a> {
+    pub index: u32,
+    pub wear: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u16>>>,
+    pub trail: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+}
+impl<'a> Default for WearTileArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WearTileArgs {
+      index: 0,
+      wear: None,
+      trail: None,
+    }
+  }
+}
+
+pub struct WearTileBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WearTileBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_index(&mut self, index: u32) {
+    self.fbb_.push_slot::<u32>(WearTile::VT_INDEX, index, 0);
+  }
+  #[inline]
+  pub fn add_wear(&mut self, wear: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u16>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WearTile::VT_WEAR, wear);
+  }
+  #[inline]
+  pub fn add_trail(&mut self, trail: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WearTile::VT_TRAIL, trail);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WearTileBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WearTileBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WearTile<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WearTile<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WearTile");
+      ds.field("index", &self.index());
+      ds.field("wear", &self.wear());
+      ds.field("trail", &self.trail());
+      ds.finish()
+  }
+}
+pub enum WearOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Wear<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Wear<'a> {
+  type Inner = Wear<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Wear<'a> {
+  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Wear { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WearArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Wear<'bldr>> {
+    let mut builder = WearBuilder::new(_fbb);
+    if let Some(x) = args.tiles { builder.add_tiles(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WearTile<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WearTile>>>>(Wear::VT_TILES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Wear<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WearTile>>>>("tiles", Self::VT_TILES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WearArgs<'a> {
+    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WearTile<'a>>>>>,
+}
+impl<'a> Default for WearArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WearArgs {
+      tiles: None,
+    }
+  }
+}
+
+pub struct WearBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WearBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WearTile<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Wear::VT_TILES, tiles);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WearBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WearBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Wear<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Wear<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Wear");
+      ds.field("tiles", &self.tiles());
+      ds.finish()
+  }
+}
 pub enum PendingEventOffset {}
 #[derive(Copy, Clone, PartialEq)]
 

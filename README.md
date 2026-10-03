@@ -4,11 +4,11 @@
 <p align="center">People build settlements, cities, institutions, economies, technologies, and ways of life across history, from the earliest communities through modern civilization.</p>
 
 <p align="center">
-  <a href="#vision">Vision</a> · <a href="#project-status">Status</a> · <a href="#getting-started">Getting started</a> · <a href="#what-m0-looks-like">Screenshots</a> · <a href="#simulation-design">Simulation design</a> · <a href="#explore-the-repository">Explore</a>
+  <a href="#vision">Vision</a> · <a href="#project-status">Status</a> · <a href="#getting-started">Getting started</a> · <a href="#what-the-build-looks-like">Screenshots</a> · <a href="#simulation-design">Simulation design</a> · <a href="#explore-the-repository">Explore</a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/milestone-M0%20foundations-9a6a36?style=flat-square" alt="Milestone: M0 foundations">
+  <img src="https://img.shields.io/badge/milestone-M1%20first%20settlers%20(in%20progress)-9a6a36?style=flat-square" alt="Milestone: M1 first settlers, in progress">
   <img src="https://img.shields.io/badge/kernel-Rust-315f55?style=flat-square" alt="Kernel: Rust">
   <img src="https://img.shields.io/badge/observer-web%20(Unreal%20from%20M2)-526c83?style=flat-square" alt="Observer: web, Unreal from M2">
 </p>
@@ -23,7 +23,9 @@ The guiding principle is **the engine authors the vocabulary, never the plot**. 
 
 **Milestone M0, Foundations, is implemented.** You can launch the engine with one command and create a world from a seed in the browser. You can pan and zoom its terrain and rivers, and run the clock. Saving, loading, autosave and crash recovery all work, along with a small command line for worlds, saves and content.
 
-**There is no simulation of people yet.** M0 deliberately defers all simulation ([plan §7](PROJECT_PLAN.md#7-milestones)). The clock runs, but nothing happens in the world. A band of people settling a valley is milestone M1.
+**Milestone M1, First settlers, is in progress** ([plan §7](PROJECT_PLAN.md#7-milestones)). Its first slice is implemented: a new world begins with a founding band of 30–50 people in at least six families, who choose where to camp. They sleep, eat, fetch water, gather wild plants, play and sit at the hearth, each choice scored from their needs and sampled, and they walk routed paths over the terrain. The map shows them moving. Click anyone to see what they are doing, their needs, their family and **why** they chose it, with every consideration's weight. The chronicle records the band's arrival.
+
+**Not yet:** hunting, fishing, wood, fields and grain, huts, births and deaths, marriage, trails and the god tools. These are the remaining M1 slices. Until fishing, hunting and farming exist, a band eats its 30 days of provisions and then cannot gather enough wild plants to feed itself (see the known limitations).
 
 ### Implemented and planned
 
@@ -31,13 +33,15 @@ The guiding principle is **the engine authors the vocabulary, never the plot**. 
 | --- | --- | --- |
 | Kernel foundations (`civ-core`) | Implemented | Generational handles and permanent ids, a 365-day calendar, the event-and-cadence scheduler, small seeded RNGs |
 | World generation (`civ-world`) | Implemented: terrain and water | Uplift and stream-power erosion, refinement to 8 m cells, valley floors, lakes from the water balance, river reaches with discharge and width. Climate bands, soils and deposits are planned (M1–M3) |
-| Content (`civ-content`, `content/`) | Implemented for world presets | Strict TOML packs, stable diagnostics, fingerprints; two landscape presets. Other primitives arrive with the milestones that need them |
+| Content (`civ-content`, `content/`) | Implemented: world presets, people, land, names, activities | Strict TOML packs, stable diagnostics, fingerprints; two landscape presets; the early-farmers people profile, the temperate-valley land profile, seven activities. Other primitives arrive with the milestones that need them |
+| Land (`civ-land`) | Implemented: habitats and wild plants | 128 m habitat patches classified from terrain, wild plant stocks that grow, waste and are gathered (no respawn timers), a yearly climate factor, settlements. Game, fish, wood and fields are planned (M1) |
+| People (`civ-agents`) | Implemented: M1 slice A | A founding band in families with ages from a life table; needs in closed form (energy, sleep pressure, company); utility choices with softmax sampling and recorded receipts; routed walking (Tobler's hiking function, A*); households with food and water stores; person records and the chronicle ([ADR-0003](decisions/0003-people-movement-history.md)). Births, deaths, marriage and memory are planned (M1) |
 | Boundary schema (`commons-wire`, `civ-schema`) | Implemented | Frame envelope and FlatBuffers payloads for Rust and TypeScript ([ADR-0001](decisions/0001-boundary-schema.md)) |
-| Saves (`commons-persist`, `civ-sim`) | Implemented | Chunked, checksummed generations; verified on write; refusal, never repair ([ADR-0002](decisions/0002-snapshot-container.md)) |
+| Saves (`commons-persist`, `civ-sim`) | Implemented | Chunked, checksummed generations; verified on write; refusal, never repair ([ADR-0002](decisions/0002-snapshot-container.md)). Schema 2 adds land and people; M0 saves load as worlds with nobody in them yet |
 | Host (`civ-host`) | Implemented | Command line and a localhost WebSocket server with autosave and crash recovery |
-| Web observer (`web/`) | Implemented: M0 shell | Map with terrain, rivers and detail tiles; new-world, save, load and recovery dialogs; time controls; world facts; event log |
+| Web observer (`web/`) | Implemented: M0 shell and M1 slice A | Map with terrain, rivers and detail tiles; people moving along their trips; the settlement; an inspector with needs, family and the reasons for each choice; the chronicle; new-world (with band size), save, load and recovery dialogs; time controls; world facts; event log |
 | CI | Implemented | A Windows lane (kernel, commons, content, smoke seeds) plus browser tests and schema freshness |
-| People, settlements, economy, government, services, diplomacy | Planned (M1–M8) | See the [milestones](PROJECT_PLAN.md#7-milestones) |
+| Farming, huts, demography, trails, economy, government, services, diplomacy | Planned (M1–M8) | See the [milestones](PROJECT_PLAN.md#7-milestones) |
 | Unreal client (`civ-ffi`, `EngineBridge`) | Planned (M2) | |
 
 ### Known limitations
@@ -47,6 +51,8 @@ The guiding principle is **the engine authors the vocabulary, never the plot**. 
 - **Small maps.** The large river can miss a small map, and at 2 km and 4 km the coastal preset can be mostly sea. The smoke seeds use 8 km maps.
 - **Performance.** A 16 km world takes about 18 s to generate on a 4-core 2.1 GHz cloud CPU, and its save is about 15 MB. Your machine will differ.
 - **WebGL.** The map needs WebGL. Headless browsers fall back to slow software rendering.
+- **Food (M1 slice A).** Wild plants alone cannot feed a band. A world's whole standing stock in March is about 17 days of a 40-person band's needs. After its 30 days of provisions, the band goes hungry: people gather harder, but nobody dies and body reserves are not yet limited. Hunting, fishing and grain are the next slices.
+- **Simulation speed.** A simulated year of a 40-person band takes about a minute on the 4-core cloud CPU. Most of that is route planning, and a cache keeps it bounded.
 
 ## Getting started
 
@@ -62,7 +68,7 @@ If PowerShell says running scripts is disabled on this system, run `powershell -
 tools/run.sh         # Linux and macOS
 ```
 
-The script builds the web shell if needed, builds and starts `civ-host`, and opens <http://127.0.0.1:7420/>. Choose **Create a world**, pick a landscape, size and seed, and the map appears when generation finishes. Saves go to `saves/<world>/` in the repository, one folder per world, and every save is a new file. **Ctrl+C** stops the host and saves the world if it changed. If the host stops unexpectedly, the next start offers to recover the newest intact save.
+The script builds the web shell if needed, builds and starts `civ-host`, and opens <http://127.0.0.1:7420/>. Choose **Create a world**, pick a landscape, size, seed and the size of the founding band, and the map appears when generation finishes. Use **Fit** and zoom in on the settlement's name to see the people; press **Run** (or Space) and click anyone to inspect them. Saves go to `saves/<world>/` in the repository, one folder per world, and every save is a new file. **Ctrl+C** stops the host and saves the world if it changed. If the host stops unexpectedly, the next start offers to recover the newest intact save.
 
 The command line, run from `kernel/`:
 
@@ -76,9 +82,13 @@ cargo run --release -p civ-host -- smoke       # 2 landscapes × 5 seeds against
 
 Tests, lints and the rules for changing schemas, saves and content are in [AGENTS.md](AGENTS.md).
 
-## What M0 looks like
+## What the build looks like
 
-**These are screenshots of the current build**, unlike the concept art further down. Recordings of the end-to-end tests are in [`assets/m0/m0-demo.webm`](assets/m0/m0-demo.webm), which generates, explores, saves and loads a world, and [`assets/m0/m0-recovery.webm`](assets/m0/m0-recovery.webm), which recovers after the host is killed.
+**These are screenshots of the current build**, unlike the concept art further down.
+
+<p><img src="assets/m1/m1-inspector.jpg" alt="A founding band at their camp by a river; one person is inspected: what she is doing, her needs, the reasons for her last choice, her family, and the chronicle"><br><strong>M1 slice A: a band of 30 at Hazelford, seed 3.</strong> Dots are people coloured by activity; a gathering party walks out along the river. The inspector shows the last decision's considerations, the next-best option and what was ruled out.</p>
+
+The M0 screenshots below show the terrain alone. Recordings of the end-to-end tests are in [`assets/m0/m0-demo.webm`](assets/m0/m0-demo.webm), which generates, explores, saves and loads a world, and [`assets/m0/m0-recovery.webm`](assets/m0/m0-recovery.webm), which recovers after the host is killed.
 
 <table>
   <tr>

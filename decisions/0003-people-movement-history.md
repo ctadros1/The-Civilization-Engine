@@ -43,7 +43,8 @@ Their main points:
    **`PermanentId`** that is never reused. History, the boundary and saves refer to people by
    permanent id; handles are an in-memory detail.
 2. **Activities are versioned records.** A person has one current activity
-   `{kind, target, started, ends, version}`. Every scheduled event carries `(handle, version)`.
+   `{kind, target, started, ends, version}`. Every scheduled event carries
+   `(permanent id, version)`, so a saved event still names its person after a load.
    Interrupting or replacing an activity increments the version; an event whose handle is dead or
    whose version is stale is ignored. Durations are at least one minute.
 3. **Needs and body state are lazy**: `(value, rate, updated_at)`, advanced in closed form when

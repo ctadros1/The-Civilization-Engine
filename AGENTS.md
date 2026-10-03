@@ -41,7 +41,9 @@ Before changing anything:
 |---|---|
 | `kernel/` | The Rust workspace (no Unreal dependency, ever). |
 | `kernel/crates/civ-core` | Ids, handles, the 365-day calendar, the event-and-cadence scheduler, RNG. |
-| `kernel/crates/civ-world` | World generation: terrain, lakes, rivers. Pure functions of their inputs. |
+| `kernel/crates/civ-world` | World generation: terrain, lakes, rivers. Pure functions of their inputs. Also walking (`nav`) and terrain measures (`terrain`). |
+| `kernel/crates/civ-land` | Land that changes: habitat patches, wild stocks, the climate year, settlements (ADR-0004). |
+| `kernel/crates/civ-agents` | People: needs, decisions, activities, trips, households, founding bands, history (ADR-0003). |
 | `kernel/crates/civ-content` | The content compiler: TOML packs, stable diagnostics, fingerprints. |
 | `kernel/crates/civ-schema` | FlatBuffers schemas and generated Rust (boundary and saves). |
 | `kernel/crates/civ-sim` | The composition root: a world's state, save/load, boundary payloads. |
@@ -53,8 +55,9 @@ Before changing anything:
 | `research/` | Deep-research reports, indexed by milestone. |
 | `tools/` | `run.sh` / `run.ps1` (launch), `gen-schema.sh` (FlatBuffers codegen). |
 
-Dependency direction: `civ-core` ← `civ-world` ← `civ-content` ← `civ-sim` ← `civ-host`.
-Domain crates (`civ-core`, `civ-world`, the agent crates to come) never use generated schema
+Dependency direction: `civ-core` ← `civ-world` ← `civ-land` ← `civ-agents` ← `civ-content` ←
+`civ-sim` ← `civ-host` (`civ-grammar` joins between `civ-world` and `civ-land` with the hut).
+Domain crates (`civ-core`, `civ-world`, `civ-land`, `civ-agents`) never use generated schema
 types. Conversion happens only in `civ-sim` (world payloads, save sections) and `civ-host`
 (session payloads); see ADR-0001.
 

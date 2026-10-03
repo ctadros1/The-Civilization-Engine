@@ -46,3 +46,14 @@ debugging: `state()`, `map()`, `pointerAt(x, y)`, `panBy(dx, dy)`, `zoomBy(f)`, 
 
 `TCE_DEMO_VIDEO=1 npm run test:e2e` records a video of each spec into `test-results/`, and
 `TCE_SHOTS_DIR=<dir>` saves step screenshots.
+
+The M1 demo (`e2e/demo.spec.ts`: ten years of a band, then save and reload) runs only when asked,
+since it takes about four minutes: `TCE_DEMO=1 TCE_DEMO_VIDEO=1 npx playwright test demo`. It
+prints `demo-mark` lines with the seconds at which the long run ahead begins and ends;
+`assets/m1/m1-demo.webm` shows that stretch five times faster:
+
+```sh
+ffmpeg -i video.webm -filter_complex "[0:v]trim=0:51,setpts=PTS-STARTPTS[a];\
+[0:v]trim=51:202,setpts=(PTS-STARTPTS)/5[b];[0:v]trim=202,setpts=PTS-STARTPTS[c];\
+[a][b][c]concat=n=3:v=1:a=0,fps=20[out]" -map "[out]" -c:v libvpx-vp9 -crf 40 -b:v 0 m1-demo.webm
+```

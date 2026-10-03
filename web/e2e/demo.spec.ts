@@ -1,7 +1,8 @@
 // The M1 demo (plan §7): watch a band found a village over ten years, then save and reload.
 // It takes several minutes, so it runs only with TCE_DEMO=1; with TCE_DEMO_VIDEO=1 as well it
 // records the video into test-results/. TCE_DEMO_SEED picks the seed (runs differ, and a band
-// may fail; that is the model, not the demo).
+// may fail; that is the model, not the demo). It logs `demo-mark` lines with the seconds since
+// the test began, for cutting the video.
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -33,9 +34,17 @@ async function runAhead(page: Page, label: string, minutes: number): Promise<voi
   await page.waitForTimeout(2500);
 }
 
+/** Zooms the map about its centre to `scale` pixels a metre. */
+async function zoomTo(page: Page, scale: number): Promise<void> {
+  await page.evaluate((s) => window.__TCE__.zoomBy(s / window.__TCE__.map().camera.scale), scale);
+}
+
 test("a band founds a village over ten years, then the world is saved and loaded", async ({
   page,
 }) => {
+  const began = Date.now();
+  const mark = (what: string) =>
+    console.log(`demo-mark ${((Date.now() - began) / 1000).toFixed(1)} ${what}`);
   const host = await startHost(tempSaves());
   try {
     page.on("pageerror", (e) => console.log(`page error: ${e.message}`));
@@ -55,22 +64,23 @@ test("a band founds a village over ten years, then the world is saved and loaded
 
     // Go to the camp and watch the first morning at 10×.
     await page.locator("#chronicle").getByRole("button").first().click();
-    await page.evaluate(() => window.__TCE__.zoomBy(2.4 / window.__TCE__.map().camera.scale));
+    await zoomTo(page, 2.4);
     await page.getByRole("radio", { name: "10×" }).click();
     await page.waitForTimeout(8000);
     await page.getByRole("button", { name: "Pause" }).click();
 
     // The first month: fields are marked out and sown, huts begun.
     await runAhead(page, "a month", 30 * 1440);
-    await page.evaluate(() => window.__TCE__.zoomBy(0.5));
+    await zoomTo(page, 1.2);
     await page.waitForTimeout(1000);
 
-    // The first year.
+    // The first year, and someone's day.
     await runAhead(page, "a year", 365 * 1440);
     const first = (await page.evaluate(() => window.__TCE__.briefs()))[0];
     if (first) {
       await page.evaluate((id) => window.__TCE__.select(id), first.id);
-      await page.waitForTimeout(3500);
+      await page.waitForTimeout(4000);
+      await page.evaluate(() => window.__TCE__.select(null));
     }
 
     // The observer sends a family; it joins the village.
@@ -99,11 +109,15 @@ test("a band founds a village over ten years, then the world is saved and loaded
       timeout: 60_000,
     });
     await page.waitForTimeout(3000);
+    mark("long run begins");
 
     // On to ten years from the founding.
     await runAhead(page, "5 years", 5 * 365 * 1440);
     for (let i = 0; i < 4; i++) await runAhead(page, "a year", 365 * 1440);
-    await page.evaluate(() => window.__TCE__.zoomBy(0.7));
+    mark("long run ends");
+    await zoomTo(page, 3.5);
+    await page.waitForTimeout(4000);
+    await zoomTo(page, 0.9);
     await page.waitForTimeout(4000);
 
     // Save, then load the save back: the same village, the same day.
@@ -127,8 +141,9 @@ test("a band founds a village over ten years, then the world is saved and loaded
     expect(loaded.clock?.minute).toBe(before.clock?.minute);
     expect(loaded.people).toBe(before.people);
     await page.locator("#chronicle").getByRole("button").first().click();
-    await page.evaluate(() => window.__TCE__.zoomBy(1.2 / window.__TCE__.map().camera.scale));
+    await zoomTo(page, 2);
     await page.waitForTimeout(5000);
+    mark("end");
     const c = loaded.clock;
     console.log(
       `demo: ${loaded.people} people on ${c?.day}/${c?.month}/${c?.year}; chronicle:\n` +

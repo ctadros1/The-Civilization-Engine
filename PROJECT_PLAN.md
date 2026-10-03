@@ -1,9 +1,9 @@
 # The Civilization Engine: Project Plan
 
 Status: plan of record, written 2026-09-27 from the planning interview.
-Implementation (2026-10-03): **M0 Foundations is implemented**; M1 is in progress (slices A–F:
-people, foraging, farming, huts, births, deaths and families, and worn trails). The README lists
-what exists, what is planned and the known limitations.
+Implementation (2026-10-03): **M0 Foundations and M1 A band settles are implemented** (people,
+foraging, farming, huts, births, deaths and families, worn trails, the first god tool and running
+ahead). The README lists what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
 (i9 13th gen, RTX 4070 Ti with 12 GB VRAM, 64 GB DDR5).
 
@@ -938,6 +938,28 @@ M1.**
 - *Proves:* the agent loop, the daily-life time model, the observer UX, and
   the spec → derived-geometry path.
 - *Defers:* UE, money, firms, government, services, other settlements.
+- *Outcome (2026-10-03):* implemented, in seven slices (A–G; the README describes each). A
+  founding band of about 40 settles a valley. It forages, farms emmer, builds huts, pairs, bears
+  children and dies, and wears trails. The observer can send a family and run ahead. The demo,
+  `assets/m1/m1-demo.webm`, creates a world, follows its band for ten years, then saves and loads
+  it back. The usable bar holds: one command, the new-world dialog, save, load, autosave, crash
+  recovery, panel states, the smoke seeds (30 days on every push, ten years nightly) and the
+  recording. Deviations:
+  - The first road graph is the traced trails: lines from end to end and junction to junction,
+    where walking wore the ground. Nobody builds or keeps a road yet.
+  - The inspector shows needs, the current step and when it ends, family, the household's stores
+    and the reasons for each choice. People choose each activity when the last ends, with no day
+    plan, so there is no schedule to show. What a settlement knows of places shapes every
+    gathering choice but shows only through its reasons.
+  - Time controls add running ahead at full detail, as fast as the machine allows; the
+    Accelerated mode stays in M3.
+  - The smoke seeds check ten years rather than §4.7's fifty, with the checks that apply to a
+    village (§9).
+  - Land state that changes over time has its own crate, `civ-land`, which the layout did not
+    list (§9).
+- *Recalibration (2026-10-03):* M0 and M1 were each built by an agent in about a day. From M2
+  the work needs Unreal Engine on the Windows PC, which the cloud sessions do not have, so the
+  later sizes stand until that work starts.
 
 **M2: First light in Unreal.**
 - *Contents:*
@@ -1316,3 +1338,9 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Straight walking (2026-10-03, slice F):** an A* route on the eight-direction grid is pulled straight wherever a straight line is walkable and no slower. The line is sampled every half cell over bilinear ground, with the same slope, water and wear costs. Without it every route ran at 0°, 45° or 90° and the trails formed an eight-pointed star; with it desire lines run in any direction (10-03 §1.1: some exploration across traversable ground is needed for desire lines to appear), and trails form where wear makes a detour pay.
 - **Routing on the survey (2026-10-03, slice F):** routes, the route cache and settlements' travel-time fields use the paths as last surveyed, so they agree with each other and with the trails on the map until the next survey; a trail worn this month speeds walking from next month. A loaded world is surveyed when it is put together. Travel-time fields are dense arrays over the box their limit could reach. Without that, monthly fields took half the simulation time, and three years of a 40-person village went from 30.5 s to 41 s; with it they take 31 s.
 - **Wire 1.6, save schema 7 and content API 6 (2026-10-03):** `paths_rev` in the snapshot and a `GetPaths` query whose answer carries the surveyed tiles (wear 0–255 and trail bits per cell) and the trail polylines with their wear and length (additive). Saves gain a `wear` section: the tiles as they stood on the save day, as u16 wear and trail bits; the routing view and trails are derived on load. Schema-6 saves load with untrodden ground. The land profile gains `[paths]` (content API 6). Chronicle code 13 is the first trail.
+- **The observer sends a family (2026-10-03, slice G):** M1's god tool. A click on the map places a family where people can walk: a couple and their children, drawn as a founding family is (ages from the life table, the couple's years together, a pregnancy or a nursing child), with a founding family's provisions per head. It joins the nearest inhabited settlement whose hearth lies within 600 m (a tuning value) and makes its home where it was placed; with none that near, it makes camp there and founds a settlement of its own. Its people get names nobody living has. The chronicle says the observer sent it, and each person's record says they were brought by the observer (§2: every god-tool use is in the chronicle).
+- **NUDGE: a sent family comes provisioned like the founders (2026-10-03):** without stores, a family sent in winter starves before it can sow. Newcomers came with what they could carry or drive and with kin to lean on; the founders' eighteen months, which also stand in for their herds, is the nearest figure the model has. Revisit with livestock and with help between settlements.
+- **Running ahead (2026-10-03, slice G):** the observer can run the world ahead by a day, a month, a year, 5 or 10 years at full detail, as fast as the machine allows. The engine thread spends 80 % of each 50 ms tick advancing in steps of up to an hour, and in the rest publishes frames and answers queries, so the map keeps up. It is a task the observer can cancel; the world pauses where it arrives and is autosaved. It is the Detailed mode unpaced, not §4.4's Accelerated mode (M3): there is no daily statistical step and no mode-consistency test yet. On the 4-core cloud CPU, with the map following, the demo's village of 50–60 lived about 15 s a year.
+- **Ten-year smoke seeds (2026-10-03, slice G, §4.7):** `smoke --years 10` lives each smoke world for ten years after its first month and checks it at every year's end: nobody stuck between events; no population or land problems; at most three times the founders; from the second year, at least 80 % of households under their own roof; and in the first year, a first trail out. A band may fail (05-06 §5.2), so dying out is checked across the set: at least half the bands must keep 10 or more people. Runs differ, so the thresholds leave room for chance. The ten worlds take about 8 minutes on 4 cores, so they run nightly and on pull requests into `main` (`nightly.yml`); per-push CI keeps the 30-day run. §4.7's other checks (prices, Gini, firm and settlement sizes, crime, epidemics, regimes, structural failures) arrive with the systems they check, and its 5 worlds × 50 years with the Accelerated mode.
+- **NUDGE: founding risk over ten years (2026-10-03):** in two ten-year runs of the ten smoke worlds, eight bands lived on with 29–61 people (from 40), and both bands of seed 1 failed both times (in the second run, in their sixth and eighth years). In the failure examined closely (river valley, seed 1), a famine in the sixth spring sent nine households away within three months: asking for food evens out stores, so households run out together. Founding failure is plausible (05-06 §5.2), but its rate is not calibrated. Revisit with livestock, preserving, a second crop, households leaving to found a daughter settlement, and help between settlements.
+- **Wire 1.7 and save schema 8 (2026-10-03):** `SpawnFamily { at }` and `RunUntil { minute }` commands (additive). Saves gain chronicle code 14, a family the observer sent; schema-7 saves load as they are.

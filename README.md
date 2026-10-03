@@ -56,6 +56,8 @@ You need [Rust](https://rustup.rs) through rustup, which installs the pinned too
 tools\run.ps1        # Windows (PowerShell)
 ```
 
+If PowerShell says running scripts is disabled on this system, run `powershell -ExecutionPolicy Bypass -File tools\run.ps1` instead, or allow local scripts once with `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+
 ```sh
 tools/run.sh         # Linux and macOS
 ```

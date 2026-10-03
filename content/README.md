@@ -38,7 +38,7 @@ CI runs the validator. Diagnostics have stable codes:
 | E2003 | An id's kind segment does not match the file's `kind` |
 | E2004 | The file's path does not match its id |
 | E2005 | Two definitions share an id |
-| E2006 | A reference names something that is not defined (a people profile's name list or provisions good, an activity's land resource, a resource's good) |
+| E2006 | A reference names something that is not defined (a people profile's name list, provisions good or crop, an activity's land resource, a resource's or crop's good) |
 | E3001 | A value is out of its allowed range |
 | E3002 | Unknown or missing `kind` |
 | E3003 | Not exactly one world-generation preset has `default = true` |
@@ -50,10 +50,11 @@ record the semantic one, so reformatting a file, reordering keys, writing `3` fo
 comment does not mark saves as "content changed"; changing a value does.
 
 A world saved with other content still loads and runs by the content loaded now. Saves refer to
-activities, habitats, land resources and goods by id: a person whose activity is gone decides
+activities, habitats, land resources, goods and crops by id: a person whose activity is gone decides
 again, a habitat that is gone becomes the last (catch-all) habitat, a good that is gone is dropped
-from stores and loads, and a new resource starts at equilibrium. So does a resource whose `good` or
-`unit_kg` changed, since its saved stocks may count something else.
+from stores and loads, a field whose crop is gone is dropped, and a new resource starts at
+equilibrium. So does a resource whose `good` or `unit_kg` changed, since its saved stocks may count
+something else.
 
 ## Kinds (M0)
 
@@ -105,7 +106,7 @@ are not calibrations. An arid closed-basin preset is planned for M3, once climat
 
 ## Kinds (M1)
 
-M1 adds five kinds (kernel content API 3). Every field is required, and every number in the
+M1 adds six kinds (kernel content API 3). Every field is required, and every number in the
 shipped files carries its research source or says it is a tuning starting point.
 
 ### `people`
@@ -123,6 +124,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `walk_par`, `idle_par` | Physical activity ratios while walking and between activities. |
 | | `satiety_hours`, `hunger_ramp_hours`, `deficit_unit_kcal`, `max_surplus_kcal`, `meal_minutes` | How long a meal keeps someone full, how hunger rises after, how an energy deficit adds to hunger, the largest banked surplus, a meal's length. |
 | | `reserve_kcal_per_kg` | What the body can draw on in a shortage, per kilogram of body mass: the floor of the energy balance. |
+| | `eat_reserve_at_deficit` | Food kept back (seed) is eaten only once a person has drawn this share of that reserve, and never the seed to sow again the ground the household already crops. |
 | `sleep` | `tau_awake_h`, `tau_asleep_h`, `wake_pressure` | Two-process sleep pressure: rise awake, fall asleep, the level a sleeper wakes at. Sleep is not an option below it. |
 | | `min_hours`, `max_hours`, `nap_min_minutes`, `nap_max_minutes` | A night's sleep and a daytime nap. |
 | | `day_factor`, `bedtime_after_sunset_hours` | Weight of sleep pressure by day, and when the evening's sleep gate opens. |
@@ -132,11 +134,16 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `fuel_kg_per_person_day`, `fuel_target_days` | Firewood burned per person per day by month (January first), and the store people aim for. |
 | | `short_food_days`, `recovered_food_days` | The chronicle notes a settlement's shortage below the first and its end above the second. |
 | `decision` | `temperature_sd_fraction`, `min_temperature` | Softmax temperature: a fraction of the spread of the options' scores, with a floor. |
-| | `w_*`, `trip_half_worth_days` | Points per unit of each consideration (hunger, sleep, company, food, firewood and water shortage, useful work, walking, effort, darkness, rest, play); a trip bringing `trip_half_worth_days` of the household's need is worth half a very large haul. Beyond any shortage, more of a good is worth less the more of it is in store. |
+| | `w_*`, `trip_half_worth_days` | Points per unit of each consideration (hunger, sleep, company, food, firewood and water shortage, useful work, walking, effort, darkness, rest, play, field work's harvest and its deadline); a trip bringing `trip_half_worth_days` of the household's need is worth half a very large haul. Beyond any shortage, more of a good is worth less the more of it is in store. |
 | `band` | `default_size`, `min_size`, `max_size`, `min_families` | The founding band the new-world dialog offers. `min_size` is at least twice `min_families`. |
-| | `camp_candidates`, `site_radius_m`, `site_max_slope`, `site_w_*`, `site_flood_hand_m` | How the band scores sampled camp sites: wild food within the radius, distance to fresh water, slope, flood risk. |
-| | `provisions_days`, `provisions_good` | The food each family brings, in days of its needs, and the good (a food) it is carried as. |
+| | `camp_candidates`, `site_radius_m`, `site_max_slope`, `site_w_*`, `site_flood_hand_m` | How the band scores sampled camp sites: wild food within the radius, land it could crop within a field walk (ground to be cleared counts for less), distance to fresh water, slope, flood risk. |
+| | `provisions_days`, `provisions_good`, `seed_kg_per_person` | The food each family brings, in days of its needs, and the good (a food) it is carried as; the seed it brings for the crop it grows. |
 | | `elder_chance`, `young_adult_chance`, `birth_spacing_months` | Who is in the families. |
+| `farm` | `crop` | The crop households grow (a crop id). |
+| | `grain_share`, `plan_yield_share` | The share of a year's food a household plans to grow, and the cautious yield it plans on (a share of the crop's average). |
+| | `grain_target_days` | Grain held at which another harvest is worth half as much. |
+| | `work_hours_per_day` | Field work a capable adult gives a day, for planning what the household can prepare and sow in a season. |
+| | `field_m`, `max_walk_minutes`, `site_candidates` | New fields are squares of `field_m`, within this walk of the settlement; how many places are looked at when marking one out. |
 | `mortality` | `a`, `b`, `c`, `d`, `e` | Siler hazard `A·e^(−Bx) + C + D·e^(Ex)` per year (ages of founders now; deaths later in M1). |
 
 ### `land`
@@ -149,7 +156,7 @@ How land is classified and what grows wild. Exactly one profile.
 | `channel_area_km2` | Drainage area that counts as a stream when measuring height above the nearest stream. |
 | `richness_min`, `richness_max`, `richness_feature_m` | Patch-to-patch variation of productivity and its spatial scale. |
 | `climate_cv`, `climate_autocorrelation` | Year-to-year variation of production. |
-| `[[habitat]]` | `id`, `name`, `arable`, and optional `min_water_fraction`, `max_median_hand_m`, `max_mean_slope`. The first habitat whose conditions a patch meets is its habitat; the last must have none. |
+| `[[habitat]]` | `id`, `name`, `arable`, and optional `min_water_fraction`, `max_median_hand_m`, `max_mean_slope`. The first habitat whose conditions a patch meets is its habitat; the last must have none. Arable ground can carry fields; optional `clear_h_per_ha` is the work to clear it (woodland) before it is first broken. |
 | `[[resource]]` | `id`, `name`; `good` (the good a harvest yields) and `unit_kg` (its kilograms per unit of stock: 1 for stocks in kilograms, a carcass's meat for stocks in animals); `discrete` (harvests are whole units drawn from the expected count); `in_water` (lives in a patch's water, not its land); `range_patches` (a trip works a block of `2·range + 1` patches a side); `max_rate_per_hour` and `half_rate_stock_per_ha` (gathering slows as the stock falls). Then exactly one growth table. |
 | `[resource.plant]` | `production_per_ha_yr` (one figure per habitat, in habitat order), `loss_per_day`, `season` (twelve monthly weights): a seasonal production each day, a share of the standing stock lost each day. |
 | `[resource.animal]` | `capacity_per_ha` (per habitat), `growth_per_year`, `spread_per_month`: logistic growth toward the habitat's capacity, and a monthly spread between neighbouring patches toward an even share of capacity. |
@@ -168,8 +175,29 @@ Something people carry home and keep.
 | `half_life_days` | Days for half a stored amount to spoil; 0 keeps. Fuel must keep. |
 | `cooked` | Food that needs a fire: it is not eaten while the household has no firewood. Cooking adds no energy (research 05-02 §1.1: it adds water, not calories). |
 | `shared` | When brought home it is shared among every household of the settlement, by members. |
+| `reserve` | Kept back, like seed: eaten last of all, and only in real hunger. Fuel cannot be. |
 
 People eat the most perishable food first.
+
+### `crop`
+
+A plant people sow, tend and reap by hand. Which fields are sown, by whom and when, is decided by
+people at run time.
+
+| Field | Meaning |
+|---|---|
+| `good`, `seed_good` | The good the harvest yields and the good its seed is kept as (both good ids). |
+| `seed_kg_per_ha`, `yield_kg_per_ha` | Seed sown, and clean grain from average ground in an average year with timely work. |
+| `prepare_from_day`, `sow_from_day`, `sow_until_day` | The calendar (days of the year from 0): ground can be prepared from the first, sown between the other two. |
+| `late_sowing_loss_per_day` | Share of the yield lost for each day sowing finishes after `sow_from_day`. |
+| `grow_days` | Days from sowing to ripeness; the crop must ripen within the year it is sown. |
+| `standing_loss_per_day` | Share of the ripe crop lost for each day it stands unreaped; it is all gone in the end. |
+| `untended_loss` | Share of the yield weeds take from a crop nobody tends. |
+| `break_h_per_ha`, `prepare_h_per_ha`, `sow_h_per_ha`, `tend_h_per_ha`, `reap_h_per_ha` | Person-hours of a capable adult per hectare: breaking new ground, preparing cropped ground again, sowing, tending over the season, reaping and carrying home. |
+| `thresh_h_per_kg` | Person-hours to thresh and clean a kilogram of grain. |
+
+What a harvest brings depends on the field's ground (the richness of its patches), the year's
+weather, when sowing finished, how much of its tending was done, and how long it stood ripe.
 
 ### `names`
 
@@ -183,8 +211,9 @@ decided by people at run time.
 
 | Field | Meaning |
 |---|---|
-| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`. |
+| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`. |
 | `resource` | For `gather` only: the land resource gathered (hunting, fishing and collecting firewood are gathering too). |
+| `task` | For `farm` only: the field work, one of `prepare`, `sow`, `tend`, `reap`, `thresh`. |
 | `name`, `doing` | "Gather plants"; "gathering wild plants" (what the inspector says). |
 | `par` | Physical activity ratio of the work (1–10). |
 | `min_age_years`, `max_age_years` | Who does it. |
@@ -193,6 +222,6 @@ decided by people at run time.
 
 ## Planned kinds
 
-Crops and recipes, technologies (each only with its content footprint), building programs and
-style primitives, offices and policies, service capability ladders, all as the milestones in the
-plan introduce them (§5, §7).
+Recipes, technologies (each only with its content footprint), building programs and style
+primitives, offices and policies, service capability ladders, all as the milestones in the plan
+introduce them (§5, §7).

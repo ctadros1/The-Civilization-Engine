@@ -505,7 +505,8 @@ pub fn generate(
     }
     let routing = context.route();
     let inflow_points = lem::boundary_inflows(&context, &routing, rect);
-    let mut land = refine::crop(&context, rect);
+    let exits = lem::boundary_exits(&context, &routing, rect);
+    let mut land = refine::crop(&context, rect, &exits);
     drop(context);
 
     const REFINE_STAGES: [&str; 3] = [
@@ -564,6 +565,7 @@ pub fn generate(
                 seed: civ_core::rng::key(&[land.routing_seed, u64::MAX]),
                 amount: land.jitter,
             },
+            edge_outlets: &land.base,
         },
     );
 
@@ -687,6 +689,16 @@ mod tests {
         let map = run(&request);
         let stats = map.stats();
         assert!(stats.ocean_fraction > 0.0, "{stats:?}");
+        assert!(validate(&map).is_empty());
+    }
+
+    #[test]
+    fn endorheic_routing_still_yields_a_valid_world() {
+        let mut request = small(31);
+        request.params.endorheic_depth_m = 5.0;
+        request.params.basin_strength = 0.8;
+        request.params.trunk_inflow_km2 = 0.0;
+        let map = run(&request);
         assert!(validate(&map).is_empty());
     }
 

@@ -77,6 +77,47 @@ pub(crate) fn priority_flood(
     out
 }
 
+/// The lowest cell of every depression (cells where `spill > z`, 8-connected) whose depth
+/// exceeds `min_depth`.
+pub(crate) fn deep_depression_floors(
+    z: &[f64],
+    spill: &[f64],
+    w: usize,
+    h: usize,
+    min_depth: f64,
+) -> Vec<usize> {
+    let n = w * h;
+    let mut seen = vec![false; n];
+    let mut floors = Vec::new();
+    let mut queue = VecDeque::new();
+    for start in 0..n {
+        if seen[start] || spill[start] <= z[start] {
+            continue;
+        }
+        seen[start] = true;
+        queue.push_back(start);
+        let mut lowest = start;
+        while let Some(c) = queue.pop_front() {
+            if z[c] < z[lowest] {
+                lowest = c;
+            }
+            for off in D8 {
+                if let Some(nb) = neighbor(w, h, c, off)
+                    && !seen[nb]
+                    && spill[nb] > z[nb]
+                {
+                    seen[nb] = true;
+                    queue.push_back(nb);
+                }
+            }
+        }
+        if spill[start] - z[lowest] > min_depth {
+            floors.push(lowest);
+        }
+    }
+    floors
+}
+
 /// Cells below `sea_level` connected to the map edge through cells below `sea_level`. A low
 /// inland basin is not ocean (research 03-01 §3.6).
 pub(crate) fn ocean_mask(z: &[f64], w: usize, h: usize, sea_level: f64) -> Vec<bool> {

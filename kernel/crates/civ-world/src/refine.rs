@@ -13,9 +13,13 @@ use crate::lem::{Erosion, Fields, Landscape, purpose};
 use crate::noise::Noise;
 use crate::params::TerrainParams;
 
-/// Copies the rectangle `(x0, y0, w, h)` out of a context landscape. The crop's outer ring
-/// becomes its base level, and uplift stops: refinement only erodes.
-pub(crate) fn crop(ls: &Landscape, rect: (usize, usize, usize, usize)) -> Landscape {
+/// Copies the rectangle `(x0, y0, w, h)` out of a context landscape. The ring cells marked in
+/// `exits` become its base level (outlets), and uplift stops: refinement only erodes.
+pub(crate) fn crop(
+    ls: &Landscape,
+    rect: (usize, usize, usize, usize),
+    exits: &[bool],
+) -> Landscape {
     let (x0, y0, w, h) = rect;
     let mut z = Vec::with_capacity(w * h);
     let mut erodibility = Vec::with_capacity(w * h);
@@ -35,11 +39,12 @@ pub(crate) fn crop(ls: &Landscape, rect: (usize, usize, usize, usize)) -> Landsc
         z,
         uplift: vec![0.0; w * h],
         erodibility,
-        base: (0..w * h).map(|i| is_edge(w, h, i)).collect(),
+        base: exits.to_vec(),
         inflow: vec![0.0; w * h],
         routing_seed: ls.routing_seed,
         steps: ls.steps,
         jitter: ls.jitter,
+        endorheic_depth: ls.endorheic_depth,
     }
 }
 
@@ -147,6 +152,10 @@ pub(crate) fn refine_level(
             fields.erodibility(params, x, y)
         })
         .collect();
+    // An outlet edge stays an outlet: each fine ring cell inherits from the coarse cell it lies in.
+    let base: Vec<bool> = (0..w * h)
+        .map(|i| is_edge(w, h, i) && ls.base[(i / w / 2) * ls.w + (i % w) / 2])
+        .collect();
     *ls = Landscape {
         w,
         h,
@@ -155,11 +164,12 @@ pub(crate) fn refine_level(
         z,
         uplift: vec![0.0; w * h],
         erodibility,
-        base: (0..w * h).map(|i| is_edge(w, h, i)).collect(),
+        base,
         inflow: vec![0.0; w * h],
         routing_seed: ls.routing_seed,
         steps: ls.steps,
         jitter: ls.jitter,
+        endorheic_depth: ls.endorheic_depth,
     };
     ls.inflow = place_inflows(ls, inflow_points, cell * 4.0);
 
@@ -231,6 +241,7 @@ mod tests {
             routing_seed: 0,
             steps: 0,
             jitter: 0.0,
+            endorheic_depth: 0.0,
         };
         let inflow = place_inflows(&ls, &[(45.0, 5.0, 1000.0)], 30.0);
         let placed: Vec<usize> = (0..w * h).filter(|&i| inflow[i] > 0.0).collect();

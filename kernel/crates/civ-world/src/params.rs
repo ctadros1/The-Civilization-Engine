@@ -52,6 +52,10 @@ pub struct TerrainParams {
     pub diffusivity_m2_per_yr: f64,
     /// Steepest stable slope of loose material (tan of the angle).
     pub talus_slope: f64,
+    /// During landscape evolution, depressions deeper than this keep their water instead of
+    /// overflowing, metres (0 = every basin overflows). Arid presets use it: a closed basin
+    /// does not erode its own outlet, so it stays closed.
+    pub endorheic_depth_m: f64,
     /// Coarse landscape-evolution iterations.
     pub coarse_iterations: u32,
     /// Coarse time step, years.
@@ -113,6 +117,7 @@ impl Default for TerrainParams {
             channel_initiation_km2: 0.0,
             diffusivity_m2_per_yr: 0.04,
             talus_slope: 0.85,
+            endorheic_depth_m: 0.0,
             coarse_iterations: 150,
             coarse_dt_years: 20_000.0,
             fine_iterations: [10, 6, 3],
@@ -167,6 +172,7 @@ impl TerrainParams {
             self.channel_initiation_km2,
             self.diffusivity_m2_per_yr,
             self.talus_slope,
+            self.endorheic_depth_m,
             self.coarse_dt_years,
             self.fine_dt_years,
             self.detail_amplitude,
@@ -261,6 +267,10 @@ impl TerrainParams {
         check(
             (0.1..=5.0).contains(&self.talus_slope),
             "talus_slope must be within 0.1–5",
+        );
+        check(
+            (0.0..=1000.0).contains(&self.endorheic_depth_m),
+            "endorheic_depth_m must be within 0–1000",
         );
         check(
             (1..=2000).contains(&self.coarse_iterations),

@@ -15,7 +15,7 @@ use rayon::prelude::*;
 
 use civ_core::rng::{Rng64, key};
 
-use crate::flood::priority_flood;
+use crate::flood::{deep_depression_floors, priority_flood};
 use crate::grid::{D4, D8, D8_DIST, neighbor, step_length};
 use crate::noise::Noise;
 use crate::params::TerrainParams;
@@ -60,6 +60,8 @@ pub(crate) struct Landscape {
     pub steps: u64,
     /// Strength of the routing perturbation.
     pub jitter: f64,
+    /// Depressions deeper than this keep their water (0 = all overflow).
+    pub endorheic_depth: f64,
 }
 
 /// Receivers, order and drainage area of one routing pass.
@@ -67,6 +69,8 @@ pub(crate) struct Routing {
     pub receivers: Vec<u32>,
     pub order: Vec<u32>,
     pub area: Vec<f64>,
+    /// The epsilon-filled routing surface; above the bed only inside depressions.
+    pub surface: Vec<f64>,
 }
 
 /// Settings for one erosion pass.
@@ -255,6 +259,7 @@ pub(crate) fn build_context(
         routing_seed: key(&[seed, purpose::ROUTING]),
         steps: 0,
         jitter: params.routing_jitter,
+        endorheic_depth: params.endorheic_depth_m,
     }
 }
 
@@ -269,14 +274,26 @@ impl Landscape {
 
     /// Routes flow over the current surface.
     pub fn route(&self) -> Routing {
-        let surface = priority_flood(&self.z, self.w, self.h, &self.base, true);
-        let receivers = steepest_receivers(&surface, self.w, self.h, &self.base, self.jitter());
+        let mut seeds = self.base.clone();
+        if self.endorheic_depth > 0.0 {
+            // Deep basins keep their water: their floors are sinks, so no drainage area leaves
+            // them and their outlets are not eroded.
+            let spill = priority_flood(&self.z, self.w, self.h, &self.base, false);
+            for floor in
+                deep_depression_floors(&self.z, &spill, self.w, self.h, self.endorheic_depth)
+            {
+                seeds[floor] = true;
+            }
+        }
+        let surface = priority_flood(&self.z, self.w, self.h, &seeds, true);
+        let receivers = steepest_receivers(&surface, self.w, self.h, &seeds, self.jitter());
         let order = stack_order(&receivers);
         let area = accumulate(&order, &receivers, self.cell * self.cell, &self.inflow);
         Routing {
             receivers,
             order,
             area,
+            surface,
         }
     }
 
@@ -295,7 +312,19 @@ impl Landscape {
         for &i in &routing.order {
             let i = i as usize;
             let r = routing.receivers[i] as usize;
-            if r == i || self.base[i] {
+            if self.base[i] {
+                continue;
+            }
+            if r == i {
+                // A basin floor holding its water: it rises or subsides with the rock.
+                self.z[i] += self.uplift[i] * e.dt;
+                continue;
+            }
+            if routing.surface[i] - self.z[i] > 1e-6 {
+                // Below its spill level: water passes through, but the stream-power law says
+                // nothing about filling a basin, and applying it here would fill every basin
+                // almost instantly. Basins persist unless subsidence or uplift changes them.
+                self.z[i] += self.uplift[i] * e.dt;
                 continue;
             }
             let a = routing.area[i];
@@ -383,6 +412,43 @@ impl Landscape {
         });
         std::mem::swap(&mut self.z, scratch);
     }
+}
+
+/// Which cells on the outer ring of the rectangle `(x0, y0, w, h)` are real outlets: where, in
+/// the context, water leaves the rectangle, or a base-level edge of the context. Edges where
+/// water enters, runs along, or ends in a closed basin are not outlets. If no cell qualifies,
+/// the lowest ring cell is used, so the map always drains somewhere. Returned as a mask over
+/// the rectangle's cells.
+pub(crate) fn boundary_exits(
+    ls: &Landscape,
+    routing: &Routing,
+    rect: (usize, usize, usize, usize),
+) -> Vec<bool> {
+    let (x0, y0, rw, rh) = rect;
+    let mut exits = vec![false; rw * rh];
+    let mut lowest: Option<usize> = None;
+    for cy in 0..rh {
+        for cx in 0..rw {
+            if !(cx == 0 || cy == 0 || cx + 1 == rw || cy + 1 == rh) {
+                continue;
+            }
+            let local = cy * rw + cx;
+            let i = (y0 + cy) * ls.w + (x0 + cx);
+            if lowest.is_none_or(|l| ls.z[i] < ls.z[(y0 + l / rw) * ls.w + x0 + l % rw]) {
+                lowest = Some(local);
+            }
+            let r = routing.receivers[i] as usize;
+            let (rx, ry) = (r % ls.w, r / ls.w);
+            let inside = rx >= x0 && rx < x0 + rw && ry >= y0 && ry < y0 + rh;
+            exits[local] = (r == i && ls.base[i]) || !inside;
+        }
+    }
+    if !exits.iter().any(|&e| e)
+        && let Some(l) = lowest
+    {
+        exits[l] = true;
+    }
+    exits
 }
 
 /// Upstream area entering the rectangle `(x0, y0, w, h)` of the context from outside it. Returned
@@ -492,6 +558,7 @@ mod tests {
             routing_seed: 0,
             steps: 0,
             jitter: 0.0,
+            endorheic_depth: 0.0,
         };
         let receivers: Vec<u32> = (0..w * h)
             .map(|i| {
@@ -508,6 +575,7 @@ mod tests {
             receivers,
             order,
             area,
+            surface: vec![0.0; w * h],
         };
         let inflows = boundary_inflows(&ls, &routing, (4, 0, 3, 3));
         assert_eq!(inflows.len(), 3, "one per row");
@@ -515,5 +583,9 @@ mod tests {
             assert_eq!(x, 0.5);
             assert_eq!(a, 4.0, "cells 0-3 of the row");
         }
+        // Water leaves the rectangle only through its east column.
+        let exits = boundary_exits(&ls, &routing, (4, 0, 3, 3));
+        let exit_columns: Vec<usize> = (0..9).filter(|&i| exits[i]).map(|i| i % 3).collect();
+        assert_eq!(exit_columns, vec![2, 2, 2]);
     }
 }

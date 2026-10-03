@@ -64,10 +64,15 @@ fn main() {
         params.trunk_inflow_km2 = 800.0;
     }
     if flag("--basins") {
-        params.basin_strength = 0.6;
-        params.precipitation_mm_per_yr = 450.0;
-        params.evapotranspiration_mm_per_yr = 380.0;
-        params.lake_evaporation_mm_per_yr = 1200.0;
+        params.base_level_m = 600.0;
+        params.basin_strength = 0.7;
+        params.trunk_inflow_km2 = 0.0;
+        params.outlet_edges = 2;
+        params.precipitation_mm_per_yr = 350.0;
+        params.evapotranspiration_mm_per_yr = 320.0;
+        params.lake_evaporation_mm_per_yr = 1300.0;
+        params.endorheic_depth_m = 8.0;
+        params.context_factor = arg("--context", 1.25);
     }
     let request = GenerateRequest {
         seed,

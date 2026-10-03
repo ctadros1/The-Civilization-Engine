@@ -44,6 +44,8 @@ pub(crate) struct HydroInput<'a> {
     pub inflow: &'a [f64],
     /// Routing perturbation; the same for both routing passes.
     pub jitter: Jitter,
+    /// Edge cells where water leaves the map (from the watershed context).
+    pub edge_outlets: &'a [bool],
 }
 
 /// The finished water system.
@@ -116,7 +118,18 @@ pub(crate) fn finalize(mut z: Vec<f64>, input: &HydroInput) -> HydroOutput {
     let cell_area = input.cell * input.cell;
 
     let ocean = ocean_mask(&z, w, h, input.sea_level);
-    let outlets: Vec<bool> = (0..n).map(|i| ocean[i] || is_edge(w, h, i)).collect();
+    let mut outlets: Vec<bool> = (0..n)
+        .map(|i| ocean[i] || (input.edge_outlets[i] && is_edge(w, h, i)))
+        .collect();
+    if !outlets.iter().any(|&o| o) {
+        // Water must be able to leave somewhere: fall back to the lowest edge cell.
+        if let Some(lowest) = (0..n)
+            .filter(|&i| is_edge(w, h, i))
+            .min_by(|&a, &b| z[a].total_cmp(&z[b]))
+        {
+            outlets[lowest] = true;
+        }
+    }
 
     // Depressions and their catchments.
     let spill = priority_flood(&z, w, h, &outlets, false);
@@ -314,13 +327,14 @@ pub(crate) fn finalize(mut z: Vec<f64>, input: &HydroInput) -> HydroOutput {
 mod tests {
     use super::*;
 
-    fn input(
+    fn input<'a>(
         w: usize,
         h: usize,
         precipitation: f64,
         evaporation: f64,
-        inflow: &[f64],
-    ) -> HydroInput<'_> {
+        inflow: &'a [f64],
+        edges: &'a [bool],
+    ) -> HydroInput<'a> {
         HydroInput {
             w,
             h,
@@ -333,7 +347,12 @@ mod tests {
             min_lake_area: 150.0,
             inflow,
             jitter: Jitter::NONE,
+            edge_outlets: edges,
         }
+    }
+
+    fn all_edges(w: usize, h: usize) -> Vec<bool> {
+        (0..w * h).map(|i| is_edge(w, h, i)).collect()
     }
 
     /// A 21x21 bowl: a sloping plain toward the west edge with a 9x9 pit in the middle.
@@ -357,7 +376,7 @@ mod tests {
     #[test]
     fn a_humid_basin_holds_an_open_lake_that_drains() {
         let (w, h, z) = bowl();
-        let out = finalize(z, &input(w, h, 1.0, 0.8, &[]));
+        let out = finalize(z, &input(w, h, 1.0, 0.8, &[], &all_edges(w, h)));
         assert_eq!(out.lakes.len(), 1);
         let lake = &out.lakes[0];
         assert!(!lake.closed);
@@ -371,8 +390,8 @@ mod tests {
     #[test]
     fn an_arid_basin_holds_a_smaller_closed_lake() {
         let (w, h, z) = bowl();
-        let humid = finalize(z.clone(), &input(w, h, 1.0, 0.8, &[]));
-        let arid = finalize(z, &input(w, h, 0.2, 2.0, &[]));
+        let humid = finalize(z.clone(), &input(w, h, 1.0, 0.8, &[], &all_edges(w, h)));
+        let arid = finalize(z, &input(w, h, 0.2, 2.0, &[], &all_edges(w, h)));
         assert_eq!(arid.lakes.len(), 1);
         let lake = &arid.lakes[0];
         assert!(lake.closed);
@@ -391,7 +410,7 @@ mod tests {
         let (w, h) = (9, 9);
         let mut z: Vec<f64> = (0..w * h).map(|i| 5.0 + (i % w) as f64 * 0.1).collect();
         z[4 * w + 4] -= 0.2; // a 0.2 m dimple
-        let out = finalize(z, &input(w, h, 1.0, 0.8, &[]));
+        let out = finalize(z, &input(w, h, 1.0, 0.8, &[], &all_edges(w, h)));
         assert!(out.lakes.is_empty());
         assert_eq!(out.filled_cells, 1);
     }
@@ -401,7 +420,7 @@ mod tests {
         let (w, h, z) = bowl();
         let mut inflow = vec![0.0; w * h];
         inflow[w + 18] = 5_000.0;
-        let out = finalize(z, &input(w, h, 0.2, 2.0, &inflow));
+        let out = finalize(z, &input(w, h, 0.2, 2.0, &inflow, &all_edges(w, h)));
         let total: f64 = (0..w * h)
             .filter(|&i| out.receiver_index[i] as usize == i)
             .map(|i| out.area[i])

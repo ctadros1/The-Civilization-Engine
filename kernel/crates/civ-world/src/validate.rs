@@ -54,8 +54,13 @@ pub fn validate(map: &WorldMap) -> Vec<String> {
                 i as u32
             }
         };
-        if (is_edge(w, h, i) || map.water[i] == WATER_OCEAN) && code != RECEIVER_OUTLET {
-            problems.push(format!("edge or ocean cell {i} is not an outlet"));
+        if map.water[i] == WATER_OCEAN && code != RECEIVER_OUTLET {
+            problems.push(format!("ocean cell {i} is not an outlet"));
+        }
+        if code == RECEIVER_OUTLET && !is_edge(w, h, i) && map.water[i] != WATER_OCEAN {
+            problems.push(format!(
+                "cell {i} drains off the map but is neither edge nor ocean"
+            ));
         }
         if map.water[i] > WATER_OCEAN {
             problems.push(format!("cell {i} has invalid water class {}", map.water[i]));

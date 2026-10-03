@@ -112,6 +112,7 @@ mod tests {
             routing_seed: 0,
             steps: 0,
             jitter: 0.0,
+            endorheic_depth: 0.0,
         }
     }
 

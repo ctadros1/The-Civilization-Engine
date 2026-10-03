@@ -7,7 +7,7 @@ import type { PathsInfo, TrailInfo, WornTile } from "./net/messages.js";
 /** Trodden earth. */
 export const WORN_COLOUR = 0xb69b69;
 /** A trail's line. */
-export const TRAIL_COLOUR = 0x86653a;
+export const TRAIL_COLOUR = 0x7b5a33;
 
 /** The map legend's entries for paths. */
 export const PATH_LEGEND: { label: string; fill: number }[] = [

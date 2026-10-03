@@ -350,7 +350,7 @@ export class MapView {
       g.moveTo(p[0]![0], p[0]![1]);
       for (let k = 1; k < p.length; k++) g.lineTo(p[k]![0], p[k]![1]);
       g.stroke({
-        width: Math.max(look.widthM, 1.2 * pxM),
+        width: Math.max(look.widthM, 1.6 * pxM),
         color: TRAIL_COLOUR,
         alpha: look.alpha,
         cap: "round",

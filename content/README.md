@@ -106,7 +106,7 @@ are not calibrations. An arid closed-basin preset is planned for M3, once climat
 
 ## Kinds (M1)
 
-M1 adds seven kinds (kernel content API 5). Every field is required, and every number in the
+M1 adds seven kinds (kernel content API 6). Every field is required, and every number in the
 shipped files carries its research source or says it is a tuning starting point.
 
 ### `people`
@@ -170,6 +170,7 @@ How land is classified and what grows wild. Exactly one profile.
 | `channel_area_km2` | Drainage area that counts as a stream when measuring height above the nearest stream. |
 | `richness_min`, `richness_max`, `richness_feature_m` | Patch-to-patch variation of productivity and its spatial scale. |
 | `climate_cv`, `climate_autocorrelation` | Year-to-year variation of production. |
+| `[paths]` | `wear_per_walk`, `wear_half_life_days`: a walk across an 8 m cell wears away this share of what is left unworn, and unused wear halves in this many days. `trail_at`, `trail_until`: a cell becomes trail at the first wear and stays trail until it fades below the second. |
 | `[[habitat]]` | `id`, `name`, `arable`, and optional `min_water_fraction`, `max_median_hand_m`, `max_mean_slope`. The first habitat whose conditions a patch meets is its habitat; the last must have none. Arable ground can carry fields; optional `clear_h_per_ha` is the work to clear it (woodland) before it is first broken. |
 | `[[resource]]` | `id`, `name`; `good` (the good a harvest yields) and `unit_kg` (its kilograms per unit of stock: 1 for stocks in kilograms, a carcass's meat for stocks in animals); `discrete` (harvests are whole units drawn from the expected count); `in_water` (lives in a patch's water, not its land); `range_patches` (a trip works a block of `2·range + 1` patches a side); `max_rate_per_hour` and `half_rate_stock_per_ha` (gathering slows as the stock falls). Then exactly one growth table. |
 | `[resource.plant]` | `production_per_ha_yr` (one figure per habitat, in habitat order), `loss_per_day`, `season` (twelve monthly weights): a seasonal production each day, a share of the standing stock lost each day. A new world's stock, and what people expect of land they have not worked, is the yearly cycle this settles into: what stands lags what grows by about the time it lasts (last summer's reeds still stand in March). |

@@ -118,7 +118,7 @@ pub fn new_world(
         let died = records.values().filter(|r| r.died.is_some()).count();
         let left = records.values().filter(|r| r.left.is_some()).count();
         let trails = sim.land().wear.trails();
-        let trail_km: f32 = trails.iter().map(|t| t.length_m()).sum::<f32>() / 1000.0;
+        let trail_km = trails.iter().fold(0.0f32, |m, t| m + t.length_m()) / 1000.0;
         println!(
             "lived {} days in {:.1} s: {} people ({born} born, {died} died, {left} left), {} \
              fields ({ha:.2} ha), {} huts ({} roofed), {} trails ({trail_km:.1} km), {} \

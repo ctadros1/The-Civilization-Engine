@@ -17,6 +17,7 @@ import {
   formatSpeed,
   formatWhen,
 } from "./format.js";
+import { BUILDING_LEGEND } from "./buildings.js";
 import { FIELD_LEGEND } from "./fields.js";
 import { HostError } from "./net/client.js";
 import type {
@@ -840,6 +841,13 @@ export function bindUi(store: Store, actions: Actions): void {
       fieldLegend.append(el("li", {}, swatch, f.label));
     }
     nodes.push(el("p", { className: "legend-title", text: "Fields" }), fieldLegend);
+    const hutLegend = el("ul", { className: "legend huts" });
+    for (const h of BUILDING_LEGEND) {
+      const swatch = el("span", { className: "swatch" });
+      swatch.style.background = cssColour(h.fill);
+      hutLegend.append(el("li", {}, swatch, h.label));
+    }
+    nodes.push(el("p", { className: "legend-title", text: "Huts" }), hutLegend);
     peopleBody.replaceChildren(...nodes);
   };
 

@@ -1,7 +1,7 @@
-// M1, slices A to C, end to end: a new world begins with a founding band; people appear on the
+// M1, slices A to D, end to end: a new world begins with a founding band; people appear on the
 // map, move along their trips while the clock runs, and the inspector says what someone is doing
 // and why, and what their household has in store; the chronicle records the arrival; the band
-// marks out fields, and the map shows them.
+// marks out fields and begins its huts, and the map shows them.
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -101,6 +101,11 @@ test("a founding band lives on the map and explains itself", async ({ page }) =>
       timeout: 120_000,
     });
     expect((await state(page)).fieldsRev).toBeGreaterThan(0);
+    // Households claim ground for their homes and begin their huts.
+    await page.waitForFunction(() => window.__TCE__.map().buildings > 0, undefined, {
+      timeout: 120_000,
+    });
+    expect((await state(page)).buildingsRev).toBeGreaterThan(0);
     await snap(page, "m1-running");
     await page.getByRole("button", { name: "Pause" }).click();
 
@@ -108,6 +113,7 @@ test("a founding band lives on the map and explains itself", async ({ page }) =>
     await page.getByRole("button", { name: "Close the inspector" }).click();
     await expect(page.locator("#people-body")).toContainText("Click a person on the map");
     await expect(page.locator("#people-body .legend.fields")).toContainText("new ground");
+    await expect(page.locator("#people-body .legend.huts")).toContainText("thatched hut");
     expect((await state(page)).lastError).toBeNull();
   } finally {
     await host.stop();

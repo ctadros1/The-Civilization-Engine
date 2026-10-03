@@ -248,6 +248,13 @@ export class HostClient {
     return body.person;
   }
 
+  /** Every building, with the revision it is at. */
+  async buildings(): Promise<{ rev: number; buildings: M.BuildingInfo[] }> {
+    const body = await this.query(M.getBuildings());
+    if (body.kind !== "buildings") throw new HostError("internal", "expected buildings");
+    return { rev: body.rev, buildings: body.buildings };
+  }
+
   /** Every field, with the revision it is at. */
   async fields(): Promise<{ rev: number; fields: M.FieldInfo[] }> {
     const body = await this.query(M.getFields());

@@ -128,6 +128,83 @@ describe("decoders", () => {
       settlements: [],
       chronicleHead: 0,
       fieldsRev: 0,
+      buildingsRev: 0,
+    });
+  });
+
+  it("builds a buildings query and decodes the buildings", () => {
+    const query = W.Query.getRootAsQuery(bb(M.getBuildings()));
+    expect(query.bodyType()).toBe(W.QueryBody.GetBuildings);
+
+    const b = new flatbuffers.Builder(512);
+    const program = b.createString("Hut");
+    const stageName = b.createString("walls");
+    const status = b.createString("walls going up, 40% done");
+    // Struct vectors are written back to front.
+    W.BuildingInfo.startOutlineVector(b, 2);
+    W.Vec2.createVec2(b, 100, 203);
+    W.Vec2.createVec2(b, 103, 200);
+    const outline = b.endVector();
+    W.BuildingInfo.startPostsVector(b, 1);
+    W.Vec2.createVec2(b, 103.1, 200);
+    const posts = b.endVector();
+    W.BuildingInfo.startBuildingInfo(b);
+    W.BuildingInfo.addId(b, 61n);
+    W.BuildingInfo.addHousehold(b, 7n);
+    W.BuildingInfo.addSettlement(b, 3n);
+    W.BuildingInfo.addProgram(b, program);
+    W.BuildingInfo.addCentre(b, W.Vec2.createVec2(b, 100, 200));
+    W.BuildingInfo.addRadiusM(b, 3);
+    W.BuildingInfo.addRoofRadiusM(b, 3.5);
+    W.BuildingInfo.addDoor(b, W.Vec2.createVec2(b, 103, 200));
+    W.BuildingInfo.addDoorDir(b, 0.5);
+    W.BuildingInfo.addStage(b, 2);
+    W.BuildingInfo.addStageName(b, stageName);
+    W.BuildingInfo.addProgress(b, 0.4);
+    W.BuildingInfo.addOutline(b, outline);
+    W.BuildingInfo.addPosts(b, posts);
+    W.BuildingInfo.addPlotMin(b, W.Vec2.createVec2(b, 96.5, 196.5));
+    W.BuildingInfo.addPlotSize(b, W.Vec2.createVec2(b, 7, 7));
+    W.BuildingInfo.addFloorM2(b, 28.25);
+    W.BuildingInfo.addSleeps(b, 4);
+    W.BuildingInfo.addStartedMinute(b, 86_400n);
+    W.BuildingInfo.addStatus(b, status);
+    const info = W.BuildingInfo.endBuildingInfo(b);
+    const list = W.Buildings.createBuildingsVector(b, [info]);
+    const buildings = W.Buildings.createBuildings(b, 77n, list);
+    const response = W.Response.createResponse(b, W.ResponseBody.Buildings, buildings);
+    const body = M.decodeResponse(finish(b, response));
+    expect(body).toEqual({
+      kind: "buildings",
+      rev: 77,
+      buildings: [
+        {
+          id: 61,
+          household: 7,
+          settlement: 3,
+          program: "Hut",
+          x: 100,
+          y: 200,
+          radiusM: 3,
+          roofRadiusM: 3.5,
+          door: [103, 200],
+          doorDir: 0.5,
+          stage: 2,
+          stageName: "walls",
+          progress: expect.closeTo(0.4, 6),
+          roofed: false,
+          outline: [
+            [103, 200],
+            [100, 203],
+          ],
+          posts: [[expect.closeTo(103.1, 4), 200]],
+          plot: { x: 96.5, y: 196.5, w: 7, h: 7 },
+          floorM2: 28.25,
+          sleeps: 4,
+          startedMinute: 86_400,
+          status: "walls going up, 40% done",
+        },
+      ],
     });
   });
 

@@ -10,14 +10,19 @@
 //   a click selects one. Settlements show their hearth and name.
 // - Fields are rectangles coloured by where they are in their year; the pointer readout names the
 //   field under it.
+// - Buildings show what their construction has reached: the plot, postholes and posts, the walls'
+//   outline, and the thatch, from the shape the kernel expands; the readout names the one under
+//   the pointer.
 
 import { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 
+import { buildingAt, buildingLook } from "../buildings.js";
 import { fieldAt, fieldLook } from "../fields.js";
 import type { HostClient } from "../net/client.js";
 import {
   RasterLayer,
   type ActivityInfo,
+  type BuildingInfo,
   type Clock,
   type FieldInfo,
   type Hydrography,
@@ -63,6 +68,8 @@ export interface PointerInfo {
   water: "land" | "river" | "lake" | "ocean" | null;
   /** The field under the pointer, if any. */
   field: FieldInfo | null;
+  /** The building under the pointer, if any. */
+  building: BuildingInfo | null;
 }
 
 /** A shaded raster region with the samples behind it. */
@@ -82,6 +89,9 @@ interface TileSlot {
   patch: Patch | null;
   used: number;
 }
+
+/** Closest zoom, screen pixels per metre. */
+const MAX_PX_PER_M = 8;
 
 const DETAIL_TILE = 256;
 const MAX_DETAIL_TILES = 96;
@@ -132,6 +142,8 @@ export class MapView {
   private shadeOptions: ShadeOptions | null = null;
   private readonly fieldsLayer = new Graphics();
   private fields: FieldInfo[] = [];
+  private readonly buildingsLayer = new Graphics();
+  private buildings: BuildingInfo[] = [];
   private readonly settlementLayer = new Container();
   private readonly peopleLayer = new Graphics();
   private people: PersonBrief[] = [];
@@ -168,6 +180,7 @@ export class MapView {
       this.detail,
       this.rivers,
       this.fieldsLayer,
+      this.buildingsLayer,
       this.settlementLayer,
       this.peopleLayer,
     );
@@ -212,6 +225,8 @@ export class MapView {
     for (const child of this.settlementLayer.removeChildren()) child.destroy();
     this.fields = [];
     this.fieldsLayer.clear();
+    this.buildings = [];
+    this.buildingsLayer.clear();
     this.peopleLayer.clear();
     this.trips.clear();
     this.clock = null;
@@ -246,6 +261,43 @@ export class MapView {
     for (const f of fields) {
       const look = fieldLook(f);
       g.rect(f.x, f.y, f.w, f.h).fill({ color: look.fill, alpha: look.alpha });
+    }
+    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** The buildings, as the host last listed them. */
+  setBuildings(buildings: BuildingInfo[]): void {
+    this.buildings = buildings;
+    const g = this.buildingsLayer;
+    g.clear();
+    for (const b of buildings) {
+      const look = buildingLook(b);
+      if (b.plot) {
+        const p = b.plot;
+        g.rect(p.x, p.y, p.w, p.h).stroke({ width: 0.25, color: 0xe8dcc0, alpha: 0.5 });
+      }
+      if (look.roofAlpha > 0) {
+        g.circle(b.x, b.y, b.roofRadiusM).fill({ color: look.roofFill, alpha: look.roofAlpha });
+        g.circle(b.x, b.y, b.roofRadiusM).stroke({ width: 0.2, color: 0x6b5426, alpha: look.roofAlpha });
+      }
+      if (look.wallAlpha > 0 && b.outline.length > 2 && look.roofAlpha < 0.9) {
+        g.poly(b.outline.flat(), true).stroke({
+          width: 0.3,
+          color: look.wallFill,
+          alpha: look.wallAlpha,
+        });
+      }
+      if (look.roofAlpha < 0.9) {
+        for (const [x, y] of b.posts.slice(0, look.posts)) {
+          g.circle(x, y, 0.15).fill({ color: look.postFill, alpha: 0.9 });
+        }
+      }
+      if (b.roofed) {
+        // The doorway, a dark notch at the eaves.
+        const [dx, dy] = [Math.cos(b.doorDir), Math.sin(b.doorDir)];
+        const r = b.roofRadiusM;
+        g.circle(b.x + dx * r * 0.92, b.y + dy * r * 0.92, 0.35).fill({ color: 0x2b2117, alpha: 0.9 });
+      }
     }
     if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
   }
@@ -452,7 +504,8 @@ export class MapView {
       app.screen.width / (info.width * info.cellSizeM),
       app.screen.height / (info.height * info.cellSizeM),
     );
-    return { min: fit * 0.5, max: 8 / info.cellSizeM };
+    // Close enough to see a hut's posts: eight pixels a metre.
+    return { min: fit * 0.5, max: MAX_PX_PER_M };
   }
 
   /** Zooms by `factor` around a screen point (the centre by default). */
@@ -587,6 +640,7 @@ export class MapView {
       elevationM: patch.elev[i] ?? null,
       water: WATER_NAMES[patch.water[i] ?? -1] ?? null,
       field: fieldAt(this.fields, xM, yM),
+      building: buildingAt(this.buildings, xM, yM),
     };
   }
 
@@ -765,6 +819,8 @@ export class MapView {
       tripsCached: this.trips.size,
       settlements: this.settlements.map((s) => s.name),
       fields: this.fields.length,
+      buildings: this.buildings.length,
+      roofed: this.buildings.filter((b) => b.roofed).length,
       selected: this.selected,
       camera: { x: this.world.x, y: this.world.y, scale: this.scale },
       screen: this.app ? [this.app.screen.width, this.app.screen.height] : null,

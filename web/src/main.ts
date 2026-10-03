@@ -48,6 +48,7 @@ const client = new HostClient(socketUrl(), {
     map.setPeople(snapshot.people, snapshot.settlements, snapshot.clock);
     void syncChronicle();
     void syncFields();
+    void syncBuildings();
     void refreshPerson(false);
   },
   events: (items) => store.update({ events: mergeEvents(store.state.events, items) }),
@@ -113,6 +114,43 @@ async function syncFields(): Promise<void> {
   }
 }
 
+/** `world:revision` of the buildings on the map, and when they were last asked for. */
+let buildingsKey = "";
+let buildingsBusy = false;
+let buildingsAskedAt = 0;
+/** Least real time between fetches of the buildings while work moves on, milliseconds. */
+const BUILDINGS_REFRESH_MS = 500;
+
+/** Fetches the buildings when one was begun or its work moved on (at most twice a second). */
+async function syncBuildings(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const worldKey = world ? `${store.state.epoch}:${world.worldId}` : "";
+  const key = world && s.buildingsRev !== 0 ? `${worldKey}:${s.buildingsRev}` : "";
+  if (key === buildingsKey || buildingsBusy) return;
+  if (!key) {
+    buildingsKey = "";
+    map.setBuildings([]);
+    return;
+  }
+  // A new world's buildings come at once; work moving on is shown at most twice a second.
+  const now = performance.now();
+  if (buildingsKey.startsWith(`${worldKey}:`) && now - buildingsAskedAt < BUILDINGS_REFRESH_MS) {
+    return;
+  }
+  buildingsBusy = true;
+  buildingsAskedAt = now;
+  try {
+    const { buildings } = await client.buildings();
+    buildingsKey = key;
+    map.setBuildings(buildings);
+  } catch (e) {
+    console.warn(`tce: the buildings could not be read: ${String(e)}`);
+  } finally {
+    buildingsBusy = false;
+  }
+}
+
 let personBusy = false;
 let personAskedAt = 0;
 
@@ -174,9 +212,12 @@ map.onPointer = (info: PointerInfo | null) => {
   }
   const height = info.elevationM === null ? "" : ` · ${Math.round(info.elevationM)} m`;
   const field = info.field ? ` · field: ${info.field.status}` : "";
+  const building = info.building
+    ? ` · ${info.building.program.toLowerCase()}: ${info.building.status}`
+    : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}${field}`;
+    `${height} · ${info.water ?? ""}${field}${building}`;
 };
 
 const scaleBar = byId("scalebar-bar");
@@ -242,6 +283,7 @@ const hooks = {
       people: s.snapshot?.people.length ?? 0,
       settlements: s.snapshot?.settlements.map((x) => ({ name: x.name, population: x.population })) ?? [],
       fieldsRev: s.snapshot?.fieldsRev ?? 0,
+      buildingsRev: s.snapshot?.buildingsRev ?? 0,
       chronicle: s.chronicle.map((e) => e.spans.map((x) => x.text).join("")),
       selected: s.selected
         ? { id: s.selected.id, name: s.selected.info?.name ?? null, doing: s.selected.info?.doing ?? null }

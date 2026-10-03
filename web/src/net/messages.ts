@@ -160,6 +160,8 @@ export interface Snapshot {
   chronicleHead: number;
   /** Changes whenever a field is marked out or changes stage (0 = no fields). */
   fieldsRev: number;
+  /** Changes whenever ground is claimed for a building or work on one moves on (0 = none). */
+  buildingsRev: number;
 }
 
 export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
@@ -189,6 +191,40 @@ export interface FieldInfo {
   sheavesKg: number;
   harvests: number;
   /** Rendered by the kernel: "growing; ripe in about 20 days". */
+  status: string;
+}
+
+/** A building and the ground it stands on (M1 slice D), as the kernel expands its design. */
+export interface BuildingInfo {
+  id: number;
+  household: number;
+  settlement: number;
+  /** The program's name: "Hut". */
+  program: string;
+  /** Centre, metres; radius of the wall line and of the roof's edge, metres. */
+  x: number;
+  y: number;
+  radiusM: number;
+  roofRadiusM: number;
+  /** The doorway's middle, metres, and the direction it faces, radians from east toward south. */
+  door: [number, number];
+  doorDir: number;
+  /** The stage under way (0 foundation … 4 finish; 5 once finished) and its name. */
+  stage: number;
+  stageName: string;
+  /** Share of the stage's work done, 0–1. */
+  progress: number;
+  roofed: boolean;
+  /** The outer face of the walls, metres, round from the door. */
+  outline: [number, number][];
+  /** Where the posts stand, metres. */
+  posts: [number, number][];
+  /** The plot it stands on: north-west corner and size, metres. */
+  plot: { x: number; y: number; w: number; h: number } | null;
+  floorM2: number;
+  sleeps: number;
+  startedMinute: number;
+  /** Rendered by the kernel: "walls going up, 40% done; waiting for timber". */
   status: string;
 }
 
@@ -393,7 +429,8 @@ export type ResponseBody =
   | { kind: "trips"; trips: TripInfo[] }
   | { kind: "person"; person: PersonInfo }
   | { kind: "chronicle"; entries: ChronicleEntry[]; head: number }
-  | { kind: "fields"; rev: number; fields: FieldInfo[] };
+  | { kind: "fields"; rev: number; fields: FieldInfo[] }
+  | { kind: "buildings"; rev: number; buildings: BuildingInfo[] };
 
 export type ErrorCode =
   | "unknown"
@@ -528,6 +565,12 @@ export function getFields(): Uint8Array {
   const b = new flatbuffers.Builder(16);
   W.GetFields.startGetFields(b);
   return query(b, W.QueryBody.GetFields, W.GetFields.endGetFields(b));
+}
+
+export function getBuildings(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetBuildings.startGetBuildings(b);
+  return query(b, W.QueryBody.GetBuildings, W.GetBuildings.endGetBuildings(b));
 }
 
 export function getChronicle(afterSeq: number, limit: number): Uint8Array {
@@ -678,6 +721,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     settlements: settlementBriefs(s),
     chronicleHead: Number(s.chronicleHead()),
     fieldsRev: Number(s.fieldsRev()),
+    buildingsRev: Number(s.buildingsRev()),
   };
 }
 
@@ -940,6 +984,59 @@ function fields(f: W.Fields): { rev: number; fields: FieldInfo[] } {
   return { rev: Number(f.rev()), fields: out };
 }
 
+function vec2List(n: number, at: (i: number, v: W.Vec2) => W.Vec2 | null): [number, number][] {
+  const out: [number, number][] = [];
+  const v = new W.Vec2();
+  for (let i = 0; i < n; i++) {
+    const p = at(i, v);
+    if (p) out.push([p.x(), p.y()]);
+  }
+  return out;
+}
+
+function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
+  const out: BuildingInfo[] = [];
+  const info = new W.BuildingInfo();
+  const v = new W.Vec2();
+  for (let i = 0; i < f.buildingsLength(); i++) {
+    const x = f.buildings(i, info);
+    if (!x) continue;
+    const centre = x.centre(v);
+    const [cx, cy] = [centre?.x() ?? 0, centre?.y() ?? 0];
+    const door = x.door(v);
+    const doorAt: [number, number] = [door?.x() ?? cx, door?.y() ?? cy];
+    const min = x.plotMin(v);
+    const minAt = min ? [min.x(), min.y()] : null;
+    const size = x.plotSize(v);
+    const plot =
+      minAt && size ? { x: minAt[0]!, y: minAt[1]!, w: size.x(), h: size.y() } : null;
+    out.push({
+      id: Number(x.id()),
+      household: Number(x.household()),
+      settlement: Number(x.settlement()),
+      program: x.program() ?? "",
+      x: cx,
+      y: cy,
+      radiusM: x.radiusM(),
+      roofRadiusM: x.roofRadiusM(),
+      door: doorAt,
+      doorDir: x.doorDir(),
+      stage: x.stage(),
+      stageName: x.stageName() ?? "",
+      progress: x.progress(),
+      roofed: x.roofed(),
+      outline: vec2List(x.outlineLength(), (k, p) => x.outline(k, p)),
+      posts: vec2List(x.postsLength(), (k, p) => x.posts(k, p)),
+      plot,
+      floorM2: x.floorM2(),
+      sleeps: x.sleeps(),
+      startedMinute: Number(x.startedMinute()),
+      status: x.status() ?? "",
+    });
+  }
+  return { rev: Number(f.rev()), buildings: out };
+}
+
 function scoredOption(o: W.ScoredOption): ScoredOption {
   const terms: Term[] = [];
   for (let k = 0; k < o.termsLength(); k++) {
@@ -1074,6 +1171,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Fields()) as W.Fields | null;
       if (!f) break;
       return { kind: "fields", ...fields(f) };
+    }
+    case W.ResponseBody.Buildings: {
+      const f = r.body(new W.Buildings()) as W.Buildings | null;
+      if (!f) break;
+      return { kind: "buildings", ...buildings(f) };
     }
     default:
       break;

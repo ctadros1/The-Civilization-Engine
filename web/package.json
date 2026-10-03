@@ -1,0 +1,25 @@
+{
+  "name": "tce-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The Civilization Engine's web observer: a PixiJS map and panels served by civ-host.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "flatbuffers": "25.9.23",
+    "pixi.js": "8.22.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@types/node": "22.20.5",
+    "typescript": "7.0.2",
+    "vite": "8.3.2",
+    "vitest": "5.0.3"
+  }
+}

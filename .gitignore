@@ -38,3 +38,5 @@ unreal/Plugins/*/Intermediate/
 saves/
 recordings/
 *.record
+test-results/
+playwright-report/

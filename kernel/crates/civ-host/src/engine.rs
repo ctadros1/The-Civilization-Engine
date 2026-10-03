@@ -716,7 +716,7 @@ impl Engine {
         match origin {
             Origin::Created => {
                 self.event(wire::EventKind::WorldCreated, created_text);
-                self.autosave("New world");
+                self.autosave("World created");
             }
             Origin::Loaded(file) => {
                 self.event(

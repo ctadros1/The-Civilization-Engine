@@ -220,3 +220,109 @@ fn splitting_an_advance_changes_nothing() {
         assert!(x.bytes == y.bytes, "section `{}` differs", x.tag);
     }
 }
+
+fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
+    Sim::create(
+        &NewWorld {
+            name: "Goods".to_owned(),
+            seed,
+            preset_id: PRESET.to_owned(),
+            size_cells: 512,
+            band_size: 0,
+        },
+        content,
+        &mut |_| {},
+        &AtomicBool::new(false),
+    )
+    .expect("generates")
+}
+
+#[test]
+fn households_keep_firewood_and_forage_to_spare_their_provisions() {
+    let mut sim = new_world(3, 0);
+    let rules = sim.rules().clone();
+    let goods = &rules.catalog.goods;
+    let provisions = rules.people.band.provisions_good;
+    let held = |sim: &Sim| -> f64 {
+        sim.people()
+            .households
+            .iter()
+            .map(|(_, h)| population::stores_now(h, sim.now(), &rules.people, goods)[provisions])
+            .sum()
+    };
+    let before = held(&sim);
+    let days = 8;
+    sim.advance_minutes(days * 24 * 60).expect("advances");
+
+    // Foraging fed people too: less of the provisions went than a band eats in that time.
+    let eaten_kcal = (before - held(&sim)) * goods[provisions].kcal_per_kg;
+    let need_kcal =
+        sim.people().living() as f64 * rules.people.household.daily_kcal_per_person * days as f64;
+    assert!(
+        eaten_kcal < 0.97 * need_kcal,
+        "provisions eaten {eaten_kcal:.0} kcal of {need_kcal:.0} needed"
+    );
+
+    // Most households keep firewood at home.
+    let with_wood = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, h)| {
+            civ_agents::person::fuel_kg(
+                &population::stores_now(h, sim.now(), &rules.people, goods),
+                goods,
+            ) > 0.0
+        })
+        .count();
+    assert!(
+        with_wood * 4 >= sim.people().households.len() * 3,
+        "{with_wood} of {} households have firewood",
+        sim.people().households.len()
+    );
+
+    // People went for more than one wild resource.
+    let mut resources = std::collections::BTreeSet::new();
+    for (_, p) in sim.people().people.iter() {
+        for r in &p.receipts {
+            if let Some(res) = rules
+                .catalog
+                .activities
+                .get(usize::from(r.chosen.def))
+                .and_then(|a| a.resource)
+            {
+                resources.insert(res);
+            }
+        }
+    }
+    assert!(resources.len() >= 2, "gathered {resources:?}");
+
+    // What households remember of places is shared within the settlement.
+    let mut known = sim.people().households.iter().map(|(_, h)| h.known.len());
+    let first = known.next().expect("households");
+    assert!(first > 0, "places were worked");
+    assert!(known.all(|n| n == first));
+    let problems = sim
+        .people()
+        .problems(sim.ids().peek_next(), rules.catalog.activities.len());
+    assert!(problems.is_empty(), "{problems:?}");
+}
+
+#[test]
+fn a_settlement_running_short_of_food_is_noted_in_the_chronicle() {
+    let mut scarce = content().clone();
+    scarce.people.params.band.provisions_days = 0.5;
+    let mut sim = world_with(&scarce, 3);
+    sim.advance_minutes(2 * 24 * 60).expect("advances");
+    let short: Vec<_> = sim
+        .people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == ChronicleKind::FoodRanShort)
+        .collect();
+    assert_eq!(short.len(), 1, "noted once, not every day");
+    let settlement = &sim.land().settlements[0];
+    assert!(settlement.food_short);
+    assert_eq!(short[0].settlement, Some(settlement.id));
+    assert!(short[0].number < scarce.people.params.household.short_food_days);
+}

@@ -4,7 +4,7 @@
 kind = "people"
 id = "core:people/early_farmers"
 name = "Early farmers"
-description = "A band of early farmers arriving in an unsettled valley with seed grain and a few weeks of food."
+description = "A band of early farmers arriving in an unsettled valley with seed grain and stores to last until their first harvest."
 names = "core:names/valley_folk"
 
 latitude_deg = 48.0              # mid-latitude temperate: 16 h days in June, 8.4 h in December
@@ -34,6 +34,10 @@ satiety_hours = 5.0              # research 04-01 §3.2: satiety time constant 2
 hunger_ramp_hours = 3.0
 deficit_unit_kcal = 3000.0
 max_surplus_kcal = 2000.0
+# What the body can draw on in a shortage: fat and some lean tissue (a tuning value; the
+# research gives famine thresholds as BMI, not as a store of energy). With it, a deficit grows
+# hunger but has a floor.
+reserve_kcal_per_kg = 1000.0
 meal_minutes = 25
 
 [sleep]                          # two-process model (research 04-02 §2.2)
@@ -57,7 +61,16 @@ water_l_per_person_day = 20.0    # research 10-01 §2.1
 carry_water_l = 15.0             # 10-25 L per trip
 water_target_days = 1.5
 food_target_days = 5.0
-carry_food_kcal = 12000.0        # 4-6 kg of roots, nuts and greens
+carry_kg = 20.0                  # a load carried home on foot (a tuning value)
+# Firewood burned per person per day, January first: 1.8 kg in winter (research 03-06 §2.5),
+# less in summer when the fire is mostly for cooking (a tuning value).
+fuel_kg_per_person_day = [1.8, 1.8, 1.6, 1.3, 1.1, 1.0, 1.0, 1.0, 1.1, 1.3, 1.6, 1.8]
+fuel_target_days = 3.0
+# The chronicle notes a shortage when a settlement's stores fall below `short_food_days` of its
+# needs, and its end when they rise above `recovered_food_days` (a gap, so a store hovering near
+# one line is not noted every day).
+short_food_days = 2.0
+recovered_food_days = 5.0
 daily_kcal_per_person = 2100.0   # band average (research 05-02 §2.2)
 
 [decision]                       # utility points; softmax over each activity's best target (research 01-09 §4.3)
@@ -68,6 +81,7 @@ w_sleep = 14.0
 w_social = 5.0
 w_food = 10.0
 w_work = 2.5
+w_fuel = 6.0
 trip_half_worth_days = 0.25      # a trip bringing a quarter of a household-day of food is worth half
 w_water = 8.0
 w_walk_hour = 2.0
@@ -83,7 +97,11 @@ max_size = 50
 min_families = 6
 camp_candidates = 48
 site_radius_m = 2000.0
-provisions_days = 30.0
+# Food carried in: until the first dependable harvest plus one to three months (research 10-01
+# §2.3; 05-06 §5.4 tests 6-12 months for crop-dependent founding). Arriving in March, the first
+# harvest comes in late summer.
+provisions_days = 240.0
+provisions_good = "core:good/provisions"
 elder_chance = 0.3
 young_adult_chance = 0.35
 birth_spacing_months = 36.0      # research 05-01 §2.2: intervals 28-48 months

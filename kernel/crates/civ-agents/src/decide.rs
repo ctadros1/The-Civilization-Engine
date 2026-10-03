@@ -7,7 +7,7 @@
 //! with a keyed draw. The scores, the runner-up and the exclusions are kept as the receipt.
 
 use crate::history::{Reason, Scored, Term};
-use crate::params::{ActivityDef, Behavior, DecisionParams};
+use crate::params::{ActivityDef, Behavior, DecisionParams, GoodUse};
 use crate::person::{Step, Target};
 
 /// Everything a decision looks at, copied out so scoring borrows nothing.
@@ -43,8 +43,16 @@ pub struct Facts {
     pub water_target_days: f64,
     /// Household's daily food need, kcal.
     pub household_kcal_day: f64,
-    /// Whether the household has food at all.
+    /// Whether there is food at home that can be eaten now.
     pub has_food: bool,
+    /// Whether there is food at home that needs a fire, and no firewood.
+    pub food_needs_fire: bool,
+    /// Household's firewood, days.
+    pub fuel_days: f64,
+    /// Days of firewood the household tries to keep.
+    pub fuel_target_days: f64,
+    /// Household's daily firewood use, kilograms.
+    pub household_fuel_day: f64,
     /// Whether the person stands at home.
     pub at_home: bool,
     /// Home position, metres.
@@ -54,15 +62,21 @@ pub struct Facts {
 }
 
 /// A place a gathering trip could go: patch, walking minutes one way, expected return per
-/// person-hour, and the destination point.
+/// person-hour, what the good is for, and the destination point.
 #[derive(Clone, Copy, Debug)]
 pub struct PatchOption {
     /// The patch.
     pub patch: u32,
     /// One-way walk, minutes.
     pub walk_min: f64,
-    /// Expected return, units per person-hour.
-    pub rate: f64,
+    /// Expected return, kilograms of the good per person-hour.
+    pub kg_per_hour: f64,
+    /// What the good is for.
+    pub purpose: GoodUse,
+    /// Its food energy, kcal per kilogram.
+    pub kcal_per_kg: f64,
+    /// Days of the household's need it already holds of this good.
+    pub stored_days: f64,
     /// Where to stand, metres.
     pub at: (f32, f32),
 }
@@ -102,8 +116,8 @@ pub struct Limits {
     pub sleep_threshold: f64,
     /// Minutes a meal takes.
     pub meal_min: u32,
-    /// Food one person carries, kcal.
-    pub carry_kcal: f64,
+    /// What one person carries, kilograms.
+    pub carry_kg: f64,
 }
 
 fn term(terms: &mut Vec<Term>, reason: Reason, points: f64) {
@@ -196,7 +210,12 @@ pub fn candidates(
             }
             Behavior::Eat => {
                 if !f.has_food {
-                    excluded.push((id, Reason::NoFood));
+                    let why = if f.food_needs_fire {
+                        Reason::NoFire
+                    } else {
+                        Reason::NoFood
+                    };
+                    excluded.push((id, why));
                     continue;
                 }
                 term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger);
@@ -250,17 +269,41 @@ pub fn candidates(
                 }
                 let minutes = room.min(f64::from(def.max_minutes)).max(1.0);
                 let hours = minutes / 60.0;
-                let expected = (patch.rate * hours * f.capacity).min(limits.carry_kcal);
+                let kg = (patch.kg_per_hour * hours * f.capacity).min(limits.carry_kg);
                 // A trip's worth saturates with what it brings (a response curve, research
-                // 01-09 §4.3): a haul of `trip_half_worth_days` of household food is worth half.
-                let half = w.trip_half_worth_days * f.household_kcal_day.max(1.0);
-                let worth = expected / (expected + half.max(1.0));
-                let short = (1.0 - f.food_days / f.food_target_days.max(1e-6)).clamp(0.0, 1.0);
-                term(&mut terms, Reason::FoodShortage, w.w_food * short * worth);
-                term(&mut terms, Reason::UsefulWork, w.w_work * worth);
-                if !f.has_food {
-                    // Hungry with nothing to eat at home: food is the point of going out.
-                    term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
+                // 01-09 §4.3): a haul of `trip_half_worth_days` of the household's need is worth
+                // half. Beyond any shortage, more of a good is worth less the more of that good
+                // is in store (diminishing marginal value, `target / (target + stored)`): a good
+                // that keeps is not piled up without end, while fresh food, eaten before the
+                // stores that keep, is still worth gathering.
+                match patch.purpose {
+                    GoodUse::Food => {
+                        let kcal = kg * patch.kcal_per_kg;
+                        let half = w.trip_half_worth_days * f.household_kcal_day.max(1.0);
+                        let worth = kcal / (kcal + half.max(1.0));
+                        let target = f.food_target_days.max(1e-6);
+                        let short = (1.0 - f.food_days / target).clamp(0.0, 1.0);
+                        let room = target / (target + patch.stored_days.max(0.0));
+                        term(&mut terms, Reason::FoodShortage, w.w_food * short * worth);
+                        term(&mut terms, Reason::UsefulWork, w.w_work * worth * room);
+                        if !f.has_food {
+                            // Hungry with nothing to eat at home: food is the point of going out.
+                            term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
+                        }
+                    }
+                    GoodUse::Fuel => {
+                        let half = w.trip_half_worth_days * f.household_fuel_day.max(0.1);
+                        let worth = kg / (kg + half);
+                        let target = f.fuel_target_days.max(1e-6);
+                        let short = (1.0 - f.fuel_days / target).clamp(0.0, 1.0);
+                        let room = target / (target + patch.stored_days.max(0.0));
+                        term(&mut terms, Reason::FuelShortage, w.w_fuel * short * worth);
+                        term(&mut terms, Reason::UsefulWork, w.w_work * worth * room);
+                        if f.food_needs_fire {
+                            // Food that needs cooking, and nothing to cook it on.
+                            term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
+                        }
+                    }
                 }
                 term(
                     &mut terms,
@@ -369,6 +412,7 @@ mod tests {
             w_social: 4.0,
             w_food: 8.0,
             w_work: 2.0,
+            w_fuel: 6.0,
             trip_half_worth_days: 0.25,
             w_water: 6.0,
             w_walk_hour: 1.0,

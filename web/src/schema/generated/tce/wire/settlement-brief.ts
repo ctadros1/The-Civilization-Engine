@@ -52,8 +52,18 @@ population():number {
   return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
 }
 
+foodDays():number {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+foodShort():boolean {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+}
+
 static startSettlementBrief(builder:flatbuffers.Builder) {
-  builder.startObject(5);
+  builder.startObject(7);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -74,6 +84,14 @@ static addFoundedMinute(builder:flatbuffers.Builder, foundedMinute:bigint) {
 
 static addPopulation(builder:flatbuffers.Builder, population:number) {
   builder.addFieldInt32(4, population, 0);
+}
+
+static addFoodDays(builder:flatbuffers.Builder, foodDays:number) {
+  builder.addFieldFloat32(5, foodDays, 0.0);
+}
+
+static addFoodShort(builder:flatbuffers.Builder, foodShort:boolean) {
+  builder.addFieldInt8(6, +foodShort, +false);
 }
 
 static endSettlementBrief(builder:flatbuffers.Builder):flatbuffers.Offset {

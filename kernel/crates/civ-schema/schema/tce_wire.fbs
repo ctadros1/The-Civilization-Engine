@@ -48,6 +48,18 @@ table ActivityInfo {
   doing: string (id: 2);
 }
 
+// A good people carry and keep (M1 slice B). Stores and loads refer to goods by their index in
+// Welcome.goods.
+table GoodInfo {
+  id: string (id: 0);
+  // "Meat".
+  name: string (id: 1);
+  // "food" or "fuel".
+  purpose: string (id: 2);
+  // Food energy, kcal per kilogram (0 for fuel).
+  kcal_per_kg: float (id: 3);
+}
+
 // A consideration or exclusion reason that decision receipts refer to by code.
 table ReasonInfo {
   code: ushort (id: 0);
@@ -74,6 +86,8 @@ table Welcome {
   band_size_min: uint (id: 11);
   band_size_max: uint (id: 12);
   band_size_default: uint (id: 13);
+  // The goods catalogue (M1 slice B).
+  goods: [GoodInfo] (id: 14);
 }
 
 // ---- Snapshot: replaceable host and world state --------------------------------------------
@@ -158,6 +172,10 @@ table SettlementBrief {
   founded_minute: long (id: 3);
   // Living people whose household belongs to it.
   population: uint (id: 4);
+  // Days of food in its households' stores at its people's needs (M1 slice B).
+  food_days: float (id: 5);
+  // Its food has run short and not yet recovered.
+  food_short: bool (id: 6);
 }
 
 table Snapshot {
@@ -419,6 +437,12 @@ table KinLink {
   alive: bool (id: 3);
 }
 
+// A good in a household's store.
+struct StoreLine {
+  good: ushort;
+  kg: float;
+}
+
 table PersonInfo {
   id: ulong (id: 0);
   name: string (id: 1);
@@ -452,6 +476,13 @@ table PersonInfo {
   // Openness, conscientiousness, extraversion, agreeableness, neuroticism, risk (standard scores).
   traits: [float] (id: 26);
   pos: Vec2 (id: 27);
+  // M1 slice B: the good carried (an index into Welcome.goods, or -1) and how much, kilograms;
+  // `carry_food_kcal` is its food energy. The household's goods in store, and its firewood in
+  // days of use.
+  carry_good: int = -1 (id: 28);
+  carry_kg: float (id: 29);
+  stores: [StoreLine] (id: 30);
+  household_fuel_days: float (id: 31);
 }
 
 union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle }

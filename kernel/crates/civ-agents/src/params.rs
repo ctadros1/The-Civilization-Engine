@@ -82,17 +82,69 @@ pub struct ActivityDef {
     pub max_walk_minutes: u32,
 }
 
-/// The authored activities.
+/// What a good is for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum GoodUse {
+    /// Eaten.
+    Food,
+    /// Burned for cooking and warmth.
+    Fuel,
+}
+
+impl GoodUse {
+    /// The authored name.
+    pub fn name(self) -> &'static str {
+        match self {
+            GoodUse::Food => "food",
+            GoodUse::Fuel => "fuel",
+        }
+    }
+
+    /// The use with an authored name.
+    pub fn from_name(name: &str) -> Option<GoodUse> {
+        [GoodUse::Food, GoodUse::Fuel]
+            .into_iter()
+            .find(|u| u.name() == name)
+    }
+}
+
+/// An authored good: something people carry home and keep.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GoodDef {
+    /// Content id, for example `core:good/meat`.
+    pub id: String,
+    /// Display name.
+    pub name: String,
+    /// What it is for.
+    pub purpose: GoodUse,
+    /// Food energy, kcal per kilogram (0 for goods that are not eaten).
+    pub kcal_per_kg: f64,
+    /// Days for half of a stored amount to spoil; 0 means it keeps.
+    pub half_life_days: f64,
+    /// It must be cooked over a fire before it is eaten.
+    pub cooked: bool,
+    /// When brought home it is shared among every household of the settlement.
+    pub shared: bool,
+}
+
+/// The authored activities and goods.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Catalog {
     /// Activities, in content id order. Their index is how people and saves refer to them.
     pub activities: Vec<ActivityDef>,
+    /// Goods, in content id order. Their index is how stores refer to them.
+    pub goods: Vec<GoodDef>,
 }
 
 impl Catalog {
     /// The activity with this content id.
     pub fn index_of(&self, id: &str) -> Option<usize> {
         self.activities.iter().position(|a| a.id == id)
+    }
+
+    /// The good with this content id.
+    pub fn good_index(&self, id: &str) -> Option<usize> {
+        self.goods.iter().position(|g| g.id == id)
     }
 }
 
@@ -120,6 +172,9 @@ pub struct EnergyParams {
     pub deficit_unit_kcal: f64,
     /// Largest energy surplus the body banks, kcal.
     pub max_surplus_kcal: f64,
+    /// Energy the body can draw on in a shortage, kcal per kilogram of body mass: the floor of
+    /// the energy balance.
+    pub reserve_kcal_per_kg: f64,
     /// Minutes a meal takes.
     pub meal_minutes: u32,
 }
@@ -172,8 +227,16 @@ pub struct HouseholdParams {
     pub water_target_days: f64,
     /// Days of food a household tries to keep.
     pub food_target_days: f64,
-    /// Food one person carries home, kcal.
-    pub carry_food_kcal: f64,
+    /// What one person carries home, kilograms.
+    pub carry_kg: f64,
+    /// Firewood a household burns per member per day, by month, January first, kilograms.
+    pub fuel_kg_per_person_day: [f64; 12],
+    /// Days of firewood a household tries to keep.
+    pub fuel_target_days: f64,
+    /// Days of food in a settlement's stores below which the chronicle notes a shortage.
+    pub short_food_days: f64,
+    /// Days of food above which the chronicle notes that a shortage is over.
+    pub recovered_food_days: f64,
     /// Food energy a person needs per day on average, kcal (for days-of-supply arithmetic).
     pub daily_kcal_per_person: f64,
 }
@@ -196,6 +259,8 @@ pub struct DecisionParams {
     pub w_food: f64,
     /// Points for useful work regardless of shortage (purpose).
     pub w_work: f64,
+    /// Points per unit of firewood shortage times the worth of a trip.
+    pub w_fuel: f64,
     /// Days of household food a gathering trip must bring to be worth half as much as a very
     /// large haul.
     pub trip_half_worth_days: f64,
@@ -230,6 +295,8 @@ pub struct BandParams {
     pub site_radius_m: f64,
     /// Days of food each household carries in.
     pub provisions_days: f64,
+    /// The good they carry it as, by index in the catalog's goods.
+    pub provisions_good: usize,
     /// Chance that a family brings an elder.
     pub elder_chance: f64,
     /// Chance that a family brings an unmarried young adult.

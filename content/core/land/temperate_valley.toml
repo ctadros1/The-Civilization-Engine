@@ -1,6 +1,12 @@
-# How land is classified and what grows wild on it (ADR-0004; research 03-06, 08-01, 10-01).
+# How land is classified and what lives wild on it (ADR-0004; research 03-06, 08-01, 10-01).
 # Production is what people can actually gather, not what the land grows: most of a forest's
 # food goes to animals, rots or cannot be reached. Starting points, checked by the smoke seeds.
+#
+# A resource grows as a plant (a seasonal production each day, a share of the standing stock
+# lost each day) or as animals (logistic growth toward the habitat's capacity, and a monthly
+# spread toward neighbouring patches). Harvest rate per person-hour is
+# max_rate_per_hour * S / (S + half_rate_stock_per_ha * area), so it falls as a patch empties.
+# Research 03-06 §2.7: on a map this size, wild food alone feeds only a few dozen people.
 kind = "land"
 id = "core:land/temperate_valley"
 name = "Temperate valley"
@@ -46,12 +52,80 @@ arable = false
 [[resource]]
 id = "wild_plants"
 name = "Wild plant food"
-unit = "kcal"
-# Gatherable kcal per hectare per year by habitat, in the habitat order above. Research 03-06
-# §2.1: door-to-door plant returns 300-1,500 kcal per person-hour.
-production_per_ha_yr = [0.0, 9000.0, 6000.0, 5000.0, 2500.0]
+good = "core:good/wild_plant_food"
+unit_kg = 1.0                    # the stock is counted in kilograms
+discrete = false
+in_water = false
+range_patches = 1                # a gatherer works the best spot of a 3 x 3 block
+# Research 03-06 §2.2: temperate plant gathering returns 300-1,500 kcal per person-hour.
+max_rate_per_hour = 1.5
+half_rate_stock_per_ha = 0.3
+
+[resource.plant]
+# Gatherable kilograms per hectare per year by habitat, in the habitat order above (research
+# 03-06 §2.3: landscape berry yields 4-8 kg/ha a year).
+production_per_ha_yr = [0.0, 9.0, 6.0, 5.0, 2.5]
 loss_per_day = 0.03              # rot and wildlife: food left standing lasts about a month
 # Monthly weights, January first: greens in spring, berries in summer, nuts in autumn, little in winter.
 season = [0.2, 0.2, 0.5, 1.0, 1.4, 1.5, 1.6, 1.7, 1.8, 1.4, 0.5, 0.2]
-max_rate_per_hour = 1500.0
-half_rate_stock_per_ha = 300.0
+
+[[resource]]
+id = "game"
+name = "Game"
+good = "core:good/meat"
+unit_kg = 30.0                   # usable meat of a deer-like animal (research 03-06 §2.6)
+discrete = true                  # whole animals: most hunts bring nothing
+in_water = false
+range_patches = 2                # a hunter ranges over a 5 x 5 block (640 m)
+# Kills per hunter-hour approach max_rate * density / half_rate at low density: about 0.3 ha
+# searched effectively per hour. Gives 500-800 kcal per hunting hour at the habitat capacities
+# below, failures included (research 03-06 §2.2: 300-1,500).
+max_rate_per_hour = 0.16
+half_rate_stock_per_ha = 0.5
+
+[resource.animal]
+# Animals per hectare at richness 1 by habitat: 3-6 per km² (research 03-06 §2.6 uses 5 per km²).
+capacity_per_ha = [0.0, 0.03, 0.04, 0.06, 0.04]
+growth_per_year = 0.3            # research 03-06 §2.6: r = 0.3 for deer-like animals
+spread_per_month = 0.25
+
+[[resource]]
+id = "fish"
+name = "Fish"
+good = "core:good/fish"
+unit_kg = 1.0                    # the stock is counted in kilograms of whole fish
+discrete = false
+in_water = true                  # lives in a patch's water, not on its land
+range_patches = 1
+# Research 03-06 §2.4 proposes 0.2-2 kg whole fish per person-hour for early technology.
+max_rate_per_hour = 2.0
+half_rate_stock_per_ha = 100.0
+
+[resource.animal]
+# Kilograms of fish per hectare of water at richness 1 by the habitat of the patch the water is
+# in: richer in wetland and floodplain water, poorer in upland streams. With r = 0.6 the logistic
+# maximum yield, r K / 4, is 30-45 kg/ha a year (research 03-06 §2.4: floodplain fisheries 40-60,
+# lagoons a median of 51).
+capacity_per_ha = [200.0, 300.0, 300.0, 150.0, 80.0]
+growth_per_year = 0.6
+spread_per_month = 0.3
+
+[[resource]]
+id = "deadwood"
+name = "Fallen wood"
+good = "core:good/firewood"
+unit_kg = 1.0
+discrete = false
+in_water = false
+range_patches = 1
+# Research 03-06 §2.5: fuelwood collection about 5.7 kg per person-hour.
+max_rate_per_hour = 6.0
+half_rate_stock_per_ha = 500.0
+
+[resource.plant]
+# Deadwood is its own budget: branch fall and mortality in, collection and decay out (research
+# 03-06 §1.5). Kilograms per hectare per year by habitat: woodland grows 2-5 t of wood a year and
+# only part of it falls as gatherable wood (03-06 §2.5); open ground has little.
+production_per_ha_yr = [0.0, 100.0, 150.0, 500.0, 150.0]
+loss_per_day = 0.0002            # decay: about 7 % a year (a tuning value)
+season = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]

@@ -40,12 +40,13 @@ pub fn content_validate(root: &Path, json: bool) -> ExitCode {
         match &report.registry {
             Some(registry) => println!(
                 "content OK: {} pack(s), {} world preset(s), people `{}`, land `{}`, {} \
-                 activities, fingerprint {}",
+                 activities, {} goods, fingerprint {}",
                 registry.packs.len(),
                 registry.presets.len(),
                 registry.people.id,
                 registry.land.id,
                 registry.catalog.activities.len(),
+                registry.catalog.goods.len(),
                 registry.fingerprint_hex()
             ),
             None => println!("content has {} error(s)", report.error_count()),

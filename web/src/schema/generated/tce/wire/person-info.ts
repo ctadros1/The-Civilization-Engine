@@ -7,6 +7,7 @@ import * as flatbuffers from 'flatbuffers';
 import { Decision } from '../../tce/wire/decision.js';
 import { KinLink } from '../../tce/wire/kin-link.js';
 import { Sex } from '../../tce/wire/sex.js';
+import { StoreLine } from '../../tce/wire/store-line.js';
 import { Vec2 } from '../../tce/wire/vec2.js';
 
 
@@ -198,8 +199,33 @@ pos(obj?:Vec2):Vec2|null {
   return offset ? (obj || new Vec2()).__init(this.bb_pos + offset, this.bb!) : null;
 }
 
+carryGood():number {
+  const offset = this.bb!.__offset(this.bb_pos, 60);
+  return offset ? this.bb!.readInt32(this.bb_pos + offset) : -1;
+}
+
+carryKg():number {
+  const offset = this.bb!.__offset(this.bb_pos, 62);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+stores(index: number, obj?:StoreLine):StoreLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 64);
+  return offset ? (obj || new StoreLine()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 8, this.bb!) : null;
+}
+
+storesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 64);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+householdFuelDays():number {
+  const offset = this.bb!.__offset(this.bb_pos, 66);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(28);
+  builder.startObject(32);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -353,6 +379,26 @@ static startTraitsVector(builder:flatbuffers.Builder, numElems:number) {
 
 static addPos(builder:flatbuffers.Builder, posOffset:flatbuffers.Offset) {
   builder.addFieldStruct(27, posOffset, 0);
+}
+
+static addCarryGood(builder:flatbuffers.Builder, carryGood:number) {
+  builder.addFieldInt32(28, carryGood, -1);
+}
+
+static addCarryKg(builder:flatbuffers.Builder, carryKg:number) {
+  builder.addFieldFloat32(29, carryKg, 0.0);
+}
+
+static addStores(builder:flatbuffers.Builder, storesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(30, storesOffset, 0);
+}
+
+static startStoresVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(8, numElems, 4);
+}
+
+static addHouseholdFuelDays(builder:flatbuffers.Builder, householdFuelDays:number) {
+  builder.addFieldFloat32(31, householdFuelDays, 0.0);
 }
 
 static endPersonInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

@@ -1,4 +1,5 @@
-//! Save sections for land and people (ADR-0003 §4, ADR-0004 §6), new in schema version 2.
+//! Save sections for land and people (ADR-0003 §4, ADR-0004 §6), new in schema version 2; goods
+//! came in version 3.
 //!
 //! | Section | Holds |
 //! |---|---|
@@ -10,11 +11,18 @@
 //! | `receipts` | recent decision receipts per person |
 //! | `events` | the scheduler's pending events |
 //!
-//! Activities, habitats and resources are saved by content id, so a world still loads after the
-//! content adds, removes or reorders them. Where saved state names something the loaded content no
-//! longer has, the loader adapts in the plainest way: a person whose activity is gone decides
-//! again, a habitat that is gone becomes the catch-all habitat, a resource that is gone is dropped
-//! and a new one starts at equilibrium.
+//! Activities, habitats, resources and goods are saved by content id, so a world still loads after
+//! the content adds, removes or reorders them. Where saved state names something the loaded
+//! content no longer has, the loader adapts in the plainest way: a person whose activity is gone
+//! decides again, a habitat that is gone becomes the catch-all habitat, a resource that is gone is
+//! dropped and a new one starts at equilibrium, and a good that is gone is dropped from stores and
+//! loads. A resource whose good or unit changed also starts at equilibrium: its saved numbers may
+//! count something else.
+//!
+//! **Schema 2 → 3.** A schema-2 save (M1 slice A) counted food in kilocalories only. It loads as
+//! follows: a household's food and food being carried become the band's provisions good, land
+//! stocks start at equilibrium (their units are not recorded), and remembered patches are
+//! forgotten (their returns were in kilocalories). Nothing else changes.
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{Read, Seek};
@@ -27,12 +35,13 @@ use civ_agents::{
 use civ_core::scheduler::PendingEvent;
 use civ_core::{PermanentId, SimTime};
 use civ_land::{ClimateYear, Land, Patches, Settlement};
+use civ_schema::SAVE_SCHEMA_VERSION;
 use civ_schema::flatbuffers::{self, FlatBufferBuilder, WIPOffset};
 use civ_schema::save;
 use civ_world::WorldMap;
 use commons_persist::{SectionData, SectionTag, SnapshotReader};
 
-use super::{LoadError, finish, section, single_chunk, unreadable};
+use super::{LoadError, SCHEMA_V2, finish, section, single_chunk, unreadable};
 use crate::{Rules, Sim, SimEvent};
 
 /// Section: habitat patches and wild stocks.
@@ -62,11 +71,21 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         .iter()
         .map(|a| a.id.as_str())
         .collect();
+    let goods: Vec<&str> = rules.catalog.goods.iter().map(|g| g.id.as_str()).collect();
+    let resources: Vec<&str> = rules.land.resources.iter().map(|r| r.id.as_str()).collect();
     vec![
         section(SECTION_LAND, 0, encode_land(&sim.land, rules)),
         section(SECTION_SETTLE, 0, encode_settlements(&sim.land.settlements)),
-        section(SECTION_PEOPLE, 0, encode_people(&sim.people, &activities)),
-        section(SECTION_HOUSES, 0, encode_households(&sim.people)),
+        section(
+            SECTION_PEOPLE,
+            0,
+            encode_people(&sim.people, &activities, &goods),
+        ),
+        section(
+            SECTION_HOUSES,
+            0,
+            encode_households(&sim.people, &goods, &resources),
+        ),
         section(SECTION_HISTORY, 0, encode_history(&sim.people)),
         section(
             SECTION_RECEIPTS,
@@ -86,25 +105,46 @@ pub(super) struct Decoded {
     pub redecide: Vec<PermanentId>,
 }
 
-/// Decodes and checks the people-and-land sections of a schema-2 save.
+/// What a schema version stores, for the decoders.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Schema {
+    /// M1 slice A: food in kilocalories.
+    V2,
+    /// Goods.
+    V3,
+}
+
+/// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
+/// later), taken at `now`.
 pub(super) fn decode<R: Read + Seek>(
     reader: &mut SnapshotReader<R>,
     rules: &Rules,
     map: &WorldMap,
     next_id: u64,
+    version: u32,
+    now: SimTime,
 ) -> Result<Decoded, LoadError> {
+    let schema = match version {
+        SCHEMA_V2 => Schema::V2,
+        SAVE_SCHEMA_VERSION => Schema::V3,
+        other => {
+            return Err(LoadError::Incompatible(format!(
+                "world schema version {other} has no people-and-land decoder"
+            )));
+        }
+    };
     let bytes = single_chunk(reader, SECTION_LAND)?;
-    let mut land = decode_land(&bytes, rules)?;
+    let mut land = decode_land(&bytes, rules, map)?;
     let bytes = single_chunk(reader, SECTION_SETTLE)?;
     land.settlements = decode_settlements(&bytes)?;
 
     let mut people = Population::new();
     let bytes = single_chunk(reader, SECTION_HOUSES)?;
-    for h in decode_households(&bytes)? {
+    for h in decode_households(&bytes, rules, schema, now)? {
         people.insert_household(h);
     }
     let bytes = single_chunk(reader, SECTION_PEOPLE)?;
-    let (persons, next_trip, redecide) = decode_people(&bytes, rules)?;
+    let (persons, next_trip, redecide) = decode_people(&bytes, rules, schema)?;
     people.next_trip = next_trip;
     for p in persons {
         people.insert_person(p);
@@ -183,6 +223,22 @@ fn activity_map(saved: &[String], rules: &Rules) -> Vec<Option<u16>> {
         .collect()
 }
 
+/// Maps a saved good dictionary to the loaded catalog.
+fn good_map(saved: &[String], rules: &Rules) -> Vec<Option<usize>> {
+    saved
+        .iter()
+        .map(|id| rules.catalog.good_index(id))
+        .collect()
+}
+
+/// Kilograms of the provisions good holding `kcal` (schema-2 migration), or `None` when the
+/// loaded content's provisions good has no food energy.
+fn provisions_kg(rules: &Rules, kcal: f64) -> Option<(usize, f64)> {
+    let g = rules.people.band.provisions_good;
+    let good = rules.catalog.goods.get(g)?;
+    (good.kcal_per_kg > 0.0).then(|| (g, kcal.max(0.0) / good.kcal_per_kg))
+}
+
 fn target_parts(t: Target) -> (save::TargetKind, u32) {
     match t {
         Target::None => (save::TargetKind::None, 0),
@@ -238,6 +294,21 @@ fn encode_land(land: &Land, rules: &Rules) -> Vec<u8> {
     let richness = fbb.create_vector(&p.richness);
     let resource_ids: Vec<&str> = rules.land.resources.iter().map(|r| r.id.as_str()).collect();
     let resources = strings(&mut fbb, &resource_ids);
+    let good_ids: Vec<&str> = rules
+        .land
+        .resources
+        .iter()
+        .map(|r| {
+            rules
+                .catalog
+                .goods
+                .get(r.good)
+                .map_or("", |g| g.id.as_str())
+        })
+        .collect();
+    let resource_goods = strings(&mut fbb, &good_ids);
+    let unit_kg: Vec<f64> = rules.land.resources.iter().map(|r| r.unit_kg).collect();
+    let resource_unit_kg = fbb.create_vector(&unit_kg);
     let flat: Vec<f32> = land.stocks.iter().flatten().copied().collect();
     let stocks = fbb.create_vector(&flat);
     let root = save::Land::create(
@@ -256,12 +327,14 @@ fn encode_land(land: &Land, rules: &Rules) -> Vec<u8> {
             climate_year: land.climate.year,
             climate_deviate: land.climate.deviate,
             climate_factor: land.climate.factor,
+            resource_goods: Some(resource_goods),
+            resource_unit_kg: Some(resource_unit_kg),
         },
     );
     finish(fbb, root)
 }
 
-fn decode_land(bytes: &[u8], rules: &Rules) -> Result<Land, LoadError> {
+fn decode_land(bytes: &[u8], rules: &Rules, map: &WorldMap) -> Result<Land, LoadError> {
     let l = flatbuffers::root::<save::Land>(bytes).map_err(|e| unreadable(SECTION_LAND, &e))?;
     let n = l.cols() as usize * l.rows() as usize;
     let habitats = read_strings(l.habitats());
@@ -287,6 +360,12 @@ fn decode_land(bytes: &[u8], rules: &Rules) -> Result<Land, LoadError> {
         .collect();
     let richness: Vec<f32> = l.richness().map(|r| r.iter().collect()).unwrap_or_default();
     let saved_resources = read_strings(l.resources());
+    // Absent before schema 3: then no saved resource is known to keep its units.
+    let saved_goods = read_strings(l.resource_goods());
+    let saved_units: Vec<f64> = l
+        .resource_unit_kg()
+        .map(|v| v.iter().collect())
+        .unwrap_or_default();
     let flat: Vec<f32> = l.stocks().map(|s| s.iter().collect()).unwrap_or_default();
     if flat.len() != saved_resources.len() * n {
         return Err(LoadError::Malformed(format!(
@@ -303,6 +382,7 @@ fn decode_land(bytes: &[u8], rules: &Rules) -> Result<Land, LoadError> {
             cell_size_m: l.cell_size_m(),
             class,
             richness,
+            water: Vec::new(),
         },
         stocks: Vec::new(),
         stock_day: l.stock_day(),
@@ -314,9 +394,20 @@ fn decode_land(bytes: &[u8], rules: &Rules) -> Result<Land, LoadError> {
         settlements: Vec::new(),
     };
     // A grid of the wrong size is reported by `Land::problems`; only fill stocks on a sound one.
-    if land.patches.class.len() == n && land.patches.richness.len() == n {
+    if land.patches.class.len() == n
+        && land.patches.richness.len() == n
+        && map.width.div_ceil(land.patches.patch_cells.max(1)) == land.patches.cols
+        && map.height.div_ceil(land.patches.patch_cells.max(1)) == land.patches.rows
+    {
+        land.patches.measure_water(map);
         for (r, res) in rules.land.resources.iter().enumerate() {
-            match saved_resources.iter().position(|id| *id == res.id) {
+            let good = rules.catalog.goods.get(res.good).map(|g| g.id.as_str());
+            let same = saved_resources.iter().enumerate().position(|(i, id)| {
+                *id == res.id
+                    && saved_goods.get(i).map(String::as_str) == good
+                    && saved_units.get(i) == Some(&res.unit_kg)
+            });
+            match same {
                 Some(i) => land.stocks.push(flat[i * n..(i + 1) * n].to_vec()),
                 None => {
                     land.stocks.push(vec![0.0; n]);
@@ -341,6 +432,7 @@ fn encode_settlements(settlements: &[Settlement]) -> Vec<u8> {
                     name: Some(name),
                     founded: s.founded.minutes(),
                     hearth: Some(&point(s.hearth_m)),
+                    food_short: s.food_short,
                 },
             )
         })
@@ -367,6 +459,7 @@ fn decode_settlements(bytes: &[u8]) -> Result<Vec<Settlement>, LoadError> {
                 name: s.name().unwrap_or_default().to_owned(),
                 founded: time(s.founded()),
                 hearth_m: xy(s.hearth()),
+                food_short: s.food_short(),
             })
         })
         .collect()
@@ -380,9 +473,10 @@ fn sorted_people(pop: &Population) -> Vec<&Person> {
     people
 }
 
-fn encode_people(pop: &Population, activities: &[&str]) -> Vec<u8> {
+fn encode_people(pop: &Population, activities: &[&str], goods: &[&str]) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let dictionary = strings(&mut fbb, activities);
+    let good_dictionary = strings(&mut fbb, goods);
     let list: Vec<_> = sorted_people(pop)
         .into_iter()
         .map(|p| encode_person(&mut fbb, p))
@@ -394,6 +488,7 @@ fn encode_people(pop: &Population, activities: &[&str]) -> Vec<u8> {
             activities: Some(dictionary),
             people: Some(list),
             next_trip: pop.next_trip,
+            goods: Some(good_dictionary),
         },
     );
     finish(fbb, root)
@@ -484,19 +579,22 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
             company: p.company,
             activity: Some(activity),
             trip,
-            carry_food_kcal: p.carrying.food_kcal,
+            carry_food_kcal: 0.0,
             carry_water_l: p.carrying.water_l,
             draws: p.draws,
+            carry_good: p.carrying.good.map_or(-1, i32::from),
+            carry_kg: p.carrying.kg,
         },
     )
 }
 
 type DecodedPeople = (Vec<Person>, u64, Vec<PermanentId>);
 
-fn decode_people(bytes: &[u8], rules: &Rules) -> Result<DecodedPeople, LoadError> {
+fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedPeople, LoadError> {
     let root =
         flatbuffers::root::<save::People>(bytes).map_err(|e| unreadable(SECTION_PEOPLE, &e))?;
     let map = activity_map(&read_strings(root.activities()), rules);
+    let goods = good_map(&read_strings(root.goods()), rules);
     let mut people = Vec::new();
     let mut redecide = Vec::new();
     for p in root.people().iter().flatten() {
@@ -598,10 +696,7 @@ fn decode_people(bytes: &[u8], rules: &Rules) -> Result<DecodedPeople, LoadError
                 version: a.version(),
             },
             trip,
-            carrying: Load {
-                food_kcal: p.carry_food_kcal(),
-                water_l: p.carry_water_l(),
-            },
+            carrying: carried(&p, &goods, rules, schema, person_id)?,
             draws: p.draws(),
             receipts: VecDeque::new(),
         });
@@ -609,23 +704,64 @@ fn decode_people(bytes: &[u8], rules: &Rules) -> Result<DecodedPeople, LoadError
     Ok((people, root.next_trip(), redecide))
 }
 
+/// What a saved person carries, in the loaded content's goods.
+fn carried(
+    p: &save::Person<'_>,
+    goods: &[Option<usize>],
+    rules: &Rules,
+    schema: Schema,
+    who: PermanentId,
+) -> Result<Load, LoadError> {
+    let water_l = p.carry_water_l();
+    let (good, kg) = match schema {
+        Schema::V2 => match provisions_kg(rules, f64::from(p.carry_food_kcal())) {
+            Some((g, kg)) if kg > 0.0 => (Some(g), kg as f32),
+            _ => (None, 0.0),
+        },
+        Schema::V3 => match p.carry_good() {
+            -1 => (None, 0.0),
+            i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
+                // A good the content no longer has is dropped.
+                Some(found) => (*found, p.carry_kg()),
+                None => {
+                    return Err(LoadError::Malformed(format!(
+                        "person {who} carries good {i} of {}",
+                        goods.len()
+                    )));
+                }
+            },
+        },
+    };
+    let good = good.map(|g| u16::try_from(g).unwrap_or(u16::MAX));
+    Ok(Load {
+        good,
+        kg: if good.is_some() { kg } else { 0.0 },
+        water_l,
+    })
+}
+
 // ---- houses ------------------------------------------------------------------------------------
 
-fn encode_households(pop: &Population) -> Vec<u8> {
+fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Vec<u8> {
     let mut households: Vec<&Household> = pop.households.iter().map(|(_, h)| h).collect();
     households.sort_by_key(|h| h.id);
     let mut fbb = FlatBufferBuilder::new();
+    let good_dictionary = strings(&mut fbb, goods);
+    let resource_dictionary = strings(&mut fbb, resources);
     let list: Vec<_> = households
         .into_iter()
         .map(|h| {
             let members: Vec<u64> = h.members.iter().map(|m| m.get()).collect();
             let members = fbb.create_vector(&members);
-            let known: Vec<save::KnownPatch> = h
+            let known: Vec<save::KnownResource> = h
                 .known
                 .iter()
-                .map(|k| save::KnownPatch::new(k.patch, k.rate, k.seen_day))
+                .map(|k| save::KnownResource::new(k.seen_day, k.patch, k.rate, k.hours, k.resource))
                 .collect();
             let known = fbb.create_vector(&known);
+            let mut stores = h.stores.clone();
+            stores.resize(goods.len(), 0.0);
+            let stores = fbb.create_vector(&stores);
             save::Household::create(
                 &mut fbb,
                 &save::HouseholdArgs {
@@ -633,10 +769,13 @@ fn encode_households(pop: &Population) -> Vec<u8> {
                     members: Some(members),
                     home: Some(&point(h.home)),
                     settlement: raw(h.settlement),
-                    food_kcal: h.food_kcal,
+                    food_kcal: 0.0,
                     water_l: h.water_l,
                     water_at: h.water_at.minutes(),
-                    known: Some(known),
+                    known: None,
+                    stores: Some(stores),
+                    stores_at: h.stores_at.minutes(),
+                    known_resources: Some(known),
                 },
             )
         })
@@ -646,40 +785,91 @@ fn encode_households(pop: &Population) -> Vec<u8> {
         &mut fbb,
         &save::HouseholdsArgs {
             households: Some(list),
+            goods: Some(good_dictionary),
+            resources: Some(resource_dictionary),
         },
     );
     finish(fbb, root)
 }
 
-fn decode_households(bytes: &[u8]) -> Result<Vec<Household>, LoadError> {
+fn decode_households(
+    bytes: &[u8],
+    rules: &Rules,
+    schema: Schema,
+    now: SimTime,
+) -> Result<Vec<Household>, LoadError> {
     let root =
         flatbuffers::root::<save::Households>(bytes).map_err(|e| unreadable(SECTION_HOUSES, &e))?;
+    let goods = good_map(&read_strings(root.goods()), rules);
+    let resources: Vec<Option<u16>> = read_strings(root.resources())
+        .iter()
+        .map(|id| rules.land.resource(id).map(|r| r as u16))
+        .collect();
+    let catalog_goods = rules.catalog.goods.len();
     let mut out = Vec::new();
     for h in root.households().iter().flatten() {
+        let hh_id = required(h.id(), "a household")?;
         let mut members = Vec::new();
         for m in h.members().iter().flatten() {
             members.push(required(m, "a household member")?);
         }
+        let mut stores = vec![0.0; catalog_goods];
+        let (stores_at, known) = match schema {
+            Schema::V2 => {
+                if let Some((g, kg)) = provisions_kg(rules, h.food_kcal()) {
+                    stores[g] = kg;
+                }
+                (now, Vec::new())
+            }
+            Schema::V3 => {
+                let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
+                if saved.len() != goods.len() {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} stores {} goods of {}",
+                        saved.len(),
+                        goods.len()
+                    )));
+                }
+                // Goods the content no longer has are dropped.
+                for (kg, g) in saved.iter().zip(&goods) {
+                    if let Some(g) = g {
+                        stores[*g] = *kg;
+                    }
+                }
+                let mut known = Vec::new();
+                for k in h.known_resources().iter().flatten() {
+                    match resources.get(usize::from(k.resource())) {
+                        Some(Some(r)) => known.push(KnownPatch {
+                            resource: *r,
+                            patch: k.patch(),
+                            rate: k.rate(),
+                            hours: k.hours(),
+                            seen_day: k.seen_day(),
+                        }),
+                        // A resource the content no longer has is forgotten.
+                        Some(None) => {}
+                        None => {
+                            return Err(LoadError::Malformed(format!(
+                                "household {hh_id} remembers resource {} of {}",
+                                k.resource(),
+                                resources.len()
+                            )));
+                        }
+                    }
+                }
+                (time(h.stores_at()), known)
+            }
+        };
         out.push(Household {
-            id: required(h.id(), "a household")?,
+            id: hh_id,
             members,
             home: xy(h.home()),
             settlement: id(h.settlement()),
-            food_kcal: h.food_kcal(),
+            stores,
+            stores_at,
             water_l: h.water_l(),
             water_at: time(h.water_at()),
-            known: h
-                .known()
-                .map(|v| {
-                    v.iter()
-                        .map(|k| KnownPatch {
-                            patch: k.patch(),
-                            rate: k.rate(),
-                            seen_day: k.seen_day(),
-                        })
-                        .collect()
-                })
-                .unwrap_or_default(),
+            known,
         });
     }
     Ok(out)
@@ -691,6 +881,8 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
     match kind {
         ChronicleKind::BandArrived => 1,
         ChronicleKind::SettlementFounded => 2,
+        ChronicleKind::FoodRanShort => 3,
+        ChronicleKind::FoodRecovered => 4,
     }
 }
 
@@ -698,6 +890,8 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
     match code {
         1 => Some(ChronicleKind::BandArrived),
         2 => Some(ChronicleKind::SettlementFounded),
+        3 => Some(ChronicleKind::FoodRanShort),
+        4 => Some(ChronicleKind::FoodRecovered),
         _ => None,
     }
 }
@@ -1089,4 +1283,69 @@ fn decode_events(bytes: &[u8]) -> Result<Vec<PendingEvent<SimEvent>>, LoadError>
         });
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::*;
+
+    fn rules() -> Rules {
+        let root = civ_content::find_content_root(Path::new(env!("CARGO_MANIFEST_DIR")))
+            .expect("content/ is above the crate");
+        let content = civ_content::load(&root)
+            .registry
+            .expect("the core content loads");
+        Rules::of(&content)
+    }
+
+    fn person(args: &save::PersonArgs) -> Vec<u8> {
+        let mut fbb = FlatBufferBuilder::new();
+        let root = save::Person::create(&mut fbb, args);
+        fbb.finish(root, None);
+        fbb.finished_data().to_vec()
+    }
+
+    #[test]
+    fn carried_food_of_a_schema_2_save_becomes_provisions() {
+        let rules = rules();
+        let who = PermanentId::from_raw(9).expect("non-zero");
+        let bytes = person(&save::PersonArgs {
+            carry_food_kcal: 6000.0,
+            carry_water_l: 4.0,
+            ..Default::default()
+        });
+        let p = flatbuffers::root::<save::Person>(&bytes).expect("decodes");
+        let load = carried(&p, &[], &rules, Schema::V2, who).expect("migrates");
+        let g = rules.people.band.provisions_good;
+        assert_eq!(load.good, Some(g as u16));
+        let kcal = f64::from(load.kg) * rules.catalog.goods[g].kcal_per_kg;
+        assert!((kcal - 6000.0).abs() < 1e-3, "{kcal}");
+        assert_eq!(load.water_l, 4.0);
+
+        // Nothing carried stays nothing.
+        let bytes = person(&save::PersonArgs::default());
+        let p = flatbuffers::root::<save::Person>(&bytes).expect("decodes");
+        let load = carried(&p, &[], &rules, Schema::V2, who).expect("migrates");
+        assert_eq!(load, Load::default());
+    }
+
+    #[test]
+    fn a_carried_good_the_content_dropped_is_dropped() {
+        let rules = rules();
+        let who = PermanentId::from_raw(9).expect("non-zero");
+        let bytes = person(&save::PersonArgs {
+            carry_good: 1,
+            carry_kg: 12.0,
+            ..Default::default()
+        });
+        let p = flatbuffers::root::<save::Person>(&bytes).expect("decodes");
+        let load = carried(&p, &[Some(0), None], &rules, Schema::V3, who).expect("decodes");
+        assert_eq!(load, Load::default());
+        let load = carried(&p, &[Some(0), Some(3)], &rules, Schema::V3, who).expect("decodes");
+        assert_eq!((load.good, load.kg), (Some(3), 12.0));
+        // An index past the saved dictionary is damage.
+        assert!(carried(&p, &[Some(0)], &rules, Schema::V3, who).is_err());
+    }
 }

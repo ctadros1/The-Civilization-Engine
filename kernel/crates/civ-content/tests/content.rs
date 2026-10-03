@@ -24,11 +24,11 @@ fn real(path: &str) -> String {
         .replace("\r\n", "\n")
 }
 
-/// The real people, land, names and activity files (`(path in the pack, body)`), which every
-/// world needs; fixtures add presets and override files.
+/// The real people, land, names, activity and good files (`(path in the pack, body)`), which
+/// every world needs; fixtures add presets and override files.
 fn people_files() -> Vec<(String, String)> {
     let mut out = Vec::new();
-    for dir in ["people", "land", "names", "activity"] {
+    for dir in ["people", "land", "names", "activity", "good"] {
         let mut paths: Vec<_> = std::fs::read_dir(repo_content().join("core").join(dir))
             .expect("real content directory")
             .map(|e| e.expect("entry").path())
@@ -52,7 +52,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 2
+kernel_content_api = 3
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -69,7 +69,7 @@ fn load_files(files: &[(&str, &str)]) -> LoadReport {
     load(dir.path())
 }
 
-/// Like [`load_files`], with the real people, land, names and activities underneath: the given
+/// Like [`load_files`], with the real people, land, names, activities and goods underneath: the given
 /// files are added, replacing a real file at the same path.
 fn load_fixture(files: &[(&str, &str)]) -> LoadReport {
     let base = people_files();
@@ -125,12 +125,32 @@ fn the_repository_content_is_clean() {
     let mut sorted = ids.clone();
     sorted.sort_unstable();
     assert_eq!(ids, sorted, "activities are in id order");
-    let gather = &reg.catalog.activities[reg
-        .catalog
-        .index_of("core:activity/gather_plants")
-        .expect("gathering exists")];
-    let resource = gather.resource.expect("gathering names a resource");
-    assert_eq!(reg.land.params.resources[resource].id, "wild_plants");
+    for (activity, resource, good) in [
+        ("gather_plants", "wild_plants", "core:good/wild_plant_food"),
+        ("hunt", "game", "core:good/meat"),
+        ("fish", "fish", "core:good/fish"),
+        ("gather_wood", "deadwood", "core:good/firewood"),
+    ] {
+        let def = &reg.catalog.activities[reg
+            .catalog
+            .index_of(&format!("core:activity/{activity}"))
+            .expect("the activity exists")];
+        let r = def.resource.expect("gathering names a resource");
+        let res = &reg.land.params.resources[r];
+        assert_eq!(res.id, resource);
+        assert_eq!(
+            reg.catalog.goods[res.good].id, good,
+            "{resource} yields {good}"
+        );
+    }
+    let goods: Vec<&str> = reg.catalog.goods.iter().map(|g| g.id.as_str()).collect();
+    let mut sorted = goods.clone();
+    sorted.sort_unstable();
+    assert_eq!(goods, sorted, "goods are in id order");
+    assert_eq!(
+        reg.catalog.goods[reg.people.params.band.provisions_good].id,
+        "core:good/provisions"
+    );
 }
 
 #[test]
@@ -199,8 +219,8 @@ fn unknown_or_missing_kinds_are_rejected() {
     let report = load_fixture(&[
         ("worldgen/river_valley.toml", &real_preset()),
         (
-            "goods/grain.toml",
-            "kind = \"good\"\nid = \"core:good/grain\"\n",
+            "technology/pottery.toml",
+            "kind = \"technology\"\nid = \"core:technology/pottery\"\n",
         ),
         ("notes/x.toml", "title = \"no kind here\"\n"),
     ]);
@@ -321,7 +341,7 @@ fn references_must_resolve() {
     ]);
     assert_eq!(codes(&report), vec!["E1001"]);
 
-    let gather = real("activity/gather_plants.toml").replace("\"wild_plants\"", "\"fish\"");
+    let gather = real("activity/gather_plants.toml").replace("\"wild_plants\"", "\"truffles\"");
     let report = load_fixture(&[
         ("worldgen/river_valley.toml", &preset),
         ("activity/gather_plants.toml", &gather),
@@ -331,6 +351,79 @@ fn references_must_resolve() {
         report.diagnostics[0].file,
         "core/activity/gather_plants.toml"
     );
+
+    // A land resource's good and the band's provisions are goods that must exist.
+    let land =
+        real("land/temperate_valley.toml").replace("\"core:good/meat\"", "\"core:good/venison\"");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    assert!(report.diagnostics[0].message.contains("core:good/venison"));
+    let people = real("people/early_farmers.toml")
+        .replace("\"core:good/provisions\"", "\"core:good/grain\"");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("people/early_farmers.toml", &people),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    // ... and provisions must be food.
+    let people = real("people/early_farmers.toml")
+        .replace("\"core:good/provisions\"", "\"core:good/firewood\"");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("people/early_farmers.toml", &people),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(report.diagnostics[0].message.contains("must be a food"));
+}
+
+#[test]
+fn goods_check_their_purpose() {
+    let preset = real_preset();
+    for (path, from, to, needle) in [
+        (
+            "good/meat.toml",
+            "purpose = \"food\"",
+            "purpose = \"toy\"",
+            "unknown purpose",
+        ),
+        (
+            "good/meat.toml",
+            "kcal_per_kg = 1500.0",
+            "kcal_per_kg = 0.0",
+            "positive `kcal_per_kg`",
+        ),
+        (
+            "good/firewood.toml",
+            "half_life_days = 0.0",
+            "half_life_days = 30.0",
+            "a fuel keeps",
+        ),
+        (
+            "good/firewood.toml",
+            "cooked = false",
+            "cooked = true",
+            "only food can need cooking",
+        ),
+    ] {
+        let body = real(path).replace(from, to);
+        assert_ne!(body, real(path), "{needle}: the edit applies");
+        let report = load_fixture(&[("worldgen/river_valley.toml", &preset), (path, &body)]);
+        assert!(
+            codes(&report).contains(&"E3001"),
+            "{needle}: {:?}",
+            codes(&report)
+        );
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.message.contains(needle)),
+            "{needle}"
+        );
+    }
 }
 
 #[test]
@@ -378,8 +471,8 @@ fn activities_check_their_behavior() {
 fn profiles_check_their_ranges_and_fields() {
     let preset = real_preset();
     let land = real("land/temperate_valley.toml").replace(
-        "production_per_ha_yr = [0.0, 9000.0, 6000.0, 5000.0, 2500.0]",
-        "production_per_ha_yr = [0.0, 9000.0]",
+        "production_per_ha_yr = [0.0, 9.0, 6.0, 5.0, 2.5]",
+        "production_per_ha_yr = [0.0, 9.0]",
     );
     let report = load_fixture(&[
         ("worldgen/river_valley.toml", &preset),
@@ -407,6 +500,21 @@ fn profiles_check_their_ranges_and_fields() {
         ("people/early_farmers.toml", &people),
     ]);
     assert_eq!(codes(&report), vec!["E3001"]);
+
+    // A resource grows as a plant or as animals, not both.
+    let land = real("land/temperate_valley.toml").replace(
+        "[resource.animal]\n# Animals per hectare",
+        "[resource.plant]\nproduction_per_ha_yr = [0.0, 0.0, 0.0, 0.0, 0.0]\nloss_per_day = 0.1\n\
+         season = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]\n\
+         [resource.animal]\n# Animals per hectare",
+    );
+    assert_ne!(land, real("land/temperate_valley.toml"), "the edit applies");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(report.diagnostics[0].message.contains("exactly one of"));
 }
 
 #[test]
@@ -435,6 +543,11 @@ fn the_fingerprint_covers_every_kind() {
             "loss_per_day = 0.04",
         ),
         ("names/valley_folk.toml", "\"Arden\"", "\"Arlen\""),
+        (
+            "good/meat.toml",
+            "half_life_days = 3.0",
+            "half_life_days = 4.0",
+        ),
     ] {
         let body = real(path).replace(from, to);
         assert_ne!(body, real(path), "{path}: the edit applies");
@@ -460,4 +573,9 @@ fn json_reports_are_machine_readable() {
     assert_eq!(json["people"], "core:people/early_farmers");
     assert_eq!(json["land"], "core:land/temperate_valley");
     assert!(json["activities"].as_array().is_some_and(|a| a.len() >= 7));
+    assert!(
+        json["goods"]
+            .as_array()
+            .is_some_and(|a| a.iter().any(|g| g == "core:good/firewood"))
+    );
 }

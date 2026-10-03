@@ -11,8 +11,8 @@
 //! - a **semantic** fingerprint over the effective compiled content. This is the one saves
 //!   record, so reformatting a file does not mark every save as "content changed".
 //!
-//! Kinds so far: world-generation presets (M0); the people profile, the land profile, name lists
-//! and activities (M1). Later milestones add goods, technologies, offices and the rest of the
+//! Kinds so far: world-generation presets (M0); the people profile, the land profile, name lists,
+//! activities and goods (M1). Later milestones add technologies, offices and the rest of the
 //! plan's primitives, each as a new `kind`.
 
 #![forbid(unsafe_code)]
@@ -21,13 +21,14 @@ use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-use civ_agents::params::{Catalog, PeopleParams};
+use civ_agents::params::{Catalog, GoodUse, PeopleParams};
 use civ_land::LandParams;
 use civ_world::TerrainParams;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 mod activity;
+mod good;
 mod land;
 mod names;
 mod people;
@@ -36,7 +37,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 2;
+pub const KERNEL_CONTENT_API: u32 = 3;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -61,7 +62,7 @@ pub enum Severity {
 /// | E2003 | An id's kind segment does not match the file's `kind` |
 /// | E2004 | The file's path does not match its id (`<kind>/<name>.toml`) |
 /// | E2005 | Two definitions share an id |
-/// | E2006 | A reference names something that is not defined (a name list, a land resource) |
+/// | E2006 | A reference names something that is not defined (a name list, a land resource, a good) |
 /// | E3001 | A value is out of its allowed range |
 /// | E3002 | The `kind` is unknown, or missing |
 /// | E3003 | Not exactly one world-generation preset is marked `default = true` |
@@ -171,7 +172,7 @@ pub struct ContentRegistry {
     pub people: PeopleProfile,
     /// The land profile.
     pub land: LandProfile,
-    /// Activities, in id order, with their resources resolved against the land profile.
+    /// Activities and goods, each in id order, with references resolved.
     pub catalog: Catalog,
     /// BLAKE3 of the effective content (see the crate docs).
     pub fingerprint: [u8; 32],
@@ -216,7 +217,8 @@ impl LoadReport {
     }
 
     /// The report as JSON: `{ "ok": bool, "fingerprint": hex|null, "packs": [...], "presets":
-    /// [ids], "people": id|null, "land": id|null, "activities": [ids], "diagnostics": [...] }`.
+    /// [ids], "people": id|null, "land": id|null, "activities": [ids], "goods": [ids],
+    /// "diagnostics": [...] }`.
     pub fn to_json(&self) -> String {
         let r = self.registry.as_ref();
         let json = serde_json::json!({
@@ -230,6 +232,9 @@ impl LoadReport {
             "land": r.map(|r| r.land.id.clone()),
             "activities": r
                 .map(|r| r.catalog.activities.iter().map(|a| a.id.clone()).collect::<Vec<_>>())
+                .unwrap_or_default(),
+            "goods": r
+                .map(|r| r.catalog.goods.iter().map(|g| g.id.clone()).collect::<Vec<_>>())
                 .unwrap_or_default(),
             "diagnostics": self.diagnostics,
         });
@@ -373,6 +378,7 @@ struct Parsed {
     lands: Vec<Def<land::LandFile>>,
     names: Vec<Def<names::NamesFile>>,
     activities: Vec<Def<activity::ActivityFile>>,
+    goods: Vec<Def<good::GoodFile>>,
     /// Files declaring `kind = "people"`, parsed or not (so a broken profile is not also
     /// reported as a missing one).
     people_files: usize,
@@ -542,6 +548,19 @@ pub fn load(root: &Path) -> LoadReport {
     }
 }
 
+/// Reports a reference to something not defined (E2006), unless a file declares it (a broken
+/// definition is already reported; one error is enough).
+fn missing(c: &mut Collector, parsed: &Parsed, rel: &str, field: &str, id: &str) {
+    if !parsed.declared.contains(id) {
+        c.push(
+            "E2006",
+            rel,
+            None,
+            format!("`{field}` refers to `{id}`, which is not defined"),
+        );
+    }
+}
+
 /// Checks the profiles (E3004) and resolves cross-references (E2006).
 fn resolve(
     c: &mut Collector,
@@ -560,36 +579,60 @@ fn resolve(
             );
         }
     }
+    let mut goods: Vec<_> = parsed.goods.iter().filter_map(|d| d.file.def()).collect();
+    goods.sort_by(|a, b| a.id.cmp(&b.id));
+    let good_index = |id: &str| goods.iter().position(|g| g.id == id);
     let land = match parsed.lands.as_slice() {
-        [d] => Some(LandProfile {
-            id: d.file.id.clone(),
-            pack: d.pack.clone(),
-            name: d.file.name.clone(),
-            params: d.file.params(),
-        }),
-        _ => None,
-    };
-    let people = match parsed.people.as_slice() {
-        [d] => match parsed.names.iter().find(|n| n.file.id == d.file.names) {
-            Some(n) => Some(PeopleProfile {
+        [d] => {
+            for r in &d.file.resource {
+                if good_index(&r.good).is_none() {
+                    missing(
+                        c,
+                        parsed,
+                        &d.rel,
+                        &format!("resource `{}` good", r.id),
+                        &r.good,
+                    );
+                }
+            }
+            d.file.params(&good_index).map(|params| LandProfile {
                 id: d.file.id.clone(),
                 pack: d.pack.clone(),
                 name: d.file.name.clone(),
-                description: d.file.description.clone(),
-                params: d.file.params(n.file.params()),
-            }),
-            None => {
-                if !parsed.declared.contains(&d.file.names) {
-                    c.push(
-                        "E2006",
-                        &d.rel,
-                        None,
-                        format!("`names` refers to `{}`, which is not defined", d.file.names),
-                    );
-                }
-                None
+                params,
+            })
+        }
+        _ => None,
+    };
+    let people = match parsed.people.as_slice() {
+        [d] => {
+            let names = parsed.names.iter().find(|n| n.file.id == d.file.names);
+            if names.is_none() {
+                missing(c, parsed, &d.rel, "names", &d.file.names);
             }
-        },
+            let provisions = &d.file.band.provisions_good;
+            let good = good_index(provisions);
+            match good.map(|g| &goods[g]) {
+                None => missing(c, parsed, &d.rel, "band.provisions_good", provisions),
+                Some(g) if g.purpose != GoodUse::Food => c.push(
+                    "E3001",
+                    &d.rel,
+                    None,
+                    format!("`band.provisions_good` must be a food; `{provisions}` is not"),
+                ),
+                Some(_) => {}
+            }
+            match (names, good) {
+                (Some(n), Some(g)) if goods[g].purpose == GoodUse::Food => Some(PeopleProfile {
+                    id: d.file.id.clone(),
+                    pack: d.pack.clone(),
+                    name: d.file.name.clone(),
+                    description: d.file.description.clone(),
+                    params: d.file.params(n.file.params(), g),
+                }),
+                _ => None,
+            }
+        }
         _ => None,
     };
     let mut activities = Vec::new();
@@ -612,13 +655,14 @@ fn resolve(
                     continue;
                 }
             },
-            // Without a land profile, E3004 has already been reported.
+            // Without a land profile, an error (E3004, or the land profile's own) is already
+            // reported.
             (Some(_), None) => continue,
         };
         activities.extend(d.file.def(resource));
     }
     activities.sort_by(|a, b| a.id.cmp(&b.id));
-    (people, land, Catalog { activities })
+    (people, land, Catalog { activities, goods })
 }
 
 /// `(id, parsed TOML)` of every definition other than presets, for the semantic fingerprint.
@@ -630,6 +674,7 @@ fn parsed_tables(parsed: &Parsed) -> Vec<(&str, &toml::Table)> {
     all.extend(tables(&parsed.lands, |f| &f.id));
     all.extend(tables(&parsed.names, |f| &f.id));
     all.extend(tables(&parsed.activities, |f| &f.id));
+    all.extend(tables(&parsed.goods, |f| &f.id));
     all
 }
 
@@ -699,12 +744,13 @@ fn range_problems(c: &mut Collector, rel: &str, problems: Vec<String>) {
     }
 }
 
-const KINDS: [&str; 5] = [
+const KINDS: [&str; 6] = [
     worldgen::KIND,
     people::KIND,
     land::KIND,
     names::KIND,
     activity::KIND,
+    good::KIND,
 ];
 
 fn compile_file(
@@ -796,6 +842,16 @@ fn compile_file(
             if check_identity(c, pack, rel, &file.id, activity::ID_KIND, seen_ids) {
                 range_problems(c, rel, file.problems());
                 parsed.activities.push(def(rel, pack, file, table));
+            }
+        }
+        good::KIND => {
+            let Some(file) = parse::<good::GoodFile>(c, rel, source) else {
+                return;
+            };
+            debug_assert_eq!(file.kind, good::KIND, "dispatched on kind");
+            if check_identity(c, pack, rel, &file.id, good::ID_KIND, seen_ids) {
+                range_problems(c, rel, file.problems());
+                parsed.goods.push(def(rel, pack, file, table));
             }
         }
         "" => c.push(

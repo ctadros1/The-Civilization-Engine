@@ -59,6 +59,7 @@ pub(crate) struct Energy {
     pub hunger_ramp_hours: f64,
     pub deficit_unit_kcal: f64,
     pub max_surplus_kcal: f64,
+    pub reserve_kcal_per_kg: f64,
     pub meal_minutes: u32,
 }
 
@@ -91,7 +92,11 @@ pub(crate) struct Household {
     pub carry_water_l: f64,
     pub water_target_days: f64,
     pub food_target_days: f64,
-    pub carry_food_kcal: f64,
+    pub carry_kg: f64,
+    pub fuel_kg_per_person_day: [f64; 12],
+    pub fuel_target_days: f64,
+    pub short_food_days: f64,
+    pub recovered_food_days: f64,
     pub daily_kcal_per_person: f64,
 }
 
@@ -105,6 +110,7 @@ pub(crate) struct Decision {
     pub w_social: f64,
     pub w_food: f64,
     pub w_work: f64,
+    pub w_fuel: f64,
     pub trip_half_worth_days: f64,
     pub w_water: f64,
     pub w_walk_hour: f64,
@@ -124,6 +130,8 @@ pub(crate) struct Band {
     pub camp_candidates: u32,
     pub site_radius_m: f64,
     pub provisions_days: f64,
+    /// The good provisions are carried as: a good id.
+    pub provisions_good: String,
     pub elder_chance: f64,
     pub young_adult_chance: f64,
     pub birth_spacing_months: f64,
@@ -179,9 +187,9 @@ fn unit(name: &str, v: f64, problems: &mut Vec<String>) {
 }
 
 impl PeopleFile {
-    /// The parameters, with the given names. Field by field on purpose: a new parameter fails to
-    /// compile here until the authoring format carries it.
-    pub fn params(&self, names: NameParams) -> PeopleParams {
+    /// The parameters, with the given names and the index of the provisions good. Field by field
+    /// on purpose: a new parameter fails to compile here until the authoring format carries it.
+    pub fn params(&self, names: NameParams, provisions_good: usize) -> PeopleParams {
         let (w, e, s, so, h, d, b, m) = (
             &self.walking,
             &self.energy,
@@ -216,6 +224,7 @@ impl PeopleFile {
                 hunger_ramp_hours: e.hunger_ramp_hours,
                 deficit_unit_kcal: e.deficit_unit_kcal,
                 max_surplus_kcal: e.max_surplus_kcal,
+                reserve_kcal_per_kg: e.reserve_kcal_per_kg,
                 meal_minutes: e.meal_minutes,
             },
             sleep: SleepParams {
@@ -239,7 +248,11 @@ impl PeopleFile {
                 carry_water_l: h.carry_water_l,
                 water_target_days: h.water_target_days,
                 food_target_days: h.food_target_days,
-                carry_food_kcal: h.carry_food_kcal,
+                carry_kg: h.carry_kg,
+                fuel_kg_per_person_day: h.fuel_kg_per_person_day,
+                fuel_target_days: h.fuel_target_days,
+                short_food_days: h.short_food_days,
+                recovered_food_days: h.recovered_food_days,
                 daily_kcal_per_person: h.daily_kcal_per_person,
             },
             decision: DecisionParams {
@@ -250,6 +263,7 @@ impl PeopleFile {
                 w_social: d.w_social,
                 w_food: d.w_food,
                 w_work: d.w_work,
+                w_fuel: d.w_fuel,
                 trip_half_worth_days: d.trip_half_worth_days,
                 w_water: d.w_water,
                 w_walk_hour: d.w_walk_hour,
@@ -266,6 +280,7 @@ impl PeopleFile {
                 camp_candidates: b.camp_candidates,
                 site_radius_m: b.site_radius_m,
                 provisions_days: b.provisions_days,
+                provisions_good,
                 elder_chance: b.elder_chance,
                 young_adult_chance: b.young_adult_chance,
                 birth_spacing_months: b.birth_spacing_months,
@@ -354,6 +369,7 @@ impl PeopleFile {
         positive("energy.hunger_ramp_hours", e.hunger_ramp_hours, &mut p);
         positive("energy.deficit_unit_kcal", e.deficit_unit_kcal, &mut p);
         non_negative("energy.max_surplus_kcal", e.max_surplus_kcal, &mut p);
+        positive("energy.reserve_kcal_per_kg", e.reserve_kcal_per_kg, &mut p);
         if e.meal_minutes == 0 {
             p.push("`energy.meal_minutes` must be at least 1".to_owned());
         }
@@ -394,7 +410,18 @@ impl PeopleFile {
         positive("household.carry_water_l", h.carry_water_l, &mut p);
         positive("household.water_target_days", h.water_target_days, &mut p);
         positive("household.food_target_days", h.food_target_days, &mut p);
-        positive("household.carry_food_kcal", h.carry_food_kcal, &mut p);
+        positive("household.carry_kg", h.carry_kg, &mut p);
+        for v in h.fuel_kg_per_person_day {
+            non_negative("household.fuel_kg_per_person_day", v, &mut p);
+        }
+        positive("household.fuel_target_days", h.fuel_target_days, &mut p);
+        non_negative("household.short_food_days", h.short_food_days, &mut p);
+        if !(h.recovered_food_days.is_finite() && h.recovered_food_days > h.short_food_days) {
+            p.push(
+                "`household.recovered_food_days` must be more than `household.short_food_days`"
+                    .to_owned(),
+            );
+        }
         positive(
             "household.daily_kcal_per_person",
             h.daily_kcal_per_person,
@@ -418,6 +445,7 @@ impl PeopleFile {
             ("w_social", d.w_social),
             ("w_food", d.w_food),
             ("w_work", d.w_work),
+            ("w_fuel", d.w_fuel),
             ("w_water", d.w_water),
             ("w_walk_hour", d.w_walk_hour),
             ("w_effort", d.w_effort),

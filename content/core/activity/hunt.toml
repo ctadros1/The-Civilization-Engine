@@ -1,0 +1,15 @@
+# Stalking and killing large game, then carrying the meat home. Hours, ages, walking range and
+# effort (PAR) are tuning starting points; who hunts is decided by people, not by this file.
+kind = "activity"
+id = "core:activity/hunt"
+name = "Hunt"
+doing = "hunting"
+behavior = "gather"
+resource = "game"
+par = 4.5
+min_age_years = 15.0
+max_age_years = 60.0
+min_minutes = 120
+max_minutes = 360
+daylight_only = true
+max_walk_minutes = 120

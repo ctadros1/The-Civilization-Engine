@@ -7,6 +7,8 @@
 use std::collections::HashSet;
 
 use civ_agents::history::{self, Span};
+use civ_agents::params::GoodUse;
+use civ_agents::person::{food_kcal, fuel_kg};
 use civ_agents::{Cause, Origin, Person, Receipt, Scored, Sex, Step, Target, population};
 use civ_core::PermanentId;
 use civ_schema::flatbuffers::{FlatBufferBuilder, ForwardsUOffset, Vector, WIPOffset};
@@ -86,6 +88,12 @@ pub fn settlement_briefs<'a>(
                 .map(|(_, h)| h.members.len())
                 .sum();
             let name = fbb.create_string(&s.name);
+            let food_days = sim.people.settlement_food_days(
+                s.id,
+                sim.now(),
+                &sim.rules.people,
+                &sim.rules.catalog.goods,
+            );
             wire::SettlementBrief::create(
                 fbb,
                 &wire::SettlementBriefArgs {
@@ -94,6 +102,8 @@ pub fn settlement_briefs<'a>(
                     hearth: Some(&vec2(s.hearth_m)),
                     founded_minute: s.founded.minutes(),
                     population: population as u32,
+                    food_days: food_days.unwrap_or(0.0) as f32,
+                    food_short: s.food_short,
                 },
             )
         })
@@ -494,15 +504,30 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
             .and_then(|s| sim.land.settlements.iter().find(|x| x.id == s))
             .map(|s| fbb.create_string(&s.name));
         let doing = fbb.create_string(&doing(sim, p));
-        let (food_days, water_days) = household.map_or((0.0, 0.0), |h| {
-            let members = h.members.len().max(1) as f64;
-            let kcal_day = members * params.household.daily_kcal_per_person;
-            let litres_day = members * params.household.water_l_per_person_day;
-            (
-                h.food_kcal / kcal_day.max(1.0),
-                h.water_at_time(now, litres_day) / litres_day.max(1e-6),
-            )
-        });
+        let goods = &sim.rules.catalog.goods;
+        let stores = household.map(|h| population::stores_now(h, now, params, goods));
+        let (food_days, water_days, fuel_days) = match (household, &stores) {
+            (Some(h), Some(stores)) => {
+                let members = h.members.len().max(1);
+                let kcal_day = members as f64 * params.household.daily_kcal_per_person;
+                let litres_day = members as f64 * params.household.water_l_per_person_day;
+                let fuel_day = population::fuel_per_day(params, members, now.day_index());
+                (
+                    food_kcal(stores, goods).0 / kcal_day.max(1.0),
+                    h.water_at_time(now, litres_day) / litres_day.max(1e-6),
+                    fuel_kg(stores, goods) / fuel_day.max(1e-6),
+                )
+            }
+            _ => (0.0, 0.0, 0.0),
+        };
+        let lines: Vec<wire::StoreLine> = stores
+            .iter()
+            .flatten()
+            .enumerate()
+            .filter(|(_, kg)| **kg >= 0.05)
+            .map(|(g, kg)| wire::StoreLine::new(g as u16, *kg as f32))
+            .collect();
+        let lines = fbb.create_vector(&lines);
         let take = decisions.min(MAX_DECISIONS_PER_QUERY) as usize;
         let receipts: Vec<_> = p
             .receipts
@@ -533,10 +558,21 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.sleep_pressure = settled.sleep_pressure;
         args.loneliness = 1.0 - settled.relatedness;
         args.energy_kcal = settled.energy_kcal;
-        args.carry_food_kcal = p.carrying.food_kcal;
+        let carried = p.carrying.good.and_then(|g| goods.get(usize::from(g)));
+        args.carry_food_kcal = carried.map_or(0.0, |g| {
+            if g.purpose == GoodUse::Food {
+                (f64::from(p.carrying.kg) * g.kcal_per_kg) as f32
+            } else {
+                0.0
+            }
+        });
+        args.carry_good = p.carrying.good.map_or(-1, i32::from);
+        args.carry_kg = p.carrying.kg;
         args.carry_water_l = p.carrying.water_l;
         args.household_food_days = food_days as f32;
         args.household_water_days = water_days as f32;
+        args.household_fuel_days = fuel_days as f32;
+        args.stores = Some(lines);
         args.decisions = Some(receipts);
         args.traits = Some(traits);
         args.pos = Some(&pos);

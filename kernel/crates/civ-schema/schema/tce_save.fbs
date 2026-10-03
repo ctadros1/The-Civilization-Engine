@@ -107,11 +107,13 @@ table Hydro {
   inflows: [Inflow] (id: 2);
 }
 
-// ---- People and land (ADR-0003, ADR-0004; schema version 2) --------------------------------
+// ---- People and land (ADR-0003, ADR-0004; schema versions 2 and 3) -------------------------
 //
 // Permanent ids are ulong, 0 meaning "none". Times are minutes since the calendar origin.
-// Activities and resources are referred to by content id through a per-section dictionary, so a
-// world still loads after content adds, removes or reorders them.
+// Activities, resources and goods are referred to by content id through a per-section dictionary,
+// so a world still loads after content adds, removes or reorders them. Fields marked "schema 2"
+// are written by schema-2 saves only and read to migrate them; fields marked "schema 3" are new
+// in version 3 (M1 slice B: goods).
 
 struct Point {
   x: float;
@@ -135,6 +137,11 @@ table Land {
   climate_year: long (id: 10);
   climate_deviate: double (id: 11);
   climate_factor: double (id: 12);
+  // Schema 3: the good and the kilograms of it per unit of each saved resource, in the order of
+  // `resources`. A resource's stocks carry over only if both are unchanged; otherwise its units
+  // may mean something else, and it starts at equilibrium.
+  resource_goods: [string] (id: 13);
+  resource_unit_kg: [double] (id: 14);
 }
 
 // Section "settle": settlements.
@@ -143,6 +150,8 @@ table Settlement {
   name: string (id: 1);
   founded: long (id: 2);
   hearth: Point (id: 3);
+  // Schema 3: its food has run short and not yet recovered (for the chronicle).
+  food_short: bool (id: 4);
 }
 
 table Settlements {
@@ -207,9 +216,13 @@ table Person {
   activity: Activity (id: 17);
   // Absent while not walking.
   trip: Trip (id: 18);
+  // Schema 2: food carried, kcal.
   carry_food_kcal: float (id: 19);
   carry_water_l: float (id: 20);
   draws: ulong (id: 21);
+  // Schema 3: the good carried, as an index into People.goods, or -1; and how much, kilograms.
+  carry_good: int = -1 (id: 22);
+  carry_kg: float (id: 23);
 }
 
 table People {
@@ -218,13 +231,28 @@ table People {
   people: [Person] (id: 1);
   // The last trip id handed out.
   next_trip: ulong (id: 2);
+  // Schema 3: good content ids at save time; Person.carry_good indexes this list.
+  goods: [string] (id: 3);
 }
 
 // Section "houses": households.
+// Schema 2: a patch's remembered return of the one gathered resource (forgotten on migration:
+// its units no longer apply).
 struct KnownPatch {
   patch: uint;
   rate: float;
   seen_day: long;
+}
+
+// Schema 3: what was seen of a place where a resource is gathered (an index into
+// Households.resources): the mean return of the hours worked there, and those hours as of the
+// last visit.
+struct KnownResource {
+  seen_day: long;
+  patch: uint;
+  rate: float;
+  hours: float;
+  resource: ushort;
 }
 
 table Household {
@@ -232,14 +260,23 @@ table Household {
   members: [ulong] (id: 1);
   home: Point (id: 2);
   settlement: ulong (id: 3);
+  // Schema 2: the household's food, kcal.
   food_kcal: double (id: 4);
   water_l: double (id: 5);
   water_at: long (id: 6);
+  // Schema 2.
   known: [KnownPatch] (id: 7);
+  // Schema 3: goods in store at `stores_at`, kilograms, indexed like Households.goods.
+  stores: [double] (id: 8);
+  stores_at: long (id: 9);
+  known_resources: [KnownResource] (id: 10);
 }
 
 table Households {
   households: [Household] (id: 0);
+  // Schema 3: good and resource content ids at save time.
+  goods: [string] (id: 1);
+  resources: [string] (id: 2);
 }
 
 // Section "history": everyone who ever lived here, and the chronicle. Kept forever.

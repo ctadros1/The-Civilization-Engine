@@ -2,10 +2,12 @@
 
 use std::collections::VecDeque;
 
+use civ_core::time::MINUTES_PER_DAY;
 use civ_core::{PermanentId, SimTime};
 
 use crate::history::Receipt;
 use crate::needs::Sex;
+use crate::params::{GoodDef, GoodUse};
 
 /// Most decision receipts kept per person (ADR-0003).
 pub const RECEIPT_RING: usize = 64;
@@ -119,8 +121,10 @@ impl Trip {
 /// What a person is carrying.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Load {
-    /// Food, kcal.
-    pub food_kcal: f32,
+    /// The good carried, by index in the catalog's goods.
+    pub good: Option<u16>,
+    /// How much of it, kilograms.
+    pub kg: f32,
     /// Water, litres.
     pub water_l: f32,
 }
@@ -214,15 +218,51 @@ impl Person {
     }
 }
 
-/// What a household believes about a patch it has gathered in.
+/// What a household has seen of a place where a resource is gathered: the return of the hours
+/// worked there, weighted by how recent they were (see [`KnownPatch::belief`]).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct KnownPatch {
-    /// The patch.
+    /// The land resource, by index in the land parameters.
+    pub resource: u16,
+    /// The place: the centre patch of the block a trip works.
     pub patch: u32,
-    /// Remembered gathering return, units per person-hour.
+    /// Mean return of the remembered hours, units of the resource per person-hour.
     pub rate: f32,
+    /// Hours of work behind `rate`, as of `seen_day`.
+    pub hours: f32,
     /// Day of the last visit.
     pub seen_day: i64,
+}
+
+impl KnownPatch {
+    /// The weight of what was seen, in hours, on `day`: evidence fades over the time the resource
+    /// takes to renew, since the place will have changed by then.
+    pub fn weight(&self, day: i64, renewal_days: f64) -> f64 {
+        let age = (day - self.seen_day).max(0) as f64;
+        f64::from(self.hours) * (-age / renewal_days.max(1.0)).exp()
+    }
+
+    /// The expected return on `day`, units per person-hour, from what was seen and what land of
+    /// its kind is expected to give (`prior`). The expectation counts as one unit of the
+    /// resource's worth of evidence (a gamma prior on a rate): a hunt that finds nothing says
+    /// little about a place where kills are rare, while a stripped patch of plants, measured in
+    /// kilograms, says a lot.
+    pub fn belief(&self, prior: f64, day: i64, renewal_days: f64) -> f64 {
+        let w = self.weight(day, renewal_days);
+        let prior_hours = 1.0 / prior.max(1e-6);
+        (1.0 + f64::from(self.rate) * w) / (prior_hours + w)
+    }
+
+    /// Adds `units` gathered in `hours` on `day` to what was seen.
+    pub fn observe(&mut self, units: f64, hours: f64, day: i64, renewal_days: f64) {
+        let w = self.weight(day, renewal_days);
+        let total = w + hours.max(0.0);
+        if total > 0.0 {
+            self.rate = ((f64::from(self.rate) * w + units.max(0.0)) / total) as f32;
+        }
+        self.hours = total as f32;
+        self.seen_day = day;
+    }
 }
 
 /// People who live and eat together.
@@ -236,8 +276,10 @@ pub struct Household {
     pub home: (f32, f32),
     /// Their settlement.
     pub settlement: Option<PermanentId>,
-    /// Food in store, kcal.
-    pub food_kcal: f64,
+    /// Goods in store at `stores_at`, kilograms, by index in the catalog's goods.
+    pub stores: Vec<f64>,
+    /// When stores were last brought up to date (spoilage and firewood burned).
+    pub stores_at: SimTime,
     /// Water in store at `water_at`, litres.
     pub water_l: f64,
     /// When water was last brought up to date.
@@ -258,6 +300,86 @@ impl Household {
         self.water_l = self.water_at_time(t, litres_per_day);
         self.water_at = t;
     }
+
+    /// The stores at `t`: every good spoils by its half-life, and firewood burns at
+    /// `fuel_kg_per_day(day)` kilograms on each day (the household's total). Exact for any split
+    /// of time.
+    pub fn stores_at_time(
+        &self,
+        t: SimTime,
+        goods: &[GoodDef],
+        fuel_kg_per_day: &dyn Fn(i64) -> f64,
+    ) -> Vec<f64> {
+        let (t0, t1) = (self.stores_at.minutes(), t.minutes());
+        let mut out = self.stores.clone();
+        if t1 <= t0 {
+            return out;
+        }
+        let days = (t1 - t0) as f64 / MINUTES_PER_DAY as f64;
+        let mut burned = burned_kg(t0, t1, fuel_kg_per_day);
+        for (kg, g) in out.iter_mut().zip(goods) {
+            if g.half_life_days > 0.0 {
+                *kg *= 0.5f64.powf(days / g.half_life_days);
+            }
+            if g.purpose == GoodUse::Fuel && burned > 0.0 {
+                let take = burned.min(*kg);
+                *kg -= take;
+                burned -= take;
+            }
+        }
+        out
+    }
+
+    /// Brings the stores up to `t` (see [`Household::stores_at_time`]).
+    pub fn settle_stores(
+        &mut self,
+        t: SimTime,
+        goods: &[GoodDef],
+        fuel_kg_per_day: &dyn Fn(i64) -> f64,
+    ) {
+        if t > self.stores_at {
+            self.stores = self.stores_at_time(t, goods, fuel_kg_per_day);
+            self.stores_at = t;
+        }
+    }
+}
+
+/// Food energy in a set of stores, kcal: all of it, and what can be eaten without a fire.
+pub fn food_kcal(stores: &[f64], goods: &[GoodDef]) -> (f64, f64) {
+    let (mut all, mut raw) = (0.0, 0.0);
+    for (kg, g) in stores.iter().zip(goods) {
+        if g.purpose == GoodUse::Food {
+            let kcal = kg.max(0.0) * g.kcal_per_kg;
+            all += kcal;
+            if !g.cooked {
+                raw += kcal;
+            }
+        }
+    }
+    (all, raw)
+}
+
+/// Firewood in a set of stores, kilograms.
+pub fn fuel_kg(stores: &[f64], goods: &[GoodDef]) -> f64 {
+    stores
+        .iter()
+        .zip(goods)
+        .filter(|(_, g)| g.purpose == GoodUse::Fuel)
+        .map(|(kg, _)| kg.max(0.0))
+        .sum()
+}
+
+/// Kilograms burned between minutes `t0` and `t1` at `per_day(day)` per day.
+fn burned_kg(t0: i64, t1: i64, per_day: &dyn Fn(i64) -> f64) -> f64 {
+    let mut total = 0.0;
+    let mut t = t0;
+    while t < t1 {
+        let day = t.div_euclid(MINUTES_PER_DAY);
+        let end = ((day + 1) * MINUTES_PER_DAY).min(t1);
+        total += per_day(day) * (end - t) as f64 / MINUTES_PER_DAY as f64;
+        t = end;
+    }
+    total
 }
 
 #[cfg(test)]
@@ -282,18 +404,109 @@ mod tests {
 
     #[test]
     fn water_is_used_continuously() {
-        let mut h = Household {
+        let mut h = household(Vec::new());
+        assert_eq!(h.water_at_time(SimTime::from_minutes(720), 40.0), 80.0);
+        h.settle_water(SimTime::from_minutes(1440 * 3), 40.0);
+        assert_eq!(h.water_l, 0.0);
+    }
+
+    fn household(stores: Vec<f64>) -> Household {
+        Household {
             id: PermanentId::from_raw(1).expect("non-zero"),
             members: Vec::new(),
             home: (0.0, 0.0),
             settlement: None,
-            food_kcal: 0.0,
+            stores,
+            stores_at: SimTime::ZERO,
             water_l: 100.0,
             water_at: SimTime::ZERO,
             known: Vec::new(),
+        }
+    }
+
+    fn goods() -> Vec<GoodDef> {
+        let good = |id: &str, purpose, kcal, half, cooked| GoodDef {
+            id: id.into(),
+            name: id.into(),
+            purpose,
+            kcal_per_kg: kcal,
+            half_life_days: half,
+            cooked,
+            shared: false,
         };
-        assert_eq!(h.water_at_time(SimTime::from_minutes(720), 40.0), 80.0);
-        h.settle_water(SimTime::from_minutes(1440 * 3), 40.0);
-        assert_eq!(h.water_l, 0.0);
+        vec![
+            good("meat", GoodUse::Food, 1500.0, 3.0, true),
+            good("nuts", GoodUse::Food, 5000.0, 0.0, false),
+            good("wood", GoodUse::Fuel, 0.0, 0.0, false),
+        ]
+    }
+
+    #[test]
+    fn one_empty_hunt_says_little_and_one_stripped_patch_says_a_lot() {
+        let seen = |units, hours| {
+            let mut k = KnownPatch {
+                resource: 0,
+                patch: 0,
+                rate: 0.0,
+                hours: 0.0,
+                seen_day: 100,
+            };
+            k.observe(units, hours, 100, 365.0);
+            k
+        };
+        // Game: about one kill in 50 hours expected. A four-hour hunt that kills nothing lowers
+        // the expectation by under a tenth.
+        let hunt = seen(0.0, 4.0);
+        let belief = hunt.belief(0.02, 100, 365.0);
+        assert!(belief < 0.02 && belief > 0.018, "{belief}");
+        // A kill in four hours makes the place look several times better.
+        assert!(seen(1.0, 4.0).belief(0.02, 100, 365.0) > 0.03);
+        // Plants: 0.8 kg an hour expected; four hours that bring 0.4 kg mean the place is
+        // stripped.
+        let plants = seen(0.4, 4.0).belief(0.8, 100, 365.0);
+        assert!(plants < 0.3, "{plants}");
+        // What was seen fades back to the expectation over the renewal time.
+        let later = seen(0.4, 4.0).belief(0.8, 100 + 10 * 365, 365.0);
+        assert!((later - 0.8).abs() < 0.01, "{later}");
+        // Observations add up: two empty hunts say more than one.
+        let mut twice = hunt;
+        twice.observe(0.0, 4.0, 101, 365.0);
+        assert!(twice.belief(0.02, 101, 365.0) < belief);
+    }
+
+    #[test]
+    fn stores_spoil_by_half_life_and_burn_firewood_exactly() {
+        let goods = goods();
+        let per_day = |day: i64| if day < 2 { 10.0 } else { 4.0 };
+        let mut h = household(vec![10.0, 2.0, 30.0]);
+        let three_days = SimTime::from_minutes(3 * 1440);
+        let s = h.stores_at_time(three_days, &goods, &per_day);
+        assert!(
+            (s[0] - 10.0 / 2.0).abs() < 1e-9,
+            "meat halves in three days: {}",
+            s[0]
+        );
+        assert_eq!(s[1], 2.0, "nuts keep");
+        assert!(
+            (s[2] - (30.0 - 24.0)).abs() < 1e-9,
+            "10 + 10 + 4 kg burned: {}",
+            s[2]
+        );
+        // Settling in pieces gives the same result.
+        for m in [700, 1500, 2900, 3 * 1440] {
+            h.settle_stores(SimTime::from_minutes(m), &goods, &per_day);
+        }
+        for (a, b) in h.stores.iter().zip(&s) {
+            assert!((a - b).abs() < 1e-9);
+        }
+        // Firewood never goes below nothing.
+        let later = h.stores_at_time(SimTime::from_minutes(30 * 1440), &goods, &per_day);
+        assert_eq!(later[2], 0.0);
+        let (all, raw) = food_kcal(&later, &goods);
+        assert!(
+            all > raw && raw == 10_000.0,
+            "meat must be cooked; nuts need no fire"
+        );
+        assert_eq!(fuel_kg(&later, &goods), 0.0);
     }
 }

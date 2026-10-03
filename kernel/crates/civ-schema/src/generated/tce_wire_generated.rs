@@ -1277,6 +1277,133 @@ impl<'a> Exclusion {
 
 }
 
+// struct StoreLine, aligned to 4
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct StoreLine(pub [u8; 8]);
+impl Default for StoreLine { 
+  fn default() -> Self { 
+    Self([0; 8])
+  }
+}
+impl ::core::fmt::Debug for StoreLine {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("StoreLine")
+      .field("good", &self.good())
+      .field("kg", &self.kg())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for StoreLine {}
+impl<'a> ::flatbuffers::Follow<'a> for StoreLine {
+  type Inner = &'a StoreLine;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a StoreLine>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a StoreLine {
+  type Inner = &'a StoreLine;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<StoreLine>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for StoreLine {
+    type Output = StoreLine;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const StoreLine as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(4)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for StoreLine {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> StoreLine {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    good: u16,
+    kg: f32,
+  ) -> Self {
+    let mut s = Self([0; 8]);
+    s.set_good(good);
+    s.set_kg(kg);
+    s
+  }
+
+  pub fn good(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_good(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn kg(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_kg(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 pub enum HelloOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -1650,6 +1777,153 @@ impl ::core::fmt::Debug for ActivityInfo<'_> {
       ds.finish()
   }
 }
+pub enum GoodInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GoodInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GoodInfo<'a> {
+  type Inner = GoodInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GoodInfo<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PURPOSE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_KCAL_PER_KG: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GoodInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GoodInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<GoodInfo<'bldr>> {
+    let mut builder = GoodInfoBuilder::new(_fbb);
+    builder.add_kcal_per_kg(args.kcal_per_kg);
+    if let Some(x) = args.purpose { builder.add_purpose(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    if let Some(x) = args.id { builder.add_id(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(GoodInfo::VT_ID, None)}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(GoodInfo::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn purpose(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(GoodInfo::VT_PURPOSE, None)}
+  }
+  #[inline]
+  pub fn kcal_per_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GoodInfo::VT_KCAL_PER_KG, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for GoodInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("id", Self::VT_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("purpose", Self::VT_PURPOSE, false)?
+     .visit_field::<f32>("kcal_per_kg", Self::VT_KCAL_PER_KG, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GoodInfoArgs<'a> {
+    pub id: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub purpose: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub kcal_per_kg: f32,
+}
+impl<'a> Default for GoodInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    GoodInfoArgs {
+      id: None,
+      name: None,
+      purpose: None,
+      kcal_per_kg: 0.0,
+    }
+  }
+}
+
+pub struct GoodInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GoodInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GoodInfo::VT_ID, id);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GoodInfo::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_purpose(&mut self, purpose: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GoodInfo::VT_PURPOSE, purpose);
+  }
+  #[inline]
+  pub fn add_kcal_per_kg(&mut self, kcal_per_kg: f32) {
+    self.fbb_.push_slot::<f32>(GoodInfo::VT_KCAL_PER_KG, kcal_per_kg, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GoodInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GoodInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GoodInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GoodInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GoodInfo");
+      ds.field("id", &self.id());
+      ds.field("name", &self.name());
+      ds.field("purpose", &self.purpose());
+      ds.field("kcal_per_kg", &self.kcal_per_kg());
+      ds.finish()
+  }
+}
 pub enum ReasonInfoOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -1793,6 +2067,7 @@ impl<'a> Welcome<'a> {
   pub const VT_BAND_SIZE_MIN: ::flatbuffers::VOffsetT = 26;
   pub const VT_BAND_SIZE_MAX: ::flatbuffers::VOffsetT = 28;
   pub const VT_BAND_SIZE_DEFAULT: ::flatbuffers::VOffsetT = 30;
+  pub const VT_GOODS: ::flatbuffers::VOffsetT = 32;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -1804,6 +2079,7 @@ impl<'a> Welcome<'a> {
     args: &'args WelcomeArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Welcome<'bldr>> {
     let mut builder = WelcomeBuilder::new(_fbb);
+    if let Some(x) = args.goods { builder.add_goods(x); }
     builder.add_band_size_default(args.band_size_default);
     builder.add_band_size_max(args.band_size_max);
     builder.add_band_size_min(args.band_size_min);
@@ -1920,6 +2196,13 @@ impl<'a> Welcome<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(Welcome::VT_BAND_SIZE_DEFAULT, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn goods(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GoodInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GoodInfo>>>>(Welcome::VT_GOODS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Welcome<'_> {
@@ -1942,6 +2225,7 @@ impl ::flatbuffers::Verifiable for Welcome<'_> {
      .visit_field::<u32>("band_size_min", Self::VT_BAND_SIZE_MIN, false)?
      .visit_field::<u32>("band_size_max", Self::VT_BAND_SIZE_MAX, false)?
      .visit_field::<u32>("band_size_default", Self::VT_BAND_SIZE_DEFAULT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GoodInfo>>>>("goods", Self::VT_GOODS, false)?
      .finish();
     Ok(())
   }
@@ -1961,6 +2245,7 @@ pub struct WelcomeArgs<'a> {
     pub band_size_min: u32,
     pub band_size_max: u32,
     pub band_size_default: u32,
+    pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GoodInfo<'a>>>>>,
 }
 impl<'a> Default for WelcomeArgs<'a> {
   #[inline]
@@ -1980,6 +2265,7 @@ impl<'a> Default for WelcomeArgs<'a> {
       band_size_min: 0,
       band_size_max: 0,
       band_size_default: 0,
+      goods: None,
     }
   }
 }
@@ -2046,6 +2332,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WelcomeBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u32>(Welcome::VT_BAND_SIZE_DEFAULT, band_size_default, 0);
   }
   #[inline]
+  pub fn add_goods(&mut self, goods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<GoodInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Welcome::VT_GOODS, goods);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WelcomeBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WelcomeBuilder {
@@ -2077,6 +2367,7 @@ impl ::core::fmt::Debug for Welcome<'_> {
       ds.field("band_size_min", &self.band_size_min());
       ds.field("band_size_max", &self.band_size_max());
       ds.field("band_size_default", &self.band_size_default());
+      ds.field("goods", &self.goods());
       ds.finish()
   }
 }
@@ -3312,6 +3603,8 @@ impl<'a> SettlementBrief<'a> {
   pub const VT_HEARTH: ::flatbuffers::VOffsetT = 8;
   pub const VT_FOUNDED_MINUTE: ::flatbuffers::VOffsetT = 10;
   pub const VT_POPULATION: ::flatbuffers::VOffsetT = 12;
+  pub const VT_FOOD_DAYS: ::flatbuffers::VOffsetT = 14;
+  pub const VT_FOOD_SHORT: ::flatbuffers::VOffsetT = 16;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -3325,9 +3618,11 @@ impl<'a> SettlementBrief<'a> {
     let mut builder = SettlementBriefBuilder::new(_fbb);
     builder.add_founded_minute(args.founded_minute);
     builder.add_id(args.id);
+    builder.add_food_days(args.food_days);
     builder.add_population(args.population);
     if let Some(x) = args.hearth { builder.add_hearth(x); }
     if let Some(x) = args.name { builder.add_name(x); }
+    builder.add_food_short(args.food_short);
     builder.finish()
   }
 
@@ -3367,6 +3662,20 @@ impl<'a> SettlementBrief<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(SettlementBrief::VT_POPULATION, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn food_days(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(SettlementBrief::VT_FOOD_DAYS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn food_short(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(SettlementBrief::VT_FOOD_SHORT, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for SettlementBrief<'_> {
@@ -3380,6 +3689,8 @@ impl ::flatbuffers::Verifiable for SettlementBrief<'_> {
      .visit_field::<Vec2>("hearth", Self::VT_HEARTH, false)?
      .visit_field::<i64>("founded_minute", Self::VT_FOUNDED_MINUTE, false)?
      .visit_field::<u32>("population", Self::VT_POPULATION, false)?
+     .visit_field::<f32>("food_days", Self::VT_FOOD_DAYS, false)?
+     .visit_field::<bool>("food_short", Self::VT_FOOD_SHORT, false)?
      .finish();
     Ok(())
   }
@@ -3390,6 +3701,8 @@ pub struct SettlementBriefArgs<'a> {
     pub hearth: Option<&'a Vec2>,
     pub founded_minute: i64,
     pub population: u32,
+    pub food_days: f32,
+    pub food_short: bool,
 }
 impl<'a> Default for SettlementBriefArgs<'a> {
   #[inline]
@@ -3400,6 +3713,8 @@ impl<'a> Default for SettlementBriefArgs<'a> {
       hearth: None,
       founded_minute: 0,
       population: 0,
+      food_days: 0.0,
+      food_short: false,
     }
   }
 }
@@ -3430,6 +3745,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SettlementBriefBuilder<'a, 'b
     self.fbb_.push_slot::<u32>(SettlementBrief::VT_POPULATION, population, 0);
   }
   #[inline]
+  pub fn add_food_days(&mut self, food_days: f32) {
+    self.fbb_.push_slot::<f32>(SettlementBrief::VT_FOOD_DAYS, food_days, 0.0);
+  }
+  #[inline]
+  pub fn add_food_short(&mut self, food_short: bool) {
+    self.fbb_.push_slot::<bool>(SettlementBrief::VT_FOOD_SHORT, food_short, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SettlementBriefBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SettlementBriefBuilder {
@@ -3452,6 +3775,8 @@ impl ::core::fmt::Debug for SettlementBrief<'_> {
       ds.field("hearth", &self.hearth());
       ds.field("founded_minute", &self.founded_minute());
       ds.field("population", &self.population());
+      ds.field("food_days", &self.food_days());
+      ds.field("food_short", &self.food_short());
       ds.finish()
   }
 }
@@ -8204,6 +8529,10 @@ impl<'a> PersonInfo<'a> {
   pub const VT_DECISIONS: ::flatbuffers::VOffsetT = 54;
   pub const VT_TRAITS: ::flatbuffers::VOffsetT = 56;
   pub const VT_POS: ::flatbuffers::VOffsetT = 58;
+  pub const VT_CARRY_GOOD: ::flatbuffers::VOffsetT = 60;
+  pub const VT_CARRY_KG: ::flatbuffers::VOffsetT = 62;
+  pub const VT_STORES: ::flatbuffers::VOffsetT = 64;
+  pub const VT_HOUSEHOLD_FUEL_DAYS: ::flatbuffers::VOffsetT = 66;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -8222,6 +8551,10 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    builder.add_household_fuel_days(args.household_fuel_days);
+    if let Some(x) = args.stores { builder.add_stores(x); }
+    builder.add_carry_kg(args.carry_kg);
+    builder.add_carry_good(args.carry_good);
     if let Some(x) = args.pos { builder.add_pos(x); }
     if let Some(x) = args.traits { builder.add_traits(x); }
     if let Some(x) = args.decisions { builder.add_decisions(x); }
@@ -8443,6 +8776,34 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<Vec2>(PersonInfo::VT_POS, None)}
   }
+  #[inline]
+  pub fn carry_good(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(PersonInfo::VT_CARRY_GOOD, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn carry_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(PersonInfo::VT_CARRY_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn stores(&self) -> Option<::flatbuffers::Vector<'a, StoreLine>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, StoreLine>>>(PersonInfo::VT_STORES, None)}
+  }
+  #[inline]
+  pub fn household_fuel_days(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(PersonInfo::VT_HOUSEHOLD_FUEL_DAYS, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -8479,6 +8840,10 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Decision>>>>("decisions", Self::VT_DECISIONS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("traits", Self::VT_TRAITS, false)?
      .visit_field::<Vec2>("pos", Self::VT_POS, false)?
+     .visit_field::<i32>("carry_good", Self::VT_CARRY_GOOD, false)?
+     .visit_field::<f32>("carry_kg", Self::VT_CARRY_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, StoreLine>>>("stores", Self::VT_STORES, false)?
+     .visit_field::<f32>("household_fuel_days", Self::VT_HOUSEHOLD_FUEL_DAYS, false)?
      .finish();
     Ok(())
   }
@@ -8512,6 +8877,10 @@ pub struct PersonInfoArgs<'a> {
     pub decisions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Decision<'a>>>>>,
     pub traits: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
     pub pos: Option<&'a Vec2>,
+    pub carry_good: i32,
+    pub carry_kg: f32,
+    pub stores: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, StoreLine>>>,
+    pub household_fuel_days: f32,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -8545,6 +8914,10 @@ impl<'a> Default for PersonInfoArgs<'a> {
       decisions: None,
       traits: None,
       pos: None,
+      carry_good: -1,
+      carry_kg: 0.0,
+      stores: None,
+      household_fuel_days: 0.0,
     }
   }
 }
@@ -8667,6 +9040,22 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<&Vec2>(PersonInfo::VT_POS, pos);
   }
   #[inline]
+  pub fn add_carry_good(&mut self, carry_good: i32) {
+    self.fbb_.push_slot::<i32>(PersonInfo::VT_CARRY_GOOD, carry_good, -1);
+  }
+  #[inline]
+  pub fn add_carry_kg(&mut self, carry_kg: f32) {
+    self.fbb_.push_slot::<f32>(PersonInfo::VT_CARRY_KG, carry_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_stores(&mut self, stores: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , StoreLine>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_STORES, stores);
+  }
+  #[inline]
+  pub fn add_household_fuel_days(&mut self, household_fuel_days: f32) {
+    self.fbb_.push_slot::<f32>(PersonInfo::VT_HOUSEHOLD_FUEL_DAYS, household_fuel_days, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -8712,6 +9101,10 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("decisions", &self.decisions());
       ds.field("traits", &self.traits());
       ds.field("pos", &self.pos());
+      ds.field("carry_good", &self.carry_good());
+      ds.field("carry_kg", &self.carry_kg());
+      ds.field("stores", &self.stores());
+      ds.field("household_fuel_days", &self.household_fuel_days());
       ds.finish()
   }
 }

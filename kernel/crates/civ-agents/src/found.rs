@@ -13,9 +13,9 @@ use civ_world::{WATER_LAKE, WATER_LAND, WATER_RIVER, terrain};
 use crate::decide;
 use crate::history::{ChronicleKind, Origin, PersonRecord};
 use crate::needs::Sex;
-use crate::params::PeopleParams;
+use crate::params::{GoodUse, PeopleParams};
 use crate::person::{Activity, Household, Load, Person, Target, Traits};
-use crate::population::{Ctx, Population, cell_centre, cell_of, prior_rate};
+use crate::population::{Ctx, Population, cell_centre, cell_of};
 
 /// Purpose tag for founding draws.
 pub const PURPOSE_BAND: u64 = 0x6261_6e64_3030_3031; // "band0001"
@@ -266,6 +266,19 @@ fn choose_site(ctx: &Ctx, params: &PeopleParams, d: &mut Draws, size: u32) -> Op
     let year_need = f64::from(size) * params.household.daily_kcal_per_person * 365.0;
     let patches = &ctx.land.patches;
     let radius = band.site_radius_m as f32;
+    let today = ctx.now.day_index();
+    // Resources that yield food, with the food energy of one unit of their stock.
+    let food_resources: Vec<(usize, f64)> = ctx
+        .land_params
+        .resources
+        .iter()
+        .enumerate()
+        .filter_map(|(r, res)| {
+            let good = ctx.catalog.goods.get(res.good)?;
+            (good.purpose == GoodUse::Food && good.kcal_per_kg > 0.0)
+                .then_some((r, res.unit_kg * good.kcal_per_kg))
+        })
+        .collect();
     let mut sites = Vec::new();
     let mut attempts = 0u32;
     while sites.len() < band.camp_candidates as usize && attempts < 50 * band.camp_candidates {
@@ -278,16 +291,16 @@ fn choose_site(ctx: &Ctx, params: &PeopleParams, d: &mut Draws, size: u32) -> Op
             continue;
         }
         let at = cell_centre(map, cell);
-        // Wild food within the radius, in years of the band's needs.
+        // Wild food within the radius: what a person-hour of work would bring in each patch, in
+        // kcal, summed over the food resources.
         let mut food = 0.0;
         for p in 0..patches.len() {
             let c = patches.centre_m(p);
             if (c.0 - at.0).hypot(c.1 - at.1) > radius {
                 continue;
             }
-            for r in 0..ctx.land_params.resources.len() {
-                food +=
-                    prior_rate(ctx.land_params, ctx.land, r, p) * f64::from(patches.richness[p]);
+            for &(r, kcal_per_unit) in &food_resources {
+                food += ctx.land.typical_rate(ctx.land_params, r, p, today) * kcal_per_unit;
             }
         }
         // Distance to fresh water, searched in rings up to 512 m.
@@ -310,6 +323,7 @@ fn choose_site(ctx: &Ctx, params: &PeopleParams, d: &mut Draws, size: u32) -> Op
                 }
             }
         }
+        // Eight hours a day of one person's work for a year, against the band's yearly needs.
         let food_years = food * 8.0 * 365.0 / year_need.max(1.0);
         let mut score = band.site_w_food * (1.0 + food_years).ln()
             - band.site_w_water_per_100m * water_m / 100.0
@@ -354,6 +368,7 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
         name: name.clone(),
         founded: now,
         hearth_m: hearth,
+        food_short: false,
     });
 
     let families = plan_band(params, &mut d, size);
@@ -376,14 +391,22 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
         let hh_id = ctx.ids.allocate();
         let ids: Vec<PermanentId> = family.iter().map(|_| ctx.ids.allocate()).collect();
         let members = family.len() as f64;
+        // The band carries its provisions in; each family holds its own share.
+        let mut stores = vec![0.0; ctx.catalog.goods.len()];
+        if let Some(good) = ctx.catalog.goods.get(params.band.provisions_good)
+            && good.kcal_per_kg > 0.0
+        {
+            stores[params.band.provisions_good] =
+                members * params.household.daily_kcal_per_person * params.band.provisions_days
+                    / good.kcal_per_kg;
+        }
         pop.insert_household(Household {
             id: hh_id,
             members: ids.clone(),
             home,
             settlement: Some(settlement),
-            food_kcal: members
-                * params.household.daily_kcal_per_person
-                * params.band.provisions_days,
+            stores,
+            stores_at: now,
             water_l: members
                 * params.household.water_l_per_person_day
                 * params.household.water_target_days,
@@ -540,6 +563,7 @@ mod tests {
                 hunger_ramp_hours: 3.0,
                 deficit_unit_kcal: 3000.0,
                 max_surplus_kcal: 2000.0,
+                reserve_kcal_per_kg: 1000.0,
                 meal_minutes: 25,
             },
             sleep: SleepParams {
@@ -563,7 +587,11 @@ mod tests {
                 carry_water_l: 15.0,
                 water_target_days: 1.5,
                 food_target_days: 5.0,
-                carry_food_kcal: 12000.0,
+                carry_kg: 20.0,
+                fuel_kg_per_person_day: [1.5; 12],
+                fuel_target_days: 3.0,
+                short_food_days: 2.0,
+                recovered_food_days: 5.0,
                 daily_kcal_per_person: 2100.0,
             },
             decision: DecisionParams {
@@ -574,6 +602,7 @@ mod tests {
                 w_social: 5.0,
                 w_food: 10.0,
                 w_work: 2.5,
+                w_fuel: 6.0,
                 trip_half_worth_days: 0.25,
                 w_water: 8.0,
                 w_walk_hour: 2.0,
@@ -590,6 +619,7 @@ mod tests {
                 camp_candidates: 48,
                 site_radius_m: 2000.0,
                 provisions_days: 30.0,
+                provisions_good: 0,
                 elder_chance: 0.3,
                 young_adult_chance: 0.35,
                 birth_spacing_months: 36.0,

@@ -16,10 +16,12 @@
 //! The world id, the snapshot's own id and its parent live in the container header. Drainage area,
 //! the walking grid and the people's indexes are derived and rebuilt on load.
 //!
-//! **Schema versions.** Version 2 (M1) added the land and people sections. A version-1 save (M0)
-//! is migrated as it loads: its land is classified and grown from the loaded content, exactly as
-//! for a new world, and it has no people yet, which is a valid world (ADR-0003 §4). The migrated
-//! world is written as version 2 the next time it is saved.
+//! **Schema versions.** Version 2 (M1) added the land and people sections; version 3 replaced
+//! food counted in kilocalories with goods. A version-1 save (M0) is migrated as it loads: its
+//! land is classified and grown from the loaded content, exactly as for a new world, and it has no
+//! people yet, which is a valid world (ADR-0003 §4). A version-2 save is migrated as
+//! [`agents`] describes. A migrated world is written at the current version the next time it is
+//! saved.
 //!
 //! Loading refuses, never repairs. A file that is incomplete or corrupt, comes from another engine
 //! or an unknown schema version, or describes a world that breaks its invariants is not loaded. A
@@ -49,6 +51,8 @@ pub mod agents;
 
 /// The schema version of M0 saves, which have no land or people sections.
 pub const SCHEMA_V1: u32 = 1;
+/// The schema version of M1 slice A saves, which count food in kilocalories (see [`agents`]).
+pub const SCHEMA_V2: u32 = 2;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");
@@ -344,7 +348,14 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
         let land = Land::create(&map, &rules.land, world_meta.seed, now.day_index());
         (land, Population::new(), Vec::new(), Vec::new())
     } else {
-        let d = agents::decode(&mut reader, &rules, &map, next_permanent_id)?;
+        let d = agents::decode(
+            &mut reader,
+            &rules,
+            &map,
+            next_permanent_id,
+            info.schema_version,
+            now,
+        )?;
         (d.land, d.people, d.events, d.redecide)
     };
     let mut scheduler = Scheduler::restore(now, scheduler_seq, tiebreak, events)
@@ -352,7 +363,7 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
     // A person whose activity the loaded content no longer has decides again in a minute. Their
     // pending event carries the old version and does nothing.
     let mut people = people;
-    let mut changed = info.schema_version == SCHEMA_V1;
+    let mut changed = info.schema_version != SAVE_SCHEMA_VERSION;
     for who in redecide {
         if let Some(version) = people.restart(who) {
             let _ = scheduler.schedule(
@@ -680,7 +691,7 @@ fn unreadable(tag: SectionTag, e: &InvalidFlatbuffer) -> LoadError {
 fn check_compatible(info: &SnapshotInfo) -> Result<(), LoadError> {
     info.expect_engine(SAVE_ENGINE_TAG)
         .map_err(|e| LoadError::Incompatible(e.to_string()))?;
-    if info.schema_version != SAVE_SCHEMA_VERSION && info.schema_version != SCHEMA_V1 {
+    if !(SCHEMA_V1..=SAVE_SCHEMA_VERSION).contains(&info.schema_version) {
         return Err(LoadError::Incompatible(format!(
             "it uses world schema version {}; this build reads versions {SCHEMA_V1} to \
              {SAVE_SCHEMA_VERSION}",

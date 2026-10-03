@@ -1,0 +1,11 @@
+# Whole fish: about half is usable flesh at 1,200 kcal/kg (research 03-06 §2.4), so 600 kcal per
+# kilogram caught. Fresh fish keeps a couple of days (a tuning value, like every fresh-food
+# half-life here). Small, steady catches stay with the household that caught them.
+kind = "good"
+id = "core:good/fish"
+name = "Fish"
+purpose = "food"
+kcal_per_kg = 600.0
+half_life_days = 2.0
+cooked = true
+shared = false

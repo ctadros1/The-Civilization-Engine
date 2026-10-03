@@ -1008,6 +1008,229 @@ impl<'a> KnownPatch {
 
 }
 
+// struct KnownResource, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct KnownResource(pub [u8; 24]);
+impl Default for KnownResource { 
+  fn default() -> Self { 
+    Self([0; 24])
+  }
+}
+impl ::core::fmt::Debug for KnownResource {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("KnownResource")
+      .field("seen_day", &self.seen_day())
+      .field("patch", &self.patch())
+      .field("rate", &self.rate())
+      .field("hours", &self.hours())
+      .field("resource", &self.resource())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for KnownResource {}
+impl<'a> ::flatbuffers::Follow<'a> for KnownResource {
+  type Inner = &'a KnownResource;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a KnownResource>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a KnownResource {
+  type Inner = &'a KnownResource;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<KnownResource>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for KnownResource {
+    type Output = KnownResource;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const KnownResource as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for KnownResource {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> KnownResource {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    seen_day: i64,
+    patch: u32,
+    rate: f32,
+    hours: f32,
+    resource: u16,
+  ) -> Self {
+    let mut s = Self([0; 24]);
+    s.set_seen_day(seen_day);
+    s.set_patch(patch);
+    s.set_rate(rate);
+    s.set_hours(hours);
+    s.set_resource(resource);
+    s
+  }
+
+  pub fn seen_day(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_seen_day(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn patch(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_patch(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn rate(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[12..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_rate(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[12..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn hours(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_hours(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn resource(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[20..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_resource(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[20..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct Term, aligned to 4
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -3177,6 +3400,8 @@ impl<'a> Land<'a> {
   pub const VT_CLIMATE_YEAR: ::flatbuffers::VOffsetT = 24;
   pub const VT_CLIMATE_DEVIATE: ::flatbuffers::VOffsetT = 26;
   pub const VT_CLIMATE_FACTOR: ::flatbuffers::VOffsetT = 28;
+  pub const VT_RESOURCE_GOODS: ::flatbuffers::VOffsetT = 30;
+  pub const VT_RESOURCE_UNIT_KG: ::flatbuffers::VOffsetT = 32;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -3192,6 +3417,8 @@ impl<'a> Land<'a> {
     builder.add_climate_deviate(args.climate_deviate);
     builder.add_climate_year(args.climate_year);
     builder.add_stock_day(args.stock_day);
+    if let Some(x) = args.resource_unit_kg { builder.add_resource_unit_kg(x); }
+    if let Some(x) = args.resource_goods { builder.add_resource_goods(x); }
     if let Some(x) = args.stocks { builder.add_stocks(x); }
     if let Some(x) = args.resources { builder.add_resources(x); }
     if let Some(x) = args.richness { builder.add_richness(x); }
@@ -3296,6 +3523,20 @@ impl<'a> Land<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f64>(Land::VT_CLIMATE_FACTOR, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn resource_goods(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Land::VT_RESOURCE_GOODS, None)}
+  }
+  #[inline]
+  pub fn resource_unit_kg(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(Land::VT_RESOURCE_UNIT_KG, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Land<'_> {
@@ -3317,6 +3558,8 @@ impl ::flatbuffers::Verifiable for Land<'_> {
      .visit_field::<i64>("climate_year", Self::VT_CLIMATE_YEAR, false)?
      .visit_field::<f64>("climate_deviate", Self::VT_CLIMATE_DEVIATE, false)?
      .visit_field::<f64>("climate_factor", Self::VT_CLIMATE_FACTOR, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("resource_goods", Self::VT_RESOURCE_GOODS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("resource_unit_kg", Self::VT_RESOURCE_UNIT_KG, false)?
      .finish();
     Ok(())
   }
@@ -3335,6 +3578,8 @@ pub struct LandArgs<'a> {
     pub climate_year: i64,
     pub climate_deviate: f64,
     pub climate_factor: f64,
+    pub resource_goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub resource_unit_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
 }
 impl<'a> Default for LandArgs<'a> {
   #[inline]
@@ -3353,6 +3598,8 @@ impl<'a> Default for LandArgs<'a> {
       climate_year: 0,
       climate_deviate: 0.0,
       climate_factor: 0.0,
+      resource_goods: None,
+      resource_unit_kg: None,
     }
   }
 }
@@ -3415,6 +3662,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LandBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f64>(Land::VT_CLIMATE_FACTOR, climate_factor, 0.0);
   }
   #[inline]
+  pub fn add_resource_goods(&mut self, resource_goods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Land::VT_RESOURCE_GOODS, resource_goods);
+  }
+  #[inline]
+  pub fn add_resource_unit_kg(&mut self, resource_unit_kg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Land::VT_RESOURCE_UNIT_KG, resource_unit_kg);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LandBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LandBuilder {
@@ -3445,6 +3700,8 @@ impl ::core::fmt::Debug for Land<'_> {
       ds.field("climate_year", &self.climate_year());
       ds.field("climate_deviate", &self.climate_deviate());
       ds.field("climate_factor", &self.climate_factor());
+      ds.field("resource_goods", &self.resource_goods());
+      ds.field("resource_unit_kg", &self.resource_unit_kg());
       ds.finish()
   }
 }
@@ -3468,6 +3725,7 @@ impl<'a> Settlement<'a> {
   pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
   pub const VT_FOUNDED: ::flatbuffers::VOffsetT = 8;
   pub const VT_HEARTH: ::flatbuffers::VOffsetT = 10;
+  pub const VT_FOOD_SHORT: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -3483,6 +3741,7 @@ impl<'a> Settlement<'a> {
     builder.add_id(args.id);
     if let Some(x) = args.hearth { builder.add_hearth(x); }
     if let Some(x) = args.name { builder.add_name(x); }
+    builder.add_food_short(args.food_short);
     builder.finish()
   }
 
@@ -3515,6 +3774,13 @@ impl<'a> Settlement<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<Point>(Settlement::VT_HEARTH, None)}
   }
+  #[inline]
+  pub fn food_short(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(Settlement::VT_FOOD_SHORT, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Settlement<'_> {
@@ -3527,6 +3793,7 @@ impl ::flatbuffers::Verifiable for Settlement<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
      .visit_field::<i64>("founded", Self::VT_FOUNDED, false)?
      .visit_field::<Point>("hearth", Self::VT_HEARTH, false)?
+     .visit_field::<bool>("food_short", Self::VT_FOOD_SHORT, false)?
      .finish();
     Ok(())
   }
@@ -3536,6 +3803,7 @@ pub struct SettlementArgs<'a> {
     pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub founded: i64,
     pub hearth: Option<&'a Point>,
+    pub food_short: bool,
 }
 impl<'a> Default for SettlementArgs<'a> {
   #[inline]
@@ -3545,6 +3813,7 @@ impl<'a> Default for SettlementArgs<'a> {
       name: None,
       founded: 0,
       hearth: None,
+      food_short: false,
     }
   }
 }
@@ -3571,6 +3840,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SettlementBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<&Point>(Settlement::VT_HEARTH, hearth);
   }
   #[inline]
+  pub fn add_food_short(&mut self, food_short: bool) {
+    self.fbb_.push_slot::<bool>(Settlement::VT_FOOD_SHORT, food_short, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SettlementBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SettlementBuilder {
@@ -3592,6 +3865,7 @@ impl ::core::fmt::Debug for Settlement<'_> {
       ds.field("name", &self.name());
       ds.field("founded", &self.founded());
       ds.field("hearth", &self.hearth());
+      ds.field("food_short", &self.food_short());
       ds.finish()
   }
 }
@@ -4255,6 +4529,8 @@ impl<'a> Person<'a> {
   pub const VT_CARRY_FOOD_KCAL: ::flatbuffers::VOffsetT = 42;
   pub const VT_CARRY_WATER_L: ::flatbuffers::VOffsetT = 44;
   pub const VT_DRAWS: ::flatbuffers::VOffsetT = 46;
+  pub const VT_CARRY_GOOD: ::flatbuffers::VOffsetT = 48;
+  pub const VT_CARRY_KG: ::flatbuffers::VOffsetT = 50;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4274,6 +4550,8 @@ impl<'a> Person<'a> {
     builder.add_mother(args.mother);
     builder.add_born(args.born);
     builder.add_id(args.id);
+    builder.add_carry_kg(args.carry_kg);
+    builder.add_carry_good(args.carry_good);
     builder.add_carry_water_l(args.carry_water_l);
     builder.add_carry_food_kcal(args.carry_food_kcal);
     if let Some(x) = args.trip { builder.add_trip(x); }
@@ -4446,6 +4724,20 @@ impl<'a> Person<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(Person::VT_DRAWS, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn carry_good(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(Person::VT_CARRY_GOOD, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn carry_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Person::VT_CARRY_KG, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Person<'_> {
@@ -4476,6 +4768,8 @@ impl ::flatbuffers::Verifiable for Person<'_> {
      .visit_field::<f32>("carry_food_kcal", Self::VT_CARRY_FOOD_KCAL, false)?
      .visit_field::<f32>("carry_water_l", Self::VT_CARRY_WATER_L, false)?
      .visit_field::<u64>("draws", Self::VT_DRAWS, false)?
+     .visit_field::<i32>("carry_good", Self::VT_CARRY_GOOD, false)?
+     .visit_field::<f32>("carry_kg", Self::VT_CARRY_KG, false)?
      .finish();
     Ok(())
   }
@@ -4503,6 +4797,8 @@ pub struct PersonArgs<'a> {
     pub carry_food_kcal: f32,
     pub carry_water_l: f32,
     pub draws: u64,
+    pub carry_good: i32,
+    pub carry_kg: f32,
 }
 impl<'a> Default for PersonArgs<'a> {
   #[inline]
@@ -4530,6 +4826,8 @@ impl<'a> Default for PersonArgs<'a> {
       carry_food_kcal: 0.0,
       carry_water_l: 0.0,
       draws: 0,
+      carry_good: -1,
+      carry_kg: 0.0,
     }
   }
 }
@@ -4628,6 +4926,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(Person::VT_DRAWS, draws, 0);
   }
   #[inline]
+  pub fn add_carry_good(&mut self, carry_good: i32) {
+    self.fbb_.push_slot::<i32>(Person::VT_CARRY_GOOD, carry_good, -1);
+  }
+  #[inline]
+  pub fn add_carry_kg(&mut self, carry_kg: f32) {
+    self.fbb_.push_slot::<f32>(Person::VT_CARRY_KG, carry_kg, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonBuilder {
@@ -4667,6 +4973,8 @@ impl ::core::fmt::Debug for Person<'_> {
       ds.field("carry_food_kcal", &self.carry_food_kcal());
       ds.field("carry_water_l", &self.carry_water_l());
       ds.field("draws", &self.draws());
+      ds.field("carry_good", &self.carry_good());
+      ds.field("carry_kg", &self.carry_kg());
       ds.finish()
   }
 }
@@ -4689,6 +4997,7 @@ impl<'a> People<'a> {
   pub const VT_ACTIVITIES: ::flatbuffers::VOffsetT = 4;
   pub const VT_PEOPLE: ::flatbuffers::VOffsetT = 6;
   pub const VT_NEXT_TRIP: ::flatbuffers::VOffsetT = 8;
+  pub const VT_GOODS: ::flatbuffers::VOffsetT = 10;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4701,6 +5010,7 @@ impl<'a> People<'a> {
   ) -> ::flatbuffers::WIPOffset<People<'bldr>> {
     let mut builder = PeopleBuilder::new(_fbb);
     builder.add_next_trip(args.next_trip);
+    if let Some(x) = args.goods { builder.add_goods(x); }
     if let Some(x) = args.people { builder.add_people(x); }
     if let Some(x) = args.activities { builder.add_activities(x); }
     builder.finish()
@@ -4728,6 +5038,13 @@ impl<'a> People<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(People::VT_NEXT_TRIP, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn goods(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(People::VT_GOODS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for People<'_> {
@@ -4739,6 +5056,7 @@ impl ::flatbuffers::Verifiable for People<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("activities", Self::VT_ACTIVITIES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Person>>>>("people", Self::VT_PEOPLE, false)?
      .visit_field::<u64>("next_trip", Self::VT_NEXT_TRIP, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("goods", Self::VT_GOODS, false)?
      .finish();
     Ok(())
   }
@@ -4747,6 +5065,7 @@ pub struct PeopleArgs<'a> {
     pub activities: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub people: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Person<'a>>>>>,
     pub next_trip: u64,
+    pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for PeopleArgs<'a> {
   #[inline]
@@ -4755,6 +5074,7 @@ impl<'a> Default for PeopleArgs<'a> {
       activities: None,
       people: None,
       next_trip: 0,
+      goods: None,
     }
   }
 }
@@ -4777,6 +5097,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PeopleBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(People::VT_NEXT_TRIP, next_trip, 0);
   }
   #[inline]
+  pub fn add_goods(&mut self, goods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(People::VT_GOODS, goods);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PeopleBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PeopleBuilder {
@@ -4797,6 +5121,7 @@ impl ::core::fmt::Debug for People<'_> {
       ds.field("activities", &self.activities());
       ds.field("people", &self.people());
       ds.field("next_trip", &self.next_trip());
+      ds.field("goods", &self.goods());
       ds.finish()
   }
 }
@@ -4824,6 +5149,9 @@ impl<'a> Household<'a> {
   pub const VT_WATER_L: ::flatbuffers::VOffsetT = 14;
   pub const VT_WATER_AT: ::flatbuffers::VOffsetT = 16;
   pub const VT_KNOWN: ::flatbuffers::VOffsetT = 18;
+  pub const VT_STORES: ::flatbuffers::VOffsetT = 20;
+  pub const VT_STORES_AT: ::flatbuffers::VOffsetT = 22;
+  pub const VT_KNOWN_RESOURCES: ::flatbuffers::VOffsetT = 24;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4835,11 +5163,14 @@ impl<'a> Household<'a> {
     args: &'args HouseholdArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Household<'bldr>> {
     let mut builder = HouseholdBuilder::new(_fbb);
+    builder.add_stores_at(args.stores_at);
     builder.add_water_at(args.water_at);
     builder.add_water_l(args.water_l);
     builder.add_food_kcal(args.food_kcal);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.known_resources { builder.add_known_resources(x); }
+    if let Some(x) = args.stores { builder.add_stores(x); }
     if let Some(x) = args.known { builder.add_known(x); }
     if let Some(x) = args.home { builder.add_home(x); }
     if let Some(x) = args.members { builder.add_members(x); }
@@ -4903,6 +5234,27 @@ impl<'a> Household<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, KnownPatch>>>(Household::VT_KNOWN, None)}
   }
+  #[inline]
+  pub fn stores(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(Household::VT_STORES, None)}
+  }
+  #[inline]
+  pub fn stores_at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Household::VT_STORES_AT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn known_resources(&self) -> Option<::flatbuffers::Vector<'a, KnownResource>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, KnownResource>>>(Household::VT_KNOWN_RESOURCES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Household<'_> {
@@ -4919,6 +5271,9 @@ impl ::flatbuffers::Verifiable for Household<'_> {
      .visit_field::<f64>("water_l", Self::VT_WATER_L, false)?
      .visit_field::<i64>("water_at", Self::VT_WATER_AT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, KnownPatch>>>("known", Self::VT_KNOWN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("stores", Self::VT_STORES, false)?
+     .visit_field::<i64>("stores_at", Self::VT_STORES_AT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, KnownResource>>>("known_resources", Self::VT_KNOWN_RESOURCES, false)?
      .finish();
     Ok(())
   }
@@ -4932,6 +5287,9 @@ pub struct HouseholdArgs<'a> {
     pub water_l: f64,
     pub water_at: i64,
     pub known: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, KnownPatch>>>,
+    pub stores: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+    pub stores_at: i64,
+    pub known_resources: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, KnownResource>>>,
 }
 impl<'a> Default for HouseholdArgs<'a> {
   #[inline]
@@ -4945,6 +5303,9 @@ impl<'a> Default for HouseholdArgs<'a> {
       water_l: 0.0,
       water_at: 0,
       known: None,
+      stores: None,
+      stores_at: 0,
+      known_resources: None,
     }
   }
 }
@@ -4987,6 +5348,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_KNOWN, known);
   }
   #[inline]
+  pub fn add_stores(&mut self, stores: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_STORES, stores);
+  }
+  #[inline]
+  pub fn add_stores_at(&mut self, stores_at: i64) {
+    self.fbb_.push_slot::<i64>(Household::VT_STORES_AT, stores_at, 0);
+  }
+  #[inline]
+  pub fn add_known_resources(&mut self, known_resources: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , KnownResource>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_KNOWN_RESOURCES, known_resources);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HouseholdBuilder {
@@ -5012,6 +5385,9 @@ impl ::core::fmt::Debug for Household<'_> {
       ds.field("water_l", &self.water_l());
       ds.field("water_at", &self.water_at());
       ds.field("known", &self.known());
+      ds.field("stores", &self.stores());
+      ds.field("stores_at", &self.stores_at());
+      ds.field("known_resources", &self.known_resources());
       ds.finish()
   }
 }
@@ -5032,6 +5408,8 @@ impl<'a> ::flatbuffers::Follow<'a> for Households<'a> {
 
 impl<'a> Households<'a> {
   pub const VT_HOUSEHOLDS: ::flatbuffers::VOffsetT = 4;
+  pub const VT_GOODS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_RESOURCES: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -5043,6 +5421,8 @@ impl<'a> Households<'a> {
     args: &'args HouseholdsArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Households<'bldr>> {
     let mut builder = HouseholdsBuilder::new(_fbb);
+    if let Some(x) = args.resources { builder.add_resources(x); }
+    if let Some(x) = args.goods { builder.add_goods(x); }
     if let Some(x) = args.households { builder.add_households(x); }
     builder.finish()
   }
@@ -5055,6 +5435,20 @@ impl<'a> Households<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Household>>>>(Households::VT_HOUSEHOLDS, None)}
   }
+  #[inline]
+  pub fn goods(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Households::VT_GOODS, None)}
+  }
+  #[inline]
+  pub fn resources(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Households::VT_RESOURCES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Households<'_> {
@@ -5064,18 +5458,24 @@ impl ::flatbuffers::Verifiable for Households<'_> {
   ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Household>>>>("households", Self::VT_HOUSEHOLDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("goods", Self::VT_GOODS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("resources", Self::VT_RESOURCES, false)?
      .finish();
     Ok(())
   }
 }
 pub struct HouseholdsArgs<'a> {
     pub households: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Household<'a>>>>>,
+    pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub resources: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for HouseholdsArgs<'a> {
   #[inline]
   fn default() -> Self {
     HouseholdsArgs {
       households: None,
+      goods: None,
+      resources: None,
     }
   }
 }
@@ -5088,6 +5488,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdsBuilder<'a, 'b, A> 
   #[inline]
   pub fn add_households(&mut self, households: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Household<'b >>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Households::VT_HOUSEHOLDS, households);
+  }
+  #[inline]
+  pub fn add_goods(&mut self, goods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Households::VT_GOODS, goods);
+  }
+  #[inline]
+  pub fn add_resources(&mut self, resources: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Households::VT_RESOURCES, resources);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdsBuilder<'a, 'b, A> {
@@ -5108,6 +5516,8 @@ impl ::core::fmt::Debug for Households<'_> {
   fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
     let mut ds = f.debug_struct("Households");
       ds.field("households", &self.households());
+      ds.field("goods", &self.goods());
+      ds.field("resources", &self.resources());
       ds.finish()
   }
 }

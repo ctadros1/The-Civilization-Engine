@@ -4,9 +4,11 @@
 //!   habitat class from authored rules (the first rule a patch meets wins) and a richness from
 //!   seeded noise. Computed once when a world is created and saved, so content edits never remap
 //!   a saved world's stocks.
-//! - **Stocks**: every wild resource (M1: wild plant food) has a standing stock per patch. Each day
-//!   it gains a seasonal production and loses a fixed fraction (rot, wildlife); gathering takes
-//!   from it at a rate that falls as the patch empties. Nothing respawns (research 03-06 §1.1–1.3).
+//! - **Stocks**: every wild resource has a standing stock per patch. Plant-like stocks (wild plant
+//!   food, fallen wood) gain a seasonal production each day and lose a fixed fraction (rot,
+//!   wildlife); animal stocks (game, fish) grow logistically toward their habitat's capacity and
+//!   spread to neighbouring patches each month. Harvesting takes from the stock at a rate that
+//!   falls as it empties. Nothing respawns (research 03-06 §1.1–1.3).
 //! - **Climate**: one yearly factor shared by the whole map, an AR(1) series around 1, scales
 //!   production (03-06 §5.2, 08-01 §2.3).
 //! - **Settlements**: the places people found.
@@ -43,25 +45,57 @@ pub struct HabitatRule {
     pub arable: bool,
 }
 
-/// A wild resource that grows in habitat patches.
+/// How a resource's stock grows.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Growth {
+    /// Plant food, fallen wood: a seasonal production each day, and a share of the standing stock
+    /// lost each day.
+    Plant {
+        /// Production per hectare per year at richness 1 in an average year, by habitat class
+        /// (in the order of [`LandParams::habitats`]).
+        production_per_ha_yr: Vec<f64>,
+        /// Share of the standing stock lost per day.
+        loss_per_day: f64,
+        /// Production weight by month, January first; the mean over the year should be 1.
+        season: [f64; 12],
+    },
+    /// Animals: logistic growth toward a carrying capacity, and a monthly spread to neighbouring
+    /// patches in proportion to their capacity.
+    Animal {
+        /// Carrying capacity per hectare at richness 1, by habitat class.
+        capacity_per_ha: Vec<f64>,
+        /// Intrinsic growth rate per year.
+        growth_per_year: f64,
+        /// Share of each patch's stock that moves to its neighbours on the first of each month.
+        spread_per_month: f64,
+    },
+}
+
+/// A wild resource that lives in habitat patches.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ResourceParams {
     /// Short id, for example `wild_plants`.
     pub id: String,
     /// Display name.
     pub name: String,
-    /// Unit of the stock, for example `kcal`.
-    pub unit: String,
-    /// Production per hectare per year at richness 1 in an average year, by habitat class (in
-    /// the order of [`LandParams::habitats`]).
-    pub production_per_ha_yr: Vec<f64>,
-    /// Share of the standing stock lost per day to rot and wildlife.
-    pub loss_per_day: f64,
-    /// Production weight by month, January first; the mean over the year should be 1.
-    pub season: [f64; 12],
-    /// Gathering rate on an untouched, saturated patch, units per person-hour.
+    /// The good a harvest yields, by index in the content's goods.
+    pub good: usize,
+    /// Kilograms of the good per unit of stock (1 for stocks counted in kilograms; a deer's meat
+    /// for stocks counted in animals).
+    pub unit_kg: f64,
+    /// Harvests are whole units, drawn from the expected count (animals).
+    pub discrete: bool,
+    /// The resource lives in water: production and capacity scale with a patch's water area
+    /// instead of its land area.
+    pub in_water: bool,
+    /// Patches on each side of the target patch that one trip ranges over (1 = a 3 × 3 block).
+    pub range_patches: u32,
+    /// How the stock grows.
+    pub growth: Growth,
+    /// Harvest rate on a saturated patch, units per person-hour.
     pub max_rate_per_hour: f64,
-    /// Standing stock at which gathering runs at half its maximum rate, units per hectare.
+    /// Standing stock at which harvesting runs at half its maximum rate, units per hectare of
+    /// the resource's area.
     pub half_rate_stock_per_ha: f64,
 }
 
@@ -88,6 +122,25 @@ pub struct LandParams {
     pub climate_autocorrelation: f64,
 }
 
+impl ResourceParams {
+    /// Days the resource takes to renew: the time constant of its loss for plant-like stocks,
+    /// of its growth for animals. What gatherers learn about a worked patch fades over this time
+    /// (research 03-06 §5.3: imperfect ecological information).
+    pub fn renewal_days(&self) -> f64 {
+        let days = match &self.growth {
+            Growth::Plant { loss_per_day, .. } => 1.0 / loss_per_day,
+            Growth::Animal {
+                growth_per_year, ..
+            } => DAYS_PER_YEAR as f64 / growth_per_year,
+        };
+        if days.is_finite() {
+            days.clamp(1.0, 10.0 * DAYS_PER_YEAR as f64)
+        } else {
+            10.0 * DAYS_PER_YEAR as f64
+        }
+    }
+}
+
 impl LandParams {
     /// The resource with this id.
     pub fn resource(&self, id: &str) -> Option<usize> {
@@ -110,6 +163,9 @@ pub struct Patches {
     pub class: Vec<u8>,
     /// Richness per patch, between the authored minimum and maximum.
     pub richness: Vec<f32>,
+    /// Share of each patch's cells that is water (river, lake or sea). Derived from the map:
+    /// rebuilt on load with [`Patches::measure_water`], never saved.
+    pub water: Vec<f32>,
 }
 
 impl Patches {
@@ -154,6 +210,34 @@ impl Patches {
         let (px, py) = (p as u32 % self.cols, p as u32 / self.cols);
         ((px as f32 + 0.5) * side, (py as f32 + 0.5) * side)
     }
+
+    /// Measures each patch's water share on `map` (the derived [`Patches::water`]).
+    pub fn measure_water(&mut self, map: &WorldMap) {
+        let n = self.cols as usize * self.rows as usize;
+        let mut water = vec![0u32; n];
+        let mut cells = vec![0u32; n];
+        for i in 0..map.cell_count() {
+            let p = self.of_cell(i, map.width);
+            if p < n {
+                cells[p] += 1;
+                if map.water[i] != WATER_LAND {
+                    water[p] += 1;
+                }
+            }
+        }
+        self.water = water
+            .iter()
+            .zip(&cells)
+            .map(|(&w, &c)| if c == 0 { 0.0 } else { w as f32 / c as f32 })
+            .collect();
+    }
+
+    /// The area resource `res` lives on in patch `p`, hectares: its water or its land.
+    pub fn resource_ha(&self, res: &ResourceParams, p: usize) -> f64 {
+        let water = f64::from(self.water.get(p).copied().unwrap_or(0.0));
+        let share = if res.in_water { water } else { 1.0 - water };
+        self.area_ha() * share
+    }
 }
 
 /// The yearly climate factor.
@@ -178,6 +262,8 @@ pub struct Settlement {
     pub founded: SimTime,
     /// Where its hearth is, metres from the map's north-west corner.
     pub hearth_m: (f32, f32),
+    /// Its food has run short and not yet recovered (for the chronicle).
+    pub food_short: bool,
 }
 
 /// All land state of one world.
@@ -201,6 +287,23 @@ struct PatchTerrain {
     water_fraction: f64,
     median_hand_m: f64,
     mean_slope: f64,
+}
+
+/// The `u`-quantile of a Poisson distribution with mean `mean`: a whole-number draw from a
+/// uniform.
+pub fn poisson_quantile(mean: f64, u: f64) -> u32 {
+    if mean.is_nan() || mean <= 0.0 {
+        return 0;
+    }
+    let mut k = 0u32;
+    let mut p = (-mean).exp();
+    let mut cdf = p;
+    while u > cdf && k < 1000 {
+        k += 1;
+        p *= mean / f64::from(k);
+        cdf += p;
+    }
+    k
 }
 
 /// Day of the year, 0–364, of a day index.
@@ -304,14 +407,16 @@ impl Land {
                 richness.push(r as f32);
             }
         }
-        let patches = Patches {
+        let mut patches = Patches {
             cols,
             rows,
             patch_cells: pc,
             cell_size_m: map.cell_size_m,
             class,
             richness,
+            water: Vec::new(),
         };
+        patches.measure_water(map);
         let year = today.div_euclid(DAYS_PER_YEAR) + 1;
         let mut land = Land {
             stocks: vec![vec![0.0; patches.len()]; params.resources.len()],
@@ -325,16 +430,8 @@ impl Land {
             settlements: Vec::new(),
         };
         // Start each stock at its equilibrium for the season a year ago, then grow a year.
-        for (r, res) in params.resources.iter().enumerate() {
-            for p in 0..land.patches.len() {
-                let daily = land.production(params, r, p, land.stock_day);
-                let eq = if res.loss_per_day > 0.0 {
-                    daily / res.loss_per_day
-                } else {
-                    0.0
-                };
-                land.stocks[r][p] = eq as f32;
-            }
+        for r in 0..params.resources.len() {
+            land.fill_equilibrium(params, r, land.stock_day);
         }
         land.advance_to_day(params, seed, today - 1);
         land
@@ -388,31 +485,112 @@ impl Land {
         out
     }
 
-    /// Fills resource `r` at the equilibrium of production on `day` (for a resource added to the
-    /// content after a world was saved).
+    /// Fills resource `r` at its equilibrium on `day`: production over loss for plant-like
+    /// stocks, carrying capacity for animals. Used when a world is created, and for a resource
+    /// added to the content after a world was saved.
     pub fn fill_equilibrium(&mut self, params: &LandParams, r: usize, day: i64) {
-        let loss = params.resources[r].loss_per_day;
         for p in 0..self.patches.len() {
-            let daily = self.production(params, r, p, day);
-            self.stocks[r][p] = if loss > 0.0 {
-                (daily / loss) as f32
-            } else {
-                0.0
-            };
+            self.stocks[r][p] = self.equilibrium(params, r, p, day) as f32;
         }
     }
 
-    /// Production of resource `r` in patch `p` on day `day`, units.
+    /// The stock resource `r` tends to in patch `p` on `day`, units.
+    pub fn equilibrium(&self, params: &LandParams, r: usize, p: usize, day: i64) -> f64 {
+        match &params.resources[r].growth {
+            Growth::Plant { loss_per_day, .. } => {
+                if *loss_per_day > 0.0 {
+                    self.production(params, r, p, day) / loss_per_day
+                } else {
+                    0.0
+                }
+            }
+            Growth::Animal { .. } => self.capacity(params, r, p),
+        }
+    }
+
+    /// Production of plant-like resource `r` in patch `p` on day `day`, units (0 for animals).
     pub fn production(&self, params: &LandParams, r: usize, p: usize, day: i64) -> f64 {
         let res = &params.resources[r];
+        let Growth::Plant {
+            production_per_ha_yr,
+            season,
+            ..
+        } = &res.growth
+        else {
+            return 0.0;
+        };
         let class = self.patches.class[p] as usize;
-        let per_ha = res.production_per_ha_yr.get(class).copied().unwrap_or(0.0);
+        let per_ha = production_per_ha_yr.get(class).copied().unwrap_or(0.0);
         per_ha
-            * self.patches.area_ha()
+            * self.patches.resource_ha(res, p)
             * f64::from(self.patches.richness[p])
-            * season_weight(&res.season, day)
+            * season_weight(season, day)
             * self.climate.factor
             / DAYS_PER_YEAR as f64
+    }
+
+    /// Carrying capacity of animal resource `r` in patch `p`, units (0 for plant-like resources).
+    pub fn capacity(&self, params: &LandParams, r: usize, p: usize) -> f64 {
+        let res = &params.resources[r];
+        let Growth::Animal {
+            capacity_per_ha, ..
+        } = &res.growth
+        else {
+            return 0.0;
+        };
+        let class = self.patches.class[p] as usize;
+        capacity_per_ha.get(class).copied().unwrap_or(0.0)
+            * self.patches.resource_ha(res, p)
+            * f64::from(self.patches.richness[p])
+    }
+
+    /// The harvest rate a patch of resource `r` gives at its equilibrium on `day`, units per
+    /// person-hour: what people expect of a patch they have not worked.
+    pub fn typical_rate(&self, params: &LandParams, r: usize, p: usize, day: i64) -> f64 {
+        let res = &params.resources[r];
+        let eq = self.equilibrium(params, r, p, day);
+        let half = res.half_rate_stock_per_ha * self.patches.resource_ha(res, p);
+        if eq <= 0.0 || half <= 0.0 {
+            0.0
+        } else {
+            res.max_rate_per_hour * eq / (eq + half)
+        }
+    }
+
+    /// What `hours` of a capable adult's work around each patch would gather of resource `r` if
+    /// the land were at its equilibrium on `day`, units, by patch: what people expect of land they
+    /// have not worked. The stock of the block a trip ranges over is pooled and drawn down as the
+    /// work goes on, so a block with little of the resource promises little however rich it is
+    /// per hectare (a few cells of river hold few fish).
+    pub fn typical_yields(&self, params: &LandParams, r: usize, hours: f64, day: i64) -> Vec<f32> {
+        const STEPS: u32 = 12;
+        let res = &params.resources[r];
+        let n = self.patches.len();
+        let stock: Vec<f64> = (0..n)
+            .map(|p| self.equilibrium(params, r, p, day))
+            .collect();
+        let area: Vec<f64> = (0..n).map(|p| self.patches.resource_ha(res, p)).collect();
+        let dt = hours.max(0.0) / f64::from(STEPS);
+        (0..n)
+            .map(|p| {
+                let (mut s, mut a) = (0.0, 0.0);
+                for q in self.block(p, res.range_patches) {
+                    s += stock[q];
+                    a += area[q];
+                }
+                let half = res.half_rate_stock_per_ha * a;
+                if s <= 0.0 || half <= 0.0 {
+                    return 0.0;
+                }
+                let mut total = 0.0;
+                for _ in 0..STEPS {
+                    let take = (res.max_rate_per_hour * s / (s + half) * dt).min(s);
+                    s -= take;
+                    total += take;
+                }
+                total as f32
+            })
+            .collect()
     }
 
     fn climate_for(&self, params: &LandParams, seed: u64, year: i64) -> ClimateYear {
@@ -427,7 +605,8 @@ impl Land {
     }
 
     /// Applies growth and loss for every day up to and including `day`. Each day's step is exact
-    /// for constant production over the day, so splitting an advance changes nothing.
+    /// for constant rates over the day, so splitting an advance changes nothing. Animals spread
+    /// on the first day of each month.
     pub fn advance_to_day(&mut self, params: &LandParams, seed: u64, day: i64) {
         while self.stock_day < day {
             let d = self.stock_day + 1;
@@ -435,45 +614,164 @@ impl Land {
             if year != self.climate.year {
                 self.climate = self.climate_for(params, seed, year);
             }
+            let month_start = MONTH_STARTS[..12].contains(&day_of_year(d));
             for (r, res) in params.resources.iter().enumerate() {
-                let keep = (-res.loss_per_day).exp();
-                for p in 0..self.patches.len() {
-                    let prod = self.production(params, r, p, d);
-                    let s = f64::from(self.stocks[r][p]);
-                    let next = if res.loss_per_day > 0.0 {
-                        s * keep + prod / res.loss_per_day * (1.0 - keep)
-                    } else {
-                        s + prod
-                    };
-                    self.stocks[r][p] = next as f32;
+                match &res.growth {
+                    Growth::Plant { loss_per_day, .. } => {
+                        let keep = (-loss_per_day).exp();
+                        for p in 0..self.patches.len() {
+                            let prod = self.production(params, r, p, d);
+                            let s = f64::from(self.stocks[r][p]);
+                            let next = if *loss_per_day > 0.0 {
+                                s * keep + prod / loss_per_day * (1.0 - keep)
+                            } else {
+                                s + prod
+                            };
+                            self.stocks[r][p] = next as f32;
+                        }
+                    }
+                    Growth::Animal {
+                        growth_per_year,
+                        spread_per_month,
+                        ..
+                    } => {
+                        if month_start {
+                            self.spread(params, r, *spread_per_month);
+                        }
+                        let e = (-growth_per_year / DAYS_PER_YEAR as f64).exp();
+                        for p in 0..self.patches.len() {
+                            let k = self.capacity(params, r, p);
+                            let s = f64::from(self.stocks[r][p]).max(0.0);
+                            // Exact logistic step; nothing lives where the habitat holds none.
+                            let next = if k <= 0.0 || s <= 0.0 {
+                                0.0
+                            } else {
+                                k / (1.0 + (k / s - 1.0) * e)
+                            };
+                            self.stocks[r][p] = next as f32;
+                        }
+                    }
                 }
             }
             self.stock_day = d;
         }
     }
 
-    /// Gathering rate of resource `r` in patch `p` now, units per person-hour.
+    /// Lets animals of resource `r` move between neighbouring patches toward an even share of
+    /// each patch's capacity: between each pair of neighbours, `share / 8` of the difference in
+    /// how full they are flows from the fuller to the emptier, scaled by the smaller capacity.
+    /// Nothing moves while every patch is equally full, a hunted-out patch fills from around it,
+    /// and the total is kept.
+    fn spread(&mut self, params: &LandParams, r: usize, share: f64) {
+        if share <= 0.0 {
+            return;
+        }
+        let n = self.patches.len();
+        let capacity: Vec<f64> = (0..n).map(|p| self.capacity(params, r, p)).collect();
+        let full: Vec<f64> = (0..n)
+            .map(|p| {
+                if capacity[p] > 0.0 {
+                    f64::from(self.stocks[r][p]) / capacity[p]
+                } else {
+                    0.0
+                }
+            })
+            .collect();
+        let mut next: Vec<f64> = self.stocks[r].iter().map(|&s| f64::from(s)).collect();
+        let cols = self.patches.cols as usize;
+        let rows = self.patches.rows as usize;
+        // Each pair once: the east, south-west, south and south-east neighbours.
+        const FORWARD: [(i64, i64); 4] = [(1, 0), (-1, 1), (0, 1), (1, 1)];
+        for p in 0..n {
+            if capacity[p] <= 0.0 {
+                continue;
+            }
+            let (px, py) = ((p % cols) as i64, (p / cols) as i64);
+            for (dx, dy) in FORWARD {
+                let (x, y) = (px + dx, py + dy);
+                if x < 0 || y < 0 || x >= cols as i64 || y >= rows as i64 {
+                    continue;
+                }
+                let q = y as usize * cols + x as usize;
+                if capacity[q] <= 0.0 {
+                    continue;
+                }
+                let flow = share / 8.0 * (full[p] - full[q]) * capacity[p].min(capacity[q]);
+                next[p] -= flow;
+                next[q] += flow;
+            }
+        }
+        for (dst, v) in self.stocks[r].iter_mut().zip(next) {
+            *dst = v.max(0.0) as f32;
+        }
+    }
+
+    /// Harvest rate of resource `r` in patch `p` now, units per person-hour.
     pub fn gather_rate(&self, params: &LandParams, r: usize, p: usize) -> f64 {
         let res = &params.resources[r];
         let s = f64::from(self.stocks[r][p]).max(0.0);
-        let half = res.half_rate_stock_per_ha * self.patches.area_ha();
-        if s <= 0.0 {
+        let half = res.half_rate_stock_per_ha * self.patches.resource_ha(res, p);
+        if s <= 0.0 || half <= 0.0 {
             0.0
         } else {
             res.max_rate_per_hour * s / (s + half)
         }
     }
 
-    /// The patch and its up-to-eight neighbours: the area one gathering trip ranges over.
-    pub fn block(&self, p: usize) -> impl Iterator<Item = usize> + '_ {
+    /// The patches within `range` of patch `p` (a square of side `2·range + 1`): the area one
+    /// trip ranges over.
+    pub fn block(&self, p: usize, range: u32) -> impl Iterator<Item = usize> + '_ {
         let (cols, rows) = (self.patches.cols as i64, self.patches.rows as i64);
         let (px, py) = (p as i64 % cols, p as i64 / cols);
-        (-1..=1).flat_map(move |dy| {
-            (-1..=1).filter_map(move |dx| {
+        let r = i64::from(range);
+        (-r..=r).flat_map(move |dy| {
+            (-r..=r).filter_map(move |dx| {
                 let (x, y) = (px + dx, py + dy);
                 (x >= 0 && y >= 0 && x < cols && y < rows).then_some((y * cols + x) as usize)
             })
         })
+    }
+
+    /// Harvests resource `r` around patch `p` for `hours` of one person's work at `efficiency`
+    /// (1 = a capable adult). Continuous resources take what the falling rate yields; discrete
+    /// ones take a whole number of units, drawn with the uniform `u` from the count the same
+    /// work would be expected to yield. Returns units taken.
+    pub fn harvest(
+        &mut self,
+        params: &LandParams,
+        r: usize,
+        p: usize,
+        hours: f64,
+        efficiency: f64,
+        u: f64,
+    ) -> f64 {
+        if !params.resources[r].discrete {
+            return self.gather_around(params, r, p, hours, efficiency);
+        }
+        let range = params.resources[r].range_patches;
+        let block: Vec<usize> = self.block(p, range).collect();
+        // The expected count, as the continuous harvest would take it, without taking anything.
+        let saved = self.stocks[r].clone();
+        let expected = self.gather_around(params, r, p, hours, efficiency);
+        self.stocks[r] = saved;
+        let count = f64::from(poisson_quantile(expected, u));
+        // Take whole animals from the richest patches; the block may hold fewer than counted.
+        let mut left = count;
+        let mut taken = 0.0;
+        while left > 0.0 {
+            let Some(&best) = block
+                .iter()
+                .filter(|&&q| self.stocks[r][q] > 0.0)
+                .max_by(|&&a, &&b| self.stocks[r][a].total_cmp(&self.stocks[r][b]))
+            else {
+                break;
+            };
+            let take = left.min(f64::from(self.stocks[r][best]));
+            self.stocks[r][best] -= take as f32;
+            taken += take;
+            left -= take;
+        }
+        taken
     }
 
     /// Takes `hours` of one person's gathering of resource `r` around patch `p`: at each of a
@@ -489,7 +787,7 @@ impl Land {
     ) -> f64 {
         const STEPS: u32 = 12;
         let dt = hours / f64::from(STEPS);
-        let block: Vec<usize> = self.block(p).collect();
+        let block: Vec<usize> = self.block(p, params.resources[r].range_patches).collect();
         let mut total = 0.0;
         for _ in 0..STEPS {
             let Some(&best) = block
@@ -569,16 +867,56 @@ mod tests {
             richness_min: 1.0,
             richness_max: 1.0,
             richness_feature_m: 500.0,
-            resources: vec![ResourceParams {
-                id: "plants".into(),
-                name: "Plants".into(),
-                unit: "kcal".into(),
-                production_per_ha_yr: vec![0.0, 36_500.0, 3_650.0],
-                loss_per_day: 0.05,
-                season: flat,
-                max_rate_per_hour: 1000.0,
-                half_rate_stock_per_ha: 100.0,
-            }],
+            resources: vec![
+                ResourceParams {
+                    id: "plants".into(),
+                    name: "Plants".into(),
+                    good: 0,
+                    unit_kg: 1.0,
+                    discrete: false,
+                    in_water: false,
+                    range_patches: 1,
+                    growth: Growth::Plant {
+                        production_per_ha_yr: vec![0.0, 36_500.0, 3_650.0],
+                        loss_per_day: 0.05,
+                        season: flat,
+                    },
+                    max_rate_per_hour: 1000.0,
+                    half_rate_stock_per_ha: 100.0,
+                },
+                ResourceParams {
+                    id: "deer".into(),
+                    name: "Deer".into(),
+                    good: 1,
+                    unit_kg: 30.0,
+                    discrete: true,
+                    in_water: false,
+                    range_patches: 1,
+                    growth: Growth::Animal {
+                        capacity_per_ha: vec![0.0, 20.0, 10.0],
+                        growth_per_year: 0.3,
+                        spread_per_month: 0.25,
+                    },
+                    max_rate_per_hour: 2.0,
+                    half_rate_stock_per_ha: 50.0,
+                },
+                ResourceParams {
+                    id: "fish".into(),
+                    name: "Fish".into(),
+                    good: 2,
+                    unit_kg: 1.0,
+                    discrete: false,
+                    in_water: true,
+                    range_patches: 1,
+                    growth: Growth::Animal {
+                        capacity_per_ha: vec![200.0, 200.0, 200.0],
+                        growth_per_year: 0.6,
+                        spread_per_month: 0.3,
+                    },
+                    max_rate_per_hour: 2.0,
+                    half_rate_stock_per_ha: 100.0,
+                },
+            ],
             climate_cv: 0.0,
             climate_autocorrelation: 0.3,
         }
@@ -623,6 +961,42 @@ mod tests {
             },
             drainage_area_m2: vec![64.0; n],
         }
+    }
+
+    #[test]
+    fn expected_yields_pool_the_block_and_never_promise_more_than_is_there() {
+        let p = params();
+        let land = Land::create(&map(), &p, 1, 400);
+        // Fish live in the west patches' river water only; a block of range 1 covers the whole
+        // 2 x 2 grid, so every patch's block holds the same fish.
+        let stock: f64 = (0..4).map(|q| land.equilibrium(&p, 2, q, 400)).sum();
+        assert!(stock > 0.0);
+        let long = land.typical_yields(&p, 2, 100.0, 400);
+        for y in &long {
+            assert!(
+                (f64::from(*y) - stock).abs() < 1e-3 * stock,
+                "{y} vs {stock}"
+            );
+        }
+        // A short trip takes at the full rate of the pooled density.
+        let half: f64 = (0..4)
+            .map(|q| land.patches.resource_ha(&p.resources[2], q))
+            .sum::<f64>()
+            * p.resources[2].half_rate_stock_per_ha;
+        let rate = p.resources[2].max_rate_per_hour * stock / (stock + half);
+        let short = land.typical_yields(&p, 2, 0.01, 400);
+        assert!((f64::from(short[0]) - rate * 0.01).abs() < 1e-3 * rate * 0.01);
+    }
+
+    #[test]
+    fn resources_renew_on_their_own_clocks() {
+        let p = params();
+        assert!(
+            (p.resources[0].renewal_days() - 20.0).abs() < 1e-9,
+            "1 / loss"
+        );
+        let deer = p.resources[1].renewal_days();
+        assert!((deer - 365.0 / 0.3).abs() < 1e-9, "1 / growth: {deer}");
     }
 
     #[test]
@@ -679,7 +1053,7 @@ mod tests {
         let p = params();
         let mut land = Land::create(&map(), &p, 1, 400);
         assert_eq!(
-            land.block(0).count(),
+            land.block(0, 1).count(),
             4,
             "a corner patch has three neighbours"
         );
@@ -691,6 +1065,101 @@ mod tests {
             "the water patch borrows from its land neighbours"
         );
         assert!((f64::from(before - after) - got).abs() < 1e-2);
+    }
+
+    #[test]
+    fn animals_approach_their_capacity_and_fish_live_only_in_water() {
+        let p = params();
+        let mut land = Land::create(&map(), &p, 1, 400);
+        let deer = 1;
+        let k = land.capacity(&p, deer, 1);
+        assert!(k > 0.0);
+        assert!(
+            (f64::from(land.stocks[deer][1]) - k).abs() < 1e-3 * k,
+            "starts at capacity"
+        );
+        // Thinned to a tenth, the herd grows back logistically: slowly at first, never past K.
+        land.stocks[deer][1] = (k / 10.0) as f32;
+        let mut last = k / 10.0;
+        for year in 1..=20 {
+            land.advance_to_day(&p, 1, 400 + year * 365);
+            let now = f64::from(land.stocks[deer][1]);
+            assert!(
+                now >= last * 0.98 && now <= k * 1.0001,
+                "year {year}: {now} of {k}"
+            );
+            last = now;
+        }
+        assert!(last > 0.9 * k, "recovered: {last} of {k}");
+        // Fish live in the river patches only.
+        let fish = 2;
+        assert!(land.stocks[fish][0] > 0.0 && land.stocks[fish][2] > 0.0);
+        assert_eq!(land.stocks[fish][1], 0.0);
+        assert_eq!(land.stocks[fish][3], 0.0);
+    }
+
+    #[test]
+    fn spreading_moves_animals_toward_capacity_and_keeps_the_total() {
+        let p = params();
+        let mut land = Land::create(&map(), &p, 1, 400);
+        let deer = 1;
+        land.stocks[deer] = vec![0.0, 4.0, 0.0, 0.0];
+        let total: f32 = land.stocks[deer].iter().sum();
+        land.spread(&p, deer, 0.25);
+        let after: f32 = land.stocks[deer].iter().sum();
+        assert!((total - after).abs() < 1e-4);
+        assert!(land.stocks[deer][1] < 4.0 && land.stocks[deer][3] > 0.0);
+        // Only patches that can hold deer receive any: not the river patches.
+        assert_eq!(land.stocks[deer][0], 0.0);
+        assert_eq!(land.stocks[deer][2], 0.0);
+        // Equally full patches exchange nothing.
+        let k1 = land.capacity(&p, deer, 1) as f32;
+        let k3 = land.capacity(&p, deer, 3) as f32;
+        land.stocks[deer] = vec![0.0, k1 / 2.0, 0.0, k3 / 2.0];
+        land.spread(&p, deer, 0.25);
+        assert!((land.stocks[deer][1] - k1 / 2.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn hunting_takes_whole_animals_and_never_more_than_are_there() {
+        let p = params();
+        let mut land = Land::create(&map(), &p, 1, 400);
+        let deer = 1;
+        let mut whole = 0;
+        for i in 0..200 {
+            let u = (f64::from(i) + 0.5) / 200.0;
+            let before: f32 = land.stocks[deer].iter().sum();
+            let got = land.harvest(&p, deer, 1, 3.0, 1.0, u);
+            let after: f32 = land.stocks[deer].iter().sum();
+            assert!((f64::from(before - after) - got).abs() < 1e-3);
+            if got.fract() == 0.0 {
+                whole += 1;
+            }
+            assert!(after >= 0.0);
+        }
+        assert!(
+            whole > 150,
+            "harvests are whole animals until the land runs short"
+        );
+        let total: f32 = land.stocks[deer].iter().sum();
+        assert!(total < 1.0, "200 hunts emptied the block: {total} left");
+        assert_eq!(poisson_quantile(0.0, 0.99), 0);
+        assert_eq!(poisson_quantile(2.0, 0.0), 0);
+        assert!(poisson_quantile(2.0, 0.999) >= 6);
+    }
+
+    #[test]
+    fn splitting_an_advance_across_month_starts_changes_nothing_for_animals() {
+        let p = params();
+        let mut a = Land::create(&map(), &p, 3, 400);
+        a.stocks[1] = vec![0.0, 1.0, 0.0, 9.0];
+        let mut b = a.clone();
+        a.advance_to_day(&p, 3, 1000);
+        for d in (401..=1000).step_by(13) {
+            b.advance_to_day(&p, 3, d);
+        }
+        b.advance_to_day(&p, 3, 1000);
+        assert_eq!(a, b);
     }
 
     #[test]

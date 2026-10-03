@@ -553,3 +553,167 @@ fn unknown_presets_are_refused() {
     );
     assert!(matches!(result, Err(civ_sim::SimError::UnknownPreset(_))));
 }
+
+/// Rewrites the `houses` and `land` sections of a current save in their schema-2 shape: food in
+/// kilocalories, patch memory without resources, and stocks without their goods and units (all
+/// set to `stock`).
+fn as_schema_2(sections: &mut [SectionData], food_kcal: f64, stock: f32) {
+    for s in sections.iter_mut() {
+        if s.tag == agents::SECTION_HOUSES {
+            let root = flatbuffers::root::<save::Households>(&s.bytes).expect("houses decode");
+            let mut fbb = FlatBufferBuilder::new();
+            let list: Vec<_> = root
+                .households()
+                .expect("households")
+                .iter()
+                .map(|h| {
+                    let members: Vec<u64> = h.members().expect("members").iter().collect();
+                    let members = fbb.create_vector(&members);
+                    let known = fbb.create_vector(&[save::KnownPatch::new(3, 1234.0, 2)]);
+                    save::Household::create(
+                        &mut fbb,
+                        &save::HouseholdArgs {
+                            id: h.id(),
+                            members: Some(members),
+                            home: h.home(),
+                            settlement: h.settlement(),
+                            food_kcal,
+                            water_l: h.water_l(),
+                            water_at: h.water_at(),
+                            known: Some(known),
+                            ..Default::default()
+                        },
+                    )
+                })
+                .collect();
+            let list = fbb.create_vector(&list);
+            let root = save::Households::create(
+                &mut fbb,
+                &save::HouseholdsArgs {
+                    households: Some(list),
+                    ..Default::default()
+                },
+            );
+            fbb.finish(root, None);
+            s.bytes = fbb.finished_data().to_vec();
+        } else if s.tag == agents::SECTION_LAND {
+            let l = flatbuffers::root::<save::Land>(&s.bytes).expect("land decodes");
+            let mut fbb = FlatBufferBuilder::new();
+            let habitats: Vec<_> = l
+                .habitats()
+                .expect("habitats")
+                .iter()
+                .map(|h| fbb.create_string(h))
+                .collect();
+            let habitats = fbb.create_vector(&habitats);
+            let class = fbb.create_vector(l.class().expect("class").bytes());
+            let richness: Vec<f32> = l.richness().expect("richness").iter().collect();
+            let richness = fbb.create_vector(&richness);
+            let resources: Vec<_> = l
+                .resources()
+                .expect("resources")
+                .iter()
+                .map(|r| fbb.create_string(r))
+                .collect();
+            let resources = fbb.create_vector(&resources);
+            let stocks = vec![stock; l.stocks().expect("stocks").len()];
+            let stocks = fbb.create_vector(&stocks);
+            let root = save::Land::create(
+                &mut fbb,
+                &save::LandArgs {
+                    cols: l.cols(),
+                    rows: l.rows(),
+                    patch_cells: l.patch_cells(),
+                    cell_size_m: l.cell_size_m(),
+                    habitats: Some(habitats),
+                    class: Some(class),
+                    richness: Some(richness),
+                    resources: Some(resources),
+                    stocks: Some(stocks),
+                    stock_day: l.stock_day(),
+                    climate_year: l.climate_year(),
+                    climate_deviate: l.climate_deviate(),
+                    climate_factor: l.climate_factor(),
+                    ..Default::default()
+                },
+            );
+            fbb.finish(root, None);
+            s.bytes = fbb.finished_data().to_vec();
+        }
+    }
+}
+
+#[test]
+fn slice_a_saves_load_with_their_food_as_provisions() {
+    let sim = load_first();
+    let mut sections = persist::encode_sections(&sim);
+    as_schema_2(&mut sections, 30_000.0, 7.0);
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V2;
+    let path = republish("slice-a", &info, &sections);
+    assert!(persist::describe(&path, content()).compatible);
+    let mut migrated = persist::load(&path, content()).expect("a schema-2 save loads");
+    assert!(migrated.is_dirty(), "the migration is new state");
+
+    let rules = migrated.rules().clone();
+    let provisions = rules.people.band.provisions_good;
+    let kcal_per_kg = rules.catalog.goods[provisions].kcal_per_kg;
+    assert!(!migrated.people().households.is_empty());
+    for (_, h) in migrated.people().households.iter() {
+        assert_eq!(h.stores.len(), rules.catalog.goods.len());
+        assert!((h.stores[provisions] - 30_000.0 / kcal_per_kg).abs() < 1e-9);
+        assert_eq!(h.stores.iter().sum::<f64>(), h.stores[provisions]);
+        assert_eq!(h.stores_at, migrated.now());
+        assert!(h.known.is_empty(), "kilocalorie returns are forgotten");
+    }
+    // Stocks were not known to keep their units: every resource starts at equilibrium.
+    let land = migrated.land();
+    for r in 0..rules.land.resources.len() {
+        for p in 0..land.patches.len() {
+            let eq = land.equilibrium(&rules.land, r, p, land.stock_day) as f32;
+            assert_eq!(land.stocks[r][p], eq, "resource {r}, patch {p}");
+        }
+    }
+    migrated
+        .advance_minutes(2 * 24 * 60)
+        .expect("a migrated world runs");
+
+    // Saved again, it is a current save that loads as it was.
+    let saved = persist::save(
+        &mut migrated,
+        &scratch_dir("slice-a-again"),
+        SaveKind::Manual,
+        "",
+    )
+    .expect("saves");
+    let info = commons_persist::SnapshotReader::open_file(&saved.path, Default::default())
+        .expect("opens")
+        .info()
+        .clone();
+    assert_eq!(info.schema_version, SAVE_SCHEMA_VERSION);
+    let reloaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(reloaded.people().living(), migrated.people().living());
+    assert_eq!(reloaded.land().stocks, migrated.land().stocks);
+}
+
+#[test]
+fn stocks_carry_over_only_while_their_good_and_unit_are_unchanged() {
+    let sim = load_first();
+    let saved = sim.land().stocks.clone();
+    let game = content().land.params.resource("game").expect("game");
+    let mut changed = content().clone();
+    changed.land.params.resources[game].unit_kg *= 2.0;
+    changed.fingerprint[0] ^= 1;
+    let loaded = persist::load(&fixture().first.path, &changed).expect("loads");
+    let land = loaded.land();
+    for (r, stock) in land.stocks.iter().enumerate() {
+        if r == game {
+            for (p, v) in stock.iter().enumerate() {
+                let eq = land.equilibrium(&changed.land.params, r, p, land.stock_day) as f32;
+                assert_eq!(*v, eq, "a game unit changed: patch {p} restarts");
+            }
+        } else {
+            assert_eq!(*stock, saved[r], "resource {r} keeps its stocks");
+        }
+    }
+}

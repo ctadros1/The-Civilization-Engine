@@ -1,0 +1,13 @@
+# Usable meat of large game (research 03-06 §2.6: 30 kg of usable meat a deer at 1,500 kcal/kg).
+# Fresh meat that is not dried or smoked keeps a few days; the half-life is a tuning value (the
+# research gives no spoilage rates for fresh food). A large kill is shared across the camp: forager
+# sharing follows acquisition variance and perishability (research 08-11 §3), and big game is
+# both; nothing here says more about who shares with whom.
+kind = "good"
+id = "core:good/meat"
+name = "Meat"
+purpose = "food"
+kcal_per_kg = 1500.0
+half_life_days = 3.0
+cooked = true
+shared = true

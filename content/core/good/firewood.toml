@@ -1,0 +1,10 @@
+# Fallen wood, gathered and burned for cooking and warmth (research 03-06 §2.5). Kept dry, it
+# does not spoil on the time scales that matter here.
+kind = "good"
+id = "core:good/firewood"
+name = "Firewood"
+purpose = "fuel"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+cooked = false
+shared = false

@@ -1,6 +1,6 @@
 //! Land profiles (`kind = "land"`): habitat rules and wild resources (ADR-0004).
 
-use civ_land::{HabitatRule, LandParams, ResourceParams};
+use civ_land::{Growth, HabitatRule, LandParams, ResourceParams};
 use serde::Deserialize;
 
 /// The `kind` value of a land profile.
@@ -41,18 +41,74 @@ pub(crate) struct Habitat {
 pub(crate) struct Resource {
     pub id: String,
     pub name: String,
-    pub unit: String,
+    /// The good a harvest yields: a good id.
+    pub good: String,
+    pub unit_kg: f64,
+    pub discrete: bool,
+    pub in_water: bool,
+    pub range_patches: u32,
+    pub max_rate_per_hour: f64,
+    pub half_rate_stock_per_ha: f64,
+    /// Exactly one of `plant` and `animal`.
+    pub plant: Option<Plant>,
+    pub animal: Option<Animal>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Plant {
     pub production_per_ha_yr: Vec<f64>,
     pub loss_per_day: f64,
     pub season: [f64; 12],
-    pub max_rate_per_hour: f64,
-    pub half_rate_stock_per_ha: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Animal {
+    pub capacity_per_ha: Vec<f64>,
+    pub growth_per_year: f64,
+    pub spread_per_month: f64,
+}
+
+impl Resource {
+    fn growth(&self) -> Option<Growth> {
+        match (&self.plant, &self.animal) {
+            (Some(p), None) => Some(Growth::Plant {
+                production_per_ha_yr: p.production_per_ha_yr.clone(),
+                loss_per_day: p.loss_per_day,
+                season: p.season,
+            }),
+            (None, Some(a)) => Some(Growth::Animal {
+                capacity_per_ha: a.capacity_per_ha.clone(),
+                growth_per_year: a.growth_per_year,
+                spread_per_month: a.spread_per_month,
+            }),
+            _ => None,
+        }
+    }
 }
 
 impl LandFile {
-    /// The parameters.
-    pub fn params(&self) -> LandParams {
-        LandParams {
+    /// The parameters, with each resource's good resolved by `good_index`. `None` if a resource
+    /// has no single growth form or names an unknown good ([`LandFile::problems`] and the
+    /// cross-file check report those).
+    pub fn params(&self, good_index: &dyn Fn(&str) -> Option<usize>) -> Option<LandParams> {
+        let mut resources = Vec::with_capacity(self.resource.len());
+        for r in &self.resource {
+            resources.push(ResourceParams {
+                id: r.id.clone(),
+                name: r.name.clone(),
+                good: good_index(&r.good)?,
+                unit_kg: r.unit_kg,
+                discrete: r.discrete,
+                in_water: r.in_water,
+                range_patches: r.range_patches,
+                growth: r.growth()?,
+                max_rate_per_hour: r.max_rate_per_hour,
+                half_rate_stock_per_ha: r.half_rate_stock_per_ha,
+            });
+        }
+        Some(LandParams {
             patch_cells: self.patch_cells,
             channel_area_km2: self.channel_area_km2,
             habitats: self
@@ -70,23 +126,10 @@ impl LandFile {
             richness_min: self.richness_min,
             richness_max: self.richness_max,
             richness_feature_m: self.richness_feature_m,
-            resources: self
-                .resource
-                .iter()
-                .map(|r| ResourceParams {
-                    id: r.id.clone(),
-                    name: r.name.clone(),
-                    unit: r.unit.clone(),
-                    production_per_ha_yr: r.production_per_ha_yr.clone(),
-                    loss_per_day: r.loss_per_day,
-                    season: r.season,
-                    max_rate_per_hour: r.max_rate_per_hour,
-                    half_rate_stock_per_ha: r.half_rate_stock_per_ha,
-                })
-                .collect(),
+            resources,
             climate_cv: self.climate_cv,
             climate_autocorrelation: self.climate_autocorrelation,
-        }
+        })
     }
 
     /// Range problems, as messages.
@@ -133,36 +176,18 @@ impl LandFile {
             }
         }
         let mut seen = std::collections::HashSet::new();
+        let habitats = self.habitat.len();
         for r in &self.resource {
             if !seen.insert(r.id.as_str()) {
                 p.push(format!("resource `{}` is listed twice", r.id));
             }
-            if r.production_per_ha_yr.len() != self.habitat.len() {
-                p.push(format!(
-                    "resource `{}` needs one production figure per habitat ({})",
-                    r.id,
-                    self.habitat.len()
-                ));
+            if !(r.unit_kg.is_finite() && r.unit_kg > 0.0) {
+                p.push(format!("resource `{}` needs a positive `unit_kg`", r.id));
             }
-            if r.production_per_ha_yr
-                .iter()
-                .any(|v| !(v.is_finite() && *v >= 0.0))
-            {
+            if r.range_patches > 8 {
                 p.push(format!(
-                    "resource `{}` production must be zero or more",
-                    r.id
-                ));
-            }
-            if !(r.loss_per_day.is_finite() && (0.0..1.0).contains(&r.loss_per_day)) {
-                p.push(format!(
-                    "resource `{}` loss_per_day must be in [0, 1)",
-                    r.id
-                ));
-            }
-            if r.season.iter().any(|v| !(v.is_finite() && *v >= 0.0)) {
-                p.push(format!(
-                    "resource `{}` season weights must be zero or more",
-                    r.id
+                    "resource `{}` `range_patches` must be at most 8 (got {})",
+                    r.id, r.range_patches
                 ));
             }
             if !(r.max_rate_per_hour > 0.0 && r.half_rate_stock_per_ha > 0.0) {
@@ -170,6 +195,56 @@ impl LandFile {
                     "resource `{}` needs positive max_rate_per_hour and half_rate_stock_per_ha",
                     r.id
                 ));
+            }
+            let per_habitat = |what: &str, values: &[f64], p: &mut Vec<String>| {
+                if values.len() != habitats {
+                    p.push(format!(
+                        "resource `{}` needs one {what} figure per habitat ({habitats})",
+                        r.id
+                    ));
+                }
+                if values.iter().any(|v| !(v.is_finite() && *v >= 0.0)) {
+                    p.push(format!("resource `{}` {what} must be zero or more", r.id));
+                }
+            };
+            match (&r.plant, &r.animal) {
+                (Some(g), None) => {
+                    per_habitat("production", &g.production_per_ha_yr, &mut p);
+                    if !(g.loss_per_day.is_finite() && (0.0..1.0).contains(&g.loss_per_day)) {
+                        p.push(format!(
+                            "resource `{}` loss_per_day must be in [0, 1)",
+                            r.id
+                        ));
+                    }
+                    if g.season.iter().any(|v| !(v.is_finite() && *v >= 0.0)) {
+                        p.push(format!(
+                            "resource `{}` season weights must be zero or more",
+                            r.id
+                        ));
+                    }
+                }
+                (None, Some(g)) => {
+                    per_habitat("capacity", &g.capacity_per_ha, &mut p);
+                    if !(g.growth_per_year.is_finite() && (0.0..=5.0).contains(&g.growth_per_year))
+                    {
+                        p.push(format!(
+                            "resource `{}` growth_per_year must be between 0 and 5",
+                            r.id
+                        ));
+                    }
+                    if !(g.spread_per_month.is_finite()
+                        && (0.0..=1.0).contains(&g.spread_per_month))
+                    {
+                        p.push(format!(
+                            "resource `{}` spread_per_month must be between 0 and 1",
+                            r.id
+                        ));
+                    }
+                }
+                _ => p.push(format!(
+                    "resource `{}` needs exactly one of `[resource.plant]` and `[resource.animal]`",
+                    r.id
+                )),
             }
         }
         p

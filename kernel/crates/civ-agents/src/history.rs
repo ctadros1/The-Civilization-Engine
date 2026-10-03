@@ -34,6 +34,8 @@ pub enum Reason {
     Rest = 10,
     /// Play.
     Play = 11,
+    /// How short the household is of firewood, times what the trip would bring.
+    FuelShortage = 12,
     /// Excluded: there is no food at home.
     NoFood = 100,
     /// Excluded: too young.
@@ -50,11 +52,13 @@ pub enum Reason {
     NoHearth = 106,
     /// Excluded: not tired enough to sleep.
     NotTired = 107,
+    /// Excluded: the food at home must be cooked, and there is no firewood.
+    NoFire = 108,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 19] = [
+    pub const ALL: [Reason; 21] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -66,6 +70,7 @@ impl Reason {
         Reason::Darkness,
         Reason::Rest,
         Reason::Play,
+        Reason::FuelShortage,
         Reason::NoFood,
         Reason::TooYoung,
         Reason::TooOld,
@@ -74,6 +79,7 @@ impl Reason {
         Reason::Unreachable,
         Reason::NoHearth,
         Reason::NotTired,
+        Reason::NoFire,
     ];
 
     /// The reason with this code.
@@ -95,6 +101,7 @@ impl Reason {
             Reason::Darkness => "darkness falling",
             Reason::Rest => "rest",
             Reason::Play => "play",
+            Reason::FuelShortage => "firewood running short",
             Reason::NoFood => "no food at home",
             Reason::TooYoung => "too young",
             Reason::TooOld => "too old",
@@ -103,6 +110,7 @@ impl Reason {
             Reason::Unreachable => "cannot be reached on foot",
             Reason::NoHearth => "no hearth to sit at",
             Reason::NotTired => "not tired",
+            Reason::NoFire => "no fire to cook on",
         }
     }
 }
@@ -201,6 +209,10 @@ pub enum ChronicleKind {
     BandArrived,
     /// A settlement was founded: `settlement` and its `place`.
     SettlementFounded,
+    /// A settlement's food ran short: `number` is the days of food left.
+    FoodRanShort,
+    /// A settlement had enough food again: `number` is the days of food in store.
+    FoodRecovered,
 }
 
 /// A chronicle entry: structured facts, rendered to text when read (ADR-0003).
@@ -240,18 +252,42 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
     let _ = name_of;
     match event.kind {
         ChronicleKind::BandArrived => vec![Span::Text(format!(
-            "A band of {} people arrived, carrying food for a few weeks.",
+            "A band of {} people arrived.",
             event.number as u64
         ))],
         ChronicleKind::SettlementFounded => {
             let mut spans = vec![Span::Text("They made camp at ".to_owned())];
-            match event.settlement {
-                Some(id) => spans.push(Span::Settlement(id, event.name.clone())),
-                None => spans.push(Span::Text(event.name.clone())),
-            }
+            spans.push(settlement(event));
             spans.push(Span::Text(".".to_owned()));
             spans
         }
+        ChronicleKind::FoodRanShort => vec![
+            Span::Text("Food ran short at ".to_owned()),
+            settlement(event),
+            Span::Text(format!(": {} left.", days_text(event.number))),
+        ],
+        ChronicleKind::FoodRecovered => vec![
+            Span::Text("There was enough food again at ".to_owned()),
+            settlement(event),
+            Span::Text(format!(": {} in store.", days_text(event.number))),
+        ],
+    }
+}
+
+fn settlement(event: &ChronicleEvent) -> Span {
+    match event.settlement {
+        Some(id) => Span::Settlement(id, event.name.clone()),
+        None => Span::Text(event.name.clone()),
+    }
+}
+
+fn days_text(days: f64) -> String {
+    if days < 1.0 {
+        "less than a day's food".to_owned()
+    } else if days < 1.5 {
+        "about a day's food".to_owned()
+    } else {
+        format!("about {} days' food", days.round() as i64)
     }
 }
 

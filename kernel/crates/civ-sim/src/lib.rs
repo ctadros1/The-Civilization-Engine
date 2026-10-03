@@ -588,6 +588,19 @@ impl Sim {
                         advance.days += 1;
                         // The day that just ended is complete.
                         land.advance_to_day(&rules.land, meta.seed, at.day_index() - 1);
+                        let mut ctx = Ctx {
+                            now: at,
+                            seed: meta.seed,
+                            map,
+                            nav,
+                            land,
+                            land_params: &rules.land,
+                            params: &rules.people,
+                            catalog: &rules.catalog,
+                            ids,
+                            schedule: &mut pending,
+                        };
+                        people.on_day(&mut ctx);
                     }
                     Cadence::Month => advance.months += 1,
                     Cadence::Year => advance.years += 1,

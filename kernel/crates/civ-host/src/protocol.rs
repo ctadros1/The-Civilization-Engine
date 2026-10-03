@@ -331,6 +331,26 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
         })
         .collect();
     let activities = fbb.create_vector(&activities);
+    let goods: Vec<_> = content
+        .catalog
+        .goods
+        .iter()
+        .map(|g| {
+            let id = fbb.create_string(&g.id);
+            let name = fbb.create_string(&g.name);
+            let purpose = fbb.create_string(g.purpose.name());
+            wire::GoodInfo::create(
+                &mut fbb,
+                &wire::GoodInfoArgs {
+                    id: Some(id),
+                    name: Some(name),
+                    purpose: Some(purpose),
+                    kcal_per_kg: g.kcal_per_kg as f32,
+                },
+            )
+        })
+        .collect();
+    let goods = fbb.create_vector(&goods);
     let reasons: Vec<_> = civ_agents::Reason::ALL
         .iter()
         .map(|r| {
@@ -368,6 +388,7 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
             band_size_min: band.min_size,
             band_size_max: band.max_size,
             band_size_default: band.default_size,
+            goods: Some(goods),
         },
     );
     finish(fbb, root)

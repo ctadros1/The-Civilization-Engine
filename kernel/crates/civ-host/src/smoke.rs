@@ -2,8 +2,8 @@
 //! statistics; any failure blocks the milestone.
 //!
 //! The checks cover terrain and water, the save round trip, and a month of the founding band's
-//! life: they settle, keep water at home, and nobody is ever stuck between events. Checks on a
-//! population over years arrive with births and deaths (plan §7, M1).
+//! life: they settle, keep water and firewood at home, still have food, and nobody is ever stuck
+//! between events. Checks on a population over years arrive with births and deaths (plan §7, M1).
 
 use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
@@ -170,6 +170,29 @@ fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<String> {
         .count();
     if dry > 0 {
         failures.push(format!("{dry} households have no water"));
+    }
+    let rules = sim.rules();
+    let goods = &rules.catalog.goods;
+    let cold = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, h)| {
+            let stores = civ_agents::population::stores_now(h, now, &rules.people, goods);
+            civ_agents::person::fuel_kg(&stores, goods) <= 0.0
+        })
+        .count();
+    if cold * 2 > sim.people().households.len() {
+        failures.push(format!(
+            "{cold} of {} households have no firewood",
+            sim.people().households.len()
+        ));
+    }
+    // The band arrives with stores for months: a month in, no settlement may be short.
+    for s in &sim.land().settlements {
+        if s.food_short {
+            failures.push(format!("{} ran short of food within {DAYS} days", s.name));
+        }
     }
     failures
 }

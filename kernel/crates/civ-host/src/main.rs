@@ -226,20 +226,28 @@ fn serve(args: ServeArgs) -> anyhow::Result<ExitCode> {
     })
 }
 
-/// Resolves when the host should stop: Ctrl+C, SIGTERM on Unix, and on Windows also Ctrl+Break,
-/// closing the console window, logging off or shutting down. Windows gives a closing console a
-/// few seconds, which is enough to save the world and remove the session marker.
+/// Resolves when the host should stop: Ctrl+C; on Unix also SIGTERM, and SIGHUP from a closed
+/// terminal; on Windows also Ctrl+Break, closing the console window, logging off or shutting
+/// down. Windows gives a closing console a few seconds, which is enough to save the world and
+/// remove the session marker.
 async fn shutdown_signal() {
     let ctrl_c = async {
         let _ = tokio::signal::ctrl_c().await;
     };
     #[cfg(unix)]
     let terminate = async {
-        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-            Ok(mut signal) => {
-                signal.recv().await;
+        use tokio::signal::unix::{SignalKind, signal};
+        match (
+            signal(SignalKind::terminate()),
+            signal(SignalKind::hangup()),
+        ) {
+            (Ok(mut term), Ok(mut hangup)) => {
+                tokio::select! {
+                    _ = term.recv() => {},
+                    _ = hangup.recv() => {},
+                }
             }
-            Err(_) => std::future::pending::<()>().await,
+            _ => std::future::pending::<()>().await,
         }
     };
     #[cfg(windows)]

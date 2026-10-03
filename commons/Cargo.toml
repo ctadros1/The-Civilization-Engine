@@ -1,0 +1,46 @@
+# engine-commons, staged inside The Civilization Engine.
+#
+# This workspace holds code that is not specific to any one engine (PROJECT_PLAN.md §3.3).
+# Admission rule: nothing here may name engine concepts such as "agent", "settlement" or
+# "organism". It is a separate Cargo workspace on purpose, so that extracting it into its own
+# repository (`ctadros1/Engine-Commons`) when a second engine adopts it is a directory move.
+[workspace]
+resolver = "3"
+members = ["crates/commons-wire", "crates/commons-persist"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+
+[workspace.dependencies]
+crc32fast = "1.5.2"
+getrandom = "0.4.3"
+proptest = "1.11.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+tempfile = "3.27.0"
+xxhash-rust = { version = "0.8.19", features = ["xxh3"] }
+zstd = { version = "0.14.0", default-features = false }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+unwrap_used = "warn"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.simcheck]
+inherits = "release"
+debug = 1
+debug-assertions = true
+overflow-checks = true

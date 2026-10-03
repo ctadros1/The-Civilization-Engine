@@ -36,6 +36,10 @@ pub enum Reason {
     Play = 11,
     /// How short the household is of firewood, times what the trip would bring.
     FuelShortage = 12,
+    /// The food field work brings for the year ahead.
+    Harvest = 13,
+    /// Field work left against the work the household can still do before the season closes.
+    Deadline = 14,
     /// Excluded: there is no food at home.
     NoFood = 100,
     /// Excluded: too young.
@@ -54,11 +58,19 @@ pub enum Reason {
     NotTired = 107,
     /// Excluded: the food at home must be cooked, and there is no firewood.
     NoFire = 108,
+    /// Excluded: no seed to sow.
+    NoSeed = 109,
+    /// Excluded: no field needs this work now.
+    NoFieldWork = 110,
+    /// Excluded: the household is not short of food.
+    NotShort = 111,
+    /// Excluded: no household nearby can spare food.
+    NoOneToAsk = 112,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 21] = [
+    pub const ALL: [Reason; 27] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -71,6 +83,8 @@ impl Reason {
         Reason::Rest,
         Reason::Play,
         Reason::FuelShortage,
+        Reason::Harvest,
+        Reason::Deadline,
         Reason::NoFood,
         Reason::TooYoung,
         Reason::TooOld,
@@ -80,6 +94,10 @@ impl Reason {
         Reason::NoHearth,
         Reason::NotTired,
         Reason::NoFire,
+        Reason::NoSeed,
+        Reason::NoFieldWork,
+        Reason::NotShort,
+        Reason::NoOneToAsk,
     ];
 
     /// The reason with this code.
@@ -102,6 +120,8 @@ impl Reason {
             Reason::Rest => "rest",
             Reason::Play => "play",
             Reason::FuelShortage => "firewood running short",
+            Reason::Harvest => "food for the year ahead",
+            Reason::Deadline => "the season will not wait",
             Reason::NoFood => "no food at home",
             Reason::TooYoung => "too young",
             Reason::TooOld => "too old",
@@ -111,6 +131,10 @@ impl Reason {
             Reason::NoHearth => "no hearth to sit at",
             Reason::NotTired => "not tired",
             Reason::NoFire => "no fire to cook on",
+            Reason::NoSeed => "no seed to sow",
+            Reason::NoFieldWork => "no field needs it now",
+            Reason::NotShort => "not short of food",
+            Reason::NoOneToAsk => "no one nearby can spare food",
         }
     }
 }
@@ -213,6 +237,10 @@ pub enum ChronicleKind {
     FoodRanShort,
     /// A settlement had enough food again: `number` is the days of food in store.
     FoodRecovered,
+    /// A settlement sowed its first field: `people` names who finished it.
+    FirstSowing,
+    /// A settlement's harvest was in: `number` is the grain threshed, kilograms.
+    HarvestIn,
 }
 
 /// A chronicle entry: structured facts, rendered to text when read (ADR-0003).
@@ -271,7 +299,33 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             settlement(event),
             Span::Text(format!(": {} in store.", days_text(event.number))),
         ],
+        ChronicleKind::FirstSowing => vec![
+            Span::Text("The first field was sown at ".to_owned()),
+            settlement(event),
+            Span::Text(".".to_owned()),
+        ],
+        ChronicleKind::HarvestIn => vec![
+            Span::Text("The harvest at ".to_owned()),
+            settlement(event),
+            Span::Text(format!(
+                " was in: {} kg of grain.",
+                thousands(event.number.round().max(0.0) as u64)
+            )),
+        ],
     }
+}
+
+/// "12,345".
+fn thousands(n: u64) -> String {
+    let digits = n.to_string();
+    let mut out = String::new();
+    for (i, c) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
+            out.push(',');
+        }
+        out.push(c);
+    }
+    out
 }
 
 fn settlement(event: &ChronicleEvent) -> Span {

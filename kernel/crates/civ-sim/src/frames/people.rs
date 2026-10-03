@@ -104,6 +104,7 @@ pub fn settlement_briefs<'a>(
                     population: population as u32,
                     food_days: food_days.unwrap_or(0.0) as f32,
                     food_short: s.food_short,
+                    harvest_kg: s.harvest_kg as f32,
                 },
             )
         })
@@ -268,6 +269,31 @@ pub fn describe_target(sim: &Sim, home: (f32, f32), target: Target) -> String {
             let at = population::cell_centre(&sim.map, cell as usize);
             format!("water {} of home", bearing(home, at))
         }
+        Target::Field(id) => match sim.land.fields.iter().find(|f| f.id == id) {
+            Some(f) => format!("the field {} of home", bearing(home, f.rect.centre_m())),
+            None => "a field".to_owned(),
+        },
+        Target::NewField => "new ground".to_owned(),
+        Target::Household(id) => household_name(sim, id),
+    }
+}
+
+/// A household in words, by its eldest member: "Ada's household".
+pub fn household_name(sim: &Sim, id: PermanentId) -> String {
+    let now = sim.now();
+    let eldest = sim
+        .people
+        .household(id)
+        .and_then(|h| {
+            h.members
+                .iter()
+                .filter_map(|m| sim.people.person(*m))
+                .max_by(|a, b| a.age_years(now).total_cmp(&b.age_years(now)))
+        })
+        .map(|p| p.given.clone());
+    match eldest {
+        Some(name) => format!("{name}'s household"),
+        None => "another household".to_owned(),
     }
 }
 
@@ -291,12 +317,20 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
                 format!("walking to {place} ({what})")
             }
         }
-        Some(Step::Work { .. }) => match p.act.target {
-            Target::Patch(_) | Target::Water(_) if !place.is_empty() => {
-                format!("{what}, {place}")
+        Some(Step::Work { .. }) => {
+            let at_home =
+                home.is_some_and(|h| (h.0 - p.pos.0).abs() < 1.0 && (h.1 - p.pos.1).abs() < 1.0);
+            match p.act.target {
+                _ if place.is_empty() => what.to_owned(),
+                // Threshing is done at home, with sheaves carried from the field.
+                Target::Field(_) if at_home => format!("{what} from {place}"),
+                Target::Patch(_) | Target::Water(_) | Target::Field(_) => {
+                    format!("{what}, {place}")
+                }
+                Target::Household(_) => format!("{what} at {place}"),
+                _ => what.to_owned(),
             }
-            _ => what.to_owned(),
-        },
+        }
         Some(Step::Deposit) => "putting away what they brought".to_owned(),
         Some(Step::Wait { .. }) => "waiting".to_owned(),
         None => "deciding what to do".to_owned(),

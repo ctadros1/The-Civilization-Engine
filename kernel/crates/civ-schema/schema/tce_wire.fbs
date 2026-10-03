@@ -21,6 +21,9 @@ enum ErrorCode : ushort { Unknown = 0, BadRequest = 1, Busy = 2, NoWorld = 3, No
 
 enum Sex : ubyte { Female = 0, Male = 1 }
 
+// Where a field is in its year (M1 slice C).
+enum FieldStage : ubyte { Fallow = 0, Prepared = 1, Sown = 2, Reaped = 3 }
+
 struct Vec2 {
   x: float;
   y: float;
@@ -60,6 +63,16 @@ table GoodInfo {
   kcal_per_kg: float (id: 3);
 }
 
+// A crop people grow (M1 slice C). Fields refer to crops by their index in Welcome.crops.
+table CropInfo {
+  id: string (id: 0);
+  // "Emmer wheat".
+  name: string (id: 1);
+  // Indexes into Welcome.goods: the grain it yields and the seed it is sown from.
+  good: ushort (id: 2);
+  seed_good: ushort (id: 3);
+}
+
 // A consideration or exclusion reason that decision receipts refer to by code.
 table ReasonInfo {
   code: ushort (id: 0);
@@ -88,6 +101,8 @@ table Welcome {
   band_size_default: uint (id: 13);
   // The goods catalogue (M1 slice B).
   goods: [GoodInfo] (id: 14);
+  // The crops catalogue (M1 slice C).
+  crops: [CropInfo] (id: 15);
 }
 
 // ---- Snapshot: replaceable host and world state --------------------------------------------
@@ -176,6 +191,8 @@ table SettlementBrief {
   food_days: float (id: 5);
   // Its food has run short and not yet recovered.
   food_short: bool (id: 6);
+  // Grain threshed from its fields this harvest, kilograms (M1 slice C).
+  harvest_kg: float (id: 7);
 }
 
 table Snapshot {
@@ -190,6 +207,9 @@ table Snapshot {
   people: [PersonBrief] (id: 6);
   settlements: [SettlementBrief] (id: 7);
   chronicle_head: ulong (id: 8);
+  // M1 slice C: changes whenever a field is marked out or changes stage (0 = no fields). Fetch
+  // the fields with GetFields when it differs from the revision last fetched.
+  fields_rev: ulong (id: 9);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -282,7 +302,10 @@ table GetChronicle {
   limit: uint (id: 1);
 }
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle }
+// Every field, with its state (M1 slice C).
+table GetFields {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields }
 
 table Query {
   body: QueryBody (id: 1);
@@ -485,7 +508,41 @@ table PersonInfo {
   household_fuel_days: float (id: 31);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle }
+// A field people work (M1 slice C).
+table FieldInfo {
+  id: ulong (id: 0);
+  household: ulong (id: 1);
+  settlement: ulong (id: 2);
+  // North-west corner and size, metres.
+  min: Vec2 (id: 3);
+  size: Vec2 (id: 4);
+  // Index into Welcome.crops.
+  crop: ushort (id: 5);
+  stage: FieldStage (id: 6);
+  stage_since_minute: long (id: 7);
+  // Share of the work of the stage under way that is done, 0-1.
+  progress: float (id: 8);
+  // Ground not yet broken for a first crop, and whether it is woodland to clear first.
+  new_ground: bool (id: 9);
+  woodland: bool (id: 10);
+  // The grain its crop is expected to give, kilograms (0 when nothing is planned for it).
+  expected_kg: float (id: 11);
+  // Reaped and not yet threshed, kilograms.
+  sheaves_kg: float (id: 12);
+  harvests: uint (id: 13);
+  // Its state in words, rendered by the kernel: "growing; ripe in about 20 days".
+  status: string (id: 14);
+  // Sown and ripe, waiting to be reaped.
+  ripe: bool (id: 15);
+}
+
+table Fields {
+  // The snapshot revision these fields are at.
+  rev: ulong (id: 0);
+  fields: [FieldInfo] (id: 1);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields }
 
 table Response {
   body: ResponseBody (id: 1);

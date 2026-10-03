@@ -1,0 +1,13 @@
+# Threshed grain. Wheat grain carries 3,340 kcal/kg (research 05-02 §2.5). It is eaten cooked
+# (cooking adds water, not energy: 05-02 §1.1). Kept without a proper store it loses about 15 % a
+# year, the middle of the 10-20 % the research proposes for poorly kept or pest-exposed stores
+# (08-02 §7.1); a hut's store is a later change.
+kind = "good"
+id = "core:good/grain"
+name = "Grain"
+purpose = "food"
+kcal_per_kg = 3340.0
+half_life_days = 1560.0
+cooked = true
+shared = false
+reserve = false

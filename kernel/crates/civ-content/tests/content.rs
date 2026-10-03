@@ -24,11 +24,11 @@ fn real(path: &str) -> String {
         .replace("\r\n", "\n")
 }
 
-/// The real people, land, names, activity and good files (`(path in the pack, body)`), which
+/// The real people, land, names, activity, good and crop files (`(path in the pack, body)`), which
 /// every world needs; fixtures add presets and override files.
 fn people_files() -> Vec<(String, String)> {
     let mut out = Vec::new();
-    for dir in ["people", "land", "names", "activity", "good"] {
+    for dir in ["people", "land", "names", "activity", "good", "crop"] {
         let mut paths: Vec<_> = std::fs::read_dir(repo_content().join("core").join(dir))
             .expect("real content directory")
             .map(|e| e.expect("entry").path())
@@ -362,7 +362,7 @@ fn references_must_resolve() {
     assert_eq!(codes(&report), vec!["E2006"]);
     assert!(report.diagnostics[0].message.contains("core:good/venison"));
     let people = real("people/early_farmers.toml")
-        .replace("\"core:good/provisions\"", "\"core:good/grain\"");
+        .replace("\"core:good/provisions\"", "\"core:good/barley_flour\"");
     let report = load_fixture(&[
         ("worldgen/river_valley.toml", &preset),
         ("people/early_farmers.toml", &people),
@@ -377,6 +377,96 @@ fn references_must_resolve() {
     ]);
     assert_eq!(codes(&report), vec!["E3001"]);
     assert!(report.diagnostics[0].message.contains("must be a food"));
+
+    // The crop people grow, and the goods a crop yields and is sown from, must exist.
+    let people =
+        real("people/early_farmers.toml").replace("\"core:crop/emmer\"", "\"core:crop/rye\"");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("people/early_farmers.toml", &people),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    assert!(report.diagnostics[0].message.contains("core:crop/rye"));
+    let crop =
+        real("crop/emmer.toml").replace("\"core:good/seed_grain\"", "\"core:good/seed_corn\"");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("crop/emmer.toml", &crop),
+    ]);
+    assert!(codes(&report).contains(&"E2006"), "{:?}", codes(&report));
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("core:good/seed_corn"))
+    );
+}
+
+#[test]
+fn crops_and_field_work_check_their_numbers() {
+    let preset = real_preset();
+    for (from, to, needle) in [
+        (
+            "sow_until_day = 125",
+            "sow_until_day = 70",
+            "sow_from_day <= sow_until_day",
+        ),
+        ("grow_days = 120", "grow_days = 300", "within the year"),
+        (
+            "standing_loss_per_day = 0.02",
+            "standing_loss_per_day = 0.0",
+            "an unreaped crop ends",
+        ),
+        (
+            "seed_kg_per_ha = 90.0",
+            "seed_kg_per_ha = 0.0",
+            "`seed_kg_per_ha`",
+        ),
+    ] {
+        let body = real("crop/emmer.toml").replace(from, to);
+        assert_ne!(body, real("crop/emmer.toml"), "{needle}: the edit applies");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("crop/emmer.toml", &body),
+        ]);
+        assert!(
+            codes(&report).contains(&"E3001"),
+            "{needle}: {:?}",
+            codes(&report)
+        );
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.message.contains(needle)),
+            "{needle}"
+        );
+    }
+    // A farm activity names its task; other activities do not take one.
+    let sow = real("activity/sow.toml");
+    for (path, body, needle) in [
+        (
+            "activity/sow.toml",
+            sow.replace("task = \"sow\"\n", ""),
+            "names the field `task`",
+        ),
+        (
+            "activity/sow.toml",
+            sow.replace("task = \"sow\"", "task = \"plough\""),
+            "unknown task",
+        ),
+        (
+            "activity/rest.toml",
+            real("activity/rest.toml")
+                .replace("behavior = \"rest\"", "behavior = \"rest\"\ntask = \"sow\""),
+            "only `farm` activities",
+        ),
+    ] {
+        assert_ne!(body, real(path), "{needle}: the edit applies");
+        let report = load_fixture(&[("worldgen/river_valley.toml", &preset), (path, &body)]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(report.diagnostics[0].message.contains(needle), "{needle}");
+    }
 }
 
 #[test]
@@ -548,6 +638,7 @@ fn the_fingerprint_covers_every_kind() {
             "half_life_days = 3.0",
             "half_life_days = 4.0",
         ),
+        ("crop/emmer.toml", "grow_days = 120", "grow_days = 125"),
     ] {
         let body = real(path).replace(from, to);
         assert_ne!(body, real(path), "{path}: the edit applies");

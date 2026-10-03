@@ -35,6 +35,8 @@ struct Fixture {
     root: PathBuf,
     first: Published,
     first_info: SnapshotInfo,
+    /// The fields of the world as it was saved.
+    first_fields: Vec<civ_land::Field>,
 }
 
 /// One world, generated once, run for a while and saved.
@@ -74,6 +76,7 @@ fn fixture() -> &'static Fixture {
             _dir: dir,
             first,
             first_info,
+            first_fields: sim.land().fields.clone(),
         }
     })
 }
@@ -124,8 +127,8 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 7 land and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 7);
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 8 land, field and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 8);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -321,6 +324,47 @@ fn a_version_2_save_without_its_people_sections_is_refused() {
         .collect();
     let path = republish("no-houses", &fixture().first_info, &sections);
     assert!(persist::load(&path, content()).is_err());
+}
+
+#[test]
+fn fields_load_as_they_were_saved() {
+    let fx = fixture();
+    // In its first days of March the band marks out fields and starts breaking ground.
+    assert!(!fx.first_fields.is_empty(), "the saved world has fields");
+    assert_eq!(load_first().land().fields, fx.first_fields);
+}
+
+#[test]
+fn a_version_4_save_without_its_fields_section_is_refused() {
+    let sim = load_first();
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_FIELDS)
+        .collect();
+    let path = republish("no-fields", &fixture().first_info, &sections);
+    assert!(persist::load(&path, content()).is_err());
+}
+
+#[test]
+fn slice_b_saves_load_without_fields_and_farm_again() {
+    let sim = load_first();
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_FIELDS)
+        .collect();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V3;
+    let path = republish("slice-b", &info, &sections);
+    let mut migrated = persist::load(&path, content()).expect("a schema-3 save loads");
+    assert!(migrated.is_dirty(), "the migration is new state");
+    assert!(migrated.land().fields.is_empty());
+    migrated
+        .advance_minutes(24 * 60)
+        .expect("a migrated world runs");
+    assert!(
+        !migrated.land().fields.is_empty(),
+        "in March they mark out fields again"
+    );
 }
 
 #[test]

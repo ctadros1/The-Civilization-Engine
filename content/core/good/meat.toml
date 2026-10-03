@@ -11,3 +11,4 @@ kcal_per_kg = 1500.0
 half_life_days = 3.0
 cooked = true
 shared = true
+reserve = false

@@ -25,6 +25,13 @@ pub enum Target {
     Patch(u32),
     /// A terrain cell next to drinkable water.
     Water(u32),
+    /// A field, by permanent id.
+    Field(PermanentId),
+    /// New ground for a field, not yet marked out (an option weighed, never an activity's
+    /// target: a chosen new field is marked out at once).
+    NewField,
+    /// Another household, by permanent id (asked for food).
+    Household(PermanentId),
 }
 
 /// One step of an activity.
@@ -344,11 +351,21 @@ impl Household {
     }
 }
 
-/// Food energy in a set of stores, kcal: all of it, and what can be eaten without a fire.
+/// Food energy in a set of stores, kcal: all of it, and what can be eaten without a fire. Seed
+/// and other goods kept back are not counted (see [`reserve_food_kcal`]).
 pub fn food_kcal(stores: &[f64], goods: &[GoodDef]) -> (f64, f64) {
+    kcal_where(stores, goods, false)
+}
+
+/// Food energy of the goods kept back (seed), kcal: all of it, and what needs no fire.
+pub fn reserve_food_kcal(stores: &[f64], goods: &[GoodDef]) -> (f64, f64) {
+    kcal_where(stores, goods, true)
+}
+
+fn kcal_where(stores: &[f64], goods: &[GoodDef], reserve: bool) -> (f64, f64) {
     let (mut all, mut raw) = (0.0, 0.0);
     for (kg, g) in stores.iter().zip(goods) {
-        if g.purpose == GoodUse::Food {
+        if g.purpose == GoodUse::Food && g.reserve == reserve {
             let kcal = kg.max(0.0) * g.kcal_per_kg;
             all += kcal;
             if !g.cooked {
@@ -433,6 +450,7 @@ mod tests {
             half_life_days: half,
             cooked,
             shared: false,
+            reserve: false,
         };
         vec![
             good("meat", GoodUse::Food, 1500.0, 3.0, true),

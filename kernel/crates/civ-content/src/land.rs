@@ -34,6 +34,9 @@ pub(crate) struct Habitat {
     pub max_median_hand_m: Option<f64>,
     pub max_mean_slope: Option<f64>,
     pub arable: bool,
+    /// Person-hours to clear a hectare before it is first broken for a field (woodland); absent
+    /// for open ground.
+    pub clear_h_per_ha: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -121,6 +124,7 @@ impl LandFile {
                     max_median_hand_m: h.max_median_hand_m,
                     max_mean_slope: h.max_mean_slope,
                     arable: h.arable,
+                    clear_h_per_ha: h.clear_h_per_ha.unwrap_or(0.0),
                 })
                 .collect(),
             richness_min: self.richness_min,
@@ -173,6 +177,21 @@ impl LandFile {
         for h in &self.habitat {
             if !seen.insert(h.id.as_str()) {
                 p.push(format!("habitat `{}` is listed twice", h.id));
+            }
+            if let Some(c) = h.clear_h_per_ha {
+                if !(c.is_finite() && c >= 0.0) {
+                    p.push(format!(
+                        "habitat `{}`: `clear_h_per_ha` must be zero or more (got {c})",
+                        h.id
+                    ));
+                }
+                if !h.arable {
+                    p.push(format!(
+                        "habitat `{}`: only arable ground is cleared for fields (`clear_h_per_ha` \
+                         needs `arable = true`)",
+                        h.id
+                    ));
+                }
             }
         }
         let mut seen = std::collections::HashSet::new();

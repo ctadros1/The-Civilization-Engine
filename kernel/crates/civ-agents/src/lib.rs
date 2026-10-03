@@ -14,6 +14,7 @@
 #![forbid(unsafe_code)]
 
 pub mod decide;
+pub mod farm;
 pub mod found;
 pub mod history;
 pub mod needs;

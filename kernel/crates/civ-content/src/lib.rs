@@ -12,7 +12,7 @@
 //!   record, so reformatting a file does not mark every save as "content changed".
 //!
 //! Kinds so far: world-generation presets (M0); the people profile, the land profile, name lists,
-//! activities and goods (M1). Later milestones add technologies, offices and the rest of the
+//! activities, goods and crops (M1). Later milestones add technologies, offices and the rest of the
 //! plan's primitives, each as a new `kind`.
 
 #![forbid(unsafe_code)]
@@ -28,6 +28,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 mod activity;
+mod crop;
 mod good;
 mod land;
 mod names;
@@ -62,7 +63,7 @@ pub enum Severity {
 /// | E2003 | An id's kind segment does not match the file's `kind` |
 /// | E2004 | The file's path does not match its id (`<kind>/<name>.toml`) |
 /// | E2005 | Two definitions share an id |
-/// | E2006 | A reference names something that is not defined (a name list, a land resource, a good) |
+/// | E2006 | A reference names something that is not defined (a name list, a land resource, a good, a crop) |
 /// | E3001 | A value is out of its allowed range |
 /// | E3002 | The `kind` is unknown, or missing |
 /// | E3003 | Not exactly one world-generation preset is marked `default = true` |
@@ -172,7 +173,7 @@ pub struct ContentRegistry {
     pub people: PeopleProfile,
     /// The land profile.
     pub land: LandProfile,
-    /// Activities and goods, each in id order, with references resolved.
+    /// Activities, goods and crops, each in id order, with references resolved.
     pub catalog: Catalog,
     /// BLAKE3 of the effective content (see the crate docs).
     pub fingerprint: [u8; 32],
@@ -218,7 +219,7 @@ impl LoadReport {
 
     /// The report as JSON: `{ "ok": bool, "fingerprint": hex|null, "packs": [...], "presets":
     /// [ids], "people": id|null, "land": id|null, "activities": [ids], "goods": [ids],
-    /// "diagnostics": [...] }`.
+    /// "crops": [ids], "diagnostics": [...] }`.
     pub fn to_json(&self) -> String {
         let r = self.registry.as_ref();
         let json = serde_json::json!({
@@ -235,6 +236,9 @@ impl LoadReport {
                 .unwrap_or_default(),
             "goods": r
                 .map(|r| r.catalog.goods.iter().map(|g| g.id.clone()).collect::<Vec<_>>())
+                .unwrap_or_default(),
+            "crops": r
+                .map(|r| r.catalog.crops.iter().map(|c| c.id.clone()).collect::<Vec<_>>())
                 .unwrap_or_default(),
             "diagnostics": self.diagnostics,
         });
@@ -379,6 +383,7 @@ struct Parsed {
     names: Vec<Def<names::NamesFile>>,
     activities: Vec<Def<activity::ActivityFile>>,
     goods: Vec<Def<good::GoodFile>>,
+    crops: Vec<Def<crop::CropFile>>,
     /// Files declaring `kind = "people"`, parsed or not (so a broken profile is not also
     /// reported as a missing one).
     people_files: usize,
@@ -604,11 +609,25 @@ fn resolve(
         }
         _ => None,
     };
+    let mut crops = Vec::new();
+    for d in &parsed.crops {
+        for (field, id) in [("good", &d.file.good), ("seed_good", &d.file.seed_good)] {
+            if good_index(id).is_none() {
+                missing(c, parsed, &d.rel, field, id);
+            }
+        }
+        crops.extend(d.file.params(&good_index));
+    }
+    crops.sort_by(|a, b| a.id.cmp(&b.id));
     let people = match parsed.people.as_slice() {
         [d] => {
             let names = parsed.names.iter().find(|n| n.file.id == d.file.names);
             if names.is_none() {
                 missing(c, parsed, &d.rel, "names", &d.file.names);
+            }
+            let crop = crops.iter().position(|x| x.id == d.file.farm.crop);
+            if crop.is_none() {
+                missing(c, parsed, &d.rel, "farm.crop", &d.file.farm.crop);
             }
             let provisions = &d.file.band.provisions_good;
             let good = good_index(provisions);
@@ -622,14 +641,16 @@ fn resolve(
                 ),
                 Some(_) => {}
             }
-            match (names, good) {
-                (Some(n), Some(g)) if goods[g].purpose == GoodUse::Food => Some(PeopleProfile {
-                    id: d.file.id.clone(),
-                    pack: d.pack.clone(),
-                    name: d.file.name.clone(),
-                    description: d.file.description.clone(),
-                    params: d.file.params(n.file.params(), g),
-                }),
+            match (names, good, crop) {
+                (Some(n), Some(g), Some(crop)) if goods[g].purpose == GoodUse::Food => {
+                    Some(PeopleProfile {
+                        id: d.file.id.clone(),
+                        pack: d.pack.clone(),
+                        name: d.file.name.clone(),
+                        description: d.file.description.clone(),
+                        params: d.file.params(n.file.params(), g, crop),
+                    })
+                }
                 _ => None,
             }
         }
@@ -662,7 +683,15 @@ fn resolve(
         activities.extend(d.file.def(resource));
     }
     activities.sort_by(|a, b| a.id.cmp(&b.id));
-    (people, land, Catalog { activities, goods })
+    (
+        people,
+        land,
+        Catalog {
+            activities,
+            goods,
+            crops,
+        },
+    )
 }
 
 /// `(id, parsed TOML)` of every definition other than presets, for the semantic fingerprint.
@@ -675,6 +704,7 @@ fn parsed_tables(parsed: &Parsed) -> Vec<(&str, &toml::Table)> {
     all.extend(tables(&parsed.names, |f| &f.id));
     all.extend(tables(&parsed.activities, |f| &f.id));
     all.extend(tables(&parsed.goods, |f| &f.id));
+    all.extend(tables(&parsed.crops, |f| &f.id));
     all
 }
 
@@ -744,13 +774,14 @@ fn range_problems(c: &mut Collector, rel: &str, problems: Vec<String>) {
     }
 }
 
-const KINDS: [&str; 6] = [
+const KINDS: [&str; 7] = [
     worldgen::KIND,
     people::KIND,
     land::KIND,
     names::KIND,
     activity::KIND,
     good::KIND,
+    crop::KIND,
 ];
 
 fn compile_file(
@@ -852,6 +883,16 @@ fn compile_file(
             if check_identity(c, pack, rel, &file.id, good::ID_KIND, seen_ids) {
                 range_problems(c, rel, file.problems());
                 parsed.goods.push(def(rel, pack, file, table));
+            }
+        }
+        crop::KIND => {
+            let Some(file) = parse::<crop::CropFile>(c, rel, source) else {
+                return;
+            };
+            debug_assert_eq!(file.kind, crop::KIND, "dispatched on kind");
+            if check_identity(c, pack, rel, &file.id, crop::ID_KIND, seen_ids) {
+                range_problems(c, rel, file.problems());
+                parsed.crops.push(def(rel, pack, file, table));
             }
         }
         "" => c.push(

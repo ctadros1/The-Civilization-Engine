@@ -1,6 +1,7 @@
 //! Authored parameters of people and their activities. Filled by `civ-content`; nothing here has
 //! a default, so every number is visible in a content file with its source.
 
+use civ_land::{CropParams, FieldTask};
 use civ_world::nav::NavParams;
 
 /// What an authored activity does: the verb the engine knows how to carry out.
@@ -20,11 +21,15 @@ pub enum Behavior {
     Rest,
     /// Children's play near home.
     Play,
+    /// Work a household field: the activity names the task (prepare, sow, tend, reap, thresh).
+    Farm,
+    /// Ask a household of the settlement that can spare food for some, when short.
+    Ask,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 7] = [
+    pub const ALL: [Behavior; 9] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -32,6 +37,8 @@ impl Behavior {
         Behavior::Socialize,
         Behavior::Rest,
         Behavior::Play,
+        Behavior::Farm,
+        Behavior::Ask,
     ];
 
     /// The authored name of a behavior.
@@ -44,6 +51,8 @@ impl Behavior {
             Behavior::Socialize => "socialize",
             Behavior::Rest => "rest",
             Behavior::Play => "play",
+            Behavior::Farm => "farm",
+            Behavior::Ask => "ask",
         }
     }
 
@@ -66,6 +75,8 @@ pub struct ActivityDef {
     pub behavior: Behavior,
     /// For gathering: the land resource, by index in the land parameters.
     pub resource: Option<usize>,
+    /// For farming: the field task.
+    pub task: Option<FieldTask>,
     /// Physical activity ratio of the work (energy use as a multiple of basal metabolism).
     pub par: f64,
     /// Youngest age that does it, years.
@@ -125,15 +136,19 @@ pub struct GoodDef {
     pub cooked: bool,
     /// When brought home it is shared among every household of the settlement.
     pub shared: bool,
+    /// Kept back (seed grain): eaten only when no other food is left.
+    pub reserve: bool,
 }
 
-/// The authored activities and goods.
+/// The authored activities, goods and crops.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Catalog {
     /// Activities, in content id order. Their index is how people and saves refer to them.
     pub activities: Vec<ActivityDef>,
     /// Goods, in content id order. Their index is how stores refer to them.
     pub goods: Vec<GoodDef>,
+    /// Crops, in content id order. Their index is how fields refer to them.
+    pub crops: Vec<CropParams>,
 }
 
 impl Catalog {
@@ -145,6 +160,11 @@ impl Catalog {
     /// The good with this content id.
     pub fn good_index(&self, id: &str) -> Option<usize> {
         self.goods.iter().position(|g| g.id == id)
+    }
+
+    /// The crop with this content id.
+    pub fn crop_index(&self, id: &str) -> Option<usize> {
+        self.crops.iter().position(|c| c.id == id)
     }
 }
 
@@ -175,6 +195,9 @@ pub struct EnergyParams {
     /// Energy the body can draw on in a shortage, kcal per kilogram of body mass: the floor of
     /// the energy balance.
     pub reserve_kcal_per_kg: f64,
+    /// Food kept back (seed) is eaten only once a person has drawn this share of that reserve:
+    /// people go hungry for days before they eat next year's sowing.
+    pub eat_reserve_at_deficit: f64,
     /// Minutes a meal takes.
     pub meal_minutes: u32,
 }
@@ -251,6 +274,9 @@ pub struct DecisionParams {
     pub min_temperature: f64,
     /// Points per unit of hunger.
     pub w_hunger: f64,
+    /// Hunger beyond this adds nothing to the drive to find food: someone long hungry is not
+    /// ever more driven, only weaker (a saturating response curve).
+    pub max_hunger_drive: f64,
     /// Points per unit of sleep drive.
     pub w_sleep: f64,
     /// Points per unit of loneliness in the evening.
@@ -261,6 +287,11 @@ pub struct DecisionParams {
     pub w_work: f64,
     /// Points per unit of firewood shortage times the worth of a trip.
     pub w_fuel: f64,
+    /// Points per unit of the worth of field work: food for the year ahead.
+    pub w_farm: f64,
+    /// Points per unit of urgency: field work left over the work the household can still do
+    /// before the season closes.
+    pub w_deadline: f64,
     /// Days of household food a gathering trip must bring to be worth half as much as a very
     /// large haul.
     pub trip_half_worth_days: f64,
@@ -297,6 +328,8 @@ pub struct BandParams {
     pub provisions_days: f64,
     /// The good they carry it as, by index in the catalog's goods.
     pub provisions_good: usize,
+    /// Seed each person brings, kilograms of the crop's seed good.
+    pub seed_kg_per_person: f64,
     /// Chance that a family brings an elder.
     pub elder_chance: f64,
     /// Chance that a family brings an unmarried young adult.
@@ -308,6 +341,9 @@ pub struct BandParams {
     /// Points per natural-log unit of the wild food around a site, measured in years of the
     /// band's needs.
     pub site_w_food: f64,
+    /// Points per natural-log unit of the arable land within a field walk of a site, measured
+    /// in the area the band means to crop (`farm.max_walk_minutes` of off-trail walking).
+    pub site_w_arable: f64,
     /// Points lost per 100 m from fresh water.
     pub site_w_water_per_100m: f64,
     /// Points lost per percent of slope.
@@ -317,6 +353,28 @@ pub struct BandParams {
     pub site_w_flood: f64,
     /// Height above the nearest stream below which a site floods, metres.
     pub site_flood_hand_m: f64,
+}
+
+/// How households farm: the crop they know, how much of their food they plan to grow, and where
+/// their fields go (research 08-02 §10, 10-01 §2.3).
+#[derive(Clone, Debug, PartialEq)]
+pub struct FarmParams {
+    /// The crop, by index in the catalog's crops.
+    pub crop: usize,
+    /// Share of a year's food a household plans to grow.
+    pub grain_share: f64,
+    /// Share of the crop's yield a household counts on when planning (a cautious harvest).
+    pub plan_yield_share: f64,
+    /// Days of grain a household aims to hold: beyond this a harvest is worth less.
+    pub grain_target_days: f64,
+    /// Hours of field work a capable adult gives a day, for planning what can be done in time.
+    pub work_hours_per_day: f64,
+    /// Side of a new field, metres.
+    pub field_m: f64,
+    /// Longest walk to a field, minutes.
+    pub max_walk_minutes: f64,
+    /// Sites sampled when marking out a new field.
+    pub site_candidates: u32,
 }
 
 /// Siler mortality hazard per year at age `x` years: `A·e^(−Bx) + C + D·e^(Ex)`
@@ -387,6 +445,8 @@ pub struct PeopleParams {
     pub decision: DecisionParams,
     /// Founding bands.
     pub band: BandParams,
+    /// Farming.
+    pub farm: FarmParams,
     /// Mortality (used for founding ages in M1's first slice; hazards follow).
     pub mortality: Siler,
     /// Names.

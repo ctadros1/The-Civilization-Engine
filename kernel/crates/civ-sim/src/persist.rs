@@ -11,13 +11,13 @@
 //! | `content` | 1 | fingerprint and packs of the content the state was produced with |
 //! | `hydro` | 1 | lakes, river reaches, inflows from beyond the map |
 //! | `r-elev`, `r-recv`, `r-water`, `r-lake` | one per 512² tile | the authoritative rasters |
-//! | `land`, `settle`, `people`, `houses`, `history`, `receipts`, `events` | 1 each | land and people (see [`agents`]) |
+//! | `land`, `settle`, `people`, `houses`, `history`, `receipts`, `events`, `fields` | 1 each | land and people (see [`agents`]) |
 //!
 //! The world id, the snapshot's own id and its parent live in the container header. Drainage area,
 //! the walking grid and the people's indexes are derived and rebuilt on load.
 //!
 //! **Schema versions.** Version 2 (M1) added the land and people sections; version 3 replaced
-//! food counted in kilocalories with goods. A version-1 save (M0) is migrated as it loads: its
+//! food counted in kilocalories with goods; version 4 added fields. A version-1 save (M0) is migrated as it loads: its
 //! land is classified and grown from the loaded content, exactly as for a new world, and it has no
 //! people yet, which is a valid world (ADR-0003 §4). A version-2 save is migrated as
 //! [`agents`] describes. A migrated world is written at the current version the next time it is
@@ -53,6 +53,8 @@ pub mod agents;
 pub const SCHEMA_V1: u32 = 1;
 /// The schema version of M1 slice A saves, which count food in kilocalories (see [`agents`]).
 pub const SCHEMA_V2: u32 = 2;
+/// The schema version of M1 slice B saves, which have goods but no fields (see [`agents`]).
+pub const SCHEMA_V3: u32 = 3;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

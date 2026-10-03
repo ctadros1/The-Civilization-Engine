@@ -1,0 +1,12 @@
+# Grain kept for sowing. It is kept apart from food and eaten only when nothing else is left
+# (research 08-01 §1.5 and 08-02 §10: protect a viable seed reserve first). Same grain, same
+# keeping, as `grain`.
+kind = "good"
+id = "core:good/seed_grain"
+name = "Seed grain"
+purpose = "food"
+kcal_per_kg = 3340.0
+half_life_days = 1560.0
+cooked = true
+shared = false
+reserve = true

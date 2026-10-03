@@ -415,6 +415,10 @@ impl Engine {
                     Reply::Response(frames::people::chronicle_response(&w.sim, after_seq, limit))
                 }
             },
+            Request::GetFields => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::fields::fields_response(&w.sim)),
+            },
             Request::ListSaves => {
                 match session::list_saves(&self.config.saves_root, &self.config.content) {
                     Ok(entries) => Reply::Response(protocol::save_list_response(&entries)),

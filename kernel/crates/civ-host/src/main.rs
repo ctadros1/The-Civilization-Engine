@@ -97,6 +97,9 @@ struct NewArgs {
     /// World name.
     #[arg(long, default_value = "")]
     name: String,
+    /// Days the founding band lives before the world is saved.
+    #[arg(long, default_value_t = 0)]
+    days: u32,
 }
 
 #[derive(Subcommand)]
@@ -303,6 +306,7 @@ fn new(args: NewArgs) -> anyhow::Result<ExitCode> {
             preset: args.preset,
             size: args.size,
             name: args.name,
+            days: args.days,
         },
     )?;
     Ok(ExitCode::SUCCESS)

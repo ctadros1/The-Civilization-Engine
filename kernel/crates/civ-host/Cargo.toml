@@ -19,6 +19,7 @@ axum = { workspace = true }
 civ-agents = { workspace = true }
 civ-content = { workspace = true }
 civ-core = { workspace = true }
+civ-land = { workspace = true }
 civ-schema = { workspace = true }
 civ-sim = { workspace = true }
 civ-world = { workspace = true }

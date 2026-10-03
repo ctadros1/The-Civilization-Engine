@@ -38,6 +38,10 @@ max_surplus_kcal = 2000.0
 # research gives famine thresholds as BMI, not as a store of energy). With it, a deficit grows
 # hunger but has a floor.
 reserve_kcal_per_kg = 1000.0
+# Seed is eaten only once a person has drawn this share of that reserve (a tuning value; research
+# 08-02 §2.3: households can eat seed in a crisis, at the cost of the next sowing), and never the
+# seed to sow again the ground a household already crops (§10: protect a minimum viable reserve).
+eat_reserve_at_deficit = 0.25
 meal_minutes = 25
 
 [sleep]                          # two-process model (research 04-02 §2.2)
@@ -77,11 +81,16 @@ daily_kcal_per_person = 2100.0   # band average (research 05-02 §2.2)
 temperature_sd_fraction = 0.35
 min_temperature = 0.4
 w_hunger = 10.0
+# Hunger counts toward choices up to full hunger and a day and a half of deficit; beyond it people
+# are not more driven, only weaker, and a starving household still sows (a tuning value).
+max_hunger_drive = 2.0
 w_sleep = 14.0
 w_social = 5.0
 w_food = 10.0
 w_work = 2.5
 w_fuel = 6.0
+w_farm = 8.0                     # field work is worth the food it brings for the year ahead
+w_deadline = 6.0                 # per unit of work left over the work that can still be done in time
 trip_half_worth_days = 0.25      # a trip bringing a quarter of a household-day of food is worth half
 w_water = 8.0
 w_walk_hour = 2.0
@@ -97,20 +106,37 @@ max_size = 50
 min_families = 6
 camp_candidates = 48
 site_radius_m = 2000.0
-# Food carried in: until the first dependable harvest plus one to three months (research 10-01
-# §2.3; 05-06 §5.4 tests 6-12 months for crop-dependent founding). Arriving in March, the first
-# harvest comes in late summer.
-provisions_days = 240.0
+# Food carried in: until dependable production plus one to three months (research 10-01 §2.3;
+# 05-06 §5.4 tests 6-12 months for crop-dependent founding). Arriving in March, a band can break
+# only so much ground in its first spring, so its first harvest feeds it for about half a year;
+# production it can depend on comes with the second. A year of food covers the gap.
+provisions_days = 365.0
 provisions_good = "core:good/provisions"
+# Seed carried in: about a quarter hectare's worth a person at 90 kg/ha, roughly what a band can
+# break and sow in its first spring (a tuning value).
+seed_kg_per_person = 22.0
 elder_chance = 0.3
 young_adult_chance = 0.35
 birth_spacing_months = 36.0      # research 05-01 §2.2: intervals 28-48 months
 site_max_slope = 0.06
 site_w_food = 3.0
+# Farmers choose a livelihood catchment before a camp (research 10-01 §1.1): land they can crop
+# within a field walk, against the area they mean to crop (a tuning value).
+site_w_arable = 3.0
 site_w_water_per_100m = 1.0
 site_w_slope_per_pct = 0.5
 site_w_flood = 3.0
 site_flood_hand_m = 1.5
+
+[farm]                           # research 08-02 §10 and 10-01 §2.3: keep seed, plan on a poor year
+crop = "core:crop/emmer"
+grain_share = 1.0                # share of a year's food a household plans to grow (tuning; gathering adds to it)
+plan_yield_share = 0.8           # plan on a cautious harvest: the 10th-30th percentile (10-01 §2.3)
+grain_target_days = 400.0        # grain held at which a harvest is worth half as much: a year plus a margin (10-01 §2.3)
+work_hours_per_day = 6.0         # field work a capable adult gives a day: 6 h ordinary, 10 h at a peak (04-02 §2.4)
+field_m = 50.0                   # a new field is 50 m square, 0.25 ha (03-04 §5.1: soil patches 0.25-1 ha)
+max_walk_minutes = 30.0          # the farthest walk to a field (10-01 §2.3: 15-60 minutes one way)
+site_candidates = 24             # places looked at when marking out a new field
 
 [mortality]                      # Siler hazard, Hadza fit (research 05-01 §1.2): 1q0 216, e0 34
 a = 0.351

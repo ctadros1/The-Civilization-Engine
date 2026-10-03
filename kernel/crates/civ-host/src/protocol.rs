@@ -72,6 +72,8 @@ pub enum Request {
         /// Most entries to return.
         limit: u32,
     },
+    /// Read every field.
+    GetFields,
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -278,6 +280,7 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         limit: b.limit(),
                     })
                 }
+                wire::QueryBody::GetFields => Ok(Request::GetFields),
                 other => Err(format!("unknown query {}", other.0)),
             }
         }
@@ -351,6 +354,25 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
         })
         .collect();
     let goods = fbb.create_vector(&goods);
+    let crops: Vec<_> = content
+        .catalog
+        .crops
+        .iter()
+        .map(|c| {
+            let id = fbb.create_string(&c.id);
+            let name = fbb.create_string(&c.name);
+            wire::CropInfo::create(
+                &mut fbb,
+                &wire::CropInfoArgs {
+                    id: Some(id),
+                    name: Some(name),
+                    good: c.good as u16,
+                    seed_good: c.seed_good as u16,
+                },
+            )
+        })
+        .collect();
+    let crops = fbb.create_vector(&crops);
     let reasons: Vec<_> = civ_agents::Reason::ALL
         .iter()
         .map(|r| {
@@ -389,6 +411,7 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
             band_size_max: band.max_size,
             band_size_default: band.default_size,
             goods: Some(goods),
+            crops: Some(crops),
         },
     );
     finish(fbb, root)
@@ -423,6 +446,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
         .sim
         .map(|sim| civ_sim::frames::people::settlement_briefs(&mut fbb, sim));
     let chronicle_head = parts.sim.map_or(0, civ_sim::frames::people::chronicle_head);
+    let fields_rev = parts.sim.map_or(0, civ_sim::frames::fields::fields_rev);
     let task = parts.task.map(|t| {
         let name = fbb.create_string(&t.name);
         let stage = fbb.create_string(&t.stage);
@@ -465,6 +489,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
             people,
             settlements,
             chronicle_head,
+            fields_rev,
         },
     );
     finish(fbb, root)

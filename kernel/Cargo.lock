@@ -258,6 +258,7 @@ dependencies = [
  "civ-agents",
  "civ-content",
  "civ-core",
+ "civ-land",
  "civ-schema",
  "civ-sim",
  "civ-world",

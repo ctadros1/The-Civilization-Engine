@@ -10,12 +10,12 @@ use civ_core::{PermanentId, Rng64, SimTime};
 use civ_world::nav::TravelField;
 use civ_world::{WATER_LAKE, WATER_LAND, WATER_RIVER, terrain};
 
-use crate::decide;
 use crate::history::{ChronicleKind, Origin, PersonRecord};
 use crate::needs::Sex;
 use crate::params::{GoodUse, PeopleParams};
 use crate::person::{Activity, Household, Load, Person, Target, Traits};
 use crate::population::{Ctx, Population, cell_centre, cell_of};
+use crate::{decide, farm};
 
 /// Purpose tag for founding draws.
 pub const PURPOSE_BAND: u64 = 0x6261_6e64_3030_3031; // "band0001"
@@ -279,6 +279,27 @@ fn choose_site(ctx: &Ctx, params: &PeopleParams, d: &mut Draws, size: u32) -> Op
                 .then_some((r, res.unit_kg * good.kcal_per_kg))
         })
         .collect();
+    // Land that can be cropped within a field walk, against the area the band means to crop
+    // (research 10-01 §1.1: farmers choose a livelihood catchment before a residential core).
+    // Ground that must first be cleared counts for less, by the work of breaking it.
+    let crop = ctx.catalog.crops.get(params.farm.crop);
+    let need_ha = crop.map_or(0.0, |c| {
+        let kcal = ctx.catalog.goods.get(c.good).map_or(0.0, |g| g.kcal_per_kg);
+        farm::need_area_ha(size as usize, params, c, kcal)
+    });
+    let break_h = crop.map_or(1.0, |c| c.break_h_per_ha);
+    let field_reach_m = (params.nav.tobler_ms(0.0)
+        * params.nav.offtrail_factor
+        * params.farm.max_walk_minutes
+        * 60.0) as f32;
+    let arable: Vec<f64> = patches
+        .class
+        .iter()
+        .map(|&c| match ctx.land_params.habitats.get(usize::from(c)) {
+            Some(h) if h.arable => break_h / (break_h + h.clear_h_per_ha).max(1e-6),
+            _ => 0.0,
+        })
+        .collect();
     let mut sites = Vec::new();
     let mut attempts = 0u32;
     while sites.len() < band.camp_candidates as usize && attempts < 50 * band.camp_candidates {
@@ -294,9 +315,15 @@ fn choose_site(ctx: &Ctx, params: &PeopleParams, d: &mut Draws, size: u32) -> Op
         // Wild food within the radius: what a person-hour of work would bring in each patch, in
         // kcal, summed over the food resources.
         let mut food = 0.0;
-        for p in 0..patches.len() {
+        let mut arable_ha = 0.0;
+        for (p, &cropland) in arable.iter().enumerate() {
             let c = patches.centre_m(p);
-            if (c.0 - at.0).hypot(c.1 - at.1) > radius {
+            let distance = (c.0 - at.0).hypot(c.1 - at.1);
+            if distance <= field_reach_m && cropland > 0.0 {
+                let dry = 1.0 - f64::from(patches.water.get(p).copied().unwrap_or(0.0));
+                arable_ha += patches.area_ha() * dry * cropland;
+            }
+            if distance > radius {
                 continue;
             }
             for &(r, kcal_per_unit) in &food_resources {
@@ -328,6 +355,9 @@ fn choose_site(ctx: &Ctx, params: &PeopleParams, d: &mut Draws, size: u32) -> Op
         let mut score = band.site_w_food * (1.0 + food_years).ln()
             - band.site_w_water_per_100m * water_m / 100.0
             - band.site_w_slope_per_pct * f64::from(slopes[cell]) * 100.0;
+        if need_ha > 0.0 {
+            score += band.site_w_arable * (1.0 + arable_ha / need_ha).ln();
+        }
         if f64::from(hand[cell]) < band.site_flood_hand_m {
             score -= band.site_w_flood;
         }
@@ -369,6 +399,7 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
         founded: now,
         hearth_m: hearth,
         food_short: false,
+        harvest_kg: 0.0,
     });
 
     let families = plan_band(params, &mut d, size);
@@ -399,6 +430,15 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
             stores[params.band.provisions_good] =
                 members * params.household.daily_kcal_per_person * params.band.provisions_days
                     / good.kcal_per_kg;
+        }
+        // And seed for the crop they know.
+        if let Some(seed) = ctx
+            .catalog
+            .crops
+            .get(params.farm.crop)
+            .and_then(|c| stores.get_mut(c.seed_good))
+        {
+            *seed += members * params.band.seed_kg_per_person;
         }
         pop.insert_household(Household {
             id: hh_id,
@@ -533,8 +573,8 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
 mod tests {
     use super::*;
     use crate::params::{
-        BandParams, DecisionParams, EnergyParams, HouseholdParams, NameParams, Siler, SleepParams,
-        SocialParams,
+        BandParams, DecisionParams, EnergyParams, FarmParams, HouseholdParams, NameParams, Siler,
+        SleepParams, SocialParams,
     };
     use civ_world::nav::NavParams;
 
@@ -564,6 +604,7 @@ mod tests {
                 deficit_unit_kcal: 3000.0,
                 max_surplus_kcal: 2000.0,
                 reserve_kcal_per_kg: 1000.0,
+                eat_reserve_at_deficit: 0.25,
                 meal_minutes: 25,
             },
             sleep: SleepParams {
@@ -598,11 +639,14 @@ mod tests {
                 temperature_sd_fraction: 0.35,
                 min_temperature: 0.4,
                 w_hunger: 10.0,
+                max_hunger_drive: 2.0,
                 w_sleep: 14.0,
                 w_social: 5.0,
                 w_food: 10.0,
                 w_work: 2.5,
                 w_fuel: 6.0,
+                w_farm: 8.0,
+                w_deadline: 6.0,
                 trip_half_worth_days: 0.25,
                 w_water: 8.0,
                 w_walk_hour: 2.0,
@@ -620,11 +664,13 @@ mod tests {
                 site_radius_m: 2000.0,
                 provisions_days: 30.0,
                 provisions_good: 0,
+                seed_kg_per_person: 22.0,
                 elder_chance: 0.3,
                 young_adult_chance: 0.35,
                 birth_spacing_months: 36.0,
                 site_max_slope: 0.06,
                 site_w_food: 3.0,
+                site_w_arable: 3.0,
                 site_w_water_per_100m: 1.0,
                 site_w_slope_per_pct: 0.5,
                 site_w_flood: 3.0,
@@ -638,6 +684,16 @@ mod tests {
                 e: 0.125,
             },
             names: NameParams::default(),
+            farm: FarmParams {
+                crop: 0,
+                grain_share: 0.75,
+                plan_yield_share: 0.8,
+                grain_target_days: 400.0,
+                work_hours_per_day: 6.0,
+                field_m: 50.0,
+                max_walk_minutes: 30.0,
+                site_candidates: 24,
+            },
         }
     }
 

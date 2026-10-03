@@ -70,9 +70,11 @@ pub struct NewOptions {
     pub size: u32,
     /// World name.
     pub name: String,
+    /// Days the founding band lives before the world is saved.
+    pub days: u32,
 }
 
-/// `civ-host new`: generates a world, saves it and prints a summary.
+/// `civ-host new`: generates a world, lets it live `days` days, saves it and prints a summary.
 pub fn new_world(
     content: &ContentRegistry,
     saves: &Path,
@@ -102,6 +104,20 @@ pub fn new_world(
         &AtomicBool::new(false),
     )?;
     let generated = started.elapsed();
+    if options.days > 0 {
+        let lived = Instant::now();
+        sim.advance_minutes(i64::from(options.days) * civ_core::time::MINUTES_PER_DAY)?;
+        let fields = &sim.land().fields;
+        let ha: f64 = fields.iter().map(|f| f.area_ha()).sum();
+        println!(
+            "lived {} days in {:.1} s: {} people, {} fields ({ha:.2} ha), {} chronicle entries",
+            options.days,
+            lived.elapsed().as_secs_f64(),
+            sim.people().living(),
+            fields.len(),
+            sim.people().chronicle.len()
+        );
+    }
     let dir = SaveDir::create(
         saves.join(persist::world_dir_name(sim.meta())),
         SAVE_EXTENSION,

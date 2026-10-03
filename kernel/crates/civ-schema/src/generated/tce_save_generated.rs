@@ -197,15 +197,18 @@ impl ::flatbuffers::SimpleToVerifyInSlice for Terminus {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_TARGET_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_TARGET_KIND: u8 = 4;
+pub const ENUM_MAX_TARGET_KIND: u8 = 7;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 5] = [
+pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 8] = [
   TargetKind::None,
   TargetKind::Home,
   TargetKind::Hearth,
   TargetKind::Patch,
   TargetKind::Water,
+  TargetKind::Field,
+  TargetKind::NewField,
+  TargetKind::Household,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -218,15 +221,21 @@ impl TargetKind {
   pub const Hearth: Self = Self(2);
   pub const Patch: Self = Self(3);
   pub const Water: Self = Self(4);
+  pub const Field: Self = Self(5);
+  pub const NewField: Self = Self(6);
+  pub const Household: Self = Self(7);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 4;
+  pub const ENUM_MAX: u8 = 7;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::None,
     Self::Home,
     Self::Hearth,
     Self::Patch,
     Self::Water,
+    Self::Field,
+    Self::NewField,
+    Self::Household,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -236,6 +245,9 @@ impl TargetKind {
       Self::Hearth => Some("Hearth"),
       Self::Patch => Some("Patch"),
       Self::Water => Some("Water"),
+      Self::Field => Some("Field"),
+      Self::NewField => Some("NewField"),
+      Self::Household => Some("Household"),
       _ => None,
     }
   }
@@ -642,6 +654,98 @@ impl<'a> ::flatbuffers::Verifiable for Cause {
 }
 
 impl ::flatbuffers::SimpleToVerifyInSlice for Cause {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_FIELD_STAGE: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_FIELD_STAGE: u8 = 3;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_FIELD_STAGE: [FieldStage; 4] = [
+  FieldStage::Fallow,
+  FieldStage::Prepared,
+  FieldStage::Sown,
+  FieldStage::Reaped,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct FieldStage(pub u8);
+#[allow(non_upper_case_globals)]
+impl FieldStage {
+  pub const Fallow: Self = Self(0);
+  pub const Prepared: Self = Self(1);
+  pub const Sown: Self = Self(2);
+  pub const Reaped: Self = Self(3);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 3;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Fallow,
+    Self::Prepared,
+    Self::Sown,
+    Self::Reaped,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Fallow => Some("Fallow"),
+      Self::Prepared => Some("Prepared"),
+      Self::Sown => Some("Sown"),
+      Self::Reaped => Some("Reaped"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for FieldStage {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for FieldStage {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for FieldStage {
+    type Output = FieldStage;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for FieldStage {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for FieldStage {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_EVENT_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
@@ -3726,6 +3830,7 @@ impl<'a> Settlement<'a> {
   pub const VT_FOUNDED: ::flatbuffers::VOffsetT = 8;
   pub const VT_HEARTH: ::flatbuffers::VOffsetT = 10;
   pub const VT_FOOD_SHORT: ::flatbuffers::VOffsetT = 12;
+  pub const VT_HARVEST_KG: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -3737,6 +3842,7 @@ impl<'a> Settlement<'a> {
     args: &'args SettlementArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Settlement<'bldr>> {
     let mut builder = SettlementBuilder::new(_fbb);
+    builder.add_harvest_kg(args.harvest_kg);
     builder.add_founded(args.founded);
     builder.add_id(args.id);
     if let Some(x) = args.hearth { builder.add_hearth(x); }
@@ -3781,6 +3887,13 @@ impl<'a> Settlement<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(Settlement::VT_FOOD_SHORT, Some(false)).unwrap()}
   }
+  #[inline]
+  pub fn harvest_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(Settlement::VT_HARVEST_KG, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Settlement<'_> {
@@ -3794,6 +3907,7 @@ impl ::flatbuffers::Verifiable for Settlement<'_> {
      .visit_field::<i64>("founded", Self::VT_FOUNDED, false)?
      .visit_field::<Point>("hearth", Self::VT_HEARTH, false)?
      .visit_field::<bool>("food_short", Self::VT_FOOD_SHORT, false)?
+     .visit_field::<f64>("harvest_kg", Self::VT_HARVEST_KG, false)?
      .finish();
     Ok(())
   }
@@ -3804,6 +3918,7 @@ pub struct SettlementArgs<'a> {
     pub founded: i64,
     pub hearth: Option<&'a Point>,
     pub food_short: bool,
+    pub harvest_kg: f64,
 }
 impl<'a> Default for SettlementArgs<'a> {
   #[inline]
@@ -3814,6 +3929,7 @@ impl<'a> Default for SettlementArgs<'a> {
       founded: 0,
       hearth: None,
       food_short: false,
+      harvest_kg: 0.0,
     }
   }
 }
@@ -3844,6 +3960,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SettlementBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<bool>(Settlement::VT_FOOD_SHORT, food_short, false);
   }
   #[inline]
+  pub fn add_harvest_kg(&mut self, harvest_kg: f64) {
+    self.fbb_.push_slot::<f64>(Settlement::VT_HARVEST_KG, harvest_kg, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SettlementBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SettlementBuilder {
@@ -3866,6 +3986,7 @@ impl ::core::fmt::Debug for Settlement<'_> {
       ds.field("founded", &self.founded());
       ds.field("hearth", &self.hearth());
       ds.field("food_short", &self.food_short());
+      ds.field("harvest_kg", &self.harvest_kg());
       ds.finish()
   }
 }
@@ -4120,6 +4241,7 @@ impl<'a> Activity<'a> {
   pub const VT_STEP_STARTED: ::flatbuffers::VOffsetT = 16;
   pub const VT_STEP_ENDS: ::flatbuffers::VOffsetT = 18;
   pub const VT_VERSION: ::flatbuffers::VOffsetT = 20;
+  pub const VT_TARGET_ID: ::flatbuffers::VOffsetT = 22;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4131,6 +4253,7 @@ impl<'a> Activity<'a> {
     args: &'args ActivityArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Activity<'bldr>> {
     let mut builder = ActivityBuilder::new(_fbb);
+    builder.add_target_id(args.target_id);
     builder.add_step_ends(args.step_ends);
     builder.add_step_started(args.step_started);
     builder.add_started(args.started);
@@ -4207,6 +4330,13 @@ impl<'a> Activity<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(Activity::VT_VERSION, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn target_id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Activity::VT_TARGET_ID, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Activity<'_> {
@@ -4224,6 +4354,7 @@ impl ::flatbuffers::Verifiable for Activity<'_> {
      .visit_field::<i64>("step_started", Self::VT_STEP_STARTED, false)?
      .visit_field::<i64>("step_ends", Self::VT_STEP_ENDS, false)?
      .visit_field::<u32>("version", Self::VT_VERSION, false)?
+     .visit_field::<u64>("target_id", Self::VT_TARGET_ID, false)?
      .finish();
     Ok(())
   }
@@ -4238,6 +4369,7 @@ pub struct ActivityArgs<'a> {
     pub step_started: i64,
     pub step_ends: i64,
     pub version: u32,
+    pub target_id: u64,
 }
 impl<'a> Default for ActivityArgs<'a> {
   #[inline]
@@ -4252,6 +4384,7 @@ impl<'a> Default for ActivityArgs<'a> {
       step_started: 0,
       step_ends: 0,
       version: 0,
+      target_id: 0,
     }
   }
 }
@@ -4298,6 +4431,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ActivityBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u32>(Activity::VT_VERSION, version, 0);
   }
   #[inline]
+  pub fn add_target_id(&mut self, target_id: u64) {
+    self.fbb_.push_slot::<u64>(Activity::VT_TARGET_ID, target_id, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ActivityBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ActivityBuilder {
@@ -4324,6 +4461,7 @@ impl ::core::fmt::Debug for Activity<'_> {
       ds.field("step_started", &self.step_started());
       ds.field("step_ends", &self.step_ends());
       ds.field("version", &self.version());
+      ds.field("target_id", &self.target_id());
       ds.finish()
   }
 }
@@ -6136,6 +6274,7 @@ impl<'a> Scored<'a> {
   pub const VT_TARGET_INDEX: ::flatbuffers::VOffsetT = 8;
   pub const VT_TOTAL: ::flatbuffers::VOffsetT = 10;
   pub const VT_TERMS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_TARGET_ID: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6147,6 +6286,7 @@ impl<'a> Scored<'a> {
     args: &'args ScoredArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Scored<'bldr>> {
     let mut builder = ScoredBuilder::new(_fbb);
+    builder.add_target_id(args.target_id);
     if let Some(x) = args.terms { builder.add_terms(x); }
     builder.add_total(args.total);
     builder.add_target_index(args.target_index);
@@ -6191,6 +6331,13 @@ impl<'a> Scored<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, Term>>>(Scored::VT_TERMS, None)}
   }
+  #[inline]
+  pub fn target_id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Scored::VT_TARGET_ID, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Scored<'_> {
@@ -6204,6 +6351,7 @@ impl ::flatbuffers::Verifiable for Scored<'_> {
      .visit_field::<u32>("target_index", Self::VT_TARGET_INDEX, false)?
      .visit_field::<f32>("total", Self::VT_TOTAL, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, Term>>>("terms", Self::VT_TERMS, false)?
+     .visit_field::<u64>("target_id", Self::VT_TARGET_ID, false)?
      .finish();
     Ok(())
   }
@@ -6214,6 +6362,7 @@ pub struct ScoredArgs<'a> {
     pub target_index: u32,
     pub total: f32,
     pub terms: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, Term>>>,
+    pub target_id: u64,
 }
 impl<'a> Default for ScoredArgs<'a> {
   #[inline]
@@ -6224,6 +6373,7 @@ impl<'a> Default for ScoredArgs<'a> {
       target_index: 0,
       total: 0.0,
       terms: None,
+      target_id: 0,
     }
   }
 }
@@ -6254,6 +6404,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ScoredBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Scored::VT_TERMS, terms);
   }
   #[inline]
+  pub fn add_target_id(&mut self, target_id: u64) {
+    self.fbb_.push_slot::<u64>(Scored::VT_TARGET_ID, target_id, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ScoredBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ScoredBuilder {
@@ -6276,6 +6430,7 @@ impl ::core::fmt::Debug for Scored<'_> {
       ds.field("target_index", &self.target_index());
       ds.field("total", &self.total());
       ds.field("terms", &self.terms());
+      ds.field("target_id", &self.target_id());
       ds.finish()
   }
 }
@@ -6717,6 +6872,487 @@ impl ::core::fmt::Debug for Receipts<'_> {
     let mut ds = f.debug_struct("Receipts");
       ds.field("activities", &self.activities());
       ds.field("people", &self.people());
+      ds.finish()
+  }
+}
+pub enum FieldOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Field<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Field<'a> {
+  type Inner = Field<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Field<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 6;
+  pub const VT_X_CM: ::flatbuffers::VOffsetT = 8;
+  pub const VT_Y_CM: ::flatbuffers::VOffsetT = 10;
+  pub const VT_W_CM: ::flatbuffers::VOffsetT = 12;
+  pub const VT_H_CM: ::flatbuffers::VOffsetT = 14;
+  pub const VT_CROP: ::flatbuffers::VOffsetT = 16;
+  pub const VT_STAGE: ::flatbuffers::VOffsetT = 18;
+  pub const VT_STAGE_SINCE: ::flatbuffers::VOffsetT = 20;
+  pub const VT_WORK_H: ::flatbuffers::VOffsetT = 22;
+  pub const VT_TENDED_H: ::flatbuffers::VOffsetT = 24;
+  pub const VT_GROUND: ::flatbuffers::VOffsetT = 26;
+  pub const VT_SOWN_DAY: ::flatbuffers::VOffsetT = 28;
+  pub const VT_SHEAVES_KG: ::flatbuffers::VOffsetT = 30;
+  pub const VT_HARVESTS: ::flatbuffers::VOffsetT = 32;
+  pub const VT_CLEAR_H_PER_HA: ::flatbuffers::VOffsetT = 34;
+  pub const VT_BROKEN: ::flatbuffers::VOffsetT = 36;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Field { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args FieldArgs
+  ) -> ::flatbuffers::WIPOffset<Field<'bldr>> {
+    let mut builder = FieldBuilder::new(_fbb);
+    builder.add_sown_day(args.sown_day);
+    builder.add_stage_since(args.stage_since);
+    builder.add_household(args.household);
+    builder.add_id(args.id);
+    builder.add_clear_h_per_ha(args.clear_h_per_ha);
+    builder.add_sheaves_kg(args.sheaves_kg);
+    builder.add_ground(args.ground);
+    builder.add_tended_h(args.tended_h);
+    builder.add_work_h(args.work_h);
+    builder.add_h_cm(args.h_cm);
+    builder.add_w_cm(args.w_cm);
+    builder.add_y_cm(args.y_cm);
+    builder.add_x_cm(args.x_cm);
+    builder.add_harvests(args.harvests);
+    builder.add_crop(args.crop);
+    builder.add_broken(args.broken);
+    builder.add_stage(args.stage);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Field::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Field::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn x_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(Field::VT_X_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn y_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(Field::VT_Y_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn w_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(Field::VT_W_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn h_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(Field::VT_H_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn crop(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(Field::VT_CROP, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn stage(&self) -> FieldStage {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<FieldStage>(Field::VT_STAGE, Some(FieldStage::Fallow)).unwrap()}
+  }
+  #[inline]
+  pub fn stage_since(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Field::VT_STAGE_SINCE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn work_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Field::VT_WORK_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn tended_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Field::VT_TENDED_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn ground(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Field::VT_GROUND, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn sown_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Field::VT_SOWN_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn sheaves_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Field::VT_SHEAVES_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn harvests(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(Field::VT_HARVESTS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn clear_h_per_ha(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Field::VT_CLEAR_H_PER_HA, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn broken(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(Field::VT_BROKEN, Some(false)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Field<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<i32>("x_cm", Self::VT_X_CM, false)?
+     .visit_field::<i32>("y_cm", Self::VT_Y_CM, false)?
+     .visit_field::<i32>("w_cm", Self::VT_W_CM, false)?
+     .visit_field::<i32>("h_cm", Self::VT_H_CM, false)?
+     .visit_field::<u16>("crop", Self::VT_CROP, false)?
+     .visit_field::<FieldStage>("stage", Self::VT_STAGE, false)?
+     .visit_field::<i64>("stage_since", Self::VT_STAGE_SINCE, false)?
+     .visit_field::<f32>("work_h", Self::VT_WORK_H, false)?
+     .visit_field::<f32>("tended_h", Self::VT_TENDED_H, false)?
+     .visit_field::<f32>("ground", Self::VT_GROUND, false)?
+     .visit_field::<i64>("sown_day", Self::VT_SOWN_DAY, false)?
+     .visit_field::<f32>("sheaves_kg", Self::VT_SHEAVES_KG, false)?
+     .visit_field::<u16>("harvests", Self::VT_HARVESTS, false)?
+     .visit_field::<f32>("clear_h_per_ha", Self::VT_CLEAR_H_PER_HA, false)?
+     .visit_field::<bool>("broken", Self::VT_BROKEN, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct FieldArgs {
+    pub id: u64,
+    pub household: u64,
+    pub x_cm: i32,
+    pub y_cm: i32,
+    pub w_cm: i32,
+    pub h_cm: i32,
+    pub crop: u16,
+    pub stage: FieldStage,
+    pub stage_since: i64,
+    pub work_h: f32,
+    pub tended_h: f32,
+    pub ground: f32,
+    pub sown_day: i64,
+    pub sheaves_kg: f32,
+    pub harvests: u16,
+    pub clear_h_per_ha: f32,
+    pub broken: bool,
+}
+impl<'a> Default for FieldArgs {
+  #[inline]
+  fn default() -> Self {
+    FieldArgs {
+      id: 0,
+      household: 0,
+      x_cm: 0,
+      y_cm: 0,
+      w_cm: 0,
+      h_cm: 0,
+      crop: 0,
+      stage: FieldStage::Fallow,
+      stage_since: 0,
+      work_h: 0.0,
+      tended_h: 0.0,
+      ground: 0.0,
+      sown_day: 0,
+      sheaves_kg: 0.0,
+      harvests: 0,
+      clear_h_per_ha: 0.0,
+      broken: false,
+    }
+  }
+}
+
+pub struct FieldBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FieldBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(Field::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(Field::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_x_cm(&mut self, x_cm: i32) {
+    self.fbb_.push_slot::<i32>(Field::VT_X_CM, x_cm, 0);
+  }
+  #[inline]
+  pub fn add_y_cm(&mut self, y_cm: i32) {
+    self.fbb_.push_slot::<i32>(Field::VT_Y_CM, y_cm, 0);
+  }
+  #[inline]
+  pub fn add_w_cm(&mut self, w_cm: i32) {
+    self.fbb_.push_slot::<i32>(Field::VT_W_CM, w_cm, 0);
+  }
+  #[inline]
+  pub fn add_h_cm(&mut self, h_cm: i32) {
+    self.fbb_.push_slot::<i32>(Field::VT_H_CM, h_cm, 0);
+  }
+  #[inline]
+  pub fn add_crop(&mut self, crop: u16) {
+    self.fbb_.push_slot::<u16>(Field::VT_CROP, crop, 0);
+  }
+  #[inline]
+  pub fn add_stage(&mut self, stage: FieldStage) {
+    self.fbb_.push_slot::<FieldStage>(Field::VT_STAGE, stage, FieldStage::Fallow);
+  }
+  #[inline]
+  pub fn add_stage_since(&mut self, stage_since: i64) {
+    self.fbb_.push_slot::<i64>(Field::VT_STAGE_SINCE, stage_since, 0);
+  }
+  #[inline]
+  pub fn add_work_h(&mut self, work_h: f32) {
+    self.fbb_.push_slot::<f32>(Field::VT_WORK_H, work_h, 0.0);
+  }
+  #[inline]
+  pub fn add_tended_h(&mut self, tended_h: f32) {
+    self.fbb_.push_slot::<f32>(Field::VT_TENDED_H, tended_h, 0.0);
+  }
+  #[inline]
+  pub fn add_ground(&mut self, ground: f32) {
+    self.fbb_.push_slot::<f32>(Field::VT_GROUND, ground, 0.0);
+  }
+  #[inline]
+  pub fn add_sown_day(&mut self, sown_day: i64) {
+    self.fbb_.push_slot::<i64>(Field::VT_SOWN_DAY, sown_day, 0);
+  }
+  #[inline]
+  pub fn add_sheaves_kg(&mut self, sheaves_kg: f32) {
+    self.fbb_.push_slot::<f32>(Field::VT_SHEAVES_KG, sheaves_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_harvests(&mut self, harvests: u16) {
+    self.fbb_.push_slot::<u16>(Field::VT_HARVESTS, harvests, 0);
+  }
+  #[inline]
+  pub fn add_clear_h_per_ha(&mut self, clear_h_per_ha: f32) {
+    self.fbb_.push_slot::<f32>(Field::VT_CLEAR_H_PER_HA, clear_h_per_ha, 0.0);
+  }
+  #[inline]
+  pub fn add_broken(&mut self, broken: bool) {
+    self.fbb_.push_slot::<bool>(Field::VT_BROKEN, broken, false);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FieldBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    FieldBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Field<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Field<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Field");
+      ds.field("id", &self.id());
+      ds.field("household", &self.household());
+      ds.field("x_cm", &self.x_cm());
+      ds.field("y_cm", &self.y_cm());
+      ds.field("w_cm", &self.w_cm());
+      ds.field("h_cm", &self.h_cm());
+      ds.field("crop", &self.crop());
+      ds.field("stage", &self.stage());
+      ds.field("stage_since", &self.stage_since());
+      ds.field("work_h", &self.work_h());
+      ds.field("tended_h", &self.tended_h());
+      ds.field("ground", &self.ground());
+      ds.field("sown_day", &self.sown_day());
+      ds.field("sheaves_kg", &self.sheaves_kg());
+      ds.field("harvests", &self.harvests());
+      ds.field("clear_h_per_ha", &self.clear_h_per_ha());
+      ds.field("broken", &self.broken());
+      ds.finish()
+  }
+}
+pub enum FieldsOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Fields<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Fields<'a> {
+  type Inner = Fields<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Fields<'a> {
+  pub const VT_CROPS: ::flatbuffers::VOffsetT = 4;
+  pub const VT_FIELDS: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Fields { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args FieldsArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Fields<'bldr>> {
+    let mut builder = FieldsBuilder::new(_fbb);
+    if let Some(x) = args.fields { builder.add_fields(x); }
+    if let Some(x) = args.crops { builder.add_crops(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn crops(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Fields::VT_CROPS, None)}
+  }
+  #[inline]
+  pub fn fields(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Field<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Field>>>>(Fields::VT_FIELDS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Fields<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("crops", Self::VT_CROPS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Field>>>>("fields", Self::VT_FIELDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct FieldsArgs<'a> {
+    pub crops: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub fields: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Field<'a>>>>>,
+}
+impl<'a> Default for FieldsArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    FieldsArgs {
+      crops: None,
+      fields: None,
+    }
+  }
+}
+
+pub struct FieldsBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FieldsBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_crops(&mut self, crops: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Fields::VT_CROPS, crops);
+  }
+  #[inline]
+  pub fn add_fields(&mut self, fields: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Field<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Fields::VT_FIELDS, fields);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FieldsBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    FieldsBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Fields<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Fields<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Fields");
+      ds.field("crops", &self.crops());
+      ds.field("fields", &self.fields());
       ds.finish()
   }
 }

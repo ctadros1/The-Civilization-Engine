@@ -21,6 +21,8 @@ pub(crate) struct GoodFile {
     pub half_life_days: f64,
     pub cooked: bool,
     pub shared: bool,
+    /// Kept back, like seed: eaten only when no other food is left.
+    pub reserve: bool,
 }
 
 impl GoodFile {
@@ -34,6 +36,7 @@ impl GoodFile {
             half_life_days: self.half_life_days,
             cooked: self.cooked,
             shared: self.shared,
+            reserve: self.reserve,
         })
     }
 
@@ -70,6 +73,9 @@ impl GoodFile {
                 }
                 if self.cooked {
                     p.push("only food can need cooking: `cooked` must be false".to_owned());
+                }
+                if self.reserve {
+                    p.push("only food is kept back: `reserve` must be false".to_owned());
                 }
             }
         }

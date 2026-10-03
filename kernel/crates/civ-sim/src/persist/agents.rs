@@ -10,6 +10,7 @@
 //! | `history` | everyone who ever lived here, and the chronicle |
 //! | `receipts` | recent decision receipts per person |
 //! | `events` | the scheduler's pending events |
+//! | `fields` | fields and their crops (schema 4) |
 //!
 //! Activities, habitats, resources and goods are saved by content id, so a world still loads after
 //! the content adds, removes or reorders them. Where saved state names something the loaded
@@ -23,6 +24,9 @@
 //! follows: a household's food and food being carried become the band's provisions good, land
 //! stocks start at equilibrium (their units are not recorded), and remembered patches are
 //! forgotten (their returns were in kilocalories). Nothing else changes.
+//!
+//! **Schema 3 → 4.** Fields arrived with version 4; a version-2 or 3 save has none. A field whose
+//! crop the loaded content no longer has is dropped.
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{Read, Seek};
@@ -34,14 +38,14 @@ use civ_agents::{
 };
 use civ_core::scheduler::PendingEvent;
 use civ_core::{PermanentId, SimTime};
-use civ_land::{ClimateYear, Land, Patches, Settlement};
+use civ_land::{ClimateYear, Field, FieldStage, Land, Patches, RectCm, Settlement};
 use civ_schema::SAVE_SCHEMA_VERSION;
 use civ_schema::flatbuffers::{self, FlatBufferBuilder, WIPOffset};
 use civ_schema::save;
 use civ_world::WorldMap;
 use commons_persist::{SectionData, SectionTag, SnapshotReader};
 
-use super::{LoadError, SCHEMA_V2, finish, section, single_chunk, unreadable};
+use super::{LoadError, SCHEMA_V2, SCHEMA_V3, finish, section, single_chunk, unreadable};
 use crate::{Rules, Sim, SimEvent};
 
 /// Section: habitat patches and wild stocks.
@@ -58,6 +62,8 @@ pub const SECTION_HISTORY: SectionTag = SectionTag::new("history");
 pub const SECTION_RECEIPTS: SectionTag = SectionTag::new("receipts");
 /// Section: pending scheduled events.
 pub const SECTION_EVENTS: SectionTag = SectionTag::new("events");
+/// Section: fields (schema 4).
+pub const SECTION_FIELDS: SectionTag = SectionTag::new("fields");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -93,6 +99,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             encode_receipts(&sim.people, &activities),
         ),
         section(SECTION_EVENTS, 0, encode_events(sim)),
+        section(SECTION_FIELDS, 0, encode_fields(&sim.land.fields, rules)),
     ]
 }
 
@@ -112,6 +119,8 @@ enum Schema {
     V2,
     /// Goods.
     V3,
+    /// Fields.
+    V4,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -126,7 +135,8 @@ pub(super) fn decode<R: Read + Seek>(
 ) -> Result<Decoded, LoadError> {
     let schema = match version {
         SCHEMA_V2 => Schema::V2,
-        SAVE_SCHEMA_VERSION => Schema::V3,
+        SCHEMA_V3 => Schema::V3,
+        SAVE_SCHEMA_VERSION => Schema::V4,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -157,6 +167,10 @@ pub(super) fn decode<R: Read + Seek>(
     decode_receipts(&bytes, rules, &mut people)?;
     let bytes = single_chunk(reader, SECTION_EVENTS)?;
     let events = decode_events(&bytes)?;
+    if schema == Schema::V4 {
+        let bytes = single_chunk(reader, SECTION_FIELDS)?;
+        land.fields = decode_fields(&bytes, rules)?;
+    }
 
     let mut problems = land.problems(map, rules.land.habitats.len(), next_id);
     problems.extend(people.problems(next_id, rules.catalog.activities.len()));
@@ -164,6 +178,11 @@ pub(super) fn decode<R: Read + Seek>(
     for (_, h) in people.households.iter() {
         if h.settlement.is_some_and(|s| !settlements.contains(&s)) {
             problems.push(format!("household {} names a missing settlement", h.id));
+        }
+    }
+    for f in &land.fields {
+        if people.household(f.household).is_none() {
+            problems.push(format!("field {} belongs to a missing household", f.id));
         }
     }
     if !problems.is_empty() {
@@ -239,23 +258,30 @@ fn provisions_kg(rules: &Rules, kcal: f64) -> Option<(usize, f64)> {
     (good.kcal_per_kg > 0.0).then(|| (g, kcal.max(0.0) / good.kcal_per_kg))
 }
 
-fn target_parts(t: Target) -> (save::TargetKind, u32) {
+/// A target as its saved kind, index and id.
+fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
     match t {
-        Target::None => (save::TargetKind::None, 0),
-        Target::Home => (save::TargetKind::Home, 0),
-        Target::Hearth => (save::TargetKind::Hearth, 0),
-        Target::Patch(p) => (save::TargetKind::Patch, p),
-        Target::Water(c) => (save::TargetKind::Water, c),
+        Target::None => (save::TargetKind::None, 0, 0),
+        Target::Home => (save::TargetKind::Home, 0, 0),
+        Target::Hearth => (save::TargetKind::Hearth, 0, 0),
+        Target::Patch(p) => (save::TargetKind::Patch, p, 0),
+        Target::Water(c) => (save::TargetKind::Water, c, 0),
+        Target::Field(f) => (save::TargetKind::Field, 0, f.get()),
+        Target::NewField => (save::TargetKind::NewField, 0, 0),
+        Target::Household(h) => (save::TargetKind::Household, 0, h.get()),
     }
 }
 
-fn target_of(kind: save::TargetKind, index: u32) -> Result<Target, LoadError> {
+fn target_of(kind: save::TargetKind, index: u32, id: u64) -> Result<Target, LoadError> {
     Ok(match kind {
         save::TargetKind::None => Target::None,
         save::TargetKind::Home => Target::Home,
         save::TargetKind::Hearth => Target::Hearth,
         save::TargetKind::Patch => Target::Patch(index),
         save::TargetKind::Water => Target::Water(index),
+        save::TargetKind::Field => Target::Field(required(id, "a field target")?),
+        save::TargetKind::NewField => Target::NewField,
+        save::TargetKind::Household => Target::Household(required(id, "a household target")?),
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",
@@ -392,6 +418,8 @@ fn decode_land(bytes: &[u8], rules: &Rules, map: &WorldMap) -> Result<Land, Load
             factor: l.climate_factor(),
         },
         settlements: Vec::new(),
+        // Read from their own section (schema 4 on).
+        fields: Vec::new(),
     };
     // A grid of the wrong size is reported by `Land::problems`; only fill stocks on a sound one.
     if land.patches.class.len() == n
@@ -433,6 +461,7 @@ fn encode_settlements(settlements: &[Settlement]) -> Vec<u8> {
                     founded: s.founded.minutes(),
                     hearth: Some(&point(s.hearth_m)),
                     food_short: s.food_short,
+                    harvest_kg: s.harvest_kg,
                 },
             )
         })
@@ -460,6 +489,7 @@ fn decode_settlements(bytes: &[u8]) -> Result<Vec<Settlement>, LoadError> {
                 founded: time(s.founded()),
                 hearth_m: xy(s.hearth()),
                 food_short: s.food_short(),
+                harvest_kg: s.harvest_kg(),
             })
         })
         .collect()
@@ -527,13 +557,14 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
         })
         .collect();
     let steps = fbb.create_vector(&steps);
-    let (target_kind, target_index) = target_parts(p.act.target);
+    let (target_kind, target_index, target_id) = target_parts(p.act.target);
     let activity = save::Activity::create(
         fbb,
         &save::ActivityArgs {
             def: u32::from(p.act.def),
             target_kind,
             target_index,
+            target_id,
             steps: Some(steps),
             step: p.act.step,
             started: p.act.started.minutes(),
@@ -687,7 +718,7 @@ fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedP
             company: p.company(),
             act: Activity {
                 def,
-                target: target_of(a.target_kind(), a.target_index())?,
+                target: target_of(a.target_kind(), a.target_index(), a.target_id())?,
                 steps,
                 step: a.step(),
                 started: time(a.started()),
@@ -718,7 +749,7 @@ fn carried(
             Some((g, kg)) if kg > 0.0 => (Some(g), kg as f32),
             _ => (None, 0.0),
         },
-        Schema::V3 => match p.carry_good() {
+        Schema::V3 | Schema::V4 => match p.carry_good() {
             -1 => (None, 0.0),
             i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
                 // A good the content no longer has is dropped.
@@ -821,7 +852,7 @@ fn decode_households(
                 }
                 (now, Vec::new())
             }
-            Schema::V3 => {
+            Schema::V3 | Schema::V4 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -883,6 +914,8 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::SettlementFounded => 2,
         ChronicleKind::FoodRanShort => 3,
         ChronicleKind::FoodRecovered => 4,
+        ChronicleKind::FirstSowing => 5,
+        ChronicleKind::HarvestIn => 6,
     }
 }
 
@@ -892,6 +925,8 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         2 => Some(ChronicleKind::SettlementFounded),
         3 => Some(ChronicleKind::FoodRanShort),
         4 => Some(ChronicleKind::FoodRecovered),
+        5 => Some(ChronicleKind::FirstSowing),
+        6 => Some(ChronicleKind::HarvestIn),
         _ => None,
     }
 }
@@ -1051,13 +1086,14 @@ fn encode_scored<'a>(fbb: &mut FlatBufferBuilder<'a>, s: &Scored) -> WIPOffset<s
         .map(|t| save::Term::new(t.reason as u16, t.points))
         .collect();
     let terms = fbb.create_vector(&terms);
-    let (target_kind, target_index) = target_parts(s.target);
+    let (target_kind, target_index, target_id) = target_parts(s.target);
     save::Scored::create(
         fbb,
         &save::ScoredArgs {
             def: u32::from(s.def),
             target_kind,
             target_index,
+            target_id,
             total: s.total,
             terms: Some(terms),
         },
@@ -1159,7 +1195,7 @@ fn decode_scored(s: &save::Scored<'_>, map: &[Option<u16>]) -> Result<Scored, Lo
     }
     Ok(Scored {
         def: def_of(map, s.def())?,
-        target: target_of(s.target_kind(), s.target_index())?,
+        target: target_of(s.target_kind(), s.target_index(), s.target_id())?,
         total: s.total(),
         terms,
     })
@@ -1221,6 +1257,119 @@ fn decode_receipts(bytes: &[u8], rules: &Rules, pop: &mut Population) -> Result<
         }
     }
     Ok(())
+}
+
+// ---- fields ------------------------------------------------------------------------------------
+
+fn stage_parts(s: FieldStage) -> save::FieldStage {
+    match s {
+        FieldStage::Fallow => save::FieldStage::Fallow,
+        FieldStage::Prepared => save::FieldStage::Prepared,
+        FieldStage::Sown => save::FieldStage::Sown,
+        FieldStage::Reaped => save::FieldStage::Reaped,
+    }
+}
+
+fn stage_of(s: save::FieldStage) -> Result<FieldStage, LoadError> {
+    match s {
+        save::FieldStage::Fallow => Ok(FieldStage::Fallow),
+        save::FieldStage::Prepared => Ok(FieldStage::Prepared),
+        save::FieldStage::Sown => Ok(FieldStage::Sown),
+        save::FieldStage::Reaped => Ok(FieldStage::Reaped),
+        other => Err(LoadError::Malformed(format!(
+            "a field has stage {}",
+            other.0
+        ))),
+    }
+}
+
+fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let crop_ids: Vec<&str> = rules.catalog.crops.iter().map(|c| c.id.as_str()).collect();
+    let crops = strings(&mut fbb, &crop_ids);
+    let list: Vec<_> = fields
+        .iter()
+        .map(|f| {
+            save::Field::create(
+                &mut fbb,
+                &save::FieldArgs {
+                    id: f.id.get(),
+                    household: f.household.get(),
+                    x_cm: f.rect.x,
+                    y_cm: f.rect.y,
+                    w_cm: f.rect.w,
+                    h_cm: f.rect.h,
+                    crop: f.crop,
+                    stage: stage_parts(f.stage),
+                    stage_since: f.stage_since.minutes(),
+                    work_h: f.work_h,
+                    tended_h: f.tended_h,
+                    ground: f.ground,
+                    sown_day: f.sown_day,
+                    sheaves_kg: f.sheaves_kg,
+                    harvests: f.harvests,
+                    clear_h_per_ha: f.clear_h_per_ha,
+                    broken: f.broken,
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let root = save::Fields::create(
+        &mut fbb,
+        &save::FieldsArgs {
+            crops: Some(crops),
+            fields: Some(list),
+        },
+    );
+    finish(fbb, root)
+}
+
+fn decode_fields(bytes: &[u8], rules: &Rules) -> Result<Vec<Field>, LoadError> {
+    let root =
+        flatbuffers::root::<save::Fields>(bytes).map_err(|e| unreadable(SECTION_FIELDS, &e))?;
+    let crops: Vec<Option<u16>> = read_strings(root.crops())
+        .iter()
+        .map(|id| rules.catalog.crop_index(id).map(|i| i as u16))
+        .collect();
+    let mut out = Vec::new();
+    for f in root.fields().iter().flatten() {
+        let id = required(f.id(), "a field")?;
+        let crop = match crops.get(usize::from(f.crop())) {
+            Some(Some(c)) => *c,
+            // A crop the content no longer has: the field goes.
+            Some(None) => continue,
+            None => {
+                return Err(LoadError::Malformed(format!(
+                    "field {id} grows crop {} of {}",
+                    f.crop(),
+                    crops.len()
+                )));
+            }
+        };
+        out.push(Field {
+            id,
+            household: required(f.household(), "a field's household")?,
+            rect: RectCm {
+                x: f.x_cm(),
+                y: f.y_cm(),
+                w: f.w_cm(),
+                h: f.h_cm(),
+            },
+            crop,
+            stage: stage_of(f.stage())?,
+            stage_since: time(f.stage_since()),
+            work_h: f.work_h(),
+            tended_h: f.tended_h(),
+            ground: f.ground(),
+            clear_h_per_ha: f.clear_h_per_ha(),
+            broken: f.broken(),
+            sown_day: f.sown_day(),
+            sheaves_kg: f.sheaves_kg(),
+            harvests: f.harvests(),
+        });
+    }
+    Ok(out)
 }
 
 // ---- events ------------------------------------------------------------------------------------

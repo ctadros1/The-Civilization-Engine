@@ -42,7 +42,10 @@ arable = true
 id = "woodland"
 name = "Lower-slope woodland"
 max_mean_slope = 0.15
-arable = false
+arable = true
+# Felling and burning before a first crop, with stone axes: a tuning value (the research sets
+# no figure; 03-06 §1.3 expects woodland to be cleared for fields).
+clear_h_per_ha = 1000.0
 
 [[habitat]]
 id = "upland"

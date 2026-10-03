@@ -2,8 +2,9 @@
 //! statistics; any failure blocks the milestone.
 //!
 //! The checks cover terrain and water, the save round trip, and a month of the founding band's
-//! life: they settle, keep water and firewood at home, still have food, and nobody is ever stuck
-//! between events. Checks on a population over years arrive with births and deaths (plan §7, M1).
+//! life: they settle, keep water and firewood at home, still have food, break ground and sow
+//! their first field, and nobody is ever stuck between events. Checks on a population over years
+//! arrive with births and deaths (plan §7, M1).
 
 use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
@@ -193,6 +194,19 @@ fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<String> {
         if s.food_short {
             failures.push(format!("{} ran short of food within {DAYS} days", s.name));
         }
+    }
+    // Arriving on the first of March, they break ground and sow once the window opens.
+    let sown = sim
+        .land()
+        .fields
+        .iter()
+        .filter(|f| f.stage == civ_land::FieldStage::Sown)
+        .count();
+    if sown == 0 {
+        failures.push(format!(
+            "no field sown within {DAYS} days ({} marked out)",
+            sim.land().fields.len()
+        ));
     }
     failures
 }

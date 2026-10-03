@@ -1,0 +1,15 @@
+# Breaking or hoeing ground for sowing. Effort (PAR), ages and session lengths are tuning values;
+# the work a field needs is the crop's.
+kind = "activity"
+id = "core:activity/prepare_field"
+name = "Prepare a field"
+doing = "preparing a field"
+behavior = "farm"
+task = "prepare"
+par = 5.0
+min_age_years = 12.0
+max_age_years = 65.0
+min_minutes = 60
+max_minutes = 300
+daylight_only = true
+max_walk_minutes = 30

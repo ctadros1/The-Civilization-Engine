@@ -2,8 +2,8 @@
 //! Every field is required: an omitted number is an error, never a silent engine default.
 
 use civ_agents::params::{
-    BandParams, DecisionParams, EnergyParams, HouseholdParams, NameParams, PeopleParams, Siler,
-    SleepParams, SocialParams,
+    BandParams, DecisionParams, EnergyParams, FarmParams, HouseholdParams, NameParams,
+    PeopleParams, Siler, SleepParams, SocialParams,
 };
 use civ_world::nav::NavParams;
 use serde::Deserialize;
@@ -31,7 +31,22 @@ pub(crate) struct PeopleFile {
     pub household: Household,
     pub decision: Decision,
     pub band: Band,
+    pub farm: Farm,
     pub mortality: Mortality,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Farm {
+    /// The crop: a crop id.
+    pub crop: String,
+    pub grain_share: f64,
+    pub plan_yield_share: f64,
+    pub grain_target_days: f64,
+    pub work_hours_per_day: f64,
+    pub field_m: f64,
+    pub max_walk_minutes: f64,
+    pub site_candidates: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -60,6 +75,7 @@ pub(crate) struct Energy {
     pub deficit_unit_kcal: f64,
     pub max_surplus_kcal: f64,
     pub reserve_kcal_per_kg: f64,
+    pub eat_reserve_at_deficit: f64,
     pub meal_minutes: u32,
 }
 
@@ -106,11 +122,14 @@ pub(crate) struct Decision {
     pub temperature_sd_fraction: f64,
     pub min_temperature: f64,
     pub w_hunger: f64,
+    pub max_hunger_drive: f64,
     pub w_sleep: f64,
     pub w_social: f64,
     pub w_food: f64,
     pub w_work: f64,
     pub w_fuel: f64,
+    pub w_farm: f64,
+    pub w_deadline: f64,
     pub trip_half_worth_days: f64,
     pub w_water: f64,
     pub w_walk_hour: f64,
@@ -132,11 +151,13 @@ pub(crate) struct Band {
     pub provisions_days: f64,
     /// The good provisions are carried as: a good id.
     pub provisions_good: String,
+    pub seed_kg_per_person: f64,
     pub elder_chance: f64,
     pub young_adult_chance: f64,
     pub birth_spacing_months: f64,
     pub site_max_slope: f64,
     pub site_w_food: f64,
+    pub site_w_arable: f64,
     pub site_w_water_per_100m: f64,
     pub site_w_slope_per_pct: f64,
     pub site_w_flood: f64,
@@ -187,9 +208,10 @@ fn unit(name: &str, v: f64, problems: &mut Vec<String>) {
 }
 
 impl PeopleFile {
-    /// The parameters, with the given names and the index of the provisions good. Field by field
-    /// on purpose: a new parameter fails to compile here until the authoring format carries it.
-    pub fn params(&self, names: NameParams, provisions_good: usize) -> PeopleParams {
+    /// The parameters, with the given names and the indexes of the provisions good and the crop.
+    /// Field by field on purpose: a new parameter fails to compile here until the authoring
+    /// format carries it.
+    pub fn params(&self, names: NameParams, provisions_good: usize, crop: usize) -> PeopleParams {
         let (w, e, s, so, h, d, b, m) = (
             &self.walking,
             &self.energy,
@@ -225,6 +247,7 @@ impl PeopleFile {
                 deficit_unit_kcal: e.deficit_unit_kcal,
                 max_surplus_kcal: e.max_surplus_kcal,
                 reserve_kcal_per_kg: e.reserve_kcal_per_kg,
+                eat_reserve_at_deficit: e.eat_reserve_at_deficit,
                 meal_minutes: e.meal_minutes,
             },
             sleep: SleepParams {
@@ -259,11 +282,14 @@ impl PeopleFile {
                 temperature_sd_fraction: d.temperature_sd_fraction,
                 min_temperature: d.min_temperature,
                 w_hunger: d.w_hunger,
+                max_hunger_drive: d.max_hunger_drive,
                 w_sleep: d.w_sleep,
                 w_social: d.w_social,
                 w_food: d.w_food,
                 w_work: d.w_work,
                 w_fuel: d.w_fuel,
+                w_farm: d.w_farm,
+                w_deadline: d.w_deadline,
                 trip_half_worth_days: d.trip_half_worth_days,
                 w_water: d.w_water,
                 w_walk_hour: d.w_walk_hour,
@@ -281,15 +307,27 @@ impl PeopleFile {
                 site_radius_m: b.site_radius_m,
                 provisions_days: b.provisions_days,
                 provisions_good,
+                seed_kg_per_person: b.seed_kg_per_person,
                 elder_chance: b.elder_chance,
                 young_adult_chance: b.young_adult_chance,
                 birth_spacing_months: b.birth_spacing_months,
                 site_max_slope: b.site_max_slope,
                 site_w_food: b.site_w_food,
+                site_w_arable: b.site_w_arable,
                 site_w_water_per_100m: b.site_w_water_per_100m,
                 site_w_slope_per_pct: b.site_w_slope_per_pct,
                 site_w_flood: b.site_w_flood,
                 site_flood_hand_m: b.site_flood_hand_m,
+            },
+            farm: FarmParams {
+                crop,
+                grain_share: self.farm.grain_share,
+                plan_yield_share: self.farm.plan_yield_share,
+                grain_target_days: self.farm.grain_target_days,
+                work_hours_per_day: self.farm.work_hours_per_day,
+                field_m: self.farm.field_m,
+                max_walk_minutes: self.farm.max_walk_minutes,
+                site_candidates: self.farm.site_candidates,
             },
             mortality: Siler {
                 a: m.a,
@@ -370,6 +408,11 @@ impl PeopleFile {
         positive("energy.deficit_unit_kcal", e.deficit_unit_kcal, &mut p);
         non_negative("energy.max_surplus_kcal", e.max_surplus_kcal, &mut p);
         positive("energy.reserve_kcal_per_kg", e.reserve_kcal_per_kg, &mut p);
+        unit(
+            "energy.eat_reserve_at_deficit",
+            e.eat_reserve_at_deficit,
+            &mut p,
+        );
         if e.meal_minutes == 0 {
             p.push("`energy.meal_minutes` must be at least 1".to_owned());
         }
@@ -434,6 +477,12 @@ impl PeopleFile {
             &mut p,
         );
         positive("decision.min_temperature", d.min_temperature, &mut p);
+        if !(d.max_hunger_drive.is_finite() && d.max_hunger_drive >= 1.0) {
+            p.push(format!(
+                "`decision.max_hunger_drive` must be at least 1, full hunger (got {})",
+                d.max_hunger_drive
+            ));
+        }
         positive(
             "decision.trip_half_worth_days",
             d.trip_half_worth_days,
@@ -446,6 +495,8 @@ impl PeopleFile {
             ("w_food", d.w_food),
             ("w_work", d.w_work),
             ("w_fuel", d.w_fuel),
+            ("w_farm", d.w_farm),
+            ("w_deadline", d.w_deadline),
             ("w_water", d.w_water),
             ("w_walk_hour", d.w_walk_hour),
             ("w_effort", d.w_effort),
@@ -473,12 +524,33 @@ impl PeopleFile {
         }
         positive("band.site_radius_m", b.site_radius_m, &mut p);
         non_negative("band.provisions_days", b.provisions_days, &mut p);
+        non_negative("band.seed_kg_per_person", b.seed_kg_per_person, &mut p);
+        let f = &self.farm;
+        unit("farm.grain_share", f.grain_share, &mut p);
+        if !(f.plan_yield_share.is_finite()
+            && f.plan_yield_share > 0.0
+            && f.plan_yield_share <= 2.0)
+        {
+            p.push("`farm.plan_yield_share` must be above 0 and at most 2".to_owned());
+        }
+        positive("farm.grain_target_days", f.grain_target_days, &mut p);
+        if !(f.work_hours_per_day.is_finite() && (0.5..=16.0).contains(&f.work_hours_per_day)) {
+            p.push("`farm.work_hours_per_day` must be between 0.5 and 16".to_owned());
+        }
+        if !(f.field_m.is_finite() && (10.0..=500.0).contains(&f.field_m)) {
+            p.push("`farm.field_m` must be between 10 and 500 metres".to_owned());
+        }
+        positive("farm.max_walk_minutes", f.max_walk_minutes, &mut p);
+        if f.site_candidates == 0 {
+            p.push("`farm.site_candidates` must be at least 1".to_owned());
+        }
         unit("band.elder_chance", b.elder_chance, &mut p);
         unit("band.young_adult_chance", b.young_adult_chance, &mut p);
         positive("band.birth_spacing_months", b.birth_spacing_months, &mut p);
         positive("band.site_max_slope", b.site_max_slope, &mut p);
         for (name, v) in [
             ("site_w_food", b.site_w_food),
+            ("site_w_arable", b.site_w_arable),
             ("site_w_water_per_100m", b.site_w_water_per_100m),
             ("site_w_slope_per_pct", b.site_w_slope_per_pct),
             ("site_w_flood", b.site_w_flood),

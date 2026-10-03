@@ -9,18 +9,20 @@ use std::collections::{BTreeMap, HashMap};
 
 use civ_core::time::MINUTES_PER_DAY;
 use civ_core::{GenTable, Handle, IdAllocator, PermanentId, Rng64, SimTime};
-use civ_land::{Land, LandParams};
+use civ_land::{CropParams, Field, FieldStage, FieldTask, Land, LandParams};
 use civ_world::nav::{NavGrid, RouteResult, TravelField};
 use civ_world::{WATER_LAKE, WATER_RIVER, WorldMap};
 
-use crate::decide::{self, Facts, Limits, PatchOption, WaterOption};
-use crate::history::{ChronicleEvent, ChronicleKind, PersonRecord, Receipt};
+use crate::decide::{self, Facts, FieldOption, GiverOption, Limits, PatchOption, WaterOption};
+use crate::farm::{self, FarmView, Site};
+use crate::history::{ChronicleEvent, ChronicleKind, PersonRecord, Reason, Receipt};
 use crate::needs;
 use crate::params::{
     Behavior, Catalog, GoodDef, GoodUse, HouseholdParams, PeopleParams, interpolate,
 };
 use crate::person::{
     Activity, Household, KnownPatch, Load, Person, Step, Target, Trip, food_kcal, fuel_kg,
+    reserve_food_kcal,
 };
 
 /// Purpose tag for decision draws (ADR-0003 keyed randomness).
@@ -108,6 +110,8 @@ struct HomeField {
     /// Per kind of place (the index in `Population::places`), blocks by walking time to their
     /// cell, seconds.
     places: Vec<Vec<(u32, f32)>>,
+    /// Walking times to every cell in reach, for fields.
+    reach: TravelField,
 }
 
 /// What a gathering activity is expected to bring from each patch on one day, at equilibrium
@@ -141,6 +145,8 @@ pub struct Population {
     routes: HashMap<(u32, u32), Option<CachedRoute>>,
     /// Per activity, what a trip is expected to bring from each patch today.
     priors: Vec<Prior>,
+    /// Per household, the new ground it would mark out for a field, as found on a day.
+    sites: HashMap<PermanentId, (i64, Option<Site>)>,
 }
 
 /// The terrain cell under a point.
@@ -219,10 +225,37 @@ pub fn bmr(p: &Person, now: SimTime, params: &PeopleParams) -> f64 {
 pub fn hunger(p: &Person, now: SimTime, params: &PeopleParams) -> f64 {
     let after = (now.minutes() - p.satiety_until.minutes()) as f64 / 60.0;
     let ramp = (after / params.energy.hunger_ramp_hours).clamp(0.0, 1.0);
+    ramp + (-energy_now(p, now, params)).max(0.0) / params.energy.deficit_unit_kcal
+}
+
+/// A person's energy balance at `now`, kcal: negative in deficit, no lower than their body's
+/// reserve allows.
+pub fn energy_now(p: &Person, now: SimTime, params: &PeopleParams) -> f64 {
     let elapsed = (now.minutes() - p.needs_at.minutes()).max(0) as f64;
-    let energy = (f64::from(p.energy_kcal) - f64::from(p.burn_kcal_min) * elapsed)
-        .max(-reserve_kcal(p, now, params));
-    ramp + (-energy).max(0.0) / params.energy.deficit_unit_kcal
+    (f64::from(p.energy_kcal) - f64::from(p.burn_kcal_min) * elapsed)
+        .max(-reserve_kcal(p, now, params))
+}
+
+/// Whether a person is hungry enough to eat food kept back (seed): they have drawn
+/// `energy.eat_reserve_at_deficit` of their body's reserve (research 08-02 §2.3: households can
+/// eat seed in a crisis, at the cost of the next sowing).
+pub fn may_eat_reserve(p: &Person, now: SimTime, params: &PeopleParams) -> bool {
+    let reserve = reserve_kcal(p, now, params);
+    -energy_now(p, now, params) >= params.energy.eat_reserve_at_deficit * reserve
+}
+
+/// Food energy a household holds beyond what it keeps for itself, kcal: what it can spare a
+/// household in need (ordinary food above twice the days of food it tries to keep).
+pub fn spare_food_kcal(
+    h: &Household,
+    now: SimTime,
+    params: &PeopleParams,
+    goods: &[GoodDef],
+) -> f64 {
+    let stores = stores_now(h, now, params, goods);
+    let (food, _) = food_kcal(&stores, goods);
+    let need = h.members.len() as f64 * params.household.daily_kcal_per_person;
+    (food - 2.0 * params.household.food_target_days * need).max(0.0)
 }
 
 impl Population {
@@ -255,6 +288,7 @@ impl Population {
         self.places.clear();
         self.routes.clear();
         self.priors.clear();
+        self.sites.clear();
     }
 
     /// A living person by permanent id.
@@ -546,8 +580,102 @@ impl Population {
                 day,
                 water,
                 places,
+                reach: field,
             },
         );
+    }
+
+    /// The new ground household `hh` would mark out for a field today (found once a day).
+    fn site_for(
+        &mut self,
+        ctx: &Ctx,
+        hh: &Household,
+        field_key: PermanentId,
+        crop: &CropParams,
+    ) -> Option<Site> {
+        let day = ctx.now.day_index();
+        if let Some((seen, site)) = self.sites.get(&hh.id)
+            && *seen == day
+        {
+            return *site;
+        }
+        let reach = &self.homes.get(&field_key)?.reach;
+        // Clear of every home of the settlement and of its hearth.
+        let mut homes: Vec<(f32, f32)> = self
+            .households
+            .iter()
+            .filter(|(_, x)| {
+                x.id == hh.id || (hh.settlement.is_some() && x.settlement == hh.settlement)
+            })
+            .map(|(_, x)| x.home)
+            .collect();
+        homes.extend(
+            ctx.land
+                .settlements
+                .iter()
+                .filter(|s| Some(s.id) == hh.settlement)
+                .map(|s| s.hearth_m),
+        );
+        let site = farm::find_site(
+            ctx.map,
+            ctx.nav,
+            ctx.land,
+            ctx.land_params,
+            reach,
+            &homes,
+            ctx.params,
+            crop,
+            &[ctx.seed, farm::PURPOSE_SITE, hh.id.get(), day as u64],
+            hh.id,
+        );
+        self.sites.insert(hh.id, (day, site));
+        site
+    }
+
+    /// The household of `hh`'s settlement that could give it the most food now, when it holds
+    /// `held` kcal of a need of `kcal_day` a day and is short; the walk to its home is counted
+    /// from the settlement's hearth (from `field_key`'s travel field).
+    fn best_giver(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        field_key: PermanentId,
+        kcal_day: f64,
+        held: f64,
+    ) -> Option<GiverOption> {
+        let settlement = hh.settlement?;
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let want = (params.household.food_target_days * kcal_day - held).max(0.0);
+        if want <= 0.0 {
+            return None;
+        }
+        let reach = &self.homes.get(&field_key)?.reach;
+        let mut best: Option<GiverOption> = None;
+        for (_, x) in self.households.iter() {
+            if x.id == hh.id || x.settlement != Some(settlement) {
+                continue;
+            }
+            let kcal = spare_food_kcal(x, now, params, goods).min(want);
+            if kcal <= 0.0 {
+                continue;
+            }
+            let Some(secs) = reach.seconds_to(cell_of(ctx.map, x.home)) else {
+                continue;
+            };
+            let walk_min = f64::from(secs) / 60.0;
+            let better = best.is_none_or(|b| {
+                kcal > b.kcal + 1e-6 || ((kcal - b.kcal).abs() <= 1e-6 && walk_min < b.walk_min)
+            });
+            if better {
+                best = Some(GiverOption {
+                    household: x.id,
+                    walk_min,
+                    at: x.home,
+                    kcal,
+                });
+            }
+        }
+        best
     }
 
     fn decide(&mut self, ctx: &mut Ctx, h: Handle<Person>, depth: u32) {
@@ -581,8 +709,27 @@ impl Population {
         let fuel_day = |d: i64| fuel_per_day(params, member_count, d);
         let stores = hh.stores_at_time(now, goods, &fuel_day);
         let (food_all, food_raw) = food_kcal(&stores, goods);
+        // Seed is food only to someone in real hunger, and then only once nothing else is left.
+        let reserve_ok = self
+            .people
+            .get(h)
+            .is_some_and(|p| may_eat_reserve(p, now, params));
+        let (seed_all, seed_raw) = if reserve_ok {
+            // Less the seed to sow the ground already cropped, which is never eaten.
+            let mut spare = stores.clone();
+            let mine = ctx.land.fields.iter().filter(|f| f.household == hh_id);
+            if let Some((g, kg)) = farm::protected_seed(mine, &ctx.catalog.crops)
+                && let Some(s) = spare.get_mut(g)
+            {
+                *s = (*s - kg).max(0.0);
+            }
+            reserve_food_kcal(&spare, goods)
+        } else {
+            (0.0, 0.0)
+        };
         let fuel = fuel_kg(&stores, goods);
         let edible = if fuel > 0.0 { food_all } else { food_raw };
+        let edible_seed = if fuel > 0.0 { seed_all } else { seed_raw };
         let household_fuel_day = fuel_per_day(params, member_count, now.day_index());
         let water_l = hh.water_at_time(now, members * params.household.water_l_per_person_day);
         let doy = civ_land::day_of_year(now.day_index());
@@ -607,7 +754,7 @@ impl Population {
         let facts = Facts {
             age,
             capacity: interpolate(&params.capacity_by_age, age),
-            hunger: hunger(p, now, params),
+            hunger: hunger(p, now, params).min(params.decision.max_hunger_drive),
             sleep_drive: f64::from(p.sleep_pressure) * circ,
             sleep_pressure: f64::from(p.sleep_pressure),
             loneliness: 1.0 - f64::from(p.relatedness),
@@ -620,8 +767,8 @@ impl Population {
             water_days: water_l / (members * params.household.water_l_per_person_day).max(1e-6),
             water_target_days: params.household.water_target_days,
             household_kcal_day: kcal_day,
-            has_food: edible > 1.0,
-            food_needs_fire: food_all > 1.0 && edible <= 1.0,
+            has_food: edible + edible_seed > 1.0,
+            food_needs_fire: food_all + seed_all > 1.0 && edible + edible_seed <= 1.0,
             fuel_days: fuel / household_fuel_day.max(1e-6),
             fuel_target_days: params.household.fuel_target_days,
             household_fuel_day,
@@ -639,6 +786,45 @@ impl Population {
             carry_kg: params.household.carry_kg,
         };
         self.ensure_priors(ctx, now.day_index());
+        // Farming: what the household can put into its fields, what it holds, what it needs.
+        let today = now.day_index();
+        let crop = ctx.catalog.crops.get(params.farm.crop);
+        let grain_kcal = crop
+            .and_then(|c| goods.get(c.good))
+            .map_or(0.0, |g| g.kcal_per_kg);
+        let held = |g: Option<usize>| {
+            g.and_then(|g| stores.get(g))
+                .copied()
+                .unwrap_or(0.0)
+                .max(0.0)
+        };
+        let seed_kg = held(crop.map(|c| c.seed_good));
+        let grain_days = held(crop.map(|c| c.good)) * grain_kcal / kcal_day.max(1.0);
+        let target_days = params.farm.grain_target_days.max(1e-6);
+        let labour_per_day = self.labour_per_day(&hh.members, now, params);
+        let farm_view = crop.map(|c| FarmView {
+            crop: c,
+            kcal_per_kg: grain_kcal,
+            fields: ctx
+                .land
+                .fields
+                .iter()
+                .filter(|f| f.household == hh_id)
+                .collect(),
+            day: today,
+            labour_per_day,
+            seed_kg,
+            room: target_days / (target_days + grain_days),
+            need_ha: farm::need_area_ha(member_count, params, c, grain_kcal),
+        });
+        let field_ha = params.farm.field_m * params.farm.field_m / 10_000.0;
+        let wants_land = farm_view
+            .as_ref()
+            .is_some_and(|v| v.wants_new_field(field_ha, 0.0));
+        let site = match crop {
+            Some(c) if wants_land => self.site_for(ctx, &hh, field_key, c),
+            _ => None,
+        };
         let home = self.homes.get(&field_key);
         let water = home.and_then(|f| {
             f.water.map(|(cell, s)| WaterOption {
@@ -650,7 +836,6 @@ impl Population {
         let land_params = ctx.land_params;
         let map = ctx.map;
         let catalog = ctx.catalog;
-        let today = now.day_index();
         let (places, priors) = (&self.places, &self.priors);
         let place_kinds: Vec<Option<usize>> = catalog
             .activities
@@ -720,13 +905,28 @@ impl Population {
             }
             best.map(|(_, o)| o)
         };
+        let reach = home.map(|f| &f.reach);
+        let best_field = |def: usize| -> Result<FieldOption, Reason> {
+            let a = &catalog.activities[def];
+            let (Some(task), Some(view)) = (a.task, farm_view.as_ref()) else {
+                return Err(Reason::NoPlace);
+            };
+            let walk = |f: &Field| {
+                let cell = cell_of(map, f.rect.centre_m());
+                reach?.seconds_to(cell).map(|s| f64::from(s) / 60.0)
+            };
+            view.best(task, f64::from(a.max_minutes) / 60.0, site.as_ref(), &walk)
+        };
+        let giver = self.best_giver(ctx, &hh, field_key, kcal_day, food_all);
         let (cands, excluded) = decide::candidates(
             &catalog.activities,
             &params.decision,
             &facts,
             &limits,
             &best_patch,
+            &best_field,
             water,
+            giver,
         );
         let Some(p) = self.people.get_mut(h) else {
             return;
@@ -741,7 +941,7 @@ impl Population {
         let (choice, probability, temperature) = decide::choose(&totals, &params.decision, u);
         let mut order: Vec<usize> = (0..cands.len()).filter(|&i| i != choice).collect();
         order.sort_by(|&a, &b| cands[b].scored.total.total_cmp(&cands[a].scored.total));
-        let receipt = Receipt {
+        let mut receipt = Receipt {
             at: now,
             chosen: cands[choice].scored.clone(),
             runner_up: order.first().map(|&i| cands[i].scored.clone()),
@@ -763,9 +963,41 @@ impl Population {
             ],
         };
         let chosen = &cands[choice];
+        let mut target = chosen.scored.target;
+        if target == Target::NewField {
+            // New ground is marked out when someone sets off to break it.
+            match site {
+                Some(site) => {
+                    let id = ctx.ids.allocate();
+                    ctx.land.fields.push(Field {
+                        id,
+                        household: hh_id,
+                        rect: site.rect,
+                        crop: params.farm.crop as u16,
+                        stage: FieldStage::Fallow,
+                        stage_since: now,
+                        work_h: 0.0,
+                        tended_h: 0.0,
+                        ground: site.ground as f32,
+                        clear_h_per_ha: site.clear_h_per_ha as f32,
+                        broken: false,
+                        sown_day: 0,
+                        sheaves_kg: 0.0,
+                        harvests: 0,
+                    });
+                    self.sites.remove(&hh_id);
+                    target = Target::Field(id);
+                }
+                None => target = Target::None,
+            }
+            receipt.chosen.target = target;
+        }
+        let Some(p) = self.people.get_mut(h) else {
+            return;
+        };
         p.act = Activity {
             def: chosen.scored.def,
-            target: chosen.scored.target,
+            target,
             steps: chosen.steps.clone(),
             step: 0,
             started: now,
@@ -976,7 +1208,9 @@ impl Population {
             Some(Behavior::Eat | Behavior::Rest | Behavior::Play) => {
                 (def_par, false, params.social.household_quality)
             }
-            Some(Behavior::Gather | Behavior::FetchWater) => (def_par, false, 0.0),
+            Some(Behavior::Gather | Behavior::FetchWater | Behavior::Farm | Behavior::Ask) => {
+                (def_par, false, 0.0)
+            }
             None => (params.energy.idle_par, false, 0.0),
         };
         p.burn_kcal_min = (bmr(p, now, params) * par / 1440.0) as f32;
@@ -1037,6 +1271,22 @@ impl Population {
                 Some(Behavior::FetchWater) => {
                     p.carrying.water_l = params.household.carry_water_l as f32;
                 }
+                Some(Behavior::Farm) => {
+                    if let (Some(d), Target::Field(field)) = (def.as_ref(), p.act.target)
+                        && let Some(task) = d.task
+                    {
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now));
+                        let hours = f64::from(minutes) / 60.0 * eff;
+                        let (who, household) = (p.id, p.household);
+                        self.field_work(ctx, who, household, field, task, hours);
+                    }
+                }
+                Some(Behavior::Ask) => {
+                    if let Target::Household(giver) = p.act.target {
+                        let household = p.household;
+                        self.give_food(ctx, giver, household);
+                    }
+                }
                 _ => {}
             },
             Some(Step::Wait { .. } | Step::Deposit) | None => {}
@@ -1085,6 +1335,175 @@ impl Population {
         }
     }
 
+    /// Household `giver` gives household `to`, which asked, food it can spare: up to what brings
+    /// `to` to the days of food it tries to keep, and no more than one person carries home. The
+    /// most perishable food goes first. No debt is kept (research 08-11 §5.4: need-based help).
+    fn give_food(&mut self, ctx: &Ctx, giver: PermanentId, to: PermanentId) {
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let (Some(&gh), Some(&th)) = (self.hh_index.get(&giver), self.hh_index.get(&to)) else {
+            return;
+        };
+        if gh == th {
+            return;
+        }
+        let (Some(g), Some(t)) = (self.households.get(gh), self.households.get(th)) else {
+            return;
+        };
+        let spare = spare_food_kcal(g, now, params, goods);
+        let need = t.members.len() as f64 * params.household.daily_kcal_per_person;
+        let (held, _) = food_kcal(&stores_now(t, now, params, goods), goods);
+        let mut want = spare.min((params.household.food_target_days * need - held).max(0.0));
+        if want <= 0.0 {
+            return;
+        }
+        let mut given = vec![0.0; goods.len()];
+        if let Some(g) = self.households.get_mut(gh) {
+            let members = g.members.len().max(1);
+            g.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
+            g.stores.resize(goods.len(), 0.0);
+            let mut order: Vec<usize> = (0..goods.len())
+                .filter(|&i| {
+                    goods[i].purpose == GoodUse::Food
+                        && goods[i].kcal_per_kg > 0.0
+                        && !goods[i].reserve
+                })
+                .collect();
+            let keeps = |i: usize| match goods[i].half_life_days {
+                h if h > 0.0 => h,
+                _ => f64::INFINITY,
+            };
+            order.sort_by(|&a, &b| keeps(a).total_cmp(&keeps(b)).then(a.cmp(&b)));
+            let mut carry = params.household.carry_kg;
+            for i in order {
+                if want <= 0.0 || carry <= 0.0 {
+                    break;
+                }
+                let kg = (want / goods[i].kcal_per_kg)
+                    .min(g.stores[i].max(0.0))
+                    .min(carry);
+                g.stores[i] -= kg;
+                given[i] += kg;
+                carry -= kg;
+                want -= kg * goods[i].kcal_per_kg;
+            }
+        }
+        if let Some(t) = self.households.get_mut(th) {
+            let members = t.members.len().max(1);
+            t.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
+            t.stores.resize(goods.len(), 0.0);
+            for (s, kg) in t.stores.iter_mut().zip(&given) {
+                *s += kg;
+            }
+        }
+    }
+
+    /// Hours of a capable adult's field work `members` can give a day.
+    fn labour_per_day(&self, members: &[PermanentId], now: SimTime, params: &PeopleParams) -> f64 {
+        members
+            .iter()
+            .filter_map(|m| self.person(*m))
+            .map(|q| interpolate(&params.capacity_by_age, q.age_years(now)))
+            .sum::<f64>()
+            * params.farm.work_hours_per_day
+    }
+
+    /// Applies `hours` of a capable adult's `task` on `field` by person `who` of `household`:
+    /// seed comes out of the household's store, and threshed grain goes in, next season's seed
+    /// first (the area it plans to sow at the crop's seed rate, with what the seed loses in store
+    /// until sowing: research 08-01 §1.5, seed is kept by planned area, never as a share of the
+    /// harvest).
+    fn field_work(
+        &mut self,
+        ctx: &mut Ctx,
+        who: PermanentId,
+        household: PermanentId,
+        field: PermanentId,
+        task: FieldTask,
+        hours: f64,
+    ) {
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let Some(fi) = ctx.land.fields.iter().position(|f| f.id == field) else {
+            return;
+        };
+        let Some(crop) = ctx.catalog.crops.get(usize::from(ctx.land.fields[fi].crop)) else {
+            return;
+        };
+        let Some(&hh) = self.hh_index.get(&household) else {
+            return;
+        };
+        let area: f64 = ctx
+            .land
+            .fields
+            .iter()
+            .filter(|f| f.household == household)
+            .map(Field::area_ha)
+            .sum();
+        // Seed for the coming season is set aside before any grain is eaten.
+        let seed_wanted = {
+            let Some(x) = self.households.get(hh) else {
+                return;
+            };
+            let kcal = goods.get(crop.good).map_or(0.0, |g| g.kcal_per_kg);
+            let need = farm::need_area_ha(x.members.len(), params, crop, kcal);
+            let labour = self.labour_per_day(&x.members, now, params);
+            let plan = farm::plan_area_ha(need, area, labour, crop);
+            let half_life = goods.get(crop.seed_good).map_or(0.0, |g| g.half_life_days);
+            farm::seed_to_keep(plan, crop, half_life, now.day_index())
+        };
+        let Some(x) = self.households.get_mut(hh) else {
+            return;
+        };
+        let members = x.members.len().max(1);
+        x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
+        x.stores.resize(goods.len(), 0.0);
+        let seed = x
+            .stores
+            .get(crop.seed_good)
+            .copied()
+            .unwrap_or(0.0)
+            .max(0.0);
+        let climate = ctx.land.climate.factor;
+        let done = ctx.land.fields[fi].work(crop, task, hours, now.day_index(), climate, seed, now);
+        if let Some(s) = x.stores.get_mut(crop.seed_good) {
+            *s = (seed - done.seed_kg).max(0.0);
+        }
+        if done.grain_kg > 0.0 {
+            let have = x.stores.get(crop.seed_good).copied().unwrap_or(0.0);
+            let to_seed = (seed_wanted - have).clamp(0.0, done.grain_kg);
+            if let Some(s) = x.stores.get_mut(crop.seed_good) {
+                *s += to_seed;
+            }
+            if let Some(g) = x.stores.get_mut(crop.good) {
+                *g += done.grain_kg - to_seed;
+            }
+        }
+        let settlement = x.settlement;
+        let Some(si) = settlement.and_then(|s| ctx.land.settlements.iter().position(|x| x.id == s))
+        else {
+            return;
+        };
+        ctx.land.settlements[si].harvest_kg += done.grain_kg;
+        let first = task == FieldTask::Sow
+            && done.finished
+            && !self
+                .chronicle
+                .iter()
+                .any(|e| e.kind == ChronicleKind::FirstSowing && e.settlement == settlement);
+        if first {
+            let s = &ctx.land.settlements[si];
+            let (name, place) = (s.name.clone(), ctx.land.fields[fi].rect.centre_m());
+            self.chronicle_push(
+                now,
+                ChronicleKind::FirstSowing,
+                vec![who],
+                settlement,
+                Some(place),
+                0.0,
+                name,
+            );
+        }
+    }
+
     fn eat(&mut self, ctx: &mut Ctx, h: Handle<Person>, household: PermanentId) {
         let now = ctx.now;
         let params = ctx.params;
@@ -1094,6 +1513,11 @@ impl Population {
         let day_kcal = bmr(p, now, params) * 1.6;
         let want =
             (-f64::from(p.energy_kcal)).max(0.0) + day_kcal / 24.0 * params.energy.satiety_hours;
+        let reserve_ok = may_eat_reserve(p, now, params);
+        let protected = farm::protected_seed(
+            ctx.land.fields.iter().filter(|f| f.household == household),
+            &ctx.catalog.crops,
+        );
         let Some(&hh) = self.hh_index.get(&household) else {
             return;
         };
@@ -1104,7 +1528,16 @@ impl Population {
         let members = hh.members.len().max(1);
         hh.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
         hh.stores.resize(goods.len(), 0.0);
-        let take = eat_from(&mut hh.stores, goods, want);
+        // The seed to sow the ground already cropped is set aside before the meal.
+        let set_aside =
+            protected.map(|(g, kg)| (g, hh.stores.get(g).copied().unwrap_or(0.0).clamp(0.0, kg)));
+        if let Some((g, kg)) = set_aside {
+            hh.stores[g] -= kg;
+        }
+        let take = eat_from(&mut hh.stores, goods, want, reserve_ok);
+        if let Some((g, kg)) = set_aside {
+            hh.stores[g] += kg;
+        }
         let Some(p) = self.people.get_mut(h) else {
             return;
         };
@@ -1195,6 +1628,40 @@ impl Population {
     /// noted every day).
     pub fn on_day(&mut self, ctx: &mut Ctx) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        // The season turns for every field: a sowing window passes, a crop left standing is lost.
+        let day = now.day_index();
+        for f in &mut ctx.land.fields {
+            if let Some(crop) = ctx.catalog.crops.get(usize::from(f.crop)) {
+                f.new_day(crop, day, now);
+            }
+        }
+        // A settlement's harvest is in once none of its fields has a crop growing or unthreshed.
+        for i in 0..ctx.land.settlements.len() {
+            let s = &ctx.land.settlements[i];
+            if s.harvest_kg <= 0.0 {
+                continue;
+            }
+            let id = s.id;
+            let busy = ctx.land.fields.iter().any(|f| {
+                matches!(f.stage, FieldStage::Sown | FieldStage::Reaped)
+                    && self.household(f.household).and_then(|h| h.settlement) == Some(id)
+            });
+            if busy {
+                continue;
+            }
+            let s = &mut ctx.land.settlements[i];
+            let (kg, name, place) = (s.harvest_kg, s.name.clone(), s.hearth_m);
+            s.harvest_kg = 0.0;
+            self.chronicle_push(
+                now,
+                ChronicleKind::HarvestIn,
+                Vec::new(),
+                Some(id),
+                Some(place),
+                kg,
+                name,
+            );
+        }
         for i in 0..ctx.land.settlements.len() {
             let id = ctx.land.settlements[i].id;
             let Some(days) = self.settlement_food_days(id, now, params, goods) else {
@@ -1224,9 +1691,10 @@ pub fn shortage_change(short: bool, days: f64, h: &HouseholdParams) -> Option<Ch
     }
 }
 
-/// Takes up to `want` kcal from food stores, the most perishable first, and only what needs no
-/// fire when there is no firewood. Returns the kcal taken.
-pub fn eat_from(stores: &mut [f64], goods: &[GoodDef], want: f64) -> f64 {
+/// Takes up to `want` kcal from food stores, the most perishable first and goods kept back (seed)
+/// last of all and only when `reserve` allows, and only what needs no fire when there is no
+/// firewood. Returns the kcal taken.
+pub fn eat_from(stores: &mut [f64], goods: &[GoodDef], want: f64, reserve: bool) -> f64 {
     let fire = fuel_kg(stores, goods) > 0.0;
     let keeps = |g: &GoodDef| {
         if g.half_life_days > 0.0 {
@@ -1241,11 +1709,14 @@ pub fn eat_from(stores: &mut [f64], goods: &[GoodDef], want: f64) -> f64 {
             good.purpose == crate::params::GoodUse::Food
                 && good.kcal_per_kg > 0.0
                 && (fire || !good.cooked)
+                && (reserve || !good.reserve)
         })
         .collect();
     order.sort_by(|&a, &b| {
-        keeps(&goods[a])
-            .total_cmp(&keeps(&goods[b]))
+        let (ga, gb) = (&goods[a], &goods[b]);
+        ga.reserve
+            .cmp(&gb.reserve)
+            .then(keeps(ga).total_cmp(&keeps(gb)))
             .then(a.cmp(&b))
     });
     let mut taken = 0.0;
@@ -1387,6 +1858,7 @@ mod tests {
             half_life_days: half,
             cooked,
             shared: false,
+            reserve: false,
         };
         vec![
             good("grain", GoodUse::Food, 3000.0, 1000.0, false),
@@ -1401,14 +1873,14 @@ mod tests {
         let goods = goods();
         // Meat spoils fastest, then berries; grain keeps.
         let mut stores = vec![10.0, 2.0, 1.0, 5.0];
-        let taken = eat_from(&mut stores, &goods, 3600.0);
+        let taken = eat_from(&mut stores, &goods, 3600.0, false);
         assert_eq!(taken, 3600.0);
         assert!((stores[1] - 0.0).abs() < 1e-12, "meat first: {stores:?}");
         assert!((stores[2] - 0.0).abs() < 1e-12, "then berries: {stores:?}");
         assert!((stores[0] - (10.0 - 0.0)).abs() < 1e-12, "grain untouched");
         // Without firewood the meat cannot be eaten.
         let mut cold = vec![1.0, 2.0, 0.0, 0.0];
-        let taken = eat_from(&mut cold, &goods, 100_000.0);
+        let taken = eat_from(&mut cold, &goods, 100_000.0, false);
         assert_eq!(taken, 3000.0, "only the grain");
         assert_eq!(cold[1], 2.0);
     }

@@ -1,0 +1,14 @@
+# Asking a household of the settlement that has food to spare for some, when one's own runs short
+# (research 08-11 §1.1, §5.4: households ask when in need and help when able; no debt is kept).
+kind = "activity"
+id = "core:activity/ask_for_food"
+name = "Ask for food"
+doing = "asking for food"
+behavior = "ask"
+par = 1.5
+min_age_years = 12.0
+max_age_years = 90.0
+min_minutes = 10                 # talking, and carrying back what is given
+max_minutes = 10
+daylight_only = false
+max_walk_minutes = 20

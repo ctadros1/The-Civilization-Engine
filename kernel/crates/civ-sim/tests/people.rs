@@ -238,29 +238,19 @@ fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
 }
 
 #[test]
-fn households_keep_firewood_and_forage_to_spare_their_provisions() {
+fn households_break_ground_keep_firewood_and_gather() {
     let mut sim = new_world(3, 0);
     let rules = sim.rules().clone();
     let goods = &rules.catalog.goods;
-    let provisions = rules.people.band.provisions_good;
-    let held = |sim: &Sim| -> f64 {
-        sim.people()
-            .households
-            .iter()
-            .map(|(_, h)| population::stores_now(h, sim.now(), &rules.people, goods)[provisions])
-            .sum()
-    };
-    let before = held(&sim);
     let days = 8;
     sim.advance_minutes(days * 24 * 60).expect("advances");
 
-    // Foraging fed people too: less of the provisions went than a band eats in that time.
-    let eaten_kcal = (before - held(&sim)) * goods[provisions].kcal_per_kg;
-    let need_kcal =
-        sim.people().living() as f64 * rules.people.household.daily_kcal_per_person * days as f64;
+    // Arriving in March, they mark out fields and start breaking the ground.
+    let fields = &sim.land().fields;
+    assert!(!fields.is_empty(), "no field marked out");
     assert!(
-        eaten_kcal < 0.97 * need_kcal,
-        "provisions eaten {eaten_kcal:.0} kcal of {need_kcal:.0} needed"
+        fields.iter().any(|f| f.work_h > 0.0 || f.broken),
+        "no ground broken"
     );
 
     // Most households keep firewood at home.
@@ -306,6 +296,58 @@ fn households_keep_firewood_and_forage_to_spare_their_provisions() {
         .people()
         .problems(sim.ids().peek_next(), rules.catalog.activities.len());
     assert!(problems.is_empty(), "{problems:?}");
+}
+
+#[test]
+fn a_band_sows_reaps_and_threshes_its_first_harvest() {
+    let mut sim = new_world(3, 0);
+    let rules = sim.rules().clone();
+    let crop = &rules.catalog.crops[rules.people.farm.crop];
+    // From 1 March to the end of September.
+    sim.advance_minutes(212 * 24 * 60).expect("advances");
+    let chronicle = &sim.people().chronicle;
+    let sown = chronicle
+        .iter()
+        .position(|e| e.kind == ChronicleKind::FirstSowing);
+    let harvest = chronicle
+        .iter()
+        .position(|e| e.kind == ChronicleKind::HarvestIn);
+    assert!(sown.is_some(), "the first sowing is noted");
+    assert!(harvest > sown, "and then the harvest");
+    let kg = chronicle[harvest.expect("harvest")].number;
+    let ha: f64 = sim.land().fields.iter().map(|f| f.area_ha()).sum();
+    // Between a poor and a good year's yield on the ground they cropped.
+    assert!(
+        kg > 0.3 * crop.yield_kg_per_ha * ha && kg < 1.6 * crop.yield_kg_per_ha * ha,
+        "{kg:.0} kg from {ha:.2} ha"
+    );
+    // Every household keeps the seed to sow its fields again, and has grain.
+    let now = sim.now();
+    for (_, h) in sim.people().households.iter() {
+        let stores = population::stores_now(h, now, &rules.people, &rules.catalog.goods);
+        let own: f64 = sim
+            .land()
+            .fields
+            .iter()
+            .filter(|f| f.household == h.id)
+            .map(|f| f.area_ha())
+            .sum();
+        assert!(
+            stores[crop.seed_good] + 1e-6 >= own * crop.seed_kg_per_ha,
+            "household {} keeps {:.0} kg of seed for {own:.2} ha",
+            h.id,
+            stores[crop.seed_good]
+        );
+    }
+    let grain: f64 = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| {
+            population::stores_now(h, now, &rules.people, &rules.catalog.goods)[crop.good]
+        })
+        .sum();
+    assert!(grain > 0.0, "the threshed grain is in store");
 }
 
 #[test]

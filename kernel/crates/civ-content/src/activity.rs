@@ -2,6 +2,7 @@
 //! Which activity anyone does, and where, is decided by people at run time (ADR-0003).
 
 use civ_agents::params::{ActivityDef, Behavior};
+use civ_land::FieldTask;
 use serde::Deserialize;
 
 /// The `kind` value of an activity.
@@ -19,6 +20,8 @@ pub(crate) struct ActivityFile {
     pub behavior: String,
     /// For gathering: the land profile's resource id.
     pub resource: Option<String>,
+    /// For farming: the field task (`prepare`, `sow`, `tend`, `reap`, `thresh`).
+    pub task: Option<String>,
     pub par: f64,
     pub min_age_years: f64,
     pub max_age_years: f64,
@@ -45,6 +48,7 @@ impl ActivityFile {
             doing: self.doing.clone(),
             behavior: Behavior::from_name(&self.behavior)?,
             resource,
+            task: self.task.as_deref().and_then(FieldTask::from_name),
             par: self.par,
             min_age_years: self.min_age_years,
             max_age_years: self.max_age_years,
@@ -72,6 +76,22 @@ impl ActivityFile {
                 b.name()
             )),
             Some(_) => {}
+        }
+        match (Behavior::from_name(&self.behavior), &self.task) {
+            (Some(Behavior::Farm), None) => {
+                p.push("a `farm` activity names the field `task` it does".to_owned());
+            }
+            (Some(Behavior::Farm), Some(t)) if FieldTask::from_name(t).is_none() => {
+                p.push(format!(
+                    "unknown task `{t}` (known: {})",
+                    FieldTask::ALL.map(FieldTask::name).join(", ")
+                ));
+            }
+            (Some(b), Some(_)) if b != Behavior::Farm => p.push(format!(
+                "only `farm` activities take a `task` (this one is `{}`)",
+                b.name()
+            )),
+            _ => {}
         }
         if !(self.par.is_finite() && (1.0..=10.0).contains(&self.par)) {
             p.push(format!("`par` must be between 1 and 10 (got {})", self.par));

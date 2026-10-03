@@ -1,0 +1,13 @@
+kind = "activity"
+id = "core:activity/sow"
+name = "Sow"
+doing = "sowing"
+behavior = "farm"
+task = "sow"
+par = 3.0
+min_age_years = 10.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 30

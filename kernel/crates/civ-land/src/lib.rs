@@ -17,6 +17,10 @@
 
 #![forbid(unsafe_code)]
 
+pub mod fields;
+
+pub use fields::{CropParams, Field, FieldStage, FieldTask, RectCm, WorkDone};
+
 use civ_core::time::{DAYS_PER_YEAR, MONTH_STARTS};
 use civ_core::{PermanentId, Rng64, SimTime};
 use civ_world::noise::Noise;
@@ -43,6 +47,9 @@ pub struct HabitatRule {
     pub max_mean_slope: Option<f64>,
     /// Whether ground of this class can be cleared and cultivated.
     pub arable: bool,
+    /// Work to clear a hectare of what grows on it before it is first broken for a field
+    /// (woodland), person-hours; 0 for open ground.
+    pub clear_h_per_ha: f64,
 }
 
 /// How a resource's stock grows.
@@ -264,6 +271,8 @@ pub struct Settlement {
     pub hearth_m: (f32, f32),
     /// Its food has run short and not yet recovered (for the chronicle).
     pub food_short: bool,
+    /// Grain threshed from its fields since its last harvest was noted, kilograms.
+    pub harvest_kg: f64,
 }
 
 /// All land state of one world.
@@ -279,6 +288,8 @@ pub struct Land {
     pub climate: ClimateYear,
     /// Settlements, oldest first. Saved.
     pub settlements: Vec<Settlement>,
+    /// Fields, in the order they were marked out. Saved.
+    pub fields: Vec<Field>,
 }
 
 /// Summary of a patch's terrain, for classification.
@@ -428,6 +439,7 @@ impl Land {
                 factor: 1.0,
             },
             settlements: Vec::new(),
+            fields: Vec::new(),
         };
         // Start each stock at its equilibrium for the season a year ago, then grow a year.
         for r in 0..params.resources.len() {
@@ -480,6 +492,35 @@ impl Land {
                     "settlement {} is outside the map or unallocated",
                     s.id
                 ));
+            }
+            if !(s.harvest_kg.is_finite() && s.harvest_kg >= 0.0) {
+                out.push(format!("settlement {} has an invalid harvest", s.id));
+            }
+        }
+        let (w_cm, h_cm) = (f64::from(w) * 100.0, f64::from(h) * 100.0);
+        let mut ids = std::collections::HashSet::new();
+        for f in &self.fields {
+            let r = f.rect;
+            let inside = r.w > 0
+                && r.h > 0
+                && r.x >= 0
+                && r.y >= 0
+                && f64::from(r.x) + f64::from(r.w) <= w_cm
+                && f64::from(r.y) + f64::from(r.h) <= h_cm;
+            let finite = [
+                f.work_h,
+                f.tended_h,
+                f.ground,
+                f.clear_h_per_ha,
+                f.sheaves_kg,
+            ]
+            .iter()
+            .all(|v| v.is_finite() && *v >= 0.0);
+            if !ids.insert(f.id) || f.id.get() >= next_id || f.household.get() >= next_id {
+                out.push(format!("field {} has a duplicate or unallocated id", f.id));
+            }
+            if !inside || !finite {
+                out.push(format!("field {} is outside the map or malformed", f.id));
             }
         }
         out
@@ -846,6 +887,7 @@ mod tests {
                     max_median_hand_m: None,
                     max_mean_slope: None,
                     arable: false,
+                    clear_h_per_ha: 0.0,
                 },
                 HabitatRule {
                     id: "flat".into(),
@@ -854,6 +896,7 @@ mod tests {
                     max_median_hand_m: Some(3.0),
                     max_mean_slope: Some(0.05),
                     arable: true,
+                    clear_h_per_ha: 0.0,
                 },
                 HabitatRule {
                     id: "rest".into(),
@@ -862,6 +905,7 @@ mod tests {
                     max_median_hand_m: None,
                     max_mean_slope: None,
                     arable: false,
+                    clear_h_per_ha: 0.0,
                 },
             ],
             richness_min: 1.0,

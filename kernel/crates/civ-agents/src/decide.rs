@@ -6,6 +6,8 @@
 //! reason. A softmax over the totals, with a temperature proportional to their spread, picks one
 //! with a keyed draw. The scores, the runner-up and the exclusions are kept as the receipt.
 
+use civ_core::PermanentId;
+
 use crate::history::{Reason, Scored, Term};
 use crate::params::{ActivityDef, Behavior, DecisionParams, GoodUse};
 use crate::person::{Step, Target};
@@ -81,6 +83,46 @@ pub struct PatchOption {
     pub at: (f32, f32),
 }
 
+/// Field work a person could do: on which field, where, and what it is worth.
+#[derive(Clone, Copy, Debug)]
+pub struct FieldOption {
+    /// The field, or `None` for new ground to mark out.
+    pub field: Option<PermanentId>,
+    /// One-way walk, minutes (0 for work at home).
+    pub walk_min: f64,
+    /// Where to stand, metres.
+    pub at: (f32, f32),
+    /// Food for the year ahead an hour of a capable adult's work brings: the field's expected
+    /// harvest over the work it still needs, kcal.
+    pub kcal_per_hour: f64,
+    /// Hours of a capable adult's work this task still needs on the field.
+    pub hours_left: f64,
+    /// How much more grain is worth to the household, 0–1: `target / (target + held)`.
+    pub room: f64,
+    /// Field work left over the work the household can still do before the task's season
+    /// closes; 0 when it has no deadline.
+    pub urgency: f64,
+    /// The work is done at home (threshing).
+    pub at_home: bool,
+    /// The work brings food within days (reaping and threshing), so a shortage presses on it as
+    /// on gathering.
+    pub soon: bool,
+}
+
+/// A household of the settlement that could spare food: who, the walk to its home, and the food
+/// it would give.
+#[derive(Clone, Copy, Debug)]
+pub struct GiverOption {
+    /// The household.
+    pub household: PermanentId,
+    /// One-way walk to its home, minutes.
+    pub walk_min: f64,
+    /// Its home, metres.
+    pub at: (f32, f32),
+    /// Food energy it would give, kcal.
+    pub kcal: f64,
+}
+
 /// A nearby water point: walking minutes one way and the destination.
 #[derive(Clone, Copy, Debug)]
 pub struct WaterOption {
@@ -152,14 +194,19 @@ fn walk_home_first(f: &Facts) -> Vec<Step> {
     }
 }
 
-/// Scores every activity. Returns the candidates and the exclusions.
+/// Scores every activity. Returns the candidates and the exclusions. `best_field` gives each
+/// farm activity its best field, or the reason there is none; `giver` is the household that
+/// could best spare food.
+#[allow(clippy::too_many_arguments)]
 pub fn candidates(
     defs: &[ActivityDef],
     w: &DecisionParams,
     f: &Facts,
     limits: &Limits,
     best_patch: &dyn Fn(usize) -> Option<PatchOption>,
+    best_field: &dyn Fn(usize) -> Result<FieldOption, Reason>,
     water: Option<WaterOption>,
+    giver: Option<GiverOption>,
 ) -> (Vec<Candidate>, Vec<(u16, Reason)>) {
     let mut out = Vec::new();
     let mut excluded = Vec::new();
@@ -325,6 +372,114 @@ pub fn candidates(
                 ];
                 out.push(finish(id, Target::Patch(patch.patch), terms, steps));
             }
+            Behavior::Farm => {
+                let field = match best_field(i) {
+                    Ok(field) => field,
+                    Err(why) => {
+                        excluded.push((id, why));
+                        continue;
+                    }
+                };
+                let walk = field.walk_min;
+                let room = if def.daylight_only {
+                    f.daylight_left_min - 2.0 * walk - 20.0
+                } else {
+                    f64::from(def.max_minutes)
+                };
+                if room < f64::from(def.min_minutes) {
+                    excluded.push((id, Reason::NotInDark));
+                    continue;
+                }
+                // Work as long as daylight and the task allow, within the authored range.
+                let needed = field.hours_left * 60.0 / f.capacity.max(0.05);
+                let minutes = room
+                    .min(f64::from(def.max_minutes))
+                    .min(needed)
+                    .max(f64::from(def.min_minutes))
+                    .max(1.0);
+                let hours = minutes / 60.0;
+                // Future food, valued like food brought home now (the same response curve), less
+                // the more grain the household already holds.
+                let kcal = field.kcal_per_hour * hours * f.capacity;
+                let half = w.trip_half_worth_days * f.household_kcal_day.max(1.0);
+                let worth = kcal / (kcal + half.max(1.0));
+                term(&mut terms, Reason::Harvest, w.w_farm * worth * field.room);
+                if field.soon {
+                    // The crop is food within days: a shortage presses on bringing it in.
+                    let target = f.food_target_days.max(1e-6);
+                    let short = (1.0 - f.food_days / target).clamp(0.0, 1.0);
+                    term(&mut terms, Reason::FoodShortage, w.w_food * short * worth);
+                    if !f.has_food {
+                        term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
+                    }
+                }
+                term(
+                    &mut terms,
+                    Reason::Deadline,
+                    w.w_deadline * field.urgency.clamp(0.0, 2.0),
+                );
+                if !field.at_home {
+                    term(
+                        &mut terms,
+                        Reason::Walking,
+                        -w.w_walk_hour * 2.0 * walk / 60.0,
+                    );
+                }
+                term(
+                    &mut terms,
+                    Reason::Effort,
+                    -w.w_effort * (def.par - 1.0).max(0.0) * hours * f.sleep_pressure,
+                );
+                let work = Step::Work {
+                    minutes: minutes.round().max(1.0) as u32,
+                };
+                let steps = if field.at_home {
+                    let mut steps = walk_home_first(f);
+                    steps.push(work);
+                    steps
+                } else {
+                    vec![Step::Walk { to: field.at }, work, Step::Walk { to: f.home }]
+                };
+                let target = field.field.map_or(Target::NewField, Target::Field);
+                out.push(finish(id, target, terms, steps));
+            }
+            Behavior::Ask => {
+                // Ask when in need, from a household able to help (research 08-11 §1.1, §5.4:
+                // need-based help between households, no debt kept).
+                let target = f.food_target_days.max(1e-6);
+                let short = (1.0 - f.food_days / target).clamp(0.0, 1.0);
+                if short <= 0.0 {
+                    excluded.push((id, Reason::NotShort));
+                    continue;
+                }
+                let Some(giver) = giver else {
+                    excluded.push((id, Reason::NoOneToAsk));
+                    continue;
+                };
+                if giver.walk_min > f64::from(def.max_walk_minutes) {
+                    excluded.push((id, Reason::Unreachable));
+                    continue;
+                }
+                let half = w.trip_half_worth_days * f.household_kcal_day.max(1.0);
+                let worth = giver.kcal / (giver.kcal + half.max(1.0));
+                term(&mut terms, Reason::FoodShortage, w.w_food * short * worth);
+                if !f.has_food {
+                    term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
+                }
+                term(
+                    &mut terms,
+                    Reason::Walking,
+                    -w.w_walk_hour * 2.0 * giver.walk_min / 60.0,
+                );
+                let steps = vec![
+                    Step::Walk { to: giver.at },
+                    Step::Work {
+                        minutes: def.min_minutes.max(1),
+                    },
+                    Step::Walk { to: f.home },
+                ];
+                out.push(finish(id, Target::Household(giver.household), terms, steps));
+            }
             Behavior::Socialize => {
                 let Some(hearth) = f.hearth else {
                     excluded.push((id, Reason::NoHearth));
@@ -408,11 +563,14 @@ mod tests {
             temperature_sd_fraction: 0.4,
             min_temperature: 0.5,
             w_hunger: 10.0,
+            max_hunger_drive: 2.0,
             w_sleep: 12.0,
             w_social: 4.0,
             w_food: 8.0,
             w_work: 2.0,
             w_fuel: 6.0,
+            w_farm: 8.0,
+            w_deadline: 6.0,
             trip_half_worth_days: 0.25,
             w_water: 6.0,
             w_walk_hour: 1.0,

@@ -1,0 +1,38 @@
+[package]
+name = "civ-ffi"
+description = "The kernel's C interface (ADR-0005): the `tce_kernel` library Unreal loads, a transport for the same engine and frames civ-host serves."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+name = "tce_kernel"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+axum = { workspace = true }
+civ-content = { workspace = true }
+civ-host = { path = "../civ-host" }
+civ-schema = { workspace = true }
+commons-wire = { workspace = true }
+getrandom = "0.4.3"
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+cbindgen = { version = "0.29.4", default-features = false }
+cc = "1.6.0"
+civ-sim = { workspace = true }
+tempfile = { workspace = true }
+
+# Not the workspace lints: the exported functions take raw pointers, so this crate denies `unsafe`
+# (overridable) instead of forbidding it, and allows it only in `exports` (ADR-0005 §1).
+[lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+
+[lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+unwrap_used = "warn"

@@ -49,6 +49,7 @@ Before changing anything:
 | `kernel/crates/civ-schema` | FlatBuffers schemas and generated Rust (boundary and saves). |
 | `kernel/crates/civ-sim` | The composition root: a world's state, save/load, boundary payloads. |
 | `kernel/crates/civ-host` | The command line and the localhost observer server. |
+| `kernel/crates/civ-ffi` | The kernel's C interface: the `tce_kernel` library Unreal loads, with its generated header `include/tce_kernel.h` (ADR-0005). |
 | `commons/` | `engine-commons`, staged in-repo: `commons-wire` (frame envelope), `commons-persist` (snapshot container). Engine-agnostic. |
 | `content/` | Authored packs (`content/core`). See `content/README.md`. |
 | `web/` | The web observer (TypeScript, Vite, PixiJS). See `web/README.md`. |
@@ -57,7 +58,7 @@ Before changing anything:
 | `tools/` | `run.sh` / `run.ps1` (launch), `gen-schema.sh` (FlatBuffers codegen). |
 
 Dependency direction: `civ-core` ← `civ-world` ← `civ-grammar` ← `civ-land` ← `civ-agents` ←
-`civ-content` ← `civ-sim` ← `civ-host`. `civ-grammar` depends on nothing, so Unreal can call the
+`civ-content` ← `civ-sim` ← `civ-host` ← `civ-ffi`. `civ-grammar` depends on nothing, so Unreal can call the
 same expansion over FFI (plan §3.4).
 Domain crates (`civ-core`, `civ-world`, `civ-grammar`, `civ-land`, `civ-agents`) never use generated schema
 types. Conversion happens only in `civ-sim` (world payloads, save sections) and `civ-host`
@@ -108,8 +109,15 @@ requests into it; run them yourself before a change to how people live, farm, bu
 - **Content:** new kinds of authored primitives go through `civ-content`. They get strict TOML
   (unknown fields are errors), stable diagnostic codes, and documentation in `content/README.md`.
 - **Rust:** edition 2024, toolchain pinned by `rust-toolchain.toml`. `unsafe` is forbidden
-  everywhere except the generated FlatBuffers module in `civ-schema`. `clippy -D warnings` must
-  pass. Avoid `unwrap` outside tests. Doc comments are short, factual and in plain English.
+  everywhere except the generated FlatBuffers module in `civ-schema` and the C interface in
+  `civ-ffi` (`src/exports.rs`, and the tests that call it as a host would), where every `unsafe`
+  block has a `SAFETY:` comment. `clippy -D warnings` must pass. Avoid `unwrap` outside tests.
+  Doc comments are short, factual and in plain English. Never set `panic = "abort"`: the C
+  interface catches panics.
+- **C interface** (`civ-ffi`, ADR-0005): one export, `tce_get_api`, and a versioned table.
+  Within ABI 1, only append functions to the table and fields to structures. After changing
+  `src/exports.rs`, regenerate the header with `TCE_BLESS=1 cargo test -p civ-ffi --test header`
+  and commit it; the C harness test checks that C and Rust agree on every layout.
 - **Web:** the page shows state and forwards commands, and never decides. Generated TypeScript
   stays behind `src/net/messages.ts`. New panels need empty, loading and error states.
 - **Claims:** do not call something done, fixed or fast without having run it. Keep the

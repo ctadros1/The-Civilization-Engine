@@ -12,10 +12,17 @@ import * as M from "./net/messages.js";
 import { Store, initialState, mergeEvents } from "./state.js";
 import { bindUi } from "./ui.js";
 
+/**
+ * The observer socket: this page's host, or `?host=` in its address. A `?token=` in the address
+ * is passed on; a host inside Unreal requires it (ADR-0005 §6).
+ */
 function socketUrl(): string {
-  const host = new URLSearchParams(location.search).get("host");
-  if (host) return `ws://${host}/ws`;
-  return `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
+  const params = new URLSearchParams(location.search);
+  const host = params.get("host");
+  const token = params.get("token");
+  const query = token ? `?token=${encodeURIComponent(token)}` : "";
+  if (host) return `ws://${host}/ws${query}`;
+  return `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws${query}`;
 }
 
 function byId(id: string): HTMLElement {

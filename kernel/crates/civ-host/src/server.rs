@@ -3,24 +3,28 @@
 //! Each connection follows ADR-0001: the client says `Hello` and the host answers `Welcome`, then
 //! sends the current snapshot and recent events, then live snapshots (replaceable), events
 //! (ordered) and the replies to the client's commands and queries, matched by correlation id.
+//!
+//! The socket refuses pages served from anywhere but this machine (a browser's `Origin`), so a
+//! web site open in the same browser cannot drive the host, and it can require a token in its
+//! address (`/ws?token=…`), as the kernel's panel server does (research 14-10 §4.5, ADR-0005 §6).
 
 use std::path::PathBuf;
 use std::sync::{Arc, PoisonError};
 use std::time::Duration;
 
 use axum::Router;
-use axum::extract::State;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::http::StatusCode;
+use axum::extract::{RawQuery, State};
+use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::get;
-use civ_schema::{WIRE_SCHEMA, wire};
+use civ_schema::wire;
 use commons_wire::{FrameKind, Sequencer};
 use tokio::sync::{broadcast, mpsc, oneshot};
 use tower_http::services::{ServeDir, ServeFile};
 
 use crate::engine::{Channels, Msg, Reply};
-use crate::protocol::{self, EventRecord};
+use crate::protocol::{self, EventRecord, Incoming};
 
 /// How long a client has to say hello.
 const HELLO_TIMEOUT: Duration = Duration::from_secs(10);
@@ -43,18 +47,33 @@ npm run build</pre>
 </html>
 "#;
 
+/// Who may open the observer socket, beyond the rule that pages must come from this machine.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Access {
+    /// A token the socket's address must carry as `?token=…`; `None` lets anyone on this machine
+    /// connect.
+    pub token: Option<String>,
+}
+
 #[derive(Clone)]
 struct AppState {
     channels: Channels,
     welcome: Arc<Vec<u8>>,
+    access: Arc<Access>,
 }
 
 /// The HTTP application: `/ws`, `/healthz`, and the web shell from `web_dir` (or a page saying
 /// how to build it).
-pub fn router(channels: Channels, welcome: Vec<u8>, web_dir: Option<PathBuf>) -> Router {
+pub fn router(
+    channels: Channels,
+    welcome: Vec<u8>,
+    web_dir: Option<PathBuf>,
+    access: Access,
+) -> Router {
     let state = AppState {
         channels,
         welcome: Arc::new(welcome),
+        access: Arc::new(access),
     };
     let app = Router::new()
         .route("/ws", get(upgrade))
@@ -73,13 +92,69 @@ async fn missing_web_shell() -> Response {
     (StatusCode::SERVICE_UNAVAILABLE, Html(MISSING_WEB_SHELL)).into_response()
 }
 
-async fn upgrade(ws: WebSocketUpgrade, State(state): State<AppState>) -> Response {
+async fn upgrade(
+    ws: WebSocketUpgrade,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let origin = headers
+        .get(header::ORIGIN)
+        .map(|v| v.to_str().unwrap_or("?"));
+    if let Some(origin) = origin.filter(|o| !is_local_origin(o)) {
+        tracing::warn!("refused an observer from {origin}");
+        return (
+            StatusCode::FORBIDDEN,
+            "pages from other sites may not connect",
+        )
+            .into_response();
+    }
+    if let Some(token) = &state.access.token {
+        let given = query
+            .as_deref()
+            .and_then(|q| q.split('&').find_map(|pair| pair.strip_prefix("token=")))
+            .unwrap_or("");
+        if !same_secret(given.as_bytes(), token.as_bytes()) {
+            tracing::warn!("refused an observer without the session's token");
+            return (
+                StatusCode::FORBIDDEN,
+                "this socket needs its session's token",
+            )
+                .into_response();
+        }
+    }
     ws.max_message_size(MAX_CLIENT_MESSAGE)
         .on_upgrade(move |socket| async move {
             if let Err(e) = connection(socket, state).await {
                 tracing::debug!("an observer connection ended: {e}");
             }
         })
+}
+
+/// Whether a browser's `Origin` is a page served from this machine: `http` or `https` on
+/// 127.0.0.1, `localhost` or `[::1]`, at any port. `null` (a file or sandboxed page) is not.
+pub fn is_local_origin(origin: &str) -> bool {
+    let Some(rest) = origin
+        .strip_prefix("http://")
+        .or_else(|| origin.strip_prefix("https://"))
+    else {
+        return false;
+    };
+    let authority = rest.split('/').next().unwrap_or("");
+    let host = if authority.starts_with('[') {
+        authority.split_inclusive(']').next().unwrap_or("")
+    } else {
+        authority.split(':').next().unwrap_or("")
+    };
+    matches!(
+        host.to_ascii_lowercase().as_str(),
+        "127.0.0.1" | "localhost" | "[::1]"
+    )
+}
+
+/// Compares two secrets in time that does not depend on where they differ.
+fn same_secret(a: &[u8], b: &[u8]) -> bool {
+    a.len() == b.len() && a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
 async fn send(socket: &mut WebSocket, frame: Vec<u8>) -> Result<(), axum::Error> {
@@ -276,37 +351,11 @@ fn on_frame(
     replies: &mpsc::UnboundedSender<(u64, Reply)>,
     seq: &mut Sequencer,
 ) -> Result<Option<Vec<u8>>, commons_wire::WireError> {
-    let frame = match commons_wire::decode(bytes, &protocol::CLIENT_LIMITS) {
-        Ok(frame) => frame,
-        Err(e) => {
-            let message = format!("malformed frame: {e}");
-            return error_frame(seq, 0, wire::ErrorCode::BadRequest, &message).map(Some);
-        }
-    };
-    let meta = frame.header.meta;
-    match meta.kind {
-        FrameKind::Command | FrameKind::Query => {}
-        FrameKind::Heartbeat | FrameKind::Hello => return Ok(None),
-        other => {
-            let message = format!("the host does not accept {other} frames");
-            return error_frame(seq, meta.correlation, wire::ErrorCode::BadRequest, &message)
-                .map(Some);
-        }
-    }
-    if !meta.schema.is_compatible_with(&WIRE_SCHEMA) {
-        let message = format!("this host speaks {WIRE_SCHEMA}, not {}", meta.schema);
-        return error_frame(
-            seq,
-            meta.correlation,
-            wire::ErrorCode::Incompatible,
-            &message,
-        )
-        .map(Some);
-    }
-    let request = match protocol::decode_request(meta.kind, frame.payload) {
-        Ok(request) => request,
-        Err(why) => {
-            return error_frame(seq, meta.correlation, wire::ErrorCode::BadRequest, &why).map(Some);
+    let (correlation, request) = match protocol::read_request(bytes) {
+        Ok(Incoming::Request(correlation, request)) => (correlation, request),
+        Ok(Incoming::Nothing) => return Ok(None),
+        Err(refusal) => {
+            return error_frame(seq, refusal.correlation, refusal.code, &refusal.message).map(Some);
         }
     };
     let (tx, rx) = oneshot::channel();
@@ -318,14 +367,13 @@ fn on_frame(
     {
         return error_frame(
             seq,
-            meta.correlation,
+            correlation,
             wire::ErrorCode::Internal,
             "the engine has stopped",
         )
         .map(Some);
     }
     let replies = replies.clone();
-    let correlation = meta.correlation;
     tokio::spawn(async move {
         let reply = rx.await.unwrap_or_else(|_| {
             Reply::Error(
@@ -336,4 +384,42 @@ fn on_frame(
         let _ = replies.send((correlation, reply));
     });
     Ok(None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn local_origins_are_this_machine_at_any_port() {
+        for origin in [
+            "http://127.0.0.1:7420",
+            "http://localhost:5173",
+            "https://LOCALHOST",
+            "http://[::1]:7420",
+            "http://127.0.0.1",
+        ] {
+            assert!(is_local_origin(origin), "{origin}");
+        }
+        for origin in [
+            "null",
+            "https://example.com",
+            "http://127.0.0.1.example.com",
+            "http://localhost.example.com:7420",
+            "http://example.com/127.0.0.1",
+            "file://",
+            "ws://127.0.0.1:7420",
+            "",
+        ] {
+            assert!(!is_local_origin(origin), "{origin}");
+        }
+    }
+
+    #[test]
+    fn secrets_match_only_when_equal() {
+        assert!(same_secret(b"abc", b"abc"));
+        assert!(!same_secret(b"abc", b"abd"));
+        assert!(!same_secret(b"abc", b"abcd"));
+        assert!(same_secret(b"", b""));
+    }
 }

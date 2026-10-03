@@ -25,6 +25,10 @@ struct Host {
 }
 
 async fn start_host() -> Host {
+    start_host_with(server::Access::default()).await
+}
+
+async fn start_host_with(access: server::Access) -> Host {
     let saves = tempfile::tempdir().expect("temp dir");
     let content_root = civ_content::find_content_root(Path::new(env!("CARGO_MANIFEST_DIR")))
         .expect("content/ is above the crate");
@@ -42,6 +46,7 @@ async fn start_host() -> Host {
         engine.channels.clone(),
         protocol::welcome_payload(&content),
         None,
+        access,
     );
     let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
         .await
@@ -563,6 +568,68 @@ async fn a_client_with_another_schema_major_is_refused() {
     let other = SchemaId::new(*b"TCE\0", WIRE_SCHEMA.major + 1, 0);
     let (_client, reply) = Client::connect(host.addr, other).await;
     assert_eq!(error_code(&reply), Some(wire::ErrorCode::Incompatible));
+    let engine = host.engine.take().expect("engine");
+    tokio::task::spawn_blocking(move || engine.shutdown())
+        .await
+        .expect("shuts down");
+}
+
+/// Opens the socket as a page from `origin` would, at `/ws` plus `query`. Returns the HTTP status
+/// of a refusal, or `None` when the socket opened.
+async fn refusal(addr: std::net::SocketAddr, origin: Option<&str>, query: &str) -> Option<u16> {
+    use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+    let mut request = format!("ws://{addr}/ws{query}")
+        .into_client_request()
+        .expect("request");
+    if let Some(origin) = origin {
+        request
+            .headers_mut()
+            .insert("Origin", origin.parse().expect("header value"));
+    }
+    match tokio_tungstenite::connect_async(request).await {
+        Ok(_) => None,
+        Err(tokio_tungstenite::tungstenite::Error::Http(response)) => {
+            Some(response.status().as_u16())
+        }
+        Err(e) => panic!("the socket failed otherwise: {e}"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pages_from_other_sites_are_refused() {
+    let mut host = start_host().await;
+    let own = format!("http://127.0.0.1:{}", host.addr.port());
+    assert_eq!(
+        refusal(host.addr, Some("https://example.com"), "").await,
+        Some(403)
+    );
+    assert_eq!(
+        refusal(host.addr, Some("http://127.0.0.1.example.com"), "").await,
+        Some(403)
+    );
+    assert_eq!(refusal(host.addr, Some("null"), "").await, Some(403));
+    assert_eq!(refusal(host.addr, Some(&own), "").await, None);
+    assert_eq!(
+        refusal(host.addr, Some("http://localhost:5173"), "").await,
+        None
+    );
+    assert_eq!(refusal(host.addr, None, "").await, None);
+    let engine = host.engine.take().expect("engine");
+    tokio::task::spawn_blocking(move || engine.shutdown())
+        .await
+        .expect("shuts down");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_host_with_a_token_refuses_sockets_without_it() {
+    let mut host = start_host_with(server::Access {
+        token: Some("0123abcd".to_owned()),
+    })
+    .await;
+    assert_eq!(refusal(host.addr, None, "").await, Some(403));
+    assert_eq!(refusal(host.addr, None, "?token=0123abce").await, Some(403));
+    assert_eq!(refusal(host.addr, None, "?token=0123abcd").await, None);
+    assert_eq!(refusal(host.addr, None, "?a=1&token=0123abcd").await, None);
     let engine = host.engine.take().expect("engine");
     tokio::task::spawn_blocking(move || engine.shutdown())
         .await

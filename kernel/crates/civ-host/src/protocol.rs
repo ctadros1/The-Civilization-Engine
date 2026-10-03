@@ -181,6 +181,65 @@ pub fn frame(
     commons_wire::encode(&meta, payload, false)
 }
 
+/// A client's frame after it was checked, on any transport.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Incoming {
+    /// A request for the engine, and the correlation id its reply must carry.
+    Request(u64, Request),
+    /// Nothing to do: a heartbeat, or a hello once the session is open.
+    Nothing,
+}
+
+/// A client's frame the host refuses: the correlation id to answer and why.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Refusal {
+    /// The refused frame's correlation id, or 0 when the frame could not be read at all.
+    pub correlation: u64,
+    /// The error to report.
+    pub code: wire::ErrorCode,
+    /// What was wrong, in words.
+    pub message: String,
+}
+
+/// Reads a client's frame once the session is open: a command or query in a schema this host
+/// speaks, or a heartbeat.
+pub fn read_request(bytes: &[u8]) -> Result<Incoming, Refusal> {
+    let refuse = |correlation, code, message: String| Refusal {
+        correlation,
+        code,
+        message,
+    };
+    let frame = commons_wire::decode(bytes, &CLIENT_LIMITS).map_err(|e| {
+        refuse(
+            0,
+            wire::ErrorCode::BadRequest,
+            format!("malformed frame: {e}"),
+        )
+    })?;
+    let meta = frame.header.meta;
+    match meta.kind {
+        FrameKind::Command | FrameKind::Query => {}
+        FrameKind::Heartbeat | FrameKind::Hello => return Ok(Incoming::Nothing),
+        other => {
+            return Err(refuse(
+                meta.correlation,
+                wire::ErrorCode::BadRequest,
+                format!("the host does not accept {other} frames"),
+            ));
+        }
+    }
+    if !meta.schema.is_compatible_with(&WIRE_SCHEMA) {
+        return Err(refuse(
+            meta.correlation,
+            wire::ErrorCode::Incompatible,
+            format!("this host speaks {WIRE_SCHEMA}, not {}", meta.schema),
+        ));
+    }
+    decode_request(meta.kind, frame.payload)
+        .map(|request| Incoming::Request(meta.correlation, request))
+        .map_err(|why| refuse(meta.correlation, wire::ErrorCode::BadRequest, why))
+}
+
 /// Checks a client's `Hello`. Returns the client's name.
 pub fn check_hello(frame: &commons_wire::Frame<'_>) -> Result<String, String> {
     if frame.header.meta.kind != FrameKind::Hello {

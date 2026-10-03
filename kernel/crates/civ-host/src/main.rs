@@ -207,6 +207,7 @@ fn serve(args: ServeArgs) -> anyhow::Result<ExitCode> {
             engine.channels.clone(),
             protocol::welcome_payload(&content),
             layout.web.clone(),
+            server::Access::default(),
         );
         let url = format!("http://{addr}/");
         println!("The Civilization Engine is running at {url} (Ctrl+C to stop)");

@@ -186,6 +186,10 @@ pub struct Limits {
     pub carry_kg: f64,
 }
 
+/// Daylight left, minutes, below which a household whose water will not last until morning
+/// fetches water before anything else of ordinary weight (a tuning value).
+const LAST_WATER_BEFORE_DARK_MIN: f64 = 180.0;
+
 fn term(terms: &mut Vec<Term>, reason: Reason, points: f64) {
     if points != 0.0 && points.is_finite() {
         terms.push(Term {
@@ -306,7 +310,14 @@ pub fn candidates(
                     excluded.push((id, Reason::Unreachable));
                     continue;
                 }
-                let short = (1.0 - f.water_days / f.water_target_days.max(1e-6)).clamp(0.0, 1.0);
+                let mut short =
+                    (1.0 - f.water_days / f.water_target_days.max(1e-6)).clamp(0.0, 1.0);
+                // No water is fetched in the dark: late in the day, what is at home must last
+                // until morning.
+                let lasts_night = f.water_days * 1440.0 >= f.until_sunrise_min;
+                if !f.dark && !lasts_night && f.daylight_left_min < LAST_WATER_BEFORE_DARK_MIN {
+                    short = 1.0;
+                }
                 term(&mut terms, Reason::WaterShortage, w.w_water * short);
                 term(
                     &mut terms,

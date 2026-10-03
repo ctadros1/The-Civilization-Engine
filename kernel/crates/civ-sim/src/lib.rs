@@ -32,7 +32,9 @@ pub const MAP_SIZES: [u32; 4] = [256, 512, 1024, 2048];
 pub const DEFAULT_MAP_SIZE: u32 = 2048;
 /// Simulated seconds per real second at 1x: one in-game day per 15 real minutes (plan §4.4).
 pub const SPEED_1X: f32 = 96.0;
-/// The fastest Detailed-mode speed, 10x (plan §4.4). Accelerated mode arrives with agents.
+/// The Detailed-mode speeds as multiples of 1x (plan §4.4). Accelerated mode arrives with agents.
+pub const SPEED_MULTIPLIERS: [f32; 3] = [1.0, 3.0, 10.0];
+/// The fastest speed, in simulated seconds per real second.
 pub const MAX_SPEED: f32 = SPEED_1X * 10.0;
 /// Longest world name kept, in bytes.
 pub const MAX_NAME_LEN: usize = 64;

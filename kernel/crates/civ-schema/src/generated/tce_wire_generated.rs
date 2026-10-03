@@ -1092,6 +1092,9 @@ impl<'a> Welcome<'a> {
   pub const VT_MAP_SIZES: ::flatbuffers::VOffsetT = 10;
   pub const VT_CELL_SIZE_M: ::flatbuffers::VOffsetT = 12;
   pub const VT_CONTENT_FINGERPRINT: ::flatbuffers::VOffsetT = 14;
+  pub const VT_DEFAULT_MAP_SIZE: ::flatbuffers::VOffsetT = 16;
+  pub const VT_SPEED_1X: ::flatbuffers::VOffsetT = 18;
+  pub const VT_SPEED_MULTIPLIERS: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -1103,6 +1106,9 @@ impl<'a> Welcome<'a> {
     args: &'args WelcomeArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Welcome<'bldr>> {
     let mut builder = WelcomeBuilder::new(_fbb);
+    if let Some(x) = args.speed_multipliers { builder.add_speed_multipliers(x); }
+    builder.add_speed_1x(args.speed_1x);
+    builder.add_default_map_size(args.default_map_size);
     if let Some(x) = args.content_fingerprint { builder.add_content_fingerprint(x); }
     builder.add_cell_size_m(args.cell_size_m);
     if let Some(x) = args.map_sizes { builder.add_map_sizes(x); }
@@ -1155,6 +1161,27 @@ impl<'a> Welcome<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(Welcome::VT_CONTENT_FINGERPRINT, None)}
   }
+  #[inline]
+  pub fn default_map_size(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Welcome::VT_DEFAULT_MAP_SIZE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn speed_1x(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Welcome::VT_SPEED_1X, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn speed_multipliers(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(Welcome::VT_SPEED_MULTIPLIERS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Welcome<'_> {
@@ -1169,6 +1196,9 @@ impl ::flatbuffers::Verifiable for Welcome<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("map_sizes", Self::VT_MAP_SIZES, false)?
      .visit_field::<f32>("cell_size_m", Self::VT_CELL_SIZE_M, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("content_fingerprint", Self::VT_CONTENT_FINGERPRINT, false)?
+     .visit_field::<u32>("default_map_size", Self::VT_DEFAULT_MAP_SIZE, false)?
+     .visit_field::<f32>("speed_1x", Self::VT_SPEED_1X, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("speed_multipliers", Self::VT_SPEED_MULTIPLIERS, false)?
      .finish();
     Ok(())
   }
@@ -1180,6 +1210,9 @@ pub struct WelcomeArgs<'a> {
     pub map_sizes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
     pub cell_size_m: f32,
     pub content_fingerprint: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub default_map_size: u32,
+    pub speed_1x: f32,
+    pub speed_multipliers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
 }
 impl<'a> Default for WelcomeArgs<'a> {
   #[inline]
@@ -1191,6 +1224,9 @@ impl<'a> Default for WelcomeArgs<'a> {
       map_sizes: None,
       cell_size_m: 0.0,
       content_fingerprint: None,
+      default_map_size: 0,
+      speed_1x: 0.0,
+      speed_multipliers: None,
     }
   }
 }
@@ -1225,6 +1261,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WelcomeBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Welcome::VT_CONTENT_FINGERPRINT, content_fingerprint);
   }
   #[inline]
+  pub fn add_default_map_size(&mut self, default_map_size: u32) {
+    self.fbb_.push_slot::<u32>(Welcome::VT_DEFAULT_MAP_SIZE, default_map_size, 0);
+  }
+  #[inline]
+  pub fn add_speed_1x(&mut self, speed_1x: f32) {
+    self.fbb_.push_slot::<f32>(Welcome::VT_SPEED_1X, speed_1x, 0.0);
+  }
+  #[inline]
+  pub fn add_speed_multipliers(&mut self, speed_multipliers: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Welcome::VT_SPEED_MULTIPLIERS, speed_multipliers);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WelcomeBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WelcomeBuilder {
@@ -1248,6 +1296,9 @@ impl ::core::fmt::Debug for Welcome<'_> {
       ds.field("map_sizes", &self.map_sizes());
       ds.field("cell_size_m", &self.cell_size_m());
       ds.field("content_fingerprint", &self.content_fingerprint());
+      ds.field("default_map_size", &self.default_map_size());
+      ds.field("speed_1x", &self.speed_1x());
+      ds.field("speed_multipliers", &self.speed_multipliers());
       ds.finish()
   }
 }

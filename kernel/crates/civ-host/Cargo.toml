@@ -1,0 +1,40 @@
+[package]
+name = "civ-host"
+description = "The headless host: a command line for worlds, saves, content and smoke seeds, and the localhost WebSocket server the web observer talks to."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "civ-host"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+axum = { workspace = true }
+civ-content = { workspace = true }
+civ-core = { workspace = true }
+civ-schema = { workspace = true }
+civ-sim = { workspace = true }
+civ-world = { workspace = true }
+clap = { workspace = true }
+commons-persist = { workspace = true }
+commons-wire = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true }
+tower-http = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+futures-util = { workspace = true }
+tokio-tungstenite = "0.28.0"
+
+[lints]
+workspace = true

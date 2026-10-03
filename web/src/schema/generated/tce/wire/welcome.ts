@@ -76,8 +76,33 @@ contentFingerprint(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+defaultMapSize():number {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
+speed1x():number {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+speedMultipliers(index: number):number|null {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? this.bb!.readFloat32(this.bb!.__vector(this.bb_pos + offset) + index * 4) : 0;
+}
+
+speedMultipliersLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+speedMultipliersArray():Float32Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? new Float32Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
+}
+
 static startWelcome(builder:flatbuffers.Builder) {
-  builder.startObject(6);
+  builder.startObject(9);
 }
 
 static addHost(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset) {
@@ -133,12 +158,41 @@ static addContentFingerprint(builder:flatbuffers.Builder, contentFingerprintOffs
   builder.addFieldOffset(5, contentFingerprintOffset, 0);
 }
 
+static addDefaultMapSize(builder:flatbuffers.Builder, defaultMapSize:number) {
+  builder.addFieldInt32(6, defaultMapSize, 0);
+}
+
+static addSpeed1x(builder:flatbuffers.Builder, speed1x:number) {
+  builder.addFieldFloat32(7, speed1x, 0.0);
+}
+
+static addSpeedMultipliers(builder:flatbuffers.Builder, speedMultipliersOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(8, speedMultipliersOffset, 0);
+}
+
+static createSpeedMultipliersVector(builder:flatbuffers.Builder, data:number[]|Float32Array):flatbuffers.Offset;
+/**
+ * @deprecated This Uint8Array overload will be removed in the future.
+ */
+static createSpeedMultipliersVector(builder:flatbuffers.Builder, data:number[]|Uint8Array):flatbuffers.Offset;
+static createSpeedMultipliersVector(builder:flatbuffers.Builder, data:number[]|Float32Array|Uint8Array):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addFloat32(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startSpeedMultipliersVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endWelcome(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset, versionOffset:flatbuffers.Offset, presetsOffset:flatbuffers.Offset, mapSizesOffset:flatbuffers.Offset, cellSizeM:number, contentFingerprintOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset, versionOffset:flatbuffers.Offset, presetsOffset:flatbuffers.Offset, mapSizesOffset:flatbuffers.Offset, cellSizeM:number, contentFingerprintOffset:flatbuffers.Offset, defaultMapSize:number, speed1x:number, speedMultipliersOffset:flatbuffers.Offset):flatbuffers.Offset {
   Welcome.startWelcome(builder);
   Welcome.addHost(builder, hostOffset);
   Welcome.addVersion(builder, versionOffset);
@@ -146,6 +200,9 @@ static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset,
   Welcome.addMapSizes(builder, mapSizesOffset);
   Welcome.addCellSizeM(builder, cellSizeM);
   Welcome.addContentFingerprint(builder, contentFingerprintOffset);
+  Welcome.addDefaultMapSize(builder, defaultMapSize);
+  Welcome.addSpeed1x(builder, speed1x);
+  Welcome.addSpeedMultipliers(builder, speedMultipliersOffset);
   return Welcome.endWelcome(builder);
 }
 }

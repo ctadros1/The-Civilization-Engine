@@ -45,6 +45,11 @@ table Welcome {
   map_sizes: [uint] (id: 3);
   cell_size_m: float (id: 4);
   content_fingerprint: string (id: 5);
+  // The size the new-world dialog selects first.
+  default_map_size: uint (id: 6);
+  // Simulated seconds per real second at 1x, and the speeds offered, as multiples of 1x.
+  speed_1x: float (id: 7);
+  speed_multipliers: [float] (id: 8);
 }
 
 // ---- Snapshot: replaceable host and world state --------------------------------------------

@@ -85,8 +85,9 @@ So the envelope pattern generalizes; the bodies don't.
   only hand-written codec, and it is small enough to pin with golden-byte tests on both sides.
 - Transports, recorders and viewers can route frames by kind and epoch without understanding TCE's
   payloads. That keeps multi-viewer, recording replay and an out-of-process move possible.
-- FlatBuffers' Rust builder API is verbose; conversion code lives in `civ-schema` helpers so the
-  kernel crates don't touch generated types.
+- FlatBuffers' Rust builder API is verbose. Conversion code lives at the edges, so domain crates
+  (`civ-core`, `civ-world`, later the agent crates) never touch generated types: `civ-sim` builds
+  world payloads and save sections, and `civ-host` builds session payloads.
 - Generated files must never be hand-edited; CI checks that they match the schema.
 
 ## Alternatives considered

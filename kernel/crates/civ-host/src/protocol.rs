@@ -44,6 +44,16 @@ pub enum Request {
         /// Load the offered save.
         accept: bool,
     },
+    /// Send a family to a point on the map (god tool).
+    SpawnFamily {
+        /// Where, metres from the map's north-west corner.
+        at: (f32, f32),
+    },
+    /// Run ahead to a time, unpaced and in full detail.
+    RunUntil {
+        /// Simulation minute to stop at.
+        minute: i64,
+    },
     /// Read part of a raster.
     GetRaster(RasterQuery),
     /// Read the rivers and lakes.
@@ -241,6 +251,22 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         .body_as_recover_world()
                         .ok_or_else(|| missing("command"))?;
                     Ok(Request::RecoverWorld { accept: b.accept() })
+                }
+                wire::CommandBody::SpawnFamily => {
+                    let b = command
+                        .body_as_spawn_family()
+                        .ok_or_else(|| missing("command"))?;
+                    let at = b
+                        .at()
+                        .map(|v| (v.x(), v.y()))
+                        .ok_or_else(|| missing("point"))?;
+                    Ok(Request::SpawnFamily { at })
+                }
+                wire::CommandBody::RunUntil => {
+                    let b = command
+                        .body_as_run_until()
+                        .ok_or_else(|| missing("command"))?;
+                    Ok(Request::RunUntil { minute: b.minute() })
                 }
                 other => Err(format!("unknown command {}", other.0)),
             }
@@ -662,6 +688,33 @@ mod tests {
             Ok(Request::LoadWorld {
                 file: "w-1/g0000000001-manual.tcesave".to_owned()
             })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let at = wire::Vec2::new(120.5, 64.0);
+        let body = wire::SpawnFamily::create(&mut fbb, &wire::SpawnFamilyArgs { at: Some(&at) });
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::SpawnFamily,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::SpawnFamily { at: (120.5, 64.0) })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::RunUntil::create(&mut fbb, &wire::RunUntilArgs { minute: 525_600 });
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::RunUntil,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::RunUntil { minute: 525_600 })
         );
     }
 

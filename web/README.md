@@ -1,6 +1,6 @@
 # Web observer
 
-The web observer (the M0 shell, and M1's people, families, fields, huts and trails): TypeScript, Vite and PixiJS 8,
+The web observer (the M0 shell, and M1's people, families, fields, huts, trails and god tool): TypeScript, Vite and PixiJS 8,
 without a UI framework. `civ-host serve` serves
 the built files from `web/dist` and the observer socket at `/ws` from the same origin.
 
@@ -28,6 +28,13 @@ another port. `?host=127.0.0.1:7421` in the page URL connects to a host directly
 | `src/ui.ts`, `src/state.ts`, `src/main.ts` | Panels, dialogs, the store, and wiring. |
 | `src/schema/generated/` | FlatBuffers TypeScript from `kernel/crates/civ-schema/schema/tce_wire.fbs`. Never edit; run `tools/gen-schema.sh`. |
 | `e2e/` | Playwright specs; they start their own `civ-host` against a temporary saves folder. |
+
+## Controls
+
+Besides Run and the speeds, **Run ahead…** lives a day, a month, a year, 5 or 10 years at full
+detail as fast as the machine allows, shown as a task you can cancel; the world pauses when it
+gets there and is autosaved. **Add a family** (on the map) sends a family where you next click:
+it joins the nearest settlement within 600 m or camps there. Esc cancels.
 
 ## Test hooks
 

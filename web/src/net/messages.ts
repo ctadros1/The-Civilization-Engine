@@ -556,6 +556,20 @@ export function cancelTask(): Uint8Array {
   return command(b, W.CommandBody.CancelTask, W.CancelTask.endCancelTask(b));
 }
 
+/** Sends a family to a point on the map, metres (god tool). */
+export function spawnFamily(x: number, y: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  W.SpawnFamily.startSpawnFamily(b);
+  W.SpawnFamily.addAt(b, W.Vec2.createVec2(b, x, y));
+  return command(b, W.CommandBody.SpawnFamily, W.SpawnFamily.endSpawnFamily(b));
+}
+
+/** Runs ahead to a simulation minute, unpaced and in full detail. */
+export function runUntil(minute: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  return command(b, W.CommandBody.RunUntil, W.RunUntil.createRunUntil(b, BigInt(minute)));
+}
+
 export function recoverWorld(accept: boolean): Uint8Array {
   const b = new flatbuffers.Builder(16);
   return command(b, W.CommandBody.RecoverWorld, W.RecoverWorld.createRecoverWorld(b, accept));

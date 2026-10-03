@@ -532,6 +532,86 @@ fn walking_wears_trails_out_from_the_village() {
     assert!(text.starts_with("The first trail out of "), "{text}");
 }
 
+/// A dry, walkable point about `metres` from `from`, if there is one.
+fn land_near(sim: &Sim, from: (f32, f32), metres: f32) -> Option<(f32, f32)> {
+    (0..64).find_map(|k| {
+        let a = k as f32 / 64.0 * std::f32::consts::TAU;
+        let p = (from.0 + metres * a.cos(), from.1 + metres * a.sin());
+        let (w, h) = sim.map().extent_m();
+        if p.0 < 0.0 || p.1 < 0.0 || f64::from(p.0) >= w || f64::from(p.1) >= h {
+            return None;
+        }
+        let cell = population::cell_of(sim.map(), p);
+        (sim.map().water[cell] == civ_world::WATER_LAND && sim.nav().walkable(cell)).then_some(p)
+    })
+}
+
+#[test]
+fn the_observer_sends_families_that_join_a_village_or_make_camp() {
+    let mut sim = new_world(3, 0);
+    sim.advance_minutes(2 * 24 * 60).expect("advances");
+    let village = sim.land().settlements[0].clone();
+    let households = sim.people().households.len();
+    let living = sim.people().living();
+
+    let near = land_near(&sim, village.hearth_m, 120.0).expect("dry ground by the village");
+    let joined = sim.spawn_family(near).expect("a family arrives");
+    assert!(!joined.founded, "close to the village it joins");
+    assert_eq!(joined.settlement, village.id);
+    assert!(joined.people.len() >= 2);
+    assert_eq!(sim.people().households.len(), households + 1);
+    assert_eq!(sim.people().living(), living + joined.people.len());
+    for id in &joined.people {
+        assert_eq!(sim.people().records[id].origin, Origin::Spawned);
+    }
+    let noted = sim
+        .people()
+        .chronicle
+        .iter()
+        .rev()
+        .find(|e| e.kind == ChronicleKind::FamilyArrived)
+        .expect("noted in the chronicle");
+    assert_eq!(noted.people, joined.people);
+    assert_eq!(noted.settlement, Some(village.id));
+
+    let far = land_near(&sim, village.hearth_m, 1500.0).expect("dry ground far away");
+    let camped = sim.spawn_family(far).expect("a family arrives");
+    assert!(camped.founded, "far from any village it makes camp");
+    assert_eq!(sim.land().settlements.len(), 2);
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|e| e.kind == ChronicleKind::SettlementFounded
+                && e.settlement == Some(camped.settlement))
+    );
+
+    let water = (0..sim.map().cell_count())
+        .find(|&c| sim.map().water[c] != civ_world::WATER_LAND)
+        .map(|c| population::cell_centre(sim.map(), c));
+    if let Some(wet) = water {
+        assert!(sim.spawn_family(wet).is_err(), "not into water");
+    }
+    assert!(sim.spawn_family((-5.0, 10.0)).is_err(), "not off the map");
+
+    sim.advance_minutes(3 * 24 * 60).expect("the world goes on");
+    let problems = sim
+        .people()
+        .problems(sim.ids().peek_next(), sim.rules().catalog.activities.len());
+    assert!(problems.is_empty(), "{problems:?}");
+    let alone = sim
+        .people()
+        .households
+        .iter()
+        .find(|(_, h)| h.id == camped.household)
+        .map(|(_, h)| h.settlement);
+    assert_eq!(
+        alone,
+        Some(Some(camped.settlement)),
+        "the camp's household is its own"
+    );
+}
+
 #[test]
 fn children_are_born_to_couples_and_the_chronicle_notes_every_birth_and_death() {
     let (sim, _) = until_winter();

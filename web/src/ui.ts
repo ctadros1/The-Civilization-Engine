@@ -55,6 +55,10 @@ export interface Actions {
   focusPerson(id: number): void;
   /** Centre the map on a settlement. */
   focusSettlement(id: number): void;
+  /** Run ahead by `minutes` of simulated time. */
+  runAhead(minutes: number): Promise<void>;
+  /** Arm or disarm the map tool that sends a family where the map is clicked. */
+  setPlacing(on: boolean): void;
 }
 
 const MAX_SEED = (1n << 64n) - 1n;
@@ -359,6 +363,17 @@ export function bindUi(store: Store, actions: Actions): void {
     if (clock) void attempt(() => actions.setClock(!clock.paused, clock.speed));
   };
   $("btn-run").addEventListener("click", toggleRun);
+  const runAhead = $<HTMLSelectElement>("run-ahead");
+  runAhead.addEventListener("change", () => {
+    const minutes = Number(runAhead.value);
+    runAhead.value = "";
+    if (minutes > 0) void attempt(() => actions.runAhead(minutes));
+  });
+  const addFamily = $<HTMLButtonElement>("add-family");
+  addFamily.addEventListener("click", () => {
+    const on = addFamily.getAttribute("aria-pressed") !== "true";
+    actions.setPlacing(on);
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key !== " " || isTyping(event.target)) return;
     if (document.querySelector("dialog[open]")) return;
@@ -948,6 +963,11 @@ export function bindUi(store: Store, actions: Actions): void {
     $<HTMLButtonElement>("btn-new").disabled = !open || !!task || !state.welcome;
     $<HTMLButtonElement>("btn-save").disabled = !open || !world;
     $<HTMLButtonElement>("btn-load").disabled = !open || !!task;
+    $<HTMLSelectElement>("run-ahead").disabled = !open || !world || !!task;
+    const placing = $<HTMLButtonElement>("add-family");
+    placing.disabled = !open || !world;
+    placing.setAttribute("aria-pressed", String(state.placing));
+    placing.classList.toggle("active", state.placing);
     renderSpeeds(state);
     renderConnection(state);
     renderBanner(state);

@@ -16,6 +16,14 @@
         <div class="time-controls" role="group" aria-label="Time">
           <button id="btn-run" type="button" class="run" disabled>Run</button>
           <div class="speeds" id="speeds" role="radiogroup" aria-label="Speed"></div>
+          <select id="run-ahead" aria-label="Run ahead" disabled>
+            <option value="">Run ahead…</option>
+            <option value="1440">a day</option>
+            <option value="43200">a month</option>
+            <option value="525600">a year</option>
+            <option value="2628000">5 years</option>
+            <option value="5256000">10 years</option>
+          </select>
         </div>
         <div class="actions">
           <button id="btn-new" type="button" disabled>New world</button>
@@ -51,6 +59,7 @@
               <button id="zoom-in" type="button" class="icon" aria-label="Zoom in">+</button>
               <button id="zoom-out" type="button" class="icon" aria-label="Zoom out">−</button>
               <button id="zoom-fit" type="button" aria-label="Fit the map">Fit</button>
+              <button id="add-family" type="button" aria-pressed="false" title="Send a family: click where it should settle (Esc cancels)" disabled>Add a family</button>
               <label class="toggle"><input type="checkbox" id="show-rivers" checked /> Rivers</label>
             </div>
           </div>

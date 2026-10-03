@@ -581,10 +581,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_COMMAND_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_COMMAND_BODY: u8 = 6;
+pub const ENUM_MAX_COMMAND_BODY: u8 = 8;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 7] = [
+pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 9] = [
   CommandBody::NONE,
   CommandBody::NewWorld,
   CommandBody::SaveWorld,
@@ -592,6 +592,8 @@ pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 7] = [
   CommandBody::SetClock,
   CommandBody::CancelTask,
   CommandBody::RecoverWorld,
+  CommandBody::SpawnFamily,
+  CommandBody::RunUntil,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -606,9 +608,11 @@ impl CommandBody {
   pub const SetClock: Self = Self(4);
   pub const CancelTask: Self = Self(5);
   pub const RecoverWorld: Self = Self(6);
+  pub const SpawnFamily: Self = Self(7);
+  pub const RunUntil: Self = Self(8);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 6;
+  pub const ENUM_MAX: u8 = 8;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::NewWorld,
@@ -617,6 +621,8 @@ impl CommandBody {
     Self::SetClock,
     Self::CancelTask,
     Self::RecoverWorld,
+    Self::SpawnFamily,
+    Self::RunUntil,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -628,6 +634,8 @@ impl CommandBody {
       Self::SetClock => Some("SetClock"),
       Self::CancelTask => Some("CancelTask"),
       Self::RecoverWorld => Some("RecoverWorld"),
+      Self::SpawnFamily => Some("SpawnFamily"),
+      Self::RunUntil => Some("RunUntil"),
       _ => None,
     }
   }
@@ -5263,6 +5271,198 @@ impl ::core::fmt::Debug for RecoverWorld<'_> {
       ds.finish()
   }
 }
+pub enum SpawnFamilyOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SpawnFamily<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for SpawnFamily<'a> {
+  type Inner = SpawnFamily<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> SpawnFamily<'a> {
+  pub const VT_AT: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    SpawnFamily { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SpawnFamilyArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<SpawnFamily<'bldr>> {
+    let mut builder = SpawnFamilyBuilder::new(_fbb);
+    if let Some(x) = args.at { builder.add_at(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn at(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(SpawnFamily::VT_AT, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for SpawnFamily<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<Vec2>("at", Self::VT_AT, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SpawnFamilyArgs<'a> {
+    pub at: Option<&'a Vec2>,
+}
+impl<'a> Default for SpawnFamilyArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SpawnFamilyArgs {
+      at: None,
+    }
+  }
+}
+
+pub struct SpawnFamilyBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SpawnFamilyBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_at(&mut self, at: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(SpawnFamily::VT_AT, at);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SpawnFamilyBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SpawnFamilyBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<SpawnFamily<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for SpawnFamily<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("SpawnFamily");
+      ds.field("at", &self.at());
+      ds.finish()
+  }
+}
+pub enum RunUntilOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RunUntil<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for RunUntil<'a> {
+  type Inner = RunUntil<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> RunUntil<'a> {
+  pub const VT_MINUTE: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    RunUntil { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args RunUntilArgs
+  ) -> ::flatbuffers::WIPOffset<RunUntil<'bldr>> {
+    let mut builder = RunUntilBuilder::new(_fbb);
+    builder.add_minute(args.minute);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RunUntil::VT_MINUTE, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for RunUntil<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("minute", Self::VT_MINUTE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RunUntilArgs {
+    pub minute: i64,
+}
+impl<'a> Default for RunUntilArgs {
+  #[inline]
+  fn default() -> Self {
+    RunUntilArgs {
+      minute: 0,
+    }
+  }
+}
+
+pub struct RunUntilBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RunUntilBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_minute(&mut self, minute: i64) {
+    self.fbb_.push_slot::<i64>(RunUntil::VT_MINUTE, minute, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RunUntilBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    RunUntilBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<RunUntil<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for RunUntil<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("RunUntil");
+      ds.field("minute", &self.minute());
+      ds.finish()
+  }
+}
 pub enum CommandOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -5402,6 +5602,36 @@ impl<'a> Command<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_spawn_family(&self) -> Option<SpawnFamily<'a>> {
+    if self.body_type() == CommandBody::SpawnFamily {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { SpawnFamily::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_run_until(&self) -> Option<RunUntil<'a>> {
+    if self.body_type() == CommandBody::RunUntil {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { RunUntil::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Command<'_> {
@@ -5418,6 +5648,8 @@ impl ::flatbuffers::Verifiable for Command<'_> {
           CommandBody::SetClock => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SetClock>>("CommandBody::SetClock", pos),
           CommandBody::CancelTask => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<CancelTask>>("CommandBody::CancelTask", pos),
           CommandBody::RecoverWorld => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<RecoverWorld>>("CommandBody::RecoverWorld", pos),
+          CommandBody::SpawnFamily => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SpawnFamily>>("CommandBody::SpawnFamily", pos),
+          CommandBody::RunUntil => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<RunUntil>>("CommandBody::RunUntil", pos),
           _ => Ok(()),
         }
      })?
@@ -5509,6 +5741,20 @@ impl ::core::fmt::Debug for Command<'_> {
         },
         CommandBody::RecoverWorld => {
           if let Some(x) = self.body_as_recover_world() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::SpawnFamily => {
+          if let Some(x) = self.body_as_spawn_family() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::RunUntil => {
+          if let Some(x) = self.body_as_run_until() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

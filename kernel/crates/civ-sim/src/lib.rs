@@ -20,7 +20,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use civ_agents::params::{Catalog, PeopleParams};
-use civ_agents::{AgentEvent, Ctx, Founded, Population};
+use civ_agents::{AgentEvent, Ctx, Founded, Population, Spawned};
 use civ_content::ContentRegistry;
 use civ_core::time::DEFAULT_WORLD_START;
 use civ_core::{Cadence, Date, Due, IdAllocator, ScheduleError, Scheduler, SimTime};
@@ -392,6 +392,37 @@ impl Sim {
         }
         self.dirty = true;
         founded
+    }
+
+    /// The observer sends a family to `at` (god tool): it joins the settlement there or makes
+    /// camp (see [`civ_agents::spawn_family`]).
+    pub fn spawn_family(&mut self, at: (f32, f32)) -> Result<Spawned, String> {
+        let now = self.now();
+        let mut pending = Vec::new();
+        let spawned = {
+            let mut ctx = Ctx {
+                now,
+                seed: self.meta.seed,
+                map: &self.map,
+                nav: &self.nav,
+                land: &mut self.land,
+                land_params: &self.rules.land,
+                params: &self.rules.people,
+                catalog: &self.rules.catalog,
+                ids: &mut self.ids,
+                schedule: &mut pending,
+            };
+            civ_agents::spawn_family(&mut self.people, &mut ctx, at)
+        };
+        for (when, event) in pending {
+            let _ = self
+                .scheduler
+                .schedule(when, PHASE_AGENT, SimEvent::Agent(event));
+        }
+        if spawned.is_ok() {
+            self.dirty = true;
+        }
+        spawned
     }
 
     /// Puts a world together from its parts, paused at 1x and never saved.

@@ -21,6 +21,8 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
+use civ_core::SimTime;
+
 use civ_content::ContentRegistry;
 use civ_schema::{SAVE_EXTENSION, wire};
 use civ_sim::{NewWorld, Sim, SimError, frames, persist};
@@ -39,6 +41,11 @@ const SNAPSHOT_INTERVAL: Duration = Duration::from_millis(100);
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
 /// Events kept for observers that connect later.
 const HISTORY: usize = 200;
+/// Share of each tick spent living the world on while running ahead; the rest keeps the observer
+/// answered.
+const RUN_AHEAD_SHARE: f64 = 0.8;
+/// Longest run ahead asked for at once, simulated minutes (a hundred years).
+const MAX_RUN_AHEAD_MINUTES: i64 = 100 * civ_core::time::MINUTES_PER_YEAR;
 
 /// How the engine runs.
 #[derive(Clone, Debug)]
@@ -201,6 +208,14 @@ struct Task {
     cancel: Option<Arc<AtomicBool>>,
 }
 
+/// Running ahead to a time in full detail, as fast as the machine allows (M1 slice G).
+struct RunAhead {
+    task: u64,
+    from: SimTime,
+    until: SimTime,
+    cancel: Arc<AtomicBool>,
+}
+
 enum Origin {
     Created,
     Loaded(String),
@@ -212,6 +227,7 @@ pub struct Engine {
     to_self: mpsc::Sender<Msg>,
     world: Option<World>,
     task: Option<Task>,
+    run_ahead: Option<RunAhead>,
     next_task: u64,
     recovery: Option<RecoveryOffer>,
     last_error: Option<String>,
@@ -283,6 +299,7 @@ impl Engine {
             to_self,
             world: None,
             task: None,
+            run_ahead: None,
             next_task: 0,
             recovery: None,
             last_error: None,
@@ -384,6 +401,8 @@ impl Engine {
             Request::SetClock { paused, speed } => self.set_clock(paused, speed),
             Request::CancelTask => self.cancel_task(),
             Request::RecoverWorld { accept } => self.recover(accept),
+            Request::SpawnFamily { at } => self.spawn_family(at),
+            Request::RunUntil { minute } => self.start_run_ahead(minute),
             Request::GetRaster(query) => match &self.world {
                 None => no_world(),
                 Some(w) => match frames::raster_response(w.sim.map(), w.sim.stats(), &query) {
@@ -612,6 +631,9 @@ impl Engine {
     }
 
     fn set_clock(&mut self, paused: bool, speed: f32) -> Reply {
+        if self.run_ahead.is_some() {
+            self.finish_run_ahead("Stopped running ahead");
+        }
         let Some(world) = self.world.as_mut() else {
             return no_world();
         };
@@ -807,6 +829,10 @@ impl Engine {
 
     /// Advances the clock by real time and autosaves when due.
     pub fn tick(&mut self, real: Duration) {
+        if self.run_ahead.is_some() {
+            self.tick_run_ahead();
+            return;
+        }
         let Some(world) = self.world.as_mut() else {
             return;
         };
@@ -825,6 +851,132 @@ impl Engine {
         let due =
             advance.months > 0 || world.last_autosave.elapsed() >= self.config.autosave_interval;
         if due && world.sim.is_dirty() {
+            self.autosave("Autosave");
+        }
+    }
+
+    fn spawn_family(&mut self, at: (f32, f32)) -> Reply {
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        match world.sim.spawn_family(at) {
+            Ok(spawned) => {
+                let n = spawned.people.len();
+                let text = if spawned.founded {
+                    format!("A family of {n} made camp at {}", spawned.name)
+                } else {
+                    format!("A family of {n} came to {}", spawned.name)
+                };
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
+    fn start_run_ahead(&mut self, minute: i64) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_ref() else {
+            return no_world();
+        };
+        let from = world.sim.now();
+        let until = SimTime::from_minutes(minute);
+        if until <= from {
+            return Reply::Error(
+                wire::ErrorCode::BadRequest,
+                "that time has already passed".to_owned(),
+            );
+        }
+        if until.minutes() - from.minutes() > MAX_RUN_AHEAD_MINUTES {
+            return Reply::Error(
+                wire::ErrorCode::BadRequest,
+                "running ahead is limited to a hundred years at a time".to_owned(),
+            );
+        }
+        let cancel = Arc::new(AtomicBool::new(false));
+        let name = format!("Running ahead to {until}");
+        let task = self.begin_task(name, Some(Arc::clone(&cancel)));
+        self.run_ahead = Some(RunAhead {
+            task,
+            from,
+            until,
+            cancel,
+        });
+        ack("Running ahead")
+    }
+
+    /// Lives the world on in whole hours for most of a tick, then shows how far it got.
+    fn tick_run_ahead(&mut self) {
+        let budget = self.config.tick.mul_f64(RUN_AHEAD_SHARE);
+        let started = Instant::now();
+        let (Some(run), Some(world)) = (self.run_ahead.as_ref(), self.world.as_mut()) else {
+            self.run_ahead = None;
+            return;
+        };
+        let (until, cancelled) = (run.until, run.cancel.load(Ordering::Relaxed));
+        let (task, from) = (run.task, run.from);
+        if cancelled {
+            self.finish_run_ahead("Stopped running ahead");
+            return;
+        }
+        let mut failed = None;
+        while world.sim.now() < until && started.elapsed() < budget {
+            let step = (until.minutes() - world.sim.now().minutes()).min(60);
+            match world.sim.advance_minutes(step) {
+                Ok(advance) => {
+                    if advance.minutes > 0 {
+                        self.changed = true;
+                    }
+                }
+                Err(e) => {
+                    failed = Some(e.to_string());
+                    break;
+                }
+            }
+        }
+        let now = world.sim.now();
+        let autosave_due =
+            world.last_autosave.elapsed() >= self.config.autosave_interval && world.sim.is_dirty();
+        if let Some(e) = failed {
+            self.finish_run_ahead("Stopped running ahead");
+            self.fail(format!("The clock stopped: {e}"));
+            return;
+        }
+        if now >= until {
+            self.finish_run_ahead("Ran ahead");
+            return;
+        }
+        if let Some(t) = self.task.as_mut().filter(|t| t.id == task) {
+            let span = (until.minutes() - from.minutes()).max(1) as f32;
+            t.view.fraction = (now.minutes() - from.minutes()) as f32 / span;
+            t.view.stage = now.to_string();
+        }
+        if autosave_due {
+            self.autosave("Autosave");
+        }
+    }
+
+    /// Ends running ahead: the clock is paused where it got to, and the world is saved.
+    fn finish_run_ahead(&mut self, what: &str) {
+        let Some(run) = self.run_ahead.take() else {
+            return;
+        };
+        if self.task.as_ref().is_some_and(|t| t.id == run.task) {
+            self.task = None;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return;
+        };
+        world.sim.set_paused(true);
+        let date = world.sim.now();
+        let dirty = world.sim.is_dirty();
+        self.urgent = true;
+        self.event(wire::EventKind::Info, format!("{what} to {date}"));
+        if dirty {
             self.autosave("Autosave");
         }
     }
@@ -1015,6 +1167,101 @@ mod tests {
             Reply::Error(code, _) => Some(*code),
             Reply::Response(_) => None,
         }
+    }
+
+    #[test]
+    fn running_ahead_lives_the_world_on_and_pauses_where_it_arrives() {
+        let mut h = Harness::new(None, None);
+        h.create("Ahead");
+        let start = h.engine.world.as_ref().expect("a world").sim.now();
+        let target = start.plus_minutes(2 * civ_core::time::MINUTES_PER_DAY);
+        assert!(matches!(
+            h.ask(Request::RunUntil {
+                minute: target.minutes()
+            }),
+            Reply::Response(_)
+        ));
+        let task = h.engine.task.as_ref().map(|t| t.view.clone());
+        assert!(
+            task.as_ref()
+                .is_some_and(|t| t.cancellable && t.name.starts_with("Running ahead")),
+            "{task:?}"
+        );
+        // Another long job waits for it.
+        assert_eq!(
+            error_code(&h.ask(Request::RunUntil {
+                minute: target.minutes() + 10
+            })),
+            Some(wire::ErrorCode::Busy)
+        );
+        for _ in 0..10_000 {
+            if h.engine.run_ahead.is_none() {
+                break;
+            }
+            h.engine.tick(h.engine.config.tick);
+        }
+        let world = h.engine.world.as_ref().expect("a world");
+        assert_eq!(world.sim.now(), target, "it stops where it was asked to");
+        assert!(world.sim.paused(), "and waits there");
+        assert!(h.engine.task.is_none());
+        let history = h.engine.history.lock().expect("history");
+        assert!(history.iter().any(|e| e.text.starts_with("Ran ahead to")));
+        drop(history);
+        // The past cannot be run to.
+        assert_eq!(
+            error_code(&h.ask(Request::RunUntil {
+                minute: start.minutes()
+            })),
+            Some(wire::ErrorCode::BadRequest)
+        );
+    }
+
+    #[test]
+    fn running_ahead_stops_when_cancelled() {
+        let mut h = Harness::new(None, None);
+        h.create("Stop");
+        let start = h.engine.world.as_ref().expect("a world").sim.now();
+        let target = start.plus_minutes(5 * civ_core::time::MINUTES_PER_YEAR);
+        assert!(matches!(
+            h.ask(Request::RunUntil {
+                minute: target.minutes()
+            }),
+            Reply::Response(_)
+        ));
+        h.engine.tick(h.engine.config.tick);
+        assert!(matches!(h.ask(Request::CancelTask), Reply::Response(_)));
+        h.engine.tick(h.engine.config.tick);
+        assert!(h.engine.run_ahead.is_none() && h.engine.task.is_none());
+        let world = h.engine.world.as_ref().expect("a world");
+        assert!(world.sim.now() > start && world.sim.now() < target);
+        assert!(world.sim.paused());
+    }
+
+    #[test]
+    fn the_observer_can_send_a_family() {
+        let mut h = Harness::new(None, None);
+        h.create("Families");
+        let (hearth, before) = {
+            let sim = &h.engine.world.as_ref().expect("a world").sim;
+            (sim.land().settlements[0].hearth_m, sim.people().living())
+        };
+        let reply = h.ask(Request::SpawnFamily { at: hearth });
+        let Reply::Response(ack) = reply else {
+            panic!("a family arrives: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert!(message.starts_with("A family of "), "{message}");
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        assert!(sim.people().living() > before);
+        assert_eq!(
+            error_code(&h.ask(Request::SpawnFamily { at: (-1.0, -1.0) })),
+            Some(wire::ErrorCode::BadRequest)
+        );
     }
 
     #[test]

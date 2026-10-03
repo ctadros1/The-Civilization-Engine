@@ -293,6 +293,35 @@ bindUi(store, {
     const s = store.state.snapshot?.settlements.find((x) => x.id === id);
     if (s) map.centreOn(s.x, s.y, 0.5);
   },
+  runAhead: async (minutes) => {
+    const clock = store.state.snapshot?.clock;
+    if (clock) await command(M.runUntil(clock.minute + minutes));
+  },
+  setPlacing,
+});
+
+/** Arms or disarms the map tool that sends a family where the map is clicked. */
+function setPlacing(on: boolean): void {
+  store.update({ placing: on });
+  map.setPlacing(on);
+}
+
+map.onPlace = (xM, yM) => {
+  setPlacing(false);
+  void (async () => {
+    try {
+      const body = await client.command(M.spawnFamily(xM, yM));
+      const text = body.kind === "ack" && body.message ? body.message : "A family arrived";
+      store.update({ notice: { kind: "info", text } });
+    } catch (e) {
+      const text = e instanceof HostError ? e.message : String(e);
+      store.update({ notice: { kind: "error", text } });
+    }
+  })();
+};
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && store.state.placing) setPlacing(false);
 });
 
 /** Test and debugging hooks (mirrors Genesis's window.__OBS__). Plain data only. */

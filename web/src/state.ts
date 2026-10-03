@@ -40,6 +40,8 @@ export interface AppState {
   dismissedError: string | null;
   /** The person being inspected. */
   selected: Selection | null;
+  /** The map tool that sends a family where the map is clicked is armed. */
+  placing: boolean;
   /** The chronicle of the world on show, oldest first. */
   chronicle: ChronicleEntry[];
 }
@@ -58,6 +60,7 @@ export function initialState(): AppState {
     notice: null,
     dismissedError: null,
     selected: null,
+    placing: false,
     chronicle: [],
   };
 }

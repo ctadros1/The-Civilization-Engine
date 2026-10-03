@@ -220,6 +220,20 @@ select {
   cursor: grabbing;
 }
 
+.map canvas.placing {
+  cursor: crosshair;
+}
+
+#add-family.active {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: #fff;
+}
+
+#run-ahead {
+  margin-left: 6px;
+}
+
 .map-state {
   position: absolute;
   inset: 0;

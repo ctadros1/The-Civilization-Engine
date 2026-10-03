@@ -3,10 +3,17 @@
 //!
 //! The checks cover terrain and water, the save round trip, and a month of the founding band's
 //! life: they settle, keep water and firewood at home, still have food, break ground and sow
-//! their first field, and nobody is ever stuck between events. Checks on a population over years
-//! arrive with births and deaths (plan §7, M1).
+//! their first field, and nobody is ever stuck between events.
+//!
+//! With `years`, each world then lives on for years (the M1 sanity run, plan §4.7), checked at
+//! every year's end: nobody stuck, no population or land problems, no population explosion,
+//! households under a roof from the second year, and a first trail worn out of the settlement
+//! within the first. A band may fail and leave its valley, as foundings did (research 05-06 §5.2);
+//! across the worlds at least half the bands must still live where they settled. Runs differ from
+//! one to the next (determinism is not a goal), so the thresholds leave room for chance.
 
-use std::sync::atomic::AtomicBool;
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use civ_content::ContentRegistry;
@@ -26,6 +33,12 @@ pub const MIN_GENTLE: f32 = 0.05;
 pub const MIN_RIVER_KM: f32 = 0.5;
 /// In-game days the founding band lives.
 pub const DAYS: i64 = 30;
+/// Most people a band may grow to, as a multiple of the founding band, in the long run.
+pub const MAX_GROWTH: f64 = 3.0;
+/// People a band must keep to count as still living where it settled, in the long run.
+pub const MIN_ALIVE: usize = 10;
+/// Share of the households, from the second year on, that must live under a roof.
+pub const MIN_ROOFED: f64 = 0.8;
 
 /// What to run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -34,6 +47,8 @@ pub struct SmokeOptions {
     pub size: u32,
     /// Seeds per preset, starting at 1.
     pub seeds: u64,
+    /// Years each world lives on after its first month (0: the first month only).
+    pub years: u32,
 }
 
 /// One world's result.
@@ -49,6 +64,10 @@ pub struct SmokeResult {
     pub stats: Option<MapStats>,
     /// Every threshold it missed; empty means it passed.
     pub failures: Vec<String>,
+    /// People living at the end, when it lived on for years.
+    pub living: Option<usize>,
+    /// What else happened that a reader should know (a band that left its valley).
+    pub notes: Vec<String>,
 }
 
 fn check_world(stats: &MapStats) -> Vec<String> {
@@ -247,52 +266,195 @@ fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<String> {
     failures
 }
 
-/// Runs every preset with seeds `1..=seeds`, reporting each result as it finishes.
+/// Lives a world on for `years` after its first month, checking it at every year's end: one
+/// year, two years and so on from the founding.
+fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
+    let founders = sim.people().living().max(1);
+    let year = civ_core::time::MINUTES_PER_YEAR;
+    // The band has lived its first month (`check_people`).
+    let founded = sim.now().minutes() - DAYS * MINUTES_PER_DAY;
+    for y in 1..=years {
+        let to_go = founded + i64::from(y) * year - sim.now().minutes();
+        if let Err(e) = sim.advance_minutes(to_go) {
+            result
+                .failures
+                .push(format!("the clock stopped in year {y}: {e}"));
+            return;
+        }
+        let now = sim.now();
+        let living = sim.people().living();
+        let stuck = sim
+            .people()
+            .people
+            .iter()
+            .filter(|(_, p)| p.act.step_ends < now)
+            .count();
+        if stuck > 0 {
+            result
+                .failures
+                .push(format!("{stuck} people stuck between events in year {y}"));
+        }
+        let problems = sim
+            .people()
+            .problems(sim.ids().peek_next(), sim.rules().catalog.activities.len());
+        if let Some(first) = problems.first() {
+            result.failures.push(format!(
+                "{} population problems in year {y}, first: {first}",
+                problems.len()
+            ));
+        }
+        let land = sim.land();
+        let problems = land.problems(
+            sim.map(),
+            sim.rules().land.habitats.len(),
+            sim.ids().peek_next(),
+        );
+        if let Some(first) = problems.first() {
+            result.failures.push(format!(
+                "{} land problems in year {y}, first: {first}",
+                problems.len()
+            ));
+        }
+        if living as f64 > MAX_GROWTH * founders as f64 {
+            result
+                .failures
+                .push(format!("{living} people in year {y}: the band exploded"));
+        }
+        let households: Vec<_> = sim
+            .people()
+            .households
+            .iter()
+            .filter(|(_, h)| !h.members.is_empty())
+            .map(|(_, h)| h.id)
+            .collect();
+        let roofed = households
+            .iter()
+            .filter(|&&h| {
+                land.buildings
+                    .iter()
+                    .any(|b| b.household == h && b.roofed())
+            })
+            .count();
+        if y >= 2 && (roofed as f64) < MIN_ROOFED * households.len() as f64 {
+            result.failures.push(format!(
+                "only {roofed} of {} households under a roof in year {y}",
+                households.len()
+            ));
+        }
+        if y == 1
+            && living > 0
+            && !sim
+                .people()
+                .chronicle
+                .iter()
+                .any(|e| e.kind == civ_agents::ChronicleKind::FirstTrail)
+        {
+            result
+                .failures
+                .push("no trail worn out of the settlement in its first year".to_owned());
+        }
+        if living < MIN_ALIVE && !result.notes.iter().any(|n| n.starts_with("the band")) {
+            result
+                .notes
+                .push(format!("the band was down to {living} in year {y}"));
+        }
+        result.living = Some(living);
+    }
+}
+
+/// Runs every preset with seeds `1..=seeds`, a few worlds at a time, reporting each result as it
+/// finishes. The results come back in preset and seed order.
 pub fn run(
     content: &ContentRegistry,
     options: SmokeOptions,
-    report: &mut dyn FnMut(&SmokeResult),
+    report: &(dyn Fn(&SmokeResult) + Sync),
 ) -> Vec<SmokeResult> {
-    let mut results = Vec::new();
-    for preset in &content.presets {
-        for seed in 1..=options.seeds {
-            let started = Instant::now();
-            let created = Sim::create(
-                &NewWorld {
-                    name: format!("Smoke {seed}"),
-                    seed,
-                    preset_id: preset.id.clone(),
-                    size_cells: options.size,
-                    band_size: 0,
-                },
-                content,
-                &mut |_| {},
-                &AtomicBool::new(false),
-            );
-            let mut result = SmokeResult {
-                preset: preset.id.clone(),
-                seed,
-                elapsed: Duration::ZERO,
-                stats: None,
-                failures: Vec::new(),
-            };
-            match created {
-                Err(e) => result.failures.push(format!("generation failed: {e}")),
-                Ok(mut sim) => {
-                    result.stats = Some(*sim.stats());
-                    result.failures.extend(check_world(sim.stats()));
-                    if let Err(e) = check_round_trip(&mut sim, content) {
-                        result.failures.push(e);
-                    }
-                    result.failures.extend(check_people(&mut sim, content));
+    let jobs: Vec<(String, u64)> = content
+        .presets
+        .iter()
+        .flat_map(|p| (1..=options.seeds).map(move |seed| (p.id.clone(), seed)))
+        .collect();
+    let next = AtomicUsize::new(0);
+    let results = Mutex::new(Vec::new());
+    let workers = std::thread::available_parallelism()
+        .map_or(1, |n| n.get())
+        .min(jobs.len())
+        .max(1);
+    std::thread::scope(|scope| {
+        for _ in 0..workers {
+            scope.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, Ordering::Relaxed);
+                    let Some((preset, seed)) = jobs.get(i) else {
+                        break;
+                    };
+                    let result = run_one(content, options, preset, *seed);
+                    report(&result);
+                    results
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .push((i, result));
                 }
+            });
+        }
+    });
+    let mut results = results
+        .into_inner()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    results.sort_by_key(|(i, _)| *i);
+    results.into_iter().map(|(_, r)| r).collect()
+}
+
+fn run_one(
+    content: &ContentRegistry,
+    options: SmokeOptions,
+    preset: &str,
+    seed: u64,
+) -> SmokeResult {
+    let started = Instant::now();
+    let created = Sim::create(
+        &NewWorld {
+            name: format!("Smoke {seed}"),
+            seed,
+            preset_id: preset.to_owned(),
+            size_cells: options.size,
+            band_size: 0,
+        },
+        content,
+        &mut |_| {},
+        &AtomicBool::new(false),
+    );
+    let mut result = SmokeResult {
+        preset: preset.to_owned(),
+        seed,
+        elapsed: Duration::ZERO,
+        stats: None,
+        failures: Vec::new(),
+        living: None,
+        notes: Vec::new(),
+    };
+    match created {
+        Err(e) => result.failures.push(format!("generation failed: {e}")),
+        Ok(mut sim) => {
+            result.stats = Some(*sim.stats());
+            result.failures.extend(check_world(sim.stats()));
+            if let Err(e) = check_round_trip(&mut sim, content) {
+                result.failures.push(e);
             }
-            result.elapsed = started.elapsed();
-            report(&result);
-            results.push(result);
+            result.failures.extend(check_people(&mut sim, content));
+            if options.years > 0 && result.failures.is_empty() {
+                check_years(&mut sim, options.years, &mut result);
+            }
         }
     }
-    results
+    result.elapsed = started.elapsed();
+    result
+}
+
+/// Whether enough bands still live where they settled after a long run: at least half.
+pub fn enough_alive(results: &[SmokeResult]) -> bool {
+    let long: Vec<_> = results.iter().filter_map(|r| r.living).collect();
+    long.is_empty() || 2 * long.iter().filter(|&&n| n >= MIN_ALIVE).count() >= long.len()
 }
 
 /// One line of the report table.
@@ -308,11 +470,17 @@ pub fn format_result(result: &SmokeResult) -> String {
             s.lakes
         )
     });
-    let verdict = if result.failures.is_empty() {
+    let mut verdict = if result.failures.is_empty() {
         "pass".to_owned()
     } else {
         format!("FAIL: {}", result.failures.join("; "))
     };
+    if let Some(living) = result.living {
+        verdict = format!("{living:>3} people  {verdict}");
+    }
+    if !result.notes.is_empty() {
+        verdict = format!("{verdict} ({})", result.notes.join("; "));
+    }
     format!(
         "{:<28} {:>4} {:>6.1} s {figures}  {verdict}",
         result.preset,

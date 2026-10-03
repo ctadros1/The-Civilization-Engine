@@ -20,6 +20,11 @@ use crate::{decide, farm};
 
 /// Purpose tag for founding draws.
 pub const PURPOSE_BAND: u64 = 0x6261_6e64_3030_3031; // "band0001"
+/// Purpose tag for the draws that make a family the observer sends (god tool).
+pub const PURPOSE_SPAWN: u64 = 0x7370_6177_6e30_3031; // "spawn001"
+/// A family the observer sends within this of a settlement's hearth, metres, joins it; farther
+/// away it makes camp where it was placed.
+pub const SPAWN_JOIN_M: f32 = 600.0;
 /// Longest walk from the hearth to a home, seconds.
 pub(crate) const HOME_REACH_SECONDS: f32 = 300.0;
 /// Farthest a home moves from where its family wanted it, cells.
@@ -461,6 +466,172 @@ fn choose_site(ctx: &Ctx, params: &PeopleParams, d: &mut Draws, size: u32) -> Op
     Some(sites[i].0)
 }
 
+/// Adds a planned family to the world: a household of `settlement` living at `home`, carrying in
+/// provisions and seed as the founding band does. Returns the household and its people, in the
+/// family's order (the mother, the father, then the rest).
+#[allow(clippy::too_many_arguments)]
+fn add_family(
+    pop: &mut Population,
+    ctx: &mut Ctx,
+    family: &[Member],
+    settlement: PermanentId,
+    home: (f32, f32),
+    origin: Origin,
+    d: &mut Draws,
+    used_names: &mut Vec<String>,
+) -> (PermanentId, Vec<PermanentId>) {
+    let params = ctx.params;
+    let now = ctx.now;
+    let mut people = Vec::new();
+    let hh_id = ctx.ids.allocate();
+    let ids: Vec<PermanentId> = family.iter().map(|_| ctx.ids.allocate()).collect();
+    let members = family.len() as f64;
+    // The band carries its provisions in; each family holds its own share.
+    let mut stores = vec![0.0; ctx.catalog.goods.len()];
+    if let Some(good) = ctx.catalog.goods.get(params.band.provisions_good)
+        && good.kcal_per_kg > 0.0
+    {
+        stores[params.band.provisions_good] =
+            members * params.household.daily_kcal_per_person * params.band.provisions_days
+                / good.kcal_per_kg;
+    }
+    // And seed for the crop they know.
+    if let Some(seed) = ctx
+        .catalog
+        .crops
+        .get(params.farm.crop)
+        .and_then(|c| stores.get_mut(c.seed_good))
+    {
+        *seed += members * params.band.seed_kg_per_person;
+    }
+    pop.insert_household(Household {
+        id: hh_id,
+        members: ids.clone(),
+        home,
+        settlement: Some(settlement),
+        stores,
+        stores_at: now,
+        water_l: members
+            * params.household.water_l_per_person_day
+            * params.household.water_target_days,
+        water_at: now,
+        known: Vec::new(),
+        sheltered: false,
+    });
+    let couple = founding_couple(params, family, now, d);
+    for (mi, m) in family.iter().enumerate() {
+        let list = if m.sex == Sex::Male {
+            &params.names.male
+        } else {
+            &params.names.female
+        };
+        let mut given = String::new();
+        for _ in 0..12 {
+            if let Some(n) = d.pick(list)
+                && !used_names.contains(n)
+            {
+                given = n.clone();
+                break;
+            }
+        }
+        if given.is_empty() {
+            given = d
+                .pick(list)
+                .cloned()
+                .unwrap_or_else(|| "Unnamed".to_owned());
+        }
+        used_names.push(given.clone());
+        let born = SimTime::from_minutes(
+            now.minutes() - (m.age * civ_core::time::MINUTES_PER_YEAR as f64) as i64,
+        );
+        let mother = m.mother.map(|i| ids[i]);
+        let father = m.father.map(|i| ids[i]);
+        let id = ids[mi];
+        pop.records.insert(
+            id,
+            PersonRecord {
+                id,
+                given: given.clone(),
+                sex: m.sex,
+                born,
+                died: None,
+                left: None,
+                mother,
+                father,
+                origin,
+            },
+        );
+        let traits = Traits {
+            openness: d.normal() as f32,
+            conscientiousness: d.normal() as f32,
+            extraversion: d.normal() as f32,
+            agreeableness: d.normal() as f32,
+            neuroticism: d.normal() as f32,
+            risk: d.normal() as f32,
+        };
+        pop.insert_person(Person {
+            id,
+            given,
+            sex: m.sex,
+            born,
+            mother,
+            father,
+            household: hh_id,
+            traits,
+            pos: home,
+            energy_kcal: 0.0,
+            satiety_until: now.plus_minutes(-120),
+            sleep_pressure: params.sleep.wake_pressure as f32,
+            relatedness: 0.6,
+            needs_at: now,
+            burn_kcal_min: 1.0,
+            asleep: false,
+            company: params.social.household_quality as f32,
+            act: Activity {
+                def: 0,
+                target: Target::None,
+                steps: Vec::new(),
+                step: 0,
+                started: now,
+                step_started: now,
+                step_ends: now,
+                version: 0,
+            },
+            trip: None,
+            carrying: Load::default(),
+            draws: 0,
+            receipts: Default::default(),
+            partner: match mi {
+                0 => Some(ids[1]),
+                1 => Some(ids[0]),
+                _ => None,
+            },
+            repro: if mi == 0 {
+                couple.repro(&ids)
+            } else {
+                Repro::Open
+            },
+            fecundity: match m.sex {
+                Sex::Female => demography::fecundity(&params.fertility, &mut d.0),
+                Sex::Male => 1.0,
+            },
+            nursing: if mi == 0 {
+                couple.nursing.map(|i| ids[i])
+            } else {
+                None
+            },
+        });
+        people.push(id);
+    }
+    pop.unions.push(Union {
+        woman: ids[0],
+        man: ids[1],
+        since: couple.since,
+        ended: None,
+    });
+    (hh_id, people)
+}
+
 /// Brings a founding band of `size` people into the world at a site they choose, founds their
 /// settlement, records the chronicle, and has everyone decide what to do first.
 pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Founded, String> {
@@ -509,153 +680,18 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
             hearth.1 + (radius * angle.sin()) as f32,
         );
         let home = home_site(ctx.map, &near, wanted).unwrap_or(hearth);
-        let hh_id = ctx.ids.allocate();
-        let ids: Vec<PermanentId> = family.iter().map(|_| ctx.ids.allocate()).collect();
-        let members = family.len() as f64;
-        // The band carries its provisions in; each family holds its own share.
-        let mut stores = vec![0.0; ctx.catalog.goods.len()];
-        if let Some(good) = ctx.catalog.goods.get(params.band.provisions_good)
-            && good.kcal_per_kg > 0.0
-        {
-            stores[params.band.provisions_good] =
-                members * params.household.daily_kcal_per_person * params.band.provisions_days
-                    / good.kcal_per_kg;
-        }
-        // And seed for the crop they know.
-        if let Some(seed) = ctx
-            .catalog
-            .crops
-            .get(params.farm.crop)
-            .and_then(|c| stores.get_mut(c.seed_good))
-        {
-            *seed += members * params.band.seed_kg_per_person;
-        }
-        pop.insert_household(Household {
-            id: hh_id,
-            members: ids.clone(),
+        let (hh_id, ids) = add_family(
+            pop,
+            ctx,
+            family,
+            settlement,
             home,
-            settlement: Some(settlement),
-            stores,
-            stores_at: now,
-            water_l: members
-                * params.household.water_l_per_person_day
-                * params.household.water_target_days,
-            water_at: now,
-            known: Vec::new(),
-            sheltered: false,
-        });
+            Origin::Founder,
+            &mut d,
+            &mut used_names,
+        );
         households.push(hh_id);
-        let couple = founding_couple(params, family, now, &mut d);
-        for (mi, m) in family.iter().enumerate() {
-            let list = if m.sex == Sex::Male {
-                &params.names.male
-            } else {
-                &params.names.female
-            };
-            let mut given = String::new();
-            for _ in 0..12 {
-                if let Some(n) = d.pick(list)
-                    && !used_names.contains(n)
-                {
-                    given = n.clone();
-                    break;
-                }
-            }
-            if given.is_empty() {
-                given = d
-                    .pick(list)
-                    .cloned()
-                    .unwrap_or_else(|| "Unnamed".to_owned());
-            }
-            used_names.push(given.clone());
-            let born = SimTime::from_minutes(
-                now.minutes() - (m.age * civ_core::time::MINUTES_PER_YEAR as f64) as i64,
-            );
-            let mother = m.mother.map(|i| ids[i]);
-            let father = m.father.map(|i| ids[i]);
-            let id = ids[mi];
-            pop.records.insert(
-                id,
-                PersonRecord {
-                    id,
-                    given: given.clone(),
-                    sex: m.sex,
-                    born,
-                    died: None,
-                    left: None,
-                    mother,
-                    father,
-                    origin: Origin::Founder,
-                },
-            );
-            let traits = Traits {
-                openness: d.normal() as f32,
-                conscientiousness: d.normal() as f32,
-                extraversion: d.normal() as f32,
-                agreeableness: d.normal() as f32,
-                neuroticism: d.normal() as f32,
-                risk: d.normal() as f32,
-            };
-            pop.insert_person(Person {
-                id,
-                given,
-                sex: m.sex,
-                born,
-                mother,
-                father,
-                household: hh_id,
-                traits,
-                pos: home,
-                energy_kcal: 0.0,
-                satiety_until: now.plus_minutes(-120),
-                sleep_pressure: params.sleep.wake_pressure as f32,
-                relatedness: 0.6,
-                needs_at: now,
-                burn_kcal_min: 1.0,
-                asleep: false,
-                company: params.social.household_quality as f32,
-                act: Activity {
-                    def: 0,
-                    target: Target::None,
-                    steps: Vec::new(),
-                    step: 0,
-                    started: now,
-                    step_started: now,
-                    step_ends: now,
-                    version: 0,
-                },
-                trip: None,
-                carrying: Load::default(),
-                draws: 0,
-                receipts: Default::default(),
-                partner: match mi {
-                    0 => Some(ids[1]),
-                    1 => Some(ids[0]),
-                    _ => None,
-                },
-                repro: if mi == 0 {
-                    couple.repro(&ids)
-                } else {
-                    Repro::Open
-                },
-                fecundity: match m.sex {
-                    Sex::Female => demography::fecundity(&params.fertility, &mut d.0),
-                    Sex::Male => 1.0,
-                },
-                nursing: if mi == 0 {
-                    couple.nursing.map(|i| ids[i])
-                } else {
-                    None
-                },
-            });
-            people.push(id);
-        }
-        pop.unions.push(Union {
-            woman: ids[0],
-            man: ids[1],
-            since: couple.since,
-            ended: None,
-        });
+        people.extend(ids);
     }
     pop.chronicle_push(
         now,
@@ -684,6 +720,135 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
         hearth,
         people,
         households,
+    })
+}
+
+/// What sending a family produced.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Spawned {
+    /// The settlement it joined or founded.
+    pub settlement: PermanentId,
+    /// Its name.
+    pub name: String,
+    /// Whether the family made camp alone, founding the settlement.
+    pub founded: bool,
+    /// The household.
+    pub household: PermanentId,
+    /// The people: the mother, the father, then the rest.
+    pub people: Vec<PermanentId>,
+}
+
+/// The observer's god tool (plan §2, M1): a family arrives where the observer placed it. Within
+/// [`SPAWN_JOIN_M`] of a settlement people live in, it joins that settlement; elsewhere it makes
+/// camp on the spot and founds one. It never chooses its own site. It is made and provisioned like
+/// a founding family, and the chronicle names it as the observer's doing.
+pub fn spawn_family(
+    pop: &mut Population,
+    ctx: &mut Ctx,
+    at: (f32, f32),
+) -> Result<Spawned, String> {
+    let params = ctx.params;
+    let now = ctx.now;
+    let (w, h) = ctx.map.extent_m();
+    let (x, y) = (f64::from(at.0), f64::from(at.1));
+    if !(x >= 0.0 && y >= 0.0 && x < w && y < h) {
+        return Err("a family can only be placed on the map".to_owned());
+    }
+    let cell = cell_of(ctx.map, at);
+    if ctx.map.water[cell] != WATER_LAND || !ctx.nav.walkable(cell) {
+        return Err("a family can only be placed on dry land people can walk on".to_owned());
+    }
+    let mut d = Draws(Rng64::from_key(&[
+        ctx.seed,
+        PURPOSE_SPAWN,
+        now.minutes() as u64,
+        cell as u64,
+    ]));
+    let lived_in: Vec<PermanentId> = pop
+        .households
+        .iter()
+        .filter(|(_, x)| !x.members.is_empty())
+        .filter_map(|(_, x)| x.settlement)
+        .collect();
+    let distance = |p: (f32, f32)| ((p.0 - at.0).powi(2) + (p.1 - at.1).powi(2)).sqrt();
+    let near = ctx
+        .land
+        .settlements
+        .iter()
+        .filter(|s| lived_in.contains(&s.id) && distance(s.hearth_m) <= SPAWN_JOIN_M)
+        .min_by(|a, b| distance(a.hearth_m).total_cmp(&distance(b.hearth_m)))
+        .map(|s| (s.id, s.name.clone()));
+    let wear = &ctx.land.wear;
+    let reach = ctx
+        .nav
+        .travel_field(&ctx.map.elevation, cell, HOME_REACH_SECONDS, &|c| {
+            wear.factor(c)
+        });
+    let home = home_site(ctx.map, &reach, at).unwrap_or_else(|| cell_centre(ctx.map, cell));
+    let (settlement, name, founded) = match near {
+        Some((id, name)) => (id, name, false),
+        None => {
+            let name = match (
+                d.pick(&params.names.place_first).cloned(),
+                d.pick(&params.names.place_second).cloned(),
+            ) {
+                (Some(a), Some(b)) => format!("{a}{b}"),
+                (Some(a), None) => a,
+                _ => "the camp".to_owned(),
+            };
+            let id = ctx.ids.allocate();
+            ctx.land.settlements.push(civ_land::Settlement {
+                id,
+                name: name.clone(),
+                founded: now,
+                hearth_m: home,
+                food_short: false,
+                harvest_kg: 0.0,
+            });
+            (id, name, true)
+        }
+    };
+    let family = plan_family(params, &mut d);
+    let mut used_names: Vec<String> = pop.people.iter().map(|(_, p)| p.given.clone()).collect();
+    let (household, people) = add_family(
+        pop,
+        ctx,
+        &family,
+        settlement,
+        home,
+        Origin::Spawned,
+        &mut d,
+        &mut used_names,
+    );
+    pop.chronicle_push(
+        now,
+        ChronicleKind::FamilyArrived,
+        people.clone(),
+        Some(settlement),
+        Some(home),
+        people.len() as f64,
+        String::new(),
+    );
+    if founded {
+        pop.chronicle_push(
+            now,
+            ChronicleKind::SettlementFounded,
+            Vec::new(),
+            Some(settlement),
+            Some(home),
+            0.0,
+            name.clone(),
+        );
+    }
+    for &id in &people {
+        pop.begin(ctx, id);
+    }
+    Ok(Spawned {
+        settlement,
+        name,
+        founded,
+        household,
+        people,
     })
 }
 

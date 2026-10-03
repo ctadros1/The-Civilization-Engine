@@ -172,6 +172,9 @@ export class MapView {
   onCamera: () => void = () => {};
   /** A click on the map: the person under it, or null for empty ground. */
   onSelect: (id: number | null) => void = () => {};
+  /** A click on the map while placing (see `setPlacing`): where, metres. */
+  onPlace: (xM: number, yM: number) => void = () => {};
+  private placing = false;
 
   /** Creates the renderer inside `el`. Throws when the browser cannot render (no WebGL). */
   async mount(el: HTMLElement): Promise<void> {
@@ -357,6 +360,12 @@ export class MapView {
         join: "round",
       });
     }
+  }
+
+  /** While placing, a click on the map is a place (`onPlace`) rather than a selection. */
+  setPlacing(on: boolean): void {
+    this.placing = on;
+    this.app?.canvas.classList.toggle("placing", on);
   }
 
   /** Marks a person as selected (or nobody). */
@@ -639,7 +648,12 @@ export class MapView {
     canvas.addEventListener("pointerup", (e) => {
       const click = drag !== null && moved < 5;
       end(e);
-      if (click && this.info) this.onSelect(this.personAt(e.offsetX, e.offsetY));
+      if (!click || !this.info) return;
+      if (this.placing) {
+        this.onPlace((e.offsetX - this.world.x) / this.scale, (e.offsetY - this.world.y) / this.scale);
+      } else {
+        this.onSelect(this.personAt(e.offsetX, e.offsetY));
+      }
     });
     canvas.addEventListener("pointercancel", end);
     canvas.addEventListener("pointerleave", () => {

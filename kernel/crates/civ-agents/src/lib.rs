@@ -27,7 +27,7 @@ pub mod params;
 pub mod person;
 pub mod population;
 
-pub use found::{Founded, found_band};
+pub use found::{Founded, Spawned, found_band, spawn_family};
 pub use history::{
     Cause, ChronicleEvent, ChronicleKind, Moved, Origin, PersonRecord, Reason, Receipt, Scored,
     Span, Term, Union,

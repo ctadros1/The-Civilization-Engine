@@ -140,6 +140,10 @@ struct SmokeArgs {
     /// Seeds per preset.
     #[arg(long, default_value_t = 5)]
     seeds: u64,
+    /// Years each world lives on after its first month, checked at every year's end (the M1
+    /// sanity run: 10).
+    #[arg(long, default_value_t = 0)]
+    years: u32,
 }
 
 fn main() -> ExitCode {
@@ -341,16 +345,38 @@ fn run_smoke(args: SmokeArgs) -> anyhow::Result<ExitCode> {
         smoke::MIN_RIVER_KM,
         smoke::DAYS
     );
+    if args.years > 0 {
+        println!(
+            "then {} years, checked at each year's end: nobody stuck, no population or land \
+             problems, at most {}× the founders, ≥ {:.0}% of households roofed from year 2, a \
+             first trail in year 1; at least half the bands keep {} people",
+            args.years,
+            smoke::MAX_GROWTH,
+            smoke::MIN_ROOFED * 100.0,
+            smoke::MIN_ALIVE
+        );
+    }
     println!("{}", smoke::header());
     let results = smoke::run(
         &content,
         smoke::SmokeOptions {
             size: args.size,
             seeds: args.seeds,
+            years: args.years,
         },
-        &mut |result| println!("{}", smoke::format_result(result)),
+        &|result| println!("{}", smoke::format_result(result)),
     );
     let failed = results.iter().filter(|r| !r.failures.is_empty()).count();
+    if !smoke::enough_alive(&results) {
+        let long: Vec<_> = results.iter().filter_map(|r| r.living).collect();
+        let alive = long.iter().filter(|&&n| n >= smoke::MIN_ALIVE).count();
+        println!(
+            "only {alive} of {} bands still live where they settled after {} years: FAILED",
+            long.len(),
+            args.years
+        );
+        return Ok(ExitCode::FAILURE);
+    }
     if failed == 0 {
         println!("all {} smoke worlds passed", results.len());
         Ok(ExitCode::SUCCESS)

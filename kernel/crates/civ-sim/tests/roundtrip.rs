@@ -468,6 +468,45 @@ fn slice_e_saves_load_with_untrodden_ground() {
 }
 
 #[test]
+fn slice_f_saves_load_as_they_are() {
+    // Schema 8 added only a chronicle kind (a family the observer sent).
+    let sim = load_first();
+    let sections = persist::encode_sections(&sim);
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V7;
+    let path = republish("slice-f", &info, &sections);
+    let loaded = persist::load(&path, content()).expect("a schema-7 save loads");
+    assert_eq!(loaded.people().living(), sim.people().living());
+    assert_eq!(
+        loaded.land().wear.tiles().len(),
+        sim.land().wear.tiles().len()
+    );
+}
+
+#[test]
+fn a_family_the_observer_sent_survives_a_save_and_load() {
+    let mut sim = load_first();
+    let hearth = sim.land().settlements[0].hearth_m;
+    let sent = sim.spawn_family(hearth).expect("a family arrives");
+    let dir = scratch_dir("sent");
+    let saved = persist::save(&mut sim, &dir, SaveKind::Manual, "sent").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    let entry = loaded
+        .people()
+        .chronicle
+        .iter()
+        .find(|e| e.kind == civ_agents::ChronicleKind::FamilyArrived)
+        .expect("the chronicle keeps it");
+    assert_eq!(entry.people, sent.people);
+    for id in &sent.people {
+        assert_eq!(
+            loaded.people().records[id].origin,
+            civ_agents::Origin::Spawned
+        );
+    }
+}
+
+#[test]
 fn a_save_without_its_wear_section_is_refused() {
     let sim = load_first();
     let sections: Vec<SectionData> = persist::encode_sections(&sim)

@@ -63,7 +63,7 @@ use civ_world::WorldMap;
 use commons_persist::{SectionData, SectionTag, SnapshotReader};
 
 use super::{
-    LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, finish, section,
+    LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, finish, section,
     single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
@@ -160,6 +160,8 @@ enum Schema {
     V6,
     /// Worn ground.
     V7,
+    /// Families the observer sends (a chronicle kind older builds do not know).
+    V8,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -180,7 +182,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V4 => Schema::V4,
         SCHEMA_V5 => Schema::V5,
         SCHEMA_V6 => Schema::V6,
-        SAVE_SCHEMA_VERSION => Schema::V7,
+        SCHEMA_V7 => Schema::V7,
+        SAVE_SCHEMA_VERSION => Schema::V8,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -860,19 +863,21 @@ fn carried(
             Some((g, kg)) if kg > 0.0 => (Some(g), kg as f32),
             _ => (None, 0.0),
         },
-        Schema::V3 | Schema::V4 | Schema::V5 | Schema::V6 | Schema::V7 => match p.carry_good() {
-            -1 => (None, 0.0),
-            i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
-                // A good the content no longer has is dropped.
-                Some(found) => (*found, p.carry_kg()),
-                None => {
-                    return Err(LoadError::Malformed(format!(
-                        "person {who} carries good {i} of {}",
-                        goods.len()
-                    )));
-                }
-            },
-        },
+        Schema::V3 | Schema::V4 | Schema::V5 | Schema::V6 | Schema::V7 | Schema::V8 => {
+            match p.carry_good() {
+                -1 => (None, 0.0),
+                i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
+                    // A good the content no longer has is dropped.
+                    Some(found) => (*found, p.carry_kg()),
+                    None => {
+                        return Err(LoadError::Malformed(format!(
+                            "person {who} carries good {i} of {}",
+                            goods.len()
+                        )));
+                    }
+                },
+            }
+        }
     };
     let good = good.map(|g| u16::try_from(g).unwrap_or(u16::MAX));
     Ok(Load {
@@ -963,7 +968,7 @@ fn decode_households(
                 }
                 (now, Vec::new())
             }
-            Schema::V3 | Schema::V4 | Schema::V5 | Schema::V6 | Schema::V7 => {
+            Schema::V3 | Schema::V4 | Schema::V5 | Schema::V6 | Schema::V7 | Schema::V8 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -1036,6 +1041,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::TakenIn => 11,
         ChronicleKind::Left => 12,
         ChronicleKind::FirstTrail => 13,
+        ChronicleKind::FamilyArrived => 14,
     }
 }
 
@@ -1054,6 +1060,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         11 => Some(ChronicleKind::TakenIn),
         12 => Some(ChronicleKind::Left),
         13 => Some(ChronicleKind::FirstTrail),
+        14 => Some(ChronicleKind::FamilyArrived),
         _ => None,
     }
 }

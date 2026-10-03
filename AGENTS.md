@@ -73,6 +73,7 @@ cargo test --workspace --locked --profile simcheck     # how CI runs tests
 cargo run --release -p civ-host                        # serve the observer on 127.0.0.1:7420
 cargo run --release -p civ-host -- content validate [--json]
 cargo run --release -p civ-host -- smoke               # the smoke seeds; must pass
+cargo run --release -p civ-host -- smoke --years 10    # and ten years of each (nightly; ~8 min on 4 cores)
 cargo run --release -p civ-host -- new --seed 7 --size 1024
 cargo run --release -p civ-host -- save info|verify <file>
 
@@ -89,6 +90,8 @@ tools/gen-schema.sh --check    # what CI runs
 
 `.github/workflows/ci.yml` runs all of this. The Windows lane covers the kernel, commons,
 content and smoke seeds; Ubuntu lanes cover the web shell and schema freshness. Keep it green.
+`.github/workflows/nightly.yml` runs the ten-year smoke seeds nightly on `main` and on pull
+requests into it; run them yourself before a change to how people live, farm, build or die.
 
 ## Rules for changes
 

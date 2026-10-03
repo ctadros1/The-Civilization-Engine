@@ -264,7 +264,19 @@ table RecoverWorld {
   accept: bool (id: 0);
 }
 
-union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld }
+// M1 slice G: the observer sends a family to a point on the map (god tool). It joins the
+// settlement there or makes camp on the spot.
+table SpawnFamily {
+  at: Vec2 (id: 0);
+}
+
+// M1 slice G: run ahead to a time, as fast as the machine allows, in full detail. Shown as a
+// task; CancelTask stops it. The clock is paused when it arrives.
+table RunUntil {
+  minute: long (id: 0);
+}
+
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil }
 
 table Command {
   body: CommandBody (id: 1);

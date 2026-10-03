@@ -306,6 +306,9 @@ pub enum ChronicleKind {
     /// The first trail out of a settlement was worn in: `number` is its length, metres, and
     /// `place` its middle.
     FirstTrail,
+    /// The observer sent a family (god tool): `people` is the family, the mother and father first,
+    /// and `number` how many they are.
+    FamilyArrived,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -521,6 +524,25 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             settlement(event),
             Span::Text(" was roofed.".to_owned()),
         ],
+        ChronicleKind::FamilyArrived => {
+            let (Some(woman), Some(man)) = (person(0), person(1)) else {
+                return vec![Span::Text("The observer sent a family.".to_owned())];
+            };
+            let n = event.number.round() as i64;
+            let mut spans = vec![
+                woman,
+                Span::Text(" and ".to_owned()),
+                man,
+                Span::Text(" came to ".to_owned()),
+                settlement(event),
+            ];
+            spans.push(Span::Text(if n > 2 {
+                format!(" with their family, {n} in all, sent by the observer.")
+            } else {
+                ", sent by the observer.".to_owned()
+            }));
+            spans
+        }
         ChronicleKind::FirstTrail => vec![
             Span::Text("The first trail out of ".to_owned()),
             settlement(event),

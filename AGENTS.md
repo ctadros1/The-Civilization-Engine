@@ -44,7 +44,7 @@ Before changing anything:
 | `kernel/crates/civ-world` | World generation: terrain, lakes, rivers. Pure functions of their inputs. Also walking (`nav`) and terrain measures (`terrain`). |
 | `kernel/crates/civ-grammar` | Building grammars: a pure expansion of a saved design into parts, outline and per-stage needs, with golden hashes (ADR-0004). M1 has the hut. |
 | `kernel/crates/civ-land` | Land that changes: habitat patches, wild stocks, the climate year, settlements, fields, plots and buildings (ADR-0004). |
-| `kernel/crates/civ-agents` | People: needs, decisions, activities, trips, households, founding bands, history (ADR-0003). |
+| `kernel/crates/civ-agents` | People: needs, decisions, activities, trips, households, founding bands, births, deaths and couples (`demography.rs`, `population/life.rs`), history (ADR-0003). |
 | `kernel/crates/civ-content` | The content compiler: TOML packs, stable diagnostics, fingerprints. |
 | `kernel/crates/civ-schema` | FlatBuffers schemas and generated Rust (boundary and saves). |
 | `kernel/crates/civ-sim` | The composition root: a world's state, save/load, boundary payloads. |

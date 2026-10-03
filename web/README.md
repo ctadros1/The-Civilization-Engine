@@ -1,6 +1,6 @@
 # Web observer
 
-The web observer (the M0 shell, and M1's people, fields and huts): TypeScript, Vite and PixiJS 8,
+The web observer (the M0 shell, and M1's people, families, fields and huts): TypeScript, Vite and PixiJS 8,
 without a UI framework. `civ-host serve` serves
 the built files from `web/dist` and the observer socket at `/ws` from the same origin.
 
@@ -32,7 +32,8 @@ another port. `?host=127.0.0.1:7421` in the page URL connects to a host directly
 ## Test hooks
 
 `window.__TCE__` (mirroring Genesis's `window.__OBS__`) exposes plain-data state for tests and
-debugging: `state()`, `map()`, `pointerAt(x, y)`, `panBy(dx, dy)`, `zoomBy(f)`, `fit()`.
+debugging: `state()`, `map()`, `pointerAt(x, y)`, `panBy(dx, dy)`, `zoomBy(f)`, `fit()`,
+`peopleOnScreen()`, `briefs()` (each person's id, sex and age) and `select(id)`.
 
 ## Recording the demo
 

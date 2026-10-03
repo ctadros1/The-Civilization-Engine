@@ -106,7 +106,7 @@ are not calibrations. An arid closed-basin preset is planned for M3, once climat
 
 ## Kinds (M1)
 
-M1 adds seven kinds (kernel content API 4). Every field is required, and every number in the
+M1 adds seven kinds (kernel content API 5). Every field is required, and every number in the
 shipped files carries its research source or says it is a tuning starting point.
 
 ### `people`
@@ -123,7 +123,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `mass_by_age` | `[[age, male kg, female kg], …]`. |
 | | `walk_par`, `idle_par` | Physical activity ratios while walking and between activities. |
 | | `satiety_hours`, `hunger_ramp_hours`, `deficit_unit_kcal`, `max_surplus_kcal`, `meal_minutes` | How long a meal keeps someone full, how hunger rises after, how an energy deficit adds to hunger, the largest banked surplus, a meal's length. |
-| | `reserve_kcal_per_kg` | What the body can draw on in a shortage, per kilogram of body mass: the floor of the energy balance. |
+| | `reserve_kcal_per_kg` | What the body can draw on in a shortage, per kilogram of body mass: the floor of the energy balance. The share of it drawn is what hunger's hazards and its effect on conception follow. |
 | | `eat_reserve_at_deficit` | Food kept back (seed) is eaten only once a person has drawn this share of that reserve, and never the seed to sow again the ground the household already crops. |
 | `sleep` | `tau_awake_h`, `tau_asleep_h`, `wake_pressure` | Two-process sleep pressure: rise awake, fall asleep, the level a sleeper wakes at. Sleep is not an option below it. |
 | | `min_hours`, `max_hours`, `nap_min_minutes`, `nap_max_minutes` | A night's sleep and a daytime nap. |
@@ -133,6 +133,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `food_target_days`, `carry_kg`, `daily_kcal_per_person` | The food store people aim for, the load one person carries home, average need. |
 | | `fuel_kg_per_person_day`, `fuel_target_days` | Firewood burned per person per day by month (January first), and the store people aim for. |
 | | `short_food_days`, `recovered_food_days` | The chronicle notes a settlement's shortage below the first and its end above the second. |
+| | `leave_at_depletion`, `leave_per_day`, `leave_unless_ripe_within_days` | A household with less than a day's food, whose members have drawn on average this share of their reserve, and with no crop of its own ripening within these days or reaped and waiting, gives up and leaves with this chance a day. |
 | `decision` | `temperature_sd_fraction`, `min_temperature` | Softmax temperature: a fraction of the spread of the acceptable options' scores, with a floor. Only options worth more than doing nothing (a positive total) are sampled, unless none is. |
 | | `w_*`, `trip_half_worth_days` | Points per unit of each consideration (hunger, sleep, company, food, firewood and water shortage, useful work, walking, effort, darkness, rest, play, field work's harvest, shelter, and a deadline's pressure); a trip bringing `trip_half_worth_days` of the household's need is worth half a very large haul. Beyond any shortage, more of a good is worth less the more of it is in store. `w_shelter` is what a session of building, or a load of what the household still needs for its roof, is worth. |
 | `band` | `default_size`, `min_size`, `max_size`, `min_families` | The founding band the new-world dialog offers. `min_size` is at least twice `min_families`. |
@@ -145,7 +146,19 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `work_hours_per_day` | Field work a capable adult gives a day, for planning what the household can prepare and sow in a season. |
 | | `field_m`, `max_walk_minutes`, `site_candidates` | New fields are squares of `field_m`, within this walk of the settlement; how many places are looked at when marking one out. |
 | `build` | `home_program` | The building program households build their homes to (a building id). |
-| `mortality` | `a`, `b`, `c`, `d`, `e` | Siler hazard `A·e^(−Bx) + C + D·e^(Ex)` per year (ages of founders now; deaths later in M1). |
+| `mortality` | `a`, `b`, `c`, `d`, `e` | Siler hazard `A·e^(−Bx) + C + D·e^(Ex)` per year: the founders' ages, and everyone's daily risk of dying. |
+| | `hunger_ratio_at_half`, `hunger_ratio_max` | Hunger multiplies that hazard: by the first at half the reserve drawn, as `ratio^(4d²)` of the share `d` drawn, up to the second. |
+| | `exhaustion_per_day`, `exhaustion_power` | A body at the end of its reserve dies with this chance a day, scaled by the share drawn to this power. |
+| | `maternal_death_per_birth` | A mother's chance of dying in childbirth. |
+| `fertility` | `conception_per_month`, `age_factor`, `fecundity_sd`, `hunger_halving` | A woman living with her partner conceives with this chance a month at her most fecund ages, times `[[age, factor], …]`, a lasting lognormal factor of her own (spread of its log) and a hunger factor that halves for each `hunger_halving` of the reserve drawn. |
+| | `pregnancy_days`, `pregnancy_sd_days`, `loss_by_age`, `loss_days` | A pregnancy's length; the chance it is lost by the mother's age (`[[age, chance], …]`), and when after conception a loss comes (`[earliest, latest]` days). |
+| | `recovery_months`, `recovery_sd_months`, `recovery_min_months`, `loss_recovery_months`, `weaned_recovery_months` | How long after a birth (or a loss) a mother cannot conceive, and how soon she can after her nursing child dies. |
+| | `boys_per_100_girls`, `pregnancy_kcal_day` | The sex ratio at birth; what a pregnancy costs its mother a day, by trimester. |
+| `family` | `seek_min_age_female`, `seek_min_age_male`, `seek_max_age_female`, `seek_max_age_male`, `seek_per_month_female`, `seek_per_month_male` | Between these ages, an unpartnered woman or man looks for a partner with this chance a month. |
+| | `age_gap_years`, `preferred_gap_years`, `w_gap_per_year` | How much older a man may be than his partner (`[least, most]`, negative for younger), the gap people look for, and the points a candidate loses for each year away from it. |
+| | `kin_exclusion_generations` | No couple shares an ancestor within this many generations, or has one partner descend from the other within them. |
+| | `residence` | Where a new couple lives: `new_household`, `his_household` or `her_household`. Someone who keeps a household with no other adult is joined there whatever the rule. |
+| | `independent_age`, `trait_heritability` | From this age someone can keep a household; how much of a child's personality regresses on the mean of its parents'. |
 
 ### `land`
 

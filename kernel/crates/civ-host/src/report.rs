@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use std::io::Write;
 use std::sync::atomic::AtomicBool;
 
+use civ_agents::ledger::{Channel, Transfers};
 use civ_agents::params::GoodUse;
 use civ_agents::person::{Flow, Flows, Step};
 use civ_content::ContentRegistry;
@@ -63,6 +64,7 @@ pub fn run(
     )?;
     let start = sim.now().minutes();
     let mut flows_before = sim.people().flows();
+    let mut moved_before = sim.people().transfers.clone();
     for year in 1..=options.years {
         let mut hours: BTreeMap<u16, f64> = BTreeMap::new();
         let mut adult_hours = 0.0;
@@ -89,6 +91,9 @@ pub fn run(
         let flows = sim.people().flows();
         report_food(&sim, &flows_before, &flows, out)?;
         flows_before = flows;
+        let moved = sim.people().transfers.clone();
+        report_moved(&sim, &moved_before, &moved, out)?;
+        moved_before = moved;
     }
     Ok(())
 }
@@ -123,6 +128,35 @@ fn report_food(
         mcal(Flow::Departed),
         mcal(Flow::Used),
         mcal(Flow::Made),
+    )?;
+    Ok(())
+}
+
+/// Food moved between households over the year, millions of kilocalories, by channel.
+fn report_moved(
+    sim: &Sim,
+    before: &Transfers,
+    after: &Transfers,
+    out: &mut dyn Write,
+) -> anyhow::Result<()> {
+    let goods = &sim.rules().catalog.goods;
+    let lines: Vec<String> = Channel::ALL
+        .iter()
+        .map(|&c| {
+            let mcal = goods
+                .iter()
+                .enumerate()
+                .filter(|(_, g)| g.purpose == GoodUse::Food)
+                .map(|(i, g)| (after.get(c, i) - before.get(c, i)) * g.kcal_per_kg)
+                .sum::<f64>()
+                / 1e6;
+            format!("{} {mcal:.1}", c.label())
+        })
+        .collect();
+    writeln!(
+        out,
+        "  food moved between households (Mcal): {}",
+        lines.join(", ")
     )?;
     Ok(())
 }

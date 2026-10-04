@@ -359,11 +359,15 @@ pub enum Flow {
     Sown,
     /// Taken out of the world by a household that left.
     Departed,
+    /// Received from another household (ADR-0006 §3: a transfer, by any channel).
+    Received,
+    /// Given to another household.
+    Given,
 }
 
 impl Flow {
     /// Every kind, in a fixed order.
-    pub const ALL: [Flow; 11] = [
+    pub const ALL: [Flow; 13] = [
         Flow::Brought,
         Flow::Got,
         Flow::Made,
@@ -375,11 +379,16 @@ impl Flow {
         Flow::Built,
         Flow::Sown,
         Flow::Departed,
+        Flow::Received,
+        Flow::Given,
     ];
 
     /// Whether goods of this kind of flow enter stores (rather than leave them).
     pub fn enters(self) -> bool {
-        matches!(self, Flow::Brought | Flow::Got | Flow::Made)
+        matches!(
+            self,
+            Flow::Brought | Flow::Got | Flow::Made | Flow::Received
+        )
     }
 }
 

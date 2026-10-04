@@ -7,6 +7,7 @@
 //! - [`farm`]: what a household plans to grow, and what its field work is worth.
 //! - [`build`]: the hut a household designs, the ground it claims, and the work left on it.
 //! - [`make`]: recipes and tools as arithmetic on a household's stores (ADR-0006).
+//! - [`ledger`]: the channels goods move between households by, and trades (ADR-0006 §3).
 //! - [`population`]: the tables and the event-driven activity engine.
 //! - [`found`]: a founding band arriving and choosing its camp.
 //! - [`history`]: person records, unions, decision receipts and the chronicle.
@@ -23,6 +24,7 @@ pub mod demography;
 pub mod farm;
 pub mod found;
 pub mod history;
+pub mod ledger;
 pub mod make;
 pub mod needs;
 pub mod params;
@@ -34,6 +36,7 @@ pub use history::{
     Cause, ChronicleEvent, ChronicleKind, Moved, Origin, PersonRecord, Reason, Receipt, Scored,
     Span, Term, Union,
 };
+pub use ledger::Channel;
 pub use needs::Sex;
 pub use params::{ActivityDef, Behavior, Catalog, PeopleParams, RecipeDef, SkillDef};
 pub use person::{

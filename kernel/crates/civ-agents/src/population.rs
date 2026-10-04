@@ -24,6 +24,7 @@ use crate::decide::{
 };
 use crate::farm::{self, FarmView, Site};
 use crate::history::{ChronicleEvent, ChronicleKind, PersonRecord, Reason, Receipt, Union};
+use crate::ledger::{Channel, Leg};
 use crate::make;
 use crate::needs;
 use crate::params::{
@@ -35,6 +36,7 @@ use crate::person::{
 };
 
 mod life;
+mod transfer;
 
 pub use life::{depleted, extra_kcal_day};
 
@@ -184,6 +186,8 @@ pub struct Population {
     emptied: Vec<(PermanentId, PermanentId)>,
     /// What became of the goods of households that are no more (counters, not saved).
     pub flows_gone: Flows,
+    /// What moved between households, by channel (counters, not saved).
+    pub transfers: crate::ledger::Transfers,
 }
 
 /// A hut a household would begin: its design (which says where it stands) and what each stage
@@ -2119,45 +2123,41 @@ impl Population {
         if want <= 0.0 {
             return;
         }
-        let mut given = vec![0.0; goods.len()];
-        if let Some(g) = self.households.get_mut(gh) {
-            let members = g.members.len().max(1);
-            g.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
-            g.stores.resize(goods.len(), 0.0);
-            let mut order: Vec<usize> = (0..goods.len())
-                .filter(|&i| {
-                    goods[i].purpose == GoodUse::Food
-                        && goods[i].kcal_per_kg > 0.0
-                        && !goods[i].kept_back()
-                })
-                .collect();
-            let keeps = |i: usize| match goods[i].half_life_days {
-                h if h > 0.0 => h,
-                _ => f64::INFINITY,
-            };
-            order.sort_by(|&a, &b| keeps(a).total_cmp(&keeps(b)).then(a.cmp(&b)));
-            let mut carry = params.household.carry_kg;
-            for i in order {
-                if want <= 0.0 || carry <= 0.0 {
-                    break;
-                }
-                let kg = (want / goods[i].kcal_per_kg)
-                    .min(g.stores[i].max(0.0))
-                    .min(carry);
-                g.stores[i] -= kg;
-                given[i] += kg;
-                carry -= kg;
-                want -= kg * goods[i].kcal_per_kg;
+        let stores = stores_now(g, now, params, goods);
+        let mut order: Vec<usize> = (0..goods.len())
+            .filter(|&i| {
+                goods[i].purpose == GoodUse::Food
+                    && goods[i].kcal_per_kg > 0.0
+                    && !goods[i].kept_back()
+            })
+            .collect();
+        let keeps = |i: usize| match goods[i].half_life_days {
+            h if h > 0.0 => h,
+            _ => f64::INFINITY,
+        };
+        order.sort_by(|&a, &b| keeps(a).total_cmp(&keeps(b)).then(a.cmp(&b)));
+        let mut carry = params.household.carry_kg;
+        let mut legs = Vec::new();
+        for i in order {
+            if want <= 0.0 || carry <= 0.0 {
+                break;
             }
-        }
-        if let Some(t) = self.households.get_mut(th) {
-            let members = t.members.len().max(1);
-            t.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
-            t.stores.resize(goods.len(), 0.0);
-            for (s, kg) in t.stores.iter_mut().zip(&given) {
-                *s += kg;
+            let kg = (want / goods[i].kcal_per_kg)
+                .min(stores.get(i).copied().unwrap_or(0.0).max(0.0))
+                .min(carry);
+            if kg <= 0.0 {
+                continue;
             }
+            legs.push(Leg {
+                from: giver,
+                to,
+                good: i,
+                amount: kg,
+            });
+            carry -= kg;
+            want -= kg * goods[i].kcal_per_kg;
         }
+        self.transfer(now, params, goods, &legs, Channel::Gift);
     }
 
     /// Hours of a capable adult's field work `members` can give a day.
@@ -2476,51 +2476,51 @@ impl Population {
         if load.kg <= 0.0 {
             return;
         }
-        let mut kg = f64::from(load.kg);
+        let kg = f64::from(load.kg);
+        // The load comes into the household's store.
+        let Some(x) = self.households.get_mut(own) else {
+            return;
+        };
+        let members = x.members.len().max(1);
+        x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
+        x.stores.resize(goods.len(), 0.0);
+        let target = params.household.food_target_days
+            * members as f64
+            * params.household.daily_kcal_per_person;
+        let short = (target - stock_kcal(&x.stores, goods)).max(0.0);
+        x.stores[g] += kg;
+        x.flows.add(Flow::Got, g, kg);
         // A shared good is shared out of what the household can spare: it first keeps what
         // brings its food to the days it tries to keep, and the rest goes to every household of
         // the settlement, by members (research 06-01 §2.3 and §3.2: help comes from disposable
         // surplus, after a household's own subsistence). In plenty, all of a kill is shared; in
         // hunger, a family keeps what it catches.
-        if good.shared
-            && settlement.is_some()
-            && good.kcal_per_kg > 0.0
-            && let Some(x) = self.households.get_mut(own)
-        {
-            let members = x.members.len().max(1);
-            x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
-            x.stores.resize(goods.len(), 0.0);
-            let target = params.household.food_target_days
-                * members as f64
-                * params.household.daily_kcal_per_person;
-            let short = (target - stock_kcal(&x.stores, goods)).max(0.0);
-            let keep = kg.min(short / good.kcal_per_kg);
-            x.stores[g] += keep;
-            x.flows.add(Flow::Got, g, keep);
-            kg -= keep;
-        }
-        if kg <= 0.0 {
+        let Some(s) = settlement.filter(|_| good.shared && good.kcal_per_kg > 0.0) else {
+            return;
+        };
+        let spare = kg - kg.min(short / good.kcal_per_kg);
+        if spare <= 0.0 {
             return;
         }
-        let recipients: Vec<(Handle<Household>, usize)> = match (good.shared, settlement) {
-            (true, Some(s)) => self
-                .households
-                .iter()
-                .filter(|(_, x)| x.settlement == Some(s) && !x.members.is_empty())
-                .map(|(hd, x)| (hd, x.members.len()))
-                .collect(),
-            _ => vec![(own, 1)],
-        };
+        let mut recipients: Vec<(PermanentId, usize)> = self
+            .households
+            .iter()
+            .filter(|(_, x)| x.settlement == Some(s) && !x.members.is_empty())
+            .map(|(_, x)| (x.id, x.members.len()))
+            .collect();
+        recipients.sort_unstable();
         let total = recipients.iter().map(|r| r.1).sum::<usize>().max(1) as f64;
-        for (hd, n) in recipients {
-            if let Some(x) = self.households.get_mut(hd) {
-                let members = x.members.len().max(1);
-                x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
-                x.stores.resize(goods.len(), 0.0);
-                x.stores[g] += kg * n as f64 / total;
-                x.flows.add(Flow::Got, g, kg * n as f64 / total);
-            }
-        }
+        let legs: Vec<Leg> = recipients
+            .into_iter()
+            .filter(|&(id, _)| id != hh_id)
+            .map(|(id, n)| Leg {
+                from: hh_id,
+                to: id,
+                good: g,
+                amount: spare * n as f64 / total,
+            })
+            .collect();
+        self.transfer(now, params, goods, &legs, Channel::Share);
     }
 
     /// Days of food in the stores of a settlement's households at its people's needs, at `now`;

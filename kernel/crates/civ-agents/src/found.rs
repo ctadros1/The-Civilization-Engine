@@ -890,7 +890,7 @@ pub fn spawn_family(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::params::{
         BandParams, DecisionParams, EnergyParams, FarmParams, HouseholdParams, NameParams,
@@ -898,7 +898,8 @@ mod tests {
     };
     use civ_world::nav::NavParams;
 
-    fn params() -> PeopleParams {
+    /// A full set of people parameters for tests.
+    pub(crate) fn params() -> PeopleParams {
         PeopleParams {
             nav: NavParams {
                 top_speed_kmh: 6.0,

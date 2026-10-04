@@ -20,6 +20,7 @@ use crate::demography::{
     pregnancy_course, recovery_days, too_close,
 };
 use crate::history::{Cause, Moved, Origin, Union};
+use crate::ledger::{Channel, Leg};
 use crate::needs::Sex;
 use crate::params::{FamilyParams, Residence};
 use crate::person::{Flow, Flows, Repro, Traits};
@@ -698,6 +699,30 @@ impl Population {
         }
         self.settle_household(ctx, from);
         self.settle_household(ctx, to);
+        // Everything it holds passes to the household its people join.
+        let legs: Vec<Leg> = self
+            .household(from)
+            .map(|x| {
+                x.stores
+                    .iter()
+                    .enumerate()
+                    .filter(|&(_, &kg)| kg > 0.0)
+                    .map(|(g, &kg)| Leg {
+                        from,
+                        to,
+                        good: g,
+                        amount: kg,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        self.transfer(
+            ctx.now,
+            ctx.params,
+            &ctx.catalog.goods,
+            &legs,
+            Channel::Inherit,
+        );
         let Some(hd) = self.hh_index.remove(&from) else {
             return;
         };
@@ -712,12 +737,6 @@ impl Population {
         }
         if let Some(x) = self.household_mut(to) {
             x.members.extend(gone.members.iter().copied());
-            if x.stores.len() < gone.stores.len() {
-                x.stores.resize(gone.stores.len(), 0.0);
-            }
-            for (kg, more) in x.stores.iter_mut().zip(&gone.stores) {
-                *kg += more;
-            }
             x.water_l += gone.water_l;
             for k in gone.known {
                 match x
@@ -1059,37 +1078,41 @@ impl Population {
         self.settle_household(ctx, to);
         let goods = &ctx.catalog.goods;
         let share = people.len() as f64 / before as f64;
-        let mut stores = Vec::new();
+        // They take a member's share of the household's goods (research 08-06 §1.1: household
+        // allocation). Building materials stay with the home they are for, and an oven with the
+        // hearth it was built at.
+        let legs: Vec<Leg> = self
+            .household(from)
+            .map(|x| {
+                x.stores
+                    .iter()
+                    .enumerate()
+                    .filter(|&(g, &kg)| {
+                        kg > 0.0
+                            && goods.get(g).is_some_and(|d| {
+                                d.purpose != GoodUse::Material
+                                    && !d.tool.as_ref().is_some_and(|t| t.fixed)
+                            })
+                    })
+                    .map(|(g, &kg)| Leg {
+                        from,
+                        to,
+                        good: g,
+                        amount: kg * share,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        self.transfer(ctx.now, ctx.params, goods, &legs, Channel::Allocation);
         let mut water = 0.0;
         let mut known = Vec::new();
         if let Some(x) = self.household_mut(from) {
-            stores = x
-                .stores
-                .iter_mut()
-                .enumerate()
-                .map(|(g, kg)| {
-                    // Building materials stay with the home they are for, and an oven with
-                    // the hearth it was built at.
-                    let stays = goods.get(g).is_some_and(|d| {
-                        d.purpose == GoodUse::Material || d.tool.as_ref().is_some_and(|t| t.fixed)
-                    });
-                    let take = if stays { 0.0 } else { *kg * share };
-                    *kg -= take;
-                    take
-                })
-                .collect();
             water = x.water_l * share;
             x.water_l -= water;
             x.members.retain(|m| !people.contains(m));
             known = x.known.clone();
         }
         if let Some(x) = self.household_mut(to) {
-            if x.stores.len() < stores.len() {
-                x.stores.resize(stores.len(), 0.0);
-            }
-            for (kg, more) in x.stores.iter_mut().zip(&stores) {
-                *kg += more;
-            }
             x.water_l += water;
             x.members.extend(people.iter().copied());
             if x.known.is_empty() {

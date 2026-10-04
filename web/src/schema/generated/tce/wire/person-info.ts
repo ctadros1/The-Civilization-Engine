@@ -6,6 +6,7 @@ import * as flatbuffers from 'flatbuffers';
 
 import { Decision } from '../../tce/wire/decision.js';
 import { KinLink } from '../../tce/wire/kin-link.js';
+import { KnowLine } from '../../tce/wire/know-line.js';
 import { Sex } from '../../tce/wire/sex.js';
 import { SkillLine } from '../../tce/wire/skill-line.js';
 import { StoreLine } from '../../tce/wire/store-line.js';
@@ -262,8 +263,18 @@ householdReadyDays():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
+knows(index: number, obj?:KnowLine):KnowLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 78);
+  return offset ? (obj || new KnowLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+knowsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 78);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(37);
+  builder.startObject(38);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -473,6 +484,22 @@ static startSkillsVector(builder:flatbuffers.Builder, numElems:number) {
 
 static addHouseholdReadyDays(builder:flatbuffers.Builder, householdReadyDays:number) {
   builder.addFieldFloat32(36, householdReadyDays, 0.0);
+}
+
+static addKnows(builder:flatbuffers.Builder, knowsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(37, knowsOffset, 0);
+}
+
+static createKnowsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startKnowsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
 }
 
 static endPersonInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

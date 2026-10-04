@@ -14,5 +14,6 @@ min_minutes = 60
 max_minutes = 360
 daylight_only = true
 max_walk_minutes = 30
+technique = "core:technique/emmer_growing"
 tools = []
 rate = 0.6

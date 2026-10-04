@@ -39,6 +39,7 @@ import {
   linesText,
   statementRows,
 } from "./firm.js";
+import { introducible, knowRows, summaryText, techniqueRows } from "./knowledge.js";
 import { PATH_LEGEND } from "./paths.js";
 import {
   HOUSEHOLDS_SHOWN,
@@ -58,7 +59,9 @@ import type {
   PersonInfo,
   SaveEntry,
   ScoredOption,
+  SettlementKnowledge,
   SettlementWealth,
+  TechniqueInfo,
   Welcome,
   WorldInfo,
 } from "./net/messages.js";
@@ -97,6 +100,11 @@ export interface Actions {
    * come together.
    */
   setPlacing(on: boolean, families: number): void;
+  /**
+   * Introduce a technique to a living person (god tool): they come to know it, or with
+   * `awareOnly` only hear of it. `technique` is an index into Welcome.techniques.
+   */
+  introduceTechnique(person: number, technique: number, awareOnly: boolean): Promise<void>;
 }
 
 const MAX_SEED = (1n << 64n) - 1n;
@@ -732,6 +740,73 @@ export function bindUi(store: Store, actions: Actions): void {
     }
     return box;
   };
+  /** The technique chosen in the inspector's introduce form, kept while the inspector is redrawn. */
+  let introChoice: { person: number; technique: number } | null = null;
+  let introSelect: HTMLSelectElement | null = null;
+  const knowsBlock = (welcome: Welcome | null, p: PersonInfo): Node => {
+    const techniques = welcome?.techniques ?? [];
+    const box = el("div", { className: "knows" }, el("h4", { text: "Knows" }));
+    const rows = knowRows(p.knows, techniques);
+    if (rows.length === 0) {
+      box.append(el("p", { className: "empty", text: p.alive ? "Nothing yet." : "Nothing." }));
+    } else {
+      box.append(
+        el(
+          "ul",
+          {},
+          ...rows.map((r) =>
+            el(
+              "li",
+              { className: `know-${r.state}` },
+              el("span", { className: "know-name", text: r.name }),
+              el("span", { className: "aside", text: ` ${r.text}` }),
+            ),
+          ),
+        ),
+      );
+    }
+    introSelect = null;
+    const options = p.alive ? introducible(p.knows, techniques) : [];
+    if (options.length === 0) return box;
+    const select = el("select");
+    select.id = "introduce-technique";
+    for (const o of options) {
+      const option = el("option", { text: o.heard ? `${o.name} (heard of)` : o.name });
+      option.value = String(o.technique);
+      select.append(option);
+    }
+    const chosen = introChoice;
+    if (chosen?.person === p.id && options.some((o) => o.technique === chosen.technique)) {
+      select.value = String(chosen.technique);
+    }
+    select.addEventListener("change", () => {
+      introChoice = { person: p.id, technique: Number(select.value) };
+    });
+    const label = el("label", { text: "Introduce" });
+    label.htmlFor = select.id;
+    const teach = el("button", { text: "Teach" });
+    teach.type = "submit";
+    teach.id = "introduce-teach";
+    teach.title = "They come to know it at once (god tool)";
+    const tell = el("button", { text: "Tell of it" });
+    tell.type = "button";
+    tell.id = "introduce-tell";
+    tell.title = "They only hear of it (god tool)";
+    const form = el("form", { className: "introduce" }, label, select, teach, tell);
+    const go = (awareOnly: boolean) => {
+      teach.disabled = true;
+      tell.disabled = true;
+      void actions.introduceTechnique(p.id, Number(select.value), awareOnly);
+    };
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      go(false);
+    });
+    tell.addEventListener("click", () => go(true));
+    introSelect = select;
+    box.append(form);
+    return box;
+  };
   const inspector = (state: AppState, sel: Selection): Node[] => {
     const welcome = state.welcome;
     const close = el("button", { className: "icon", text: "×" });
@@ -848,6 +923,7 @@ export function bindUi(store: Store, actions: Actions): void {
         nodes.push(el("p", { className: "empty", text: "No decisions recorded yet." }));
       }
     }
+    nodes.push(knowsBlock(welcome, p));
     if (p.kin.length > 0 || p.family.length > 0) {
       nodes.push(
         el(
@@ -877,6 +953,8 @@ export function bindUi(store: Store, actions: Actions): void {
     const sel = state.selected;
     if (world && sel) {
       if (renderedSelection === sel) return;
+      // Not while a technique is being chosen: the list would be replaced under the pointer.
+      if (introSelect?.isConnected && document.activeElement === introSelect) return;
       renderedSelection = sel;
       peopleKey = "";
       peopleBody.replaceChildren(...inspector(state, sel));
@@ -1524,6 +1602,98 @@ export function bindUi(store: Store, actions: Actions): void {
     wealthBody.replaceChildren(...nodes);
   };
 
+  // ---- Knowledge ---------------------------------------------------------------------------
+  const knowledgeBody = $("knowledge-body");
+  let knowledgeKey: unknown[] = [];
+  /** The techniques opened to their details, by settlement and technique, kept across redraws. */
+  const knowledgeOpen = new Set<string>();
+  let knowledgeWorld: string | null = null;
+  const knowledgeBlock = (s: SettlementKnowledge, techniques: TechniqueInfo[]): Node => {
+    const block = el("div", { className: "knowledge-settlement" });
+    block.append(
+      el("h3", { text: s.name || "A settlement" }),
+      el("p", { className: "since", text: summaryText(s.techniques) }),
+    );
+    const list = el("ul", { className: "techniques" });
+    for (const r of techniqueRows(s.techniques, techniques)) {
+      const key = `${s.settlement}:${r.technique}`;
+      const facts = el("dl", {});
+      if (r.can) facts.append(el("dt", { text: "Can" }), el("dd", { text: r.can }));
+      if (r.requires) facts.append(el("dt", { text: "Needs" }), el("dd", { text: r.requires }));
+      facts.append(el("dt", { text: "Known by" }), el("dd", { text: r.knowers }));
+      if (r.practised) facts.append(el("dt", { text: "Practised" }), el("dd", { text: r.practised }));
+      if (r.learners) facts.append(el("dt", { text: "Learning" }), el("dd", { text: r.learners }));
+      if (r.heard) facts.append(el("dt", { text: "Heard of" }), el("dd", { text: r.heard }));
+      const details = el(
+        "details",
+        { className: r.known ? "known" : "unknown" },
+        el(
+          "summary",
+          {},
+          el("span", { className: "technique-name", text: r.name }),
+          el("span", { className: "status", text: r.status }),
+        ),
+        facts,
+      );
+      if (r.history.length > 0) {
+        details.append(
+          el("ol", { className: "history" }, ...r.history.map((h) => el("li", { text: h }))),
+        );
+      }
+      details.open = knowledgeOpen.has(key);
+      details.addEventListener("toggle", () => {
+        if (details.open) knowledgeOpen.add(key);
+        else knowledgeOpen.delete(key);
+      });
+      list.append(el("li", {}, details));
+    }
+    block.append(list);
+    return block;
+  };
+  const renderKnowledge = (state: AppState) => {
+    const world = state.snapshot?.world ?? null;
+    const key = [world?.worldId ?? null, state.knowledge, state.knowledgeError, state.welcome];
+    if (key.length === knowledgeKey.length && key.every((k, i) => k === knowledgeKey[i])) return;
+    knowledgeKey = key;
+    if ((world?.worldId ?? null) !== knowledgeWorld) {
+      knowledgeWorld = world?.worldId ?? null;
+      knowledgeOpen.clear();
+    }
+    if (!world) {
+      knowledgeBody.replaceChildren(el("p", { className: "empty", text: "No world loaded." }));
+      return;
+    }
+    if (state.knowledge === null) {
+      knowledgeBody.replaceChildren(
+        state.knowledgeError
+          ? el("p", {
+              className: "form-error",
+              text: `What people know could not be read: ${state.knowledgeError}`,
+            })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      );
+      return;
+    }
+    if (state.knowledge.settlements.length === 0) {
+      knowledgeBody.replaceChildren(
+        el("p", { className: "empty", text: "Nobody has settled yet." }),
+      );
+      return;
+    }
+    const techniques = state.welcome?.techniques ?? [];
+    const nodes: Node[] = [
+      el("p", {
+        className: "aside",
+        text: "A settlement knows a technique while someone living there knows it. Children learn their household's work as they reach its age; others learn by working beside someone who knows it. A technique dies with the last who knew it there.",
+      }),
+      ...state.knowledge.settlements.map((s) => knowledgeBlock(s, techniques)),
+    ];
+    if (state.knowledgeError) {
+      nodes.push(el("p", { className: "note", text: `Not up to date: ${state.knowledgeError}` }));
+    }
+    knowledgeBody.replaceChildren(...nodes);
+  };
+
   const renderTask = (state: AppState) => {
     const task = state.snapshot?.task ?? null;
     $("task").hidden = !task;
@@ -1601,6 +1771,7 @@ export function bindUi(store: Store, actions: Actions): void {
     renderMarkets(state);
     renderFirms(state);
     renderWealth(state);
+    renderKnowledge(state);
     renderWorld(state);
     renderEvents(state);
     renderTask(state);

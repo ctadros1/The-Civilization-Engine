@@ -3,6 +3,8 @@
 Status: Accepted
 Date: 2026-10-04
 Milestone: M3b
+Amended: 2026-10-04, slice M, to match what was built: §1's bootstrap test, §2's derived
+settlement knowledge, §4's upbringing at the first work, §5's loss check
 
 ## Context
 
@@ -70,9 +72,15 @@ Reports read: 07-01 (invention), 07-02 (diffusion and loss), 07-03 (the graph), 
 - Recipes, activities and building programs (and, with grammar v2, building parts) may name one
   technique each. Only a person who knows it may do that work, or someone working beside a
   person who does (§4). Work that names none is open to everyone, as all work was before.
-- The content validator refuses an unknown technique, a technique that gates nothing, cycles in
-  prerequisites, and a gate on a recipe whose only source of an input is a recipe it gates
-  (07-03 §6's bootstrap test). The content API becomes 9.
+- The content validator refuses:
+  - an unknown technique;
+  - a technique that gates nothing;
+  - cycles in prerequisites;
+  - a recipe that can never be worked because an input or tool comes only from recipes that need
+    it. This is 07-03 §6's bootstrap test, applied to every recipe as a fixpoint over the goods
+    the world renews (gathered, harvested, or made by recipes that can themselves be worked).
+
+  The content API becomes 9.
 - The people profile's `[knowledge]` table gives the share of grown founders who know each
   technique. A band with a share above zero always brings at least one knower. Families sent by
   the observer draw the same way.
@@ -89,9 +97,9 @@ Reports read: 07-01 (invention), 07-02 (diffusion and loss), 07-03 (the graph), 
 - An entry with no hours is awareness: the person has heard of it or seen it. One with fewer
   than `learn_h` is learning.
 - Nothing is forgotten: unpractised knowledge and skills do not fade (07-02 §2.3).
-- What a settlement knows is always derived from its people, never stored. A derived index
-  from technique to knowers is rebuilt on load and kept up to date as people learn, arrive,
-  leave and die.
+- What a settlement knows is always derived from its people, never stored. Its residents are
+  looked over when something asks: a death or a departure, or the knowledge query. In villages
+  of hundreds that is cheap. An index from technique to knowers waits until it is not.
 - The settlement keeps a short history for each technique that was ever known there: who first
   knew it there, when and how, and when it was lost and who knew it last. That history cannot be
   derived once its people are gone.
@@ -126,6 +134,11 @@ Reports read: 07-01 (invention), 07-02 (diffusion and loss), 07-03 (the graph), 
 - **Upbringing.** A child learns each `upbringing` technique on reaching the youngest age of
   the work it gates, when someone in their household knows it. This stands in for community
   learning of everyday work (06-08 §1.1).
+  - It happens at their first such work or at the start of the next day, whichever comes first,
+    so a child is never held back from work their household would have them do.
+  - Work first done at or after the age of keeping a household is still learnt at home, for a
+    year from its age (a tuning value). Making an axe, from 16 where people keep a household
+    from 15, is one example.
 - **Working alongside.**
   - A person who does not know a technique may do its work only beside someone who does:
     - a member of their own household at the same place and work at the same time;
@@ -142,7 +155,7 @@ Reports read: 07-01 (invention), 07-02 (diffusion and loss), 07-03 (the graph), 
 ### 5. Loss
 
 - When a person dies or leaves a settlement, each technique they knew is checked against the
-  settlement's remaining knowers in the derived index. If none remain, it is lost there.
+  settlement's remaining residents. If none of them knows it, it is lost there.
 - The chronicle records the loss and names the last knower. It says whether anyone there is
   still aware of it or learning it, and whether goods or buildings made with it remain
   (07-02 §5.4's flags).

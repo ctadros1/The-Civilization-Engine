@@ -66,8 +66,10 @@ use std::io::{Read, Seek};
 
 use civ_agents::firm::{BookKind, Books, Entry as BookEntryOf, Exit, Firm, Statement, WageOffer};
 use civ_agents::history::{ChronicleEvent, ChronicleKind, Origin, PersonRecord};
+use civ_agents::knowledge::{KnowledgeEvent, KnowledgeEventKind};
 use civ_agents::ledger::{Channel, Trade};
 use civ_agents::market::{Market, MonthOfTrade, Offer};
+use civ_agents::person::{Know, KnowSource};
 use civ_agents::wealth::{Spread, WealthYear};
 use civ_agents::{
     Activity, AgentEvent, Cause, Household, KnownPatch, Load, Person, Population, Reason, Receipt,
@@ -88,7 +90,7 @@ use commons_persist::{SectionData, SectionTag, SnapshotReader};
 
 use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
-    SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, finish, section, single_chunk, unreadable,
+    SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -120,6 +122,9 @@ pub const SECTION_MARKET: SectionTag = SectionTag::new("market");
 pub const SECTION_FIRMS: SectionTag = SectionTag::new("firms");
 /// Section (schema 12): each settlement's yearly wealth measures.
 pub const SECTION_WEALTH: SectionTag = SectionTag::new("wealth");
+/// Section "know" (schema 13): each settlement's record of the techniques it came to know and
+/// lost.
+pub const SECTION_KNOW: SectionTag = SectionTag::new("know");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -136,13 +141,19 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
     let goods: Vec<&str> = rules.catalog.goods.iter().map(|g| g.id.as_str()).collect();
     let resources: Vec<&str> = rules.land.resources.iter().map(|r| r.id.as_str()).collect();
     let skills: Vec<&str> = rules.catalog.skills.iter().map(|k| k.id.as_str()).collect();
+    let techniques: Vec<&str> = rules
+        .catalog
+        .techniques
+        .iter()
+        .map(|t| t.id.as_str())
+        .collect();
     vec![
         section(SECTION_LAND, 0, encode_land(&sim.land, rules)),
         section(SECTION_SETTLE, 0, encode_settlements(&sim.land.settlements)),
         section(
             SECTION_PEOPLE,
             0,
-            encode_people(&sim.people, &activities, &goods, &skills),
+            encode_people(&sim.people, &activities, &goods, &skills, &techniques),
         ),
         section(
             SECTION_HOUSES,
@@ -171,6 +182,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             encode_firms(&sim.people, &goods, &activities),
         ),
         section(SECTION_WEALTH, 0, encode_wealth(&sim.people)),
+        section(SECTION_KNOW, 0, encode_knowledge(&sim.people, &techniques)),
     ]
 }
 
@@ -208,6 +220,8 @@ enum Schema {
     V11,
     /// Property regimes: who holds each field (ADR-0007).
     V12,
+    /// Knowledge carried by people (ADR-0008).
+    V13,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -233,7 +247,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V9 => Schema::V9,
         SCHEMA_V10 => Schema::V10,
         SCHEMA_V11 => Schema::V11,
-        SAVE_SCHEMA_VERSION => Schema::V12,
+        SCHEMA_V12 => Schema::V12,
+        SAVE_SCHEMA_VERSION => Schema::V13,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -301,6 +316,14 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V12 && reader.has_section(SECTION_WEALTH) {
         let bytes = single_chunk(reader, SECTION_WEALTH)?;
         people.wealth_years = decode_wealth(&bytes)?;
+    }
+    // Before schema 13 nobody's knowledge was kept: everyone gets what a founder of their age
+    // brings, and the settlements' records begin now (ADR-0008 §7).
+    if schema >= Schema::V13 {
+        let bytes = single_chunk(reader, SECTION_KNOW)?;
+        people.knowledge = decode_knowledge(&bytes, rules)?;
+    } else {
+        people.give_founders_knowledge(&rules.catalog, &rules.people, seed, now);
     }
     people.derive_shelter(&land);
 
@@ -682,11 +705,13 @@ fn encode_people(
     activities: &[&str],
     goods: &[&str],
     skills: &[&str],
+    techniques: &[&str],
 ) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let dictionary = strings(&mut fbb, activities);
     let good_dictionary = strings(&mut fbb, goods);
     let skill_dictionary = strings(&mut fbb, skills);
+    let technique_dictionary = strings(&mut fbb, techniques);
     let list: Vec<_> = sorted_people(pop)
         .into_iter()
         .map(|p| encode_person(&mut fbb, p))
@@ -700,6 +725,7 @@ fn encode_people(
             next_trip: pop.next_trip,
             goods: Some(good_dictionary),
             skills: Some(skill_dictionary),
+            techniques: Some(technique_dictionary),
         },
     );
     finish(fbb, root)
@@ -775,6 +801,22 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
         .map(|&(k, level)| save::SkillLevel::new(k, level))
         .collect();
     let skills = fbb.create_vector(&skills);
+    let knows: Vec<save::Knowing> = p
+        .knows
+        .iter()
+        .map(|k| {
+            save::Knowing::new(
+                k.since.minutes(),
+                k.used.minutes(),
+                raw(k.source.person()),
+                k.hours,
+                k.technique,
+                k.known,
+                k.source.code(),
+            )
+        })
+        .collect();
+    let knows = fbb.create_vector(&knows);
     let (repro, conceived, repro_until, pregnancy_father, loss) = match p.repro {
         Repro::Open => (save::Repro::Open, 0, 0, 0, false),
         Repro::Pregnant {
@@ -827,6 +869,7 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
             fecundity: p.fecundity,
             nursing: raw(p.nursing),
             skills: Some(skills),
+            knows: Some(knows),
         },
     )
 }
@@ -842,6 +885,11 @@ fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedP
     let skill_ids: Vec<Option<usize>> = read_strings(root.skills())
         .iter()
         .map(|id| rules.catalog.skill_index(id))
+        .collect();
+    // Techniques by saved index, in the loaded content; one it no longer has is forgotten.
+    let technique_ids: Vec<Option<usize>> = read_strings(root.techniques())
+        .iter()
+        .map(|id| rules.catalog.technique_index(id))
         .collect();
     let mut people = Vec::new();
     let mut redecide = Vec::new();
@@ -988,6 +1036,37 @@ fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedP
                 skills.dedup_by_key(|(k, _)| *k);
                 skills
             },
+            knows: {
+                let mut knows: Vec<Know> = Vec::new();
+                for k in p.knows().iter().flatten() {
+                    let t = technique_ids
+                        .get(usize::from(k.technique()))
+                        .ok_or_else(|| {
+                            LoadError::Malformed(format!(
+                                "person {person_id} knows technique {} of {}",
+                                k.technique(),
+                                technique_ids.len()
+                            ))
+                        })?;
+                    if let Some(t) = t {
+                        knows.push(Know {
+                            technique: *t as u16,
+                            known: k.known(),
+                            hours: if k.hours().is_finite() {
+                                k.hours().max(0.0)
+                            } else {
+                                0.0
+                            },
+                            since: time(k.since()),
+                            source: KnowSource::from_code(k.source(), id(k.source_person())),
+                            used: time(k.used()),
+                        });
+                    }
+                }
+                knows.sort_by_key(|k| k.technique);
+                knows.dedup_by_key(|k| k.technique);
+                knows
+            },
         });
     }
     Ok((people, root.next_trip(), redecide))
@@ -1016,7 +1095,8 @@ fn carried(
         | Schema::V9
         | Schema::V10
         | Schema::V11
-        | Schema::V12 => {
+        | Schema::V12
+        | Schema::V13 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1133,7 +1213,8 @@ fn decode_households(
             | Schema::V9
             | Schema::V10
             | Schema::V11
-            | Schema::V12 => {
+            | Schema::V12
+            | Schema::V13 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -1221,6 +1302,10 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::FamilyArrived => 14,
         ChronicleKind::WorkshopOpened => 15,
         ChronicleKind::WorkshopClosed => 16,
+        ChronicleKind::TechniqueFound => 17,
+        ChronicleKind::TechniqueLearned => 18,
+        ChronicleKind::TechniqueLost => 19,
+        ChronicleKind::TechniqueIntroduced => 20,
     }
 }
 
@@ -1242,6 +1327,10 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         14 => Some(ChronicleKind::FamilyArrived),
         15 => Some(ChronicleKind::WorkshopOpened),
         16 => Some(ChronicleKind::WorkshopClosed),
+        17 => Some(ChronicleKind::TechniqueFound),
+        18 => Some(ChronicleKind::TechniqueLearned),
+        19 => Some(ChronicleKind::TechniqueLost),
+        20 => Some(ChronicleKind::TechniqueIntroduced),
         _ => None,
     }
 }
@@ -2470,6 +2559,83 @@ fn decode_wealth(bytes: &[u8]) -> Result<Vec<WealthYear>, LoadError> {
                 floor_m2_per_house: y.floor_m2_per_house(),
                 common_ha: y.common_ha(),
             },
+        });
+    }
+    Ok(out)
+}
+
+// ---- knowledge ---------------------------------------------------------------------------------
+
+fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let dictionary = strings(&mut fbb, techniques);
+    let entries: Vec<save::KnowledgeEntry> = pop
+        .knowledge
+        .iter()
+        .map(|e| {
+            let (kind, source) = match e.kind {
+                KnowledgeEventKind::Known(source) => (0, source),
+                KnowledgeEventKind::Lost => (1, KnowSource::Founder),
+            };
+            save::KnowledgeEntry::new(
+                e.at.minutes(),
+                e.settlement.get(),
+                e.person.get(),
+                raw(source.person()),
+                e.technique,
+                kind,
+                source.code(),
+            )
+        })
+        .collect();
+    let entries = fbb.create_vector(&entries);
+    let root = save::Knowledge::create(
+        &mut fbb,
+        &save::KnowledgeArgs {
+            techniques: Some(dictionary),
+            entries: Some(entries),
+        },
+    );
+    finish(fbb, root)
+}
+
+fn decode_knowledge(bytes: &[u8], rules: &Rules) -> Result<Vec<KnowledgeEvent>, LoadError> {
+    let root =
+        flatbuffers::root::<save::Knowledge>(bytes).map_err(|e| unreadable(SECTION_KNOW, &e))?;
+    let ids: Vec<Option<usize>> = read_strings(root.techniques())
+        .iter()
+        .map(|id| rules.catalog.technique_index(id))
+        .collect();
+    let mut out = Vec::new();
+    for e in root.entries().iter().flatten() {
+        let t = ids.get(usize::from(e.technique())).ok_or_else(|| {
+            LoadError::Malformed(format!(
+                "a knowledge entry names technique {} of {}",
+                e.technique(),
+                ids.len()
+            ))
+        })?;
+        // A technique the loaded content no longer has drops out of the record.
+        let Some(t) = t else {
+            continue;
+        };
+        let kind = match e.kind() {
+            0 => {
+                KnowledgeEventKind::Known(KnowSource::from_code(e.source(), id(e.source_person())))
+            }
+            1 => KnowledgeEventKind::Lost,
+            other => {
+                return Err(LoadError::Malformed(format!(
+                    "a knowledge entry has kind {other}"
+                )));
+            }
+        };
+        out.push(KnowledgeEvent {
+            at: time(e.at()),
+            settlement: required(e.settlement(), "a knowledge entry")?,
+            technique: *t as u16,
+            person: required(e.person(), "a knowledge entry")?,
+            kind,
         });
     }
     Ok(out)

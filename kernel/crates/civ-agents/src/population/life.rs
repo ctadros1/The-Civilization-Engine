@@ -323,6 +323,7 @@ impl Population {
             fecundity: own_fecundity,
             nursing: None,
             skills: Vec::new(),
+            knows: Vec::new(),
         });
         if let Some(x) = self.household_mut(household) {
             x.members.push(id);
@@ -446,6 +447,8 @@ impl Population {
             age,
             cause.key().to_owned(),
         );
+        // What only they knew there is lost with them (ADR-0008 §5).
+        self.check_loss(ctx, settlement, &[(id, p.knows)]);
     }
 
     /// Households no one is left in pass to the nearest kin of whoever lived there last; children
@@ -562,6 +565,7 @@ impl Population {
             return;
         };
         let (members, settlement, home) = (x.members.clone(), x.settlement, x.home);
+        let mut gone = Vec::new();
         for m in &members {
             let Some(h) = self.index.remove(m) else {
                 continue;
@@ -569,6 +573,7 @@ impl Population {
             let Some(p) = self.people.remove(h) else {
                 continue;
             };
+            gone.push((*m, p.knows.clone()));
             if let Some(r) = self.records.get_mut(m) {
                 r.left = Some(now);
             }
@@ -607,6 +612,8 @@ impl Population {
             count,
             String::new(),
         );
+        // What only they knew there leaves with them (ADR-0008 §5).
+        self.check_loss(ctx, settlement, &gone);
     }
 
     /// Parents and children of everyone in the records.

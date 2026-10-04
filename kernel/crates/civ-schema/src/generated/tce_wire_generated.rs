@@ -581,10 +581,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_COMMAND_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_COMMAND_BODY: u8 = 8;
+pub const ENUM_MAX_COMMAND_BODY: u8 = 9;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 9] = [
+pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 10] = [
   CommandBody::NONE,
   CommandBody::NewWorld,
   CommandBody::SaveWorld,
@@ -594,6 +594,7 @@ pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 9] = [
   CommandBody::RecoverWorld,
   CommandBody::SpawnFamily,
   CommandBody::RunUntil,
+  CommandBody::IntroduceTechnique,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -610,9 +611,10 @@ impl CommandBody {
   pub const RecoverWorld: Self = Self(6);
   pub const SpawnFamily: Self = Self(7);
   pub const RunUntil: Self = Self(8);
+  pub const IntroduceTechnique: Self = Self(9);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 8;
+  pub const ENUM_MAX: u8 = 9;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::NewWorld,
@@ -623,6 +625,7 @@ impl CommandBody {
     Self::RecoverWorld,
     Self::SpawnFamily,
     Self::RunUntil,
+    Self::IntroduceTechnique,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -636,6 +639,7 @@ impl CommandBody {
       Self::RecoverWorld => Some("RecoverWorld"),
       Self::SpawnFamily => Some("SpawnFamily"),
       Self::RunUntil => Some("RunUntil"),
+      Self::IntroduceTechnique => Some("IntroduceTechnique"),
       _ => None,
     }
   }
@@ -695,10 +699,10 @@ pub struct CommandBodyUnionTableOffset {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_QUERY_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_QUERY_BODY: u8 = 13;
+pub const ENUM_MAX_QUERY_BODY: u8 = 14;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 14] = [
+pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 15] = [
   QueryBody::NONE,
   QueryBody::GetRaster,
   QueryBody::GetHydrography,
@@ -713,6 +717,7 @@ pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 14] = [
   QueryBody::GetFirms,
   QueryBody::GetFirm,
   QueryBody::GetWealth,
+  QueryBody::GetKnowledge,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -734,9 +739,10 @@ impl QueryBody {
   pub const GetFirms: Self = Self(11);
   pub const GetFirm: Self = Self(12);
   pub const GetWealth: Self = Self(13);
+  pub const GetKnowledge: Self = Self(14);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 13;
+  pub const ENUM_MAX: u8 = 14;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::GetRaster,
@@ -752,6 +758,7 @@ impl QueryBody {
     Self::GetFirms,
     Self::GetFirm,
     Self::GetWealth,
+    Self::GetKnowledge,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -770,6 +777,7 @@ impl QueryBody {
       Self::GetFirms => Some("GetFirms"),
       Self::GetFirm => Some("GetFirm"),
       Self::GetWealth => Some("GetWealth"),
+      Self::GetKnowledge => Some("GetKnowledge"),
       _ => None,
     }
   }
@@ -1033,10 +1041,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for BookKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_RESPONSE_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_RESPONSE_BODY: u8 = 14;
+pub const ENUM_MAX_RESPONSE_BODY: u8 = 15;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 15] = [
+pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 16] = [
   ResponseBody::NONE,
   ResponseBody::Ack,
   ResponseBody::RasterTile,
@@ -1052,6 +1060,7 @@ pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 15] = [
   ResponseBody::Firms,
   ResponseBody::FirmInfo,
   ResponseBody::Wealth,
+  ResponseBody::Knowledge,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1074,9 +1083,10 @@ impl ResponseBody {
   pub const Firms: Self = Self(12);
   pub const FirmInfo: Self = Self(13);
   pub const Wealth: Self = Self(14);
+  pub const Knowledge: Self = Self(15);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 14;
+  pub const ENUM_MAX: u8 = 15;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::Ack,
@@ -1093,6 +1103,7 @@ impl ResponseBody {
     Self::Firms,
     Self::FirmInfo,
     Self::Wealth,
+    Self::Knowledge,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1112,6 +1123,7 @@ impl ResponseBody {
       Self::Firms => Some("Firms"),
       Self::FirmInfo => Some("FirmInfo"),
       Self::Wealth => Some("Wealth"),
+      Self::Knowledge => Some("Knowledge"),
       _ => None,
     }
   }
@@ -2999,6 +3011,204 @@ impl ::core::fmt::Debug for CropInfo<'_> {
       ds.finish()
   }
 }
+pub enum TechniqueInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TechniqueInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for TechniqueInfo<'a> {
+  type Inner = TechniqueInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> TechniqueInfo<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CAN: ::flatbuffers::VOffsetT = 8;
+  pub const VT_DOMAIN: ::flatbuffers::VOffsetT = 10;
+  pub const VT_REQUIRES: ::flatbuffers::VOffsetT = 12;
+  pub const VT_LEARN_H: ::flatbuffers::VOffsetT = 14;
+  pub const VT_UPBRINGING: ::flatbuffers::VOffsetT = 16;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    TechniqueInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args TechniqueInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<TechniqueInfo<'bldr>> {
+    let mut builder = TechniqueInfoBuilder::new(_fbb);
+    builder.add_learn_h(args.learn_h);
+    if let Some(x) = args.requires { builder.add_requires(x); }
+    builder.add_domain(args.domain);
+    if let Some(x) = args.can { builder.add_can(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    if let Some(x) = args.id { builder.add_id(x); }
+    builder.add_upbringing(args.upbringing);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TechniqueInfo::VT_ID, None)}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TechniqueInfo::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn can(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TechniqueInfo::VT_CAN, None)}
+  }
+  #[inline]
+  pub fn domain(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(TechniqueInfo::VT_DOMAIN, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn requires(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TechniqueInfo::VT_REQUIRES, None)}
+  }
+  #[inline]
+  pub fn learn_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TechniqueInfo::VT_LEARN_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn upbringing(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(TechniqueInfo::VT_UPBRINGING, Some(false)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for TechniqueInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("id", Self::VT_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("can", Self::VT_CAN, false)?
+     .visit_field::<i32>("domain", Self::VT_DOMAIN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("requires", Self::VT_REQUIRES, false)?
+     .visit_field::<f32>("learn_h", Self::VT_LEARN_H, false)?
+     .visit_field::<bool>("upbringing", Self::VT_UPBRINGING, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TechniqueInfoArgs<'a> {
+    pub id: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub can: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub domain: i32,
+    pub requires: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub learn_h: f32,
+    pub upbringing: bool,
+}
+impl<'a> Default for TechniqueInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TechniqueInfoArgs {
+      id: None,
+      name: None,
+      can: None,
+      domain: -1,
+      requires: None,
+      learn_h: 0.0,
+      upbringing: false,
+    }
+  }
+}
+
+pub struct TechniqueInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TechniqueInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TechniqueInfo::VT_ID, id);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TechniqueInfo::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_can(&mut self, can: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TechniqueInfo::VT_CAN, can);
+  }
+  #[inline]
+  pub fn add_domain(&mut self, domain: i32) {
+    self.fbb_.push_slot::<i32>(TechniqueInfo::VT_DOMAIN, domain, -1);
+  }
+  #[inline]
+  pub fn add_requires(&mut self, requires: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TechniqueInfo::VT_REQUIRES, requires);
+  }
+  #[inline]
+  pub fn add_learn_h(&mut self, learn_h: f32) {
+    self.fbb_.push_slot::<f32>(TechniqueInfo::VT_LEARN_H, learn_h, 0.0);
+  }
+  #[inline]
+  pub fn add_upbringing(&mut self, upbringing: bool) {
+    self.fbb_.push_slot::<bool>(TechniqueInfo::VT_UPBRINGING, upbringing, false);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TechniqueInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    TechniqueInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<TechniqueInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for TechniqueInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("TechniqueInfo");
+      ds.field("id", &self.id());
+      ds.field("name", &self.name());
+      ds.field("can", &self.can());
+      ds.field("domain", &self.domain());
+      ds.field("requires", &self.requires());
+      ds.field("learn_h", &self.learn_h());
+      ds.field("upbringing", &self.upbringing());
+      ds.finish()
+  }
+}
 pub enum ReasonInfoOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -3310,6 +3520,7 @@ impl<'a> Welcome<'a> {
   pub const VT_CROPS: ::flatbuffers::VOffsetT = 34;
   pub const VT_SKILLS: ::flatbuffers::VOffsetT = 36;
   pub const VT_REGIMES: ::flatbuffers::VOffsetT = 38;
+  pub const VT_TECHNIQUES: ::flatbuffers::VOffsetT = 40;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -3321,6 +3532,7 @@ impl<'a> Welcome<'a> {
     args: &'args WelcomeArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Welcome<'bldr>> {
     let mut builder = WelcomeBuilder::new(_fbb);
+    if let Some(x) = args.techniques { builder.add_techniques(x); }
     if let Some(x) = args.regimes { builder.add_regimes(x); }
     if let Some(x) = args.skills { builder.add_skills(x); }
     if let Some(x) = args.crops { builder.add_crops(x); }
@@ -3469,6 +3681,13 @@ impl<'a> Welcome<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RegimeInfo>>>>(Welcome::VT_REGIMES, None)}
   }
+  #[inline]
+  pub fn techniques(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TechniqueInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TechniqueInfo>>>>(Welcome::VT_TECHNIQUES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Welcome<'_> {
@@ -3495,6 +3714,7 @@ impl ::flatbuffers::Verifiable for Welcome<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CropInfo>>>>("crops", Self::VT_CROPS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<SkillInfo>>>>("skills", Self::VT_SKILLS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RegimeInfo>>>>("regimes", Self::VT_REGIMES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TechniqueInfo>>>>("techniques", Self::VT_TECHNIQUES, false)?
      .finish();
     Ok(())
   }
@@ -3518,6 +3738,7 @@ pub struct WelcomeArgs<'a> {
     pub crops: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CropInfo<'a>>>>>,
     pub skills: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SkillInfo<'a>>>>>,
     pub regimes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RegimeInfo<'a>>>>>,
+    pub techniques: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TechniqueInfo<'a>>>>>,
 }
 impl<'a> Default for WelcomeArgs<'a> {
   #[inline]
@@ -3541,6 +3762,7 @@ impl<'a> Default for WelcomeArgs<'a> {
       crops: None,
       skills: None,
       regimes: None,
+      techniques: None,
     }
   }
 }
@@ -3623,6 +3845,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WelcomeBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Welcome::VT_REGIMES, regimes);
   }
   #[inline]
+  pub fn add_techniques(&mut self, techniques: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<TechniqueInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Welcome::VT_TECHNIQUES, techniques);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WelcomeBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WelcomeBuilder {
@@ -3658,6 +3884,7 @@ impl ::core::fmt::Debug for Welcome<'_> {
       ds.field("crops", &self.crops());
       ds.field("skills", &self.skills());
       ds.field("regimes", &self.regimes());
+      ds.field("techniques", &self.techniques());
       ds.finish()
   }
 }
@@ -5152,6 +5379,7 @@ impl<'a> Snapshot<'a> {
   pub const VT_MARKETS_REV: ::flatbuffers::VOffsetT = 28;
   pub const VT_FIRMS_REV: ::flatbuffers::VOffsetT = 30;
   pub const VT_WEALTH_REV: ::flatbuffers::VOffsetT = 32;
+  pub const VT_KNOWLEDGE_REV: ::flatbuffers::VOffsetT = 34;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -5163,6 +5391,7 @@ impl<'a> Snapshot<'a> {
     args: &'args SnapshotArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Snapshot<'bldr>> {
     let mut builder = SnapshotBuilder::new(_fbb);
+    builder.add_knowledge_rev(args.knowledge_rev);
     builder.add_wealth_rev(args.wealth_rev);
     builder.add_firms_rev(args.firms_rev);
     builder.add_markets_rev(args.markets_rev);
@@ -5287,6 +5516,13 @@ impl<'a> Snapshot<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(Snapshot::VT_WEALTH_REV, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn knowledge_rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Snapshot::VT_KNOWLEDGE_REV, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Snapshot<'_> {
@@ -5310,6 +5546,7 @@ impl ::flatbuffers::Verifiable for Snapshot<'_> {
      .visit_field::<u64>("markets_rev", Self::VT_MARKETS_REV, false)?
      .visit_field::<u64>("firms_rev", Self::VT_FIRMS_REV, false)?
      .visit_field::<u64>("wealth_rev", Self::VT_WEALTH_REV, false)?
+     .visit_field::<u64>("knowledge_rev", Self::VT_KNOWLEDGE_REV, false)?
      .finish();
     Ok(())
   }
@@ -5330,6 +5567,7 @@ pub struct SnapshotArgs<'a> {
     pub markets_rev: u64,
     pub firms_rev: u64,
     pub wealth_rev: u64,
+    pub knowledge_rev: u64,
 }
 impl<'a> Default for SnapshotArgs<'a> {
   #[inline]
@@ -5350,6 +5588,7 @@ impl<'a> Default for SnapshotArgs<'a> {
       markets_rev: 0,
       firms_rev: 0,
       wealth_rev: 0,
+      knowledge_rev: 0,
     }
   }
 }
@@ -5420,6 +5659,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SnapshotBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(Snapshot::VT_WEALTH_REV, wealth_rev, 0);
   }
   #[inline]
+  pub fn add_knowledge_rev(&mut self, knowledge_rev: u64) {
+    self.fbb_.push_slot::<u64>(Snapshot::VT_KNOWLEDGE_REV, knowledge_rev, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SnapshotBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SnapshotBuilder {
@@ -5452,6 +5695,7 @@ impl ::core::fmt::Debug for Snapshot<'_> {
       ds.field("markets_rev", &self.markets_rev());
       ds.field("firms_rev", &self.firms_rev());
       ds.field("wealth_rev", &self.wealth_rev());
+      ds.field("knowledge_rev", &self.knowledge_rev());
       ds.finish()
   }
 }
@@ -6584,6 +6828,136 @@ impl ::core::fmt::Debug for RunUntil<'_> {
       ds.finish()
   }
 }
+pub enum IntroduceTechniqueOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct IntroduceTechnique<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for IntroduceTechnique<'a> {
+  type Inner = IntroduceTechnique<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> IntroduceTechnique<'a> {
+  pub const VT_PERSON: ::flatbuffers::VOffsetT = 4;
+  pub const VT_TECHNIQUE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_AWARE_ONLY: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    IntroduceTechnique { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args IntroduceTechniqueArgs
+  ) -> ::flatbuffers::WIPOffset<IntroduceTechnique<'bldr>> {
+    let mut builder = IntroduceTechniqueBuilder::new(_fbb);
+    builder.add_person(args.person);
+    builder.add_technique(args.technique);
+    builder.add_aware_only(args.aware_only);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(IntroduceTechnique::VT_PERSON, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn technique(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(IntroduceTechnique::VT_TECHNIQUE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn aware_only(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(IntroduceTechnique::VT_AWARE_ONLY, Some(false)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for IntroduceTechnique<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("person", Self::VT_PERSON, false)?
+     .visit_field::<u32>("technique", Self::VT_TECHNIQUE, false)?
+     .visit_field::<bool>("aware_only", Self::VT_AWARE_ONLY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct IntroduceTechniqueArgs {
+    pub person: u64,
+    pub technique: u32,
+    pub aware_only: bool,
+}
+impl<'a> Default for IntroduceTechniqueArgs {
+  #[inline]
+  fn default() -> Self {
+    IntroduceTechniqueArgs {
+      person: 0,
+      technique: 0,
+      aware_only: false,
+    }
+  }
+}
+
+pub struct IntroduceTechniqueBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> IntroduceTechniqueBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_person(&mut self, person: u64) {
+    self.fbb_.push_slot::<u64>(IntroduceTechnique::VT_PERSON, person, 0);
+  }
+  #[inline]
+  pub fn add_technique(&mut self, technique: u32) {
+    self.fbb_.push_slot::<u32>(IntroduceTechnique::VT_TECHNIQUE, technique, 0);
+  }
+  #[inline]
+  pub fn add_aware_only(&mut self, aware_only: bool) {
+    self.fbb_.push_slot::<bool>(IntroduceTechnique::VT_AWARE_ONLY, aware_only, false);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> IntroduceTechniqueBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    IntroduceTechniqueBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<IntroduceTechnique<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for IntroduceTechnique<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("IntroduceTechnique");
+      ds.field("person", &self.person());
+      ds.field("technique", &self.technique());
+      ds.field("aware_only", &self.aware_only());
+      ds.finish()
+  }
+}
 pub enum CommandOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -6753,6 +7127,21 @@ impl<'a> Command<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_introduce_technique(&self) -> Option<IntroduceTechnique<'a>> {
+    if self.body_type() == CommandBody::IntroduceTechnique {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { IntroduceTechnique::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Command<'_> {
@@ -6771,6 +7160,7 @@ impl ::flatbuffers::Verifiable for Command<'_> {
           CommandBody::RecoverWorld => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<RecoverWorld>>("CommandBody::RecoverWorld", pos),
           CommandBody::SpawnFamily => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SpawnFamily>>("CommandBody::SpawnFamily", pos),
           CommandBody::RunUntil => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<RunUntil>>("CommandBody::RunUntil", pos),
+          CommandBody::IntroduceTechnique => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<IntroduceTechnique>>("CommandBody::IntroduceTechnique", pos),
           _ => Ok(()),
         }
      })?
@@ -6876,6 +7266,13 @@ impl ::core::fmt::Debug for Command<'_> {
         },
         CommandBody::RunUntil => {
           if let Some(x) = self.body_as_run_until() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::IntroduceTechnique => {
+          if let Some(x) = self.body_as_introduce_technique() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -8130,6 +8527,84 @@ impl ::core::fmt::Debug for GetWealth<'_> {
       ds.finish()
   }
 }
+pub enum GetKnowledgeOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetKnowledge<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GetKnowledge<'a> {
+  type Inner = GetKnowledge<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GetKnowledge<'a> {
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GetKnowledge { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    _args: &'args GetKnowledgeArgs
+  ) -> ::flatbuffers::WIPOffset<GetKnowledge<'bldr>> {
+    let mut builder = GetKnowledgeBuilder::new(_fbb);
+    builder.finish()
+  }
+
+}
+
+impl ::flatbuffers::Verifiable for GetKnowledge<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetKnowledgeArgs {
+}
+impl<'a> Default for GetKnowledgeArgs {
+  #[inline]
+  fn default() -> Self {
+    GetKnowledgeArgs {
+    }
+  }
+}
+
+pub struct GetKnowledgeBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GetKnowledgeBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GetKnowledgeBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetKnowledgeBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GetKnowledge<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GetKnowledge<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GetKnowledge");
+      ds.finish()
+  }
+}
 pub enum QueryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -8374,6 +8849,21 @@ impl<'a> Query<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_get_knowledge(&self) -> Option<GetKnowledge<'a>> {
+    if self.body_type() == QueryBody::GetKnowledge {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { GetKnowledge::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Query<'_> {
@@ -8397,6 +8887,7 @@ impl ::flatbuffers::Verifiable for Query<'_> {
           QueryBody::GetFirms => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetFirms>>("QueryBody::GetFirms", pos),
           QueryBody::GetFirm => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetFirm>>("QueryBody::GetFirm", pos),
           QueryBody::GetWealth => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetWealth>>("QueryBody::GetWealth", pos),
+          QueryBody::GetKnowledge => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetKnowledge>>("QueryBody::GetKnowledge", pos),
           _ => Ok(()),
         }
      })?
@@ -8537,6 +9028,13 @@ impl ::core::fmt::Debug for Query<'_> {
         },
         QueryBody::GetWealth => {
           if let Some(x) = self.body_as_get_wealth() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        QueryBody::GetKnowledge => {
+          if let Some(x) = self.body_as_get_knowledge() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -10995,6 +11493,7 @@ impl<'a> PersonInfo<'a> {
   pub const VT_LEFT_MINUTE: ::flatbuffers::VOffsetT = 72;
   pub const VT_SKILLS: ::flatbuffers::VOffsetT = 74;
   pub const VT_HOUSEHOLD_READY_DAYS: ::flatbuffers::VOffsetT = 76;
+  pub const VT_KNOWS: ::flatbuffers::VOffsetT = 78;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -11015,6 +11514,7 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.knows { builder.add_knows(x); }
     builder.add_household_ready_days(args.household_ready_days);
     if let Some(x) = args.skills { builder.add_skills(x); }
     if let Some(x) = args.family { builder.add_family(x); }
@@ -11306,6 +11806,13 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(PersonInfo::VT_HOUSEHOLD_READY_DAYS, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn knows(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KnowLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KnowLine>>>>(PersonInfo::VT_KNOWS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -11351,6 +11858,7 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<i64>("left_minute", Self::VT_LEFT_MINUTE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, SkillLine>>>("skills", Self::VT_SKILLS, false)?
      .visit_field::<f32>("household_ready_days", Self::VT_HOUSEHOLD_READY_DAYS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<KnowLine>>>>("knows", Self::VT_KNOWS, false)?
      .finish();
     Ok(())
   }
@@ -11393,6 +11901,7 @@ pub struct PersonInfoArgs<'a> {
     pub left_minute: i64,
     pub skills: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, SkillLine>>>,
     pub household_ready_days: f32,
+    pub knows: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KnowLine<'a>>>>>,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -11435,6 +11944,7 @@ impl<'a> Default for PersonInfoArgs<'a> {
       left_minute: 0,
       skills: None,
       household_ready_days: 0.0,
+      knows: None,
     }
   }
 }
@@ -11593,6 +12103,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<f32>(PersonInfo::VT_HOUSEHOLD_READY_DAYS, household_ready_days, 0.0);
   }
   #[inline]
+  pub fn add_knows(&mut self, knows: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<KnowLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_KNOWS, knows);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -11647,6 +12161,222 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("left_minute", &self.left_minute());
       ds.field("skills", &self.skills());
       ds.field("household_ready_days", &self.household_ready_days());
+      ds.field("knows", &self.knows());
+      ds.finish()
+  }
+}
+pub enum KnowLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct KnowLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for KnowLine<'a> {
+  type Inner = KnowLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> KnowLine<'a> {
+  pub const VT_TECHNIQUE: ::flatbuffers::VOffsetT = 4;
+  pub const VT_STATE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_HOURS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_LEARN_H: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SINCE_MINUTE: ::flatbuffers::VOffsetT = 12;
+  pub const VT_SOURCE: ::flatbuffers::VOffsetT = 14;
+  pub const VT_SOURCE_PERSON: ::flatbuffers::VOffsetT = 16;
+  pub const VT_USED_MINUTE: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    KnowLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args KnowLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<KnowLine<'bldr>> {
+    let mut builder = KnowLineBuilder::new(_fbb);
+    builder.add_used_minute(args.used_minute);
+    builder.add_source_person(args.source_person);
+    builder.add_since_minute(args.since_minute);
+    if let Some(x) = args.source { builder.add_source(x); }
+    builder.add_learn_h(args.learn_h);
+    builder.add_hours(args.hours);
+    builder.add_technique(args.technique);
+    builder.add_state(args.state);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn technique(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(KnowLine::VT_TECHNIQUE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn state(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(KnowLine::VT_STATE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn hours(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(KnowLine::VT_HOURS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn learn_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(KnowLine::VT_LEARN_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn since_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(KnowLine::VT_SINCE_MINUTE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn source(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(KnowLine::VT_SOURCE, None)}
+  }
+  #[inline]
+  pub fn source_person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(KnowLine::VT_SOURCE_PERSON, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn used_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(KnowLine::VT_USED_MINUTE, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for KnowLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u16>("technique", Self::VT_TECHNIQUE, false)?
+     .visit_field::<u8>("state", Self::VT_STATE, false)?
+     .visit_field::<f32>("hours", Self::VT_HOURS, false)?
+     .visit_field::<f32>("learn_h", Self::VT_LEARN_H, false)?
+     .visit_field::<i64>("since_minute", Self::VT_SINCE_MINUTE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("source", Self::VT_SOURCE, false)?
+     .visit_field::<u64>("source_person", Self::VT_SOURCE_PERSON, false)?
+     .visit_field::<i64>("used_minute", Self::VT_USED_MINUTE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct KnowLineArgs<'a> {
+    pub technique: u16,
+    pub state: u8,
+    pub hours: f32,
+    pub learn_h: f32,
+    pub since_minute: i64,
+    pub source: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub source_person: u64,
+    pub used_minute: i64,
+}
+impl<'a> Default for KnowLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    KnowLineArgs {
+      technique: 0,
+      state: 0,
+      hours: 0.0,
+      learn_h: 0.0,
+      since_minute: 0,
+      source: None,
+      source_person: 0,
+      used_minute: 0,
+    }
+  }
+}
+
+pub struct KnowLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> KnowLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_technique(&mut self, technique: u16) {
+    self.fbb_.push_slot::<u16>(KnowLine::VT_TECHNIQUE, technique, 0);
+  }
+  #[inline]
+  pub fn add_state(&mut self, state: u8) {
+    self.fbb_.push_slot::<u8>(KnowLine::VT_STATE, state, 0);
+  }
+  #[inline]
+  pub fn add_hours(&mut self, hours: f32) {
+    self.fbb_.push_slot::<f32>(KnowLine::VT_HOURS, hours, 0.0);
+  }
+  #[inline]
+  pub fn add_learn_h(&mut self, learn_h: f32) {
+    self.fbb_.push_slot::<f32>(KnowLine::VT_LEARN_H, learn_h, 0.0);
+  }
+  #[inline]
+  pub fn add_since_minute(&mut self, since_minute: i64) {
+    self.fbb_.push_slot::<i64>(KnowLine::VT_SINCE_MINUTE, since_minute, 0);
+  }
+  #[inline]
+  pub fn add_source(&mut self, source: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(KnowLine::VT_SOURCE, source);
+  }
+  #[inline]
+  pub fn add_source_person(&mut self, source_person: u64) {
+    self.fbb_.push_slot::<u64>(KnowLine::VT_SOURCE_PERSON, source_person, 0);
+  }
+  #[inline]
+  pub fn add_used_minute(&mut self, used_minute: i64) {
+    self.fbb_.push_slot::<i64>(KnowLine::VT_USED_MINUTE, used_minute, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> KnowLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    KnowLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<KnowLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for KnowLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("KnowLine");
+      ds.field("technique", &self.technique());
+      ds.field("state", &self.state());
+      ds.field("hours", &self.hours());
+      ds.field("learn_h", &self.learn_h());
+      ds.field("since_minute", &self.since_minute());
+      ds.field("source", &self.source());
+      ds.field("source_person", &self.source_person());
+      ds.field("used_minute", &self.used_minute());
       ds.finish()
   }
 }
@@ -16295,6 +17025,594 @@ impl ::core::fmt::Debug for Wealth<'_> {
       ds.finish()
   }
 }
+pub enum PersonRefOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct PersonRef<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for PersonRef<'a> {
+  type Inner = PersonRef<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> PersonRef<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_AGE_YEARS: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    PersonRef { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args PersonRefArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<PersonRef<'bldr>> {
+    let mut builder = PersonRefBuilder::new(_fbb);
+    builder.add_id(args.id);
+    builder.add_age_years(args.age_years);
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PersonRef::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PersonRef::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn age_years(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(PersonRef::VT_AGE_YEARS, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for PersonRef<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<f32>("age_years", Self::VT_AGE_YEARS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct PersonRefArgs<'a> {
+    pub id: u64,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub age_years: f32,
+}
+impl<'a> Default for PersonRefArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    PersonRefArgs {
+      id: 0,
+      name: None,
+      age_years: 0.0,
+    }
+  }
+}
+
+pub struct PersonRefBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonRefBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(PersonRef::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonRef::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_age_years(&mut self, age_years: f32) {
+    self.fbb_.push_slot::<f32>(PersonRef::VT_AGE_YEARS, age_years, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonRefBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    PersonRefBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<PersonRef<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for PersonRef<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("PersonRef");
+      ds.field("id", &self.id());
+      ds.field("name", &self.name());
+      ds.field("age_years", &self.age_years());
+      ds.finish()
+  }
+}
+pub enum TechniqueHereOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TechniqueHere<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for TechniqueHere<'a> {
+  type Inner = TechniqueHere<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> TechniqueHere<'a> {
+  pub const VT_TECHNIQUE: ::flatbuffers::VOffsetT = 4;
+  pub const VT_KNOWN: ::flatbuffers::VOffsetT = 6;
+  pub const VT_KNOWERS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_LEARNERS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_HEARD: ::flatbuffers::VOffsetT = 12;
+  pub const VT_PRACTISED_LAST_YEAR: ::flatbuffers::VOffsetT = 14;
+  pub const VT_STATUS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_HISTORY: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    TechniqueHere { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args TechniqueHereArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<TechniqueHere<'bldr>> {
+    let mut builder = TechniqueHereBuilder::new(_fbb);
+    if let Some(x) = args.history { builder.add_history(x); }
+    if let Some(x) = args.status { builder.add_status(x); }
+    builder.add_practised_last_year(args.practised_last_year);
+    if let Some(x) = args.heard { builder.add_heard(x); }
+    if let Some(x) = args.learners { builder.add_learners(x); }
+    if let Some(x) = args.knowers { builder.add_knowers(x); }
+    builder.add_technique(args.technique);
+    builder.add_known(args.known);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn technique(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(TechniqueHere::VT_TECHNIQUE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn known(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(TechniqueHere::VT_KNOWN, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn knowers(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PersonRef<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PersonRef>>>>(TechniqueHere::VT_KNOWERS, None)}
+  }
+  #[inline]
+  pub fn learners(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PersonRef<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PersonRef>>>>(TechniqueHere::VT_LEARNERS, None)}
+  }
+  #[inline]
+  pub fn heard(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PersonRef<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PersonRef>>>>(TechniqueHere::VT_HEARD, None)}
+  }
+  #[inline]
+  pub fn practised_last_year(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(TechniqueHere::VT_PRACTISED_LAST_YEAR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn status(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TechniqueHere::VT_STATUS, None)}
+  }
+  #[inline]
+  pub fn history(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(TechniqueHere::VT_HISTORY, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for TechniqueHere<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u16>("technique", Self::VT_TECHNIQUE, false)?
+     .visit_field::<bool>("known", Self::VT_KNOWN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PersonRef>>>>("knowers", Self::VT_KNOWERS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PersonRef>>>>("learners", Self::VT_LEARNERS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PersonRef>>>>("heard", Self::VT_HEARD, false)?
+     .visit_field::<u32>("practised_last_year", Self::VT_PRACTISED_LAST_YEAR, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("status", Self::VT_STATUS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("history", Self::VT_HISTORY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TechniqueHereArgs<'a> {
+    pub technique: u16,
+    pub known: bool,
+    pub knowers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PersonRef<'a>>>>>,
+    pub learners: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PersonRef<'a>>>>>,
+    pub heard: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PersonRef<'a>>>>>,
+    pub practised_last_year: u32,
+    pub status: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub history: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+}
+impl<'a> Default for TechniqueHereArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TechniqueHereArgs {
+      technique: 0,
+      known: false,
+      knowers: None,
+      learners: None,
+      heard: None,
+      practised_last_year: 0,
+      status: None,
+      history: None,
+    }
+  }
+}
+
+pub struct TechniqueHereBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TechniqueHereBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_technique(&mut self, technique: u16) {
+    self.fbb_.push_slot::<u16>(TechniqueHere::VT_TECHNIQUE, technique, 0);
+  }
+  #[inline]
+  pub fn add_known(&mut self, known: bool) {
+    self.fbb_.push_slot::<bool>(TechniqueHere::VT_KNOWN, known, false);
+  }
+  #[inline]
+  pub fn add_knowers(&mut self, knowers: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<PersonRef<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TechniqueHere::VT_KNOWERS, knowers);
+  }
+  #[inline]
+  pub fn add_learners(&mut self, learners: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<PersonRef<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TechniqueHere::VT_LEARNERS, learners);
+  }
+  #[inline]
+  pub fn add_heard(&mut self, heard: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<PersonRef<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TechniqueHere::VT_HEARD, heard);
+  }
+  #[inline]
+  pub fn add_practised_last_year(&mut self, practised_last_year: u32) {
+    self.fbb_.push_slot::<u32>(TechniqueHere::VT_PRACTISED_LAST_YEAR, practised_last_year, 0);
+  }
+  #[inline]
+  pub fn add_status(&mut self, status: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TechniqueHere::VT_STATUS, status);
+  }
+  #[inline]
+  pub fn add_history(&mut self, history: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TechniqueHere::VT_HISTORY, history);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TechniqueHereBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    TechniqueHereBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<TechniqueHere<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for TechniqueHere<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("TechniqueHere");
+      ds.field("technique", &self.technique());
+      ds.field("known", &self.known());
+      ds.field("knowers", &self.knowers());
+      ds.field("learners", &self.learners());
+      ds.field("heard", &self.heard());
+      ds.field("practised_last_year", &self.practised_last_year());
+      ds.field("status", &self.status());
+      ds.field("history", &self.history());
+      ds.finish()
+  }
+}
+pub enum SettlementKnowledgeOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SettlementKnowledge<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for SettlementKnowledge<'a> {
+  type Inner = SettlementKnowledge<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> SettlementKnowledge<'a> {
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_TECHNIQUES: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    SettlementKnowledge { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SettlementKnowledgeArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<SettlementKnowledge<'bldr>> {
+    let mut builder = SettlementKnowledgeBuilder::new(_fbb);
+    builder.add_settlement(args.settlement);
+    if let Some(x) = args.techniques { builder.add_techniques(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SettlementKnowledge::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(SettlementKnowledge::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn techniques(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TechniqueHere<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TechniqueHere>>>>(SettlementKnowledge::VT_TECHNIQUES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for SettlementKnowledge<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TechniqueHere>>>>("techniques", Self::VT_TECHNIQUES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SettlementKnowledgeArgs<'a> {
+    pub settlement: u64,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub techniques: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TechniqueHere<'a>>>>>,
+}
+impl<'a> Default for SettlementKnowledgeArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SettlementKnowledgeArgs {
+      settlement: 0,
+      name: None,
+      techniques: None,
+    }
+  }
+}
+
+pub struct SettlementKnowledgeBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SettlementKnowledgeBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(SettlementKnowledge::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SettlementKnowledge::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_techniques(&mut self, techniques: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<TechniqueHere<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SettlementKnowledge::VT_TECHNIQUES, techniques);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SettlementKnowledgeBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SettlementKnowledgeBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<SettlementKnowledge<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for SettlementKnowledge<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("SettlementKnowledge");
+      ds.field("settlement", &self.settlement());
+      ds.field("name", &self.name());
+      ds.field("techniques", &self.techniques());
+      ds.finish()
+  }
+}
+pub enum KnowledgeOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Knowledge<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Knowledge<'a> {
+  type Inner = Knowledge<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Knowledge<'a> {
+  pub const VT_REV: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SETTLEMENTS: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Knowledge { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args KnowledgeArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Knowledge<'bldr>> {
+    let mut builder = KnowledgeBuilder::new(_fbb);
+    builder.add_rev(args.rev);
+    if let Some(x) = args.settlements { builder.add_settlements(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Knowledge::VT_REV, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlements(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SettlementKnowledge<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SettlementKnowledge>>>>(Knowledge::VT_SETTLEMENTS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Knowledge<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("rev", Self::VT_REV, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<SettlementKnowledge>>>>("settlements", Self::VT_SETTLEMENTS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct KnowledgeArgs<'a> {
+    pub rev: u64,
+    pub settlements: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SettlementKnowledge<'a>>>>>,
+}
+impl<'a> Default for KnowledgeArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    KnowledgeArgs {
+      rev: 0,
+      settlements: None,
+    }
+  }
+}
+
+pub struct KnowledgeBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> KnowledgeBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_rev(&mut self, rev: u64) {
+    self.fbb_.push_slot::<u64>(Knowledge::VT_REV, rev, 0);
+  }
+  #[inline]
+  pub fn add_settlements(&mut self, settlements: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<SettlementKnowledge<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Knowledge::VT_SETTLEMENTS, settlements);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> KnowledgeBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    KnowledgeBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Knowledge<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Knowledge<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Knowledge");
+      ds.field("rev", &self.rev());
+      ds.field("settlements", &self.settlements());
+      ds.finish()
+  }
+}
 pub enum ResponseOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -16554,6 +17872,21 @@ impl<'a> Response<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_knowledge(&self) -> Option<Knowledge<'a>> {
+    if self.body_type() == ResponseBody::Knowledge {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Knowledge::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Response<'_> {
@@ -16578,6 +17911,7 @@ impl ::flatbuffers::Verifiable for Response<'_> {
           ResponseBody::Firms => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Firms>>("ResponseBody::Firms", pos),
           ResponseBody::FirmInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<FirmInfo>>("ResponseBody::FirmInfo", pos),
           ResponseBody::Wealth => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Wealth>>("ResponseBody::Wealth", pos),
+          ResponseBody::Knowledge => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Knowledge>>("ResponseBody::Knowledge", pos),
           _ => Ok(()),
         }
      })?
@@ -16725,6 +18059,13 @@ impl ::core::fmt::Debug for Response<'_> {
         },
         ResponseBody::Wealth => {
           if let Some(x) = self.body_as_wealth() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ResponseBody::Knowledge => {
+          if let Some(x) = self.body_as_knowledge() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

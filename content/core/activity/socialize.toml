@@ -10,5 +10,6 @@ min_minutes = 60
 max_minutes = 60
 daylight_only = false
 max_walk_minutes = 20
+technique = ""
 tools = []
 rate = 1.0

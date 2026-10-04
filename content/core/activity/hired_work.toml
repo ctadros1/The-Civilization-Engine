@@ -14,5 +14,6 @@ min_minutes = 60
 max_minutes = 180                # a session, as when working a recipe at home
 daylight_only = true
 max_walk_minutes = 30
+technique = ""
 tools = []
 rate = 1.0

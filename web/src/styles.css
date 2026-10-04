@@ -1051,7 +1051,8 @@ ul.rules li {
 }
 
 .why h4,
-.kin h4 {
+.kin h4,
+.knows h4 {
   margin: 0 0 4px;
   font-size: 12px;
   font-weight: 600;
@@ -1103,6 +1104,50 @@ ul.rules li {
   border-top: 1px solid var(--line);
   padding-top: 8px;
   margin-top: 8px;
+}
+
+/* What a person knows, and the observer's introduce form (M3b slice M) */
+.knows {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+.knows ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+}
+
+.knows li {
+  padding: 1px 0;
+}
+
+.knows .aside {
+  color: var(--muted);
+}
+
+.knows .know-learning .know-name,
+.knows .know-heard .know-name {
+  font-style: italic;
+}
+
+.introduce {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.introduce label {
+  color: var(--muted);
+}
+
+.introduce select {
+  max-width: 180px;
 }
 
 button.link {
@@ -1198,4 +1243,85 @@ button.link:hover {
   display: block;
   color: var(--muted);
   font-size: 12px;
+}
+
+/* Knowledge panel (M3b slice M) */
+#knowledge-body {
+  max-height: 460px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+
+#knowledge-body .aside {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 4px 0;
+}
+
+#knowledge-body h3 {
+  font-size: 14px;
+  margin: 8px 0 2px;
+}
+
+#knowledge-body .since {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0 0 4px;
+}
+
+.knowledge-settlement {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.techniques {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.techniques > li {
+  border-bottom: 1px solid var(--line);
+  padding: 3px 0;
+}
+
+.techniques summary {
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 8px;
+}
+
+.techniques summary .status {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.techniques details.unknown .technique-name {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.techniques dl {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 2px 8px;
+  margin: 4px 0;
+  font-size: 12px;
+}
+
+.techniques dt {
+  color: var(--muted);
+}
+
+.techniques dd {
+  margin: 0;
+}
+
+.techniques .history {
+  margin: 4px 0 2px;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--muted);
 }

@@ -13,6 +13,10 @@
 //! across the worlds at least half the bands must still live where they settled. Runs differ from
 //! one to the next (determinism is not a goal), so the thresholds leave room for chance.
 //!
+//! Every year's end also checks that the techniques every founder brings and children learn in
+//! upbringing are known by nearly everyone old enough for them (ADR-0008 §4); a technique lost
+//! where people still live is noted.
+//!
 //! The worlds take the content's property regimes in turn by seed, and a long run checks their
 //! economies too ([`crate::economy`]): land claims, fields and wealth measures at each year's end,
 //! and at the run's end, graded, whether food stocks rise with the harvest, whether grain is asked
@@ -47,6 +51,9 @@ pub const MAX_GROWTH: f64 = 3.0;
 pub const MIN_ALIVE: usize = 10;
 /// Share of the households, from the second year on, that must live under a roof.
 pub const MIN_ROOFED: f64 = 0.8;
+/// Least share of the living old enough for a technique every founder brings and children learn
+/// in upbringing who know it, at each year's end (ADR-0008 §4).
+pub const MIN_UPBRINGING: f64 = 0.95;
 
 /// What to run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -385,6 +392,9 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
                 households.len()
             ));
         }
+        if let Some(failure) = check_knowledge(sim, y) {
+            result.failures.push(failure);
+        }
         if y == 1
             && living > 0
             && !sim
@@ -408,6 +418,73 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
     for c in result.economy.iter().filter(|c| c.grade == Grade::Red) {
         result.failures.push(format!("{}: {}", c.name, c.text));
     }
+    result.notes.extend(lost_where_people_live(sim));
+}
+
+/// Whether the techniques every founder brings and children learn in upbringing are known by
+/// at least [`MIN_UPBRINGING`] of the living old enough for them: the least known one if not.
+fn check_knowledge(sim: &Sim, y: u32) -> Option<String> {
+    let (catalog, params) = (&sim.rules().catalog, &sim.rules().people);
+    let now = sim.now();
+    let mut worst: Option<(f64, usize, usize, &str)> = None;
+    for &(t, share) in &params.knowledge.founders {
+        let Some(def) = catalog.techniques.get(t) else {
+            continue;
+        };
+        let age = civ_agents::knowledge::knowing_age(catalog, t, params.family.independent_age);
+        let (Some(age), true) = (age, share >= 1.0 && def.upbringing) else {
+            continue;
+        };
+        let (old_enough, knowing) = sim
+            .people()
+            .people
+            .iter()
+            .filter(|(_, p)| p.age_years(now) >= age)
+            .fold((0, 0), |(n, k), (_, p)| {
+                (n + 1, k + usize::from(p.knows(t)))
+            });
+        if old_enough == 0 {
+            continue;
+        }
+        let coverage = knowing as f64 / old_enough as f64;
+        if worst.is_none_or(|(c, ..)| coverage < c) {
+            worst = Some((coverage, knowing, old_enough, &def.name));
+        }
+    }
+    let (coverage, knowing, old_enough, name) = worst?;
+    (coverage < MIN_UPBRINGING).then(|| {
+        format!(
+            "only {knowing} of the {old_enough} old enough know {} in year {y}",
+            name.to_lowercase()
+        )
+    })
+}
+
+/// Techniques lost in a settlement where people still live, in words.
+fn lost_where_people_live(sim: &Sim) -> Vec<String> {
+    let people = sim.people();
+    let lived_in: std::collections::BTreeSet<_> = people
+        .households
+        .iter()
+        .filter(|(_, h)| !h.members.is_empty())
+        .filter_map(|(_, h)| h.settlement)
+        .collect();
+    let catalog = &sim.rules().catalog;
+    people
+        .knowledge
+        .iter()
+        .filter(|e| {
+            e.kind == civ_agents::knowledge::KnowledgeEventKind::Lost
+                && lived_in.contains(&e.settlement)
+        })
+        .map(|e| {
+            let name = catalog
+                .techniques
+                .get(usize::from(e.technique))
+                .map_or("a technique", |d| d.name.as_str());
+            format!("{} lost in year {}", name.to_lowercase(), e.at.date().year)
+        })
+        .collect()
 }
 
 /// Runs every preset with seeds `1..=seeds`, a few worlds at a time, reporting each result as it

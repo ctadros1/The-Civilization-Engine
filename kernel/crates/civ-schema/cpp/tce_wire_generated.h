@@ -38,6 +38,9 @@ struct SkillLine;
 struct CropInfo;
 struct CropInfoBuilder;
 
+struct TechniqueInfo;
+struct TechniqueInfoBuilder;
+
 struct ReasonInfo;
 struct ReasonInfoBuilder;
 
@@ -98,6 +101,9 @@ struct SpawnFamilyBuilder;
 struct RunUntil;
 struct RunUntilBuilder;
 
+struct IntroduceTechnique;
+struct IntroduceTechniqueBuilder;
+
 struct Command;
 struct CommandBuilder;
 
@@ -139,6 +145,9 @@ struct GetFirmBuilder;
 
 struct GetWealth;
 struct GetWealthBuilder;
+
+struct GetKnowledge;
+struct GetKnowledgeBuilder;
 
 struct Query;
 struct QueryBuilder;
@@ -196,6 +205,9 @@ struct StoreLine;
 
 struct PersonInfo;
 struct PersonInfoBuilder;
+
+struct KnowLine;
+struct KnowLineBuilder;
 
 struct FieldInfo;
 struct FieldInfoBuilder;
@@ -266,6 +278,18 @@ struct SettlementWealthBuilder;
 
 struct Wealth;
 struct WealthBuilder;
+
+struct PersonRef;
+struct PersonRefBuilder;
+
+struct TechniqueHere;
+struct TechniqueHereBuilder;
+
+struct SettlementKnowledge;
+struct SettlementKnowledgeBuilder;
+
+struct Knowledge;
+struct KnowledgeBuilder;
 
 struct Response;
 struct ResponseBuilder;
@@ -511,11 +535,12 @@ enum class CommandBody : uint8_t {
   RecoverWorld = 6,
   SpawnFamily = 7,
   RunUntil = 8,
+  IntroduceTechnique = 9,
   MIN = NONE,
-  MAX = RunUntil
+  MAX = IntroduceTechnique
 };
 
-inline const CommandBody (&EnumValuesCommandBody())[9] {
+inline const CommandBody (&EnumValuesCommandBody())[10] {
   static const CommandBody values[] = {
     CommandBody::NONE,
     CommandBody::NewWorld,
@@ -525,13 +550,14 @@ inline const CommandBody (&EnumValuesCommandBody())[9] {
     CommandBody::CancelTask,
     CommandBody::RecoverWorld,
     CommandBody::SpawnFamily,
-    CommandBody::RunUntil
+    CommandBody::RunUntil,
+    CommandBody::IntroduceTechnique
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandBody() {
-  static const char * const names[10] = {
+  static const char * const names[11] = {
     "NONE",
     "NewWorld",
     "SaveWorld",
@@ -541,13 +567,14 @@ inline const char * const *EnumNamesCommandBody() {
     "RecoverWorld",
     "SpawnFamily",
     "RunUntil",
+    "IntroduceTechnique",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandBody(CommandBody e) {
-  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::RunUntil)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::IntroduceTechnique)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandBody()[index];
 }
@@ -588,6 +615,10 @@ template<> struct CommandBodyTraits<tce::wire::RunUntil> {
   static const CommandBody enum_value = CommandBody::RunUntil;
 };
 
+template<> struct CommandBodyTraits<tce::wire::IntroduceTechnique> {
+  static const CommandBody enum_value = CommandBody::IntroduceTechnique;
+};
+
 template <bool B = false>
 bool VerifyCommandBody(::flatbuffers::VerifierTemplate<B> &verifier, const void *obj, CommandBody type);
 template <bool B = false>
@@ -608,11 +639,12 @@ enum class QueryBody : uint8_t {
   GetFirms = 11,
   GetFirm = 12,
   GetWealth = 13,
+  GetKnowledge = 14,
   MIN = NONE,
-  MAX = GetWealth
+  MAX = GetKnowledge
 };
 
-inline const QueryBody (&EnumValuesQueryBody())[14] {
+inline const QueryBody (&EnumValuesQueryBody())[15] {
   static const QueryBody values[] = {
     QueryBody::NONE,
     QueryBody::GetRaster,
@@ -627,13 +659,14 @@ inline const QueryBody (&EnumValuesQueryBody())[14] {
     QueryBody::GetMarkets,
     QueryBody::GetFirms,
     QueryBody::GetFirm,
-    QueryBody::GetWealth
+    QueryBody::GetWealth,
+    QueryBody::GetKnowledge
   };
   return values;
 }
 
 inline const char * const *EnumNamesQueryBody() {
-  static const char * const names[15] = {
+  static const char * const names[16] = {
     "NONE",
     "GetRaster",
     "GetHydrography",
@@ -648,13 +681,14 @@ inline const char * const *EnumNamesQueryBody() {
     "GetFirms",
     "GetFirm",
     "GetWealth",
+    "GetKnowledge",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameQueryBody(QueryBody e) {
-  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetWealth)) return "";
+  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetKnowledge)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesQueryBody()[index];
 }
@@ -713,6 +747,10 @@ template<> struct QueryBodyTraits<tce::wire::GetFirm> {
 
 template<> struct QueryBodyTraits<tce::wire::GetWealth> {
   static const QueryBody enum_value = QueryBody::GetWealth;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetKnowledge> {
+  static const QueryBody enum_value = QueryBody::GetKnowledge;
 };
 
 template <bool B = false>
@@ -823,11 +861,12 @@ enum class ResponseBody : uint8_t {
   Firms = 12,
   FirmInfo = 13,
   Wealth = 14,
+  Knowledge = 15,
   MIN = NONE,
-  MAX = Wealth
+  MAX = Knowledge
 };
 
-inline const ResponseBody (&EnumValuesResponseBody())[15] {
+inline const ResponseBody (&EnumValuesResponseBody())[16] {
   static const ResponseBody values[] = {
     ResponseBody::NONE,
     ResponseBody::Ack,
@@ -843,13 +882,14 @@ inline const ResponseBody (&EnumValuesResponseBody())[15] {
     ResponseBody::Markets,
     ResponseBody::Firms,
     ResponseBody::FirmInfo,
-    ResponseBody::Wealth
+    ResponseBody::Wealth,
+    ResponseBody::Knowledge
   };
   return values;
 }
 
 inline const char * const *EnumNamesResponseBody() {
-  static const char * const names[16] = {
+  static const char * const names[17] = {
     "NONE",
     "Ack",
     "RasterTile",
@@ -865,13 +905,14 @@ inline const char * const *EnumNamesResponseBody() {
     "Firms",
     "FirmInfo",
     "Wealth",
+    "Knowledge",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameResponseBody(ResponseBody e) {
-  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Wealth)) return "";
+  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Knowledge)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesResponseBody()[index];
 }
@@ -934,6 +975,10 @@ template<> struct ResponseBodyTraits<tce::wire::FirmInfo> {
 
 template<> struct ResponseBodyTraits<tce::wire::Wealth> {
   static const ResponseBody enum_value = ResponseBody::Wealth;
+};
+
+template<> struct ResponseBodyTraits<tce::wire::Knowledge> {
+  static const ResponseBody enum_value = ResponseBody::Knowledge;
 };
 
 template <bool B = false>
@@ -1720,6 +1765,142 @@ inline ::flatbuffers::Offset<CropInfo> CreateCropInfoDirect(
       seed_good);
 }
 
+struct TechniqueInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef TechniqueInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_NAME = 6,
+    VT_CAN = 8,
+    VT_DOMAIN = 10,
+    VT_REQUIRES_ = 12,
+    VT_LEARN_H = 14,
+    VT_UPBRINGING = 16
+  };
+  const ::flatbuffers::String *id() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_ID);
+  }
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  const ::flatbuffers::String *can() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_CAN);
+  }
+  int32_t domain() const {
+    return GetField<int32_t>(VT_DOMAIN, -1);
+  }
+  const ::flatbuffers::String *requires_() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_REQUIRES_);
+  }
+  float learn_h() const {
+    return GetField<float>(VT_LEARN_H, 0.0f);
+  }
+  bool upbringing() const {
+    return GetField<uint8_t>(VT_UPBRINGING, 0) != 0;
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ID) &&
+           verifier.VerifyString(id()) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyOffset(verifier, VT_CAN) &&
+           verifier.VerifyString(can()) &&
+           VerifyField<int32_t>(verifier, VT_DOMAIN, 4) &&
+           VerifyOffset(verifier, VT_REQUIRES_) &&
+           verifier.VerifyString(requires_()) &&
+           VerifyField<float>(verifier, VT_LEARN_H, 4) &&
+           VerifyField<uint8_t>(verifier, VT_UPBRINGING, 1) &&
+           verifier.EndTable();
+  }
+};
+
+struct TechniqueInfoBuilder {
+  typedef TechniqueInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(::flatbuffers::Offset<::flatbuffers::String> id) {
+    fbb_.AddOffset(TechniqueInfo::VT_ID, id);
+  }
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(TechniqueInfo::VT_NAME, name);
+  }
+  void add_can(::flatbuffers::Offset<::flatbuffers::String> can) {
+    fbb_.AddOffset(TechniqueInfo::VT_CAN, can);
+  }
+  void add_domain(int32_t domain) {
+    fbb_.AddElement<int32_t>(TechniqueInfo::VT_DOMAIN, domain, -1);
+  }
+  void add_requires_(::flatbuffers::Offset<::flatbuffers::String> requires_) {
+    fbb_.AddOffset(TechniqueInfo::VT_REQUIRES_, requires_);
+  }
+  void add_learn_h(float learn_h) {
+    fbb_.AddElement<float>(TechniqueInfo::VT_LEARN_H, learn_h, 0.0f);
+  }
+  void add_upbringing(bool upbringing) {
+    fbb_.AddElement<uint8_t>(TechniqueInfo::VT_UPBRINGING, static_cast<uint8_t>(upbringing), 0);
+  }
+  explicit TechniqueInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<TechniqueInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<TechniqueInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<TechniqueInfo> CreateTechniqueInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::String> id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> can = 0,
+    int32_t domain = -1,
+    ::flatbuffers::Offset<::flatbuffers::String> requires_ = 0,
+    float learn_h = 0.0f,
+    bool upbringing = false) {
+  TechniqueInfoBuilder builder_(_fbb);
+  builder_.add_learn_h(learn_h);
+  builder_.add_requires_(requires_);
+  builder_.add_domain(domain);
+  builder_.add_can(can);
+  builder_.add_name(name);
+  builder_.add_id(id);
+  builder_.add_upbringing(upbringing);
+  return builder_.Finish();
+}
+
+struct TechniqueInfo::Traits {
+  using type = TechniqueInfo;
+  static auto constexpr Create = CreateTechniqueInfo;
+};
+
+inline ::flatbuffers::Offset<TechniqueInfo> CreateTechniqueInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const char *id = nullptr,
+    const char *name = nullptr,
+    const char *can = nullptr,
+    int32_t domain = -1,
+    const char *requires_ = nullptr,
+    float learn_h = 0.0f,
+    bool upbringing = false) {
+  auto id__ = id ? _fbb.CreateString(id) : 0;
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto can__ = can ? _fbb.CreateString(can) : 0;
+  auto requires___ = requires_ ? _fbb.CreateString(requires_) : 0;
+  return tce::wire::CreateTechniqueInfo(
+      _fbb,
+      id__,
+      name__,
+      can__,
+      domain,
+      requires___,
+      learn_h,
+      upbringing);
+}
+
 struct ReasonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef ReasonInfoBuilder Builder;
   struct Traits;
@@ -1924,7 +2105,8 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_GOODS = 32,
     VT_CROPS = 34,
     VT_SKILLS = 36,
-    VT_REGIMES = 38
+    VT_REGIMES = 38,
+    VT_TECHNIQUES = 40
   };
   const ::flatbuffers::String *host() const {
     return GetPointer<const ::flatbuffers::String *>(VT_HOST);
@@ -1980,6 +2162,9 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RegimeInfo>> *regimes() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RegimeInfo>> *>(VT_REGIMES);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>> *techniques() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>> *>(VT_TECHNIQUES);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -2020,6 +2205,9 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_REGIMES) &&
            verifier.VerifyVector(regimes()) &&
            verifier.VerifyVectorOfTables(regimes()) &&
+           VerifyOffset(verifier, VT_TECHNIQUES) &&
+           verifier.VerifyVector(techniques()) &&
+           verifier.VerifyVectorOfTables(techniques()) &&
            verifier.EndTable();
   }
 };
@@ -2082,6 +2270,9 @@ struct WelcomeBuilder {
   void add_regimes(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RegimeInfo>>> regimes) {
     fbb_.AddOffset(Welcome::VT_REGIMES, regimes);
   }
+  void add_techniques(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>>> techniques) {
+    fbb_.AddOffset(Welcome::VT_TECHNIQUES, techniques);
+  }
   explicit WelcomeBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -2112,8 +2303,10 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcome(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GoodInfo>>> goods = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CropInfo>>> crops = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SkillInfo>>> skills = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RegimeInfo>>> regimes = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RegimeInfo>>> regimes = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>>> techniques = 0) {
   WelcomeBuilder builder_(_fbb);
+  builder_.add_techniques(techniques);
   builder_.add_regimes(regimes);
   builder_.add_skills(skills);
   builder_.add_crops(crops);
@@ -2159,7 +2352,8 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::GoodInfo>> *goods = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::CropInfo>> *crops = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::SkillInfo>> *skills = nullptr,
-    const std::vector<::flatbuffers::Offset<tce::wire::RegimeInfo>> *regimes = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::RegimeInfo>> *regimes = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>> *techniques = nullptr) {
   auto host__ = host ? _fbb.CreateString(host) : 0;
   auto version__ = version ? _fbb.CreateString(version) : 0;
   auto presets__ = presets ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PresetInfo>>(*presets) : 0;
@@ -2172,6 +2366,7 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
   auto crops__ = crops ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::CropInfo>>(*crops) : 0;
   auto skills__ = skills ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SkillInfo>>(*skills) : 0;
   auto regimes__ = regimes ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::RegimeInfo>>(*regimes) : 0;
+  auto techniques__ = techniques ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::TechniqueInfo>>(*techniques) : 0;
   return tce::wire::CreateWelcome(
       _fbb,
       host__,
@@ -2191,7 +2386,8 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
       goods__,
       crops__,
       skills__,
-      regimes__);
+      regimes__,
+      techniques__);
 }
 
 struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -3174,7 +3370,8 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_PATHS_REV = 26,
     VT_MARKETS_REV = 28,
     VT_FIRMS_REV = 30,
-    VT_WEALTH_REV = 32
+    VT_WEALTH_REV = 32,
+    VT_KNOWLEDGE_REV = 34
   };
   const tce::wire::WorldInfo *world() const {
     return GetPointer<const tce::wire::WorldInfo *>(VT_WORLD);
@@ -3221,6 +3418,9 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint64_t wealth_rev() const {
     return GetField<uint64_t>(VT_WEALTH_REV, 0);
   }
+  uint64_t knowledge_rev() const {
+    return GetField<uint64_t>(VT_KNOWLEDGE_REV, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -3248,6 +3448,7 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_MARKETS_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_FIRMS_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_WEALTH_REV, 8) &&
+           VerifyField<uint64_t>(verifier, VT_KNOWLEDGE_REV, 8) &&
            verifier.EndTable();
   }
 };
@@ -3301,6 +3502,9 @@ struct SnapshotBuilder {
   void add_wealth_rev(uint64_t wealth_rev) {
     fbb_.AddElement<uint64_t>(Snapshot::VT_WEALTH_REV, wealth_rev, 0);
   }
+  void add_knowledge_rev(uint64_t knowledge_rev) {
+    fbb_.AddElement<uint64_t>(Snapshot::VT_KNOWLEDGE_REV, knowledge_rev, 0);
+  }
   explicit SnapshotBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -3328,8 +3532,10 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshot(
     uint64_t paths_rev = 0,
     uint64_t markets_rev = 0,
     uint64_t firms_rev = 0,
-    uint64_t wealth_rev = 0) {
+    uint64_t wealth_rev = 0,
+    uint64_t knowledge_rev = 0) {
   SnapshotBuilder builder_(_fbb);
+  builder_.add_knowledge_rev(knowledge_rev);
   builder_.add_wealth_rev(wealth_rev);
   builder_.add_firms_rev(firms_rev);
   builder_.add_markets_rev(markets_rev);
@@ -3369,7 +3575,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
     uint64_t paths_rev = 0,
     uint64_t markets_rev = 0,
     uint64_t firms_rev = 0,
-    uint64_t wealth_rev = 0) {
+    uint64_t wealth_rev = 0,
+    uint64_t knowledge_rev = 0) {
   auto last_error__ = last_error ? _fbb.CreateString(last_error) : 0;
   auto people__ = people ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PersonBrief>>(*people) : 0;
   auto settlements__ = settlements ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SettlementBrief>>(*settlements) : 0;
@@ -3389,7 +3596,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
       paths_rev,
       markets_rev,
       firms_rev,
-      wealth_rev);
+      wealth_rev,
+      knowledge_rev);
 }
 
 struct Event FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -4043,6 +4251,74 @@ struct RunUntil::Traits {
   static auto constexpr Create = CreateRunUntil;
 };
 
+struct IntroduceTechnique FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef IntroduceTechniqueBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_PERSON = 4,
+    VT_TECHNIQUE = 6,
+    VT_AWARE_ONLY = 8
+  };
+  uint64_t person() const {
+    return GetField<uint64_t>(VT_PERSON, 0);
+  }
+  uint32_t technique() const {
+    return GetField<uint32_t>(VT_TECHNIQUE, 0);
+  }
+  bool aware_only() const {
+    return GetField<uint8_t>(VT_AWARE_ONLY, 0) != 0;
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_PERSON, 8) &&
+           VerifyField<uint32_t>(verifier, VT_TECHNIQUE, 4) &&
+           VerifyField<uint8_t>(verifier, VT_AWARE_ONLY, 1) &&
+           verifier.EndTable();
+  }
+};
+
+struct IntroduceTechniqueBuilder {
+  typedef IntroduceTechnique Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_person(uint64_t person) {
+    fbb_.AddElement<uint64_t>(IntroduceTechnique::VT_PERSON, person, 0);
+  }
+  void add_technique(uint32_t technique) {
+    fbb_.AddElement<uint32_t>(IntroduceTechnique::VT_TECHNIQUE, technique, 0);
+  }
+  void add_aware_only(bool aware_only) {
+    fbb_.AddElement<uint8_t>(IntroduceTechnique::VT_AWARE_ONLY, static_cast<uint8_t>(aware_only), 0);
+  }
+  explicit IntroduceTechniqueBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<IntroduceTechnique> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<IntroduceTechnique>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<IntroduceTechnique> CreateIntroduceTechnique(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t person = 0,
+    uint32_t technique = 0,
+    bool aware_only = false) {
+  IntroduceTechniqueBuilder builder_(_fbb);
+  builder_.add_person(person);
+  builder_.add_technique(technique);
+  builder_.add_aware_only(aware_only);
+  return builder_.Finish();
+}
+
+struct IntroduceTechnique::Traits {
+  using type = IntroduceTechnique;
+  static auto constexpr Create = CreateIntroduceTechnique;
+};
+
 struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef CommandBuilder Builder;
   struct Traits;
@@ -4080,6 +4356,9 @@ struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::RunUntil *body_as_RunUntil() const {
     return body_type() == tce::wire::CommandBody::RunUntil ? static_cast<const tce::wire::RunUntil *>(body()) : nullptr;
+  }
+  const tce::wire::IntroduceTechnique *body_as_IntroduceTechnique() const {
+    return body_type() == tce::wire::CommandBody::IntroduceTechnique ? static_cast<const tce::wire::IntroduceTechnique *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -4121,6 +4400,10 @@ template<> inline const tce::wire::SpawnFamily *Command::body_as<tce::wire::Spaw
 
 template<> inline const tce::wire::RunUntil *Command::body_as<tce::wire::RunUntil>() const {
   return body_as_RunUntil();
+}
+
+template<> inline const tce::wire::IntroduceTechnique *Command::body_as<tce::wire::IntroduceTechnique>() const {
+  return body_as_IntroduceTechnique();
 }
 
 struct CommandBuilder {
@@ -4779,6 +5062,42 @@ struct GetWealth::Traits {
   static auto constexpr Create = CreateGetWealth;
 };
 
+struct GetKnowledge FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetKnowledgeBuilder Builder;
+  struct Traits;
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetKnowledgeBuilder {
+  typedef GetKnowledge Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  explicit GetKnowledgeBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetKnowledge> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetKnowledge>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetKnowledge> CreateGetKnowledge(
+    ::flatbuffers::FlatBufferBuilder &_fbb) {
+  GetKnowledgeBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct GetKnowledge::Traits {
+  using type = GetKnowledge;
+  static auto constexpr Create = CreateGetKnowledge;
+};
+
 struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef QueryBuilder Builder;
   struct Traits;
@@ -4831,6 +5150,9 @@ struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::GetWealth *body_as_GetWealth() const {
     return body_type() == tce::wire::QueryBody::GetWealth ? static_cast<const tce::wire::GetWealth *>(body()) : nullptr;
+  }
+  const tce::wire::GetKnowledge *body_as_GetKnowledge() const {
+    return body_type() == tce::wire::QueryBody::GetKnowledge ? static_cast<const tce::wire::GetKnowledge *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -4892,6 +5214,10 @@ template<> inline const tce::wire::GetFirm *Query::body_as<tce::wire::GetFirm>()
 
 template<> inline const tce::wire::GetWealth *Query::body_as<tce::wire::GetWealth>() const {
   return body_as_GetWealth();
+}
+
+template<> inline const tce::wire::GetKnowledge *Query::body_as<tce::wire::GetKnowledge>() const {
+  return body_as_GetKnowledge();
 }
 
 struct QueryBuilder {
@@ -6525,7 +6851,8 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_FAMILY = 70,
     VT_LEFT_MINUTE = 72,
     VT_SKILLS = 74,
-    VT_HOUSEHOLD_READY_DAYS = 76
+    VT_HOUSEHOLD_READY_DAYS = 76,
+    VT_KNOWS = 78
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -6638,6 +6965,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   float household_ready_days() const {
     return GetField<float>(VT_HOUSEHOLD_READY_DAYS, 0.0f);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::KnowLine>> *knows() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::KnowLine>> *>(VT_KNOWS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -6692,6 +7022,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_SKILLS) &&
            verifier.VerifyVector(skills()) &&
            VerifyField<float>(verifier, VT_HOUSEHOLD_READY_DAYS, 4) &&
+           VerifyOffset(verifier, VT_KNOWS) &&
+           verifier.VerifyVector(knows()) &&
+           verifier.VerifyVectorOfTables(knows()) &&
            verifier.EndTable();
   }
 };
@@ -6811,6 +7144,9 @@ struct PersonInfoBuilder {
   void add_household_ready_days(float household_ready_days) {
     fbb_.AddElement<float>(PersonInfo::VT_HOUSEHOLD_READY_DAYS, household_ready_days, 0.0f);
   }
+  void add_knows(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::KnowLine>>> knows) {
+    fbb_.AddOffset(PersonInfo::VT_KNOWS, knows);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -6860,7 +7196,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> family = 0,
     int64_t left_minute = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::SkillLine *>> skills = 0,
-    float household_ready_days = 0.0f) {
+    float household_ready_days = 0.0f,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::KnowLine>>> knows = 0) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_left_minute(left_minute);
   builder_.add_partner(partner);
@@ -6871,6 +7208,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_knows(knows);
   builder_.add_household_ready_days(household_ready_days);
   builder_.add_skills(skills);
   builder_.add_family(family);
@@ -6945,7 +7283,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *family = nullptr,
     int64_t left_minute = 0,
     const std::vector<tce::wire::SkillLine> *skills = nullptr,
-    float household_ready_days = 0.0f) {
+    float household_ready_days = 0.0f,
+    const std::vector<::flatbuffers::Offset<tce::wire::KnowLine>> *knows = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -6957,6 +7296,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto stores__ = stores ? _fbb.CreateVectorOfStructs<tce::wire::StoreLine>(*stores) : 0;
   auto family__ = family ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*family) : 0;
   auto skills__ = skills ? _fbb.CreateVectorOfStructs<tce::wire::SkillLine>(*skills) : 0;
+  auto knows__ = knows ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::KnowLine>>(*knows) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -6995,7 +7335,150 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       family__,
       left_minute,
       skills__,
-      household_ready_days);
+      household_ready_days,
+      knows__);
+}
+
+struct KnowLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef KnowLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_TECHNIQUE = 4,
+    VT_STATE = 6,
+    VT_HOURS = 8,
+    VT_LEARN_H = 10,
+    VT_SINCE_MINUTE = 12,
+    VT_SOURCE = 14,
+    VT_SOURCE_PERSON = 16,
+    VT_USED_MINUTE = 18
+  };
+  uint16_t technique() const {
+    return GetField<uint16_t>(VT_TECHNIQUE, 0);
+  }
+  uint8_t state() const {
+    return GetField<uint8_t>(VT_STATE, 0);
+  }
+  float hours() const {
+    return GetField<float>(VT_HOURS, 0.0f);
+  }
+  float learn_h() const {
+    return GetField<float>(VT_LEARN_H, 0.0f);
+  }
+  int64_t since_minute() const {
+    return GetField<int64_t>(VT_SINCE_MINUTE, 0);
+  }
+  const ::flatbuffers::String *source() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_SOURCE);
+  }
+  uint64_t source_person() const {
+    return GetField<uint64_t>(VT_SOURCE_PERSON, 0);
+  }
+  int64_t used_minute() const {
+    return GetField<int64_t>(VT_USED_MINUTE, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint16_t>(verifier, VT_TECHNIQUE, 2) &&
+           VerifyField<uint8_t>(verifier, VT_STATE, 1) &&
+           VerifyField<float>(verifier, VT_HOURS, 4) &&
+           VerifyField<float>(verifier, VT_LEARN_H, 4) &&
+           VerifyField<int64_t>(verifier, VT_SINCE_MINUTE, 8) &&
+           VerifyOffset(verifier, VT_SOURCE) &&
+           verifier.VerifyString(source()) &&
+           VerifyField<uint64_t>(verifier, VT_SOURCE_PERSON, 8) &&
+           VerifyField<int64_t>(verifier, VT_USED_MINUTE, 8) &&
+           verifier.EndTable();
+  }
+};
+
+struct KnowLineBuilder {
+  typedef KnowLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_technique(uint16_t technique) {
+    fbb_.AddElement<uint16_t>(KnowLine::VT_TECHNIQUE, technique, 0);
+  }
+  void add_state(uint8_t state) {
+    fbb_.AddElement<uint8_t>(KnowLine::VT_STATE, state, 0);
+  }
+  void add_hours(float hours) {
+    fbb_.AddElement<float>(KnowLine::VT_HOURS, hours, 0.0f);
+  }
+  void add_learn_h(float learn_h) {
+    fbb_.AddElement<float>(KnowLine::VT_LEARN_H, learn_h, 0.0f);
+  }
+  void add_since_minute(int64_t since_minute) {
+    fbb_.AddElement<int64_t>(KnowLine::VT_SINCE_MINUTE, since_minute, 0);
+  }
+  void add_source(::flatbuffers::Offset<::flatbuffers::String> source) {
+    fbb_.AddOffset(KnowLine::VT_SOURCE, source);
+  }
+  void add_source_person(uint64_t source_person) {
+    fbb_.AddElement<uint64_t>(KnowLine::VT_SOURCE_PERSON, source_person, 0);
+  }
+  void add_used_minute(int64_t used_minute) {
+    fbb_.AddElement<int64_t>(KnowLine::VT_USED_MINUTE, used_minute, 0);
+  }
+  explicit KnowLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<KnowLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<KnowLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<KnowLine> CreateKnowLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint16_t technique = 0,
+    uint8_t state = 0,
+    float hours = 0.0f,
+    float learn_h = 0.0f,
+    int64_t since_minute = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> source = 0,
+    uint64_t source_person = 0,
+    int64_t used_minute = 0) {
+  KnowLineBuilder builder_(_fbb);
+  builder_.add_used_minute(used_minute);
+  builder_.add_source_person(source_person);
+  builder_.add_since_minute(since_minute);
+  builder_.add_source(source);
+  builder_.add_learn_h(learn_h);
+  builder_.add_hours(hours);
+  builder_.add_technique(technique);
+  builder_.add_state(state);
+  return builder_.Finish();
+}
+
+struct KnowLine::Traits {
+  using type = KnowLine;
+  static auto constexpr Create = CreateKnowLine;
+};
+
+inline ::flatbuffers::Offset<KnowLine> CreateKnowLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint16_t technique = 0,
+    uint8_t state = 0,
+    float hours = 0.0f,
+    float learn_h = 0.0f,
+    int64_t since_minute = 0,
+    const char *source = nullptr,
+    uint64_t source_person = 0,
+    int64_t used_minute = 0) {
+  auto source__ = source ? _fbb.CreateString(source) : 0;
+  return tce::wire::CreateKnowLine(
+      _fbb,
+      technique,
+      state,
+      hours,
+      learn_h,
+      since_minute,
+      source__,
+      source_person,
+      used_minute);
 }
 
 struct FieldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -10062,6 +10545,398 @@ inline ::flatbuffers::Offset<Wealth> CreateWealthDirect(
       settlements__);
 }
 
+struct PersonRef FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef PersonRefBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_NAME = 6,
+    VT_AGE_YEARS = 8
+  };
+  uint64_t id() const {
+    return GetField<uint64_t>(VT_ID, 0);
+  }
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  float age_years() const {
+    return GetField<float>(VT_AGE_YEARS, 0.0f);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_ID, 8) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyField<float>(verifier, VT_AGE_YEARS, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct PersonRefBuilder {
+  typedef PersonRef Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint64_t id) {
+    fbb_.AddElement<uint64_t>(PersonRef::VT_ID, id, 0);
+  }
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(PersonRef::VT_NAME, name);
+  }
+  void add_age_years(float age_years) {
+    fbb_.AddElement<float>(PersonRef::VT_AGE_YEARS, age_years, 0.0f);
+  }
+  explicit PersonRefBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<PersonRef> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<PersonRef>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<PersonRef> CreatePersonRef(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    float age_years = 0.0f) {
+  PersonRefBuilder builder_(_fbb);
+  builder_.add_id(id);
+  builder_.add_age_years(age_years);
+  builder_.add_name(name);
+  return builder_.Finish();
+}
+
+struct PersonRef::Traits {
+  using type = PersonRef;
+  static auto constexpr Create = CreatePersonRef;
+};
+
+inline ::flatbuffers::Offset<PersonRef> CreatePersonRefDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    const char *name = nullptr,
+    float age_years = 0.0f) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  return tce::wire::CreatePersonRef(
+      _fbb,
+      id,
+      name__,
+      age_years);
+}
+
+struct TechniqueHere FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef TechniqueHereBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_TECHNIQUE = 4,
+    VT_KNOWN = 6,
+    VT_KNOWERS = 8,
+    VT_LEARNERS = 10,
+    VT_HEARD = 12,
+    VT_PRACTISED_LAST_YEAR = 14,
+    VT_STATUS = 16,
+    VT_HISTORY = 18
+  };
+  uint16_t technique() const {
+    return GetField<uint16_t>(VT_TECHNIQUE, 0);
+  }
+  bool known() const {
+    return GetField<uint8_t>(VT_KNOWN, 0) != 0;
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PersonRef>> *knowers() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PersonRef>> *>(VT_KNOWERS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PersonRef>> *learners() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PersonRef>> *>(VT_LEARNERS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PersonRef>> *heard() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PersonRef>> *>(VT_HEARD);
+  }
+  uint32_t practised_last_year() const {
+    return GetField<uint32_t>(VT_PRACTISED_LAST_YEAR, 0);
+  }
+  const ::flatbuffers::String *status() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_STATUS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *history() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_HISTORY);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint16_t>(verifier, VT_TECHNIQUE, 2) &&
+           VerifyField<uint8_t>(verifier, VT_KNOWN, 1) &&
+           VerifyOffset(verifier, VT_KNOWERS) &&
+           verifier.VerifyVector(knowers()) &&
+           verifier.VerifyVectorOfTables(knowers()) &&
+           VerifyOffset(verifier, VT_LEARNERS) &&
+           verifier.VerifyVector(learners()) &&
+           verifier.VerifyVectorOfTables(learners()) &&
+           VerifyOffset(verifier, VT_HEARD) &&
+           verifier.VerifyVector(heard()) &&
+           verifier.VerifyVectorOfTables(heard()) &&
+           VerifyField<uint32_t>(verifier, VT_PRACTISED_LAST_YEAR, 4) &&
+           VerifyOffset(verifier, VT_STATUS) &&
+           verifier.VerifyString(status()) &&
+           VerifyOffset(verifier, VT_HISTORY) &&
+           verifier.VerifyVector(history()) &&
+           verifier.VerifyVectorOfStrings(history()) &&
+           verifier.EndTable();
+  }
+};
+
+struct TechniqueHereBuilder {
+  typedef TechniqueHere Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_technique(uint16_t technique) {
+    fbb_.AddElement<uint16_t>(TechniqueHere::VT_TECHNIQUE, technique, 0);
+  }
+  void add_known(bool known) {
+    fbb_.AddElement<uint8_t>(TechniqueHere::VT_KNOWN, static_cast<uint8_t>(known), 0);
+  }
+  void add_knowers(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PersonRef>>> knowers) {
+    fbb_.AddOffset(TechniqueHere::VT_KNOWERS, knowers);
+  }
+  void add_learners(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PersonRef>>> learners) {
+    fbb_.AddOffset(TechniqueHere::VT_LEARNERS, learners);
+  }
+  void add_heard(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PersonRef>>> heard) {
+    fbb_.AddOffset(TechniqueHere::VT_HEARD, heard);
+  }
+  void add_practised_last_year(uint32_t practised_last_year) {
+    fbb_.AddElement<uint32_t>(TechniqueHere::VT_PRACTISED_LAST_YEAR, practised_last_year, 0);
+  }
+  void add_status(::flatbuffers::Offset<::flatbuffers::String> status) {
+    fbb_.AddOffset(TechniqueHere::VT_STATUS, status);
+  }
+  void add_history(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> history) {
+    fbb_.AddOffset(TechniqueHere::VT_HISTORY, history);
+  }
+  explicit TechniqueHereBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<TechniqueHere> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<TechniqueHere>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<TechniqueHere> CreateTechniqueHere(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint16_t technique = 0,
+    bool known = false,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PersonRef>>> knowers = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PersonRef>>> learners = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PersonRef>>> heard = 0,
+    uint32_t practised_last_year = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> status = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> history = 0) {
+  TechniqueHereBuilder builder_(_fbb);
+  builder_.add_history(history);
+  builder_.add_status(status);
+  builder_.add_practised_last_year(practised_last_year);
+  builder_.add_heard(heard);
+  builder_.add_learners(learners);
+  builder_.add_knowers(knowers);
+  builder_.add_technique(technique);
+  builder_.add_known(known);
+  return builder_.Finish();
+}
+
+struct TechniqueHere::Traits {
+  using type = TechniqueHere;
+  static auto constexpr Create = CreateTechniqueHere;
+};
+
+inline ::flatbuffers::Offset<TechniqueHere> CreateTechniqueHereDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint16_t technique = 0,
+    bool known = false,
+    const std::vector<::flatbuffers::Offset<tce::wire::PersonRef>> *knowers = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::PersonRef>> *learners = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::PersonRef>> *heard = nullptr,
+    uint32_t practised_last_year = 0,
+    const char *status = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *history = nullptr) {
+  auto knowers__ = knowers ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PersonRef>>(*knowers) : 0;
+  auto learners__ = learners ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PersonRef>>(*learners) : 0;
+  auto heard__ = heard ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PersonRef>>(*heard) : 0;
+  auto status__ = status ? _fbb.CreateString(status) : 0;
+  auto history__ = history ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*history) : 0;
+  return tce::wire::CreateTechniqueHere(
+      _fbb,
+      technique,
+      known,
+      knowers__,
+      learners__,
+      heard__,
+      practised_last_year,
+      status__,
+      history__);
+}
+
+struct SettlementKnowledge FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef SettlementKnowledgeBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SETTLEMENT = 4,
+    VT_NAME = 6,
+    VT_TECHNIQUES = 8
+  };
+  uint64_t settlement() const {
+    return GetField<uint64_t>(VT_SETTLEMENT, 0);
+  }
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueHere>> *techniques() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueHere>> *>(VT_TECHNIQUES);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_SETTLEMENT, 8) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyOffset(verifier, VT_TECHNIQUES) &&
+           verifier.VerifyVector(techniques()) &&
+           verifier.VerifyVectorOfTables(techniques()) &&
+           verifier.EndTable();
+  }
+};
+
+struct SettlementKnowledgeBuilder {
+  typedef SettlementKnowledge Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_settlement(uint64_t settlement) {
+    fbb_.AddElement<uint64_t>(SettlementKnowledge::VT_SETTLEMENT, settlement, 0);
+  }
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(SettlementKnowledge::VT_NAME, name);
+  }
+  void add_techniques(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueHere>>> techniques) {
+    fbb_.AddOffset(SettlementKnowledge::VT_TECHNIQUES, techniques);
+  }
+  explicit SettlementKnowledgeBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<SettlementKnowledge> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<SettlementKnowledge>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<SettlementKnowledge> CreateSettlementKnowledge(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t settlement = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueHere>>> techniques = 0) {
+  SettlementKnowledgeBuilder builder_(_fbb);
+  builder_.add_settlement(settlement);
+  builder_.add_techniques(techniques);
+  builder_.add_name(name);
+  return builder_.Finish();
+}
+
+struct SettlementKnowledge::Traits {
+  using type = SettlementKnowledge;
+  static auto constexpr Create = CreateSettlementKnowledge;
+};
+
+inline ::flatbuffers::Offset<SettlementKnowledge> CreateSettlementKnowledgeDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t settlement = 0,
+    const char *name = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::TechniqueHere>> *techniques = nullptr) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto techniques__ = techniques ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::TechniqueHere>>(*techniques) : 0;
+  return tce::wire::CreateSettlementKnowledge(
+      _fbb,
+      settlement,
+      name__,
+      techniques__);
+}
+
+struct Knowledge FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef KnowledgeBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_REV = 4,
+    VT_SETTLEMENTS = 6
+  };
+  uint64_t rev() const {
+    return GetField<uint64_t>(VT_REV, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SettlementKnowledge>> *settlements() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SettlementKnowledge>> *>(VT_SETTLEMENTS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_REV, 8) &&
+           VerifyOffset(verifier, VT_SETTLEMENTS) &&
+           verifier.VerifyVector(settlements()) &&
+           verifier.VerifyVectorOfTables(settlements()) &&
+           verifier.EndTable();
+  }
+};
+
+struct KnowledgeBuilder {
+  typedef Knowledge Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_rev(uint64_t rev) {
+    fbb_.AddElement<uint64_t>(Knowledge::VT_REV, rev, 0);
+  }
+  void add_settlements(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SettlementKnowledge>>> settlements) {
+    fbb_.AddOffset(Knowledge::VT_SETTLEMENTS, settlements);
+  }
+  explicit KnowledgeBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Knowledge> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Knowledge>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Knowledge> CreateKnowledge(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SettlementKnowledge>>> settlements = 0) {
+  KnowledgeBuilder builder_(_fbb);
+  builder_.add_rev(rev);
+  builder_.add_settlements(settlements);
+  return builder_.Finish();
+}
+
+struct Knowledge::Traits {
+  using type = Knowledge;
+  static auto constexpr Create = CreateKnowledge;
+};
+
+inline ::flatbuffers::Offset<Knowledge> CreateKnowledgeDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::SettlementKnowledge>> *settlements = nullptr) {
+  auto settlements__ = settlements ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SettlementKnowledge>>(*settlements) : 0;
+  return tce::wire::CreateKnowledge(
+      _fbb,
+      rev,
+      settlements__);
+}
+
 struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef ResponseBuilder Builder;
   struct Traits;
@@ -10117,6 +10992,9 @@ struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::Wealth *body_as_Wealth() const {
     return body_type() == tce::wire::ResponseBody::Wealth ? static_cast<const tce::wire::Wealth *>(body()) : nullptr;
+  }
+  const tce::wire::Knowledge *body_as_Knowledge() const {
+    return body_type() == tce::wire::ResponseBody::Knowledge ? static_cast<const tce::wire::Knowledge *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -10182,6 +11060,10 @@ template<> inline const tce::wire::FirmInfo *Response::body_as<tce::wire::FirmIn
 
 template<> inline const tce::wire::Wealth *Response::body_as<tce::wire::Wealth>() const {
   return body_as_Wealth();
+}
+
+template<> inline const tce::wire::Knowledge *Response::body_as<tce::wire::Knowledge>() const {
+  return body_as_Knowledge();
 }
 
 struct ResponseBuilder {
@@ -10328,6 +11210,10 @@ inline bool VerifyCommandBody(::flatbuffers::VerifierTemplate<B> &verifier, cons
       auto ptr = reinterpret_cast<const tce::wire::RunUntil *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case CommandBody::IntroduceTechnique: {
+      auto ptr = reinterpret_cast<const tce::wire::IntroduceTechnique *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -10401,6 +11287,10 @@ inline bool VerifyQueryBody(::flatbuffers::VerifierTemplate<B> &verifier, const 
     }
     case QueryBody::GetWealth: {
       auto ptr = reinterpret_cast<const tce::wire::GetWealth *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case QueryBody::GetKnowledge: {
+      auto ptr = reinterpret_cast<const tce::wire::GetKnowledge *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;
@@ -10480,6 +11370,10 @@ inline bool VerifyResponseBody(::flatbuffers::VerifierTemplate<B> &verifier, con
     }
     case ResponseBody::Wealth: {
       auto ptr = reinterpret_cast<const tce::wire::Wealth *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::Knowledge: {
+      auto ptr = reinterpret_cast<const tce::wire::Knowledge *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

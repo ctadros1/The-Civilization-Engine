@@ -1,6 +1,6 @@
 # Web observer
 
-The web observer (the M0 shell, M1's people, families, fields, huts, trails and god tool, and M3a's tools, skills, market panel, workshops panel, land tenure and wealth panel): TypeScript, Vite and PixiJS 8,
+The web observer (the M0 shell, M1's people, families, fields, huts, trails and god tool, M3a's tools, skills, market panel, workshops panel, land tenure and wealth panel, and M3b's knowledge panel): TypeScript, Vite and PixiJS 8,
 without a UI framework. `civ-host serve` serves
 the built files from `web/dist` and the observer socket at `/ws` from the same origin.
 
@@ -28,6 +28,7 @@ another port. `?host=127.0.0.1:7421` in the page URL connects to a host directly
 | `src/market.ts` | What the market panel says about amounts, terms, payments and the price history: pure functions, unit tested. Terms, trades and money come from the kernel; the panel only words and draws them. |
 | `src/firm.ts` | What the workshops panel says about a workshop's goods, holdings, monthly statements and hours: pure functions, unit tested. Records, wages and book lines come in words from the kernel. |
 | `src/wealth.ts` | What the wealth panel says about a settlement's measures, its households and its yearly history, and the Gini chart's lines: pure functions, unit tested. The measures are the kernel's. |
+| `src/knowledge.ts` | What the knowledge panel and the inspector say about who knows, is learning and has heard of each technique, and which techniques can be introduced to someone: pure functions, unit tested. States, sources and histories come in words from the kernel. |
 | `src/ui.ts`, `src/state.ts`, `src/main.ts` | Panels, dialogs, the store, and wiring. |
 | `src/schema/generated/` | FlatBuffers TypeScript from `kernel/crates/civ-schema/schema/tce_wire.fbs`. Never edit; run `tools/gen-schema.sh`. |
 | `e2e/` | Playwright specs; they start their own `civ-host` against a temporary saves folder. The workshops spec builds its world with `cargo run --release -p civ-sim --example workshop_world`, so it needs cargo. |
@@ -67,6 +68,20 @@ tenth's share of goods and who holds and works no land; a table and a chart of t
 each year's end; and its households, the most goods a head first, with what they hold, work,
 let and rent.
 
+## The knowledge panel
+
+The knowledge panel (M3b slice M), fetched with `GetKnowledge` when the snapshot's
+`knowledge_rev` changes (at most every two seconds; it changes when someone comes to know,
+learns toward, hears of or loses a technique, and when people arrive, leave or die), lists each
+settlement's techniques, those known there first. Each shows its state in the kernel's words
+("known by 33", "known by one, Wren, aged 61; nobody learning", "lost in year 9 with Wren"). Open
+it to see what a competent person can do with it and its prerequisites, who knows it (eldest
+first), how many practised it in the last year, who is learning it, who has only heard of it,
+and its history there. The inspector's **Knows** lists what someone knows, is learning (hours of
+hours) and has heard of, and how each came. For the living it holds the god tool: choose a
+technique they do not know, then **Teach** (they know it at once) or **Tell of it** (they only
+hear of it). The inspector holds its redraw while that list has the focus.
+
 ## Controls
 
 Besides Run and the speeds, **Run ahead…** lives a day, a month, a year, 5 or 10 years at full
@@ -90,8 +105,9 @@ from this machine.
 ## Test hooks
 
 `window.__TCE__` (mirroring Genesis's `window.__OBS__`) exposes plain-data state for tests and
-debugging: `state()` (with a summary of each market, workshop and settlement's wealth, and the workshop page open), `map()`, `pointerAt(x, y)`, `panBy(dx, dy)`, `zoomBy(f)`, `fit()`,
-`peopleOnScreen()`, `briefs()` (each person's id, sex and age), `select(id)` and `openFirm(id)`.
+debugging: `state()` (with a summary of each market, workshop, settlement's wealth and knowledge, the workshop page open, and what the inspected person knows), `map()`, `pointerAt(x, y)`, `panBy(dx, dy)`, `zoomBy(f)`, `fit()`,
+`peopleOnScreen()`, `briefs()` (each person's id, sex and age), `select(id)`, `openFirm(id)` and
+`introduceTechnique(person, techniqueId, awareOnly)`.
 
 ## Recording the demo
 

@@ -10,5 +10,6 @@ min_minutes = 5                  # filling the vessels
 max_minutes = 5
 daylight_only = true
 max_walk_minutes = 45
+technique = ""
 tools = []
 rate = 1.0

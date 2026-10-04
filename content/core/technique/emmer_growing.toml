@@ -1,0 +1,17 @@
+# Growing emmer: breaking and clearing ground, sowing and keeping seed, weeding, reaping and
+# threshing (research 07-04 B01, T02-T04). Founders arrive knowing their farming (06-08 §3:
+# initialise adults with substantial practical knowledge), and children learn it at home as they
+# join the work (06-08 §1.1). The hours of work beside a farmer that teach it are a tuning value
+# within 07-02 §2.3's 20-200 for a narrow, observable procedure. No work tries toward it, so a
+# village that lost it would not find it again (e50_h is unused).
+kind = "technique"
+id = "core:technique/emmer_growing"
+name = "Growing emmer"
+can = "break and clear ground, sow emmer and keep its seed, weed, reap and thresh it"
+domain = ""
+requires = []
+tried_in = []
+needs = []
+e50_h = 100000.0                 # unused while no work tries toward it
+learn_h = 100.0
+upbringing = true

@@ -1,0 +1,13 @@
+# Pounding grain in a mortar for porridge (research 07-04 P01). Everyday work, learnt at home
+# (06-08 §1.1); 20 hours (07-02 §2.3, a tuning value).
+kind = "technique"
+id = "core:technique/pounding"
+name = "Pounding grain"
+can = "pound grain in a mortar for porridge"
+domain = "core:skill/milling"
+requires = []
+tried_in = []
+needs = []
+e50_h = 100000.0                 # unused while no work tries toward it
+learn_h = 20.0
+upbringing = true

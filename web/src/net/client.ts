@@ -289,6 +289,13 @@ export class HostClient {
     return body.wealth;
   }
 
+  /** What each settlement knows, is learning and has lost (M3b slice M). */
+  async knowledge(): Promise<M.KnowledgeInfo> {
+    const body = await this.query(M.getKnowledge());
+    if (body.kind !== "knowledge") throw new HostError("internal", "expected knowledge");
+    return body.knowledge;
+  }
+
   /** Every field, with the revision it is at. */
   async fields(): Promise<{ rev: number; fields: M.FieldInfo[] }> {
     const body = await this.query(M.getFields());

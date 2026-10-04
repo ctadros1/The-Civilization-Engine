@@ -403,6 +403,11 @@ impl Engine {
             Request::RecoverWorld { accept } => self.recover(accept),
             Request::SpawnFamily { at, families } => self.spawn_families(at, families),
             Request::RunUntil { minute } => self.start_run_ahead(minute),
+            Request::IntroduceTechnique {
+                person,
+                technique,
+                aware_only,
+            } => self.introduce_technique(person, technique, aware_only),
             Request::GetRaster(query) => match &self.world {
                 None => no_world(),
                 Some(w) => match frames::raster_response(w.sim.map(), w.sim.stats(), &query) {
@@ -464,6 +469,10 @@ impl Engine {
             Request::GetWealth => match &self.world {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::wealth::wealth_response(&w.sim)),
+            },
+            Request::GetKnowledge => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::knowledge::knowledge_response(&w.sim)),
             },
             Request::ListSaves => {
                 match session::list_saves(&self.config.saves_root, &self.config.content) {
@@ -909,6 +918,47 @@ impl Engine {
                     (1, false) => format!("A family of {n} came to {}", first.name),
                     (k, true) => format!("{k} families, {n} people, made camp at {}", first.name),
                     (k, false) => format!("{k} families, {n} people, came to {}", first.name),
+                };
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
+    fn introduce_technique(&mut self, person: u64, technique: u32, aware_only: bool) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        let Some(def) = world
+            .sim
+            .rules()
+            .catalog
+            .techniques
+            .get(technique as usize)
+            .cloned()
+        else {
+            return Reply::Error(
+                wire::ErrorCode::BadRequest,
+                format!("there is no technique {technique}"),
+            );
+        };
+        let Some(id) = civ_core::PermanentId::from_raw(person) else {
+            return Reply::Error(wire::ErrorCode::NotFound, "nobody has id 0".to_owned());
+        };
+        let name = world.sim.people().name_of(id);
+        match world.sim.introduce_technique(id, &def.id, aware_only) {
+            Ok(()) => {
+                let what = def.name.to_lowercase();
+                let text = if aware_only {
+                    format!("{name} heard of {what}")
+                } else {
+                    format!("{name} learnt {what} from the observer")
                 };
                 self.changed = true;
                 self.urgent = true;

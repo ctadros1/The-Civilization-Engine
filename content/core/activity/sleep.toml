@@ -10,5 +10,6 @@ min_minutes = 1                  # sleep length comes from sleep pressure and th
 max_minutes = 1
 daylight_only = false
 max_walk_minutes = 0
+technique = ""
 tools = []
 rate = 1.0

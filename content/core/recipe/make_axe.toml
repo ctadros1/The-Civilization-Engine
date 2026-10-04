@@ -4,6 +4,7 @@ kind = "recipe"
 id = "core:recipe/make_axe"
 name = "Make an axe"
 skill = "core:skill/stoneworking"
+technique = "core:technique/stone_shaping"
 unit_h = 15.0
 session_h = 0.0
 max_units = 1.0

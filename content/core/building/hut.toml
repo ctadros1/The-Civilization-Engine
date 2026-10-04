@@ -10,6 +10,7 @@ grammar = "hut"
 eave_cm = 180                    # head height at the wall (tuning)
 pitch_deg = 45.0                 # 11-01 §3: grass thatch wants at least 45° to shed rain
 roof_by_day = 304                # 1 November: under a roof before winter (tuning)
+technique = "core:technique/roundhouse"   # ADR-0008 §1
 
 [materials]
 timber = "core:good/timber"      # posts and rafters

@@ -38,11 +38,14 @@ CI runs the validator. Diagnostics have stable codes:
 | E2003 | An id's kind segment does not match the file's `kind` |
 | E2004 | The file's path does not match its id |
 | E2005 | Two definitions share an id |
-| E2006 | A reference names something that is not defined (a people profile's name list, provisions good, crop or home program, an activity's land resource, recipe or tool, a resource's, crop's or building program's good, a recipe's good, tool or skill, a good's `reserve_for`) |
+| E2006 | A reference names something that is not defined (a people profile's name list, provisions good, crop or home program, an activity's land resource, recipe or tool, a resource's, crop's or building program's good, a recipe's good, tool or skill, a good's `reserve_for`, a technique named by work, a technique's prerequisites, domain, `tried_in` or `needs`, a founders' technique) |
 | E3001 | A value is out of its allowed range |
 | E3002 | Unknown or missing `kind` |
 | E3003 | Not exactly one world-generation preset has `default = true` |
 | E3004 | Not exactly one people profile, or not exactly one land profile |
+| E3005 | A technique gates no work: no recipe, activity or building program names it |
+| E3006 | Techniques' prerequisites form a cycle |
+| E3007 | A recipe can never be worked: an input or tool comes only from recipes that need it (research 07-03 §6's bootstrap test) |
 
 **Fingerprints.** Each pack gets an *artifact* fingerprint, a BLAKE3 hash of its files' bytes. The
 whole set also gets a *semantic* fingerprint, a BLAKE3 hash of the effective compiled values. Saves
@@ -373,8 +376,42 @@ it). Content API 8 added the kind.
 
   New decision reasons: *what the work is paid* and *nobody nearby is hiring*.
 
+## Kinds (M3b)
+
+### `technique`
+
+A practical capability people know, learn and can lose (slice M, ADR-0008). It is phrased as
+what a competent person can do, and it gates work: only someone who knows it does the work that
+names it, or someone working beside a person who does. Who knows what, who learns it from whom,
+and when it is lost are decided at run time. Nothing in content says when a technique appears.
+
+| Field | Meaning |
+|---|---|
+| `name`, `can` | Its name, and what a competent person can do, completing "a competent person can …". |
+| `domain` | The skill whose practice it is (a skill id), or `""`. Knowing is the gate; skill is how well. |
+| `requires` | Its prerequisites as alternative routes, each a list of technique ids: `[["a", "b"], ["c"]]` is a and b, or c. `[]` for none. |
+| `tried_in`, `needs`, `e50_h` | For discovery (slice N): the activities whose practice counts toward finding it, the goods a household must hold to try it, and the qualified hours at which half of those trying have found it. |
+| `learn_h` | Hours of work beside someone who knows it that teach it. |
+| `upbringing` | Children learn it at home: a child not yet grown, in a household where someone knows it, learns it on reaching the youngest age of the work it gates. |
+
+Recipes, activities and building programs name the technique they need with `technique` (a
+technique id, or `""` for none). An activity that works a recipe needs the recipe's technique.
+
+The people profile's `[knowledge]` table (every value a tuning value):
+
+| Field | Meaning |
+|---|---|
+| `founders` | `[{ technique, share }, …]`: the share of founders old enough for each technique's work who know it. A craft not learnt at home is known only from adulthood. A band always brings at least one knower of each technique with a share above zero. Families the observer sends draw the same way. |
+| `max_learners` | Learners one person teaches at once (research 07-02 §2.3: one to three). |
+| `w_learn` | Utility points for working beside someone to learn what they know. |
+
+The core pack has eight techniques, the founders' repertoire of today's work, all known by every
+founder and all learnt in upbringing (research 06-08 §1.1, §3): growing emmer, grinding at a
+quern, pounding grain, baking flatbread, knapping sickle blades, shaping stone, shaping wood and
+building roundhouses. Content API 9 added the kind.
+
 ## Planned kinds
 
-Technologies (each only with its content footprint), more building programs with authored rule
+More techniques (each only with the work behind it), more building programs with authored rule
 graphs (grammar v2) and style primitives, offices and policies, service capability ladders, all
 as the milestones in the plan introduce them (§5, §7).

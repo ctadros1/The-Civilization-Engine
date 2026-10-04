@@ -11,5 +11,6 @@ min_minutes = 60
 max_minutes = 240
 daylight_only = true
 max_walk_minutes = 30
+technique = "core:technique/emmer_growing"
 tools = []                       # weeds are pulled by hand
 rate = 1.0

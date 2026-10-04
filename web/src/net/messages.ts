@@ -49,6 +49,39 @@ export interface SkillLine {
   level: number;
 }
 
+/** A technique people know, learn and can lose (M3b slice M; ADR-0008). */
+export interface TechniqueInfo {
+  id: string;
+  /** "Shaping stone" */
+  name: string;
+  /** What a competent person can do, completing "A competent person can ...". */
+  can: string;
+  /** An index into Welcome.skills of the skill whose practice it is, or -1. */
+  domain: number;
+  /** Its prerequisites in words; empty for none. */
+  requires: string;
+  /** Hours of work beside someone who knows it that teach it. */
+  learnH: number;
+  /** Children brought up in a household that knows it learn it at the work's age. */
+  upbringing: boolean;
+}
+
+/** What a person knows of a technique (M3b slice M). */
+export interface KnowLine {
+  /** An index into Welcome.techniques. */
+  technique: number;
+  state: "heard" | "learning" | "known";
+  /** Hours learnt beside someone who knows it, and the hours that teach it. */
+  hours: number;
+  learnH: number;
+  sinceMinute: number;
+  /** How it came, in words rendered by the kernel ("taught by Wren"). */
+  source: string;
+  /** Who it came from (0 = nobody). */
+  sourcePerson: number;
+  usedMinute: number;
+}
+
 export interface CropInfo {
   id: string;
   /** "Emmer wheat" */
@@ -94,6 +127,8 @@ export interface Welcome {
   skills: SkillInfo[];
   /** The property regimes a new world can be made under. */
   regimes: RegimeInfo[];
+  /** The techniques, in the order people's knowledge refers to. */
+  techniques: TechniqueInfo[];
 }
 
 export interface WorldInfo {
@@ -213,6 +248,11 @@ export interface Snapshot {
    * measures are recorded (0 = no households).
    */
   wealthRev: number;
+  /**
+   * Changes whenever someone comes to know, learns toward, hears of or loses a technique, and when
+   * people arrive, leave or die (0 = no people).
+   */
+  knowledgeRev: number;
 }
 
 export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
@@ -507,6 +547,8 @@ export interface PersonInfo {
   stores: StoreLine[];
   /** Their skills. */
   skills: SkillLine[];
+  /** What they know, are learning or have heard of. */
+  knows: KnowLine[];
   /** Newest first. */
   decisions: Decision[];
   traits: number[];
@@ -764,6 +806,42 @@ export interface WealthInfo {
   settlements: SettlementWealth[];
 }
 
+/** Someone named in a knowledge listing. */
+export interface PersonRef {
+  id: number;
+  name: string;
+  ageYears: number;
+}
+
+/** A technique in one settlement (M3b slice M). */
+export interface TechniqueHere {
+  /** An index into Welcome.techniques. */
+  technique: number;
+  /** Known there now. */
+  known: boolean;
+  /** Who knows it, eldest first; who is learning it; who has only heard of it. */
+  knowers: PersonRef[];
+  learners: PersonRef[];
+  heard: PersonRef[];
+  /** Knowers who did its work in the last year. */
+  practisedLastYear: number;
+  /** Its state in words, rendered by the kernel. */
+  status: string;
+  /** Its history there, oldest first, in sentences. */
+  history: string[];
+}
+
+export interface SettlementKnowledge {
+  settlement: number;
+  name: string;
+  techniques: TechniqueHere[];
+}
+
+export interface KnowledgeInfo {
+  rev: number;
+  settlements: SettlementKnowledge[];
+}
+
 export type ResponseBody =
   | { kind: "ack"; message: string }
   | { kind: "raster"; tile: RasterTile }
@@ -778,7 +856,8 @@ export type ResponseBody =
   | { kind: "markets"; rev: number; markets: MarketInfo[] }
   | { kind: "firms"; rev: number; firms: FirmBrief[] }
   | { kind: "firm"; firm: FirmInfo }
-  | { kind: "wealth"; wealth: WealthInfo };
+  | { kind: "wealth"; wealth: WealthInfo }
+  | { kind: "knowledge"; knowledge: KnowledgeInfo };
 
 export type ErrorCode =
   | "unknown"
@@ -880,6 +959,21 @@ export function spawnFamily(x: number, y: number, families = 1): Uint8Array {
   return command(b, W.CommandBody.SpawnFamily, W.SpawnFamily.endSpawnFamily(b));
 }
 
+/**
+ * The observer introduces a technique (god tool, ADR-0008 §6): a living person comes to know it,
+ * or with `awareOnly` only hears of it. `technique` is an index into Welcome.techniques.
+ */
+export function introduceTechnique(person: number, technique: number, awareOnly: boolean): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  const body = W.IntroduceTechnique.createIntroduceTechnique(
+    b,
+    BigInt(person),
+    technique,
+    awareOnly,
+  );
+  return command(b, W.CommandBody.IntroduceTechnique, body);
+}
+
 /** Runs ahead to a simulation minute, unpaced and in full detail. */
 export function runUntil(minute: number): Uint8Array {
   const b = new flatbuffers.Builder(32);
@@ -966,6 +1060,12 @@ export function getFirm(id: number): Uint8Array {
   return query(b, W.QueryBody.GetFirm, W.GetFirm.createGetFirm(b, BigInt(id)));
 }
 
+export function getKnowledge(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetKnowledge.startGetKnowledge(b);
+  return query(b, W.QueryBody.GetKnowledge, W.GetKnowledge.endGetKnowledge(b));
+}
+
 export function getWealth(): Uint8Array {
   const b = new flatbuffers.Builder(16);
   W.GetWealth.startGetWealth(b);
@@ -1042,6 +1142,20 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
       rules: Array.from({ length: r.rulesLength() }, (_, k) => r.rules(k) ?? ""),
     });
   }
+  const techniques: TechniqueInfo[] = [];
+  for (let i = 0; i < w.techniquesLength(); i++) {
+    const t = w.techniques(i);
+    if (!t) continue;
+    techniques.push({
+      id: t.id() ?? "",
+      name: t.name() ?? "",
+      can: t.can() ?? "",
+      domain: t.domain(),
+      requires: t.requires() ?? "",
+      learnH: t.learnH(),
+      upbringing: t.upbringing(),
+    });
+  }
   const reasons: Record<number, string> = {};
   for (let i = 0; i < w.reasonsLength(); i++) {
     const r = w.reasons(i);
@@ -1066,6 +1180,7 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
     crops,
     skills,
     regimes,
+    techniques,
   };
 }
 
@@ -1148,6 +1263,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     marketsRev: Number(s.marketsRev()),
     firmsRev: Number(s.firmsRev()),
     wealthRev: Number(s.wealthRev()),
+    knowledgeRev: Number(s.knowledgeRev()),
   };
 }
 
@@ -1767,6 +1883,40 @@ function wealth(w: W.Wealth): WealthInfo {
   return { rev: Number(w.rev()), regimeName: w.regimeName() ?? "", settlements };
 }
 
+function personRefs(n: number, at: (k: number) => W.PersonRef | null): PersonRef[] {
+  const out: PersonRef[] = [];
+  for (let k = 0; k < n; k++) {
+    const r = at(k);
+    if (r) out.push({ id: Number(r.id()), name: r.name() ?? "", ageYears: r.ageYears() });
+  }
+  return out;
+}
+
+function knowledge(w: W.Knowledge): KnowledgeInfo {
+  const settlements: SettlementKnowledge[] = [];
+  for (let i = 0; i < w.settlementsLength(); i++) {
+    const s = w.settlements(i);
+    if (!s) continue;
+    const techniques: TechniqueHere[] = [];
+    for (let k = 0; k < s.techniquesLength(); k++) {
+      const t = s.techniques(k);
+      if (!t) continue;
+      techniques.push({
+        technique: t.technique(),
+        known: t.known(),
+        knowers: personRefs(t.knowersLength(), (j) => t.knowers(j)),
+        learners: personRefs(t.learnersLength(), (j) => t.learners(j)),
+        heard: personRefs(t.heardLength(), (j) => t.heard(j)),
+        practisedLastYear: t.practisedLastYear(),
+        status: t.status() ?? "",
+        history: Array.from({ length: t.historyLength() }, (_, j) => t.history(j) ?? ""),
+      });
+    }
+    settlements.push({ settlement: Number(s.settlement()), name: s.name() ?? "", techniques });
+  }
+  return { rev: Number(w.rev()), settlements };
+}
+
 function scoredOption(o: W.ScoredOption): ScoredOption {
   const terms: Term[] = [];
   for (let k = 0; k < o.termsLength(); k++) {
@@ -1830,6 +1980,22 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     const line = p.skills(k);
     if (line) skills.push({ skill: line.skill(), level: line.level() });
   }
+  const knows: KnowLine[] = [];
+  for (let k = 0; k < p.knowsLength(); k++) {
+    const line = p.knows(k);
+    if (!line) continue;
+    const state = line.state();
+    knows.push({
+      technique: line.technique(),
+      state: state === 2 ? "known" : state === 1 ? "learning" : "heard",
+      hours: line.hours(),
+      learnH: line.learnH(),
+      sinceMinute: Number(line.sinceMinute()),
+      source: line.source() ?? "",
+      sourcePerson: Number(line.sourcePerson()),
+      usedMinute: Number(line.usedMinute()),
+    });
+  }
   const pos = p.pos();
   return {
     id: Number(p.id()),
@@ -1863,6 +2029,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     householdFuelDays: p.householdFuelDays(),
     stores,
     skills,
+    knows,
     decisions,
     traits: Array.from(p.traitsArray() ?? []),
     x: pos?.x() ?? 0,
@@ -1942,6 +2109,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Wealth()) as W.Wealth | null;
       if (!f) break;
       return { kind: "wealth", wealth: wealth(f) };
+    }
+    case W.ResponseBody.Knowledge: {
+      const f = r.body(new W.Knowledge()) as W.Knowledge | null;
+      if (!f) break;
+      return { kind: "knowledge", knowledge: knowledge(f) };
     }
     default:
       break;

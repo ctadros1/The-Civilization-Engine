@@ -8,6 +8,7 @@ import { GetFields } from '../../tce/wire/get-fields.js';
 import { GetFirm } from '../../tce/wire/get-firm.js';
 import { GetFirms } from '../../tce/wire/get-firms.js';
 import { GetHydrography } from '../../tce/wire/get-hydrography.js';
+import { GetKnowledge } from '../../tce/wire/get-knowledge.js';
 import { GetMarkets } from '../../tce/wire/get-markets.js';
 import { GetPaths } from '../../tce/wire/get-paths.js';
 import { GetPerson } from '../../tce/wire/get-person.js';
@@ -31,13 +32,14 @@ export enum QueryBody {
   GetMarkets = 10,
   GetFirms = 11,
   GetFirm = 12,
-  GetWealth = 13
+  GetWealth = 13,
+  GetKnowledge = 14
 }
 
 export function unionToQueryBody(
   type: QueryBody,
-  accessor: (obj:GetBuildings|GetChronicle|GetFields|GetFirm|GetFirms|GetHydrography|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|ListSaves) => GetBuildings|GetChronicle|GetFields|GetFirm|GetFirms|GetHydrography|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|ListSaves|null
-): GetBuildings|GetChronicle|GetFields|GetFirm|GetFirms|GetHydrography|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|ListSaves|null {
+  accessor: (obj:GetBuildings|GetChronicle|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|ListSaves) => GetBuildings|GetChronicle|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|ListSaves|null
+): GetBuildings|GetChronicle|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|ListSaves|null {
   switch(QueryBody[type]) {
     case 'NONE': return null; 
     case 'GetRaster': return accessor(new GetRaster())! as GetRaster;
@@ -53,15 +55,16 @@ export function unionToQueryBody(
     case 'GetFirms': return accessor(new GetFirms())! as GetFirms;
     case 'GetFirm': return accessor(new GetFirm())! as GetFirm;
     case 'GetWealth': return accessor(new GetWealth())! as GetWealth;
+    case 'GetKnowledge': return accessor(new GetKnowledge())! as GetKnowledge;
     default: return null;
   }
 }
 
 export function unionListToQueryBody(
   type: QueryBody, 
-  accessor: (index: number, obj:GetBuildings|GetChronicle|GetFields|GetFirm|GetFirms|GetHydrography|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|ListSaves) => GetBuildings|GetChronicle|GetFields|GetFirm|GetFirms|GetHydrography|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|ListSaves|null, 
+  accessor: (index: number, obj:GetBuildings|GetChronicle|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|ListSaves) => GetBuildings|GetChronicle|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|ListSaves|null, 
   index: number
-): GetBuildings|GetChronicle|GetFields|GetFirm|GetFirms|GetHydrography|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|ListSaves|null {
+): GetBuildings|GetChronicle|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|ListSaves|null {
   switch(QueryBody[type]) {
     case 'NONE': return null; 
     case 'GetRaster': return accessor(index, new GetRaster())! as GetRaster;
@@ -77,6 +80,7 @@ export function unionListToQueryBody(
     case 'GetFirms': return accessor(index, new GetFirms())! as GetFirms;
     case 'GetFirm': return accessor(index, new GetFirm())! as GetFirm;
     case 'GetWealth': return accessor(index, new GetWealth())! as GetWealth;
+    case 'GetKnowledge': return accessor(index, new GetKnowledge())! as GetKnowledge;
     default: return null;
   }
 }

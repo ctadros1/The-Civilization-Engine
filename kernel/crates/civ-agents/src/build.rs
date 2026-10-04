@@ -483,6 +483,7 @@ mod tests {
             eave_cm: 180,
             pitch_centideg: 4500,
             roof_by_day: 304,
+            technique: None,
         }
     }
 

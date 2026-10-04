@@ -8,6 +8,7 @@ import type {
   EventItem,
   FirmBrief,
   FirmInfo,
+  KnowledgeInfo,
   MarketInfo,
   PersonInfo,
   Snapshot,
@@ -71,6 +72,10 @@ export interface AppState {
   wealth: WealthInfo | null;
   /** Why the wealth measures could not be read. */
   wealthError: string | null;
+  /** What each settlement of the world on show knows (null = not read yet). */
+  knowledge: KnowledgeInfo | null;
+  /** Why the knowledge could not be read. */
+  knowledgeError: string | null;
 }
 
 export const MAX_EVENTS = 300;
@@ -97,6 +102,8 @@ export function initialState(): AppState {
     firm: null,
     wealth: null,
     wealthError: null,
+    knowledge: null,
+    knowledgeError: null,
   };
 }
 

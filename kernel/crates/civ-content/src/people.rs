@@ -3,8 +3,8 @@
 
 use civ_agents::params::{
     BandParams, DecisionParams, EnergyParams, FamilyParams, FarmParams, FertilityParams,
-    FirmParams, HouseholdParams, MarketParams, MortalityParams, NameParams, PeopleParams,
-    Residence, Siler, SleepParams, SocialParams,
+    FirmParams, HouseholdParams, KnowledgeParams, MarketParams, MortalityParams, NameParams,
+    PeopleParams, Residence, Siler, SleepParams, SocialParams,
 };
 use civ_world::nav::NavParams;
 use serde::Deserialize;
@@ -39,6 +39,28 @@ pub(crate) struct PeopleFile {
     pub family: Family,
     pub market: Market,
     pub firm: Firm,
+    pub knowledge: Knowledge,
+}
+
+/// What founders know and how people learn (ADR-0008).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Knowledge {
+    /// The share of founders old enough for the work who know each technique.
+    pub founders: Vec<Founders>,
+    /// Learners one person teaches at once.
+    pub max_learners: u32,
+    /// Utility points for working beside someone to learn what they know.
+    pub w_learn: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Founders {
+    /// A technique id.
+    pub technique: String,
+    /// The share of founders old enough for its work who know it, 0-1.
+    pub share: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -308,6 +330,7 @@ impl PeopleFile {
         provisions_good: usize,
         crop: usize,
         home_program: usize,
+        founders: Vec<(usize, f64)>,
     ) -> PeopleParams {
         let (w, e, s, so, h, d, b, m) = (
             &self.walking,
@@ -508,6 +531,11 @@ impl PeopleFile {
                 wage_max_change: self.firm.wage_max_change,
                 max_hire_hours: self.firm.max_hire_hours,
             },
+            knowledge: KnowledgeParams {
+                founders,
+                max_learners: self.knowledge.max_learners,
+                w_learn: self.knowledge.w_learn,
+            },
             names,
         }
     }
@@ -515,6 +543,26 @@ impl PeopleFile {
     /// Range problems, as messages.
     pub fn problems(&self) -> Vec<String> {
         let mut p = Vec::new();
+        for f in &self.knowledge.founders {
+            if !(f.share.is_finite() && (0.0..=1.0).contains(&f.share)) {
+                p.push(format!(
+                    "`knowledge.founders` share of `{}` must be between 0 and 1 (got {})",
+                    f.technique, f.share
+                ));
+            }
+        }
+        if !(1..=10).contains(&self.knowledge.max_learners) {
+            p.push(format!(
+                "`knowledge.max_learners` must be 1-10 (got {})",
+                self.knowledge.max_learners
+            ));
+        }
+        if !(self.knowledge.w_learn.is_finite() && self.knowledge.w_learn >= 0.0) {
+            p.push(format!(
+                "`knowledge.w_learn` must be zero or more (got {})",
+                self.knowledge.w_learn
+            ));
+        }
         if !(self.latitude_deg.is_finite() && self.latitude_deg.abs() <= 66.0) {
             p.push(format!(
                 "`latitude_deg` must be between -66 and 66 (got {})",

@@ -22,6 +22,9 @@ use crate::{decide, farm};
 pub const PURPOSE_BAND: u64 = 0x6261_6e64_3030_3031; // "band0001"
 /// Purpose tag for the draws that make a family the observer sends (god tool).
 pub const PURPOSE_SPAWN: u64 = 0x7370_6177_6e30_3031; // "spawn001"
+/// Keyed-randomness purpose of what a founder knows (ADR-0008 §1): its own stream, so the other
+/// founding draws are as they were.
+pub const PURPOSE_KNOW: u64 = 0x6b6e_6f77_3030_3031; // "know0001"
 /// A family the observer sends within this of a settlement's hearth, metres, joins it; farther
 /// away it makes camp where it was placed.
 pub const SPAWN_JOIN_M: f32 = 600.0;
@@ -642,6 +645,14 @@ fn add_family(
                 params.family.independent_age,
                 &mut d.0,
             ),
+            knows: crate::knowledge::founder_knowledge(
+                ctx.catalog,
+                &params.knowledge,
+                params.family.independent_age,
+                m.age,
+                &mut Rng64::from_key(&[ctx.seed, PURPOSE_KNOW, id.get()]),
+                now,
+            ),
         });
         people.push(id);
     }
@@ -738,6 +749,10 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
         households.push(hh_id);
         people.extend(ids);
     }
+    // The band brings at least one knower of each technique its people know (ADR-0008 §1), and
+    // the settlement's record begins with what they brought.
+    pop.ensure_knowers(ctx.catalog, params, now, &people);
+    pop.note_arrivals(ctx.catalog, now, settlement, &people);
     pop.chronicle_push(
         now,
         ChronicleKind::BandArrived,
@@ -926,6 +941,8 @@ fn spawn_one(
         &mut d,
         &mut used_names,
     );
+    // What the family brings that its settlement did not know is noted (ADR-0008 §2).
+    pop.note_arrivals(ctx.catalog, now, settlement, &people);
     pop.chronicle_push(
         now,
         ChronicleKind::FamilyArrived,
@@ -1095,6 +1112,11 @@ pub(crate) mod tests {
                 wage_review_days: 14,
                 wage_max_change: 0.05,
                 max_hire_hours: 21.0,
+            },
+            knowledge: crate::params::KnowledgeParams {
+                founders: Vec::new(),
+                max_learners: 2,
+                w_learn: 2.0,
             },
             names: NameParams::default(),
             farm: FarmParams {

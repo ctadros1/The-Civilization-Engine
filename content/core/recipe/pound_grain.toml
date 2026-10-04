@@ -5,6 +5,7 @@ kind = "recipe"
 id = "core:recipe/pound_grain"
 name = "Pound grain"
 skill = "core:skill/milling"
+technique = "core:technique/pounding"
 unit_h = 1.0
 session_h = 0.0
 max_units = 0.0

@@ -408,13 +408,15 @@ fn run_smoke(args: SmokeArgs) -> anyhow::Result<ExitCode> {
         println!(
             "then {} years, checked at each year's end: nobody stuck, no population or land \
              problems, every good accounted for, at most {}× the founders, ≥ {:.0}% of households roofed from year 2, a \
-             first trail in year 1, land claims that fit the regime, no field lost, wealth measures in range; at least \
-             half the bands keep {} people. The worlds take the content's {} property regimes in turn. Each \
+             first trail in year 1, land claims that fit the regime, no field lost, wealth measures in range, the \
+             techniques every founder brings known by ≥ {:.0}% of those old enough; at least half the bands keep {} \
+             people. The worlds take the content's {} property regimes in turn. Each \
              economy is graded at the end (red fails): food stocks after the harvest, grain asked before it against \
              after, the Gini of goods from year {} (amber below {}), and workshop sizes (gray below {} workshops)",
             args.years,
             smoke::MAX_GROWTH,
             smoke::MIN_ROOFED * 100.0,
+            smoke::MIN_UPBRINGING * 100.0,
             smoke::MIN_ALIVE,
             content.catalog.regimes.len(),
             civ_host::economy::GINI_FROM_YEAR,

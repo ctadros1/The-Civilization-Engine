@@ -28,6 +28,8 @@ pub(crate) struct BuildingFile {
     pub pitch_deg: f64,
     /// The day of the year (0 = 1 January) a household wants to be under its roof by.
     pub roof_by_day: u16,
+    /// The technique building it needs: a technique id, or "" for none (ADR-0008 §1).
+    pub technique: String,
     pub materials: Materials,
     pub rules: Rules,
 }
@@ -87,9 +89,13 @@ fn centideg(deg: f64) -> i32 {
 }
 
 impl BuildingFile {
-    /// The compiled program, with its materials resolved by `good_index` (`None` if one is
-    /// unknown, which the cross-file check reports).
-    pub fn def(&self, good_index: &dyn Fn(&str) -> Option<usize>) -> Option<BuildingDef> {
+    /// The compiled program, with its materials resolved by `good_index` and its technique
+    /// given (`None` if a material is unknown, which the cross-file check reports).
+    pub fn def(
+        &self,
+        good_index: &dyn Fn(&str) -> Option<usize>,
+        technique: Option<usize>,
+    ) -> Option<BuildingDef> {
         let r = &self.rules;
         let materials = self
             .materials
@@ -130,6 +136,7 @@ impl BuildingFile {
             eave_cm: self.eave_cm,
             pitch_centideg: centideg(self.pitch_deg),
             roof_by_day: self.roof_by_day,
+            technique,
         })
     }
 

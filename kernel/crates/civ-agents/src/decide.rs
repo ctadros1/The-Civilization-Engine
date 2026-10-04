@@ -317,6 +317,14 @@ fn finish(def: u16, target: Target, mut terms: Vec<Term>, steps: Vec<Step>) -> C
     }
 }
 
+/// Adds a consideration to a scored candidate, keeping its terms in order and its total.
+pub fn add_term(c: &mut Candidate, reason: Reason, points: f64) {
+    let mut terms = std::mem::take(&mut c.scored.terms);
+    term(&mut terms, reason, points);
+    let steps = std::mem::take(&mut c.steps);
+    *c = finish(c.scored.def, c.scored.target, terms, steps);
+}
+
 fn walk_home_first(f: &Facts) -> Vec<Step> {
     if f.at_home {
         Vec::new()
@@ -1197,6 +1205,7 @@ mod tests {
             max_minutes: 240,
             daylight_only: true,
             max_walk_minutes: 30,
+            technique: None,
         }
     }
 

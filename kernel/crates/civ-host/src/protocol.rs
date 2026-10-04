@@ -56,6 +56,15 @@ pub enum Request {
         /// Simulation minute to stop at.
         minute: i64,
     },
+    /// A living person comes to know a technique, or only hears of it (god tool, ADR-0008 §6).
+    IntroduceTechnique {
+        /// Permanent id.
+        person: u64,
+        /// Index into the welcome's techniques.
+        technique: u32,
+        /// They only hear of it.
+        aware_only: bool,
+    },
     /// Read part of a raster.
     GetRaster(RasterQuery),
     /// Read the rivers and lakes.
@@ -101,6 +110,8 @@ pub enum Request {
     },
     /// Read every settlement's wealth measures.
     GetWealth,
+    /// Read what every settlement knows.
+    GetKnowledge,
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -344,6 +355,16 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         .ok_or_else(|| missing("command"))?;
                     Ok(Request::RunUntil { minute: b.minute() })
                 }
+                wire::CommandBody::IntroduceTechnique => {
+                    let b = command
+                        .body_as_introduce_technique()
+                        .ok_or_else(|| missing("command"))?;
+                    Ok(Request::IntroduceTechnique {
+                        person: b.person(),
+                        technique: b.technique(),
+                        aware_only: b.aware_only(),
+                    })
+                }
                 other => Err(format!("unknown command {}", other.0)),
             }
         }
@@ -396,6 +417,7 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                     Ok(Request::GetFirm { id: b.id() })
                 }
                 wire::QueryBody::GetWealth => Ok(Request::GetWealth),
+                wire::QueryBody::GetKnowledge => Ok(Request::GetKnowledge),
                 other => Err(format!("unknown query {}", other.0)),
             }
         }
@@ -489,6 +511,7 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
         })
         .collect();
     let skills = fbb.create_vector(&skills);
+    let techniques = civ_sim::frames::knowledge::technique_infos(&mut fbb, &content.catalog);
     let regimes: Vec<_> = content
         .catalog
         .regimes
@@ -575,6 +598,7 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
             crops: Some(crops),
             skills: Some(skills),
             regimes: Some(regimes),
+            techniques: Some(techniques),
         },
     );
     finish(fbb, root)
@@ -617,6 +641,9 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
     let markets_rev = parts.sim.map_or(0, civ_sim::frames::markets::markets_rev);
     let firms_rev = parts.sim.map_or(0, civ_sim::frames::firms::firms_rev);
     let wealth_rev = parts.sim.map_or(0, civ_sim::frames::wealth::wealth_rev);
+    let knowledge_rev = parts
+        .sim
+        .map_or(0, civ_sim::frames::knowledge::knowledge_rev);
     let task = parts.task.map(|t| {
         let name = fbb.create_string(&t.name);
         let stage = fbb.create_string(&t.stage);
@@ -665,6 +692,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
             markets_rev,
             firms_rev,
             wealth_rev,
+            knowledge_rev,
         },
     );
     finish(fbb, root)

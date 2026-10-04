@@ -37,10 +37,14 @@ use crate::person::{
 };
 
 mod firm;
+mod knowledge;
 mod land;
 mod life;
 mod market;
 mod transfer;
+
+use knowledge::Gate;
+pub use knowledge::{LOST_AWARE, LOST_MADE_REMAIN};
 
 pub use life::{depleted, extra_kcal_day};
 
@@ -202,6 +206,9 @@ pub struct Population {
     pub firms: Vec<crate::firm::Firm>,
     /// Each settlement's wealth measures at the end of each year, oldest first (ADR-0007 §4).
     pub wealth_years: Vec<crate::wealth::WealthYear>,
+    /// Each settlement's record of the techniques it came to know and lost, oldest first
+    /// (ADR-0008 §2).
+    pub knowledge: Vec<crate::knowledge::KnowledgeEvent>,
 }
 
 /// A hut a household would begin: its design (which says where it stands) and what each stage
@@ -1746,6 +1753,32 @@ impl Population {
             build,
             &shop,
         );
+        // Work that needs a technique the person does not know is left out, unless a member of
+        // their household who knows it is at that work there now: then they may work beside them
+        // and learn it (ADR-0008 §4).
+        let (mut cands, mut excluded) = (cands, excluded);
+        if let Some(me) = self.people.get(h) {
+            let mut i = 0;
+            while i < cands.len() {
+                let (def, target) = (cands[i].scored.def, cands[i].scored.target);
+                let gate = catalog
+                    .activities
+                    .get(usize::from(def))
+                    .and_then(|a| self.technique_for(ctx, a, target))
+                    .map_or(Gate::Open, |t| self.gate(ctx, me, t, def, target));
+                match gate {
+                    Gate::Open => i += 1,
+                    Gate::Learner(_) => {
+                        decide::add_term(&mut cands[i], Reason::Learning, params.knowledge.w_learn);
+                        i += 1;
+                    }
+                    Gate::Closed => {
+                        cands.remove(i);
+                        excluded.push((def, Reason::DoesNotKnow));
+                    }
+                }
+            }
+        }
         let Some(p) = self.people.get_mut(h) else {
             return;
         };
@@ -2128,6 +2161,15 @@ impl Population {
         settle(p, now, params);
         let step = p.act.steps.get(p.act.step as usize).copied();
         let def = ctx.catalog.activities.get(p.act.def as usize).cloned();
+        let (who, act_def, act_target) = (p.id, p.act.def, p.act.target);
+        // The technique the work needs, found before the work changes what it is aimed at.
+        let technique = match (step, def.as_ref()) {
+            (Some(Step::Work { .. }), Some(d)) => self.technique_for(ctx, d, act_target),
+            _ => None,
+        };
+        let Some(p) = self.people.get_mut(h) else {
+            return;
+        };
         match step {
             Some(Step::Walk { to }) => {
                 p.pos = to;
@@ -2222,6 +2264,10 @@ impl Population {
                 _ => {}
             },
             Some(Step::Wait { .. } | Step::Deposit) | None => {}
+        }
+        // A knower has practised the work's technique; a learner learns by it (ADR-0008 §4).
+        if let (Some(Step::Work { minutes }), Some(t)) = (step, technique) {
+            self.practise(ctx, who, t, act_def, act_target, f64::from(minutes) / 60.0);
         }
         // Work wears the tools it needs (a recipe's are worn where it is worked).
         if let (Some(Step::Work { minutes }), Some(d)) = (step, def.as_ref())
@@ -2921,6 +2967,8 @@ impl Population {
         self.review_offers(ctx, day);
         // Births, deaths, couples and the households they make.
         self.live_day(ctx);
+        // Children who have reached the age of their household's work learn it (ADR-0008 §4).
+        self.bring_up(ctx);
     }
 }
 

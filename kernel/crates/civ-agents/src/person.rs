@@ -247,6 +247,75 @@ pub struct Person {
     /// Skill levels, 0–1, by index in the catalog's skills; skills never practised are absent
     /// (ADR-0006 §2).
     pub skills: Vec<(u16, f32)>,
+    /// What they know, are learning or have heard of, by technique, sorted by technique
+    /// (ADR-0008 §2).
+    pub knows: Vec<Know>,
+}
+
+/// How a person came to know of a technique (ADR-0008 §2). Numeric in saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum KnowSource {
+    /// They brought it: a founder, or one of a family the observer sent.
+    Founder,
+    /// They were brought up in a household where this person knew it.
+    Upbringing(PermanentId),
+    /// They worked beside this person, who knew it.
+    Taught(PermanentId),
+    /// They found it themselves.
+    Found,
+    /// The observer introduced it (the god tool).
+    Observer,
+}
+
+impl KnowSource {
+    /// Its number in saves.
+    pub fn code(self) -> u8 {
+        match self {
+            KnowSource::Founder => 0,
+            KnowSource::Upbringing(_) => 1,
+            KnowSource::Taught(_) => 2,
+            KnowSource::Found => 3,
+            KnowSource::Observer => 4,
+        }
+    }
+
+    /// The person it came from, if any.
+    pub fn person(self) -> Option<PermanentId> {
+        match self {
+            KnowSource::Upbringing(p) | KnowSource::Taught(p) => Some(p),
+            _ => None,
+        }
+    }
+
+    /// The source with number `code` and person `person` (a missing person reads as a founder's
+    /// knowledge).
+    pub fn from_code(code: u8, person: Option<PermanentId>) -> KnowSource {
+        match (code, person) {
+            (1, Some(p)) => KnowSource::Upbringing(p),
+            (2, Some(p)) => KnowSource::Taught(p),
+            (3, _) => KnowSource::Found,
+            (4, _) => KnowSource::Observer,
+            _ => KnowSource::Founder,
+        }
+    }
+}
+
+/// What a person knows of one technique (ADR-0008 §2): known, being learnt (hours toward its
+/// `learn_h`), or only heard of (no hours).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Know {
+    /// The technique, by index in the catalog's techniques.
+    pub technique: u16,
+    /// They know it: they can do its work and teach it.
+    pub known: bool,
+    /// Hours of work done beside someone who knew it, while learning it.
+    pub hours: f32,
+    /// When they came to know it; while not yet known, when they first heard of it.
+    pub since: SimTime,
+    /// How it came to them.
+    pub source: KnowSource,
+    /// When they last did its work (`since` if never).
+    pub used: SimTime,
 }
 
 impl Person {
@@ -280,6 +349,98 @@ impl Person {
         {
             Ok(i) => self.skills[i].1 = level,
             Err(i) => self.skills.insert(i, (skill as u16, level)),
+        }
+    }
+
+    /// What they know of technique `t`, if anything.
+    pub fn know(&self, t: usize) -> Option<&Know> {
+        self.knows
+            .binary_search_by_key(&(t as u16), |k| k.technique)
+            .ok()
+            .map(|i| &self.knows[i])
+    }
+
+    /// Whether they know technique `t`: can do its work and teach it.
+    pub fn knows(&self, t: usize) -> bool {
+        self.know(t).is_some_and(|k| k.known)
+    }
+
+    fn know_entry(&mut self, t: usize, now: SimTime, source: KnowSource) -> &mut Know {
+        let i = match self
+            .knows
+            .binary_search_by_key(&(t as u16), |k| k.technique)
+        {
+            Ok(i) => i,
+            Err(i) => {
+                self.knows.insert(
+                    i,
+                    Know {
+                        technique: t as u16,
+                        known: false,
+                        hours: 0.0,
+                        since: now,
+                        source,
+                        used: now,
+                    },
+                );
+                i
+            }
+        };
+        &mut self.knows[i]
+    }
+
+    /// They come to know technique `t` (if they did not already), from `source`. Returns whether
+    /// it is new to them.
+    pub fn come_to_know(&mut self, t: usize, source: KnowSource, now: SimTime) -> bool {
+        let k = self.know_entry(t, now, source);
+        if k.known {
+            return false;
+        }
+        k.known = true;
+        k.since = now;
+        k.used = now;
+        k.source = source;
+        true
+    }
+
+    /// They hear of technique `t` (ADR-0008 §2's awareness), unless they already know of it.
+    pub fn hear_of(&mut self, t: usize, source: KnowSource, now: SimTime) {
+        self.know_entry(t, now, source);
+    }
+
+    /// `hours` of work beside `teacher` on technique `t`, which takes `learn_h` to learn. Returns
+    /// whether they now know it.
+    pub fn learn(
+        &mut self,
+        t: usize,
+        hours: f64,
+        teacher: PermanentId,
+        learn_h: f64,
+        now: SimTime,
+    ) -> bool {
+        let k = self.know_entry(t, now, KnowSource::Taught(teacher));
+        if k.known {
+            return false;
+        }
+        k.hours += hours.max(0.0) as f32;
+        k.source = KnowSource::Taught(teacher);
+        if f64::from(k.hours) + 1e-6 >= learn_h {
+            k.known = true;
+            k.since = now;
+            k.used = now;
+            return true;
+        }
+        false
+    }
+
+    /// They did the work of technique `t`, which they know.
+    pub fn practised(&mut self, t: usize, now: SimTime) {
+        if let Ok(i) = self
+            .knows
+            .binary_search_by_key(&(t as u16), |k| k.technique)
+            && self.knows[i].known
+        {
+            self.knows[i].used = now;
         }
     }
 

@@ -14,5 +14,6 @@ min_minutes = 15                 # looking the goods over, settling, carrying th
 max_minutes = 15
 daylight_only = true
 max_walk_minutes = 30
+technique = ""
 tools = []
 rate = 1.0

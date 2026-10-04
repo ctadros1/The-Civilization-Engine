@@ -92,6 +92,24 @@ table CropInfo {
   seed_good: ushort (id: 3);
 }
 
+// A technique people know, learn and can lose (M3b slice M; ADR-0008). PersonInfo.knows and
+// Knowledge refer to techniques by their index in Welcome.techniques.
+table TechniqueInfo {
+  id: string (id: 0);
+  // "Shaping stone".
+  name: string (id: 1);
+  // What a competent person can do, completing "A competent person can ...".
+  can: string (id: 2);
+  // Index into Welcome.skills of the skill whose practice it is, or -1.
+  domain: int = -1 (id: 3);
+  // Its prerequisites in words ("Shaping wood and Knapping, or Quarrying"); empty for none.
+  requires: string (id: 4);
+  // Hours of work beside someone who knows it that teach it.
+  learn_h: float (id: 5);
+  // Children brought up in a household that knows it learn it at the work's age.
+  upbringing: bool (id: 6);
+}
+
 // A consideration or exclusion reason that decision receipts refer to by code.
 table ReasonInfo {
   code: ushort (id: 0);
@@ -138,6 +156,8 @@ table Welcome {
   skills: [SkillInfo] (id: 16);
   // The property regimes a new world can be made under (M3a slice K).
   regimes: [RegimeInfo] (id: 17);
+  // The techniques (M3b slice M).
+  techniques: [TechniqueInfo] (id: 18);
 }
 
 // ---- Snapshot: replaceable host and world state --------------------------------------------
@@ -266,6 +286,10 @@ table Snapshot {
   // year's wealth measures are recorded (0 = no households). Fetch the measures with GetWealth
   // when it differs from the revision last fetched.
   wealth_rev: ulong (id: 14);
+  // M3b slice M: changes whenever someone comes to know, learns toward, hears of or loses a
+  // technique, and when people arrive, leave or die (0 = no people). Fetch the settlements'
+  // knowledge with GetKnowledge when it differs from the revision last fetched.
+  knowledge_rev: ulong (id: 15);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -331,7 +355,16 @@ table RunUntil {
   minute: long (id: 0);
 }
 
-union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil }
+// M3b slice M: the observer introduces a technique (god tool, ADR-0008 §6): a living person comes
+// to know it, as if they had learnt it elsewhere, or with `aware_only` only hears of it.
+table IntroduceTechnique {
+  person: ulong (id: 0);
+  // Index into Welcome.techniques.
+  technique: uint (id: 1);
+  aware_only: bool (id: 2);
+}
+
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique }
 
 table Command {
   body: CommandBody (id: 1);
@@ -400,7 +433,10 @@ table GetFirm {
 // year (M3a slice K).
 table GetWealth {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth }
+// What each settlement knows: each technique's knowers, learners and history (M3b slice M).
+table GetKnowledge {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge }
 
 table Query {
   body: QueryBody (id: 1);
@@ -615,6 +651,27 @@ table PersonInfo {
   // counts all its food, grain and flour included).
   skills: [SkillLine] (id: 35);
   household_ready_days: float (id: 36);
+  // M3b slice M: what they know, are learning or have heard of.
+  knows: [KnowLine] (id: 37);
+}
+
+// What a person knows of a technique (M3b slice M).
+table KnowLine {
+  // Index into Welcome.techniques.
+  technique: ushort (id: 0);
+  // 0 heard of, 1 learning, 2 known.
+  state: ubyte (id: 1);
+  // Hours learnt beside someone who knows it, while learning; and the hours that teach it.
+  hours: float (id: 2);
+  learn_h: float (id: 3);
+  since_minute: long (id: 4);
+  // How it came, in words rendered by the kernel: "brought it", "brought up with it by Ash",
+  // "taught by Wren", "found it", "introduced by the observer".
+  source: string (id: 5);
+  // Who it came from (0 = nobody).
+  source_person: ulong (id: 6);
+  // When they last did its work.
+  used_minute: long (id: 7);
 }
 
 // A field people work (M1 slice C).
@@ -999,7 +1056,47 @@ table Wealth {
   settlements: [SettlementWealth] (id: 2);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth }
+// Someone named in a knowledge listing.
+table PersonRef {
+  id: ulong (id: 0);
+  name: string (id: 1);
+  age_years: float (id: 2);
+}
+
+// A technique in one settlement (M3b slice M).
+table TechniqueHere {
+  // Index into Welcome.techniques.
+  technique: ushort (id: 0);
+  // Known there now.
+  known: bool (id: 1);
+  // Who knows it, eldest first; who is learning it; who has only heard of it.
+  knowers: [PersonRef] (id: 2);
+  learners: [PersonRef] (id: 3);
+  heard: [PersonRef] (id: 4);
+  // Knowers who did its work in the last year.
+  practised_last_year: uint (id: 5);
+  // Its state in words, rendered by the kernel: "known by 12", "known by one, aged 61; nobody
+  // learning", "lost; two still know of it".
+  status: string (id: 6);
+  // Its history there, oldest first, in sentences: "Brought by Ash in year 1.", "Lost in year 9
+  // with Wren."
+  history: [string] (id: 7);
+}
+
+table SettlementKnowledge {
+  settlement: ulong (id: 0);
+  name: string (id: 1);
+  // Every technique known there, ever known there or known of there.
+  techniques: [TechniqueHere] (id: 2);
+}
+
+table Knowledge {
+  // The snapshot revision this is at.
+  rev: ulong (id: 0);
+  settlements: [SettlementKnowledge] (id: 1);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge }
 
 table Response {
   body: ResponseBody (id: 1);

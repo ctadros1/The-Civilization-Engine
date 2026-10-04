@@ -12,5 +12,6 @@ min_minutes = 10                 # talking, and carrying back what is given
 max_minutes = 10
 daylight_only = false
 max_walk_minutes = 20
+technique = ""
 tools = []
 rate = 1.0

@@ -81,6 +81,9 @@ pub const SCHEMA_V10: u32 = 10;
 /// The schema version of M3a slice J saves, with firms and no property regime: every field held
 /// by the household that works it (see [`agents`]).
 pub const SCHEMA_V11: u32 = 11;
+/// The schema version of M3a slice K and L saves, with property regimes and no knowledge: people
+/// knew everything the content described (see [`agents`]).
+pub const SCHEMA_V12: u32 = 12;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

@@ -293,3 +293,22 @@ wage_max_change = 0.05
 # Most hours of work a workshop hires between two of its weekly reviews: one person's three
 # hours a day (a tuning value).
 max_hire_hours = 21.0
+
+[knowledge]                      # what founders know and how people learn (ADR-0008); tuning values
+# The share of founders old enough for each technique's work who know it. Founders arrive with
+# substantial practical knowledge (research 06-08 §3): every technique of today's work.
+founders = [
+  { technique = "core:technique/emmer_growing", share = 1.0 },
+  { technique = "core:technique/quern_grinding", share = 1.0 },
+  { technique = "core:technique/pounding", share = 1.0 },
+  { technique = "core:technique/hearth_baking", share = 1.0 },
+  { technique = "core:technique/knapping", share = 1.0 },
+  { technique = "core:technique/stone_shaping", share = 1.0 },
+  { technique = "core:technique/wood_shaping", share = 1.0 },
+  { technique = "core:technique/roundhouse", share = 1.0 },
+]
+# Learners one person teaches at once (research 07-02 §2.3: 1-3 a teacher).
+max_learners = 2
+# Utility points for working beside someone to learn what they know: about what useful work is
+# worth (a tuning value).
+w_learn = 2.0

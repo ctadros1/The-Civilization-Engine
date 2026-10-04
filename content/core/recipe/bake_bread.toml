@@ -6,6 +6,7 @@ kind = "recipe"
 id = "core:recipe/bake_bread"
 name = "Bake bread"
 skill = "core:skill/baking"
+technique = "core:technique/hearth_baking"
 unit_h = 0.39
 session_h = 0.25
 max_units = 0.0

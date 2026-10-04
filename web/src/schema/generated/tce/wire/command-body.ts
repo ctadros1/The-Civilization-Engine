@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 
 import { CancelTask } from '../../tce/wire/cancel-task.js';
+import { IntroduceTechnique } from '../../tce/wire/introduce-technique.js';
 import { LoadWorld } from '../../tce/wire/load-world.js';
 import { NewWorld } from '../../tce/wire/new-world.js';
 import { RecoverWorld } from '../../tce/wire/recover-world.js';
@@ -21,13 +22,14 @@ export enum CommandBody {
   CancelTask = 5,
   RecoverWorld = 6,
   SpawnFamily = 7,
-  RunUntil = 8
+  RunUntil = 8,
+  IntroduceTechnique = 9
 }
 
 export function unionToCommandBody(
   type: CommandBody,
-  accessor: (obj:CancelTask|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily) => CancelTask|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|null
-): CancelTask|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|null {
+  accessor: (obj:CancelTask|IntroduceTechnique|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily) => CancelTask|IntroduceTechnique|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|null
+): CancelTask|IntroduceTechnique|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|null {
   switch(CommandBody[type]) {
     case 'NONE': return null; 
     case 'NewWorld': return accessor(new NewWorld())! as NewWorld;
@@ -38,15 +40,16 @@ export function unionToCommandBody(
     case 'RecoverWorld': return accessor(new RecoverWorld())! as RecoverWorld;
     case 'SpawnFamily': return accessor(new SpawnFamily())! as SpawnFamily;
     case 'RunUntil': return accessor(new RunUntil())! as RunUntil;
+    case 'IntroduceTechnique': return accessor(new IntroduceTechnique())! as IntroduceTechnique;
     default: return null;
   }
 }
 
 export function unionListToCommandBody(
   type: CommandBody, 
-  accessor: (index: number, obj:CancelTask|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily) => CancelTask|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|null, 
+  accessor: (index: number, obj:CancelTask|IntroduceTechnique|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily) => CancelTask|IntroduceTechnique|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|null, 
   index: number
-): CancelTask|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|null {
+): CancelTask|IntroduceTechnique|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|null {
   switch(CommandBody[type]) {
     case 'NONE': return null; 
     case 'NewWorld': return accessor(index, new NewWorld())! as NewWorld;
@@ -57,6 +60,7 @@ export function unionListToCommandBody(
     case 'RecoverWorld': return accessor(index, new RecoverWorld())! as RecoverWorld;
     case 'SpawnFamily': return accessor(index, new SpawnFamily())! as SpawnFamily;
     case 'RunUntil': return accessor(index, new RunUntil())! as RunUntil;
+    case 'IntroduceTechnique': return accessor(index, new IntroduceTechnique())! as IntroduceTechnique;
     default: return null;
   }
 }

@@ -35,6 +35,9 @@ pub(crate) struct ActivityFile {
     pub max_minutes: u32,
     pub daylight_only: bool,
     pub max_walk_minutes: u32,
+    /// The technique the work needs: a technique id, or "" for none (a `make` activity's is
+    /// its recipe's).
+    pub technique: String,
 }
 
 fn behavior_names() -> String {
@@ -47,12 +50,14 @@ fn behavior_names() -> String {
 
 impl ActivityFile {
     /// The compiled activity, with its resource resolved to an index in the land profile, its
-    /// recipe to an index in the recipes and its tools to indexes in the goods.
+    /// recipe to an index in the recipes, its tools to indexes in the goods and its technique to
+    /// an index in the techniques.
     pub fn def(
         &self,
         resource: Option<usize>,
         recipe: Option<usize>,
         tools: Vec<usize>,
+        technique: Option<usize>,
     ) -> Option<ActivityDef> {
         Some(ActivityDef {
             id: self.id.clone(),
@@ -71,6 +76,7 @@ impl ActivityFile {
             max_minutes: self.max_minutes,
             daylight_only: self.daylight_only,
             max_walk_minutes: self.max_walk_minutes,
+            technique,
         })
     }
 
@@ -117,6 +123,22 @@ impl ActivityFile {
                 b.name()
             )),
             _ => {}
+        }
+        if Behavior::from_name(&self.behavior) == Some(Behavior::Make) && !self.technique.is_empty()
+        {
+            p.push(
+                "a `make` activity's technique is its recipe's: `technique` must be empty"
+                    .to_owned(),
+            );
+        }
+        if Behavior::from_name(&self.behavior) == Some(Behavior::Build)
+            && !self.technique.is_empty()
+        {
+            p.push(
+                "building work needs its program's technique: a `build` activity's `technique` \
+                 must be empty"
+                    .to_owned(),
+            );
         }
         if Behavior::from_name(&self.behavior) == Some(Behavior::Make) && !self.tools.is_empty() {
             p.push("a `make` activity's tools are its recipe's: `tools` must be empty".to_owned());

@@ -1,0 +1,14 @@
+# Splitting, hewing and carving wood: hoes and handles (research 07-07 WO01). Founders know it
+# (06-08 §3), and in slice M it passes to children at home. 100 hours (07-02 §2.3, a tuning
+# value).
+kind = "technique"
+id = "core:technique/wood_shaping"
+name = "Shaping wood"
+can = "split, hew and carve wood into a hoe or a handle"
+domain = "core:skill/woodworking"
+requires = []
+tried_in = []
+needs = []
+e50_h = 100000.0                 # unused while no work tries toward it
+learn_h = 100.0
+upbringing = true

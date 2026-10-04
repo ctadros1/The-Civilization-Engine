@@ -17,6 +17,8 @@ pub(crate) struct RecipeFile {
     pub name: String,
     /// The skill it uses and trains: a skill id, or "" for none.
     pub skill: String,
+    /// The technique working it needs: a technique id, or "" for none (ADR-0008 §1).
+    pub technique: String,
     /// Labour per unit, hours of a capable adult of middling skill.
     pub unit_h: f64,
     /// Labour per session, hours.
@@ -56,12 +58,13 @@ impl RecipeFile {
         out
     }
 
-    /// The compiled recipe, with goods and its skill resolved (`None` if one is unknown, which
-    /// the cross-file check reports).
+    /// The compiled recipe, with goods, its skill and its technique resolved (`None` if one is
+    /// unknown, which the cross-file check reports).
     pub fn def(
         &self,
         good_index: &dyn Fn(&str) -> Option<usize>,
         skill_index: &dyn Fn(&str) -> Option<usize>,
+        technique: Option<usize>,
     ) -> Option<RecipeDef> {
         let amounts = |list: &[Amount]| -> Option<Vec<(usize, f64)>> {
             list.iter()
@@ -88,6 +91,7 @@ impl RecipeFile {
                 .map(|t| good_index(t))
                 .collect::<Option<Vec<_>>>()?,
             skill,
+            technique,
         })
     }
 

@@ -28,6 +28,7 @@ pub mod farm;
 pub mod firm;
 pub mod found;
 pub mod history;
+pub mod knowledge;
 pub mod ledger;
 pub mod make;
 pub mod market;

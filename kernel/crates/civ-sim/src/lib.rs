@@ -480,6 +480,50 @@ impl Sim {
         spawned
     }
 
+    /// The observer introduces a technique (god tool, ADR-0008 §6): living person `person` comes
+    /// to know technique `technique` (by content id), or with `aware_only` only hears of it. The
+    /// chronicle records it.
+    pub fn introduce_technique(
+        &mut self,
+        person: civ_core::PermanentId,
+        technique: &str,
+        aware_only: bool,
+    ) -> Result<(), String> {
+        let t = self
+            .rules
+            .catalog
+            .technique_index(technique)
+            .ok_or_else(|| format!("there is no technique `{technique}`"))?;
+        let now = self.now();
+        let mut pending = Vec::new();
+        let done = {
+            let mut ctx = Ctx {
+                now,
+                seed: self.meta.seed,
+                map: &self.map,
+                nav: &self.nav,
+                land: &mut self.land,
+                land_params: &self.rules.land,
+                params: &self.rules.people,
+                catalog: &self.rules.catalog,
+                regime: &self.regime,
+                ids: &mut self.ids,
+                schedule: &mut pending,
+            };
+            self.people
+                .introduce_technique(&mut ctx, person, t, aware_only)
+        };
+        for (when, event) in pending {
+            let _ = self
+                .scheduler
+                .schedule(when, PHASE_AGENT, SimEvent::Agent(event));
+        }
+        if done.is_ok() {
+            self.dirty = true;
+        }
+        done
+    }
+
     /// Puts a world together from its parts, paused at 1x and never saved.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn assemble(

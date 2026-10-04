@@ -250,6 +250,22 @@ table Person {
   nursing: ulong (id: 31);
   // Schema 9: skill levels, 0-1, by index into People.skills; skills never practised are absent.
   skills: [SkillLevel] (id: 32);
+  // Schema 13: what they know, are learning or have heard of (ADR-0008 §2).
+  knows: [Knowing] (id: 33);
+}
+
+// Schema 13: what a person knows of one technique, by index into People.techniques. `known`:
+// they can do and teach it; otherwise `hours` learnt so far (0: only heard of it). `source`: 0
+// brought it, 1 brought up with it by `source_person`, 2 taught by `source_person`, 3 found it,
+// 4 introduced by the observer.
+struct Knowing {
+  since: long;
+  used: long;
+  source_person: ulong;
+  hours: float;
+  technique: ushort;
+  known: bool;
+  source: ubyte;
 }
 
 // Schema 9: a person's level in one skill.
@@ -269,6 +285,8 @@ table People {
   goods: [string] (id: 3);
   // Schema 9: skill content ids at save time; SkillLevel.skill indexes this list.
   skills: [string] (id: 4);
+  // Schema 13: technique content ids at save time; Knowing.technique indexes this list.
+  techniques: [string] (id: 5);
 }
 
 // Section "houses": households.
@@ -700,6 +718,25 @@ table WealthYear {
 
 table Wealth {
   years: [WealthYear] (id: 0);
+}
+
+// Section "knowledge" (schema 13): each settlement's record of when it came to know a technique
+// and when it lost one, oldest first (ADR-0008 §2). `kind`: 0 known (by `person`, `source` as in
+// Knowing, from `source_person`), 1 lost (`person` knew it last).
+struct KnowledgeEntry {
+  at: long;
+  settlement: ulong;
+  person: ulong;
+  source_person: ulong;
+  technique: ushort;
+  kind: ubyte;
+  source: ubyte;
+}
+
+table Knowledge {
+  // Technique content ids at save time; KnowledgeEntry.technique indexes this list.
+  techniques: [string] (id: 0);
+  entries: [KnowledgeEntry] (id: 1);
 }
 
 // Section "events": the scheduler's pending events.

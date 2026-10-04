@@ -69,6 +69,7 @@ const client = new HostClient(socketUrl(), {
     void syncMarkets();
     void syncFirms();
     void syncWealth();
+    void syncKnowledge();
     void refreshPerson(false);
   },
   events: (items) => store.update({ events: mergeEvents(store.state.events, items) }),
@@ -418,6 +419,82 @@ async function syncWealth(): Promise<void> {
   if (ok) void syncWealth();
 }
 
+/** `world:revision` of the knowledge shown, the world it belongs to, and when it was asked for. */
+let knowledgeKey = "";
+let knowledgeWorld = "";
+let knowledgeBusy = false;
+let knowledgeAskedAt = -Infinity;
+/** An ask held back by the rate limit, so the last change is always fetched. */
+let knowledgeTimer = 0;
+/** Least real time between fetches of the knowledge, milliseconds. */
+const KNOWLEDGE_REFRESH_MS = 2000;
+
+/**
+ * Fetches what each settlement knows whenever someone comes to know, learns toward, hears of or
+ * loses a technique, and when people arrive, leave or die.
+ */
+async function syncKnowledge(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const worldKey = world ? `${store.state.epoch}:${world.worldId}` : "";
+  if (worldKey !== knowledgeWorld) {
+    // Another world's knowledge is not shown while this one's is read.
+    knowledgeWorld = worldKey;
+    knowledgeKey = "";
+    knowledgeAskedAt = -Infinity;
+    store.update({ knowledge: null, knowledgeError: null });
+  }
+  if (!world) return;
+  const key = `${worldKey}:${s.knowledgeRev}`;
+  if (key === knowledgeKey || knowledgeBusy) return;
+  const now = performance.now();
+  const waited = now - knowledgeAskedAt;
+  if (waited < KNOWLEDGE_REFRESH_MS) {
+    if (!knowledgeTimer) {
+      knowledgeTimer = window.setTimeout(() => {
+        knowledgeTimer = 0;
+        void syncKnowledge();
+      }, KNOWLEDGE_REFRESH_MS - waited);
+    }
+    return;
+  }
+  knowledgeBusy = true;
+  knowledgeAskedAt = now;
+  let ok = false;
+  try {
+    const knowledge = await client.knowledge();
+    if (knowledgeWorld === worldKey) {
+      knowledgeKey = key;
+      store.update({ knowledge, knowledgeError: null });
+      ok = true;
+    }
+  } catch (e) {
+    if (knowledgeWorld === worldKey) store.update({ knowledgeError: errorText(e) });
+  } finally {
+    knowledgeBusy = false;
+  }
+  if (ok) void syncKnowledge();
+}
+
+/**
+ * The observer introduces a technique to someone (god tool, ADR-0008 §6): they come to know it,
+ * or with `awareOnly` only hear of it. The inspector and the knowledge panel are asked again.
+ */
+async function introduceTechnique(
+  person: number,
+  technique: number,
+  awareOnly: boolean,
+): Promise<void> {
+  try {
+    const body = await client.command(M.introduceTechnique(person, technique, awareOnly));
+    const text = body.kind === "ack" && body.message ? body.message : "Introduced";
+    store.update({ notice: { kind: "info", text } });
+  } catch (e) {
+    store.update({ notice: { kind: "error", text: errorText(e) } });
+  }
+  void refreshPerson(true);
+}
+
 /** Opens workshop `id`'s page in the workshops panel, or goes back to the list. */
 function openFirm(id: number | null): void {
   store.update({ firm: id === null ? null : { id, info: null, error: null } });
@@ -568,6 +645,7 @@ bindUi(store, {
     if (clock) await command(M.runUntil(clock.minute + minutes));
   },
   setPlacing,
+  introduceTechnique,
 });
 
 /**
@@ -619,6 +697,21 @@ const hooks = {
       marketsRev: s.snapshot?.marketsRev ?? 0,
       firmsRev: s.snapshot?.firmsRev ?? 0,
       wealthRev: s.snapshot?.wealthRev ?? 0,
+      knowledgeRev: s.snapshot?.knowledgeRev ?? 0,
+      knowledge: s.knowledge
+        ? s.knowledge.settlements.map((x) => ({
+            name: x.name,
+            techniques: x.techniques.map((t) => ({
+              id: s.welcome?.techniques[t.technique]?.id ?? "",
+              known: t.known,
+              knowers: t.knowers.length,
+              learners: t.learners.length,
+              heard: t.heard.length,
+              status: t.status,
+              history: t.history,
+            })),
+          }))
+        : null,
       wealth: s.wealth
         ? {
             regime: s.wealth.regimeName,
@@ -665,6 +758,12 @@ const hooks = {
             name: s.selected.info?.name ?? null,
             doing: s.selected.info?.doing ?? null,
             untilMinute: s.selected.info?.untilMinute ?? null,
+            knows:
+              s.selected.info?.knows.map((k) => ({
+                id: s.welcome?.techniques[k.technique]?.id ?? "",
+                state: k.state,
+                source: k.source,
+              })) ?? null,
           }
         : null,
     };
@@ -674,6 +773,11 @@ const hooks = {
     store.state.snapshot?.people.map((p) => ({ id: p.id, sex: p.sex, ageYears: p.ageYears })) ?? [],
   select: (id: number | null) => select(id),
   openFirm: (id: number | null) => openFirm(id),
+  /** Introduces a technique, by content id, to a person (god tool). */
+  introduceTechnique: (person: number, id: string, awareOnly: boolean) => {
+    const technique = store.state.welcome?.techniques.findIndex((t) => t.id === id) ?? -1;
+    return introduceTechnique(person, technique < 0 ? 0xffff : technique, awareOnly);
+  },
   map: () => map.debugState(),
   pointerAt: (x: number, y: number) => map.pointerInfo(x, y),
   panBy: (dx: number, dy: number) => map.panBy(dx, dy),

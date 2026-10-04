@@ -139,10 +139,16 @@ impl Population {
         now: SimTime,
     ) -> Vec<Option<f64>> {
         let mut levels: Vec<f64> = vec![0.0; catalog.skills.len()];
+        let mut known = vec![false; catalog.techniques.len()];
         for m in &hh.members {
             if let Some(p) = self.person(*m) {
                 for (k, l) in levels.iter_mut().enumerate() {
                     *l = l.max(p.skill(k));
+                }
+                for k in p.knows.iter().filter(|k| k.known) {
+                    if let Some(x) = known.get_mut(usize::from(k.technique)) {
+                        *x = true;
+                    }
                 }
             }
         }
@@ -165,7 +171,8 @@ impl Population {
             now.day_index(),
             &half_life,
         );
-        let mut costs = value::own_costs(catalog, &levels, &gathered, &grown);
+        let knows = |t: usize| known.get(t).copied().unwrap_or(false);
+        let mut costs = value::own_costs(catalog, &levels, &knows, &gathered, &grown);
         value::food_by_energy(&catalog.goods, &mut costs);
         costs
     }

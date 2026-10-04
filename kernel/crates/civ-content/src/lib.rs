@@ -12,9 +12,9 @@
 //!   record, so reformatting a file does not mark every save as "content changed".
 //!
 //! Kinds so far: world-generation presets (M0); the people profile, the land profile, name lists,
-//! activities, goods, crops and building programs (M1); recipes and skills (M3a slice H) and
-//! property regimes (slice K). Later milestones add technologies, offices and the rest of the
-//! plan's primitives, each as a new `kind`.
+//! activities, goods, crops and building programs (M1); recipes and skills (M3a slice H),
+//! property regimes (slice K) and techniques (M3b slice M). Later milestones add offices and the
+//! rest of the plan's primitives, each as a new `kind`.
 
 #![forbid(unsafe_code)]
 
@@ -38,12 +38,13 @@ mod people;
 mod recipe;
 mod regime;
 mod skill;
+mod technique;
 mod worldgen;
 
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 8;
+pub const KERNEL_CONTENT_API: u32 = 9;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -68,11 +69,14 @@ pub enum Severity {
 /// | E2003 | An id's kind segment does not match the file's `kind` |
 /// | E2004 | The file's path does not match its id (`<kind>/<name>.toml`) |
 /// | E2005 | Two definitions share an id |
-/// | E2006 | A reference names something that is not defined (a name list, a land resource, a good, a crop, a building program, a recipe, a skill) |
+/// | E2006 | A reference names something that is not defined (a name list, a land resource, a good, a crop, a building program, a recipe, a skill, a technique, an activity) |
 /// | E3001 | A value is out of its allowed range |
 /// | E3002 | The `kind` is unknown, or missing |
 /// | E3003 | Not exactly one world-generation preset is marked `default = true` |
 /// | E3004 | Not exactly one people profile, or not exactly one land profile |
+/// | E3005 | A technique gates no work: no recipe, activity or building program names it |
+/// | E3006 | Techniques' prerequisites form a cycle |
+/// | E3007 | A recipe can never be worked: an input or tool comes only from recipes that need it |
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Diagnostic {
     /// Stable code, for example `E2004`.
@@ -225,7 +229,7 @@ impl LoadReport {
 
     /// The report as JSON: `{ "ok": bool, "fingerprint": hex|null, "packs": [...], "presets":
     /// [ids], "people": id|null, "land": id|null, "activities": [ids], "goods": [ids],
-    /// "crops": [ids], "buildings": [ids], "diagnostics": [...] }`.
+    /// "crops": [ids], "buildings": [ids], "techniques": [ids], "diagnostics": [...] }`.
     pub fn to_json(&self) -> String {
         let r = self.registry.as_ref();
         let json = serde_json::json!({
@@ -248,6 +252,9 @@ impl LoadReport {
                 .unwrap_or_default(),
             "buildings": r
                 .map(|r| r.catalog.buildings.iter().map(|b| b.id.clone()).collect::<Vec<_>>())
+                .unwrap_or_default(),
+            "techniques": r
+                .map(|r| r.catalog.techniques.iter().map(|t| t.id.clone()).collect::<Vec<_>>())
                 .unwrap_or_default(),
             "diagnostics": self.diagnostics,
         });
@@ -397,6 +404,7 @@ struct Parsed {
     recipes: Vec<Def<recipe::RecipeFile>>,
     skills: Vec<Def<skill::SkillFile>>,
     regimes: Vec<Def<regime::RegimeFile>>,
+    techniques: Vec<Def<technique::TechniqueFile>>,
     /// Files declaring `kind = "people"`, parsed or not (so a broken profile is not also
     /// reported as a missing one).
     people_files: usize,
@@ -630,6 +638,15 @@ fn resolve(
         }
     }
     let good_index = |id: &str| goods.iter().position(|g| g.id == id);
+    // Techniques are indexed by id order, so the work that names one can be resolved before
+    // the techniques themselves are (they name activities in turn).
+    let mut technique_ids: Vec<&str> = parsed
+        .techniques
+        .iter()
+        .map(|d| d.file.id.as_str())
+        .collect();
+    technique_ids.sort_unstable();
+    let technique_index = |id: &str| technique_ids.binary_search(&id).ok();
     let land = match parsed.lands.as_slice() {
         [d] => {
             for r in &d.file.resource {
@@ -688,8 +705,9 @@ fn resolve(
                 Some(_) => {}
             }
         }
-        if ok {
-            buildings.extend(d.file.def(&good_index));
+        let technique = gate(c, parsed, &technique_index, &d.rel, &d.file.technique);
+        if let (true, Ok(technique)) = (ok, technique) {
+            buildings.extend(d.file.def(&good_index, technique));
         }
     }
     buildings.sort_by(|a, b| a.id.cmp(&b.id));
@@ -723,8 +741,9 @@ fn resolve(
             missing(c, parsed, &d.rel, "skill", &d.file.skill);
             ok = false;
         }
-        if ok {
-            recipes.extend(d.file.def(&good_index, &skill_index));
+        let technique = gate(c, parsed, &technique_index, &d.rel, &d.file.technique);
+        if let (true, Ok(technique)) = (ok, technique) {
+            recipes.extend(d.file.def(&good_index, &skill_index, technique));
         }
     }
     recipes.sort_by(|a, b| a.id.cmp(&b.id));
@@ -762,14 +781,27 @@ fn resolve(
                 ),
                 Some(_) => {}
             }
+            let mut founders = Vec::new();
+            let mut known = true;
+            for f in &d.file.knowledge.founders {
+                match technique_index(&f.technique) {
+                    Some(t) => founders.push((t, f.share)),
+                    None => {
+                        missing(c, parsed, &d.rel, "knowledge.founders", &f.technique);
+                        known = false;
+                    }
+                }
+            }
             match (names, good, crop, home) {
-                (Some(n), Some(g), Some(crop), Some(home)) if goods[g].purpose == GoodUse::Food => {
+                (Some(n), Some(g), Some(crop), Some(home))
+                    if known && goods[g].purpose == GoodUse::Food =>
+                {
                     Some(PeopleProfile {
                         id: d.file.id.clone(),
                         pack: d.pack.clone(),
                         name: d.file.name.clone(),
                         description: d.file.description.clone(),
-                        params: d.file.params(n.file.params(), g, crop, home),
+                        params: d.file.params(n.file.params(), g, crop, home, founders),
                     })
                 }
                 _ => None,
@@ -831,24 +863,209 @@ fn resolve(
                 }
             }
         }
-        if ok {
-            activities.extend(d.file.def(resource, recipe, tools));
+        let technique = gate(c, parsed, &technique_index, &d.rel, &d.file.technique);
+        if let (true, Ok(technique)) = (ok, technique) {
+            activities.extend(d.file.def(resource, recipe, tools, technique));
         }
     }
     activities.sort_by(|a, b| a.id.cmp(&b.id));
-    (
-        people,
-        land,
-        Catalog {
-            activities,
-            goods,
-            crops,
-            buildings,
-            recipes,
-            skills,
-            regimes,
-        },
-    )
+    let activity_index = |id: &str| activities.iter().position(|a| a.id == id);
+    let mut techniques = Vec::new();
+    for d in &parsed.techniques {
+        let f = &d.file;
+        let mut ok = true;
+        if !f.domain.is_empty() && skill_index(&f.domain).is_none() {
+            missing(c, parsed, &d.rel, "domain", &f.domain);
+            ok = false;
+        }
+        for (field, id, found) in f
+            .requires
+            .iter()
+            .flatten()
+            .map(|t| ("requires", t, technique_index(t).is_some()))
+            .chain(
+                f.tried_in
+                    .iter()
+                    .map(|a| ("tried_in", a, activity_index(a).is_some())),
+            )
+            .chain(
+                f.needs
+                    .iter()
+                    .map(|g| ("needs", g, good_index(g).is_some())),
+            )
+        {
+            if !found {
+                missing(c, parsed, &d.rel, field, id);
+                ok = false;
+            }
+        }
+        if ok {
+            techniques.extend(f.def(&skill_index, &technique_index, &activity_index, &good_index));
+        }
+    }
+    techniques.sort_by(|a, b| a.id.cmp(&b.id));
+    let catalog = Catalog {
+        activities,
+        goods,
+        crops,
+        buildings,
+        recipes,
+        skills,
+        regimes,
+        techniques,
+    };
+    knowledge_problems(c, parsed, &catalog, land.as_ref());
+    (people, land, catalog)
+}
+
+/// Resolves the technique a piece of work names: `Ok(None)` for `""`, and an error (reported,
+/// E2006) for an id nothing defines.
+fn gate(
+    c: &mut Collector,
+    parsed: &Parsed,
+    technique_index: &dyn Fn(&str) -> Option<usize>,
+    rel: &str,
+    id: &str,
+) -> Result<Option<usize>, ()> {
+    if id.is_empty() {
+        return Ok(None);
+    }
+    match technique_index(id) {
+        Some(t) => Ok(Some(t)),
+        None => {
+            missing(c, parsed, rel, "technique", id);
+            Err(())
+        }
+    }
+}
+
+/// The checks across techniques and recipes (ADR-0008 §1; research 07-03 §6): every technique
+/// gates some work (E3005), prerequisites form no cycle (E3006), and every recipe can be worked
+/// from goods the world renews: gathered, harvested, or made by recipes that can themselves be
+/// worked (E3007, the bootstrap test).
+fn knowledge_problems(
+    c: &mut Collector,
+    parsed: &Parsed,
+    catalog: &Catalog,
+    land: Option<&LandProfile>,
+) {
+    let rel_of = |id: &str| {
+        parsed
+            .techniques
+            .iter()
+            .find(|d| d.file.id == id)
+            .map_or_else(String::new, |d| d.rel.clone())
+    };
+    for (t, def) in catalog.techniques.iter().enumerate() {
+        let gated = catalog.activities.iter().any(|a| a.technique == Some(t))
+            || catalog.recipes.iter().any(|r| r.technique == Some(t))
+            || catalog.buildings.iter().any(|b| b.technique == Some(t));
+        if !gated {
+            c.push(
+                "E3005",
+                &rel_of(&def.id),
+                None,
+                format!(
+                    "technique `{}` gates no work: no recipe, activity or building program names it",
+                    def.id
+                ),
+            );
+        }
+    }
+    // Depth-first search for a cycle through any route's prerequisites.
+    let n = catalog.techniques.len();
+    let mut state = vec![0u8; n]; // 0 unseen, 1 on the path, 2 done
+    fn visit(t: usize, techniques: &[civ_agents::params::TechniqueDef], state: &mut [u8]) -> bool {
+        match state[t] {
+            1 => return true,
+            2 => return false,
+            _ => {}
+        }
+        state[t] = 1;
+        for &u in techniques[t].requires.iter().flatten() {
+            if u < techniques.len() && visit(u, techniques, state) {
+                return true;
+            }
+        }
+        state[t] = 2;
+        false
+    }
+    for t in 0..n {
+        if state[t] == 0 && visit(t, &catalog.techniques, &mut state) {
+            let def = &catalog.techniques[t];
+            c.push(
+                "E3006",
+                &rel_of(&def.id),
+                None,
+                format!("the prerequisites of `{}` lead back to it", def.id),
+            );
+            break;
+        }
+    }
+    // Goods the world renews, to a fixpoint through the recipes.
+    let mut renewed = vec![false; catalog.goods.len()];
+    fn mark(g: usize, renewed: &mut [bool]) {
+        if let Some(r) = renewed.get_mut(g) {
+            *r = true;
+        }
+    }
+    if let Some(l) = land {
+        for r in &l.params.resources {
+            mark(r.good, &mut renewed);
+        }
+    }
+    for crop in &catalog.crops {
+        mark(crop.good, &mut renewed);
+        mark(crop.seed_good, &mut renewed);
+        if let Some((g, _)) = crop.straw {
+            mark(g, &mut renewed);
+        }
+    }
+    let workable = |r: &civ_agents::params::RecipeDef, renewed: &[bool]| {
+        r.inputs
+            .iter()
+            .chain(&r.session_inputs)
+            .map(|&(g, _)| g)
+            .chain(r.tools.iter().copied())
+            .all(|g| renewed.get(g).copied().unwrap_or(false))
+    };
+    loop {
+        let mut changed = false;
+        for r in &catalog.recipes {
+            if workable(r, &renewed) {
+                for &(g, _) in &r.outputs {
+                    if !renewed.get(g).copied().unwrap_or(true) {
+                        mark(g, &mut renewed);
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    if land.is_none() {
+        return; // The land profile's own error is enough.
+    }
+    for r in &catalog.recipes {
+        if !workable(r, &renewed) {
+            let rel = parsed
+                .recipes
+                .iter()
+                .find(|d| d.file.id == r.id)
+                .map_or_else(String::new, |d| d.rel.clone());
+            c.push(
+                "E3007",
+                &rel,
+                None,
+                format!(
+                    "recipe `{}` can never be worked: an input or tool comes only from recipes that need it",
+                    r.id
+                ),
+            );
+        }
+    }
 }
 
 /// `(id, parsed TOML)` of every definition other than presets, for the semantic fingerprint.
@@ -866,6 +1083,7 @@ fn parsed_tables(parsed: &Parsed) -> Vec<(&str, &toml::Table)> {
     all.extend(tables(&parsed.recipes, |f| &f.id));
     all.extend(tables(&parsed.skills, |f| &f.id));
     all.extend(tables(&parsed.regimes, |f| &f.id));
+    all.extend(tables(&parsed.techniques, |f| &f.id));
     all
 }
 
@@ -935,7 +1153,7 @@ fn range_problems(c: &mut Collector, rel: &str, problems: Vec<String>) {
     }
 }
 
-const KINDS: [&str; 11] = [
+const KINDS: [&str; 12] = [
     worldgen::KIND,
     people::KIND,
     land::KIND,
@@ -947,6 +1165,7 @@ const KINDS: [&str; 11] = [
     recipe::KIND,
     skill::KIND,
     regime::KIND,
+    technique::KIND,
 ];
 
 fn compile_file(
@@ -1098,6 +1317,16 @@ fn compile_file(
             if check_identity(c, pack, rel, &file.id, regime::ID_KIND, seen_ids) {
                 range_problems(c, rel, file.problems());
                 parsed.regimes.push(def(rel, pack, file, table));
+            }
+        }
+        technique::KIND => {
+            let Some(file) = parse::<technique::TechniqueFile>(c, rel, source) else {
+                return;
+            };
+            debug_assert_eq!(file.kind, technique::KIND, "dispatched on kind");
+            if check_identity(c, pack, rel, &file.id, technique::ID_KIND, seen_ids) {
+                range_problems(c, rel, file.problems());
+                parsed.techniques.push(def(rel, pack, file, table));
             }
         }
         "" => c.push(

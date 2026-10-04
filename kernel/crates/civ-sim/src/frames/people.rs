@@ -710,6 +710,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
             .map(|&(k, level)| wire::SkillLine::new(k, level))
             .collect();
         let skills = fbb.create_vector(&skills);
+        let knows = super::knowledge::know_lines(&mut fbb, sim, p);
         let lines: Vec<wire::StoreLine> = stores
             .iter()
             .flatten()
@@ -762,6 +763,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.household_food_days = food_days as f32;
         args.household_ready_days = ready_days as f32;
         args.skills = Some(skills);
+        args.knows = Some(knows);
         args.household_water_days = water_days as f32;
         args.household_fuel_days = fuel_days as f32;
         let notes: Vec<_> = family_notes(sim, p)

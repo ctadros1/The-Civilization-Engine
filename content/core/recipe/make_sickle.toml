@@ -4,6 +4,7 @@ kind = "recipe"
 id = "core:recipe/make_sickle"
 name = "Make a sickle"
 skill = "core:skill/knapping"
+technique = "core:technique/knapping"
 unit_h = 3.0
 session_h = 0.0
 max_units = 1.0

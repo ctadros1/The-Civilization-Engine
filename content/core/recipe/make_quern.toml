@@ -4,6 +4,7 @@ kind = "recipe"
 id = "core:recipe/make_quern"
 name = "Make a quern"
 skill = "core:skill/stoneworking"
+technique = "core:technique/stone_shaping"
 unit_h = 20.0
 session_h = 0.0
 max_units = 1.0

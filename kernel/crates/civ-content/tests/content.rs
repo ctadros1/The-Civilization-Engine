@@ -29,8 +29,17 @@ fn real(path: &str) -> String {
 fn people_files() -> Vec<(String, String)> {
     let mut out = Vec::new();
     for dir in [
-        "people", "land", "names", "activity", "good", "crop", "building", "recipe", "skill",
+        "people",
+        "land",
+        "names",
+        "activity",
+        "good",
+        "crop",
+        "building",
+        "recipe",
+        "skill",
         "regime",
+        "technique",
     ] {
         let mut paths: Vec<_> = std::fs::read_dir(repo_content().join("core").join(dir))
             .expect("real content directory")
@@ -55,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 8
+kernel_content_api = 9
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -154,6 +163,44 @@ fn the_repository_content_is_clean() {
         reg.catalog.goods[reg.people.params.band.provisions_good].id,
         "core:good/provisions"
     );
+    // Today's work is gated by the founders' techniques (ADR-0008 §1), which every founder knows.
+    let c = &reg.catalog;
+    let emmer = c
+        .technique_index("core:technique/emmer_growing")
+        .expect("growing emmer");
+    for a in c.activities.iter().filter(|a| a.task.is_some()) {
+        assert_eq!(
+            c.technique_of(a),
+            Some(emmer),
+            "{} needs emmer growing",
+            a.id
+        );
+    }
+    let grind = &c.activities[c.index_of("core:activity/grind_grain").expect("grinding")];
+    assert_eq!(
+        c.technique_of(grind).map(|t| c.techniques[t].id.as_str()),
+        Some("core:technique/quern_grinding"),
+        "a make activity needs its recipe's technique"
+    );
+    let hut = &c.buildings[c.building_index("core:building/hut").expect("the hut")];
+    assert_eq!(
+        hut.technique.map(|t| c.techniques[t].id.as_str()),
+        Some("core:technique/roundhouse")
+    );
+    assert_eq!(
+        c.work_age(emmer),
+        Some(7.0),
+        "children tend crops from seven"
+    );
+    let roundhouse = c
+        .technique_index("core:technique/roundhouse")
+        .expect("roundhouse");
+    assert_eq!(c.work_age(roundhouse), Some(12.0), "building, from twelve");
+    assert_eq!(
+        reg.people.params.knowledge.founders.len(),
+        c.techniques.len()
+    );
+    assert!(c.techniques.iter().all(|t| t.upbringing));
 }
 
 #[test]
@@ -784,6 +831,11 @@ fn the_fingerprint_covers_every_kind() {
         ),
         ("crop/emmer.toml", "grow_days = 120", "grow_days = 125"),
         ("building/hut.toml", "post_kg = 22.0", "post_kg = 23.0"),
+        (
+            "technique/quern_grinding.toml",
+            "learn_h = 20.0",
+            "learn_h = 21.0",
+        ),
     ] {
         let body = real(path).replace(from, to);
         assert_ne!(body, real(path), "{path}: the edit applies");
@@ -930,4 +982,169 @@ fn recipes_and_skills_check_their_numbers_and_references() {
     let reap = reg.catalog.index_of("core:activity/reap").expect("reap");
     let sickle = reg.catalog.good_index("core:good/sickle").expect("sickle");
     assert_eq!(reg.catalog.activities[reap].tools, vec![sickle]);
+}
+
+#[test]
+fn techniques_check_their_references_gates_and_routes() {
+    let preset = real_preset();
+    let grind = real("recipe/grind_grain.toml");
+    let knapping = real("technique/knapping.toml");
+    let people = real("people/early_farmers.toml");
+    let lone = knapping
+        .replace("core:technique/knapping", "core:technique/weaving")
+        .replace("Knapping sickle blades", "Weaving");
+    for (files, code, needle) in [
+        (
+            vec![(
+                "recipe/grind_grain.toml",
+                grind.replace("core:technique/quern_grinding", "core:technique/magic"),
+            )],
+            "E2006",
+            "`technique` refers to `core:technique/magic`",
+        ),
+        (
+            vec![("technique/weaving.toml", lone.clone())],
+            "E3005",
+            "`core:technique/weaving` gates no work",
+        ),
+        (
+            vec![
+                (
+                    "technique/knapping.toml",
+                    knapping.replace(
+                        "requires = []",
+                        "requires = [[\"core:technique/stone_shaping\"]]",
+                    ),
+                ),
+                (
+                    "technique/stone_shaping.toml",
+                    real("technique/stone_shaping.toml").replace(
+                        "requires = []",
+                        "requires = [[\"core:technique/knapping\"]]",
+                    ),
+                ),
+            ],
+            "E3006",
+            "lead back to it",
+        ),
+        (
+            vec![(
+                "technique/knapping.toml",
+                knapping.replace(
+                    "requires = []",
+                    "requires = [[\"core:technique/knapping\"]]",
+                ),
+            )],
+            "E3001",
+            "cannot require itself",
+        ),
+        (
+            vec![(
+                "technique/knapping.toml",
+                knapping.replace("requires = []", "requires = [[]]"),
+            )],
+            "E3001",
+            "every route in `requires`",
+        ),
+        (
+            vec![(
+                "technique/knapping.toml",
+                knapping.replace("learn_h = 200.0", "learn_h = 0.0"),
+            )],
+            "E3001",
+            "`learn_h` must be positive",
+        ),
+        (
+            vec![(
+                "technique/knapping.toml",
+                knapping.replace("tried_in = []", "tried_in = [\"core:activity/juggle\"]"),
+            )],
+            "E2006",
+            "`tried_in` refers to `core:activity/juggle`",
+        ),
+        (
+            vec![(
+                "technique/knapping.toml",
+                knapping.replace("needs = []", "needs = [\"core:good/gold\"]"),
+            )],
+            "E2006",
+            "`needs` refers to `core:good/gold`",
+        ),
+        (
+            vec![(
+                "technique/knapping.toml",
+                knapping.replace("core:skill/knapping", "core:skill/juggling"),
+            )],
+            "E2006",
+            "`domain` refers to `core:skill/juggling`",
+        ),
+        (
+            vec![(
+                "people/early_farmers.toml",
+                people.replace(
+                    "core:technique/pounding\", share = 1.0",
+                    "core:technique/pounding\", share = 1.5",
+                ),
+            )],
+            "E3001",
+            "share of `core:technique/pounding` must be between 0 and 1",
+        ),
+        (
+            vec![(
+                "people/early_farmers.toml",
+                people.replace("core:technique/pounding", "core:technique/mystery"),
+            )],
+            "E2006",
+            "`knowledge.founders` refers to `core:technique/mystery`",
+        ),
+        (
+            vec![(
+                "activity/grind_grain.toml",
+                real("activity/grind_grain.toml").replace(
+                    "technique = \"\"",
+                    "technique = \"core:technique/pounding\"",
+                ),
+            )],
+            "E3001",
+            "its recipe's: `technique` must be empty",
+        ),
+        (
+            // Meal ground from bread, and bread baked from meal: neither can ever be worked.
+            vec![(
+                "recipe/grind_grain.toml",
+                grind.replace(
+                    "inputs = [{ good = \"core:good/grain\"",
+                    "inputs = [{ good = \"core:good/bread\"",
+                ),
+            )],
+            "E3007",
+            "recipe `core:recipe/grind_grain` can never be worked",
+        ),
+    ] {
+        for (path, body) in &files {
+            if repo_content().join("core").join(path).exists() {
+                assert_ne!(*body, real(path), "{needle}: the edit to {path} applies");
+            }
+        }
+        let mut all: Vec<(&str, &str)> = vec![("worldgen/river_valley.toml", &preset)];
+        all.extend(files.iter().map(|(p, b)| (*p, b.as_str())));
+        let report = load_fixture(&all);
+        assert!(
+            codes(&report).contains(&code),
+            "{needle}: {:?}",
+            codes(&report)
+        );
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.message.contains(needle)),
+            "{needle}: {:#?}",
+            report
+                .diagnostics
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+        );
+    }
 }

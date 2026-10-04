@@ -116,6 +116,9 @@ pub struct ActivityDef {
     pub daylight_only: bool,
     /// Longest one-way walk people will make for it, minutes.
     pub max_walk_minutes: u32,
+    /// The technique the work needs, by index in the catalog's techniques (ADR-0008 §1); a
+    /// `make` activity's is its recipe's.
+    pub technique: Option<usize>,
 }
 
 /// What a good is for.
@@ -409,6 +412,35 @@ pub struct RecipeDef {
     pub tools: Vec<usize>,
     /// The skill it uses and trains, by index in the skills.
     pub skill: Option<usize>,
+    /// The technique working it needs, by index in the techniques (ADR-0008 §1).
+    pub technique: Option<usize>,
+}
+
+/// A technique: a practical capability people know, learn and can lose (ADR-0008 §1). What it
+/// gates is named by the work: recipes, activities and building programs name the technique
+/// they need.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TechniqueDef {
+    /// Content id, for example `core:technique/emmer_growing`.
+    pub id: String,
+    /// Display name, for example "Growing emmer".
+    pub name: String,
+    /// What a competent person can do, completing "A competent person can …".
+    pub can: String,
+    /// The skill whose practice it is, by index in the skills.
+    pub domain: Option<usize>,
+    /// Prerequisites: alternative routes, each a set of techniques by index; empty for none.
+    pub requires: Vec<Vec<usize>>,
+    /// Activities whose practice counts toward finding it, by index in the activities.
+    pub tried_in: Vec<usize>,
+    /// Goods a household must hold to try it (the feasibility gate), by index in the goods.
+    pub needs: Vec<usize>,
+    /// Qualified hours of experiment to a median find (E50, research 07-01 §5.3).
+    pub e50_h: f64,
+    /// Hours of work beside someone who knows it that teach it.
+    pub learn_h: f64,
+    /// Children brought up in a household that knows it learn it at the work's age.
+    pub upbringing: bool,
 }
 
 /// The authored activities, goods and crops.
@@ -428,6 +460,9 @@ pub struct Catalog {
     pub skills: Vec<SkillDef>,
     /// Property regimes, in content id order (ADR-0007). A world keeps its regime's id.
     pub regimes: Vec<RegimeDef>,
+    /// Techniques, in content id order (ADR-0008). Their index is how people's knowledge
+    /// refers to them.
+    pub techniques: Vec<TechniqueDef>,
 }
 
 impl Catalog {
@@ -462,6 +497,8 @@ pub struct BuildingDef {
     pub pitch_centideg: i32,
     /// The day of the year a household wants to be under a roof by.
     pub roof_by_day: u16,
+    /// The technique building it needs, by index in the techniques (ADR-0008 §1).
+    pub technique: Option<usize>,
 }
 
 impl Catalog {
@@ -488,6 +525,35 @@ impl Catalog {
     /// The skill with this content id.
     pub fn skill_index(&self, id: &str) -> Option<usize> {
         self.skills.iter().position(|s| s.id == id)
+    }
+
+    /// The technique with this content id.
+    pub fn technique_index(&self, id: &str) -> Option<usize> {
+        self.techniques.iter().position(|t| t.id == id)
+    }
+
+    /// The technique an activity's work needs: its own, or its recipe's (ADR-0008 §1). Building
+    /// work needs the technique of the building it works on, which the activity does not name.
+    pub fn technique_of(&self, def: &ActivityDef) -> Option<usize> {
+        def.technique.or_else(|| {
+            def.recipe
+                .and_then(|r| self.recipes.get(r))
+                .and_then(|r| r.technique)
+        })
+    }
+
+    /// The youngest age at which anyone does work that technique `t` gates, years: the age a
+    /// child brought up with it learns it (ADR-0008 §4). Building programs are worked by the
+    /// `build` activities.
+    pub fn work_age(&self, t: usize) -> Option<f64> {
+        let builds = self.buildings.iter().any(|b| b.technique == Some(t));
+        self.activities
+            .iter()
+            .filter(|a| {
+                self.technique_of(a) == Some(t) || (builds && a.behavior == Behavior::Build)
+            })
+            .map(|a| a.min_age_years)
+            .reduce(f64::min)
     }
 
     /// The tools an activity needs: its own, or its recipe's.
@@ -1021,8 +1087,23 @@ pub struct PeopleParams {
     pub market: MarketParams,
     /// Workshops.
     pub firm: FirmParams,
+    /// What founders know and how people learn.
+    pub knowledge: KnowledgeParams,
     /// Names.
     pub names: NameParams,
+}
+
+/// What founders know and how people learn from one another (ADR-0008).
+#[derive(Clone, Debug, PartialEq)]
+pub struct KnowledgeParams {
+    /// The share of founders old enough for the work who know each technique:
+    /// `(technique index, share 0-1)`. A band always brings at least one knower of a technique
+    /// with a share above zero.
+    pub founders: Vec<(usize, f64)>,
+    /// Learners one person teaches at once (research 07-02 §2.3: 1-3).
+    pub max_learners: u32,
+    /// Utility points for working beside someone to learn what they know.
+    pub w_learn: f64,
 }
 
 /// Linear interpolation in an ascending `(x, y)` table, clamped at its ends.

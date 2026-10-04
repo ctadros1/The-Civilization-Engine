@@ -6,6 +6,7 @@ kind = "recipe"
 id = "core:recipe/grind_grain"
 name = "Grind grain"
 skill = "core:skill/milling"
+technique = "core:technique/quern_grinding"
 unit_h = 0.5
 session_h = 0.0
 max_units = 0.0

@@ -97,11 +97,16 @@ pub enum Reason {
     NoOffer = 120,
     /// Excluded: no workshop nearby is hiring (slice J).
     NoWork = 121,
+    /// To learn the work from someone who knows it, by working beside them (ADR-0008 §4).
+    Learning = 21,
+    /// Excluded: they do not know how, and nobody they could learn from is at the work
+    /// (ADR-0008 §1).
+    DoesNotKnow = 122,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 42] = [
+    pub const ALL: [Reason; 44] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -144,6 +149,8 @@ impl Reason {
         Reason::Cheaper,
         Reason::NoOffer,
         Reason::NoWork,
+        Reason::Learning,
+        Reason::DoesNotKnow,
     ];
 
     /// The reason with this code.
@@ -196,6 +203,8 @@ impl Reason {
             Reason::Cheaper => "it costs less to get it from a neighbour",
             Reason::NoOffer => "nobody nearby offers what is needed",
             Reason::NoWork => "nobody nearby is hiring",
+            Reason::Learning => "learning it from someone who knows",
+            Reason::DoesNotKnow => "does not know how, and nobody to learn from is at it",
         }
     }
 }
@@ -360,6 +369,20 @@ pub enum ChronicleKind {
     /// A workshop closed: `people` is who founded it, `firm` the workshop, `name` the good it
     /// made and `number` why ([`crate::firm::Exit`] as a number).
     WorkshopClosed,
+    /// Someone found a technique (ADR-0008 §3): `people` is the finder, `name` the technique and
+    /// `number` 2 for the first anyone found, 1 for the first in this settlement, 0 for a find of
+    /// what was lost here.
+    TechniqueFound,
+    /// Someone learnt a craft by working beside someone who knew it (ADR-0008 §4): `people` is
+    /// the learner and the teacher, `name` the technique.
+    TechniqueLearned,
+    /// The last person in a settlement who knew a technique died or left (ADR-0008 §5): `people`
+    /// is them, `name` the technique, and `number` flags: 1 if someone there still knows of it or
+    /// is learning it, 2 if goods or buildings made with it remain.
+    TechniqueLost,
+    /// The observer introduced a technique (god tool, ADR-0008 §6): `people` is the person,
+    /// `name` the technique, `number` 1 if they only heard of it.
+    TechniqueIntroduced,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -628,6 +651,61 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 None => Span::Text(title),
             };
             vec![link, Span::Text(format!(" closed{why}."))]
+        }
+        ChronicleKind::TechniqueFound => {
+            let what = event.name.to_lowercase();
+            let first = match event.number.round() as i64 {
+                2 => ", the first anyone has",
+                1 => ", the first here",
+                _ => ", lost here before",
+            };
+            match person(0) {
+                Some(who) => vec![who, Span::Text(format!(" worked out {what}{first}."))],
+                None => vec![Span::Text(format!("Someone worked out {what}{first}."))],
+            }
+        }
+        ChronicleKind::TechniqueLearned => {
+            let what = event.name.to_lowercase();
+            match (person(0), person(1)) {
+                (Some(learner), Some(teacher)) => vec![
+                    learner,
+                    Span::Text(format!(" learnt {what} from ")),
+                    teacher,
+                    Span::Text(".".to_owned()),
+                ],
+                (Some(learner), None) => vec![learner, Span::Text(format!(" learnt {what}."))],
+                _ => vec![Span::Text(format!("Someone learnt {what}."))],
+            }
+        }
+        ChronicleKind::TechniqueLost => {
+            let flags = event.number.round().max(0.0) as u32;
+            let mut tail = String::from(": nobody else here knew it.");
+            if flags & 1 != 0 {
+                tail.push_str(" Some here still know of it.");
+            }
+            if flags & 2 != 0 {
+                tail.push_str(" What was made with it remains.");
+            }
+            match person(0) {
+                Some(last) => vec![
+                    Span::Text(format!("{} was lost with ", event.name)),
+                    last,
+                    Span::Text(tail),
+                ],
+                None => vec![Span::Text(format!("{} was lost here{tail}", event.name))],
+            }
+        }
+        ChronicleKind::TechniqueIntroduced => {
+            let what = event.name.to_lowercase();
+            let (before, after) = if event.number.round() as i64 == 1 {
+                ("The observer told ", format!(" of {what}."))
+            } else {
+                ("The observer taught ", format!(" {what}."))
+            };
+            match person(0) {
+                Some(who) => vec![Span::Text(before.to_owned()), who, Span::Text(after)],
+                None => vec![Span::Text(format!("The observer introduced {what}."))],
+            }
         }
         ChronicleKind::FirstTrail => vec![
             Span::Text("The first trail out of ".to_owned()),

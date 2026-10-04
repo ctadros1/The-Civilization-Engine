@@ -25,6 +25,7 @@ use crate::Sim;
 pub mod buildings;
 pub mod fields;
 pub mod firms;
+pub mod knowledge;
 pub mod markets;
 pub mod paths;
 pub mod people;

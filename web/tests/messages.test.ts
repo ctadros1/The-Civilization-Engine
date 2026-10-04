@@ -68,6 +68,13 @@ describe("builders", () => {
     const group = W.Command.getRootAsCommand(bb(M.spawnFamily(5, 6, 10)));
     expect((group.body(new W.SpawnFamily()) as W.SpawnFamily).families()).toBe(10);
   });
+
+  it("builds the observer's introduction of a technique", () => {
+    const command = W.Command.getRootAsCommand(bb(M.introduceTechnique(42, 3, true)));
+    expect(command.bodyType()).toBe(W.CommandBody.IntroduceTechnique);
+    const body = command.body(new W.IntroduceTechnique()) as W.IntroduceTechnique;
+    expect([body.person(), body.technique(), body.awareOnly()]).toEqual([42n, 3, true]);
+  });
 });
 
 function finish(b: flatbuffers.Builder, root: flatbuffers.Offset): Uint8Array {
@@ -163,6 +170,7 @@ describe("decoders", () => {
       marketsRev: 0,
       firmsRev: 0,
       wealthRev: 0,
+      knowledgeRev: 0,
     });
   });
 
@@ -611,6 +619,47 @@ describe("decoders", () => {
         floorM2: 24,
       },
     ]);
+  });
+
+  it("builds the knowledge query and decodes what each settlement knows", () => {
+    expect(W.Query.getRootAsQuery(bb(M.getKnowledge())).bodyType()).toBe(W.QueryBody.GetKnowledge);
+    const b = new flatbuffers.Builder(512);
+    const ref = (id: bigint, name: string, age: number) =>
+      W.PersonRef.createPersonRef(b, id, b.createString(name), age);
+    const knowers = W.TechniqueHere.createKnowersVector(b, [ref(7n, "Wren", 61.5)]);
+    const learners = W.TechniqueHere.createLearnersVector(b, [ref(9n, "Ash", 15.2)]);
+    const heard = W.TechniqueHere.createHeardVector(b, []);
+    const status = b.createString("known by one, Wren, aged 61; one learning");
+    const history = W.TechniqueHere.createHistoryVector(b, [b.createString("Year 1: brought by Wren.")]);
+    const here = W.TechniqueHere.createTechniqueHere(b, 2, true, knowers, learners, heard, 1, status, history);
+    const techniques = W.SettlementKnowledge.createTechniquesVector(b, [here]);
+    const settlement = W.SettlementKnowledge.createSettlementKnowledge(
+      b,
+      3n,
+      b.createString("Alderford"),
+      techniques,
+    );
+    const list = W.Knowledge.createSettlementsVector(b, [settlement]);
+    const knowledge = W.Knowledge.createKnowledge(b, 11n, list);
+    const body = M.decodeResponse(
+      finish(b, W.Response.createResponse(b, W.ResponseBody.Knowledge, knowledge)),
+    );
+    expect(body.kind).toBe("knowledge");
+    if (body.kind !== "knowledge") return;
+    expect(body.knowledge.rev).toBe(11);
+    const s = body.knowledge.settlements[0]!;
+    expect([s.settlement, s.name]).toEqual([3, "Alderford"]);
+    const t = s.techniques[0]!;
+    expect(t).toMatchObject({
+      technique: 2,
+      known: true,
+      practisedLastYear: 1,
+      status: "known by one, Wren, aged 61; one learning",
+      history: ["Year 1: brought by Wren."],
+      heard: [],
+    });
+    expect(t.knowers).toEqual([{ id: 7, name: "Wren", ageYears: 61.5 }]);
+    expect(t.learners.map((p) => p.name)).toEqual(["Ash"]);
   });
 
   it("decodes a raster tile response", () => {

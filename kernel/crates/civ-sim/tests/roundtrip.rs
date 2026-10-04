@@ -157,9 +157,9 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 14 land, field, plot, building,
-    // wear, market, firm, wealth and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 14);
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 15 land, field, plot, building,
+    // wear, market, firm, wealth, knowledge and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 15);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -537,6 +537,79 @@ fn slice_i_saves_load_with_no_firms() {
     migrated
         .advance_minutes(24 * 60)
         .expect("a migrated world runs");
+}
+
+#[test]
+fn slice_l_saves_load_with_what_founders_bring() {
+    // A schema-12 save keeps nobody's knowledge: everyone gets what a founder of their age would
+    // bring, and each settlement's record of what it knows begins at the load (ADR-0008 §7).
+    let sim = load_first();
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_KNOW)
+        .collect();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V12;
+    let path = republish("slice-l", &info, &sections);
+    let mut migrated = persist::load(&path, content()).expect("a schema-12 save loads");
+    assert!(migrated.is_dirty(), "the migration is new state");
+    let (catalog, params) = (&migrated.rules().catalog, &migrated.rules().people);
+    let now = migrated.now();
+    for t in 0..catalog.techniques.len() {
+        let age = civ_agents::knowledge::knowing_age(catalog, t, params.family.independent_age)
+            .expect("gates work");
+        for (_, p) in migrated.people().people.iter() {
+            assert_eq!(p.knows(t), p.age_years(now) >= age, "{}", p.given);
+        }
+    }
+    let settlements = migrated.land().settlements.len();
+    let records = &migrated.people().knowledge;
+    assert_eq!(records.len(), catalog.techniques.len() * settlements);
+    assert!(records.iter().all(|e| e.at == now
+        && e.kind
+            == civ_agents::knowledge::KnowledgeEventKind::Known(
+                civ_agents::person::KnowSource::Founder
+            )));
+    migrated
+        .advance_minutes(24 * 60)
+        .expect("a migrated world runs");
+}
+
+#[test]
+fn a_save_without_its_knowledge_section_is_refused() {
+    let sim = load_first();
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_KNOW)
+        .collect();
+    let path = republish("no-know", &fixture().first_info, &sections);
+    assert!(persist::load(&path, content()).is_err());
+}
+
+#[test]
+fn what_people_know_survives_a_save_and_load() {
+    let mut sim = load_first();
+    let young = sim
+        .people()
+        .people
+        .iter()
+        .map(|(_, p)| p)
+        .filter(|p| p.knows.is_empty())
+        .map(|p| p.id)
+        .min()
+        .expect("a child who knows nothing yet");
+    sim.introduce_technique(young, "core:technique/knapping", true)
+        .expect("heard of");
+    let dir = scratch_dir("knows");
+    let saved = persist::save(&mut sim, &dir, SaveKind::Manual, "knows").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    for (_, p) in sim.people().people.iter() {
+        assert_eq!(
+            loaded.people().person(p.id).map(|q| &q.knows),
+            Some(&p.knows)
+        );
+    }
+    assert_eq!(loaded.people().knowledge, sim.people().knowledge);
 }
 
 #[test]

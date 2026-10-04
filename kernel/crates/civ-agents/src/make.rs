@@ -268,6 +268,7 @@ mod tests {
             max_units: 0.0,
             tools: vec![5],
             skill: None,
+            technique: None,
         }
     }
 
@@ -283,6 +284,7 @@ mod tests {
             max_units: 40.0,
             tools: vec![6],
             skill: None,
+            technique: None,
         }
     }
 
@@ -365,6 +367,7 @@ mod tests {
             max_units: 1.0,
             tools: Vec::new(),
             skill: None,
+            technique: None,
         };
         apply(&make_quern, &mut stores, &goods, 1.0, 1.4, false, None);
         assert!(

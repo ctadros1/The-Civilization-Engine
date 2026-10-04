@@ -12964,6 +12964,8 @@ impl<'a> BuildingInfo<'a> {
   pub const VT_WORK_PLACES: ::flatbuffers::VOffsetT = 70;
   pub const VT_STORED_KG: ::flatbuffers::VOffsetT = 72;
   pub const VT_STORED: ::flatbuffers::VOffsetT = 74;
+  pub const VT_FIRM: ::flatbuffers::VOffsetT = 76;
+  pub const VT_FIRM_NAME: ::flatbuffers::VOffsetT = 78;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -12975,10 +12977,12 @@ impl<'a> BuildingInfo<'a> {
     args: &'args BuildingInfoArgs<'args>
   ) -> ::flatbuffers::WIPOffset<BuildingInfo<'bldr>> {
     let mut builder = BuildingInfoBuilder::new(_fbb);
+    builder.add_firm(args.firm);
     builder.add_started_minute(args.started_minute);
     builder.add_settlement(args.settlement);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    if let Some(x) = args.firm_name { builder.add_firm_name(x); }
     if let Some(x) = args.stored { builder.add_stored(x); }
     if let Some(x) = args.stored_kg { builder.add_stored_kg(x); }
     builder.add_work_places(args.work_places);
@@ -13267,6 +13271,20 @@ impl<'a> BuildingInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_STORED, None)}
   }
+  #[inline]
+  pub fn firm(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(BuildingInfo::VT_FIRM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn firm_name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_FIRM_NAME, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
@@ -13311,6 +13329,8 @@ impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
      .visit_field::<u32>("work_places", Self::VT_WORK_PLACES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("stored_kg", Self::VT_STORED_KG, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("stored", Self::VT_STORED, false)?
+     .visit_field::<u64>("firm", Self::VT_FIRM, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("firm_name", Self::VT_FIRM_NAME, false)?
      .finish();
     Ok(())
   }
@@ -13352,6 +13372,8 @@ pub struct BuildingInfoArgs<'a> {
     pub work_places: u32,
     pub stored_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
     pub stored: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub firm: u64,
+    pub firm_name: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for BuildingInfoArgs<'a> {
   #[inline]
@@ -13393,6 +13415,8 @@ impl<'a> Default for BuildingInfoArgs<'a> {
       work_places: 0,
       stored_kg: None,
       stored: None,
+      firm: 0,
+      firm_name: None,
     }
   }
 }
@@ -13547,6 +13571,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingInfoBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_STORED, stored);
   }
   #[inline]
+  pub fn add_firm(&mut self, firm: u64) {
+    self.fbb_.push_slot::<u64>(BuildingInfo::VT_FIRM, firm, 0);
+  }
+  #[inline]
+  pub fn add_firm_name(&mut self, firm_name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_FIRM_NAME, firm_name);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingInfoBuilder {
@@ -13600,6 +13632,8 @@ impl ::core::fmt::Debug for BuildingInfo<'_> {
       ds.field("work_places", &self.work_places());
       ds.field("stored_kg", &self.stored_kg());
       ds.field("stored", &self.stored());
+      ds.field("firm", &self.firm());
+      ds.field("firm_name", &self.firm_name());
       ds.finish()
   }
 }
@@ -16467,6 +16501,8 @@ impl<'a> WealthSpread<'a> {
   pub const VT_WORKED_HA_PER_HEAD: ::flatbuffers::VOffsetT = 26;
   pub const VT_FLOOR_M2_PER_HOUSE: ::flatbuffers::VOffsetT = 28;
   pub const VT_COMMON_HA: ::flatbuffers::VOffsetT = 30;
+  pub const VT_ROOFED_M2_PER_HOUSE: ::flatbuffers::VOffsetT = 32;
+  pub const VT_STORAGE_KG_PER_HOUSE: ::flatbuffers::VOffsetT = 34;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -16479,6 +16515,8 @@ impl<'a> WealthSpread<'a> {
   ) -> ::flatbuffers::WIPOffset<WealthSpread<'bldr>> {
     let mut builder = WealthSpreadBuilder::new(_fbb);
     builder.add_year(args.year);
+    builder.add_storage_kg_per_house(args.storage_kg_per_house);
+    builder.add_roofed_m2_per_house(args.roofed_m2_per_house);
     builder.add_common_ha(args.common_ha);
     builder.add_floor_m2_per_house(args.floor_m2_per_house);
     builder.add_worked_ha_per_head(args.worked_ha_per_head);
@@ -16594,6 +16632,20 @@ impl<'a> WealthSpread<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(WealthSpread::VT_COMMON_HA, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn roofed_m2_per_house(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WealthSpread::VT_ROOFED_M2_PER_HOUSE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn storage_kg_per_house(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WealthSpread::VT_STORAGE_KG_PER_HOUSE, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WealthSpread<'_> {
@@ -16616,6 +16668,8 @@ impl ::flatbuffers::Verifiable for WealthSpread<'_> {
      .visit_field::<f32>("worked_ha_per_head", Self::VT_WORKED_HA_PER_HEAD, false)?
      .visit_field::<f32>("floor_m2_per_house", Self::VT_FLOOR_M2_PER_HOUSE, false)?
      .visit_field::<f32>("common_ha", Self::VT_COMMON_HA, false)?
+     .visit_field::<f32>("roofed_m2_per_house", Self::VT_ROOFED_M2_PER_HOUSE, false)?
+     .visit_field::<f32>("storage_kg_per_house", Self::VT_STORAGE_KG_PER_HOUSE, false)?
      .finish();
     Ok(())
   }
@@ -16635,6 +16689,8 @@ pub struct WealthSpreadArgs {
     pub worked_ha_per_head: f32,
     pub floor_m2_per_house: f32,
     pub common_ha: f32,
+    pub roofed_m2_per_house: f32,
+    pub storage_kg_per_house: f32,
 }
 impl<'a> Default for WealthSpreadArgs {
   #[inline]
@@ -16654,6 +16710,8 @@ impl<'a> Default for WealthSpreadArgs {
       worked_ha_per_head: 0.0,
       floor_m2_per_house: 0.0,
       common_ha: 0.0,
+      roofed_m2_per_house: 0.0,
+      storage_kg_per_house: 0.0,
     }
   }
 }
@@ -16720,6 +16778,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WealthSpreadBuilder<'a, 'b, A
     self.fbb_.push_slot::<f32>(WealthSpread::VT_COMMON_HA, common_ha, 0.0);
   }
   #[inline]
+  pub fn add_roofed_m2_per_house(&mut self, roofed_m2_per_house: f32) {
+    self.fbb_.push_slot::<f32>(WealthSpread::VT_ROOFED_M2_PER_HOUSE, roofed_m2_per_house, 0.0);
+  }
+  #[inline]
+  pub fn add_storage_kg_per_house(&mut self, storage_kg_per_house: f32) {
+    self.fbb_.push_slot::<f32>(WealthSpread::VT_STORAGE_KG_PER_HOUSE, storage_kg_per_house, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WealthSpreadBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WealthSpreadBuilder {
@@ -16751,6 +16817,8 @@ impl ::core::fmt::Debug for WealthSpread<'_> {
       ds.field("worked_ha_per_head", &self.worked_ha_per_head());
       ds.field("floor_m2_per_house", &self.floor_m2_per_house());
       ds.field("common_ha", &self.common_ha());
+      ds.field("roofed_m2_per_house", &self.roofed_m2_per_house());
+      ds.field("storage_kg_per_house", &self.storage_kg_per_house());
       ds.finish()
   }
 }
@@ -16779,6 +16847,8 @@ impl<'a> HouseholdWealth<'a> {
   pub const VT_RENTED_HA: ::flatbuffers::VOffsetT = 16;
   pub const VT_GOODS_H: ::flatbuffers::VOffsetT = 18;
   pub const VT_FLOOR_M2: ::flatbuffers::VOffsetT = 20;
+  pub const VT_ROOFED_M2: ::flatbuffers::VOffsetT = 22;
+  pub const VT_STORAGE_KG: ::flatbuffers::VOffsetT = 24;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -16791,6 +16861,8 @@ impl<'a> HouseholdWealth<'a> {
   ) -> ::flatbuffers::WIPOffset<HouseholdWealth<'bldr>> {
     let mut builder = HouseholdWealthBuilder::new(_fbb);
     builder.add_household(args.household);
+    builder.add_storage_kg(args.storage_kg);
+    builder.add_roofed_m2(args.roofed_m2);
     builder.add_floor_m2(args.floor_m2);
     builder.add_goods_h(args.goods_h);
     builder.add_rented_ha(args.rented_ha);
@@ -16866,6 +16938,20 @@ impl<'a> HouseholdWealth<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(HouseholdWealth::VT_FLOOR_M2, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn roofed_m2(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(HouseholdWealth::VT_ROOFED_M2, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn storage_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(HouseholdWealth::VT_STORAGE_KG, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for HouseholdWealth<'_> {
@@ -16883,6 +16969,8 @@ impl ::flatbuffers::Verifiable for HouseholdWealth<'_> {
      .visit_field::<f32>("rented_ha", Self::VT_RENTED_HA, false)?
      .visit_field::<f32>("goods_h", Self::VT_GOODS_H, false)?
      .visit_field::<f32>("floor_m2", Self::VT_FLOOR_M2, false)?
+     .visit_field::<f32>("roofed_m2", Self::VT_ROOFED_M2, false)?
+     .visit_field::<f32>("storage_kg", Self::VT_STORAGE_KG, false)?
      .finish();
     Ok(())
   }
@@ -16897,6 +16985,8 @@ pub struct HouseholdWealthArgs<'a> {
     pub rented_ha: f32,
     pub goods_h: f32,
     pub floor_m2: f32,
+    pub roofed_m2: f32,
+    pub storage_kg: f32,
 }
 impl<'a> Default for HouseholdWealthArgs<'a> {
   #[inline]
@@ -16911,6 +17001,8 @@ impl<'a> Default for HouseholdWealthArgs<'a> {
       rented_ha: 0.0,
       goods_h: 0.0,
       floor_m2: 0.0,
+      roofed_m2: 0.0,
+      storage_kg: 0.0,
     }
   }
 }
@@ -16957,6 +17049,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdWealthBuilder<'a, 'b
     self.fbb_.push_slot::<f32>(HouseholdWealth::VT_FLOOR_M2, floor_m2, 0.0);
   }
   #[inline]
+  pub fn add_roofed_m2(&mut self, roofed_m2: f32) {
+    self.fbb_.push_slot::<f32>(HouseholdWealth::VT_ROOFED_M2, roofed_m2, 0.0);
+  }
+  #[inline]
+  pub fn add_storage_kg(&mut self, storage_kg: f32) {
+    self.fbb_.push_slot::<f32>(HouseholdWealth::VT_STORAGE_KG, storage_kg, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdWealthBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HouseholdWealthBuilder {
@@ -16983,6 +17083,8 @@ impl ::core::fmt::Debug for HouseholdWealth<'_> {
       ds.field("rented_ha", &self.rented_ha());
       ds.field("goods_h", &self.goods_h());
       ds.field("floor_m2", &self.floor_m2());
+      ds.field("roofed_m2", &self.roofed_m2());
+      ds.field("storage_kg", &self.storage_kg());
       ds.finish()
   }
 }

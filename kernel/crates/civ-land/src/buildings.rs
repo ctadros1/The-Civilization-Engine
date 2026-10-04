@@ -74,6 +74,10 @@ pub struct Building {
     pub started: SimTime,
     /// When the stage under way began (when it was finished, once finished).
     pub stage_since: SimTime,
+    /// The firm it is the workshop of, if any (ADR-0009 §7): where the firm works, hires and
+    /// keeps its stores once its roof is on. A closed firm's building keeps the link until
+    /// another firm of its household takes it.
+    pub firm: Option<PermanentId>,
 }
 
 /// Work left on a stage below which it counts as done, hours (about four seconds): work is kept
@@ -203,6 +207,7 @@ mod tests {
             work_h: 0.0,
             started: SimTime::ZERO,
             stage_since: SimTime::ZERO,
+            firm: None,
         }
     }
 

@@ -90,6 +90,9 @@ pub const SCHEMA_V13: u32 = 13;
 /// The schema version of M3b slice N saves: trying toward techniques and finds, before frame
 /// buildings and plots for stores and workshops (see [`agents`]).
 pub const SCHEMA_V14: u32 = 14;
+/// The schema version of M3b slice O's first two steps: frame buildings, before workshops named
+/// their firms (see [`agents`]).
+pub const SCHEMA_V15: u32 = 15;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

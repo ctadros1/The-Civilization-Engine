@@ -666,6 +666,13 @@ impl Sim {
         &mut self.land
     }
 
+    /// A fresh permanent id, for something a test sets up by hand (a firm, say).
+    #[doc(hidden)]
+    pub fn allocate_id_for_tests(&mut self) -> civ_core::PermanentId {
+        self.dirty = true;
+        self.ids.allocate()
+    }
+
     /// Puts up a building to `spec` for `household`, through stage `stage` (the number of stages
     /// for a finished one), on a plot of its own with its program's use, for a test that needs a
     /// building no household designs yet. Its ground is not checked; its household's goods keep
@@ -701,6 +708,7 @@ impl Sim {
             work_h: 0.0,
             started: now,
             stage_since: now,
+            firm: None,
         });
         self.people.buildings_changed(
             now,

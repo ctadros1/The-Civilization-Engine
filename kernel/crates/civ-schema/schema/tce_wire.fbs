@@ -781,6 +781,10 @@ table BuildingInfo {
   // grain".
   stored_kg: [float] (id: 34);
   stored: string (id: 35);
+  // Wire 1.16 (M3b slice O): the firm it is the workshop of (0 for none), and its name: "Wren's
+  // sickle workshop".
+  firm: ulong (id: 36);
+  firm_name: string (id: 37);
 }
 
 table Buildings {
@@ -1048,6 +1052,10 @@ table WealthSpread {
   floor_m2_per_house: float (id: 12);
   // Land the settlement itself holds, hectares.
   common_ha: float (id: 13);
+  // Wire 1.16 (M3b slice O): floor under every roof a household has (homes, stores, workshops),
+  // square metres, and room for goods under them, kilograms, a household.
+  roofed_m2_per_house: float (id: 14);
+  storage_kg_per_house: float (id: 15);
 }
 
 // A household's wealth measures (M3a slice K).
@@ -1064,8 +1072,12 @@ table HouseholdWealth {
   rented_ha: float (id: 6);
   // Its goods and its workshops' stock, hours of work at the settlement's prices.
   goods_h: float (id: 7);
-  // Floor area under its roofs, square metres.
+  // Floor area of its home, square metres.
   floor_m2: float (id: 8);
+  // Wire 1.16 (M3b slice O): floor under all its roofs, homes, stores and workshops, square
+  // metres, and room for goods under them, kilograms.
+  roofed_m2: float (id: 9);
+  storage_kg: float (id: 10);
 }
 
 table SettlementWealth {

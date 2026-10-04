@@ -5,6 +5,7 @@
 //! nobody is left to keep it or it has sold nothing for months.
 
 use civ_core::{Handle, PermanentId, SimTime};
+use civ_land::PlotUse;
 
 use civ_world::nav::TravelField;
 
@@ -15,7 +16,7 @@ use crate::history::ChronicleKind;
 use crate::ledger::{Channel, Leg};
 use crate::make;
 use crate::params::{ActivityDef, Behavior, GoodUse, interpolate};
-use crate::person::{Flow, Household, Person, stock_kcal};
+use crate::person::{Flow, Household, Person, Step, Target, stock_kcal};
 
 impl Population {
     /// A firm, open or closed.
@@ -72,7 +73,66 @@ impl Population {
             what,
             id,
         );
+        // A workshop building of its household whose firm closed, or that has none, is the new
+        // one's (ADR-0009 §7: a closed firm's building stays).
+        let free = ctx
+            .land
+            .buildings
+            .iter()
+            .position(|b| b.household == owner && self.free_workshop(ctx.catalog, b));
+        if let Some(i) = free {
+            ctx.land.buildings[i].firm = Some(id);
+        }
         Some(id)
+    }
+
+    /// Whether building `b` is a workshop no open firm works in: one whose firm closed, or that
+    /// never had one.
+    pub fn free_workshop(&self, catalog: &crate::params::Catalog, b: &civ_land::Building) -> bool {
+        catalog.use_of(&b.spec.program) == Some(PlotUse::Work)
+            && b.firm
+                .is_none_or(|f| self.firm(f).is_none_or(|f| !f.is_open()))
+    }
+
+    /// Where firm `id` works: the middle of its workshop building, or else of a free one of its
+    /// owners' (see [`Population::free_workshop`]), once that has its roof on; `None` while it
+    /// works in its owners' home.
+    pub fn firm_site(
+        &self,
+        land: &civ_land::Land,
+        catalog: &crate::params::Catalog,
+        id: PermanentId,
+    ) -> Option<(f32, f32)> {
+        let owner = self.firm(id)?.owner;
+        land.buildings
+            .iter()
+            .find(|b| b.firm == Some(id) && b.roofed())
+            .or_else(|| {
+                land.buildings
+                    .iter()
+                    .find(|b| b.household == owner && b.roofed() && self.free_workshop(catalog, b))
+            })
+            .map(|b| crate::build::centre_m(&b.spec))
+    }
+
+    /// How many are working for firm `id` now, owners and hired hands: those whose work is for it
+    /// and under way.
+    fn working_for(&self, ctx: &Ctx, id: PermanentId) -> usize {
+        self.people
+            .iter()
+            .filter(|(_, q)| {
+                q.act.target == Target::Firm(id)
+                    && matches!(
+                        q.act.steps.get(usize::from(q.act.step)),
+                        Some(Step::Work { .. })
+                    )
+                    && ctx
+                        .catalog
+                        .activities
+                        .get(usize::from(q.act.def))
+                        .is_some_and(|a| matches!(a.behavior, Behavior::Make | Behavior::Hire))
+            })
+            .count()
     }
 
     /// Brings a firm's stores up to now, under its owners' roof when they have one.
@@ -122,6 +182,8 @@ impl Population {
             return;
         };
         let hired = p.household != owner;
+        // Who works for it at once, this person among them (still at the work).
+        let at_once = self.working_for(ctx, id);
         let skill = recipe
             .skill
             .and_then(|k| ctx.catalog.skills.get(k).map(|s| (k, s)));
@@ -206,6 +268,7 @@ impl Population {
                 }
             }
             f.books.worked(now, hours, hired);
+            f.saw_at_once(u8::try_from(at_once).unwrap_or(u8::MAX), now.day_index());
         }
         // The work is done with the owners' tools, at their home.
         self.wear_tools(ctx, owner, &recipe.tools, hours);
@@ -506,8 +569,12 @@ impl Population {
             {
                 continue;
             }
+            // At its workshop once it has one, else at its owners' home.
+            let at = self
+                .firm_site(ctx.land, ctx.catalog, f.id)
+                .unwrap_or(owner.home);
             let Some(walk) = reach
-                .seconds_to(cell_of(ctx.map, owner.home))
+                .seconds_to(cell_of(ctx.map, at))
                 .map(|s| f64::from(s) / 60.0)
             else {
                 continue;
@@ -536,7 +603,7 @@ impl Population {
                     JobOption {
                         firm: f.id,
                         walk_min: walk,
-                        at: owner.home,
+                        at,
                         minutes,
                         worth,
                     },

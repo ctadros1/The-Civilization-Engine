@@ -81,8 +81,11 @@ test("a world lives under the tenure it chose, and its wealth is measured", asyn
 
     await expect(panel.locator("h3")).toHaveText(settlement.name);
     const measures = panel.locator("table.measures tbody tr");
-    await expect(measures).toHaveCount(4);
+    await expect(measures).toHaveCount(6);
     await expect(measures.filter({ hasText: "Land held" })).toContainText("none");
+    // Beside the houses (M3b slice O): the floor under all their roofs and their room for goods.
+    await expect(measures.filter({ hasText: "Under all roofs" })).toHaveCount(1);
+    await expect(measures.filter({ hasText: "Room for goods" })).toHaveCount(1);
     await expect(panel.locator(".record")).toContainText(
       "No household holds land: the settlement holds",
     );

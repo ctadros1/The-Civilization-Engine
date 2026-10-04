@@ -7877,7 +7877,9 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_STORAGE_KG = 68,
     VT_WORK_PLACES = 70,
     VT_STORED_KG = 72,
-    VT_STORED = 74
+    VT_STORED = 74,
+    VT_FIRM = 76,
+    VT_FIRM_NAME = 78
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -7987,6 +7989,12 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *stored() const {
     return GetPointer<const ::flatbuffers::String *>(VT_STORED);
   }
+  uint64_t firm() const {
+    return GetField<uint64_t>(VT_FIRM, 0);
+  }
+  const ::flatbuffers::String *firm_name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_FIRM_NAME);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -8039,6 +8047,9 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVector(stored_kg()) &&
            VerifyOffset(verifier, VT_STORED) &&
            verifier.VerifyString(stored()) &&
+           VerifyField<uint64_t>(verifier, VT_FIRM, 8) &&
+           VerifyOffset(verifier, VT_FIRM_NAME) &&
+           verifier.VerifyString(firm_name()) &&
            verifier.EndTable();
   }
 };
@@ -8155,6 +8166,12 @@ struct BuildingInfoBuilder {
   void add_stored(::flatbuffers::Offset<::flatbuffers::String> stored) {
     fbb_.AddOffset(BuildingInfo::VT_STORED, stored);
   }
+  void add_firm(uint64_t firm) {
+    fbb_.AddElement<uint64_t>(BuildingInfo::VT_FIRM, firm, 0);
+  }
+  void add_firm_name(::flatbuffers::Offset<::flatbuffers::String> firm_name) {
+    fbb_.AddOffset(BuildingInfo::VT_FIRM_NAME, firm_name);
+  }
   explicit BuildingInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8203,12 +8220,16 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
     ::flatbuffers::Offset<::flatbuffers::Vector<float>> storage_kg = 0,
     uint32_t work_places = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<float>> stored_kg = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> stored = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> stored = 0,
+    uint64_t firm = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> firm_name = 0) {
   BuildingInfoBuilder builder_(_fbb);
+  builder_.add_firm(firm);
   builder_.add_started_minute(started_minute);
   builder_.add_settlement(settlement);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_firm_name(firm_name);
   builder_.add_stored(stored);
   builder_.add_stored_kg(stored_kg);
   builder_.add_work_places(work_places);
@@ -8286,7 +8307,9 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
     const std::vector<float> *storage_kg = nullptr,
     uint32_t work_places = 0,
     const std::vector<float> *stored_kg = nullptr,
-    const char *stored = nullptr) {
+    const char *stored = nullptr,
+    uint64_t firm = 0,
+    const char *firm_name = nullptr) {
   auto program__ = program ? _fbb.CreateString(program) : 0;
   auto stage_name__ = stage_name ? _fbb.CreateString(stage_name) : 0;
   auto outline__ = outline ? _fbb.CreateVectorOfStructs<tce::wire::Vec2>(*outline) : 0;
@@ -8300,6 +8323,7 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
   auto storage_kg__ = storage_kg ? _fbb.CreateVector<float>(*storage_kg) : 0;
   auto stored_kg__ = stored_kg ? _fbb.CreateVector<float>(*stored_kg) : 0;
   auto stored__ = stored ? _fbb.CreateString(stored) : 0;
+  auto firm_name__ = firm_name ? _fbb.CreateString(firm_name) : 0;
   return tce::wire::CreateBuildingInfo(
       _fbb,
       id,
@@ -8337,7 +8361,9 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
       storage_kg__,
       work_places,
       stored_kg__,
-      stored__);
+      stored__,
+      firm,
+      firm_name__);
 }
 
 struct Buildings FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -10228,7 +10254,9 @@ struct WealthSpread FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_GOODS_H_PER_HEAD = 24,
     VT_WORKED_HA_PER_HEAD = 26,
     VT_FLOOR_M2_PER_HOUSE = 28,
-    VT_COMMON_HA = 30
+    VT_COMMON_HA = 30,
+    VT_ROOFED_M2_PER_HOUSE = 32,
+    VT_STORAGE_KG_PER_HOUSE = 34
   };
   int64_t year() const {
     return GetField<int64_t>(VT_YEAR, 0);
@@ -10272,6 +10300,12 @@ struct WealthSpread FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   float common_ha() const {
     return GetField<float>(VT_COMMON_HA, 0.0f);
   }
+  float roofed_m2_per_house() const {
+    return GetField<float>(VT_ROOFED_M2_PER_HOUSE, 0.0f);
+  }
+  float storage_kg_per_house() const {
+    return GetField<float>(VT_STORAGE_KG_PER_HOUSE, 0.0f);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -10289,6 +10323,8 @@ struct WealthSpread FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<float>(verifier, VT_WORKED_HA_PER_HEAD, 4) &&
            VerifyField<float>(verifier, VT_FLOOR_M2_PER_HOUSE, 4) &&
            VerifyField<float>(verifier, VT_COMMON_HA, 4) &&
+           VerifyField<float>(verifier, VT_ROOFED_M2_PER_HOUSE, 4) &&
+           VerifyField<float>(verifier, VT_STORAGE_KG_PER_HOUSE, 4) &&
            verifier.EndTable();
   }
 };
@@ -10339,6 +10375,12 @@ struct WealthSpreadBuilder {
   void add_common_ha(float common_ha) {
     fbb_.AddElement<float>(WealthSpread::VT_COMMON_HA, common_ha, 0.0f);
   }
+  void add_roofed_m2_per_house(float roofed_m2_per_house) {
+    fbb_.AddElement<float>(WealthSpread::VT_ROOFED_M2_PER_HOUSE, roofed_m2_per_house, 0.0f);
+  }
+  void add_storage_kg_per_house(float storage_kg_per_house) {
+    fbb_.AddElement<float>(WealthSpread::VT_STORAGE_KG_PER_HOUSE, storage_kg_per_house, 0.0f);
+  }
   explicit WealthSpreadBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -10365,9 +10407,13 @@ inline ::flatbuffers::Offset<WealthSpread> CreateWealthSpread(
     float goods_h_per_head = 0.0f,
     float worked_ha_per_head = 0.0f,
     float floor_m2_per_house = 0.0f,
-    float common_ha = 0.0f) {
+    float common_ha = 0.0f,
+    float roofed_m2_per_house = 0.0f,
+    float storage_kg_per_house = 0.0f) {
   WealthSpreadBuilder builder_(_fbb);
   builder_.add_year(year);
+  builder_.add_storage_kg_per_house(storage_kg_per_house);
+  builder_.add_roofed_m2_per_house(roofed_m2_per_house);
   builder_.add_common_ha(common_ha);
   builder_.add_floor_m2_per_house(floor_m2_per_house);
   builder_.add_worked_ha_per_head(worked_ha_per_head);
@@ -10401,7 +10447,9 @@ struct HouseholdWealth FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_LET_HA = 14,
     VT_RENTED_HA = 16,
     VT_GOODS_H = 18,
-    VT_FLOOR_M2 = 20
+    VT_FLOOR_M2 = 20,
+    VT_ROOFED_M2 = 22,
+    VT_STORAGE_KG = 24
   };
   uint64_t household() const {
     return GetField<uint64_t>(VT_HOUSEHOLD, 0);
@@ -10430,6 +10478,12 @@ struct HouseholdWealth FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   float floor_m2() const {
     return GetField<float>(VT_FLOOR_M2, 0.0f);
   }
+  float roofed_m2() const {
+    return GetField<float>(VT_ROOFED_M2, 0.0f);
+  }
+  float storage_kg() const {
+    return GetField<float>(VT_STORAGE_KG, 0.0f);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -10443,6 +10497,8 @@ struct HouseholdWealth FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<float>(verifier, VT_RENTED_HA, 4) &&
            VerifyField<float>(verifier, VT_GOODS_H, 4) &&
            VerifyField<float>(verifier, VT_FLOOR_M2, 4) &&
+           VerifyField<float>(verifier, VT_ROOFED_M2, 4) &&
+           VerifyField<float>(verifier, VT_STORAGE_KG, 4) &&
            verifier.EndTable();
   }
 };
@@ -10478,6 +10534,12 @@ struct HouseholdWealthBuilder {
   void add_floor_m2(float floor_m2) {
     fbb_.AddElement<float>(HouseholdWealth::VT_FLOOR_M2, floor_m2, 0.0f);
   }
+  void add_roofed_m2(float roofed_m2) {
+    fbb_.AddElement<float>(HouseholdWealth::VT_ROOFED_M2, roofed_m2, 0.0f);
+  }
+  void add_storage_kg(float storage_kg) {
+    fbb_.AddElement<float>(HouseholdWealth::VT_STORAGE_KG, storage_kg, 0.0f);
+  }
   explicit HouseholdWealthBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -10499,9 +10561,13 @@ inline ::flatbuffers::Offset<HouseholdWealth> CreateHouseholdWealth(
     float let_ha = 0.0f,
     float rented_ha = 0.0f,
     float goods_h = 0.0f,
-    float floor_m2 = 0.0f) {
+    float floor_m2 = 0.0f,
+    float roofed_m2 = 0.0f,
+    float storage_kg = 0.0f) {
   HouseholdWealthBuilder builder_(_fbb);
   builder_.add_household(household);
+  builder_.add_storage_kg(storage_kg);
+  builder_.add_roofed_m2(roofed_m2);
   builder_.add_floor_m2(floor_m2);
   builder_.add_goods_h(goods_h);
   builder_.add_rented_ha(rented_ha);
@@ -10528,7 +10594,9 @@ inline ::flatbuffers::Offset<HouseholdWealth> CreateHouseholdWealthDirect(
     float let_ha = 0.0f,
     float rented_ha = 0.0f,
     float goods_h = 0.0f,
-    float floor_m2 = 0.0f) {
+    float floor_m2 = 0.0f,
+    float roofed_m2 = 0.0f,
+    float storage_kg = 0.0f) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   return tce::wire::CreateHouseholdWealth(
       _fbb,
@@ -10540,7 +10608,9 @@ inline ::flatbuffers::Offset<HouseholdWealth> CreateHouseholdWealthDirect(
       let_ha,
       rented_ha,
       goods_h,
-      floor_m2);
+      floor_m2,
+      roofed_m2,
+      storage_kg);
 }
 
 struct SettlementWealth FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

@@ -559,6 +559,8 @@ table Building {
   work_h: float (id: 5);
   started: long (id: 6);
   stage_since: long (id: 7);
+  // Schema 16 (M3b slice O): the firm it is the workshop of, 0 for none.
+  firm: ulong (id: 8);
 }
 
 table Builds {
@@ -683,6 +685,10 @@ table FirmState {
   months: [MonthStatement] (id: 16);
   // What it pays for work, when it has posted a wage (none in a save that has no field).
   wage: WageOfferState (id: 17);
+  // Schema 16 (M3b slice O): the most people seen working for it at once lately, and the day
+  // that was seen (0 and 0 in an earlier save).
+  most_at_once: ubyte (id: 18);
+  most_at_once_day: long (id: 19);
 }
 
 table WageOfferState {
@@ -725,6 +731,11 @@ table WealthYear {
   worked_ha_per_head: double (id: 12);
   floor_m2_per_house: double (id: 13);
   common_ha: double (id: 14);
+  // Schema 16 (M3b slice O): floor under every roof a household has, homes, stores and
+  // workshops, square metres, and room for goods under them, kilograms, a household (0 in an
+  // earlier save).
+  roofed_m2_per_house: double (id: 15);
+  storage_kg_per_house: double (id: 16);
 }
 
 table Wealth {

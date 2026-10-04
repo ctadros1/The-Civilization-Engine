@@ -69,8 +69,18 @@ floorM2():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
+roofedM2():number {
+  const offset = this.bb!.__offset(this.bb_pos, 22);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+storageKg():number {
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
 static startHouseholdWealth(builder:flatbuffers.Builder) {
-  builder.startObject(9);
+  builder.startObject(11);
 }
 
 static addHousehold(builder:flatbuffers.Builder, household:bigint) {
@@ -109,12 +119,20 @@ static addFloorM2(builder:flatbuffers.Builder, floorM2:number) {
   builder.addFieldFloat32(8, floorM2, 0.0);
 }
 
+static addRoofedM2(builder:flatbuffers.Builder, roofedM2:number) {
+  builder.addFieldFloat32(9, roofedM2, 0.0);
+}
+
+static addStorageKg(builder:flatbuffers.Builder, storageKg:number) {
+  builder.addFieldFloat32(10, storageKg, 0.0);
+}
+
 static endHouseholdWealth(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createHouseholdWealth(builder:flatbuffers.Builder, household:bigint, nameOffset:flatbuffers.Offset, members:number, heldHa:number, workedHa:number, letHa:number, rentedHa:number, goodsH:number, floorM2:number):flatbuffers.Offset {
+static createHouseholdWealth(builder:flatbuffers.Builder, household:bigint, nameOffset:flatbuffers.Offset, members:number, heldHa:number, workedHa:number, letHa:number, rentedHa:number, goodsH:number, floorM2:number, roofedM2:number, storageKg:number):flatbuffers.Offset {
   HouseholdWealth.startHouseholdWealth(builder);
   HouseholdWealth.addHousehold(builder, household);
   HouseholdWealth.addName(builder, nameOffset);
@@ -125,6 +143,8 @@ static createHouseholdWealth(builder:flatbuffers.Builder, household:bigint, name
   HouseholdWealth.addRentedHa(builder, rentedHa);
   HouseholdWealth.addGoodsH(builder, goodsH);
   HouseholdWealth.addFloorM2(builder, floorM2);
+  HouseholdWealth.addRoofedM2(builder, roofedM2);
+  HouseholdWealth.addStorageKg(builder, storageKg);
   return HouseholdWealth.endHouseholdWealth(builder);
 }
 }

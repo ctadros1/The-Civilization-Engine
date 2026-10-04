@@ -49,9 +49,10 @@ export function buildingWords(b: BuildingInfo): string {
 }
 
 /** A building's program and shape: "hut of 30 m², room for 5", or a frame building's bays,
- * storeys, lofts and floor by use. */
+ * storeys, lofts and floor by use; a workshop's under its firm's name, "Wren's sickle workshop of
+ * 2 bays". */
 function shapeWords(b: BuildingInfo): string {
-  const name = b.program.toLowerCase();
+  const name = b.firmName || b.program.toLowerCase();
   if (b.grammar !== "frame") {
     const size = b.floorM2 > 0 ? ` of ${Math.round(b.floorM2)} m², room for ${b.sleeps}` : "";
     return `${name}${size}`;

@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 13
+kernel_content_api = 14
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -607,7 +607,7 @@ fn buildings_check_their_numbers_and_materials() {
     }
     // People build programs that exist, among them at least one home the founders know how to
     // build; a horizon for storehouses is a number of days.
-    let programs = "programs = [\"core:building/hut\", \"core:building/longhouse\", \"core:building/granary\"]";
+    let programs = "programs = [\"core:building/hut\", \"core:building/longhouse\", \"core:building/granary\", \"core:building/workshop\"]";
     for (to, code, needle) in [
         (
             "programs = [\"core:building/hut\", \"core:building/palace\"]",
@@ -661,7 +661,8 @@ fn buildings_check_their_numbers_and_materials() {
         [
             "core:building/hut",
             "core:building/longhouse",
-            "core:building/granary"
+            "core:building/granary",
+            "core:building/workshop"
         ]
     );
     // Frame programs: a longhouse, a raised granary and a workshop, their rules from `[frame]`.

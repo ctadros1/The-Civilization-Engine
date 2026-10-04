@@ -378,6 +378,10 @@ export interface BuildingInfo {
    * rendered by the kernel: "loft over 1 bay: 1.2 t of 1.9 t, mostly grain". */
   storedKg: number[];
   stored: string;
+  /** Wire 1.16: the firm it is the workshop of (0 for none), and its name: "Wren's sickle
+   * workshop". */
+  firm: number;
+  firmName: string;
 }
 
 export type EventKind =
@@ -797,6 +801,10 @@ export interface WealthSpread {
   floorM2PerHouse: number;
   /** Land the settlement itself holds, hectares. */
   commonHa: number;
+  /** Wire 1.16: floor under all a household's roofs (homes, stores, workshops), square metres,
+   * and room for goods under them, kilograms, a household with a roof. */
+  roofedM2PerHouse: number;
+  storageKgPerHouse: number;
 }
 
 /** A household's wealth measures (M3a slice K). */
@@ -811,7 +819,12 @@ export interface HouseholdWealth {
   rentedHa: number;
   /** Its goods and its workshops' stock, hours of work at the settlement's prices. */
   goodsH: number;
+  /** Floor area of its home. */
   floorM2: number;
+  /** Wire 1.16: floor under all its roofs, square metres, and room for goods under them,
+   * kilograms. */
+  roofedM2: number;
+  storageKg: number;
 }
 
 export interface SettlementWealth {
@@ -1620,6 +1633,8 @@ function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
       workPlaces: x.workPlaces(),
       storedKg: Array.from(x.storedKgArray() ?? []),
       stored: x.stored() ?? "",
+      firm: Number(x.firm()),
+      firmName: x.firmName() ?? "",
     });
   }
   return { rev: Number(f.rev()), buildings: out };
@@ -1883,6 +1898,8 @@ function wealthSpread(s: W.WealthSpread): WealthSpread {
     workedHaPerHead: s.workedHaPerHead(),
     floorM2PerHouse: s.floorM2PerHouse(),
     commonHa: s.commonHa(),
+    roofedM2PerHouse: s.roofedM2PerHouse(),
+    storageKgPerHouse: s.storageKgPerHouse(),
   };
 }
 
@@ -1905,6 +1922,8 @@ function wealth(w: W.Wealth): WealthInfo {
         rentedHa: h.rentedHa(),
         goodsH: h.goodsH(),
         floorM2: h.floorM2(),
+        roofedM2: h.roofedM2(),
+        storageKg: h.storageKg(),
       });
     }
     const history: WealthSpread[] = [];

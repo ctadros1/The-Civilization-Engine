@@ -11,6 +11,7 @@ use std::sync::atomic::AtomicBool;
 use civ_agents::firm::{BookKind, Exit};
 use civ_agents::history::ChronicleKind;
 use civ_agents::market::Market;
+use civ_agents::person::{Step, Target};
 use civ_agents::{Population, population};
 use civ_content::ContentRegistry;
 use civ_core::PermanentId;
@@ -601,4 +602,212 @@ fn a_workshop_posts_a_wage_and_pays_those_who_take_the_work() {
     let end = held(pop);
     let gaps = population::unaccounted(goods.len(), (&start.0, &start.1), (&end.0, &end.1));
     assert!(gaps.is_empty(), "unaccounted for: {gaps:?}");
+}
+
+/// The village of seed 3 a day in, its largest household master knappers with flint, wood and
+/// grain, its neighbours with no sickle, nothing to make one from and no food: the knappers' id.
+fn knappers(sim: &mut Sim) -> PermanentId {
+    let rules = sim.rules().clone();
+    let goods = &rules.catalog.goods;
+    let sickle = goods
+        .iter()
+        .position(|d| d.id == "core:good/sickle")
+        .expect("sickle");
+    let knapping = rules
+        .catalog
+        .skills
+        .iter()
+        .position(|k| k.id == "core:skill/knapping")
+        .expect("knapping");
+    let mut families: Vec<(usize, PermanentId)> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| (h.members.len(), h.id))
+        .collect();
+    families.sort_unstable_by(|a, b| b.cmp(a));
+    let maker = families[0].1;
+    let now = sim.now();
+    let members = sim
+        .people()
+        .household(maker)
+        .expect("maker")
+        .members
+        .clone();
+    let ages: Vec<f64> = members
+        .iter()
+        .filter_map(|m| sim.people().person(*m))
+        .map(|p| p.age_years(now))
+        .collect();
+    let knows = |t: usize| {
+        members
+            .iter()
+            .any(|m| sim.people().person(*m).is_some_and(|p| p.knows(t)))
+    };
+    let wants = civ_agents::make::tool_wants_for(
+        &rules.catalog,
+        &ages,
+        rules.people.family.independent_age,
+        &knows,
+    );
+    set(
+        sim,
+        maker,
+        &[
+            (
+                "core:good/sickle",
+                wants[sickle] + civ_agents::make::SPARE_TOOL,
+            ),
+            ("core:good/toolstone", 30.0),
+            ("core:good/timber", 50.0),
+            ("core:good/grain", 4000.0),
+        ],
+    );
+    set_skill(sim, maker, knapping, 1.0);
+    for &(_, other) in &families[1..] {
+        set(
+            sim,
+            other,
+            &[
+                ("core:good/sickle", 0.0),
+                ("core:good/toolstone", 0.0),
+                ("core:good/timber", 0.0),
+                ("core:good/grain", 0.0),
+                ("core:good/provisions", 0.0),
+            ],
+        );
+    }
+    maker
+}
+
+/// Its settlement asks for `n` sickles nobody offers (ADR-0006 §4).
+fn ask_for_sickles(sim: &mut Sim, settlement: PermanentId, n: f64) {
+    let day = sim.now().day_index();
+    let goods = sim.rules().catalog.goods.clone();
+    let sickle = goods
+        .iter()
+        .position(|d| d.id == "core:good/sickle")
+        .expect("sickle");
+    let pop = sim.people_mut_for_tests();
+    if !pop.markets.iter().any(|m| m.settlement == settlement) {
+        pop.markets.push(Market::new(settlement, goods.len(), day));
+    }
+    let m = pop
+        .markets
+        .iter_mut()
+        .find(|m| m.settlement == settlement)
+        .expect("a market");
+    if m.unmet[sickle] < n {
+        m.record_unmet(sickle, n - m.unmet[sickle], 40.0 * (n - m.unmet[sickle]));
+    }
+}
+
+#[test]
+fn a_workshop_in_a_building_of_its_own_hires_there() {
+    // ADR-0009 §7: once a firm's workshop building has its roof on, the hands it hires walk
+    // there, not to its owners' home.
+    let mut sim = new_world(3);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let maker = knappers(&mut sim);
+    let (settlement, home) = {
+        let h = sim.people().household(maker).expect("maker");
+        (h.settlement.expect("settled"), h.home)
+    };
+    let grain = sim
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .position(|d| d.id == "core:good/grain")
+        .expect("grain");
+    let firm_of = |sim: &Sim| {
+        sim.people()
+            .firms
+            .iter()
+            .find(|f| f.owner == maker && f.is_open())
+            .map(|f| f.id)
+    };
+    for _ in 0..40 {
+        if firm_of(&sim).is_some() {
+            break;
+        }
+        ask_for_sickles(&mut sim, settlement, 4.0);
+        sim.advance_minutes(24 * 60).expect("advances");
+    }
+    let firm = firm_of(&sim).expect("a workshop is set up");
+    // Its building, finished, 15 m east of the knappers' home.
+    let catalog = sim.rules().catalog.clone();
+    let def = &catalog.buildings[catalog
+        .building_index("core:building/workshop")
+        .expect("the workshop program")];
+    let shape = civ_agents::build::Shape::Bays {
+        bays: 2,
+        storeys: 1,
+        lofts: 0,
+    };
+    let spec = civ_agents::build::design_shape(
+        def,
+        &catalog.goods,
+        shape,
+        (home.0 + 15.0, home.1),
+        Some(home),
+    )
+    .expect("designed");
+    let site = civ_agents::build::centre_m(&spec);
+    let id = sim
+        .place_building_for_tests(maker, spec, civ_grammar::Stage::ALL.len() as u8)
+        .expect("placed");
+    for b in sim.land_mut_for_tests().buildings.iter_mut() {
+        if b.id == id {
+            b.firm = Some(firm);
+        }
+    }
+    assert_eq!(
+        sim.people().firm_site(sim.land(), &catalog, firm),
+        Some(site)
+    );
+    // Someone of another household at work for it, walking there.
+    let hired_there = |sim: &Sim| {
+        sim.people().people.iter().any(|(_, p)| {
+            p.household != maker
+                && p.act.target == Target::Firm(firm)
+                && p.act.steps.first() == Some(&Step::Walk { to: site })
+        })
+    };
+    let generous = |sim: &mut Sim| {
+        if let Some(w) = sim
+            .people_mut_for_tests()
+            .firms
+            .iter_mut()
+            .find(|f| f.id == firm)
+            .and_then(|f| f.wage.as_mut())
+        {
+            w.pay = grain as u16;
+            w.per_hour = 2.0;
+            w.hours = w.hours.max(w.taken + 6.0);
+        }
+    };
+    // Paying two kilograms of grain an hour, it hires, and those it hires walk there (its owners'
+    // own work for it goes there too: see civ-agents' decide tests).
+    let mut hired = false;
+    for hour in 0..(40 * 24) {
+        if hour % 24 == 0 {
+            ask_for_sickles(&mut sim, settlement, 4.0);
+        }
+        generous(&mut sim);
+        sim.advance_minutes(60).expect("advances");
+        if hired_there(&sim) {
+            hired = true;
+            break;
+        }
+    }
+    assert!(hired, "nobody hired walked there");
+    // It saw them at work, and nobody works for it at its owners' home.
+    let f = sim.people().firm(firm).expect("the firm");
+    assert!(f.most_at_once >= 1);
+    for (_, p) in sim.people().people.iter() {
+        if p.act.target == Target::Firm(firm) {
+            assert_ne!(p.act.steps.first(), Some(&Step::Walk { to: home }));
+        }
+    }
 }

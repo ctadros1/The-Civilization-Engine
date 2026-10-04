@@ -54,6 +54,8 @@ function hut(over: Partial<BuildingInfo> = {}): BuildingInfo {
     workPlaces: 0,
     storedKg: [0, 0, 0],
     stored: "",
+    firm: 0,
+    firmName: "",
     ...over,
   };
 }
@@ -141,6 +143,22 @@ describe("buildings on the map", () => {
         }),
       ),
     ).toBe("workshop of 2 bays, a loft over every bay, 60 m², 30 m² to store, 5 places to work: finished");
+    // A firm's workshop goes by the firm's name.
+    expect(
+      buildingWords(
+        longhouse({
+          program: "Workshop",
+          bays: 2,
+          loftBays: 0,
+          floorM2: 30,
+          floorByUse: [0, 0, 30],
+          workPlaces: 5,
+          sleeps: 0,
+          firm: 41,
+          firmName: "Wren's sickle workshop",
+        }),
+      ),
+    ).toBe("Wren's sickle workshop of 2 bays, 30 m², 5 places to work: finished");
   });
 
   it("say what their household keeps in them", () => {

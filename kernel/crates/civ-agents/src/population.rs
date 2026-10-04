@@ -209,12 +209,13 @@ pub struct Population {
     pub knowledge: Vec<crate::knowledge::KnowledgeEvent>,
 }
 
-/// A building a household would begin: its design (which says where it stands) and what each
-/// stage needs.
+/// A building a household would begin: its design (which says where it stands), what each stage
+/// needs, and for a workshop the firm it is for.
 #[derive(Clone, Debug)]
 struct NewHome {
     spec: BuildingSpec,
     stages: Vec<StageNeeds>,
+    firm: Option<PermanentId>,
 }
 
 /// What a household builds: the building under way (or the one it would begin), the work left on
@@ -1181,13 +1182,17 @@ impl Population {
                 ),
             }
         };
-        // A first home before anything; then a store, while goods are lost for want of room,
-        // before more floor. A home's door faces the hearth; a store's, its household's home.
-        let (choice, toward) = match home {
-            None => (home_choice(None)?, hearth),
+        // A first home before anything; then a store, while goods are lost for want of room, and
+        // a workshop, while its firm has more at work than its home has room for, before more
+        // floor. A home's door faces the hearth; a store's or a workshop's, its household's home.
+        let (choice, toward, firm) = match home {
+            None => (home_choice(None)?, hearth, None),
             Some(current) => match self.storehouse_plan(ctx, hh, labour_per_day, day) {
-                Some(store) => (store, Some(hh.home)),
-                None => (home_choice(Some(current))?, hearth),
+                Some(store) => (store, Some(hh.home), None),
+                None => match self.workshop_plan(ctx, hh, labour_per_day, day) {
+                    Some((shop, firm)) => (shop, Some(hh.home), Some(firm)),
+                    None => (home_choice(Some(current))?, hearth, None),
+                },
             },
         };
         let (p, shape) = choice;
@@ -1211,7 +1216,50 @@ impl Population {
             HOME_SHIFT_M,
         )?;
         let stages = build::stage_needs(&spec, program)?;
-        Some(NewHome { spec, stages })
+        Some(NewHome { spec, stages, firm })
+    }
+
+    /// The workshop household `hh` would build beside its home on day `day`, and the firm it is
+    /// for: of its open firms that have lately had more people working for them at once than a
+    /// home has places for ([`crate::params::BuildParams::home_work_places`]) and have no workshop
+    /// (nor a free one of the household's to use), the busiest; the cheapest building with places
+    /// for them all that its means and time pay for in full ([`build::workshop`]). Never because
+    /// a firm exists: only for the work it has.
+    fn workshop_plan(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        labour_per_day: f64,
+        day: i64,
+    ) -> Option<((usize, build::Shape), PermanentId)> {
+        let catalog = ctx.catalog;
+        let programs = self.programs_for(ctx, &hh.members, civ_land::PlotUse::Work);
+        let first = programs.first().and_then(|&p| catalog.buildings.get(p))?;
+        let mine = || ctx.land.buildings.iter().filter(|b| b.household == hh.id);
+        if mine().any(|b| self.free_workshop(catalog, b)) {
+            return None;
+        }
+        let places = ctx.params.build.home_work_places;
+        let firm = self
+            .firms
+            .iter()
+            .filter(|f| {
+                f.is_open()
+                    && f.owner == hh.id
+                    && u32::from(f.at_once(day)) > places
+                    && !mine().any(|b| b.firm == Some(f.id))
+            })
+            .max_by_key(|f| (f.at_once(day), std::cmp::Reverse(f.id)))?;
+        let (budget_h, time_h) = self.home_means(ctx, hh, first, labour_per_day, day);
+        build::workshop(
+            &catalog.buildings,
+            &programs,
+            u32::from(firm.at_once(day)),
+            ctx.params.household.carry_kg,
+            budget_h,
+            time_h,
+        )
+        .map(|shop| (shop, firm.id))
     }
 
     /// The storehouse household `hh` would build beside its home on day `day`, if one is worth
@@ -1406,6 +1454,7 @@ impl Population {
             work_h: 0.0,
             started: ctx.now,
             stage_since: ctx.now,
+            firm: site.firm,
         });
         self.stage_needs.insert(id, site.stages);
         let at = build::centre_m(&site.spec);
@@ -2012,11 +2061,22 @@ impl Population {
                 MakeWorth::Sale { .. } => self.workshop_of(hh_id, out),
                 _ => None,
             };
+            // Its workshop works in its own building once that has its roof on.
+            let site = match firm.and_then(|f| self.firm_site(ctx.land, ctx.catalog, f)) {
+                Some(at) if at != hh.home => {
+                    let secs = reach
+                        .and_then(|r| r.seconds_to(cell_of(map, at)))
+                        .ok_or((Reason::Unreachable, None))?;
+                    Some((at, f64::from(secs) / 60.0))
+                }
+                _ => None,
+            };
             Ok(MakeOption {
                 units,
                 minutes: make::minutes_for(r, units, speed),
                 worth,
                 firm,
+                site,
             })
         };
         let makes_tool = |def: usize| {

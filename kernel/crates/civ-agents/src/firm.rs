@@ -283,9 +283,36 @@ pub struct Firm {
     pub books: Books,
     /// What became of its goods since the counters began (not saved).
     pub flows: Flows,
+    /// The most people seen working for it at once lately, owners and hired hands (slice O):
+    /// what its building must hold.
+    pub most_at_once: u8,
+    /// The day that was seen.
+    pub most_at_once_day: i64,
 }
 
+/// Days a firm remembers the most people it had working for it at once (a tuning value: about two
+/// months, longer than the spells a workshop sells nothing before it is given up).
+pub const AT_ONCE_DAYS: i64 = 60;
+
 impl Firm {
+    /// `n` people are working for it at once on `day`: its most lately, if as many or more, or if
+    /// the last was seen more than [`AT_ONCE_DAYS`] ago.
+    pub fn saw_at_once(&mut self, n: u8, day: i64) {
+        if n >= self.most_at_once || day - self.most_at_once_day > AT_ONCE_DAYS {
+            self.most_at_once = n;
+            self.most_at_once_day = day;
+        }
+    }
+
+    /// The most people seen working for it at once in the [`AT_ONCE_DAYS`] days to `day`.
+    pub fn at_once(&self, day: i64) -> u8 {
+        if day - self.most_at_once_day <= AT_ONCE_DAYS {
+            self.most_at_once
+        } else {
+            0
+        }
+    }
+
     /// A new firm of household `owner`, founded by `founder` at `now` to make `line`.
     pub fn new(
         id: PermanentId,
@@ -312,6 +339,8 @@ impl Firm {
             wage: None,
             books: Books::default(),
             flows: Flows::default(),
+            most_at_once: 0,
+            most_at_once_day: 0,
         }
     }
 

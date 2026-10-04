@@ -206,6 +206,10 @@ their meanings), an expansion yields:
   never moves its household's home.
 - A workshop building may name a firm, and is then where the firm works, hires and keeps its
   stores (ADR-0006 §5).
+  - As built, a household builds one for a firm of its that has lately had more people at work
+    for it at once than a home holds (a tuning value), and never for a firm alone; the firm
+    works there once its roof is on, and the household's next firm takes it when that one
+    closes.
 - Heirs take all of a household's buildings (ADR-0007 §1, widened from the home).
 - Style traits are realised decisions kept in the spec's parameters. A household's taste and the
   provenance of each trait are behaviour state, saved but cheap to change.
@@ -216,8 +220,8 @@ their meanings), an expansion yields:
   condition, its state and builders, plot uses and the firm link. Each settlement gains its
   trust sums. The schema becomes 13 or later in M3b.
   - As built, schema 15 (slice O's first step) adds the Rect footprint, sixteen parameters and
-    plot uses for stores and workshops. Condition, builders and the firm link come with the
-    slices that use them.
+    plot uses for stores and workshops, and schema 16 (its third step) the firm link. Condition
+    and builders come with the slices that use them.
 - Schema-12 saves load with every hut v1 and every building sound as of loading, with qualities
   drawn as if built at middling skill, so a loaded world shows no false wave of decay.
 - The wire's `BuildingInfo` gains, appended:

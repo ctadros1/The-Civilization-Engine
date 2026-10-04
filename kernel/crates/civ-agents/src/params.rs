@@ -576,8 +576,12 @@ impl Catalog {
 
     /// Whether program `id` is a home: a dwelling, not a store or a workshop.
     pub fn is_dwelling(&self, id: &str) -> bool {
-        self.building_index(id)
-            .is_some_and(|i| self.buildings[i].use_ == civ_land::PlotUse::Dwelling)
+        self.use_of(id) == Some(civ_land::PlotUse::Dwelling)
+    }
+
+    /// What program `id`'s buildings are for, if the content has it.
+    pub fn use_of(&self, id: &str) -> Option<civ_land::PlotUse> {
+        self.building_index(id).map(|i| self.buildings[i].use_)
     }
 
     /// The skill with this content id.
@@ -1119,6 +1123,9 @@ pub struct BuildParams {
     /// Days over which a household reckons what a storehouse would save of the goods it holds:
     /// what they would lose in the open over these days less what they would lose in it.
     pub store_horizon_days: f64,
+    /// People who can work at a craft at once in a household's home, beside living there: a firm
+    /// that has more working for it at once builds a workshop.
+    pub home_work_places: u32,
 }
 
 /// Everything authored about people.

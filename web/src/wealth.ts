@@ -60,7 +60,22 @@ export function measureRows(s: WealthSpread, households: HouseholdWealth[]): Mea
       level: s.floorM2PerHouse > 0 ? `${floorText(s.floorM2PerHouse)} a house` : "no roofs yet",
       gini: giniText(s.giniFloor),
     },
+    {
+      measure: "Under all roofs",
+      level: s.roofedM2PerHouse > 0 ? `${floorText(s.roofedM2PerHouse)} a household` : "no roofs yet",
+      gini: "",
+    },
+    {
+      measure: "Room for goods",
+      level: s.storageKgPerHouse > 0 ? `${tonnesText(s.storageKgPerHouse)} a household` : "none yet",
+      gini: "",
+    },
   ];
+}
+
+/** A weight: "3.2 t", "450 kg". */
+export function tonnesText(kg: number): string {
+  return kg >= 1000 ? `${(kg / 1000).toFixed(1)} t` : `${Math.round(kg)} kg`;
 }
 
 /**
@@ -98,6 +113,8 @@ export interface HouseholdRow {
   works: string;
   /** Goods a head: "58 h". */
   goods: string;
+  /** Its home's floor, and the floor under all its roofs when that is more: "30 m², 45 m² in
+   * all". */
   floor: string;
 }
 
@@ -125,7 +142,7 @@ export function householdRows(
     holds: areaText(h.heldHa),
     works: worksText(h),
     goods: hoursText(h.members > 0 ? h.goodsH / h.members : 0),
-    floor: floorText(h.floorM2),
+    floor: floorText(h.floorM2) + (h.roofedM2 >= h.floorM2 + 0.5 ? `, ${floorText(h.roofedM2)} in all` : ""),
   }));
 }
 

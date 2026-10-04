@@ -363,6 +363,8 @@ pub struct ShapeCost {
     pub storage_kg: f64,
     /// The same by kind of room: raised floors, lofts, other floors ([`civ_grammar::storage`]).
     pub room_kg: [f64; 3],
+    /// Places to work at a craft.
+    pub work_places: u32,
 }
 
 impl ShapeCost {
@@ -480,6 +482,7 @@ pub fn shapes(def: &BuildingDef, goods: &[GoodDef]) -> Vec<ShapeCost> {
                 living_m2: e.floor_by_use[civ_grammar::SpaceUse::Living.index()],
                 storage_kg: e.storage_total_kg(),
                 room_kg: e.storage_kg,
+                work_places: e.work_places,
             })
         })
         .collect()
@@ -746,6 +749,37 @@ pub fn storehouse(
         }
     }
     best.map(|(p, shape, _, _)| (p, shape))
+}
+
+/// The workshop a household would build for a firm that has had `at_once` people working for it
+/// at once: among the shapes of the work programs `programs` it may build with places for them
+/// all, the one taking the fewest hours in all (`carry_kg` a load), among those its means pay for
+/// in all (`budget_h` hours, as for a new home) and that take no more than `time_h` hours. `None`
+/// when none is affordable.
+pub fn workshop(
+    buildings: &[BuildingDef],
+    programs: &[usize],
+    at_once: u32,
+    carry_kg: f64,
+    budget_h: f64,
+    time_h: f64,
+) -> Option<(usize, Shape)> {
+    let mut best: Option<(usize, Shape, f64)> = None;
+    for &p in programs {
+        let Some(def) = buildings
+            .get(p)
+            .filter(|d| d.use_ == civ_land::PlotUse::Work)
+        else {
+            continue;
+        };
+        for c in def.shapes.iter().filter(|c| c.work_places >= at_once) {
+            let h = c.hours(carry_kg);
+            if h <= budget_h && h <= time_h && best.is_none_or(|(_, _, b_h)| h < b_h) {
+                best = Some((p, c.shape, h));
+            }
+        }
+    }
+    best.map(|(p, shape, _)| (p, shape))
 }
 
 /// Work on a building: what each of its stages needs, the stage under way and the hours done on
@@ -1211,6 +1245,7 @@ mod tests {
             work_h: work.done_h as f32,
             started: SimTime::ZERO,
             stage_since: SimTime::ZERO,
+            firm: None,
         };
         let of = HomeWork::of(&b, e.stages.clone());
         assert!((of.hours_left(Stage::Roof) - work.hours_left(Stage::Roof)).abs() < 1e-3);

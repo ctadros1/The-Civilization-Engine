@@ -267,8 +267,20 @@ stored(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+firm():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 76);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
+firmName():string|null
+firmName(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+firmName(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 78);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startBuildingInfo(builder:flatbuffers.Builder) {
-  builder.startObject(36);
+  builder.startObject(38);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -480,6 +492,14 @@ static startStoredKgVector(builder:flatbuffers.Builder, numElems:number) {
 
 static addStored(builder:flatbuffers.Builder, storedOffset:flatbuffers.Offset) {
   builder.addFieldOffset(35, storedOffset, 0);
+}
+
+static addFirm(builder:flatbuffers.Builder, firm:bigint) {
+  builder.addFieldInt64(36, firm, BigInt('0'));
+}
+
+static addFirmName(builder:flatbuffers.Builder, firmNameOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(37, firmNameOffset, 0);
 }
 
 static endBuildingInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

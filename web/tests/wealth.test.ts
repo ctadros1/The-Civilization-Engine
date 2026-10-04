@@ -30,6 +30,8 @@ function spread(over: Partial<WealthSpread> = {}): WealthSpread {
     workedHaPerHead: 0.15,
     floorM2PerHouse: 13.2,
     commonHa: 0,
+    roofedM2PerHouse: 13.2,
+    storageKgPerHouse: 1320,
     ...over,
   };
 }
@@ -45,6 +47,8 @@ function household(over: Partial<HouseholdWealth> = {}): HouseholdWealth {
     rentedHa: 0,
     goodsH: 240,
     floorM2: 22.6,
+    roofedM2: 22.6,
+    storageKg: 2260,
     ...over,
   };
 }
@@ -63,14 +67,28 @@ describe("wealth in words", () => {
 
   it("lists a settlement's measures with how unequally each is spread", () => {
     const rows = measureRows(spread(), [household(), household({ household: 8, heldHa: 0.2 })]);
-    expect(rows.map((r) => r.measure)).toEqual(["Goods", "Land worked", "Land held", "Floor area"]);
+    expect(rows.map((r) => r.measure)).toEqual([
+      "Goods",
+      "Land worked",
+      "Land held",
+      "Floor area",
+      "Under all roofs",
+      "Room for goods",
+    ]);
     expect(rows[0]).toEqual({ measure: "Goods", level: "58 h a head", gini: "0.21" });
     expect(rows[1]!.level).toBe("0.15 ha a head");
     expect(rows[2]!.level).toBe("0.05 ha a head"); // 1.2 ha over 24 people
     expect(rows[3]!.level).toBe("13 m² a house");
-    const village = measureRows(spread({ floorM2PerHouse: 0 }), [household({ heldHa: 0 })]);
+    // Beside the houses: stores' and workshops' floors, and room for goods (no Gini of either).
+    expect(rows[4]).toEqual({ measure: "Under all roofs", level: "13 m² a household", gini: "" });
+    expect(rows[5]!.level).toBe("1.3 t a household");
+    const village = measureRows(spread({ floorM2PerHouse: 0, roofedM2PerHouse: 0, storageKgPerHouse: 0 }), [
+      household({ heldHa: 0 }),
+    ]);
     expect(village[2]!.level).toBe("none");
     expect(village[3]!.level).toBe("no roofs yet");
+    expect(village[4]!.level).toBe("no roofs yet");
+    expect(village[5]!.level).toBe("none yet");
   });
 
   it("says who holds land and who works it", () => {
@@ -103,6 +121,8 @@ describe("wealth in words", () => {
         floor: "23 m²",
       },
     ]);
+    // A granary beside the house counts in all the floor it has under roofs.
+    expect(householdRows([household({ roofedM2: 37.6 })])[0]!.floor).toBe("23 m², 38 m² in all");
   });
 
   it("lists the latest years first and draws each Gini on a fixed scale", () => {

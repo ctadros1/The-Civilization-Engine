@@ -528,3 +528,123 @@ fn a_finished_granary_raises_what_the_hut_has_no_room_for() {
     let (open, raised) = (kept(&before), kept(&after));
     assert!(raised > open + 500.0, "{raised} kg against {open} kg");
 }
+
+/// A workshop of `household` making sickles, as if `at_once` of its people had just worked for it
+/// at once: its id.
+fn busy_firm(sim: &mut Sim, household: PermanentId, at_once: u8) -> PermanentId {
+    let (now, goods) = (sim.now(), content().catalog.goods.len());
+    let sickle = good("core:good/sickle") as u16;
+    let id = sim.allocate_id_for_tests();
+    let pop = sim.people_mut_for_tests();
+    let (founder, settlement) = {
+        let h = pop.household(household).expect("the household");
+        (h.members[0], h.settlement)
+    };
+    let mut firm =
+        civ_agents::firm::Firm::new(id, household, founder, settlement, sickle, goods, now);
+    firm.saw_at_once(at_once, now.day_index());
+    pop.firms.push(firm);
+    id
+}
+
+#[test]
+fn a_firm_with_more_at_work_than_a_home_has_room_for_builds_a_workshop() {
+    // Its means are timber it can spare, which takes no room under a roof: no store is wanted.
+    let (mut sim, household, home) = housed_framers(3, "core:good/timber", 40_000.0);
+    let firm = busy_firm(&mut sim, household, 3);
+    let b = second_building(&mut sim, household, 20).expect("it begins a workshop");
+    assert_eq!(b.spec.program, "core:building/workshop");
+    assert_eq!(b.firm, Some(firm), "built for the firm");
+    let (x, y) = build::centre_m(&b.spec);
+    let away = f64::from(x - home.0).hypot(f64::from(y - home.1));
+    assert!(away <= 30.0 + 1e-3, "{away} m from home");
+    let plot = sim
+        .land()
+        .plots
+        .iter()
+        .find(|p| p.id == b.plot)
+        .expect("its plot");
+    assert_eq!(plot.use_, civ_land::PlotUse::Work);
+    // Places for all three, and the household lives where it did.
+    let def = &content().catalog.buildings[program("core:building/workshop")];
+    let e = civ_grammar::expand(&b.spec, &def.rules).expect("expands");
+    assert!(e.work_places >= 3, "{} places", e.work_places);
+    let lives = sim.people().household(household).expect("it").home;
+    assert_eq!(lives, home);
+}
+
+#[test]
+fn a_firm_its_home_has_room_for_builds_no_workshop() {
+    // Two at work at once fit in a home: a firm alone is no reason to build.
+    let (mut sim, household, _) = housed_framers(3, "core:good/timber", 40_000.0);
+    busy_firm(&mut sim, household, 2);
+    let b = second_building(&mut sim, household, 20);
+    assert!(
+        b.as_ref()
+            .is_none_or(|b| b.spec.program != "core:building/workshop"),
+        "{b:?}"
+    );
+}
+
+#[test]
+fn a_firm_works_in_its_workshop_once_roofed_and_the_building_outlasts_it() {
+    let (mut sim, household, home) = housed_framers(3, "core:good/grain", 0.0);
+    let firm = busy_firm(&mut sim, household, 3);
+    let catalog = content().catalog.clone();
+    let def = &catalog.buildings[program("core:building/workshop")];
+    let shape = Shape::Bays {
+        bays: 2,
+        storeys: 1,
+        lofts: 0,
+    };
+    let at = (home.0 + 15.0, home.1);
+    let spec = build::design_shape(def, &catalog.goods, shape, at, Some(home)).expect("designed");
+    let site = build::centre_m(&spec);
+    // Walls up but no roof: it works at home.
+    let id = sim
+        .place_building_for_tests(household, spec, 2)
+        .expect("placed");
+    for b in sim.land_mut_for_tests().buildings.iter_mut() {
+        if b.id == id {
+            b.firm = Some(firm);
+        }
+    }
+    assert_eq!(sim.people().firm_site(sim.land(), &catalog, firm), None);
+    // Roofed, it works there.
+    for b in sim.land_mut_for_tests().buildings.iter_mut() {
+        if b.id == id {
+            b.stage = civ_grammar::Stage::ALL.len() as u8;
+        }
+    }
+    assert_eq!(
+        sim.people().firm_site(sim.land(), &catalog, firm),
+        Some(site)
+    );
+    // Its firm closes; the building stays, and another of the household's firms works in it.
+    let now = sim.now();
+    for f in sim.people_mut_for_tests().firms.iter_mut() {
+        if f.id == firm {
+            f.closed = Some((now, civ_agents::firm::Exit::Idle));
+        }
+    }
+    let b = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == id)
+        .expect("still standing");
+    assert!(sim.people().free_workshop(&catalog, b));
+    let next = sim.allocate_id_for_tests();
+    {
+        let goods = catalog.goods.len();
+        let pop = sim.people_mut_for_tests();
+        let founder = pop.household(household).expect("it").members[0];
+        pop.firms.push(civ_agents::firm::Firm::new(
+            next, household, founder, None, 0, goods, now,
+        ));
+    }
+    assert_eq!(
+        sim.people().firm_site(sim.land(), &catalog, next),
+        Some(site)
+    );
+}

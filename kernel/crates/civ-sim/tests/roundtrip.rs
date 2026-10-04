@@ -699,6 +699,119 @@ fn slice_n_saves_load_with_their_huts_as_they_were() {
 }
 
 #[test]
+fn a_workshop_keeps_its_firm_and_the_firm_its_busiest_hour_across_a_save() {
+    // Schema 16 (ADR-0009 §7): a workshop names the firm it was built for, and a firm the most
+    // people it had at work at once lately.
+    let mut sim = load_first();
+    let (household, home) = {
+        let b = sim.land().buildings.first().expect("a home under way");
+        (b.household, civ_agents::build::centre_m(&b.spec))
+    };
+    let catalog = sim.rules().catalog.clone();
+    let (now, id) = (sim.now(), sim.allocate_id_for_tests());
+    let founder = sim.people().household(household).expect("it").members[0];
+    let sickle = catalog.good_index("core:good/sickle").expect("the sickle") as u16;
+    let mut firm = civ_agents::firm::Firm::new(
+        id,
+        household,
+        founder,
+        None,
+        sickle,
+        catalog.goods.len(),
+        now,
+    );
+    firm.saw_at_once(3, now.day_index());
+    sim.people_mut_for_tests().firms.push(firm);
+    let def = &catalog.buildings[catalog
+        .building_index("core:building/workshop")
+        .expect("the workshop")];
+    let shape = civ_agents::build::Shape::Bays {
+        bays: 2,
+        storeys: 1,
+        lofts: 1,
+    };
+    let spec = civ_agents::build::design_shape(
+        def,
+        &catalog.goods,
+        shape,
+        (home.0 + 20.0, home.1 + 5.0),
+        Some(home),
+    )
+    .expect("designed");
+    let shop = sim
+        .place_building_for_tests(household, spec, Stage::ALL.len() as u8)
+        .expect("placed");
+    for b in sim.land_mut_for_tests().buildings.iter_mut() {
+        if b.id == shop {
+            b.firm = Some(id);
+        }
+    }
+    let dir = scratch_dir("workshops");
+    let saved = persist::save(&mut sim, &dir, SaveKind::Manual, "workshop").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.land().buildings, sim.land().buildings);
+    let f = loaded.people().firm(id).expect("the firm");
+    assert_eq!((f.most_at_once, f.most_at_once_day), (3, now.day_index()));
+    let mut again = loaded;
+    let resaved = persist::save(&mut again, &dir, SaveKind::Manual, "again").expect("saves");
+    assert_eq!(digests(&resaved.chunks), digests(&saved.chunks));
+    // Wire 1.16: the map names the workshop's firm.
+    let payload = frames::buildings::buildings_response(&sim);
+    let response = flatbuffers::root::<wire::Response>(&payload).expect("a response");
+    let info = response
+        .body_as_buildings()
+        .expect("buildings")
+        .buildings()
+        .expect("a list")
+        .iter()
+        .find(|i| i.id() == shop.get())
+        .expect("the workshop");
+    assert_eq!(info.firm(), id.get());
+    let name = info.firm_name().unwrap_or_default();
+    assert!(name.ends_with("'s sickle workshop"), "{name}");
+    assert!(info.work_places() >= 3);
+    // Its floor and room count beside the home's in the household's wealth.
+    let w = sim
+        .people()
+        .wealth(
+            &sim.rules().catalog,
+            &sim.rules().people,
+            &sim.rules().land,
+            sim.land(),
+            sim.now(),
+        )
+        .into_iter()
+        .find(|w| w.household == household)
+        .expect("its measures");
+    let e = civ_grammar::expand(&info_spec(&sim, shop), &def.rules).expect("expands");
+    assert!(w.roofed_m2 >= w.floor_m2 + e.floor_area_m2 - 1e-6, "{w:?}");
+    assert!(w.storage_kg >= e.storage_total_kg() - 1e-6, "{w:?}");
+}
+
+/// The design of building `id`.
+fn info_spec(sim: &Sim, id: civ_core::PermanentId) -> civ_grammar::BuildingSpec {
+    sim.land()
+        .buildings
+        .iter()
+        .find(|b| b.id == id)
+        .map(|b| b.spec.clone())
+        .expect("the building")
+}
+
+#[test]
+fn slice_o_saves_load_with_no_workshop_naming_a_firm() {
+    // A schema-15 save: no building names a firm, and nobody has been counted at work.
+    let sim = load_first();
+    let sections = persist::encode_sections(&sim);
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V15;
+    let path = republish("slice-o", &info, &sections);
+    let loaded = persist::load(&path, content()).expect("a schema-15 save loads");
+    assert_eq!(loaded.land().buildings, fixture().first_buildings);
+    assert!(loaded.land().buildings.iter().all(|b| b.firm.is_none()));
+}
+
+#[test]
 fn a_session_of_trying_survives_a_save_and_load() {
     let mut sim = load_first();
     let drying = sim

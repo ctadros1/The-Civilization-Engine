@@ -63,10 +63,12 @@ share of its grain until a date.
 The wealth panel, fetched with `GetWealth` when the snapshot's `wealth_rev` changes (at most
 every two seconds; it changes monthly, when households form or end and when a year is
 recorded), shows each settlement's measures as they stand: goods (in hours of work at its
-prices), land worked, land held and floor area, each with its level and Gini; the richest
-tenth's share of goods and who holds and works no land; a table and a chart of the Ginis at
-each year's end; and its households, the most goods a head first, with what they hold, work,
-let and rent.
+prices), land worked, land held and floor area, each with its level and Gini, and beside the
+houses the floor under all a household's roofs and its room for goods (M3b slice O, levels
+only); the richest tenth's share of goods and who holds and works no land; a table and a chart
+of the Ginis at each year's end; and its households, the most goods a head first, with what
+they hold, work, let and rent, and their home's floor ("30 m², 45 m² in all" when stores or a
+workshop add to it).
 
 ## The knowledge panel
 
@@ -94,8 +96,9 @@ area, how many it sleeps and how far its building has gone. A frame building (M3
 drawn as its turned walls and posts and then its gabled roof with the ridge; the readout names
 its bays, storeys and lofts and its floor by use ("longhouse of 3 bays, a loft over 1 bay, 50 m²,
 room for 6, 13 m² to store"). The readout also says what a building's household keeps in it
-("loft over 1 bay: 1.2 t of 1.9 t, mostly grain"). Households build longhouses only once someone
-in them knows jointed framing.
+("loft over 1 bay: 1.2 t of 1.9 t, mostly grain"). A raised store is "raised on posts", and a
+firm's workshop goes by the firm's name ("Wren's sickle workshop of 2 bays"). Households build
+longhouses, granaries and workshops only once someone in them knows jointed framing.
 
 ## The panels alone
 

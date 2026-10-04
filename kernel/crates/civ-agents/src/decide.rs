@@ -271,6 +271,9 @@ pub struct MakeOption {
     pub worth: MakeWorth,
     /// Made to sell: the household's workshop for it, if it has one yet (slice J).
     pub firm: Option<PermanentId>,
+    /// Made at the workshop's own building, once it has one with its roof on (slice O): where,
+    /// metres, and the one-way walk there, minutes. `None` for work at home.
+    pub site: Option<((f32, f32), f64)>,
 }
 
 /// Least of a tool, in standard tools, that still does the work (the last of a worn one).
@@ -1038,10 +1041,25 @@ pub fn candidates(
                     Reason::Effort,
                     -w.w_effort * (def.par - 1.0).max(0.0) * hours * f.sleep_pressure,
                 );
-                let mut steps = walk_home_first(f);
-                steps.push(Step::Work {
+                let work = Step::Work {
                     minutes: minutes.round().max(1.0) as u32,
-                });
+                };
+                // At home, or at the workshop's building once it has one.
+                let steps = match option.site {
+                    Some((at, walk_min)) => {
+                        term(
+                            &mut terms,
+                            Reason::Walking,
+                            -w.w_walk_hour * 2.0 * walk_min / 60.0,
+                        );
+                        vec![Step::Walk { to: at }, work, Step::Walk { to: f.home }]
+                    }
+                    None => {
+                        let mut steps = walk_home_first(f);
+                        steps.push(work);
+                        steps
+                    }
+                };
                 // What is made to sell is made in the household's workshop, set up for it if it
                 // has none yet (slice J).
                 let target = match option.worth {
@@ -1315,6 +1333,7 @@ mod tests {
                 minutes: 180.0,
                 worth: MakeWorth::Tool { tool: 0, need: 0.5 },
                 firm: None,
+                site: None,
             })
         };
         let makes = |d: usize| d == 2;
@@ -1347,6 +1366,41 @@ mod tests {
     }
 
     #[test]
+    fn work_for_a_workshop_with_a_building_is_done_there() {
+        // ADR-0009 §7: once its building has its roof on, a workshop's owners walk there to make
+        // what it sells, and home again.
+        let defs = vec![activity("make_sickle", Behavior::Make, Vec::new(), 1.0)];
+        let firm = PermanentId::from_raw(7).expect("nonzero");
+        let sell = |site: Option<((f32, f32), f64)>| {
+            move |_: usize, _: &[usize]| {
+                Ok(MakeOption {
+                    units: 1.0,
+                    minutes: 180.0,
+                    worth: MakeWorth::Sale { share: 0.5 },
+                    firm: Some(firm),
+                    site,
+                })
+            }
+        };
+        let none = |_: usize| false;
+        let (cands, _) = score(&defs, &[], &sell(Some(((10.0, 20.0), 6.0))), &none);
+        let c = &cands[0];
+        assert_eq!(c.scored.target, Target::Firm(firm));
+        assert_eq!(
+            c.steps,
+            vec![
+                Step::Walk { to: (10.0, 20.0) },
+                Step::Work { minutes: 180 },
+                Step::Walk { to: facts().home },
+            ]
+        );
+        assert!(c.scored.terms.iter().any(|t| t.reason == Reason::Walking));
+        // Without one, at home.
+        let (cands, _) = score(&defs, &[], &sell(None), &none);
+        assert_eq!(cands[0].steps, vec![Step::Work { minutes: 180 }]);
+    }
+
+    #[test]
     fn making_food_ready_is_worth_most_to_the_hungry_with_nothing_ready() {
         let defs = vec![activity("bake", Behavior::Make, Vec::new(), 1.0)];
         let bake = |short: f64| {
@@ -1361,6 +1415,7 @@ mod tests {
                         toward_meal: true,
                     },
                     firm: None,
+                    site: None,
                 })
             }
         };

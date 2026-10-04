@@ -1154,6 +1154,7 @@ pub(crate) mod tests {
             build: crate::params::BuildParams {
                 programs: vec![0],
                 store_horizon_days: 1095.0,
+                home_work_places: 2,
             },
         }
     }

@@ -175,11 +175,13 @@ site_candidates = 24             # places looked at when marking out a new field
 
 [build]
 # What a household may build, among what it knows how to (ADR-0009 §1, §7): a home, a hut or a
-# longhouse in bays, the one that costs it least to cover its members and its goods; and a
-# granary on posts beside it, when the goods its roofs have no room for would lose more in the
-# open than the granary costs to build.
-programs = ["core:building/hut", "core:building/longhouse", "core:building/granary"]
+# longhouse in bays, the one that costs it least to cover its members and its goods; a granary
+# on posts beside it, when the goods its roofs have no room for would lose more in the open than
+# the granary costs to build; and a workshop, when more work for its firm at once than its home
+# has room for.
+programs = ["core:building/hut", "core:building/longhouse", "core:building/granary", "core:building/workshop"]
 store_horizon_days = 1095        # three years: grass thatch wants major repair every 2-3 (11-08; tuning)
+home_work_places = 2             # two at a craft beside living (tuning; the research gives no figure)
 
 [mortality]                      # Siler hazard, Hadza fit (research 05-01 §1.2): 1q0 216, e0 34
 a = 0.351

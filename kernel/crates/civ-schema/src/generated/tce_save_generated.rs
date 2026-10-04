@@ -10191,6 +10191,7 @@ impl<'a> Building<'a> {
   pub const VT_WORK_H: ::flatbuffers::VOffsetT = 14;
   pub const VT_STARTED: ::flatbuffers::VOffsetT = 16;
   pub const VT_STAGE_SINCE: ::flatbuffers::VOffsetT = 18;
+  pub const VT_FIRM: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -10202,6 +10203,7 @@ impl<'a> Building<'a> {
     args: &'args BuildingArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Building<'bldr>> {
     let mut builder = BuildingBuilder::new(_fbb);
+    builder.add_firm(args.firm);
     builder.add_stage_since(args.stage_since);
     builder.add_started(args.started);
     builder.add_plot(args.plot);
@@ -10270,6 +10272,13 @@ impl<'a> Building<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(Building::VT_STAGE_SINCE, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn firm(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Building::VT_FIRM, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Building<'_> {
@@ -10286,6 +10295,7 @@ impl ::flatbuffers::Verifiable for Building<'_> {
      .visit_field::<f32>("work_h", Self::VT_WORK_H, false)?
      .visit_field::<i64>("started", Self::VT_STARTED, false)?
      .visit_field::<i64>("stage_since", Self::VT_STAGE_SINCE, false)?
+     .visit_field::<u64>("firm", Self::VT_FIRM, false)?
      .finish();
     Ok(())
   }
@@ -10299,6 +10309,7 @@ pub struct BuildingArgs<'a> {
     pub work_h: f32,
     pub started: i64,
     pub stage_since: i64,
+    pub firm: u64,
 }
 impl<'a> Default for BuildingArgs<'a> {
   #[inline]
@@ -10312,6 +10323,7 @@ impl<'a> Default for BuildingArgs<'a> {
       work_h: 0.0,
       started: 0,
       stage_since: 0,
+      firm: 0,
     }
   }
 }
@@ -10354,6 +10366,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<i64>(Building::VT_STAGE_SINCE, stage_since, 0);
   }
   #[inline]
+  pub fn add_firm(&mut self, firm: u64) {
+    self.fbb_.push_slot::<u64>(Building::VT_FIRM, firm, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingBuilder {
@@ -10379,6 +10395,7 @@ impl ::core::fmt::Debug for Building<'_> {
       ds.field("work_h", &self.work_h());
       ds.field("started", &self.started());
       ds.field("stage_since", &self.stage_since());
+      ds.field("firm", &self.firm());
       ds.finish()
   }
 }
@@ -11807,6 +11824,8 @@ impl<'a> FirmState<'a> {
   pub const VT_ENTRIES: ::flatbuffers::VOffsetT = 34;
   pub const VT_MONTHS: ::flatbuffers::VOffsetT = 36;
   pub const VT_WAGE: ::flatbuffers::VOffsetT = 38;
+  pub const VT_MOST_AT_ONCE: ::flatbuffers::VOffsetT = 40;
+  pub const VT_MOST_AT_ONCE_DAY: ::flatbuffers::VOffsetT = 42;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -11818,6 +11837,7 @@ impl<'a> FirmState<'a> {
     args: &'args FirmStateArgs<'args>
   ) -> ::flatbuffers::WIPOffset<FirmState<'bldr>> {
     let mut builder = FirmStateBuilder::new(_fbb);
+    builder.add_most_at_once_day(args.most_at_once_day);
     builder.add_last_sale(args.last_sale);
     builder.add_stores_at(args.stores_at);
     builder.add_closed_at(args.closed_at);
@@ -11833,6 +11853,7 @@ impl<'a> FirmState<'a> {
     if let Some(x) = args.offers { builder.add_offers(x); }
     if let Some(x) = args.stores { builder.add_stores(x); }
     if let Some(x) = args.lines { builder.add_lines(x); }
+    builder.add_most_at_once(args.most_at_once);
     builder.add_sold(args.sold);
     builder.add_exit(args.exit);
     builder.add_closed(args.closed);
@@ -11966,6 +11987,20 @@ impl<'a> FirmState<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<WageOfferState>>(FirmState::VT_WAGE, None)}
   }
+  #[inline]
+  pub fn most_at_once(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(FirmState::VT_MOST_AT_ONCE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn most_at_once_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(FirmState::VT_MOST_AT_ONCE_DAY, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FirmState<'_> {
@@ -11992,6 +12027,8 @@ impl ::flatbuffers::Verifiable for FirmState<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BookEntry>>>>("entries", Self::VT_ENTRIES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MonthStatement>>>>("months", Self::VT_MONTHS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<WageOfferState>>("wage", Self::VT_WAGE, false)?
+     .visit_field::<u8>("most_at_once", Self::VT_MOST_AT_ONCE, false)?
+     .visit_field::<i64>("most_at_once_day", Self::VT_MOST_AT_ONCE_DAY, false)?
      .finish();
     Ok(())
   }
@@ -12015,6 +12052,8 @@ pub struct FirmStateArgs<'a> {
     pub entries: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BookEntry<'a>>>>>,
     pub months: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MonthStatement<'a>>>>>,
     pub wage: Option<::flatbuffers::WIPOffset<WageOfferState<'a>>>,
+    pub most_at_once: u8,
+    pub most_at_once_day: i64,
 }
 impl<'a> Default for FirmStateArgs<'a> {
   #[inline]
@@ -12038,6 +12077,8 @@ impl<'a> Default for FirmStateArgs<'a> {
       entries: None,
       months: None,
       wage: None,
+      most_at_once: 0,
+      most_at_once_day: 0,
     }
   }
 }
@@ -12120,6 +12161,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FirmStateBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<WageOfferState>>(FirmState::VT_WAGE, wage);
   }
   #[inline]
+  pub fn add_most_at_once(&mut self, most_at_once: u8) {
+    self.fbb_.push_slot::<u8>(FirmState::VT_MOST_AT_ONCE, most_at_once, 0);
+  }
+  #[inline]
+  pub fn add_most_at_once_day(&mut self, most_at_once_day: i64) {
+    self.fbb_.push_slot::<i64>(FirmState::VT_MOST_AT_ONCE_DAY, most_at_once_day, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FirmStateBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FirmStateBuilder {
@@ -12155,6 +12204,8 @@ impl ::core::fmt::Debug for FirmState<'_> {
       ds.field("entries", &self.entries());
       ds.field("months", &self.months());
       ds.field("wage", &self.wage());
+      ds.field("most_at_once", &self.most_at_once());
+      ds.field("most_at_once_day", &self.most_at_once_day());
       ds.finish()
   }
 }
@@ -12517,6 +12568,8 @@ impl<'a> WealthYear<'a> {
   pub const VT_WORKED_HA_PER_HEAD: ::flatbuffers::VOffsetT = 28;
   pub const VT_FLOOR_M2_PER_HOUSE: ::flatbuffers::VOffsetT = 30;
   pub const VT_COMMON_HA: ::flatbuffers::VOffsetT = 32;
+  pub const VT_ROOFED_M2_PER_HOUSE: ::flatbuffers::VOffsetT = 34;
+  pub const VT_STORAGE_KG_PER_HOUSE: ::flatbuffers::VOffsetT = 36;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -12528,6 +12581,8 @@ impl<'a> WealthYear<'a> {
     args: &'args WealthYearArgs
   ) -> ::flatbuffers::WIPOffset<WealthYear<'bldr>> {
     let mut builder = WealthYearBuilder::new(_fbb);
+    builder.add_storage_kg_per_house(args.storage_kg_per_house);
+    builder.add_roofed_m2_per_house(args.roofed_m2_per_house);
     builder.add_common_ha(args.common_ha);
     builder.add_floor_m2_per_house(args.floor_m2_per_house);
     builder.add_worked_ha_per_head(args.worked_ha_per_head);
@@ -12652,6 +12707,20 @@ impl<'a> WealthYear<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f64>(WealthYear::VT_COMMON_HA, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn roofed_m2_per_house(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WealthYear::VT_ROOFED_M2_PER_HOUSE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn storage_kg_per_house(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WealthYear::VT_STORAGE_KG_PER_HOUSE, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WealthYear<'_> {
@@ -12675,6 +12744,8 @@ impl ::flatbuffers::Verifiable for WealthYear<'_> {
      .visit_field::<f64>("worked_ha_per_head", Self::VT_WORKED_HA_PER_HEAD, false)?
      .visit_field::<f64>("floor_m2_per_house", Self::VT_FLOOR_M2_PER_HOUSE, false)?
      .visit_field::<f64>("common_ha", Self::VT_COMMON_HA, false)?
+     .visit_field::<f64>("roofed_m2_per_house", Self::VT_ROOFED_M2_PER_HOUSE, false)?
+     .visit_field::<f64>("storage_kg_per_house", Self::VT_STORAGE_KG_PER_HOUSE, false)?
      .finish();
     Ok(())
   }
@@ -12695,6 +12766,8 @@ pub struct WealthYearArgs {
     pub worked_ha_per_head: f64,
     pub floor_m2_per_house: f64,
     pub common_ha: f64,
+    pub roofed_m2_per_house: f64,
+    pub storage_kg_per_house: f64,
 }
 impl<'a> Default for WealthYearArgs {
   #[inline]
@@ -12715,6 +12788,8 @@ impl<'a> Default for WealthYearArgs {
       worked_ha_per_head: 0.0,
       floor_m2_per_house: 0.0,
       common_ha: 0.0,
+      roofed_m2_per_house: 0.0,
+      storage_kg_per_house: 0.0,
     }
   }
 }
@@ -12785,6 +12860,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WealthYearBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<f64>(WealthYear::VT_COMMON_HA, common_ha, 0.0);
   }
   #[inline]
+  pub fn add_roofed_m2_per_house(&mut self, roofed_m2_per_house: f64) {
+    self.fbb_.push_slot::<f64>(WealthYear::VT_ROOFED_M2_PER_HOUSE, roofed_m2_per_house, 0.0);
+  }
+  #[inline]
+  pub fn add_storage_kg_per_house(&mut self, storage_kg_per_house: f64) {
+    self.fbb_.push_slot::<f64>(WealthYear::VT_STORAGE_KG_PER_HOUSE, storage_kg_per_house, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WealthYearBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WealthYearBuilder {
@@ -12817,6 +12900,8 @@ impl ::core::fmt::Debug for WealthYear<'_> {
       ds.field("worked_ha_per_head", &self.worked_ha_per_head());
       ds.field("floor_m2_per_house", &self.floor_m2_per_house());
       ds.field("common_ha", &self.common_ha());
+      ds.field("roofed_m2_per_house", &self.roofed_m2_per_house());
+      ds.field("storage_kg_per_house", &self.storage_kg_per_house());
       ds.finish()
   }
 }

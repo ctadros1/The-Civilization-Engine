@@ -438,6 +438,7 @@ describe("decoders", () => {
     const stageName = b.createString("walls");
     const status = b.createString("walls going up, 40% done");
     // Struct vectors are written back to front.
+    const firmName = b.createString("Wren's sickle workshop");
     W.BuildingInfo.startOutlineVector(b, 2);
     W.Vec2.createVec2(b, 100, 203);
     W.Vec2.createVec2(b, 103, 200);
@@ -466,6 +467,8 @@ describe("decoders", () => {
     W.BuildingInfo.addSleeps(b, 4);
     W.BuildingInfo.addStartedMinute(b, 86_400n);
     W.BuildingInfo.addStatus(b, status);
+    W.BuildingInfo.addFirm(b, 41n);
+    W.BuildingInfo.addFirmName(b, firmName);
     const info = W.BuildingInfo.endBuildingInfo(b);
     const list = W.Buildings.createBuildingsVector(b, [info]);
     const buildings = W.Buildings.createBuildings(b, 77n, list);
@@ -515,6 +518,8 @@ describe("decoders", () => {
           workPlaces: 0,
           storedKg: [],
           stored: "",
+          firm: 41,
+          firmName: "Wren's sickle workshop",
         },
       ],
     });
@@ -590,11 +595,13 @@ describe("decoders", () => {
       W.WealthSpread.addTopTenthGoods(b, 0.25);
       W.WealthSpread.addHoldingNone(b, 1);
       W.WealthSpread.addCommonHa(b, 1.5);
+      W.WealthSpread.addRoofedM2PerHouse(b, 41.5);
+      W.WealthSpread.addStorageKgPerHouse(b, 4150);
       return W.WealthSpread.endWealthSpread(b);
     };
     const now = spread(3n, 0.5);
     const name = b.createString("Wren's household");
-    const household = W.HouseholdWealth.createHouseholdWealth(b, 9n, name, 4, 0, 0.75, 0, 0.25, 120, 24);
+    const household = W.HouseholdWealth.createHouseholdWealth(b, 9n, name, 4, 0, 0.75, 0, 0.25, 120, 24, 39, 6400);
     const households = W.SettlementWealth.createHouseholdsVector(b, [household]);
     const history = W.SettlementWealth.createHistoryVector(b, [spread(1n, 0.25), spread(2n, 0.5)]);
     const place = b.createString("Alderford");
@@ -617,6 +624,7 @@ describe("decoders", () => {
     expect([s.settlement, s.name]).toEqual([3, "Alderford"]);
     expect(s.now).toMatchObject({ year: 3, households: 2, people: 7, giniGoods: 0.5, holdingNone: 1 });
     expect(s.now?.commonHa).toBe(1.5);
+    expect([s.now?.roofedM2PerHouse, s.now?.storageKgPerHouse]).toEqual([41.5, 4150]);
     expect(s.history.map((y) => [y.year, y.giniGoods])).toEqual([
       [1, 0.25],
       [2, 0.5],
@@ -632,6 +640,8 @@ describe("decoders", () => {
         rentedHa: 0.25,
         goodsH: 120,
         floorM2: 24,
+        roofedM2: 39,
+        storageKg: 6400,
       },
     ]);
   });

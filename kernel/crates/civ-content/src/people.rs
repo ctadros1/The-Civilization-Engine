@@ -89,6 +89,8 @@ pub(crate) struct Build {
     pub programs: Vec<String>,
     /// Days over which a household reckons what a storehouse would save of its goods.
     pub store_horizon_days: f64,
+    /// People who can work at a craft at once in a home, beside living there.
+    pub home_work_places: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -474,6 +476,7 @@ impl PeopleFile {
             build: BuildParams {
                 programs,
                 store_horizon_days: self.build.store_horizon_days,
+                home_work_places: self.build.home_work_places,
             },
             mortality: MortalityParams {
                 siler: Siler {

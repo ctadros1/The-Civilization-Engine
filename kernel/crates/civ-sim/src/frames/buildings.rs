@@ -267,6 +267,11 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
             let (stored_kg, stored_words) = stored(sim, b, &kept);
             let stored_kg = fbb.create_vector(&stored_kg.map(|kg| kg as f32));
             let stored_words = fbb.create_string(&stored_words);
+            let firm_name = b
+                .firm
+                .map(|f| super::people::firm_name(sim, f))
+                .unwrap_or_default();
+            let firm_name = fbb.create_string(&firm_name);
             let grammar = fbb.create_string(def.map_or("", |d| d.grammar().name()));
             let purpose = fbb.create_string(def.map_or("", |d| d.use_.name()));
             let plot = sim
@@ -320,6 +325,8 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                     work_places: expansion.as_ref().map_or(0, |e| e.work_places),
                     stored_kg: Some(stored_kg),
                     stored: Some(stored_words),
+                    firm: b.firm.map_or(0, |f| f.get()),
+                    firm_name: Some(firm_name),
                 },
             )
         })

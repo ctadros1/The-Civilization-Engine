@@ -118,6 +118,8 @@ fn spread_info<'a>(
             worked_ha_per_head: s.worked_ha_per_head as f32,
             floor_m2_per_house: s.floor_m2_per_house as f32,
             common_ha: s.common_ha as f32,
+            roofed_m2_per_house: s.roofed_m2_per_house as f32,
+            storage_kg_per_house: s.storage_kg_per_house as f32,
         },
     )
 }
@@ -140,6 +142,8 @@ fn household_info<'a>(
             rented_ha: w.rented_ha as f32,
             goods_h: w.goods_h as f32,
             floor_m2: w.floor_m2 as f32,
+            roofed_m2: w.roofed_m2 as f32,
+            storage_kg: w.storage_kg as f32,
         },
     )
 }

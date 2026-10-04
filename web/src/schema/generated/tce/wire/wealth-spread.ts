@@ -92,8 +92,18 @@ commonHa():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
+roofedM2PerHouse():number {
+  const offset = this.bb!.__offset(this.bb_pos, 32);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+storageKgPerHouse():number {
+  const offset = this.bb!.__offset(this.bb_pos, 34);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
 static startWealthSpread(builder:flatbuffers.Builder) {
-  builder.startObject(14);
+  builder.startObject(16);
 }
 
 static addYear(builder:flatbuffers.Builder, year:bigint) {
@@ -152,12 +162,20 @@ static addCommonHa(builder:flatbuffers.Builder, commonHa:number) {
   builder.addFieldFloat32(13, commonHa, 0.0);
 }
 
+static addRoofedM2PerHouse(builder:flatbuffers.Builder, roofedM2PerHouse:number) {
+  builder.addFieldFloat32(14, roofedM2PerHouse, 0.0);
+}
+
+static addStorageKgPerHouse(builder:flatbuffers.Builder, storageKgPerHouse:number) {
+  builder.addFieldFloat32(15, storageKgPerHouse, 0.0);
+}
+
 static endWealthSpread(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWealthSpread(builder:flatbuffers.Builder, year:bigint, households:number, people:number, giniGoods:number, giniHeld:number, giniWorked:number, giniFloor:number, topTenthGoods:number, holdingNone:number, workingNone:number, goodsHPerHead:number, workedHaPerHead:number, floorM2PerHouse:number, commonHa:number):flatbuffers.Offset {
+static createWealthSpread(builder:flatbuffers.Builder, year:bigint, households:number, people:number, giniGoods:number, giniHeld:number, giniWorked:number, giniFloor:number, topTenthGoods:number, holdingNone:number, workingNone:number, goodsHPerHead:number, workedHaPerHead:number, floorM2PerHouse:number, commonHa:number, roofedM2PerHouse:number, storageKgPerHouse:number):flatbuffers.Offset {
   WealthSpread.startWealthSpread(builder);
   WealthSpread.addYear(builder, year);
   WealthSpread.addHouseholds(builder, households);
@@ -173,6 +191,8 @@ static createWealthSpread(builder:flatbuffers.Builder, year:bigint, households:n
   WealthSpread.addWorkedHaPerHead(builder, workedHaPerHead);
   WealthSpread.addFloorM2PerHouse(builder, floorM2PerHouse);
   WealthSpread.addCommonHa(builder, commonHa);
+  WealthSpread.addRoofedM2PerHouse(builder, roofedM2PerHouse);
+  WealthSpread.addStorageKgPerHouse(builder, storageKgPerHouse);
   return WealthSpread.endWealthSpread(builder);
 }
 }

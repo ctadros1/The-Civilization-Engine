@@ -90,8 +90,8 @@ use commons_persist::{SectionData, SectionTag, SnapshotReader};
 
 use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
-    SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, finish, section,
-    single_chunk, unreadable,
+    SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, finish,
+    section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -228,6 +228,9 @@ enum Schema {
     /// Frame buildings: rectangular footprints, sixteen parameters, plots for stores and
     /// workshops (ADR-0009 §2, §7).
     V15,
+    /// Workshops that name their firms, firms' most at once, and roofed floor and storage in the
+    /// wealth measures (ADR-0009 §7).
+    V16,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -256,7 +259,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V12 => Schema::V12,
         SCHEMA_V13 => Schema::V13,
         SCHEMA_V14 => Schema::V14,
-        SAVE_SCHEMA_VERSION => Schema::V15,
+        SCHEMA_V15 => Schema::V15,
+        SAVE_SCHEMA_VERSION => Schema::V16,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -338,6 +342,16 @@ pub(super) fn decode<R: Read + Seek>(
     let mut problems = land.problems(map, rules.land.habitats.len(), next_id);
     problems.extend(land.wear.problems());
     problems.extend(people.problems(next_id, rules.catalog.activities.len()));
+    for b in &land.buildings {
+        if let Some(f) = b.firm
+            && people.firm(f).is_none()
+        {
+            problems.push(format!(
+                "building {} is the workshop of a missing firm {f}",
+                b.id
+            ));
+        }
+    }
     let settlements: Vec<PermanentId> = land.settlements.iter().map(|s| s.id).collect();
     for (_, h) in people.households.iter() {
         if h.settlement.is_some_and(|s| !settlements.contains(&s)) {
@@ -1132,7 +1146,8 @@ fn carried(
         | Schema::V12
         | Schema::V13
         | Schema::V14
-        | Schema::V15 => {
+        | Schema::V15
+        | Schema::V16 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1252,7 +1267,8 @@ fn decode_households(
             | Schema::V12
             | Schema::V13
             | Schema::V14
-            | Schema::V15 => {
+            | Schema::V15
+            | Schema::V16 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -1986,6 +2002,7 @@ fn encode_buildings(buildings: &[Building]) -> Vec<u8> {
                     work_h: b.work_h,
                     started: b.started.minutes(),
                     stage_since: b.stage_since.minutes(),
+                    firm: b.firm.map_or(0, |f| f.get()),
                 },
             )
         })
@@ -2056,6 +2073,8 @@ fn decode_buildings(bytes: &[u8]) -> Result<Vec<Building>, LoadError> {
             work_h: b.work_h(),
             started: time(b.started()),
             stage_since: time(b.stage_since()),
+            // Before schema 16 no building named a firm.
+            firm: PermanentId::from_raw(b.firm()),
         });
     }
     Ok(out)
@@ -2408,6 +2427,8 @@ fn encode_firms(pop: &Population, goods: &[&str], activities: &[&str]) -> Vec<u8
                     entries: Some(entries),
                     months: Some(months),
                     wage,
+                    most_at_once: f.most_at_once,
+                    most_at_once_day: f.most_at_once_day,
                 },
             )
         })
@@ -2558,6 +2579,9 @@ fn decode_firms(bytes: &[u8], rules: &Rules) -> Result<Vec<Firm>, LoadError> {
             books,
             // Counters start again on load.
             flows: Default::default(),
+            // Before schema 16 nobody was counted: none at once, long ago.
+            most_at_once: f.most_at_once(),
+            most_at_once_day: f.most_at_once_day(),
         });
     }
     Ok(out)
@@ -2590,6 +2614,8 @@ fn encode_wealth(pop: &Population) -> Vec<u8> {
                     worked_ha_per_head: s.worked_ha_per_head,
                     floor_m2_per_house: s.floor_m2_per_house,
                     common_ha: s.common_ha,
+                    roofed_m2_per_house: s.roofed_m2_per_house,
+                    storage_kg_per_house: s.storage_kg_per_house,
                 },
             )
         })
@@ -2621,6 +2647,9 @@ fn decode_wealth(bytes: &[u8]) -> Result<Vec<WealthYear>, LoadError> {
                 worked_ha_per_head: y.worked_ha_per_head(),
                 floor_m2_per_house: y.floor_m2_per_house(),
                 common_ha: y.common_ha(),
+                // Before schema 16 they were not measured: 0.
+                roofed_m2_per_house: y.roofed_m2_per_house(),
+                storage_kg_per_house: y.storage_kg_per_house(),
             },
         });
     }
@@ -2866,6 +2895,7 @@ mod tests {
                 work_h: 5.5,
                 started: 60,
                 stage_since: 120,
+                ..Default::default()
             },
         );
         let list = fbb.create_vector(&[building]);
@@ -2904,6 +2934,7 @@ mod tests {
             (1, 1, 7)
         );
         assert_eq!((b.stage, b.work_h), (2, 5.5));
+        assert_eq!(b.firm, None, "no firm before schema 16");
         // Saved again, it keeps the eight and the eight zeros after them.
         let again = decode_buildings(&encode_buildings(&loaded)).expect("decodes");
         assert_eq!(again, loaded);

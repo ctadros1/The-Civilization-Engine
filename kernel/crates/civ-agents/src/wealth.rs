@@ -8,7 +8,9 @@
 //! - **Goods**, in hours of work: what is in a household's store and in the stores of the
 //!   workshops it owns, each good valued at its settlement's price, the median of what it costs
 //!   the settlement's households in their own work, so households can be compared.
-//! - **House floor area**, square metres under its roofs: the archaeological proxy.
+//! - **House floor area**, square metres under its homes' roofs: the archaeological proxy.
+//! - **Roofed floor and room for goods** beside it (ADR-0009 §7): the floor under every roof it
+//!   has, homes, stores and workshops, and the kilograms of goods those roofs have room for.
 //!
 //! Inequality is person-weighted, per head: a household is a consumption-sharing unit, and each of
 //! its members counts at the household's measure over its members (08-14 §1.1, §5.6). Floor area
@@ -41,8 +43,12 @@ pub struct HouseholdWealth {
     pub rented_ha: f64,
     /// Its goods, hours of work at its settlement's prices.
     pub goods_h: f64,
-    /// Floor area under its roofs, square metres.
+    /// Floor area of its homes, under their roofs, square metres.
     pub floor_m2: f64,
+    /// Floor under all its roofs, homes, stores and workshops, square metres.
+    pub roofed_m2: f64,
+    /// Room for goods under all its roofs, kilograms ([`crate::population::room_of`]).
+    pub storage_kg: f64,
 }
 
 /// How a settlement's measures spread over its people at one moment.
@@ -76,6 +82,11 @@ pub struct Spread {
     pub floor_m2_per_house: f64,
     /// Land the settlement itself holds, hectares.
     pub common_ha: f64,
+    /// Floor under all their roofs, homes, stores and workshops, per household with a roof,
+    /// square metres.
+    pub roofed_m2_per_house: f64,
+    /// Room for goods under all their roofs, per household with a roof, kilograms.
+    pub storage_kg_per_house: f64,
 }
 
 /// A settlement's measures at the end of a year.
@@ -181,6 +192,7 @@ pub fn spread(settlement: PermanentId, common_ha: f64, households: &[HouseholdWe
         .filter(|h| h.floor_m2 > 0.0)
         .map(|h| (h.floor_m2, 1.0))
         .collect();
+    let roofed = households.iter().filter(|h| h.roofed_m2 > 0.0).count() as f64;
     let total = |f: fn(&HouseholdWealth) -> f64| households.iter().map(f).fold(0.0, |a, b| a + b);
     let share = |n: usize| {
         if households.is_empty() {
@@ -205,6 +217,8 @@ pub fn spread(settlement: PermanentId, common_ha: f64, households: &[HouseholdWe
         worked_ha_per_head: per(total(|h| h.worked_ha), f64::from(people)),
         floor_m2_per_house: per(total(|h| h.floor_m2), houses.len() as f64),
         common_ha: common_ha.max(0.0),
+        roofed_m2_per_house: per(total(|h| h.roofed_m2), roofed),
+        storage_kg_per_house: per(total(|h| h.storage_kg), roofed),
     }
 }
 
@@ -256,6 +270,8 @@ impl Population {
                     rented_ha: 0.0,
                     goods_h: 0.0,
                     floor_m2: 0.0,
+                    roofed_m2: 0.0,
+                    storage_kg: 0.0,
                 };
                 for f in &land.fields {
                     let ha = f.area_ha();
@@ -293,10 +309,13 @@ impl Population {
                     if let Some(def) = catalog
                         .building_index(&b.spec.program)
                         .and_then(|i| catalog.buildings.get(i))
-                        && def.use_ == civ_land::PlotUse::Dwelling
                         && let Ok(e) = civ_grammar::expand(&b.spec, &def.rules)
                     {
-                        w.floor_m2 += e.floor_area_m2;
+                        if def.use_ == civ_land::PlotUse::Dwelling {
+                            w.floor_m2 += e.floor_area_m2;
+                        }
+                        w.roofed_m2 += e.floor_area_m2;
+                        w.storage_kg += crate::population::room_of(b, catalog).iter().sum::<f64>();
                     }
                 }
                 w
@@ -431,13 +450,18 @@ mod tests {
                 rented_ha: 0.0,
                 goods_h: goods,
                 floor_m2: floor,
+                roofed_m2: floor,
+                storage_kg: floor * 100.0,
             }
         };
-        let all = [
+        let mut all = [
             hh(2, 4, 1.0, 1.0, 400.0, 30.0),
             hh(3, 2, 0.0, 0.5, 100.0, 0.0),
             hh(4, 2, 0.0, 0.0, 0.0, 10.0),
         ];
+        // The first also has a granary of 15 m², raised, room for 7.5 t.
+        all[0].roofed_m2 += 15.0;
+        all[0].storage_kg += 7_500.0;
         let s = spread(id(1), 0.5, &all);
         assert_eq!((s.households, s.people), (3, 8));
         assert!(close(s.holding_none, 2.0 / 3.0));
@@ -446,6 +470,16 @@ mod tests {
         assert!(close(s.worked_ha_per_head, 1.5 / 8.0));
         assert!(close(s.floor_m2_per_house, 20.0), "two houses");
         assert!(close(s.common_ha, 0.5));
+        // Beside the houses: all the floor under their roofs, and room for goods.
+        assert!(
+            close(s.roofed_m2_per_house, 27.5),
+            "{}",
+            s.roofed_m2_per_house
+        );
+        assert!(close(
+            s.storage_kg_per_house,
+            (3_000.0 + 7_500.0 + 1_000.0) / 2.0
+        ));
         // Land held: four people at 0.25 a head, four at none.
         assert!(close(s.gini_held, 0.5), "{}", s.gini_held);
         // Floor area house by house, [10, 30]: 2·(10 + 60)/(2·40) − 3/2.

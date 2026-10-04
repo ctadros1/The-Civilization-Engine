@@ -89,10 +89,23 @@ fn make(saves: &Path) -> Result<String, String> {
         .filter_map(|m| sim.people().person(*m))
         .map(|p| p.age_years(now))
         .collect();
+    // The tools for the work its people know.
+    let members = sim
+        .people()
+        .household(maker)
+        .ok_or("no maker")?
+        .members
+        .clone();
+    let knows = |t: usize| {
+        members
+            .iter()
+            .any(|m| sim.people().person(*m).is_some_and(|p| p.knows(t)))
+    };
     let wants = civ_agents::make::tool_wants_for(
         &rules.catalog,
         &ages,
         rules.people.family.independent_age,
+        &knows,
     );
     let set = |sim: &mut Sim, household: PermanentId, kg: &[(usize, f64)], level: f64| {
         let pop = sim.people_mut_for_tests();

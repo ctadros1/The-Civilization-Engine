@@ -389,8 +389,9 @@ and when it is lost are decided at run time. Nothing in content says when a tech
 |---|---|
 | `name`, `can` | Its name, and what a competent person can do, completing "a competent person can …". |
 | `domain` | The skill whose practice it is (a skill id), or `""`. Knowing is the gate; skill is how well. |
-| `requires` | Its prerequisites as alternative routes, each a list of technique ids: `[["a", "b"], ["c"]]` is a and b, or c. `[]` for none. |
-| `tried_in`, `needs`, `e50_h` | For discovery (slice N): the activities whose practice counts toward finding it, the goods a household must hold to try it, and the qualified hours at which half of those trying have found it. |
+| `requires` | Its prerequisites as alternative routes, each a list of technique ids: `[["a", "b"], ["c"]]` is a and b, or c. `[]` for none. Someone finds it only if they know one route wholly. |
+| `tried_in`, `needs`, `e50_h` | For discovery (slice N): the activities whose practice counts toward finding it (a share of their hours, `knowledge.experiment_share`), the goods a household must hold to find or try toward it, and the qualified hours at which half of those trying have found it. |
+| `[answers]` `spoilage` | The household problem it answers, which draws people to try toward it: goods whose loss to spoiling it would prevent (good ids; `[]` for none). |
 | `learn_h` | Hours of work beside someone who knows it that teach it. |
 | `upbringing` | Children learn it at home: a child not yet grown, in a household where someone knows it, learns it on reaching the youngest age of the work it gates, or in the year before growing up if the work comes later. |
 
@@ -404,11 +405,23 @@ The people profile's `[knowledge]` table (every value a tuning value):
 | `founders` | `[{ technique, share }, …]`: the share of founders old enough for each technique's work who know it. A craft not learnt at home is known only from adulthood. A band always brings at least one knower of each technique with a share above zero. Families the observer sends draw the same way. |
 | `max_learners` | Learners one person teaches at once (research 07-02 §2.3: one to three). |
 | `w_learn` | Utility points for working beside someone to learn what they know. |
+| `experiment_share` | The share of routine work's hours that counts as experiment toward what its practice can find (research 07-01 §2.3: 1 %). |
+| `aware_try_factor` | How many times its hours trying counts for someone already aware of the technique. |
+| `w_try` | Utility points for trying at a problem at home, times the share of the household's food the problem would cost. |
+| `try_gap_days` | Least days between one person's sessions of trying. |
 
-The core pack has eight techniques, the founders' repertoire of today's work, all known by every
-founder and all learnt in upbringing (research 06-08 §1.1, §3): growing emmer, grinding at a
+The core pack has ten techniques. Eight are the founders' repertoire of today's work, known by
+every founder and learnt in upbringing (research 06-08 §1.1, §3): growing emmer, grinding at a
 quern, pounding grain, baking flatbread, knapping sickle blades, shaping stone, shaping wood and
-building roundhouses. Content API 9 added the kind.
+building roundhouses. Two are not known at first (slice N). **Drying and smoking** answers meat
+and fish spoiling and is found from hunting, fishing and trying. **Grinding at a rotary quern**
+needs shaping stone and wood, and its E50 of 100,000 hours makes it, in practice, the observer's
+introduction. Content API 9 added the kind and API 10 its `[answers]`.
+
+A `try` activity (`behavior = "try"`, slice N) spends spare hours at home trying toward the
+technique whose problem would cost the household the most food, among those the person could
+find. It names no technique: what it works toward is chosen when it is done. The core pack's
+`core:activity/try` is an hour, from age 12.
 
 ## Planned kinds
 

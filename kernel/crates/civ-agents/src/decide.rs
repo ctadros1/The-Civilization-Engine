@@ -200,6 +200,16 @@ pub struct JobOption {
     pub worth: TradeWorth,
 }
 
+/// A session of trying toward a technique (ADR-0008 §3): which, and what it is worth.
+#[derive(Clone, Copy, Debug)]
+pub struct TryOption {
+    /// The technique, by index in the catalog's techniques.
+    pub technique: u16,
+    /// Utility points: the try weight times how much of the household's food the problem the
+    /// technique answers would cost.
+    pub points: f64,
+}
+
 /// Hours of a household's own work a wage must be worth to be worth half as much as can be (a
 /// tuning value: a session's work).
 pub const WAGE_HALF_WORTH_H: f64 = 3.0;
@@ -242,6 +252,11 @@ pub enum MakeWorth {
     Sale {
         /// 0–1.
         share: f64,
+    },
+    /// Food kept that would otherwise spoil before it is eaten (dried, smoked): its energy, kcal.
+    Preserve {
+        /// Kcal.
+        kcal: f64,
     },
 }
 
@@ -378,6 +393,7 @@ pub fn candidates(
     job: &dyn Fn() -> Option<JobOption>,
     build: Result<BuildOption, Reason>,
     shop: &Workshop,
+    trying: &dyn Fn() -> Result<TryOption, Reason>,
 ) -> (Vec<Candidate>, Vec<(u16, Reason)>) {
     let mut out: Vec<Candidate> = Vec::new();
     let mut excluded = Vec::new();
@@ -907,6 +923,29 @@ pub fn candidates(
                 ];
                 out.push(finish(id, Target::Firm(j.firm), terms, steps));
             }
+            Behavior::Try => {
+                // Spare hours at home trying toward a technique that would answer a problem
+                // there (ADR-0008 §3).
+                let t = match trying() {
+                    Ok(t) => t,
+                    Err(why) => {
+                        excluded.push((id, why));
+                        continue;
+                    }
+                };
+                let minutes = f64::from(def.min_minutes.max(1));
+                term(&mut terms, Reason::Problem, t.points);
+                term(
+                    &mut terms,
+                    Reason::Effort,
+                    -w.w_effort * (def.par - 1.0).max(0.0) * minutes / 60.0 * f.sleep_pressure,
+                );
+                let mut steps = walk_home_first(f);
+                steps.push(Step::Work {
+                    minutes: minutes.round() as u32,
+                });
+                out.push(finish(id, Target::Technique(t.technique), terms, steps));
+            }
             Behavior::Socialize => {
                 let Some(hearth) = f.hearth else {
                     excluded.push((id, Reason::NoHearth));
@@ -977,6 +1016,11 @@ pub fn candidates(
                             Reason::ForSale,
                             w.w_tools * share.clamp(0.0, 1.0),
                         );
+                    }
+                    MakeWorth::Preserve { kcal } => {
+                        let half = w.trip_half_worth_days * f.household_kcal_day.max(1.0);
+                        let worth = kcal / (kcal + half.max(1.0));
+                        term(&mut terms, Reason::Spoiling, w.w_food * worth);
                     }
                     MakeWorth::Tool { tool, need } => {
                         term(&mut terms, Reason::Tools, w.w_tools * need.clamp(0.0, 1.0));
@@ -1253,6 +1297,7 @@ mod tests {
             &|| None,
             Err(Reason::Built),
             &shop,
+            &|| Err(Reason::NoProblem),
         )
     }
 
@@ -1386,6 +1431,7 @@ mod tests {
                 &|| None,
                 Err(Reason::Built),
                 &shop,
+                &|| Err(Reason::NoProblem),
             );
             let total = |d: u16| {
                 cands

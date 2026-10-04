@@ -556,15 +556,21 @@ fn slice_l_saves_load_with_what_founders_bring() {
     let (catalog, params) = (&migrated.rules().catalog, &migrated.rules().people);
     let now = migrated.now();
     for t in 0..catalog.techniques.len() {
+        let founders = params.knowledge.founders.iter().any(|&(x, _)| x == t);
         let age = civ_agents::knowledge::knowing_age(catalog, t, params.family.independent_age)
             .expect("gates work");
         for (_, p) in migrated.people().people.iter() {
-            assert_eq!(p.knows(t), p.age_years(now) >= age, "{}", p.given);
+            assert_eq!(
+                p.knows(t),
+                founders && p.age_years(now) >= age,
+                "{}",
+                p.given
+            );
         }
     }
     let settlements = migrated.land().settlements.len();
     let records = &migrated.people().knowledge;
-    assert_eq!(records.len(), catalog.techniques.len() * settlements);
+    assert_eq!(records.len(), params.knowledge.founders.len() * settlements);
     assert!(records.iter().all(|e| e.at == now
         && e.kind
             == civ_agents::knowledge::KnowledgeEventKind::Known(
@@ -573,6 +579,60 @@ fn slice_l_saves_load_with_what_founders_bring() {
     migrated
         .advance_minutes(24 * 60)
         .expect("a migrated world runs");
+}
+
+#[test]
+fn slice_m_saves_load_with_nobody_having_tried() {
+    // A schema-13 save has no times of trying: everyone loads as never having tried.
+    let sim = load_first();
+    let sections = persist::encode_sections(&sim);
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V13;
+    let path = republish("slice-m", &info, &sections);
+    let loaded = persist::load(&path, content()).expect("a schema-13 save loads");
+    assert!(loaded.is_dirty(), "the migration is new state");
+    assert_eq!(loaded.people().living(), sim.people().living());
+}
+
+#[test]
+fn a_session_of_trying_survives_a_save_and_load() {
+    let mut sim = load_first();
+    let drying = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/drying")
+        .expect("drying");
+    let now = sim.now();
+    let someone = sim
+        .people()
+        .people
+        .iter()
+        .map(|(_, p)| p.id)
+        .min()
+        .expect("someone");
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == someone {
+            p.act.target = civ_agents::person::Target::Technique(drying as u16);
+            p.tried = Some(now);
+        }
+    }
+    let dir = scratch_dir("trying");
+    let saved = persist::save(&mut sim, &dir, SaveKind::Manual, "trying").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    let p = loaded.people().person(someone).expect("alive");
+    assert_eq!(
+        p.act.target,
+        civ_agents::person::Target::Technique(drying as u16)
+    );
+    assert_eq!(p.tried, Some(now));
+    // Nobody else has tried.
+    assert!(
+        loaded
+            .people()
+            .people
+            .iter()
+            .all(|(_, q)| q.id == someone || q.tried.is_none())
+    );
 }
 
 #[test]

@@ -140,6 +140,14 @@ impl ActivityFile {
                     .to_owned(),
             );
         }
+        if Behavior::from_name(&self.behavior) == Some(Behavior::Try) && !self.technique.is_empty()
+        {
+            p.push(
+                "what a `try` activity works toward is chosen when it is done: `technique` must be \
+                 empty"
+                    .to_owned(),
+            );
+        }
         if Behavior::from_name(&self.behavior) == Some(Behavior::Make) && !self.tools.is_empty() {
             p.push("a `make` activity's tools are its recipe's: `tools` must be empty".to_owned());
         }

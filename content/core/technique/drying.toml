@@ -1,0 +1,21 @@
+# Drying and smoking meat and fish over a slow fire so that they keep for months (research 07-04
+# P03: prehistoric, first appearance unresolved; 07-03 §3.5). It answers food lost to spoiling:
+# fresh meat keeps days, fresh fish less. Not in the founders' repertoire here, so a world finds
+# it, or not. Found from handling meat and fish (hunting and fishing count 1 % of their hours)
+# and from trying at the problem; a household must have firewood to try. A near technique: half
+# of those trying find it in 2,000 qualified hours (07-01 §2.3 tests 10^3 to 10^5; a tuning
+# value). Learnt in 20 hours beside someone who knows it, and at home by children (07-02 §2.3).
+kind = "technique"
+id = "core:technique/drying"
+name = "Drying and smoking"
+can = "dry and smoke meat and fish over a slow fire so that they keep for months"
+domain = ""
+requires = []
+tried_in = ["core:activity/hunt", "core:activity/fish"]
+needs = ["core:good/firewood"]
+e50_h = 2000.0
+learn_h = 20.0
+upbringing = true
+
+[answers]
+spoilage = ["core:good/meat", "core:good/fish"]

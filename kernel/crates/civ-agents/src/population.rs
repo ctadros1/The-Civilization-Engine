@@ -276,6 +276,10 @@ pub fn fuel_per_day(params: &PeopleParams, members: usize, day: i64) -> f64 {
     params.household.fuel_kg_per_person_day[m] * members as f64
 }
 
+/// Least food, in days of one person's need, that must be about to spoil for a household to keep
+/// it by a recipe that preserves (a tuning value).
+pub const MIN_PRESERVE_DAYS: f64 = 0.5;
+
 /// A household's stores at `now`: spoiled by each good's half-life, less the firewood burned.
 pub fn stores_now(
     h: &Household,
@@ -438,7 +442,20 @@ impl Population {
                 .filter_map(|m| ages.get(m).copied())
                 .collect();
             h.stores.resize(catalog.goods.len(), 0.0);
-            let wants = make::tool_wants_for(catalog, &members, params.family.independent_age);
+            // The tools for the work founders know (ADR-0008 §1).
+            let founders_know = |t: usize| {
+                params
+                    .knowledge
+                    .founders
+                    .iter()
+                    .any(|&(x, s)| x == t && s > 0.0)
+            };
+            let wants = make::tool_wants_for(
+                catalog,
+                &members,
+                params.family.independent_age,
+                &founders_know,
+            );
             for (g, want) in wants.into_iter().enumerate() {
                 h.stores[g] += want;
                 h.flows.add(Flow::Brought, g, want);
@@ -1385,7 +1402,8 @@ impl Population {
             .filter_map(|m| self.person(*m))
             .map(|q| q.age_years(now))
             .collect();
-        let wants = make::tool_wants_for(catalog, &ages, params.family.independent_age);
+        let knows = |t: usize| self.household_knows(&hh.members, t);
+        let wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
         let me = self.people.get(h).map(|p| p.id);
         let mut free_tools: Vec<f64> = stores
             .iter()
@@ -1640,6 +1658,27 @@ impl Population {
                 } else {
                     return Err((Reason::NotNeeded, None));
                 }
+            } else if let Some(input) = make::preserves(r, goods) {
+                // Keeping food that would spoil before it is eaten (drying, smoking): as much of
+                // it as would spoil, worth the food kept.
+                let spoil = crate::knowledge::spoiling_kcal(
+                    goods,
+                    &stores,
+                    hh.sheltered,
+                    kcal_day,
+                    &[input],
+                );
+                let per_unit = r
+                    .inputs
+                    .iter()
+                    .find(|&&(g, _)| g == input)
+                    .map_or(0.0, |&(_, amount)| amount * goods[input].kcal_per_kg);
+                if per_unit <= 0.0
+                    || spoil < MIN_PRESERVE_DAYS * params.household.daily_kcal_per_person
+                {
+                    return Err((Reason::NotNeeded, None));
+                }
+                (MakeWorth::Preserve { kcal: per_unit }, spoil / per_unit)
             } else if out_good.purpose == GoodUse::Food {
                 let per_unit: f64 = r
                     .outputs
@@ -1713,6 +1752,10 @@ impl Population {
                     room,
                     toward_meal,
                 },
+                // The food kept: the units made of what would have spoiled.
+                MakeWorth::Preserve { kcal: per_unit } => MakeWorth::Preserve {
+                    kcal: units * per_unit,
+                },
                 tool => tool,
             };
             let firm = match worth {
@@ -1740,6 +1783,47 @@ impl Population {
             makes_tool: &makes_tool,
             knows: &|t| self.people.get(h).is_some_and(|p| p.knows(t)),
         };
+        // Trying toward a technique that would answer a problem at home (ADR-0008 §3): the one
+        // whose problem would cost the household the most food, among those the person could
+        // find.
+        let try_gap_min = (params.knowledge.try_gap_days * MINUTES_PER_DAY as f64) as i64;
+        let trying = || -> Result<decide::TryOption, Reason> {
+            let p = self.people.get(h).ok_or(Reason::NoProblem)?;
+            if p.tried
+                .is_some_and(|t| now.minutes() - t.minutes() < try_gap_min)
+            {
+                return Err(Reason::TriedLately);
+            }
+            let half = (params.decision.trip_half_worth_days * kcal_day).max(1.0);
+            let knows = |t: usize| p.knows(t);
+            let mut best: Option<(f64, usize)> = None;
+            for (t, def) in catalog.techniques.iter().enumerate() {
+                if def.answers_spoilage.is_empty()
+                    || p.knows(t)
+                    || !crate::knowledge::could_find(catalog, t, &knows, &stores)
+                {
+                    continue;
+                }
+                let kcal = crate::knowledge::spoiling_kcal(
+                    goods,
+                    &stores,
+                    hh.sheltered,
+                    kcal_day,
+                    &def.answers_spoilage,
+                );
+                let share = kcal / (kcal + half);
+                if best.is_none_or(|(b, _)| share > b) {
+                    best = Some((share, t));
+                }
+            }
+            let (share, t) = best
+                .filter(|&(share, _)| share >= crate::knowledge::MIN_PROBLEM_SHARE)
+                .ok_or(Reason::NoProblem)?;
+            Ok(decide::TryOption {
+                technique: t as u16,
+                points: params.knowledge.w_try * share,
+            })
+        };
         let (cands, excluded) = decide::candidates(
             &catalog.activities,
             &params.decision,
@@ -1753,6 +1837,7 @@ impl Population {
             &job,
             build,
             &shop,
+            &trying,
         );
         // Work that needs a technique the person does not know is left out, unless a member of
         // their household who knows it is at that work there now: then they may work beside them
@@ -2129,9 +2214,9 @@ impl Population {
                 (params.social.quality_per_companion * companions as f64).min(1.0),
             ),
             // Work at home is done among the household.
-            Some(Behavior::Eat | Behavior::Rest | Behavior::Play | Behavior::Make) => {
-                (def_par, false, params.social.household_quality)
-            }
+            Some(
+                Behavior::Eat | Behavior::Rest | Behavior::Play | Behavior::Make | Behavior::Try,
+            ) => (def_par, false, params.social.household_quality),
             Some(
                 Behavior::Gather
                 | Behavior::FetchWater
@@ -2162,7 +2247,8 @@ impl Population {
         settle(p, now, params);
         let step = p.act.steps.get(p.act.step as usize).copied();
         let def = ctx.catalog.activities.get(p.act.def as usize).cloned();
-        let (who, act_def, act_target) = (p.id, p.act.def, p.act.target);
+        let (who, act_def, act_target, started) =
+            (p.id, p.act.def, p.act.target, p.act.step_started);
         // The technique the work needs, found before the work changes what it is aimed at.
         let technique = match (step, def.as_ref()) {
             (Some(Step::Work { .. }), Some(d)) => self.technique_for(ctx, d, act_target),
@@ -2269,6 +2355,16 @@ impl Population {
         // A knower has practised the work's technique; a learner learns by it (ADR-0008 §4).
         if let (Some(Step::Work { minutes }), Some(t)) = (step, technique) {
             self.practise(ctx, who, t, act_def, act_target, f64::from(minutes) / 60.0);
+        }
+        // The work may have found something new (ADR-0008 §3).
+        if let Some(Step::Work { minutes }) = step {
+            if def.as_ref().is_some_and(|d| d.behavior == Behavior::Try)
+                && let Some(p) = self.people.get_mut(h)
+            {
+                p.tried = Some(now);
+            }
+            let hours = f64::from(minutes) / 60.0;
+            self.discover(ctx, who, (act_def, act_target), hours, started);
         }
         // Work wears the tools it needs (a recipe's are worn where it is worked).
         if let (Some(Step::Work { minutes }), Some(d)) = (step, def.as_ref())

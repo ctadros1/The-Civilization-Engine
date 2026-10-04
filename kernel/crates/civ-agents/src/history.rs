@@ -102,11 +102,19 @@ pub enum Reason {
     /// Excluded: they do not know how, and nobody they could learn from is at the work
     /// (ADR-0008 §1).
     DoesNotKnow = 122,
+    /// To find a way to answer a problem at home: food lost to spoiling (ADR-0008 §3).
+    Problem = 22,
+    /// To keep food that would otherwise spoil before it is eaten (ADR-0008 §3's crafts).
+    Spoiling = 23,
+    /// Excluded: nothing at home calls for trying something new.
+    NoProblem = 123,
+    /// Excluded: they tried something new lately.
+    TriedLately = 124,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 44] = [
+    pub const ALL: [Reason; 48] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -151,6 +159,10 @@ impl Reason {
         Reason::NoWork,
         Reason::Learning,
         Reason::DoesNotKnow,
+        Reason::Problem,
+        Reason::Spoiling,
+        Reason::NoProblem,
+        Reason::TriedLately,
     ];
 
     /// The reason with this code.
@@ -205,6 +217,10 @@ impl Reason {
             Reason::NoWork => "nobody nearby is hiring",
             Reason::Learning => "learning it from someone who knows",
             Reason::DoesNotKnow => "does not know how, and nobody to learn from is at it",
+            Reason::Problem => "a problem at home it might answer",
+            Reason::Spoiling => "before it spoils",
+            Reason::NoProblem => "nothing at home calls for it",
+            Reason::TriedLately => "tried something new lately",
         }
     }
 }
@@ -370,8 +386,8 @@ pub enum ChronicleKind {
     /// made and `number` why ([`crate::firm::Exit`] as a number).
     WorkshopClosed,
     /// Someone found a technique (ADR-0008 §3): `people` is the finder, `name` the technique and
-    /// `number` 2 for the first anyone found, 1 for the first in this settlement, 0 for a find of
-    /// what was lost here.
+    /// `number` what kind of find it was: [`FOUND_FIRST_ANYWHERE`], [`FOUND_FIRST_HERE`],
+    /// [`FOUND_AGAIN`] or [`FOUND_KNOWN_HERE`].
     TechniqueFound,
     /// Someone learnt a craft by working beside someone who knew it (ADR-0008 §4): `people` is
     /// the learner and the teacher, `name` the technique.
@@ -446,6 +462,15 @@ pub struct ChronicleEvent {
     /// The firm the entry is about (slice J).
     pub firm: Option<PermanentId>,
 }
+
+/// A find (ADR-0008 §3) that is the first anywhere: the `number` of a `TechniqueFound` entry.
+pub const FOUND_FIRST_ANYWHERE: i64 = 2;
+/// A find that is the first in the finder's settlement, of a technique known elsewhere.
+pub const FOUND_FIRST_HERE: i64 = 1;
+/// A find of a technique lost in the finder's settlement before.
+pub const FOUND_AGAIN: i64 = 0;
+/// A find of a technique others in the finder's settlement already knew.
+pub const FOUND_KNOWN_HERE: i64 = 3;
 
 /// A piece of rendered chronicle text.
 #[derive(Clone, Debug, PartialEq)]
@@ -655,8 +680,9 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         ChronicleKind::TechniqueFound => {
             let what = event.name.to_lowercase();
             let first = match event.number.round() as i64 {
-                2 => ", the first anyone has",
-                1 => ", the first here",
+                FOUND_FIRST_ANYWHERE => ", the first anyone has",
+                FOUND_FIRST_HERE => ", the first here",
+                FOUND_KNOWN_HERE => ", which others here already knew",
                 _ => ", lost here before",
             };
             match person(0) {

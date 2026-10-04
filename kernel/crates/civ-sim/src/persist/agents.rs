@@ -90,7 +90,8 @@ use commons_persist::{SectionData, SectionTag, SnapshotReader};
 
 use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
-    SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, finish, section, single_chunk, unreadable,
+    SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, finish, section, single_chunk,
+    unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -222,6 +223,8 @@ enum Schema {
     V12,
     /// Knowledge carried by people (ADR-0008).
     V13,
+    /// Trying toward techniques, and finds (ADR-0008 §3).
+    V14,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -248,7 +251,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V10 => Schema::V10,
         SCHEMA_V11 => Schema::V11,
         SCHEMA_V12 => Schema::V12,
-        SAVE_SCHEMA_VERSION => Schema::V13,
+        SCHEMA_V13 => Schema::V13,
+        SAVE_SCHEMA_VERSION => Schema::V14,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -458,6 +462,7 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
         Target::NewBuilding => (save::TargetKind::NewBuilding, 0, 0),
         Target::Firm(f) => (save::TargetKind::Firm, 0, f.get()),
         Target::NewFirm => (save::TargetKind::NewFirm, 0, 0),
+        Target::Technique(t) => (save::TargetKind::Technique, u32::from(t), 0),
     }
 }
 
@@ -475,6 +480,10 @@ fn target_of(kind: save::TargetKind, index: u32, id: u64) -> Result<Target, Load
         save::TargetKind::NewBuilding => Target::NewBuilding,
         save::TargetKind::Firm => Target::Firm(required(id, "a firm target")?),
         save::TargetKind::NewFirm => Target::NewFirm,
+        save::TargetKind::Technique => Target::Technique(
+            u16::try_from(index)
+                .map_err(|_| LoadError::Malformed(format!("a target names technique {index}")))?,
+        ),
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",
@@ -870,6 +879,7 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
             nursing: raw(p.nursing),
             skills: Some(skills),
             knows: Some(knows),
+            tried: p.tried.map_or(-1, SimTime::minutes),
         },
     )
 }
@@ -983,7 +993,26 @@ fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedP
             company: p.company(),
             act: Activity {
                 def,
-                target: target_of(a.target_kind(), a.target_index(), a.target_id())?,
+                target: match target_of(a.target_kind(), a.target_index(), a.target_id())? {
+                    // A technique tried toward, by its place in the save's techniques: if the
+                    // content no longer has it, the person decides again.
+                    Target::Technique(t) => match technique_ids.get(usize::from(t)) {
+                        Some(Some(now)) => Target::Technique(*now as u16),
+                        Some(None) => {
+                            if !redecide.contains(&person_id) {
+                                redecide.push(person_id);
+                            }
+                            Target::None
+                        }
+                        None => {
+                            return Err(LoadError::Malformed(format!(
+                                "person {person_id} tries toward technique {t} of {}",
+                                technique_ids.len()
+                            )));
+                        }
+                    },
+                    other => other,
+                },
                 steps,
                 step: a.step(),
                 started: time(a.started()),
@@ -1067,6 +1096,7 @@ fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedP
                 knows.dedup_by_key(|k| k.technique);
                 knows
             },
+            tried: (p.tried() >= 0).then(|| time(p.tried())),
         });
     }
     Ok((people, root.next_trip(), redecide))
@@ -1096,7 +1126,8 @@ fn carried(
         | Schema::V10
         | Schema::V11
         | Schema::V12
-        | Schema::V13 => {
+        | Schema::V13
+        | Schema::V14 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1214,7 +1245,8 @@ fn decode_households(
             | Schema::V10
             | Schema::V11
             | Schema::V12
-            | Schema::V13 => {
+            | Schema::V13
+            | Schema::V14 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

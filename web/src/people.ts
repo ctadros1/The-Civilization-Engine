@@ -80,6 +80,8 @@ const CORE_COLOURS: Record<string, number> = {
   "core:activity/socialize": 0xeb8d4c,
   "core:activity/rest": 0xbdb6ab,
   "core:activity/play": 0xe796c6,
+  // Trying something new (M3b slice N) stands out: finds are rare and worth watching for.
+  "core:activity/try": 0xb38be0,
 };
 
 function hashHue(text: string): number {

@@ -25,6 +25,8 @@ pub const PURPOSE_SPAWN: u64 = 0x7370_6177_6e30_3031; // "spawn001"
 /// Keyed-randomness purpose of what a founder knows (ADR-0008 §1): its own stream, so the other
 /// founding draws are as they were.
 pub const PURPOSE_KNOW: u64 = 0x6b6e_6f77_3030_3031; // "know0001"
+/// Keys the draw of a find at the end of a session (ADR-0008 §3).
+pub const PURPOSE_FIND: u64 = 0x6669_6e64_3030_3031; // "find0001"
 /// A family the observer sends within this of a settlement's hearth, metres, joins it; farther
 /// away it makes camp where it was placed.
 pub const SPAWN_JOIN_M: f32 = 600.0;
@@ -513,7 +515,19 @@ fn add_family(
     }
     // And the tools their work needs (ADR-0006 §1).
     let ages: Vec<f64> = family.iter().map(|m| m.age).collect();
-    let wants = crate::make::tool_wants_for(ctx.catalog, &ages, params.family.independent_age);
+    let founders_know = |t: usize| {
+        params
+            .knowledge
+            .founders
+            .iter()
+            .any(|&(x, s)| x == t && s > 0.0)
+    };
+    let wants = crate::make::tool_wants_for(
+        ctx.catalog,
+        &ages,
+        params.family.independent_age,
+        &founders_know,
+    );
     for (kg, want) in stores.iter_mut().zip(wants) {
         *kg += want;
     }
@@ -653,6 +667,7 @@ fn add_family(
                 &mut Rng64::from_key(&[ctx.seed, PURPOSE_KNOW, id.get()]),
                 now,
             ),
+            tried: None,
         });
         people.push(id);
     }
@@ -1117,6 +1132,10 @@ pub(crate) mod tests {
                 founders: Vec::new(),
                 max_learners: 2,
                 w_learn: 2.0,
+                experiment_share: 0.01,
+                aware_try_factor: 3.0,
+                w_try: 2.0,
+                try_gap_days: 7.0,
             },
             names: NameParams::default(),
             farm: FarmParams {

@@ -1,0 +1,19 @@
+# A rotary quern: a fixed lower stone, an upper stone turned on it and a wooden handle (research
+# 07-04 P09). Like the saddle quern its unit is about 6,000 hours of grinding (a tuning value);
+# one grinder turns it, and a household wants one for every two members old enough to grind who
+# know how.
+kind = "good"
+id = "core:good/rotary_quern"
+name = "Rotary quern"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 6000.0
+per_worker = 0.5
+fixed = false

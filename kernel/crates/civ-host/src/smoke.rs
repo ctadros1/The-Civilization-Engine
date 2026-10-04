@@ -15,7 +15,7 @@
 //!
 //! Every year's end also checks that the techniques every founder brings and children learn in
 //! upbringing are known by nearly everyone old enough for them (ADR-0008 §4); a technique lost
-//! where people still live is noted.
+//! where people still live, and every find, is noted.
 //!
 //! The worlds take the content's property regimes in turn by seed, and a long run checks their
 //! economies too ([`crate::economy`]): land claims, fields and wealth measures at each year's end,
@@ -419,6 +419,23 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
         result.failures.push(format!("{}: {}", c.name, c.text));
     }
     result.notes.extend(lost_where_people_live(sim));
+    result.notes.extend(finds(sim));
+}
+
+/// What people worked out (ADR-0008 §3), in words: "found drying and smoking in year 4".
+fn finds(sim: &Sim) -> Vec<String> {
+    sim.people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == civ_agents::ChronicleKind::TechniqueFound)
+        .map(|e| {
+            format!(
+                "found {} in year {}",
+                e.name.to_lowercase(),
+                e.at.date().year
+            )
+        })
+        .collect()
 }
 
 /// Whether the techniques every founder brings and children learn in upbringing are known by

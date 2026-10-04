@@ -1,0 +1,15 @@
+# Cutting meat into strips and drying and smoking it on a rack over a slow fire: 0.2 h a kilogram
+# and an hour to set up the rack and fire, which burns 4 kg of wood a session (tuning values; the
+# research gives no rates). The days it hangs need no work. Up to 30 kg a session, a deer's meat.
+kind = "recipe"
+id = "core:recipe/dry_meat"
+name = "Dry meat"
+skill = ""
+technique = "core:technique/drying"
+unit_h = 0.2
+session_h = 1.0
+max_units = 30.0
+tools = []
+inputs = [{ good = "core:good/meat", amount = 1.0 }]
+outputs = [{ good = "core:good/dried_meat", amount = 0.4 }]
+session_inputs = [{ good = "core:good/firewood", amount = 4.0 }]

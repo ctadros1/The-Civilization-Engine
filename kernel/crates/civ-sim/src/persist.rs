@@ -84,6 +84,9 @@ pub const SCHEMA_V11: u32 = 11;
 /// The schema version of M3a slice K and L saves, with property regimes and no knowledge: people
 /// knew everything the content described (see [`agents`]).
 pub const SCHEMA_V12: u32 = 12;
+/// The schema version of M3b slice M saves: knowledge carried by people, before anyone tried
+/// toward a technique (see [`agents`]).
+pub const SCHEMA_V13: u32 = 13;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

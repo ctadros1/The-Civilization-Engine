@@ -225,7 +225,8 @@ impl Population {
             .filter_map(|m| self.person(*m))
             .map(|p| p.age_years(ctx.now))
             .collect();
-        let wants = make::tool_wants_for(catalog, &ages, params.family.independent_age);
+        let knows = |t: usize| self.household_knows(&hh.members, t);
+        let wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
         for (t, &w) in wants.iter().enumerate() {
             if w <= 0.0 {
                 continue;

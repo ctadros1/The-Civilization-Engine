@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 9
+kernel_content_api = 10
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -196,11 +196,28 @@ fn the_repository_content_is_clean() {
         .technique_index("core:technique/roundhouse")
         .expect("roundhouse");
     assert_eq!(c.work_age(roundhouse), Some(12.0), "building, from twelve");
-    assert_eq!(
-        reg.people.params.knowledge.founders.len(),
-        c.techniques.len()
-    );
+    // Founders bring today's work; drying and the rotary quern are found or brought in.
+    let founders: Vec<&str> = reg
+        .people
+        .params
+        .knowledge
+        .founders
+        .iter()
+        .map(|&(t, _)| c.techniques[t].id.as_str())
+        .collect();
+    assert_eq!(founders.len(), 8);
+    for later in ["core:technique/drying", "core:technique/rotary_quern"] {
+        assert!(!founders.contains(&later), "{later}");
+    }
     assert!(c.techniques.iter().all(|t| t.upbringing));
+    // Drying answers food lost to spoiling; the rotary quern needs both shaping crafts.
+    let drying = &c.techniques[c.technique_index("core:technique/drying").expect("drying")];
+    assert_eq!(drying.answers_spoilage.len(), 2);
+    let rotary = &c.techniques[c
+        .technique_index("core:technique/rotary_quern")
+        .expect("rotary quern")];
+    assert_eq!(rotary.requires.len(), 1);
+    assert_eq!(rotary.requires[0].len(), 2);
 }
 
 #[test]
@@ -1109,14 +1126,24 @@ fn techniques_check_their_references_gates_and_routes() {
             "its recipe's: `technique` must be empty",
         ),
         (
-            // Meal ground from bread, and bread baked from meal: neither can ever be worked.
-            vec![(
-                "recipe/grind_grain.toml",
-                grind.replace(
-                    "inputs = [{ good = \"core:good/grain\"",
-                    "inputs = [{ good = \"core:good/bread\"",
+            // Meal ground from bread (at either quern), and bread baked from meal: neither can
+            // ever be worked.
+            vec![
+                (
+                    "recipe/grind_grain.toml",
+                    grind.replace(
+                        "inputs = [{ good = \"core:good/grain\"",
+                        "inputs = [{ good = \"core:good/bread\"",
+                    ),
                 ),
-            )],
+                (
+                    "recipe/grind_grain_rotary.toml",
+                    real("recipe/grind_grain_rotary.toml").replace(
+                        "inputs = [{ good = \"core:good/grain\"",
+                        "inputs = [{ good = \"core:good/bread\"",
+                    ),
+                ),
+            ],
             "E3007",
             "recipe `core:recipe/grind_grain` can never be worked",
         ),

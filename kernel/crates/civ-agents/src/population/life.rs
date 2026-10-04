@@ -324,6 +324,7 @@ impl Population {
             nursing: None,
             skills: Vec::new(),
             knows: Vec::new(),
+            tried: None,
         });
         if let Some(x) = self.household_mut(household) {
             x.members.push(id);

@@ -42,6 +42,9 @@ pub enum Target {
     /// A workshop not yet founded (an option weighed, never an activity's target: a chosen one
     /// is founded at once).
     NewFirm,
+    /// A technique, by index in the catalog's techniques: the one a session of trying works
+    /// toward (ADR-0008 §3).
+    Technique(u16),
 }
 
 /// One step of an activity.
@@ -250,6 +253,8 @@ pub struct Person {
     /// What they know, are learning or have heard of, by technique, sorted by technique
     /// (ADR-0008 §2).
     pub knows: Vec<Know>,
+    /// When their last session of trying toward a technique ended (ADR-0008 §3), if ever.
+    pub tried: Option<SimTime>,
 }
 
 /// How a person came to know of a technique (ADR-0008 §2). Numeric in saves: append only.

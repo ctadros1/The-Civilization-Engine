@@ -44,7 +44,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 9;
+pub const KERNEL_CONTENT_API: u32 = 10;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -892,6 +892,12 @@ fn resolve(
                 f.needs
                     .iter()
                     .map(|g| ("needs", g, good_index(g).is_some())),
+            )
+            .chain(
+                f.answers
+                    .spoilage
+                    .iter()
+                    .map(|g| ("answers.spoilage", g, good_index(g).is_some())),
             )
         {
             if !found {

@@ -5,7 +5,7 @@
 use civ_core::rng::Rng64;
 use civ_core::{PermanentId, SimTime};
 
-use crate::params::{Catalog, KnowledgeParams};
+use crate::params::{Catalog, GoodDef, KnowledgeParams};
 use crate::person::{Know, KnowSource};
 
 /// What happened to a technique in a settlement. Numeric in saves: append only.
@@ -58,6 +58,107 @@ pub fn upbringing_ages(catalog: &Catalog, t: usize, grown_at: f64) -> Option<(f6
         work.min(grown_at - UPBRINGING_LEAD_YEARS).max(0.0),
         grown_at,
     ))
+}
+
+/// The chance that `qualified_h` hours of experiment find a technique whose median find takes
+/// `e50_h` qualified hours (ADR-0008 §3; research 07-01 §5.3): 1 − exp(−ln 2 · hours / E50).
+/// The hazard is per hour, so splitting the hours changes nothing.
+pub fn find_chance(qualified_h: f64, e50_h: f64) -> f64 {
+    if !(qualified_h > 0.0 && e50_h > 0.0) {
+        return 0.0;
+    }
+    1.0 - (-std::f64::consts::LN_2 * qualified_h / e50_h).exp()
+}
+
+/// Food energy, kcal, expected to spoil from a stock of `kcal` that keeps with a half-life of
+/// `half_life_days` (0: it keeps), in a household that eats `eaten_per_day` kcal a day and first
+/// eats `before_kcal` of foods that spoil sooner (people eat what spoils first). The stock decays
+/// while the others are eaten, then is eaten as it decays: with λ = ln 2 / half-life and c the
+/// rate, a stock S eaten from at once is gone after ln(1 + λS/c)/λ days, having lost
+/// S − (c/λ)·ln(1 + λS/c) (dS/dt = −λS − c).
+pub fn expected_spoilage_kcal(
+    kcal: f64,
+    half_life_days: f64,
+    eaten_per_day: f64,
+    before_kcal: f64,
+) -> f64 {
+    if kcal <= 0.0 || half_life_days <= 0.0 {
+        return 0.0;
+    }
+    if eaten_per_day <= 0.0 {
+        return kcal;
+    }
+    let lambda = std::f64::consts::LN_2 / half_life_days;
+    let left = kcal * (-lambda * before_kcal.max(0.0) / eaten_per_day).exp();
+    let k = eaten_per_day / lambda;
+    let eaten = k * (left / k).ln_1p();
+    (kcal - eaten).clamp(0.0, kcal)
+}
+
+/// Least of a good, kilograms or tools, that counts as holding it for a technique's `needs`.
+pub const NEEDS_MIN: f64 = 0.01;
+
+/// Least share of a household's food that a problem must threaten for anyone to try at it: a
+/// problem nobody has gets no attention (a tuning value).
+pub const MIN_PROBLEM_SHARE: f64 = 0.05;
+
+/// Whether someone who knows what `knows` says could find technique `t` with the household's
+/// `stores` (ADR-0008 §3): one of its routes is wholly known to them (or it needs none), and the
+/// goods it needs are at home. Whether they know it already is for the caller.
+pub fn could_find(
+    catalog: &Catalog,
+    t: usize,
+    knows: &dyn Fn(usize) -> bool,
+    stores: &[f64],
+) -> bool {
+    let Some(def) = catalog.techniques.get(t) else {
+        return false;
+    };
+    let route = def.requires.is_empty() || def.requires.iter().any(|r| r.iter().all(|&u| knows(u)));
+    route
+        && def
+            .needs
+            .iter()
+            .all(|&g| stores.get(g).copied().unwrap_or(0.0) >= NEEDS_MIN)
+}
+
+/// Food energy, kcal, expected to spoil from a household's `stores` of the `answered` goods
+/// before it is eaten ([`expected_spoilage_kcal`]): each is eaten at the household's daily need,
+/// `kcal_day`, after the foods ready to eat that keep less long. Under a roof (`sheltered`) goods
+/// keep by their sheltered half-lives.
+pub fn spoiling_kcal(
+    goods: &[GoodDef],
+    stores: &[f64],
+    sheltered: bool,
+    kcal_day: f64,
+    answered: &[usize],
+) -> f64 {
+    let keeps = |g: &GoodDef| {
+        if sheltered && g.sheltered_half_life_days > 0.0 {
+            g.sheltered_half_life_days
+        } else {
+            g.half_life_days
+        }
+    };
+    answered
+        .iter()
+        .filter_map(|&g| goods.get(g).map(|d| (g, d)))
+        .map(|(g, d)| {
+            let life = keeps(d);
+            let kcal = stores.get(g).copied().unwrap_or(0.0).max(0.0) * d.kcal_per_kg;
+            if kcal <= 0.0 || life <= 0.0 {
+                return 0.0;
+            }
+            let before: f64 = goods
+                .iter()
+                .zip(stores)
+                .filter(|(o, _)| o.edible() && !o.kept_back())
+                .filter(|(o, _)| keeps(o) > 0.0 && keeps(o) < life)
+                .map(|(o, kg)| kg.max(0.0) * o.kcal_per_kg)
+                .sum();
+            expected_spoilage_kcal(kcal, life, kcal_day, before)
+        })
+        .sum()
 }
 
 /// The techniques a founder of `age` brings (ADR-0008 §1): for each technique in the people
@@ -126,6 +227,7 @@ mod tests {
             e50_h: 1000.0,
             learn_h: 50.0,
             upbringing,
+            answers_spoilage: Vec::new(),
         };
         Catalog {
             activities: vec![activity("sow", 10.0, 0), activity("weave", 12.0, 1)],
@@ -134,13 +236,106 @@ mod tests {
         }
     }
 
+    fn params() -> KnowledgeParams {
+        KnowledgeParams {
+            founders: Vec::new(),
+            max_learners: 2,
+            w_learn: 2.0,
+            experiment_share: 0.01,
+            aware_try_factor: 3.0,
+            w_try: 2.0,
+            try_gap_days: 7.0,
+        }
+    }
+
+    #[test]
+    fn a_find_is_even_odds_at_the_median_hours_however_the_hours_are_split() {
+        assert!((find_chance(1000.0, 1000.0) - 0.5).abs() < 1e-12);
+        assert_eq!(find_chance(0.0, 1000.0), 0.0);
+        let (a, b) = (find_chance(300.0, 1000.0), find_chance(700.0, 1000.0));
+        assert!((1.0 - (1.0 - a) * (1.0 - b) - 0.5).abs() < 1e-12);
+        // Keyed draws at the median find half the time.
+        let finds = (0..10_000u64)
+            .filter(|&i| Rng64::from_key(&[3, i]).next_f64() < find_chance(500.0, 500.0))
+            .count();
+        assert!((4850..=5150).contains(&finds), "{finds}");
+    }
+
+    #[test]
+    fn a_find_needs_a_known_route_and_its_goods_at_home() {
+        let mut c = catalog();
+        // Weaving needs sowing known, and good 0 at home.
+        c.techniques[1].requires = vec![vec![0]];
+        c.techniques[1].needs = vec![0];
+        let knows_sowing = |t: usize| t == 0;
+        assert!(could_find(&c, 1, &knows_sowing, &[1.0]));
+        assert!(
+            !could_find(&c, 1, &knows_sowing, &[0.0]),
+            "nothing to try with"
+        );
+        assert!(!could_find(&c, 1, &|_| false, &[1.0]), "no route known");
+        // Alternative routes: either will do.
+        c.techniques[1].requires = vec![vec![0, 1], vec![0]];
+        assert!(could_find(&c, 1, &knows_sowing, &[1.0]));
+        assert!(
+            !could_find(&c, 9, &knows_sowing, &[1.0]),
+            "no such technique"
+        );
+    }
+
+    #[test]
+    fn a_household_counts_what_would_spoil_of_the_goods_a_problem_names() {
+        let food = |id: &str, kcal: f64, half_life: f64, sheltered: f64| GoodDef {
+            id: id.into(),
+            name: id.into(),
+            purpose: crate::params::GoodUse::Food,
+            kcal_per_kg: kcal,
+            half_life_days: half_life,
+            sheltered_half_life_days: sheltered,
+            eaten: crate::params::Eaten::Cooked,
+            shared: false,
+            reserve_for: None,
+            tool: None,
+        };
+        let goods = vec![
+            food("fish", 600.0, 2.0, 0.0),
+            food("meat", 1500.0, 3.0, 6.0),
+        ];
+        let stores = [10.0, 30.0];
+        // The meat is eaten after the fish, which spoils sooner.
+        let meat = spoiling_kcal(&goods, &stores, false, 10_000.0, &[1]);
+        assert!((meat - expected_spoilage_kcal(45_000.0, 3.0, 10_000.0, 6_000.0)).abs() < 1e-6);
+        // Under a roof it keeps longer, and less of it spoils.
+        assert!(spoiling_kcal(&goods, &stores, true, 10_000.0, &[1]) < meat);
+        // Both goods count together.
+        let both = spoiling_kcal(&goods, &stores, false, 10_000.0, &[0, 1]);
+        assert!(both > meat);
+        assert_eq!(spoiling_kcal(&goods, &stores, false, 10_000.0, &[]), 0.0);
+    }
+
+    #[test]
+    fn what_spoils_is_what_is_not_eaten_before_it_goes_off() {
+        // Nothing eaten: all of it spoils; a good that keeps never does.
+        assert_eq!(expected_spoilage_kcal(1000.0, 3.0, 0.0, 0.0), 1000.0);
+        assert_eq!(expected_spoilage_kcal(1000.0, 0.0, 10.0, 0.0), 0.0);
+        // A deer's meat (30 kg at 1,500 kcal) for five at 2,000 kcal a day, half-life 3 days:
+        // S − (c/λ)·ln(1 + λS/c), about a third of it.
+        let (s, c, l) = (45_000.0, 10_000.0, std::f64::consts::LN_2 / 3.0);
+        let want = s - c / l * (1.0 + l * s / c).ln();
+        assert!((expected_spoilage_kcal(s, 3.0, c, 0.0) - want).abs() < 1e-6);
+        assert!((13_000.0..15_000.0).contains(&want), "{want}");
+        // Eating others first leaves it longer to spoil.
+        assert!(expected_spoilage_kcal(s, 3.0, c, 20_000.0) > want);
+        // Plenty of mouths: little spoils.
+        assert!(expected_spoilage_kcal(s, 3.0, 1e9, 0.0) < 1.0);
+    }
+
     #[test]
     fn founders_know_what_their_age_and_share_allow() {
         let c = catalog();
         let all = KnowledgeParams {
             founders: vec![(0, 1.0), (1, 1.0)],
-            max_learners: 2,
-            w_learn: 2.0,
+            ..params()
         };
         let now = SimTime::from_minutes(0);
         let mut rng = Rng64::from_key(&[1]);
@@ -183,8 +378,7 @@ mod tests {
         let c = catalog();
         let half = KnowledgeParams {
             founders: vec![(1, 0.5)],
-            max_learners: 2,
-            w_learn: 2.0,
+            ..params()
         };
         let now = SimTime::from_minutes(0);
         let knowers = (0..2000u64)

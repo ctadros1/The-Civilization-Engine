@@ -33,6 +33,16 @@ pub(crate) struct TechniqueFile {
     pub learn_h: f64,
     /// Children brought up in a household that knows it learn it at the work's age.
     pub upbringing: bool,
+    /// The household problem it answers, which draws people to try toward it.
+    pub answers: Answers,
+}
+
+/// The household problem a technique answers (ADR-0008 §3).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Answers {
+    /// Goods lost to spoilage: good ids.
+    pub spoilage: Vec<String>,
 }
 
 impl TechniqueFile {
@@ -73,6 +83,12 @@ impl TechniqueFile {
             e50_h: self.e50_h,
             learn_h: self.learn_h,
             upbringing: self.upbringing,
+            answers_spoilage: self
+                .answers
+                .spoilage
+                .iter()
+                .map(|g| good_index(g))
+                .collect::<Option<Vec<_>>>()?,
         })
     }
 

@@ -197,10 +197,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for Terminus {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_TARGET_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_TARGET_KIND: u8 = 11;
+pub const ENUM_MAX_TARGET_KIND: u8 = 12;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 12] = [
+pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 13] = [
   TargetKind::None,
   TargetKind::Home,
   TargetKind::Hearth,
@@ -213,6 +213,7 @@ pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 12] = [
   TargetKind::NewBuilding,
   TargetKind::Firm,
   TargetKind::NewFirm,
+  TargetKind::Technique,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -232,9 +233,10 @@ impl TargetKind {
   pub const NewBuilding: Self = Self(9);
   pub const Firm: Self = Self(10);
   pub const NewFirm: Self = Self(11);
+  pub const Technique: Self = Self(12);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 11;
+  pub const ENUM_MAX: u8 = 12;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::None,
     Self::Home,
@@ -248,6 +250,7 @@ impl TargetKind {
     Self::NewBuilding,
     Self::Firm,
     Self::NewFirm,
+    Self::Technique,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -264,6 +267,7 @@ impl TargetKind {
       Self::NewBuilding => Some("NewBuilding"),
       Self::Firm => Some("Firm"),
       Self::NewFirm => Some("NewFirm"),
+      Self::Technique => Some("Technique"),
       _ => None,
     }
   }
@@ -6127,6 +6131,7 @@ impl<'a> Person<'a> {
   pub const VT_NURSING: ::flatbuffers::VOffsetT = 66;
   pub const VT_SKILLS: ::flatbuffers::VOffsetT = 68;
   pub const VT_KNOWS: ::flatbuffers::VOffsetT = 70;
+  pub const VT_TRIED: ::flatbuffers::VOffsetT = 72;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6138,6 +6143,7 @@ impl<'a> Person<'a> {
     args: &'args PersonArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Person<'bldr>> {
     let mut builder = PersonBuilder::new(_fbb);
+    builder.add_tried(args.tried);
     builder.add_nursing(args.nursing);
     builder.add_pregnancy_father(args.pregnancy_father);
     builder.add_repro_until(args.repro_until);
@@ -6414,6 +6420,13 @@ impl<'a> Person<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, Knowing>>>(Person::VT_KNOWS, None)}
   }
+  #[inline]
+  pub fn tried(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Person::VT_TRIED, Some(-1)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Person<'_> {
@@ -6456,6 +6469,7 @@ impl ::flatbuffers::Verifiable for Person<'_> {
      .visit_field::<u64>("nursing", Self::VT_NURSING, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, SkillLevel>>>("skills", Self::VT_SKILLS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, Knowing>>>("knows", Self::VT_KNOWS, false)?
+     .visit_field::<i64>("tried", Self::VT_TRIED, false)?
      .finish();
     Ok(())
   }
@@ -6495,6 +6509,7 @@ pub struct PersonArgs<'a> {
     pub nursing: u64,
     pub skills: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, SkillLevel>>>,
     pub knows: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, Knowing>>>,
+    pub tried: i64,
 }
 impl<'a> Default for PersonArgs<'a> {
   #[inline]
@@ -6534,6 +6549,7 @@ impl<'a> Default for PersonArgs<'a> {
       nursing: 0,
       skills: None,
       knows: None,
+      tried: -1,
     }
   }
 }
@@ -6680,6 +6696,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Person::VT_KNOWS, knows);
   }
   #[inline]
+  pub fn add_tried(&mut self, tried: i64) {
+    self.fbb_.push_slot::<i64>(Person::VT_TRIED, tried, -1);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonBuilder {
@@ -6731,6 +6751,7 @@ impl ::core::fmt::Debug for Person<'_> {
       ds.field("nursing", &self.nursing());
       ds.field("skills", &self.skills());
       ds.field("knows", &self.knows());
+      ds.field("tried", &self.tried());
       ds.finish()
   }
 }

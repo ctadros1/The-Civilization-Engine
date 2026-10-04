@@ -34,11 +34,14 @@ pub enum Behavior {
     Trade,
     /// Work for wages at a workshop of another household of the settlement (M3a).
     Hire,
+    /// Spend spare hours at home trying toward a technique that would answer a household problem
+    /// (M3b, ADR-0008 §3): the activity's target names the technique.
+    Try,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 13] = [
+    pub const ALL: [Behavior; 14] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -52,6 +55,7 @@ impl Behavior {
         Behavior::Make,
         Behavior::Trade,
         Behavior::Hire,
+        Behavior::Try,
     ];
 
     /// The authored name of a behavior.
@@ -70,6 +74,7 @@ impl Behavior {
             Behavior::Make => "make",
             Behavior::Trade => "trade",
             Behavior::Hire => "hire",
+            Behavior::Try => "try",
         }
     }
 
@@ -441,6 +446,9 @@ pub struct TechniqueDef {
     pub learn_h: f64,
     /// Children brought up in a household that knows it learn it at the work's age.
     pub upbringing: bool,
+    /// The household problem it answers, which draws people to try toward it (ADR-0008 §3):
+    /// goods lost to spoilage, by index in the goods.
+    pub answers_spoilage: Vec<usize>,
 }
 
 /// The authored activities, goods and crops.
@@ -1104,6 +1112,18 @@ pub struct KnowledgeParams {
     pub max_learners: u32,
     /// Utility points for working beside someone to learn what they know.
     pub w_learn: f64,
+    /// The share of a session of routine work that counts as experiment toward the techniques
+    /// its practice can find (research 07-01 §2.3: 1 %, tested 0-5 %).
+    pub experiment_share: f64,
+    /// How many times its hours a session spent trying counts for someone already aware of the
+    /// technique: reconstruction is easier than invention (research 07-02 §1.7).
+    pub aware_try_factor: f64,
+    /// Utility points for trying toward a technique, times the share of the household's food
+    /// that the problem it answers would cost.
+    pub w_try: f64,
+    /// Least days between one person's sessions of trying: what keeps trying to a small share of
+    /// their time (research 07-01 §2.3; 07-11 §2.2).
+    pub try_gap_days: f64,
 }
 
 /// Linear interpolation in an ascending `(x, y)` table, clamped at its ends.

@@ -6,8 +6,10 @@
 use civ_core::{PermanentId, Rng64, SimTime};
 
 use super::{Ctx, Population};
-use crate::history::ChronicleKind;
-use crate::knowledge::{KnowledgeEvent, KnowledgeEventKind};
+use crate::history::{
+    ChronicleKind, FOUND_AGAIN, FOUND_FIRST_ANYWHERE, FOUND_FIRST_HERE, FOUND_KNOWN_HERE,
+};
+use crate::knowledge::{KnowledgeEvent, KnowledgeEventKind, could_find, find_chance};
 use crate::params::{ActivityDef, Behavior, Catalog, PeopleParams};
 use crate::person::{Know, KnowSource, Person, Step, Target};
 
@@ -205,6 +207,111 @@ impl Population {
             .is_some_and(|p| p.learn(t, hours, teacher, learn_h, now));
         if learnt {
             self.on_known(ctx, who, t, KnowSource::Taught(teacher));
+        }
+    }
+
+    /// After `hours` of person `who`'s work at activity `def` aimed at `target`, begun at
+    /// `started` (ADR-0008 §3). A session of trying counts all its hours toward the technique it
+    /// was aimed at, the more for someone already aware of it; routine work counts the share of
+    /// its hours given to experiment toward each technique its practice can find. Each is a
+    /// draw, keyed by person, technique and session, against the chance those hours find it,
+    /// for a technique they could find: not known, a route of what it needs known, its goods at
+    /// home. The finder knows it at once, and the chronicle says what kind of find it was.
+    pub(crate) fn discover(
+        &mut self,
+        ctx: &mut Ctx,
+        who: PermanentId,
+        (def, target): (u16, Target),
+        hours: f64,
+        started: SimTime,
+    ) {
+        let (now, catalog, k) = (ctx.now, ctx.catalog, &ctx.params.knowledge);
+        let trying = catalog
+            .activities
+            .get(usize::from(def))
+            .is_some_and(|a| a.behavior == Behavior::Try);
+        let Some(p) = self.person(who) else {
+            return;
+        };
+        let mut found: Vec<usize> = Vec::new();
+        let mut stores: Option<Vec<f64>> = None;
+        for (t, d) in catalog.techniques.iter().enumerate() {
+            let share = if trying {
+                if target != Target::Technique(t as u16) {
+                    continue;
+                }
+                if p.know(t).is_some() {
+                    k.aware_try_factor
+                } else {
+                    1.0
+                }
+            } else if d.tried_in.contains(&usize::from(def)) {
+                k.experiment_share
+            } else {
+                continue;
+            };
+            if p.knows(t) {
+                continue;
+            }
+            let stores = stores.get_or_insert_with(|| {
+                self.household(p.household).map_or_else(Vec::new, |x| {
+                    super::stores_now(x, now, ctx.params, &catalog.goods)
+                })
+            });
+            if !could_find(catalog, t, &|u| p.knows(u), stores) {
+                continue;
+            }
+            let chance = find_chance(hours * share, d.e50_h);
+            let key = [
+                ctx.seed,
+                crate::found::PURPOSE_FIND,
+                who.get(),
+                t as u64,
+                started.minutes() as u64,
+            ];
+            if Rng64::from_key(&key).next_f64() < chance {
+                found.push(t);
+            }
+        }
+        let settlement = self.household(p.household).and_then(|x| x.settlement);
+        for t in found {
+            let kind = self.find_kind(settlement, t);
+            if self
+                .person_mut_by_id(who)
+                .is_some_and(|p| p.come_to_know(t, KnowSource::Found, now))
+            {
+                self.on_known(ctx, who, t, KnowSource::Found);
+                let name = catalog.techniques[t].name.clone();
+                self.chronicle_push(
+                    now,
+                    ChronicleKind::TechniqueFound,
+                    vec![who],
+                    settlement,
+                    None,
+                    kind as f64,
+                    name,
+                );
+            }
+        }
+    }
+
+    /// What kind of find of technique `t` a find in settlement `s` would be: the first anyone
+    /// made, the first there of what is known elsewhere, of what others there know already, or
+    /// of what was lost there.
+    fn find_kind(&self, s: Option<PermanentId>, t: usize) -> i64 {
+        let ever = |s: Option<PermanentId>| {
+            self.knowledge
+                .iter()
+                .any(|e| usize::from(e.technique) == t && s.is_none_or(|s| e.settlement == s))
+        };
+        if !ever(None) {
+            FOUND_FIRST_ANYWHERE
+        } else if s.is_none() || !ever(s) {
+            FOUND_FIRST_HERE
+        } else if s.is_some_and(|s| self.known_in(s, t)) {
+            FOUND_KNOWN_HERE
+        } else {
+            FOUND_AGAIN
         }
     }
 
@@ -591,6 +698,13 @@ impl Population {
             self.ensure_knowers(catalog, params, now, &people);
             self.note_arrivals(catalog, now, s, &people);
         }
+    }
+
+    /// Whether anyone among `members` knows technique `t`.
+    pub(crate) fn household_knows(&self, members: &[PermanentId], t: usize) -> bool {
+        members
+            .iter()
+            .any(|m| self.person(*m).is_some_and(|p| p.knows(t)))
     }
 
     /// A living person, mutably, by permanent id.

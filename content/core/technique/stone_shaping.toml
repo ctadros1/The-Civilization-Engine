@@ -12,3 +12,6 @@ needs = []
 e50_h = 100000.0                 # unused while no work tries toward it
 learn_h = 200.0
 upbringing = true
+
+[answers]
+spoilage = []

@@ -299,6 +299,16 @@ pub fn describe_target(sim: &Sim, home: (f32, f32), target: Target) -> String {
         }
         Target::Firm(id) => firm_name(sim, id),
         Target::NewFirm => "a new workshop".to_owned(),
+        // What trying works toward: the observer sees it, though the person cannot.
+        Target::Technique(t) => sim
+            .rules
+            .catalog
+            .techniques
+            .get(usize::from(t))
+            .map_or_else(
+                || "something new".to_owned(),
+                |d| format!("toward {}", d.name.to_lowercase()),
+            ),
     }
 }
 

@@ -3,8 +3,9 @@
 Status: Accepted
 Date: 2026-10-04
 Milestone: M3b
-Amended: 2026-10-04, slice M, to match what was built: §1's bootstrap test, §2's derived
-settlement knowledge, §4's upbringing at the first work, §5's loss check
+Amended: 2026-10-04, to match what was built. Slice M: §1's bootstrap test, §2's derived
+settlement knowledge, §4's upbringing, §5's loss check. Slice N: §3's measure of a problem and the
+bound on trying, §7's schema 14
 
 ## Context
 
@@ -120,6 +121,11 @@ Reports read: 07-01 (invention), 07-02 (diffusion and loss), 07-03 (the graph), 
   household problem the technique answers, in measures the engine already keeps: goods lost to
   spoilage, hours spent on a task, work waiting on a good. A problem nobody has gets no
   attention.
+  - Slice N builds the first of these, the food a household will lose to spoiling before it is
+    eaten. It is worked out forward from its stores and its daily need, so it needs no new state.
+    The other two wait for a technique that needs them.
+  - A person tries at most once a week, which keeps trying to about 2 % of working time (07-01
+    §2.3 tests 0-5 %).
 - The finder knows the technique at once, at their own skill. 07-01 §1.2's gap between a first
   success and a reliable practice is simplified away.
 - The chronicle records the find. The world records the first find anywhere, and each
@@ -186,6 +192,8 @@ Reports read: 07-01 (invention), 07-02 (diffusion and loss), 07-03 (the graph), 
   - the `IntroduceTechnique` command.
 - New chronicle kinds (found, learnt, lost and introduced) and the `try` behaviour are
   appended. Nothing is renumbered.
+- Schema 14 (slice N) adds when each person last tried, and a technique as the target of a
+  session of trying. Older saves load with nobody having tried.
 
 ## Consequences
 

@@ -2,7 +2,7 @@
 //! recipe can make, what it takes and gives, what tools a household wants and how use wears them.
 //! Pure functions; the population applies them.
 
-use crate::params::{GoodDef, RecipeDef};
+use crate::params::{GoodDef, GoodUse, RecipeDef};
 
 /// Spare tool a household keeps beyond the ones its members use, in standard tools: it makes the
 /// next one while the last is still worn down to this (a tuning value).
@@ -10,13 +10,13 @@ pub const SPARE_TOOL: f64 = 0.25;
 
 /// Tools a household wants, by good index: `per_worker` of each tool for each member old enough
 /// for the work that needs it (`workers(tool)`), rounded up, and at least one of any tool it
-/// wants at all.
-pub fn tool_wants(goods: &[GoodDef], workers: &dyn Fn(usize) -> usize) -> Vec<f64> {
+/// wants at all. `None` workers: no work the household can do needs the tool, and it wants none.
+pub fn tool_wants(goods: &[GoodDef], workers: &dyn Fn(usize) -> Option<usize>) -> Vec<f64> {
     goods
         .iter()
         .enumerate()
-        .map(|(i, g)| match &g.tool {
-            Some(t) if t.per_worker > 0.0 => (t.per_worker * workers(i) as f64).ceil().max(1.0),
+        .map(|(i, g)| match (&g.tool, workers(i)) {
+            (Some(t), Some(n)) if t.per_worker > 0.0 => (t.per_worker * n as f64).ceil().max(1.0),
             _ => 0.0,
         })
         .collect()
@@ -24,29 +24,86 @@ pub fn tool_wants(goods: &[GoodDef], workers: &dyn Fn(usize) -> usize) -> Vec<f6
 
 /// Tools a household whose members are `ages` years old wants (see [`tool_wants`]): for each
 /// tool, its members old enough for the work that needs it, or grown (`grown` years) for a tool
-/// no work needs.
-pub fn tool_wants_for(catalog: &crate::params::Catalog, ages: &[f64], grown: f64) -> Vec<f64> {
-    let youngest = tool_ages(catalog);
+/// no work needs. Work needing a technique nobody in the household knows (`known`) does not
+/// count (ADR-0008 §1): a household wants no tool for work it cannot do.
+pub fn tool_wants_for(
+    catalog: &crate::params::Catalog,
+    ages: &[f64],
+    grown: f64,
+    known: &dyn Fn(usize) -> bool,
+) -> Vec<f64> {
+    let youngest = tool_ages(catalog, known);
     tool_wants(&catalog.goods, &|t| {
-        let from = youngest.get(t).copied().flatten().unwrap_or(grown);
-        ages.iter().filter(|&&a| a >= from).count()
+        let from = match youngest.get(t).copied().unwrap_or(ToolAge::NoWork) {
+            ToolAge::From(age) => age,
+            ToolAge::NoWork => grown,
+            ToolAge::Unknown => return None,
+        };
+        Some(ages.iter().filter(|&&a| a >= from).count())
     })
 }
 
+/// The youngest age at which anyone does work that needs a tool (see [`tool_ages`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ToolAge {
+    /// Work from this age needs it.
+    From(f64),
+    /// No work needs it.
+    NoWork,
+    /// Only work the household does not know needs it.
+    Unknown,
+}
+
 /// The youngest age at which anyone does work that needs each tool, by good index: the lowest
-/// `min_age_years` of the activities that need it, their own or their recipe's (`None` for goods
-/// no work needs).
-pub fn tool_ages(catalog: &crate::params::Catalog) -> Vec<Option<f64>> {
-    let mut ages = vec![None; catalog.goods.len()];
+/// `min_age_years` of the activities that need it, their own or their recipe's, among those
+/// whose technique is `known` or that need none.
+pub fn tool_ages(catalog: &crate::params::Catalog, known: &dyn Fn(usize) -> bool) -> Vec<ToolAge> {
+    let mut ages = vec![ToolAge::NoWork; catalog.goods.len()];
     for a in &catalog.activities {
+        let usable = catalog.technique_of(a).is_none_or(known);
         for t in catalog.tools_of(a) {
             if let Some(age) = ages.get_mut(t) {
-                *age = Some(age.map_or(a.min_age_years, |x: f64| x.min(a.min_age_years)));
+                *age = match (*age, usable) {
+                    (ToolAge::From(x), true) => ToolAge::From(x.min(a.min_age_years)),
+                    (_, true) => ToolAge::From(a.min_age_years),
+                    (ToolAge::From(x), false) => ToolAge::From(x),
+                    (_, false) => ToolAge::Unknown,
+                };
             }
         }
     }
     ages
 }
+
+/// The food a recipe keeps from spoiling, if it is one that preserves (drying, smoking): its one
+/// food input, by good index, when what it makes keeps at least [`PRESERVES_FACTOR`] times
+/// longer. Making other food ready (grinding, baking) is not preserving.
+pub fn preserves(recipe: &RecipeDef, goods: &[GoodDef]) -> Option<usize> {
+    let keeps = |g: &GoodDef| {
+        if g.half_life_days > 0.0 {
+            g.half_life_days
+        } else {
+            f64::INFINITY
+        }
+    };
+    let &(out, _) = recipe.outputs.first()?;
+    let out = goods.get(out).filter(|g| g.purpose == GoodUse::Food)?;
+    let mut food = recipe
+        .inputs
+        .iter()
+        .filter(|&&(g, _)| goods.get(g).is_some_and(|d| d.purpose == GoodUse::Food));
+    let &(input, _) = food.next()?;
+    if food.next().is_some() {
+        return None;
+    }
+    let inp = goods.get(input)?;
+    (inp.half_life_days > 0.0 && keeps(out) >= PRESERVES_FACTOR * inp.half_life_days)
+        .then_some(input)
+}
+
+/// How many times longer a recipe's food must keep than its food input for the recipe to count
+/// as preserving it (a tuning value).
+pub const PRESERVES_FACTOR: f64 = 4.0;
 
 /// How much of a tool a household still wants, 0–1, given what it wants and holds: a whole tool
 /// when it is short of one, less as the spare it keeps is worn down.
@@ -289,12 +346,45 @@ mod tests {
     }
 
     #[test]
+    fn drying_preserves_food_and_grinding_does_not() {
+        let mut goods = goods();
+        let meat = goods.len();
+        goods.push(GoodDef {
+            half_life_days: 3.0,
+            ..good("meat", GoodUse::Food, 1500.0, Eaten::Cooked)
+        });
+        let dried = goods.len();
+        goods.push(GoodDef {
+            half_life_days: 180.0,
+            ..good("dried", GoodUse::Food, 3750.0, Eaten::Raw)
+        });
+        let dry = RecipeDef {
+            inputs: vec![(meat, 1.0)],
+            outputs: vec![(dried, 0.4)],
+            ..grind()
+        };
+        assert_eq!(preserves(&dry, &goods), Some(meat));
+        assert_eq!(
+            preserves(&grind(), &goods),
+            None,
+            "grinding keeps nothing from spoiling"
+        );
+        let barely = RecipeDef {
+            outputs: vec![(meat, 1.0)],
+            ..dry.clone()
+        };
+        assert_eq!(preserves(&barely, &goods), None);
+    }
+
+    #[test]
     fn a_household_wants_tools_by_its_adults_and_keeps_a_spare_in_hand() {
         let goods = goods();
-        let wants = tool_wants(&goods, &|_| 3);
+        let wants = tool_wants(&goods, &|_| Some(3));
         assert_eq!(wants[5], 2.0, "half a quern a worker, rounded up");
         assert_eq!(wants[6], 0.0, "nobody wants an oven of their own");
         assert_eq!(wants[0], 0.0);
+        // A tool only work the household does not know needs is not wanted.
+        assert_eq!(tool_wants(&goods, &|_| None)[5], 0.0);
         assert_eq!(tool_need(2.0, 0.6), 1.0);
         assert!((tool_need(2.0, 2.0) - SPARE_TOOL).abs() < 1e-12);
         assert_eq!(tool_need(2.0, 2.5), 0.0);

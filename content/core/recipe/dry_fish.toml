@@ -1,0 +1,14 @@
+# Splitting and gutting fish and drying and smoking them over a slow fire: 0.15 h a kilogram and
+# an hour to set up, burning 4 kg of wood a session (tuning values). Up to 30 kg a session.
+kind = "recipe"
+id = "core:recipe/dry_fish"
+name = "Dry fish"
+skill = ""
+technique = "core:technique/drying"
+unit_h = 0.15
+session_h = 1.0
+max_units = 30.0
+tools = []
+inputs = [{ good = "core:good/fish", amount = 1.0 }]
+outputs = [{ good = "core:good/dried_fish", amount = 0.25 }]
+session_inputs = [{ good = "core:good/firewood", amount = 4.0 }]

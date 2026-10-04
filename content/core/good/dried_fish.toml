@@ -1,0 +1,13 @@
+# Fish split, dried and smoked. Of each kilogram caught (600 kcal, half of it usable flesh) a
+# quarter of a kilogram is left, at 2,400 kcal/kg: drying takes water and offal, not calories
+# (research 07-04). It keeps for months, longer under a roof (tuning values). Eaten as it is.
+kind = "good"
+id = "core:good/dried_fish"
+name = "Dried fish"
+purpose = "food"
+kcal_per_kg = 2400.0
+half_life_days = 180.0
+sheltered_half_life_days = 365.0
+eaten = "raw"
+shared = false
+reserve_for = ""

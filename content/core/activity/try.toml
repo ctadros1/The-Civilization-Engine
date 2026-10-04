@@ -1,0 +1,21 @@
+# Spare hours at home trying toward a way to answer a problem there: food spoiling before it is
+# eaten (ADR-0008 §3). Which technique, and whether it is found, is decided at run time: the
+# session's hours count toward the one whose problem would cost the household the most food,
+# among those the person could find, and the find is a draw against them. A light session by
+# the hearth (the activity ratio is a tuning value); people try at most once a week
+# (`knowledge.try_gap_days`).
+kind = "activity"
+id = "core:activity/try"
+name = "Try something new"
+doing = "trying something new"
+behavior = "try"
+par = 1.8
+min_age_years = 12.0
+max_age_years = 75.0
+min_minutes = 60
+max_minutes = 60
+daylight_only = false
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

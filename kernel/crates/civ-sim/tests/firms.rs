@@ -110,10 +110,22 @@ fn a_skilled_household_sets_up_a_workshop_and_sells_what_it_makes() {
         .filter_map(|m| sim.people().person(*m))
         .map(|p| p.age_years(now))
         .collect();
+    let members = sim
+        .people()
+        .household(maker)
+        .expect("maker")
+        .members
+        .clone();
+    let knows = |t: usize| {
+        members
+            .iter()
+            .any(|m| sim.people().person(*m).is_some_and(|p| p.knows(t)))
+    };
     let wants = civ_agents::make::tool_wants_for(
         &rules.catalog,
         &ages,
         rules.people.family.independent_age,
+        &knows,
     );
     set(
         &mut sim,
@@ -399,10 +411,22 @@ fn a_workshop_posts_a_wage_and_pays_those_who_take_the_work() {
         .filter_map(|m| sim.people().person(*m))
         .map(|p| p.age_years(now))
         .collect();
+    let members = sim
+        .people()
+        .household(maker)
+        .expect("maker")
+        .members
+        .clone();
+    let knows = |t: usize| {
+        members
+            .iter()
+            .any(|m| sim.people().person(*m).is_some_and(|p| p.knows(t)))
+    };
     let wants = civ_agents::make::tool_wants_for(
         &rules.catalog,
         &ages,
         rules.people.family.independent_age,
+        &knows,
     );
     // The workshop's household: master knappers with flint and wood, and grain to pay with.
     set(

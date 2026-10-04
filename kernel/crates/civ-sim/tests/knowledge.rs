@@ -54,7 +54,14 @@ fn founders_know_their_work_and_the_settlement_records_what_they_brought() {
     let (catalog, params) = (&sim.rules().catalog, &sim.rules().people);
     let now = sim.now();
     let settlement = sim.land().settlements[0].id;
+    let founders: Vec<usize> = params.knowledge.founders.iter().map(|&(t, _)| t).collect();
     for (t, def) in catalog.techniques.iter().enumerate() {
+        if !founders.contains(&t) {
+            // What founders do not bring nobody knows yet: it is found, or brought in.
+            assert!(sim.people().people.iter().all(|(_, p)| p.know(t).is_none()));
+            assert!(!sim.people().known_in(settlement, t), "{}", def.name);
+            continue;
+        }
         let age = knowing_age(catalog, t, params.family.independent_age).expect("gates work");
         for (_, p) in sim.people().people.iter() {
             assert_eq!(
@@ -78,7 +85,7 @@ fn founders_know_their_work_and_the_settlement_records_what_they_brought() {
         .iter()
         .filter(|e| e.kind == KnowledgeEventKind::Known(KnowSource::Founder))
         .count();
-    assert_eq!(brought, catalog.techniques.len(), "one record each");
+    assert_eq!(brought, founders.len(), "one record each");
 }
 
 #[test]
@@ -327,26 +334,40 @@ fn someone_who_does_not_know_a_craft_learns_it_working_beside_a_knower() {
     assert_eq!(entry.people, vec![learner, teacher]);
 }
 
-/// The core content with no technique gating any work.
+/// The core content with no technique the founders bring gating any work.
 fn ungated() -> ContentRegistry {
     let mut ungated = content().clone();
+    let founders: Vec<usize> = ungated
+        .people
+        .params
+        .knowledge
+        .founders
+        .iter()
+        .map(|&(t, _)| t)
+        .collect();
+    // What nobody knows at first (drying, the rotary quern) still needs knowing in both.
+    let open = |t: &mut Option<usize>| {
+        if t.is_some_and(|x| founders.contains(&x)) {
+            *t = None;
+        }
+    };
     for a in &mut ungated.catalog.activities {
-        a.technique = None;
+        open(&mut a.technique);
     }
     for r in &mut ungated.catalog.recipes {
-        r.technique = None;
+        open(&mut r.technique);
     }
     for b in &mut ungated.catalog.buildings {
-        b.technique = None;
+        open(&mut b.technique);
     }
     ungated
 }
 
-/// Saves `sim`, loads the save with the core content and with no technique gating any work, and
-/// lives `days` in both: they must do the same, and come to the same. People do the same things
-/// in the same places, the chronicle tells the same story (but for what was known, learnt or
-/// lost) and everything saved is the same but what people know and the content itself. Returns
-/// the world with the techniques.
+/// Saves `sim`, loads the save with the core content and with no technique the founders bring
+/// gating any work, and lives `days` in both: they must do the same, and come to the same.
+/// People do the same things in the same places, the chronicle tells the same story (but for
+/// what was known, learnt or lost) and everything saved is the same but what people know and the
+/// content itself. Returns the world with the techniques.
 fn same_life(sim: &mut Sim, days: i64) -> Sim {
     let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
     let saves =
@@ -418,9 +439,9 @@ fn same_life(sim: &mut Sim, days: i64) -> Sim {
 
 #[test]
 fn knowing_every_technique_changes_nothing_people_do() {
-    // In the core content every founder brings every technique and children are brought up with
-    // them as they reach their work's age, so a world lives exactly as it would if no technique
-    // gated any work.
+    // Every founder brings every technique of today's work and children are brought up with them
+    // as they reach their work's age, so a world lives exactly as it would if none of them gated
+    // any work.
     let mut sim = world(content(), 3);
     // The youngest child not yet old enough to tend crops reaches it half a day after the save.
     let now = sim.now();
@@ -460,7 +481,7 @@ fn ten_years_knowing_every_technique_change_nothing() {
     // age since the day began, who learn it at their first such work or the next day.
     let (catalog, params) = (&gated.rules().catalog, &gated.rules().people);
     let now = gated.now();
-    for t in 0..catalog.techniques.len() {
+    for &(t, _) in &params.knowledge.founders {
         let age = knowing_age(catalog, t, params.family.independent_age).expect("gates work");
         for (_, p) in gated.people().people.iter() {
             let years = p.age_years(now);

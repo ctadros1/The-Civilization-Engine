@@ -167,7 +167,9 @@ table Settlements {
 // Field (schema 4) names a field by `target_id`; NewField is new ground weighed in a decision.
 // Building (schema 5) names a building by `target_id`; NewBuilding is a home not yet begun,
 // weighed in a decision.
-enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11 }
+// Schema 14 adds Technique: the technique a session of trying works toward, by index into
+// People.techniques (in a decision receipt, into the content's techniques when it was saved).
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12 }
 
 enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3 }
 
@@ -252,6 +254,8 @@ table Person {
   skills: [SkillLevel] (id: 32);
   // Schema 13: what they know, are learning or have heard of (ADR-0008 §2).
   knows: [Knowing] (id: 33);
+  // Schema 14: when their last session of trying toward a technique ended (-1 = never).
+  tried: long = -1 (id: 34);
 }
 
 // Schema 13: what a person knows of one technique, by index into People.techniques. `known`:

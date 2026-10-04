@@ -52,6 +52,14 @@ pub(crate) struct Knowledge {
     pub max_learners: u32,
     /// Utility points for working beside someone to learn what they know.
     pub w_learn: f64,
+    /// The share of routine work's hours that counts as experiment (research 07-01 §2.3).
+    pub experiment_share: f64,
+    /// How many times its hours trying counts for someone already aware of the technique.
+    pub aware_try_factor: f64,
+    /// Utility points for trying at a problem, times the share of food it would cost.
+    pub w_try: f64,
+    /// Least days between one person's sessions of trying.
+    pub try_gap_days: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -535,6 +543,10 @@ impl PeopleFile {
                 founders,
                 max_learners: self.knowledge.max_learners,
                 w_learn: self.knowledge.w_learn,
+                experiment_share: self.knowledge.experiment_share,
+                aware_try_factor: self.knowledge.aware_try_factor,
+                w_try: self.knowledge.w_try,
+                try_gap_days: self.knowledge.try_gap_days,
             },
             names,
         }
@@ -561,6 +573,31 @@ impl PeopleFile {
             p.push(format!(
                 "`knowledge.w_learn` must be zero or more (got {})",
                 self.knowledge.w_learn
+            ));
+        }
+        let k = &self.knowledge;
+        if !(k.experiment_share.is_finite() && (0.0..=1.0).contains(&k.experiment_share)) {
+            p.push(format!(
+                "`knowledge.experiment_share` must be between 0 and 1 (got {})",
+                k.experiment_share
+            ));
+        }
+        if !(k.aware_try_factor.is_finite() && k.aware_try_factor >= 1.0) {
+            p.push(format!(
+                "`knowledge.aware_try_factor` must be at least 1 (got {})",
+                k.aware_try_factor
+            ));
+        }
+        if !(k.w_try.is_finite() && k.w_try >= 0.0) {
+            p.push(format!(
+                "`knowledge.w_try` must be zero or more (got {})",
+                k.w_try
+            ));
+        }
+        if !(k.try_gap_days.is_finite() && k.try_gap_days >= 0.0) {
+            p.push(format!(
+                "`knowledge.try_gap_days` must be zero or more (got {})",
+                k.try_gap_days
             ));
         }
         if !(self.latitude_deg.is_finite() && self.latitude_deg.abs() <= 66.0) {

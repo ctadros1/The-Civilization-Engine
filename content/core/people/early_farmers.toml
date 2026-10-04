@@ -312,3 +312,15 @@ max_learners = 2
 # Utility points for working beside someone to learn what they know: about what useful work is
 # worth (a tuning value).
 w_learn = 2.0
+# The share of routine work's hours that counts as experiment toward what its practice can find
+# (research 07-01 §2.3: 1 %, tested 0-5 %).
+experiment_share = 0.01
+# Trying counts three times its hours for someone already aware of what they try toward:
+# finding again what is known of is easier than inventing (07-02 §1.7; a tuning value).
+aware_try_factor = 3.0
+# Utility points for trying at a problem at home, times the share of the household's food it
+# would cost (a tuning value, about what useful work is worth).
+w_try = 2.0
+# Least days between one person's sessions of trying: an hour a week at most, about 2 % of
+# working time (07-01 §2.3 tests 0-5 %; 07-11 §2.2 finds 0-10 % protected time for craft workers).
+try_gap_days = 7.0

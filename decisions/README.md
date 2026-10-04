@@ -12,6 +12,7 @@ the milestone is too big and gets split.
 | [0003](0003-people-movement-history.md) | People, movement and history in the kernel, saves and boundary | Accepted | M1 |
 | [0004](0004-buildings-land-paths.md) | Building specs, land state and paths | Accepted | M1 |
 | [0005](0005-kernel-c-interface.md) | The kernel's C interface | Accepted | M2 |
+| [0006](0006-goods-ledger-firms.md) | Goods, the ledger, prices and firms | Accepted | M3a |
 
 ## Template
 

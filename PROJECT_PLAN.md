@@ -1,11 +1,12 @@
 # The Civilization Engine: Project Plan
 
 Status: plan of record, written 2026-09-27 from the planning interview.
-Implementation (2026-10-03): **M0 Foundations and M1 A band settles are implemented** (people,
+Implementation (2026-10-04): **M0 Foundations and M1 A band settles are implemented** (people,
 foraging, farming, huts, births, deaths and families, worn trails, the first god tool and running
 ahead). **M2 is in progress:** its kernel side (the kernel as a library with a C interface, the
-panels alone) is implemented; its Unreal work needs the Windows PC. The README lists what exists,
-what is planned and the known limitations.
+panels alone) is implemented; its Unreal work needs the Windows PC. **M3a Village economy is in
+progress** ahead of it (§9), with the web observer. The README lists what exists, what is
+planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
 (i9 13th gen, RTX 4070 Ti with 12 GB VRAM, 64 GB DDR5).
 
@@ -897,7 +898,9 @@ M1.**
 | M0 | Foundations | 1–2 wks | Web |
 | M1 | A band settles | 3–5 wks | Web |
 | M2 | First light in Unreal | 5–7 wks | UE + panels |
-| M3 | Village economy | 6–8 wks | UE |
+| M3a | Village economy | 3–4 wks | Web until M2's client, then UE |
+| M3b | Knowledge and building | 2–3 wks | UE |
+| M3c | Seasons and time | 2–3 wks | UE |
 | M4 | Councils, law & crime | 6–8 wks | UE |
 | M5 | Neighbors | 4–6 wks | UE |
 | M6 | Towns & their troubles | 6–8 wks | UE |
@@ -1014,30 +1017,93 @@ M1.**
   construction, crowds, day and night, the UMG HUD, hosting the panels in the WebBrowser widget,
   and a packaged Win64 build.
 
-**M3: Village economy.**
+**M3: Village economy**, split (2026-10-04, §9) into three milestones, each meeting the usable
+bar with its own demo. M3's original contents were:
+- 200–500 agents.
+- Goods and recipes for the §5.3 loop; households.
+- Barter, then commodity money.
+- Property regime v0 (communal vs private plots).
+- **Full firms** with books.
+- Posted-price markets.
+- Tech graph v0 (about 30 nodes) with discovery.
+- Grammar v2: houses, workshops, storehouses; 1–2 storeys.
+- **Structural rules v0:** storeys vs. wall material, builder skill, foundation on a slope, age
+  and upkeep. Partial failures and collapses show up in the chronicle. Technique trust per
+  culture.
+- **Style vector v0** with prestige copying.
+- Seasons in sim and visuals.
+- **Earthworks v1:** plot leveling, quarry and clay pits, irrigation ditches, farm terraces.
+- Accelerated mode (daily step) with the mode-consistency test.
+- God tools: introduce a technology, place a deposit.
+- Firm and market panels.
+
+Its demo, two seeds diverging (a communal and a private-plot village with visibly different
+prices, buildings and wealth distribution), is M3a's.
+
+**M3a: Village economy.**
 - *Contents:*
-  - 200–500 agents.
-  - Goods and recipes for the §5.3 loop; households.
-  - Barter, then commodity money.
-  - Property regime v0 (communal vs private plots).
-  - **Full firms** with books.
-  - Posted-price markets.
-  - Tech graph v0 (about 30 nodes) with discovery.
-  - Grammar v2: houses, workshops, storehouses; 1–2 storeys.
-  - **Structural rules v0:** storeys vs. wall material, builder skill,
-    foundation on a slope, age and upkeep. Partial failures and collapses show
-    up in the chronicle. Technique trust per culture.
-  - **Style vector v0** with prestige copying.
-  - Seasons in sim and visuals.
-  - **Earthworks v1:** plot leveling, quarry and clay pits, irrigation
-    ditches, farm terraces.
-  - Accelerated mode (daily step) with the mode-consistency test.
-  - God tools: introduce a technology, place a deposit.
-  - Firm and market panels.
-- *Demo:* two seeds diverge: one communal and one private-plot village, with
-  visibly different prices, buildings and wealth distribution.
+  - 200–500 agents in one settlement.
+  - Goods in their units (kilograms, or tools by a standard tool's life) and recipes for the
+    §5.3 loop. Grain is ground at a quern and baked, on the hearth or in an oven, before it is
+    eaten. Poles, timber, stone, toolstone and clay are gathered. Sickles, axes, hoes and querns
+    are made, needed for their work and worn by it.
+  - Skills by domain, learned by practice: they set work speed and the life of the tools made.
+  - Exchange at posted prices. Sellers post terms; buyers compare a few sellers they know by
+    price and walk; payment is in goods the seller accepts. Barter comes first, and a settlement
+    has a commodity money only once one good settles most of its payments (research 08-06).
+  - One ledger moves goods between holders, by channel (gift, barter, sale, wage, rent, the
+    owner's draw), and never creates or destroys a good outside production, use, spoilage and
+    wear.
+  - **Firms** with books: household workshops with stores of their own, a daily ledger and
+    monthly statements, founding and exits with causes. Hired labour at posted wages.
+  - Property regime v0, communal or private plots, chosen for a world: who holds, works,
+    allocates, leases and inherits fields, plots and buildings.
+  - Market, firm and wealth panels; the inspector shows skills, tools and holdings.
+- *Demo:* one seed run twice, as a communal and as a private-plot village, diverging in prices,
+  house sizes and the distribution of wealth.
 - *Proves:* the economy loop, firm legibility, divergence from primitives.
-- *Defers:* government, law, other settlements.
+- *Defers:* the technology graph, grammar v2, structural rules and style (M3b); weather, soils,
+  earthworks and the Accelerated mode (M3c); government, law, other settlements.
+- *Design (2026-10-04):* five slices, from research 08-02 to 08-21, 07-04 to 07-07, 03-05,
+  04-13, 06-02, 06-08, 06-09, 02-04 and 16-01 (six briefs drawn from 38 reports):
+  - **H**: goods in units, recipes, tools that wear, skills, the bread chain.
+  - **I**: exchange at posted terms, acceptance and the inferred unit of account, recorded
+    demand, a market panel.
+  - **J**: firms with books, hired labour, a firm panel.
+  - **K**: property regimes: claims that separate who holds land from who works it, communal
+    allocation, private tenure, inheritance rules, leases, wealth measures and a wealth panel.
+  - **L**: villages of 200 and more, house size by wealth, the smoke checks that apply
+    (conservation, seasonal prices, Gini by regime, firm-size skew), the demo.
+
+  [ADR-0006](decisions/0006-goods-ledger-firms.md) governs goods, the ledger, prices and firms;
+  ADR-0007 will govern claims.
+
+**M3b: Knowledge and building.**
+- *Contents:*
+  - Tech graph v0 (about 30 nodes) with discovery by named people, diffusion between them, and
+    loss; the god tool *introduce a technology*.
+  - Grammar v2: houses, workshops, storehouses; 1–2 storeys.
+  - **Structural rules v0:** storeys vs. wall material, builder skill, foundation on a slope,
+    age and upkeep. Partial failures and collapses show up in the chronicle. Technique trust per
+    culture.
+  - **Style vector v0** with prestige copying.
+  - Earthworks for building: plot levelling, quarry and clay pits. Deposits, and the god tool
+    *place a deposit*.
+- *Demo:* a craft found by one person spreads through teaching or dies with its last
+  practitioner; a loaded loft sags and fails, and builders over-build for a while; new houses
+  copy an admired one.
+- *Proves:* discovery without eras, failure from how things were built, style from copying.
+
+**M3c: Seasons and time.**
+- *Contents:*
+  - Weather and seasons in the simulation, and in the map.
+  - Soils and fertility: fallow, manure, decline under cropping.
+  - Earthworks for farming: irrigation ditches, farm terraces.
+  - Accelerated mode (daily step) with the mode-consistency test.
+  - The §4.7 dashboard: 5 worlds × 50 years.
+- *Demo:* a dry year and a wet year in one village, its stores, prices and fields answering the
+  weather; then fifty years in the Accelerated mode, passing the dashboard.
+- *Proves:* one model at two speeds, and land that remembers how it was used.
 
 **M4: Councils, law & crime.**
 - *Contents:*
@@ -1370,3 +1436,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **The panels alone (2026-10-03):** `?view=panels` shows the web shell's panels without the map or WebGL, for Unreal's WebBrowser widget. Showing a place dispatches a `tce:focus` event (metres east and south) for the host to move its camera; the host opens someone in the inspector with `window.__TCE__.select(id)`. Research 14-10 recommends a native bridge or middleware (Gameface, CEF) for the packaged game; the panels talk through one client module, so the transport can change later (ADR-0005 §6).
 - **Building the library (2026-10-03):** `tools/build-kernel-dll.ps1` (Windows, with the PDB) and `.sh` build the `dll` profile (release with full debug information, research 01-06 §2.1), check the header, and publish the library, header and a manifest (ABI, target, revision, SHA-256) into `dist/tce_kernel/<target>/` or a given folder. CI keeps each Windows build as an artifact. Git LFS patterns cover `.uasset`, `.umap`, `.blend`, `.fbx` and texture sources under `art/`; screenshots and recordings under `assets/` stay in plain git.
 - **C++ for the plugin (2026-10-03):** flatc also generates C++ readers and builders of the wire schema (`kernel/crates/civ-schema/cpp`, checked with the Rust and TypeScript). The FlatBuffers C++ runtime headers (v25.12.19, Apache-2.0) are vendored in `commons/cpp/third_party`. `commons/cpp` holds header-only C++17 for any C++ host: the frame envelope, tested against the golden vectors the Rust and TypeScript decoders use, and timed-path interpolation, tested with the web observer's cases. A C++ host test drives the kernel library as the plugin will. These are compiled with warnings as errors by GCC and Clang here and by MSVC in CI.
+- **M3 goes ahead of M2's Unreal work (2026-10-04):** M2's remaining work (spike S1, the plugin, the assembler, crowds, the packaged build) needs Unreal on the Windows PC, which the cloud sessions do not have; M3's kernel and web work does not. So M3 goes first, and the web shell stays its observer until the Unreal client exists. M3's Unreal side (new kits, seasons' visuals, its panels in the widget) joins M2's work on the PC. Every milestone stays usable in the web observer meanwhile.
+- **M3 in three parts (2026-10-04):** M3's contents need about seven decisions expensive to reverse: goods and the ledger, property claims, knowledge, building components, terrain edits, weather and soils, and the execution modes. That is more than one milestone's three ADRs (§1 rule 7). It is split into M3a (village economy), M3b (knowledge and building) and M3c (seasons and time), each with the usable bar and a demo of its own; M3's demo is M3a's. The economy comes first because the rest builds on it: techniques unlock recipes, buildings hold stores and workshops, weather moves prices.

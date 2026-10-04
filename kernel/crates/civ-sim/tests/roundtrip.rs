@@ -1317,7 +1317,7 @@ fn decode_tile(bytes: &[u8]) -> wire::RasterTile<'_> {
 #[test]
 fn raster_tiles_match_the_map() {
     let sim = load_first();
-    let (map, stats) = (sim.map(), sim.stats());
+    let (map, stats, ground) = (sim.map(), sim.stats(), &sim.land().ground);
     let query = |layer, level, x0, y0, width, height| RasterQuery {
         layer,
         level,
@@ -1327,9 +1327,10 @@ fn raster_tiles_match_the_map() {
         height,
     };
 
-    // Full resolution: dequantised elevation is within half a quantum of the map.
+    // Full resolution: dequantised elevation is within half a quantum of the ground in use.
     let bytes = frames::raster_response(
         map,
+        ground,
         stats,
         &query(wire::RasterLayer::Elevation, 0, 10, 20, 100, 50),
     )
@@ -1346,7 +1347,8 @@ fn raster_tiles_match_the_map() {
             let i = 2 * (y * 100 + x);
             let raw = f32::from(u16::from_le_bytes([data[i], data[i + 1]]));
             let value = raw * tile.scale() + tile.offset();
-            let truth = map.elevation[(20 + y) * SIDE as usize + 10 + x];
+            let cell = (20 + y) * SIDE as usize + 10 + x;
+            let truth = map.elevation[cell] + ground.at(cell);
             assert!((value - truth).abs() <= half_quantum, "{value} vs {truth}");
         }
     }
@@ -1354,6 +1356,7 @@ fn raster_tiles_match_the_map() {
     // A coarse level covers the map in fewer cells and is clipped at its edge.
     let bytes = frames::raster_response(
         map,
+        ground,
         stats,
         &query(wire::RasterLayer::Water, 3, 0, 0, 1000, 1000),
     )
@@ -1365,17 +1368,17 @@ fn raster_tiles_match_the_map() {
     assert!(data.iter().all(|&c| c <= 3));
 
     for layer in [wire::RasterLayer::DrainageArea, wire::RasterLayer::LakeId] {
-        let bytes =
-            frames::raster_response(map, stats, &query(layer, 1, 0, 0, 64, 64)).expect("answers");
+        let bytes = frames::raster_response(map, ground, stats, &query(layer, 1, 0, 0, 64, 64))
+            .expect("answers");
         let tile = decode_tile(&bytes);
         assert_eq!(tile.data().expect("data").len(), 64 * 64 * 4);
     }
 
     // Out of range and oversized regions are refused.
     let off_map = query(wire::RasterLayer::Elevation, 0, SIDE, 0, 1, 1);
-    assert!(frames::raster_response(map, stats, &off_map).is_err());
+    assert!(frames::raster_response(map, ground, stats, &off_map).is_err());
     let empty = query(wire::RasterLayer::Elevation, 0, 0, 0, 0, 10);
-    assert!(frames::raster_response(map, stats, &empty).is_err());
+    assert!(frames::raster_response(map, ground, stats, &empty).is_err());
     let too_coarse = query(
         wire::RasterLayer::Elevation,
         frames::MAX_LEVEL + 1,
@@ -1384,7 +1387,38 @@ fn raster_tiles_match_the_map() {
         1,
         1,
     );
-    assert!(frames::raster_response(map, stats, &too_coarse).is_err());
+    assert!(frames::raster_response(map, ground, stats, &too_coarse).is_err());
+
+    // Elevation is the ground in use: a metre of earth taken from one cell lowers it there, at
+    // full resolution and in the mean of a coarser level, and nowhere else.
+    let mut dug = civ_land::earth::GroundDelta::new(map.width, map.height, map.cell_size_m);
+    let cell_m = f64::from(map.cell_size_m);
+    dug.add((30.5 * cell_m, 40.5 * cell_m), -cell_m * cell_m);
+    let read = |ground: &civ_land::earth::GroundDelta, level: u8, x: u32, y: u32| {
+        let bytes = frames::raster_response(
+            map,
+            ground,
+            stats,
+            &query(wire::RasterLayer::Elevation, level, x, y, 1, 1),
+        )
+        .expect("answers");
+        let tile = decode_tile(&bytes);
+        let data = tile.data().expect("data").bytes();
+        f32::from(u16::from_le_bytes([data[0], data[1]])) * tile.scale() + tile.offset()
+    };
+    let quantum = decode_tile(
+        &frames::raster_response(
+            map,
+            ground,
+            stats,
+            &query(wire::RasterLayer::Elevation, 0, 0, 0, 1, 1),
+        )
+        .expect("answers"),
+    )
+    .scale();
+    assert!((read(ground, 0, 30, 40) - read(&dug, 0, 30, 40) - 1.0).abs() <= quantum + 1e-3);
+    assert!((read(ground, 1, 15, 20) - read(&dug, 1, 15, 20) - 0.25).abs() <= quantum + 1e-3);
+    assert!((read(ground, 0, 31, 40) - read(&dug, 0, 31, 40)).abs() <= 1e-6);
 }
 
 #[test]

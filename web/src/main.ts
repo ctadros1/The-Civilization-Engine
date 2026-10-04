@@ -72,6 +72,7 @@ const client = new HostClient(socketUrl(), {
     void syncWealth();
     void syncKnowledge();
     void syncDeposits();
+    void syncEarthworks();
     void refreshPerson(false);
   },
   events: (items) => store.update({ events: mergeEvents(store.state.events, items) }),
@@ -223,6 +224,36 @@ async function syncDeposits(): Promise<void> {
     depositsBusy = false;
   }
   if (ok) void syncDeposits();
+}
+
+/** `world:revision` of the earthworks on the map. */
+let earthworksKey = "";
+let earthworksBusy = false;
+
+/** Fetches the earthworks when one was begun or advanced, and with them the ground they changed. */
+async function syncEarthworks(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const key = world && s.earthworksRev !== 0 ? `${store.state.epoch}:${world.worldId}:${s.earthworksRev}` : "";
+  if (key === earthworksKey || earthworksBusy) return;
+  if (!key) {
+    earthworksKey = "";
+    map.setEarthworks(null);
+    return;
+  }
+  earthworksBusy = true;
+  let ok = false;
+  try {
+    const info = await client.earthworks();
+    earthworksKey = key;
+    map.setEarthworks(info);
+    ok = true;
+  } catch (e) {
+    console.warn(`tce: the earthworks could not be read: ${String(e)}`);
+  } finally {
+    earthworksBusy = false;
+  }
+  if (ok) void syncEarthworks();
 }
 
 /** `world:revision` of the paths on the map. */
@@ -625,9 +656,10 @@ map.onPointer = (info: PointerInfo | null) => {
   const path = info.path && !info.building ? ` · ${pathWords(info.path)}` : "";
   const building = info.building ? ` · ${buildingWords(info.building)}` : "";
   const deposit = info.deposit ? ` · ${depositWords(info.deposit, store.state.welcome?.goods ?? [])}` : "";
+  const earthwork = info.earthwork ? ` · ${info.earthwork.words}` : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}${path}${field}${building}${deposit}`;
+    `${height} · ${info.water ?? ""}${path}${field}${building}${earthwork}${deposit}`;
 };
 
 const scaleBar = byId("scalebar-bar");
@@ -766,6 +798,7 @@ const hooks = {
       wealthRev: s.snapshot?.wealthRev ?? 0,
       knowledgeRev: s.snapshot?.knowledgeRev ?? 0,
       depositsRev: s.snapshot?.depositsRev ?? 0,
+      earthworksRev: s.snapshot?.earthworksRev ?? 0,
       knowledge: s.knowledge
         ? s.knowledge.settlements.map((x) => ({
             name: x.name,

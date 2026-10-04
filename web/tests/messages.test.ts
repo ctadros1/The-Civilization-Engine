@@ -172,6 +172,7 @@ describe("decoders", () => {
       wealthRev: 0,
       knowledgeRev: 0,
       depositsRev: 0,
+      earthworksRev: 0,
     });
   });
 
@@ -775,6 +776,51 @@ describe("decoders", () => {
       10,
       false,
     ]);
+  });
+
+  it("decodes the earthworks with the ground tiles they changed, and builds their query", () => {
+    const b = new flatbuffers.Builder(256);
+    const words = b.createString("the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled");
+    const info = W.EarthworkInfo.createEarthworkInfo(b, 51n, 0, 100, 200, 6, 6, 42.25, 1.5, 6.5, 0.5, 7n, 9n, 11n, words);
+    const works = W.Earthworks.createWorksVector(b, [info]);
+    // Structs in a vector go in last first.
+    W.Earthworks.startTilesVector(b, 2);
+    W.GroundTileRev.createGroundTileRev(b, 17, 2);
+    W.GroundTileRev.createGroundTileRev(b, 16, 5);
+    const tiles = b.endVector();
+    const earthworks = W.Earthworks.createEarthworks(b, 88n, works, 64, 16, tiles);
+    const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Earthworks, earthworks)));
+    expect(body.kind).toBe("earthworks");
+    if (body.kind !== "earthworks") return;
+    expect(body.earthworks).toEqual({
+      rev: 88,
+      works: [
+        {
+          id: 51,
+          kind: 0,
+          x: 100,
+          y: 200,
+          w: 6,
+          h: 6,
+          levelM: 42.25,
+          sideRun: 1.5,
+          cutM3: 6.5,
+          done: 0.5,
+          household: 7,
+          plot: 9,
+          building: 11,
+          words: "the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled",
+        },
+      ],
+      tileCells: 64,
+      tilesX: 16,
+      tiles: [
+        { index: 16, rev: 5 },
+        { index: 17, rev: 2 },
+      ],
+    });
+    const query = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getEarthworks()));
+    expect(query.bodyType()).toBe(W.QueryBody.GetEarthworks);
   });
 
   it("decodes a raster tile response", () => {

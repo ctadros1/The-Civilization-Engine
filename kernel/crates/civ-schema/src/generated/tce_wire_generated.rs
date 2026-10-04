@@ -703,10 +703,10 @@ pub struct CommandBodyUnionTableOffset {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_QUERY_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_QUERY_BODY: u8 = 15;
+pub const ENUM_MAX_QUERY_BODY: u8 = 16;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 16] = [
+pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 17] = [
   QueryBody::NONE,
   QueryBody::GetRaster,
   QueryBody::GetHydrography,
@@ -723,6 +723,7 @@ pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 16] = [
   QueryBody::GetWealth,
   QueryBody::GetKnowledge,
   QueryBody::GetDeposits,
+  QueryBody::GetEarthworks,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -746,9 +747,10 @@ impl QueryBody {
   pub const GetWealth: Self = Self(13);
   pub const GetKnowledge: Self = Self(14);
   pub const GetDeposits: Self = Self(15);
+  pub const GetEarthworks: Self = Self(16);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 15;
+  pub const ENUM_MAX: u8 = 16;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::GetRaster,
@@ -766,6 +768,7 @@ impl QueryBody {
     Self::GetWealth,
     Self::GetKnowledge,
     Self::GetDeposits,
+    Self::GetEarthworks,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -786,6 +789,7 @@ impl QueryBody {
       Self::GetWealth => Some("GetWealth"),
       Self::GetKnowledge => Some("GetKnowledge"),
       Self::GetDeposits => Some("GetDeposits"),
+      Self::GetEarthworks => Some("GetEarthworks"),
       _ => None,
     }
   }
@@ -1225,10 +1229,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for BookKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_RESPONSE_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_RESPONSE_BODY: u8 = 16;
+pub const ENUM_MAX_RESPONSE_BODY: u8 = 17;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 17] = [
+pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 18] = [
   ResponseBody::NONE,
   ResponseBody::Ack,
   ResponseBody::RasterTile,
@@ -1246,6 +1250,7 @@ pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 17] = [
   ResponseBody::Wealth,
   ResponseBody::Knowledge,
   ResponseBody::Deposits,
+  ResponseBody::Earthworks,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1270,9 +1275,10 @@ impl ResponseBody {
   pub const Wealth: Self = Self(14);
   pub const Knowledge: Self = Self(15);
   pub const Deposits: Self = Self(16);
+  pub const Earthworks: Self = Self(17);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 16;
+  pub const ENUM_MAX: u8 = 17;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::Ack,
@@ -1291,6 +1297,7 @@ impl ResponseBody {
     Self::Wealth,
     Self::Knowledge,
     Self::Deposits,
+    Self::Earthworks,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1312,6 +1319,7 @@ impl ResponseBody {
       Self::Wealth => Some("Wealth"),
       Self::Knowledge => Some("Knowledge"),
       Self::Deposits => Some("Deposits"),
+      Self::Earthworks => Some("Earthworks"),
       _ => None,
     }
   }
@@ -2379,6 +2387,133 @@ impl<'a> BookLine {
         &x_le as *const _ as *const u8,
         self.0[6..].as_mut_ptr(),
         ::core::mem::size_of::<<BookKind as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct GroundTileRev, aligned to 4
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct GroundTileRev(pub [u8; 8]);
+impl Default for GroundTileRev { 
+  fn default() -> Self { 
+    Self([0; 8])
+  }
+}
+impl ::core::fmt::Debug for GroundTileRev {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("GroundTileRev")
+      .field("index", &self.index())
+      .field("rev", &self.rev())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for GroundTileRev {}
+impl<'a> ::flatbuffers::Follow<'a> for GroundTileRev {
+  type Inner = &'a GroundTileRev;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a GroundTileRev>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a GroundTileRev {
+  type Inner = &'a GroundTileRev;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<GroundTileRev>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for GroundTileRev {
+    type Output = GroundTileRev;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const GroundTileRev as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(4)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for GroundTileRev {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> GroundTileRev {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    index: u32,
+    rev: u32,
+  ) -> Self {
+    let mut s = Self([0; 8]);
+    s.set_index(index);
+    s.set_rev(rev);
+    s
+  }
+
+  pub fn index(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_index(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn rev(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_rev(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
       );
     }
   }
@@ -5569,6 +5704,7 @@ impl<'a> Snapshot<'a> {
   pub const VT_WEALTH_REV: ::flatbuffers::VOffsetT = 32;
   pub const VT_KNOWLEDGE_REV: ::flatbuffers::VOffsetT = 34;
   pub const VT_DEPOSITS_REV: ::flatbuffers::VOffsetT = 36;
+  pub const VT_EARTHWORKS_REV: ::flatbuffers::VOffsetT = 38;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -5580,6 +5716,7 @@ impl<'a> Snapshot<'a> {
     args: &'args SnapshotArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Snapshot<'bldr>> {
     let mut builder = SnapshotBuilder::new(_fbb);
+    builder.add_earthworks_rev(args.earthworks_rev);
     builder.add_deposits_rev(args.deposits_rev);
     builder.add_knowledge_rev(args.knowledge_rev);
     builder.add_wealth_rev(args.wealth_rev);
@@ -5720,6 +5857,13 @@ impl<'a> Snapshot<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(Snapshot::VT_DEPOSITS_REV, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn earthworks_rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Snapshot::VT_EARTHWORKS_REV, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Snapshot<'_> {
@@ -5745,6 +5889,7 @@ impl ::flatbuffers::Verifiable for Snapshot<'_> {
      .visit_field::<u64>("wealth_rev", Self::VT_WEALTH_REV, false)?
      .visit_field::<u64>("knowledge_rev", Self::VT_KNOWLEDGE_REV, false)?
      .visit_field::<u64>("deposits_rev", Self::VT_DEPOSITS_REV, false)?
+     .visit_field::<u64>("earthworks_rev", Self::VT_EARTHWORKS_REV, false)?
      .finish();
     Ok(())
   }
@@ -5767,6 +5912,7 @@ pub struct SnapshotArgs<'a> {
     pub wealth_rev: u64,
     pub knowledge_rev: u64,
     pub deposits_rev: u64,
+    pub earthworks_rev: u64,
 }
 impl<'a> Default for SnapshotArgs<'a> {
   #[inline]
@@ -5789,6 +5935,7 @@ impl<'a> Default for SnapshotArgs<'a> {
       wealth_rev: 0,
       knowledge_rev: 0,
       deposits_rev: 0,
+      earthworks_rev: 0,
     }
   }
 }
@@ -5867,6 +6014,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SnapshotBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(Snapshot::VT_DEPOSITS_REV, deposits_rev, 0);
   }
   #[inline]
+  pub fn add_earthworks_rev(&mut self, earthworks_rev: u64) {
+    self.fbb_.push_slot::<u64>(Snapshot::VT_EARTHWORKS_REV, earthworks_rev, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SnapshotBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SnapshotBuilder {
@@ -5901,6 +6052,7 @@ impl ::core::fmt::Debug for Snapshot<'_> {
       ds.field("wealth_rev", &self.wealth_rev());
       ds.field("knowledge_rev", &self.knowledge_rev());
       ds.field("deposits_rev", &self.deposits_rev());
+      ds.field("earthworks_rev", &self.earthworks_rev());
       ds.finish()
   }
 }
@@ -9058,6 +9210,84 @@ impl ::core::fmt::Debug for GetDeposits<'_> {
       ds.finish()
   }
 }
+pub enum GetEarthworksOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetEarthworks<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GetEarthworks<'a> {
+  type Inner = GetEarthworks<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GetEarthworks<'a> {
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GetEarthworks { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    _args: &'args GetEarthworksArgs
+  ) -> ::flatbuffers::WIPOffset<GetEarthworks<'bldr>> {
+    let mut builder = GetEarthworksBuilder::new(_fbb);
+    builder.finish()
+  }
+
+}
+
+impl ::flatbuffers::Verifiable for GetEarthworks<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetEarthworksArgs {
+}
+impl<'a> Default for GetEarthworksArgs {
+  #[inline]
+  fn default() -> Self {
+    GetEarthworksArgs {
+    }
+  }
+}
+
+pub struct GetEarthworksBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GetEarthworksBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GetEarthworksBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetEarthworksBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GetEarthworks<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GetEarthworks<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GetEarthworks");
+      ds.finish()
+  }
+}
 pub enum QueryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -9332,6 +9562,21 @@ impl<'a> Query<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_get_earthworks(&self) -> Option<GetEarthworks<'a>> {
+    if self.body_type() == QueryBody::GetEarthworks {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { GetEarthworks::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Query<'_> {
@@ -9357,6 +9602,7 @@ impl ::flatbuffers::Verifiable for Query<'_> {
           QueryBody::GetWealth => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetWealth>>("QueryBody::GetWealth", pos),
           QueryBody::GetKnowledge => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetKnowledge>>("QueryBody::GetKnowledge", pos),
           QueryBody::GetDeposits => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetDeposits>>("QueryBody::GetDeposits", pos),
+          QueryBody::GetEarthworks => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetEarthworks>>("QueryBody::GetEarthworks", pos),
           _ => Ok(()),
         }
      })?
@@ -9511,6 +9757,13 @@ impl ::core::fmt::Debug for Query<'_> {
         },
         QueryBody::GetDeposits => {
           if let Some(x) = self.body_as_get_deposits() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        QueryBody::GetEarthworks => {
+          if let Some(x) = self.body_as_get_earthworks() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -19176,6 +19429,487 @@ impl ::core::fmt::Debug for Deposits<'_> {
       ds.finish()
   }
 }
+pub enum EarthworkInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct EarthworkInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for EarthworkInfo<'a> {
+  type Inner = EarthworkInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> EarthworkInfo<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_KIND: ::flatbuffers::VOffsetT = 6;
+  pub const VT_X: ::flatbuffers::VOffsetT = 8;
+  pub const VT_Y: ::flatbuffers::VOffsetT = 10;
+  pub const VT_W: ::flatbuffers::VOffsetT = 12;
+  pub const VT_H: ::flatbuffers::VOffsetT = 14;
+  pub const VT_LEVEL_M: ::flatbuffers::VOffsetT = 16;
+  pub const VT_SIDE_RUN: ::flatbuffers::VOffsetT = 18;
+  pub const VT_CUT_M3: ::flatbuffers::VOffsetT = 20;
+  pub const VT_DONE: ::flatbuffers::VOffsetT = 22;
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 24;
+  pub const VT_PLOT: ::flatbuffers::VOffsetT = 26;
+  pub const VT_BUILDING: ::flatbuffers::VOffsetT = 28;
+  pub const VT_WORDS: ::flatbuffers::VOffsetT = 30;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    EarthworkInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args EarthworkInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<EarthworkInfo<'bldr>> {
+    let mut builder = EarthworkInfoBuilder::new(_fbb);
+    builder.add_building(args.building);
+    builder.add_plot(args.plot);
+    builder.add_household(args.household);
+    builder.add_id(args.id);
+    if let Some(x) = args.words { builder.add_words(x); }
+    builder.add_done(args.done);
+    builder.add_cut_m3(args.cut_m3);
+    builder.add_side_run(args.side_run);
+    builder.add_level_m(args.level_m);
+    builder.add_h(args.h);
+    builder.add_w(args.w);
+    builder.add_y(args.y);
+    builder.add_x(args.x);
+    builder.add_kind(args.kind);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(EarthworkInfo::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn kind(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(EarthworkInfo::VT_KIND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn x(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EarthworkInfo::VT_X, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn y(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EarthworkInfo::VT_Y, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn w(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EarthworkInfo::VT_W, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EarthworkInfo::VT_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn level_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EarthworkInfo::VT_LEVEL_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn side_run(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EarthworkInfo::VT_SIDE_RUN, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn cut_m3(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EarthworkInfo::VT_CUT_M3, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn done(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EarthworkInfo::VT_DONE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(EarthworkInfo::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn plot(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(EarthworkInfo::VT_PLOT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn building(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(EarthworkInfo::VT_BUILDING, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn words(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(EarthworkInfo::VT_WORDS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for EarthworkInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u8>("kind", Self::VT_KIND, false)?
+     .visit_field::<f32>("x", Self::VT_X, false)?
+     .visit_field::<f32>("y", Self::VT_Y, false)?
+     .visit_field::<f32>("w", Self::VT_W, false)?
+     .visit_field::<f32>("h", Self::VT_H, false)?
+     .visit_field::<f32>("level_m", Self::VT_LEVEL_M, false)?
+     .visit_field::<f32>("side_run", Self::VT_SIDE_RUN, false)?
+     .visit_field::<f32>("cut_m3", Self::VT_CUT_M3, false)?
+     .visit_field::<f32>("done", Self::VT_DONE, false)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<u64>("plot", Self::VT_PLOT, false)?
+     .visit_field::<u64>("building", Self::VT_BUILDING, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct EarthworkInfoArgs<'a> {
+    pub id: u64,
+    pub kind: u8,
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
+    pub level_m: f32,
+    pub side_run: f32,
+    pub cut_m3: f32,
+    pub done: f32,
+    pub household: u64,
+    pub plot: u64,
+    pub building: u64,
+    pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for EarthworkInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    EarthworkInfoArgs {
+      id: 0,
+      kind: 0,
+      x: 0.0,
+      y: 0.0,
+      w: 0.0,
+      h: 0.0,
+      level_m: 0.0,
+      side_run: 0.0,
+      cut_m3: 0.0,
+      done: 0.0,
+      household: 0,
+      plot: 0,
+      building: 0,
+      words: None,
+    }
+  }
+}
+
+pub struct EarthworkInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EarthworkInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(EarthworkInfo::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_kind(&mut self, kind: u8) {
+    self.fbb_.push_slot::<u8>(EarthworkInfo::VT_KIND, kind, 0);
+  }
+  #[inline]
+  pub fn add_x(&mut self, x: f32) {
+    self.fbb_.push_slot::<f32>(EarthworkInfo::VT_X, x, 0.0);
+  }
+  #[inline]
+  pub fn add_y(&mut self, y: f32) {
+    self.fbb_.push_slot::<f32>(EarthworkInfo::VT_Y, y, 0.0);
+  }
+  #[inline]
+  pub fn add_w(&mut self, w: f32) {
+    self.fbb_.push_slot::<f32>(EarthworkInfo::VT_W, w, 0.0);
+  }
+  #[inline]
+  pub fn add_h(&mut self, h: f32) {
+    self.fbb_.push_slot::<f32>(EarthworkInfo::VT_H, h, 0.0);
+  }
+  #[inline]
+  pub fn add_level_m(&mut self, level_m: f32) {
+    self.fbb_.push_slot::<f32>(EarthworkInfo::VT_LEVEL_M, level_m, 0.0);
+  }
+  #[inline]
+  pub fn add_side_run(&mut self, side_run: f32) {
+    self.fbb_.push_slot::<f32>(EarthworkInfo::VT_SIDE_RUN, side_run, 0.0);
+  }
+  #[inline]
+  pub fn add_cut_m3(&mut self, cut_m3: f32) {
+    self.fbb_.push_slot::<f32>(EarthworkInfo::VT_CUT_M3, cut_m3, 0.0);
+  }
+  #[inline]
+  pub fn add_done(&mut self, done: f32) {
+    self.fbb_.push_slot::<f32>(EarthworkInfo::VT_DONE, done, 0.0);
+  }
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(EarthworkInfo::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_plot(&mut self, plot: u64) {
+    self.fbb_.push_slot::<u64>(EarthworkInfo::VT_PLOT, plot, 0);
+  }
+  #[inline]
+  pub fn add_building(&mut self, building: u64) {
+    self.fbb_.push_slot::<u64>(EarthworkInfo::VT_BUILDING, building, 0);
+  }
+  #[inline]
+  pub fn add_words(&mut self, words: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(EarthworkInfo::VT_WORDS, words);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EarthworkInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    EarthworkInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<EarthworkInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for EarthworkInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("EarthworkInfo");
+      ds.field("id", &self.id());
+      ds.field("kind", &self.kind());
+      ds.field("x", &self.x());
+      ds.field("y", &self.y());
+      ds.field("w", &self.w());
+      ds.field("h", &self.h());
+      ds.field("level_m", &self.level_m());
+      ds.field("side_run", &self.side_run());
+      ds.field("cut_m3", &self.cut_m3());
+      ds.field("done", &self.done());
+      ds.field("household", &self.household());
+      ds.field("plot", &self.plot());
+      ds.field("building", &self.building());
+      ds.field("words", &self.words());
+      ds.finish()
+  }
+}
+pub enum EarthworksOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Earthworks<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Earthworks<'a> {
+  type Inner = Earthworks<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Earthworks<'a> {
+  pub const VT_REV: ::flatbuffers::VOffsetT = 4;
+  pub const VT_WORKS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_TILE_CELLS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_TILES_X: ::flatbuffers::VOffsetT = 10;
+  pub const VT_TILES: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Earthworks { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args EarthworksArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Earthworks<'bldr>> {
+    let mut builder = EarthworksBuilder::new(_fbb);
+    builder.add_rev(args.rev);
+    if let Some(x) = args.tiles { builder.add_tiles(x); }
+    builder.add_tiles_x(args.tiles_x);
+    builder.add_tile_cells(args.tile_cells);
+    if let Some(x) = args.works { builder.add_works(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Earthworks::VT_REV, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn works(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<EarthworkInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<EarthworkInfo>>>>(Earthworks::VT_WORKS, None)}
+  }
+  #[inline]
+  pub fn tile_cells(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Earthworks::VT_TILE_CELLS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn tiles_x(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Earthworks::VT_TILES_X, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, GroundTileRev>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, GroundTileRev>>>(Earthworks::VT_TILES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Earthworks<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("rev", Self::VT_REV, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<EarthworkInfo>>>>("works", Self::VT_WORKS, false)?
+     .visit_field::<u32>("tile_cells", Self::VT_TILE_CELLS, false)?
+     .visit_field::<u32>("tiles_x", Self::VT_TILES_X, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, GroundTileRev>>>("tiles", Self::VT_TILES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct EarthworksArgs<'a> {
+    pub rev: u64,
+    pub works: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<EarthworkInfo<'a>>>>>,
+    pub tile_cells: u32,
+    pub tiles_x: u32,
+    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, GroundTileRev>>>,
+}
+impl<'a> Default for EarthworksArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    EarthworksArgs {
+      rev: 0,
+      works: None,
+      tile_cells: 0,
+      tiles_x: 0,
+      tiles: None,
+    }
+  }
+}
+
+pub struct EarthworksBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EarthworksBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_rev(&mut self, rev: u64) {
+    self.fbb_.push_slot::<u64>(Earthworks::VT_REV, rev, 0);
+  }
+  #[inline]
+  pub fn add_works(&mut self, works: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<EarthworkInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Earthworks::VT_WORKS, works);
+  }
+  #[inline]
+  pub fn add_tile_cells(&mut self, tile_cells: u32) {
+    self.fbb_.push_slot::<u32>(Earthworks::VT_TILE_CELLS, tile_cells, 0);
+  }
+  #[inline]
+  pub fn add_tiles_x(&mut self, tiles_x: u32) {
+    self.fbb_.push_slot::<u32>(Earthworks::VT_TILES_X, tiles_x, 0);
+  }
+  #[inline]
+  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , GroundTileRev>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Earthworks::VT_TILES, tiles);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EarthworksBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    EarthworksBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Earthworks<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Earthworks<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Earthworks");
+      ds.field("rev", &self.rev());
+      ds.field("works", &self.works());
+      ds.field("tile_cells", &self.tile_cells());
+      ds.field("tiles_x", &self.tiles_x());
+      ds.field("tiles", &self.tiles());
+      ds.finish()
+  }
+}
 pub enum ResponseOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -19465,6 +20199,21 @@ impl<'a> Response<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_earthworks(&self) -> Option<Earthworks<'a>> {
+    if self.body_type() == ResponseBody::Earthworks {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Earthworks::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Response<'_> {
@@ -19491,6 +20240,7 @@ impl ::flatbuffers::Verifiable for Response<'_> {
           ResponseBody::Wealth => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Wealth>>("ResponseBody::Wealth", pos),
           ResponseBody::Knowledge => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Knowledge>>("ResponseBody::Knowledge", pos),
           ResponseBody::Deposits => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Deposits>>("ResponseBody::Deposits", pos),
+          ResponseBody::Earthworks => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Earthworks>>("ResponseBody::Earthworks", pos),
           _ => Ok(()),
         }
      })?
@@ -19652,6 +20402,13 @@ impl ::core::fmt::Debug for Response<'_> {
         },
         ResponseBody::Deposits => {
           if let Some(x) = self.body_as_deposits() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ResponseBody::Earthworks => {
+          if let Some(x) = self.body_as_earthworks() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

@@ -125,6 +125,8 @@ pub enum Request {
     GetKnowledge,
     /// Read every deposit and who knows it.
     GetDeposits,
+    /// Read every earthwork and the tiles of ground they have changed.
+    GetEarthworks,
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -444,6 +446,7 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                 wire::QueryBody::GetWealth => Ok(Request::GetWealth),
                 wire::QueryBody::GetKnowledge => Ok(Request::GetKnowledge),
                 wire::QueryBody::GetDeposits => Ok(Request::GetDeposits),
+                wire::QueryBody::GetEarthworks => Ok(Request::GetEarthworks),
                 other => Err(format!("unknown query {}", other.0)),
             }
         }
@@ -671,6 +674,9 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
         .sim
         .map_or(0, civ_sim::frames::knowledge::knowledge_rev);
     let deposits_rev = parts.sim.map_or(0, civ_sim::frames::deposits::deposits_rev);
+    let earthworks_rev = parts
+        .sim
+        .map_or(0, civ_sim::frames::earthworks::earthworks_rev);
     let task = parts.task.map(|t| {
         let name = fbb.create_string(&t.name);
         let stage = fbb.create_string(&t.stage);
@@ -721,6 +727,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
             wealth_rev,
             knowledge_rev,
             deposits_rev,
+            earthworks_rev,
         },
     );
     finish(fbb, root)

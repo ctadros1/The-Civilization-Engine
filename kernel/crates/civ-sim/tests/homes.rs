@@ -896,6 +896,39 @@ fn a_hut_on_sloping_ground_has_its_plot_levelled_first_and_the_ground_keeps_it()
         .expect("there")
         .done;
     assert!(done > 0.0, "levelling began");
+    // The boundary says what it is and which tiles of ground it changed (wire 1.20).
+    let bytes = civ_sim::frames::earthworks::earthworks_response(&sim);
+    let response =
+        civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("decodes");
+    let list = response.body_as_earthworks().expect("earthworks");
+    assert_ne!(list.rev(), 0);
+    assert_eq!(
+        list.rev(),
+        civ_sim::frames::earthworks::earthworks_rev(&sim)
+    );
+    let info = list
+        .works()
+        .expect("works")
+        .iter()
+        .find(|w| w.id() == work.id.get())
+        .expect("the platform");
+    assert_eq!((info.plot(), info.building()), (plot.get(), house.get()));
+    let words = info.words().unwrap_or_default();
+    assert!(
+        words.starts_with("the plot of ") && words.contains("'s hut") && words.contains("levelled"),
+        "{words}"
+    );
+    assert_eq!(list.tile_cells(), earth::DELTA_TILE);
+    let tiles = list.tiles().expect("tiles");
+    assert!(!tiles.is_empty());
+    for t in tiles.iter() {
+        assert!(
+            sim.land()
+                .ground
+                .tiles()
+                .any(|(i, g)| i == t.index() && g.rev == t.rev())
+        );
+    }
     // Earth is moved, not made: what is cut is filled, give or take its sides at the map's edge.
     let ground = &sim.land().ground;
     assert!(

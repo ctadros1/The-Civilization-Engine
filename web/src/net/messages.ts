@@ -255,6 +255,8 @@ export interface Snapshot {
   knowledgeRev: number;
   /** Wire 1.19: changes whenever a deposit is laid down, found or dug from (0 = no deposits). */
   depositsRev: number;
+  /** Wire 1.20: changes whenever an earthwork is begun or advanced (0 = none). */
+  earthworksRev: number;
 }
 
 export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
@@ -946,6 +948,40 @@ export interface DepositsInfo {
   deposits: DepositInfo[];
 }
 
+/** An earthwork (wire 1.20, M3b slice Q; ADR-0010 §2): for now a platform levelling a plot. */
+export interface EarthworkInfo {
+  id: number;
+  /** What it is: 0 a platform. */
+  kind: number;
+  /** The rectangle it levels, metres from the map's north-west corner. */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** The level it is cut and filled to, metres of height, and its sides' run across per metre. */
+  levelM: number;
+  sideRun: number;
+  /** Earth it cuts when done, cubic metres as it lay in the ground, and the share done, 0 to 1. */
+  cutM3: number;
+  done: number;
+  household: number;
+  /** The plot it levels and the building on it (0 for none). */
+  plot: number;
+  building: number;
+  /** In the kernel's words: "the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled". */
+  words: string;
+}
+
+export interface EarthworksInfo {
+  rev: number;
+  works: EarthworkInfo[];
+  /** Cells a side of a tile of the ground's changes, tiles across the map, and each changed tile's
+   * index (row by row) and revision. */
+  tileCells: number;
+  tilesX: number;
+  tiles: { index: number; rev: number }[];
+}
+
 export type ResponseBody =
   | { kind: "ack"; message: string }
   | { kind: "raster"; tile: RasterTile }
@@ -962,7 +998,8 @@ export type ResponseBody =
   | { kind: "firm"; firm: FirmInfo }
   | { kind: "wealth"; wealth: WealthInfo }
   | { kind: "knowledge"; knowledge: KnowledgeInfo }
-  | { kind: "deposits"; deposits: DepositsInfo };
+  | { kind: "deposits"; deposits: DepositsInfo }
+  | { kind: "earthworks"; earthworks: EarthworksInfo };
 
 export type ErrorCode =
   | "unknown"
@@ -1169,6 +1206,12 @@ export function getDeposits(): Uint8Array {
   const b = new flatbuffers.Builder(16);
   W.GetDeposits.startGetDeposits(b);
   return query(b, W.QueryBody.GetDeposits, W.GetDeposits.endGetDeposits(b));
+}
+
+export function getEarthworks(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetEarthworks.startGetEarthworks(b);
+  return query(b, W.QueryBody.GetEarthworks, W.GetEarthworks.endGetEarthworks(b));
 }
 
 /** The observer lays down a deposit of `good` (a content id) at a point, metres (god tool). */
@@ -1388,6 +1431,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     wealthRev: Number(s.wealthRev()),
     knowledgeRev: Number(s.knowledgeRev()),
     depositsRev: Number(s.depositsRev()),
+    earthworksRev: Number(s.earthworksRev()),
   };
 }
 
@@ -1413,6 +1457,37 @@ function deposits(w: W.Deposits): DepositsInfo {
     });
   }
   return { rev: Number(w.rev()), deposits: list };
+}
+
+function earthworks(w: W.Earthworks): EarthworksInfo {
+  const works: EarthworkInfo[] = [];
+  for (let i = 0; i < w.worksLength(); i++) {
+    const e = w.works(i);
+    if (!e) continue;
+    works.push({
+      id: Number(e.id()),
+      kind: e.kind(),
+      x: e.x(),
+      y: e.y(),
+      w: e.w(),
+      h: e.h(),
+      levelM: e.levelM(),
+      sideRun: e.sideRun(),
+      cutM3: e.cutM3(),
+      done: e.done(),
+      household: Number(e.household()),
+      plot: Number(e.plot()),
+      building: Number(e.building()),
+      words: e.words() ?? "",
+    });
+  }
+  const tiles: { index: number; rev: number }[] = [];
+  const t = new W.GroundTileRev();
+  for (let i = 0; i < w.tilesLength(); i++) {
+    const tile = w.tiles(i, t);
+    if (tile) tiles.push({ index: tile.index(), rev: tile.rev() });
+  }
+  return { rev: Number(w.rev()), works, tileCells: w.tileCells(), tilesX: w.tilesX(), tiles };
 }
 
 function personBriefs(s: W.Snapshot): PersonBrief[] {
@@ -2326,6 +2401,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Deposits()) as W.Deposits | null;
       if (!f) break;
       return { kind: "deposits", deposits: deposits(f) };
+    }
+    case W.ResponseBody.Earthworks: {
+      const f = r.body(new W.Earthworks()) as W.Earthworks | null;
+      if (!f) break;
+      return { kind: "earthworks", earthworks: earthworks(f) };
     }
     default:
       break;

@@ -119,6 +119,10 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
   - the deposits a settlement knows;
   - the `PlaceDeposit` command.
 - The elevation raster serves base plus delta. All of it is appended.
+- As built (slice Q's second step): wire 1.20 adds the earthworks revision, a query that lists
+  each earthwork in words with every changed tile and its revision, and elevation served as the
+  bed plus its deltas. The deposits and `PlaceDeposit` came with 1.19. The query of a
+  settlement's deposits is the deposits query's `known_by`.
 
 ## Consequences
 

@@ -296,6 +296,13 @@ export class HostClient {
     return body.deposits;
   }
 
+  /** Every earthwork and the tiles of ground they have changed (M3b slice Q). */
+  async earthworks(): Promise<M.EarthworksInfo> {
+    const body = await this.query(M.getEarthworks());
+    if (body.kind !== "earthworks") throw new HostError("internal", "expected earthworks");
+    return body.earthworks;
+  }
+
   /** What each settlement knows, is learning and has lost (M3b slice M). */
   async knowledge(): Promise<M.KnowledgeInfo> {
     const body = await this.query(M.getKnowledge());

@@ -155,6 +155,9 @@ struct GetKnowledgeBuilder;
 struct GetDeposits;
 struct GetDepositsBuilder;
 
+struct GetEarthworks;
+struct GetEarthworksBuilder;
+
 struct Query;
 struct QueryBuilder;
 
@@ -305,6 +308,14 @@ struct DepositInfoBuilder;
 
 struct Deposits;
 struct DepositsBuilder;
+
+struct EarthworkInfo;
+struct EarthworkInfoBuilder;
+
+struct GroundTileRev;
+
+struct Earthworks;
+struct EarthworksBuilder;
 
 struct Response;
 struct ResponseBuilder;
@@ -663,11 +674,12 @@ enum class QueryBody : uint8_t {
   GetWealth = 13,
   GetKnowledge = 14,
   GetDeposits = 15,
+  GetEarthworks = 16,
   MIN = NONE,
-  MAX = GetDeposits
+  MAX = GetEarthworks
 };
 
-inline const QueryBody (&EnumValuesQueryBody())[16] {
+inline const QueryBody (&EnumValuesQueryBody())[17] {
   static const QueryBody values[] = {
     QueryBody::NONE,
     QueryBody::GetRaster,
@@ -684,13 +696,14 @@ inline const QueryBody (&EnumValuesQueryBody())[16] {
     QueryBody::GetFirm,
     QueryBody::GetWealth,
     QueryBody::GetKnowledge,
-    QueryBody::GetDeposits
+    QueryBody::GetDeposits,
+    QueryBody::GetEarthworks
   };
   return values;
 }
 
 inline const char * const *EnumNamesQueryBody() {
-  static const char * const names[17] = {
+  static const char * const names[18] = {
     "NONE",
     "GetRaster",
     "GetHydrography",
@@ -707,13 +720,14 @@ inline const char * const *EnumNamesQueryBody() {
     "GetWealth",
     "GetKnowledge",
     "GetDeposits",
+    "GetEarthworks",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameQueryBody(QueryBody e) {
-  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetDeposits)) return "";
+  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetEarthworks)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesQueryBody()[index];
 }
@@ -780,6 +794,10 @@ template<> struct QueryBodyTraits<tce::wire::GetKnowledge> {
 
 template<> struct QueryBodyTraits<tce::wire::GetDeposits> {
   static const QueryBody enum_value = QueryBody::GetDeposits;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetEarthworks> {
+  static const QueryBody enum_value = QueryBody::GetEarthworks;
 };
 
 template <bool B = false>
@@ -958,11 +976,12 @@ enum class ResponseBody : uint8_t {
   Wealth = 14,
   Knowledge = 15,
   Deposits = 16,
+  Earthworks = 17,
   MIN = NONE,
-  MAX = Deposits
+  MAX = Earthworks
 };
 
-inline const ResponseBody (&EnumValuesResponseBody())[17] {
+inline const ResponseBody (&EnumValuesResponseBody())[18] {
   static const ResponseBody values[] = {
     ResponseBody::NONE,
     ResponseBody::Ack,
@@ -980,13 +999,14 @@ inline const ResponseBody (&EnumValuesResponseBody())[17] {
     ResponseBody::FirmInfo,
     ResponseBody::Wealth,
     ResponseBody::Knowledge,
-    ResponseBody::Deposits
+    ResponseBody::Deposits,
+    ResponseBody::Earthworks
   };
   return values;
 }
 
 inline const char * const *EnumNamesResponseBody() {
-  static const char * const names[18] = {
+  static const char * const names[19] = {
     "NONE",
     "Ack",
     "RasterTile",
@@ -1004,13 +1024,14 @@ inline const char * const *EnumNamesResponseBody() {
     "Wealth",
     "Knowledge",
     "Deposits",
+    "Earthworks",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameResponseBody(ResponseBody e) {
-  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Deposits)) return "";
+  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Earthworks)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesResponseBody()[index];
 }
@@ -1081,6 +1102,10 @@ template<> struct ResponseBodyTraits<tce::wire::Knowledge> {
 
 template<> struct ResponseBodyTraits<tce::wire::Deposits> {
   static const ResponseBody enum_value = ResponseBody::Deposits;
+};
+
+template<> struct ResponseBodyTraits<tce::wire::Earthworks> {
+  static const ResponseBody enum_value = ResponseBody::Earthworks;
 };
 
 template <bool B = false>
@@ -1331,6 +1356,34 @@ FLATBUFFERS_STRUCT_END(BookLine, 8);
 
 struct BookLine::Traits {
   using type = BookLine;
+};
+
+FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) GroundTileRev FLATBUFFERS_FINAL_CLASS {
+ private:
+  uint32_t index_;
+  uint32_t rev_;
+
+ public:
+  struct Traits;
+  GroundTileRev()
+      : index_(0),
+        rev_(0) {
+  }
+  GroundTileRev(uint32_t _index, uint32_t _rev)
+      : index_(::flatbuffers::EndianScalar(_index)),
+        rev_(::flatbuffers::EndianScalar(_rev)) {
+  }
+  uint32_t index() const {
+    return ::flatbuffers::EndianScalar(index_);
+  }
+  uint32_t rev() const {
+    return ::flatbuffers::EndianScalar(rev_);
+  }
+};
+FLATBUFFERS_STRUCT_END(GroundTileRev, 8);
+
+struct GroundTileRev::Traits {
+  using type = GroundTileRev;
 };
 
 struct Hello FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -3474,7 +3527,8 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_FIRMS_REV = 30,
     VT_WEALTH_REV = 32,
     VT_KNOWLEDGE_REV = 34,
-    VT_DEPOSITS_REV = 36
+    VT_DEPOSITS_REV = 36,
+    VT_EARTHWORKS_REV = 38
   };
   const tce::wire::WorldInfo *world() const {
     return GetPointer<const tce::wire::WorldInfo *>(VT_WORLD);
@@ -3527,6 +3581,9 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint64_t deposits_rev() const {
     return GetField<uint64_t>(VT_DEPOSITS_REV, 0);
   }
+  uint64_t earthworks_rev() const {
+    return GetField<uint64_t>(VT_EARTHWORKS_REV, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -3556,6 +3613,7 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_WEALTH_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_KNOWLEDGE_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_DEPOSITS_REV, 8) &&
+           VerifyField<uint64_t>(verifier, VT_EARTHWORKS_REV, 8) &&
            verifier.EndTable();
   }
 };
@@ -3615,6 +3673,9 @@ struct SnapshotBuilder {
   void add_deposits_rev(uint64_t deposits_rev) {
     fbb_.AddElement<uint64_t>(Snapshot::VT_DEPOSITS_REV, deposits_rev, 0);
   }
+  void add_earthworks_rev(uint64_t earthworks_rev) {
+    fbb_.AddElement<uint64_t>(Snapshot::VT_EARTHWORKS_REV, earthworks_rev, 0);
+  }
   explicit SnapshotBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -3644,8 +3705,10 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshot(
     uint64_t firms_rev = 0,
     uint64_t wealth_rev = 0,
     uint64_t knowledge_rev = 0,
-    uint64_t deposits_rev = 0) {
+    uint64_t deposits_rev = 0,
+    uint64_t earthworks_rev = 0) {
   SnapshotBuilder builder_(_fbb);
+  builder_.add_earthworks_rev(earthworks_rev);
   builder_.add_deposits_rev(deposits_rev);
   builder_.add_knowledge_rev(knowledge_rev);
   builder_.add_wealth_rev(wealth_rev);
@@ -3689,7 +3752,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
     uint64_t firms_rev = 0,
     uint64_t wealth_rev = 0,
     uint64_t knowledge_rev = 0,
-    uint64_t deposits_rev = 0) {
+    uint64_t deposits_rev = 0,
+    uint64_t earthworks_rev = 0) {
   auto last_error__ = last_error ? _fbb.CreateString(last_error) : 0;
   auto people__ = people ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PersonBrief>>(*people) : 0;
   auto settlements__ = settlements ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SettlementBrief>>(*settlements) : 0;
@@ -3711,7 +3775,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
       firms_rev,
       wealth_rev,
       knowledge_rev,
-      deposits_rev);
+      deposits_rev,
+      earthworks_rev);
 }
 
 struct Event FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -5349,6 +5414,42 @@ struct GetDeposits::Traits {
   static auto constexpr Create = CreateGetDeposits;
 };
 
+struct GetEarthworks FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetEarthworksBuilder Builder;
+  struct Traits;
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetEarthworksBuilder {
+  typedef GetEarthworks Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  explicit GetEarthworksBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetEarthworks> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetEarthworks>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetEarthworks> CreateGetEarthworks(
+    ::flatbuffers::FlatBufferBuilder &_fbb) {
+  GetEarthworksBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct GetEarthworks::Traits {
+  using type = GetEarthworks;
+  static auto constexpr Create = CreateGetEarthworks;
+};
+
 struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef QueryBuilder Builder;
   struct Traits;
@@ -5407,6 +5508,9 @@ struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::GetDeposits *body_as_GetDeposits() const {
     return body_type() == tce::wire::QueryBody::GetDeposits ? static_cast<const tce::wire::GetDeposits *>(body()) : nullptr;
+  }
+  const tce::wire::GetEarthworks *body_as_GetEarthworks() const {
+    return body_type() == tce::wire::QueryBody::GetEarthworks ? static_cast<const tce::wire::GetEarthworks *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -5476,6 +5580,10 @@ template<> inline const tce::wire::GetKnowledge *Query::body_as<tce::wire::GetKn
 
 template<> inline const tce::wire::GetDeposits *Query::body_as<tce::wire::GetDeposits>() const {
   return body_as_GetDeposits();
+}
+
+template<> inline const tce::wire::GetEarthworks *Query::body_as<tce::wire::GetEarthworks>() const {
+  return body_as_GetEarthworks();
 }
 
 struct QueryBuilder {
@@ -11960,6 +12068,329 @@ inline ::flatbuffers::Offset<Deposits> CreateDepositsDirect(
       deposits__);
 }
 
+struct EarthworkInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef EarthworkInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_KIND = 6,
+    VT_X = 8,
+    VT_Y = 10,
+    VT_W = 12,
+    VT_H = 14,
+    VT_LEVEL_M = 16,
+    VT_SIDE_RUN = 18,
+    VT_CUT_M3 = 20,
+    VT_DONE = 22,
+    VT_HOUSEHOLD = 24,
+    VT_PLOT = 26,
+    VT_BUILDING = 28,
+    VT_WORDS = 30
+  };
+  uint64_t id() const {
+    return GetField<uint64_t>(VT_ID, 0);
+  }
+  uint8_t kind() const {
+    return GetField<uint8_t>(VT_KIND, 0);
+  }
+  float x() const {
+    return GetField<float>(VT_X, 0.0f);
+  }
+  float y() const {
+    return GetField<float>(VT_Y, 0.0f);
+  }
+  float w() const {
+    return GetField<float>(VT_W, 0.0f);
+  }
+  float h() const {
+    return GetField<float>(VT_H, 0.0f);
+  }
+  float level_m() const {
+    return GetField<float>(VT_LEVEL_M, 0.0f);
+  }
+  float side_run() const {
+    return GetField<float>(VT_SIDE_RUN, 0.0f);
+  }
+  float cut_m3() const {
+    return GetField<float>(VT_CUT_M3, 0.0f);
+  }
+  float done() const {
+    return GetField<float>(VT_DONE, 0.0f);
+  }
+  uint64_t household() const {
+    return GetField<uint64_t>(VT_HOUSEHOLD, 0);
+  }
+  uint64_t plot() const {
+    return GetField<uint64_t>(VT_PLOT, 0);
+  }
+  uint64_t building() const {
+    return GetField<uint64_t>(VT_BUILDING, 0);
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_ID, 8) &&
+           VerifyField<uint8_t>(verifier, VT_KIND, 1) &&
+           VerifyField<float>(verifier, VT_X, 4) &&
+           VerifyField<float>(verifier, VT_Y, 4) &&
+           VerifyField<float>(verifier, VT_W, 4) &&
+           VerifyField<float>(verifier, VT_H, 4) &&
+           VerifyField<float>(verifier, VT_LEVEL_M, 4) &&
+           VerifyField<float>(verifier, VT_SIDE_RUN, 4) &&
+           VerifyField<float>(verifier, VT_CUT_M3, 4) &&
+           VerifyField<float>(verifier, VT_DONE, 4) &&
+           VerifyField<uint64_t>(verifier, VT_HOUSEHOLD, 8) &&
+           VerifyField<uint64_t>(verifier, VT_PLOT, 8) &&
+           VerifyField<uint64_t>(verifier, VT_BUILDING, 8) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           verifier.EndTable();
+  }
+};
+
+struct EarthworkInfoBuilder {
+  typedef EarthworkInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint64_t id) {
+    fbb_.AddElement<uint64_t>(EarthworkInfo::VT_ID, id, 0);
+  }
+  void add_kind(uint8_t kind) {
+    fbb_.AddElement<uint8_t>(EarthworkInfo::VT_KIND, kind, 0);
+  }
+  void add_x(float x) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_X, x, 0.0f);
+  }
+  void add_y(float y) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_Y, y, 0.0f);
+  }
+  void add_w(float w) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_W, w, 0.0f);
+  }
+  void add_h(float h) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_H, h, 0.0f);
+  }
+  void add_level_m(float level_m) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_LEVEL_M, level_m, 0.0f);
+  }
+  void add_side_run(float side_run) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_SIDE_RUN, side_run, 0.0f);
+  }
+  void add_cut_m3(float cut_m3) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_CUT_M3, cut_m3, 0.0f);
+  }
+  void add_done(float done) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_DONE, done, 0.0f);
+  }
+  void add_household(uint64_t household) {
+    fbb_.AddElement<uint64_t>(EarthworkInfo::VT_HOUSEHOLD, household, 0);
+  }
+  void add_plot(uint64_t plot) {
+    fbb_.AddElement<uint64_t>(EarthworkInfo::VT_PLOT, plot, 0);
+  }
+  void add_building(uint64_t building) {
+    fbb_.AddElement<uint64_t>(EarthworkInfo::VT_BUILDING, building, 0);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(EarthworkInfo::VT_WORDS, words);
+  }
+  explicit EarthworkInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<EarthworkInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<EarthworkInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    uint8_t kind = 0,
+    float x = 0.0f,
+    float y = 0.0f,
+    float w = 0.0f,
+    float h = 0.0f,
+    float level_m = 0.0f,
+    float side_run = 0.0f,
+    float cut_m3 = 0.0f,
+    float done = 0.0f,
+    uint64_t household = 0,
+    uint64_t plot = 0,
+    uint64_t building = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+  EarthworkInfoBuilder builder_(_fbb);
+  builder_.add_building(building);
+  builder_.add_plot(plot);
+  builder_.add_household(household);
+  builder_.add_id(id);
+  builder_.add_words(words);
+  builder_.add_done(done);
+  builder_.add_cut_m3(cut_m3);
+  builder_.add_side_run(side_run);
+  builder_.add_level_m(level_m);
+  builder_.add_h(h);
+  builder_.add_w(w);
+  builder_.add_y(y);
+  builder_.add_x(x);
+  builder_.add_kind(kind);
+  return builder_.Finish();
+}
+
+struct EarthworkInfo::Traits {
+  using type = EarthworkInfo;
+  static auto constexpr Create = CreateEarthworkInfo;
+};
+
+inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    uint8_t kind = 0,
+    float x = 0.0f,
+    float y = 0.0f,
+    float w = 0.0f,
+    float h = 0.0f,
+    float level_m = 0.0f,
+    float side_run = 0.0f,
+    float cut_m3 = 0.0f,
+    float done = 0.0f,
+    uint64_t household = 0,
+    uint64_t plot = 0,
+    uint64_t building = 0,
+    const char *words = nullptr) {
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  return tce::wire::CreateEarthworkInfo(
+      _fbb,
+      id,
+      kind,
+      x,
+      y,
+      w,
+      h,
+      level_m,
+      side_run,
+      cut_m3,
+      done,
+      household,
+      plot,
+      building,
+      words__);
+}
+
+struct Earthworks FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef EarthworksBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_REV = 4,
+    VT_WORKS = 6,
+    VT_TILE_CELLS = 8,
+    VT_TILES_X = 10,
+    VT_TILES = 12
+  };
+  uint64_t rev() const {
+    return GetField<uint64_t>(VT_REV, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::EarthworkInfo>> *works() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::EarthworkInfo>> *>(VT_WORKS);
+  }
+  uint32_t tile_cells() const {
+    return GetField<uint32_t>(VT_TILE_CELLS, 0);
+  }
+  uint32_t tiles_x() const {
+    return GetField<uint32_t>(VT_TILES_X, 0);
+  }
+  const ::flatbuffers::Vector<const tce::wire::GroundTileRev *> *tiles() const {
+    return GetPointer<const ::flatbuffers::Vector<const tce::wire::GroundTileRev *> *>(VT_TILES);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_REV, 8) &&
+           VerifyOffset(verifier, VT_WORKS) &&
+           verifier.VerifyVector(works()) &&
+           verifier.VerifyVectorOfTables(works()) &&
+           VerifyField<uint32_t>(verifier, VT_TILE_CELLS, 4) &&
+           VerifyField<uint32_t>(verifier, VT_TILES_X, 4) &&
+           VerifyOffset(verifier, VT_TILES) &&
+           verifier.VerifyVector(tiles()) &&
+           verifier.EndTable();
+  }
+};
+
+struct EarthworksBuilder {
+  typedef Earthworks Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_rev(uint64_t rev) {
+    fbb_.AddElement<uint64_t>(Earthworks::VT_REV, rev, 0);
+  }
+  void add_works(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::EarthworkInfo>>> works) {
+    fbb_.AddOffset(Earthworks::VT_WORKS, works);
+  }
+  void add_tile_cells(uint32_t tile_cells) {
+    fbb_.AddElement<uint32_t>(Earthworks::VT_TILE_CELLS, tile_cells, 0);
+  }
+  void add_tiles_x(uint32_t tiles_x) {
+    fbb_.AddElement<uint32_t>(Earthworks::VT_TILES_X, tiles_x, 0);
+  }
+  void add_tiles(::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::GroundTileRev *>> tiles) {
+    fbb_.AddOffset(Earthworks::VT_TILES, tiles);
+  }
+  explicit EarthworksBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Earthworks> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Earthworks>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Earthworks> CreateEarthworks(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::EarthworkInfo>>> works = 0,
+    uint32_t tile_cells = 0,
+    uint32_t tiles_x = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::GroundTileRev *>> tiles = 0) {
+  EarthworksBuilder builder_(_fbb);
+  builder_.add_rev(rev);
+  builder_.add_tiles(tiles);
+  builder_.add_tiles_x(tiles_x);
+  builder_.add_tile_cells(tile_cells);
+  builder_.add_works(works);
+  return builder_.Finish();
+}
+
+struct Earthworks::Traits {
+  using type = Earthworks;
+  static auto constexpr Create = CreateEarthworks;
+};
+
+inline ::flatbuffers::Offset<Earthworks> CreateEarthworksDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::EarthworkInfo>> *works = nullptr,
+    uint32_t tile_cells = 0,
+    uint32_t tiles_x = 0,
+    const std::vector<tce::wire::GroundTileRev> *tiles = nullptr) {
+  auto works__ = works ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::EarthworkInfo>>(*works) : 0;
+  auto tiles__ = tiles ? _fbb.CreateVectorOfStructs<tce::wire::GroundTileRev>(*tiles) : 0;
+  return tce::wire::CreateEarthworks(
+      _fbb,
+      rev,
+      works__,
+      tile_cells,
+      tiles_x,
+      tiles__);
+}
+
 struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef ResponseBuilder Builder;
   struct Traits;
@@ -12021,6 +12452,9 @@ struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::Deposits *body_as_Deposits() const {
     return body_type() == tce::wire::ResponseBody::Deposits ? static_cast<const tce::wire::Deposits *>(body()) : nullptr;
+  }
+  const tce::wire::Earthworks *body_as_Earthworks() const {
+    return body_type() == tce::wire::ResponseBody::Earthworks ? static_cast<const tce::wire::Earthworks *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -12094,6 +12528,10 @@ template<> inline const tce::wire::Knowledge *Response::body_as<tce::wire::Knowl
 
 template<> inline const tce::wire::Deposits *Response::body_as<tce::wire::Deposits>() const {
   return body_as_Deposits();
+}
+
+template<> inline const tce::wire::Earthworks *Response::body_as<tce::wire::Earthworks>() const {
+  return body_as_Earthworks();
 }
 
 struct ResponseBuilder {
@@ -12331,6 +12769,10 @@ inline bool VerifyQueryBody(::flatbuffers::VerifierTemplate<B> &verifier, const 
       auto ptr = reinterpret_cast<const tce::wire::GetDeposits *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case QueryBody::GetEarthworks: {
+      auto ptr = reinterpret_cast<const tce::wire::GetEarthworks *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -12416,6 +12858,10 @@ inline bool VerifyResponseBody(::flatbuffers::VerifierTemplate<B> &verifier, con
     }
     case ResponseBody::Deposits: {
       auto ptr = reinterpret_cast<const tce::wire::Deposits *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::Earthworks: {
+      auto ptr = reinterpret_cast<const tce::wire::Earthworks *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

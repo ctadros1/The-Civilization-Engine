@@ -11,6 +11,8 @@
 
 namespace tce.wire;
 
+// Elevation is the ground in use: since wire 1.20 (M3b slice Q, ADR-0010 §3), the generated bed
+// plus what earthworks have done to it. Water, drainage and lakes stay as generated.
 enum RasterLayer : ubyte { Elevation = 0, Water = 1, DrainageArea = 2, LakeId = 3 }
 
 enum RasterFormat : ubyte { U8 = 0, U16 = 1, U32 = 2, F32 = 3 }
@@ -293,6 +295,9 @@ table Snapshot {
   // Wire 1.19 (M3b slice Q): changes whenever a deposit is laid down, found or dug from (0 = no
   // deposits). Fetch the deposits with GetDeposits when it differs from the revision last fetched.
   deposits_rev: ulong (id: 16);
+  // Wire 1.20 (M3b slice Q): changes whenever an earthwork is begun or advanced (0 = none). Fetch
+  // the earthworks with GetEarthworks when it differs from the revision last fetched.
+  earthworks_rev: ulong (id: 17);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -452,7 +457,10 @@ table GetKnowledge {}
 // Every deposit in the ground and who knows it (wire 1.19, M3b slice Q).
 table GetDeposits {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits }
+// Every earthwork and the tiles of ground they have changed (wire 1.20, M3b slice Q).
+table GetEarthworks {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks }
 
 table Query {
   body: QueryBody (id: 1);
@@ -1223,7 +1231,51 @@ table Deposits {
   deposits: [DepositInfo] (id: 1);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits }
+// An earthwork (wire 1.20, M3b slice Q; ADR-0010 §2): for now a platform levelling a plot.
+table EarthworkInfo {
+  id: ulong (id: 0);
+  // What it is: 0 a platform. Append only.
+  kind: ubyte (id: 1);
+  // The rectangle it levels, metres from the map's north-west corner.
+  x: float (id: 2);
+  y: float (id: 3);
+  w: float (id: 4);
+  h: float (id: 5);
+  // The level it is cut and filled to, metres of height, and how far its sides run across for
+  // each metre up or down.
+  level_m: float (id: 6);
+  side_run: float (id: 7);
+  // Earth it cuts when done, cubic metres as it lay in the ground, and the share done, 0 to 1.
+  cut_m3: float (id: 8);
+  done: float (id: 9);
+  household: ulong (id: 10);
+  // The plot it levels and the building on it (0 for none).
+  plot: ulong (id: 11);
+  building: ulong (id: 12);
+  // In words: "the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled".
+  words: string (id: 13);
+}
+
+// A tile of what earthworks have done to the ground, numbered row by row across the map. Its
+// revision changes whenever one of its cells does: read the elevation under a tile again when its
+// revision differs from the one last seen (the elevation raster serves the ground as changed).
+struct GroundTileRev {
+  index: uint;
+  rev: uint;
+}
+
+table Earthworks {
+  // The snapshot revision this is at.
+  rev: ulong (id: 0);
+  works: [EarthworkInfo] (id: 1);
+  // Cells a side of a tile of the ground's changes, and tiles across the map.
+  tile_cells: uint (id: 2);
+  tiles_x: uint (id: 3);
+  // Every tile earthworks have changed, by index.
+  tiles: [GroundTileRev] (id: 4);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks }
 
 table Response {
   body: ResponseBody (id: 1);

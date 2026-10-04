@@ -416,7 +416,12 @@ impl Engine {
             } => self.place_deposit(at, &good, radius_m, exposed),
             Request::GetRaster(query) => match &self.world {
                 None => no_world(),
-                Some(w) => match frames::raster_response(w.sim.map(), w.sim.stats(), &query) {
+                Some(w) => match frames::raster_response(
+                    w.sim.map(),
+                    &w.sim.land().ground,
+                    w.sim.stats(),
+                    &query,
+                ) {
                     Ok(payload) => Reply::Response(payload),
                     Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e.to_string()),
                 },
@@ -483,6 +488,10 @@ impl Engine {
             Request::GetDeposits => match &self.world {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::deposits::deposits_response(&w.sim)),
+            },
+            Request::GetEarthworks => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::earthworks::earthworks_response(&w.sim)),
             },
             Request::ListSaves => {
                 match session::list_saves(&self.config.saves_root, &self.config.content) {
@@ -1429,6 +1438,39 @@ mod tests {
             "no more than the host allows at once"
         );
         assert_eq!(households(&h), before + 3);
+    }
+
+    #[test]
+    fn the_earthworks_are_read_with_the_tiles_they_changed() {
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::GetEarthworks)),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Earthworks");
+        let (rev, tiles_x, works) = {
+            let sim = &h.engine.world.as_ref().expect("a world").sim;
+            (
+                frames::earthworks::earthworks_rev(sim),
+                sim.map().width.div_ceil(civ_land::earth::DELTA_TILE),
+                sim.land().earthworks.len(),
+            )
+        };
+        let Reply::Response(payload) = h.ask(Request::GetEarthworks) else {
+            panic!("the earthworks are read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let list = response.body_as_earthworks().expect("earthworks");
+        assert_eq!(list.rev(), rev);
+        assert_eq!(list.tile_cells(), civ_land::earth::DELTA_TILE);
+        assert_eq!(list.tiles_x(), tiles_x);
+        let listed = list.works().expect("a list");
+        assert_eq!(listed.len(), works);
+        assert!(
+            listed
+                .iter()
+                .all(|w| !w.words().unwrap_or_default().is_empty())
+        );
     }
 
     #[test]

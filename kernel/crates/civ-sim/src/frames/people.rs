@@ -336,18 +336,17 @@ pub fn firm_name(sim: &Sim, id: PermanentId) -> String {
 }
 
 /// A building program's name in running text: "hut".
-fn program_name(sim: &Sim, program: &str) -> String {
+pub(crate) fn program_name(sim: &Sim, program: &str) -> String {
     sim.rules.catalog.building_index(program).map_or_else(
         || "building".to_owned(),
         |i| sim.rules.catalog.buildings[i].name.to_lowercase(),
     )
 }
 
-/// A household in words, by its eldest member: "Ada's household".
-pub fn household_name(sim: &Sim, id: PermanentId) -> String {
+/// The given name of a household's eldest member; `None` when nobody lives in it.
+pub fn eldest_name(sim: &Sim, id: PermanentId) -> Option<String> {
     let now = sim.now();
-    let eldest = sim
-        .people
+    sim.people
         .household(id)
         .and_then(|h| {
             h.members
@@ -355,8 +354,12 @@ pub fn household_name(sim: &Sim, id: PermanentId) -> String {
                 .filter_map(|m| sim.people.person(*m))
                 .max_by(|a, b| a.age_years(now).total_cmp(&b.age_years(now)))
         })
-        .map(|p| p.given.clone());
-    match eldest {
+        .map(|p| p.given.clone())
+}
+
+/// A household in words, by its eldest member: "Ada's household".
+pub fn household_name(sim: &Sim, id: PermanentId) -> String {
+    match eldest_name(sim, id) {
         Some(name) => format!("{name}'s household"),
         None => "another household".to_owned(),
     }

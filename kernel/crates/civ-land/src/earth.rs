@@ -303,6 +303,39 @@ impl GroundDelta {
         true
     }
 
+    /// The changes over the `w` by `h` cells from `(x0, y0)`, metres, row by row; `None` when no
+    /// changed tile touches them (the ground there is as generated).
+    pub fn region(&self, (x0, y0): (u32, u32), (w, h): (u32, u32)) -> Option<Vec<f32>> {
+        let (x1, y1) = (
+            x0.saturating_add(w).min(self.width),
+            y0.saturating_add(h).min(self.height),
+        );
+        if x0 >= x1 || y0 >= y1 {
+            return None;
+        }
+        let tiles_x = self.tiles_x();
+        let mut out: Option<Vec<f32>> = None;
+        for (&index, tile) in &self.tiles {
+            let (tx, ty) = (
+                (index % tiles_x) * DELTA_TILE,
+                (index / tiles_x) * DELTA_TILE,
+            );
+            let (ax, ay) = (tx.max(x0), ty.max(y0));
+            let (bx, by) = ((tx + DELTA_TILE).min(x1), (ty + DELTA_TILE).min(y1));
+            if ax >= bx || ay >= by {
+                continue;
+            }
+            let dense = out.get_or_insert_with(|| vec![0.0; (w as usize) * (h as usize)]);
+            for y in ay..by {
+                for x in ax..bx {
+                    let from = ((y - ty) * DELTA_TILE + (x - tx)) as usize;
+                    dense[((y - y0) * w + (x - x0)) as usize] = tile.cells[from];
+                }
+            }
+        }
+        out
+    }
+
     /// The sum of every cell's change times its area, cubic metres: earth added less earth taken.
     pub fn net_m3(&self) -> f64 {
         let area = f64::from(self.cell_m) * f64::from(self.cell_m);
@@ -462,6 +495,24 @@ mod tests {
         // Nor past the map's edge.
         let corner = RectCm { x: 100, ..rect };
         assert!(!clear_of_water(&map, &corner, 0.5, 1.5));
+    }
+
+    #[test]
+    fn a_region_of_the_ground_reads_the_changes_under_it_and_nothing_elsewhere() {
+        let mut ground = GroundDelta::new(200, 100, 8.0);
+        // Half a cubic metre onto cell (70, 3), in the second tile, and a metre off cell (5, 5).
+        ground.add((70.0 * 8.0 + 1.0, 3.0 * 8.0 + 1.0), 0.5);
+        ground.add((5.0 * 8.0 + 1.0, 5.0 * 8.0 + 1.0), -1.0);
+        let r = ground.region((68, 2), (4, 3)).expect("a change in it");
+        assert_eq!(r.len(), 12);
+        assert!((r[4 + 2] - 0.5 / 64.0).abs() < 1e-7, "{r:?}");
+        assert_eq!(r.iter().filter(|&&dz| dz != 0.0).count(), 1);
+        let whole = ground.region((0, 0), (200, 100)).expect("changes");
+        assert!((whole[5 * 200 + 5] + 1.0 / 64.0).abs() < 1e-7);
+        assert_eq!(whole[3 * 200 + 70], ground.at(3 * 200 + 70));
+        // Nowhere near a change, and off the map.
+        assert_eq!(ground.region((130, 70), (10, 10)), None);
+        assert_eq!(ground.region((300, 0), (4, 4)), None);
     }
 
     /// A hash of everything a platform's expansion gives on a fixed slope, to the micrometre.

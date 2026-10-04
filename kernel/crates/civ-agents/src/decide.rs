@@ -173,14 +173,36 @@ pub struct TradeOption {
     pub worth: TradeWorth,
 }
 
-/// What a purchase brings the household that makes it.
+/// What a purchase, or a wage, brings the household that gets it.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TradeWorth {
     /// A tool it needs: how much of one it still wants, 0–1, as for making one.
     Tool { need: f64 },
     /// Food, kcal.
     Food { kcal: f64 },
+    /// Other goods, worth so many hours of the household's own work to it (slice J: a wage).
+    Goods { hours: f64 },
 }
+
+/// Paid work at a workshop of another household (slice J): where, for how long, and what the
+/// pay brings the worker's household.
+#[derive(Clone, Copy, Debug)]
+pub struct JobOption {
+    /// The workshop.
+    pub firm: PermanentId,
+    /// One-way walk to it, minutes.
+    pub walk_min: f64,
+    /// Where it is, metres.
+    pub at: (f32, f32),
+    /// Minutes of work it wants of the person this session.
+    pub minutes: f64,
+    /// What the pay brings the household.
+    pub worth: TradeWorth,
+}
+
+/// Hours of a household's own work a wage must be worth to be worth half as much as can be (a
+/// tuning value: a session's work).
+pub const WAGE_HALF_WORTH_H: f64 = 3.0;
 
 /// A nearby water point: walking minutes one way and the destination.
 #[derive(Clone, Copy, Debug)]
@@ -342,6 +364,7 @@ pub fn candidates(
     water: Option<WaterOption>,
     giver: Option<GiverOption>,
     trade: Option<TradeOption>,
+    job: Option<JobOption>,
     build: Result<BuildOption, Reason>,
     shop: &Workshop,
 ) -> (Vec<Candidate>, Vec<(u16, Reason)>) {
@@ -782,6 +805,10 @@ pub fn candidates(
                             term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
                         }
                     }
+                    TradeWorth::Goods { hours } => {
+                        let worth = hours / (hours + WAGE_HALF_WORTH_H);
+                        term(&mut terms, Reason::UsefulWork, w.w_work * worth);
+                    }
                 }
                 term(
                     &mut terms,
@@ -801,6 +828,64 @@ pub fn candidates(
                     Target::Household(t.seller)
                 };
                 out.push(finish(id, target, terms, steps));
+            }
+            Behavior::Hire => {
+                // Paid work at another household's workshop, for what the pay brings the
+                // household (research 08-10 §1.3: a wage is worth it set against what the time
+                // would do otherwise, which the other options weigh).
+                let Some(j) = job else {
+                    excluded.push((id, Reason::NoWork));
+                    continue;
+                };
+                if j.walk_min > f64::from(def.max_walk_minutes) {
+                    excluded.push((id, Reason::Unreachable));
+                    continue;
+                }
+                let minutes = j.minutes.min(f64::from(def.max_minutes)).max(1.0);
+                match j.worth {
+                    TradeWorth::Tool { need } => {
+                        term(&mut terms, Reason::Wages, w.w_tools * need.clamp(0.0, 1.0));
+                    }
+                    TradeWorth::Food { kcal } => {
+                        let half = w.trip_half_worth_days * f.household_kcal_day.max(1.0);
+                        let worth = kcal / (kcal + half.max(1.0));
+                        let target = f.food_target_days.max(1e-6);
+                        let short = (1.0 - f.food_days / target).clamp(0.0, 1.0);
+                        term(&mut terms, Reason::FoodShortage, w.w_food * short * worth);
+                        let lean = if f.food_outlook_days > 0.0 {
+                            (1.0 - f.food_days / f.food_outlook_days).clamp(0.0, 1.0)
+                        } else {
+                            0.0
+                        };
+                        term(&mut terms, Reason::LeanSeason, w.w_lean * lean * worth);
+                        if !f.has_food {
+                            term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
+                        }
+                        term(&mut terms, Reason::Wages, w.w_work * worth);
+                    }
+                    TradeWorth::Goods { hours } => {
+                        let worth = hours / (hours + WAGE_HALF_WORTH_H);
+                        term(&mut terms, Reason::Wages, w.w_work * worth);
+                    }
+                }
+                term(
+                    &mut terms,
+                    Reason::Walking,
+                    -w.w_walk_hour * 2.0 * j.walk_min / 60.0,
+                );
+                term(
+                    &mut terms,
+                    Reason::Effort,
+                    -w.w_effort * (def.par - 1.0).max(0.0) * minutes / 60.0 * f.sleep_pressure,
+                );
+                let steps = vec![
+                    Step::Walk { to: j.at },
+                    Step::Work {
+                        minutes: minutes.round().max(1.0) as u32,
+                    },
+                    Step::Walk { to: f.home },
+                ];
+                out.push(finish(id, Target::Firm(j.firm), terms, steps));
             }
             Behavior::Socialize => {
                 let Some(hearth) = f.hearth else {
@@ -1139,6 +1224,7 @@ mod tests {
             &limits(),
             &|_| None,
             &|_| Ok(field()),
+            None,
             None,
             None,
             None,

@@ -271,3 +271,179 @@ fn a_skilled_household_sets_up_a_workshop_and_sells_what_it_makes() {
             .any(|e| e.kind == ChronicleKind::WorkshopClosed && e.firm == Some(id))
     );
 }
+
+#[test]
+fn a_workshop_posts_a_wage_and_pays_those_who_take_the_work() {
+    // ADR-0006 §5, research 08-10 §1.3: a workshop with more wanted of it than it holds posts a
+    // wage on its own; people of a household short of food take work that pays well enough in
+    // grain, and it pays them through the ledger for the time they worked.
+    let mut sim = new_world(3);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let rules = sim.rules().clone();
+    let goods = &rules.catalog.goods;
+    let good = |id: &str| goods.iter().position(|d| d.id == id).expect(id);
+    let (sickle, grain) = (good("core:good/sickle"), good("core:good/grain"));
+    let knapping = rules
+        .catalog
+        .skills
+        .iter()
+        .position(|k| k.id == "core:skill/knapping")
+        .expect("knapping");
+    let mut families: Vec<(usize, PermanentId)> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| (h.members.len(), h.id))
+        .collect();
+    families.sort_unstable_by(|a, b| b.cmp(a));
+    let maker = families[0].1;
+    let now = sim.now();
+    let ages: Vec<f64> = sim
+        .people()
+        .household(maker)
+        .expect("maker")
+        .members
+        .iter()
+        .filter_map(|m| sim.people().person(*m))
+        .map(|p| p.age_years(now))
+        .collect();
+    let wants = civ_agents::make::tool_wants_for(
+        &rules.catalog,
+        &ages,
+        rules.people.family.independent_age,
+    );
+    // The workshop's household: master knappers with flint and wood, and grain to pay with.
+    set(
+        &mut sim,
+        maker,
+        &[
+            (
+                "core:good/sickle",
+                wants[sickle] + civ_agents::make::SPARE_TOOL,
+            ),
+            ("core:good/toolstone", 30.0),
+            ("core:good/timber", 50.0),
+            ("core:good/grain", 4000.0),
+        ],
+    );
+    set_skill(&mut sim, maker, knapping, 1.0);
+    // Its neighbours: no sickle, nothing to make one from, and no food.
+    for &(_, other) in &families[1..] {
+        set(
+            &mut sim,
+            other,
+            &[
+                ("core:good/sickle", 0.0),
+                ("core:good/toolstone", 0.0),
+                ("core:good/timber", 0.0),
+                ("core:good/grain", 0.0),
+                ("core:good/provisions", 0.0),
+            ],
+        );
+    }
+    let settlement = sim
+        .people()
+        .household(maker)
+        .and_then(|h| h.settlement)
+        .expect("settled");
+    let ask = |sim: &mut Sim| {
+        let day = sim.now().day_index();
+        let goods = sim.rules().catalog.goods.len();
+        let pop = sim.people_mut_for_tests();
+        if !pop.markets.iter().any(|m| m.settlement == settlement) {
+            pop.markets.push(Market::new(settlement, goods, day));
+        }
+        let m = pop
+            .markets
+            .iter_mut()
+            .find(|m| m.settlement == settlement)
+            .expect("a market");
+        if m.unmet[sickle] < 4.0 {
+            m.record_unmet(
+                sickle,
+                4.0 - m.unmet[sickle],
+                40.0 * (4.0 - m.unmet[sickle]),
+            );
+        }
+    };
+    // Until it posts a wage of its own.
+    let posted = |sim: &Sim| {
+        sim.people()
+            .firms
+            .iter()
+            .find(|f| f.owner == maker)
+            .and_then(|f| f.wage)
+            .filter(|w| w.hours >= 1.0)
+    };
+    for _ in 0..40 {
+        if posted(&sim).is_some() {
+            break;
+        }
+        ask(&mut sim);
+        sim.advance_minutes(24 * 60).expect("advances");
+    }
+    let first = posted(&sim).expect("the workshop posted a wage");
+    assert!(first.per_hour > 0.0 && first.hour_h > 0.0);
+    // Then, paying two kilograms of grain an hour, it finds hands.
+    let generous = |sim: &mut Sim| {
+        let pop = sim.people_mut_for_tests();
+        if let Some(w) = pop
+            .firms
+            .iter_mut()
+            .find(|f| f.owner == maker)
+            .and_then(|f| f.wage.as_mut())
+        {
+            w.pay = grain as u16;
+            w.per_hour = 2.0;
+            w.hours = w.hours.max(w.taken + 6.0);
+        }
+    };
+    let start = held(sim.people());
+    let paid_out = |sim: &Sim| {
+        sim.people()
+            .firms
+            .iter()
+            .flat_map(|f| f.books.months.iter())
+            .map(|m| m.amount(BookKind::Wages, grain as u16))
+            .sum::<f32>()
+    };
+    for _ in 0..30 {
+        if paid_out(&sim) > 0.0 {
+            break;
+        }
+        ask(&mut sim);
+        generous(&mut sim);
+        sim.advance_minutes(24 * 60).expect("advances");
+    }
+    let pop = sim.people();
+    let firm = pop
+        .firms
+        .iter()
+        .find(|f| f.owner == maker)
+        .expect("the workshop");
+    let paid = paid_out(&sim);
+    let hours: f32 = firm.books.months.iter().map(|m| m.hired_h).sum();
+    assert!(
+        paid > 0.0,
+        "nobody took the work: wage {:?}, books {:?}",
+        firm.wage,
+        firm.books.months
+    );
+    assert!(
+        (paid - 2.0 * hours).abs() <= 1e-3 * paid.max(1.0),
+        "paid {paid} kg for {hours} h"
+    );
+    let worker = firm
+        .books
+        .entries
+        .iter()
+        .find(|e| e.kind == BookKind::Wages)
+        .and_then(|e| e.other)
+        .expect("a worker's household");
+    assert_ne!(worker, maker);
+    assert!(pop.transfers.get(civ_agents::Channel::Wage, grain) > 0.0);
+    assert!(firm.is_open(), "it could pay what it owed");
+    let end = held(pop);
+    let gaps = population::unaccounted(goods.len(), (&start.0, &start.1), (&end.0, &end.1));
+    assert!(gaps.is_empty(), "unaccounted for: {gaps:?}");
+}

@@ -56,7 +56,7 @@
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{Read, Seek};
 
-use civ_agents::firm::{BookKind, Books, Entry as BookEntryOf, Exit, Firm, Statement};
+use civ_agents::firm::{BookKind, Books, Entry as BookEntryOf, Exit, Firm, Statement, WageOffer};
 use civ_agents::history::{ChronicleEvent, ChronicleKind, Origin, PersonRecord};
 use civ_agents::ledger::{Channel, Trade};
 use civ_agents::market::{Market, MonthOfTrade, Offer};
@@ -154,7 +154,11 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             encode_wear(&sim.land.wear, sim.now().day_index(), &rules.land.paths),
         ),
         section(SECTION_MARKET, 0, encode_markets(&sim.people, &goods)),
-        section(SECTION_FIRMS, 0, encode_firms(&sim.people, &goods)),
+        section(
+            SECTION_FIRMS,
+            0,
+            encode_firms(&sim.people, &goods, &activities),
+        ),
     ]
 }
 
@@ -2114,9 +2118,10 @@ fn encode_offer<'a>(fbb: &mut FlatBufferBuilder<'a>, o: &Offer) -> WIPOffset<sav
     )
 }
 
-fn encode_firms(pop: &Population, goods: &[&str]) -> Vec<u8> {
+fn encode_firms(pop: &Population, goods: &[&str], activities: &[&str]) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let good_dictionary = strings(&mut fbb, goods);
+    let activity_dictionary = strings(&mut fbb, activities);
     let list: Vec<_> = pop
         .firms
         .iter()
@@ -2172,6 +2177,20 @@ fn encode_firms(pop: &Population, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let months = fbb.create_vector(&months);
+            let wage = f.wage.map(|w| {
+                save::WageOfferState::create(
+                    &mut fbb,
+                    &save::WageOfferStateArgs {
+                        activity: u32::from(w.activity),
+                        pay: u32::from(w.pay),
+                        per_hour: w.per_hour,
+                        hour_h: w.hour_h,
+                        hours: w.hours,
+                        taken: w.taken,
+                        reviewed: w.reviewed,
+                    },
+                )
+            });
             save::FirmState::create(
                 &mut fbb,
                 &save::FirmStateArgs {
@@ -2192,6 +2211,7 @@ fn encode_firms(pop: &Population, goods: &[&str]) -> Vec<u8> {
                     last_sale: f.last_sale.map_or(0, SimTime::minutes),
                     entries: Some(entries),
                     months: Some(months),
+                    wage,
                 },
             )
         })
@@ -2202,6 +2222,7 @@ fn encode_firms(pop: &Population, goods: &[&str]) -> Vec<u8> {
         &save::FirmsArgs {
             firms: Some(list),
             goods: Some(good_dictionary),
+            activities: Some(activity_dictionary),
         },
     );
     finish(fbb, root)
@@ -2235,6 +2256,7 @@ fn decode_firms(bytes: &[u8], rules: &Rules) -> Result<Vec<Firm>, LoadError> {
     let root =
         flatbuffers::root::<save::Firms>(bytes).map_err(|e| unreadable(SECTION_FIRMS, &e))?;
     let goods = good_map(&read_strings(root.goods()), rules);
+    let activities = activity_map(&read_strings(root.activities()), rules);
     let catalog_goods = rules.catalog.goods.len();
     let mut out = Vec::new();
     for f in root.firms().iter().flatten() {
@@ -2317,6 +2339,26 @@ fn decode_firms(bytes: &[u8], rules: &Rules) -> Result<Vec<Firm>, LoadError> {
             stores_at: time(f.stores_at()),
             offers: decode_offers(f.offers(), &goods, what)?,
             last_sale: f.sold().then(|| time(f.last_sale())),
+            // A wage whose work or pay the content no longer has is withdrawn.
+            wage: match f.wage() {
+                Some(w) => {
+                    let activity = activities.get(w.activity() as usize).copied().flatten();
+                    let pay = saved_good(&goods, w.pay(), what)?;
+                    match (activity, pay) {
+                        (Some(activity), Some(pay)) => Some(WageOffer {
+                            activity,
+                            pay,
+                            per_hour: w.per_hour(),
+                            hour_h: w.hour_h(),
+                            hours: w.hours(),
+                            taken: w.taken(),
+                            reviewed: w.reviewed(),
+                        }),
+                        _ => None,
+                    }
+                }
+                None => None,
+            },
             books,
             // Counters start again on load.
             flows: Default::default(),

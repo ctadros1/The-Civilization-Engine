@@ -223,6 +223,33 @@ impl Books {
     }
 }
 
+/// What a workshop pays for work, and how much of it it wants (ADR-0006 §5: wage offers;
+/// research 08-10 §5.3: a posted offer workers take or leave).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WageOffer {
+    /// The make activity worked, by index in the catalog's activities.
+    pub activity: u16,
+    /// What it pays in, by index in the catalog's goods.
+    pub pay: u16,
+    /// Units of that for an hour of work.
+    pub per_hour: f32,
+    /// What an hour of work is worth to its owners, hours of their own work: the wage.
+    pub hour_h: f32,
+    /// Hours of work it wants until its next review.
+    pub hours: f32,
+    /// Hours taken of those so far.
+    pub taken: f32,
+    /// The day its wage was last reviewed.
+    pub reviewed: i64,
+}
+
+impl WageOffer {
+    /// Hours of work it still wants.
+    pub fn open_hours(&self) -> f64 {
+        f64::from(self.hours - self.taken).max(0.0)
+    }
+}
+
 /// A firm (ADR-0006 §5).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Firm {
@@ -250,6 +277,8 @@ pub struct Firm {
     pub offers: Vec<Offer>,
     /// When it last sold anything.
     pub last_sale: Option<SimTime>,
+    /// What it pays for work, when it wants any.
+    pub wage: Option<WageOffer>,
     /// Its books.
     pub books: Books,
     /// What became of its goods since the counters began (not saved).
@@ -280,6 +309,7 @@ impl Firm {
             stores_at: now,
             offers: Vec::new(),
             last_sale: None,
+            wage: None,
             books: Books::default(),
             flows: Flows::default(),
         }

@@ -1023,6 +1023,10 @@ pub(crate) mod tests {
             firm: crate::params::FirmParams {
                 idle_close_days: 180.0,
                 book_entries: 64,
+                wage_share: 0.5,
+                wage_review_days: 14,
+                wage_max_change: 0.05,
+                max_hire_hours: 21.0,
             },
             names: NameParams::default(),
             farm: FarmParams {

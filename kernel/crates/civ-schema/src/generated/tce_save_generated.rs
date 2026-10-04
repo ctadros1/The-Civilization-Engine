@@ -10995,6 +10995,7 @@ impl<'a> FirmState<'a> {
   pub const VT_LAST_SALE: ::flatbuffers::VOffsetT = 32;
   pub const VT_ENTRIES: ::flatbuffers::VOffsetT = 34;
   pub const VT_MONTHS: ::flatbuffers::VOffsetT = 36;
+  pub const VT_WAGE: ::flatbuffers::VOffsetT = 38;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -11015,6 +11016,7 @@ impl<'a> FirmState<'a> {
     builder.add_owner_since(args.owner_since);
     builder.add_owner(args.owner);
     builder.add_id(args.id);
+    if let Some(x) = args.wage { builder.add_wage(x); }
     if let Some(x) = args.months { builder.add_months(x); }
     if let Some(x) = args.entries { builder.add_entries(x); }
     if let Some(x) = args.offers { builder.add_offers(x); }
@@ -11146,6 +11148,13 @@ impl<'a> FirmState<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MonthStatement>>>>(FirmState::VT_MONTHS, None)}
   }
+  #[inline]
+  pub fn wage(&self) -> Option<WageOfferState<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<WageOfferState>>(FirmState::VT_WAGE, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FirmState<'_> {
@@ -11171,6 +11180,7 @@ impl ::flatbuffers::Verifiable for FirmState<'_> {
      .visit_field::<i64>("last_sale", Self::VT_LAST_SALE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BookEntry>>>>("entries", Self::VT_ENTRIES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MonthStatement>>>>("months", Self::VT_MONTHS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<WageOfferState>>("wage", Self::VT_WAGE, false)?
      .finish();
     Ok(())
   }
@@ -11193,6 +11203,7 @@ pub struct FirmStateArgs<'a> {
     pub last_sale: i64,
     pub entries: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BookEntry<'a>>>>>,
     pub months: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MonthStatement<'a>>>>>,
+    pub wage: Option<::flatbuffers::WIPOffset<WageOfferState<'a>>>,
 }
 impl<'a> Default for FirmStateArgs<'a> {
   #[inline]
@@ -11215,6 +11226,7 @@ impl<'a> Default for FirmStateArgs<'a> {
       last_sale: 0,
       entries: None,
       months: None,
+      wage: None,
     }
   }
 }
@@ -11293,6 +11305,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FirmStateBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FirmState::VT_MONTHS, months);
   }
   #[inline]
+  pub fn add_wage(&mut self, wage: ::flatbuffers::WIPOffset<WageOfferState<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<WageOfferState>>(FirmState::VT_WAGE, wage);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FirmStateBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FirmStateBuilder {
@@ -11327,6 +11343,205 @@ impl ::core::fmt::Debug for FirmState<'_> {
       ds.field("last_sale", &self.last_sale());
       ds.field("entries", &self.entries());
       ds.field("months", &self.months());
+      ds.field("wage", &self.wage());
+      ds.finish()
+  }
+}
+pub enum WageOfferStateOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WageOfferState<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WageOfferState<'a> {
+  type Inner = WageOfferState<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WageOfferState<'a> {
+  pub const VT_ACTIVITY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_PAY: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PER_HOUR: ::flatbuffers::VOffsetT = 8;
+  pub const VT_HOUR_H: ::flatbuffers::VOffsetT = 10;
+  pub const VT_HOURS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_TAKEN: ::flatbuffers::VOffsetT = 14;
+  pub const VT_REVIEWED: ::flatbuffers::VOffsetT = 16;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WageOfferState { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WageOfferStateArgs
+  ) -> ::flatbuffers::WIPOffset<WageOfferState<'bldr>> {
+    let mut builder = WageOfferStateBuilder::new(_fbb);
+    builder.add_reviewed(args.reviewed);
+    builder.add_taken(args.taken);
+    builder.add_hours(args.hours);
+    builder.add_hour_h(args.hour_h);
+    builder.add_per_hour(args.per_hour);
+    builder.add_pay(args.pay);
+    builder.add_activity(args.activity);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn activity(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WageOfferState::VT_ACTIVITY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn pay(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WageOfferState::VT_PAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn per_hour(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WageOfferState::VT_PER_HOUR, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn hour_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WageOfferState::VT_HOUR_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn hours(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WageOfferState::VT_HOURS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn taken(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WageOfferState::VT_TAKEN, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn reviewed(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(WageOfferState::VT_REVIEWED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WageOfferState<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("activity", Self::VT_ACTIVITY, false)?
+     .visit_field::<u32>("pay", Self::VT_PAY, false)?
+     .visit_field::<f32>("per_hour", Self::VT_PER_HOUR, false)?
+     .visit_field::<f32>("hour_h", Self::VT_HOUR_H, false)?
+     .visit_field::<f32>("hours", Self::VT_HOURS, false)?
+     .visit_field::<f32>("taken", Self::VT_TAKEN, false)?
+     .visit_field::<i64>("reviewed", Self::VT_REVIEWED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WageOfferStateArgs {
+    pub activity: u32,
+    pub pay: u32,
+    pub per_hour: f32,
+    pub hour_h: f32,
+    pub hours: f32,
+    pub taken: f32,
+    pub reviewed: i64,
+}
+impl<'a> Default for WageOfferStateArgs {
+  #[inline]
+  fn default() -> Self {
+    WageOfferStateArgs {
+      activity: 0,
+      pay: 0,
+      per_hour: 0.0,
+      hour_h: 0.0,
+      hours: 0.0,
+      taken: 0.0,
+      reviewed: 0,
+    }
+  }
+}
+
+pub struct WageOfferStateBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WageOfferStateBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_activity(&mut self, activity: u32) {
+    self.fbb_.push_slot::<u32>(WageOfferState::VT_ACTIVITY, activity, 0);
+  }
+  #[inline]
+  pub fn add_pay(&mut self, pay: u32) {
+    self.fbb_.push_slot::<u32>(WageOfferState::VT_PAY, pay, 0);
+  }
+  #[inline]
+  pub fn add_per_hour(&mut self, per_hour: f32) {
+    self.fbb_.push_slot::<f32>(WageOfferState::VT_PER_HOUR, per_hour, 0.0);
+  }
+  #[inline]
+  pub fn add_hour_h(&mut self, hour_h: f32) {
+    self.fbb_.push_slot::<f32>(WageOfferState::VT_HOUR_H, hour_h, 0.0);
+  }
+  #[inline]
+  pub fn add_hours(&mut self, hours: f32) {
+    self.fbb_.push_slot::<f32>(WageOfferState::VT_HOURS, hours, 0.0);
+  }
+  #[inline]
+  pub fn add_taken(&mut self, taken: f32) {
+    self.fbb_.push_slot::<f32>(WageOfferState::VT_TAKEN, taken, 0.0);
+  }
+  #[inline]
+  pub fn add_reviewed(&mut self, reviewed: i64) {
+    self.fbb_.push_slot::<i64>(WageOfferState::VT_REVIEWED, reviewed, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WageOfferStateBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WageOfferStateBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WageOfferState<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WageOfferState<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WageOfferState");
+      ds.field("activity", &self.activity());
+      ds.field("pay", &self.pay());
+      ds.field("per_hour", &self.per_hour());
+      ds.field("hour_h", &self.hour_h());
+      ds.field("hours", &self.hours());
+      ds.field("taken", &self.taken());
+      ds.field("reviewed", &self.reviewed());
       ds.finish()
   }
 }
@@ -11348,6 +11563,7 @@ impl<'a> ::flatbuffers::Follow<'a> for Firms<'a> {
 impl<'a> Firms<'a> {
   pub const VT_FIRMS: ::flatbuffers::VOffsetT = 4;
   pub const VT_GOODS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_ACTIVITIES: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -11359,6 +11575,7 @@ impl<'a> Firms<'a> {
     args: &'args FirmsArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Firms<'bldr>> {
     let mut builder = FirmsBuilder::new(_fbb);
+    if let Some(x) = args.activities { builder.add_activities(x); }
     if let Some(x) = args.goods { builder.add_goods(x); }
     if let Some(x) = args.firms { builder.add_firms(x); }
     builder.finish()
@@ -11379,6 +11596,13 @@ impl<'a> Firms<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Firms::VT_GOODS, None)}
   }
+  #[inline]
+  pub fn activities(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Firms::VT_ACTIVITIES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Firms<'_> {
@@ -11389,6 +11613,7 @@ impl ::flatbuffers::Verifiable for Firms<'_> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FirmState>>>>("firms", Self::VT_FIRMS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("goods", Self::VT_GOODS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("activities", Self::VT_ACTIVITIES, false)?
      .finish();
     Ok(())
   }
@@ -11396,6 +11621,7 @@ impl ::flatbuffers::Verifiable for Firms<'_> {
 pub struct FirmsArgs<'a> {
     pub firms: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FirmState<'a>>>>>,
     pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub activities: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for FirmsArgs<'a> {
   #[inline]
@@ -11403,6 +11629,7 @@ impl<'a> Default for FirmsArgs<'a> {
     FirmsArgs {
       firms: None,
       goods: None,
+      activities: None,
     }
   }
 }
@@ -11419,6 +11646,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FirmsBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_goods(&mut self, goods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Firms::VT_GOODS, goods);
+  }
+  #[inline]
+  pub fn add_activities(&mut self, activities: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Firms::VT_ACTIVITIES, activities);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FirmsBuilder<'a, 'b, A> {
@@ -11440,6 +11671,7 @@ impl ::core::fmt::Debug for Firms<'_> {
     let mut ds = f.debug_struct("Firms");
       ds.field("firms", &self.firms());
       ds.field("goods", &self.goods());
+      ds.field("activities", &self.activities());
       ds.finish()
   }
 }

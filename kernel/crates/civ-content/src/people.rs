@@ -46,6 +46,10 @@ pub(crate) struct PeopleFile {
 pub(crate) struct Firm {
     pub idle_close_days: f64,
     pub book_entries: u32,
+    pub wage_share: f64,
+    pub wage_review_days: u32,
+    pub wage_max_change: f64,
+    pub max_hire_hours: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -499,6 +503,10 @@ impl PeopleFile {
             firm: FirmParams {
                 idle_close_days: self.firm.idle_close_days,
                 book_entries: self.firm.book_entries as usize,
+                wage_share: self.firm.wage_share,
+                wage_review_days: self.firm.wage_review_days,
+                wage_max_change: self.firm.wage_max_change,
+                max_hire_hours: self.firm.max_hire_hours,
             },
             names,
         }
@@ -761,6 +769,12 @@ impl PeopleFile {
         if self.firm.book_entries == 0 || self.firm.book_entries > 10_000 {
             p.push("`firm.book_entries` must be between 1 and 10000".to_owned());
         }
+        if !(1..=365).contains(&self.firm.wage_review_days) {
+            p.push("`firm.wage_review_days` must be between 1 and 365".to_owned());
+        }
+        unit("firm.wage_share", self.firm.wage_share, &mut p);
+        unit("firm.wage_max_change", self.firm.wage_max_change, &mut p);
+        non_negative("firm.max_hire_hours", self.firm.max_hire_hours, &mut p);
         let m = &self.mortality;
         for (name, v) in [("a", m.a), ("b", m.b), ("c", m.c), ("d", m.d), ("e", m.e)] {
             non_negative(&format!("mortality.{name}"), v, &mut p);

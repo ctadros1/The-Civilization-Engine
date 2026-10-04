@@ -50,6 +50,8 @@ pub enum Reason {
     LeanSeason = 18,
     /// Others want it and nobody offers it: made to sell.
     ForSale = 19,
+    /// What the work is paid, for the household (slice J).
+    Wages = 20,
     /// Excluded: there is no food at home.
     NoFood = 100,
     /// Excluded: too young.
@@ -93,11 +95,13 @@ pub enum Reason {
     Cheaper = 119,
     /// Excluded: nobody nearby offers what the household needs on terms it can meet.
     NoOffer = 120,
+    /// Excluded: no workshop nearby is hiring (slice J).
+    NoWork = 121,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 40] = [
+    pub const ALL: [Reason; 42] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -117,6 +121,7 @@ impl Reason {
         Reason::ReadyFood,
         Reason::LeanSeason,
         Reason::ForSale,
+        Reason::Wages,
         Reason::NoFood,
         Reason::TooYoung,
         Reason::TooOld,
@@ -138,6 +143,7 @@ impl Reason {
         Reason::BetterWay,
         Reason::Cheaper,
         Reason::NoOffer,
+        Reason::NoWork,
     ];
 
     /// The reason with this code.
@@ -167,6 +173,7 @@ impl Reason {
             Reason::ReadyFood => "food to make ready",
             Reason::LeanSeason => "stores will not last to the harvest",
             Reason::ForSale => "others want it",
+            Reason::Wages => "what the work is paid",
             Reason::NoFood => "no food at home",
             Reason::TooYoung => "too young",
             Reason::TooOld => "too old",
@@ -188,6 +195,7 @@ impl Reason {
             Reason::BetterWay => "a better way to do it is at hand",
             Reason::Cheaper => "it costs less to get it from a neighbour",
             Reason::NoOffer => "nobody nearby offers what is needed",
+            Reason::NoWork => "nobody nearby is hiring",
         }
     }
 }

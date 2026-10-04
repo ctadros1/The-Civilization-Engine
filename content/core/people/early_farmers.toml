@@ -281,3 +281,13 @@ recent_trades = 64
 idle_close_days = 180.0
 # Entries its books keep in full; its monthly statements are kept for its life (ADR-0006 §5).
 book_entries = 64
+# A workshop first offers this share of what an hour's work adds for it, at middling skill: its
+# terms less the inputs (a tuning value; the research gives no share of labour).
+wage_share = 0.5
+# A workshop reviews its wage every so many days, by at most this share, raising it while work goes
+# unfilled (research 08-10 §5.6: employer wage reviews every 14-30 days, 1-5 % a review).
+wage_review_days = 14
+wage_max_change = 0.05
+# Most hours of work a workshop hires between two of its weekly reviews: one person's three
+# hours a day (a tuning value).
+max_hire_hours = 21.0

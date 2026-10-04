@@ -1448,6 +1448,18 @@ impl Population {
         let giver = self.best_giver(ctx, &hh, field_key, kcal_day, stock);
         // A purchase that costs the household fewer hours than getting the good itself.
         let trade = self.best_purchase(ctx, &hh, &stores, reach);
+        // Paid work at a workshop of another household (slice J).
+        let session_min = catalog
+            .activities
+            .iter()
+            .filter(|a| a.behavior == Behavior::Hire)
+            .map(|a| f64::from(a.max_minutes))
+            .fold(0.0, f64::max);
+        let job = if session_min > 0.0 {
+            self.best_job(ctx, &hh, &stores, reach, session_min)
+        } else {
+            None
+        };
         let build = plan.as_ref().map_err(|why| *why).and_then(|p| {
             let def = &catalog.buildings[p.def];
             let held = p.work.held_by_slot(def, &stores);
@@ -1624,6 +1636,7 @@ impl Population {
             water,
             giver,
             trade,
+            job,
             build,
             &shop,
         );
@@ -1708,6 +1721,24 @@ impl Population {
                 _ => Target::Home,
             };
             receipt.chosen.target = target;
+        }
+        // Paid work taken is held for the person (slice J).
+        if let (Target::Firm(firm), Some(Behavior::Hire)) = (
+            target,
+            catalog
+                .activities
+                .get(usize::from(chosen.scored.def))
+                .map(|a| a.behavior),
+        ) {
+            let minutes: u32 = chosen
+                .steps
+                .iter()
+                .map(|s| match s {
+                    Step::Work { minutes } => *minutes,
+                    _ => 0,
+                })
+                .sum();
+            self.take_work(firm, f64::from(minutes));
         }
         let mut steps = chosen.steps.clone();
         if target == Target::NewBuilding {
@@ -1960,6 +1991,7 @@ impl Population {
                 | Behavior::Farm
                 | Behavior::Ask
                 | Behavior::Trade
+                | Behavior::Hire
                 | Behavior::Build,
             ) => (def_par, false, 0.0),
             None => (params.energy.idle_par, false, 0.0),
@@ -2059,6 +2091,11 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.build_work(ctx, who, household, building, hours);
+                    }
+                }
+                Some(Behavior::Hire) => {
+                    if let Target::Firm(firm) = p.act.target {
+                        self.hired_work(ctx, h, firm, minutes);
                     }
                 }
                 Some(Behavior::Make) => {

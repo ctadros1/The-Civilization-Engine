@@ -639,12 +639,28 @@ table FirmState {
   last_sale: long (id: 14);
   entries: [BookEntry] (id: 15);
   months: [MonthStatement] (id: 16);
+  // What it pays for work, when it has posted a wage (none in a save that has no field).
+  wage: WageOfferState (id: 17);
+}
+
+table WageOfferState {
+  // Index into the catalog's activities at save time, by content id in Firms.activities.
+  activity: uint (id: 0);
+  // Indexed like Firms.goods.
+  pay: uint (id: 1);
+  per_hour: float (id: 2);
+  hour_h: float (id: 3);
+  hours: float (id: 4);
+  taken: float (id: 5);
+  reviewed: long (id: 6);
 }
 
 table Firms {
   firms: [FirmState] (id: 0);
   // Good content ids at save time.
   goods: [string] (id: 1);
+  // Activity content ids at save time (for wage offers).
+  activities: [string] (id: 2);
 }
 
 // Section "events": the scheduler's pending events.

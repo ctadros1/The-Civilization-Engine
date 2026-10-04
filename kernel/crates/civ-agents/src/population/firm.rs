@@ -6,13 +6,16 @@
 
 use civ_core::{Handle, PermanentId, SimTime};
 
-use super::{Ctx, Population, fuel_per_day, stores_now};
-use crate::firm::{BookKind, Entry, Exit, Firm};
+use civ_world::nav::TravelField;
+
+use super::{Ctx, Population, cell_of, fuel_per_day, stores_now};
+use crate::decide::{JobOption, TradeWorth};
+use crate::firm::{BookKind, Entry, Exit, Firm, WageOffer};
 use crate::history::ChronicleKind;
 use crate::ledger::{Channel, Leg};
 use crate::make;
-use crate::params::{ActivityDef, interpolate};
-use crate::person::{Flow, Household, Person};
+use crate::params::{ActivityDef, Behavior, GoodUse, interpolate};
+use crate::person::{Flow, Household, Person, stock_kcal};
 
 impl Population {
     /// A firm, open or closed.
@@ -212,10 +215,11 @@ impl Population {
         }
     }
 
-    /// Workshop `id` on its owners' review day: they draw out what it was paid, and any of its
-    /// goods they now need themselves; it posts terms for its stock as they would for theirs;
-    /// its stock is valued for the month; and once it has sold nothing for `idle_close_days` it is
-    /// given up.
+    /// Workshop `id` on its owners' review day: it plans the work it would hire and its wage;
+    /// its owners draw out what it was paid, beyond what it keeps to pay wages, and any of its
+    /// goods they now need themselves, and put in what the wages will need; it posts terms for
+    /// its stock as they would for theirs; its stock is valued for the month; and once it has
+    /// sold nothing for `idle_close_days` it is given up.
     pub(super) fn review_firm(&mut self, ctx: &Ctx, id: PermanentId) {
         let (now, params) = (ctx.now, ctx.params);
         let Some(f) = self.firm(id).filter(|f| f.is_open()) else {
@@ -235,24 +239,33 @@ impl Population {
         let goods = &ctx.catalog.goods;
         let owner_stores = stores_now(&hh, now, params, goods);
         let holding = self.holding_of(ctx, &hh, &owner_stores);
+        let costs = self.own_costs_of(ctx, &hh);
         let Some(f) = self.firm(id) else {
             return;
         };
-        let mut legs = Vec::new();
+        let wage = self.plan_wage(ctx, f, &costs, &holding, &owner_stores);
+        // What the wages until the next review need of the good they are paid in.
+        let reserve = wage.map_or((usize::MAX, 0.0), |w| {
+            (
+                usize::from(w.pay),
+                f64::from(w.per_hour) * f64::from(w.hours),
+            )
+        });
+        let mut draws = Vec::new();
+        let mut put_in = Vec::new();
         for (g, &kg) in f.stores.iter().enumerate() {
-            if kg <= 1e-9 {
-                continue;
-            }
             let take = if f.lines.iter().any(|&l| usize::from(l) == g) {
                 // What its owners lack of it themselves.
                 (holding.keep.get(g).copied().unwrap_or(0.0)
                     - owner_stores.get(g).copied().unwrap_or(0.0))
-                .clamp(0.0, kg)
+                .clamp(0.0, kg.max(0.0))
+            } else if g == reserve.0 {
+                (kg - reserve.1).max(0.0)
             } else {
-                kg
+                kg.max(0.0)
             };
             if take > 1e-9 {
-                legs.push(Leg {
+                draws.push(Leg {
                     from: id,
                     to: owner,
                     good: g,
@@ -260,14 +273,28 @@ impl Population {
                 });
             }
         }
-        if !legs.is_empty() && self.transfer(now, params, goods, &legs, Channel::Owner) {
-            let keep = params.firm.book_entries;
-            if let Some(f) = self.firm_mut(id) {
+        if reserve.1 > 0.0 {
+            let short = reserve.1 - f.stores.get(reserve.0).copied().unwrap_or(0.0);
+            if short > 1e-9 {
+                put_in.push(Leg {
+                    from: owner,
+                    to: id,
+                    good: reserve.0,
+                    amount: short,
+                });
+            }
+        }
+        let keep = params.firm.book_entries;
+        for (legs, kind) in [(draws, BookKind::Drawn), (put_in, BookKind::PutIn)] {
+            if !legs.is_empty()
+                && self.transfer(now, params, goods, &legs, Channel::Owner)
+                && let Some(f) = self.firm_mut(id)
+            {
                 for l in &legs {
                     f.books.record(
                         Entry {
                             at: now,
-                            kind: BookKind::Drawn,
+                            kind,
                             good: l.good as u16,
                             amount: l.amount as f32,
                             other: Some(owner),
@@ -297,7 +324,6 @@ impl Population {
             })
             .collect();
         let old = f.offers.clone();
-        let costs = self.own_costs_of(ctx, &hh);
         let rows = match settlement {
             Some(s) => self.post_terms(ctx, s, &costs, &holding, &stock, &old),
             None => Vec::new(),
@@ -306,9 +332,320 @@ impl Population {
             .iter()
             .map(|&(g, units)| units * costs.get(g).copied().flatten().unwrap_or(0.0))
             .sum();
+        // Its wage stays on record when it hires no one, so work under way is paid at it.
+        let wage = wage.or_else(|| {
+            self.firm(id).and_then(|f| f.wage).map(|w| WageOffer {
+                hours: 0.0,
+                taken: 0.0,
+                ..w
+            })
+        });
         if let Some(f) = self.firm_mut(id) {
             f.offers = rows;
+            f.wage = wage;
             f.books.month_mut(now).stock_h = worth as f32;
+        }
+    }
+
+    /// The work workshop `f` would hire until its next review, and its wage (ADR-0006 §5;
+    /// research 08-10 §5.3): what buyers want of its line beyond its stock (wants nobody met,
+    /// and a review's share of what sold lately), in hours of its recipe, no more than
+    /// `max_hire_hours`. The wage starts at `wage_share` of what an hour's work adds at middling
+    /// skill (its terms less the inputs, in hours of its owners' work) and rises by
+    /// `wage_max_change` at each wage review while hours go untaken (08-10 §5.6), never above
+    /// all of it: hired work always pays the workshop.
+    /// It is paid in the settlement's money, or else in what neighbours most accept of what it or
+    /// its owners can spare (never a tool), for as many hours as that covers.
+    fn plan_wage(
+        &self,
+        ctx: &Ctx,
+        f: &Firm,
+        costs: &[Option<f64>],
+        holding: &super::market::Holding,
+        owner_stores: &[f64],
+    ) -> Option<WageOffer> {
+        let (params, catalog) = (ctx.params, ctx.catalog);
+        let fp = &params.firm;
+        let line = usize::from(*f.lines.first()?);
+        let (activity, recipe) = catalog.activities.iter().enumerate().find_map(|(i, a)| {
+            let r = catalog.recipes.get(a.recipe?)?;
+            (a.behavior == Behavior::Make && r.outputs.first().is_some_and(|&(g, _)| g == line))
+                .then_some((i, r))
+        })?;
+        let market = self.market(f.settlement?)?;
+        let review = f64::from(params.market.review_days.max(1));
+        let share = 1.0 - 0.5f64.powf(review / params.market.memory_days.max(1e-6));
+        let wanted = market.unmet.get(line).copied().unwrap_or(0.0)
+            + market.sold.get(line).copied().unwrap_or(0.0) * share
+            - f.stores.get(line).copied().unwrap_or(0.0);
+        if wanted <= 0.0 || recipe.unit_h <= 0.0 {
+            return None;
+        }
+        let ask = costs.get(line).copied().flatten()? * (1.0 + params.market.margin);
+        let inputs: f64 = recipe
+            .inputs
+            .iter()
+            .map(|&(g, a)| a * costs.get(g).copied().flatten().unwrap_or(0.0))
+            .sum();
+        let adds = (ask - inputs) / recipe.unit_h;
+        if adds <= 0.0 {
+            return None;
+        }
+        let day = ctx.now.day_index();
+        let (mut hour_h, mut reviewed) = (adds * fp.wage_share, day);
+        if let Some(w) = f.wage {
+            hour_h = f64::from(w.hour_h);
+            reviewed = w.reviewed;
+            if day - w.reviewed >= i64::from(fp.wage_review_days) {
+                if w.open_hours() > 0.5 {
+                    hour_h *= 1.0 + fp.wage_max_change;
+                }
+                reviewed = day;
+            }
+        }
+        let hour_h = hour_h.min(adds);
+        let money = self.money_of(f.settlement, &params.market);
+        let accepted = market.acceptance();
+        let spare = |g: usize| {
+            f.stores.get(g).copied().unwrap_or(0.0).max(0.0)
+                + (owner_stores.get(g).copied().unwrap_or(0.0)
+                    - holding.keep.get(g).copied().unwrap_or(0.0))
+                .max(0.0)
+        };
+        let (pay, cost, have) = catalog
+            .goods
+            .iter()
+            .enumerate()
+            .filter(|(g, d)| d.tool.is_none() && !d.kept_back() && *g != line)
+            .filter_map(|(g, _)| {
+                let cost = costs.get(g).copied().flatten().filter(|&c| c > 0.0)?;
+                let have = spare(g);
+                (have * cost >= hour_h).then_some((g, cost, have))
+            })
+            .max_by(|a, b| {
+                (money == Some(a.0))
+                    .cmp(&(money == Some(b.0)))
+                    .then(
+                        accepted
+                            .get(a.0)
+                            .copied()
+                            .unwrap_or(0.0)
+                            .total_cmp(&accepted.get(b.0).copied().unwrap_or(0.0)),
+                    )
+                    .then((a.2 * a.1).total_cmp(&(b.2 * b.1)))
+                    .then(b.0.cmp(&a.0))
+            })?;
+        let per_hour = hour_h / cost;
+        let hours = (wanted * recipe.unit_h)
+            .min(fp.max_hire_hours)
+            .min(have / per_hour);
+        (hours >= 1.0).then_some(WageOffer {
+            activity: activity as u16,
+            pay: pay as u16,
+            per_hour: per_hour as f32,
+            hour_h: hour_h as f32,
+            hours: hours as f32,
+            taken: 0.0,
+            reviewed,
+        })
+    }
+
+    /// The paid work a person of household `hh` could go and do: of the workshops of its
+    /// settlement hiring (not its own), the one whose pay is worth most to the household, the
+    /// work wanted, the walk (`reach`, from home) and what the pay brings it (food it is short
+    /// of, or goods at what they are worth to it). `session_min` is the longest session.
+    pub(crate) fn best_job(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        stores: &[f64],
+        reach: Option<&TravelField>,
+        session_min: f64,
+    ) -> Option<JobOption> {
+        let settlement = hh.settlement?;
+        let reach = reach?;
+        let hiring: Vec<(&Firm, WageOffer)> = self
+            .firms
+            .iter()
+            .filter(|f| f.is_open() && f.owner != hh.id && f.settlement == Some(settlement))
+            .filter_map(|f| f.wage.filter(|w| w.open_hours() >= 0.5).map(|w| (f, w)))
+            .collect();
+        if hiring.is_empty() {
+            return None;
+        }
+        let (catalog, goods) = (ctx.catalog, &ctx.catalog.goods);
+        let costs = self.own_costs_of(ctx, hh);
+        let holding = self.holding_of(ctx, hh, stores);
+        let food = stock_kcal(stores, goods);
+        let food_keep: f64 = goods
+            .iter()
+            .enumerate()
+            .filter(|(_, d)| d.purpose == GoodUse::Food && !d.kept_back())
+            .map(|(g, d)| holding.keep[g].max(0.0) * d.kcal_per_kg)
+            .sum::<f64>()
+            .max(food);
+        let short = food_keep > food;
+        let mut best: Option<(f64, JobOption)> = None;
+        for (f, w) in hiring {
+            let Some(owner) = self.household(f.owner) else {
+                continue;
+            };
+            // The work is done with the workshop's owners' tools.
+            let Some(recipe) = catalog
+                .activities
+                .get(usize::from(w.activity))
+                .and_then(|a| a.recipe)
+                .and_then(|r| catalog.recipes.get(r))
+            else {
+                continue;
+            };
+            if recipe
+                .tools
+                .iter()
+                .any(|&t| owner.stores.get(t).copied().unwrap_or(0.0) < crate::decide::MIN_TOOL)
+            {
+                continue;
+            }
+            let Some(walk) = reach
+                .seconds_to(cell_of(ctx.map, owner.home))
+                .map(|s| f64::from(s) / 60.0)
+            else {
+                continue;
+            };
+            let minutes = (w.open_hours() * 60.0).min(session_min);
+            let units = f64::from(w.per_hour) * minutes / 60.0;
+            let p = usize::from(w.pay);
+            let Some(d) = goods.get(p) else {
+                continue;
+            };
+            let want = holding.want.get(p).copied().unwrap_or(0.0);
+            let hours = units * costs.get(p).copied().flatten().unwrap_or(0.0) * want;
+            let worth = if d.purpose == GoodUse::Food && d.kcal_per_kg > 0.0 && short {
+                TradeWorth::Food {
+                    kcal: units * d.kcal_per_kg,
+                }
+            } else {
+                TradeWorth::Goods { hours }
+            };
+            let better = best
+                .as_ref()
+                .is_none_or(|(h, b)| hours > *h + 1e-9 || (hours >= *h - 1e-9 && f.id < b.firm));
+            if better {
+                best = Some((
+                    hours,
+                    JobOption {
+                        firm: f.id,
+                        walk_min: walk,
+                        at: owner.home,
+                        minutes,
+                        worth,
+                    },
+                ));
+            }
+        }
+        best.map(|(_, j)| j)
+    }
+
+    /// Someone takes `minutes` of the work workshop `id` is hiring for.
+    pub(super) fn take_work(&mut self, id: PermanentId, minutes: f64) {
+        if let Some(w) = self.firm_mut(id).and_then(|f| f.wage.as_mut()) {
+            w.taken += (minutes / 60.0) as f32;
+        }
+    }
+
+    /// Person `h` has worked `minutes` for workshop `id`: the work is done as its owners' would
+    /// be (see [`Population::firm_make`]), and it pays the person's household its wage for the
+    /// time through the ledger (the `wage` channel). What it lacks of the pay its owners put in,
+    /// for they answer for what it owes; if they cannot, it pays what it can, and fails.
+    pub(super) fn hired_work(
+        &mut self,
+        ctx: &mut Ctx,
+        h: Handle<Person>,
+        id: PermanentId,
+        minutes: u32,
+    ) {
+        let Some(w) = self.firm(id).filter(|f| f.is_open()).and_then(|f| f.wage) else {
+            return;
+        };
+        let Some(def) = ctx.catalog.activities.get(usize::from(w.activity)).cloned() else {
+            return;
+        };
+        let Some(worker) = self.people.get(h).map(|p| p.household) else {
+            return;
+        };
+        self.firm_make(ctx, h, &def, minutes, id);
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let Some(owner) = self.firm(id).filter(|f| f.is_open()).map(|f| f.owner) else {
+            return;
+        };
+        let pay = usize::from(w.pay);
+        let owed = f64::from(w.per_hour) * f64::from(minutes) / 60.0;
+        self.settle_firm(ctx, id);
+        let held = |pop: &Population| {
+            pop.firm(id)
+                .and_then(|f| f.stores.get(pay))
+                .copied()
+                .unwrap_or(0.0)
+                .max(0.0)
+        };
+        let keep = params.firm.book_entries;
+        let short = owed - held(self);
+        if short > 1e-9 {
+            let can = self
+                .household(owner)
+                .map(|x| stores_now(x, now, params, goods))
+                .and_then(|s| s.get(pay).copied())
+                .unwrap_or(0.0)
+                .max(0.0)
+                .min(short);
+            let leg = [Leg {
+                from: owner,
+                to: id,
+                good: pay,
+                amount: can,
+            }];
+            if can > 1e-9
+                && self.transfer(now, params, goods, &leg, Channel::Owner)
+                && let Some(f) = self.firm_mut(id)
+            {
+                f.books.record(
+                    Entry {
+                        at: now,
+                        kind: BookKind::PutIn,
+                        good: pay as u16,
+                        amount: can as f32,
+                        other: Some(owner),
+                    },
+                    0.0,
+                    keep,
+                );
+            }
+        }
+        let paid = owed.min(held(self));
+        let leg = [Leg {
+            from: id,
+            to: worker,
+            good: pay,
+            amount: paid,
+        }];
+        if paid > 1e-9 && self.transfer(now, params, goods, &leg, Channel::Wage) {
+            let worth = self.worth_to(ctx, owner).get(pay).copied().unwrap_or(0.0) * paid;
+            if let Some(f) = self.firm_mut(id) {
+                f.books.record(
+                    Entry {
+                        at: now,
+                        kind: BookKind::Wages,
+                        good: pay as u16,
+                        amount: paid as f32,
+                        other: Some(worker),
+                    },
+                    worth,
+                    keep,
+                );
+            }
+        }
+        if paid + 1e-6 < owed {
+            self.close_firm(ctx, id, Exit::Failure);
         }
     }
 

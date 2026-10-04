@@ -32,11 +32,13 @@ pub enum Behavior {
     Make,
     /// Go to another household of the settlement and exchange goods at its posted terms (M3a).
     Trade,
+    /// Work for wages at a workshop of another household of the settlement (M3a).
+    Hire,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 12] = [
+    pub const ALL: [Behavior; 13] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -49,6 +51,7 @@ impl Behavior {
         Behavior::Build,
         Behavior::Make,
         Behavior::Trade,
+        Behavior::Hire,
     ];
 
     /// The authored name of a behavior.
@@ -66,6 +69,7 @@ impl Behavior {
             Behavior::Build => "build",
             Behavior::Make => "make",
             Behavior::Trade => "trade",
+            Behavior::Hire => "hire",
         }
     }
 
@@ -834,6 +838,14 @@ pub struct FirmParams {
     pub idle_close_days: f64,
     /// Entries a firm's books keep in full (its monthly statements are kept for its life).
     pub book_entries: usize,
+    /// The share of what an hour's work adds that a workshop first offers for it.
+    pub wage_share: f64,
+    /// Days between reviews of a workshop's wage.
+    pub wage_review_days: u32,
+    /// The largest change of a wage in one review, a share of it.
+    pub wage_max_change: f64,
+    /// Most hours of work a workshop hires between two of its reviews.
+    pub max_hire_hours: f64,
 }
 
 /// Everything authored about people.

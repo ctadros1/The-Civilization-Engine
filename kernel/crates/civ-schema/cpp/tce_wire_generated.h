@@ -30,6 +30,11 @@ struct ActivityInfoBuilder;
 struct GoodInfo;
 struct GoodInfoBuilder;
 
+struct SkillInfo;
+struct SkillInfoBuilder;
+
+struct SkillLine;
+
 struct CropInfo;
 struct CropInfoBuilder;
 
@@ -790,6 +795,39 @@ struct Vec2::Traits {
   using type = Vec2;
 };
 
+FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) SkillLine FLATBUFFERS_FINAL_CLASS {
+ private:
+  uint16_t skill_;
+  int16_t padding0__;
+  float level_;
+
+ public:
+  struct Traits;
+  SkillLine()
+      : skill_(0),
+        padding0__(0),
+        level_(0) {
+    (void)padding0__;
+  }
+  SkillLine(uint16_t _skill, float _level)
+      : skill_(::flatbuffers::EndianScalar(_skill)),
+        padding0__(0),
+        level_(::flatbuffers::EndianScalar(_level)) {
+    (void)padding0__;
+  }
+  uint16_t skill() const {
+    return ::flatbuffers::EndianScalar(skill_);
+  }
+  float level() const {
+    return ::flatbuffers::EndianScalar(level_);
+  }
+};
+FLATBUFFERS_STRUCT_END(SkillLine, 8);
+
+struct SkillLine::Traits {
+  using type = SkillLine;
+};
+
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) Term FLATBUFFERS_FINAL_CLASS {
  private:
   uint16_t reason_;
@@ -1133,7 +1171,9 @@ struct GoodInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_ID = 4,
     VT_NAME = 6,
     VT_PURPOSE = 8,
-    VT_KCAL_PER_KG = 10
+    VT_KCAL_PER_KG = 10,
+    VT_EATEN = 12,
+    VT_TOOL_LIFE_H = 14
   };
   const ::flatbuffers::String *id() const {
     return GetPointer<const ::flatbuffers::String *>(VT_ID);
@@ -1147,6 +1187,12 @@ struct GoodInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   float kcal_per_kg() const {
     return GetField<float>(VT_KCAL_PER_KG, 0.0f);
   }
+  const ::flatbuffers::String *eaten() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_EATEN);
+  }
+  float tool_life_h() const {
+    return GetField<float>(VT_TOOL_LIFE_H, 0.0f);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1157,6 +1203,9 @@ struct GoodInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_PURPOSE) &&
            verifier.VerifyString(purpose()) &&
            VerifyField<float>(verifier, VT_KCAL_PER_KG, 4) &&
+           VerifyOffset(verifier, VT_EATEN) &&
+           verifier.VerifyString(eaten()) &&
+           VerifyField<float>(verifier, VT_TOOL_LIFE_H, 4) &&
            verifier.EndTable();
   }
 };
@@ -1177,6 +1226,12 @@ struct GoodInfoBuilder {
   void add_kcal_per_kg(float kcal_per_kg) {
     fbb_.AddElement<float>(GoodInfo::VT_KCAL_PER_KG, kcal_per_kg, 0.0f);
   }
+  void add_eaten(::flatbuffers::Offset<::flatbuffers::String> eaten) {
+    fbb_.AddOffset(GoodInfo::VT_EATEN, eaten);
+  }
+  void add_tool_life_h(float tool_life_h) {
+    fbb_.AddElement<float>(GoodInfo::VT_TOOL_LIFE_H, tool_life_h, 0.0f);
+  }
   explicit GoodInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -1193,8 +1248,12 @@ inline ::flatbuffers::Offset<GoodInfo> CreateGoodInfo(
     ::flatbuffers::Offset<::flatbuffers::String> id = 0,
     ::flatbuffers::Offset<::flatbuffers::String> name = 0,
     ::flatbuffers::Offset<::flatbuffers::String> purpose = 0,
-    float kcal_per_kg = 0.0f) {
+    float kcal_per_kg = 0.0f,
+    ::flatbuffers::Offset<::flatbuffers::String> eaten = 0,
+    float tool_life_h = 0.0f) {
   GoodInfoBuilder builder_(_fbb);
+  builder_.add_tool_life_h(tool_life_h);
+  builder_.add_eaten(eaten);
   builder_.add_kcal_per_kg(kcal_per_kg);
   builder_.add_purpose(purpose);
   builder_.add_name(name);
@@ -1212,16 +1271,93 @@ inline ::flatbuffers::Offset<GoodInfo> CreateGoodInfoDirect(
     const char *id = nullptr,
     const char *name = nullptr,
     const char *purpose = nullptr,
-    float kcal_per_kg = 0.0f) {
+    float kcal_per_kg = 0.0f,
+    const char *eaten = nullptr,
+    float tool_life_h = 0.0f) {
   auto id__ = id ? _fbb.CreateString(id) : 0;
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto purpose__ = purpose ? _fbb.CreateString(purpose) : 0;
+  auto eaten__ = eaten ? _fbb.CreateString(eaten) : 0;
   return tce::wire::CreateGoodInfo(
       _fbb,
       id__,
       name__,
       purpose__,
-      kcal_per_kg);
+      kcal_per_kg,
+      eaten__,
+      tool_life_h);
+}
+
+struct SkillInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef SkillInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_NAME = 6
+  };
+  const ::flatbuffers::String *id() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_ID);
+  }
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ID) &&
+           verifier.VerifyString(id()) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           verifier.EndTable();
+  }
+};
+
+struct SkillInfoBuilder {
+  typedef SkillInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(::flatbuffers::Offset<::flatbuffers::String> id) {
+    fbb_.AddOffset(SkillInfo::VT_ID, id);
+  }
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(SkillInfo::VT_NAME, name);
+  }
+  explicit SkillInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<SkillInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<SkillInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<SkillInfo> CreateSkillInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::String> id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0) {
+  SkillInfoBuilder builder_(_fbb);
+  builder_.add_name(name);
+  builder_.add_id(id);
+  return builder_.Finish();
+}
+
+struct SkillInfo::Traits {
+  using type = SkillInfo;
+  static auto constexpr Create = CreateSkillInfo;
+};
+
+inline ::flatbuffers::Offset<SkillInfo> CreateSkillInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const char *id = nullptr,
+    const char *name = nullptr) {
+  auto id__ = id ? _fbb.CreateString(id) : 0;
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  return tce::wire::CreateSkillInfo(
+      _fbb,
+      id__,
+      name__);
 }
 
 struct CropInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -1409,7 +1545,8 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_BAND_SIZE_MAX = 28,
     VT_BAND_SIZE_DEFAULT = 30,
     VT_GOODS = 32,
-    VT_CROPS = 34
+    VT_CROPS = 34,
+    VT_SKILLS = 36
   };
   const ::flatbuffers::String *host() const {
     return GetPointer<const ::flatbuffers::String *>(VT_HOST);
@@ -1459,6 +1596,9 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CropInfo>> *crops() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CropInfo>> *>(VT_CROPS);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SkillInfo>> *skills() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SkillInfo>> *>(VT_SKILLS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1493,6 +1633,9 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_CROPS) &&
            verifier.VerifyVector(crops()) &&
            verifier.VerifyVectorOfTables(crops()) &&
+           VerifyOffset(verifier, VT_SKILLS) &&
+           verifier.VerifyVector(skills()) &&
+           verifier.VerifyVectorOfTables(skills()) &&
            verifier.EndTable();
   }
 };
@@ -1549,6 +1692,9 @@ struct WelcomeBuilder {
   void add_crops(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CropInfo>>> crops) {
     fbb_.AddOffset(Welcome::VT_CROPS, crops);
   }
+  void add_skills(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SkillInfo>>> skills) {
+    fbb_.AddOffset(Welcome::VT_SKILLS, skills);
+  }
   explicit WelcomeBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -1577,8 +1723,10 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcome(
     uint32_t band_size_max = 0,
     uint32_t band_size_default = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GoodInfo>>> goods = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CropInfo>>> crops = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CropInfo>>> crops = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SkillInfo>>> skills = 0) {
   WelcomeBuilder builder_(_fbb);
+  builder_.add_skills(skills);
   builder_.add_crops(crops);
   builder_.add_goods(goods);
   builder_.add_band_size_default(band_size_default);
@@ -1620,7 +1768,8 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
     uint32_t band_size_max = 0,
     uint32_t band_size_default = 0,
     const std::vector<::flatbuffers::Offset<tce::wire::GoodInfo>> *goods = nullptr,
-    const std::vector<::flatbuffers::Offset<tce::wire::CropInfo>> *crops = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::CropInfo>> *crops = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::SkillInfo>> *skills = nullptr) {
   auto host__ = host ? _fbb.CreateString(host) : 0;
   auto version__ = version ? _fbb.CreateString(version) : 0;
   auto presets__ = presets ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PresetInfo>>(*presets) : 0;
@@ -1631,6 +1780,7 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
   auto reasons__ = reasons ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::ReasonInfo>>(*reasons) : 0;
   auto goods__ = goods ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::GoodInfo>>(*goods) : 0;
   auto crops__ = crops ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::CropInfo>>(*crops) : 0;
+  auto skills__ = skills ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SkillInfo>>(*skills) : 0;
   return tce::wire::CreateWelcome(
       _fbb,
       host__,
@@ -1648,7 +1798,8 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
       band_size_max,
       band_size_default,
       goods__,
-      crops__);
+      crops__,
+      skills__);
 }
 
 struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -5708,7 +5859,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_HOUSEHOLD_FUEL_DAYS = 66,
     VT_PARTNER = 68,
     VT_FAMILY = 70,
-    VT_LEFT_MINUTE = 72
+    VT_LEFT_MINUTE = 72,
+    VT_SKILLS = 74,
+    VT_HOUSEHOLD_READY_DAYS = 76
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -5815,6 +5968,12 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   int64_t left_minute() const {
     return GetField<int64_t>(VT_LEFT_MINUTE, 0);
   }
+  const ::flatbuffers::Vector<const tce::wire::SkillLine *> *skills() const {
+    return GetPointer<const ::flatbuffers::Vector<const tce::wire::SkillLine *> *>(VT_SKILLS);
+  }
+  float household_ready_days() const {
+    return GetField<float>(VT_HOUSEHOLD_READY_DAYS, 0.0f);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -5866,6 +6025,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVector(family()) &&
            verifier.VerifyVectorOfStrings(family()) &&
            VerifyField<int64_t>(verifier, VT_LEFT_MINUTE, 8) &&
+           VerifyOffset(verifier, VT_SKILLS) &&
+           verifier.VerifyVector(skills()) &&
+           VerifyField<float>(verifier, VT_HOUSEHOLD_READY_DAYS, 4) &&
            verifier.EndTable();
   }
 };
@@ -5979,6 +6141,12 @@ struct PersonInfoBuilder {
   void add_left_minute(int64_t left_minute) {
     fbb_.AddElement<int64_t>(PersonInfo::VT_LEFT_MINUTE, left_minute, 0);
   }
+  void add_skills(::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::SkillLine *>> skills) {
+    fbb_.AddOffset(PersonInfo::VT_SKILLS, skills);
+  }
+  void add_household_ready_days(float household_ready_days) {
+    fbb_.AddElement<float>(PersonInfo::VT_HOUSEHOLD_READY_DAYS, household_ready_days, 0.0f);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -6026,7 +6194,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     float household_fuel_days = 0.0f,
     uint64_t partner = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> family = 0,
-    int64_t left_minute = 0) {
+    int64_t left_minute = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::SkillLine *>> skills = 0,
+    float household_ready_days = 0.0f) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_left_minute(left_minute);
   builder_.add_partner(partner);
@@ -6037,6 +6207,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_household_ready_days(household_ready_days);
+  builder_.add_skills(skills);
   builder_.add_family(family);
   builder_.add_household_fuel_days(household_fuel_days);
   builder_.add_stores(stores);
@@ -6107,7 +6279,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     float household_fuel_days = 0.0f,
     uint64_t partner = 0,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *family = nullptr,
-    int64_t left_minute = 0) {
+    int64_t left_minute = 0,
+    const std::vector<tce::wire::SkillLine> *skills = nullptr,
+    float household_ready_days = 0.0f) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -6118,6 +6292,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto traits__ = traits ? _fbb.CreateVector<float>(*traits) : 0;
   auto stores__ = stores ? _fbb.CreateVectorOfStructs<tce::wire::StoreLine>(*stores) : 0;
   auto family__ = family ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*family) : 0;
+  auto skills__ = skills ? _fbb.CreateVectorOfStructs<tce::wire::SkillLine>(*skills) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -6154,7 +6329,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       household_fuel_days,
       partner,
       family__,
-      left_minute);
+      left_minute,
+      skills__,
+      household_ready_days);
 }
 
 struct FieldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

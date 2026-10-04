@@ -24,12 +24,12 @@ fn real(path: &str) -> String {
         .replace("\r\n", "\n")
 }
 
-/// The real people, land, names, activity, good, crop and building files (`(path in the pack, body)`), which
-/// every world needs; fixtures add presets and override files.
+/// The real people, land, names, activity, good, crop, building, recipe and skill files (`(path in
+/// the pack, body)`), which every world needs; fixtures add presets and override files.
 fn people_files() -> Vec<(String, String)> {
     let mut out = Vec::new();
     for dir in [
-        "people", "land", "names", "activity", "good", "crop", "building",
+        "people", "land", "names", "activity", "good", "crop", "building", "recipe", "skill",
     ] {
         let mut paths: Vec<_> = std::fs::read_dir(repo_content().join("core").join(dir))
             .expect("real content directory")
@@ -54,7 +54,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 6
+kernel_content_api = 7
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -604,9 +604,33 @@ fn goods_check_their_purpose() {
         ),
         (
             "good/firewood.toml",
-            "cooked = false",
-            "cooked = true",
-            "only food can need cooking",
+            "eaten = \"never\"",
+            "eaten = \"raw\"",
+            "only food is eaten",
+        ),
+        (
+            "good/meat.toml",
+            "eaten = \"cooked\"",
+            "eaten = \"boiled\"",
+            "unknown `eaten`",
+        ),
+        (
+            "good/sickle.toml",
+            "life_h = 100.0",
+            "life_h = 0.0",
+            "`tool.life_h` must be positive",
+        ),
+        (
+            "good/sickle.toml",
+            "[tool]\nlife_h = 100.0\nper_worker = 1.0\nfixed = false\n",
+            "",
+            "a tool needs its `[tool]` table",
+        ),
+        (
+            "good/seed_grain.toml",
+            "reserve_for = \"core:good/grain\"",
+            "reserve_for = \"core:good/firewood\"",
+            "must name another food",
         ),
     ] {
         let body = real(path).replace(from, to);
@@ -648,6 +672,14 @@ fn activities_check_their_behavior() {
             "only `gather` activities",
         ),
         (gather.replace("par = 3.0", "par = 0.5"), "`par`"),
+        (gather.replace("rate = 1.0", "rate = 0.0"), "`rate`"),
+        (
+            real("activity/rest.toml").replace(
+                "behavior = \"rest\"",
+                "behavior = \"rest\"\nrecipe = \"core:recipe/grind_grain\"",
+            ),
+            "only `make` activities take a `recipe`",
+        ),
         (
             gather.replace("min_minutes = 60", "min_minutes = 600"),
             "minutes",
@@ -781,4 +813,120 @@ fn json_reports_are_machine_readable() {
             .as_array()
             .is_some_and(|a| a.iter().any(|g| g == "core:good/firewood"))
     );
+}
+
+#[test]
+fn recipes_and_skills_check_their_numbers_and_references() {
+    let preset = real_preset();
+    let grind = real("recipe/grind_grain.toml");
+    let milling = real("skill/milling.toml");
+    for (path, body, code, needle) in [
+        (
+            "recipe/grind_grain.toml",
+            grind.replace("core:good/flour", "core:good/dust"),
+            "E2006",
+            "`outputs` refers to `core:good/dust`",
+        ),
+        (
+            "recipe/grind_grain.toml",
+            grind.replace("core:skill/milling", "core:skill/juggling"),
+            "E2006",
+            "`skill` refers to `core:skill/juggling`",
+        ),
+        (
+            "recipe/grind_grain.toml",
+            grind.replace(
+                "tools = [\"core:good/quern\"]",
+                "tools = [\"core:good/stone\"]",
+            ),
+            "E3001",
+            "`tools` must name tools",
+        ),
+        (
+            "recipe/grind_grain.toml",
+            grind.replace(
+                "outputs = [{ good = \"core:good/flour\", amount = 0.98 }]",
+                "outputs = []",
+            ),
+            "E3001",
+            "`outputs` must not be empty",
+        ),
+        (
+            "recipe/grind_grain.toml",
+            grind.replace("amount = 0.98", "amount = -1.0"),
+            "E3001",
+            "amounts must be positive",
+        ),
+        (
+            "skill/milling.toml",
+            milling.replace("t80_h = 150.0", "t80_h = 0.0"),
+            "E3001",
+            "`t80_h` must be positive",
+        ),
+        (
+            "skill/milling.toml",
+            milling.replace("founder_level = [0.4, 0.9]", "founder_level = [0.9, 0.4]"),
+            "E3001",
+            "`founder_level`",
+        ),
+        (
+            "activity/grind_grain.toml",
+            real("activity/grind_grain.toml")
+                .replace("core:recipe/grind_grain", "core:recipe/spin_gold"),
+            "E2006",
+            "`recipe` refers to `core:recipe/spin_gold`",
+        ),
+        (
+            "activity/reap.toml",
+            real("activity/reap.toml").replace("core:good/sickle", "core:good/grain"),
+            "E3001",
+            "`tools` must name tools",
+        ),
+    ] {
+        assert_ne!(body, real(path), "{needle}: the edit applies");
+        let report = load_fixture(&[("worldgen/river_valley.toml", &preset), (path, &body)]);
+        assert!(
+            codes(&report).contains(&code),
+            "{needle}: {:?}",
+            codes(&report)
+        );
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.message.contains(needle)),
+            "{needle}: {:#?}",
+            report
+                .diagnostics
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+        );
+    }
+    // The real recipes and skills compile, with their goods, tools and skills resolved.
+    let reg = registry(load(&repo_content()));
+    let grind = reg
+        .catalog
+        .recipes
+        .iter()
+        .find(|r| r.id == "core:recipe/grind_grain")
+        .expect("the quern recipe");
+    let quern = reg
+        .catalog
+        .good_index("core:good/quern")
+        .expect("the quern");
+    assert_eq!(grind.tools, vec![quern]);
+    assert_eq!(
+        grind.skill.map(|k| reg.catalog.skills[k].id.as_str()),
+        Some("core:skill/milling")
+    );
+    let seed = reg
+        .catalog
+        .good_index("core:good/seed_grain")
+        .expect("seed");
+    let grain = reg.catalog.good_index("core:good/grain").expect("grain");
+    assert_eq!(reg.catalog.goods[seed].reserve_for, Some(grain));
+    let reap = reg.catalog.index_of("core:activity/reap").expect("reap");
+    let sickle = reg.catalog.good_index("core:good/sickle").expect("sickle");
+    assert_eq!(reg.catalog.activities[reap].tools, vec![sickle]);
 }

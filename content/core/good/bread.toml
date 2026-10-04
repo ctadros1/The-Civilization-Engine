@@ -1,0 +1,16 @@
+# Flatbread baked on the hearth or in an oven. Baking adds water, not energy (research 05-02
+# §1.1): a kilogram of flour makes 1.3 kg of bread (a tuning value), at 3,340 / 1.3 = 2,570
+# kcal/kg. Bread-like food is older than farming (research 07-04 P02). Thin flatbread dries
+# rather than goes off and keeps for weeks; damp and mould take some of it. A half-life of 30
+# days is a tuning value (the research gives no figure): at 8 days households lost about a tenth
+# of all they ate to bread going off, at 4 a fifth.
+kind = "good"
+id = "core:good/bread"
+name = "Bread"
+purpose = "food"
+kcal_per_kg = 2570.0
+half_life_days = 30.0
+sheltered_half_life_days = 0.0   # a roof makes no difference
+eaten = "raw"
+shared = false
+reserve_for = ""

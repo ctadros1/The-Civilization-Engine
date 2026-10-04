@@ -1,0 +1,11 @@
+# Flint and chert nodules, knapped into sickle blades (research 07-05 §2.2, 03-05 §1.2). It keeps.
+kind = "good"
+id = "core:good/toolstone"
+name = "Flint"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

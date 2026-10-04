@@ -10,3 +10,5 @@ min_minutes = 45
 max_minutes = 45
 daylight_only = true
 max_walk_minutes = 0
+tools = []
+rate = 1.0

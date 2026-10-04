@@ -128,6 +128,11 @@ export function formatDays(days: number): string {
   return `${text} day${text === "1.0" || text === "1" ? "" : "s"}`;
 }
 
+/** "×2.4", "×0.3": tools, counted in standard tools (a worn one is a part of one). */
+export function formatTools(units: number): string {
+  return `×${Math.max(0, units).toFixed(1)}`;
+}
+
 /** "3.4 kg", "6,354 kg". */
 export function formatKg(kg: number): string {
   const k = Math.max(0, kg);

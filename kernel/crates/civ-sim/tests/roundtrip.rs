@@ -1047,7 +1047,21 @@ fn slice_a_saves_load_with_their_food_as_provisions() {
     for (_, h) in migrated.people().households.iter() {
         assert_eq!(h.stores.len(), rules.catalog.goods.len());
         assert!((h.stores[provisions] - 30_000.0 / kcal_per_kg).abs() < 1e-9);
-        assert_eq!(h.stores.iter().sum::<f64>(), h.stores[provisions]);
+        // Besides the provisions, only the tools a founder brings (save schema 9).
+        let goods = &rules.catalog.goods;
+        let held: f64 = h
+            .stores
+            .iter()
+            .zip(goods)
+            .filter(|(_, g)| g.tool.is_none())
+            .map(|(kg, _)| kg)
+            .sum();
+        assert_eq!(held, h.stores[provisions]);
+        let sickle = rules
+            .catalog
+            .good_index("core:good/sickle")
+            .expect("sickles");
+        assert!(h.stores[sickle] >= 1.0, "the household has sickles");
         assert_eq!(h.stores_at, migrated.now());
         assert!(h.known.is_empty(), "kilocalorie returns are forgotten");
     }

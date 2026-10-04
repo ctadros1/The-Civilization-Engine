@@ -34,12 +34,14 @@ mod good;
 mod land;
 mod names;
 mod people;
+mod recipe;
+mod skill;
 mod worldgen;
 
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 6;
+pub const KERNEL_CONTENT_API: u32 = 7;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -64,7 +66,7 @@ pub enum Severity {
 /// | E2003 | An id's kind segment does not match the file's `kind` |
 /// | E2004 | The file's path does not match its id (`<kind>/<name>.toml`) |
 /// | E2005 | Two definitions share an id |
-/// | E2006 | A reference names something that is not defined (a name list, a land resource, a good, a crop, a building program) |
+/// | E2006 | A reference names something that is not defined (a name list, a land resource, a good, a crop, a building program, a recipe, a skill) |
 /// | E3001 | A value is out of its allowed range |
 /// | E3002 | The `kind` is unknown, or missing |
 /// | E3003 | Not exactly one world-generation preset is marked `default = true` |
@@ -390,6 +392,8 @@ struct Parsed {
     goods: Vec<Def<good::GoodFile>>,
     crops: Vec<Def<crop::CropFile>>,
     buildings: Vec<Def<building::BuildingFile>>,
+    recipes: Vec<Def<recipe::RecipeFile>>,
+    skills: Vec<Def<skill::SkillFile>>,
     /// Files declaring `kind = "people"`, parsed or not (so a broken profile is not also
     /// reported as a missing one).
     people_files: usize,
@@ -592,6 +596,27 @@ fn resolve(
     }
     let mut goods: Vec<_> = parsed.goods.iter().filter_map(|d| d.file.def()).collect();
     goods.sort_by(|a, b| a.id.cmp(&b.id));
+    // A good kept back names the good it is kept from: a food other than itself.
+    let ids: Vec<String> = goods.iter().map(|g| g.id.clone()).collect();
+    for d in &parsed.goods {
+        let from = &d.file.reserve_for;
+        if from.is_empty() {
+            continue;
+        }
+        let Some(gi) = ids.iter().position(|i| *i == d.file.id) else {
+            continue;
+        };
+        match ids.iter().position(|i| i == from) {
+            None => missing(c, parsed, &d.rel, "reserve_for", from),
+            Some(fi) if fi == gi || goods[fi].purpose != GoodUse::Food => c.push(
+                "E3001",
+                &d.rel,
+                None,
+                format!("`reserve_for` must name another food; `{from}` is not one"),
+            ),
+            Some(fi) => goods[gi].reserve_for = Some(fi),
+        }
+    }
     let good_index = |id: &str| goods.iter().position(|g| g.id == id);
     let land = match parsed.lands.as_slice() {
         [d] => {
@@ -656,6 +681,39 @@ fn resolve(
         }
     }
     buildings.sort_by(|a, b| a.id.cmp(&b.id));
+    let mut skills: Vec<_> = parsed.skills.iter().map(|d| d.file.def()).collect();
+    skills.sort_by(|a, b| a.id.cmp(&b.id));
+    let skill_index = |id: &str| skills.iter().position(|k| k.id == id);
+    let mut recipes = Vec::new();
+    for d in &parsed.recipes {
+        let mut ok = true;
+        for (field, id) in d.file.goods() {
+            match good_index(id).map(|g| &goods[g]) {
+                None => {
+                    missing(c, parsed, &d.rel, field, id);
+                    ok = false;
+                }
+                Some(g) if field == "tools" && g.tool.is_none() => {
+                    c.push(
+                        "E3001",
+                        &d.rel,
+                        None,
+                        format!("`tools` must name tools; `{id}` is not one"),
+                    );
+                    ok = false;
+                }
+                Some(_) => {}
+            }
+        }
+        if !d.file.skill.is_empty() && skill_index(&d.file.skill).is_none() {
+            missing(c, parsed, &d.rel, "skill", &d.file.skill);
+            ok = false;
+        }
+        if ok {
+            recipes.extend(d.file.def(&good_index, &skill_index));
+        }
+    }
+    recipes.sort_by(|a, b| a.id.cmp(&b.id));
     let people = match parsed.people.as_slice() {
         [d] => {
             let names = parsed.names.iter().find(|n| n.file.id == d.file.names);
@@ -729,7 +787,39 @@ fn resolve(
             // reported.
             (Some(_), None) => continue,
         };
-        activities.extend(d.file.def(resource));
+        let recipe = match &d.file.recipe {
+            None => None,
+            Some(r) => match recipes.iter().position(|x| x.id == *r) {
+                Some(i) => Some(i),
+                None => {
+                    missing(c, parsed, &d.rel, "recipe", r);
+                    continue;
+                }
+            },
+        };
+        let mut tools = Vec::new();
+        let mut ok = true;
+        for t in &d.file.tools {
+            match good_index(t).map(|g| (g, &goods[g])) {
+                Some((g, def)) if def.tool.is_some() => tools.push(g),
+                Some(_) => {
+                    c.push(
+                        "E3001",
+                        &d.rel,
+                        None,
+                        format!("`tools` must name tools; `{t}` is not one"),
+                    );
+                    ok = false;
+                }
+                None => {
+                    missing(c, parsed, &d.rel, "tools", t);
+                    ok = false;
+                }
+            }
+        }
+        if ok {
+            activities.extend(d.file.def(resource, recipe, tools));
+        }
     }
     activities.sort_by(|a, b| a.id.cmp(&b.id));
     (
@@ -740,6 +830,8 @@ fn resolve(
             goods,
             crops,
             buildings,
+            recipes,
+            skills,
         },
     )
 }
@@ -756,6 +848,8 @@ fn parsed_tables(parsed: &Parsed) -> Vec<(&str, &toml::Table)> {
     all.extend(tables(&parsed.goods, |f| &f.id));
     all.extend(tables(&parsed.crops, |f| &f.id));
     all.extend(tables(&parsed.buildings, |f| &f.id));
+    all.extend(tables(&parsed.recipes, |f| &f.id));
+    all.extend(tables(&parsed.skills, |f| &f.id));
     all
 }
 
@@ -825,7 +919,7 @@ fn range_problems(c: &mut Collector, rel: &str, problems: Vec<String>) {
     }
 }
 
-const KINDS: [&str; 8] = [
+const KINDS: [&str; 10] = [
     worldgen::KIND,
     people::KIND,
     land::KIND,
@@ -834,6 +928,8 @@ const KINDS: [&str; 8] = [
     good::KIND,
     crop::KIND,
     building::KIND,
+    recipe::KIND,
+    skill::KIND,
 ];
 
 fn compile_file(
@@ -955,6 +1051,26 @@ fn compile_file(
             if check_identity(c, pack, rel, &file.id, building::ID_KIND, seen_ids) {
                 range_problems(c, rel, file.problems());
                 parsed.buildings.push(def(rel, pack, file, table));
+            }
+        }
+        recipe::KIND => {
+            let Some(file) = parse::<recipe::RecipeFile>(c, rel, source) else {
+                return;
+            };
+            debug_assert_eq!(file.kind, recipe::KIND, "dispatched on kind");
+            if check_identity(c, pack, rel, &file.id, recipe::ID_KIND, seen_ids) {
+                range_problems(c, rel, file.problems());
+                parsed.recipes.push(def(rel, pack, file, table));
+            }
+        }
+        skill::KIND => {
+            let Some(file) = parse::<skill::SkillFile>(c, rel, source) else {
+                return;
+            };
+            debug_assert_eq!(file.kind, skill::KIND, "dispatched on kind");
+            if check_identity(c, pack, rel, &file.id, skill::ID_KIND, seen_ids) {
+                range_problems(c, rel, file.problems());
+                parsed.skills.push(def(rel, pack, file, table));
             }
         }
         "" => c.push(

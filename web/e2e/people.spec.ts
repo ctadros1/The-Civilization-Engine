@@ -77,6 +77,9 @@ test("a founding band lives on the map and explains itself", async ({ page }) =>
     await expect(inspector.getByRole("meter", { name: "Hunger" })).toBeVisible();
     await expect(inspector).toContainText("firewood for");
     await expect(inspector).toContainText(/Stores.*Provisions [\d,.]+ kg/);
+    // M3a: the household's tools in standard tools, and food ready to eat.
+    await expect(inspector).toContainText(/Tools.*Sickle ×\d+\.\d/);
+    await expect(inspector).toContainText(/ready to eat/);
     await snap(page, "m1-inspector");
 
     // The band arrives as families: a founding parent's inspector names their partner, in the
@@ -89,6 +92,8 @@ test("a founding band lives on the map and explains itself", async ({ page }) =>
     await page.waitForFunction((id) => window.__TCE__.state().selected?.id === id, parent);
     await expect(inspector.locator(".kin")).toContainText(/Partner of \w+ for (\d+ years|a year)\./);
     await expect(inspector.locator(".kin")).toContainText("partner");
+    // A grown founder brings skills.
+    await expect(inspector).toContainText(/Skills.*(Milling|Baking) \d+%/);
 
     // Run the clock: the clock moves, decisions accumulate, and walkers move between snapshots.
     const start = (await state(page)).clock?.minute ?? 0;

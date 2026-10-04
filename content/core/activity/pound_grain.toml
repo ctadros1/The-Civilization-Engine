@@ -1,0 +1,16 @@
+# Pounding grain for porridge in a wooden mortar.
+kind = "activity"
+id = "core:activity/pound_grain"
+name = "Pound grain"
+doing = "pounding grain"
+behavior = "make"
+recipe = "core:recipe/pound_grain"
+par = 4.0
+min_age_years = 10.0
+max_age_years = 70.0
+min_minutes = 20
+max_minutes = 180
+daylight_only = false
+max_walk_minutes = 0
+tools = []
+rate = 1.0

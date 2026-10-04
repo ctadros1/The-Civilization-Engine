@@ -15,6 +15,7 @@ import {
   formatSimDate,
   formatSimMinute,
   formatSpeed,
+  formatTools,
   formatWhen,
 } from "./format.js";
 import { BUILDING_LEGEND } from "./buildings.js";
@@ -723,15 +724,28 @@ export function bindUi(store: Store, actions: Actions): void {
       needs.append(
         el("dt", { text: "At home" }),
         el("dd", {
-          text: `food for ${formatDays(p.householdFoodDays)} · firewood for ${formatDays(p.householdFuelDays)} · water for ${formatDays(p.householdWaterDays)}`,
+          text: `food for ${formatDays(p.householdFoodDays)} (${formatDays(p.householdReadyDays)} ready to eat) · firewood for ${formatDays(p.householdFuelDays)} · water for ${formatDays(p.householdWaterDays)}`,
         }),
       );
       const goods = welcome?.goods ?? [];
       const stored = p.stores
-        .filter((s) => s.kg >= 0.5)
+        .filter((s) => goods[s.good]?.purpose !== "tool" && s.kg >= 0.5)
         .map((s) => `${goods[s.good]?.name ?? "?"} ${formatKg(s.kg)}`);
       if (stored.length > 0) {
         needs.append(el("dt", { text: "Stores" }), el("dd", { text: stored.join(" · ") }));
+      }
+      const tools = p.stores
+        .filter((s) => goods[s.good]?.purpose === "tool" && s.kg >= 0.01)
+        .map((s) => `${goods[s.good]?.name ?? "?"} ${formatTools(s.kg)}`);
+      if (tools.length > 0) {
+        needs.append(el("dt", { text: "Tools" }), el("dd", { text: tools.join(" · ") }));
+      }
+      const skills = [...p.skills]
+        .sort((a, b) => b.level - a.level)
+        .filter((k) => k.level >= 0.05)
+        .map((k) => `${welcome?.skills[k.skill]?.name ?? "?"} ${formatPercent(k.level)}`);
+      if (skills.length > 0) {
+        needs.append(el("dt", { text: "Skills" }), el("dd", { text: skills.join(" · ") }));
       }
       const load = goods[p.carryGood];
       const carrying = [

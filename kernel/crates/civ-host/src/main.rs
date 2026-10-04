@@ -43,6 +43,29 @@ enum Command {
     Content(ContentCommand),
     /// Generate the smoke-seed worlds and check them against fixed thresholds.
     Smoke(SmokeArgs),
+    /// Live one world for some years and report how its people live at each year's end.
+    Run(RunArgs),
+}
+
+#[derive(Args, Clone)]
+struct RunArgs {
+    #[command(flatten)]
+    folders: Folders,
+    /// World seed.
+    #[arg(long, default_value_t = 1)]
+    seed: u64,
+    /// World-generation preset id [default: the content's default].
+    #[arg(long)]
+    preset: Option<String>,
+    /// Map side, cells.
+    #[arg(long, default_value_t = 768)]
+    size: u32,
+    /// Founding band size [default: the content's].
+    #[arg(long, default_value_t = 0)]
+    band: u32,
+    /// Years to live.
+    #[arg(long, default_value_t = 3)]
+    years: u32,
 }
 
 #[derive(Args, Clone, Default)]
@@ -168,6 +191,7 @@ fn main() -> ExitCode {
                 .map(|layout| commands::content_validate(&layout.content, json))
         }
         Command::Smoke(args) => run_smoke(args),
+        Command::Run(args) => run_world(args),
     };
     match result {
         Ok(code) => code,
@@ -176,6 +200,20 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+fn run_world(args: RunArgs) -> anyhow::Result<ExitCode> {
+    let layout = paths::locate(args.folders.content, args.folders.saves, None)?;
+    let content = commands::load_content(&layout.content)?;
+    let options = civ_host::report::RunOptions {
+        preset: args.preset,
+        seed: args.seed,
+        size: args.size,
+        band: args.band,
+        years: args.years,
+    };
+    civ_host::report::run(&content, &options, &mut std::io::stdout().lock())?;
+    Ok(ExitCode::SUCCESS)
 }
 
 fn serve(args: ServeArgs) -> anyhow::Result<ExitCode> {
@@ -349,7 +387,7 @@ fn run_smoke(args: SmokeArgs) -> anyhow::Result<ExitCode> {
     if args.years > 0 {
         println!(
             "then {} years, checked at each year's end: nobody stuck, no population or land \
-             problems, at most {}× the founders, ≥ {:.0}% of households roofed from year 2, a \
+             problems, every good accounted for, at most {}× the founders, ≥ {:.0}% of households roofed from year 2, a \
              first trail in year 1; at least half the bands keep {} people",
             args.years,
             smoke::MAX_GROWTH,

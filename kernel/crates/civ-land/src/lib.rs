@@ -74,6 +74,12 @@ pub enum Growth {
         /// Production weight by month, January first; the mean over the year should be 1.
         season: [f64; 12],
     },
+    /// Stone, flint, clay: a stock laid down once that never grows back (M3a; geology arrives
+    /// with M3b).
+    Deposit {
+        /// Workable stock per hectare at richness 1, by habitat class.
+        stock_per_ha: Vec<f64>,
+    },
     /// Animals: logistic growth toward a carrying capacity, and a monthly spread to neighbouring
     /// patches in proportion to their capacity.
     Animal {
@@ -146,6 +152,7 @@ impl ResourceParams {
     pub fn renewal_days(&self) -> f64 {
         let days = match &self.growth {
             Growth::Plant { loss_per_day, .. } => 1.0 / loss_per_day,
+            Growth::Deposit { .. } => f64::INFINITY,
             Growth::Animal {
                 growth_per_year, ..
             } => DAYS_PER_YEAR as f64 / growth_per_year,
@@ -628,7 +635,7 @@ impl Land {
                 season,
                 ..
             } => standing_weight(season, *loss_per_day, day),
-            Growth::Animal { .. } => 1.0,
+            Growth::Deposit { .. } | Growth::Animal { .. } => 1.0,
         }
     }
 
@@ -643,6 +650,13 @@ impl Land {
                 }
             }
             Growth::Animal { .. } => self.capacity(params, r, p),
+            Growth::Deposit { stock_per_ha } => {
+                let res = &params.resources[r];
+                let class = self.patches.class[p] as usize;
+                stock_per_ha.get(class).copied().unwrap_or(0.0)
+                    * self.patches.resource_ha(res, p)
+                    * f64::from(self.patches.richness[p])
+            }
         }
     }
 
@@ -793,6 +807,8 @@ impl Land {
                             self.stocks[r][p] = next as f32;
                         }
                     }
+                    // What is dug or carried off is gone.
+                    Growth::Deposit { .. } => {}
                     Growth::Animal {
                         growth_per_year,
                         spread_per_month,

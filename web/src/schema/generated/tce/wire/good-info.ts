@@ -48,8 +48,20 @@ kcalPerKg():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
+eaten():string|null
+eaten(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+eaten(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+toolLifeH():number {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
 static startGoodInfo(builder:flatbuffers.Builder) {
-  builder.startObject(4);
+  builder.startObject(6);
 }
 
 static addId(builder:flatbuffers.Builder, idOffset:flatbuffers.Offset) {
@@ -68,17 +80,27 @@ static addKcalPerKg(builder:flatbuffers.Builder, kcalPerKg:number) {
   builder.addFieldFloat32(3, kcalPerKg, 0.0);
 }
 
+static addEaten(builder:flatbuffers.Builder, eatenOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(4, eatenOffset, 0);
+}
+
+static addToolLifeH(builder:flatbuffers.Builder, toolLifeH:number) {
+  builder.addFieldFloat32(5, toolLifeH, 0.0);
+}
+
 static endGoodInfo(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createGoodInfo(builder:flatbuffers.Builder, idOffset:flatbuffers.Offset, nameOffset:flatbuffers.Offset, purposeOffset:flatbuffers.Offset, kcalPerKg:number):flatbuffers.Offset {
+static createGoodInfo(builder:flatbuffers.Builder, idOffset:flatbuffers.Offset, nameOffset:flatbuffers.Offset, purposeOffset:flatbuffers.Offset, kcalPerKg:number, eatenOffset:flatbuffers.Offset, toolLifeH:number):flatbuffers.Offset {
   GoodInfo.startGoodInfo(builder);
   GoodInfo.addId(builder, idOffset);
   GoodInfo.addName(builder, nameOffset);
   GoodInfo.addPurpose(builder, purposeOffset);
   GoodInfo.addKcalPerKg(builder, kcalPerKg);
+  GoodInfo.addEaten(builder, eatenOffset);
+  GoodInfo.addToolLifeH(builder, toolLifeH);
   return GoodInfo.endGoodInfo(builder);
 }
 }

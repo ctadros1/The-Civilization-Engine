@@ -10,3 +10,5 @@ min_minutes = 1                  # meal length is in the people profile
 max_minutes = 1
 daylight_only = false
 max_walk_minutes = 0
+tools = []
+rate = 1.0

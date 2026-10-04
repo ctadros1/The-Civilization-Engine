@@ -1,0 +1,11 @@
+# Knapping flint into blades and setting them in sickles: a broad craft, 80 % of the way to
+# mastery in 2-5 years of exposure (research 06-08 §5.2), taken as 1,000 hours of practice. A
+# skilled knapper works faster and makes tools that last longer (11-05 §1.3: skill shows in
+# selection, fit and finish). Speeds, quality and levels are tuning values.
+kind = "skill"
+id = "core:skill/knapping"
+name = "Knapping"
+t80_h = 1000.0
+speed = [[0.0, 0.5], [0.5, 1.0], [1.0, 1.4]]
+quality = [[0.0, 0.4], [0.5, 1.0], [1.0, 1.6]]
+founder_level = [0.1, 0.7]

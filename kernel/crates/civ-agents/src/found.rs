@@ -504,6 +504,16 @@ fn add_family(
     {
         *seed += members * params.band.seed_kg_per_person;
     }
+    // And the tools their work needs (ADR-0006 §1).
+    let ages: Vec<f64> = family.iter().map(|m| m.age).collect();
+    let wants = crate::make::tool_wants_for(ctx.catalog, &ages, params.family.independent_age);
+    for (kg, want) in stores.iter_mut().zip(wants) {
+        *kg += want;
+    }
+    let mut flows = crate::person::Flows::default();
+    for (g, kg) in stores.iter().enumerate() {
+        flows.add(crate::person::Flow::Brought, g, *kg);
+    }
     pop.insert_household(Household {
         id: hh_id,
         members: ids.clone(),
@@ -517,6 +527,7 @@ fn add_family(
         water_at: now,
         known: Vec::new(),
         sheltered: false,
+        flows,
     });
     let couple = founding_couple(params, family, now, d);
     for (mi, m) in family.iter().enumerate() {
@@ -620,6 +631,12 @@ fn add_family(
             } else {
                 None
             },
+            skills: founder_skills(
+                &ctx.catalog.skills,
+                m.age,
+                params.family.independent_age,
+                &mut d.0,
+            ),
         });
         people.push(id);
     }
@@ -630,6 +647,26 @@ fn add_family(
         ended: None,
     });
     (hh_id, people)
+}
+
+/// The skills a founder of `age` brings: grown people (from `grown_at`) a level drawn for each
+/// skill from its founders' range, younger ones a part of it growing from age 10 (ADR-0006 §2).
+pub fn founder_skills(
+    skills: &[crate::params::SkillDef],
+    age: f64,
+    grown_at: f64,
+    rng: &mut Rng64,
+) -> Vec<(u16, f32)> {
+    let share = ((age - 10.0) / (grown_at - 10.0).max(1.0)).clamp(0.0, 1.0);
+    skills
+        .iter()
+        .enumerate()
+        .filter_map(|(i, s)| {
+            let [lo, hi] = s.founder_level;
+            let level = (lo + (hi - lo) * rng.next_f64()) * share;
+            (level > 0.0).then_some((i as u16, level as f32))
+        })
+        .collect()
 }
 
 /// Brings a founding band of `size` people into the world at a site they choose, founds their
@@ -920,6 +957,9 @@ mod tests {
                 leave_at_depletion: 0.3,
                 leave_per_day: 0.1,
                 leave_unless_ripe_within_days: 30.0,
+                ready_food_days: 2.0,
+                harvest_margin_days: 30.0,
+                processed_food_days: 5.0,
             },
             decision: DecisionParams {
                 temperature_sd_fraction: 0.35,
@@ -929,11 +969,13 @@ mod tests {
                 w_sleep: 14.0,
                 w_social: 5.0,
                 w_food: 10.0,
+                w_lean: 5.0,
                 w_work: 2.5,
                 w_fuel: 6.0,
                 w_farm: 8.0,
                 w_deadline: 6.0,
                 w_shelter: 4.0,
+                w_tools: 4.0,
                 trip_half_worth_days: 0.25,
                 w_water: 8.0,
                 w_walk_hour: 2.0,
@@ -971,6 +1013,7 @@ mod tests {
                 crop: 0,
                 grain_share: 0.75,
                 plan_yield_share: 0.8,
+                loss_share: 0.0,
                 grain_target_days: 400.0,
                 work_hours_per_day: 6.0,
                 field_m: 50.0,

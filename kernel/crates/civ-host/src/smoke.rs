@@ -6,7 +6,8 @@
 //! their first field, and nobody is ever stuck between events.
 //!
 //! With `years`, each world then lives on for years (the M1 sanity run, plan §4.7), checked at
-//! every year's end: nobody stuck, no population or land problems, no population explosion,
+//! every year's end: nobody stuck, no population or land problems, every good held accounted for
+//! by what came in and went out (ADR-0006 §3), no population explosion,
 //! households under a roof from the second year, and a first trail worn out of the settlement
 //! within the first. A band may fail and leave its valley, as foundings did (research 05-06 §5.2);
 //! across the worlds at least half the bands must still live where they settled. Runs differ from
@@ -273,6 +274,8 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
     let year = civ_core::time::MINUTES_PER_YEAR;
     // The band has lived its first month (`check_people`).
     let founded = sim.now().minutes() - DAYS * MINUTES_PER_DAY;
+    // The books at the start: every good held is accounted for from here on (ADR-0006 §3).
+    let books = (sim.people().goods_held(), sim.people().flows());
     for y in 1..=years {
         let to_go = founded + i64::from(y) * year - sim.now().minutes();
         if let Err(e) = sim.advance_minutes(to_go) {
@@ -313,6 +316,19 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
             result.failures.push(format!(
                 "{} land problems in year {y}, first: {first}",
                 problems.len()
+            ));
+        }
+        let goods = &sim.rules().catalog.goods;
+        let gaps = civ_agents::population::unaccounted(
+            goods.len(),
+            (&books.0, &books.1),
+            (&sim.people().goods_held(), &sim.people().flows()),
+        );
+        if let Some(&(g, kg)) = gaps.first() {
+            result.failures.push(format!(
+                "{} goods unaccounted for in year {y}, first: {} {kg:+.3}",
+                gaps.len(),
+                goods[g].name
             ));
         }
         if living as f64 > MAX_GROWTH * founders as f64 {

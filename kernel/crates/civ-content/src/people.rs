@@ -53,6 +53,7 @@ pub(crate) struct Farm {
     pub crop: String,
     pub grain_share: f64,
     pub plan_yield_share: f64,
+    pub loss_share: f64,
     pub grain_target_days: f64,
     pub work_hours_per_day: f64,
     pub field_m: f64,
@@ -119,6 +120,9 @@ pub(crate) struct Household {
     pub carry_water_l: f64,
     pub water_target_days: f64,
     pub food_target_days: f64,
+    pub ready_food_days: f64,
+    pub harvest_margin_days: f64,
+    pub processed_food_days: f64,
     pub carry_kg: f64,
     pub fuel_kg_per_person_day: [f64; 12],
     pub fuel_target_days: f64,
@@ -140,11 +144,13 @@ pub(crate) struct Decision {
     pub w_sleep: f64,
     pub w_social: f64,
     pub w_food: f64,
+    pub w_lean: f64,
     pub w_work: f64,
     pub w_fuel: f64,
     pub w_farm: f64,
     pub w_deadline: f64,
     pub w_shelter: f64,
+    pub w_tools: f64,
     pub trip_half_worth_days: f64,
     pub w_water: f64,
     pub w_walk_hour: f64,
@@ -336,6 +342,9 @@ impl PeopleFile {
                 carry_water_l: h.carry_water_l,
                 water_target_days: h.water_target_days,
                 food_target_days: h.food_target_days,
+                ready_food_days: h.ready_food_days,
+                harvest_margin_days: h.harvest_margin_days,
+                processed_food_days: h.processed_food_days,
                 carry_kg: h.carry_kg,
                 fuel_kg_per_person_day: h.fuel_kg_per_person_day,
                 fuel_target_days: h.fuel_target_days,
@@ -354,11 +363,13 @@ impl PeopleFile {
                 w_sleep: d.w_sleep,
                 w_social: d.w_social,
                 w_food: d.w_food,
+                w_lean: d.w_lean,
                 w_work: d.w_work,
                 w_fuel: d.w_fuel,
                 w_farm: d.w_farm,
                 w_deadline: d.w_deadline,
                 w_shelter: d.w_shelter,
+                w_tools: d.w_tools,
                 trip_half_worth_days: d.trip_half_worth_days,
                 w_water: d.w_water,
                 w_walk_hour: d.w_walk_hour,
@@ -392,6 +403,7 @@ impl PeopleFile {
                 crop,
                 grain_share: self.farm.grain_share,
                 plan_yield_share: self.farm.plan_yield_share,
+                loss_share: self.farm.loss_share,
                 grain_target_days: self.farm.grain_target_days,
                 work_hours_per_day: self.farm.work_hours_per_day,
                 field_m: self.farm.field_m,
@@ -566,6 +578,15 @@ impl PeopleFile {
         positive("household.carry_water_l", h.carry_water_l, &mut p);
         positive("household.water_target_days", h.water_target_days, &mut p);
         positive("household.food_target_days", h.food_target_days, &mut p);
+        positive("household.ready_food_days", h.ready_food_days, &mut p);
+        if !(h.harvest_margin_days.is_finite() && (0.0..=365.0).contains(&h.harvest_margin_days)) {
+            p.push("`household.harvest_margin_days` must be between 0 and 365".to_owned());
+        }
+        positive(
+            "household.processed_food_days",
+            h.processed_food_days,
+            &mut p,
+        );
         positive("household.carry_kg", h.carry_kg, &mut p);
         for v in h.fuel_kg_per_person_day {
             non_negative("household.fuel_kg_per_person_day", v, &mut p);
@@ -613,11 +634,13 @@ impl PeopleFile {
             ("w_sleep", d.w_sleep),
             ("w_social", d.w_social),
             ("w_food", d.w_food),
+            ("w_lean", d.w_lean),
             ("w_work", d.w_work),
             ("w_fuel", d.w_fuel),
             ("w_farm", d.w_farm),
             ("w_deadline", d.w_deadline),
             ("w_shelter", d.w_shelter),
+            ("w_tools", d.w_tools),
             ("w_water", d.w_water),
             ("w_walk_hour", d.w_walk_hour),
             ("w_effort", d.w_effort),
@@ -653,6 +676,9 @@ impl PeopleFile {
             && f.plan_yield_share <= 2.0)
         {
             p.push("`farm.plan_yield_share` must be above 0 and at most 2".to_owned());
+        }
+        if !(f.loss_share.is_finite() && (0.0..=0.5).contains(&f.loss_share)) {
+            p.push("`farm.loss_share` must be between 0 and 0.5".to_owned());
         }
         positive("farm.grain_target_days", f.grain_target_days, &mut p);
         if !(f.work_hours_per_day.is_finite() && (0.5..=16.0).contains(&f.work_hours_per_day)) {

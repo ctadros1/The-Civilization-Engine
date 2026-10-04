@@ -1,0 +1,16 @@
+# Shaping a quern from stone, worked in sessions over days.
+kind = "activity"
+id = "core:activity/make_quern"
+name = "Make a quern"
+doing = "making a quern"
+behavior = "make"
+recipe = "core:recipe/make_quern"
+par = 3.5
+min_age_years = 16.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 300
+daylight_only = true
+max_walk_minutes = 0
+tools = []
+rate = 1.0

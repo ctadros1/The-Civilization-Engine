@@ -22,7 +22,7 @@ use crate::demography::{
 use crate::history::{Cause, Moved, Origin, Union};
 use crate::needs::Sex;
 use crate::params::{FamilyParams, Residence};
-use crate::person::{Repro, Traits};
+use crate::person::{Flow, Flows, Repro, Traits};
 
 /// Steps through parents and children searched for kin to take children in or inherit a
 /// household.
@@ -321,6 +321,7 @@ impl Population {
             repro: Repro::Open,
             fecundity: own_fecundity,
             nursing: None,
+            skills: Vec::new(),
         });
         if let Some(x) = self.household_mut(household) {
             x.members.push(id);
@@ -388,6 +389,7 @@ impl Population {
                 && let Some(kg) = x.stores.get_mut(g)
             {
                 *kg += f64::from(p.carrying.kg);
+                x.flows.add(Flow::Got, g, f64::from(p.carrying.kg));
             }
             x.water_l += f64::from(p.carrying.water_l);
             settlement = x.settlement;
@@ -506,7 +508,7 @@ impl Population {
                 continue;
             }
             let need = x.members.len() as f64 * h.daily_kcal_per_person;
-            let food = food_kcal(&stores_now(x, now, params, goods), goods).0;
+            let food = stock_kcal(&stores_now(x, now, params, goods), goods);
             if food >= need {
                 continue;
             }
@@ -570,8 +572,14 @@ impl Population {
                 u.ended = Some(now);
             }
         }
-        if let Some(hd) = self.hh_index.remove(&household) {
-            self.households.remove(hd);
+        self.settle_household(ctx, household);
+        if let Some(hd) = self.hh_index.remove(&household)
+            && let Some(mut gone) = self.households.remove(hd)
+        {
+            for (g, kg) in gone.stores.iter().enumerate() {
+                gone.flows.add(Flow::Departed, g, kg.max(0.0));
+            }
+            self.flows_gone.absorb(&gone.flows);
         }
         self.hand_over_land(ctx, household, None);
         let count = members.len() as f64;
@@ -673,7 +681,7 @@ impl Population {
             if !has_adult {
                 continue;
             }
-            let food = food_kcal(&stores_now(x, now, params, goods), goods).0;
+            let food = stock_kcal(&stores_now(x, now, params, goods), goods);
             let per = food / x.members.len() as f64;
             if best.is_none_or(|(b, id)| per > b || (per == b && x.id < id)) {
                 best = Some((per, x.id));
@@ -696,6 +704,7 @@ impl Population {
         let Some(gone) = self.households.remove(hd) else {
             return;
         };
+        self.flows_gone.absorb(&gone.flows);
         for m in &gone.members {
             if let Some(p) = self.person_mut(*m) {
                 p.household = to;
@@ -766,8 +775,15 @@ impl Population {
         match heir {
             Some(to) => self.merge_household(ctx, household, to),
             None => {
-                if let Some(hd) = self.hh_index.remove(&household) {
-                    self.households.remove(hd);
+                self.settle_household(ctx, household);
+                if let Some(hd) = self.hh_index.remove(&household)
+                    && let Some(mut gone) = self.households.remove(hd)
+                {
+                    // What nobody is left to keep is left behind.
+                    for (g, kg) in gone.stores.iter().enumerate() {
+                        gone.flows.add(Flow::Departed, g, kg.max(0.0));
+                    }
+                    self.flows_gone.absorb(&gone.flows);
                 }
                 self.hand_over_land(ctx, household, None);
             }
@@ -1052,8 +1068,12 @@ impl Population {
                 .iter_mut()
                 .enumerate()
                 .map(|(g, kg)| {
-                    let material = goods.get(g).is_some_and(|d| d.purpose == GoodUse::Material);
-                    let take = if material { 0.0 } else { *kg * share };
+                    // Building materials stay with the home they are for, and an oven with
+                    // the hearth it was built at.
+                    let stays = goods.get(g).is_some_and(|d| {
+                        d.purpose == GoodUse::Material || d.tool.as_ref().is_some_and(|t| t.fixed)
+                    });
+                    let take = if stays { 0.0 } else { *kg * share };
                     *kg -= take;
                     take
                 })
@@ -1114,6 +1134,7 @@ impl Population {
             water_at: ctx.now,
             known: natal.known.clone(),
             sheltered: false,
+            flows: Flows::default(),
         });
         for who in [woman, man] {
             let Some(from) = self.person(who).map(|p| p.household) else {

@@ -24,10 +24,29 @@ export interface GoodInfo {
   id: string;
   /** "Meat" */
   name: string;
-  /** "food" or "fuel" */
+  /** "food", "fuel", "material" or "tool" */
   purpose: string;
   /** Food energy, kcal per kilogram (0 for fuel). */
   kcalPerKg: number;
+  /** How it is eaten: "raw", "cooked" or "never" (a recipe makes it food first). */
+  eaten: string;
+  /** For a tool, hours of use a standard tool lasts; stores count tools in standard tools. 0 for
+   * other goods, counted in kilograms. */
+  toolLifeH: number;
+}
+
+export interface SkillInfo {
+  id: string;
+  /** "Milling" */
+  name: string;
+}
+
+/** A person's level in a skill. */
+export interface SkillLine {
+  /** An index into Welcome.skills. */
+  skill: number;
+  /** 0–1. */
+  level: number;
 }
 
 export interface CropInfo {
@@ -60,6 +79,8 @@ export interface Welcome {
   goods: GoodInfo[];
   /** The crops catalogue, in the order fields refer to. */
   crops: CropInfo[];
+  /** The skills catalogue, in the order people's skills refer to. */
+  skills: SkillInfo[];
 }
 
 export interface WorldInfo {
@@ -442,11 +463,16 @@ export interface PersonInfo {
   carryGood: number;
   carryKg: number;
   carryWaterL: number;
+  /** All the household's food, grain and flour included, in days of its needs. */
   householdFoodDays: number;
+  /** Its food ready to eat, in days. */
+  householdReadyDays: number;
   householdWaterDays: number;
   householdFuelDays: number;
   /** The household's goods in store. */
   stores: StoreLine[];
+  /** Their skills. */
+  skills: SkillLine[];
   /** Newest first. */
   decisions: Decision[];
   traits: number[];
@@ -676,7 +702,14 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
       name: g.name() ?? "",
       purpose: g.purpose() ?? "",
       kcalPerKg: g.kcalPerKg(),
+      eaten: g.eaten() ?? "",
+      toolLifeH: g.toolLifeH(),
     });
+  }
+  const skills: SkillInfo[] = [];
+  for (let i = 0; i < w.skillsLength(); i++) {
+    const k = w.skills(i);
+    if (k) skills.push({ id: k.id() ?? "", name: k.name() ?? "" });
   }
   const crops: CropInfo[] = [];
   for (let i = 0; i < w.cropsLength(); i++) {
@@ -706,6 +739,7 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
     bandSizeDefault: w.bandSizeDefault(),
     goods,
     crops,
+    skills,
   };
 }
 
@@ -1197,6 +1231,11 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     const line = p.stores(k);
     if (line) stores.push({ good: line.good(), kg: line.kg() });
   }
+  const skills: SkillLine[] = [];
+  for (let k = 0; k < p.skillsLength(); k++) {
+    const line = p.skills(k);
+    if (line) skills.push({ skill: line.skill(), level: line.level() });
+  }
   const pos = p.pos();
   return {
     id: Number(p.id()),
@@ -1225,9 +1264,11 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     carryKg: p.carryKg(),
     carryWaterL: p.carryWaterL(),
     householdFoodDays: p.householdFoodDays(),
+    householdReadyDays: p.householdReadyDays(),
     householdWaterDays: p.householdWaterDays(),
     householdFuelDays: p.householdFuelDays(),
     stores,
+    skills,
     decisions,
     traits: Array.from(p.traitsArray() ?? []),
     x: pos?.x() ?? 0,

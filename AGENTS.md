@@ -44,7 +44,7 @@ Before changing anything:
 | `kernel/crates/civ-world` | World generation: terrain, lakes, rivers. Pure functions of their inputs. Also walking (`nav`) and terrain measures (`terrain`). |
 | `kernel/crates/civ-grammar` | Building grammars: a pure expansion of a saved design into parts, outline and per-stage needs, with golden hashes (ADR-0004). M1 has the hut. |
 | `kernel/crates/civ-land` | Land that changes: habitat patches, wild stocks, the climate year, settlements, fields, plots, buildings, and the ground worn by walking with the trails traced through it (`paths`) (ADR-0004). |
-| `kernel/crates/civ-agents` | People: needs, decisions, activities, trips, households, founding bands, births, deaths and couples (`demography.rs`, `population/life.rs`), history (ADR-0003). |
+| `kernel/crates/civ-agents` | People: needs, decisions, activities, trips, households, founding bands, births, deaths and couples (`demography.rs`, `population/life.rs`), history (ADR-0003); recipes, tools and skills as arithmetic on stores (`make.rs`, ADR-0006). |
 | `kernel/crates/civ-content` | The content compiler: TOML packs, stable diagnostics, fingerprints. |
 | `kernel/crates/civ-schema` | FlatBuffers schemas and generated Rust (boundary and saves). |
 | `kernel/crates/civ-sim` | The composition root: a world's state, save/load, boundary payloads. |
@@ -74,7 +74,8 @@ cargo test --workspace --locked --profile simcheck     # how CI runs tests
 cargo run --release -p civ-host                        # serve the observer on 127.0.0.1:7420
 cargo run --release -p civ-host -- content validate [--json]
 cargo run --release -p civ-host -- smoke               # the smoke seeds; must pass
-cargo run --release -p civ-host -- smoke --years 10    # and ten years of each (nightly; ~8 min on 4 cores)
+cargo run --release -p civ-host -- smoke --years 10    # and ten years of each (nightly; ~15 min on 4 cores)
+cargo run --release -p civ-host -- run --seed 2 --years 5   # one world, reported each year (calibration)
 cargo run --release -p civ-host -- new --seed 7 --size 1024
 cargo run --release -p civ-host -- save info|verify <file>
 

@@ -1,0 +1,18 @@
+# Reaping without a sickle: pulling or plucking the ears by hand. Harvest tools change speed and
+# losses (research 08-02 §2.2); hand harvesting is taken at 0.6 of a sickle's rate (a tuning value
+# in the 0.5-0.7 range the production brief proposes).
+kind = "activity"
+id = "core:activity/reap_by_hand"
+name = "Reap by hand"
+doing = "reaping by hand"
+behavior = "farm"
+task = "reap"
+par = 4.0
+min_age_years = 10.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 360
+daylight_only = true
+max_walk_minutes = 30
+tools = []
+rate = 0.6

@@ -38,7 +38,7 @@ CI runs the validator. Diagnostics have stable codes:
 | E2003 | An id's kind segment does not match the file's `kind` |
 | E2004 | The file's path does not match its id |
 | E2005 | Two definitions share an id |
-| E2006 | A reference names something that is not defined (a people profile's name list, provisions good, crop or home program, an activity's land resource, a resource's, crop's or building program's good) |
+| E2006 | A reference names something that is not defined (a people profile's name list, provisions good, crop or home program, an activity's land resource, recipe or tool, a resource's, crop's or building program's good, a recipe's good, tool or skill, a good's `reserve_for`) |
 | E3001 | A value is out of its allowed range |
 | E3002 | Unknown or missing `kind` |
 | E3003 | Not exactly one world-generation preset has `default = true` |
@@ -50,7 +50,7 @@ record the semantic one, so reformatting a file, reordering keys, writing `3` fo
 comment does not mark saves as "content changed"; changing a value does.
 
 A world saved with other content still loads and runs by the content loaded now. Saves refer to
-activities, habitats, land resources, goods and crops by id: a person whose activity is gone decides
+activities, habitats, land resources, goods, crops and skills by id: a person whose activity is gone decides
 again, a habitat that is gone becomes the last (catch-all) habitat, a good that is gone is dropped
 from stores and loads, a field whose crop is gone is dropped, and a new resource starts at
 equilibrium. So does a resource whose `good` or `unit_kg` changed, since its saved stocks may count
@@ -131,17 +131,19 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | `social` | `tau_h`, `quality_per_companion`, `household_quality` | Relatedness eases toward the quality of present company. |
 | `household` | `water_l_per_person_day`, `carry_water_l`, `water_target_days` | Water use, what one trip carries, the store people aim for. |
 | | `food_target_days`, `carry_kg`, `daily_kcal_per_person` | The food store people aim for, the load one person carries home, average need. |
+| | `harvest_margin_days` | The food a household wants in store beyond the first grain of its next harvest: stores short of that much make wild food worth going out for (`decision.w_lean`). |
 | | `fuel_kg_per_person_day`, `fuel_target_days` | Firewood burned per person per day by month (January first), and the store people aim for. |
 | | `short_food_days`, `recovered_food_days` | The chronicle notes a settlement's shortage below the first and its end above the second. |
 | | `leave_at_depletion`, `leave_per_day`, `leave_unless_ripe_within_days` | A household with less than a day's food, whose members have drawn on average this share of their reserve, and with no crop of its own ripening within these days or reaped and waiting, gives up and leaves with this chance a day. |
 | `decision` | `temperature_sd_fraction`, `min_temperature` | Softmax temperature: a fraction of the spread of the acceptable options' scores, with a floor. Only options worth more than doing nothing (a positive total) are sampled, unless none is. |
-| | `w_*`, `trip_half_worth_days` | Points per unit of each consideration (hunger, sleep, company, food, firewood and water shortage, useful work, walking, effort, darkness, rest, play, field work's harvest, shelter, and a deadline's pressure); a trip bringing `trip_half_worth_days` of the household's need is worth half a very large haul. Beyond any shortage, more of a good is worth less the more of it is in store. `w_shelter` is what a session of building, or a load of what the household still needs for its roof, is worth. |
+| | `w_*`, `trip_half_worth_days` | Points per unit of each consideration (hunger, sleep, company, food, firewood and water shortage, useful work, walking, effort, darkness, rest, play, field work's harvest, shelter, stores that will not last to the next harvest (`w_lean`), and a deadline's pressure); a trip bringing `trip_half_worth_days` of the household's need is worth half a very large haul. Beyond any shortage, more of a good is worth less the more of it is in store. `w_shelter` is what a session of building, or a load of what the household still needs for its roof, is worth. |
 | `band` | `default_size`, `min_size`, `max_size`, `min_families` | The founding band the new-world dialog offers. `min_size` is at least twice `min_families`. |
 | | `camp_candidates`, `site_radius_m`, `site_max_slope`, `site_w_*`, `site_flood_hand_m` | How the band scores sampled camp sites: wild food within the radius, land it could crop within a field walk (ground to be cleared counts for less), distance to fresh water, slope, flood risk. |
 | | `provisions_days`, `provisions_good`, `seed_kg_per_person` | The food each family brings, in days of its needs, and the good (a food) it is carried as; the seed it brings for the crop it grows. |
 | | `elder_chance`, `young_adult_chance`, `birth_spacing_months` | Who is in the families. |
 | `farm` | `crop` | The crop households grow (a crop id). |
 | | `grain_share`, `plan_yield_share` | The share of a year's food a household plans to grow, and the cautious yield it plans on (a share of the crop's average). |
+| | `loss_share` | The share of the grain grown that is lost before it is eaten (in store, at the quern, as bread and flour go off): a household grows its food over one less this. |
 | | `grain_target_days` | Grain held at which another harvest is worth half as much. |
 | | `work_hours_per_day` | Field work a capable adult gives a day, for planning what the household can prepare and sow in a season. |
 | | `field_m`, `max_walk_minutes`, `site_candidates` | New fields are squares of `field_m`, within this walk of the settlement; how many places are looked at when marking one out. |
@@ -175,9 +177,11 @@ How land is classified and what grows wild. Exactly one profile.
 | `[[resource]]` | `id`, `name`; `good` (the good a harvest yields) and `unit_kg` (its kilograms per unit of stock: 1 for stocks in kilograms, a carcass's meat for stocks in animals); `discrete` (harvests are whole units drawn from the expected count); `in_water` (lives in a patch's water, not its land); `range_patches` (a trip works a block of `2·range + 1` patches a side); `max_rate_per_hour` and `half_rate_stock_per_ha` (gathering slows as the stock falls). Then exactly one growth table. |
 | `[resource.plant]` | `production_per_ha_yr` (one figure per habitat, in habitat order), `loss_per_day`, `season` (twelve monthly weights): a seasonal production each day, a share of the standing stock lost each day. A new world's stock, and what people expect of land they have not worked, is the yearly cycle this settles into: what stands lags what grows by about the time it lasts (last summer's reeds still stand in March). |
 | `[resource.animal]` | `capacity_per_ha` (per habitat), `growth_per_year`, `spread_per_month`: logistic growth toward the habitat's capacity, and a monthly spread between neighbouring patches toward an even share of capacity. |
+| `[resource.deposit]` | `stock_per_ha` (per habitat): a stock laid down once, that never grows back (stone, flint; M3a). |
 
 Stocks change daily; nothing respawns. What people learn about a place fades over the time its
-resource takes to renew: `1 / loss_per_day` days for plants, `365 / growth_per_year` for animals.
+resource takes to renew: `1 / loss_per_day` days for plants, `365 / growth_per_year` for animals,
+ten years for deposits.
 
 ### `good`
 
@@ -185,16 +189,18 @@ Something people carry home and keep.
 
 | Field | Meaning |
 |---|---|
-| `purpose` | `food`, `fuel` or `material` (built with). |
-| `kcal_per_kg` | Food energy; 0 for fuel and materials. |
+| `purpose` | `food`, `fuel`, `material` (built with, or made into something) or `tool` (M3a). |
+| `kcal_per_kg` | Food energy; 0 for anything else. |
 | `half_life_days` | Days for half a stored amount to spoil; 0 keeps. Fuel must keep. |
 | `sheltered_half_life_days` | The same in a household's store under its own roof; 0 when a roof makes no difference. Never shorter than `half_life_days`; a good that keeps needs none. |
-| `cooked` | Food that needs a fire: it is not eaten while the household has no firewood. Cooking adds no energy (research 05-02 §1.1: it adds water, not calories). |
+| `eaten` | `raw` (as it is), `cooked` (needs a fire: not eaten while the household has no firewood; cooking adds no energy, research 05-02 §1.1) or `never` (a recipe must make it food first, as grain is ground or pounded). Anything but food is `never`. |
 | `shared` | When brought home it is shared among every household of the settlement, by members. |
-| `reserve` | Kept back, like seed: eaten last of all, and only in real hunger. Fuel and materials cannot be. |
+| `reserve_for` | The food it is kept back from, like seed from grain, or `""`: a recipe that needs that food takes this one only in real hunger, and never the seed to sow the ground already cropped. |
+| `[tool]` | For a tool only: `life_h`, the hours of use a standard tool lasts (stores count tools in standard tools, so 2.4 sickles are two and what is left of a third, ADR-0006); `per_adult`, how many a household wants for each member of working age (rounded up; 0 for none); `fixed`, it stays where it was made and is never carried off. |
 
-People eat the most perishable food first. A material is never eaten, cooked, kept back or
-shared: a household brings it for its own building, and only as much as it still needs.
+People eat the most perishable food that can be eaten first. A material or tool is never eaten,
+kept back or shared: a household brings it for what it builds and makes, and only as much as it
+still needs. A tool is worn by the hours of the work that needs it, and gone when worn out.
 
 ### `crop`
 
@@ -252,17 +258,67 @@ decided by people at run time.
 
 | Field | Meaning |
 |---|---|
-| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`. |
+| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a). |
 | `resource` | For `gather` only: the land resource gathered (hunting, fishing, collecting firewood and cutting building materials are gathering too). A trip works until its load is full or its time runs out. |
 | `task` | For `farm` only: the field work, one of `prepare`, `sow`, `tend`, `reap`, `thresh`. |
+| `recipe` | For `make` only: the recipe worked, at home. |
+| `tools` | Tools the work needs and wears (good ids; `[]` for none). Without a free one in the household the work is left out, and the tool counts as one work waits on. A `make` activity's tools are its recipe's, so it lists none. |
+| `rate` | Work done in an hour against the task's authored rates: 1 with the tools they assume, less by hand (reaping without a sickle). Field work at a lower rate is left out while the same task can be done at a higher one. |
 | `name`, `doing` | "Gather plants"; "gathering wild plants" (what the inspector says). |
 | `par` | Physical activity ratio of the work (1–10). |
 | `min_age_years`, `max_age_years` | Who does it. |
 | `min_minutes`, `max_minutes` | How long the work lasts (sleep and meals take their length from the people profile). |
 | `daylight_only`, `max_walk_minutes` | Only in daylight; the longest one-way walk people make for it. |
 
+## Kinds (M3a)
+
+### `recipe`
+
+What goes in, what comes out, the work and the tools (ADR-0006 §2). Working one is a `make`
+activity. Who works a recipe, and when, is decided by people at run time.
+
+| Field | Meaning |
+|---|---|
+| `inputs`, `outputs` | `[{ good, amount }, …]` per unit made, in each good's unit (kilograms, or standard tools). A tool made counts its maker's quality: a skilled maker's lasts longer. |
+| `session_inputs` | `[{ good, amount }, …]` per session, whatever its size (the fuel to heat an oven). |
+| `unit_h`, `session_h` | Labour per unit and per session, hours of a capable adult of middling skill. A session makes what its time, its inputs and its `max_units` allow. |
+| `max_units` | Most units one session makes; 0 for no limit. |
+| `tools` | Tools it needs and wears (good ids). |
+| `skill` | The skill it uses and trains (a skill id), or `""`. |
+
+People make food ready (grind, bake, pound) when what is ready to eat, or a step from it, falls
+below the days the people profile keeps of it, and only as much as brings it back: what is made
+ahead of need spoils. They make a tool when the household holds fewer than it wants, and sooner
+when work waits on it.
+
+### `skill`
+
+A domain people get better at with practice (ADR-0006 §2).
+
+| Field | Meaning |
+|---|---|
+| `t80_h` | Hours of practice that close 80 % of the gap to mastery: s′ = s + (1 − s)(1 − e^(−kE)), k = ln 5 / T80 (research 06-08 §5.2). Levels run 0–1. |
+| `speed` | `[[level, factor], …]`, ascending: how fast the work goes. |
+| `quality` | `[[level, factor], …]`: the life of the tools made. |
+| `founder_level` | `[from, to]`: a grown founder's level is drawn evenly between them; younger founders bring a part of it, growing from age 10. |
+
+### Changes to M1 kinds
+
+- `good`: `purpose = "tool"` and its `[tool]` table; `eaten` replaces `cooked`; `reserve_for`
+  replaces `reserve` (content API 7).
+- `activity`: `behavior = "make"` with its `recipe`; `tools` and `rate` on every activity.
+- `land`: a resource can grow as a `[resource.deposit]`, with `stock_per_ha` (one figure per
+  habitat): a stock laid down once that never grows back (stone, flint). Geology replaces it in
+  M3b.
+- `people`: `household.ready_food_days` and `household.processed_food_days` (the days of food ready
+  to eat, and of each food a step from ready, a household keeps in hand);
+  `household.harvest_margin_days` and `decision.w_lean` (stores that will not see a household
+  through to its next harvest make wild food worth going out for); `farm.loss_share` (the grain
+  lost before it is eaten, which a household grows over); `decision.w_tools` (what a session
+  making a tool the household lacks, or a load of what it is made of, is worth).
+
 ## Planned kinds
 
-Recipes, technologies (each only with its content footprint), more building programs with
-authored rule graphs (grammar v2) and style primitives, offices and policies, service capability
-ladders, all as the milestones in the plan introduce them (§5, §7).
+Technologies (each only with its content footprint), more building programs with authored rule
+graphs (grammar v2) and style primitives, property regimes, offices and policies, service
+capability ladders, all as the milestones in the plan introduce them (§5, §7).

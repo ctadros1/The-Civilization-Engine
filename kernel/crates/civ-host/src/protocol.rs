@@ -433,6 +433,7 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
             let id = fbb.create_string(&g.id);
             let name = fbb.create_string(&g.name);
             let purpose = fbb.create_string(g.purpose.name());
+            let eaten = fbb.create_string(g.eaten.name());
             wire::GoodInfo::create(
                 &mut fbb,
                 &wire::GoodInfoArgs {
@@ -440,11 +441,30 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
                     name: Some(name),
                     purpose: Some(purpose),
                     kcal_per_kg: g.kcal_per_kg as f32,
+                    eaten: Some(eaten),
+                    tool_life_h: g.tool.as_ref().map_or(0.0, |t| t.life_h as f32),
                 },
             )
         })
         .collect();
     let goods = fbb.create_vector(&goods);
+    let skills: Vec<_> = content
+        .catalog
+        .skills
+        .iter()
+        .map(|k| {
+            let id = fbb.create_string(&k.id);
+            let name = fbb.create_string(&k.name);
+            wire::SkillInfo::create(
+                &mut fbb,
+                &wire::SkillInfoArgs {
+                    id: Some(id),
+                    name: Some(name),
+                },
+            )
+        })
+        .collect();
+    let skills = fbb.create_vector(&skills);
     let crops: Vec<_> = content
         .catalog
         .crops
@@ -503,6 +523,7 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
             band_size_default: band.default_size,
             goods: Some(goods),
             crops: Some(crops),
+            skills: Some(skills),
         },
     );
     finish(fbb, root)

@@ -239,6 +239,9 @@ pub struct Person {
     pub fecundity: f32,
     /// The child a mother is nursing, until she can conceive again.
     pub nursing: Option<PermanentId>,
+    /// Skill levels, 0–1, by index in the catalog's skills; skills never practised are absent
+    /// (ADR-0006 §2).
+    pub skills: Vec<(u16, f32)>,
 }
 
 impl Person {
@@ -252,6 +255,26 @@ impl Person {
         match &self.trip {
             Some(trip) => trip.position_at(t),
             None => self.pos,
+        }
+    }
+
+    /// Level of skill `skill`, 0–1 (0 if never practised).
+    pub fn skill(&self, skill: usize) -> f64 {
+        self.skills
+            .iter()
+            .find(|(s, _)| usize::from(*s) == skill)
+            .map_or(0.0, |(_, l)| f64::from(*l))
+    }
+
+    /// Sets the level of skill `skill`, keeping the list sorted by skill.
+    pub fn set_skill(&mut self, skill: usize, level: f64) {
+        let level = level.clamp(0.0, 1.0) as f32;
+        match self
+            .skills
+            .binary_search_by_key(&(skill as u16), |(s, _)| *s)
+        {
+            Ok(i) => self.skills[i].1 = level,
+            Err(i) => self.skills.insert(i, (skill as u16, level)),
         }
     }
 
@@ -311,6 +334,128 @@ impl KnownPatch {
     }
 }
 
+/// What became of goods: one kind of flow in or out of a household's stores (ADR-0006 §3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Flow {
+    /// Brought into the world: a founding or sent family's provisions, seed and tools.
+    Brought,
+    /// Gathered from the land, or harvested.
+    Got,
+    /// Made by a recipe.
+    Made,
+    /// Put into a recipe.
+    Used,
+    /// Eaten.
+    Eaten,
+    /// Spoiled in store.
+    Spoiled,
+    /// Burned for warmth and cooking.
+    Burned,
+    /// Worn away by use (tools).
+    Worn,
+    /// Built into a building.
+    Built,
+    /// Sown as seed.
+    Sown,
+    /// Taken out of the world by a household that left.
+    Departed,
+}
+
+impl Flow {
+    /// Every kind, in a fixed order.
+    pub const ALL: [Flow; 11] = [
+        Flow::Brought,
+        Flow::Got,
+        Flow::Made,
+        Flow::Used,
+        Flow::Eaten,
+        Flow::Spoiled,
+        Flow::Burned,
+        Flow::Worn,
+        Flow::Built,
+        Flow::Sown,
+        Flow::Departed,
+    ];
+
+    /// Whether goods of this kind of flow enter stores (rather than leave them).
+    pub fn enters(self) -> bool {
+        matches!(self, Flow::Brought | Flow::Got | Flow::Made)
+    }
+}
+
+/// Amounts of each good by kind of flow since the counters began: for the conservation check
+/// and reports. Counters, not world state: never saved.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Flows {
+    by: Vec<Vec<f64>>,
+}
+
+impl Flows {
+    /// Counts `amount` of good `good` as `flow`.
+    pub fn add(&mut self, flow: Flow, good: usize, amount: f64) {
+        if amount == 0.0 || !amount.is_finite() {
+            return;
+        }
+        if self.by.is_empty() {
+            self.by = vec![Vec::new(); Flow::ALL.len()];
+        }
+        let row = &mut self.by[flow as usize];
+        if row.len() <= good {
+            row.resize(good + 1, 0.0);
+        }
+        row[good] += amount;
+    }
+
+    /// Counts every positive change from `before` to `after` as `up` and every negative one as
+    /// `down`.
+    pub fn add_changes(&mut self, before: &[f64], after: &[f64], up: Flow, down: Flow) {
+        for (g, (b, a)) in before.iter().zip(after).enumerate() {
+            let d = a - b;
+            if d > 0.0 {
+                self.add(up, g, d);
+            } else if d < 0.0 {
+                self.add(down, g, -d);
+            }
+        }
+    }
+
+    /// The amount of good `good` counted as `flow`.
+    pub fn get(&self, flow: Flow, good: usize) -> f64 {
+        self.by
+            .get(flow as usize)
+            .and_then(|row| row.get(good))
+            .copied()
+            .unwrap_or(0.0)
+    }
+
+    /// Adds another set of counters to these.
+    pub fn absorb(&mut self, other: &Flows) {
+        for flow in Flow::ALL {
+            if let Some(row) = other.by.get(flow as usize) {
+                for (g, v) in row.iter().enumerate() {
+                    self.add(flow, g, *v);
+                }
+            }
+        }
+    }
+
+    /// Everything counted for good `good`, in and out: the scale its balance is checked against.
+    pub fn turnover(&self, good: usize) -> f64 {
+        Flow::ALL.iter().map(|&f| self.get(f, good).abs()).sum()
+    }
+
+    /// The net amount of good `good` that has entered stores: what entered less what left.
+    pub fn net(&self, good: usize) -> f64 {
+        Flow::ALL
+            .iter()
+            .map(|&f| {
+                let v = self.get(f, good);
+                if f.enters() { v } else { -v }
+            })
+            .sum()
+    }
+}
+
 /// People who live and eat together.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Household {
@@ -335,6 +480,8 @@ pub struct Household {
     /// Their stores are under a roof: goods spoil at their sheltered rates. Derived from their
     /// buildings (not saved); stores are settled whenever it changes.
     pub sheltered: bool,
+    /// What became of their goods since the counters began (not saved).
+    pub flows: Flows,
 }
 
 impl Household {
@@ -384,7 +531,8 @@ impl Household {
         out
     }
 
-    /// Brings the stores up to `t` (see [`Household::stores_at_time`]).
+    /// Brings the stores up to `t` (see [`Household::stores_at_time`]), counting what spoiled and
+    /// what burned.
     pub fn settle_stores(
         &mut self,
         t: SimTime,
@@ -392,35 +540,60 @@ impl Household {
         fuel_kg_per_day: &dyn Fn(i64) -> f64,
     ) {
         if t > self.stores_at {
-            self.stores = self.stores_at_time(t, goods, fuel_kg_per_day);
+            let after = self.stores_at_time(t, goods, fuel_kg_per_day);
+            for (g, (b, a)) in self.stores.iter().zip(&after).enumerate() {
+                let lost = b - a;
+                if lost > 0.0 {
+                    let flow = if goods.get(g).is_some_and(|d| d.purpose == GoodUse::Fuel) {
+                        Flow::Burned
+                    } else {
+                        Flow::Spoiled
+                    };
+                    self.flows.add(flow, g, lost);
+                }
+            }
+            self.stores = after;
             self.stores_at = t;
         }
     }
 }
 
-/// Food energy in a set of stores, kcal: all of it, and what can be eaten without a fire. Seed
-/// and other goods kept back are not counted (see [`reserve_food_kcal`]).
+/// Food energy ready to eat in a set of stores, kcal: all of it, and what can be eaten without a
+/// fire. Food that a recipe must make ready first (grain, flour) and goods kept back (seed) are
+/// not counted (see [`stock_kcal`] and [`reserve_food_kcal`]).
 pub fn food_kcal(stores: &[f64], goods: &[GoodDef]) -> (f64, f64) {
-    kcal_where(stores, goods, false)
-}
-
-/// Food energy of the goods kept back (seed), kcal: all of it, and what needs no fire.
-pub fn reserve_food_kcal(stores: &[f64], goods: &[GoodDef]) -> (f64, f64) {
-    kcal_where(stores, goods, true)
-}
-
-fn kcal_where(stores: &[f64], goods: &[GoodDef], reserve: bool) -> (f64, f64) {
     let (mut all, mut raw) = (0.0, 0.0);
     for (kg, g) in stores.iter().zip(goods) {
-        if g.purpose == GoodUse::Food && g.reserve == reserve {
+        if g.edible() && !g.kept_back() {
             let kcal = kg.max(0.0) * g.kcal_per_kg;
             all += kcal;
-            if !g.cooked {
+            if !g.cooked() {
                 raw += kcal;
             }
         }
     }
     (all, raw)
+}
+
+/// Food energy in a set of stores, kcal, ready or not (grain and flour count): what the
+/// household has to live on. Goods kept back (seed) are not counted.
+pub fn stock_kcal(stores: &[f64], goods: &[GoodDef]) -> f64 {
+    stores
+        .iter()
+        .zip(goods)
+        .filter(|(_, g)| g.purpose == GoodUse::Food && !g.kept_back())
+        .map(|(kg, g)| kg.max(0.0) * g.kcal_per_kg)
+        .sum()
+}
+
+/// Food energy of the goods kept back (seed), kcal.
+pub fn reserve_food_kcal(stores: &[f64], goods: &[GoodDef]) -> f64 {
+    stores
+        .iter()
+        .zip(goods)
+        .filter(|(_, g)| g.purpose == GoodUse::Food && g.kept_back())
+        .map(|(kg, g)| kg.max(0.0) * g.kcal_per_kg)
+        .sum()
 }
 
 /// Firewood in a set of stores, kilograms.
@@ -449,6 +622,7 @@ fn burned_kg(t0: i64, t1: i64, per_day: &dyn Fn(i64) -> f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::params::Eaten;
 
     #[test]
     fn trips_interpolate_between_vertices() {
@@ -486,25 +660,27 @@ mod tests {
             water_at: SimTime::ZERO,
             known: Vec::new(),
             sheltered: false,
+            flows: Flows::default(),
         }
     }
 
     fn goods() -> Vec<GoodDef> {
-        let good = |id: &str, purpose, kcal, half, cooked| GoodDef {
+        let good = |id: &str, purpose, kcal, half, eaten| GoodDef {
             id: id.into(),
             name: id.into(),
             purpose,
             kcal_per_kg: kcal,
             half_life_days: half,
-            cooked,
+            eaten,
             shared: false,
-            reserve: false,
+            reserve_for: None,
+            tool: None,
             sheltered_half_life_days: 0.0,
         };
         vec![
-            good("meat", GoodUse::Food, 1500.0, 3.0, true),
-            good("nuts", GoodUse::Food, 5000.0, 0.0, false),
-            good("wood", GoodUse::Fuel, 0.0, 0.0, false),
+            good("meat", GoodUse::Food, 1500.0, 3.0, Eaten::Cooked),
+            good("nuts", GoodUse::Food, 5000.0, 0.0, Eaten::Raw),
+            good("wood", GoodUse::Fuel, 0.0, 0.0, Eaten::Never),
         ]
     }
 

@@ -6,6 +6,7 @@
 //! - [`decide`]: scoring candidate activities and sampling one.
 //! - [`farm`]: what a household plans to grow, and what its field work is worth.
 //! - [`build`]: the hut a household designs, the ground it claims, and the work left on it.
+//! - [`make`]: recipes and tools as arithmetic on a household's stores (ADR-0006).
 //! - [`population`]: the tables and the event-driven activity engine.
 //! - [`found`]: a founding band arriving and choosing its camp.
 //! - [`history`]: person records, unions, decision receipts and the chronicle.
@@ -22,6 +23,7 @@ pub mod demography;
 pub mod farm;
 pub mod found;
 pub mod history;
+pub mod make;
 pub mod needs;
 pub mod params;
 pub mod person;
@@ -33,7 +35,7 @@ pub use history::{
     Span, Term, Union,
 };
 pub use needs::Sex;
-pub use params::{ActivityDef, Behavior, Catalog, PeopleParams};
+pub use params::{ActivityDef, Behavior, Catalog, PeopleParams, RecipeDef, SkillDef};
 pub use person::{
     Activity, Household, KnownPatch, Load, Person, Repro, Step, Target, Traits, Trip,
 };

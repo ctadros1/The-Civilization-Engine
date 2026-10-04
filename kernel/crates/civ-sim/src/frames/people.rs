@@ -8,7 +8,7 @@ use std::collections::HashSet;
 
 use civ_agents::history::{self, Span};
 use civ_agents::params::GoodUse;
-use civ_agents::person::{food_kcal, fuel_kg};
+use civ_agents::person::{food_kcal, fuel_kg, stock_kcal};
 use civ_agents::{Cause, Origin, Person, Receipt, Repro, Scored, Sex, Step, Target, population};
 use civ_core::PermanentId;
 use civ_schema::flatbuffers::{FlatBufferBuilder, ForwardsUOffset, Vector, WIPOffset};
@@ -678,20 +678,27 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         let doing = fbb.create_string(&doing(sim, p));
         let goods = &sim.rules.catalog.goods;
         let stores = household.map(|h| population::stores_now(h, now, params, goods));
-        let (food_days, water_days, fuel_days) = match (household, &stores) {
+        let (food_days, ready_days, water_days, fuel_days) = match (household, &stores) {
             (Some(h), Some(stores)) => {
                 let members = h.members.len().max(1);
                 let kcal_day = members as f64 * params.household.daily_kcal_per_person;
                 let litres_day = members as f64 * params.household.water_l_per_person_day;
                 let fuel_day = population::fuel_per_day(params, members, now.day_index());
                 (
+                    stock_kcal(stores, goods) / kcal_day.max(1.0),
                     food_kcal(stores, goods).0 / kcal_day.max(1.0),
                     h.water_at_time(now, litres_day) / litres_day.max(1e-6),
                     fuel_kg(stores, goods) / fuel_day.max(1e-6),
                 )
             }
-            _ => (0.0, 0.0, 0.0),
+            _ => (0.0, 0.0, 0.0, 0.0),
         };
+        let skills: Vec<wire::SkillLine> = p
+            .skills
+            .iter()
+            .map(|&(k, level)| wire::SkillLine::new(k, level))
+            .collect();
+        let skills = fbb.create_vector(&skills);
         let lines: Vec<wire::StoreLine> = stores
             .iter()
             .flatten()
@@ -742,6 +749,8 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.carry_kg = p.carrying.kg;
         args.carry_water_l = p.carrying.water_l;
         args.household_food_days = food_days as f32;
+        args.household_ready_days = ready_days as f32;
+        args.skills = Some(skills);
         args.household_water_days = water_days as f32;
         args.household_fuel_days = fuel_days as f32;
         let notes: Vec<_> = family_notes(sim, p)

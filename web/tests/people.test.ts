@@ -208,6 +208,10 @@ describe("people payloads", () => {
     W.StoreLine.createStoreLine(b, 3, 14.5);
     W.StoreLine.createStoreLine(b, 1, 812.25);
     const stores = b.endVector();
+    W.PersonInfo.startSkillsVector(b, 2);
+    W.SkillLine.createSkillLine(b, 4, 0.25);
+    W.SkillLine.createSkillLine(b, 0, 0.75);
+    const skills = b.endVector();
     W.PersonInfo.startPersonInfo(b);
     W.PersonInfo.addId(b, 12n);
     W.PersonInfo.addName(b, name);
@@ -216,7 +220,9 @@ describe("people payloads", () => {
     W.PersonInfo.addCarryKg(b, 12.5);
     W.PersonInfo.addCarryFoodKcal(b, 7500);
     W.PersonInfo.addHouseholdFuelDays(b, 2.5);
+    W.PersonInfo.addHouseholdReadyDays(b, 1.5);
     W.PersonInfo.addStores(b, stores);
+    W.PersonInfo.addSkills(b, skills);
     const body = W.PersonInfo.endPersonInfo(b);
     b.finish(W.Response.createResponse(b, W.ResponseBody.PersonInfo, body));
     const r = M.decodeResponse(b.asUint8Array());
@@ -227,6 +233,11 @@ describe("people payloads", () => {
     ]);
     expect([r.person.carryGood, r.person.carryKg, r.person.carryFoodKcal]).toEqual([2, 12.5, 7500]);
     expect(r.person.householdFuelDays).toBe(2.5);
+    expect(r.person.householdReadyDays).toBe(1.5);
+    expect(r.person.skills).toEqual([
+      { skill: 0, level: 0.75 },
+      { skill: 4, level: 0.25 },
+    ]);
 
     // Someone carrying nothing has no good: -1, not the first good.
     const e = new flatbuffers.Builder(64);
@@ -236,7 +247,11 @@ describe("people payloads", () => {
     e.finish(W.Response.createResponse(e, W.ResponseBody.PersonInfo, empty));
     const nobody = M.decodeResponse(e.asUint8Array());
     if (nobody.kind !== "person") throw new Error(nobody.kind);
-    expect([nobody.person.carryGood, nobody.person.stores]).toEqual([-1, []]);
+    expect([nobody.person.carryGood, nobody.person.stores, nobody.person.skills]).toEqual([
+      -1,
+      [],
+      [],
+    ]);
     expect([nobody.person.partner, nobody.person.family]).toEqual([0, []]);
   });
 
@@ -265,14 +280,28 @@ describe("people payloads", () => {
     const id = w.createString("core:good/meat");
     const goodName = w.createString("Meat");
     const purpose = w.createString("food");
-    const good = W.GoodInfo.createGoodInfo(w, id, goodName, purpose, 1500);
-    const goods = W.Welcome.createGoodsVector(w, [good]);
+    const eaten = w.createString("cooked");
+    const good = W.GoodInfo.createGoodInfo(w, id, goodName, purpose, 1500, eaten, 0);
+    const sickleId = w.createString("core:good/sickle");
+    const sickleName = w.createString("Sickle");
+    const tool = w.createString("tool");
+    const never = w.createString("never");
+    const sickle = W.GoodInfo.createGoodInfo(w, sickleId, sickleName, tool, 0, never, 100);
+    const goods = W.Welcome.createGoodsVector(w, [good, sickle]);
+    const skillId = w.createString("core:skill/milling");
+    const skillName = w.createString("Milling");
+    const skill = W.SkillInfo.createSkillInfo(w, skillId, skillName);
+    const skills = W.Welcome.createSkillsVector(w, [skill]);
     W.Welcome.startWelcome(w);
     W.Welcome.addGoods(w, goods);
+    W.Welcome.addSkills(w, skills);
     w.finish(W.Welcome.endWelcome(w));
-    expect(M.decodeWelcome(w.asUint8Array()).goods).toEqual([
-      { id: "core:good/meat", name: "Meat", purpose: "food", kcalPerKg: 1500 },
+    const welcome = M.decodeWelcome(w.asUint8Array());
+    expect(welcome.goods).toEqual([
+      { id: "core:good/meat", name: "Meat", purpose: "food", kcalPerKg: 1500, eaten: "cooked", toolLifeH: 0 },
+      { id: "core:good/sickle", name: "Sickle", purpose: "tool", kcalPerKg: 0, eaten: "never", toolLifeH: 100 },
     ]);
+    expect(welcome.skills).toEqual([{ id: "core:skill/milling", name: "Milling" }]);
   });
 
   it("decode a chronicle with links", () => {

@@ -1209,6 +1209,133 @@ impl<'a> Point {
 
 }
 
+// struct SkillLevel, aligned to 4
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct SkillLevel(pub [u8; 8]);
+impl Default for SkillLevel { 
+  fn default() -> Self { 
+    Self([0; 8])
+  }
+}
+impl ::core::fmt::Debug for SkillLevel {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("SkillLevel")
+      .field("skill", &self.skill())
+      .field("level", &self.level())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for SkillLevel {}
+impl<'a> ::flatbuffers::Follow<'a> for SkillLevel {
+  type Inner = &'a SkillLevel;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a SkillLevel>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a SkillLevel {
+  type Inner = &'a SkillLevel;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<SkillLevel>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for SkillLevel {
+    type Output = SkillLevel;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const SkillLevel as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(4)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for SkillLevel {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> SkillLevel {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    skill: u16,
+    level: f32,
+  ) -> Self {
+    let mut s = Self([0; 8]);
+    s.set_skill(skill);
+    s.set_level(level);
+    s
+  }
+
+  pub fn skill(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_skill(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn level(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_level(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct KnownPatch, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -4933,6 +5060,7 @@ impl<'a> Person<'a> {
   pub const VT_LOSS: ::flatbuffers::VOffsetT = 62;
   pub const VT_FECUNDITY: ::flatbuffers::VOffsetT = 64;
   pub const VT_NURSING: ::flatbuffers::VOffsetT = 66;
+  pub const VT_SKILLS: ::flatbuffers::VOffsetT = 68;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4957,6 +5085,7 @@ impl<'a> Person<'a> {
     builder.add_mother(args.mother);
     builder.add_born(args.born);
     builder.add_id(args.id);
+    if let Some(x) = args.skills { builder.add_skills(x); }
     builder.add_fecundity(args.fecundity);
     builder.add_carry_kg(args.carry_kg);
     builder.add_carry_good(args.carry_good);
@@ -5204,6 +5333,13 @@ impl<'a> Person<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(Person::VT_NURSING, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn skills(&self) -> Option<::flatbuffers::Vector<'a, SkillLevel>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, SkillLevel>>>(Person::VT_SKILLS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Person<'_> {
@@ -5244,6 +5380,7 @@ impl ::flatbuffers::Verifiable for Person<'_> {
      .visit_field::<bool>("loss", Self::VT_LOSS, false)?
      .visit_field::<f32>("fecundity", Self::VT_FECUNDITY, false)?
      .visit_field::<u64>("nursing", Self::VT_NURSING, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, SkillLevel>>>("skills", Self::VT_SKILLS, false)?
      .finish();
     Ok(())
   }
@@ -5281,6 +5418,7 @@ pub struct PersonArgs<'a> {
     pub loss: bool,
     pub fecundity: f32,
     pub nursing: u64,
+    pub skills: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, SkillLevel>>>,
 }
 impl<'a> Default for PersonArgs<'a> {
   #[inline]
@@ -5318,6 +5456,7 @@ impl<'a> Default for PersonArgs<'a> {
       loss: false,
       fecundity: 1.0,
       nursing: 0,
+      skills: None,
     }
   }
 }
@@ -5456,6 +5595,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(Person::VT_NURSING, nursing, 0);
   }
   #[inline]
+  pub fn add_skills(&mut self, skills: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , SkillLevel>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Person::VT_SKILLS, skills);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonBuilder {
@@ -5505,6 +5648,7 @@ impl ::core::fmt::Debug for Person<'_> {
       ds.field("loss", &self.loss());
       ds.field("fecundity", &self.fecundity());
       ds.field("nursing", &self.nursing());
+      ds.field("skills", &self.skills());
       ds.finish()
   }
 }
@@ -5528,6 +5672,7 @@ impl<'a> People<'a> {
   pub const VT_PEOPLE: ::flatbuffers::VOffsetT = 6;
   pub const VT_NEXT_TRIP: ::flatbuffers::VOffsetT = 8;
   pub const VT_GOODS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SKILLS: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -5540,6 +5685,7 @@ impl<'a> People<'a> {
   ) -> ::flatbuffers::WIPOffset<People<'bldr>> {
     let mut builder = PeopleBuilder::new(_fbb);
     builder.add_next_trip(args.next_trip);
+    if let Some(x) = args.skills { builder.add_skills(x); }
     if let Some(x) = args.goods { builder.add_goods(x); }
     if let Some(x) = args.people { builder.add_people(x); }
     if let Some(x) = args.activities { builder.add_activities(x); }
@@ -5575,6 +5721,13 @@ impl<'a> People<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(People::VT_GOODS, None)}
   }
+  #[inline]
+  pub fn skills(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(People::VT_SKILLS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for People<'_> {
@@ -5587,6 +5740,7 @@ impl ::flatbuffers::Verifiable for People<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Person>>>>("people", Self::VT_PEOPLE, false)?
      .visit_field::<u64>("next_trip", Self::VT_NEXT_TRIP, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("goods", Self::VT_GOODS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("skills", Self::VT_SKILLS, false)?
      .finish();
     Ok(())
   }
@@ -5596,6 +5750,7 @@ pub struct PeopleArgs<'a> {
     pub people: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Person<'a>>>>>,
     pub next_trip: u64,
     pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub skills: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for PeopleArgs<'a> {
   #[inline]
@@ -5605,6 +5760,7 @@ impl<'a> Default for PeopleArgs<'a> {
       people: None,
       next_trip: 0,
       goods: None,
+      skills: None,
     }
   }
 }
@@ -5631,6 +5787,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PeopleBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(People::VT_GOODS, goods);
   }
   #[inline]
+  pub fn add_skills(&mut self, skills: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(People::VT_SKILLS, skills);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PeopleBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PeopleBuilder {
@@ -5652,6 +5812,7 @@ impl ::core::fmt::Debug for People<'_> {
       ds.field("people", &self.people());
       ds.field("next_trip", &self.next_trip());
       ds.field("goods", &self.goods());
+      ds.field("skills", &self.skills());
       ds.finish()
   }
 }

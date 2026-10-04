@@ -1,0 +1,17 @@
+# Grinding grain at the household's quern (research 08-03 §2.1). Saddle-quern grinding is hard
+# work: the physical activity ratio is a tuning value. It can be done by firelight.
+kind = "activity"
+id = "core:activity/grind_grain"
+name = "Grind grain"
+doing = "grinding grain"
+behavior = "make"
+recipe = "core:recipe/grind_grain"
+par = 3.5
+min_age_years = 10.0
+max_age_years = 75.0
+min_minutes = 20
+max_minutes = 180
+daylight_only = false
+max_walk_minutes = 0
+tools = []
+rate = 1.0

@@ -1,0 +1,18 @@
+# A wooden hoe or digging stick for breaking, preparing and weeding ground (research 07-04 T02;
+# a wooden tool is not necessarily a worse one: 11-12 §2.4). Its unit is about 150 hours of use, a
+# season or two (a tuning value). Everyone old enough to prepare the fields wants one.
+kind = "good"
+id = "core:good/hoe"
+name = "Hoe"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 150.0
+per_worker = 1.0
+fixed = false

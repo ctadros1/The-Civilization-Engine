@@ -9,6 +9,7 @@ import { CropInfo } from '../../tce/wire/crop-info.js';
 import { GoodInfo } from '../../tce/wire/good-info.js';
 import { PresetInfo } from '../../tce/wire/preset-info.js';
 import { ReasonInfo } from '../../tce/wire/reason-info.js';
+import { SkillInfo } from '../../tce/wire/skill-info.js';
 
 
 export class Welcome {
@@ -160,8 +161,18 @@ cropsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+skills(index: number, obj?:SkillInfo):SkillInfo|null {
+  const offset = this.bb!.__offset(this.bb_pos, 36);
+  return offset ? (obj || new SkillInfo()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+skillsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 36);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startWelcome(builder:flatbuffers.Builder) {
-  builder.startObject(16);
+  builder.startObject(17);
 }
 
 static addHost(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset) {
@@ -322,12 +333,28 @@ static startCropsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addSkills(builder:flatbuffers.Builder, skillsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(16, skillsOffset, 0);
+}
+
+static createSkillsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startSkillsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endWelcome(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset, versionOffset:flatbuffers.Offset, presetsOffset:flatbuffers.Offset, mapSizesOffset:flatbuffers.Offset, cellSizeM:number, contentFingerprintOffset:flatbuffers.Offset, defaultMapSize:number, speed1x:number, speedMultipliersOffset:flatbuffers.Offset, activitiesOffset:flatbuffers.Offset, reasonsOffset:flatbuffers.Offset, bandSizeMin:number, bandSizeMax:number, bandSizeDefault:number, goodsOffset:flatbuffers.Offset, cropsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset, versionOffset:flatbuffers.Offset, presetsOffset:flatbuffers.Offset, mapSizesOffset:flatbuffers.Offset, cellSizeM:number, contentFingerprintOffset:flatbuffers.Offset, defaultMapSize:number, speed1x:number, speedMultipliersOffset:flatbuffers.Offset, activitiesOffset:flatbuffers.Offset, reasonsOffset:flatbuffers.Offset, bandSizeMin:number, bandSizeMax:number, bandSizeDefault:number, goodsOffset:flatbuffers.Offset, cropsOffset:flatbuffers.Offset, skillsOffset:flatbuffers.Offset):flatbuffers.Offset {
   Welcome.startWelcome(builder);
   Welcome.addHost(builder, hostOffset);
   Welcome.addVersion(builder, versionOffset);
@@ -345,6 +372,7 @@ static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset,
   Welcome.addBandSizeDefault(builder, bandSizeDefault);
   Welcome.addGoods(builder, goodsOffset);
   Welcome.addCrops(builder, cropsOffset);
+  Welcome.addSkills(builder, skillsOffset);
   return Welcome.endWelcome(builder);
 }
 }

@@ -13,3 +13,5 @@ min_minutes = 60
 max_minutes = 300
 daylight_only = true
 max_walk_minutes = 30
+tools = ["core:good/hoe"]
+rate = 1.0

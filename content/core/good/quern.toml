@@ -1,0 +1,18 @@
+# A saddle quern: a slab and a hand stone (research 07-04 P01, 08-03 §2.1). Its unit is about
+# 6,000 hours of grinding, ten years and more of a household's use (a tuning value). One grinder
+# works one quern (08-03 §2.3), and a household wants one for every two members old enough to grind.
+kind = "good"
+id = "core:good/quern"
+name = "Quern"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 6000.0
+per_worker = 0.5
+fixed = false

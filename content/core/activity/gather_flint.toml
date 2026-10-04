@@ -1,0 +1,17 @@
+# Looking for flint and chert nodules where they weather out or wash into gravels (research 03-05
+# §1.2; tuning starting points). Only done while the household needs flint.
+kind = "activity"
+id = "core:activity/gather_flint"
+name = "Gather flint"
+doing = "looking for flint"
+behavior = "gather"
+resource = "toolstone"
+par = 3.0
+min_age_years = 12.0
+max_age_years = 70.0
+min_minutes = 30
+max_minutes = 180
+daylight_only = true
+max_walk_minutes = 90
+tools = []
+rate = 1.0

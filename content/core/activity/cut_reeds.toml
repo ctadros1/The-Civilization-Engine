@@ -13,3 +13,5 @@ min_minutes = 30
 max_minutes = 60
 daylight_only = true
 max_walk_minutes = 45
+tools = ["core:good/sickle"]
+rate = 1.0

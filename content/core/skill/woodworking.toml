@@ -1,0 +1,9 @@
+# Shaping wood into hafts, hoes and digging sticks (research 07-07 §5.3). Taken as 800 hours to 80 %
+# of mastery (06-08 §5.2). Speeds, quality and levels are tuning values.
+kind = "skill"
+id = "core:skill/woodworking"
+name = "Woodworking"
+t80_h = 800.0
+speed = [[0.0, 0.6], [0.5, 1.0], [1.0, 1.3]]
+quality = [[0.0, 0.5], [0.5, 1.0], [1.0, 1.5]]
+founder_level = [0.2, 0.7]

@@ -6,6 +6,7 @@ use std::path::Path;
 use std::sync::OnceLock;
 use std::sync::atomic::AtomicBool;
 
+use civ_agents::person::{Flow, Flows};
 use civ_agents::{Behavior, ChronicleKind, Origin, Repro, Sex, population};
 use civ_content::ContentRegistry;
 use civ_core::PermanentId;
@@ -405,6 +406,38 @@ fn a_band_sows_reaps_and_threshes_its_first_harvest() {
         })
         .sum();
     assert!(grain > 0.0, "the threshed grain is in store");
+}
+
+#[test]
+fn every_good_held_is_what_came_in_less_what_went_out() {
+    // ADR-0006 §3: from the founding on, what households hold is what was brought, gathered,
+    // harvested and made, less what was eaten, spoiled, burned, worn out, built, sown and used.
+    let sim = first_season();
+    let pop = sim.people();
+    let goods = &sim.rules().catalog.goods;
+    let flows = pop.flows();
+    let gaps = population::unaccounted(
+        goods.len(),
+        (&[], &Flows::default()),
+        (&pop.goods_held(), &flows),
+    );
+    let named: Vec<String> = gaps
+        .iter()
+        .map(|&(g, kg)| format!("{} {kg:+.6}", goods[g].name))
+        .collect();
+    assert!(named.is_empty(), "unaccounted for: {named:?}");
+    // The season moved goods every way that matters.
+    let good = |id: &str| goods.iter().position(|g| g.id == id).expect(id);
+    for (flow, id) in [
+        (Flow::Brought, "core:good/provisions"),
+        (Flow::Eaten, "core:good/provisions"),
+        (Flow::Got, "core:good/grain"),
+        (Flow::Sown, "core:good/seed_grain"),
+        (Flow::Burned, "core:good/firewood"),
+        (Flow::Worn, "core:good/sickle"),
+    ] {
+        assert!(flows.get(flow, good(id)) > 0.0, "{flow:?} {id}");
+    }
 }
 
 /// One world run from 1 March to 11 November, ten days past the day households want to be under

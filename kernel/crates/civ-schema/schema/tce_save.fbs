@@ -245,6 +245,14 @@ table Person {
   loss: bool (id: 29);
   fecundity: float = 1.0 (id: 30);
   nursing: ulong (id: 31);
+  // Schema 9: skill levels, 0-1, by index into People.skills; skills never practised are absent.
+  skills: [SkillLevel] (id: 32);
+}
+
+// Schema 9: a person's level in one skill.
+struct SkillLevel {
+  skill: ushort;
+  level: float;
 }
 
 
@@ -256,6 +264,8 @@ table People {
   next_trip: ulong (id: 2);
   // Schema 3: good content ids at save time; Person.carry_good indexes this list.
   goods: [string] (id: 3);
+  // Schema 9: skill content ids at save time; SkillLevel.skill indexes this list.
+  skills: [string] (id: 4);
 }
 
 // Section "houses": households.

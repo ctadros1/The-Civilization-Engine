@@ -1,0 +1,14 @@
+# Pounding grain in a wooden mortar for porridge, when there is no quern (research 07-04 §6.5).
+# The research gives no rate: a tuning value, slower per kilogram than a quern and the bread it
+# makes together, with nothing to make but the mortar.
+kind = "recipe"
+id = "core:recipe/pound_grain"
+name = "Pound grain"
+skill = "core:skill/milling"
+unit_h = 1.0
+session_h = 0.0
+max_units = 0.0
+tools = []
+inputs = [{ good = "core:good/grain", amount = 1.0 }]
+outputs = [{ good = "core:good/groats", amount = 0.98 }]
+session_inputs = []

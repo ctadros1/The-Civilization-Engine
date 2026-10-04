@@ -22,6 +22,12 @@ pub(crate) struct ActivityFile {
     pub resource: Option<String>,
     /// For farming: the field task (`prepare`, `sow`, `tend`, `reap`, `thresh`).
     pub task: Option<String>,
+    /// For making: the recipe id.
+    pub recipe: Option<String>,
+    /// Tools the work needs and wears: good ids (a recipe's own tools are on the recipe).
+    pub tools: Vec<String>,
+    /// Work done in an hour against the task's authored rates (1 with the tools they assume).
+    pub rate: f64,
     pub par: f64,
     pub min_age_years: f64,
     pub max_age_years: f64,
@@ -40,8 +46,14 @@ fn behavior_names() -> String {
 }
 
 impl ActivityFile {
-    /// The compiled activity, with its resource resolved to an index in the land profile.
-    pub fn def(&self, resource: Option<usize>) -> Option<ActivityDef> {
+    /// The compiled activity, with its resource resolved to an index in the land profile, its
+    /// recipe to an index in the recipes and its tools to indexes in the goods.
+    pub fn def(
+        &self,
+        resource: Option<usize>,
+        recipe: Option<usize>,
+        tools: Vec<usize>,
+    ) -> Option<ActivityDef> {
         Some(ActivityDef {
             id: self.id.clone(),
             name: self.name.clone(),
@@ -49,6 +61,9 @@ impl ActivityFile {
             behavior: Behavior::from_name(&self.behavior)?,
             resource,
             task: self.task.as_deref().and_then(FieldTask::from_name),
+            recipe,
+            tools,
+            rate: self.rate,
             par: self.par,
             min_age_years: self.min_age_years,
             max_age_years: self.max_age_years,
@@ -92,6 +107,25 @@ impl ActivityFile {
                 b.name()
             )),
             _ => {}
+        }
+        match (Behavior::from_name(&self.behavior), &self.recipe) {
+            (Some(Behavior::Make), None) => {
+                p.push("a `make` activity names the `recipe` it works".to_owned());
+            }
+            (Some(b), Some(_)) if b != Behavior::Make => p.push(format!(
+                "only `make` activities take a `recipe` (this one is `{}`)",
+                b.name()
+            )),
+            _ => {}
+        }
+        if Behavior::from_name(&self.behavior) == Some(Behavior::Make) && !self.tools.is_empty() {
+            p.push("a `make` activity's tools are its recipe's: `tools` must be empty".to_owned());
+        }
+        if !(self.rate.is_finite() && self.rate > 0.0 && self.rate <= 4.0) {
+            p.push(format!(
+                "`rate` must be above 0 and at most 4 (got {})",
+                self.rate
+            ));
         }
         if !(self.par.is_finite() && (1.0..=10.0).contains(&self.par)) {
             p.push(format!("`par` must be between 1 and 10 (got {})", self.par));

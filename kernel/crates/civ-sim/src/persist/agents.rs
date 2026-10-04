@@ -63,8 +63,8 @@ use civ_world::WorldMap;
 use commons_persist::{SectionData, SectionTag, SnapshotReader};
 
 use super::{
-    LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, finish, section,
-    single_chunk, unreadable,
+    LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8, finish,
+    section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -105,13 +105,14 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         .collect();
     let goods: Vec<&str> = rules.catalog.goods.iter().map(|g| g.id.as_str()).collect();
     let resources: Vec<&str> = rules.land.resources.iter().map(|r| r.id.as_str()).collect();
+    let skills: Vec<&str> = rules.catalog.skills.iter().map(|k| k.id.as_str()).collect();
     vec![
         section(SECTION_LAND, 0, encode_land(&sim.land, rules)),
         section(SECTION_SETTLE, 0, encode_settlements(&sim.land.settlements)),
         section(
             SECTION_PEOPLE,
             0,
-            encode_people(&sim.people, &activities, &goods),
+            encode_people(&sim.people, &activities, &goods, &skills),
         ),
         section(
             SECTION_HOUSES,
@@ -162,6 +163,8 @@ enum Schema {
     V7,
     /// Families the observer sends (a chronicle kind older builds do not know).
     V8,
+    /// Tools and skills (ADR-0006).
+    V9,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -183,7 +186,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V5 => Schema::V5,
         SCHEMA_V6 => Schema::V6,
         SCHEMA_V7 => Schema::V7,
-        SAVE_SCHEMA_VERSION => Schema::V8,
+        SCHEMA_V8 => Schema::V8,
+        SAVE_SCHEMA_VERSION => Schema::V9,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -213,6 +217,10 @@ pub(super) fn decode<R: Read + Seek>(
     people.unions = unions;
     if schema < Schema::V6 {
         people.infer_couples(&rules.people, seed, now);
+    }
+    // Before schema 9 nobody had tools or skills: everyone gets what a founder brings.
+    if schema < Schema::V9 {
+        people.give_founders_kit(&rules.catalog, &rules.people, seed, now);
     }
     let bytes = single_chunk(reader, SECTION_RECEIPTS)?;
     decode_receipts(&bytes, rules, &mut people)?;
@@ -572,10 +580,16 @@ fn sorted_people(pop: &Population) -> Vec<&Person> {
     people
 }
 
-fn encode_people(pop: &Population, activities: &[&str], goods: &[&str]) -> Vec<u8> {
+fn encode_people(
+    pop: &Population,
+    activities: &[&str],
+    goods: &[&str],
+    skills: &[&str],
+) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let dictionary = strings(&mut fbb, activities);
     let good_dictionary = strings(&mut fbb, goods);
+    let skill_dictionary = strings(&mut fbb, skills);
     let list: Vec<_> = sorted_people(pop)
         .into_iter()
         .map(|p| encode_person(&mut fbb, p))
@@ -588,6 +602,7 @@ fn encode_people(pop: &Population, activities: &[&str], goods: &[&str]) -> Vec<u
             people: Some(list),
             next_trip: pop.next_trip,
             goods: Some(good_dictionary),
+            skills: Some(skill_dictionary),
         },
     );
     finish(fbb, root)
@@ -657,6 +672,12 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
             },
         )
     });
+    let skills: Vec<save::SkillLevel> = p
+        .skills
+        .iter()
+        .map(|&(k, level)| save::SkillLevel::new(k, level))
+        .collect();
+    let skills = fbb.create_vector(&skills);
     let (repro, conceived, repro_until, pregnancy_father, loss) = match p.repro {
         Repro::Open => (save::Repro::Open, 0, 0, 0, false),
         Repro::Pregnant {
@@ -708,6 +729,7 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
             loss,
             fecundity: p.fecundity,
             nursing: raw(p.nursing),
+            skills: Some(skills),
         },
     )
 }
@@ -719,6 +741,11 @@ fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedP
         flatbuffers::root::<save::People>(bytes).map_err(|e| unreadable(SECTION_PEOPLE, &e))?;
     let map = activity_map(&read_strings(root.activities()), rules);
     let goods = good_map(&read_strings(root.goods()), rules);
+    // Skills by saved index, in the loaded content; a skill it no longer has is forgotten.
+    let skill_ids: Vec<Option<usize>> = read_strings(root.skills())
+        .iter()
+        .map(|id| rules.catalog.skill_index(id))
+        .collect();
     let mut people = Vec::new();
     let mut redecide = Vec::new();
     for p in root.people().iter().flatten() {
@@ -844,6 +871,26 @@ fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedP
             },
             fecundity: p.fecundity(),
             nursing: id(p.nursing()),
+            skills: {
+                let mut skills: Vec<(u16, f32)> = Vec::new();
+                for k in p.skills().iter().flatten() {
+                    let known = skill_ids.get(usize::from(k.skill())).ok_or_else(|| {
+                        LoadError::Malformed(format!(
+                            "person {person_id} has skill {} of {}",
+                            k.skill(),
+                            skill_ids.len()
+                        ))
+                    })?;
+                    if let Some(i) = known
+                        && k.level().is_finite()
+                    {
+                        skills.push((*i as u16, k.level().clamp(0.0, 1.0)));
+                    }
+                }
+                skills.sort_by_key(|(k, _)| *k);
+                skills.dedup_by_key(|(k, _)| *k);
+                skills
+            },
         });
     }
     Ok((people, root.next_trip(), redecide))
@@ -863,7 +910,13 @@ fn carried(
             Some((g, kg)) if kg > 0.0 => (Some(g), kg as f32),
             _ => (None, 0.0),
         },
-        Schema::V3 | Schema::V4 | Schema::V5 | Schema::V6 | Schema::V7 | Schema::V8 => {
+        Schema::V3
+        | Schema::V4
+        | Schema::V5
+        | Schema::V6
+        | Schema::V7
+        | Schema::V8
+        | Schema::V9 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -968,7 +1021,13 @@ fn decode_households(
                 }
                 (now, Vec::new())
             }
-            Schema::V3 | Schema::V4 | Schema::V5 | Schema::V6 | Schema::V7 | Schema::V8 => {
+            Schema::V3
+            | Schema::V4
+            | Schema::V5
+            | Schema::V6
+            | Schema::V7
+            | Schema::V8
+            | Schema::V9 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -1019,6 +1078,8 @@ fn decode_households(
             known,
             // Derived from the buildings once the land is read.
             sheltered: false,
+            // Counters start again on load.
+            flows: Default::default(),
         });
     }
     Ok(out)

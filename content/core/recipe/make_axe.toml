@@ -1,0 +1,13 @@
+# Pecking and grinding a stone axe head, 5-40 hours (research 07-05 §2.2), and hafting it: 15
+# hours with 1.5 kg of stone and a kilogram of wood (tuning values).
+kind = "recipe"
+id = "core:recipe/make_axe"
+name = "Make an axe"
+skill = "core:skill/stoneworking"
+unit_h = 15.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [{ good = "core:good/stone", amount = 1.5 }, { good = "core:good/timber", amount = 1.0 }]
+outputs = [{ good = "core:good/axe", amount = 1.0 }]
+session_inputs = []

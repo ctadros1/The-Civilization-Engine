@@ -1,0 +1,16 @@
+# Knapping blades and hafting a sickle: fine work, done in daylight.
+kind = "activity"
+id = "core:activity/make_sickle"
+name = "Make a sickle"
+doing = "making a sickle"
+behavior = "make"
+recipe = "core:recipe/make_sickle"
+par = 1.8
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 30
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 0
+tools = []
+rate = 1.0

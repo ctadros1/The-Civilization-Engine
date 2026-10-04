@@ -69,6 +69,9 @@ pub const SCHEMA_V6: u32 = 6;
 /// The schema version of M1 slice F saves, which have worn ground and no families sent by the
 /// observer (see [`agents`]).
 pub const SCHEMA_V7: u32 = 7;
+/// The schema version of M1 slice G saves, with families the observer sent and no tools or
+/// skills (see [`agents`]).
+pub const SCHEMA_V8: u32 = 8;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

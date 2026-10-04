@@ -42,6 +42,12 @@ pub enum Reason {
     Deadline = 14,
     /// A roof over the household's sleepers and stores.
     Shelter = 15,
+    /// The tools the household's work needs.
+    Tools = 16,
+    /// Food ready to eat, or a step nearer it, running short.
+    ReadyFood = 17,
+    /// The household's stores will not last until its next harvest is in.
+    LeanSeason = 18,
     /// Excluded: there is no food at home.
     NoFood = 100,
     /// Excluded: too young.
@@ -74,11 +80,18 @@ pub enum Reason {
     Built = 114,
     /// Excluded: nothing being built needs it.
     NotNeeded = 115,
+    /// Excluded: the household has no free tool for the work.
+    NoTool = 116,
+    /// Excluded: what the recipe takes is not at home.
+    NoInputs = 117,
+    /// Excluded: a better way to do the same work is at hand (a tool for what is otherwise done
+    /// by hand).
+    BetterWay = 118,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 31] = [
+    pub const ALL: [Reason; 37] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -94,6 +107,9 @@ impl Reason {
         Reason::Harvest,
         Reason::Deadline,
         Reason::Shelter,
+        Reason::Tools,
+        Reason::ReadyFood,
+        Reason::LeanSeason,
         Reason::NoFood,
         Reason::TooYoung,
         Reason::TooOld,
@@ -110,6 +126,9 @@ impl Reason {
         Reason::NoMaterials,
         Reason::Built,
         Reason::NotNeeded,
+        Reason::NoTool,
+        Reason::NoInputs,
+        Reason::BetterWay,
     ];
 
     /// The reason with this code.
@@ -135,6 +154,9 @@ impl Reason {
             Reason::Harvest => "food for the year ahead",
             Reason::Deadline => "the season will not wait",
             Reason::Shelter => "a roof before winter",
+            Reason::Tools => "tools for the work",
+            Reason::ReadyFood => "food to make ready",
+            Reason::LeanSeason => "stores will not last to the harvest",
             Reason::NoFood => "no food at home",
             Reason::TooYoung => "too young",
             Reason::TooOld => "too old",
@@ -151,6 +173,9 @@ impl Reason {
             Reason::NoMaterials => "nothing to build with at home",
             Reason::Built => "their home is built",
             Reason::NotNeeded => "nothing being built needs it",
+            Reason::NoTool => "no tool for it at home",
+            Reason::NoInputs => "nothing to make it from at home",
+            Reason::BetterWay => "a better way to do it is at hand",
         }
     }
 }

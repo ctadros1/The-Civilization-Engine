@@ -396,9 +396,10 @@ mod tests {
             kcal_per_kg: 0.0,
             half_life_days: 0.0,
             sheltered_half_life_days: 0.0,
-            cooked: false,
+            eaten: crate::params::Eaten::Never,
             shared: false,
-            reserve: false,
+            reserve_for: None,
+            tool: None,
         };
         vec![good("core:good/timber"), good("core:good/thatch")]
     }

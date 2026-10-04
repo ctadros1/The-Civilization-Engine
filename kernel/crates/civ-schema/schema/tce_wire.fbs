@@ -57,10 +57,29 @@ table GoodInfo {
   id: string (id: 0);
   // "Meat".
   name: string (id: 1);
-  // "food" or "fuel".
+  // "food", "fuel", "material" or "tool" (M3a).
   purpose: string (id: 2);
   // Food energy, kcal per kilogram (0 for fuel).
   kcal_per_kg: float (id: 3);
+  // M3a: how it is eaten: "raw", "cooked" or "never" (a recipe must make it food first).
+  eaten: string (id: 4);
+  // M3a: for a tool, the hours of use a standard tool lasts (stores count tools in standard
+  // tools); 0 for other goods, which stores count in kilograms.
+  tool_life_h: float (id: 5);
+}
+
+// A skill people get better at with practice (M3a). PersonInfo.skills refers to skills by their
+// index in Welcome.skills.
+table SkillInfo {
+  id: string (id: 0);
+  // "Milling".
+  name: string (id: 1);
+}
+
+// A person's level in a skill, 0-1 (M3a).
+struct SkillLine {
+  skill: ushort;
+  level: float;
 }
 
 // A crop people grow (M1 slice C). Fields refer to crops by their index in Welcome.crops.
@@ -103,6 +122,8 @@ table Welcome {
   goods: [GoodInfo] (id: 14);
   // The crops catalogue (M1 slice C).
   crops: [CropInfo] (id: 15);
+  // The skills catalogue (M3a).
+  skills: [SkillInfo] (id: 16);
 }
 
 // ---- Snapshot: replaceable host and world state --------------------------------------------
@@ -539,6 +560,10 @@ table PersonInfo {
   // When they left the valley alive (0 = they did not; `alive` is then false and `died_minute`
   // 0).
   left_minute: long (id: 34);
+  // M3a: their skills, and the household's food ready to eat in days (`household_food_days`
+  // counts all its food, grain and flour included).
+  skills: [SkillLine] (id: 35);
+  household_ready_days: float (id: 36);
 }
 
 // A field people work (M1 slice C).

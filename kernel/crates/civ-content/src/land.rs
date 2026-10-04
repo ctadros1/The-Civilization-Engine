@@ -63,9 +63,10 @@ pub(crate) struct Resource {
     pub range_patches: u32,
     pub max_rate_per_hour: f64,
     pub half_rate_stock_per_ha: f64,
-    /// Exactly one of `plant` and `animal`.
+    /// Exactly one of `plant`, `animal` and `deposit`.
     pub plant: Option<Plant>,
     pub animal: Option<Animal>,
+    pub deposit: Option<Deposit>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -84,18 +85,27 @@ pub(crate) struct Animal {
     pub spread_per_month: f64,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Deposit {
+    pub stock_per_ha: Vec<f64>,
+}
+
 impl Resource {
     fn growth(&self) -> Option<Growth> {
-        match (&self.plant, &self.animal) {
-            (Some(p), None) => Some(Growth::Plant {
+        match (&self.plant, &self.animal, &self.deposit) {
+            (Some(p), None, None) => Some(Growth::Plant {
                 production_per_ha_yr: p.production_per_ha_yr.clone(),
                 loss_per_day: p.loss_per_day,
                 season: p.season,
             }),
-            (None, Some(a)) => Some(Growth::Animal {
+            (None, Some(a), None) => Some(Growth::Animal {
                 capacity_per_ha: a.capacity_per_ha.clone(),
                 growth_per_year: a.growth_per_year,
                 spread_per_month: a.spread_per_month,
+            }),
+            (None, None, Some(d)) => Some(Growth::Deposit {
+                stock_per_ha: d.stock_per_ha.clone(),
             }),
             _ => None,
         }
@@ -255,8 +265,9 @@ impl LandFile {
                     p.push(format!("resource `{}` {what} must be zero or more", r.id));
                 }
             };
-            match (&r.plant, &r.animal) {
-                (Some(g), None) => {
+            match (&r.plant, &r.animal, &r.deposit) {
+                (None, None, Some(d)) => per_habitat("stock", &d.stock_per_ha, &mut p),
+                (Some(g), None, None) => {
                     per_habitat("production", &g.production_per_ha_yr, &mut p);
                     if !(g.loss_per_day.is_finite() && (0.0..1.0).contains(&g.loss_per_day)) {
                         p.push(format!(
@@ -271,7 +282,7 @@ impl LandFile {
                         ));
                     }
                 }
-                (None, Some(g)) => {
+                (None, Some(g), None) => {
                     per_habitat("capacity", &g.capacity_per_ha, &mut p);
                     if !(g.growth_per_year.is_finite() && (0.0..=5.0).contains(&g.growth_per_year))
                     {
@@ -290,7 +301,8 @@ impl LandFile {
                     }
                 }
                 _ => p.push(format!(
-                    "resource `{}` needs exactly one of `[resource.plant]` and `[resource.animal]`",
+                    "resource `{}` needs exactly one of `[resource.plant]`, `[resource.animal]` \
+                     and `[resource.deposit]`",
                     r.id
                 )),
             }

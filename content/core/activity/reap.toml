@@ -1,3 +1,4 @@
+# Reaping ripe grain with a flint sickle (research 08-02 §3.1: 30-40 m² an hour).
 kind = "activity"
 id = "core:activity/reap"
 name = "Reap"
@@ -11,3 +12,5 @@ min_minutes = 60
 max_minutes = 360
 daylight_only = true
 max_walk_minutes = 30
+tools = ["core:good/sickle"]
+rate = 1.0

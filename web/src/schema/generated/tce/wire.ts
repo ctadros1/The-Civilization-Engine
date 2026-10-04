@@ -62,6 +62,8 @@ export { ScoredOption } from './wire/scored-option.js';
 export { SetClock } from './wire/set-clock.js';
 export { SettlementBrief } from './wire/settlement-brief.js';
 export { Sex } from './wire/sex.js';
+export { SkillInfo } from './wire/skill-info.js';
+export { SkillLine } from './wire/skill-line.js';
 export { Snapshot } from './wire/snapshot.js';
 export { Span } from './wire/span.js';
 export { SpanKind } from './wire/span-kind.js';

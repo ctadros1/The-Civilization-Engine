@@ -28,11 +28,13 @@ pub enum Behavior {
     Ask,
     /// Work on the household's home: the stage under way, with the materials at hand.
     Build,
+    /// Work a recipe at home: grind grain, bake, make a tool (M3a).
+    Make,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 10] = [
+    pub const ALL: [Behavior; 11] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -43,6 +45,7 @@ impl Behavior {
         Behavior::Farm,
         Behavior::Ask,
         Behavior::Build,
+        Behavior::Make,
     ];
 
     /// The authored name of a behavior.
@@ -58,6 +61,7 @@ impl Behavior {
             Behavior::Farm => "farm",
             Behavior::Ask => "ask",
             Behavior::Build => "build",
+            Behavior::Make => "make",
         }
     }
 
@@ -82,6 +86,14 @@ pub struct ActivityDef {
     pub resource: Option<usize>,
     /// For farming: the field task.
     pub task: Option<FieldTask>,
+    /// For making: the recipe, by index in the catalog's recipes.
+    pub recipe: Option<usize>,
+    /// Tools the work needs and wears, by index in the catalog's goods (a recipe's own tools are
+    /// on the recipe).
+    pub tools: Vec<usize>,
+    /// Work done in an hour, as a share of what the task's authored rates assume (1 with the
+    /// tools they assume; less by hand).
+    pub rate: f64,
     /// Physical activity ratio of the work (energy use as a multiple of basal metabolism).
     pub par: f64,
     /// Youngest age that does it, years.
@@ -101,30 +113,81 @@ pub struct ActivityDef {
 /// What a good is for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum GoodUse {
-    /// Eaten.
+    /// Eaten, as it is or once a recipe has made it ready.
     Food,
     /// Burned for cooking and warmth.
     Fuel,
-    /// Built with.
+    /// Built with, or made into something.
     Material,
+    /// Worked with: counted in standard tools' worth of use (ADR-0006 §1).
+    Tool,
 }
 
 impl GoodUse {
+    /// Every use, in a fixed order.
+    pub const ALL: [GoodUse; 4] = [
+        GoodUse::Food,
+        GoodUse::Fuel,
+        GoodUse::Material,
+        GoodUse::Tool,
+    ];
+
     /// The authored name.
     pub fn name(self) -> &'static str {
         match self {
             GoodUse::Food => "food",
             GoodUse::Fuel => "fuel",
             GoodUse::Material => "material",
+            GoodUse::Tool => "tool",
         }
     }
 
     /// The use with an authored name.
     pub fn from_name(name: &str) -> Option<GoodUse> {
-        [GoodUse::Food, GoodUse::Fuel, GoodUse::Material]
-            .into_iter()
-            .find(|u| u.name() == name)
+        GoodUse::ALL.into_iter().find(|u| u.name() == name)
     }
+}
+
+/// How a good is eaten.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Eaten {
+    /// As it is.
+    Raw,
+    /// Cooked over a fire: only while the household has firewood.
+    Cooked,
+    /// Not at all: a recipe must make it into food first (grain is ground or pounded).
+    Never,
+}
+
+impl Eaten {
+    /// Every way, in a fixed order.
+    pub const ALL: [Eaten; 3] = [Eaten::Raw, Eaten::Cooked, Eaten::Never];
+
+    /// The authored name.
+    pub fn name(self) -> &'static str {
+        match self {
+            Eaten::Raw => "raw",
+            Eaten::Cooked => "cooked",
+            Eaten::Never => "never",
+        }
+    }
+
+    /// The way with an authored name.
+    pub fn from_name(name: &str) -> Option<Eaten> {
+        Eaten::ALL.into_iter().find(|e| e.name() == name)
+    }
+}
+
+/// What a tool good adds to being a good (ADR-0006 §1).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ToolDef {
+    /// Hours of use a standard tool lasts: the good's unit. An hour's use takes `1 / life_h` of
+    /// a unit.
+    pub life_h: f64,
+    /// Tools a household wants for each member old enough for the work that needs one.
+    pub per_worker: f64,
+    /// It stays where it was made (an oven): never carried off.
+    pub fixed: bool,
 }
 
 /// An authored good: something people carry home and keep.
@@ -142,12 +205,84 @@ pub struct GoodDef {
     pub half_life_days: f64,
     /// The same under a roof; 0 means a roof makes no difference.
     pub sheltered_half_life_days: f64,
-    /// It must be cooked over a fire before it is eaten.
-    pub cooked: bool,
+    /// How it is eaten.
+    pub eaten: Eaten,
     /// When brought home it is shared among every household of the settlement.
     pub shared: bool,
-    /// Kept back (seed grain): eaten only when no other food is left.
-    pub reserve: bool,
+    /// Kept back from another good (seed grain from grain), by index in the goods: used in its
+    /// place only in hunger.
+    pub reserve_for: Option<usize>,
+    /// For a tool: its life and how many a household wants.
+    pub tool: Option<ToolDef>,
+}
+
+impl GoodDef {
+    /// It is eaten only cooked over a fire.
+    pub fn cooked(&self) -> bool {
+        self.eaten == Eaten::Cooked
+    }
+
+    /// It can be eaten as it is or cooked, without a recipe first.
+    pub fn edible(&self) -> bool {
+        self.purpose == GoodUse::Food && self.eaten != Eaten::Never && self.kcal_per_kg > 0.0
+    }
+
+    /// It is kept back from another good (seed).
+    pub fn kept_back(&self) -> bool {
+        self.reserve_for.is_some()
+    }
+}
+
+/// A skill: a domain people get better at with practice (ADR-0006 §2).
+#[derive(Clone, Debug, PartialEq)]
+pub struct SkillDef {
+    /// Content id, for example `core:skill/knapping`.
+    pub id: String,
+    /// Display name.
+    pub name: String,
+    /// Hours of practice that close 80 % of the gap to mastery (research 06-08 §5.2).
+    pub t80_h: f64,
+    /// Work speed by level: `(level, factor)`, ascending.
+    pub speed: Vec<(f64, f64)>,
+    /// Life of the tools made, by level: `(level, factor)`, ascending.
+    pub quality: Vec<(f64, f64)>,
+    /// Levels a grown founder brings: drawn evenly between the two.
+    pub founder_level: [f64; 2],
+}
+
+impl SkillDef {
+    /// The level after `hours` more practice from `level`: s′ = s + (1 − s)(1 − e^(−kE)) with
+    /// k = ln 5 / T80 (research 06-08 §5.2), mastery being level 1.
+    pub fn practised(&self, level: f64, hours: f64) -> f64 {
+        let k = 5f64.ln() / self.t80_h.max(1e-6);
+        let s = level.clamp(0.0, 1.0);
+        (s + (1.0 - s) * (1.0 - (-k * hours.max(0.0)).exp())).clamp(0.0, 1.0)
+    }
+}
+
+/// A recipe: what goes in, what comes out, the work and the tools (ADR-0006 §2).
+#[derive(Clone, Debug, PartialEq)]
+pub struct RecipeDef {
+    /// Content id, for example `core:recipe/grind_grain`.
+    pub id: String,
+    /// Display name.
+    pub name: String,
+    /// Inputs per unit made: `(good, amount in its unit)`.
+    pub inputs: Vec<(usize, f64)>,
+    /// Outputs per unit made.
+    pub outputs: Vec<(usize, f64)>,
+    /// Inputs per session, whatever its size (the fuel to heat an oven).
+    pub session_inputs: Vec<(usize, f64)>,
+    /// Labour per unit, hours of a capable adult of middling skill.
+    pub unit_h: f64,
+    /// Labour per session, hours.
+    pub session_h: f64,
+    /// Most units one session makes; 0 for no limit beyond time and inputs.
+    pub max_units: f64,
+    /// Tools it needs and wears, by index in the goods.
+    pub tools: Vec<usize>,
+    /// The skill it uses and trains, by index in the skills.
+    pub skill: Option<usize>,
 }
 
 /// The authored activities, goods and crops.
@@ -161,6 +296,10 @@ pub struct Catalog {
     pub crops: Vec<CropParams>,
     /// Building programs, in content id order.
     pub buildings: Vec<BuildingDef>,
+    /// Recipes, in content id order.
+    pub recipes: Vec<RecipeDef>,
+    /// Skills, in content id order. Their index is how people's skills refer to them.
+    pub skills: Vec<SkillDef>,
 }
 
 /// An authored building program (M1: the hut) with what people decide when they design one.
@@ -201,6 +340,22 @@ impl Catalog {
     /// The building program with this content id.
     pub fn building_index(&self, id: &str) -> Option<usize> {
         self.buildings.iter().position(|b| b.id == id)
+    }
+
+    /// The skill with this content id.
+    pub fn skill_index(&self, id: &str) -> Option<usize> {
+        self.skills.iter().position(|s| s.id == id)
+    }
+
+    /// The tools an activity needs: its own, or its recipe's.
+    pub fn tools_of(&self, def: &ActivityDef) -> Vec<usize> {
+        let mut tools = def.tools.clone();
+        if let Some(r) = def.recipe.and_then(|r| self.recipes.get(r)) {
+            tools.extend(r.tools.iter().copied());
+        }
+        tools.sort_unstable();
+        tools.dedup();
+        tools
     }
 }
 
@@ -286,6 +441,12 @@ pub struct HouseholdParams {
     pub water_target_days: f64,
     /// Days of food a household tries to keep.
     pub food_target_days: f64,
+    /// Days of food ready to eat (bread, porridge meal) a household tries to keep in hand.
+    pub ready_food_days: f64,
+    /// Days of food beyond its next harvest a household wants in store to see it through.
+    pub harvest_margin_days: f64,
+    /// Days of each food that is a step from ready (flour) a household tries to keep.
+    pub processed_food_days: f64,
     /// What one person carries home, kilograms.
     pub carry_kg: f64,
     /// Firewood a household burns per member per day, by month, January first, kilograms.
@@ -326,6 +487,9 @@ pub struct DecisionParams {
     pub w_social: f64,
     /// Points per unit of food shortage times the share of a day's food a trip brings.
     pub w_food: f64,
+    /// Points per unit of the shortfall of stores against what will see the household through
+    /// to its next harvest, times the worth of a trip for wild food.
+    pub w_lean: f64,
     /// Points for useful work regardless of shortage (purpose).
     pub w_work: f64,
     /// Points per unit of firewood shortage times the worth of a trip.
@@ -337,6 +501,8 @@ pub struct DecisionParams {
     pub w_deadline: f64,
     /// Points for building a household's roof, and for gathering what it is built of.
     pub w_shelter: f64,
+    /// Points for making a tool the household lacks, and for gathering what it is made of.
+    pub w_tools: f64,
     /// Days of household food a gathering trip must bring to be worth half as much as a very
     /// large haul.
     pub trip_half_worth_days: f64,
@@ -410,6 +576,9 @@ pub struct FarmParams {
     pub grain_share: f64,
     /// Share of the crop's yield a household counts on when planning (a cautious harvest).
     pub plan_yield_share: f64,
+    /// Share of the grain grown that is lost before it is eaten: in store, at the quern, and as
+    /// food made ready goes off. A household grows its food over one less this.
+    pub loss_share: f64,
     /// Days of grain a household aims to hold: beyond this a harvest is worth less.
     pub grain_target_days: f64,
     /// Hours of field work a capable adult gives a day, for planning what can be done in time.
@@ -718,6 +887,25 @@ mod tests {
         assert_eq!(interpolate(&t, 5.0), 2.0);
         assert_eq!(interpolate(&t, 50.0), 3.0);
         assert_eq!(interpolate(&[], 1.0), 0.0);
+    }
+
+    #[test]
+    fn practice_closes_eighty_percent_of_the_gap_in_t80_hours() {
+        let skill = SkillDef {
+            id: "s".into(),
+            name: "s".into(),
+            t80_h: 100.0,
+            speed: vec![(0.0, 0.5), (1.0, 1.5)],
+            quality: vec![(0.0, 1.0), (1.0, 1.0)],
+            founder_level: [0.0, 0.0],
+        };
+        assert!((skill.practised(0.0, 100.0) - 0.8).abs() < 1e-9);
+        assert!((skill.practised(0.5, 100.0) - 0.9).abs() < 1e-9);
+        // Practice in pieces comes to the same.
+        let pieces = (0..10).fold(0.0, |s, _| skill.practised(s, 10.0));
+        assert!((pieces - 0.8).abs() < 1e-9);
+        assert_eq!(skill.practised(1.0, 50.0), 1.0);
+        assert_eq!(skill.practised(0.3, 0.0), 0.3);
     }
 
     #[test]

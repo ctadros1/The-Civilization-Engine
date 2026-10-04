@@ -185,3 +185,39 @@ production_per_ha_yr = [0.0, 4000.0, 800.0, 0.0, 300.0]
 loss_per_day = 0.004             # standing stems fall and rot within about a year (a tuning value)
 # Grows from late spring to early autumn and stands through the winter.
 season = [0.0, 0.0, 0.0, 0.5, 1.5, 2.5, 2.5, 2.5, 1.5, 0.5, 0.5, 0.0]
+
+[[resource]]
+id = "stone"
+name = "Fieldstone and cobbles"
+good = "core:good/stone"
+unit_kg = 1.0
+discrete = false
+in_water = false
+range_patches = 1
+# Picking up loose stone and cobbles: a tuning value (research 11-08 §2.2 gives quarrying at 8-80
+# hours per cubic metre of accepted stone; loose stone is far quicker to collect).
+max_rate_per_hour = 150.0
+half_rate_stock_per_ha = 2000.0
+
+[resource.deposit]
+# Workable loose stone per hectare by habitat, laid down once and never renewed: bedrock is
+# exposed on steep slopes and cut banks, and cobbles lie in channels and on terraces (research
+# 03-05 §1.2). Tuning values until geology arrives (M3b).
+stock_per_ha = [0.0, 0.0, 3000.0, 2000.0, 20000.0]
+
+[[resource]]
+id = "toolstone"
+name = "Flint and chert"
+good = "core:good/toolstone"
+unit_kg = 1.0
+discrete = false
+in_water = false
+range_patches = 1
+# Searching surface spreads and gravels for nodules good enough to knap: a tuning value.
+max_rate_per_hour = 2.0
+half_rate_stock_per_ha = 20.0
+
+[resource.deposit]
+# Knappable nodules per hectare by habitat: weathered out of carbonate uplands and washed into
+# floodplain gravels (research 03-05 §1.2, 07-05 §1.1; quality varies). Tuning values.
+stock_per_ha = [0.0, 0.0, 30.0, 10.0, 60.0]

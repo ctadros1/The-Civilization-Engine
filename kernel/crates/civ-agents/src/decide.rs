@@ -39,6 +39,9 @@ pub struct Facts {
     pub food_days: f64,
     /// Days of food the household tries to keep.
     pub food_target_days: f64,
+    /// Days of food the household wants in store now to see it through to its next harvest,
+    /// with a margin (0 when it expects none).
+    pub food_outlook_days: f64,
     /// Household's water, days.
     pub water_days: f64,
     /// Days of water the household tries to keep.
@@ -84,6 +87,11 @@ pub struct PatchOption {
     pub need_kg: f64,
     /// For a material: how pressing the building it is for is ([`BuildOption::urgency`]).
     pub urgency: f64,
+    /// For a material: kilograms of it the tools the household lacks are made of, beyond what
+    /// it holds.
+    pub tool_need_kg: f64,
+    /// For a material: whether work waits on the tool it is for.
+    pub tool_blocked: bool,
     /// Where to stand, metres.
     pub at: (f32, f32),
 }
@@ -158,6 +166,44 @@ pub struct WaterOption {
     pub at: (f32, f32),
 }
 
+/// What working a recipe would bring the household.
+#[derive(Clone, Copy, Debug)]
+pub enum MakeWorth {
+    /// Food made ready to eat, or a step nearer it.
+    Food {
+        /// Food energy made, kcal.
+        kcal: f64,
+        /// How short the household is of what the recipe makes, 0–1: ready food against the
+        /// days of it kept in hand, or the food a step from ready against its own days.
+        short: f64,
+        /// How much more of it is worth: `target / (target + held)`.
+        room: f64,
+        /// With nothing ready to eat, it is the step toward a meal that can be taken now.
+        toward_meal: bool,
+    },
+    /// A tool the household lacks.
+    Tool {
+        /// The tool, by index in the goods.
+        tool: usize,
+        /// Units of the household's want it answers, 0–1.
+        need: f64,
+    },
+}
+
+/// A recipe a person could work at home: how much of it, for how long, and what it is worth.
+#[derive(Clone, Copy, Debug)]
+pub struct MakeOption {
+    /// Units the session would make.
+    pub units: f64,
+    /// Minutes of work for them at the person's speed.
+    pub minutes: f64,
+    /// What they are worth.
+    pub worth: MakeWorth,
+}
+
+/// Least of a tool, in standard tools, that still does the work (the last of a worn one).
+pub const MIN_TOOL: f64 = 0.02;
+
 /// A scored option with the steps it would take.
 #[derive(Clone, Debug)]
 pub struct Candidate {
@@ -222,9 +268,34 @@ fn walk_home_first(f: &Facts) -> Vec<Step> {
     }
 }
 
+/// A make activity's recipe option, or why there is none and the tool it lacks if that is why;
+/// given the tools work is already waiting on.
+pub type BestMake<'a> = &'a dyn Fn(usize, &[usize]) -> Result<MakeOption, (Reason, Option<usize>)>;
+
+/// What the household has to work with: free tools, and the recipes it could work.
+pub struct Workshop<'a> {
+    /// Tools free for the person to use, in standard tools, by good index (0 for other goods).
+    pub free_tools: &'a [f64],
+    /// For a make activity: the recipe option, or why there is none (and the tool it lacks, if
+    /// that is why). Given the tools work is already waiting on.
+    pub best_make: BestMake<'a>,
+    /// Whether a make activity makes a tool (scored last, once the tools work waits on are known).
+    pub makes_tool: &'a dyn Fn(usize) -> bool,
+}
+
+impl std::fmt::Debug for Workshop<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Workshop")
+            .field("free_tools", &self.free_tools)
+            .finish_non_exhaustive()
+    }
+}
+
 /// Scores every activity. Returns the candidates and the exclusions. `best_field` gives each
 /// farm activity its best field, or the reason there is none; `giver` is the household that
-/// could best spare food; `build` is the work on the household's home, or why there is none.
+/// could best spare food; `build` is the work on the household's home, or why there is none;
+/// `shop` the tools at hand and the recipes. Work that needs a tool nobody in the household has
+/// free is excluded, and the tool counts as one work waits on.
 #[allow(clippy::too_many_arguments)]
 pub fn candidates(
     defs: &[ActivityDef],
@@ -236,10 +307,24 @@ pub fn candidates(
     water: Option<WaterOption>,
     giver: Option<GiverOption>,
     build: Result<BuildOption, Reason>,
+    shop: &Workshop,
 ) -> (Vec<Candidate>, Vec<(u16, Reason)>) {
-    let mut out = Vec::new();
+    let mut out: Vec<Candidate> = Vec::new();
     let mut excluded = Vec::new();
-    for (i, def) in defs.iter().enumerate() {
+    let mut blocked: Vec<usize> = Vec::new();
+    // Make activities wait until the tools work waits on are known: food recipes first, then the
+    // ones that make tools.
+    let mut order: Vec<usize> = (0..defs.len())
+        .filter(|&i| defs[i].behavior != Behavior::Make)
+        .collect();
+    order.extend(
+        (0..defs.len()).filter(|&i| defs[i].behavior == Behavior::Make && !(shop.makes_tool)(i)),
+    );
+    order.extend(
+        (0..defs.len()).filter(|&i| defs[i].behavior == Behavior::Make && (shop.makes_tool)(i)),
+    );
+    for i in order {
+        let def = &defs[i];
         let id = i as u16;
         if f.age < def.min_age_years {
             excluded.push((id, Reason::TooYoung));
@@ -351,13 +436,14 @@ pub fn candidates(
                     continue;
                 }
                 // Work until a load is full, or as long as daylight and the authored range allow.
-                let fill = limits.carry_kg / (patch.kg_per_hour * f.capacity).max(1e-9) * 60.0;
+                let pace = f.capacity * def.rate;
+                let fill = limits.carry_kg / (patch.kg_per_hour * pace).max(1e-9) * 60.0;
                 let minutes = room
                     .min(f64::from(def.max_minutes))
                     .min(fill.max(f64::from(def.min_minutes)))
                     .max(1.0);
                 let hours = minutes / 60.0;
-                let kg = (patch.kg_per_hour * hours * f.capacity).min(limits.carry_kg);
+                let kg = (patch.kg_per_hour * hours * pace).min(limits.carry_kg);
                 // A trip's worth saturates with what it brings (a response curve, research
                 // 01-09 §4.3): a haul of `trip_half_worth_days` of the household's need is worth
                 // half. Beyond any shortage, more of a good is worth less the more of that good
@@ -373,6 +459,15 @@ pub fn candidates(
                         let short = (1.0 - f.food_days / target).clamp(0.0, 1.0);
                         let room = target / (target + patch.stored_days.max(0.0));
                         term(&mut terms, Reason::FoodShortage, w.w_food * short * worth);
+                        // Stores that will not last to the harvest: wild food stretches them
+                        // while there is time to go out for it (research 08-05 §1.5: a grain
+                        // holder plans a stock path to the next harvest).
+                        let lean = if f.food_outlook_days > 0.0 {
+                            (1.0 - f.food_days / f.food_outlook_days).clamp(0.0, 1.0)
+                        } else {
+                            0.0
+                        };
+                        term(&mut terms, Reason::LeanSeason, w.w_lean * lean * worth);
                         term(&mut terms, Reason::UsefulWork, w.w_work * worth * room);
                         if !f.has_food {
                             // Hungry with nothing to eat at home: food is the point of going out.
@@ -392,22 +487,32 @@ pub fn candidates(
                             term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
                         }
                     }
-                    GoodUse::Material => {
-                        if patch.need_kg <= 0.0 {
+                    GoodUse::Material | GoodUse::Tool => {
+                        if patch.need_kg <= 0.0 && patch.tool_need_kg <= 0.0 {
                             excluded.push((id, Reason::NotNeeded));
                             continue;
                         }
                         // A load is worth what it brings toward what is still needed: two thirds
                         // for a full one, or for one that brings all that is still missing.
-                        let useful = kg.min(patch.need_kg);
-                        let scale = patch.need_kg.min(limits.carry_kg);
-                        let worth = useful / (useful + scale / 2.0).max(1e-6);
-                        term(&mut terms, Reason::Shelter, w.w_shelter * worth);
+                        let toward = |need: f64| {
+                            if need <= 0.0 {
+                                return 0.0;
+                            }
+                            let useful = kg.min(need);
+                            let scale = need.min(limits.carry_kg);
+                            useful / (useful + scale / 2.0).max(1e-6)
+                        };
+                        let (build, tools) = (toward(patch.need_kg), toward(patch.tool_need_kg));
+                        term(&mut terms, Reason::Shelter, w.w_shelter * build);
                         term(
                             &mut terms,
                             Reason::Deadline,
-                            w.w_deadline * patch.urgency.clamp(0.0, 2.0) * worth,
+                            w.w_deadline * patch.urgency.clamp(0.0, 2.0) * build,
                         );
+                        term(&mut terms, Reason::Tools, w.w_tools * tools);
+                        if patch.tool_blocked {
+                            term(&mut terms, Reason::Deadline, w.w_deadline * tools);
+                        }
                     }
                 }
                 term(
@@ -448,8 +553,10 @@ pub fn candidates(
                     excluded.push((id, Reason::NotInDark));
                     continue;
                 }
-                // Work as long as daylight and the task allow, within the authored range.
-                let needed = field.hours_left * 60.0 / f.capacity.max(0.05);
+                // Work as long as daylight and the task allow, within the authored range. Work
+                // done by hand, without the tools the task's rates assume, goes slower.
+                let pace = f.capacity * def.rate;
+                let needed = field.hours_left * 60.0 / pace.max(0.05);
                 let minutes = room
                     .min(f64::from(def.max_minutes))
                     .min(needed)
@@ -458,7 +565,7 @@ pub fn candidates(
                 let hours = minutes / 60.0;
                 // Future food, valued like food brought home now (the same response curve), less
                 // the more grain the household already holds.
-                let kcal = field.kcal_per_hour * hours * f.capacity;
+                let kcal = field.kcal_per_hour * hours * pace;
                 let half = w.trip_half_worth_days * f.household_kcal_day.max(1.0);
                 let worth = kcal / (kcal + half.max(1.0));
                 term(&mut terms, Reason::Harvest, w.w_farm * worth * field.room);
@@ -521,8 +628,9 @@ pub fn candidates(
                 }
                 // As long as daylight and the materials at hand allow, within the authored range;
                 // a shorter session only to finish the stage.
-                let workable = option.workable_h * 60.0 / f.capacity.max(0.05);
-                let left = option.left_h * 60.0 / f.capacity.max(0.05);
+                let pace = (f.capacity * def.rate).max(0.05);
+                let workable = option.workable_h * 60.0 / pace;
+                let left = option.left_h * 60.0 / pace;
                 if workable <= 0.0 || workable < f64::from(def.min_minutes).min(left) {
                     excluded.push((id, Reason::NoMaterials));
                     continue;
@@ -641,8 +749,95 @@ pub fn candidates(
                 });
                 out.push(finish(id, Target::Home, terms, steps));
             }
+            Behavior::Make => {
+                let option = match (shop.best_make)(i, &blocked) {
+                    Ok(option) => option,
+                    Err((why, tool)) => {
+                        if let Some(t) = tool
+                            && !blocked.contains(&t)
+                        {
+                            blocked.push(t);
+                        }
+                        excluded.push((id, why));
+                        continue;
+                    }
+                };
+                let minutes = option.minutes.min(f64::from(def.max_minutes)).max(1.0);
+                let hours = minutes / 60.0;
+                match option.worth {
+                    MakeWorth::Food {
+                        kcal,
+                        short,
+                        room,
+                        toward_meal,
+                    } => {
+                        let half = w.trip_half_worth_days * f.household_kcal_day.max(1.0);
+                        let worth = kcal / (kcal + half.max(1.0));
+                        term(&mut terms, Reason::ReadyFood, w.w_food * short * worth);
+                        term(&mut terms, Reason::UsefulWork, w.w_work * worth * room);
+                        if toward_meal && !f.has_food {
+                            term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
+                        }
+                    }
+                    MakeWorth::Tool { tool, need } => {
+                        term(&mut terms, Reason::Tools, w.w_tools * need.clamp(0.0, 1.0));
+                        if blocked.contains(&tool) {
+                            term(
+                                &mut terms,
+                                Reason::Deadline,
+                                w.w_deadline * need.clamp(0.0, 1.0),
+                            );
+                        }
+                    }
+                }
+                term(
+                    &mut terms,
+                    Reason::Effort,
+                    -w.w_effort * (def.par - 1.0).max(0.0) * hours * f.sleep_pressure,
+                );
+                let mut steps = walk_home_first(f);
+                steps.push(Step::Work {
+                    minutes: minutes.round().max(1.0) as u32,
+                });
+                out.push(finish(id, Target::Home, terms, steps));
+            }
+        }
+        // Work that needs a tool the household has none of free is left out, and the tool is one
+        // that work waits on.
+        if def.behavior != Behavior::Make
+            && let Some(last) = out.last()
+            && last.scored.def == id
+            && let Some(&missing) = def
+                .tools
+                .iter()
+                .find(|&&t| shop.free_tools.get(t).copied().unwrap_or(0.0) < MIN_TOOL)
+        {
+            out.pop();
+            excluded.push((id, Reason::NoTool));
+            if !blocked.contains(&missing) {
+                blocked.push(missing);
+            }
         }
     }
+    // Field work done at a slower rate (by hand) is left out while the same task can be done
+    // faster (with the tool for it).
+    let fastest = |task| {
+        out.iter()
+            .map(|c| &defs[usize::from(c.scored.def)])
+            .filter(|d| d.behavior == Behavior::Farm && d.task == Some(task))
+            .map(|d| d.rate)
+            .fold(0.0, f64::max)
+    };
+    let slower: Vec<u16> = out
+        .iter()
+        .filter(|c| {
+            let d = &defs[usize::from(c.scored.def)];
+            d.behavior == Behavior::Farm && d.task.is_some_and(|t| d.rate < fastest(t))
+        })
+        .map(|c| c.scored.def)
+        .collect();
+    out.retain(|c| !slower.contains(&c.scored.def));
+    excluded.extend(slower.into_iter().map(|d| (d, Reason::BetterWay)));
     (out, excluded)
 }
 
@@ -687,6 +882,7 @@ pub fn choose(totals: &[f32], w: &DecisionParams, u: f64) -> (usize, f64, f64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::params::ActivityDef;
 
     fn weights() -> DecisionParams {
         DecisionParams {
@@ -697,11 +893,13 @@ mod tests {
             w_sleep: 12.0,
             w_social: 4.0,
             w_food: 8.0,
+            w_lean: 5.0,
             w_work: 2.0,
             w_fuel: 6.0,
             w_farm: 8.0,
             w_deadline: 6.0,
             w_shelter: 4.0,
+            w_tools: 4.0,
             trip_half_worth_days: 0.25,
             w_water: 6.0,
             w_walk_hour: 1.0,
@@ -744,6 +942,192 @@ mod tests {
             picks[1] > picks[0] && picks[0] > picks[2] && picks[2] > 0,
             "{picks:?}"
         );
+    }
+
+    fn facts() -> Facts {
+        Facts {
+            age: 30.0,
+            capacity: 1.0,
+            hunger: 0.5,
+            sleep_drive: 0.0,
+            sleep_pressure: 0.2,
+            loneliness: 0.2,
+            dark: false,
+            daylight_left_min: 600.0,
+            evening: 0.0,
+            until_sunrise_min: 900.0,
+            food_days: 50.0,
+            food_target_days: 5.0,
+            food_outlook_days: 0.0,
+            water_days: 2.0,
+            water_target_days: 1.5,
+            household_kcal_day: 10_000.0,
+            has_food: false,
+            food_needs_fire: false,
+            fuel_days: 5.0,
+            fuel_target_days: 3.0,
+            household_fuel_day: 6.0,
+            at_home: true,
+            home: (0.0, 0.0),
+            hearth: None,
+        }
+    }
+
+    fn limits() -> Limits {
+        Limits {
+            sleep_needed_min: 480.0,
+            sleep_min: 240.0,
+            sleep_max: 630.0,
+            nap: (20.0, 90.0),
+            sleep_threshold: 0.12,
+            meal_min: 25,
+            carry_kg: 20.0,
+        }
+    }
+
+    fn activity(id: &str, behavior: Behavior, tools: Vec<usize>, rate: f64) -> ActivityDef {
+        ActivityDef {
+            id: id.into(),
+            name: id.into(),
+            doing: id.into(),
+            behavior,
+            resource: None,
+            task: (behavior == Behavior::Farm).then_some(civ_land::FieldTask::Reap),
+            recipe: (behavior == Behavior::Make).then_some(0),
+            tools,
+            rate,
+            par: 3.0,
+            min_age_years: 10.0,
+            max_age_years: 70.0,
+            min_minutes: 30,
+            max_minutes: 240,
+            daylight_only: true,
+            max_walk_minutes: 30,
+        }
+    }
+
+    fn field() -> FieldOption {
+        FieldOption {
+            field: Some(PermanentId::from_raw(7).expect("id")),
+            walk_min: 5.0,
+            at: (10.0, 0.0),
+            kcal_per_hour: 3000.0,
+            hours_left: 50.0,
+            room: 0.5,
+            urgency: 1.0,
+            at_home: false,
+            soon: true,
+        }
+    }
+
+    /// Scores `defs` with the household's tools (`free`, by good) and a recipe option.
+    fn score(
+        defs: &[ActivityDef],
+        free: &[f64],
+        make: BestMake,
+        makes_tool: &dyn Fn(usize) -> bool,
+    ) -> (Vec<Candidate>, Vec<(u16, Reason)>) {
+        let shop = Workshop {
+            free_tools: free,
+            best_make: make,
+            makes_tool,
+        };
+        candidates(
+            defs,
+            &weights(),
+            &facts(),
+            &limits(),
+            &|_| None,
+            &|_| Ok(field()),
+            None,
+            None,
+            Err(Reason::Built),
+            &shop,
+        )
+    }
+
+    #[test]
+    fn work_without_its_tool_is_left_out_and_the_tool_is_wanted_the_more() {
+        // Good 0 is the sickle. With one free, people reap with it and not by hand.
+        let defs = vec![
+            activity("reap", Behavior::Farm, vec![0], 1.0),
+            activity("reap_by_hand", Behavior::Farm, Vec::new(), 0.6),
+            activity("make_sickle", Behavior::Make, Vec::new(), 1.0),
+        ];
+        let tool = |_: usize, _: &[usize]| {
+            Ok(MakeOption {
+                units: 1.0,
+                minutes: 180.0,
+                worth: MakeWorth::Tool { tool: 0, need: 0.5 },
+            })
+        };
+        let makes = |d: usize| d == 2;
+        let (cands, excluded) = score(&defs, &[1.0], &tool, &makes);
+        let chosen: Vec<u16> = cands.iter().map(|c| c.scored.def).collect();
+        assert!(chosen.contains(&0) && !chosen.contains(&1), "{chosen:?}");
+        assert!(excluded.contains(&(1, Reason::BetterWay)));
+        let making = cands.iter().find(|c| c.scored.def == 2).expect("make");
+        assert!(
+            !making
+                .scored
+                .terms
+                .iter()
+                .any(|t| t.reason == Reason::Deadline)
+        );
+        // Without a free sickle, reaping waits on it: people reap by hand, and making a sickle
+        // has the season pressing on it.
+        let (cands, excluded) = score(&defs, &[0.0], &tool, &makes);
+        let chosen: Vec<u16> = cands.iter().map(|c| c.scored.def).collect();
+        assert!(chosen.contains(&1) && !chosen.contains(&0), "{chosen:?}");
+        assert!(excluded.contains(&(0, Reason::NoTool)));
+        let making = cands.iter().find(|c| c.scored.def == 2).expect("make");
+        assert!(
+            making
+                .scored
+                .terms
+                .iter()
+                .any(|t| t.reason == Reason::Deadline)
+        );
+    }
+
+    #[test]
+    fn making_food_ready_is_worth_most_to_the_hungry_with_nothing_ready() {
+        let defs = vec![activity("bake", Behavior::Make, Vec::new(), 1.0)];
+        let bake = |short: f64| {
+            move |_: usize, _: &[usize]| {
+                Ok(MakeOption {
+                    units: 5.0,
+                    minutes: 120.0,
+                    worth: MakeWorth::Food {
+                        kcal: 15_000.0,
+                        short,
+                        room: 0.5,
+                        toward_meal: true,
+                    },
+                })
+            }
+        };
+        let none = |_: usize| false;
+        let total = |short: f64| {
+            let (cands, _) = score(&defs, &[], &bake(short), &none);
+            cands[0].scored.total
+        };
+        assert!(total(1.0) > total(0.2), "a shortage presses on it");
+        let (cands, _) = score(&defs, &[], &bake(1.0), &none);
+        assert!(
+            cands[0]
+                .scored
+                .terms
+                .iter()
+                .any(|t| t.reason == Reason::Hunger)
+        );
+        assert_eq!(cands[0].steps, vec![Step::Work { minutes: 120 }]);
+        // A recipe that cannot be worked is left out with its reason, and a missing tool is
+        // one work waits on.
+        let lacking = |_: usize, _: &[usize]| Err((Reason::NoTool, Some(3)));
+        let (cands, excluded) = score(&defs, &[], &lacking, &none);
+        assert!(cands.is_empty());
+        assert_eq!(excluded, vec![(0, Reason::NoTool)]);
     }
 
     #[test]

@@ -11,3 +11,5 @@ min_minutes = 60
 max_minutes = 240                # research 04-02 §2.4: foragers spend about 4 h a day on food
 daylight_only = true
 max_walk_minutes = 90
+tools = []
+rate = 1.0

@@ -22,6 +22,9 @@ const HOME_GAP_M: f32 = 15.0;
 /// Years over which new ground is weighed: clearing and breaking it is paid once, its crops come
 /// every year (research 10-01 §2.3: households plan two to five years ahead).
 const PLAN_YEARS: f64 = 3.0;
+/// Days from a crop ripening until reaping and threshing bring its first grain in (a tuning
+/// value).
+const HARVEST_IN_DAYS: f64 = 7.0;
 
 /// What a household knows of its farming on one day.
 #[derive(Clone, Debug)]
@@ -45,12 +48,13 @@ pub struct FarmView<'a> {
 }
 
 /// The area a household of `members` plans to crop for its needs, hectares: the share of a
-/// year's food it means to grow, at a cautious yield less the seed (research 10-01 §2.3: plan on
-/// a poor harvest, keep seed apart).
+/// year's food it means to grow, with what is lost before it is eaten, at a cautious yield less
+/// the seed (research 10-01 §2.3: plan on a poor harvest, keep seed apart).
 pub fn need_area_ha(members: usize, params: &PeopleParams, crop: &CropParams, kcal: f64) -> f64 {
     let year = members as f64 * params.household.daily_kcal_per_person * 365.0;
+    let grown = year * params.farm.grain_share / (1.0 - params.farm.loss_share).max(0.05);
     let net = crop.yield_kg_per_ha * params.farm.plan_yield_share - crop.seed_kg_per_ha;
-    year * params.farm.grain_share / (net.max(1.0) * kcal.max(1.0))
+    grown / (net.max(1.0) * kcal.max(1.0))
 }
 
 /// Seed a household never eats, `(good, kg)`: what it takes to sow again the ground it already
@@ -82,6 +86,36 @@ pub fn plan_area_ha(need_ha: f64, held_ha: f64, labour_per_day: f64, crop: &Crop
     let season = f64::from(crop.sow_until_day.saturating_sub(crop.prepare_from_day)) + 1.0;
     let per_ha = (crop.prepare_h_per_ha + crop.sow_h_per_ha).max(1e-6);
     need_ha.min(labour_per_day * season / per_ha).max(held_ha)
+}
+
+/// Days from `day` until a household's next harvest begins to come in: its first sown field
+/// ripening, or with none sown the crop's calendar (sown at the start of the next sowing window it
+/// can still use, ripe `grow_days` later), and then the days reaping and threshing take to bring
+/// the first grain in. Sheaves waiting to be threshed are grain within days.
+pub fn days_to_harvest<'a>(
+    crop: &CropParams,
+    fields: impl Iterator<Item = &'a Field>,
+    day: i64,
+) -> f64 {
+    let mut next: Option<f64> = None;
+    for f in fields {
+        let days = match f.stage {
+            FieldStage::Sown => (f.ripe_day(crop) - day).max(0) as f64 + HARVEST_IN_DAYS,
+            FieldStage::Reaped => HARVEST_IN_DAYS,
+            FieldStage::Fallow | FieldStage::Prepared => continue,
+        };
+        next = Some(next.map_or(days, |n: f64| n.min(days)));
+    }
+    next.unwrap_or_else(|| {
+        let year = civ_core::time::DAYS_PER_YEAR;
+        let doy = day.rem_euclid(year);
+        let sow = if doy <= i64::from(crop.sow_until_day) {
+            doy.max(i64::from(crop.sow_from_day))
+        } else {
+            i64::from(crop.sow_from_day) + year
+        };
+        (sow - doy) as f64 + f64::from(crop.grow_days) + HARVEST_IN_DAYS
+    })
 }
 
 /// Seed a household keeps on `day` to sow `plan_ha` hectares: the sowing rate, and what the seed
@@ -577,6 +611,34 @@ mod tests {
         assert!((kept - 90.0 * (209.0f64 / 1560.0).exp2()).abs() < 1e-9);
         assert_eq!(seed_to_keep(1.0, &c, 0.0, 236), 90.0, "seed that keeps");
         assert_eq!(seed_to_keep(1.0, &c, 1560.0, 80), 90.0, "sowing today");
+    }
+
+    #[test]
+    fn the_next_harvest_is_the_first_sown_field_ripening_or_the_next_season() {
+        let c = crop();
+        let mut sown = field(2, FieldStage::Sown);
+        sown.sown_day = 90;
+        let ripe = sown.ripe_day(&c);
+        let fallow = field(3, FieldStage::Fallow);
+        // A sown field ripens on its day, and the first grain is in a week later.
+        let d = days_to_harvest(&c, [&fallow, &sown].into_iter(), 100);
+        assert!((d - ((ripe - 100) as f64 + HARVEST_IN_DAYS)).abs() < 1e-9);
+        // With nothing sown, in the sowing window: sown today, ripe the crop's growing days on.
+        let d = days_to_harvest(&c, [&fallow].into_iter(), 100);
+        assert!((d - (f64::from(c.grow_days) + HARVEST_IN_DAYS)).abs() < 1e-9);
+        // Before the window, from its first day; after it, from next year's.
+        let d = days_to_harvest(&c, std::iter::empty(), 30);
+        let first = f64::from(c.sow_from_day) - 30.0;
+        assert!((d - (first + f64::from(c.grow_days) + HARVEST_IN_DAYS)).abs() < 1e-9);
+        let d = days_to_harvest(&c, std::iter::empty(), 300);
+        let next = f64::from(c.sow_from_day) + 365.0 - 300.0;
+        assert!((d - (next + f64::from(c.grow_days) + HARVEST_IN_DAYS)).abs() < 1e-9);
+        // Sheaves in the field are grain within days.
+        let reaped = field(4, FieldStage::Reaped);
+        assert_eq!(
+            days_to_harvest(&c, [&reaped].into_iter(), 200),
+            HARVEST_IN_DAYS
+        );
     }
 
     #[test]

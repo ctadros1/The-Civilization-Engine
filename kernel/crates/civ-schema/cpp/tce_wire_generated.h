@@ -11170,7 +11170,9 @@ struct TechniqueHere FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_HEARD = 12,
     VT_PRACTISED_LAST_YEAR = 14,
     VT_STATUS = 16,
-    VT_HISTORY = 18
+    VT_HISTORY = 18,
+    VT_CAUTION = 20,
+    VT_TRUST = 22
   };
   uint16_t technique() const {
     return GetField<uint16_t>(VT_TECHNIQUE, 0);
@@ -11196,6 +11198,12 @@ struct TechniqueHere FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *history() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_HISTORY);
   }
+  float caution() const {
+    return GetField<float>(VT_CAUTION, 1.0f);
+  }
+  const ::flatbuffers::String *trust() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_TRUST);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -11216,6 +11224,9 @@ struct TechniqueHere FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_HISTORY) &&
            verifier.VerifyVector(history()) &&
            verifier.VerifyVectorOfStrings(history()) &&
+           VerifyField<float>(verifier, VT_CAUTION, 4) &&
+           VerifyOffset(verifier, VT_TRUST) &&
+           verifier.VerifyString(trust()) &&
            verifier.EndTable();
   }
 };
@@ -11248,6 +11259,12 @@ struct TechniqueHereBuilder {
   void add_history(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> history) {
     fbb_.AddOffset(TechniqueHere::VT_HISTORY, history);
   }
+  void add_caution(float caution) {
+    fbb_.AddElement<float>(TechniqueHere::VT_CAUTION, caution, 1.0f);
+  }
+  void add_trust(::flatbuffers::Offset<::flatbuffers::String> trust) {
+    fbb_.AddOffset(TechniqueHere::VT_TRUST, trust);
+  }
   explicit TechniqueHereBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -11268,8 +11285,12 @@ inline ::flatbuffers::Offset<TechniqueHere> CreateTechniqueHere(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PersonRef>>> heard = 0,
     uint32_t practised_last_year = 0,
     ::flatbuffers::Offset<::flatbuffers::String> status = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> history = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> history = 0,
+    float caution = 1.0f,
+    ::flatbuffers::Offset<::flatbuffers::String> trust = 0) {
   TechniqueHereBuilder builder_(_fbb);
+  builder_.add_trust(trust);
+  builder_.add_caution(caution);
   builder_.add_history(history);
   builder_.add_status(status);
   builder_.add_practised_last_year(practised_last_year);
@@ -11295,12 +11316,15 @@ inline ::flatbuffers::Offset<TechniqueHere> CreateTechniqueHereDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::PersonRef>> *heard = nullptr,
     uint32_t practised_last_year = 0,
     const char *status = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *history = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *history = nullptr,
+    float caution = 1.0f,
+    const char *trust = nullptr) {
   auto knowers__ = knowers ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PersonRef>>(*knowers) : 0;
   auto learners__ = learners ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PersonRef>>(*learners) : 0;
   auto heard__ = heard ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PersonRef>>(*heard) : 0;
   auto status__ = status ? _fbb.CreateString(status) : 0;
   auto history__ = history ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*history) : 0;
+  auto trust__ = trust ? _fbb.CreateString(trust) : 0;
   return tce::wire::CreateTechniqueHere(
       _fbb,
       technique,
@@ -11310,7 +11334,9 @@ inline ::flatbuffers::Offset<TechniqueHere> CreateTechniqueHereDirect(
       heard__,
       practised_last_year,
       status__,
-      history__);
+      history__,
+      caution,
+      trust__);
 }
 
 struct SettlementKnowledge FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

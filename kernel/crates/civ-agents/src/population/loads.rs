@@ -36,16 +36,34 @@ pub const DIES_UNDER_ROOF: f64 = 0.15;
 pub const DIES_UNDER_FLOOR: f64 = 0.05;
 
 /// The heaviest wind and snow on the roofs of settlement (or lone household) `key` in the month
-/// of `now`, pascals on their plan: one draw a month, the same for every roof there (ADR-0009 §5:
-/// evaluated once, never rerolled).
-pub fn peak_pa(seed: u64, key: PermanentId, now: SimTime, peak: &civ_land::PeakLoad) -> f64 {
+/// of `now`: the day of the month it comes (1 to 28) and its load, pascals on their plan. One
+/// draw a month, the same for every roof there (ADR-0009 §5: a shared event, evaluated once and
+/// never rerolled).
+pub fn month_peak(
+    seed: u64,
+    key: PermanentId,
+    now: SimTime,
+    peak: &civ_land::PeakLoad,
+) -> (u8, f64) {
     let d = now.date();
     let month = (d.year * 12 + i64::from(d.month)) as u64;
     let mut rng = Rng64::from_key(&[seed, PURPOSE_PEAK, key.get(), month]);
     let u1 = rng.next_f64().max(f64::MIN_POSITIVE);
     let u2 = rng.next_f64();
     let z = (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos();
-    peak.median_pa.max(0.0) * (peak.spread.max(0.0) * z).exp()
+    let day = 1 + (rng.next_f64() * 28.0).floor().clamp(0.0, 27.0) as u8;
+    (
+        day,
+        peak.median_pa.max(0.0) * (peak.spread.max(0.0) * z).exp(),
+    )
+}
+
+/// The month's heaviest wind and snow on the roofs of settlement (or lone household) `key` on
+/// the day of `now`, pascals on their plan: [`month_peak`]'s load on its day, and none on the
+/// others. A roof mended after a storm does not meet the same storm again.
+pub fn peak_pa(seed: u64, key: PermanentId, now: SimTime, peak: &civ_land::PeakLoad) -> f64 {
+    let (day, pa) = month_peak(seed, key, now, peak);
+    if now.date().day == day { pa } else { 0.0 }
 }
 
 /// A mass in words: "850 kg", "1.2 t".
@@ -258,7 +276,7 @@ impl Population {
         let Some(e) = self.expansion_of(b, def) else {
             return;
         };
-        let at = build::centre_m(&b.spec);
+        let (at, technique) = (build::centre_m(&b.spec), def.technique);
         let reach_m = match b.spec.footprint {
             civ_grammar::Footprint::Round { radius, .. } => f64::from(radius) / 100.0,
             civ_grammar::Footprint::Rect { length, width, .. } => {
@@ -389,6 +407,9 @@ impl Population {
             dead.len() as f64,
             words,
         );
+        // The settlement remembers it against the technique (ADR-0009 §6).
+        let caution = &ctx.params.build.caution;
+        self.remember_failure(settlement, technique, dead.len(), now, caution);
         for who in dead {
             self.die(ctx, who, Cause::Collapse);
         }

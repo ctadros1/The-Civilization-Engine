@@ -1624,6 +1624,7 @@ export function bindUi(store: Store, actions: Actions): void {
       if (r.practised) facts.append(el("dt", { text: "Practised" }), el("dd", { text: r.practised }));
       if (r.learners) facts.append(el("dt", { text: "Learning" }), el("dd", { text: r.learners }));
       if (r.heard) facts.append(el("dt", { text: "Heard of" }), el("dd", { text: r.heard }));
+      if (r.trust) facts.append(el("dt", { text: "Buildings" }), el("dd", { text: r.trust }));
       const details = el(
         "details",
         { className: r.known ? "known" : "unknown" },

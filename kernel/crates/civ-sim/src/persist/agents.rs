@@ -64,6 +64,7 @@
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{Read, Seek};
 
+use civ_agents::caution::Trust;
 use civ_agents::condition;
 use civ_agents::firm::{BookKind, Books, Entry as BookEntryOf, Exit, Firm, Statement, WageOffer};
 use civ_agents::history::{ChronicleEvent, ChronicleKind, Origin, PersonRecord};
@@ -92,7 +93,7 @@ use commons_persist::{SectionData, SectionTag, SnapshotReader};
 use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
-    finish, section, single_chunk, unreadable,
+    SCHEMA_V17, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -235,6 +236,8 @@ enum Schema {
     /// The condition of buildings: each group's quality, loss and state, the building's state,
     /// its builders' skill and upkeep under way (ADR-0009 §4, §6).
     V17,
+    /// What each settlement has seen of each technique's buildings (ADR-0009 §6).
+    V18,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -265,7 +268,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V14 => Schema::V14,
         SCHEMA_V15 => Schema::V15,
         SCHEMA_V16 => Schema::V16,
-        SAVE_SCHEMA_VERSION => Schema::V17,
+        SCHEMA_V17 => Schema::V17,
+        SAVE_SCHEMA_VERSION => Schema::V18,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -350,6 +354,10 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V13 {
         let bytes = single_chunk(reader, SECTION_KNOW)?;
         people.knowledge = decode_knowledge(&bytes, rules)?;
+        // Before schema 18 no settlement remembered its buildings: it has seen nothing yet.
+        if schema >= Schema::V18 {
+            people.trust = decode_trust(&bytes, rules)?;
+        }
     } else {
         people.give_founders_knowledge(&rules.catalog, &rules.people, seed, now);
     }
@@ -1175,7 +1183,8 @@ fn carried(
         | Schema::V14
         | Schema::V15
         | Schema::V16
-        | Schema::V17 => {
+        | Schema::V17
+        | Schema::V18 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1297,7 +1306,8 @@ fn decode_households(
             | Schema::V14
             | Schema::V15
             | Schema::V16
-            | Schema::V17 => {
+            | Schema::V17
+            | Schema::V18 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -2816,14 +2826,77 @@ fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
         })
         .collect();
     let entries = fbb.create_vector(&entries);
+    let trust: Vec<save::TrustEntry> = pop
+        .trust
+        .iter()
+        .map(|t| {
+            save::TrustEntry::new(
+                t.at.minutes(),
+                t.settlement.get(),
+                t.failures,
+                t.years,
+                t.technique,
+            )
+        })
+        .collect();
+    let trust = fbb.create_vector(&trust);
     let root = save::Knowledge::create(
         &mut fbb,
         &save::KnowledgeArgs {
             techniques: Some(dictionary),
             entries: Some(entries),
+            trust: Some(trust),
         },
     );
     finish(fbb, root)
+}
+
+/// What each settlement has seen of each technique's buildings (schema 18), from the knowledge
+/// section. A technique the loaded content no longer has drops out.
+fn decode_trust(bytes: &[u8], rules: &Rules) -> Result<Vec<Trust>, LoadError> {
+    let root =
+        flatbuffers::root::<save::Knowledge>(bytes).map_err(|e| unreadable(SECTION_KNOW, &e))?;
+    let ids: Vec<Option<usize>> = read_strings(root.techniques())
+        .iter()
+        .map(|id| rules.catalog.technique_index(id))
+        .collect();
+    let mut out: Vec<Trust> = Vec::new();
+    for t in root.trust().iter().flatten() {
+        let technique = ids.get(usize::from(t.technique())).ok_or_else(|| {
+            LoadError::Malformed(format!(
+                "a trust entry names technique {} of {}",
+                t.technique(),
+                ids.len()
+            ))
+        })?;
+        let Some(technique) = technique else {
+            continue;
+        };
+        let (failures, years) = (t.failures(), t.years());
+        if !(failures.is_finite() && failures >= 0.0 && years.is_finite() && years >= 0.0) {
+            return Err(LoadError::Malformed(format!(
+                "a trust entry has {failures} failures in {years} building-years"
+            )));
+        }
+        let settlement = required(t.settlement(), "a trust entry")?;
+        let technique = *technique as u16;
+        if out
+            .iter()
+            .any(|x| x.settlement == settlement && x.technique == technique)
+        {
+            return Err(LoadError::Malformed(format!(
+                "settlement {settlement:?} has two trust entries for technique {technique}"
+            )));
+        }
+        out.push(Trust {
+            settlement,
+            technique,
+            failures,
+            years,
+            at: time(t.at()),
+        });
+    }
+    Ok(out)
 }
 
 fn decode_knowledge(bytes: &[u8], rules: &Rules) -> Result<Vec<KnowledgeEvent>, LoadError> {

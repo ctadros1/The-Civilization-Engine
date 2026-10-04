@@ -17995,6 +17995,8 @@ impl<'a> TechniqueHere<'a> {
   pub const VT_PRACTISED_LAST_YEAR: ::flatbuffers::VOffsetT = 14;
   pub const VT_STATUS: ::flatbuffers::VOffsetT = 16;
   pub const VT_HISTORY: ::flatbuffers::VOffsetT = 18;
+  pub const VT_CAUTION: ::flatbuffers::VOffsetT = 20;
+  pub const VT_TRUST: ::flatbuffers::VOffsetT = 22;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -18006,6 +18008,8 @@ impl<'a> TechniqueHere<'a> {
     args: &'args TechniqueHereArgs<'args>
   ) -> ::flatbuffers::WIPOffset<TechniqueHere<'bldr>> {
     let mut builder = TechniqueHereBuilder::new(_fbb);
+    if let Some(x) = args.trust { builder.add_trust(x); }
+    builder.add_caution(args.caution);
     if let Some(x) = args.history { builder.add_history(x); }
     if let Some(x) = args.status { builder.add_status(x); }
     builder.add_practised_last_year(args.practised_last_year);
@@ -18074,6 +18078,20 @@ impl<'a> TechniqueHere<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(TechniqueHere::VT_HISTORY, None)}
   }
+  #[inline]
+  pub fn caution(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TechniqueHere::VT_CAUTION, Some(1.0)).unwrap()}
+  }
+  #[inline]
+  pub fn trust(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TechniqueHere::VT_TRUST, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for TechniqueHere<'_> {
@@ -18090,6 +18108,8 @@ impl ::flatbuffers::Verifiable for TechniqueHere<'_> {
      .visit_field::<u32>("practised_last_year", Self::VT_PRACTISED_LAST_YEAR, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("status", Self::VT_STATUS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("history", Self::VT_HISTORY, false)?
+     .visit_field::<f32>("caution", Self::VT_CAUTION, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("trust", Self::VT_TRUST, false)?
      .finish();
     Ok(())
   }
@@ -18103,6 +18123,8 @@ pub struct TechniqueHereArgs<'a> {
     pub practised_last_year: u32,
     pub status: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub history: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub caution: f32,
+    pub trust: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for TechniqueHereArgs<'a> {
   #[inline]
@@ -18116,6 +18138,8 @@ impl<'a> Default for TechniqueHereArgs<'a> {
       practised_last_year: 0,
       status: None,
       history: None,
+      caution: 1.0,
+      trust: None,
     }
   }
 }
@@ -18158,6 +18182,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TechniqueHereBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TechniqueHere::VT_HISTORY, history);
   }
   #[inline]
+  pub fn add_caution(&mut self, caution: f32) {
+    self.fbb_.push_slot::<f32>(TechniqueHere::VT_CAUTION, caution, 1.0);
+  }
+  #[inline]
+  pub fn add_trust(&mut self, trust: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TechniqueHere::VT_TRUST, trust);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TechniqueHereBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TechniqueHereBuilder {
@@ -18183,6 +18215,8 @@ impl ::core::fmt::Debug for TechniqueHere<'_> {
       ds.field("practised_last_year", &self.practised_last_year());
       ds.field("status", &self.status());
       ds.field("history", &self.history());
+      ds.field("caution", &self.caution());
+      ds.field("trust", &self.trust());
       ds.finish()
   }
 }

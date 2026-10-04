@@ -6,6 +6,7 @@
 //! - [`decide`]: scoring candidate activities and sampling one.
 //! - [`farm`]: what a household plans to grow, and what its field work is worth.
 //! - [`build`]: the hut a household designs, the ground it claims, and the work left on it.
+//! - [`caution`]: what a settlement has seen of a technique's buildings, and how cautiously it builds.
 //! - [`make`]: recipes and tools as arithmetic on a household's stores (ADR-0006).
 //! - [`ledger`]: the channels goods move between households by, and trades (ADR-0006 §3).
 //! - [`value`]: what goods cost a household in hours of its own work.
@@ -22,6 +23,7 @@
 #![forbid(unsafe_code)]
 
 pub mod build;
+pub mod caution;
 pub mod condition;
 pub mod decide;
 pub mod demography;

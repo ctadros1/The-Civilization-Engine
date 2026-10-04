@@ -152,7 +152,54 @@ pub fn knowledge_rev(sim: &Sim) -> u64 {
     }
     ids.sort_unstable();
     (ids, sim.people.knowledge.len()).hash(&mut hasher);
+    // What settlements have seen of their buildings, as the panel words it.
+    let trust: Vec<(u64, u16, u64, u64)> = sim
+        .people
+        .trust
+        .iter()
+        .map(|t| {
+            (
+                t.settlement.get(),
+                t.technique,
+                (t.failures * 10.0).round() as u64,
+                t.years.round() as u64,
+            )
+        })
+        .collect();
+    trust.hash(&mut hasher);
     hasher.finish() | 1
+}
+
+/// How many times their usual strength builders of settlement `s` make the members of
+/// technique `t`'s frame buildings now, and what they have seen in words: "built as usual; 31
+/// building-years without a failure", "built 1.4 times as strong: failures weigh 2.0 against 31
+/// building-years". `(1, "")` when nothing has been built by it there.
+fn trust_words(sim: &Sim, s: PermanentId, t: usize) -> (f64, String) {
+    let Some(trust) = sim
+        .people
+        .trust
+        .iter()
+        .find(|x| x.settlement == s && usize::from(x.technique) == t)
+    else {
+        return (1.0, String::new());
+    };
+    let p = &sim.rules.people.build.caution;
+    let now = sim.now();
+    let caution = trust.caution(now, p);
+    let (failures, years) = trust.faded(now, p.half_life_years);
+    let stood = match years.round() as u64 {
+        0 => "under a building-year".to_owned(),
+        1 => "one building-year".to_owned(),
+        n => format!("{n} building-years"),
+    };
+    let words = if failures < 0.05 {
+        format!("built as usual; {stood} without a failure")
+    } else if caution < 1.05 {
+        format!("built as usual: failures weigh {failures:.1} against {stood}")
+    } else {
+        format!("built {caution:.1} times as strong: failures weigh {failures:.1} against {stood}")
+    };
+    (caution, words)
 }
 
 fn person_ref<'a>(
@@ -245,6 +292,7 @@ pub fn knowledge_response(sim: &Sim) -> Vec<u8> {
         .iter()
         .filter_map(|(_, x)| x.settlement)
         .chain(sim.people.knowledge.iter().map(|e| e.settlement))
+        .chain(sim.people.trust.iter().map(|t| t.settlement))
         .collect();
     let mut list = Vec::new();
     for s in settlements {
@@ -264,8 +312,19 @@ pub fn knowledge_response(sim: &Sim) -> Vec<u8> {
                 .knowledge
                 .iter()
                 .any(|e| e.settlement == s && usize::from(e.technique) == t);
+            // What its builders there have seen keeps it on the list once nobody knows it.
+            let trusted = sim
+                .people
+                .trust
+                .iter()
+                .any(|x| x.settlement == s && usize::from(x.technique) == t);
             let (knowers, learners, heard) = split(&residents, t);
-            if !recorded && knowers.is_empty() && learners.is_empty() && heard.is_empty() {
+            if !recorded
+                && !trusted
+                && knowers.is_empty()
+                && learners.is_empty()
+                && heard.is_empty()
+            {
                 continue;
             }
             let practised = knowers
@@ -282,6 +341,8 @@ pub fn knowledge_response(sim: &Sim) -> Vec<u8> {
             let learners_v = refs(&mut fbb, &learners, now);
             let heard_v = refs(&mut fbb, &heard, now);
             let status = fbb.create_string(&status);
+            let (caution, trust) = trust_words(sim, s, t);
+            let trust = fbb.create_string(&trust);
             techniques.push(wire::TechniqueHere::create(
                 &mut fbb,
                 &wire::TechniqueHereArgs {
@@ -293,6 +354,8 @@ pub fn knowledge_response(sim: &Sim) -> Vec<u8> {
                     practised_last_year: practised,
                     status: Some(status),
                     history: Some(history),
+                    caution: caution as f32,
+                    trust: Some(trust),
                 },
             ));
         }

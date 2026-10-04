@@ -387,6 +387,22 @@ pub fn design_shape(
     at: (f32, f32),
     toward: Option<(f32, f32)>,
 ) -> Option<BuildingSpec> {
+    design_cautious(def, goods, shape, at, toward, 1.0)
+}
+
+/// [`design_shape`], by builders who make the members that carry a frame building's load
+/// `caution` times as strong as usual after failures they have seen (ADR-0009 §6): a joist's
+/// diameter by the cube root of it (bending strength goes as d³), a post's by its fourth root
+/// (buckling goes as d⁴), each to the nearest centimetre and no more than the program allows.
+/// A hut is built as usual: its rules leave nothing to size.
+pub fn design_cautious(
+    def: &BuildingDef,
+    goods: &[GoodDef],
+    shape: Shape,
+    at: (f32, f32),
+    toward: Option<(f32, f32)>,
+    caution: f64,
+) -> Option<BuildingSpec> {
     match (shape, &def.rules) {
         (Shape::Round { radius }, ProgramRules::Hut(_)) => {
             Some(design(def, goods, radius, at, toward))
@@ -397,7 +413,7 @@ pub fn design_shape(
                 storeys,
                 lofts,
             },
-            ProgramRules::Frame(_),
+            ProgramRules::Frame(rules),
         ) => {
             use frame_params as fp;
             let d = def.design?;
@@ -407,12 +423,21 @@ pub fn design_shape(
             params[fp::BAYS] = bays;
             params[fp::DOOR] = fp::door(fp::SIDE_RIGHT, bays / 2);
             params[fp::LOFT_BAYS] = (1 << lofts.clamp(0, bays)) - 1;
+            let caution = if caution.is_finite() {
+                caution.max(1.0)
+            } else {
+                1.0
+            };
+            let stronger = |cm: i32, root: f64, most: i32| {
+                let sized = (f64::from(cm) * caution.powf(1.0 / root)).round() as i32;
+                sized.min(most).max(cm)
+            };
             if lofts > 0 || storeys > 1 || d.floor_raise_cm > 0 {
-                params[fp::JOIST_CM] = d.joist_cm;
+                params[fp::JOIST_CM] = stronger(d.joist_cm, 3.0, rules.joist_cm.1);
             }
             params[fp::FLOOR_RAISE_CM] = d.floor_raise_cm;
             params[fp::OVERHANG_CM] = d.overhang_cm;
-            params[fp::POST_CM] = d.post_cm;
+            params[fp::POST_CM] = stronger(d.post_cm, 4.0, rules.post_cm.1);
             params[fp::WALL_CM] = d.wall_cm;
             // The door's wall faces `toward`: it faces a quarter turn on from the length.
             let facing = toward.map_or(0, |t| direction(at, t));

@@ -897,6 +897,13 @@ export interface TechniqueHere {
   status: string;
   /** Its history there, oldest first, in sentences. */
   history: string[];
+  /**
+   * Wire 1.18 (M3b slice P): how many times their usual strength builders there make its frame
+   * buildings' joists and posts after the failures they have seen (1 as usual; ADR-0009 §6), and
+   * what they have seen in words, rendered by the kernel ("" when nothing is built by it there).
+   */
+  caution: number;
+  trust: string;
 }
 
 export interface SettlementKnowledge {
@@ -2035,6 +2042,8 @@ function knowledge(w: W.Knowledge): KnowledgeInfo {
         practisedLastYear: t.practisedLastYear(),
         status: t.status() ?? "",
         history: Array.from({ length: t.historyLength() }, (_, j) => t.history(j) ?? ""),
+        caution: t.caution(),
+        trust: t.trust() ?? "",
       });
     }
     settlements.push({ settlement: Number(s.settlement()), name: s.name() ?? "", techniques });

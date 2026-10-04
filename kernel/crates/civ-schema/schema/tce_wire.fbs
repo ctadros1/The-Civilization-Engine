@@ -1154,12 +1154,20 @@ table TechniqueHere {
   // Its history there, oldest first, in sentences: "Brought by Ash in year 1.", "Lost in year 9
   // with Wren."
   history: [string] (id: 7);
+  // Wire 1.18: how many times their usual strength builders there make the joists and posts of
+  // its frame buildings after the failures they have seen (1 when they build as usual;
+  // ADR-0009 §6), and what they have seen in words, rendered by the kernel: "2 buildings gave
+  // way lately in 31 building-years: built 1.4 times as strong"; empty for a technique nothing
+  // is built by there.
+  caution: float = 1.0 (id: 8);
+  trust: string (id: 9);
 }
 
 table SettlementKnowledge {
   settlement: ulong (id: 0);
   name: string (id: 1);
-  // Every technique known there, ever known there or known of there.
+  // Every technique known there, ever known there or known of there, and (wire 1.18) any whose
+  // buildings its builders remember.
   techniques: [TechniqueHere] (id: 2);
 }
 

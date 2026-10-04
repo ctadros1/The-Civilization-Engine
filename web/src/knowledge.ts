@@ -95,6 +95,8 @@ export interface TechniqueRow {
   can: string;
   requires: string;
   history: string[];
+  /** What its builders there have seen of its buildings, in the kernel's words ("" for none). */
+  trust: string;
 }
 
 /** A settlement's techniques as rows: those known there first, each group in the kernel's order. */
@@ -112,6 +114,7 @@ export function techniqueRows(here: TechniqueHere[], techniques: TechniqueInfo[]
     can: techniques[t.technique]?.can ?? "",
     requires: techniques[t.technique]?.requires ?? "",
     history: t.history,
+    trust: t.trust,
   }));
   return [...rows.filter((r) => r.known), ...rows.filter((r) => !r.known)];
 }

@@ -1844,3 +1844,50 @@ fn stocks_carry_over_only_while_their_good_and_unit_are_unchanged() {
         }
     }
 }
+
+#[test]
+fn what_settlements_have_seen_of_their_buildings_survives_a_save_and_load() {
+    let mut sim = load_first();
+    let catalog = &sim.rules().catalog;
+    let technique = catalog
+        .technique_index("core:technique/jointed_frame")
+        .expect("the jointed frame");
+    let settlement = sim
+        .people()
+        .households
+        .iter()
+        .find_map(|(_, h)| h.settlement)
+        .expect("a settlement");
+    let now = sim.now();
+    let seen = civ_agents::caution::Trust {
+        settlement,
+        technique: technique as u16,
+        failures: 1.0,
+        years: 12.0,
+        at: now,
+    };
+    sim.people_mut_for_tests().trust.push(seen);
+    let dir = scratch_dir("trust");
+    let saved = persist::save(&mut sim, &dir, SaveKind::Manual, "trust").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().trust, vec![seen]);
+    // Wire 1.18: the knowledge panel says how much stronger its builders build, and why.
+    let payload = frames::knowledge::knowledge_response(&loaded);
+    let response = flatbuffers::root::<wire::Response>(&payload).expect("a response");
+    let here = response
+        .body_as_knowledge()
+        .expect("knowledge")
+        .settlements()
+        .expect("a list")
+        .iter()
+        .find(|s| s.settlement() == settlement.get())
+        .and_then(|s| s.techniques())
+        .and_then(|ts| ts.iter().find(|t| usize::from(t.technique()) == technique))
+        .expect("the jointed frame there");
+    // One failure against 12 building-years is a rate of 0.083, so caution is 1.89.
+    assert!((f64::from(here.caution()) - (1.0 + 1.0 / 12.0 / (1.0 / 12.0 + 0.01))).abs() < 1e-3);
+    assert_eq!(
+        here.trust(),
+        Some("built 1.9 times as strong: failures weigh 1.0 against 12 building-years")
+    );
+}

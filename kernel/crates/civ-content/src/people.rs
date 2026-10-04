@@ -93,6 +93,21 @@ pub(crate) struct Build {
     pub home_work_places: u32,
     /// How unevenly a novice and a master make the parts of a building.
     pub quality_spread: [f64; 2],
+    /// How builders answer the failures their settlement has seen.
+    pub caution: Caution,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Caution {
+    /// Years over which a settlement's memory of failures and of years without them fades by half.
+    pub half_life_years: f64,
+    /// How many times its usual strength a member is made at most.
+    pub most: f64,
+    /// Failures a building-year at which caution is half way to its most.
+    pub half_rate: f64,
+    /// How many failures more each death in one counts as.
+    pub death_weight: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -480,6 +495,12 @@ impl PeopleFile {
                 store_horizon_days: self.build.store_horizon_days,
                 home_work_places: self.build.home_work_places,
                 quality_spread: self.build.quality_spread,
+                caution: civ_agents::caution::CautionParams {
+                    half_life_years: self.build.caution.half_life_years,
+                    most: self.build.caution.most,
+                    half_rate: self.build.caution.half_rate,
+                    death_weight: self.build.caution.death_weight,
+                },
             },
             mortality: MortalityParams {
                 siler: Siler {
@@ -734,6 +755,27 @@ impl PeopleFile {
             p.push(format!(
                 "`build.quality_spread` must be [novice, master] with 0 <= master <= novice < 1 \
                  (got [{novice}, {master}])"
+            ));
+        }
+        let c = &self.build.caution;
+        if !(c.half_life_years.is_finite() && (0.5..=100.0).contains(&c.half_life_years)) {
+            p.push(format!(
+                "`build.caution.half_life_years` must be between 0.5 and 100 (got {})",
+                c.half_life_years
+            ));
+        }
+        if !(c.most.is_finite() && (1.0..=10.0).contains(&c.most)) {
+            p.push(format!(
+                "`build.caution.most` must be between 1 and 10: builders never build weaker for \
+                 what they have seen (got {})",
+                c.most
+            ));
+        }
+        positive("build.caution.half_rate", c.half_rate, &mut p);
+        if !(c.death_weight.is_finite() && (0.0..=100.0).contains(&c.death_weight)) {
+            p.push(format!(
+                "`build.caution.death_weight` must be between 0 and 100 (got {})",
+                c.death_weight
             ));
         }
         if !(h.raised_store_factor.is_finite() && h.raised_store_factor >= 1.0) {

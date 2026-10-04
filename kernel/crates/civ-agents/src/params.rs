@@ -1157,6 +1157,8 @@ pub struct BuildParams {
     /// How unevenly the parts of a building are made, by a novice and by a master builder: a
     /// group's quality is one less this times the size of a normal draw (ADR-0009 §6).
     pub quality_spread: [f64; 2],
+    /// How builders answer the failures their settlement has seen (ADR-0009 §6).
+    pub caution: crate::caution::CautionParams,
 }
 
 /// Everything authored about people.

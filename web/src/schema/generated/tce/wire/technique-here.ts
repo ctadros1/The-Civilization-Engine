@@ -89,8 +89,20 @@ historyLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+caution():number {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 1.0;
+}
+
+trust():string|null
+trust(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+trust(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 22);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startTechniqueHere(builder:flatbuffers.Builder) {
-  builder.startObject(8);
+  builder.startObject(10);
 }
 
 static addTechnique(builder:flatbuffers.Builder, technique:number) {
@@ -173,12 +185,20 @@ static startHistoryVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addCaution(builder:flatbuffers.Builder, caution:number) {
+  builder.addFieldFloat32(8, caution, 1.0);
+}
+
+static addTrust(builder:flatbuffers.Builder, trustOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(9, trustOffset, 0);
+}
+
 static endTechniqueHere(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createTechniqueHere(builder:flatbuffers.Builder, technique:number, known:boolean, knowersOffset:flatbuffers.Offset, learnersOffset:flatbuffers.Offset, heardOffset:flatbuffers.Offset, practisedLastYear:number, statusOffset:flatbuffers.Offset, historyOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createTechniqueHere(builder:flatbuffers.Builder, technique:number, known:boolean, knowersOffset:flatbuffers.Offset, learnersOffset:flatbuffers.Offset, heardOffset:flatbuffers.Offset, practisedLastYear:number, statusOffset:flatbuffers.Offset, historyOffset:flatbuffers.Offset, caution:number, trustOffset:flatbuffers.Offset):flatbuffers.Offset {
   TechniqueHere.startTechniqueHere(builder);
   TechniqueHere.addTechnique(builder, technique);
   TechniqueHere.addKnown(builder, known);
@@ -188,6 +208,8 @@ static createTechniqueHere(builder:flatbuffers.Builder, technique:number, known:
   TechniqueHere.addPractisedLastYear(builder, practisedLastYear);
   TechniqueHere.addStatus(builder, statusOffset);
   TechniqueHere.addHistory(builder, historyOffset);
+  TechniqueHere.addCaution(builder, caution);
+  TechniqueHere.addTrust(builder, trustOffset);
   return TechniqueHere.endTechniqueHere(builder);
 }
 }

@@ -791,10 +791,23 @@ struct KnowledgeEntry {
   source: ubyte;
 }
 
+// Schema 18: what a settlement has seen of a technique's buildings (ADR-0009 §6): failures (a
+// death in one counting for more) and building-years of standing, both faded to `at`.
+struct TrustEntry {
+  at: long;
+  settlement: ulong;
+  failures: double;
+  years: double;
+  technique: ushort;
+}
+
 table Knowledge {
-  // Technique content ids at save time; KnowledgeEntry.technique indexes this list.
+  // Technique content ids at save time; KnowledgeEntry.technique and TrustEntry.technique index
+  // this list.
   techniques: [string] (id: 0);
   entries: [KnowledgeEntry] (id: 1);
+  // Schema 18: each settlement's trust in each technique's buildings, in the order first seen.
+  trust: [TrustEntry] (id: 2);
 }
 
 // Section "events": the scheduler's pending events.

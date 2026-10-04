@@ -188,6 +188,18 @@ home_work_places = 2             # two at a craft beside living (tuning; the res
 # a master's is a tuning value.
 quality_spread = [0.3, 0.1]
 
+[build.caution]
+# How builders answer what their settlement has seen of a technique's buildings (ADR-0009 §6):
+# failures and the building-years they stood, both fading by half over `half_life_years`; their
+# ratio is the failure rate builders believe in, and caution, how many times their usual strength
+# they make joists and posts, rises toward `most` as it does. 11-09 §2.3 puts personal memory of
+# a disaster at a half-life of 2-20 years (low confidence); 11-06 §2.4 bounds plausible failure
+# rates at 1e-5 to 1e-3 a building-year. The rest are tuning values with no source.
+half_life_years = 8.0            # inside 11-09 §2.3's 2-20 years
+most = 2.0                       # at most twice the usual strength (tuning)
+half_rate = 0.01                 # failures a building-year at half the most: ten times 11-06's top (tuning)
+death_weight = 2.0               # a death counts as two more failures (tuning)
+
 [mortality]                      # Siler hazard, Hadza fit (research 05-01 §1.2): 1q0 216, e0 34
 a = 0.351
 b = 0.895

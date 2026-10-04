@@ -55,6 +55,8 @@ function here(over: Partial<TechniqueHere> = {}): TechniqueHere {
     practisedLastYear: 1,
     status: "known by one, Wren, aged 61",
     history: ["Year 1: brought by Wren."],
+    caution: 1,
+    trust: "",
     ...over,
   };
 }
@@ -122,7 +124,12 @@ describe("knowledge", () => {
         status: "lost in year 9 with Wren; one still know of it",
         practisedLastYear: 0,
       }),
-      here({ technique: 0, learners: [person("Moss", 15)] }),
+      here({
+        technique: 0,
+        learners: [person("Moss", 15)],
+        caution: 1.9,
+        trust: "built 1.9 times as strong: failures weigh 1.0 against 12 building-years",
+      }),
     ];
     const rows = techniqueRows(list, TECHNIQUES);
     expect(rows.map((r) => r.name)).toEqual(["Knapping", "Weaving"]);
@@ -134,6 +141,7 @@ describe("knowledge", () => {
       practised: "1 of 1 in the last year",
       can: "do knapping",
       requires: "",
+      trust: "built 1.9 times as strong: failures weigh 1.0 against 12 building-years",
     });
     expect(rows[1]).toMatchObject({
       known: false,

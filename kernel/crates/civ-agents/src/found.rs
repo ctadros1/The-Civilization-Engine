@@ -1159,6 +1159,12 @@ pub(crate) mod tests {
                 store_horizon_days: 1095.0,
                 home_work_places: 2,
                 quality_spread: [0.3, 0.1],
+                caution: crate::caution::CautionParams {
+                    half_life_years: 8.0,
+                    most: 2.0,
+                    half_rate: 0.01,
+                    death_weight: 2.0,
+                },
             },
         }
     }

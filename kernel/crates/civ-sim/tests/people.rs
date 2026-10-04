@@ -666,8 +666,10 @@ fn a_household_grown_rich_builds_a_larger_home_beside_its_old_one_and_moves_in()
             .find(|b| b.household == rich && b.id != old)
             .map(|b| (b.id, radius_of(b), b.roofed()))
     };
+    // A larger hut it could not roof before winter waits until the roof deadline moves on to
+    // next year (`build::roof_deadline`), so it may begin a few months later.
     let mut begun = None;
-    for _ in 0..30 {
+    for _ in 0..240 {
         begun = new_building(&sim);
         if begun.is_some() {
             break;

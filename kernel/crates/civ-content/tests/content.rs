@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 16
+kernel_content_api = 17
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -1009,6 +1009,41 @@ fn profiles_check_their_ranges_and_fields() {
             .contains("`peak_load.median_kpa`")
     );
 
+    // Builders never build weaker for what they have seen (ADR-0009 §6).
+    let people = real("people/early_farmers.toml").replace("most = 2.0 ", "most = 0.5 ");
+    assert_ne!(
+        people,
+        real("people/early_farmers.toml"),
+        "the edit applies"
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("people/early_farmers.toml", &people),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("`build.caution.most`")
+    );
+    let people = real("people/early_farmers.toml")
+        .replace("half_life_years = 8.0 ", "half_life_years = 0.0 ");
+    assert_ne!(
+        people,
+        real("people/early_farmers.toml"),
+        "the edit applies"
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("people/early_farmers.toml", &people),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("`build.caution.half_life_years`")
+    );
+
     // A resource grows as a plant or as animals, not both.
     let land = real("land/temperate_valley.toml").replace(
         "[resource.animal]\n# Animals per hectare",
@@ -1057,7 +1092,7 @@ fn the_fingerprint_covers_every_kind() {
             "half_life_days = 4.0",
         ),
         ("crop/emmer.toml", "grow_days = 120", "grow_days = 125"),
-        ("building/hut.toml", "post_kg = 22.0", "post_kg = 23.0"),
+        ("building/hut.toml", "post_kg = 34.0", "post_kg = 35.0"),
         (
             "technique/quern_grinding.toml",
             "learn_h = 20.0",

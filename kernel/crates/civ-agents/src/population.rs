@@ -43,8 +43,11 @@ mod life;
 mod loads;
 mod market;
 
-pub use loads::{DIES_IN_RUIN, DIES_UNDER_FLOOR, DIES_UNDER_ROOF, LIVE_PA, SPILLED, peak_pa};
+pub use loads::{
+    DIES_IN_RUIN, DIES_UNDER_FLOOR, DIES_UNDER_ROOF, LIVE_PA, SPILLED, month_peak, peak_pa,
+};
 mod transfer;
+mod trust;
 
 use knowledge::Gate;
 pub use knowledge::{LOST_AWARE, LOST_MADE_REMAIN};
@@ -214,6 +217,9 @@ pub struct Population {
     /// Each settlement's record of the techniques it came to know and lost, oldest first
     /// (ADR-0008 §2).
     pub knowledge: Vec<crate::knowledge::KnowledgeEvent>,
+    /// What each settlement has seen of each technique's buildings, in the order first seen
+    /// (ADR-0009 §6).
+    pub trust: Vec<crate::caution::Trust>,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -1318,10 +1324,17 @@ impl Population {
                     toward: Option<(f32, f32)>,
                     firm: Option<PermanentId>| {
             let program = &catalog.buildings[p];
+            // Members as strong as what the settlement has seen of the technique calls for.
+            let caution = self.caution(
+                hh.settlement,
+                program.technique,
+                ctx.now,
+                &ctx.params.build.caution,
+            );
             let design_at = |at: (f32, f32)| {
                 let reachable = reach.is_none_or(|r| r.seconds_to(cell_of(ctx.map, at)).is_some());
                 reachable
-                    .then(|| build::design_shape(program, goods, shape, at, toward))
+                    .then(|| build::design_cautious(program, goods, shape, at, toward, caution))
                     .flatten()
             };
             let spec = build::home_site(
@@ -3626,6 +3639,7 @@ impl Population {
         for household in changed {
             self.buildings_changed(ctx.now, ctx.land, catalog, ctx.params, household);
         }
+        self.remember_standing(ctx);
     }
 
     pub fn on_day(&mut self, ctx: &mut Ctx) {

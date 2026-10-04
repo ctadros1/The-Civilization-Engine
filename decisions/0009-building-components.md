@@ -5,7 +5,8 @@ Date: 2026-10-04
 Milestone: M3b
 Amended: 2026-10-04, to match what was built. Slice O's first step: §2's parameters as frame
 version 1 names them, §3's group kinds and storage, §8's schema 15 and wire 1.14. Second step:
-§1's repertoire and choice, §5's room under a roof
+§1's repertoire and choice, §5's room under a roof. Slice P: §4's condition and upkeep, §5's
+loads and failure (with the storm's day), §6's skill and caution, §8's schemas 17 and 18.
 
 ## Context
 
@@ -197,9 +198,11 @@ their meanings), an expansion yields:
 - **Chronicle:** a partial failure or collapse gives vulnerability, trigger and propagation in
   words, and links the building.
 - As built (slice P's second step):
-  - Margins are checked each day for every standing building, under the month's peak, which
-    is drawn once a month for each settlement (as if it came on the month's first day);
-    there is no separate check when loads change.
+  - Margins are checked each day for every standing building. The month's peak is drawn once a
+    month for each settlement with the day it comes (1 to 28), and weighs on roofs that day
+    only, so each storm is evaluated once and a roof mended after it does not meet it again (at
+    first it weighed every day of its month, which the step's smoke showed wrong). There is no
+    separate check when loads change.
   - Deflection is serviceability: a sag past L/180 (11-05 §2.4) only shows, and a failure
     needs a strength margin below 1. A sag or a lean is not mended by upkeep, which rebuilds
     a failed part whole.
@@ -231,6 +234,19 @@ their meanings), an expansion yields:
   not the true capacity. So after a failure, joists are deeper, posts thicker and lofts fewer.
 - **Recovery:** failures fade with an authored half-life inside 11-09 §2.3's 2–20 years while
   survival accumulates, so margins come back without a script.
+- As built (slice P's third step):
+  - The sums are failures (one a building that gave way, each death in it counting
+    `death_weight` more) and building-years rather than component-years, the unit of
+    11-06 §2.4's plausible band (1e-5 to 1e-3 a building-year). Both fade by half over
+    `half_life_years` and are counted against at least 10 building-years.
+  - Caution is `1 + (most − 1)·rate/(rate + half_rate)`, the people profile's
+    `[build.caution]` (content API 17). It sizes members directly rather than through the
+    builder's estimate of capacity: a frame design's joist diameter times caution's cube root
+    and post diameter times its fourth root, rounded and kept within the program's ranges, so
+    a joist or a post is about `caution` times as strong. Fewer lofts wait: a household still
+    chooses its shape by the usual design's cost and pays for the stronger one as it builds.
+  - Huts are built as before, their grammar frozen. A household of no settlement remembers
+    nothing.
 
 ### 7. Other uses, plots and style
 

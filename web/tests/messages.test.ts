@@ -689,7 +689,20 @@ describe("decoders", () => {
     const heard = W.TechniqueHere.createHeardVector(b, []);
     const status = b.createString("known by one, Wren, aged 61; one learning");
     const history = W.TechniqueHere.createHistoryVector(b, [b.createString("Year 1: brought by Wren.")]);
-    const here = W.TechniqueHere.createTechniqueHere(b, 2, true, knowers, learners, heard, 1, status, history);
+    const trust = b.createString("1 building gave way lately in 12 building-years: built 1.9 times as strong");
+    const here = W.TechniqueHere.createTechniqueHere(
+      b,
+      2,
+      true,
+      knowers,
+      learners,
+      heard,
+      1,
+      status,
+      history,
+      1.9,
+      trust,
+    );
     const techniques = W.SettlementKnowledge.createTechniquesVector(b, [here]);
     const settlement = W.SettlementKnowledge.createSettlementKnowledge(
       b,
@@ -715,7 +728,9 @@ describe("decoders", () => {
       status: "known by one, Wren, aged 61; one learning",
       history: ["Year 1: brought by Wren."],
       heard: [],
+      trust: "1 building gave way lately in 12 building-years: built 1.9 times as strong",
     });
+    expect(t.caution).toBeCloseTo(1.9, 5);
     expect(t.knowers).toEqual([{ id: 7, name: "Wren", ageYears: 61.5 }]);
     expect(t.learners.map((p) => p.name)).toEqual(["Ash"]);
   });

@@ -551,22 +551,122 @@ fn posts_rotted_through_bring_a_hut_down_and_those_it_kills_die_of_its_collapse(
 }
 
 #[test]
-fn the_months_peak_is_one_draw_for_a_whole_settlement() {
+fn the_months_peak_is_one_storm_on_one_day_for_a_whole_settlement() {
+    use civ_agents::population::{month_peak, peak_pa};
+    use civ_core::SimTime;
     let peak = civ_land::PeakLoad {
         median_pa: 250.0,
         spread: 0.6,
     };
-    let at = |month: i64, day: i64| {
-        civ_core::SimTime::from_minutes(((month * 30 + day) * 24 * 60).max(0))
-    };
     let place = PermanentId::from_raw(7).expect("nonzero");
-    let draw = |t: civ_core::SimTime| civ_agents::population::peak_pa(11, place, t, &peak);
-    // The same all month, another the next.
-    assert_eq!(draw(at(3, 1)), draw(at(3, 20)));
-    let mut draws: Vec<f64> = (0..600).map(|m| draw(at(m, 2))).collect();
-    assert!(draws.windows(2).any(|w| w[0] != w[1]));
-    draws.sort_by(f64::total_cmp);
-    let median = draws[draws.len() / 2];
+    let day =
+        |year: i64, month: u8, day: u8| SimTime::from_date(year, month, day, 0, 0).expect("a date");
+    let mut loads = Vec::new();
+    for year in 1..=50 {
+        for month in 1..=12u8 {
+            // One draw a month: the same storm on whatever day of the month it is asked for...
+            let (on, pa) = month_peak(11, place, day(year, month, 3), &peak);
+            assert_eq!((on, pa), month_peak(11, place, day(year, month, 20), &peak));
+            assert!((1..=28).contains(&on), "{on}");
+            // ...striking the roofs on that day alone, so a roof mended after it does not meet
+            // it again.
+            let length = civ_core::time::MONTH_LENGTHS[usize::from(month) - 1] as u8;
+            let struck: Vec<u8> = (1..=length)
+                .filter(|&d| peak_pa(11, place, day(year, month, d), &peak) > 0.0)
+                .collect();
+            assert_eq!(struck, vec![on]);
+            assert_eq!(peak_pa(11, place, day(year, month, on), &peak), pa);
+            loads.push(pa);
+        }
+    }
+    assert!(loads.windows(2).any(|w| w[0] != w[1]));
+    loads.sort_by(f64::total_cmp);
+    let median = loads[loads.len() / 2];
     assert!((median - 250.0).abs() < 40.0, "{median}");
-    assert!(draws.iter().all(|&p| p > 0.0));
+    assert!(loads.iter().all(|&p| p > 0.0));
+}
+
+#[test]
+fn a_loft_that_gives_way_makes_its_settlement_build_frames_stronger_for_a_while() {
+    use civ_grammar::frame_params as fp;
+    let catalog = &content().catalog;
+    let def = longhouse_def();
+    let shape = Shape::Bays {
+        bays: 2,
+        storeys: 1,
+        lofts: 2,
+    };
+    let sized = |caution: f64| {
+        let spec = build::design_cautious(def, &catalog.goods, shape, (0.0, 0.0), None, caution)
+            .expect("a longhouse");
+        (spec.params[fp::JOIST_CM], spec.params[fp::POST_CM])
+    };
+    // Builders who have seen nothing fail build as usual; twice as cautious, joists of 19 cm
+    // (15 x 2^(1/3): bending strength goes as d^3) and posts of 18 (15 x 2^(1/4): buckling goes
+    // as d^4); never past what the program allows.
+    assert_eq!(sized(1.0), (15, 15));
+    assert_eq!(sized(2.0), (19, 18));
+    assert_eq!(sized(100.0), (25, 30));
+    assert_eq!(
+        build::design_shape(def, &catalog.goods, shape, (0.0, 0.0), None),
+        build::design_cautious(def, &catalog.goods, shape, (0.0, 0.0), None, 1.0)
+    );
+
+    // A loft on poles a novice chose badly gives way under a full load...
+    let (mut sim, household, house) = lofted(3, 8_000.0);
+    for b in sim.land_mut_for_tests().buildings.iter_mut() {
+        if b.id == house {
+            for c in &mut b.condition {
+                if GroupKind::of_group(c.group) == Some(GroupKind::LoftJoists) {
+                    c.quality = 0.2;
+                }
+            }
+        }
+    }
+    let settlement = sim.people().household(household).and_then(|h| h.settlement);
+    assert!(settlement.is_some(), "the household lives in a settlement");
+    let p = sim.rules().people.build.caution;
+    let caution = |sim: &Sim| {
+        sim.people()
+            .caution(settlement, def.technique, sim.now(), &p)
+    };
+    assert_eq!(caution(&sim), 1.0);
+    sim.advance_minutes(24 * 60).expect("advances");
+    assert_eq!(building(&sim, house).state, BuildingState::Damaged);
+    // ...and the settlement builds its next longhouse's joists and posts stronger: one failure
+    // among fewer than ten building-years is a rate of 0.1 a year or more, ten times the half
+    // rate, so caution is nine tenths of the way to its most.
+    let after = caution(&sim);
+    assert!(after > 1.9 && after < 2.0, "{after}");
+    let (joist, post) = sized(after);
+    assert!(joist >= 19 && post >= 18, "{joist} and {post} cm");
+    let trust = *sim
+        .people()
+        .trust
+        .iter()
+        .find(|t| Some(t.settlement) == settlement)
+        .expect("remembered");
+    assert!(trust.failures >= 1.0, "{trust:?}");
+    // Each month every standing building of the technique adds a month of standing; years
+    // without failures bring caution back toward 1 (the half-life is the profile's).
+    let to_month = {
+        let d = sim.now().date();
+        let length = civ_core::time::MONTH_LENGTHS[usize::from(d.month) - 1];
+        (length - i64::from(d.day) + 2) * 24 * 60
+    };
+    sim.advance_minutes(to_month).expect("advances");
+    let later = sim
+        .people()
+        .trust
+        .iter()
+        .find(|t| Some(t.settlement) == settlement)
+        .copied()
+        .expect("remembered");
+    assert!(later.years > 0.0, "{later:?}");
+    let years_on = later.caution(
+        sim.now()
+            .plus_minutes(16 * civ_core::time::MINUTES_PER_YEAR),
+        &p,
+    );
+    assert!(years_on < after, "{years_on} after {after}");
 }

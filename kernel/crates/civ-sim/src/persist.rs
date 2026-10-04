@@ -96,6 +96,9 @@ pub const SCHEMA_V15: u32 = 15;
 /// The schema version of M3b slice O's third step: workshops that name their firms, before
 /// buildings had a condition (see [`agents`]).
 pub const SCHEMA_V16: u32 = 16;
+/// The schema version of M3b slice P's first two steps: buildings with a condition, before
+/// settlements remembered what they had seen of each technique's buildings (see [`agents`]).
+pub const SCHEMA_V17: u32 = 17;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

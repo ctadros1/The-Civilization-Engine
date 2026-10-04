@@ -413,6 +413,12 @@ pub enum ChronicleKind {
     /// `name` what gave way, under what and why, in words ("longhouse lost its loft: the joists
     /// broke under 1.9 t of grain; they were poorly made").
     BuildingFailed,
+    /// A settlement found a deposit (ADR-0010 §1): `people` is who found it, `place` the body,
+    /// and `name` what was found in words ("clay showing at the surface").
+    DepositFound,
+    /// The observer laid down a deposit (the god tool, ADR-0010 §1): `place` the body, `settlement`
+    /// the nearest settlement if any, and `name` what it is in words ("clay under the ground").
+    DepositPlaced,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -769,6 +775,16 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 spans.push(Span::Text(".".to_owned()));
             }
             spans
+        }
+        ChronicleKind::DepositFound => match person(0) {
+            Some(finder) => vec![finder, Span::Text(format!(" found {}.", event.name))],
+            None => vec![Span::Text(format!("Found {}.", event.name))],
+        },
+        ChronicleKind::DepositPlaced => {
+            vec![Span::Text(format!(
+                "The observer laid down {}.",
+                event.name
+            ))]
         }
         ChronicleKind::FirstTrail => vec![
             Span::Text("The first trail out of ".to_owned()),

@@ -290,6 +290,9 @@ table Snapshot {
   // technique, and when people arrive, leave or die (0 = no people). Fetch the settlements'
   // knowledge with GetKnowledge when it differs from the revision last fetched.
   knowledge_rev: ulong (id: 15);
+  // Wire 1.19 (M3b slice Q): changes whenever a deposit is laid down, found or dug from (0 = no
+  // deposits). Fetch the deposits with GetDeposits when it differs from the revision last fetched.
+  deposits_rev: ulong (id: 16);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -364,7 +367,17 @@ table IntroduceTechnique {
   aware_only: bool (id: 2);
 }
 
-union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique }
+// Wire 1.19 (M3b slice Q): the observer lays down a deposit (god tool, ADR-0010 §1): a disc of
+// `radius_m` of `good` (a good's content id) at `at`, showing at the surface or under the cover the
+// land profile gives it. Refused off dry land, for an unknown good or a radius outside 1-200 m.
+table PlaceDeposit {
+  at: Vec2 (id: 0);
+  good: string (id: 1);
+  radius_m: float (id: 2);
+  exposed: bool (id: 3);
+}
+
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit }
 
 table Command {
   body: CommandBody (id: 1);
@@ -436,7 +449,10 @@ table GetWealth {}
 // What each settlement knows: each technique's knowers, learners and history (M3b slice M).
 table GetKnowledge {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge }
+// Every deposit in the ground and who knows it (wire 1.19, M3b slice Q).
+table GetDeposits {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits }
 
 table Query {
   body: QueryBody (id: 1);
@@ -1177,7 +1193,37 @@ table Knowledge {
   settlements: [SettlementKnowledge] (id: 1);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge }
+// A deposit in the ground (wire 1.19, M3b slice Q; ADR-0010 §1). The observer sees them all; the
+// people of a settlement know only those in `known_by`.
+table DepositInfo {
+  id: ulong (id: 0);
+  // Index into Welcome.goods.
+  good: uint (id: 1);
+  // Its centre, metres from the map's north-west corner, and its radius.
+  x: float (id: 2);
+  y: float (id: 3);
+  radius_m: float (id: 4);
+  // It shows at the surface; otherwise it lies under `cover_m` of ground.
+  exposed: bool (id: 5);
+  cover_m: float (id: 6);
+  thickness_m: float (id: 7);
+  // How much of what is dug is fit for use, 0 to 1.
+  quality: float (id: 8);
+  left_kg: double (id: 9);
+  taken_kg: double (id: 10);
+  // The settlements that know it, and how each came to, in words, in the same order: "found by Ash
+  // of Alderford in year 3".
+  known_by: [ulong] (id: 11);
+  finds: [string] (id: 12);
+}
+
+table Deposits {
+  // The snapshot revision this is at.
+  rev: ulong (id: 0);
+  deposits: [DepositInfo] (id: 1);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits }
 
 table Response {
   body: ResponseBody (id: 1);

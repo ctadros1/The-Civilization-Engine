@@ -5,6 +5,7 @@
 import "./styles.css";
 
 import { buildingWords } from "./buildings.js";
+import { depositWords } from "./deposits.js";
 import { formatDistance } from "./format.js";
 import { MapView, type PointerInfo } from "./map/view.js";
 import { tenureText } from "./fields.js";
@@ -70,6 +71,7 @@ const client = new HostClient(socketUrl(), {
     void syncFirms();
     void syncWealth();
     void syncKnowledge();
+    void syncDeposits();
     void refreshPerson(false);
   },
   events: (items) => store.update({ events: mergeEvents(store.state.events, items) }),
@@ -190,6 +192,37 @@ async function syncBuildings(): Promise<void> {
     buildingsBusy = false;
   }
   if (ok) void syncBuildings();
+}
+
+/** `world:revision` of the deposits on the map. */
+let depositsKey = "";
+let depositsBusy = false;
+
+/** Fetches the deposits when one was laid down, found or dug from. */
+async function syncDeposits(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const goods = store.state.welcome?.goods ?? [];
+  const key = world && s.depositsRev !== 0 ? `${store.state.epoch}:${world.worldId}:${s.depositsRev}` : "";
+  if (key === depositsKey || depositsBusy) return;
+  if (!key) {
+    depositsKey = "";
+    map.setDeposits([], goods);
+    return;
+  }
+  depositsBusy = true;
+  let ok = false;
+  try {
+    const { deposits } = await client.deposits();
+    depositsKey = key;
+    map.setDeposits(deposits, goods);
+    ok = true;
+  } catch (e) {
+    console.warn(`tce: the deposits could not be read: ${String(e)}`);
+  } finally {
+    depositsBusy = false;
+  }
+  if (ok) void syncDeposits();
 }
 
 /** `world:revision` of the paths on the map. */
@@ -591,9 +624,10 @@ map.onPointer = (info: PointerInfo | null) => {
     : "";
   const path = info.path && !info.building ? ` · ${pathWords(info.path)}` : "";
   const building = info.building ? ` · ${buildingWords(info.building)}` : "";
+  const deposit = info.deposit ? ` · ${depositWords(info.deposit, store.state.welcome?.goods ?? [])}` : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}${path}${field}${building}`;
+    `${height} · ${info.water ?? ""}${path}${field}${building}${deposit}`;
 };
 
 const scaleBar = byId("scalebar-bar");
@@ -645,6 +679,7 @@ bindUi(store, {
     if (clock) await command(M.runUntil(clock.minute + minutes));
   },
   setPlacing,
+  setPlacingDeposit,
   introduceTechnique,
 });
 
@@ -653,11 +688,40 @@ bindUi(store, {
  * come together.
  */
 function setPlacing(on: boolean, families = store.state.placeFamilies): void {
-  store.update({ placing: on, placeFamilies: families });
+  store.update({ placing: on, placeFamilies: families, placingDeposit: false });
   map.setPlacing(on);
 }
 
+/**
+ * Arms or disarms the map tool that lays down a deposit of `good` (a content id) where the map is
+ * clicked, showing at the surface or buried (M3b slice Q).
+ */
+function setPlacingDeposit(on: boolean, good: string, exposed: boolean): void {
+  store.update({ placingDeposit: on, depositGood: good, depositExposed: exposed, placing: false });
+  map.setPlacing(on);
+}
+
+/** The radius, metres, of a deposit the observer lays down. */
+const PLACED_DEPOSIT_RADIUS_M = 10;
+
 map.onPlace = (xM, yM) => {
+  if (store.state.placingDeposit) {
+    const { depositGood, depositExposed } = store.state;
+    setPlacingDeposit(false, depositGood, depositExposed);
+    void (async () => {
+      try {
+        const body = await client.command(
+          M.placeDeposit(xM, yM, depositGood, PLACED_DEPOSIT_RADIUS_M, depositExposed),
+        );
+        const text = body.kind === "ack" && body.message ? body.message : "A deposit was laid down";
+        store.update({ notice: { kind: "info", text } });
+      } catch (e) {
+        const text = e instanceof HostError ? e.message : String(e);
+        store.update({ notice: { kind: "error", text } });
+      }
+    })();
+    return;
+  }
   setPlacing(false);
   void (async () => {
     try {
@@ -673,6 +737,9 @@ map.onPlace = (xM, yM) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && store.state.placing) setPlacing(false);
+  if (event.key === "Escape" && store.state.placingDeposit) {
+    setPlacingDeposit(false, store.state.depositGood, store.state.depositExposed);
+  }
 });
 
 /** Test and debugging hooks (mirrors Genesis's window.__OBS__). Plain data only. */
@@ -698,6 +765,7 @@ const hooks = {
       firmsRev: s.snapshot?.firmsRev ?? 0,
       wealthRev: s.snapshot?.wealthRev ?? 0,
       knowledgeRev: s.snapshot?.knowledgeRev ?? 0,
+      depositsRev: s.snapshot?.depositsRev ?? 0,
       knowledge: s.knowledge
         ? s.knowledge.settlements.map((x) => ({
             name: x.name,

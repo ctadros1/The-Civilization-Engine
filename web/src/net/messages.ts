@@ -253,6 +253,8 @@ export interface Snapshot {
    * people arrive, leave or die (0 = no people).
    */
   knowledgeRev: number;
+  /** Wire 1.19: changes whenever a deposit is laid down, found or dug from (0 = no deposits). */
+  depositsRev: number;
 }
 
 export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
@@ -917,6 +919,33 @@ export interface KnowledgeInfo {
   settlements: SettlementKnowledge[];
 }
 
+/** A deposit in the ground (wire 1.19, M3b slice Q; ADR-0010 §1). */
+export interface DepositInfo {
+  id: number;
+  /** An index into Welcome.goods. */
+  good: number;
+  /** Its centre, metres from the map's north-west corner, and its radius. */
+  x: number;
+  y: number;
+  radiusM: number;
+  /** It shows at the surface; otherwise it lies under `coverM` of ground. */
+  exposed: boolean;
+  coverM: number;
+  thicknessM: number;
+  /** How much of what is dug is fit for use, 0 to 1. */
+  quality: number;
+  leftKg: number;
+  takenKg: number;
+  /** The settlements that know it, and how each came to, in the kernel's words. */
+  knownBy: number[];
+  finds: string[];
+}
+
+export interface DepositsInfo {
+  rev: number;
+  deposits: DepositInfo[];
+}
+
 export type ResponseBody =
   | { kind: "ack"; message: string }
   | { kind: "raster"; tile: RasterTile }
@@ -932,7 +961,8 @@ export type ResponseBody =
   | { kind: "firms"; rev: number; firms: FirmBrief[] }
   | { kind: "firm"; firm: FirmInfo }
   | { kind: "wealth"; wealth: WealthInfo }
-  | { kind: "knowledge"; knowledge: KnowledgeInfo };
+  | { kind: "knowledge"; knowledge: KnowledgeInfo }
+  | { kind: "deposits"; deposits: DepositsInfo };
 
 export type ErrorCode =
   | "unknown"
@@ -1133,6 +1163,24 @@ export function getFirms(): Uint8Array {
 export function getFirm(id: number): Uint8Array {
   const b = new flatbuffers.Builder(32);
   return query(b, W.QueryBody.GetFirm, W.GetFirm.createGetFirm(b, BigInt(id)));
+}
+
+export function getDeposits(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetDeposits.startGetDeposits(b);
+  return query(b, W.QueryBody.GetDeposits, W.GetDeposits.endGetDeposits(b));
+}
+
+/** The observer lays down a deposit of `good` (a content id) at a point, metres (god tool). */
+export function placeDeposit(x: number, y: number, good: string, radiusM: number, exposed: boolean): Uint8Array {
+  const b = new flatbuffers.Builder(64);
+  const id = b.createString(good);
+  W.PlaceDeposit.startPlaceDeposit(b);
+  W.PlaceDeposit.addAt(b, W.Vec2.createVec2(b, x, y));
+  W.PlaceDeposit.addGood(b, id);
+  W.PlaceDeposit.addRadiusM(b, radiusM);
+  W.PlaceDeposit.addExposed(b, exposed);
+  return command(b, W.CommandBody.PlaceDeposit, W.PlaceDeposit.endPlaceDeposit(b));
 }
 
 export function getKnowledge(): Uint8Array {
@@ -1339,7 +1387,32 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     firmsRev: Number(s.firmsRev()),
     wealthRev: Number(s.wealthRev()),
     knowledgeRev: Number(s.knowledgeRev()),
+    depositsRev: Number(s.depositsRev()),
   };
+}
+
+function deposits(w: W.Deposits): DepositsInfo {
+  const list: DepositInfo[] = [];
+  for (let i = 0; i < w.depositsLength(); i++) {
+    const d = w.deposits(i);
+    if (!d) continue;
+    list.push({
+      id: Number(d.id()),
+      good: d.good(),
+      x: d.x(),
+      y: d.y(),
+      radiusM: d.radiusM(),
+      exposed: d.exposed(),
+      coverM: d.coverM(),
+      thicknessM: d.thicknessM(),
+      quality: d.quality(),
+      leftKg: d.leftKg(),
+      takenKg: d.takenKg(),
+      knownBy: Array.from({ length: d.knownByLength() }, (_, j) => Number(d.knownBy(j) ?? 0n)),
+      finds: Array.from({ length: d.findsLength() }, (_, j) => d.finds(j) ?? ""),
+    });
+  }
+  return { rev: Number(w.rev()), deposits: list };
 }
 
 function personBriefs(s: W.Snapshot): PersonBrief[] {
@@ -2248,6 +2321,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Knowledge()) as W.Knowledge | null;
       if (!f) break;
       return { kind: "knowledge", knowledge: knowledge(f) };
+    }
+    case W.ResponseBody.Deposits: {
+      const f = r.body(new W.Deposits()) as W.Deposits | null;
+      if (!f) break;
+      return { kind: "deposits", deposits: deposits(f) };
     }
     default:
       break;

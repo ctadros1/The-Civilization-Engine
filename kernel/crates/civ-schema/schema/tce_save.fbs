@@ -827,9 +827,18 @@ struct DepositBody {
   exposed: bool;
 }
 
+// Each settlement's knowledge of a deposit: who found it and when, in the order they were found.
+struct DepositKnownEntry {
+  at: long;
+  settlement: ulong;
+  deposit: ulong;
+  finder: ulong;
+}
+
 table Deposits {
   goods: [string] (id: 0);
   bodies: [DepositBody] (id: 1);
+  known: [DepositKnownEntry] (id: 2);
 }
 
 // Section "events": the scheduler's pending events.

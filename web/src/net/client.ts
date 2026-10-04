@@ -289,6 +289,13 @@ export class HostClient {
     return body.wealth;
   }
 
+  /** Every deposit in the ground and who knows it (M3b slice Q). */
+  async deposits(): Promise<M.DepositsInfo> {
+    const body = await this.query(M.getDeposits());
+    if (body.kind !== "deposits") throw new HostError("internal", "expected deposits");
+    return body.deposits;
+  }
+
   /** What each settlement knows, is learning and has lost (M3b slice M). */
   async knowledge(): Promise<M.KnowledgeInfo> {
     const body = await this.query(M.getKnowledge());

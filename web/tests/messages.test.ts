@@ -171,6 +171,7 @@ describe("decoders", () => {
       firmsRev: 0,
       wealthRev: 0,
       knowledgeRev: 0,
+      depositsRev: 0,
     });
   });
 
@@ -733,6 +734,47 @@ describe("decoders", () => {
     expect(t.caution).toBeCloseTo(1.9, 5);
     expect(t.knowers).toEqual([{ id: 7, name: "Wren", ageYears: 61.5 }]);
     expect(t.learners.map((p) => p.name)).toEqual(["Ash"]);
+  });
+
+  it("decodes the deposits and builds the command that lays one down", () => {
+    const b = new flatbuffers.Builder(256);
+    const knownBy = W.DepositInfo.createKnownByVector(b, [12n]);
+    const finds = W.DepositInfo.createFindsVector(b, [b.createString("found by Ash of Alderford in year 3")]);
+    const info = W.DepositInfo.createDepositInfo(b, 431n, 1, 2366.5, 3355.25, 12, true, 0, 1.2, 0.6, 975000, 125, knownBy, finds);
+    const list = W.Deposits.createDepositsVector(b, [info]);
+    const deposits = W.Deposits.createDeposits(b, 77n, list);
+    const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Deposits, deposits)));
+    expect(body.kind).toBe("deposits");
+    if (body.kind !== "deposits") return;
+    expect(body.deposits.rev).toBe(77);
+    expect(body.deposits.deposits).toEqual([
+      {
+        id: 431,
+        good: 1,
+        x: 2366.5,
+        y: 3355.25,
+        radiusM: 12,
+        exposed: true,
+        coverM: 0,
+        thicknessM: expect.closeTo(1.2, 5) as number,
+        quality: expect.closeTo(0.6, 5) as number,
+        leftKg: 975000,
+        takenKg: 125,
+        knownBy: [12],
+        finds: ["found by Ash of Alderford in year 3"],
+      },
+    ]);
+    const bytes = M.placeDeposit(10, 20, "core:good/clay", 10, false);
+    const command = W.Command.getRootAsCommand(new flatbuffers.ByteBuffer(bytes));
+    expect(command.bodyType()).toBe(W.CommandBody.PlaceDeposit);
+    const place = command.body(new W.PlaceDeposit()) as W.PlaceDeposit;
+    expect([place.at()?.x(), place.at()?.y(), place.good(), place.radiusM(), place.exposed()]).toEqual([
+      10,
+      20,
+      "core:good/clay",
+      10,
+      false,
+    ]);
   });
 
   it("decodes a raster tile response", () => {

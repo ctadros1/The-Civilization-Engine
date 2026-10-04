@@ -19,6 +19,7 @@
 import { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 
 import { buildingAt, buildingMarks, type Mark } from "../buildings.js";
+import { depositAt, depositLook } from "../deposits.js";
 import { fieldAt, fieldLook } from "../fields.js";
 import type { HostClient } from "../net/client.js";
 import { TRAIL_COLOUR, pathAt, smoothed, trailLook, wornPixels } from "../paths.js";
@@ -27,7 +28,9 @@ import {
   type ActivityInfo,
   type BuildingInfo,
   type Clock,
+  type DepositInfo,
   type FieldInfo,
+  type GoodInfo,
   type Hydrography,
   type PathsInfo,
   type PersonBrief,
@@ -74,6 +77,8 @@ export interface PointerInfo {
   field: FieldInfo | null;
   /** The building under the pointer, if any. */
   building: BuildingInfo | null;
+  /** The deposit under the pointer, if any (M3b slice Q). */
+  deposit: DepositInfo | null;
   /** The worn ground under the pointer, if any. */
   path: { wear: number; trail: boolean } | null;
 }
@@ -170,6 +175,8 @@ export class MapView {
   private fields: FieldInfo[] = [];
   private readonly buildingsLayer = new Graphics();
   private buildings: BuildingInfo[] = [];
+  private readonly depositsLayer = new Graphics();
+  private deposits: DepositInfo[] = [];
   private readonly wornLayer = new Container();
   private readonly trailsLayer = new Graphics();
   private paths: PathsInfo | null = null;
@@ -215,6 +222,7 @@ export class MapView {
       this.trailsLayer,
       this.rivers,
       this.fieldsLayer,
+      this.depositsLayer,
       this.buildingsLayer,
       this.settlementLayer,
       this.peopleLayer,
@@ -297,6 +305,19 @@ export class MapView {
     for (const f of fields) {
       const look = fieldLook(f);
       g.rect(f.x, f.y, f.w, f.h).fill({ color: look.fill, alpha: look.alpha });
+    }
+    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** The deposits, as the host last listed them: known ones solid, unfound ones faint. */
+  setDeposits(deposits: DepositInfo[], goods: GoodInfo[]): void {
+    this.deposits = deposits;
+    const g = this.depositsLayer;
+    g.clear();
+    for (const d of deposits) {
+      const look = depositLook(d, goods);
+      g.circle(d.x, d.y, d.radiusM).fill({ color: look.colour, alpha: look.alpha });
+      if (look.outline) g.circle(d.x, d.y, d.radiusM).stroke({ width: 1, color: look.colour, alpha: 0.6 });
     }
     if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
   }
@@ -706,6 +727,7 @@ export class MapView {
       water: WATER_NAMES[patch.water[i] ?? -1] ?? null,
       field: fieldAt(this.fields, xM, yM),
       building: buildingAt(this.buildings, xM, yM),
+      deposit: depositAt(this.deposits, xM, yM),
       path: pathAt(this.paths, cellX, cellY),
     };
   }
@@ -890,6 +912,7 @@ export class MapView {
       fields: this.fields.length,
       buildings: this.buildings.length,
       roofed: this.buildings.filter((b) => b.roofed).length,
+      deposits: this.deposits.length,
       wornTiles: this.paths?.worn.length ?? 0,
       trails: this.paths?.trails.length ?? 0,
       selected: this.selected,

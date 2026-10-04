@@ -581,10 +581,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_COMMAND_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_COMMAND_BODY: u8 = 9;
+pub const ENUM_MAX_COMMAND_BODY: u8 = 10;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 10] = [
+pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 11] = [
   CommandBody::NONE,
   CommandBody::NewWorld,
   CommandBody::SaveWorld,
@@ -595,6 +595,7 @@ pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 10] = [
   CommandBody::SpawnFamily,
   CommandBody::RunUntil,
   CommandBody::IntroduceTechnique,
+  CommandBody::PlaceDeposit,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -612,9 +613,10 @@ impl CommandBody {
   pub const SpawnFamily: Self = Self(7);
   pub const RunUntil: Self = Self(8);
   pub const IntroduceTechnique: Self = Self(9);
+  pub const PlaceDeposit: Self = Self(10);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 9;
+  pub const ENUM_MAX: u8 = 10;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::NewWorld,
@@ -626,6 +628,7 @@ impl CommandBody {
     Self::SpawnFamily,
     Self::RunUntil,
     Self::IntroduceTechnique,
+    Self::PlaceDeposit,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -640,6 +643,7 @@ impl CommandBody {
       Self::SpawnFamily => Some("SpawnFamily"),
       Self::RunUntil => Some("RunUntil"),
       Self::IntroduceTechnique => Some("IntroduceTechnique"),
+      Self::PlaceDeposit => Some("PlaceDeposit"),
       _ => None,
     }
   }
@@ -699,10 +703,10 @@ pub struct CommandBodyUnionTableOffset {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_QUERY_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_QUERY_BODY: u8 = 14;
+pub const ENUM_MAX_QUERY_BODY: u8 = 15;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 15] = [
+pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 16] = [
   QueryBody::NONE,
   QueryBody::GetRaster,
   QueryBody::GetHydrography,
@@ -718,6 +722,7 @@ pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 15] = [
   QueryBody::GetFirm,
   QueryBody::GetWealth,
   QueryBody::GetKnowledge,
+  QueryBody::GetDeposits,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -740,9 +745,10 @@ impl QueryBody {
   pub const GetFirm: Self = Self(12);
   pub const GetWealth: Self = Self(13);
   pub const GetKnowledge: Self = Self(14);
+  pub const GetDeposits: Self = Self(15);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 14;
+  pub const ENUM_MAX: u8 = 15;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::GetRaster,
@@ -759,6 +765,7 @@ impl QueryBody {
     Self::GetFirm,
     Self::GetWealth,
     Self::GetKnowledge,
+    Self::GetDeposits,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -778,6 +785,7 @@ impl QueryBody {
       Self::GetFirm => Some("GetFirm"),
       Self::GetWealth => Some("GetWealth"),
       Self::GetKnowledge => Some("GetKnowledge"),
+      Self::GetDeposits => Some("GetDeposits"),
       _ => None,
     }
   }
@@ -1217,10 +1225,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for BookKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_RESPONSE_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_RESPONSE_BODY: u8 = 15;
+pub const ENUM_MAX_RESPONSE_BODY: u8 = 16;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 16] = [
+pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 17] = [
   ResponseBody::NONE,
   ResponseBody::Ack,
   ResponseBody::RasterTile,
@@ -1237,6 +1245,7 @@ pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 16] = [
   ResponseBody::FirmInfo,
   ResponseBody::Wealth,
   ResponseBody::Knowledge,
+  ResponseBody::Deposits,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1260,9 +1269,10 @@ impl ResponseBody {
   pub const FirmInfo: Self = Self(13);
   pub const Wealth: Self = Self(14);
   pub const Knowledge: Self = Self(15);
+  pub const Deposits: Self = Self(16);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 15;
+  pub const ENUM_MAX: u8 = 16;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::Ack,
@@ -1280,6 +1290,7 @@ impl ResponseBody {
     Self::FirmInfo,
     Self::Wealth,
     Self::Knowledge,
+    Self::Deposits,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1300,6 +1311,7 @@ impl ResponseBody {
       Self::FirmInfo => Some("FirmInfo"),
       Self::Wealth => Some("Wealth"),
       Self::Knowledge => Some("Knowledge"),
+      Self::Deposits => Some("Deposits"),
       _ => None,
     }
   }
@@ -5556,6 +5568,7 @@ impl<'a> Snapshot<'a> {
   pub const VT_FIRMS_REV: ::flatbuffers::VOffsetT = 30;
   pub const VT_WEALTH_REV: ::flatbuffers::VOffsetT = 32;
   pub const VT_KNOWLEDGE_REV: ::flatbuffers::VOffsetT = 34;
+  pub const VT_DEPOSITS_REV: ::flatbuffers::VOffsetT = 36;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -5567,6 +5580,7 @@ impl<'a> Snapshot<'a> {
     args: &'args SnapshotArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Snapshot<'bldr>> {
     let mut builder = SnapshotBuilder::new(_fbb);
+    builder.add_deposits_rev(args.deposits_rev);
     builder.add_knowledge_rev(args.knowledge_rev);
     builder.add_wealth_rev(args.wealth_rev);
     builder.add_firms_rev(args.firms_rev);
@@ -5699,6 +5713,13 @@ impl<'a> Snapshot<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(Snapshot::VT_KNOWLEDGE_REV, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn deposits_rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Snapshot::VT_DEPOSITS_REV, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Snapshot<'_> {
@@ -5723,6 +5744,7 @@ impl ::flatbuffers::Verifiable for Snapshot<'_> {
      .visit_field::<u64>("firms_rev", Self::VT_FIRMS_REV, false)?
      .visit_field::<u64>("wealth_rev", Self::VT_WEALTH_REV, false)?
      .visit_field::<u64>("knowledge_rev", Self::VT_KNOWLEDGE_REV, false)?
+     .visit_field::<u64>("deposits_rev", Self::VT_DEPOSITS_REV, false)?
      .finish();
     Ok(())
   }
@@ -5744,6 +5766,7 @@ pub struct SnapshotArgs<'a> {
     pub firms_rev: u64,
     pub wealth_rev: u64,
     pub knowledge_rev: u64,
+    pub deposits_rev: u64,
 }
 impl<'a> Default for SnapshotArgs<'a> {
   #[inline]
@@ -5765,6 +5788,7 @@ impl<'a> Default for SnapshotArgs<'a> {
       firms_rev: 0,
       wealth_rev: 0,
       knowledge_rev: 0,
+      deposits_rev: 0,
     }
   }
 }
@@ -5839,6 +5863,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SnapshotBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(Snapshot::VT_KNOWLEDGE_REV, knowledge_rev, 0);
   }
   #[inline]
+  pub fn add_deposits_rev(&mut self, deposits_rev: u64) {
+    self.fbb_.push_slot::<u64>(Snapshot::VT_DEPOSITS_REV, deposits_rev, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SnapshotBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SnapshotBuilder {
@@ -5872,6 +5900,7 @@ impl ::core::fmt::Debug for Snapshot<'_> {
       ds.field("firms_rev", &self.firms_rev());
       ds.field("wealth_rev", &self.wealth_rev());
       ds.field("knowledge_rev", &self.knowledge_rev());
+      ds.field("deposits_rev", &self.deposits_rev());
       ds.finish()
   }
 }
@@ -7134,6 +7163,153 @@ impl ::core::fmt::Debug for IntroduceTechnique<'_> {
       ds.finish()
   }
 }
+pub enum PlaceDepositOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct PlaceDeposit<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for PlaceDeposit<'a> {
+  type Inner = PlaceDeposit<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> PlaceDeposit<'a> {
+  pub const VT_AT: ::flatbuffers::VOffsetT = 4;
+  pub const VT_GOOD: ::flatbuffers::VOffsetT = 6;
+  pub const VT_RADIUS_M: ::flatbuffers::VOffsetT = 8;
+  pub const VT_EXPOSED: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    PlaceDeposit { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args PlaceDepositArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<PlaceDeposit<'bldr>> {
+    let mut builder = PlaceDepositBuilder::new(_fbb);
+    builder.add_radius_m(args.radius_m);
+    if let Some(x) = args.good { builder.add_good(x); }
+    if let Some(x) = args.at { builder.add_at(x); }
+    builder.add_exposed(args.exposed);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn at(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(PlaceDeposit::VT_AT, None)}
+  }
+  #[inline]
+  pub fn good(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PlaceDeposit::VT_GOOD, None)}
+  }
+  #[inline]
+  pub fn radius_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(PlaceDeposit::VT_RADIUS_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn exposed(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(PlaceDeposit::VT_EXPOSED, Some(false)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for PlaceDeposit<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<Vec2>("at", Self::VT_AT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("good", Self::VT_GOOD, false)?
+     .visit_field::<f32>("radius_m", Self::VT_RADIUS_M, false)?
+     .visit_field::<bool>("exposed", Self::VT_EXPOSED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct PlaceDepositArgs<'a> {
+    pub at: Option<&'a Vec2>,
+    pub good: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub radius_m: f32,
+    pub exposed: bool,
+}
+impl<'a> Default for PlaceDepositArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    PlaceDepositArgs {
+      at: None,
+      good: None,
+      radius_m: 0.0,
+      exposed: false,
+    }
+  }
+}
+
+pub struct PlaceDepositBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlaceDepositBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_at(&mut self, at: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(PlaceDeposit::VT_AT, at);
+  }
+  #[inline]
+  pub fn add_good(&mut self, good: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlaceDeposit::VT_GOOD, good);
+  }
+  #[inline]
+  pub fn add_radius_m(&mut self, radius_m: f32) {
+    self.fbb_.push_slot::<f32>(PlaceDeposit::VT_RADIUS_M, radius_m, 0.0);
+  }
+  #[inline]
+  pub fn add_exposed(&mut self, exposed: bool) {
+    self.fbb_.push_slot::<bool>(PlaceDeposit::VT_EXPOSED, exposed, false);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlaceDepositBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    PlaceDepositBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<PlaceDeposit<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for PlaceDeposit<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("PlaceDeposit");
+      ds.field("at", &self.at());
+      ds.field("good", &self.good());
+      ds.field("radius_m", &self.radius_m());
+      ds.field("exposed", &self.exposed());
+      ds.finish()
+  }
+}
 pub enum CommandOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -7318,6 +7494,21 @@ impl<'a> Command<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_place_deposit(&self) -> Option<PlaceDeposit<'a>> {
+    if self.body_type() == CommandBody::PlaceDeposit {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { PlaceDeposit::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Command<'_> {
@@ -7337,6 +7528,7 @@ impl ::flatbuffers::Verifiable for Command<'_> {
           CommandBody::SpawnFamily => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SpawnFamily>>("CommandBody::SpawnFamily", pos),
           CommandBody::RunUntil => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<RunUntil>>("CommandBody::RunUntil", pos),
           CommandBody::IntroduceTechnique => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<IntroduceTechnique>>("CommandBody::IntroduceTechnique", pos),
+          CommandBody::PlaceDeposit => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<PlaceDeposit>>("CommandBody::PlaceDeposit", pos),
           _ => Ok(()),
         }
      })?
@@ -7449,6 +7641,13 @@ impl ::core::fmt::Debug for Command<'_> {
         },
         CommandBody::IntroduceTechnique => {
           if let Some(x) = self.body_as_introduce_technique() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::PlaceDeposit => {
+          if let Some(x) = self.body_as_place_deposit() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -8781,6 +8980,84 @@ impl ::core::fmt::Debug for GetKnowledge<'_> {
       ds.finish()
   }
 }
+pub enum GetDepositsOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetDeposits<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GetDeposits<'a> {
+  type Inner = GetDeposits<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GetDeposits<'a> {
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GetDeposits { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    _args: &'args GetDepositsArgs
+  ) -> ::flatbuffers::WIPOffset<GetDeposits<'bldr>> {
+    let mut builder = GetDepositsBuilder::new(_fbb);
+    builder.finish()
+  }
+
+}
+
+impl ::flatbuffers::Verifiable for GetDeposits<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetDepositsArgs {
+}
+impl<'a> Default for GetDepositsArgs {
+  #[inline]
+  fn default() -> Self {
+    GetDepositsArgs {
+    }
+  }
+}
+
+pub struct GetDepositsBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GetDepositsBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GetDepositsBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetDepositsBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GetDeposits<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GetDeposits<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GetDeposits");
+      ds.finish()
+  }
+}
 pub enum QueryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -9040,6 +9317,21 @@ impl<'a> Query<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_get_deposits(&self) -> Option<GetDeposits<'a>> {
+    if self.body_type() == QueryBody::GetDeposits {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { GetDeposits::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Query<'_> {
@@ -9064,6 +9356,7 @@ impl ::flatbuffers::Verifiable for Query<'_> {
           QueryBody::GetFirm => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetFirm>>("QueryBody::GetFirm", pos),
           QueryBody::GetWealth => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetWealth>>("QueryBody::GetWealth", pos),
           QueryBody::GetKnowledge => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetKnowledge>>("QueryBody::GetKnowledge", pos),
+          QueryBody::GetDeposits => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetDeposits>>("QueryBody::GetDeposits", pos),
           _ => Ok(()),
         }
      })?
@@ -9211,6 +9504,13 @@ impl ::core::fmt::Debug for Query<'_> {
         },
         QueryBody::GetKnowledge => {
           if let Some(x) = self.body_as_get_knowledge() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        QueryBody::GetDeposits => {
+          if let Some(x) = self.body_as_get_deposits() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -18463,6 +18763,419 @@ impl ::core::fmt::Debug for Knowledge<'_> {
       ds.finish()
   }
 }
+pub enum DepositInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct DepositInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for DepositInfo<'a> {
+  type Inner = DepositInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> DepositInfo<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_GOOD: ::flatbuffers::VOffsetT = 6;
+  pub const VT_X: ::flatbuffers::VOffsetT = 8;
+  pub const VT_Y: ::flatbuffers::VOffsetT = 10;
+  pub const VT_RADIUS_M: ::flatbuffers::VOffsetT = 12;
+  pub const VT_EXPOSED: ::flatbuffers::VOffsetT = 14;
+  pub const VT_COVER_M: ::flatbuffers::VOffsetT = 16;
+  pub const VT_THICKNESS_M: ::flatbuffers::VOffsetT = 18;
+  pub const VT_QUALITY: ::flatbuffers::VOffsetT = 20;
+  pub const VT_LEFT_KG: ::flatbuffers::VOffsetT = 22;
+  pub const VT_TAKEN_KG: ::flatbuffers::VOffsetT = 24;
+  pub const VT_KNOWN_BY: ::flatbuffers::VOffsetT = 26;
+  pub const VT_FINDS: ::flatbuffers::VOffsetT = 28;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    DepositInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args DepositInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<DepositInfo<'bldr>> {
+    let mut builder = DepositInfoBuilder::new(_fbb);
+    builder.add_taken_kg(args.taken_kg);
+    builder.add_left_kg(args.left_kg);
+    builder.add_id(args.id);
+    if let Some(x) = args.finds { builder.add_finds(x); }
+    if let Some(x) = args.known_by { builder.add_known_by(x); }
+    builder.add_quality(args.quality);
+    builder.add_thickness_m(args.thickness_m);
+    builder.add_cover_m(args.cover_m);
+    builder.add_radius_m(args.radius_m);
+    builder.add_y(args.y);
+    builder.add_x(args.x);
+    builder.add_good(args.good);
+    builder.add_exposed(args.exposed);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(DepositInfo::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn good(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(DepositInfo::VT_GOOD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn x(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(DepositInfo::VT_X, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn y(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(DepositInfo::VT_Y, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn radius_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(DepositInfo::VT_RADIUS_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn exposed(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(DepositInfo::VT_EXPOSED, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn cover_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(DepositInfo::VT_COVER_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn thickness_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(DepositInfo::VT_THICKNESS_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn quality(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(DepositInfo::VT_QUALITY, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn left_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(DepositInfo::VT_LEFT_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn taken_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(DepositInfo::VT_TAKEN_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn known_by(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(DepositInfo::VT_KNOWN_BY, None)}
+  }
+  #[inline]
+  pub fn finds(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(DepositInfo::VT_FINDS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for DepositInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u32>("good", Self::VT_GOOD, false)?
+     .visit_field::<f32>("x", Self::VT_X, false)?
+     .visit_field::<f32>("y", Self::VT_Y, false)?
+     .visit_field::<f32>("radius_m", Self::VT_RADIUS_M, false)?
+     .visit_field::<bool>("exposed", Self::VT_EXPOSED, false)?
+     .visit_field::<f32>("cover_m", Self::VT_COVER_M, false)?
+     .visit_field::<f32>("thickness_m", Self::VT_THICKNESS_M, false)?
+     .visit_field::<f32>("quality", Self::VT_QUALITY, false)?
+     .visit_field::<f64>("left_kg", Self::VT_LEFT_KG, false)?
+     .visit_field::<f64>("taken_kg", Self::VT_TAKEN_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("known_by", Self::VT_KNOWN_BY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("finds", Self::VT_FINDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct DepositInfoArgs<'a> {
+    pub id: u64,
+    pub good: u32,
+    pub x: f32,
+    pub y: f32,
+    pub radius_m: f32,
+    pub exposed: bool,
+    pub cover_m: f32,
+    pub thickness_m: f32,
+    pub quality: f32,
+    pub left_kg: f64,
+    pub taken_kg: f64,
+    pub known_by: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub finds: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+}
+impl<'a> Default for DepositInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    DepositInfoArgs {
+      id: 0,
+      good: 0,
+      x: 0.0,
+      y: 0.0,
+      radius_m: 0.0,
+      exposed: false,
+      cover_m: 0.0,
+      thickness_m: 0.0,
+      quality: 0.0,
+      left_kg: 0.0,
+      taken_kg: 0.0,
+      known_by: None,
+      finds: None,
+    }
+  }
+}
+
+pub struct DepositInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DepositInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(DepositInfo::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_good(&mut self, good: u32) {
+    self.fbb_.push_slot::<u32>(DepositInfo::VT_GOOD, good, 0);
+  }
+  #[inline]
+  pub fn add_x(&mut self, x: f32) {
+    self.fbb_.push_slot::<f32>(DepositInfo::VT_X, x, 0.0);
+  }
+  #[inline]
+  pub fn add_y(&mut self, y: f32) {
+    self.fbb_.push_slot::<f32>(DepositInfo::VT_Y, y, 0.0);
+  }
+  #[inline]
+  pub fn add_radius_m(&mut self, radius_m: f32) {
+    self.fbb_.push_slot::<f32>(DepositInfo::VT_RADIUS_M, radius_m, 0.0);
+  }
+  #[inline]
+  pub fn add_exposed(&mut self, exposed: bool) {
+    self.fbb_.push_slot::<bool>(DepositInfo::VT_EXPOSED, exposed, false);
+  }
+  #[inline]
+  pub fn add_cover_m(&mut self, cover_m: f32) {
+    self.fbb_.push_slot::<f32>(DepositInfo::VT_COVER_M, cover_m, 0.0);
+  }
+  #[inline]
+  pub fn add_thickness_m(&mut self, thickness_m: f32) {
+    self.fbb_.push_slot::<f32>(DepositInfo::VT_THICKNESS_M, thickness_m, 0.0);
+  }
+  #[inline]
+  pub fn add_quality(&mut self, quality: f32) {
+    self.fbb_.push_slot::<f32>(DepositInfo::VT_QUALITY, quality, 0.0);
+  }
+  #[inline]
+  pub fn add_left_kg(&mut self, left_kg: f64) {
+    self.fbb_.push_slot::<f64>(DepositInfo::VT_LEFT_KG, left_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_taken_kg(&mut self, taken_kg: f64) {
+    self.fbb_.push_slot::<f64>(DepositInfo::VT_TAKEN_KG, taken_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_known_by(&mut self, known_by: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DepositInfo::VT_KNOWN_BY, known_by);
+  }
+  #[inline]
+  pub fn add_finds(&mut self, finds: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DepositInfo::VT_FINDS, finds);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> DepositInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    DepositInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<DepositInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for DepositInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("DepositInfo");
+      ds.field("id", &self.id());
+      ds.field("good", &self.good());
+      ds.field("x", &self.x());
+      ds.field("y", &self.y());
+      ds.field("radius_m", &self.radius_m());
+      ds.field("exposed", &self.exposed());
+      ds.field("cover_m", &self.cover_m());
+      ds.field("thickness_m", &self.thickness_m());
+      ds.field("quality", &self.quality());
+      ds.field("left_kg", &self.left_kg());
+      ds.field("taken_kg", &self.taken_kg());
+      ds.field("known_by", &self.known_by());
+      ds.field("finds", &self.finds());
+      ds.finish()
+  }
+}
+pub enum DepositsOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Deposits<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Deposits<'a> {
+  type Inner = Deposits<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Deposits<'a> {
+  pub const VT_REV: ::flatbuffers::VOffsetT = 4;
+  pub const VT_DEPOSITS: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Deposits { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args DepositsArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Deposits<'bldr>> {
+    let mut builder = DepositsBuilder::new(_fbb);
+    builder.add_rev(args.rev);
+    if let Some(x) = args.deposits { builder.add_deposits(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Deposits::VT_REV, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn deposits(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<DepositInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<DepositInfo>>>>(Deposits::VT_DEPOSITS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Deposits<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("rev", Self::VT_REV, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<DepositInfo>>>>("deposits", Self::VT_DEPOSITS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct DepositsArgs<'a> {
+    pub rev: u64,
+    pub deposits: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<DepositInfo<'a>>>>>,
+}
+impl<'a> Default for DepositsArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    DepositsArgs {
+      rev: 0,
+      deposits: None,
+    }
+  }
+}
+
+pub struct DepositsBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DepositsBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_rev(&mut self, rev: u64) {
+    self.fbb_.push_slot::<u64>(Deposits::VT_REV, rev, 0);
+  }
+  #[inline]
+  pub fn add_deposits(&mut self, deposits: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<DepositInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Deposits::VT_DEPOSITS, deposits);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> DepositsBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    DepositsBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Deposits<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Deposits<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Deposits");
+      ds.field("rev", &self.rev());
+      ds.field("deposits", &self.deposits());
+      ds.finish()
+  }
+}
 pub enum ResponseOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -18737,6 +19450,21 @@ impl<'a> Response<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_deposits(&self) -> Option<Deposits<'a>> {
+    if self.body_type() == ResponseBody::Deposits {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Deposits::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Response<'_> {
@@ -18762,6 +19490,7 @@ impl ::flatbuffers::Verifiable for Response<'_> {
           ResponseBody::FirmInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<FirmInfo>>("ResponseBody::FirmInfo", pos),
           ResponseBody::Wealth => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Wealth>>("ResponseBody::Wealth", pos),
           ResponseBody::Knowledge => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Knowledge>>("ResponseBody::Knowledge", pos),
+          ResponseBody::Deposits => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Deposits>>("ResponseBody::Deposits", pos),
           _ => Ok(()),
         }
      })?
@@ -18916,6 +19645,13 @@ impl ::core::fmt::Debug for Response<'_> {
         },
         ResponseBody::Knowledge => {
           if let Some(x) = self.body_as_knowledge() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ResponseBody::Deposits => {
+          if let Some(x) = self.body_as_deposits() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

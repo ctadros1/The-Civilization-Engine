@@ -408,6 +408,12 @@ impl Engine {
                 technique,
                 aware_only,
             } => self.introduce_technique(person, technique, aware_only),
+            Request::PlaceDeposit {
+                at,
+                good,
+                radius_m,
+                exposed,
+            } => self.place_deposit(at, &good, radius_m, exposed),
             Request::GetRaster(query) => match &self.world {
                 None => no_world(),
                 Some(w) => match frames::raster_response(w.sim.map(), w.sim.stats(), &query) {
@@ -473,6 +479,10 @@ impl Engine {
             Request::GetKnowledge => match &self.world {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::knowledge::knowledge_response(&w.sim)),
+            },
+            Request::GetDeposits => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::deposits::deposits_response(&w.sim)),
             },
             Request::ListSaves => {
                 match session::list_saves(&self.config.saves_root, &self.config.content) {
@@ -969,6 +979,33 @@ impl Engine {
         }
     }
 
+    fn place_deposit(&mut self, at: (f32, f32), good: &str, radius_m: f32, exposed: bool) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        match world.sim.place_deposit(at, good, radius_m, exposed) {
+            Ok(_) => {
+                let what = world.sim.rules().catalog.good_index(good).map_or_else(
+                    || good.to_owned(),
+                    |g| world.sim.rules().catalog.goods[g].name.to_lowercase(),
+                );
+                let text = if exposed {
+                    format!("The observer laid down {what} showing at the surface")
+                } else {
+                    format!("The observer laid down {what} under the ground")
+                };
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
     fn start_run_ahead(&mut self, minute: i64) -> Reply {
         if let Some(busy) = self.busy() {
             return busy;
@@ -1392,6 +1429,60 @@ mod tests {
             "no more than the host allows at once"
         );
         assert_eq!(households(&h), before + 3);
+    }
+
+    #[test]
+    fn the_observer_can_lay_down_a_deposit_and_read_them_all() {
+        let mut h = Harness::new(None, None);
+        h.create("Deposits");
+        let (hearth, before) = {
+            let sim = &h.engine.world.as_ref().expect("a world").sim;
+            (
+                sim.land().settlements[0].hearth_m,
+                sim.land().deposits.len(),
+            )
+        };
+        let reply = h.ask(Request::PlaceDeposit {
+            at: hearth,
+            good: "core:good/clay".to_owned(),
+            radius_m: 8.0,
+            exposed: true,
+        });
+        let Reply::Response(ack) = reply else {
+            panic!("clay is laid down: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert_eq!(
+            message,
+            "The observer laid down clay showing at the surface"
+        );
+        assert_eq!(
+            error_code(&h.ask(Request::PlaceDeposit {
+                at: hearth,
+                good: "core:good/nothing".to_owned(),
+                radius_m: 8.0,
+                exposed: true,
+            })),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        let Reply::Response(payload) = h.ask(Request::GetDeposits) else {
+            panic!("the deposits are read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let deposits = response.body_as_deposits().expect("deposits");
+        let list = deposits.deposits().expect("a list");
+        assert_eq!(list.len(), before + 1);
+        let laid = list.get(list.len() - 1);
+        assert!(laid.exposed());
+        assert!((laid.radius_m() - 8.0).abs() < 1e-6);
+        assert!((laid.x() - hearth.0).abs() < 0.01 && (laid.y() - hearth.1).abs() < 0.01);
+        assert!(laid.left_kg() > 0.0);
+        assert_ne!(deposits.rev(), 0);
     }
 
     #[test]

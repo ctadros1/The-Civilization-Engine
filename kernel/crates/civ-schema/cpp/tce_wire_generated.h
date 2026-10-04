@@ -104,6 +104,9 @@ struct RunUntilBuilder;
 struct IntroduceTechnique;
 struct IntroduceTechniqueBuilder;
 
+struct PlaceDeposit;
+struct PlaceDepositBuilder;
+
 struct Command;
 struct CommandBuilder;
 
@@ -148,6 +151,9 @@ struct GetWealthBuilder;
 
 struct GetKnowledge;
 struct GetKnowledgeBuilder;
+
+struct GetDeposits;
+struct GetDepositsBuilder;
 
 struct Query;
 struct QueryBuilder;
@@ -293,6 +299,12 @@ struct SettlementKnowledgeBuilder;
 
 struct Knowledge;
 struct KnowledgeBuilder;
+
+struct DepositInfo;
+struct DepositInfoBuilder;
+
+struct Deposits;
+struct DepositsBuilder;
 
 struct Response;
 struct ResponseBuilder;
@@ -539,11 +551,12 @@ enum class CommandBody : uint8_t {
   SpawnFamily = 7,
   RunUntil = 8,
   IntroduceTechnique = 9,
+  PlaceDeposit = 10,
   MIN = NONE,
-  MAX = IntroduceTechnique
+  MAX = PlaceDeposit
 };
 
-inline const CommandBody (&EnumValuesCommandBody())[10] {
+inline const CommandBody (&EnumValuesCommandBody())[11] {
   static const CommandBody values[] = {
     CommandBody::NONE,
     CommandBody::NewWorld,
@@ -554,13 +567,14 @@ inline const CommandBody (&EnumValuesCommandBody())[10] {
     CommandBody::RecoverWorld,
     CommandBody::SpawnFamily,
     CommandBody::RunUntil,
-    CommandBody::IntroduceTechnique
+    CommandBody::IntroduceTechnique,
+    CommandBody::PlaceDeposit
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandBody() {
-  static const char * const names[11] = {
+  static const char * const names[12] = {
     "NONE",
     "NewWorld",
     "SaveWorld",
@@ -571,13 +585,14 @@ inline const char * const *EnumNamesCommandBody() {
     "SpawnFamily",
     "RunUntil",
     "IntroduceTechnique",
+    "PlaceDeposit",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandBody(CommandBody e) {
-  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::IntroduceTechnique)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::PlaceDeposit)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandBody()[index];
 }
@@ -622,6 +637,10 @@ template<> struct CommandBodyTraits<tce::wire::IntroduceTechnique> {
   static const CommandBody enum_value = CommandBody::IntroduceTechnique;
 };
 
+template<> struct CommandBodyTraits<tce::wire::PlaceDeposit> {
+  static const CommandBody enum_value = CommandBody::PlaceDeposit;
+};
+
 template <bool B = false>
 bool VerifyCommandBody(::flatbuffers::VerifierTemplate<B> &verifier, const void *obj, CommandBody type);
 template <bool B = false>
@@ -643,11 +662,12 @@ enum class QueryBody : uint8_t {
   GetFirm = 12,
   GetWealth = 13,
   GetKnowledge = 14,
+  GetDeposits = 15,
   MIN = NONE,
-  MAX = GetKnowledge
+  MAX = GetDeposits
 };
 
-inline const QueryBody (&EnumValuesQueryBody())[15] {
+inline const QueryBody (&EnumValuesQueryBody())[16] {
   static const QueryBody values[] = {
     QueryBody::NONE,
     QueryBody::GetRaster,
@@ -663,13 +683,14 @@ inline const QueryBody (&EnumValuesQueryBody())[15] {
     QueryBody::GetFirms,
     QueryBody::GetFirm,
     QueryBody::GetWealth,
-    QueryBody::GetKnowledge
+    QueryBody::GetKnowledge,
+    QueryBody::GetDeposits
   };
   return values;
 }
 
 inline const char * const *EnumNamesQueryBody() {
-  static const char * const names[16] = {
+  static const char * const names[17] = {
     "NONE",
     "GetRaster",
     "GetHydrography",
@@ -685,13 +706,14 @@ inline const char * const *EnumNamesQueryBody() {
     "GetFirm",
     "GetWealth",
     "GetKnowledge",
+    "GetDeposits",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameQueryBody(QueryBody e) {
-  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetKnowledge)) return "";
+  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetDeposits)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesQueryBody()[index];
 }
@@ -754,6 +776,10 @@ template<> struct QueryBodyTraits<tce::wire::GetWealth> {
 
 template<> struct QueryBodyTraits<tce::wire::GetKnowledge> {
   static const QueryBody enum_value = QueryBody::GetKnowledge;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetDeposits> {
+  static const QueryBody enum_value = QueryBody::GetDeposits;
 };
 
 template <bool B = false>
@@ -931,11 +957,12 @@ enum class ResponseBody : uint8_t {
   FirmInfo = 13,
   Wealth = 14,
   Knowledge = 15,
+  Deposits = 16,
   MIN = NONE,
-  MAX = Knowledge
+  MAX = Deposits
 };
 
-inline const ResponseBody (&EnumValuesResponseBody())[16] {
+inline const ResponseBody (&EnumValuesResponseBody())[17] {
   static const ResponseBody values[] = {
     ResponseBody::NONE,
     ResponseBody::Ack,
@@ -952,13 +979,14 @@ inline const ResponseBody (&EnumValuesResponseBody())[16] {
     ResponseBody::Firms,
     ResponseBody::FirmInfo,
     ResponseBody::Wealth,
-    ResponseBody::Knowledge
+    ResponseBody::Knowledge,
+    ResponseBody::Deposits
   };
   return values;
 }
 
 inline const char * const *EnumNamesResponseBody() {
-  static const char * const names[17] = {
+  static const char * const names[18] = {
     "NONE",
     "Ack",
     "RasterTile",
@@ -975,13 +1003,14 @@ inline const char * const *EnumNamesResponseBody() {
     "FirmInfo",
     "Wealth",
     "Knowledge",
+    "Deposits",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameResponseBody(ResponseBody e) {
-  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Knowledge)) return "";
+  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Deposits)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesResponseBody()[index];
 }
@@ -1048,6 +1077,10 @@ template<> struct ResponseBodyTraits<tce::wire::Wealth> {
 
 template<> struct ResponseBodyTraits<tce::wire::Knowledge> {
   static const ResponseBody enum_value = ResponseBody::Knowledge;
+};
+
+template<> struct ResponseBodyTraits<tce::wire::Deposits> {
+  static const ResponseBody enum_value = ResponseBody::Deposits;
 };
 
 template <bool B = false>
@@ -3440,7 +3473,8 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_MARKETS_REV = 28,
     VT_FIRMS_REV = 30,
     VT_WEALTH_REV = 32,
-    VT_KNOWLEDGE_REV = 34
+    VT_KNOWLEDGE_REV = 34,
+    VT_DEPOSITS_REV = 36
   };
   const tce::wire::WorldInfo *world() const {
     return GetPointer<const tce::wire::WorldInfo *>(VT_WORLD);
@@ -3490,6 +3524,9 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint64_t knowledge_rev() const {
     return GetField<uint64_t>(VT_KNOWLEDGE_REV, 0);
   }
+  uint64_t deposits_rev() const {
+    return GetField<uint64_t>(VT_DEPOSITS_REV, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -3518,6 +3555,7 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_FIRMS_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_WEALTH_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_KNOWLEDGE_REV, 8) &&
+           VerifyField<uint64_t>(verifier, VT_DEPOSITS_REV, 8) &&
            verifier.EndTable();
   }
 };
@@ -3574,6 +3612,9 @@ struct SnapshotBuilder {
   void add_knowledge_rev(uint64_t knowledge_rev) {
     fbb_.AddElement<uint64_t>(Snapshot::VT_KNOWLEDGE_REV, knowledge_rev, 0);
   }
+  void add_deposits_rev(uint64_t deposits_rev) {
+    fbb_.AddElement<uint64_t>(Snapshot::VT_DEPOSITS_REV, deposits_rev, 0);
+  }
   explicit SnapshotBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -3602,8 +3643,10 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshot(
     uint64_t markets_rev = 0,
     uint64_t firms_rev = 0,
     uint64_t wealth_rev = 0,
-    uint64_t knowledge_rev = 0) {
+    uint64_t knowledge_rev = 0,
+    uint64_t deposits_rev = 0) {
   SnapshotBuilder builder_(_fbb);
+  builder_.add_deposits_rev(deposits_rev);
   builder_.add_knowledge_rev(knowledge_rev);
   builder_.add_wealth_rev(wealth_rev);
   builder_.add_firms_rev(firms_rev);
@@ -3645,7 +3688,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
     uint64_t markets_rev = 0,
     uint64_t firms_rev = 0,
     uint64_t wealth_rev = 0,
-    uint64_t knowledge_rev = 0) {
+    uint64_t knowledge_rev = 0,
+    uint64_t deposits_rev = 0) {
   auto last_error__ = last_error ? _fbb.CreateString(last_error) : 0;
   auto people__ = people ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PersonBrief>>(*people) : 0;
   auto settlements__ = settlements ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SettlementBrief>>(*settlements) : 0;
@@ -3666,7 +3710,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
       markets_rev,
       firms_rev,
       wealth_rev,
-      knowledge_rev);
+      knowledge_rev,
+      deposits_rev);
 }
 
 struct Event FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -4388,6 +4433,100 @@ struct IntroduceTechnique::Traits {
   static auto constexpr Create = CreateIntroduceTechnique;
 };
 
+struct PlaceDeposit FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef PlaceDepositBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_AT = 4,
+    VT_GOOD = 6,
+    VT_RADIUS_M = 8,
+    VT_EXPOSED = 10
+  };
+  const tce::wire::Vec2 *at() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_AT);
+  }
+  const ::flatbuffers::String *good() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_GOOD);
+  }
+  float radius_m() const {
+    return GetField<float>(VT_RADIUS_M, 0.0f);
+  }
+  bool exposed() const {
+    return GetField<uint8_t>(VT_EXPOSED, 0) != 0;
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_AT, 4) &&
+           VerifyOffset(verifier, VT_GOOD) &&
+           verifier.VerifyString(good()) &&
+           VerifyField<float>(verifier, VT_RADIUS_M, 4) &&
+           VerifyField<uint8_t>(verifier, VT_EXPOSED, 1) &&
+           verifier.EndTable();
+  }
+};
+
+struct PlaceDepositBuilder {
+  typedef PlaceDeposit Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_at(const tce::wire::Vec2 *at) {
+    fbb_.AddStruct(PlaceDeposit::VT_AT, at);
+  }
+  void add_good(::flatbuffers::Offset<::flatbuffers::String> good) {
+    fbb_.AddOffset(PlaceDeposit::VT_GOOD, good);
+  }
+  void add_radius_m(float radius_m) {
+    fbb_.AddElement<float>(PlaceDeposit::VT_RADIUS_M, radius_m, 0.0f);
+  }
+  void add_exposed(bool exposed) {
+    fbb_.AddElement<uint8_t>(PlaceDeposit::VT_EXPOSED, static_cast<uint8_t>(exposed), 0);
+  }
+  explicit PlaceDepositBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<PlaceDeposit> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<PlaceDeposit>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<PlaceDeposit> CreatePlaceDeposit(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const tce::wire::Vec2 *at = nullptr,
+    ::flatbuffers::Offset<::flatbuffers::String> good = 0,
+    float radius_m = 0.0f,
+    bool exposed = false) {
+  PlaceDepositBuilder builder_(_fbb);
+  builder_.add_radius_m(radius_m);
+  builder_.add_good(good);
+  builder_.add_at(at);
+  builder_.add_exposed(exposed);
+  return builder_.Finish();
+}
+
+struct PlaceDeposit::Traits {
+  using type = PlaceDeposit;
+  static auto constexpr Create = CreatePlaceDeposit;
+};
+
+inline ::flatbuffers::Offset<PlaceDeposit> CreatePlaceDepositDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const tce::wire::Vec2 *at = nullptr,
+    const char *good = nullptr,
+    float radius_m = 0.0f,
+    bool exposed = false) {
+  auto good__ = good ? _fbb.CreateString(good) : 0;
+  return tce::wire::CreatePlaceDeposit(
+      _fbb,
+      at,
+      good__,
+      radius_m,
+      exposed);
+}
+
 struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef CommandBuilder Builder;
   struct Traits;
@@ -4428,6 +4567,9 @@ struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::IntroduceTechnique *body_as_IntroduceTechnique() const {
     return body_type() == tce::wire::CommandBody::IntroduceTechnique ? static_cast<const tce::wire::IntroduceTechnique *>(body()) : nullptr;
+  }
+  const tce::wire::PlaceDeposit *body_as_PlaceDeposit() const {
+    return body_type() == tce::wire::CommandBody::PlaceDeposit ? static_cast<const tce::wire::PlaceDeposit *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -4473,6 +4615,10 @@ template<> inline const tce::wire::RunUntil *Command::body_as<tce::wire::RunUnti
 
 template<> inline const tce::wire::IntroduceTechnique *Command::body_as<tce::wire::IntroduceTechnique>() const {
   return body_as_IntroduceTechnique();
+}
+
+template<> inline const tce::wire::PlaceDeposit *Command::body_as<tce::wire::PlaceDeposit>() const {
+  return body_as_PlaceDeposit();
 }
 
 struct CommandBuilder {
@@ -5167,6 +5313,42 @@ struct GetKnowledge::Traits {
   static auto constexpr Create = CreateGetKnowledge;
 };
 
+struct GetDeposits FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetDepositsBuilder Builder;
+  struct Traits;
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetDepositsBuilder {
+  typedef GetDeposits Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  explicit GetDepositsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetDeposits> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetDeposits>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetDeposits> CreateGetDeposits(
+    ::flatbuffers::FlatBufferBuilder &_fbb) {
+  GetDepositsBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct GetDeposits::Traits {
+  using type = GetDeposits;
+  static auto constexpr Create = CreateGetDeposits;
+};
+
 struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef QueryBuilder Builder;
   struct Traits;
@@ -5222,6 +5404,9 @@ struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::GetKnowledge *body_as_GetKnowledge() const {
     return body_type() == tce::wire::QueryBody::GetKnowledge ? static_cast<const tce::wire::GetKnowledge *>(body()) : nullptr;
+  }
+  const tce::wire::GetDeposits *body_as_GetDeposits() const {
+    return body_type() == tce::wire::QueryBody::GetDeposits ? static_cast<const tce::wire::GetDeposits *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -5287,6 +5472,10 @@ template<> inline const tce::wire::GetWealth *Query::body_as<tce::wire::GetWealt
 
 template<> inline const tce::wire::GetKnowledge *Query::body_as<tce::wire::GetKnowledge>() const {
   return body_as_GetKnowledge();
+}
+
+template<> inline const tce::wire::GetDeposits *Query::body_as<tce::wire::GetDeposits>() const {
+  return body_as_GetDeposits();
 }
 
 struct QueryBuilder {
@@ -11495,6 +11684,282 @@ inline ::flatbuffers::Offset<Knowledge> CreateKnowledgeDirect(
       settlements__);
 }
 
+struct DepositInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef DepositInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_GOOD = 6,
+    VT_X = 8,
+    VT_Y = 10,
+    VT_RADIUS_M = 12,
+    VT_EXPOSED = 14,
+    VT_COVER_M = 16,
+    VT_THICKNESS_M = 18,
+    VT_QUALITY = 20,
+    VT_LEFT_KG = 22,
+    VT_TAKEN_KG = 24,
+    VT_KNOWN_BY = 26,
+    VT_FINDS = 28
+  };
+  uint64_t id() const {
+    return GetField<uint64_t>(VT_ID, 0);
+  }
+  uint32_t good() const {
+    return GetField<uint32_t>(VT_GOOD, 0);
+  }
+  float x() const {
+    return GetField<float>(VT_X, 0.0f);
+  }
+  float y() const {
+    return GetField<float>(VT_Y, 0.0f);
+  }
+  float radius_m() const {
+    return GetField<float>(VT_RADIUS_M, 0.0f);
+  }
+  bool exposed() const {
+    return GetField<uint8_t>(VT_EXPOSED, 0) != 0;
+  }
+  float cover_m() const {
+    return GetField<float>(VT_COVER_M, 0.0f);
+  }
+  float thickness_m() const {
+    return GetField<float>(VT_THICKNESS_M, 0.0f);
+  }
+  float quality() const {
+    return GetField<float>(VT_QUALITY, 0.0f);
+  }
+  double left_kg() const {
+    return GetField<double>(VT_LEFT_KG, 0.0);
+  }
+  double taken_kg() const {
+    return GetField<double>(VT_TAKEN_KG, 0.0);
+  }
+  const ::flatbuffers::Vector<uint64_t> *known_by() const {
+    return GetPointer<const ::flatbuffers::Vector<uint64_t> *>(VT_KNOWN_BY);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *finds() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_FINDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_ID, 8) &&
+           VerifyField<uint32_t>(verifier, VT_GOOD, 4) &&
+           VerifyField<float>(verifier, VT_X, 4) &&
+           VerifyField<float>(verifier, VT_Y, 4) &&
+           VerifyField<float>(verifier, VT_RADIUS_M, 4) &&
+           VerifyField<uint8_t>(verifier, VT_EXPOSED, 1) &&
+           VerifyField<float>(verifier, VT_COVER_M, 4) &&
+           VerifyField<float>(verifier, VT_THICKNESS_M, 4) &&
+           VerifyField<float>(verifier, VT_QUALITY, 4) &&
+           VerifyField<double>(verifier, VT_LEFT_KG, 8) &&
+           VerifyField<double>(verifier, VT_TAKEN_KG, 8) &&
+           VerifyOffset(verifier, VT_KNOWN_BY) &&
+           verifier.VerifyVector(known_by()) &&
+           VerifyOffset(verifier, VT_FINDS) &&
+           verifier.VerifyVector(finds()) &&
+           verifier.VerifyVectorOfStrings(finds()) &&
+           verifier.EndTable();
+  }
+};
+
+struct DepositInfoBuilder {
+  typedef DepositInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint64_t id) {
+    fbb_.AddElement<uint64_t>(DepositInfo::VT_ID, id, 0);
+  }
+  void add_good(uint32_t good) {
+    fbb_.AddElement<uint32_t>(DepositInfo::VT_GOOD, good, 0);
+  }
+  void add_x(float x) {
+    fbb_.AddElement<float>(DepositInfo::VT_X, x, 0.0f);
+  }
+  void add_y(float y) {
+    fbb_.AddElement<float>(DepositInfo::VT_Y, y, 0.0f);
+  }
+  void add_radius_m(float radius_m) {
+    fbb_.AddElement<float>(DepositInfo::VT_RADIUS_M, radius_m, 0.0f);
+  }
+  void add_exposed(bool exposed) {
+    fbb_.AddElement<uint8_t>(DepositInfo::VT_EXPOSED, static_cast<uint8_t>(exposed), 0);
+  }
+  void add_cover_m(float cover_m) {
+    fbb_.AddElement<float>(DepositInfo::VT_COVER_M, cover_m, 0.0f);
+  }
+  void add_thickness_m(float thickness_m) {
+    fbb_.AddElement<float>(DepositInfo::VT_THICKNESS_M, thickness_m, 0.0f);
+  }
+  void add_quality(float quality) {
+    fbb_.AddElement<float>(DepositInfo::VT_QUALITY, quality, 0.0f);
+  }
+  void add_left_kg(double left_kg) {
+    fbb_.AddElement<double>(DepositInfo::VT_LEFT_KG, left_kg, 0.0);
+  }
+  void add_taken_kg(double taken_kg) {
+    fbb_.AddElement<double>(DepositInfo::VT_TAKEN_KG, taken_kg, 0.0);
+  }
+  void add_known_by(::flatbuffers::Offset<::flatbuffers::Vector<uint64_t>> known_by) {
+    fbb_.AddOffset(DepositInfo::VT_KNOWN_BY, known_by);
+  }
+  void add_finds(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> finds) {
+    fbb_.AddOffset(DepositInfo::VT_FINDS, finds);
+  }
+  explicit DepositInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<DepositInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<DepositInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<DepositInfo> CreateDepositInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    uint32_t good = 0,
+    float x = 0.0f,
+    float y = 0.0f,
+    float radius_m = 0.0f,
+    bool exposed = false,
+    float cover_m = 0.0f,
+    float thickness_m = 0.0f,
+    float quality = 0.0f,
+    double left_kg = 0.0,
+    double taken_kg = 0.0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<uint64_t>> known_by = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> finds = 0) {
+  DepositInfoBuilder builder_(_fbb);
+  builder_.add_taken_kg(taken_kg);
+  builder_.add_left_kg(left_kg);
+  builder_.add_id(id);
+  builder_.add_finds(finds);
+  builder_.add_known_by(known_by);
+  builder_.add_quality(quality);
+  builder_.add_thickness_m(thickness_m);
+  builder_.add_cover_m(cover_m);
+  builder_.add_radius_m(radius_m);
+  builder_.add_y(y);
+  builder_.add_x(x);
+  builder_.add_good(good);
+  builder_.add_exposed(exposed);
+  return builder_.Finish();
+}
+
+struct DepositInfo::Traits {
+  using type = DepositInfo;
+  static auto constexpr Create = CreateDepositInfo;
+};
+
+inline ::flatbuffers::Offset<DepositInfo> CreateDepositInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    uint32_t good = 0,
+    float x = 0.0f,
+    float y = 0.0f,
+    float radius_m = 0.0f,
+    bool exposed = false,
+    float cover_m = 0.0f,
+    float thickness_m = 0.0f,
+    float quality = 0.0f,
+    double left_kg = 0.0,
+    double taken_kg = 0.0,
+    const std::vector<uint64_t> *known_by = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *finds = nullptr) {
+  auto known_by__ = known_by ? _fbb.CreateVector<uint64_t>(*known_by) : 0;
+  auto finds__ = finds ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*finds) : 0;
+  return tce::wire::CreateDepositInfo(
+      _fbb,
+      id,
+      good,
+      x,
+      y,
+      radius_m,
+      exposed,
+      cover_m,
+      thickness_m,
+      quality,
+      left_kg,
+      taken_kg,
+      known_by__,
+      finds__);
+}
+
+struct Deposits FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef DepositsBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_REV = 4,
+    VT_DEPOSITS = 6
+  };
+  uint64_t rev() const {
+    return GetField<uint64_t>(VT_REV, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::DepositInfo>> *deposits() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::DepositInfo>> *>(VT_DEPOSITS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_REV, 8) &&
+           VerifyOffset(verifier, VT_DEPOSITS) &&
+           verifier.VerifyVector(deposits()) &&
+           verifier.VerifyVectorOfTables(deposits()) &&
+           verifier.EndTable();
+  }
+};
+
+struct DepositsBuilder {
+  typedef Deposits Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_rev(uint64_t rev) {
+    fbb_.AddElement<uint64_t>(Deposits::VT_REV, rev, 0);
+  }
+  void add_deposits(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::DepositInfo>>> deposits) {
+    fbb_.AddOffset(Deposits::VT_DEPOSITS, deposits);
+  }
+  explicit DepositsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Deposits> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Deposits>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Deposits> CreateDeposits(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::DepositInfo>>> deposits = 0) {
+  DepositsBuilder builder_(_fbb);
+  builder_.add_rev(rev);
+  builder_.add_deposits(deposits);
+  return builder_.Finish();
+}
+
+struct Deposits::Traits {
+  using type = Deposits;
+  static auto constexpr Create = CreateDeposits;
+};
+
+inline ::flatbuffers::Offset<Deposits> CreateDepositsDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::DepositInfo>> *deposits = nullptr) {
+  auto deposits__ = deposits ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::DepositInfo>>(*deposits) : 0;
+  return tce::wire::CreateDeposits(
+      _fbb,
+      rev,
+      deposits__);
+}
+
 struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef ResponseBuilder Builder;
   struct Traits;
@@ -11553,6 +12018,9 @@ struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::Knowledge *body_as_Knowledge() const {
     return body_type() == tce::wire::ResponseBody::Knowledge ? static_cast<const tce::wire::Knowledge *>(body()) : nullptr;
+  }
+  const tce::wire::Deposits *body_as_Deposits() const {
+    return body_type() == tce::wire::ResponseBody::Deposits ? static_cast<const tce::wire::Deposits *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -11622,6 +12090,10 @@ template<> inline const tce::wire::Wealth *Response::body_as<tce::wire::Wealth>(
 
 template<> inline const tce::wire::Knowledge *Response::body_as<tce::wire::Knowledge>() const {
   return body_as_Knowledge();
+}
+
+template<> inline const tce::wire::Deposits *Response::body_as<tce::wire::Deposits>() const {
+  return body_as_Deposits();
 }
 
 struct ResponseBuilder {
@@ -11772,6 +12244,10 @@ inline bool VerifyCommandBody(::flatbuffers::VerifierTemplate<B> &verifier, cons
       auto ptr = reinterpret_cast<const tce::wire::IntroduceTechnique *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case CommandBody::PlaceDeposit: {
+      auto ptr = reinterpret_cast<const tce::wire::PlaceDeposit *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -11849,6 +12325,10 @@ inline bool VerifyQueryBody(::flatbuffers::VerifierTemplate<B> &verifier, const 
     }
     case QueryBody::GetKnowledge: {
       auto ptr = reinterpret_cast<const tce::wire::GetKnowledge *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case QueryBody::GetDeposits: {
+      auto ptr = reinterpret_cast<const tce::wire::GetDeposits *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;
@@ -11932,6 +12412,10 @@ inline bool VerifyResponseBody(::flatbuffers::VerifierTemplate<B> &verifier, con
     }
     case ResponseBody::Knowledge: {
       auto ptr = reinterpret_cast<const tce::wire::Knowledge *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::Deposits: {
+      auto ptr = reinterpret_cast<const tce::wire::Deposits *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

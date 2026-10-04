@@ -61,8 +61,11 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
   ranges for radius, cover, thickness and quality, a share of covered bodies that still show, and
   a density. Bodies are discs in plan with a centre and radius in centimetres. A new world places
   them after its founding band arrives, so the founding draws do not move; a save from before
-  them gains, on loading, the bodies a new world of its seed has, with ids of its own. Finding,
-  the god tool and digging follow in this slice's next steps.
+  them gains, on loading, the bodies a new world of its seed has, with ids of its own.
+- As built: "passes near" is within 50 m of a body's edge along the route of a walk, checked when
+  the walk ends (a tuning value). The god tool takes a radius and whether the body shows, and
+  takes the rest of the body from the land profile's rule for its good. Both are chronicled.
+  Digging follows in this slice's next steps.
 
 ### 2. Earthworks are records
 

@@ -3981,6 +3981,197 @@ impl<'a> DepositBody {
 
 }
 
+// struct DepositKnownEntry, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct DepositKnownEntry(pub [u8; 32]);
+impl Default for DepositKnownEntry { 
+  fn default() -> Self { 
+    Self([0; 32])
+  }
+}
+impl ::core::fmt::Debug for DepositKnownEntry {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("DepositKnownEntry")
+      .field("at", &self.at())
+      .field("settlement", &self.settlement())
+      .field("deposit", &self.deposit())
+      .field("finder", &self.finder())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for DepositKnownEntry {}
+impl<'a> ::flatbuffers::Follow<'a> for DepositKnownEntry {
+  type Inner = &'a DepositKnownEntry;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a DepositKnownEntry>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a DepositKnownEntry {
+  type Inner = &'a DepositKnownEntry;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<DepositKnownEntry>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for DepositKnownEntry {
+    type Output = DepositKnownEntry;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const DepositKnownEntry as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for DepositKnownEntry {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> DepositKnownEntry {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    at: i64,
+    settlement: u64,
+    deposit: u64,
+    finder: u64,
+  ) -> Self {
+    let mut s = Self([0; 32]);
+    s.set_at(at);
+    s.set_settlement(settlement);
+    s.set_deposit(deposit);
+    s.set_finder(finder);
+    s
+  }
+
+  pub fn at(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_at(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn settlement(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_settlement(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn deposit(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_deposit(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn finder(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[24..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_finder(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[24..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 pub enum ParamOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -14346,6 +14537,7 @@ impl<'a> ::flatbuffers::Follow<'a> for Deposits<'a> {
 impl<'a> Deposits<'a> {
   pub const VT_GOODS: ::flatbuffers::VOffsetT = 4;
   pub const VT_BODIES: ::flatbuffers::VOffsetT = 6;
+  pub const VT_KNOWN: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -14357,6 +14549,7 @@ impl<'a> Deposits<'a> {
     args: &'args DepositsArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Deposits<'bldr>> {
     let mut builder = DepositsBuilder::new(_fbb);
+    if let Some(x) = args.known { builder.add_known(x); }
     if let Some(x) = args.bodies { builder.add_bodies(x); }
     if let Some(x) = args.goods { builder.add_goods(x); }
     builder.finish()
@@ -14377,6 +14570,13 @@ impl<'a> Deposits<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, DepositBody>>>(Deposits::VT_BODIES, None)}
   }
+  #[inline]
+  pub fn known(&self) -> Option<::flatbuffers::Vector<'a, DepositKnownEntry>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, DepositKnownEntry>>>(Deposits::VT_KNOWN, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Deposits<'_> {
@@ -14387,6 +14587,7 @@ impl ::flatbuffers::Verifiable for Deposits<'_> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("goods", Self::VT_GOODS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, DepositBody>>>("bodies", Self::VT_BODIES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, DepositKnownEntry>>>("known", Self::VT_KNOWN, false)?
      .finish();
     Ok(())
   }
@@ -14394,6 +14595,7 @@ impl ::flatbuffers::Verifiable for Deposits<'_> {
 pub struct DepositsArgs<'a> {
     pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub bodies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, DepositBody>>>,
+    pub known: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, DepositKnownEntry>>>,
 }
 impl<'a> Default for DepositsArgs<'a> {
   #[inline]
@@ -14401,6 +14603,7 @@ impl<'a> Default for DepositsArgs<'a> {
     DepositsArgs {
       goods: None,
       bodies: None,
+      known: None,
     }
   }
 }
@@ -14417,6 +14620,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DepositsBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_bodies(&mut self, bodies: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , DepositBody>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Deposits::VT_BODIES, bodies);
+  }
+  #[inline]
+  pub fn add_known(&mut self, known: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , DepositKnownEntry>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Deposits::VT_KNOWN, known);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> DepositsBuilder<'a, 'b, A> {
@@ -14438,6 +14645,7 @@ impl ::core::fmt::Debug for Deposits<'_> {
     let mut ds = f.debug_struct("Deposits");
       ds.field("goods", &self.goods());
       ds.field("bodies", &self.bodies());
+      ds.field("known", &self.known());
       ds.finish()
   }
 }

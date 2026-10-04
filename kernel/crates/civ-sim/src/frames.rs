@@ -23,6 +23,7 @@ use civ_world::{MapStats, WorldMap};
 use crate::Sim;
 
 pub mod buildings;
+pub mod deposits;
 pub mod fields;
 pub mod firms;
 pub mod knowledge;

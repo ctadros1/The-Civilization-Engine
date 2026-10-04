@@ -65,6 +65,17 @@ pub enum Request {
         /// They only hear of it.
         aware_only: bool,
     },
+    /// Lay down a deposit (god tool, ADR-0010 §1).
+    PlaceDeposit {
+        /// Metres from the map's north-west corner.
+        at: (f32, f32),
+        /// The good's content id.
+        good: String,
+        /// Radius, metres.
+        radius_m: f32,
+        /// It shows at the surface.
+        exposed: bool,
+    },
     /// Read part of a raster.
     GetRaster(RasterQuery),
     /// Read the rivers and lakes.
@@ -112,6 +123,8 @@ pub enum Request {
     GetWealth,
     /// Read what every settlement knows.
     GetKnowledge,
+    /// Read every deposit and who knows it.
+    GetDeposits,
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -365,6 +378,18 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         aware_only: b.aware_only(),
                     })
                 }
+                wire::CommandBody::PlaceDeposit => {
+                    let b = command
+                        .body_as_place_deposit()
+                        .ok_or_else(|| missing("command"))?;
+                    let at = b.at().ok_or_else(|| missing("deposit place"))?;
+                    Ok(Request::PlaceDeposit {
+                        at: (at.x(), at.y()),
+                        good: b.good().unwrap_or_default().to_owned(),
+                        radius_m: b.radius_m(),
+                        exposed: b.exposed(),
+                    })
+                }
                 other => Err(format!("unknown command {}", other.0)),
             }
         }
@@ -418,6 +443,7 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                 }
                 wire::QueryBody::GetWealth => Ok(Request::GetWealth),
                 wire::QueryBody::GetKnowledge => Ok(Request::GetKnowledge),
+                wire::QueryBody::GetDeposits => Ok(Request::GetDeposits),
                 other => Err(format!("unknown query {}", other.0)),
             }
         }
@@ -644,6 +670,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
     let knowledge_rev = parts
         .sim
         .map_or(0, civ_sim::frames::knowledge::knowledge_rev);
+    let deposits_rev = parts.sim.map_or(0, civ_sim::frames::deposits::deposits_rev);
     let task = parts.task.map(|t| {
         let name = fbb.create_string(&t.name);
         let stage = fbb.create_string(&t.stage);
@@ -693,6 +720,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
             firms_rev,
             wealth_rev,
             knowledge_rev,
+            deposits_rev,
         },
     );
     finish(fbb, root)

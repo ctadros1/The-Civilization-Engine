@@ -36,6 +36,7 @@ use crate::person::{
     fuel_kg, reserve_food_kcal, stock_kcal,
 };
 
+mod deposits;
 mod firm;
 mod knowledge;
 mod land;
@@ -43,6 +44,7 @@ mod life;
 mod loads;
 mod market;
 
+pub use deposits::{DepositKnown, FIND_M};
 pub use loads::{
     DIES_IN_RUIN, DIES_UNDER_FLOOR, DIES_UNDER_ROOF, LIVE_PA, SPILLED, month_peak, peak_pa,
 };
@@ -220,6 +222,8 @@ pub struct Population {
     /// What each settlement has seen of each technique's buildings, in the order first seen
     /// (ADR-0009 §6).
     pub trust: Vec<crate::caution::Trust>,
+    /// The deposits each settlement knows, in the order they were found (ADR-0010 §1).
+    pub deposits_known: Vec<DepositKnown>,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -2768,6 +2772,7 @@ impl Population {
                     ctx.land
                         .wear
                         .walk(&cells, now.day_index(), &ctx.land_params.paths);
+                    self.look_for_deposits(ctx, who, household, &trip.points);
                 }
             }
             Some(Step::Work { minutes }) => match def.as_ref().map(|d| d.behavior) {

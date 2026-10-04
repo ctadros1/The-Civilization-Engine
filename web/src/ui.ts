@@ -39,6 +39,7 @@ import {
   linesText,
   statementRows,
 } from "./firm.js";
+import { materialGoods } from "./deposits.js";
 import { introducible, knowRows, summaryText, techniqueRows } from "./knowledge.js";
 import { PATH_LEGEND } from "./paths.js";
 import {
@@ -100,6 +101,8 @@ export interface Actions {
    * come together.
    */
   setPlacing(on: boolean, families: number): void;
+  /** Arms or disarms the tool that lays down a deposit of a good where the map is clicked. */
+  setPlacingDeposit(on: boolean, good: string, exposed: boolean): void;
   /**
    * Introduce a technique to a living person (god tool): they come to know it, or with
    * `awareOnly` only hear of it. `technique` is an index into Welcome.techniques.
@@ -445,6 +448,13 @@ export function bindUi(store: Store, actions: Actions): void {
   familyCount.addEventListener("change", () => {
     actions.setPlacing(addFamily.getAttribute("aria-pressed") === "true", families());
   });
+  const addDeposit = $<HTMLButtonElement>("add-deposit");
+  const depositGood = $<HTMLSelectElement>("deposit-good");
+  const depositExposed = $<HTMLInputElement>("deposit-exposed");
+  const armDeposit = (on: boolean): void => actions.setPlacingDeposit(on, depositGood.value, depositExposed.checked);
+  addDeposit.addEventListener("click", () => armDeposit(addDeposit.getAttribute("aria-pressed") !== "true"));
+  depositGood.addEventListener("change", () => armDeposit(addDeposit.getAttribute("aria-pressed") === "true"));
+  depositExposed.addEventListener("change", () => armDeposit(addDeposit.getAttribute("aria-pressed") === "true"));
   document.addEventListener("keydown", (event) => {
     if (event.key !== " " || isTyping(event.target)) return;
     if (document.querySelector("dialog[open]")) return;
@@ -1763,6 +1773,26 @@ export function bindUi(store: Store, actions: Actions): void {
     setText(placing, families === 1 ? "Add a family" : `Add ${families} families`);
     placing.title = `Send ${families === 1 ? "a family" : `${families} families together`}: click where they should settle (Esc cancels)`;
     $<HTMLSelectElement>("family-count").disabled = !open || !world;
+    const deposit = $<HTMLButtonElement>("add-deposit");
+    const goodSelect = $<HTMLSelectElement>("deposit-good");
+    const materials = materialGoods(state.welcome?.goods ?? []);
+    const optionsKey = materials.map((g) => g.id).join(",");
+    if (goodSelect.dataset.goods !== optionsKey) {
+      goodSelect.dataset.goods = optionsKey;
+      goodSelect.replaceChildren(
+        ...materials.map((g) => {
+          const option = el("option", { text: g.name });
+          option.value = g.id;
+          return option;
+        }),
+      );
+    }
+    if (state.depositGood && goodSelect.value !== state.depositGood) goodSelect.value = state.depositGood;
+    deposit.disabled = !open || !world || materials.length === 0;
+    goodSelect.disabled = deposit.disabled;
+    $<HTMLInputElement>("deposit-exposed").disabled = deposit.disabled;
+    deposit.setAttribute("aria-pressed", String(state.placingDeposit));
+    deposit.classList.toggle("active", state.placingDeposit);
     renderSpeeds(state);
     renderConnection(state);
     renderBanner(state);

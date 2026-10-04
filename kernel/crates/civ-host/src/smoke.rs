@@ -423,6 +423,30 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
     result.notes.extend(lost_where_people_live(sim));
     result.notes.extend(finds(sim));
     result.notes.extend(condition(sim));
+    result.notes.extend(deposits(sim));
+}
+
+/// The world's deposits at the end (ADR-0010 §1), in words: "96 deposits, 31 showing, 4 found".
+/// `None` without deposits.
+fn deposits(sim: &Sim) -> Option<String> {
+    let all = &sim.land().deposits;
+    if all.is_empty() {
+        return None;
+    }
+    let showing = all.iter().filter(|d| d.body.exposed).count();
+    let found = all
+        .iter()
+        .filter(|d| {
+            sim.people()
+                .deposits_known
+                .iter()
+                .any(|k| k.deposit == d.id)
+        })
+        .count();
+    Some(format!(
+        "{} deposits, {showing} showing, {found} found",
+        all.len()
+    ))
 }
 
 /// How the world's buildings stand at the end (ADR-0009 §4, §5), in words: "14 buildings, 3

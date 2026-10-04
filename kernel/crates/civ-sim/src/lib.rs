@@ -426,6 +426,96 @@ impl Sim {
         self.spawn_families(at, 1).map(|mut all| all.remove(0))
     }
 
+    /// The observer lays down a deposit of good `good` (a content id) at `at` (metres), a disc of
+    /// `radius_m` showing at the surface or under the cover the land profile's rule for the good
+    /// gives (god tool, ADR-0010 §1). Its thickness, quality and density are the middle of that
+    /// rule's ranges, or a metre, 0.6 and 1,800 kg/m³ for a good the profile lays down none of.
+    /// Refused off the map, on water, for an unknown good or a radius outside 1 to 200 m.
+    pub fn place_deposit(
+        &mut self,
+        at: (f32, f32),
+        good: &str,
+        radius_m: f32,
+        exposed: bool,
+    ) -> Result<civ_core::PermanentId, String> {
+        let g = self
+            .rules
+            .catalog
+            .good_index(good)
+            .ok_or_else(|| format!("there is no good `{good}`"))?;
+        if !(1.0..=200.0).contains(&radius_m) {
+            return Err(format!(
+                "a deposit's radius must be 1 to 200 m (got {radius_m})"
+            ));
+        }
+        let cell_m = self.map.cell_size_m;
+        let (cx, cy) = (at.0 / cell_m, at.1 / cell_m);
+        if !(cx >= 0.0 && cy >= 0.0 && cx < self.map.width as f32 && cy < self.map.height as f32) {
+            return Err("that is off the map".to_owned());
+        }
+        let cell = cy as usize * self.map.width as usize + cx as usize;
+        if self.map.water[cell] != civ_world::WATER_LAND {
+            return Err("a deposit must lie under dry land".to_owned());
+        }
+        let rule = self.rules.land.deposits.iter().find(|r| r.good == g);
+        let mid = |(lo, hi): (f64, f64)| (lo + hi) / 2.0;
+        let thickness = rule.map_or(1.0, |r| mid(r.thickness_m)).max(0.05);
+        let quality = rule.map_or(0.6, |r| mid(r.quality)).clamp(0.0, 1.0);
+        let density = rule.map_or(1_800.0, |r| r.density_kg_m3).max(0.0);
+        let top = if exposed {
+            0.0
+        } else {
+            rule.map_or(1.0, |r| r.top_m.1).max(0.1)
+        };
+        let r = f64::from(radius_m);
+        let body = civ_land::deposits::Body {
+            good: g as u16,
+            at_cm: (
+                (f64::from(at.0) * 100.0) as i64,
+                (f64::from(at.1) * 100.0) as i64,
+            ),
+            radius_cm: (r * 100.0).round() as i32,
+            top_cm: (top * 100.0).round() as i32,
+            thickness_cm: (thickness * 100.0).round() as i32,
+            quality: quality as f32,
+            exposed,
+            initial_kg: std::f64::consts::PI * r * r * thickness * density,
+        };
+        let id = self.ids.allocate();
+        self.land.deposits.push(civ_land::deposits::Deposit {
+            id,
+            body,
+            taken_kg: 0.0,
+        });
+        let nearest = self
+            .land
+            .settlements
+            .iter()
+            .min_by(|a, b| {
+                let d = |s: &civ_land::Settlement| (s.hearth_m.0 - at.0).hypot(s.hearth_m.1 - at.1);
+                d(a).total_cmp(&d(b))
+            })
+            .map(|s| s.id);
+        let what = self.rules.catalog.goods[g].name.to_lowercase();
+        let words = if exposed {
+            format!("{what} showing at the surface")
+        } else {
+            format!("{what} under the ground")
+        };
+        let now = self.now();
+        self.people.chronicle_push(
+            now,
+            civ_agents::history::ChronicleKind::DepositPlaced,
+            Vec::new(),
+            nearest,
+            Some(at),
+            0.0,
+            words,
+        );
+        self.dirty = true;
+        Ok(id)
+    }
+
     /// The observer sends `families` families to the world's first settlement, for runs of
     /// villages larger than a founding band: in groups as large as the god tool sends
     /// ([`civ_agents::MAX_SPAWN_FAMILIES`]), each group about its own point 150 m from the hearth.

@@ -72,6 +72,7 @@ use civ_agents::knowledge::{KnowledgeEvent, KnowledgeEventKind};
 use civ_agents::ledger::{Channel, Trade};
 use civ_agents::market::{Market, MonthOfTrade, Offer};
 use civ_agents::person::{Know, KnowSource};
+use civ_agents::population::DepositKnown;
 use civ_agents::wealth::{Spread, WealthYear};
 use civ_agents::{
     Activity, AgentEvent, Cause, Household, KnownPatch, Load, Person, Population, Reason, Receipt,
@@ -189,7 +190,11 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         ),
         section(SECTION_WEALTH, 0, encode_wealth(&sim.people)),
         section(SECTION_KNOW, 0, encode_knowledge(&sim.people, &techniques)),
-        section(SECTION_DEPOSITS, 0, encode_deposits(&sim.land, &goods)),
+        section(
+            SECTION_DEPOSITS,
+            0,
+            encode_deposits(&sim.land, &sim.people, &goods),
+        ),
     ]
 }
 
@@ -373,7 +378,7 @@ pub(super) fn decode<R: Read + Seek>(
     // Deposits (schema 19); an older save places them from the seed once it is loaded.
     if schema >= Schema::V19 {
         let bytes = single_chunk(reader, SECTION_DEPOSITS)?;
-        land.deposits = decode_deposits(&bytes, rules)?;
+        (land.deposits, people.deposits_known) = decode_deposits(&bytes, rules)?;
     }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
 
@@ -426,7 +431,7 @@ pub(super) fn decode<R: Read + Seek>(
 
 // ---- deposits ----------------------------------------------------------------------------------
 
-fn encode_deposits(land: &Land, goods: &[&str]) -> Vec<u8> {
+fn encode_deposits(land: &Land, pop: &Population, goods: &[&str]) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let dictionary = strings(&mut fbb, goods);
     let bodies: Vec<save::DepositBody> = land
@@ -450,17 +455,36 @@ fn encode_deposits(land: &Land, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let bodies = fbb.create_vector(&bodies);
+    let known: Vec<save::DepositKnownEntry> = pop
+        .deposits_known
+        .iter()
+        .map(|k| {
+            save::DepositKnownEntry::new(
+                k.at.minutes(),
+                k.settlement.get(),
+                k.deposit.get(),
+                k.finder.get(),
+            )
+        })
+        .collect();
+    let known = fbb.create_vector(&known);
     let root = save::Deposits::create(
         &mut fbb,
         &save::DepositsArgs {
             goods: Some(dictionary),
             bodies: Some(bodies),
+            known: Some(known),
         },
     );
     finish(fbb, root)
 }
 
-fn decode_deposits(bytes: &[u8], rules: &Rules) -> Result<Vec<Deposit>, LoadError> {
+/// The bodies and what each settlement knows of them. Knowledge of a body that was dropped goes
+/// with it.
+fn decode_deposits(
+    bytes: &[u8],
+    rules: &Rules,
+) -> Result<(Vec<Deposit>, Vec<DepositKnown>), LoadError> {
     let root =
         flatbuffers::root::<save::Deposits>(bytes).map_err(|e| unreadable(SECTION_DEPOSITS, &e))?;
     let goods: Vec<Option<usize>> = read_strings(root.goods())
@@ -495,7 +519,20 @@ fn decode_deposits(bytes: &[u8], rules: &Rules) -> Result<Vec<Deposit>, LoadErro
             taken_kg: b.taken_kg(),
         });
     }
-    Ok(out)
+    let mut known = Vec::new();
+    for k in root.known().iter().flatten() {
+        let deposit = required(k.deposit(), "a known deposit")?;
+        if !out.iter().any(|d| d.id == deposit) {
+            continue;
+        }
+        known.push(DepositKnown {
+            settlement: required(k.settlement(), "a known deposit")?,
+            deposit,
+            finder: required(k.finder(), "a known deposit")?,
+            at: time(k.at()),
+        });
+    }
+    Ok((out, known))
 }
 
 // ---- Helpers -----------------------------------------------------------------------------------
@@ -1494,6 +1531,8 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::TechniqueLost => 19,
         ChronicleKind::TechniqueIntroduced => 20,
         ChronicleKind::BuildingFailed => 21,
+        ChronicleKind::DepositFound => 22,
+        ChronicleKind::DepositPlaced => 23,
     }
 }
 
@@ -1520,6 +1559,8 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         19 => Some(ChronicleKind::TechniqueLost),
         20 => Some(ChronicleKind::TechniqueIntroduced),
         21 => Some(ChronicleKind::BuildingFailed),
+        22 => Some(ChronicleKind::DepositFound),
+        23 => Some(ChronicleKind::DepositPlaced),
         _ => None,
     }
 }

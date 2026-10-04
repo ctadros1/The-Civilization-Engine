@@ -21,6 +21,7 @@
 
 pub mod buildings;
 pub mod deposits;
+pub mod earth;
 pub mod fields;
 pub mod paths;
 

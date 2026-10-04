@@ -457,10 +457,17 @@ pub fn candidates(
                 let mut short =
                     (1.0 - f.water_days / f.water_target_days.max(1e-6)).clamp(0.0, 1.0);
                 // No water is fetched in the dark: late in the day, what is at home must last
-                // until morning.
+                // until morning. In the last of the light it counts as a full shortage; once the
+                // light left would not see a meal and then the trip, the trip comes before
+                // anything that can wait until dark, the strongest hunger included.
                 let lasts_night = f.water_days * 1440.0 >= f.until_sunrise_min;
-                if !f.dark && !lasts_night && f.daylight_left_min < LAST_WATER_BEFORE_DARK_MIN {
-                    short = 1.0;
+                if !f.dark && !lasts_night {
+                    let trip = 2.0 * water.walk_min + f64::from(def.min_minutes.max(1));
+                    if f.daylight_left_min < trip + f64::from(limits.meal_min) {
+                        short = (w.w_hunger * w.max_hunger_drive + w.w_water) / w.w_water.max(1e-6);
+                    } else if f.daylight_left_min < LAST_WATER_BEFORE_DARK_MIN {
+                        short = 1.0;
+                    }
                 }
                 term(&mut terms, Reason::WaterShortage, w.w_water * short);
                 term(
@@ -1317,6 +1324,70 @@ mod tests {
         let (cands, excluded) = score(&defs, &[], &lacking, &none);
         assert!(cands.is_empty());
         assert_eq!(excluded, vec![(0, Reason::NoTool)]);
+    }
+
+    #[test]
+    fn the_last_water_trip_before_dark_comes_before_a_meal_that_can_wait() {
+        let mut eat = activity("eat", Behavior::Eat, Vec::new(), 1.0);
+        eat.daylight_only = false;
+        let mut fetch = activity("fetch_water", Behavior::FetchWater, Vec::new(), 1.0);
+        fetch.min_minutes = 5;
+        fetch.max_walk_minutes = 45;
+        let defs = vec![eat, fetch];
+        let water = WaterOption {
+            cell: 1,
+            walk_min: 5.0,
+            at: (5.0, 0.0),
+        };
+        let cannot = |_: usize, _: &[usize]| Err((Reason::NoTool, None));
+        let shop = Workshop {
+            free_tools: &[],
+            best_make: &cannot,
+            makes_tool: &|_| false,
+        };
+        // (eat, fetch water) totals for the hungriest of people.
+        let totals = |daylight_left_min: f64, water_days: f64| {
+            let f = Facts {
+                hunger: 2.0,
+                has_food: true,
+                dark: false,
+                daylight_left_min,
+                until_sunrise_min: 800.0,
+                water_days,
+                ..facts()
+            };
+            let (cands, _) = candidates(
+                &defs,
+                &weights(),
+                &f,
+                &limits(),
+                &|_| None,
+                &|_| Err(Reason::NoPlace),
+                Some(water),
+                None,
+                None,
+                None,
+                Err(Reason::Built),
+                &shop,
+            );
+            let total = |d: u16| {
+                cands
+                    .iter()
+                    .find(|c| c.scored.def == d)
+                    .map_or(f32::MIN, |c| c.scored.total)
+            };
+            (total(0), total(1))
+        };
+        // Half an hour of light, and water for five hours of a night of thirteen: the trip
+        // first, since the meal can wait until dark.
+        let (eat, water) = totals(30.0, 5.0 / 24.0);
+        assert!(water > eat, "water {water} vs eat {eat}");
+        // Two hours of light: the shortage is full, but there is time to eat first.
+        let (eat, water) = totals(120.0, 5.0 / 24.0);
+        assert!(eat > water, "water {water} vs eat {eat}");
+        // Water enough for the night: no hurry.
+        let (eat, water) = totals(30.0, 1.0);
+        assert!(eat > water, "water {water} vs eat {eat}");
     }
 
     #[test]

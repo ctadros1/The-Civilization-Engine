@@ -1,8 +1,10 @@
-# A storage pot of about 20 litres, some 4 kg of fired clay: stoppered, it keeps grain and flour
-# dry and from vermin as well as a raised store's floor does (a tuning choice; research 07-05 §3.1
-# lists cooking and storage vessels among fired pottery's uses). It holds 15 kg (tuning). Pots
-# break: half are gone in three years, under a roof or not (the research gives no use-life; a
-# tuning value), and a pot takes no room of its own.
+# A large storage pot of about 45 litres, some 8 kg of fired clay: stoppered, it keeps grain and
+# flour dry and from vermin as well as a raised store's floor does (a tuning choice; research 07-05
+# §3.1 lists cooking and storage vessels among fired pottery's uses). It holds 35 kg (tuning: the
+# research gives no size for a storage vessel; at 15 kg a pot, households came to hold about a
+# hundred pots each). It stands under a roof and keeps what lies there: pots add no room, and
+# food in the open gains nothing from them. Pots break: half are gone in three years, under a
+# roof or not (the research gives no use-life; a tuning value).
 kind = "good"
 id = "core:good/pot"
 name = "Pot"
@@ -15,4 +17,4 @@ shared = false
 reserve_for = ""
 
 [store]
-keeps_kg = 15.0
+keeps_kg = 35.0

@@ -695,16 +695,19 @@ impl Keeping {
         raised_factor: 1.0,
     };
 
-    /// This keeping with the room `stores`' own pots give (M3b slice Q): each store good held
-    /// keeps its `keeps_kg` as a raised floor does, under the roofs that keep the rest.
+    /// This keeping with `stores`' own pots (M3b slice Q): each store good held keeps its
+    /// `keeps_kg` of what lies in lofts and on floors under a roof as a raised floor does. Pots
+    /// stand in the room they keep, so they add none: what lies in the open stays there.
     pub fn with_stores(&self, stores: &[f64], goods: &[GoodDef]) -> Keeping {
         let pots: f64 = goods
             .iter()
             .zip(stores)
             .filter_map(|(g, &n)| g.store.as_ref().map(|s| n.max(0.0) * s.keeps_kg))
             .sum();
+        let kept = pots.min(self.roofed_kg.max(0.0));
         Keeping {
-            raised_kg: self.raised_kg + pots,
+            raised_kg: self.raised_kg + kept,
+            roofed_kg: self.roofed_kg - kept,
             ..*self
         }
     }

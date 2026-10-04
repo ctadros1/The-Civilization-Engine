@@ -803,11 +803,13 @@ pub fn store_saves_kcal(
     store_saves_h(goods_kg, goods, &kcal, room, raised_factor, horizon_days)
 }
 
-/// The pots a household under a roof would gain from (M3b slice Q), each holding `keeps_kg` as a
-/// raised floor does, and the food the next one would keep over `horizon_days`, kcal: as many as
-/// would hold the food that lies anywhere but a raised floor or a pot and keeps better there, the
-/// next one worth what its room adds to what `keeping` (its pots counted) keeps
-/// ([`store_saves_kcal`]). None while there is no roof to keep pots under.
+/// The pots a household under a roof would gain from (M3b slice Q), each keeping `keeps_kg` of
+/// what lies under the roof as a raised floor does, and the food the next one would keep over
+/// `horizon_days`, kcal: as many as would hold the food lying in lofts and on floors (not on a
+/// raised floor or in a pot) that keeps better under a roof, the next one worth what moving its
+/// `keeps_kg` from the floor into a pot adds to what `keeping` (its pots counted) keeps
+/// ([`store_saves_kcal`]). Food in the open gains nothing: a pot takes room under the roof. None
+/// while there is no roof to keep pots under.
 pub fn pots_wanted(
     stores: &[f64],
     goods: &[GoodDef],
@@ -821,23 +823,23 @@ pub fn pots_wanted(
     }
     let room = [keeping.raised_kg, keeping.roofed_kg, 0.0];
     let placed = Keeping::fill(stores, goods, room);
-    let outside: f64 = goods
+    // Food in lofts and on floors (all of it in the loft's place here), which a pot would keep
+    // better.
+    let on_floors: f64 = goods
         .iter()
         .enumerate()
-        .filter(|(_, d)| d.purpose == GoodUse::Food && d.sheltered_half_life_days > 0.0)
-        .map(|(g, _)| {
-            let raised = placed[civ_grammar::storage::RAISED][g];
-            (stores.get(g).copied().unwrap_or(0.0).max(0.0) - raised).max(0.0)
-        })
+        .filter(|(_, d)| d.purpose == GoodUse::Food)
+        .map(|(g, _)| placed[civ_grammar::storage::LOFT][g])
         .sum();
-    if outside <= 0.0 {
+    if on_floors <= 0.0 {
         return (0.0, 0.0);
     }
     let factor = keeping.raised_factor;
     let now = store_saves_kcal(stores, goods, room, factor, horizon_days);
-    let more = [room[0] + keeps_kg, room[1], room[2]];
+    let moved = keeps_kg.min(room[1].max(0.0));
+    let more = [room[0] + moved, room[1] - moved, room[2]];
     let next = store_saves_kcal(stores, goods, more, factor, horizon_days) - now;
-    ((outside / keeps_kg).ceil(), next.max(0.0))
+    ((on_floors / keeps_kg).ceil(), next.max(0.0))
 }
 
 /// What a household would keep in a storehouse (ADR-0009 §7): the goods its roofs have no room
@@ -1442,7 +1444,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn pots_are_wanted_for_food_kept_anywhere_but_a_raised_floor_and_the_next_keeps_some() {
+    fn pots_are_wanted_for_food_on_floors_under_a_roof_and_add_no_room() {
         use crate::params::{Eaten, StoreDef};
         let good = |id: &str, purpose, kcal, half, sheltered| GoodDef {
             id: id.to_owned(),
@@ -1470,20 +1472,26 @@ pub(crate) mod tests {
             roofed_kg: 100.0,
             raised_factor: 2.0,
         };
-        // 160 kg of grain: 100 kg under the roof and 60 kg in the open would keep better in
-        // eleven pots, and the next keeps grain that would otherwise lie in the open.
+        // 160 kg of grain: the 100 kg on the floor under the roof would keep better in seven
+        // pots, and the next moves 15 kg of it from the floor into a pot; the 60 kg in the open
+        // gains nothing, as pots stand under the roof.
         let (want, kcal) = pots_wanted(&[160.0, 0.0], &goods, &keeping, true, 15.0, 1095.0);
-        assert_eq!(want, 11.0);
-        let open = 0.5f64.powf(1095.0 / 1560.0);
+        assert_eq!(want, 7.0);
+        let floor = 0.5f64.powf(1095.0 / 4932.0);
         let raised = 0.5f64.powf(1095.0 / (4932.0 * 2.0));
         assert!(
-            (kcal - 15.0 * (raised - open) * 3340.0).abs() < 1.0,
+            (kcal - 15.0 * (raised - floor) * 3340.0).abs() < 1.0,
             "{kcal}"
         );
-        // Pots already held count as raised room: four of them leave seven to make.
+        // Pots already held keep part of the floor's room as a raised floor would: four of them
+        // leave three to make, and add no room.
         let with_pots = keeping.with_stores(&[160.0, 4.0], &goods);
+        assert_eq!((with_pots.raised_kg, with_pots.roofed_kg), (60.0, 40.0));
         let (fewer, _) = pots_wanted(&[160.0, 4.0], &goods, &with_pots, true, 15.0, 1095.0);
-        assert_eq!(fewer, 7.0);
+        assert_eq!(fewer, 3.0);
+        // More pots than the roof has room for keep only what it has room for.
+        let crowded = keeping.with_stores(&[160.0, 20.0], &goods);
+        assert_eq!((crowded.raised_kg, crowded.roofed_kg), (100.0, 0.0));
         // No roof to keep pots under, or nothing that keeps better in them: none.
         assert_eq!(
             pots_wanted(&[160.0, 0.0], &goods, &keeping, false, 15.0, 1095.0),

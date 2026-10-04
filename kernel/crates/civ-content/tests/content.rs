@@ -1426,7 +1426,7 @@ fn techniques_check_their_references_gates_and_routes() {
 #[test]
 fn pots_hold_goods_and_digging_needs_deposits_of_what_it_digs() {
     let preset = real_preset();
-    // The real pot keeps 15 kg each, and clay is dug, not gathered.
+    // The real pot keeps 35 kg each, and clay is dug, not gathered.
     let reg = registry(load_fixture(&[("worldgen/river_valley.toml", &preset)]));
     let c = &reg.catalog;
     let pot = &c.goods[c
@@ -1434,7 +1434,7 @@ fn pots_hold_goods_and_digging_needs_deposits_of_what_it_digs() {
         .iter()
         .position(|g| g.id == "core:good/pot")
         .expect("pot")];
-    assert_eq!(pot.store.as_ref().map(|s| s.keeps_kg), Some(15.0));
+    assert_eq!(pot.store.as_ref().map(|s| s.keeps_kg), Some(35.0));
     let dig = c
         .activities
         .iter()
@@ -1446,7 +1446,7 @@ fn pots_hold_goods_and_digging_needs_deposits_of_what_it_digs() {
     );
 
     // A store needs its table, and only a store takes one.
-    let bare = real("good/pot.toml").replace("[store]\nkeeps_kg = 15.0\n", "");
+    let bare = real("good/pot.toml").replace("[store]\nkeeps_kg = 35.0\n", "");
     assert_ne!(bare, real("good/pot.toml"), "the edit applies");
     let report = load_fixture(&[
         ("worldgen/river_valley.toml", &preset),

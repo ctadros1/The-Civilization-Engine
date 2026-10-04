@@ -136,9 +136,9 @@ Reports read: 07-01 (invention), 07-02 (diffusion and loss), 07-03 (the graph), 
   learning of everyday work (06-08 §1.1).
   - It happens at their first such work or at the start of the next day, whichever comes first,
     so a child is never held back from work their household would have them do.
-  - Work first done at or after the age of keeping a household is still learnt at home, for a
-    year from its age (a tuning value). Making an axe, from 16 where people keep a household
-    from 15, is one example.
+  - Work first done later than a year before the age of keeping a household is learnt at home
+    in that last year (a tuning value), so nobody leaves home without their household's work.
+    Making an axe, from 16 where people may keep a household from 15, is one example.
 - **Working alongside.**
   - A person who does not know a technique may do its work only beside someone who does:
     - a member of their own household at the same place and work at the same time;

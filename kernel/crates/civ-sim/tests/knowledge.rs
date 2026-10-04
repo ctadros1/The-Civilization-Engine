@@ -125,35 +125,38 @@ fn a_child_learns_the_household_s_work_on_reaching_its_age() {
 }
 
 #[test]
-fn a_youth_learns_at_home_work_first_done_once_grown() {
-    // Shaping stone gates making an axe or a quern, from 16, a year after people may keep a
-    // household of their own: it is still learnt at home.
+fn work_first_done_once_grown_is_learnt_at_home_before_growing_up() {
+    // Shaping stone gates making an axe or a quern, from 16, after people may keep a household
+    // of their own (from 15): a child learns it at home in the year before growing up, so nobody
+    // leaves home without it.
     let mut sim = world(content(), 3);
     let stone = technique(&sim, "core:technique/stone_shaping");
+    let grown = sim.rules().people.family.independent_age;
     let now = sim.now();
-    let youth = sim
+    let child = sim
         .people()
         .people
         .iter()
         .map(|(_, p)| p)
-        .filter(|p| p.age_years(now) < 16.0 && !p.knows(stone))
+        .filter(|p| p.age_years(now) < grown - 1.0 && !p.knows(stone))
         .max_by(|a, b| a.age_years(now).total_cmp(&b.age_years(now)))
         .map(|p| p.id)
-        .expect("the band has someone under 16");
-    let born = SimTime::from_minutes(now.minutes() - (16.0 * 525_600.0) as i64 + 12 * 60);
+        .expect("the band has a child");
+    let age_min = ((grown - 1.0) * 525_600.0) as i64;
+    let born = SimTime::from_minutes(now.minutes() - age_min + 12 * 60);
     for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
-        if p.id == youth {
+        if p.id == child {
             p.born = born;
         }
     }
     sim.advance_minutes(2 * 24 * 60).expect("advances");
-    let p = sim.people().person(youth).expect("alive");
+    let p = sim.people().person(child).expect("alive");
     assert!(
         matches!(
             p.know(stone).map(|k| k.source),
             Some(KnowSource::Upbringing(_))
         ),
-        "brought up with it at 16: {:?}",
+        "brought up with it a year before growing up: {:?}",
         p.know(stone)
     );
 }

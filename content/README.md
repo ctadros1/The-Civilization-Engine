@@ -392,7 +392,7 @@ and when it is lost are decided at run time. Nothing in content says when a tech
 | `requires` | Its prerequisites as alternative routes, each a list of technique ids: `[["a", "b"], ["c"]]` is a and b, or c. `[]` for none. |
 | `tried_in`, `needs`, `e50_h` | For discovery (slice N): the activities whose practice counts toward finding it, the goods a household must hold to try it, and the qualified hours at which half of those trying have found it. |
 | `learn_h` | Hours of work beside someone who knows it that teach it. |
-| `upbringing` | Children learn it at home: a child not yet grown, in a household where someone knows it, learns it on reaching the youngest age of the work it gates. |
+| `upbringing` | Children learn it at home: a child not yet grown, in a household where someone knows it, learns it on reaching the youngest age of the work it gates, or in the year before growing up if the work comes later. |
 
 Recipes, activities and building programs name the technique they need with `technique` (a
 technique id, or `""` for none). An activity that works a recipe needs the recipe's technique.

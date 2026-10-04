@@ -33,25 +33,31 @@ pub struct KnowledgeEvent {
     pub kind: KnowledgeEventKind,
 }
 
-/// The age from which a founder can know technique `t`: the youngest age of the work it gates,
-/// or for a craft not learnt in childhood, adulthood (`grown_at`) if that is later.
+/// The age from which a founder can know technique `t`: the age at which a child learns it at
+/// home ([`upbringing_ages`]), or for a craft not learnt in childhood, the youngest age of the
+/// work it gates or adulthood (`grown_at`), whichever is later.
 pub fn knowing_age(catalog: &Catalog, t: usize, grown_at: f64) -> Option<f64> {
-    let work = catalog.work_age(t)?;
-    let upbringing = catalog.techniques.get(t).is_some_and(|d| d.upbringing);
-    Some(if upbringing { work } else { work.max(grown_at) })
+    if let Some((from, _)) = upbringing_ages(catalog, t, grown_at) {
+        return Some(from);
+    }
+    Some(catalog.work_age(t)?.max(grown_at))
 }
 
-/// Years from the age of a technique's work during which someone learns it at home, when the
-/// work is first done at or after growing up (a tuning value).
-pub const UPBRINGING_GRACE_YEARS: f64 = 1.0;
+/// Years before growing up in which a child learns at home the techniques of work first done
+/// later (a tuning value): they have watched it all their childhood.
+pub const UPBRINGING_LEAD_YEARS: f64 = 1.0;
 
 /// The ages at which someone learns technique `t` at home (ADR-0008 §4), if it is learnt in
-/// upbringing: from the youngest age of its work until they are grown (`grown_at`), or for work
-/// first done at or after growing up, for [`UPBRINGING_GRACE_YEARS`] from its age.
+/// upbringing: from the youngest age of its work, or for work first done later than a year
+/// before growing up ([`UPBRINGING_LEAD_YEARS`]), from then, until they are grown (`grown_at`).
+/// So all of a household's work is learnt at home before anyone leaves it to keep their own.
 pub fn upbringing_ages(catalog: &Catalog, t: usize, grown_at: f64) -> Option<(f64, f64)> {
     catalog.techniques.get(t).filter(|d| d.upbringing)?;
     let work = catalog.work_age(t)?;
-    Some((work, grown_at.max(work + UPBRINGING_GRACE_YEARS)))
+    Some((
+        work.min(grown_at - UPBRINGING_LEAD_YEARS).max(0.0),
+        grown_at,
+    ))
 }
 
 /// The techniques a founder of `age` brings (ADR-0008 §1): for each technique in the people
@@ -161,12 +167,13 @@ mod tests {
     }
 
     #[test]
-    fn work_learnt_at_home_is_learnt_by_growing_up_or_within_a_year_of_its_age() {
+    fn work_learnt_at_home_is_learnt_before_growing_up() {
         let c = catalog();
         assert_eq!(upbringing_ages(&c, 0, 16.0), Some((10.0, 16.0)));
-        // Work first done once grown is still learnt at home, for a year.
-        assert_eq!(upbringing_ages(&c, 0, 10.0), Some((10.0, 11.0)));
-        assert_eq!(upbringing_ages(&c, 0, 8.0), Some((10.0, 11.0)));
+        // Work first done once grown is learnt at home in the last year before growing up.
+        assert_eq!(upbringing_ages(&c, 0, 10.0), Some((9.0, 10.0)));
+        assert_eq!(upbringing_ages(&c, 0, 8.0), Some((7.0, 8.0)));
+        assert_eq!(knowing_age(&c, 0, 8.0), Some(7.0));
         // A craft is not learnt at home at all.
         assert_eq!(upbringing_ages(&c, 1, 16.0), None);
     }

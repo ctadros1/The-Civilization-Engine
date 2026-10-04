@@ -196,6 +196,22 @@ their meanings), an expansion yields:
   *collapse*.
 - **Chronicle:** a partial failure or collapse gives vulnerability, trigger and propagation in
   words, and links the building.
+- As built (slice P's second step):
+  - Margins are checked each day for every standing building, under the month's peak, which
+    is drawn once a month for each settlement (as if it came on the month's first day);
+    there is no separate check when loads change.
+  - Deflection is serviceability: a sag past L/180 (11-05 §2.4) only shows, and a failure
+    needs a strength margin below 1. A sag or a lean is not mended by upkeep, which rebuilds
+    a failed part whole.
+  - Posts carry their share, by tributary area, of the whole building's weight, and fail by
+    buckling (Euler's load halved for imperfection) or crushing. Mass walls and footings wait
+    for the grammars that build them.
+  - A failed loft spills its goods, 30 % lost; a failed tie beam at the wall heads brings its
+    lofts down; failed rafters open the roof; failed posts leave a ruin. People inside die
+    with a chance by what fell (tuning values; the plan's §9 NUDGE).
+  - The chronicle entry names the building's household's eldest and those killed, and says
+    in words what gave way, under what and why. It gives the place, not a link to the
+    building, which may be taken down.
 
 ### 6. Builders and trust
 

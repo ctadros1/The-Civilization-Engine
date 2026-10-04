@@ -220,6 +220,7 @@ mod tests {
                 per_worker: 1.0,
                 fixed: false,
             }),
+            timber: None,
         }
     }
 

@@ -40,7 +40,10 @@ mod firm;
 mod knowledge;
 mod land;
 mod life;
+mod loads;
 mod market;
+
+pub use loads::{DIES_IN_RUIN, DIES_UNDER_FLOOR, DIES_UNDER_ROOF, LIVE_PA, SPILLED, peak_pa};
 mod transfer;
 
 use knowledge::Gate;
@@ -3682,10 +3685,12 @@ impl Population {
                 self.review_land(ctx, s);
             }
         }
-        // A month of weather on every building, on the first of the month (ADR-0009 §4).
+        // A month of weather on every building, on the first of the month (ADR-0009 §4), and
+        // each day every building weighed against what it carries (§5).
         if now.date().day == 1 {
             self.wear_buildings(ctx);
         }
+        self.check_buildings(ctx);
         // Households whose day it is review what they offer and on what terms.
         self.review_offers(ctx, day);
         // A workshop whose firm closed goes to another firm of its household that has none.
@@ -3885,6 +3890,7 @@ mod tests {
             reserve_for: None,
             tool: None,
             sheltered_half_life_days: 0.0,
+            timber: None,
         };
         vec![
             good("bread", GoodUse::Food, 2500.0, 1000.0, Eaten::Raw),

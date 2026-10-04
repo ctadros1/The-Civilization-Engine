@@ -177,6 +177,17 @@ fn state_at(loss: f32, w: Wear) -> GroupState {
     }
 }
 
+/// How group `c` stands by its wear alone, under `upkeep` (failed once it has failed by load
+/// too, ADR-0009 §5).
+pub fn wear_state(c: &GroupCondition, upkeep: &Upkeep) -> GroupState {
+    if c.state == GroupState::Failed {
+        return GroupState::Failed;
+    }
+    GroupKind::of_group(c.group)
+        .and_then(|k| wear_of(k, upkeep))
+        .map_or(GroupState::Sound, |w| state_at(c.loss, w))
+}
+
 /// How far a group of wear `w` has gone beyond the share at which it shows, over what was left to
 /// lose then: 0 until it shows, 1 once all is lost.
 fn beyond(loss: f32, w: Wear) -> f64 {
@@ -233,11 +244,22 @@ pub fn wear_month(b: &mut Building, upkeep: &Upkeep, wetness: f64) -> bool {
         };
         let lost = w.per_year / 12.0 * factor;
         c.loss = (c.loss + lost as f32).min(1.0);
-        c.state = state_at(c.loss, w);
+        // Its wear may make it worse than its load did, never better.
+        c.state = worse(c.state, state_at(c.loss, w));
     }
     settle_state(b);
     let after = (leak(b, upkeep), b.state, states(b));
     after != before
+}
+
+/// The worse of two states.
+pub fn worse(a: GroupState, b: GroupState) -> GroupState {
+    let rank = |s: GroupState| match s {
+        GroupState::Sound => 0,
+        GroupState::Symptom => 1,
+        GroupState::Failed => 2,
+    };
+    if rank(b) > rank(a) { b } else { a }
 }
 
 fn states(b: &Building) -> Vec<GroupState> {
@@ -246,7 +268,7 @@ fn states(b: &Building) -> Vec<GroupState> {
 
 /// A building's own state from its groups': a ruin once its posts fail, damaged once anything
 /// else has failed, otherwise standing.
-fn settle_state(b: &mut Building) {
+pub fn settle_state(b: &mut Building) {
     let failed = |k: GroupKind| {
         b.condition
             .iter()
@@ -261,22 +283,27 @@ fn settle_state(b: &mut Building) {
     };
 }
 
-/// The group upkeep would mend first on building `b`, and how far it has gone ([`beyond`]): of
-/// those showing or failed, the one gone furthest beyond the share at which it shows (ties: the
-/// lower group id). `None` when nothing shows, or for a ruin, which is not mended.
+/// The group upkeep would mend first on building `b`, and how far it has gone ([`beyond`]; 1 for
+/// a failed group): of those its wear shows on or that have failed, the one gone furthest (ties:
+/// the lower group id). `None` when nothing does, or for a ruin, which is not mended.
 pub fn worst(b: &Building, upkeep: &Upkeep) -> Option<(u32, f64)> {
     if b.state == BuildingState::Ruin {
         return None;
     }
     let mut best: Option<(f64, u32)> = None;
     for c in &b.condition {
-        if c.state == GroupState::Sound {
+        // What its load alone shows (a sag, a lean) is not mended: only what is worn or broken.
+        if wear_state(c, upkeep) == GroupState::Sound {
             continue;
         }
         let Some(w) = GroupKind::of_group(c.group).and_then(|k| wear_of(k, upkeep)) else {
             continue;
         };
-        let over = beyond(c.loss, w);
+        let over = if c.state == GroupState::Failed {
+            1.0
+        } else {
+            beyond(c.loss, w)
+        };
         let better = best
             .is_none_or(|(o, id)| over > o + 1e-12 || ((over - o).abs() <= 1e-12 && c.group < id));
         if better {
@@ -287,7 +314,8 @@ pub fn worst(b: &Building, upkeep: &Upkeep) -> Option<(u32, f64)> {
 }
 
 /// The repair building `b` would have under way: the one begun, or else renewing all that is
-/// lost of the worst group showing ([`worst`]). `None` when nothing shows, or for a ruin.
+/// lost of the worst group showing ([`worst`]), or all of it once it has failed. `None` when
+/// nothing shows, or for a ruin.
 pub fn repair_of(b: &Building, upkeep: &Upkeep) -> Option<Repair> {
     if !b.standing() {
         return None;
@@ -296,9 +324,14 @@ pub fn repair_of(b: &Building, upkeep: &Upkeep) -> Option<Repair> {
         return Some(r);
     }
     let (group, _) = worst(b, upkeep)?;
+    let c = b.group(group)?;
     Some(Repair {
         group,
-        share: b.group(group)?.loss,
+        share: if c.state == GroupState::Failed {
+            1.0
+        } else {
+            c.loss
+        },
         work_h: 0.0,
     })
 }
@@ -353,9 +386,10 @@ pub fn mend(b: &mut Building, group: u32, share: f32, upkeep: &Upkeep, now: SimT
     };
     c.loss = (c.loss - share).max(0.0);
     c.repaired = now;
-    if let Some(w) = GroupKind::of_group(group).and_then(|k| wear_of(k, upkeep)) {
-        c.state = state_at(c.loss, w);
-    }
+    // Renewed, it stands by its wear until its load is next weighed.
+    c.state = GroupKind::of_group(group)
+        .and_then(|k| wear_of(k, upkeep))
+        .map_or(GroupState::Sound, |w| state_at(c.loss, w));
     settle_state(b);
 }
 
@@ -381,6 +415,40 @@ pub fn room_left(b: &Building, upkeep: &Upkeep, e: &Expansion, room: [f64; 3]) -
     if !lofts.is_empty() {
         out[storage::LOFT] *= 1.0 - fallen as f64 / lofts.len() as f64;
     }
+    // A raised floor or an upper storey's floor that gave way holds nothing on its bays.
+    let share_down = |kind: GroupKind| {
+        let decks: Vec<&Group> = e.groups.iter().filter(|g| g.kind == kind).collect();
+        let down = decks
+            .iter()
+            .filter(|g| b.group(g.id).is_some_and(|c| c.state == GroupState::Failed))
+            .count();
+        if decks.is_empty() {
+            0.0
+        } else {
+            down as f64 / decks.len() as f64
+        }
+    };
+    out[storage::RAISED] *= 1.0 - share_down(GroupKind::RaisedFloor);
+    let upper: f64 = e
+        .spaces
+        .iter()
+        .filter(|s| s.level == civ_grammar::Level::Upper)
+        .map(|s| s.area_m2)
+        .sum();
+    let floors: f64 = e
+        .spaces
+        .iter()
+        .filter(|s| {
+            matches!(
+                s.level,
+                civ_grammar::Level::Ground | civ_grammar::Level::Upper
+            )
+        })
+        .map(|s| s.area_m2)
+        .sum();
+    if upper > 0.0 && floors > 0.0 {
+        out[storage::FLOOR] *= 1.0 - share_down(GroupKind::FloorJoists) * upper / floors;
+    }
     out
 }
 
@@ -398,8 +466,19 @@ pub fn symptoms(b: &Building, upkeep: &Upkeep) -> String {
         let Some(w) = wear_of(kind, upkeep) else {
             continue;
         };
+        // What its load alone shows: it sags, or leans.
+        let loaded = c.state == GroupState::Symptom && state_at(c.loss, w) == GroupState::Sound;
         let words = match (kind, c.state) {
             (_, GroupState::Sound) => continue,
+            (GroupKind::LoftJoists, _) if loaded => "the loft sags",
+            (GroupKind::RoofFrame, _) if loaded => "the roof sags",
+            (GroupKind::Posts, _) if loaded => "the posts lean",
+            (GroupKind::FloorJoists | GroupKind::RaisedFloor, _) if loaded => "the floor sags",
+            (_, _) if loaded => "a beam sags",
+            (GroupKind::RaisedFloor | GroupKind::FloorJoists, GroupState::Failed) => {
+                "a floor gave way"
+            }
+            (GroupKind::TieBeams, GroupState::Failed) => "a beam broke",
             (GroupKind::Covering, GroupState::Failed) => "the thatch is gone",
             (GroupKind::Covering, _) => "the thatch leaks",
             (GroupKind::Posts, GroupState::Failed) => "the posts gave way",
@@ -411,7 +490,7 @@ pub fn symptoms(b: &Building, upkeep: &Upkeep) -> String {
             (_, GroupState::Failed) => "timber gave way",
             (_, _) => "rot in the roofed timber",
         };
-        let over = beyond(c.loss, w);
+        let over = if loaded { 0.0 } else { beyond(c.loss, w) };
         match shown.iter_mut().find(|(_, s)| *s == words) {
             Some(seen) => seen.0 = seen.0.max(over),
             None => shown.push((over, words)),

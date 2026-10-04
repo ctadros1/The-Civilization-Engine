@@ -2,6 +2,7 @@
 //! gathers, stores or eats is decided by people at run time.
 
 use civ_agents::params::{Eaten, GoodDef, GoodUse, ToolDef};
+use civ_agents::structure::Timber;
 use serde::Deserialize;
 
 /// The `kind` value of a good.
@@ -29,6 +30,19 @@ pub(crate) struct GoodFile {
     pub reserve_for: String,
     /// For a tool: its life and how many a household wants.
     pub tool: Option<Tool>,
+    /// For a material that is built with as timber: its strength (content API 16).
+    pub timber: Option<TimberFile>,
+}
+
+/// What a timber carries (ADR-0009 §5).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TimberFile {
+    pub bending_mpa: f64,
+    pub compression_mpa: f64,
+    pub stiffness_gpa: f64,
+    pub creep: f64,
+    pub sustained: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -58,6 +72,13 @@ impl GoodFile {
                 life_h: t.life_h,
                 per_worker: t.per_worker,
                 fixed: t.fixed,
+            }),
+            timber: self.timber.as_ref().map(|t| Timber {
+                bending_pa: t.bending_mpa * 1e6,
+                compression_pa: t.compression_mpa * 1e6,
+                stiffness_pa: t.stiffness_gpa * 1e9,
+                creep: t.creep,
+                sustained: t.sustained,
             }),
         })
     }
@@ -117,6 +138,32 @@ impl GoodFile {
             }
             (Some(_), Some(_)) => p.push("only a tool takes a `[tool]` table".to_owned()),
             _ => {}
+        }
+        if let Some(t) = &self.timber {
+            if purpose != Some(GoodUse::Material) {
+                p.push("only a material takes a `[timber]` table".to_owned());
+            }
+            for (name, v) in [
+                ("bending_mpa", t.bending_mpa),
+                ("compression_mpa", t.compression_mpa),
+                ("stiffness_gpa", t.stiffness_gpa),
+            ] {
+                if !(v.is_finite() && v > 0.0) {
+                    p.push(format!("`timber.{name}` must be positive (got {v})"));
+                }
+            }
+            if !(t.creep.is_finite() && (0.0..=10.0).contains(&t.creep)) {
+                p.push(format!(
+                    "`timber.creep` must be between 0 and 10 (got {})",
+                    t.creep
+                ));
+            }
+            if !(t.sustained.is_finite() && t.sustained > 0.0 && t.sustained <= 1.0) {
+                p.push(format!(
+                    "`timber.sustained` must be above 0 and at most 1 (got {})",
+                    t.sustained
+                ));
+            }
         }
         match purpose {
             None => p.push(format!(

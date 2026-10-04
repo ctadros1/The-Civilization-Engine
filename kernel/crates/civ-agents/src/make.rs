@@ -283,6 +283,7 @@ mod tests {
             shared: false,
             reserve_for: None,
             tool: None,
+            timber: None,
         }
     }
 

@@ -677,13 +677,14 @@ impl ::flatbuffers::SimpleToVerifyInSlice for Origin {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_CAUSE: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_CAUSE: u8 = 2;
+pub const ENUM_MAX_CAUSE: u8 = 3;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_CAUSE: [Cause; 3] = [
+pub const ENUM_VALUES_CAUSE: [Cause; 4] = [
   Cause::Unspecified,
   Cause::Starvation,
   Cause::Childbirth,
+  Cause::Collapse,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -694,13 +695,15 @@ impl Cause {
   pub const Unspecified: Self = Self(0);
   pub const Starvation: Self = Self(1);
   pub const Childbirth: Self = Self(2);
+  pub const Collapse: Self = Self(3);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 2;
+  pub const ENUM_MAX: u8 = 3;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Unspecified,
     Self::Starvation,
     Self::Childbirth,
+    Self::Collapse,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -708,6 +711,7 @@ impl Cause {
       Self::Unspecified => Some("Unspecified"),
       Self::Starvation => Some("Starvation"),
       Self::Childbirth => Some("Childbirth"),
+      Self::Collapse => Some("Collapse"),
       _ => None,
     }
   }

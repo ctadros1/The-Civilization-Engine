@@ -296,6 +296,7 @@ mod tests {
             shared: false,
             reserve_for: None,
             tool: None,
+            timber: None,
         };
         let goods = vec![
             food("fish", 600.0, 2.0, 0.0),

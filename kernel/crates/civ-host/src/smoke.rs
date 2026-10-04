@@ -425,8 +425,9 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
     result.notes.extend(condition(sim));
 }
 
-/// How the world's buildings stand at the end (ADR-0009 §4), in words: "14 buildings, 3 showing
-/// wear, 1 damaged, no ruin; 6 groups mended". `None` without buildings.
+/// How the world's buildings stand at the end (ADR-0009 §4, §5), in words: "14 buildings, 3
+/// showing wear, 1 damaged, no ruin; 6 groups mended; 2 gave way, killing 1". `None` without
+/// buildings.
 fn condition(sim: &Sim) -> Option<String> {
     use civ_land::{BuildingState, GroupState};
     let buildings = &sim.land().buildings;
@@ -455,8 +456,23 @@ fn condition(sim: &Sim) -> Option<String> {
         1 => "1 ruin".to_owned(),
         n => format!("{n} ruins"),
     };
+    let failures: Vec<f64> = sim
+        .people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == civ_agents::ChronicleKind::BuildingFailed)
+        .map(|e| e.number)
+        .collect();
+    let gave_way = match failures.len() {
+        0 => String::new(),
+        n => format!(
+            "; {n} gave way, killing {}",
+            failures.iter().sum::<f64>().round() as u64
+        ),
+    };
     Some(format!(
-        "{} buildings, {showing} showing wear, {} damaged, {ruins}; {mended} groups mended",
+        "{} buildings, {showing} showing wear, {} damaged, {ruins}; {mended} groups \
+         mended{gave_way}",
         buildings.len(),
         count(BuildingState::Damaged)
     ))

@@ -355,7 +355,8 @@ table Households {
 // Section "history": everyone who ever lived here, and the chronicle. Kept forever.
 enum Origin : ubyte { Founder = 0, Born = 1, Spawned = 2 }
 
-enum Cause : ubyte { Unspecified = 0, Starvation = 1, Childbirth = 2 }
+// Collapse (3): a building gave way around them (slice P's second step, ADR-0009 §5).
+enum Cause : ubyte { Unspecified = 0, Starvation = 1, Childbirth = 2, Collapse = 3 }
 
 table PersonRecord {
   id: ulong (id: 0);

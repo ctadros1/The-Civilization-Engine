@@ -9,11 +9,11 @@ use civ_land::LandParams;
 use civ_world::nav::TravelField;
 
 use super::{Ctx, Population, cell_of, fuel_per_day, stores_now};
+use crate::condition;
 use crate::decide::{TradeOption, TradeWorth};
 use crate::farm;
 use crate::firm::{BookKind, Entry};
 use crate::ledger::{Channel, Leg, Trade};
-use crate::condition;
 use crate::make;
 use crate::market::{Market, Offer};
 use crate::params::{Catalog, GoodDef, GoodUse, MarketParams, PeopleParams, RecipeDef};
@@ -256,9 +256,8 @@ impl Population {
         };
         let housed = mine()
             .any(|b| b.finished() && b.standing() && ctx.catalog.is_dwelling(&b.spec.program))
-            && mine().all(|b| {
-                (b.finished() && !mending(b)) || !self.can_build(catalog, &hh.members, b)
-            });
+            && mine()
+                .all(|b| (b.finished() && !mending(b)) || !self.can_build(catalog, &hh.members, b));
         let fuel_day = fuel_per_day(params, members, ctx.now.day_index());
         for (g, d) in goods.iter().enumerate() {
             if d.purpose == GoodUse::Fuel {

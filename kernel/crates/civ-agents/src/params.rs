@@ -230,6 +230,8 @@ pub struct GoodDef {
     pub reserve_for: Option<usize>,
     /// For a tool: its life and how many a household wants.
     pub tool: Option<ToolDef>,
+    /// For a material built with as timber: what it carries (ADR-0009 §5).
+    pub timber: Option<crate::structure::Timber>,
 }
 
 impl GoodDef {

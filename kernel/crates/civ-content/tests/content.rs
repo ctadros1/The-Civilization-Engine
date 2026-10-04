@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 15
+kernel_content_api = 16
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -813,6 +813,26 @@ fn buildings_check_their_numbers_and_materials() {
             ),
             "never makes a good spoil faster",
         ),
+        // Timber's strength (ADR-0009 §5): positive, its creep and its share kept in range.
+        (
+            "good/timber.toml",
+            timber.replace("bending_mpa = 57.0", "bending_mpa = 0.0"),
+            "`timber.bending_mpa`",
+        ),
+        (
+            "good/timber.toml",
+            timber.replace("sustained = 0.6", "sustained = 1.5"),
+            "`timber.sustained`",
+        ),
+        (
+            "good/grain.toml",
+            format!(
+                "{}\n[timber]\nbending_mpa = 1.0\ncompression_mpa = 1.0\nstiffness_gpa = 1.0\n\
+                 creep = 1.0\nsustained = 0.5\n",
+                real("good/grain.toml")
+            ),
+            "only a material takes a `[timber]` table",
+        ),
     ] {
         assert_ne!(body, real(path), "{needle}: the edit applies");
         let report = load_fixture(&[("worldgen/river_valley.toml", &preset), (path, &body)]);
@@ -974,6 +994,20 @@ fn profiles_check_their_ranges_and_fields() {
         ("people/early_farmers.toml", &people),
     ]);
     assert_eq!(codes(&report), vec!["E3001"]);
+
+    // The month's peak load on roofs (ADR-0009 §5) stays in range.
+    let land = real("land/temperate_valley.toml").replace("median_kpa = 0.25", "median_kpa = -1.0");
+    assert_ne!(land, real("land/temperate_valley.toml"), "the edit applies");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("`peak_load.median_kpa`")
+    );
 
     // A resource grows as a plant or as animals, not both.
     let land = real("land/temperate_valley.toml").replace(

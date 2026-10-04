@@ -1390,6 +1390,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::TechniqueLearned => 18,
         ChronicleKind::TechniqueLost => 19,
         ChronicleKind::TechniqueIntroduced => 20,
+        ChronicleKind::BuildingFailed => 21,
     }
 }
 
@@ -1415,6 +1416,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         18 => Some(ChronicleKind::TechniqueLearned),
         19 => Some(ChronicleKind::TechniqueLost),
         20 => Some(ChronicleKind::TechniqueIntroduced),
+        21 => Some(ChronicleKind::BuildingFailed),
         _ => None,
     }
 }
@@ -1434,6 +1436,7 @@ fn encode_history(pop: &Population) -> Vec<u8> {
                         Cause::Unspecified => save::Cause::Unspecified,
                         Cause::Starvation => save::Cause::Starvation,
                         Cause::Childbirth => save::Cause::Childbirth,
+                        Cause::Collapse => save::Cause::Collapse,
                     },
                 ),
                 None => (false, 0, save::Cause::Unspecified),
@@ -1531,6 +1534,7 @@ fn decode_history(bytes: &[u8]) -> Result<DecodedHistory, LoadError> {
             save::Cause::Unspecified => Cause::Unspecified,
             save::Cause::Starvation => Cause::Starvation,
             save::Cause::Childbirth => Cause::Childbirth,
+            save::Cause::Collapse => Cause::Collapse,
             other => {
                 return Err(LoadError::Incompatible(format!(
                     "record {rid} has cause of death {}, which this build does not know",

@@ -1,6 +1,6 @@
 //! Land profiles (`kind = "land"`): habitat rules and wild resources (ADR-0004).
 
-use civ_land::{Growth, HabitatRule, LandParams, PathParams, ResourceParams};
+use civ_land::{Growth, HabitatRule, LandParams, PathParams, PeakLoad, ResourceParams};
 use serde::Deserialize;
 
 /// The `kind` value of a land profile.
@@ -22,8 +22,20 @@ pub(crate) struct LandFile {
     pub climate_cv: f64,
     pub climate_autocorrelation: f64,
     pub paths: Paths,
+    pub peak_load: PeakLoadFile,
     pub habitat: Vec<Habitat>,
     pub resource: Vec<Resource>,
+}
+
+/// The heaviest load wind and snow put on a roof in a month (ADR-0009 §5), a stand-in for
+/// weather (content API 16).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PeakLoadFile {
+    /// Its median, kilopascals on a roof's plan.
+    pub median_kpa: f64,
+    /// The spread of its natural logarithm.
+    pub spread: f64,
 }
 
 /// How walking wears the ground (research 10-03 §1.1, §2.2).
@@ -163,6 +175,10 @@ impl LandFile {
                 trail_at: self.paths.trail_at,
                 trail_until: self.paths.trail_until,
             },
+            peak_load: PeakLoad {
+                median_pa: self.peak_load.median_kpa * 1000.0,
+                spread: self.peak_load.spread,
+            },
         })
     }
 
@@ -201,6 +217,19 @@ impl LandFile {
             p.push(
                 "trails must satisfy 0 < `paths.trail_until` <= `paths.trail_at` < 1".to_owned(),
             );
+        }
+        let peak = &self.peak_load;
+        if !(peak.median_kpa.is_finite() && peak.median_kpa >= 0.0 && peak.median_kpa <= 50.0) {
+            p.push(format!(
+                "`peak_load.median_kpa` must be between 0 and 50 (got {})",
+                peak.median_kpa
+            ));
+        }
+        if !(peak.spread.is_finite() && (0.0..=3.0).contains(&peak.spread)) {
+            p.push(format!(
+                "`peak_load.spread` must be between 0 and 3 (got {})",
+                peak.spread
+            ));
         }
         if self.habitat.is_empty() || self.habitat.len() > 32 {
             p.push("a land profile needs 1 to 32 habitats".to_owned());

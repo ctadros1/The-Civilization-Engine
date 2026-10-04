@@ -37,6 +37,7 @@ pub mod needs;
 pub mod params;
 pub mod person;
 pub mod population;
+pub mod structure;
 pub mod value;
 pub mod wealth;
 

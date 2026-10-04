@@ -656,6 +656,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
                 Cause::Unspecified => "illness or accident",
                 Cause::Starvation => "hunger",
                 Cause::Childbirth => "childbirth",
+                Cause::Collapse => "a building's collapse",
             },
         ),
         None => (0, ""),

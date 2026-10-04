@@ -11,3 +11,14 @@ sheltered_half_life_days = 0.0   # kept outside, by the work
 eaten = "never"
 shared = false
 reserve_for = ""
+
+[timber]
+# Green oak (research 11-05 §2.3): bending strength (modulus of rupture) 57 MPa, compression along
+# the grain 24.5 MPa, stiffness 8.6 GPa. Under load carried for years it bends about as far again
+# as at first (creep φ ≈ 1, 11-05 §2.4) and keeps a share of its strength: a tuning value, as the
+# research gives no figure for how long-carried load weakens wood.
+bending_mpa = 57.0
+compression_mpa = 24.5
+stiffness_gpa = 8.6
+creep = 1.0
+sustained = 0.6

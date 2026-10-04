@@ -289,11 +289,18 @@ pub enum Cause {
     Starvation,
     /// In childbirth.
     Childbirth,
+    /// When a building gave way around them (ADR-0009 §5).
+    Collapse,
 }
 
 impl Cause {
     /// Every cause.
-    pub const ALL: [Cause; 3] = [Cause::Unspecified, Cause::Starvation, Cause::Childbirth];
+    pub const ALL: [Cause; 4] = [
+        Cause::Unspecified,
+        Cause::Starvation,
+        Cause::Childbirth,
+        Cause::Collapse,
+    ];
 
     /// The key a chronicle entry keeps it as.
     pub fn key(self) -> &'static str {
@@ -301,6 +308,7 @@ impl Cause {
             Cause::Unspecified => "unspecified",
             Cause::Starvation => "starvation",
             Cause::Childbirth => "childbirth",
+            Cause::Collapse => "collapse",
         }
     }
 
@@ -315,6 +323,7 @@ impl Cause {
             Cause::Unspecified => "illness or accident",
             Cause::Starvation => "hunger",
             Cause::Childbirth => "childbirth",
+            Cause::Collapse => "a building's collapse",
         }
     }
 }
@@ -399,6 +408,11 @@ pub enum ChronicleKind {
     /// The observer introduced a technique (god tool, ADR-0008 §6): `people` is the person,
     /// `name` the technique, `number` 1 if they only heard of it.
     TechniqueIntroduced,
+    /// A building, or a part of it, gave way (ADR-0009 §5): `people` is the eldest of its
+    /// household then those it killed, `place` the building, `number` how many it killed, and
+    /// `name` what gave way, under what and why, in words ("longhouse lost its loft: the joists
+    /// broke under 1.9 t of grain; they were poorly made").
+    BuildingFailed,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -518,6 +532,7 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             let how = match Cause::from_key(&event.name) {
                 Some(Cause::Starvation) => format!(" died of hunger, {age}."),
                 Some(Cause::Childbirth) => format!(" died in childbirth, {age}."),
+                Some(Cause::Collapse) => format!(" died when a building gave way, {age}."),
                 _ => format!(" died, {age}."),
             };
             vec![who, Span::Text(how)]
@@ -732,6 +747,28 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 Some(who) => vec![Span::Text(before.to_owned()), who, Span::Text(after)],
                 None => vec![Span::Text(format!("The observer introduced {what}."))],
             }
+        }
+        ChronicleKind::BuildingFailed => {
+            let mut spans = match person(0) {
+                Some(owner) => vec![owner, Span::Text(format!("'s {}.", event.name))],
+                None => vec![Span::Text(format!("A {}.", event.name))],
+            };
+            let dead = event.number.round().max(0.0) as usize;
+            if dead > 0 {
+                let killed: Vec<Span> = (1..=dead).filter_map(person).collect();
+                spans.push(Span::Text(" It killed ".to_owned()));
+                let n = killed.len();
+                for (k, p) in killed.into_iter().enumerate() {
+                    if k > 0 {
+                        spans.push(Span::Text(
+                            if k + 1 == n { " and " } else { ", " }.to_owned(),
+                        ));
+                    }
+                    spans.push(p);
+                }
+                spans.push(Span::Text(".".to_owned()));
+            }
+            spans
         }
         ChronicleKind::FirstTrail => vec![
             Span::Text("The first trail out of ".to_owned()),

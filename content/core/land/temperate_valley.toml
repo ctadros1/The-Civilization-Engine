@@ -30,6 +30,16 @@ wear_half_life_days = 120.0
 trail_at = 0.3
 trail_until = 0.15
 
+[peak_load]
+# The heaviest load wind and snow put on a roof in a month, kilopascals on its plan, drawn once a
+# month for each settlement: log-normal, its median and the spread of its logarithm. It stands in
+# for weather until weather exists (M3c), and is replaced by it then (ADR-0009 §5). Wind at
+# 20 m/s presses about 0.25 kPa, at 40 m/s about 1 kPa (research 11-05 §2.4); snow presses its
+# depth times its density. The figures are tuning values: a median month's gusts, one month in
+# twenty above about 0.7 kPa, one in a thousand above about 1.6.
+median_kpa = 0.25
+spread = 0.6
+
 # Habitats, first match wins (research 03-06 §5.1, 10-01 §5.5).
 [[habitat]]
 id = "water"

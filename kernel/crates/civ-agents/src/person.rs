@@ -993,6 +993,7 @@ mod tests {
             reserve_for: None,
             tool: None,
             sheltered_half_life_days: 0.0,
+            timber: None,
         };
         vec![
             good("meat", GoodUse::Food, 1500.0, 3.0, Eaten::Cooked),

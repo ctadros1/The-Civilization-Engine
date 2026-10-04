@@ -12949,6 +12949,19 @@ impl<'a> BuildingInfo<'a> {
   pub const VT_SLEEPS: ::flatbuffers::VOffsetT = 40;
   pub const VT_STARTED_MINUTE: ::flatbuffers::VOffsetT = 42;
   pub const VT_STATUS: ::flatbuffers::VOffsetT = 44;
+  pub const VT_GRAMMAR: ::flatbuffers::VOffsetT = 46;
+  pub const VT_PURPOSE: ::flatbuffers::VOffsetT = 48;
+  pub const VT_SIZE: ::flatbuffers::VOffsetT = 50;
+  pub const VT_ANGLE: ::flatbuffers::VOffsetT = 52;
+  pub const VT_STOREYS: ::flatbuffers::VOffsetT = 54;
+  pub const VT_BAYS: ::flatbuffers::VOffsetT = 56;
+  pub const VT_LOFT_BAYS: ::flatbuffers::VOffsetT = 58;
+  pub const VT_ROOF_OUTLINE: ::flatbuffers::VOffsetT = 60;
+  pub const VT_RIDGE: ::flatbuffers::VOffsetT = 62;
+  pub const VT_APEX_M: ::flatbuffers::VOffsetT = 64;
+  pub const VT_FLOOR_BY_USE: ::flatbuffers::VOffsetT = 66;
+  pub const VT_STORAGE_KG: ::flatbuffers::VOffsetT = 68;
+  pub const VT_WORK_PLACES: ::flatbuffers::VOffsetT = 70;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -12964,6 +12977,16 @@ impl<'a> BuildingInfo<'a> {
     builder.add_settlement(args.settlement);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    builder.add_work_places(args.work_places);
+    if let Some(x) = args.storage_kg { builder.add_storage_kg(x); }
+    if let Some(x) = args.floor_by_use { builder.add_floor_by_use(x); }
+    builder.add_apex_m(args.apex_m);
+    if let Some(x) = args.ridge { builder.add_ridge(x); }
+    if let Some(x) = args.roof_outline { builder.add_roof_outline(x); }
+    builder.add_angle(args.angle);
+    if let Some(x) = args.size { builder.add_size(x); }
+    if let Some(x) = args.purpose { builder.add_purpose(x); }
+    if let Some(x) = args.grammar { builder.add_grammar(x); }
     if let Some(x) = args.status { builder.add_status(x); }
     builder.add_sleeps(args.sleeps);
     builder.add_floor_m2(args.floor_m2);
@@ -12979,6 +13002,9 @@ impl<'a> BuildingInfo<'a> {
     builder.add_radius_m(args.radius_m);
     if let Some(x) = args.centre { builder.add_centre(x); }
     if let Some(x) = args.program { builder.add_program(x); }
+    builder.add_loft_bays(args.loft_bays);
+    builder.add_bays(args.bays);
+    builder.add_storeys(args.storeys);
     builder.add_roofed(args.roofed);
     builder.add_stage(args.stage);
     builder.finish()
@@ -13132,6 +13158,97 @@ impl<'a> BuildingInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_STATUS, None)}
   }
+  #[inline]
+  pub fn grammar(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_GRAMMAR, None)}
+  }
+  #[inline]
+  pub fn purpose(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_PURPOSE, None)}
+  }
+  #[inline]
+  pub fn size(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(BuildingInfo::VT_SIZE, None)}
+  }
+  #[inline]
+  pub fn angle(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(BuildingInfo::VT_ANGLE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn storeys(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(BuildingInfo::VT_STOREYS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn bays(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(BuildingInfo::VT_BAYS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn loft_bays(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(BuildingInfo::VT_LOFT_BAYS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn roof_outline(&self) -> Option<::flatbuffers::Vector<'a, Vec2>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, Vec2>>>(BuildingInfo::VT_ROOF_OUTLINE, None)}
+  }
+  #[inline]
+  pub fn ridge(&self) -> Option<::flatbuffers::Vector<'a, Vec2>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, Vec2>>>(BuildingInfo::VT_RIDGE, None)}
+  }
+  #[inline]
+  pub fn apex_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(BuildingInfo::VT_APEX_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn floor_by_use(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(BuildingInfo::VT_FLOOR_BY_USE, None)}
+  }
+  #[inline]
+  pub fn storage_kg(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(BuildingInfo::VT_STORAGE_KG, None)}
+  }
+  #[inline]
+  pub fn work_places(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(BuildingInfo::VT_WORK_PLACES, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
@@ -13161,6 +13278,19 @@ impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
      .visit_field::<u32>("sleeps", Self::VT_SLEEPS, false)?
      .visit_field::<i64>("started_minute", Self::VT_STARTED_MINUTE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("status", Self::VT_STATUS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("grammar", Self::VT_GRAMMAR, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("purpose", Self::VT_PURPOSE, false)?
+     .visit_field::<Vec2>("size", Self::VT_SIZE, false)?
+     .visit_field::<f32>("angle", Self::VT_ANGLE, false)?
+     .visit_field::<u8>("storeys", Self::VT_STOREYS, false)?
+     .visit_field::<u8>("bays", Self::VT_BAYS, false)?
+     .visit_field::<u16>("loft_bays", Self::VT_LOFT_BAYS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, Vec2>>>("roof_outline", Self::VT_ROOF_OUTLINE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, Vec2>>>("ridge", Self::VT_RIDGE, false)?
+     .visit_field::<f32>("apex_m", Self::VT_APEX_M, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("floor_by_use", Self::VT_FLOOR_BY_USE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("storage_kg", Self::VT_STORAGE_KG, false)?
+     .visit_field::<u32>("work_places", Self::VT_WORK_PLACES, false)?
      .finish();
     Ok(())
   }
@@ -13187,6 +13317,19 @@ pub struct BuildingInfoArgs<'a> {
     pub sleeps: u32,
     pub started_minute: i64,
     pub status: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub grammar: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub purpose: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub size: Option<&'a Vec2>,
+    pub angle: f32,
+    pub storeys: u8,
+    pub bays: u8,
+    pub loft_bays: u16,
+    pub roof_outline: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, Vec2>>>,
+    pub ridge: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, Vec2>>>,
+    pub apex_m: f32,
+    pub floor_by_use: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub storage_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub work_places: u32,
 }
 impl<'a> Default for BuildingInfoArgs<'a> {
   #[inline]
@@ -13213,6 +13356,19 @@ impl<'a> Default for BuildingInfoArgs<'a> {
       sleeps: 0,
       started_minute: 0,
       status: None,
+      grammar: None,
+      purpose: None,
+      size: None,
+      angle: 0.0,
+      storeys: 0,
+      bays: 0,
+      loft_bays: 0,
+      roof_outline: None,
+      ridge: None,
+      apex_m: 0.0,
+      floor_by_use: None,
+      storage_kg: None,
+      work_places: 0,
     }
   }
 }
@@ -13307,6 +13463,58 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingInfoBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_STATUS, status);
   }
   #[inline]
+  pub fn add_grammar(&mut self, grammar: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_GRAMMAR, grammar);
+  }
+  #[inline]
+  pub fn add_purpose(&mut self, purpose: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_PURPOSE, purpose);
+  }
+  #[inline]
+  pub fn add_size(&mut self, size: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(BuildingInfo::VT_SIZE, size);
+  }
+  #[inline]
+  pub fn add_angle(&mut self, angle: f32) {
+    self.fbb_.push_slot::<f32>(BuildingInfo::VT_ANGLE, angle, 0.0);
+  }
+  #[inline]
+  pub fn add_storeys(&mut self, storeys: u8) {
+    self.fbb_.push_slot::<u8>(BuildingInfo::VT_STOREYS, storeys, 0);
+  }
+  #[inline]
+  pub fn add_bays(&mut self, bays: u8) {
+    self.fbb_.push_slot::<u8>(BuildingInfo::VT_BAYS, bays, 0);
+  }
+  #[inline]
+  pub fn add_loft_bays(&mut self, loft_bays: u16) {
+    self.fbb_.push_slot::<u16>(BuildingInfo::VT_LOFT_BAYS, loft_bays, 0);
+  }
+  #[inline]
+  pub fn add_roof_outline(&mut self, roof_outline: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , Vec2>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_ROOF_OUTLINE, roof_outline);
+  }
+  #[inline]
+  pub fn add_ridge(&mut self, ridge: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , Vec2>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_RIDGE, ridge);
+  }
+  #[inline]
+  pub fn add_apex_m(&mut self, apex_m: f32) {
+    self.fbb_.push_slot::<f32>(BuildingInfo::VT_APEX_M, apex_m, 0.0);
+  }
+  #[inline]
+  pub fn add_floor_by_use(&mut self, floor_by_use: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_FLOOR_BY_USE, floor_by_use);
+  }
+  #[inline]
+  pub fn add_storage_kg(&mut self, storage_kg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_STORAGE_KG, storage_kg);
+  }
+  #[inline]
+  pub fn add_work_places(&mut self, work_places: u32) {
+    self.fbb_.push_slot::<u32>(BuildingInfo::VT_WORK_PLACES, work_places, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingInfoBuilder {
@@ -13345,6 +13553,19 @@ impl ::core::fmt::Debug for BuildingInfo<'_> {
       ds.field("sleeps", &self.sleeps());
       ds.field("started_minute", &self.started_minute());
       ds.field("status", &self.status());
+      ds.field("grammar", &self.grammar());
+      ds.field("purpose", &self.purpose());
+      ds.field("size", &self.size());
+      ds.field("angle", &self.angle());
+      ds.field("storeys", &self.storeys());
+      ds.field("bays", &self.bays());
+      ds.field("loft_bays", &self.loft_bays());
+      ds.field("roof_outline", &self.roof_outline());
+      ds.field("ridge", &self.ridge());
+      ds.field("apex_m", &self.apex_m());
+      ds.field("floor_by_use", &self.floor_by_use());
+      ds.field("storage_kg", &self.storage_kg());
+      ds.field("work_places", &self.work_places());
       ds.finish()
   }
 }

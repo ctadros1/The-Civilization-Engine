@@ -293,7 +293,8 @@ impl Population {
                     if let Some(def) = catalog
                         .building_index(&b.spec.program)
                         .and_then(|i| catalog.buildings.get(i))
-                        && let Ok(e) = civ_grammar::expand_hut(&b.spec, &def.rules)
+                        && def.use_ == civ_land::PlotUse::Dwelling
+                        && let Ok(e) = civ_grammar::expand(&b.spec, &def.rules)
                     {
                         w.floor_m2 += e.floor_area_m2;
                     }

@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 10
+kernel_content_api = 11
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -605,17 +605,110 @@ fn buildings_check_their_numbers_and_materials() {
             "{needle}"
         );
     }
-    // People build their homes to a program that exists.
-    let people = real("people/early_farmers.toml").replace(
-        "home_program = \"core:building/hut\"",
-        "home_program = \"core:building/longhouse\"",
-    );
-    let report = load_fixture(&[
-        ("worldgen/river_valley.toml", &preset),
-        ("people/early_farmers.toml", &people),
-    ]);
-    assert_eq!(codes(&report), vec!["E2006"]);
-    assert!(report.diagnostics[0].message.contains("build.home_program"));
+    // People build their homes to a program that exists, and, until they choose among
+    // programs, to a hut dwelling.
+    for (program, code, needle) in [
+        ("core:building/palace", "E2006", "build.home_program"),
+        ("core:building/longhouse", "E3001", "must be a hut dwelling"),
+    ] {
+        let people = real("people/early_farmers.toml").replace(
+            "home_program = \"core:building/hut\"",
+            &format!("home_program = \"{program}\""),
+        );
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("people/early_farmers.toml", &people),
+        ]);
+        assert_eq!(codes(&report), vec![code], "{program}");
+        assert!(report.diagnostics[0].message.contains(needle), "{program}");
+    }
+    // Frame programs: a longhouse, a raised granary and a workshop, their rules from `[frame]`.
+    let c = &reg.catalog;
+    for (id, use_, raised) in [
+        (
+            "core:building/longhouse",
+            civ_land::PlotUse::Dwelling,
+            false,
+        ),
+        ("core:building/granary", civ_land::PlotUse::Store, true),
+        ("core:building/workshop", civ_land::PlotUse::Work, false),
+    ] {
+        let b = &c.buildings[c.building_index(id).expect(id)];
+        assert_eq!(b.grammar(), civ_grammar::Grammar::Frame, "{id}");
+        assert_eq!(b.use_, use_, "{id}");
+        assert_eq!(b.materials.len(), civ_grammar::frame_materials::COUNT);
+        assert_eq!(
+            b.technique.map(|t| c.techniques[t].id.as_str()),
+            Some("core:technique/jointed_frame")
+        );
+        let civ_grammar::ProgramRules::Frame(r) = &b.rules else {
+            panic!("{id} has frame rules")
+        };
+        assert_eq!(r.floor_raise_cm.0 > 0, raised, "{id}");
+        // The least building its rules allow expands, built to its usual height and pitch.
+        use civ_grammar::frame_params as fp;
+        let mut params = [0; civ_grammar::PARAMS];
+        params[fp::EAVE_CM] = b.eave_cm;
+        params[fp::PITCH_CENTIDEG] = b.pitch_centideg;
+        params[fp::BAYS] = r.bays.0;
+        params[fp::DOOR] = fp::door(fp::SIDE_RIGHT, 0);
+        params[fp::OVERHANG_CM] = r.overhang_cm.0;
+        params[fp::FLOOR_RAISE_CM] = r.floor_raise_cm.0;
+        params[fp::JOIST_CM] = if raised { r.joist_cm.0 } else { 0 };
+        params[fp::POST_CM] = r.post_cm.0;
+        params[fp::WALL_CM] = r.wall_cm.0;
+        let spec = civ_grammar::BuildingSpec {
+            program: id.to_owned(),
+            version: civ_grammar::FRAME_VERSION,
+            footprint: civ_grammar::Footprint::Rect {
+                x: 100_000,
+                y: 100_000,
+                length: r.bays.0 * r.bay_cm.0,
+                width: r.width_cm.0,
+                angle: 0,
+            },
+            storeys: r.storeys.0,
+            params,
+            materials: b.materials.iter().map(|&g| c.goods[g].id.clone()).collect(),
+            style_seed: 0,
+        };
+        let e = civ_grammar::expand(&spec, &b.rules).unwrap_or_else(|e| panic!("{id}: {e}"));
+        assert!(e.total_labour_h() > 0.0, "{id}");
+    }
+    assert_eq!(hut.use_, civ_land::PlotUse::Dwelling);
+    let real_longhouse = real("building/longhouse.toml");
+    for (from, to, needle) in [
+        ("use = \"dwelling\"", "use = \"palace\"", "unknown use"),
+        ("ground = \"living\"", "ground = \"barn\"", "`frame.ground`"),
+        ("bays = [1, 8]", "bays = [1, 12]", "`frame.bays`"),
+        ("storeys = [1, 2]", "storeys = [1, 3]", "`frame.storeys`"),
+        (
+            "covering = ",
+            "thatch = ",
+            "`materials.covering` is missing",
+        ),
+        (
+            "grammar = \"frame\"",
+            "grammar = \"hut\"",
+            "needs `[rules]`",
+        ),
+        ("decking_cm = 4 ", "decking_cm = 0 ", "`frame.decking_cm`"),
+    ] {
+        let body = real_longhouse.replace(from, to);
+        assert_ne!(body, real_longhouse, "{needle}: the edit applies");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("building/longhouse.toml", &body),
+        ]);
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.message.contains(needle)),
+            "{needle}: {:?}",
+            report.diagnostics
+        );
+    }
     // A material is never eaten, cooked, kept back or shared, and a roof never speeds spoiling.
     let timber = real("good/timber.toml");
     for (path, body, needle) in [

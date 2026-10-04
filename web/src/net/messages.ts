@@ -352,6 +352,28 @@ export interface BuildingInfo {
   startedMinute: number;
   /** Rendered by the kernel: "walls going up, 40% done; waiting for timber". */
   status: string;
+  /** Wire 1.14 (M3b slice O): the grammar that expands it, "hut" or "frame" ("" from an older
+   * host), and what it is for: "dwelling", "store" or "work". */
+  grammar: string;
+  purpose: string;
+  /** Length and width between the wall lines, metres (a hut: its diameter both ways), and the
+   * direction the length runs, radians from east toward south. */
+  size: [number, number];
+  angle: number;
+  storeys: number;
+  bays: number;
+  /** The bays floored as a loft, a bit each. */
+  loftBays: number;
+  /** A gabled roof's corners and its ridge's two ends, metres; both empty for a hut. */
+  roofOutline: [number, number][];
+  ridge: [number, number][];
+  /** Height of the roof's apex or ridge, metres. */
+  apexM: number;
+  /** Floor by use, square metres: living, store and work. */
+  floorByUse: number[];
+  /** Goods it can hold under its roof, kilograms: on a raised floor, in lofts, on other floors. */
+  storageKg: number[];
+  workPlaces: number;
 }
 
 export type EventKind =
@@ -1579,6 +1601,19 @@ function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
       sleeps: x.sleeps(),
       startedMinute: Number(x.startedMinute()),
       status: x.status() ?? "",
+      grammar: x.grammar() ?? "",
+      purpose: x.purpose() ?? "",
+      size: [x.size(v)?.x() ?? 0, x.size(v)?.y() ?? 0],
+      angle: x.angle(),
+      storeys: x.storeys(),
+      bays: x.bays(),
+      loftBays: x.loftBays(),
+      roofOutline: vec2List(x.roofOutlineLength(), (k, p) => x.roofOutline(k, p)),
+      ridge: vec2List(x.ridgeLength(), (k, p) => x.ridge(k, p)),
+      apexM: x.apexM(),
+      floorByUse: Array.from(x.floorByUseArray() ?? []),
+      storageKg: Array.from(x.storageKgArray() ?? []),
+      workPlaces: x.workPlaces(),
     });
   }
   return { rev: Number(f.rev()), buildings: out };

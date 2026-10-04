@@ -11,9 +11,7 @@ use civ_core::time::MINUTES_PER_DAY;
 use civ_core::{GenTable, Handle, IdAllocator, PermanentId, Rng64, SimTime};
 use civ_grammar::{BuildingSpec, Stage, StageNeeds};
 use civ_land::paths::cells_along;
-use civ_land::{
-    Building, CropParams, Field, FieldStage, FieldTask, Land, LandParams, Party, Plot, PlotUse,
-};
+use civ_land::{Building, CropParams, Field, FieldStage, FieldTask, Land, LandParams, Party, Plot};
 use civ_world::nav::{NavGrid, RouteResult, TravelField};
 use civ_world::{WATER_LAKE, WATER_LAND, WATER_RIVER, WorldMap};
 
@@ -991,7 +989,13 @@ impl Population {
         let mut home: Option<i32> = None;
         for b in ctx.land.buildings.iter().filter(|b| b.household == hh.id) {
             if b.finished() {
-                let civ_grammar::Footprint::Round { radius, .. } = b.spec.footprint;
+                let radius = match b.spec.footprint {
+                    civ_grammar::Footprint::Round { radius, .. } => radius,
+                    // A frame home counts as a round one with the same ground floor.
+                    civ_grammar::Footprint::Rect { length, width, .. } => {
+                        (f64::from(length) * f64::from(width) / std::f64::consts::PI).sqrt() as i32
+                    }
+                };
                 home = Some(home.map_or(radius, |r| r.max(radius)));
                 continue;
             }
@@ -1028,9 +1032,9 @@ impl Population {
                 let (residents, carry) = (hh.members.len().max(1), ctx.params.household.carry_kg);
                 let goods = &catalog.goods;
                 let radius = match home {
-                    None => Some(build::radius_within(
-                        program, goods, residents, carry, budget_h, time_h,
-                    )),
+                    None => {
+                        build::radius_within(program, goods, residents, carry, budget_h, time_h)
+                    }
                     Some(current) => build::rebuild_radius(
                         program, goods, residents, current, carry, budget_h, time_h,
                     ),
@@ -1144,7 +1148,7 @@ impl Population {
             id: plot,
             household,
             rect,
-            use_: PlotUse::Dwelling,
+            use_: def.use_,
             since: ctx.now,
         });
         ctx.land.buildings.push(Building {

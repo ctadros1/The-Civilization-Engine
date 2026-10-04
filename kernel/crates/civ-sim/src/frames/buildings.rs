@@ -7,7 +7,7 @@ use std::f64::consts::TAU;
 
 use civ_agents::build::{self, HomeWork};
 use civ_agents::population;
-use civ_grammar::{Expansion, PartKind, Stage, TURN, expand_hut};
+use civ_grammar::{Expansion, Footprint, PartKind, Stage, TURN, expand, frame_params};
 use civ_land::Building;
 use civ_schema::flatbuffers::FlatBufferBuilder;
 use civ_schema::wire;
@@ -111,11 +111,31 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
             let def = catalog
                 .building_index(&b.spec.program)
                 .map(|i| &catalog.buildings[i]);
-            let expansion: Option<Expansion> = def.and_then(|d| expand_hut(&b.spec, &d.rules).ok());
+            let expansion: Option<Expansion> = def.and_then(|d| expand(&b.spec, &d.rules).ok());
             let work = expansion
                 .as_ref()
                 .map(|e| HomeWork::of(b, e.stages.clone()));
-            let civ_grammar::Footprint::Round { x, y, radius } = b.spec.footprint;
+            let (x, y) = b.spec.footprint.centre();
+            // A hut's wall line, or the circle round a frame's (what older observers draw).
+            let (radius, size, angle, bays, lofts) = match b.spec.footprint {
+                Footprint::Round { radius, .. } => (radius, (2 * radius, 2 * radius), 0, 1, 0),
+                Footprint::Rect {
+                    length,
+                    width,
+                    angle,
+                    ..
+                } => {
+                    let half = (f64::from(length) / 2.0).hypot(f64::from(width) / 2.0);
+                    let p = &b.spec.params;
+                    (
+                        half.round() as i32,
+                        (length, width),
+                        angle,
+                        p[frame_params::BAYS],
+                        p[frame_params::LOFT_BAYS],
+                    )
+                }
+            };
             let program = fbb.create_string(def.map_or("Building", |d| d.name.as_str()));
             let stage_name = fbb.create_string(b.stage().map_or("finished", Stage::name));
             let text = fbb.create_string(&status(sim, b));
@@ -138,6 +158,29 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
             let (door, door_dir) = expansion.as_ref().map_or(((x, y), 0.0), |e| {
                 ((e.door.0, e.door.1), f64::from(e.door.2) / TURN * TAU)
             });
+            let roof_outline: Vec<wire::Vec2> = expansion
+                .as_ref()
+                .map(|e| e.roof_outline.iter().map(|&p| vec2(p)).collect())
+                .unwrap_or_default();
+            let roof_outline = fbb.create_vector(&roof_outline);
+            let ridge: Vec<wire::Vec2> = expansion
+                .as_ref()
+                .and_then(|e| e.ridge)
+                .map(|r| r.iter().map(|&p| vec2(p)).collect())
+                .unwrap_or_default();
+            let ridge = fbb.create_vector(&ridge);
+            let floor_by_use: Vec<f32> = expansion
+                .as_ref()
+                .map(|e| e.floor_by_use.iter().map(|&a| a as f32).collect())
+                .unwrap_or_default();
+            let floor_by_use = fbb.create_vector(&floor_by_use);
+            let storage_kg: Vec<f32> = expansion
+                .as_ref()
+                .map(|e| e.storage_kg.iter().map(|&kg| kg as f32).collect())
+                .unwrap_or_default();
+            let storage_kg = fbb.create_vector(&storage_kg);
+            let grammar = fbb.create_string(def.map_or("", |d| d.grammar().name()));
+            let purpose = fbb.create_string(def.map_or("", |d| d.use_.name()));
             let plot = sim
                 .land
                 .plots
@@ -174,6 +217,19 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                     sleeps: expansion.as_ref().map_or(0, |e| e.sleeping_places),
                     started_minute: b.started.minutes(),
                     status: Some(text),
+                    grammar: Some(grammar),
+                    purpose: Some(purpose),
+                    size: Some(&vec2(size)),
+                    angle: (f64::from(angle) / TURN * TAU) as f32,
+                    storeys: b.spec.storeys,
+                    bays: u8::try_from(bays).unwrap_or(0),
+                    loft_bays: u16::try_from(lofts).unwrap_or(0),
+                    roof_outline: Some(roof_outline),
+                    ridge: Some(ridge),
+                    apex_m: expansion.as_ref().map_or(0, |e| e.apex_cm) as f32 / 100.0,
+                    floor_by_use: Some(floor_by_use),
+                    storage_kg: Some(storage_kg),
+                    work_places: expansion.as_ref().map_or(0, |e| e.work_places),
                 },
             )
         })

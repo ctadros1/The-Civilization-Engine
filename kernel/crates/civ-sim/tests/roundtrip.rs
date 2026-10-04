@@ -6,6 +6,7 @@ use std::sync::OnceLock;
 use std::sync::atomic::AtomicBool;
 
 use civ_content::ContentRegistry;
+use civ_grammar::Stage;
 use civ_schema::flatbuffers::{self, FlatBufferBuilder};
 use civ_schema::{SAVE_ENGINE_TAG, SAVE_SCHEMA_VERSION, save, wire};
 use civ_sim::frames::{self, RasterQuery};
@@ -594,6 +595,109 @@ fn slice_m_saves_load_with_nobody_having_tried() {
     assert_eq!(loaded.people().living(), sim.people().living());
 }
 
+/// A raised granary of two bays, turned off the map's axes: a frame building of version 1 within
+/// the core program's ranges.
+fn granary(at: (i32, i32)) -> civ_grammar::BuildingSpec {
+    use civ_grammar::frame_params as fp;
+    let mut params = [0; civ_grammar::PARAMS];
+    params[fp::EAVE_CM] = 180;
+    params[fp::PITCH_CENTIDEG] = 4500;
+    params[fp::BAYS] = 2;
+    params[fp::DOOR] = fp::door(fp::SIDE_LEFT, 1);
+    params[fp::JOIST_CM] = 15;
+    params[fp::OVERHANG_CM] = 60;
+    params[fp::FLOOR_RAISE_CM] = 80;
+    params[fp::POST_CM] = 15;
+    params[fp::WALL_CM] = 15;
+    civ_grammar::BuildingSpec {
+        program: "core:building/granary".into(),
+        version: civ_grammar::FRAME_VERSION,
+        footprint: civ_grammar::Footprint::Rect {
+            x: at.0,
+            y: at.1,
+            length: 500,
+            width: 300,
+            angle: 11_000,
+        },
+        storeys: 1,
+        params,
+        materials: vec![
+            "core:good/timber".into(),
+            "core:good/timber".into(),
+            "core:good/thatch".into(),
+            "core:good/timber".into(),
+        ],
+        style_seed: 0,
+    }
+}
+
+#[test]
+fn frame_buildings_and_their_plots_survive_a_save_and_load_exactly() {
+    let mut sim = load_first();
+    let (household, home) = {
+        let b = sim.land().buildings.first().expect("a home under way");
+        (b.household, b.spec.footprint.centre())
+    };
+    let spec = granary((home.0 + 2_000, home.1 + 500));
+    let catalog = &sim.rules().catalog;
+    let def = &catalog.buildings[catalog
+        .building_index("core:building/granary")
+        .expect("the granary")];
+    let e = civ_grammar::expand(&spec, &def.rules).expect("a valid granary");
+    assert!(e.storage_kg[civ_grammar::storage::RAISED] > 0.0);
+    let id = sim
+        .place_building_for_tests(household, spec.clone(), Stage::ALL.len() as u8)
+        .expect("placed");
+    // Loading checks the land: the plot, the building and their ids must be consistent.
+    let dir = scratch_dir("frames");
+    let saved = persist::save(&mut sim, &dir, SaveKind::Manual, "granary").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    let b = loaded
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == id)
+        .expect("the granary");
+    assert_eq!(
+        b.spec, spec,
+        "the design, footprint and all sixteen parameters"
+    );
+    let plot = loaded
+        .land()
+        .plots
+        .iter()
+        .find(|p| p.id == b.plot)
+        .expect("its plot");
+    assert_eq!(plot.use_, civ_land::PlotUse::Store);
+    assert_eq!(loaded.land().buildings, sim.land().buildings);
+    assert_eq!(loaded.land().plots, sim.land().plots);
+    // Saved again, every section is what it was.
+    let mut again = loaded;
+    let resaved = persist::save(&mut again, &dir, SaveKind::Manual, "again").expect("saves");
+    assert_eq!(digests(&resaved.chunks), digests(&saved.chunks));
+}
+
+#[test]
+fn slice_n_saves_load_with_their_huts_as_they_were() {
+    // A schema-14 save has round footprints and eight parameters a design: they load as huts of
+    // version 1 with the other eight parameters 0.
+    let sim = load_first();
+    let sections = persist::encode_sections(&sim);
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V14;
+    let path = republish("slice-n", &info, &sections);
+    let loaded = persist::load(&path, content()).expect("a schema-14 save loads");
+    assert_eq!(loaded.land().buildings, fixture().first_buildings);
+    assert!(
+        loaded
+            .land()
+            .buildings
+            .iter()
+            .all(|b| b.spec.version == civ_grammar::HUT_VERSION
+                && b.spec.params[8..].iter().all(|&p| p == 0))
+    );
+}
+
 #[test]
 fn a_session_of_trying_survives_a_save_and_load() {
     let mut sim = load_first();
@@ -1131,7 +1235,86 @@ fn every_building_is_described_with_its_expanded_shape() {
         assert!(info.sleeps() as usize >= members);
         assert!(info.floor_m2() > 0.0);
         assert!(!info.status().unwrap_or_default().is_empty());
+        // Wire 1.14: a hut is a one-storey dwelling of the hut grammar, its cone seen as a
+        // circle, all its floor for living.
+        assert_eq!(info.grammar(), Some("hut"));
+        assert_eq!(info.purpose(), Some("dwelling"));
+        assert_eq!((info.storeys(), info.bays(), info.loft_bays()), (1, 1, 0));
+        assert!(info.roof_outline().is_some_and(|r| r.is_empty()));
+        assert!(info.ridge().is_some_and(|r| r.is_empty()));
+        let by_use: Vec<f32> = info.floor_by_use().expect("floor by use").iter().collect();
+        assert_eq!(by_use, vec![info.floor_m2(), 0.0, 0.0]);
+        assert!(info.storage_kg().expect("storage").get(2) > 0.0);
+        assert!(info.apex_m() > 2.0);
     }
+}
+
+#[test]
+fn a_frame_building_is_described_with_its_gabled_roof_and_floors() {
+    let mut sim = load_first();
+    let (household, home) = {
+        let b = sim.land().buildings.first().expect("a home under way");
+        (b.household, b.spec.footprint.centre())
+    };
+    let spec = granary((home.0 + 2_000, home.1 + 500));
+    let id = sim
+        .place_building_for_tests(household, spec, Stage::ALL.len() as u8)
+        .expect("placed");
+    let payload = frames::buildings::buildings_response(&sim);
+    let response = flatbuffers::root::<wire::Response>(&payload).expect("a response");
+    let list = response.body_as_buildings().expect("buildings");
+    let info = list
+        .buildings()
+        .expect("a list")
+        .iter()
+        .find(|i| i.id() == id.get())
+        .expect("the granary");
+    assert_eq!(info.program(), Some("Granary"));
+    assert_eq!(info.grammar(), Some("frame"));
+    assert_eq!(info.purpose(), Some("store"));
+    assert!(info.roofed());
+    let size = info.size().expect("a size");
+    assert_eq!((size.x(), size.y()), (5.0, 3.0));
+    let turn = 11_000.0 / 65_536.0 * std::f32::consts::TAU;
+    assert!((info.angle() - turn).abs() < 1e-5);
+    assert_eq!((info.storeys(), info.bays(), info.loft_bays()), (1, 2, 0));
+    // Four corners of wall and of roof, the roof's beyond the walls, and a ridge along the
+    // length through the middle.
+    let centre = info.centre().expect("a centre");
+    let (outline, roof) = (
+        info.outline().expect("walls"),
+        info.roof_outline().expect("roof"),
+    );
+    assert_eq!((outline.len(), roof.len()), (4, 4));
+    for (w, r) in outline.iter().zip(roof.iter()) {
+        let d = |p: &wire::Vec2| (p.x() - centre.x()).hypot(p.y() - centre.y());
+        assert!(d(r) > d(w), "the roof reaches past the walls");
+    }
+    let ridge = info.ridge().expect("a ridge");
+    assert_eq!(ridge.len(), 2);
+    let (a, b) = (ridge.get(0), ridge.get(1));
+    assert!((((a.x() + b.x()) / 2.0) - centre.x()).abs() < 0.02);
+    assert!((((a.y() + b.y()) / 2.0) - centre.y()).abs() < 0.02);
+    // 6.2 m: the length and its overhang at both ends.
+    assert!(((a.x() - b.x()).hypot(a.y() - b.y()) - 6.2).abs() < 0.02);
+    // Its 15 m² are a store, raised and aired: no sleeping places, room for goods.
+    assert!((info.floor_m2() - 15.0).abs() < 1e-4);
+    let by_use: Vec<f32> = info.floor_by_use().expect("floor by use").iter().collect();
+    assert_eq!(by_use, vec![0.0, 15.0, 0.0]);
+    assert_eq!(info.sleeps(), 0);
+    let storage = info.storage_kg().expect("storage");
+    assert!(storage.get(0) > 0.0 && storage.get(1) == 0.0 && storage.get(2) == 0.0);
+    // Its posts stand on the long walls at the three frame lines.
+    assert_eq!(info.posts().expect("posts").len(), 6);
+    let plot = (
+        info.plot_min().expect("plot"),
+        info.plot_size().expect("plot"),
+    );
+    for p in roof.iter() {
+        assert!(p.x() >= plot.0.x() - 0.01 && p.x() <= plot.0.x() + plot.1.x() + 0.01);
+        assert!(p.y() >= plot.0.y() - 0.01 && p.y() <= plot.0.y() + plot.1.y() + 0.01);
+    }
+    assert_eq!(info.status(), Some("finished"));
 }
 
 #[test]

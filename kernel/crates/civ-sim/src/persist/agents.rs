@@ -77,7 +77,7 @@ use civ_agents::{
 };
 use civ_core::scheduler::PendingEvent;
 use civ_core::{PermanentId, SimTime};
-use civ_grammar::{BuildingSpec, Footprint};
+use civ_grammar::{BuildingSpec, Footprint, PARAMS};
 use civ_land::{
     Building, ClimateYear, Field, FieldStage, Land, Lease, Party, Patches, PathParams, Plot,
     PlotUse, RectCm, Settlement, Wear, WearTile,
@@ -90,8 +90,8 @@ use commons_persist::{SectionData, SectionTag, SnapshotReader};
 
 use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
-    SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, finish, section, single_chunk,
-    unreadable,
+    SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -225,6 +225,9 @@ enum Schema {
     V13,
     /// Trying toward techniques, and finds (ADR-0008 §3).
     V14,
+    /// Frame buildings: rectangular footprints, sixteen parameters, plots for stores and
+    /// workshops (ADR-0009 §2, §7).
+    V15,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -252,7 +255,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V11 => Schema::V11,
         SCHEMA_V12 => Schema::V12,
         SCHEMA_V13 => Schema::V13,
-        SAVE_SCHEMA_VERSION => Schema::V14,
+        SCHEMA_V14 => Schema::V14,
+        SAVE_SCHEMA_VERSION => Schema::V15,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1127,7 +1131,8 @@ fn carried(
         | Schema::V11
         | Schema::V12
         | Schema::V13
-        | Schema::V14 => {
+        | Schema::V14
+        | Schema::V15 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1246,7 +1251,8 @@ fn decode_households(
             | Schema::V11
             | Schema::V12
             | Schema::V13
-            | Schema::V14 => {
+            | Schema::V14
+            | Schema::V15 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -1884,6 +1890,8 @@ fn encode_plots(plots: &[Plot]) -> Vec<u8> {
                     h_cm: p.rect.h,
                     purpose: match p.use_ {
                         PlotUse::Dwelling => save::PlotUse::Dwelling,
+                        PlotUse::Store => save::PlotUse::Store,
+                        PlotUse::Work => save::PlotUse::Work,
                     },
                     since: p.since.minutes(),
                 },
@@ -1903,6 +1911,8 @@ fn decode_plots(bytes: &[u8]) -> Result<Vec<Plot>, LoadError> {
         let id = required(p.id(), "a plot")?;
         let use_ = match p.purpose() {
             save::PlotUse::Dwelling => PlotUse::Dwelling,
+            save::PlotUse::Store => PlotUse::Store,
+            save::PlotUse::Work => PlotUse::Work,
             other => {
                 return Err(LoadError::Malformed(format!(
                     "plot {id} has use {}",
@@ -1936,20 +1946,32 @@ fn encode_buildings(buildings: &[Building]) -> Vec<u8> {
             let params = fbb.create_vector(&s.params);
             let materials: Vec<&str> = s.materials.iter().map(String::as_str).collect();
             let materials = strings(&mut fbb, &materials);
-            let Footprint::Round { x, y, radius } = s.footprint;
+            let (x_cm, y_cm) = s.footprint.centre();
+            let (footprint, radius_cm, length_cm, width_cm, angle) = match s.footprint {
+                Footprint::Round { radius, .. } => (save::FootprintKind::Round, radius, 0, 0, 0),
+                Footprint::Rect {
+                    length,
+                    width,
+                    angle,
+                    ..
+                } => (save::FootprintKind::Rect, 0, length, width, angle),
+            };
             let spec = save::BuildingSpec::create(
                 &mut fbb,
                 &save::BuildingSpecArgs {
                     program: Some(program),
                     version: s.version,
-                    footprint: save::FootprintKind::Round,
-                    x_cm: x,
-                    y_cm: y,
-                    radius_cm: radius,
+                    footprint,
+                    x_cm,
+                    y_cm,
+                    radius_cm,
                     storeys: s.storeys,
                     params: Some(params),
                     materials: Some(materials),
                     style_seed: s.style_seed,
+                    length_cm,
+                    width_cm,
+                    angle,
                 },
             );
             save::Building::create(
@@ -1992,6 +2014,13 @@ fn decode_buildings(bytes: &[u8]) -> Result<Vec<Building>, LoadError> {
                 y: s.y_cm(),
                 radius: s.radius_cm(),
             },
+            save::FootprintKind::Rect => Footprint::Rect {
+                x: s.x_cm(),
+                y: s.y_cm(),
+                length: s.length_cm(),
+                width: s.width_cm(),
+                angle: s.angle(),
+            },
             other => {
                 return Err(LoadError::Malformed(format!(
                     "building {id} has footprint kind {}",
@@ -2000,13 +2029,14 @@ fn decode_buildings(bytes: &[u8]) -> Result<Vec<Building>, LoadError> {
             }
         };
         let saved: Vec<i32> = s.params().map(|v| v.iter().collect()).unwrap_or_default();
-        if saved.len() > 8 {
+        if saved.len() > PARAMS {
             return Err(LoadError::Malformed(format!(
-                "building {id} has {} parameters; a design has at most 8",
+                "building {id} has {} parameters; a design has at most {PARAMS}",
                 saved.len()
             )));
         }
-        let mut params = [0; 8];
+        // Designs from before schema 15 have eight; the rest are 0 (ADR-0009 §2).
+        let mut params = [0; PARAMS];
         params[..saved.len()].copy_from_slice(&saved);
         out.push(Building {
             id,

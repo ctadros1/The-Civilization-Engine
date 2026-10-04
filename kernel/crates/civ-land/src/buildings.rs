@@ -10,11 +10,34 @@ use civ_grammar::{BuildingSpec, Stage};
 
 use crate::fields::RectCm;
 
-/// What a plot is claimed for.
+/// What a plot is claimed for, and what the building on it is for (ADR-0009 §7).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PlotUse {
     /// A household's home.
     Dwelling,
+    /// A store for goods.
+    Store,
+    /// A workshop.
+    Work,
+}
+
+impl PlotUse {
+    /// Every use, in a fixed order.
+    pub const ALL: [PlotUse; 3] = [PlotUse::Dwelling, PlotUse::Store, PlotUse::Work];
+
+    /// The authored name: `dwelling`, `store` or `work`.
+    pub fn name(self) -> &'static str {
+        match self {
+            PlotUse::Dwelling => "dwelling",
+            PlotUse::Store => "store",
+            PlotUse::Work => "work",
+        }
+    }
+
+    /// The use with an authored name.
+    pub fn from_name(name: &str) -> Option<PlotUse> {
+        PlotUse::ALL.into_iter().find(|u| u.name() == name)
+    }
 }
 
 /// Ground a household has claimed (ADR-0004 §3). A plot outlives its building.
@@ -172,7 +195,7 @@ mod tests {
                     radius: 300,
                 },
                 storeys: 1,
-                params: [0; 8],
+                params: [0; civ_grammar::PARAMS],
                 materials: Vec::new(),
                 style_seed: 0,
             },

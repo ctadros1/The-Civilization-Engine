@@ -228,22 +228,46 @@ weather, when sowing finished, how much of its tending was done, and how long it
 
 ### `building`
 
-A building program: what it is made of, the work and material each part takes, and the dimensions
-people build it to. The grammar that expands a design into its parts is code (`civ-grammar`;
-`grammar = "hut"` is the only one in M1). Who builds what, where and when is decided by people at
-run time.
+A building program: what it is for, what it is made of, the work and material each part takes, and
+the dimensions people build it to. The grammar that expands a design into its parts is code
+(`civ-grammar`): `hut`, the round hut of M1, frozen at version 1, and `frame`, rectangular
+post-framed buildings in bays (M3b slice O, ADR-0009). Who builds what, where and when is decided
+by people at run time; until they choose among programs, households build their homes to the
+people profile's `home_program`, which must be a hut dwelling. Content API 11 added `use` and
+the frame grammar.
 
 | Table | Fields | Meaning |
 |---|---|---|
-| (top) | `grammar` | The grammar that expands it: `hut`. |
-| | `eave_cm`, `pitch_deg` | The wall height and roof pitch people build to, within the rules' ranges. |
+| (top) | `grammar` | The grammar that expands it: `hut` or `frame`. |
+| | `use` | What its buildings are for: `dwelling`, `store` or `work` (the use of the plot it stands on). |
+| | `eave_cm`, `pitch_deg` | The wall height (a frame's: each storey's) and roof pitch people build to, within the rules' ranges. |
 | | `roof_by_day` | The day of the year (from 0) a household wants to be under its roof by; the pressure to build grows as it nears. |
-| `materials` | `timber`, `wattle`, `thatch` | The good each material slot is made of (good ids, each a `material`). |
-| `rules` | `radius_cm`, `eave_cm`, `pitch_deg` | Allowed ranges, `[least, most]`. |
+| | `technique` | The technique building it needs (ADR-0008). |
+| `materials` | a hut's `timber`, `wattle`, `thatch`; a frame's `timber`, `wattle`, `covering`, `boards` | The good each material slot is made of (good ids, each a `material`). |
+| `rules` (a hut's) | `radius_cm`, `eave_cm`, `pitch_deg` | Allowed ranges, `[least, most]`. |
 | | `floor_base_m2`, `floor_m2_per_sleeper` | The floor a household needs whatever its size and per resident; the hut's radius follows, rounded up to whole decimetres. |
+| | `store_kg_per_m2` | Goods its floor holds besides living on it, kilograms a square metre. |
 | | `post_spacing_cm`, `post_diameter_cm`, `posthole_depth_cm`, `wall_thickness_cm`, `roof_overhang_cm`, `thatch_thickness_cm`, `hearth_cm` | Dimensions. The plot a household claims is the square its roof covers. |
 | | `groundwork_h_per_m2`, `posthole_h`, `post_h`, `rafter_h`, `wattle_h_per_m2`, `daub_h_per_m2`, `thatch_h_per_m2`, `finish_h_per_m2` | Person-hours of a capable adult for each part: foundation (groundwork and postholes), frame (posts and rafters), walls (wattle and daub), roof (thatch), finish (floor and hearth). All positive. |
 | | `post_kg`, `rafter_kg`, `wattle_kg_per_m2`, `thatch_kg_per_m2` | Material in each part. |
+
+A frame program's rules are a `[frame]` table instead:
+
+| Fields | Meaning |
+|---|---|
+| `bays`, `bay_cm`, `width_cm`, `storeys`, `eave_cm`, `pitch_deg`, `joist_cm`, `post_cm`, `overhang_cm`, `floor_raise_cm`, `wall_cm` | Allowed ranges, `[least, most]`: bays (up to 8), a bay's length, the width between the long walls, storeys (one or two), each storey's height, roof pitch, the diameters of joists and posts, the roof's overhang, a raised floor's height (`[0, 0]` for none) and the walls' thickness. |
+| `lofts` | Whether bays may be floored as lofts (a floor at the wall heads inside the roof, holding goods only). |
+| `ground`, `upper` | What the first storey and an upper storey are for: `living`, `store` or `work`. A hearth goes on the lowest living storey. |
+| `posthole_depth_cm`, `beam_cm`, `rafter_cm`, `rafter_spacing_cm`, `joist_spacing_cm`, `decking_cm`, `thatch_thickness_cm`, `hearth_cm`, `door_cm` | Dimensions: plates, rails, beams and the ridge are `beam_cm` poles. |
+| `floor_base_m2`, `floor_m2_per_sleeper`, `work_m2_per_worker` | Living floor a household needs whatever its size and per resident; floor a place to work takes. |
+| `store_kg_per_m2`, `loft_kg_per_m2`, `living_kg_per_m2` | Goods a store's floor, a loft and living or working floor hold, kilograms a square metre. |
+| `timber_kg_per_m3` | The timber's density: posts, beams, rafters, joists and boards are costed from their sizes. |
+| `groundwork_h_per_m2`, `posthole_h`, `post_h`, `beam_h_per_m`, `rafter_h`, `joist_h_per_m`, `wattle_h_per_m2`, `daub_h_per_m3`, `thatch_h_per_m2`, `finish_h_per_m2`, `decking_h_per_m2`, `ladder_h` | Person-hours of a capable adult for each part. All positive. |
+| `wattle_kg_per_m2`, `thatch_kg_per_m2`, `ladder_kg` | Material in each part besides the timber its sizes give. |
+
+The core pack has the hut and three frame programs, none of them built by households yet: a
+longhouse (a dwelling, with lofts and up to two storeys), a granary (a store raised on posts) and
+a workshop (a working floor with a store loft). They need jointed timber framing.
 
 A stage uses its materials in proportion to its work and waits when they run out; the last half
 kilogram of a material is made up from scraps. Under its roof, a household keeps its stores at
@@ -410,13 +434,15 @@ The people profile's `[knowledge]` table (every value a tuning value):
 | `w_try` | Utility points for trying at a problem at home, times the share of the household's food the problem would cost. |
 | `try_gap_days` | Least days between one person's sessions of trying. |
 
-The core pack has ten techniques. Eight are the founders' repertoire of today's work, known by
+The core pack has eleven techniques. Eight are the founders' repertoire of today's work, known by
 every founder and learnt in upbringing (research 06-08 §1.1, §3): growing emmer, grinding at a
 quern, pounding grain, baking flatbread, knapping sickle blades, shaping stone, shaping wood and
-building roundhouses. Two are not known at first (slice N). **Drying and smoking** answers meat
+building roundhouses. Three are not known at first. **Drying and smoking** (slice N) answers meat
 and fish spoiling and is found from hunting, fishing and trying. **Grinding at a rotary quern**
-needs shaping stone and wood, and its E50 of 100,000 hours makes it, in practice, the observer's
-introduction. Content API 9 added the kind and API 10 its `[answers]`.
+(slice N) needs shaping stone and wood, and its E50 of 100,000 hours makes it, in practice, the
+observer's introduction. **Jointed timber framing** (slice O) builds the frame programs; no work
+tries toward it yet, so only the observer can introduce it. Content API 9 added the kind and API
+10 its `[answers]`.
 
 A `try` activity (`behavior = "try"`, slice N) spends spare hours at home trying toward the
 technique whose problem would cost the household the most food, among those the person could
@@ -425,6 +451,6 @@ find. It names no technique: what it works toward is chosen when it is done. The
 
 ## Planned kinds
 
-More techniques (each only with the work behind it), more building programs with authored rule
-graphs (grammar v2) and style primitives, offices and policies, service capability ladders, all
+More techniques (each only with the work behind it), more building programs and grammars, style
+primitives, offices and policies, service capability ladders, all
 as the milestones in the plan introduce them (§5, §7).

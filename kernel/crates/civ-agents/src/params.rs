@@ -488,15 +488,18 @@ impl Catalog {
     }
 }
 
-/// An authored building program (M1: the hut) with what people decide when they design one.
+/// An authored building program with what people decide when they design one (ADR-0004 §2,
+/// ADR-0009 §1): a hut, or a frame building in bays.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BuildingDef {
     /// Content id, for example `core:building/hut`.
     pub id: String,
     /// Display name.
     pub name: String,
-    /// The grammar's rules: every dimension, labour and material figure.
-    pub rules: civ_grammar::HutRules,
+    /// What its buildings are for: a dwelling, a store or a workshop.
+    pub use_: civ_land::PlotUse,
+    /// Its grammar's rules: every dimension, labour and material figure.
+    pub rules: civ_grammar::ProgramRules,
     /// The good each material slot is made of, by index in the goods.
     pub materials: Vec<usize>,
     /// Wall height people build to, centimetres.
@@ -507,6 +510,21 @@ pub struct BuildingDef {
     pub roof_by_day: u16,
     /// The technique building it needs, by index in the techniques (ADR-0008 §1).
     pub technique: Option<usize>,
+}
+
+impl BuildingDef {
+    /// The grammar its buildings are expanded by.
+    pub fn grammar(&self) -> civ_grammar::Grammar {
+        self.rules.grammar()
+    }
+
+    /// Its rules, if it is a hut program.
+    pub fn hut(&self) -> Option<&civ_grammar::HutRules> {
+        match &self.rules {
+            civ_grammar::ProgramRules::Hut(r) => Some(r),
+            civ_grammar::ProgramRules::Frame(_) => None,
+        }
+    }
 }
 
 impl Catalog {

@@ -857,11 +857,13 @@ impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_PLOT_USE: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_PLOT_USE: u8 = 0;
+pub const ENUM_MAX_PLOT_USE: u8 = 2;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_PLOT_USE: [PlotUse; 1] = [
+pub const ENUM_VALUES_PLOT_USE: [PlotUse; 3] = [
   PlotUse::Dwelling,
+  PlotUse::Store,
+  PlotUse::Work,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -870,16 +872,22 @@ pub struct PlotUse(pub u8);
 #[allow(non_upper_case_globals)]
 impl PlotUse {
   pub const Dwelling: Self = Self(0);
+  pub const Store: Self = Self(1);
+  pub const Work: Self = Self(2);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 0;
+  pub const ENUM_MAX: u8 = 2;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Dwelling,
+    Self::Store,
+    Self::Work,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
     match self {
       Self::Dwelling => Some("Dwelling"),
+      Self::Store => Some("Store"),
+      Self::Work => Some("Work"),
       _ => None,
     }
   }
@@ -937,11 +945,12 @@ impl ::flatbuffers::SimpleToVerifyInSlice for PlotUse {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_FOOTPRINT_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_FOOTPRINT_KIND: u8 = 0;
+pub const ENUM_MAX_FOOTPRINT_KIND: u8 = 1;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_FOOTPRINT_KIND: [FootprintKind; 1] = [
+pub const ENUM_VALUES_FOOTPRINT_KIND: [FootprintKind; 2] = [
   FootprintKind::Round,
+  FootprintKind::Rect,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -950,16 +959,19 @@ pub struct FootprintKind(pub u8);
 #[allow(non_upper_case_globals)]
 impl FootprintKind {
   pub const Round: Self = Self(0);
+  pub const Rect: Self = Self(1);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 0;
+  pub const ENUM_MAX: u8 = 1;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Round,
+    Self::Rect,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
     match self {
       Self::Round => Some("Round"),
+      Self::Rect => Some("Rect"),
       _ => None,
     }
   }
@@ -9881,6 +9893,9 @@ impl<'a> BuildingSpec<'a> {
   pub const VT_PARAMS: ::flatbuffers::VOffsetT = 18;
   pub const VT_MATERIALS: ::flatbuffers::VOffsetT = 20;
   pub const VT_STYLE_SEED: ::flatbuffers::VOffsetT = 22;
+  pub const VT_LENGTH_CM: ::flatbuffers::VOffsetT = 24;
+  pub const VT_WIDTH_CM: ::flatbuffers::VOffsetT = 26;
+  pub const VT_ANGLE: ::flatbuffers::VOffsetT = 28;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -9893,12 +9908,15 @@ impl<'a> BuildingSpec<'a> {
   ) -> ::flatbuffers::WIPOffset<BuildingSpec<'bldr>> {
     let mut builder = BuildingSpecBuilder::new(_fbb);
     builder.add_style_seed(args.style_seed);
+    builder.add_width_cm(args.width_cm);
+    builder.add_length_cm(args.length_cm);
     if let Some(x) = args.materials { builder.add_materials(x); }
     if let Some(x) = args.params { builder.add_params(x); }
     builder.add_radius_cm(args.radius_cm);
     builder.add_y_cm(args.y_cm);
     builder.add_x_cm(args.x_cm);
     if let Some(x) = args.program { builder.add_program(x); }
+    builder.add_angle(args.angle);
     builder.add_version(args.version);
     builder.add_storeys(args.storeys);
     builder.add_footprint(args.footprint);
@@ -9976,6 +9994,27 @@ impl<'a> BuildingSpec<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(BuildingSpec::VT_STYLE_SEED, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn length_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(BuildingSpec::VT_LENGTH_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn width_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(BuildingSpec::VT_WIDTH_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn angle(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(BuildingSpec::VT_ANGLE, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BuildingSpec<'_> {
@@ -9994,6 +10033,9 @@ impl ::flatbuffers::Verifiable for BuildingSpec<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, i32>>>("params", Self::VT_PARAMS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("materials", Self::VT_MATERIALS, false)?
      .visit_field::<u64>("style_seed", Self::VT_STYLE_SEED, false)?
+     .visit_field::<i32>("length_cm", Self::VT_LENGTH_CM, false)?
+     .visit_field::<i32>("width_cm", Self::VT_WIDTH_CM, false)?
+     .visit_field::<u16>("angle", Self::VT_ANGLE, false)?
      .finish();
     Ok(())
   }
@@ -10009,6 +10051,9 @@ pub struct BuildingSpecArgs<'a> {
     pub params: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, i32>>>,
     pub materials: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub style_seed: u64,
+    pub length_cm: i32,
+    pub width_cm: i32,
+    pub angle: u16,
 }
 impl<'a> Default for BuildingSpecArgs<'a> {
   #[inline]
@@ -10024,6 +10069,9 @@ impl<'a> Default for BuildingSpecArgs<'a> {
       params: None,
       materials: None,
       style_seed: 0,
+      length_cm: 0,
+      width_cm: 0,
+      angle: 0,
     }
   }
 }
@@ -10074,6 +10122,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingSpecBuilder<'a, 'b, A
     self.fbb_.push_slot::<u64>(BuildingSpec::VT_STYLE_SEED, style_seed, 0);
   }
   #[inline]
+  pub fn add_length_cm(&mut self, length_cm: i32) {
+    self.fbb_.push_slot::<i32>(BuildingSpec::VT_LENGTH_CM, length_cm, 0);
+  }
+  #[inline]
+  pub fn add_width_cm(&mut self, width_cm: i32) {
+    self.fbb_.push_slot::<i32>(BuildingSpec::VT_WIDTH_CM, width_cm, 0);
+  }
+  #[inline]
+  pub fn add_angle(&mut self, angle: u16) {
+    self.fbb_.push_slot::<u16>(BuildingSpec::VT_ANGLE, angle, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingSpecBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingSpecBuilder {
@@ -10101,6 +10161,9 @@ impl ::core::fmt::Debug for BuildingSpec<'_> {
       ds.field("params", &self.params());
       ds.field("materials", &self.materials());
       ds.field("style_seed", &self.style_seed());
+      ds.field("length_cm", &self.length_cm());
+      ds.field("width_cm", &self.width_cm());
+      ds.field("angle", &self.angle());
       ds.finish()
   }
 }

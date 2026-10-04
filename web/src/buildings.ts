@@ -1,7 +1,8 @@
-// How buildings look on the map (M1 slice D): what each stage of a hut's construction shows from
-// above, and which building lies under a point. The shape comes from the kernel, which expands
-// each building's saved design; these are pure functions, so they can be tested without a
-// renderer.
+// How buildings look on the map (M1 slice D; M3b slice O): what each stage of a building's
+// construction shows from above, how the readout names it, and which building lies under a
+// point. A hut is round under a cone of thatch; a frame building is a rectangle of bays under a
+// gabled roof with its ridge. The shape comes from the kernel, which expands each building's
+// saved design; these are pure functions, so they can be tested without a renderer.
 
 import type { BuildingInfo } from "./net/messages.js";
 
@@ -10,7 +11,7 @@ export const BUILDING_LEGEND: { key: string; label: string; fill: number }[] = [
   { key: "marked", label: "ground marked out", fill: 0x4a3b2a },
   { key: "frame", label: "frame going up", fill: 0x8a6440 },
   { key: "walls", label: "walls going up", fill: 0xb89466 },
-  { key: "roofed", label: "thatched hut", fill: 0xd6b25e },
+  { key: "roofed", label: "thatched roof", fill: 0xd6b25e },
 ];
 
 const FILLS: Record<string, number> = Object.fromEntries(
@@ -22,13 +23,58 @@ const FRAME = 1;
 const WALLS = 2;
 const ROOF = 3;
 
+/** Bits set in `n`. */
+function bitCount(n: number): number {
+  let c = 0;
+  for (let v = n; v > 0; v >>>= 1) c += v & 1;
+  return c;
+}
+
+/** "1 bay", "3 bays". */
+function bays(n: number): string {
+  return `${n} ${n === 1 ? "bay" : "bays"}`;
+}
+
 /**
- * A building in the map's readout: "hut of 38 m², room for 7: walls going up, 40% done". Its size
- * shows whether its household built for more than live there (M3a slice L: house size by wealth).
+ * A building in the map's readout: "hut of 38 m², room for 7: walls going up, 40% done", or for
+ * a frame building its bays, storeys and lofts and its floor by use: "longhouse of 3 bays, a
+ * loft over 1 bay, 50 m², room for 6, 13 m² to store: finished". Its size shows whether its
+ * household built for more than live there (M3a slice L: house size by wealth).
  */
 export function buildingWords(b: BuildingInfo): string {
-  const size = b.floorM2 > 0 ? ` of ${Math.round(b.floorM2)} m², room for ${b.sleeps}` : "";
-  return `${b.program.toLowerCase()}${size}: ${b.status}`;
+  const name = b.program.toLowerCase();
+  if (b.grammar !== "frame") {
+    const size = b.floorM2 > 0 ? ` of ${Math.round(b.floorM2)} m², room for ${b.sleeps}` : "";
+    return `${name}${size}: ${b.status}`;
+  }
+  const shape = [bays(b.bays)];
+  if (b.storeys > 1) shape.push(`${b.storeys} storeys`);
+  const lofts = bitCount(b.loftBays);
+  if (lofts > 0) shape.push(lofts === b.bays ? "a loft over every bay" : `a loft over ${bays(lofts)}`);
+  const [living = 0, store = 0, work = 0] = b.floorByUse;
+  const uses: string[] = [`${Math.round(b.floorM2)} m²`];
+  if (living > 0) uses.push(`room for ${b.sleeps}`);
+  if (store > 0) uses.push(`${Math.round(store)} m² to store`);
+  if (work > 0) uses.push(`${b.workPlaces} ${b.workPlaces === 1 ? "place" : "places"} to work`);
+  return `${name} of ${shape.join(", ")}, ${uses.join(", ")}: ${b.status}`;
+}
+
+/** Whether `(x, y)` lies inside the polygon `poly` (even-odd rule). */
+function inside(poly: readonly [number, number][], x: number, y: number): boolean {
+  let hit = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i]!;
+    const [xj, yj] = poly[j]!;
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
+  }
+  return hit;
+}
+
+/** Whether a point in metres lies under a building's roof: a frame's gabled roof, or within the
+ * reach of a hut's cone. */
+export function underRoof(b: BuildingInfo, x: number, y: number): boolean {
+  if (b.roofOutline.length >= 3) return inside(b.roofOutline, x, y);
+  return Math.hypot(x - b.x, y - b.y) <= b.roofRadiusM;
 }
 
 /** Which legend entry a building is drawn as. */
@@ -83,7 +129,7 @@ export function buildingAt(
 ): BuildingInfo | null {
   for (let i = buildings.length - 1; i >= 0; i--) {
     const b = buildings[i]!;
-    if (Math.hypot(x - b.x, y - b.y) <= b.roofRadiusM) return b;
+    if (underRoof(b, x, y)) return b;
     const p = b.plot;
     if (p && x >= p.x && x < p.x + p.w && y >= p.y && y < p.y + p.h) return b;
   }

@@ -666,6 +666,46 @@ impl Sim {
         &mut self.land
     }
 
+    /// Puts up a building to `spec` for `household`, through stage `stage` (the number of stages
+    /// for a finished one), on a plot of its own with its program's use, for a test that needs a
+    /// building no household designs yet. Its ground is not checked. `None` if the content has no
+    /// such program.
+    #[doc(hidden)]
+    pub fn place_building_for_tests(
+        &mut self,
+        household: civ_core::PermanentId,
+        spec: civ_grammar::BuildingSpec,
+        stage: u8,
+    ) -> Option<civ_core::PermanentId> {
+        let catalog = &self.rules.catalog;
+        let def = catalog
+            .building_index(&spec.program)
+            .and_then(|i| catalog.buildings.get(i))?;
+        let rect = civ_agents::build::plot_rect(&spec, def);
+        let use_ = def.use_;
+        let now = self.now();
+        let (plot, id) = (self.ids.allocate(), self.ids.allocate());
+        self.land.plots.push(civ_land::Plot {
+            id: plot,
+            household,
+            rect,
+            use_,
+            since: now,
+        });
+        self.land.buildings.push(civ_land::Building {
+            id,
+            household,
+            plot,
+            spec,
+            stage,
+            work_h: 0.0,
+            started: now,
+            stage_since: now,
+        });
+        self.dirty = true;
+        Some(id)
+    }
+
     /// Someone dies now (for a test that needs a death on a given day; see
     /// [`Population::die_for_tests`]).
     #[doc(hidden)]

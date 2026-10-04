@@ -146,8 +146,107 @@ status(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+grammar():string|null
+grammar(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+grammar(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 46);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+purpose():string|null
+purpose(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+purpose(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 48);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+size(obj?:Vec2):Vec2|null {
+  const offset = this.bb!.__offset(this.bb_pos, 50);
+  return offset ? (obj || new Vec2()).__init(this.bb_pos + offset, this.bb!) : null;
+}
+
+angle():number {
+  const offset = this.bb!.__offset(this.bb_pos, 52);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+storeys():number {
+  const offset = this.bb!.__offset(this.bb_pos, 54);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : 0;
+}
+
+bays():number {
+  const offset = this.bb!.__offset(this.bb_pos, 56);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : 0;
+}
+
+loftBays():number {
+  const offset = this.bb!.__offset(this.bb_pos, 58);
+  return offset ? this.bb!.readUint16(this.bb_pos + offset) : 0;
+}
+
+roofOutline(index: number, obj?:Vec2):Vec2|null {
+  const offset = this.bb!.__offset(this.bb_pos, 60);
+  return offset ? (obj || new Vec2()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 8, this.bb!) : null;
+}
+
+roofOutlineLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 60);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+ridge(index: number, obj?:Vec2):Vec2|null {
+  const offset = this.bb!.__offset(this.bb_pos, 62);
+  return offset ? (obj || new Vec2()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 8, this.bb!) : null;
+}
+
+ridgeLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 62);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+apexM():number {
+  const offset = this.bb!.__offset(this.bb_pos, 64);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+floorByUse(index: number):number|null {
+  const offset = this.bb!.__offset(this.bb_pos, 66);
+  return offset ? this.bb!.readFloat32(this.bb!.__vector(this.bb_pos + offset) + index * 4) : 0;
+}
+
+floorByUseLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 66);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+floorByUseArray():Float32Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 66);
+  return offset ? new Float32Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
+}
+
+storageKg(index: number):number|null {
+  const offset = this.bb!.__offset(this.bb_pos, 68);
+  return offset ? this.bb!.readFloat32(this.bb!.__vector(this.bb_pos + offset) + index * 4) : 0;
+}
+
+storageKgLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 68);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+storageKgArray():Float32Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 68);
+  return offset ? new Float32Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
+}
+
+workPlaces():number {
+  const offset = this.bb!.__offset(this.bb_pos, 70);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
 static startBuildingInfo(builder:flatbuffers.Builder) {
-  builder.startObject(21);
+  builder.startObject(34);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -240,6 +339,100 @@ static addStartedMinute(builder:flatbuffers.Builder, startedMinute:bigint) {
 
 static addStatus(builder:flatbuffers.Builder, statusOffset:flatbuffers.Offset) {
   builder.addFieldOffset(20, statusOffset, 0);
+}
+
+static addGrammar(builder:flatbuffers.Builder, grammarOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(21, grammarOffset, 0);
+}
+
+static addPurpose(builder:flatbuffers.Builder, purposeOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(22, purposeOffset, 0);
+}
+
+static addSize(builder:flatbuffers.Builder, sizeOffset:flatbuffers.Offset) {
+  builder.addFieldStruct(23, sizeOffset, 0);
+}
+
+static addAngle(builder:flatbuffers.Builder, angle:number) {
+  builder.addFieldFloat32(24, angle, 0.0);
+}
+
+static addStoreys(builder:flatbuffers.Builder, storeys:number) {
+  builder.addFieldInt8(25, storeys, 0);
+}
+
+static addBays(builder:flatbuffers.Builder, bays:number) {
+  builder.addFieldInt8(26, bays, 0);
+}
+
+static addLoftBays(builder:flatbuffers.Builder, loftBays:number) {
+  builder.addFieldInt16(27, loftBays, 0);
+}
+
+static addRoofOutline(builder:flatbuffers.Builder, roofOutlineOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(28, roofOutlineOffset, 0);
+}
+
+static startRoofOutlineVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(8, numElems, 4);
+}
+
+static addRidge(builder:flatbuffers.Builder, ridgeOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(29, ridgeOffset, 0);
+}
+
+static startRidgeVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(8, numElems, 4);
+}
+
+static addApexM(builder:flatbuffers.Builder, apexM:number) {
+  builder.addFieldFloat32(30, apexM, 0.0);
+}
+
+static addFloorByUse(builder:flatbuffers.Builder, floorByUseOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(31, floorByUseOffset, 0);
+}
+
+static createFloorByUseVector(builder:flatbuffers.Builder, data:number[]|Float32Array):flatbuffers.Offset;
+/**
+ * @deprecated This Uint8Array overload will be removed in the future.
+ */
+static createFloorByUseVector(builder:flatbuffers.Builder, data:number[]|Uint8Array):flatbuffers.Offset;
+static createFloorByUseVector(builder:flatbuffers.Builder, data:number[]|Float32Array|Uint8Array):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addFloat32(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startFloorByUseVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addStorageKg(builder:flatbuffers.Builder, storageKgOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(32, storageKgOffset, 0);
+}
+
+static createStorageKgVector(builder:flatbuffers.Builder, data:number[]|Float32Array):flatbuffers.Offset;
+/**
+ * @deprecated This Uint8Array overload will be removed in the future.
+ */
+static createStorageKgVector(builder:flatbuffers.Builder, data:number[]|Uint8Array):flatbuffers.Offset;
+static createStorageKgVector(builder:flatbuffers.Builder, data:number[]|Float32Array|Uint8Array):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addFloat32(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startStorageKgVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addWorkPlaces(builder:flatbuffers.Builder, workPlaces:number) {
+  builder.addFieldInt32(33, workPlaces, 0);
 }
 
 static endBuildingInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

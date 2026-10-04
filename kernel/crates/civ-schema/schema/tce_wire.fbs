@@ -744,12 +744,38 @@ table BuildingInfo {
   // The plot it stands on: north-west corner and size, metres.
   plot_min: Vec2 (id: 15);
   plot_size: Vec2 (id: 16);
-  // Floor area, square metres, and the people it sleeps.
+  // Floor area over every level, square metres, and the people it sleeps.
   floor_m2: float (id: 17);
   sleeps: uint (id: 18);
   started_minute: long (id: 19);
   // Its state in words, rendered by the kernel: "walls going up (40%); waiting for timber".
   status: string (id: 20);
+  // Wire 1.14 (M3b slice O, ADR-0009 §8): the grammar that expands it ("hut" or "frame") and
+  // what it is for ("dwelling", "store" or "work").
+  grammar: string (id: 21);
+  purpose: string (id: 22);
+  // Its length and width between the wall lines, metres (a hut: its wall line's diameter both
+  // ways), and the direction its length runs, radians from east toward south.
+  size: Vec2 (id: 23);
+  angle: float (id: 24);
+  storeys: ubyte (id: 25);
+  bays: ubyte (id: 26);
+  // The bays floored as a loft, a bit each (bit b for bay b).
+  loft_bays: ushort (id: 27);
+  // A gabled roof's edge (its corners) and its ridge's two ends, metres; both empty for a hut,
+  // whose cone's edge is the circle of roof_radius_m.
+  roof_outline: [Vec2] (id: 28);
+  ridge: [Vec2] (id: 29);
+  // Height of the roof's apex or ridge, metres.
+  apex_m: float (id: 30);
+  // Floor by use, square metres: living, store and work (floor_m2 is their sum, over every
+  // level).
+  floor_by_use: [float] (id: 31);
+  // Goods it can hold under its roof, kilograms: on a raised store's floor, in lofts, and on
+  // other floors.
+  storage_kg: [float] (id: 32);
+  // Places to work at a craft.
+  work_places: uint (id: 33);
 }
 
 table Buildings {

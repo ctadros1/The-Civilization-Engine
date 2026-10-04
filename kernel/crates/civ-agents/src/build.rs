@@ -7,7 +7,8 @@ use std::f64::consts::TAU;
 
 use civ_core::time::DAYS_PER_YEAR;
 use civ_grammar::{
-    BuildingSpec, Footprint, HUT_VERSION, Stage, StageNeeds, TURN, expand_hut, hut_params,
+    BuildingSpec, Footprint, HUT_VERSION, PARAMS, Stage, StageNeeds, TURN, expand, frame_params,
+    hut_params,
 };
 use civ_land::{Building, Land, RectCm};
 use civ_world::nav::NavGrid;
@@ -62,8 +63,8 @@ fn direction(from: (f32, f32), to: (f32, f32)) -> i32 {
 
 /// The hut a household designs standing at `at` (metres), its wall line `radius` centimetres from
 /// the centre ([`HutRules::radius_for`] for the floor its members need, or
-/// [`radius_within`]), built to the program's usual wall height and pitch, its door toward
-/// `toward` (the settlement's hearth), or facing east when there is none.
+/// [`radius_within`]), built to the hut program `def`'s usual wall height and pitch, its door
+/// toward `toward` (the settlement's hearth), or facing east when there is none.
 ///
 /// [`HutRules::radius_for`]: civ_grammar::HutRules::radius_for
 pub fn design(
@@ -73,7 +74,7 @@ pub fn design(
     at: (f32, f32),
     toward: Option<(f32, f32)>,
 ) -> BuildingSpec {
-    let mut params = [0; 8];
+    let mut params = [0; PARAMS];
     params[hut_params::EAVE_CM] = def.eave_cm;
     params[hut_params::PITCH_CENTIDEG] = def.pitch_centideg;
     params[hut_params::DOOR_DIR] = toward.map_or(0, |t| direction(at, t));
@@ -98,20 +99,43 @@ pub fn design(
 
 /// The centre of a building, metres.
 pub fn centre_m(spec: &BuildingSpec) -> (f32, f32) {
-    let Footprint::Round { x, y, .. } = spec.footprint;
+    let (x, y) = spec.footprint.centre();
     ((f64::from(x) / 100.0) as f32, (f64::from(y) / 100.0) as f32)
 }
 
-/// The ground a building's roof covers, which its household claims as its plot: the square
-/// around the roof's edge.
+/// The ground a building's roof covers, which its household claims as its plot: the box round
+/// the roof's edge (a hut's overhang is its program's; a frame's, its spec's).
 pub fn plot_rect(spec: &BuildingSpec, def: &BuildingDef) -> RectCm {
-    let Footprint::Round { x, y, radius } = spec.footprint;
-    let r = radius + def.rules.roof_overhang_cm.max(0);
+    let roof = match spec.footprint {
+        Footprint::Round { x, y, radius } => Footprint::Round {
+            x,
+            y,
+            radius: radius + def.hut().map_or(0, |h| h.roof_overhang_cm.max(0)),
+        },
+        Footprint::Rect {
+            x,
+            y,
+            length,
+            width,
+            angle,
+        } => {
+            let o = spec.params[frame_params::OVERHANG_CM].max(0);
+            Footprint::Rect {
+                x,
+                y,
+                length: length + 2 * o,
+                width: width + 2 * o,
+                angle,
+            }
+        }
+    };
+    let (x, y) = spec.footprint.centre();
+    let [x0, y0, x1, y1] = roof.bounds().unwrap_or([x, y, x, y]);
     RectCm {
-        x: x - r,
-        y: y - r,
-        w: 2 * r,
-        h: 2 * r,
+        x: x0,
+        y: y0,
+        w: x1 - x0,
+        h: y1 - y0,
     }
 }
 
@@ -194,14 +218,14 @@ pub fn home_site(
 /// What each construction stage of the building `spec` designs needs; `None` if the design does not
 /// expand under `def`'s rules.
 pub fn stage_needs(spec: &BuildingSpec, def: &BuildingDef) -> Option<Vec<StageNeeds>> {
-    expand_hut(spec, &def.rules).ok().map(|e| e.stages)
+    expand(spec, &def.rules).ok().map(|e| e.stages)
 }
 
-/// Hours of work the hut `spec` designs takes in all: building it through every stage and bringing
-/// what it is built of, `carry_kg` a load ([`HAUL_H_PER_LOAD`]). `None` if the design does not
-/// expand under `def`'s rules.
-pub fn hut_hours(spec: &BuildingSpec, def: &BuildingDef, carry_kg: f64) -> Option<f64> {
-    let e = expand_hut(spec, &def.rules).ok()?;
+/// Hours of work the building `spec` designs takes in all: building it through every stage and
+/// bringing what it is built of, `carry_kg` a load ([`HAUL_H_PER_LOAD`]). `None` if the design
+/// does not expand under `def`'s rules.
+pub fn building_hours(spec: &BuildingSpec, def: &BuildingDef, carry_kg: f64) -> Option<f64> {
+    let e = expand(spec, &def.rules).ok()?;
     let loads = e.total_materials_kg().iter().sum::<f64>() / carry_kg.max(1e-6);
     Some(e.total_labour_h() + loads * HAUL_H_PER_LOAD)
 }
@@ -211,7 +235,8 @@ pub fn hut_hours(spec: &BuildingSpec, def: &BuildingDef, carry_kg: f64) -> Optio
 /// the rules allow, while the extra work stays within `budget_h` hours (what the household puts
 /// into its home of the goods it could spare, [`HOUSE_INVESTMENT_SHARE`]) and the whole hut
 /// within `time_h` hours (the share of the building time it can give before its roof deadline
-/// that a home may take, [`HOUSE_TIME_SHARE`]). Never smaller than its members need.
+/// that a home may take, [`HOUSE_TIME_SHARE`]). Never smaller than its members need; `None` if
+/// `def` is not a hut program.
 ///
 /// [`HutRules::radius_for`]: civ_grammar::HutRules::radius_for
 pub fn radius_within(
@@ -221,15 +246,16 @@ pub fn radius_within(
     carry_kg: f64,
     budget_h: f64,
     time_h: f64,
-) -> i32 {
-    let need = def.rules.radius_for(residents);
+) -> Option<i32> {
+    let hut = def.hut()?;
+    let need = hut.radius_for(residents);
     let mut spec = design(def, goods, need, (0.0, 0.0), None);
-    let hours = |spec: &BuildingSpec| hut_hours(spec, def, carry_kg);
+    let hours = |spec: &BuildingSpec| building_hours(spec, def, carry_kg);
     let Some(base) = hours(&spec) else {
-        return need;
+        return Some(need);
     };
     let mut best = need;
-    while best + 10 <= def.rules.radius_cm.1 {
+    while best + 10 <= hut.radius_cm.1 {
         spec.footprint = Footprint::Round {
             x: 0,
             y: 0,
@@ -240,7 +266,7 @@ pub fn radius_within(
             _ => break,
         }
     }
-    best
+    Some(best)
 }
 
 /// The wall-line radius of the new home a household of `residents` living in a hut of radius
@@ -248,7 +274,7 @@ pub fn radius_within(
 /// (`budget_h` hours: while it has a home, all of a new one is beyond its needs) and that takes
 /// no more than `time_h` hours, among those at least [`REBUILD_GAIN`] larger in floor area than
 /// the home it has and as large as its members need. `None` when it cannot afford the least of
-/// them.
+/// them, or `def` is not a hut program.
 pub fn rebuild_radius(
     def: &BuildingDef,
     goods: &[GoodDef],
@@ -258,18 +284,19 @@ pub fn rebuild_radius(
     budget_h: f64,
     time_h: f64,
 ) -> Option<i32> {
+    let hut = def.hut()?;
     let larger =
         (f64::from(current.max(0)) * (1.0 + REBUILD_GAIN).sqrt() / 10.0).ceil() as i32 * 10;
-    let mut r = larger.max(def.rules.radius_for(residents));
+    let mut r = larger.max(hut.radius_for(residents));
     let mut spec = design(def, goods, r, (0.0, 0.0), None);
     let mut best = None;
-    while r <= def.rules.radius_cm.1 {
+    while r <= hut.radius_cm.1 {
         spec.footprint = Footprint::Round {
             x: 0,
             y: 0,
             radius: r,
         };
-        match hut_hours(&spec, def, carry_kg) {
+        match building_hours(&spec, def, carry_kg) {
             Some(h) if h <= budget_h && h <= time_h => best = Some(r),
             _ => break,
         }
@@ -445,39 +472,47 @@ mod tests {
     use super::*;
     use crate::params::GoodUse;
     use civ_core::{PermanentId, SimTime};
-    use civ_grammar::{HutRules, hut_materials};
+    use civ_grammar::{FRAME_VERSION, HutRules, ProgramRules, hut_materials};
+    use civ_land::PlotUse;
 
     /// The core hut's figures (content `core:building/hut`).
+    fn hut_rules() -> HutRules {
+        HutRules {
+            radius_cm: (150, 400),
+            eave_cm: (150, 250),
+            pitch_centideg: (4500, 5500),
+            post_spacing_cm: 100,
+            post_diameter_cm: 12,
+            posthole_depth_cm: 60,
+            wall_thickness_cm: 15,
+            roof_overhang_cm: 50,
+            thatch_thickness_cm: 30,
+            hearth_cm: 80,
+            floor_base_m2: 6.0,
+            floor_m2_per_sleeper: 4.8,
+            groundwork_h_per_m2: 3.0,
+            posthole_h: 0.5,
+            post_h: 2.0,
+            rafter_h: 1.6,
+            wattle_h_per_m2: 1.0,
+            daub_h_per_m2: 2.0,
+            thatch_h_per_m2: 2.4,
+            finish_h_per_m2: 3.0,
+            post_kg: 22.0,
+            rafter_kg: 21.0,
+            wattle_kg_per_m2: 6.0,
+            thatch_kg_per_m2: 30.0,
+            store_kg_per_m2: 60.0,
+        }
+    }
+
+    /// The core hut program.
     fn def() -> BuildingDef {
         BuildingDef {
             id: "core:building/hut".into(),
             name: "Hut".into(),
-            rules: HutRules {
-                radius_cm: (150, 400),
-                eave_cm: (150, 250),
-                pitch_centideg: (4500, 5500),
-                post_spacing_cm: 100,
-                post_diameter_cm: 12,
-                posthole_depth_cm: 60,
-                wall_thickness_cm: 15,
-                roof_overhang_cm: 50,
-                thatch_thickness_cm: 30,
-                hearth_cm: 80,
-                floor_base_m2: 6.0,
-                floor_m2_per_sleeper: 4.8,
-                groundwork_h_per_m2: 3.0,
-                posthole_h: 0.5,
-                post_h: 2.0,
-                rafter_h: 1.6,
-                wattle_h_per_m2: 1.0,
-                daub_h_per_m2: 2.0,
-                thatch_h_per_m2: 2.4,
-                finish_h_per_m2: 3.0,
-                post_kg: 22.0,
-                rafter_kg: 21.0,
-                wattle_kg_per_m2: 6.0,
-                thatch_kg_per_m2: 30.0,
-            },
+            use_: PlotUse::Dwelling,
+            rules: ProgramRules::Hut(hut_rules()),
             // Posts, rafters and wattle are all timber; the roof is thatch.
             materials: vec![0, 0, 1],
             eave_cm: 180,
@@ -510,7 +545,7 @@ mod tests {
         let spec = design(
             &def,
             &goods,
-            def.rules.radius_for(5),
+            hut_rules().radius_for(5),
             (100.0, 100.0),
             Some((100.0, 120.0)),
         );
@@ -542,21 +577,76 @@ mod tests {
             }
         );
         // Without a hearth the door faces east; the design expands under the hut's rules.
-        let lone = design(&def, &goods, def.rules.radius_for(5), (100.0, 100.0), None);
+        let lone = design(
+            &def,
+            &goods,
+            hut_rules().radius_for(5),
+            (100.0, 100.0),
+            None,
+        );
         assert_eq!(lone.params[hut_params::DOOR_DIR], 0);
-        let e = expand_hut(&spec, &def.rules).expect("a valid hut");
+        let e = expand(&spec, &def.rules).expect("a valid hut");
         assert!(e.sleeping_places >= 5, "{}", e.sleeping_places);
+    }
+
+    #[test]
+    fn a_frame_building_claims_the_box_round_its_roof() {
+        let def = def();
+        let mut params = [0; PARAMS];
+        params[frame_params::OVERHANG_CM] = 50;
+        let at = |angle: u16| BuildingSpec {
+            program: "core:building/longhouse".into(),
+            version: FRAME_VERSION,
+            footprint: Footprint::Rect {
+                x: 10_000,
+                y: 20_000,
+                length: 750,
+                width: 500,
+                angle,
+            },
+            storeys: 1,
+            params,
+            materials: Vec::new(),
+            style_seed: 0,
+        };
+        // Along the east-west axis: the roof is 8.5 m by 6 m.
+        assert_eq!(
+            plot_rect(&at(0), &def),
+            RectCm {
+                x: 10_000 - 425,
+                y: 20_000 - 300,
+                w: 850,
+                h: 600
+            }
+        );
+        // Turned a quarter, north to south.
+        assert_eq!(
+            plot_rect(&at(16_384), &def),
+            RectCm {
+                x: 10_000 - 300,
+                y: 20_000 - 425,
+                w: 600,
+                h: 850
+            }
+        );
+        // At an eighth of a turn the box is wider than the roof: (4.25 + 3) / √2 each way.
+        let r = plot_rect(&at(8_192), &def);
+        assert_eq!((r.w, r.h), (1_026, 1_026));
+        assert_eq!(centre_m(&at(8_192)), (100.0, 200.0));
     }
 
     #[test]
     fn goods_to_spare_buy_a_larger_hut_within_the_time_before_winter() {
         let (def, goods) = (def(), goods());
-        let (need, most) = (def.rules.radius_for(5), def.rules.radius_cm.1);
+        let (need, most) = (hut_rules().radius_for(5), hut_rules().radius_cm.1);
         let carry = 20.0;
         let hours = |r: i32| {
-            hut_hours(&design(&def, &goods, r, (0.0, 0.0), None), &def, carry).expect("expands")
+            building_hours(&design(&def, &goods, r, (0.0, 0.0), None), &def, carry)
+                .expect("expands")
         };
-        let within = |budget: f64, time: f64| radius_within(&def, &goods, 5, carry, budget, time);
+        let within = |budget: f64, time: f64| {
+            radius_within(&def, &goods, 5, carry, budget, time).expect("a hut program")
+        };
         // Nothing to spare: the hut its members need.
         assert_eq!(within(0.0, f64::INFINITY), need);
         // Ample means and time: the largest the rules allow.
@@ -582,7 +672,7 @@ mod tests {
             "{tight}"
         );
         // A household that needs the largest hut builds it already.
-        assert_eq!(radius_within(&def, &goods, 12, carry, 0.0, 1e9), most);
+        assert_eq!(radius_within(&def, &goods, 12, carry, 0.0, 1e9), Some(most));
         // Nonsense means change nothing.
         assert_eq!(within(f64::NAN, 1e9), need);
         assert_eq!(within(-5.0, 1e9), need);
@@ -593,12 +683,13 @@ mod tests {
         let (def, goods) = (def(), goods());
         let carry = 20.0;
         let hours = |r: i32| {
-            hut_hours(&design(&def, &goods, r, (0.0, 0.0), None), &def, carry).expect("expands")
+            building_hours(&design(&def, &goods, r, (0.0, 0.0), None), &def, carry)
+                .expect("expands")
         };
         let rebuild = |current: i32, budget: f64, time: f64| {
             rebuild_radius(&def, &goods, 5, current, carry, budget, time)
         };
-        let need = def.rules.radius_for(5);
+        let need = hut_rules().radius_for(5);
         // At least a quarter more floor: 310 cm grows to 350 (√1.25 · 310 = 346.6, rounded up).
         let least = 350;
         assert_eq!(rebuild(need, hours(least), 1e9), Some(least));
@@ -608,10 +699,10 @@ mod tests {
         // More means build larger, up to the largest the rules allow.
         let r = rebuild(need, hours(least + 30), 1e9).expect("affordable");
         assert_eq!(r, least + 30);
-        assert_eq!(rebuild(need, 1e9, 1e9), Some(def.rules.radius_cm.1));
+        assert_eq!(rebuild(need, 1e9, 1e9), Some(hut_rules().radius_cm.1));
         // Not without the time, and never from the largest.
         assert_eq!(rebuild(need, 1e9, hours(least) - 1.0), None);
-        assert_eq!(rebuild(def.rules.radius_cm.1, 1e9, 1e9), None);
+        assert_eq!(rebuild(hut_rules().radius_cm.1, 1e9, 1e9), None);
         // A crowded household builds at least what its members need now.
         let small = 200;
         let crowded = rebuild(small, 1e9, 1e9).expect("affordable");
@@ -626,8 +717,14 @@ mod tests {
     #[test]
     fn the_work_left_counts_down_through_the_stages() {
         let (def, goods) = (def(), goods());
-        let spec = design(&def, &goods, def.rules.radius_for(5), (100.0, 100.0), None);
-        let e = expand_hut(&spec, &def.rules).expect("expands");
+        let spec = design(
+            &def,
+            &goods,
+            hut_rules().radius_for(5),
+            (100.0, 100.0),
+            None,
+        );
+        let e = expand(&spec, &def.rules).expect("expands");
         let mut work = HomeWork::begin(stage_needs(&spec, &def).expect("expands"));
         let roof: f64 = e.stages[..=Stage::Roof.index()]
             .iter()

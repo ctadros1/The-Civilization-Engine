@@ -3,6 +3,8 @@
 Status: Accepted
 Date: 2026-10-04
 Milestone: M3b
+Amended: 2026-10-04, to match what was built. Slice O's first step: §2's parameters as frame
+version 1 names them, §3's group kinds and storage, §8's schema 15 and wire 1.14
 
 ## Context
 
@@ -81,6 +83,11 @@ and 08-11 on storage. Their main points:
   Frame v1 names them: storey height, pitch, bays, door (side and bay), loft bays, joist
   section, eave overhang, raised-floor height, post section, wall kind, wall thickness, footing
   kind, and four style traits (§7).
+  - As built, version 1 knows one wall kind (wattle and daub) and one footing (posts set in the
+    ground), and has no style traits yet, so those parameters must be 0. A building without
+    joists has a joist section of 0.
+  - The door's side is one of the two long walls or the two ends, and an end's door has bay 0.
+  - Lengths and widths lie on the 25 cm quantum, and the length divides into whole bays.
 - A spec stays what its builder decided. It never changes; an alteration would make a new spec.
 - Condition is building state (§4), not design. This supersedes ADR-0004 §2's "condition" in
   the spec.
@@ -102,6 +109,16 @@ their meanings), an expansion yields:
 - An expansion has 8–32 groups (11-06 §5.1). For the frozen hut, a separate pure function
   derives five groups (posts, roof frame, covering, infill, floor) from its v1 expansion,
   without touching its golden hash.
+- As built (slice O's first step):
+  - A frame's groups are each long wall's posts, a raised floor's middle posts, the tie beams at
+    the wall heads and the cross beams under each floor, each lofted or floored bay's joists, each
+    bay's roof frame, each slope's covering, each wall's infill (an end's with its gable) and a
+    floor on the ground.
+  - A group's material slot is given; the technique each needs is the program's until slice O
+    names features' techniques.
+  - Storage comes in three kinds, best first: on a raised store's floor, in a loft, and on other
+    floors (a store room's at its own rate, living and working floor at a lower one).
+  - Part ids are semantic too: level, bay or frame line, part kind and index.
 
 ### 4. Condition
 
@@ -185,6 +202,9 @@ their meanings), an expansion yields:
 - The `builds` section gains the Rect footprint, sixteen parameters, each building's groups'
   condition, its state and builders, plot uses and the firm link. Each settlement gains its
   trust sums. The schema becomes 13 or later in M3b.
+  - As built, schema 15 (slice O's first step) adds the Rect footprint, sixteen parameters and
+    plot uses for stores and workshops. Condition, builders and the firm link come with the
+    slices that use them.
 - Schema-12 saves load with every hut v1 and every building sound as of loading, with qualities
   drawn as if built at middling skill, so a loaded world shows no false wave of decay.
 - The wire's `BuildingInfo` gains, appended:
@@ -192,6 +212,9 @@ their meanings), an expansion yields:
   - each group's condition and state;
   - the building's state, and its symptoms in words;
   - floor and storage by use.
+  - As built, wire 1.14 appends the grammar, the program's use, the size and direction, storeys,
+    bays and loft bays, the gabled roof's corners and ridge, the apex height, floor by use,
+    storage by kind and places to work. Condition, state and symptoms come with slice P.
 - New chronicle kinds and the cause *collapse* are appended.
 
 ## Consequences

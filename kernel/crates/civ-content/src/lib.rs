@@ -44,7 +44,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 10;
+pub const KERNEL_CONTENT_API: u32 = 11;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -687,7 +687,12 @@ fn resolve(
     let mut buildings = Vec::new();
     for d in &parsed.buildings {
         let mut ok = true;
-        for (slot, id) in d.file.materials.slots() {
+        for (slot, id) in d.file.slots() {
+            if id.is_empty() {
+                // Reported with the file's range problems.
+                ok = false;
+                continue;
+            }
             match good_index(id).map(|g| &goods[g]) {
                 None => {
                     missing(c, parsed, &d.rel, &format!("materials.{slot}"), id);
@@ -760,14 +765,26 @@ fn resolve(
             let home = buildings
                 .iter()
                 .position(|x| x.id == d.file.build.home_program);
-            if home.is_none() {
-                missing(
+            match home.map(|h| &buildings[h]) {
+                None => missing(
                     c,
                     parsed,
                     &d.rel,
                     "build.home_program",
                     &d.file.build.home_program,
-                );
+                ),
+                // Households design their homes as huts until they choose among programs
+                // (ADR-0009, slice O's second step).
+                Some(b) if b.hut().is_none() || b.use_ != civ_land::PlotUse::Dwelling => c.push(
+                    "E3001",
+                    &d.rel,
+                    None,
+                    format!(
+                        "`build.home_program` must be a hut dwelling; `{}` is not",
+                        b.id
+                    ),
+                ),
+                Some(_) => {}
             }
             let provisions = &d.file.band.provisions_good;
             let good = good_index(provisions);

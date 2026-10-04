@@ -130,7 +130,7 @@ test("a founding band lives on the map and explains itself", async ({ page }) =>
     await page.getByRole("button", { name: "Close the inspector" }).click();
     await expect(page.locator("#people-body")).toContainText("Click a person on the map");
     await expect(page.locator("#people-body .legend.fields")).toContainText("new ground");
-    await expect(page.locator("#people-body .legend.huts")).toContainText("thatched hut");
+    await expect(page.locator("#people-body .legend.huts")).toContainText("thatched roof");
     expect((await state(page)).lastError).toBeNull();
   } finally {
     await host.stop();

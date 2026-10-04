@@ -483,7 +483,7 @@ fn households_raise_their_huts_and_are_under_a_roof_before_winter() {
         // They live in it, it sleeps all who lived there when it was designed (children born
         // since crowd in), and its roof is on by winter.
         assert_eq!(h.home, civ_agents::build::centre_m(&b.spec));
-        let e = civ_grammar::expand_hut(&b.spec, &hut.rules).expect("a valid design");
+        let e = civ_grammar::expand(&b.spec, &hut.rules).expect("a valid design");
         let born = h
             .members
             .iter()
@@ -579,9 +579,9 @@ fn a_household_with_goods_to_spare_builds_a_larger_hut_than_it_needs() {
             .buildings
             .iter()
             .find(|b| b.household == id)
-            .map(|b| {
-                let civ_grammar::Footprint::Round { radius, .. } = b.spec.footprint;
-                radius
+            .and_then(|b| match b.spec.footprint {
+                civ_grammar::Footprint::Round { radius, .. } => Some(radius),
+                civ_grammar::Footprint::Rect { .. } => None,
             })
     };
     // Each begins again when it next chooses to build.
@@ -592,7 +592,7 @@ fn a_household_with_goods_to_spare_builds_a_larger_hut_than_it_needs() {
         sim.advance_minutes(24 * 60).expect("advances");
     }
     let radius = |id: PermanentId| radius(&sim, id);
-    let need = hut.rules.radius_for(members);
+    let need = hut.hut().expect("a hut program").radius_for(members);
     let (rich_r, plain_r) = (
         radius(rich).expect("the household with grain has begun again"),
         radius(plain).expect("the other household has begun again"),
@@ -601,7 +601,7 @@ fn a_household_with_goods_to_spare_builds_a_larger_hut_than_it_needs() {
         rich_r > need && rich_r > plain_r,
         "{members} people need {need} cm: {rich_r} cm with grain to spare, {plain_r} cm without"
     );
-    assert!(plain_r >= need && rich_r <= hut.rules.radius_cm.1);
+    assert!(plain_r >= need && rich_r <= hut.hut().expect("a hut program").radius_cm.1);
 }
 
 #[test]
@@ -617,9 +617,9 @@ fn a_household_grown_rich_builds_a_larger_home_beside_its_old_one_and_moves_in()
             .position(|g| g.id == id)
             .expect(id)
     };
-    let radius_of = |b: &civ_land::Building| {
-        let civ_grammar::Footprint::Round { radius, .. } = b.spec.footprint;
-        radius
+    let radius_of = |b: &civ_land::Building| match b.spec.footprint {
+        civ_grammar::Footprint::Round { radius, .. } => radius,
+        civ_grammar::Footprint::Rect { .. } => panic!("households build huts"),
     };
     // Live until a household's first hut is finished.
     let finished = |sim: &Sim| {
@@ -679,7 +679,7 @@ fn a_household_grown_rich_builds_a_larger_home_beside_its_old_one_and_moves_in()
     // in meanwhile.
     assert!(
         f64::from(new_r).powi(2) >= 1.25 * f64::from(old_r).powi(2) - 1.0
-            && new_r <= hut.rules.radius_cm.1,
+            && new_r <= hut.hut().expect("a hut program").radius_cm.1,
         "{old_r} cm to {new_r} cm"
     );
     let lives_at = |sim: &Sim| {

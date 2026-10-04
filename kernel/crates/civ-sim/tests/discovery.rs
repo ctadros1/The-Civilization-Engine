@@ -170,6 +170,10 @@ fn nobody_tries_toward_what_they_lack_the_means_for() {
 #[test]
 fn the_observer_brings_in_the_rotary_quern_and_its_household_makes_one() {
     let mut sim = world(content(), 3);
+    // After the founding rush: in a world's first weeks the eldest can spend every day on fields
+    // and the first huts (in about one run in eight they made no quern in 30 days), which is
+    // what they would do, but not what this tests.
+    sim.advance_minutes(60 * 24 * 60).expect("advances");
     let rotary = technique(&sim, "core:technique/rotary_quern");
     let (stone, timber, quern) = (
         good(&sim, "core:good/stone"),

@@ -1,0 +1,70 @@
+# A rectangular post-framed house in bays under a gabled thatched roof, of one or two storeys,
+# with lofts over chosen bays (ADR-0009 §1; research 10-06 §1.2, §2.1: timber houses grow by bays
+# at constant width, and early-farming longhouses reach 20-25 by 7 m; 11-01 §3.4). The grammar
+# is code (`civ-grammar`, frame); every dimension, labour and material figure is here. Labour is
+# in person-hours of a capable adult; pd8 is eight of them (11-04 §2.2). A three-bay house of
+# 7.5 by 5 m with a loft over one bay comes to about 940 hours of building, 2.1 t of timber and
+# boards and 2.2 t of thatch, before the materials are cut and carried: its frame about 1.1 pd8 a
+# square metre of footprint, inside 11-04 §2.2's 0.5-2 for a jointed frame.
+kind = "building"
+id = "core:building/longhouse"
+name = "Longhouse"
+grammar = "frame"
+use = "dwelling"
+eave_cm = 200                    # head height in each storey (tuning)
+pitch_deg = 45.0                 # 11-01 §3: grass thatch wants at least 45° to shed rain
+roof_by_day = 304                # 1 November: under a roof before winter (tuning)
+technique = "core:technique/jointed_frame"
+
+[materials]
+timber = "core:good/timber"      # posts, plates, beams, rafters and joists
+wattle = "core:good/timber"      # rods, cut like poles
+covering = "core:good/thatch"
+boards = "core:good/timber"      # split boards for floors and ladders
+
+[frame]
+bays = [1, 8]
+bay_cm = [200, 400]              # 11-01 §3.4: bays 2-6 m; 11-05 §2.1: pole beams span 2-5 m
+width_cm = [400, 700]            # 10-06 §2.1: longhouses up to about 7 m wide
+storeys = [1, 2]                 # 11-05 §2.2: one to three storeys in timber
+eave_cm = [180, 300]             # 11-01 §3.4: storeys 1.8-3.5 m
+pitch_deg = [45.0, 55.0]
+joist_cm = [8, 25]               # pole joists (tuning; the brief's loft takes 10 or 15 cm)
+post_cm = [12, 30]               # tuning
+overhang_cm = [20, 120]          # 11-01 §3.4: eaves 0.2-1.2 m
+floor_raise_cm = [0, 0]          # a house stands on the ground
+wall_cm = [10, 25]               # wattle and daub (the hut's 15 cm; tuning)
+lofts = true
+ground = "living"
+upper = "living"
+posthole_depth_cm = 70           # tuning
+beam_cm = 15                     # plates, tie beams and ridge (tuning)
+rafter_cm = 10                   # tuning
+rafter_spacing_cm = 60           # tuning
+joist_spacing_cm = 60            # the brief's loft: joists 0.6 m apart (11-05 §5.2)
+decking_cm = 4                   # split boards (tuning)
+thatch_thickness_cm = 30         # tuning
+hearth_cm = 90                   # tuning
+door_cm = 90                     # tuning
+floor_base_m2 = 6.0              # 10-06 §2.3: 6 m² plus 4.8 m² a resident
+floor_m2_per_sleeper = 4.8
+work_m2_per_worker = 6.0         # the research gives no figure (tuning; 11-13 §2.1)
+store_kg_per_m2 = 500.0          # a store room's floor: grain about 0.65 m deep at 770 kg/m³ (11-05 §2.4; tuning)
+loft_kg_per_m2 = 150.0           # a year's grain for five on a one-bay loft is about 100 kg/m² (tuning)
+living_kg_per_m2 = 60.0          # what living floor holds besides, as the hut's (tuning)
+timber_kg_per_m3 = 760.0         # 11-08 §2.1: at 12 % moisture
+groundwork_h_per_m2 = 3.0        # as the hut's (11-04 §2.6)
+posthole_h = 0.8                 # 11-04 §2.2: digging 0.25-0.8 pd8/m³; deeper holes than the hut's (tuning)
+post_h = 12.0                    # 11-04 §2.2: a jointed frame 0.5-2 pd8/m² of footprint, posts, plates,
+beam_h_per_m = 4.0               # beams and rafters together; about 1.1 for three bays of 7.5 by 5 m
+rafter_h = 2.0
+joist_h_per_m = 1.0              # tuning
+wattle_h_per_m2 = 1.0            # as the hut's (tuning)
+daub_h_per_m3 = 13.3             # 11-04 §2.2: cob 1.5-4 pd8/m³; the hut's 2 h/m² at 15 cm
+thatch_h_per_m2 = 2.4            # 11-04 §2.2: fixing thatch 0.2-0.6 pd8/m² of roof
+finish_h_per_m2 = 3.0            # as the hut's (11-04 §2.6)
+decking_h_per_m2 = 2.0           # splitting and laying boards: the research gives no figure (tuning)
+ladder_h = 4.0                   # tuning
+wattle_kg_per_m2 = 6.0           # as the hut's (tuning)
+thatch_kg_per_m2 = 30.0          # 11-01 §3: wet thatch about 40 kg/m²; dry, less
+ladder_kg = 15.0                 # tuning

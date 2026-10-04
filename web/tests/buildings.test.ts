@@ -6,6 +6,7 @@ import {
   buildingKey,
   buildingLook,
   buildingWords,
+  underRoof,
 } from "../src/buildings.js";
 import type { BuildingInfo } from "../src/net/messages.js";
 
@@ -36,14 +37,116 @@ function hut(over: Partial<BuildingInfo> = {}): BuildingInfo {
     sleeps: 5,
     startedMinute: 0,
     status: "ground marked out",
+    grammar: "hut",
+    purpose: "dwelling",
+    size: [6.2, 6.2],
+    angle: 0,
+    storeys: 1,
+    bays: 1,
+    loftBays: 0,
+    roofOutline: [],
+    ridge: [],
+    apexM: 4.9,
+    floorByUse: [30.2, 0, 0],
+    storageKg: [0, 0, 1812],
+    workPlaces: 0,
     ...over,
   };
+}
+
+/** A longhouse of three bays, 7.5 by 5 m, along the east-west axis, with a loft over one bay. */
+function longhouse(over: Partial<BuildingInfo> = {}): BuildingInfo {
+  return hut({
+    id: 4,
+    program: "Longhouse",
+    grammar: "frame",
+    x: 200,
+    y: 100,
+    radiusM: 4.5,
+    roofRadiusM: 5.2,
+    outline: [
+      [196.175, 97.425],
+      [203.825, 97.425],
+      [203.825, 102.575],
+      [196.175, 102.575],
+    ],
+    roofOutline: [
+      [195.75, 97],
+      [204.25, 97],
+      [204.25, 103],
+      [195.75, 103],
+    ],
+    ridge: [
+      [195.75, 100],
+      [204.25, 100],
+    ],
+    plot: { x: 195.75, y: 97, w: 8.5, h: 6 },
+    size: [7.5, 5],
+    bays: 3,
+    loftBays: 0b001,
+    floorM2: 50,
+    floorByUse: [37.5, 12.5, 0],
+    storageKg: [0, 1875, 2250],
+    sleeps: 6,
+    stage: 5,
+    roofed: true,
+    status: "finished",
+    ...over,
+  });
 }
 
 describe("buildings on the map", () => {
   it("are named in the readout with their size and state", () => {
     expect(buildingWords(hut())).toBe("hut of 30 m², room for 5: ground marked out");
     expect(buildingWords(hut({ floorM2: 0, status: "finished" }))).toBe("hut: finished");
+  });
+
+  it("name a frame building's bays, lofts and floor by use", () => {
+    expect(buildingWords(longhouse())).toBe(
+      "longhouse of 3 bays, a loft over 1 bay, 50 m², room for 6, 13 m² to store: finished",
+    );
+    expect(
+      buildingWords(
+        longhouse({ storeys: 2, loftBays: 0, bays: 4, floorM2: 100, floorByUse: [100, 0, 0], sleeps: 19 }),
+      ),
+    ).toBe("longhouse of 4 bays, 2 storeys, 100 m², room for 19: finished");
+    expect(
+      buildingWords(
+        longhouse({
+          program: "Granary",
+          purpose: "store",
+          bays: 2,
+          loftBays: 0,
+          floorM2: 15,
+          floorByUse: [0, 15, 0],
+          sleeps: 0,
+        }),
+      ),
+    ).toBe("granary of 2 bays, 15 m², 15 m² to store: finished");
+    expect(
+      buildingWords(
+        longhouse({
+          program: "Workshop",
+          bays: 2,
+          loftBays: 0b11,
+          floorM2: 60,
+          floorByUse: [0, 30, 30],
+          workPlaces: 5,
+          sleeps: 0,
+        }),
+      ),
+    ).toBe("workshop of 2 bays, a loft over every bay, 60 m², 30 m² to store, 5 places to work: finished");
+  });
+
+  it("find a frame building under its gabled roof, not its circle", () => {
+    const b = longhouse();
+    expect(underRoof(b, 204, 102.5)).toBe(true);
+    // Within the circle round the roof, but past its edge.
+    expect(Math.hypot(205 - b.x, 100 - b.y)).toBeLessThan(b.roofRadiusM);
+    expect(underRoof(b, 205, 100)).toBe(false);
+    expect(buildingAt([b], 200, 100)?.id).toBe(4);
+    expect(buildingAt([b], 200, 104)).toBeNull();
+    expect(underRoof(hut(), 103, 200)).toBe(true);
   });
 
   it("are drawn by how far their construction has gone", () => {

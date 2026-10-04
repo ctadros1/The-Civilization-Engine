@@ -7862,7 +7862,20 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_FLOOR_M2 = 38,
     VT_SLEEPS = 40,
     VT_STARTED_MINUTE = 42,
-    VT_STATUS = 44
+    VT_STATUS = 44,
+    VT_GRAMMAR = 46,
+    VT_PURPOSE = 48,
+    VT_SIZE = 50,
+    VT_ANGLE = 52,
+    VT_STOREYS = 54,
+    VT_BAYS = 56,
+    VT_LOFT_BAYS = 58,
+    VT_ROOF_OUTLINE = 60,
+    VT_RIDGE = 62,
+    VT_APEX_M = 64,
+    VT_FLOOR_BY_USE = 66,
+    VT_STORAGE_KG = 68,
+    VT_WORK_PLACES = 70
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -7927,6 +7940,45 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *status() const {
     return GetPointer<const ::flatbuffers::String *>(VT_STATUS);
   }
+  const ::flatbuffers::String *grammar() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_GRAMMAR);
+  }
+  const ::flatbuffers::String *purpose() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_PURPOSE);
+  }
+  const tce::wire::Vec2 *size() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_SIZE);
+  }
+  float angle() const {
+    return GetField<float>(VT_ANGLE, 0.0f);
+  }
+  uint8_t storeys() const {
+    return GetField<uint8_t>(VT_STOREYS, 0);
+  }
+  uint8_t bays() const {
+    return GetField<uint8_t>(VT_BAYS, 0);
+  }
+  uint16_t loft_bays() const {
+    return GetField<uint16_t>(VT_LOFT_BAYS, 0);
+  }
+  const ::flatbuffers::Vector<const tce::wire::Vec2 *> *roof_outline() const {
+    return GetPointer<const ::flatbuffers::Vector<const tce::wire::Vec2 *> *>(VT_ROOF_OUTLINE);
+  }
+  const ::flatbuffers::Vector<const tce::wire::Vec2 *> *ridge() const {
+    return GetPointer<const ::flatbuffers::Vector<const tce::wire::Vec2 *> *>(VT_RIDGE);
+  }
+  float apex_m() const {
+    return GetField<float>(VT_APEX_M, 0.0f);
+  }
+  const ::flatbuffers::Vector<float> *floor_by_use() const {
+    return GetPointer<const ::flatbuffers::Vector<float> *>(VT_FLOOR_BY_USE);
+  }
+  const ::flatbuffers::Vector<float> *storage_kg() const {
+    return GetPointer<const ::flatbuffers::Vector<float> *>(VT_STORAGE_KG);
+  }
+  uint32_t work_places() const {
+    return GetField<uint32_t>(VT_WORK_PLACES, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -7956,6 +8008,25 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<int64_t>(verifier, VT_STARTED_MINUTE, 8) &&
            VerifyOffset(verifier, VT_STATUS) &&
            verifier.VerifyString(status()) &&
+           VerifyOffset(verifier, VT_GRAMMAR) &&
+           verifier.VerifyString(grammar()) &&
+           VerifyOffset(verifier, VT_PURPOSE) &&
+           verifier.VerifyString(purpose()) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_SIZE, 4) &&
+           VerifyField<float>(verifier, VT_ANGLE, 4) &&
+           VerifyField<uint8_t>(verifier, VT_STOREYS, 1) &&
+           VerifyField<uint8_t>(verifier, VT_BAYS, 1) &&
+           VerifyField<uint16_t>(verifier, VT_LOFT_BAYS, 2) &&
+           VerifyOffset(verifier, VT_ROOF_OUTLINE) &&
+           verifier.VerifyVector(roof_outline()) &&
+           VerifyOffset(verifier, VT_RIDGE) &&
+           verifier.VerifyVector(ridge()) &&
+           VerifyField<float>(verifier, VT_APEX_M, 4) &&
+           VerifyOffset(verifier, VT_FLOOR_BY_USE) &&
+           verifier.VerifyVector(floor_by_use()) &&
+           VerifyOffset(verifier, VT_STORAGE_KG) &&
+           verifier.VerifyVector(storage_kg()) &&
+           VerifyField<uint32_t>(verifier, VT_WORK_PLACES, 4) &&
            verifier.EndTable();
   }
 };
@@ -8027,6 +8098,45 @@ struct BuildingInfoBuilder {
   void add_status(::flatbuffers::Offset<::flatbuffers::String> status) {
     fbb_.AddOffset(BuildingInfo::VT_STATUS, status);
   }
+  void add_grammar(::flatbuffers::Offset<::flatbuffers::String> grammar) {
+    fbb_.AddOffset(BuildingInfo::VT_GRAMMAR, grammar);
+  }
+  void add_purpose(::flatbuffers::Offset<::flatbuffers::String> purpose) {
+    fbb_.AddOffset(BuildingInfo::VT_PURPOSE, purpose);
+  }
+  void add_size(const tce::wire::Vec2 *size) {
+    fbb_.AddStruct(BuildingInfo::VT_SIZE, size);
+  }
+  void add_angle(float angle) {
+    fbb_.AddElement<float>(BuildingInfo::VT_ANGLE, angle, 0.0f);
+  }
+  void add_storeys(uint8_t storeys) {
+    fbb_.AddElement<uint8_t>(BuildingInfo::VT_STOREYS, storeys, 0);
+  }
+  void add_bays(uint8_t bays) {
+    fbb_.AddElement<uint8_t>(BuildingInfo::VT_BAYS, bays, 0);
+  }
+  void add_loft_bays(uint16_t loft_bays) {
+    fbb_.AddElement<uint16_t>(BuildingInfo::VT_LOFT_BAYS, loft_bays, 0);
+  }
+  void add_roof_outline(::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::Vec2 *>> roof_outline) {
+    fbb_.AddOffset(BuildingInfo::VT_ROOF_OUTLINE, roof_outline);
+  }
+  void add_ridge(::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::Vec2 *>> ridge) {
+    fbb_.AddOffset(BuildingInfo::VT_RIDGE, ridge);
+  }
+  void add_apex_m(float apex_m) {
+    fbb_.AddElement<float>(BuildingInfo::VT_APEX_M, apex_m, 0.0f);
+  }
+  void add_floor_by_use(::flatbuffers::Offset<::flatbuffers::Vector<float>> floor_by_use) {
+    fbb_.AddOffset(BuildingInfo::VT_FLOOR_BY_USE, floor_by_use);
+  }
+  void add_storage_kg(::flatbuffers::Offset<::flatbuffers::Vector<float>> storage_kg) {
+    fbb_.AddOffset(BuildingInfo::VT_STORAGE_KG, storage_kg);
+  }
+  void add_work_places(uint32_t work_places) {
+    fbb_.AddElement<uint32_t>(BuildingInfo::VT_WORK_PLACES, work_places, 0);
+  }
   explicit BuildingInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8060,12 +8170,35 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
     float floor_m2 = 0.0f,
     uint32_t sleeps = 0,
     int64_t started_minute = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> status = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> status = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> grammar = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> purpose = 0,
+    const tce::wire::Vec2 *size = nullptr,
+    float angle = 0.0f,
+    uint8_t storeys = 0,
+    uint8_t bays = 0,
+    uint16_t loft_bays = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::Vec2 *>> roof_outline = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::Vec2 *>> ridge = 0,
+    float apex_m = 0.0f,
+    ::flatbuffers::Offset<::flatbuffers::Vector<float>> floor_by_use = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<float>> storage_kg = 0,
+    uint32_t work_places = 0) {
   BuildingInfoBuilder builder_(_fbb);
   builder_.add_started_minute(started_minute);
   builder_.add_settlement(settlement);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_work_places(work_places);
+  builder_.add_storage_kg(storage_kg);
+  builder_.add_floor_by_use(floor_by_use);
+  builder_.add_apex_m(apex_m);
+  builder_.add_ridge(ridge);
+  builder_.add_roof_outline(roof_outline);
+  builder_.add_angle(angle);
+  builder_.add_size(size);
+  builder_.add_purpose(purpose);
+  builder_.add_grammar(grammar);
   builder_.add_status(status);
   builder_.add_sleeps(sleeps);
   builder_.add_floor_m2(floor_m2);
@@ -8081,6 +8214,9 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
   builder_.add_radius_m(radius_m);
   builder_.add_centre(centre);
   builder_.add_program(program);
+  builder_.add_loft_bays(loft_bays);
+  builder_.add_bays(bays);
+  builder_.add_storeys(storeys);
   builder_.add_roofed(roofed);
   builder_.add_stage(stage);
   return builder_.Finish();
@@ -8113,12 +8249,31 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
     float floor_m2 = 0.0f,
     uint32_t sleeps = 0,
     int64_t started_minute = 0,
-    const char *status = nullptr) {
+    const char *status = nullptr,
+    const char *grammar = nullptr,
+    const char *purpose = nullptr,
+    const tce::wire::Vec2 *size = nullptr,
+    float angle = 0.0f,
+    uint8_t storeys = 0,
+    uint8_t bays = 0,
+    uint16_t loft_bays = 0,
+    const std::vector<tce::wire::Vec2> *roof_outline = nullptr,
+    const std::vector<tce::wire::Vec2> *ridge = nullptr,
+    float apex_m = 0.0f,
+    const std::vector<float> *floor_by_use = nullptr,
+    const std::vector<float> *storage_kg = nullptr,
+    uint32_t work_places = 0) {
   auto program__ = program ? _fbb.CreateString(program) : 0;
   auto stage_name__ = stage_name ? _fbb.CreateString(stage_name) : 0;
   auto outline__ = outline ? _fbb.CreateVectorOfStructs<tce::wire::Vec2>(*outline) : 0;
   auto posts__ = posts ? _fbb.CreateVectorOfStructs<tce::wire::Vec2>(*posts) : 0;
   auto status__ = status ? _fbb.CreateString(status) : 0;
+  auto grammar__ = grammar ? _fbb.CreateString(grammar) : 0;
+  auto purpose__ = purpose ? _fbb.CreateString(purpose) : 0;
+  auto roof_outline__ = roof_outline ? _fbb.CreateVectorOfStructs<tce::wire::Vec2>(*roof_outline) : 0;
+  auto ridge__ = ridge ? _fbb.CreateVectorOfStructs<tce::wire::Vec2>(*ridge) : 0;
+  auto floor_by_use__ = floor_by_use ? _fbb.CreateVector<float>(*floor_by_use) : 0;
+  auto storage_kg__ = storage_kg ? _fbb.CreateVector<float>(*storage_kg) : 0;
   return tce::wire::CreateBuildingInfo(
       _fbb,
       id,
@@ -8141,7 +8296,20 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
       floor_m2,
       sleeps,
       started_minute,
-      status__);
+      status__,
+      grammar__,
+      purpose__,
+      size,
+      angle,
+      storeys,
+      bays,
+      loft_bays,
+      roof_outline__,
+      ridge__,
+      apex_m,
+      floor_by_use__,
+      storage_kg__,
+      work_places);
 }
 
 struct Buildings FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

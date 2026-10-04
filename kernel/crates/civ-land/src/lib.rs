@@ -595,14 +595,14 @@ impl Land {
             if !self.plots.iter().any(|p| p.id == b.plot) {
                 out.push(format!("building {} stands on no known plot", b.id));
             }
-            let civ_grammar::Footprint::Round { x, y, radius } = b.spec.footprint;
-            let ok = radius > 0
-                && inside(&RectCm {
-                    x: x - radius,
-                    y: y - radius,
-                    w: 2 * radius,
-                    h: 2 * radius,
-                });
+            let ok = b.spec.footprint.bounds().is_some_and(|[x0, y0, x1, y1]| {
+                inside(&RectCm {
+                    x: x0,
+                    y: y0,
+                    w: x1 - x0,
+                    h: y1 - y0,
+                })
+            });
             let stages = civ_grammar::Stage::ALL.len();
             if !ok || usize::from(b.stage) > stages || !(b.work_h.is_finite() && b.work_h >= 0.0) {
                 out.push(format!("building {} is outside the map or malformed", b.id));

@@ -499,7 +499,8 @@ table Fields {
 
 // Section "plots" (schema 5): ground households have claimed (ADR-0004 §3). A plot outlives
 // its building.
-enum PlotUse : ubyte { Dwelling = 0 }
+// Schema 15 (M3b slice O, ADR-0009 §7): stores and workshops beside dwellings.
+enum PlotUse : ubyte { Dwelling = 0, Store = 1, Work = 2 }
 
 table Plot {
   id: ulong (id: 0);
@@ -520,7 +521,8 @@ table Plots {
 // Section "builds" (schema 5): buildings as their builders designed them, and how far their
 // construction has gone (ADR-0004 §2). The design is authoritative; its parts, outline and
 // needs are expanded from it with the grammar version it records.
-enum FootprintKind : ubyte { Round = 0 }
+// Schema 15 (M3b slice O, ADR-0009 §2): rectangular footprints for frame buildings.
+enum FootprintKind : ubyte { Round = 0, Rect = 1 }
 
 table BuildingSpec {
   // The program's content id, for example `core:building/hut`.
@@ -528,17 +530,22 @@ table BuildingSpec {
   // The grammar version it was designed under.
   version: ushort (id: 1);
   footprint: FootprintKind (id: 2);
-  // Round: the centre and the radius of the wall line, integer centimetres.
+  // The centre, integer centimetres; Round: the radius of the wall line.
   x_cm: int (id: 3);
   y_cm: int (id: 4);
   radius_cm: int (id: 5);
   storeys: ubyte (id: 6);
-  // Up to eight integer parameters, the program's to name (a hut: eave height, roof pitch,
-  // door direction).
+  // Integer parameters, the grammar's to name: eight before schema 15 (a hut uses its first
+  // three: eave height, roof pitch, door direction), up to sixteen since (ADR-0009 §2).
   params: [int] (id: 7);
   // The good each material slot is made of, as content ids.
   materials: [string] (id: 8);
   style_seed: ulong (id: 9);
+  // Schema 15, Rect: the length and width between the wall lines, integer centimetres, and the
+  // direction the length runs, 1/65,536 of a turn from east toward south.
+  length_cm: int (id: 10);
+  width_cm: int (id: 11);
+  angle: ushort (id: 12);
 }
 
 table Building {

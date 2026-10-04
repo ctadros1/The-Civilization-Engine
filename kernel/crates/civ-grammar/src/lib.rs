@@ -9,17 +9,84 @@
 //! tests pin what each grammar version produces; a change to what a rule produces bumps
 //! [`HUT_VERSION`], and specs keep the version they were designed under.
 //!
-//! M1 has one program, the hut: a round post-built house with wattle-and-daub walls and a conical
-//! thatched roof. Its rules are code; every dimension, labour and material figure comes from
-//! content ([`HutRules`]). Geometry is in integer centimetres and angles in 1/65,536 of a turn
-//! (ADR-0004 §1); floating point is used only on the way.
+//! There are two grammars (ADR-0009 §1). The **hut** (M1, frozen at version 1) is a round
+//! post-built house with wattle-and-daub walls and a conical thatched roof. The **frame**
+//! ([`frame`], M3b) builds rectilinear post-framed buildings in bays: houses, storehouses and
+//! workshops of one or two storeys, with lofts and raised floors. Their rules are code; every
+//! dimension, labour and material figure comes from content ([`HutRules`], [`FrameRules`]).
+//! [`expand`] dispatches on the program's grammar. Geometry is in integer centimetres and angles
+//! in 1/65,536 of a turn (ADR-0004 §1); floating point is used only on the way.
 
 #![forbid(unsafe_code)]
 
 use std::f64::consts::TAU;
 
+pub mod frame;
+
+pub use frame::{
+    FRAME_VERSION, FrameRules, MAX_BAYS, MAX_GROUPS, MAX_STOREYS, expand_frame, frame_materials,
+    frame_params,
+};
+
 /// Version of the hut grammar.
 pub const HUT_VERSION: u16 = 1;
+
+/// Integer parameters a spec carries (ADR-0009 §2: eight in M1, sixteen since grammar v2).
+pub const PARAMS: usize = 16;
+
+/// The grammar a program's buildings are expanded by.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Grammar {
+    /// The round hut (frozen at version 1).
+    Hut,
+    /// Rectilinear post-framed buildings in bays.
+    Frame,
+}
+
+impl Grammar {
+    /// The authored name: `hut` or `frame`.
+    pub fn name(self) -> &'static str {
+        match self {
+            Grammar::Hut => "hut",
+            Grammar::Frame => "frame",
+        }
+    }
+
+    /// The grammar with an authored name.
+    pub fn from_name(name: &str) -> Option<Grammar> {
+        [Grammar::Hut, Grammar::Frame]
+            .into_iter()
+            .find(|g| g.name() == name)
+    }
+}
+
+/// A program's rules, for the grammar it uses.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ProgramRules {
+    /// A hut's.
+    Hut(HutRules),
+    /// A frame building's.
+    Frame(FrameRules),
+}
+
+impl ProgramRules {
+    /// The grammar these rules are for.
+    pub fn grammar(&self) -> Grammar {
+        match self {
+            ProgramRules::Hut(_) => Grammar::Hut,
+            ProgramRules::Frame(_) => Grammar::Frame,
+        }
+    }
+}
+
+/// Expands a spec by its program's grammar (ADR-0009 §1): the version must be one the grammar
+/// has, and the footprint the grammar's kind.
+pub fn expand(spec: &BuildingSpec, rules: &ProgramRules) -> Result<Expansion, GrammarError> {
+    match rules {
+        ProgramRules::Hut(r) => expand_hut(spec, r),
+        ProgramRules::Frame(r) => expand_frame(spec, r),
+    }
+}
 
 /// One full turn in angle units (ADR-0004 §1).
 pub const TURN: f64 = 65_536.0;
@@ -36,7 +103,56 @@ pub enum Footprint {
         /// Radius of the wall line.
         radius: i32,
     },
+    /// A rectangular building (ADR-0009 §2): the centre, the length and width between its wall
+    /// lines, on a 25 cm quantum, and the direction its length runs.
+    Rect {
+        /// Centre, east.
+        x: i32,
+        /// Centre, south.
+        y: i32,
+        /// Length between the end wall lines.
+        length: i32,
+        /// Width between the long wall lines.
+        width: i32,
+        /// Direction the length runs, 1/65,536 of a turn from east toward south.
+        angle: u16,
+    },
 }
+
+impl Footprint {
+    /// The centre, centimetres.
+    pub fn centre(&self) -> (i32, i32) {
+        match *self {
+            Footprint::Round { x, y, .. } | Footprint::Rect { x, y, .. } => (x, y),
+        }
+    }
+
+    /// The box round its wall lines, `[west, north, east, south]` in centimetres; `None` when it
+    /// has no size.
+    pub fn bounds(&self) -> Option<[i32; 4]> {
+        let (x, y, hx, hy) = match *self {
+            Footprint::Round { x, y, radius } if radius > 0 => (x, y, radius, radius),
+            Footprint::Rect {
+                x,
+                y,
+                length,
+                width,
+                angle,
+            } if length > 0 && width > 0 => {
+                let a = f64::from(angle) / TURN * TAU;
+                let (l, w) = (f64::from(length) / 2.0, f64::from(width) / 2.0);
+                let hx = (l * a.cos()).abs() + (w * a.sin()).abs();
+                let hy = (l * a.sin()).abs() + (w * a.cos()).abs();
+                (x, y, hx.ceil() as i32, hy.ceil() as i32)
+            }
+            _ => return None,
+        };
+        Some([x - hx, y - hy, x + hx, y + hy])
+    }
+}
+
+/// The quantum of a rectangular footprint's length and width, centimetres (ADR-0009 §2).
+pub const RECT_QUANTUM_CM: i32 = 25;
 
 /// Indexes of a hut's parameters in [`BuildingSpec::params`].
 pub mod hut_params {
@@ -71,8 +187,8 @@ pub struct BuildingSpec {
     pub footprint: Footprint,
     /// Storeys above ground.
     pub storeys: u8,
-    /// Up to eight integer parameters; their meaning is the program's ([`hut_params`]).
-    pub params: [i32; 8],
+    /// Integer parameters; their meaning is the grammar's ([`hut_params`], [`frame_params`]).
+    pub params: [i32; PARAMS],
     /// The good each material slot is made of, as content ids ([`hut_materials`]).
     pub materials: Vec<String>,
     /// Keys any variation the grammar draws (the hut draws none).
@@ -145,10 +261,27 @@ pub enum PartKind {
     Floor,
     /// The hearth.
     Hearth,
+    /// A beam along the head of a wall's posts (frame).
+    WallPlate,
+    /// A beam across the building from one wall's post to the other's (frame).
+    TieBeam,
+    /// A beam carrying a floor or loft (frame).
+    Joist,
+    /// Boards laid on joists (frame).
+    Decking,
+    /// The beam along the roof's apex (frame).
+    Ridge,
+    /// Wattle closing the triangle of a gable end (frame).
+    GableInfill,
+    /// A ladder up to a loft, a storey or a raised floor (frame).
+    Ladder,
+    /// A post carrying a raised floor (frame).
+    FloorPost,
 }
 
 impl PartKind {
-    fn code(self) -> u8 {
+    /// A stable code (append only).
+    pub fn code(self) -> u8 {
         match self {
             PartKind::Posthole => 0,
             PartKind::Post => 1,
@@ -158,8 +291,161 @@ impl PartKind {
             PartKind::Thatch => 5,
             PartKind::Floor => 6,
             PartKind::Hearth => 7,
+            PartKind::WallPlate => 8,
+            PartKind::TieBeam => 9,
+            PartKind::Joist => 10,
+            PartKind::Decking => 11,
+            PartKind::Ridge => 12,
+            PartKind::GableInfill => 13,
+            PartKind::Ladder => 14,
+            PartKind::FloorPost => 15,
         }
     }
+}
+
+/// What a space is used for (ADR-0009 §1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum SpaceUse {
+    /// Living and sleeping, with the hearth.
+    Living,
+    /// Keeping goods.
+    Store,
+    /// Working at a craft.
+    Work,
+}
+
+impl SpaceUse {
+    /// Every use, in a fixed order (indexes of [`Expansion::floor_by_use`]).
+    pub const ALL: [SpaceUse; 3] = [SpaceUse::Living, SpaceUse::Store, SpaceUse::Work];
+
+    /// The authored name.
+    pub fn name(self) -> &'static str {
+        match self {
+            SpaceUse::Living => "living",
+            SpaceUse::Store => "store",
+            SpaceUse::Work => "work",
+        }
+    }
+
+    /// The use with an authored name.
+    pub fn from_name(name: &str) -> Option<SpaceUse> {
+        SpaceUse::ALL.into_iter().find(|u| u.name() == name)
+    }
+
+    /// Position in [`SpaceUse::ALL`].
+    pub fn index(self) -> usize {
+        self as usize
+    }
+}
+
+/// A level of a building.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Level {
+    /// The first floor, on the ground or raised on posts.
+    Ground,
+    /// An enclosed storey above it.
+    Upper,
+    /// A floor at tie-beam height inside the roof, holding goods only.
+    Loft,
+    /// The roof itself.
+    Roof,
+}
+
+impl Level {
+    /// A stable code (append only), the first part of a group's id.
+    pub fn code(self) -> u8 {
+        match self {
+            Level::Ground => 0,
+            Level::Upper => 1,
+            Level::Loft => 2,
+            Level::Roof => 3,
+        }
+    }
+}
+
+/// A space of a building (ADR-0009 §3).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Space {
+    /// Its level.
+    pub level: Level,
+    /// The bays it covers, one bit each (bit `b` for bay `b`; a hut has one bay).
+    pub bays: u16,
+    /// Net floor area, square metres.
+    pub area_m2: f64,
+    /// What it is for.
+    pub use_: SpaceUse,
+}
+
+/// What kind of members a group gathers (ADR-0009 §3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum GroupKind {
+    /// The posts of one wall line.
+    Posts,
+    /// The tie beams across the building.
+    TieBeams,
+    /// The joists of a loft over one bay.
+    LoftJoists,
+    /// The joists of an upper storey's floor over one bay.
+    FloorJoists,
+    /// The joists and boards of a floor raised on posts over one bay.
+    RaisedFloor,
+    /// Rafters and ridge: the roof's frame over one bay (a hut's: all of it).
+    RoofFrame,
+    /// The roof's covering (one slope of a frame, all of a hut's).
+    Covering,
+    /// The wattle and daub of one wall, or a gable.
+    Infill,
+    /// A floor on the ground.
+    Floor,
+}
+
+impl GroupKind {
+    /// A stable code (append only), part of a group's id.
+    pub fn code(self) -> u8 {
+        match self {
+            GroupKind::Posts => 1,
+            GroupKind::TieBeams => 2,
+            GroupKind::LoftJoists => 3,
+            GroupKind::FloorJoists => 4,
+            GroupKind::RaisedFloor => 5,
+            GroupKind::RoofFrame => 6,
+            GroupKind::Covering => 7,
+            GroupKind::Infill => 8,
+            GroupKind::Floor => 9,
+        }
+    }
+}
+
+/// A group of like members that stand or fall together (ADR-0009 §3; research 11-06 §5.1).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Group {
+    /// Stable and semantic: level, bay (0 for none, else the bay plus one), kind and index, a
+    /// byte each, so a later bay renumbers nothing (research 11-03 §4.8).
+    pub id: u32,
+    /// What its members are.
+    pub kind: GroupKind,
+    /// The stage that puts it in place.
+    pub stage: Stage,
+    /// Material slot, or `None` for earth.
+    pub material: Option<u8>,
+    /// Members in it.
+    pub count: u32,
+    /// A member's section, width and depth, centimetres (a covering or infill: its thickness).
+    pub section_cm: [i32; 2],
+    /// A member's span or height, centimetres (a covering: its length).
+    pub length_cm: i32,
+    /// Spacing between members, centimetres (0 for one).
+    pub spacing_cm: i32,
+    /// The area it carries or covers, square metres.
+    pub area_m2: f64,
+}
+
+/// A group's semantic id.
+pub fn group_id(level: Level, bay: Option<u8>, kind: GroupKind, index: u8) -> u32 {
+    (u32::from(level.code()) << 24)
+        | (u32::from(bay.map_or(0, |b| b.saturating_add(1))) << 16)
+        | (u32::from(kind.code()) << 8)
+        | u32::from(index)
 }
 
 /// One piece of a building, in centimetres from the map's north-west corner (z up from the
@@ -195,18 +481,34 @@ pub struct StageNeeds {
     pub materials_kg: Vec<f64>,
 }
 
+/// Where goods are kept, the indexes of [`Expansion::storage_kg`] (ADR-0009 §3), best first.
+pub mod storage {
+    /// On a raised store's floor, off the ground and aired.
+    pub const RAISED: usize = 0;
+    /// In a loft.
+    pub const LOFT: usize = 1;
+    /// On a floor on the ground or a storey: a store room's, or what living and working floor
+    /// holds besides its use.
+    pub const FLOOR: usize = 2;
+    /// Number of kinds.
+    pub const KINDS: usize = 3;
+}
+
 /// What a spec expands into.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Expansion {
+    /// The grammar that produced it.
+    pub grammar: Grammar,
     /// The grammar version that produced it.
     pub version: u16,
     /// Every part, in stage order.
     pub parts: Vec<Part>,
-    /// The outer face of the walls, centimetres, going round from the door.
+    /// The outer face of the walls, centimetres: going round from the door (a hut), or the four
+    /// corners (a frame).
     pub outline: Vec<(i32, i32)>,
-    /// Radius of the roof's edge, centimetres (what is seen from above).
+    /// Radius of the roof's edge (a hut), or of the circle round a frame's roof, centimetres.
     pub roof_radius_cm: i32,
-    /// Height of the roof's apex, centimetres.
+    /// Height of the roof's apex or ridge, centimetres.
     pub apex_cm: i32,
     /// The doorway's middle on the wall line, centimetres, and the direction it faces.
     pub door: (i32, i32, u16),
@@ -214,10 +516,25 @@ pub struct Expansion {
     pub door_width_cm: i32,
     /// One entry per stage, in order.
     pub stages: Vec<StageNeeds>,
-    /// Floor area inside the wall line, square metres.
+    /// Floor area inside the wall lines over every level, square metres.
     pub floor_area_m2: f64,
     /// People it sleeps.
     pub sleeping_places: u32,
+    /// The corners of a gabled roof's edge, centimetres (empty for a hut's cone, whose edge is a
+    /// circle of `roof_radius_cm`).
+    pub roof_outline: Vec<(i32, i32)>,
+    /// The ends of a gabled roof's ridge, seen from above, centimetres (`None` for a hut).
+    pub ridge: Option<[(i32, i32); 2]>,
+    /// Its spaces: each level's bays, floor and use.
+    pub spaces: Vec<Space>,
+    /// Its component groups, in stage order.
+    pub groups: Vec<Group>,
+    /// Floor area by use ([`SpaceUse::index`]), square metres; they sum to `floor_area_m2`.
+    pub floor_by_use: [f64; 3],
+    /// Goods it can hold under its roof by where they are kept ([`storage`]), kilograms.
+    pub storage_kg: [f64; storage::KINDS],
+    /// Places to work at a craft.
+    pub work_places: u32,
 }
 
 impl Expansion {
@@ -228,13 +545,24 @@ impl Expansion {
 
     /// Kilograms of each material slot over every stage.
     pub fn total_materials_kg(&self) -> Vec<f64> {
-        let mut out = vec![0.0; hut_materials::COUNT];
+        let slots = self
+            .stages
+            .iter()
+            .map(|s| s.materials_kg.len())
+            .max()
+            .unwrap_or(0);
+        let mut out = vec![0.0; slots];
         for s in &self.stages {
             for (o, kg) in out.iter_mut().zip(&s.materials_kg) {
                 *o += kg;
             }
         }
         out
+    }
+
+    /// Goods it can hold under its roof, kilograms.
+    pub fn storage_total_kg(&self) -> f64 {
+        self.storage_kg.iter().sum()
     }
 }
 
@@ -289,6 +617,8 @@ pub struct HutRules {
     pub wattle_kg_per_m2: f64,
     /// Thatch per square metre of roof, kilograms.
     pub thatch_kg_per_m2: f64,
+    /// Goods its floor holds besides living on it, kilograms a square metre (ADR-0009 §3).
+    pub store_kg_per_m2: f64,
 }
 
 impl HutRules {
@@ -314,7 +644,7 @@ pub enum GrammarError {
 impl std::fmt::Display for GrammarError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GrammarError::UnknownVersion(v) => write!(f, "hut grammar version {v} is unknown"),
+            GrammarError::UnknownVersion(v) => write!(f, "grammar version {v} is unknown"),
             GrammarError::OutOfRange(what) => write!(f, "{what}"),
         }
     }
@@ -353,7 +683,12 @@ pub fn expand_hut(spec: &BuildingSpec, rules: &HutRules) -> Result<Expansion, Gr
         x: cx,
         y: cy,
         radius,
-    } = spec.footprint;
+    } = spec.footprint
+    else {
+        return Err(GrammarError::OutOfRange(
+            "a hut stands on a round footprint".to_owned(),
+        ));
+    };
     within("radius", radius, rules.radius_cm)?;
     let eave = spec.params[hut_params::EAVE_CM];
     within("eave height", eave, rules.eave_cm)?;
@@ -554,7 +889,8 @@ pub fn expand_hut(spec: &BuildingSpec, rules: &HutRules) -> Result<Expansion, Gr
     } else {
         0
     };
-    Ok(Expansion {
+    let mut e = Expansion {
+        grammar: Grammar::Hut,
         version: HUT_VERSION,
         parts,
         outline,
@@ -565,7 +901,120 @@ pub fn expand_hut(spec: &BuildingSpec, rules: &HutRules) -> Result<Expansion, Gr
         stages,
         floor_area_m2: floor_area,
         sleeping_places,
-    })
+        roof_outline: Vec::new(),
+        ridge: None,
+        spaces: vec![Space {
+            level: Level::Ground,
+            bays: 1,
+            area_m2: floor_area,
+            use_: SpaceUse::Living,
+        }],
+        groups: Vec::new(),
+        floor_by_use: [floor_area, 0.0, 0.0],
+        storage_kg: [0.0, 0.0, floor_area * rules.store_kg_per_m2],
+        work_places: 0,
+    };
+    e.groups = hut_groups(&e, rules);
+    Ok(e)
+}
+
+/// A hut's five component groups (ADR-0009 §3), derived from its version-1 expansion without
+/// touching what that expansion is: its posts, its roof's frame (the rafters), its thatch, its
+/// walls' wattle and daub and its floor. Each carries or covers the whole roof, wall or floor.
+pub fn hut_groups(e: &Expansion, rules: &HutRules) -> Vec<Group> {
+    let of = |k: PartKind| e.parts.iter().filter(move |p| p.kind == k);
+    let first = |k: PartKind| of(k).next().copied();
+    let m2 = 1.0e-4;
+    let r = f64::from(e.roof_radius_cm);
+    let roof_plan_m2 = std::f64::consts::PI * r * r * m2;
+    let (posts, rafters, panels) = (
+        of(PartKind::Post).count(),
+        of(PartKind::Rafter).count(),
+        of(PartKind::Wattle).count(),
+    );
+    let post = first(PartKind::Post);
+    let rafter = first(PartKind::Rafter);
+    let wattle = first(PartKind::Wattle);
+    let thatch = first(PartKind::Thatch);
+    let eave = post.map_or(0, |p| p.size[2] - rules.posthole_depth_cm);
+    let rafter_len = rafter.map_or(0, |p| p.size[0]);
+    let roof_m2 = thatch.map_or(0.0, |t| {
+        let pitch = f64::from(t.tilt) / 100.0 * TAU / 360.0;
+        roof_plan_m2 / pitch.cos()
+    });
+    let panel_cm = wattle.map_or(0, |p| p.size[0]);
+    let spacing = panel_cm + rules.post_diameter_cm;
+    let wall_m2 = f64::from(panel_cm) * f64::from(eave) * panels as f64 * m2;
+    let group =
+        |level, kind, stage, material, count: usize, section, length, spacing, area_m2| Group {
+            id: group_id(level, None, kind, 0),
+            kind,
+            stage,
+            material,
+            count: count as u32,
+            section_cm: section,
+            length_cm: length,
+            spacing_cm: spacing,
+            area_m2,
+        };
+    let d = rules.post_diameter_cm;
+    vec![
+        group(
+            Level::Ground,
+            GroupKind::Posts,
+            Stage::Frame,
+            Some(hut_materials::TIMBER),
+            posts,
+            [d, d],
+            eave,
+            spacing,
+            roof_plan_m2,
+        ),
+        group(
+            Level::Roof,
+            GroupKind::RoofFrame,
+            Stage::Frame,
+            Some(hut_materials::TIMBER),
+            rafters,
+            rafter.map_or([0, 0], |p| [p.size[1], p.size[2]]),
+            rafter_len,
+            spacing,
+            roof_m2,
+        ),
+        group(
+            Level::Ground,
+            GroupKind::Infill,
+            Stage::Walls,
+            Some(hut_materials::WATTLE),
+            panels,
+            [rules.wall_thickness_cm, rules.wall_thickness_cm],
+            eave,
+            spacing,
+            wall_m2,
+        ),
+        group(
+            Level::Roof,
+            GroupKind::Covering,
+            Stage::Roof,
+            Some(hut_materials::THATCH),
+            1,
+            [rules.thatch_thickness_cm, rules.thatch_thickness_cm],
+            rafter_len,
+            0,
+            roof_m2,
+        ),
+        group(
+            Level::Ground,
+            GroupKind::Floor,
+            Stage::Finish,
+            None,
+            1,
+            [0, 0],
+            0,
+            0,
+            e.floor_area_m2,
+        ),
+    ]
 }
 
 /// A stable 64-bit hash of an expansion, for golden tests: FNV-1a over its integers, with labour
@@ -612,6 +1061,35 @@ pub fn expansion_hash(e: &Expansion) -> u64 {
     }
     eat(&((e.floor_area_m2 * 100.0).round() as i64).to_le_bytes());
     eat(&e.sleeping_places.to_le_bytes());
+    // What grammar v2 added is covered for frames only, so the frozen hut's hash is unchanged
+    // (ADR-0009 §1).
+    if e.grammar != Grammar::Hut {
+        let hundredths = |v: f64| ((v * 100.0).round() as i64).to_le_bytes();
+        eat(e.grammar.name().as_bytes());
+        for (x, y) in e.roof_outline.iter().chain(e.ridge.iter().flatten()) {
+            eat(&x.to_le_bytes());
+            eat(&y.to_le_bytes());
+        }
+        for s in &e.spaces {
+            eat(&[s.level.code(), s.use_.index() as u8]);
+            eat(&s.bays.to_le_bytes());
+            eat(&hundredths(s.area_m2));
+        }
+        for g in &e.groups {
+            eat(&g.id.to_le_bytes());
+            eat(&[g.kind.code(), g.stage.index() as u8]);
+            eat(&[g.material.unwrap_or(u8::MAX)]);
+            eat(&g.count.to_le_bytes());
+            for v in g.section_cm.iter().chain([&g.length_cm, &g.spacing_cm]) {
+                eat(&v.to_le_bytes());
+            }
+            eat(&hundredths(g.area_m2));
+        }
+        for v in e.floor_by_use.iter().chain(&e.storage_kg) {
+            eat(&hundredths(*v));
+        }
+        eat(&e.work_places.to_le_bytes());
+    }
     h
 }
 
@@ -645,11 +1123,12 @@ mod tests {
             rafter_kg: 20.0,
             wattle_kg_per_m2: 10.0,
             thatch_kg_per_m2: 30.0,
+            store_kg_per_m2: 60.0,
         }
     }
 
     fn spec(radius: i32) -> BuildingSpec {
-        let mut params = [0; 8];
+        let mut params = [0; PARAMS];
         params[hut_params::EAVE_CM] = 150;
         params[hut_params::PITCH_CENTIDEG] = 4500;
         params[hut_params::DOOR_DIR] = 8192; // south-east
@@ -773,4 +1252,67 @@ mod tests {
     }
 
     const GOLDEN_300: u64 = 0xa9fc_49c5_c66b_50d7;
+
+    #[test]
+    fn a_hut_has_five_groups_a_living_space_and_room_for_goods() {
+        let r = rules();
+        let e = expand_hut(&spec(300), &r).expect("expands");
+        assert_eq!(e.grammar, Grammar::Hut);
+        let kinds: Vec<GroupKind> = e.groups.iter().map(|g| g.kind).collect();
+        assert_eq!(
+            kinds,
+            [
+                GroupKind::Posts,
+                GroupKind::RoofFrame,
+                GroupKind::Infill,
+                GroupKind::Covering,
+                GroupKind::Floor
+            ]
+        );
+        let ids: std::collections::HashSet<u32> = e.groups.iter().map(|g| g.id).collect();
+        assert_eq!(ids.len(), 5);
+        let posts = &e.groups[0];
+        assert_eq!(
+            (posts.count, posts.length_cm, posts.section_cm),
+            (24, 150, [15, 15])
+        );
+        assert_eq!(
+            e.groups[2].count, 23,
+            "a panel between each pair of posts but the door's"
+        );
+        // The thatch covers the cone: π (3.5 m)² over cos 45°.
+        let cone = std::f64::consts::PI * 3.5 * 3.5 / (TAU / 8.0).cos();
+        assert!(
+            (e.groups[3].area_m2 - cone).abs() < 0.01,
+            "{}",
+            e.groups[3].area_m2
+        );
+        assert!((e.groups[4].area_m2 - e.floor_area_m2).abs() < 1e-9);
+        assert_eq!(e.spaces.len(), 1);
+        assert_eq!(e.spaces[0].use_, SpaceUse::Living);
+        assert_eq!(e.floor_by_use, [e.floor_area_m2, 0.0, 0.0]);
+        assert!((e.storage_kg[storage::FLOOR] - e.floor_area_m2 * 60.0).abs() < 1e-9);
+        assert_eq!(e.work_places, 0);
+        assert!(e.roof_outline.is_empty() && e.ridge.is_none());
+        // A hut's groups are derived after the fact and leave its golden hash alone.
+        let mut bare = e.clone();
+        bare.groups.clear();
+        bare.spaces.clear();
+        bare.storage_kg = [0.0; storage::KINDS];
+        assert_eq!(expansion_hash(&bare), GOLDEN_300);
+    }
+
+    #[test]
+    fn expand_dispatches_on_the_program_s_grammar() {
+        let r = rules();
+        let hut = ProgramRules::Hut(r.clone());
+        assert_eq!(hut.grammar(), Grammar::Hut);
+        assert_eq!(expand(&spec(300), &hut), expand_hut(&spec(300), &r));
+        assert_eq!(Grammar::from_name("frame"), Some(Grammar::Frame));
+        assert_eq!(Grammar::from_name("tent"), None);
+        // A round spec under frame rules, or a hut of an unknown version, is refused.
+        let mut v2 = spec(300);
+        v2.version = 2;
+        assert_eq!(expand(&v2, &hut), Err(GrammarError::UnknownVersion(2)));
+    }
 }

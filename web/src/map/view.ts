@@ -292,7 +292,19 @@ export class MapView {
         const p = b.plot;
         g.rect(p.x, p.y, p.w, p.h).stroke({ width: 0.25, color: 0xe8dcc0, alpha: 0.5 });
       }
-      if (look.roofAlpha > 0) {
+      const gabled = b.roofOutline.length >= 3;
+      if (look.roofAlpha > 0 && gabled) {
+        // A gabled roof, its two slopes meeting at the ridge.
+        const roof = b.roofOutline.flat();
+        g.poly(roof, true).fill({ color: look.roofFill, alpha: look.roofAlpha });
+        g.poly(roof, true).stroke({ width: 0.2, color: 0x6b5426, alpha: look.roofAlpha });
+        const [r0, r1] = b.ridge;
+        if (r0 && r1) {
+          g.moveTo(r0[0], r0[1])
+            .lineTo(r1[0], r1[1])
+            .stroke({ width: 0.25, color: 0x6b5426, alpha: look.roofAlpha });
+        }
+      } else if (look.roofAlpha > 0) {
         g.circle(b.x, b.y, b.roofRadiusM).fill({ color: look.roofFill, alpha: look.roofAlpha });
         g.circle(b.x, b.y, b.roofRadiusM).stroke({ width: 0.2, color: 0x6b5426, alpha: look.roofAlpha });
       }
@@ -311,8 +323,12 @@ export class MapView {
       if (b.roofed) {
         // The doorway, a dark notch at the eaves.
         const [dx, dy] = [Math.cos(b.doorDir), Math.sin(b.doorDir)];
-        const r = b.roofRadiusM;
-        g.circle(b.x + dx * r * 0.92, b.y + dy * r * 0.92, 0.35).fill({ color: 0x2b2117, alpha: 0.9 });
+        if (gabled) {
+          g.circle(b.door[0] + dx * 0.3, b.door[1] + dy * 0.3, 0.35).fill({ color: 0x2b2117, alpha: 0.9 });
+        } else {
+          const r = b.roofRadiusM;
+          g.circle(b.x + dx * r * 0.92, b.y + dy * r * 0.92, 0.35).fill({ color: 0x2b2117, alpha: 0.9 });
+        }
       }
     }
     if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));

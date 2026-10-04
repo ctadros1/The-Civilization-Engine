@@ -87,6 +87,9 @@ pub const SCHEMA_V12: u32 = 12;
 /// The schema version of M3b slice M saves: knowledge carried by people, before anyone tried
 /// toward a technique (see [`agents`]).
 pub const SCHEMA_V13: u32 = 13;
+/// The schema version of M3b slice N saves: trying toward techniques and finds, before frame
+/// buildings and plots for stores and workshops (see [`agents`]).
+pub const SCHEMA_V14: u32 = 14;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

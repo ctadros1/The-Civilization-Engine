@@ -1,7 +1,8 @@
 //! Firms (slice J, ADR-0006 §5): a household that makes a tool others want, and can make it for
 //! fewer hours than they could, sets up a workshop for it. The workshop holds what it makes, its
 //! owners put in what the work uses, it sells through the ledger and keeps books; goods stay
-//! accounted for, it survives a save and load, and it is given up when it sells nothing for long.
+//! accounted for, observers see it, it survives a save and load, and it is given up when it sells
+//! nothing for long.
 
 use std::path::Path;
 use std::sync::OnceLock;
@@ -13,7 +14,8 @@ use civ_agents::market::Market;
 use civ_agents::{Population, population};
 use civ_content::ContentRegistry;
 use civ_core::PermanentId;
-use civ_sim::{NewWorld, Sim, persist};
+use civ_schema::{flatbuffers, wire};
+use civ_sim::{NewWorld, Sim, frames, persist};
 use commons_persist::{SaveDir, SaveKind};
 
 fn content() -> &'static ContentRegistry {
@@ -229,6 +231,84 @@ fn a_skilled_household_sets_up_a_workshop_and_sells_what_it_makes() {
     let gaps = population::unaccounted(goods.len(), (&start.0, &start.1), (&end.0, &end.1));
     assert!(gaps.is_empty(), "unaccounted for: {gaps:?}");
 
+    // The observer sees it: in the list of workshops, on its page with its books, as the seller
+    // in its market, and as a link in the chronicle.
+    let rev = frames::firms::firms_rev(&sim);
+    assert_ne!(rev, 0);
+    let payload = frames::firms::firms_response(&sim);
+    let list = flatbuffers::root::<wire::Response>(&payload)
+        .expect("a response")
+        .body_as_firms()
+        .expect("workshops");
+    assert_eq!(list.rev(), rev);
+    let brief = list
+        .firms()
+        .expect("a list")
+        .iter()
+        .find(|b| b.id() == firm.id.get())
+        .expect("listed");
+    assert!(brief.open() && brief.owner() == maker.get());
+    let name = brief.name().expect("a name");
+    assert!(name.ends_with("'s sickle workshop"), "{name}");
+    let record = brief.record().expect("its record");
+    assert!(
+        record.starts_with("Made ") && !record.ends_with("none."),
+        "{record}"
+    );
+    assert_eq!(
+        brief.lines().map(|l| l.iter().collect()),
+        Some(vec![sickle as u16])
+    );
+    let payload = frames::firms::firm_response(&sim, firm.id.get()).expect("its page");
+    let page = flatbuffers::root::<wire::Response>(&payload)
+        .expect("a response")
+        .body_as_firm_info()
+        .expect("a page");
+    assert_eq!(page.brief().map(|b| b.id()), Some(firm.id.get()));
+    let entries = page.entries().expect("its books");
+    assert_eq!(entries.len(), firm.books.entries.len());
+    let sale = entries
+        .iter()
+        .find(|e| e.kind() == wire::BookKind::Sold)
+        .expect("a sale in its books");
+    let text = sale.text().expect("words");
+    assert!(text.starts_with("Sold ") && text.contains(" to "), "{text}");
+    assert_eq!(
+        page.months().map(|m| m.len()),
+        Some(firm.books.months.len())
+    );
+    assert!(frames::firms::firm_response(&sim, 0).is_err());
+    let payload = frames::markets::markets_response(&sim);
+    let info = flatbuffers::root::<wire::Response>(&payload)
+        .expect("a response")
+        .body_as_markets()
+        .expect("markets")
+        .markets()
+        .expect("a list")
+        .iter()
+        .find(|m| m.settlement() == settlement.get())
+        .expect("its market");
+    let trade = info
+        .recent()
+        .expect("trades")
+        .iter()
+        .find(|t| t.seller() == firm.id.get())
+        .expect("its sale");
+    assert!(trade.seller_firm());
+    let text = trade.text().expect("words");
+    assert!(text.starts_with(name), "{text}");
+    let payload = frames::people::chronicle_response(&sim, 0, 10_000);
+    let linked = flatbuffers::root::<wire::Response>(&payload)
+        .expect("a response")
+        .body_as_chronicle()
+        .expect("the chronicle")
+        .entries()
+        .expect("entries")
+        .iter()
+        .flat_map(|e| e.spans().into_iter().flatten())
+        .any(|x| x.kind() == wire::SpanKind::Firm && x.id() == firm.id.get());
+    assert!(linked, "the chronicle links the workshop");
+
     // It survives a save and load.
     let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
     let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("save dir");
@@ -443,6 +523,34 @@ fn a_workshop_posts_a_wage_and_pays_those_who_take_the_work() {
     assert_ne!(worker, maker);
     assert!(pop.transfers.get(civ_agents::Channel::Wage, grain) > 0.0);
     assert!(firm.is_open(), "it could pay what it owed");
+    // The observer sees its wage and what it paid.
+    let payload = frames::firms::firm_response(&sim, firm.id.get()).expect("its page");
+    let page = flatbuffers::root::<wire::Response>(&payload)
+        .expect("a response")
+        .body_as_firm_info()
+        .expect("a page");
+    let wage = page.wage().expect("its wage");
+    assert_eq!((wage.pay(), wage.per_hour()), (grain as u16, 2.0));
+    let text = wage.text().expect("words");
+    assert!(text.starts_with("Pays 2.0 kg of grain an hour"), "{text}");
+    let wages = page
+        .entries()
+        .expect("its books")
+        .iter()
+        .find(|e| e.kind() == wire::BookKind::Wages)
+        .expect("wages in its books");
+    assert_eq!(wages.other(), worker.get());
+    let text = wages.text().expect("words");
+    assert!(
+        text.starts_with("Paid ") && text.ends_with(" in wages."),
+        "{text}"
+    );
+    assert!(
+        page.months()
+            .expect("months")
+            .iter()
+            .any(|m| m.hired_h() > 0.0)
+    );
     let end = held(pop);
     let gaps = population::unaccounted(goods.len(), (&start.0, &start.1), (&end.0, &end.1));
     assert!(gaps.is_empty(), "unaccounted for: {gaps:?}");

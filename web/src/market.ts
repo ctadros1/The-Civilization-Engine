@@ -63,17 +63,19 @@ export function paymentsText(goods: GoodInfo[], market: MarketInfo): string {
     .join(" · ");
 }
 
-/** One household's terms for one good, as the offers list shows them. */
+/** One household's or workshop's terms for one good, as the offers list shows them. */
 export interface OfferGroup {
+  /** The household's id, or the workshop's when `firm` is set. */
   household: number;
   householdName: string;
+  firm: boolean;
   good: number;
   units: number;
   /** "12 kg grain each or 0.8 hoes each". */
   terms: string;
 }
 
-/** The offers grouped by household and good, by good and then household. */
+/** The offers grouped by seller and good, by good and then seller. */
 export function offerGroups(goods: GoodInfo[], offers: OfferInfo[]): OfferGroup[] {
   const groups = new Map<string, OfferGroup & { rows: OfferInfo[] }>();
   for (const o of offers) {
@@ -83,6 +85,7 @@ export function offerGroups(goods: GoodInfo[], offers: OfferInfo[]): OfferGroup[
       g = {
         household: o.household,
         householdName: o.householdName,
+        firm: o.firm,
         good: o.good,
         units: o.units,
         terms: "",

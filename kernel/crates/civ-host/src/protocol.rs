@@ -90,6 +90,13 @@ pub enum Request {
     GetPaths,
     /// Read every settlement's market.
     GetMarkets,
+    /// Read every workshop, in brief.
+    GetFirms,
+    /// Read one workshop's page.
+    GetFirm {
+        /// Permanent id.
+        id: u64,
+    },
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -375,6 +382,11 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                 wire::QueryBody::GetBuildings => Ok(Request::GetBuildings),
                 wire::QueryBody::GetPaths => Ok(Request::GetPaths),
                 wire::QueryBody::GetMarkets => Ok(Request::GetMarkets),
+                wire::QueryBody::GetFirms => Ok(Request::GetFirms),
+                wire::QueryBody::GetFirm => {
+                    let b = query.body_as_get_firm().ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetFirm { id: b.id() })
+                }
                 other => Err(format!("unknown query {}", other.0)),
             }
         }
@@ -567,6 +579,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
         .map_or(0, civ_sim::frames::buildings::buildings_rev);
     let paths_rev = parts.sim.map_or(0, civ_sim::frames::paths::paths_rev);
     let markets_rev = parts.sim.map_or(0, civ_sim::frames::markets::markets_rev);
+    let firms_rev = parts.sim.map_or(0, civ_sim::frames::firms::firms_rev);
     let task = parts.task.map(|t| {
         let name = fbb.create_string(&t.name);
         let stage = fbb.create_string(&t.stage);
@@ -613,6 +626,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
             buildings_rev,
             paths_rev,
             markets_rev,
+            firms_rev,
         },
     );
     finish(fbb, root)
@@ -800,6 +814,29 @@ mod tests {
         assert_eq!(
             decode_request(FrameKind::Command, &finish(fbb, root)),
             Ok(Request::RunUntil { minute: 525_600 })
+        );
+    }
+
+    #[test]
+    fn workshop_queries_decode_into_requests() {
+        let query = |body_type, body: Option<_>| {
+            let mut fbb = FlatBufferBuilder::new();
+            let body = body.map(|id| {
+                wire::GetFirm::create(&mut fbb, &wire::GetFirmArgs { id }).as_union_value()
+            });
+            let body = body.or_else(|| {
+                Some(wire::GetFirms::create(&mut fbb, &wire::GetFirmsArgs {}).as_union_value())
+            });
+            let root = wire::Query::create(&mut fbb, &wire::QueryArgs { body_type, body });
+            finish(fbb, root)
+        };
+        assert_eq!(
+            decode_request(FrameKind::Query, &query(wire::QueryBody::GetFirms, None)),
+            Ok(Request::GetFirms)
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &query(wire::QueryBody::GetFirm, Some(42))),
+            Ok(Request::GetFirm { id: 42 })
         );
     }
 

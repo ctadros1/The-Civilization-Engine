@@ -268,6 +268,20 @@ export class HostClient {
     return { rev: body.rev, markets: body.markets };
   }
 
+  /** Every workshop in brief, with the revision they are at. */
+  async firms(): Promise<{ rev: number; firms: M.FirmBrief[] }> {
+    const body = await this.query(M.getFirms());
+    if (body.kind !== "firms") throw new HostError("internal", "expected workshops");
+    return { rev: body.rev, firms: body.firms };
+  }
+
+  /** A workshop's page. */
+  async firm(id: number): Promise<M.FirmInfo> {
+    const body = await this.query(M.getFirm(id));
+    if (body.kind !== "firm") throw new HostError("internal", "expected a workshop");
+    return body.firm;
+  }
+
   /** Every field, with the revision it is at. */
   async fields(): Promise<{ rev: number; fields: M.FieldInfo[] }> {
     const body = await this.query(M.getFields());

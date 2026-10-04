@@ -38,6 +38,21 @@ export function makeWorld(saves: string, args: string[]): void {
   }
 }
 
+/**
+ * Makes a world with a workshop at work in `saves`, with the `workshop_world` example of civ-sim
+ * (a short natural run may have no workshop, and runs differ), and waits. Needs cargo.
+ */
+export function makeWorkshopWorld(saves: string): void {
+  const done = spawnSync(
+    "cargo",
+    ["run", "--release", "--quiet", "-p", "civ-sim", "--example", "workshop_world", "--", saves],
+    { cwd: path.join(repo, "kernel"), encoding: "utf8", timeout: 600_000 },
+  );
+  if (done.status !== 0) {
+    throw new Error(`workshop_world failed (${done.status}):\n${done.stdout}\n${done.stderr}`);
+  }
+}
+
 export interface Host {
   url: string;
   process: ChildProcess;

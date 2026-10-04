@@ -67,8 +67,13 @@ lastPrice():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
+workshops():number {
+  const offset = this.bb!.__offset(this.bb_pos, 22);
+  return offset ? this.bb!.readUint16(this.bb_pos + offset) : 0;
+}
+
 static startMarketGood(builder:flatbuffers.Builder) {
-  builder.startObject(9);
+  builder.startObject(10);
 }
 
 static addGood(builder:flatbuffers.Builder, good:number) {
@@ -107,12 +112,16 @@ static addLastPrice(builder:flatbuffers.Builder, lastPrice:number) {
   builder.addFieldFloat32(8, lastPrice, 0.0);
 }
 
+static addWorkshops(builder:flatbuffers.Builder, workshops:number) {
+  builder.addFieldInt16(9, workshops, 0);
+}
+
 static endMarketGood(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createMarketGood(builder:flatbuffers.Builder, good:number, offered:number, sellers:number, sold:number, unmet:number, unmetWorthH:number, acceptance:number, lastPayment:number, lastPrice:number):flatbuffers.Offset {
+static createMarketGood(builder:flatbuffers.Builder, good:number, offered:number, sellers:number, sold:number, unmet:number, unmetWorthH:number, acceptance:number, lastPayment:number, lastPrice:number, workshops:number):flatbuffers.Offset {
   MarketGood.startMarketGood(builder);
   MarketGood.addGood(builder, good);
   MarketGood.addOffered(builder, offered);
@@ -123,6 +132,7 @@ static createMarketGood(builder:flatbuffers.Builder, good:number, offered:number
   MarketGood.addAcceptance(builder, acceptance);
   MarketGood.addLastPayment(builder, lastPayment);
   MarketGood.addLastPrice(builder, lastPrice);
+  MarketGood.addWorkshops(builder, workshops);
   return MarketGood.endMarketGood(builder);
 }
 }

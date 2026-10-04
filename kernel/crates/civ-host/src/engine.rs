@@ -450,6 +450,17 @@ impl Engine {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::markets::markets_response(&w.sim)),
             },
+            Request::GetFirms => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::firms::firms_response(&w.sim)),
+            },
+            Request::GetFirm { id } => match &self.world {
+                None => no_world(),
+                Some(w) => match frames::firms::firm_response(&w.sim, id) {
+                    Ok(payload) => Reply::Response(payload),
+                    Err(e) => Reply::Error(wire::ErrorCode::NotFound, e.to_string()),
+                },
+            },
             Request::ListSaves => {
                 match session::list_saves(&self.config.saves_root, &self.config.content) {
                     Ok(entries) => Reply::Response(protocol::save_list_response(&entries)),

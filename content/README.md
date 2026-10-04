@@ -258,7 +258,7 @@ decided by people at run time.
 
 | Field | Meaning |
 |---|---|
-| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a). |
+| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a). |
 | `resource` | For `gather` only: the land resource gathered (hunting, fishing, collecting firewood and cutting building materials are gathering too). A trip works until its load is full or its time runs out. |
 | `task` | For `farm` only: the field work, one of `prepare`, `sow`, `tend`, `reap`, `thresh`. |
 | `recipe` | For `make` only: the recipe worked, at home. |
@@ -333,6 +333,21 @@ A domain people get better at with practice (ADR-0006 §2).
 
   New decision reasons: *others want it* (making a tool to sell), *it costs less from a
   neighbour* and *nobody nearby offers it*.
+- `activity`: `behavior = "hire"` (slice J): a person works a session for a household's
+  workshop at its posted wage, making its goods at its owners' home with their tools, and is
+  paid for the time through the ledger. Which workshop, and whether the pay is worth the walk
+  and the effort, are decided at run time; `par` is the effort it costs, as for other work.
+- `people`: a `[firm]` table (slice J, ADR-0006 §5), every value a tuning value:
+
+  | Field | Meaning |
+  |---|---|
+  | `idle_close_days` | A workshop that sells nothing for this long is given up by its owners (a voluntary exit). |
+  | `book_entries` | Entries a workshop's books keep in full; its monthly statements are kept for its life. |
+  | `wage_share` | The share of what an hour's work adds for a workshop, at middling skill, that it first offers as a wage. |
+  | `wage_review_days`, `wage_max_change` | How often a workshop reviews its wage, and the most it raises it at a review while work goes untaken (research 08-10 §5.6: 14–30 days, 1–5 %). |
+  | `max_hire_hours` | The most hours of work a workshop hires between two of its weekly reviews. |
+
+  New decision reasons: *what the work is paid* and *nobody nearby is hiring*.
 
 ## Planned kinds
 

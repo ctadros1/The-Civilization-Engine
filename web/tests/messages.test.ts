@@ -131,6 +131,7 @@ describe("decoders", () => {
       buildingsRev: 0,
       pathsRev: 0,
       marketsRev: 0,
+      firmsRev: 0,
     });
   });
 
@@ -177,13 +178,13 @@ describe("decoders", () => {
     expect(query.bodyType()).toBe(W.QueryBody.GetMarkets);
 
     const b = new flatbuffers.Builder(1024);
-    const sickle = W.MarketGood.createMarketGood(b, 4, 2, 1, 1.5, 3, 12, 0.6, 0, 11.5);
+    const sickle = W.MarketGood.createMarketGood(b, 4, 2, 2, 1.5, 3, 12, 0.6, 0, 11.5, 1);
     const goods = W.MarketInfo.createGoodsVector(b, [sickle]);
     const ada = b.createString("Ada's household");
-    const offer = W.OfferInfo.createOfferInfo(b, 7n, ada, 4, 0, 12.25, 2);
+    const offer = W.OfferInfo.createOfferInfo(b, 7n, ada, 4, 0, 12.25, 2, false);
     const offers = W.MarketInfo.createOffersVector(b, [offer]);
     const text = b.createString("Ada's household sold 1 sickle to Bran's household for 12 kg of grain.");
-    const trade = W.TradeInfo.createTradeInfo(b, 1440n, 7n, 9n, 4, 1, 0, 12, false, text);
+    const trade = W.TradeInfo.createTradeInfo(b, 1440n, 7n, 9n, 4, 1, 0, 12, false, text, false);
     const recent = W.MarketInfo.createRecentVector(b, [trade]);
     W.MarketInfo.startHistoryVector(b, 1);
     W.MonthOfTrade.createMonthOfTrade(b, 14, 2, 1.5, 18, 4);
@@ -224,21 +225,169 @@ describe("decoders", () => {
       {
         good: 4,
         offered: 2,
-        sellers: 1,
+        sellers: 2,
         sold: 1.5,
         unmet: 3,
         unmetWorthH: 12,
         acceptance: expect.closeTo(0.6, 5),
         lastPayment: 0,
         lastPrice: 11.5,
+        workshops: 1,
       },
     ]);
     expect(m.offers).toEqual([
-      { household: 7, householdName: "Ada's household", good: 4, payment: 0, price: 12.25, units: 2 },
+      { household: 7, householdName: "Ada's household", good: 4, payment: 0, price: 12.25, units: 2, firm: false },
     ]);
-    expect(m.recent[0]).toMatchObject({ minute: 1440, seller: 7, buyer: 9, good: 4, sale: false });
+    expect(m.recent[0]).toMatchObject({
+      minute: 1440,
+      seller: 7,
+      buyer: 9,
+      good: 4,
+      sale: false,
+      sellerFirm: false,
+    });
     expect(m.recent[0]!.text).toContain("sold 1 sickle");
     expect(m.history).toEqual([{ month: 14, good: 4, trades: 2, units: 1.5, paidH: 18 }]);
+  });
+
+  it("builds workshop queries and decodes the workshops and a workshop's page", () => {
+    expect(W.Query.getRootAsQuery(bb(M.getFirms())).bodyType()).toBe(W.QueryBody.GetFirms);
+    const ask = W.Query.getRootAsQuery(bb(M.getFirm(77)));
+    expect(ask.bodyType()).toBe(W.QueryBody.GetFirm);
+    expect(Number((ask.body(new W.GetFirm()) as W.GetFirm).id())).toBe(77);
+
+    const brief = (b: flatbuffers.Builder) => {
+      const name = b.createString("Wren's sickle workshop");
+      const owner = b.createString("Wren's household");
+      const place = b.createString("Hearth");
+      const why = b.createString("it sold nothing for months");
+      const lines = W.FirmBrief.createLinesVector(b, [4]);
+      const record = b.createString("Made 3.0 sickles and sold a sickle.");
+      return W.FirmBrief.createFirmBrief(b, 77n, name, 7n, owner, 3n, place, 1440n, false, 90_000n, why, lines, 0, record);
+    };
+
+    let b = new flatbuffers.Builder(1024);
+    const list = W.Firms.createFirmsVector(b, [brief(b)]);
+    let response = W.Response.createResponse(b, W.ResponseBody.Firms, W.Firms.createFirms(b, 5n, list));
+    const firms = M.decodeResponse(finish(b, response));
+    expect(firms.kind).toBe("firms");
+    if (firms.kind !== "firms") return;
+    expect(firms.rev).toBe(5);
+    expect(firms.firms).toEqual([
+      {
+        id: 77,
+        name: "Wren's sickle workshop",
+        owner: 7,
+        ownerName: "Wren's household",
+        settlement: 3,
+        settlementName: "Hearth",
+        foundedMinute: 1440,
+        open: false,
+        closedMinute: 90_000,
+        closedWhy: "it sold nothing for months",
+        lines: [4],
+        hiringH: 0,
+        record: "Made 3.0 sickles and sold a sickle.",
+      },
+    ]);
+
+    b = new flatbuffers.Builder(2048);
+    const head = brief(b);
+    const founder = b.createString("Wren");
+    W.FirmInfo.startStoresVector(b, 1);
+    W.StoreLine.createStoreLine(b, 4, 2);
+    const stores = b.endVector();
+    const seller = b.createString("Wren's sickle workshop");
+    const offer = W.OfferInfo.createOfferInfo(b, 77n, seller, 4, 0, 12, 2, true);
+    const offers = W.FirmInfo.createOffersVector(b, [offer]);
+    const wageText = b.createString("Pays 0.90 kg of grain an hour; wants 6 more hours of work before its next review.");
+    const wage = W.WageInfo.createWageInfo(b, 12, 0, 0.9, 0.5, 8, 2, wageText);
+    const sold = b.createString("Sold a sickle to Bran's household.");
+    const entry = W.BookEntryInfo.createBookEntryInfo(b, 2000n, W.BookKind.Sold, 4, 1, 9n, sold);
+    const entries = W.FirmInfo.createEntriesVector(b, [entry]);
+    W.MonthStatement.startLinesVector(b, 2);
+    W.BookLine.createBookLine(b, 12, 0, W.BookKind.Paid);
+    W.BookLine.createBookLine(b, 1, 4, W.BookKind.Sold);
+    const lines = b.endVector();
+    const statement = W.MonthStatement.createMonthStatement(b, 14, lines, 3, 1.5, 7.5, 2.5, 6);
+    const months = W.FirmInfo.createMonthsVector(b, [statement]);
+    W.FirmInfo.startFirmInfo(b);
+    W.FirmInfo.addBrief(b, head);
+    W.FirmInfo.addFounder(b, 21n);
+    W.FirmInfo.addFounderName(b, founder);
+    W.FirmInfo.addOwnerSinceMinute(b, 1440n);
+    W.FirmInfo.addLastSaleMinute(b, 2000n);
+    W.FirmInfo.addStores(b, stores);
+    W.FirmInfo.addOffers(b, offers);
+    W.FirmInfo.addWage(b, wage);
+    W.FirmInfo.addEntries(b, entries);
+    W.FirmInfo.addMonths(b, months);
+    response = W.Response.createResponse(b, W.ResponseBody.FirmInfo, W.FirmInfo.endFirmInfo(b));
+    const page = M.decodeResponse(finish(b, response));
+    expect(page.kind).toBe("firm");
+    if (page.kind !== "firm") return;
+    const f = page.firm;
+    expect(f.brief.name).toBe("Wren's sickle workshop");
+    expect([f.founder, f.founderName, f.ownerSinceMinute, f.lastSaleMinute]).toEqual([21, "Wren", 1440, 2000]);
+    expect(f.stores).toEqual([{ good: 4, kg: 2 }]);
+    expect(f.offers).toEqual([
+      { household: 77, householdName: "Wren's sickle workshop", good: 4, payment: 0, price: 12, units: 2, firm: true },
+    ]);
+    expect(f.wage).toMatchObject({ activity: 12, pay: 0, hours: 8, taken: 2 });
+    expect(f.wage?.perHour).toBeCloseTo(0.9, 5);
+    expect(f.wage?.text).toContain("Pays 0.90 kg of grain");
+    expect(f.entries).toEqual([
+      { minute: 2000, kind: "sold", good: 4, amount: 1, other: 9, text: "Sold a sickle to Bran's household." },
+    ]);
+    expect(f.months).toEqual([
+      {
+        month: 14,
+        lines: [
+          { kind: "sold", good: 4, amount: 1 },
+          { kind: "paid", good: 0, amount: 12 },
+        ],
+        ownerH: 3,
+        hiredH: 1.5,
+        incomeH: 7.5,
+        costsH: 2.5,
+        stockH: 6,
+      },
+    ]);
+
+    // A workshop that never sold says so; one with no wage has none.
+    b = new flatbuffers.Builder(512);
+    const bare = brief(b);
+    W.FirmInfo.startFirmInfo(b);
+    W.FirmInfo.addBrief(b, bare);
+    response = W.Response.createResponse(b, W.ResponseBody.FirmInfo, W.FirmInfo.endFirmInfo(b));
+    const fresh = M.decodeResponse(finish(b, response));
+    if (fresh.kind !== "firm") throw new Error("expected a workshop");
+    expect([fresh.firm.lastSaleMinute, fresh.firm.wage, fresh.firm.entries]).toEqual([-1, null, []]);
+  });
+
+  it("decodes chronicle links to people, settlements and workshops", () => {
+    const b = new flatbuffers.Builder(512);
+    const span = (kind: W.SpanKind, text: string, id: bigint) =>
+      W.Span.createSpan(b, kind, b.createString(text), id);
+    const spans = W.ChronicleEntry.createSpansVector(b, [
+      span(W.SpanKind.Person, "Wren", 21n),
+      span(W.SpanKind.Text, " set up ", 0n),
+      span(W.SpanKind.Firm, "Wren's sickle workshop", 77n),
+    ]);
+    const entry = W.ChronicleEntry.createChronicleEntry(b, 4n, 1440n, spans);
+    const entries = W.Chronicle.createEntriesVector(b, [entry]);
+    const response = W.Response.createResponse(
+      b,
+      W.ResponseBody.Chronicle,
+      W.Chronicle.createChronicle(b, entries, 4n),
+    );
+    const body = M.decodeResponse(finish(b, response));
+    if (body.kind !== "chronicle") throw new Error("expected the chronicle");
+    expect(body.entries[0]!.spans.map((x) => [x.kind, x.id])).toEqual([
+      ["person", 21],
+      ["text", 0],
+      ["firm", 77],
+    ]);
   });
 
   it("builds a buildings query and decodes the buildings", () => {

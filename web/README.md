@@ -1,6 +1,6 @@
 # Web observer
 
-The web observer (the M0 shell, M1's people, families, fields, huts, trails and god tool, and M3a's tools, skills and market panel): TypeScript, Vite and PixiJS 8,
+The web observer (the M0 shell, M1's people, families, fields, huts, trails and god tool, and M3a's tools, skills, market panel and workshops panel): TypeScript, Vite and PixiJS 8,
 without a UI framework. `civ-host serve` serves
 the built files from `web/dist` and the observer socket at `/ws` from the same origin.
 
@@ -26,9 +26,10 @@ another port. `?host=127.0.0.1:7421` in the page URL connects to a host directly
 | `src/people.ts`, `src/fields.ts`, `src/buildings.ts`, `src/paths.ts` | How people, fields, huts and paths look on the map and what lies under a point: pure functions, unit tested. Huts are drawn from the shape the kernel expands and trails from the lines it traces, never designed here. |
 | `src/format.ts` | Numbers, distances and simulated times in words. |
 | `src/market.ts` | What the market panel says about amounts, terms, payments and the price history: pure functions, unit tested. Terms, trades and money come from the kernel; the panel only words and draws them. |
+| `src/firm.ts` | What the workshops panel says about a workshop's goods, holdings, monthly statements and hours: pure functions, unit tested. Records, wages and book lines come in words from the kernel. |
 | `src/ui.ts`, `src/state.ts`, `src/main.ts` | Panels, dialogs, the store, and wiring. |
 | `src/schema/generated/` | FlatBuffers TypeScript from `kernel/crates/civ-schema/schema/tce_wire.fbs`. Never edit; run `tools/gen-schema.sh`. |
-| `e2e/` | Playwright specs; they start their own `civ-host` against a temporary saves folder. |
+| `e2e/` | Playwright specs; they start their own `civ-host` against a temporary saves folder. The workshops spec builds its world with `cargo run --release -p civ-sim --example workshop_world`, so it needs cargo. |
 
 ## The market panel
 
@@ -37,7 +38,17 @@ Each settlement's market (M3a slice I), fetched with `GetMarkets` when the snaps
 kernel's summary; per good, what is offered and by how many households, the lowest terms asked in
 each payment good (by the tool, or per 10 kg), what sold lately, what was wanted with none on
 offer, its share of payments, the last terms, and a twelve-month line of what a unit was worth to
-its sellers in hours of their own work; every household's terms; and the latest trades in words.
+its sellers in hours of their own work; every household's and workshop's terms; and the latest trades in words.
+
+## The workshops panel
+
+Every household workshop (M3a slice J), fetched with `GetFirms` when the snapshot's `firms_rev`
+changes (at most once a second): open ones first, then the closed with why they closed; what each
+makes, who owns it, its record in words and the hours of work it would hire. A workshop's name
+opens its page (`GetFirm`, read again as it changes): who set it up and since when its owners
+have had it, its last sale, what it holds, its terms, its wage, its life in hours, a table of its
+last twelve monthly statements and the latest lines of its books. Workshop names in the
+chronicle and in the market's list of offers open the same page.
 
 ## Controls
 
@@ -59,8 +70,8 @@ from this machine.
 ## Test hooks
 
 `window.__TCE__` (mirroring Genesis's `window.__OBS__`) exposes plain-data state for tests and
-debugging: `state()` (with a summary of each market), `map()`, `pointerAt(x, y)`, `panBy(dx, dy)`, `zoomBy(f)`, `fit()`,
-`peopleOnScreen()`, `briefs()` (each person's id, sex and age) and `select(id)`.
+debugging: `state()` (with a summary of each market and workshop, and the workshop page open), `map()`, `pointerAt(x, y)`, `panBy(dx, dy)`, `zoomBy(f)`, `fit()`,
+`peopleOnScreen()`, `briefs()` (each person's id, sex and age), `select(id)` and `openFirm(id)`.
 
 ## Recording the demo
 

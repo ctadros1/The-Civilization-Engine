@@ -182,8 +182,7 @@ pub fn chronicle_response(sim: &Sim, after_seq: u64, limit: u32) -> Vec<u8> {
                         Span::Settlement(id, n) => {
                             (wire::SpanKind::Settlement, n.as_str(), id.get())
                         }
-                        // Firms are named; their pages come with the firm panel.
-                        Span::Firm(_, n) => (wire::SpanKind::Text, n.as_str(), 0),
+                        Span::Firm(id, n) => (wire::SpanKind::Firm, n.as_str(), id.get()),
                     };
                     let text = fbb.create_string(text);
                     wire::Span::create(

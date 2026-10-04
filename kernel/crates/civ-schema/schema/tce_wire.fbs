@@ -241,6 +241,10 @@ table Snapshot {
   // (0 = nothing offered or traded yet). Fetch the markets with GetMarkets when it differs from
   // the revision last fetched.
   markets_rev: ulong (id: 12);
+  // M3a slice J: changes whenever a workshop opens, closes, makes, sells, pays or is reviewed
+  // (0 = no workshop yet). Fetch the workshops with GetFirms, and a workshop's page with GetFirm,
+  // when it differs from the revision last fetched.
+  firms_rev: ulong (id: 13);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -358,7 +362,15 @@ table GetPaths {}
 // found no seller, and the money if there is one (M3a slice I).
 table GetMarkets {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets }
+// Every workshop, in brief (M3a slice J).
+table GetFirms {}
+
+// One workshop's page: what it holds, its terms, its wage and its books (M3a slice J).
+table GetFirm {
+  id: ulong (id: 0);
+}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm }
 
 table Query {
   body: QueryBody (id: 1);
@@ -450,9 +462,10 @@ table Trips {
   trips: [TripInfo] (id: 0);
 }
 
-enum SpanKind : ubyte { Text = 0, Person = 1, Settlement = 2 }
+// Firm: M3a slice J, a link to a workshop's page.
+enum SpanKind : ubyte { Text = 0, Person = 1, Settlement = 2, Firm = 3 }
 
-// A piece of kernel-rendered text: plain, or a link to a person or settlement.
+// A piece of kernel-rendered text: plain, or a link to a person, settlement or workshop.
 table Span {
   kind: SpanKind (id: 0);
   text: string (id: 1);
@@ -690,6 +703,9 @@ table OfferInfo {
   // Units of the payment asked for a unit of the good, and units of the good offered.
   price: float (id: 4);
   units: float (id: 5);
+  // M3a slice J: a workshop's terms: `household` is the workshop's id and `household_name` its
+  // name ("Wren's sickle workshop").
+  firm: bool (id: 6);
 }
 
 // A trade a settlement's market remembers (M3a slice I).
@@ -707,6 +723,8 @@ table TradeInfo {
   // Rendered by the kernel: "Ada's household sold a sickle to Bran's household for 12 kg of
   // grain."
   text: string (id: 8);
+  // M3a slice J: the seller was a workshop (`seller` is its id).
+  seller_firm: bool (id: 9);
 }
 
 // One good in a settlement's market (M3a slice I). Tallies fade by half every
@@ -714,7 +732,7 @@ table TradeInfo {
 table MarketGood {
   // Index into Welcome.goods.
   good: ushort (id: 0);
-  // Units offered, and by how many households.
+  // Units offered, and by how many sellers: households and, from M3a slice J, workshops.
   offered: float (id: 1);
   sellers: ushort (id: 2);
   sold: float (id: 3);
@@ -728,6 +746,8 @@ table MarketGood {
   // not sold) and how much of that for a unit.
   last_payment: int = -1 (id: 7);
   last_price: float (id: 8);
+  // M3a slice J: how many of the sellers are workshops.
+  workshops: ushort (id: 9);
 }
 
 // A month of trade in one good: a line of the price history (M3a slice I).
@@ -768,7 +788,116 @@ table Markets {
   markets: [MarketInfo] (id: 1);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets }
+// What a line of a workshop's books records (M3a slice J): the kernel's codes.
+enum BookKind : ubyte { Unknown = 0, PutIn = 1, Drawn = 2, Made = 3, Used = 4, Sold = 5, Paid = 6, Wages = 7, Lost = 8 }
+
+// A workshop in brief (M3a slice J). In M3a every firm is a household's workshop: the household
+// owns it and works for it unpaid, and it keeps its own stores and books.
+table FirmBrief {
+  id: ulong (id: 0);
+  // "Wren's sickle workshop".
+  name: string (id: 1);
+  // The household that owns it.
+  owner: ulong (id: 2);
+  owner_name: string (id: 3);
+  settlement: ulong (id: 4);
+  settlement_name: string (id: 5);
+  founded_minute: long (id: 6);
+  open: bool (id: 7);
+  // When it closed, and why, rendered by the kernel: "it sold nothing for months" (closed
+  // workshops only).
+  closed_minute: long (id: 8);
+  closed_why: string (id: 9);
+  // What it makes to sell: indexes into Welcome.goods.
+  lines: [ushort] (id: 10);
+  // Hours of work it would hire before its next review (0 = it hires no one now).
+  hiring_h: float (id: 11);
+  // What it made and sold in its life, rendered by the kernel: "Made 3 sickles and sold 2."
+  record: string (id: 12);
+}
+
+table Firms {
+  // The snapshot revision these workshops are at.
+  rev: ulong (id: 0);
+  // Open workshops first, then closed ones; the newest first within each.
+  firms: [FirmBrief] (id: 1);
+}
+
+// What a workshop pays for work (M3a slice J).
+table WageInfo {
+  // The work, an index into Welcome.activities; what it pays in, an index into Welcome.goods;
+  // and how much of that for an hour's work.
+  activity: ushort (id: 0);
+  pay: ushort (id: 1);
+  per_hour: float (id: 2);
+  // What an hour's pay is worth to its owners, hours of their own work.
+  hour_h: float (id: 3);
+  // Hours of work it wants before its next review, and the hours taken of those.
+  hours: float (id: 4);
+  taken: float (id: 5);
+  // Rendered by the kernel: "Pays 0.9 kg of grain an hour; wants 6 more hours of work this week."
+  text: string (id: 6);
+}
+
+// A line of a workshop's books (M3a slice J).
+table BookEntryInfo {
+  minute: long (id: 0);
+  kind: BookKind (id: 1);
+  // Index into Welcome.goods, and how much of it, in its unit.
+  good: ushort (id: 2);
+  amount: float (id: 3);
+  // The household on the other side: the buyer, the owners, the worker's (0 = none).
+  other: ulong (id: 4);
+  // Rendered by the kernel: "Sold a sickle to Bran's household."
+  text: string (id: 5);
+}
+
+// How much of a good a workshop's books moved in a month, by kind.
+struct BookLine {
+  amount: float;
+  // Index into Welcome.goods.
+  good: ushort;
+  kind: BookKind;
+}
+
+// A month of a workshop's books (M3a slice J). Worth is in hours of its owners' own work: what
+// the goods would have cost them to get themselves (a settlement need not have a money).
+table MonthStatement {
+  // Months since the calendar's origin: (year - 1) * 12 + month - 1.
+  month: uint (id: 0);
+  lines: [BookLine] (id: 1);
+  // Hours worked for it by its owners' household, and by people it hired.
+  owner_h: float (id: 2);
+  hired_h: float (id: 3);
+  // What its payments were worth, and its inputs and wages.
+  income_h: float (id: 4);
+  costs_h: float (id: 5);
+  // Its stock as the month ended (as it stands, for the month under way).
+  stock_h: float (id: 6);
+}
+
+// A workshop's page (M3a slice J).
+table FirmInfo {
+  brief: FirmBrief (id: 0);
+  // Who set it up, and since when its owners have had it.
+  founder: ulong (id: 1);
+  founder_name: string (id: 2);
+  owner_since_minute: long (id: 3);
+  // When it last sold anything (-1 = never).
+  last_sale_minute: long = -1 (id: 4);
+  // What it holds: its stock and what it was paid.
+  stores: [StoreLine] (id: 5);
+  // Its posted terms (`firm` set, `household` its id).
+  offers: [OfferInfo] (id: 6);
+  // What it pays for work (absent if it never hired).
+  wage: WageInfo (id: 7);
+  // The latest lines of its books, newest first.
+  entries: [BookEntryInfo] (id: 8);
+  // Every month of its life, oldest first.
+  months: [MonthStatement] (id: 9);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo }
 
 table Response {
   body: ResponseBody (id: 1);

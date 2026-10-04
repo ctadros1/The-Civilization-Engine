@@ -32,12 +32,20 @@ import {
   worthText,
 } from "./market.js";
 import { FIELD_LEGEND } from "./fields.js";
+import {
+  ENTRIES_SHOWN,
+  holdingsText,
+  lifeText,
+  linesText,
+  statementRows,
+} from "./firm.js";
 import { PATH_LEGEND } from "./paths.js";
 import { HostError } from "./net/client.js";
 import type {
   ChronicleEntry,
   Decision,
   EventItem,
+  FirmBrief,
   MarketInfo,
   PersonInfo,
   SaveEntry,
@@ -46,7 +54,7 @@ import type {
   WorldInfo,
 } from "./net/messages.js";
 import { activityColour, cssColour } from "./people.js";
-import type { AppState, Selection, Store } from "./state.js";
+import type { AppState, FirmPage, Selection, Store } from "./state.js";
 
 export interface Actions {
   newWorld(args: {
@@ -69,6 +77,8 @@ export interface Actions {
   focusPerson(id: number): void;
   /** Centre the map on a settlement. */
   focusSettlement(id: number): void;
+  /** Open a workshop's page in the workshops panel (null goes back to the list). */
+  openFirm(id: number | null): void;
   /** Run ahead by `minutes` of simulated time. */
   runAhead(minutes: number): Promise<void>;
   /** Arm or disarm the map tool that sends a family where the map is clicked. */
@@ -904,6 +914,13 @@ export function bindUi(store: Store, actions: Actions): void {
     peopleBody.replaceChildren(...nodes);
   };
 
+  const firmsPanel = $("firms-panel");
+  /** Opens a workshop's page and brings the workshops panel into view. */
+  const showFirm = (id: number) => {
+    actions.openFirm(id);
+    firmsPanel.scrollIntoView({ block: "nearest" });
+  };
+
   const chronicleList = $("chronicle");
   let renderedChronicle: ChronicleEntry[] | null = null;
   const renderChronicle = (state: AppState) => {
@@ -920,6 +937,8 @@ export function bindUi(store: Store, actions: Actions): void {
               text.append(link(span.text, () => actions.focusPerson(span.id)));
             } else if (span.kind === "settlement") {
               text.append(link(span.text, () => actions.focusSettlement(span.id)));
+            } else if (span.kind === "firm") {
+              text.append(link(span.text, () => showFirm(span.id)));
             } else {
               text.append(span.text);
             }
@@ -996,9 +1015,7 @@ export function bindUi(store: Store, actions: Actions): void {
     for (const g of m.goods) {
       const facts: string[] = [];
       if (g.sellers > 0) {
-        facts.push(
-          `${amountText(goods[g.good], g.offered)} offered by ${g.sellers} household${g.sellers === 1 ? "" : "s"}`,
-        );
+        facts.push(`${amountText(goods[g.good], g.offered)} offered by ${sellersText(g.sellers, g.workshops)}`);
       }
       if (g.sold >= 0.05) facts.push(`${amountText(goods[g.good], g.sold)} sold lately`);
       if (g.unmet >= 0.05) {
@@ -1031,12 +1048,11 @@ export function bindUi(store: Store, actions: Actions): void {
     if (groups.length > 0) {
       const list = el("ul", { className: "offers" });
       for (const o of groups) {
+        const what = `: ${amountText(goods[o.good], o.units)} at ${o.terms}`;
         list.append(
-          el(
-            "li",
-            {},
-            `${o.householdName}: ${amountText(goods[o.good], o.units)} for ${o.terms}`,
-          ),
+          o.firm
+            ? el("li", {}, link(o.householdName, () => showFirm(o.household)), what)
+            : el("li", {}, `${o.householdName}${what}`),
         );
       }
       nodes.push(
@@ -1071,6 +1087,14 @@ export function bindUi(store: Store, actions: Actions): void {
     );
     return el("div", { className: "market" }, ...nodes);
   };
+  /** "2 households", "1 household and a workshop", "2 workshops". */
+  const sellersText = (sellers: number, workshops: number) => {
+    const households = sellers - workshops;
+    const parts: string[] = [];
+    if (households > 0) parts.push(`${households} household${households === 1 ? "" : "s"}`);
+    if (workshops > 0) parts.push(workshops === 1 ? "a workshop" : `${workshops} workshops`);
+    return parts.join(" and ");
+  };
   const renderMarkets = (state: AppState) => {
     const world = state.snapshot?.world ?? null;
     const clock = state.snapshot?.clock ?? null;
@@ -1104,6 +1128,180 @@ export function bindUi(store: Store, actions: Actions): void {
       nodes.push(el("p", { className: "note", text: `Not up to date: ${state.marketsError}` }));
     }
     marketBody.replaceChildren(...nodes);
+  };
+
+  // ---- Workshops ------------------------------------------------------------------------
+  const firmsBody = $("firms-body");
+  let firmsKey: unknown[] = [];
+  const firmBadge = (open: boolean) =>
+    el("span", { className: `badge ${open ? "open" : "closed"}`, text: open ? "open" : "closed" });
+  const firmItem = (state: AppState, f: FirmBrief): Node => {
+    const goods = state.welcome?.goods ?? [];
+    const facts = [`makes ${linesText(goods, f.lines)}`, `owned by ${f.ownerName}`];
+    if (f.settlementName) facts.push(f.settlementName);
+    facts.push(
+      f.open
+        ? `since ${formatSimMinute(f.foundedMinute)}`
+        : `closed ${formatSimMinute(f.closedMinute)}`,
+    );
+    const item = el(
+      "li",
+      {},
+      el("p", { className: "firm-head" }, link(f.name, () => actions.openFirm(f.id)), firmBadge(f.open)),
+      el("p", { className: "since", text: facts.join(" · ") }),
+      el("p", { className: "record", text: f.record }),
+    );
+    if (f.open && f.hiringH >= 0.5) {
+      item.append(
+        el("p", { className: "hiring", text: `Hiring: wants ${f.hiringH.toFixed(0)} h of work.` }),
+      );
+    }
+    if (!f.open && f.closedWhy) {
+      item.append(el("p", { className: "aside", text: `Given up: ${f.closedWhy}.` }));
+    }
+    return item;
+  };
+  const firmPage = (state: AppState, page: FirmPage): Node[] => {
+    const back = link("All workshops", () => actions.openFirm(null));
+    back.classList.add("back");
+    const info = page.info;
+    if (!info) {
+      return [
+        back,
+        page.error
+          ? el("p", { className: "form-error", text: `The workshop could not be read: ${page.error}` })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      ];
+    }
+    const welcome = state.welcome;
+    const goods = welcome?.goods ?? [];
+    const f = info.brief;
+    const nodes: Node[] = [
+      back,
+      el("h3", { className: "firm-head" }, f.name, firmBadge(f.open)),
+      el("p", { className: "record", text: f.record }),
+    ];
+    const facts: [string, string][] = [
+      ["Makes", linesText(goods, f.lines)],
+      ["Owned by", `${f.ownerName}, since ${formatSimMinute(info.ownerSinceMinute)}`],
+      [
+        "Set up",
+        `by ${info.founderName} on ${formatSimMinute(f.foundedMinute)}${f.settlementName ? ` in ${f.settlementName}` : ""}`,
+      ],
+    ];
+    if (!f.open) {
+      facts.push(["Closed", `${formatSimMinute(f.closedMinute)}: ${f.closedWhy || "no reason recorded"}`]);
+    }
+    facts.push([
+      "Last sale",
+      info.lastSaleMinute >= 0 ? formatSimMinute(info.lastSaleMinute) : "none yet",
+    ]);
+    facts.push(["Holds", holdingsText(goods, info.stores)]);
+    if (info.offers.length > 0) {
+      const terms = offerGroups(goods, info.offers)
+        .map((o) => `${amountText(goods[o.good], o.units)} at ${o.terms}`)
+        .join("; ");
+      facts.push(["Asking", terms]);
+    }
+    if (info.wage) {
+      const work = welcome?.activities[info.wage.activity]?.name.toLowerCase() ?? "its work";
+      facts.push([
+        "Wage",
+        `${info.wage.text} The work is to ${work}; an hour's pay is worth ${info.wage.hourH.toFixed(1)} h of its owners' own work.`,
+      ]);
+    }
+    const list = el("dl", { className: "facts" });
+    for (const [k, v] of facts) list.append(el("dt", { text: k }), el("dd", { text: v }));
+    nodes.push(list);
+    if (info.months.length > 0) {
+      nodes.push(el("p", { className: "aside", text: lifeText(info.months) }));
+      const head = el(
+        "tr",
+        {},
+        ...["Month", "Made", "Sold", "Worked", "Paid", "Costs", "Net", "Stock"].map((h) =>
+          el("th", { text: h }),
+        ),
+      );
+      const rows = statementRows(goods, f.lines, info.months).map((r) =>
+        el(
+          "tr",
+          {},
+          ...[r.label, r.made, r.sold, r.worked, r.income, r.costs, r.margin, r.stock].map((v) =>
+            el("td", { text: v }),
+          ),
+        ),
+      );
+      nodes.push(
+        el("h4", { text: "Monthly statements" }),
+        el(
+          "div",
+          { className: "table-scroll" },
+          el("table", { className: "statements" }, el("thead", {}, head), el("tbody", {}, ...rows)),
+        ),
+        el("p", {
+          className: "aside",
+          text: "Worked: hours of work for it, and in brackets those hired. Paid, costs (its inputs and wages), net and stock: worth in hours of its owners' own work, what the goods would have cost them to get themselves.",
+        }),
+      );
+    }
+    if (info.entries.length > 0) {
+      const books = el("ol", { className: "books" });
+      for (const e of info.entries.slice(0, ENTRIES_SHOWN)) {
+        books.append(
+          el(
+            "li",
+            {},
+            el("span", { className: "when", text: formatSimMinute(e.minute) }),
+            el("span", { className: "text", text: e.text }),
+          ),
+        );
+      }
+      nodes.push(el("h4", { text: "Latest in its books" }), books);
+    }
+    return nodes;
+  };
+  const renderFirms = (state: AppState) => {
+    const world = state.snapshot?.world ?? null;
+    const key = [world?.worldId ?? null, state.firms, state.firmsError, state.firm, state.welcome];
+    if (key.length === firmsKey.length && key.every((k, i) => k === firmsKey[i])) return;
+    firmsKey = key;
+    if (!world) {
+      firmsBody.replaceChildren(el("p", { className: "empty", text: "No world loaded." }));
+      return;
+    }
+    if (state.firm) {
+      firmsBody.replaceChildren(...firmPage(state, state.firm));
+      return;
+    }
+    if (state.firms === null) {
+      firmsBody.replaceChildren(
+        state.firmsError
+          ? el("p", { className: "form-error", text: `The workshops could not be read: ${state.firmsError}` })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      );
+      return;
+    }
+    if (state.firms.length === 0) {
+      firmsBody.replaceChildren(
+        el("p", {
+          className: "empty",
+          text: "No workshop yet. A household sets one up when it makes a tool to sell: one its neighbours want and nobody offers, or one that sold lately and nobody offers now.",
+        }),
+      );
+      return;
+    }
+    const open = state.firms.filter((f) => f.open).length;
+    const nodes: Node[] = [
+      el("p", {
+        className: "aside",
+        text: `${open} open, ${state.firms.length - open} closed.`,
+      }),
+      el("ul", { className: "firms" }, ...state.firms.map((f) => firmItem(state, f))),
+    ];
+    if (state.firmsError) {
+      nodes.push(el("p", { className: "note", text: `Not up to date: ${state.firmsError}` }));
+    }
+    firmsBody.replaceChildren(...nodes);
   };
 
   const renderTask = (state: AppState) => {
@@ -1177,6 +1375,7 @@ export function bindUi(store: Store, actions: Actions): void {
     renderPeople(state);
     renderChronicle(state);
     renderMarkets(state);
+    renderFirms(state);
     renderWorld(state);
     renderEvents(state);
     renderTask(state);

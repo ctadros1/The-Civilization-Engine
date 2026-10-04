@@ -29,7 +29,7 @@ function good(name: string, purpose: string): GoodInfo {
 const GOODS = [good("Grain", "food"), good("Flour", "food"), good("Sickle", "tool"), good("Hoe", "tool")];
 
 function offer(household: number, good: number, payment: number, price: number, units = 2): OfferInfo {
-  return { household, householdName: `H${household}'s household`, good, payment, price, units };
+  return { household, householdName: `H${household}'s household`, good, payment, price, units, firm: false };
 }
 
 describe("market words", () => {
@@ -55,10 +55,11 @@ describe("market words", () => {
   it("groups each household's terms for a good", () => {
     const offers = [offer(2, 2, 3, 0.8, 1.5), offer(1, 2, 0, 14), offer(2, 2, 0, 12, 1.5)];
     expect(offerGroups(GOODS, offers)).toEqual([
-      { household: 1, householdName: "H1's household", good: 2, units: 2, terms: "14 kg grain each" },
+      { household: 1, householdName: "H1's household", firm: false, good: 2, units: 2, terms: "14 kg grain each" },
       {
         household: 2,
         householdName: "H2's household",
+        firm: false,
         good: 2,
         units: 1.5,
         terms: "12 kg grain each or 0.8 hoes each",

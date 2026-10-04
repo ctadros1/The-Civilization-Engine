@@ -6,6 +6,8 @@ import type { ConnectionStatus } from "./net/client.js";
 import type {
   ChronicleEntry,
   EventItem,
+  FirmBrief,
+  FirmInfo,
   MarketInfo,
   PersonInfo,
   Snapshot,
@@ -21,6 +23,13 @@ export interface Notice {
 export interface Selection {
   id: number;
   info: PersonInfo | null;
+  error: string | null;
+}
+
+/** The workshop whose page is open, and what the host last said about it. */
+export interface FirmPage {
+  id: number;
+  info: FirmInfo | null;
   error: string | null;
 }
 
@@ -49,6 +58,12 @@ export interface AppState {
   markets: MarketInfo[] | null;
   /** Why the markets could not be read. */
   marketsError: string | null;
+  /** The workshops of the world on show, in brief (null = not read yet). */
+  firms: FirmBrief[] | null;
+  /** Why the workshops could not be read. */
+  firmsError: string | null;
+  /** The workshop whose page is open. */
+  firm: FirmPage | null;
 }
 
 export const MAX_EVENTS = 300;
@@ -69,6 +84,9 @@ export function initialState(): AppState {
     chronicle: [],
     markets: null,
     marketsError: null,
+    firms: null,
+    firmsError: null,
+    firm: null,
   };
 }
 

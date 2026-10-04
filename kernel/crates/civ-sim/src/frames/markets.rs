@@ -5,36 +5,71 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-use civ_agents::Household;
 use civ_agents::ledger::{Channel, Trade};
-use civ_agents::market::Market;
+use civ_agents::market::{Market, Offer};
 use civ_agents::params::GoodDef;
 use civ_core::PermanentId;
 use civ_schema::flatbuffers::FlatBufferBuilder;
 use civ_schema::wire;
 
-use super::people::household_name;
+use super::people::{firm_name, household_name};
 use super::response;
 use crate::Sim;
 
-/// A number that changes whenever a household posts terms, a trade is made or a want goes unmet
-/// (0 = nothing offered and no market yet): a hash of every offer and of each market's tallies.
-pub fn markets_rev(sim: &Sim) -> u64 {
+/// A household or workshop that offers goods, with its terms.
+struct Seller<'a> {
+    id: PermanentId,
+    settlement: Option<PermanentId>,
+    firm: bool,
+    offers: &'a [Offer],
+}
+
+/// Every household and open workshop that offers anything, by id.
+fn sellers(sim: &Sim) -> Vec<Seller<'_>> {
     let pop = &sim.people;
-    let mut offering: Vec<&Household> = pop
+    let mut out: Vec<Seller<'_>> = pop
         .households
         .iter()
-        .map(|(_, h)| h)
-        .filter(|h| !h.offers.is_empty())
+        .map(|(_, h)| Seller {
+            id: h.id,
+            settlement: h.settlement,
+            firm: false,
+            offers: &h.offers,
+        })
+        .chain(pop.firms.iter().filter(|f| f.is_open()).map(|f| Seller {
+            id: f.id,
+            settlement: f.settlement,
+            firm: true,
+            offers: &f.offers,
+        }))
+        .filter(|s| !s.offers.is_empty())
         .collect();
+    out.sort_by_key(|s| s.id);
+    out
+}
+
+/// A seller's name: "Ada's household", "Wren's sickle workshop".
+fn seller_name(sim: &Sim, id: PermanentId) -> String {
+    if sim.people.firm(id).is_some() {
+        firm_name(sim, id)
+    } else {
+        household_name(sim, id)
+    }
+}
+
+/// A number that changes whenever a household or workshop posts terms, a trade is made or a want
+/// goes unmet (0 = nothing offered and no market yet): a hash of every offer and of each market's
+/// tallies.
+pub fn markets_rev(sim: &Sim) -> u64 {
+    let pop = &sim.people;
+    let offering = sellers(sim);
     if offering.is_empty() && pop.markets.is_empty() {
         return 0;
     }
-    offering.sort_by_key(|h| h.id);
     let mut hasher = DefaultHasher::new();
-    for h in offering {
-        h.id.get().hash(&mut hasher);
-        for o in &h.offers {
+    for s in offering {
+        s.id.get().hash(&mut hasher);
+        for o in s.offers {
             (o.good, o.payment, o.price.to_bits(), o.units.to_bits()).hash(&mut hasher);
         }
     }
@@ -56,7 +91,8 @@ pub fn markets_rev(sim: &Sim) -> u64 {
     hasher.finish() | 1
 }
 
-/// An amount of a good in running text: "a sickle", "1.5 sickles", "12 kg of grain".
+/// An amount of a good in running text: "a sickle", "1.5 sickles", "12 kg of grain", "0.35 kg
+/// of grain".
 pub fn amount(good: &GoodDef, units: f64) -> String {
     let name = good.name.to_lowercase();
     if good.tool.is_some() {
@@ -70,6 +106,8 @@ pub fn amount(good: &GoodDef, units: f64) -> String {
         } else {
             format!("{units:.1} {name}s")
         }
+    } else if units < 1.0 {
+        format!("{units:.2} kg of {name}")
     } else if units < 10.0 {
         format!("{units:.1} kg of {name}")
     } else {
@@ -77,7 +115,8 @@ pub fn amount(good: &GoodDef, units: f64) -> String {
     }
 }
 
-fn capitalized(s: &str) -> String {
+/// `s` with its first letter in capitals.
+pub fn capitalized(s: &str) -> String {
     let mut chars = s.chars();
     match chars.next() {
         Some(c) => c.to_uppercase().chain(chars).collect(),
@@ -85,7 +124,8 @@ fn capitalized(s: &str) -> String {
     }
 }
 
-/// A trade in words: "Ada's household sold a sickle to Bran's household for 12 kg of grain."
+/// A trade in words: "Ada's household sold a sickle to Bran's household for 12 kg of grain.",
+/// "Wren's sickle workshop sold a sickle to …".
 pub fn trade_text(sim: &Sim, t: &Trade) -> String {
     let goods = &sim.rules.catalog.goods;
     let of = |g: u16, units: f32| {
@@ -95,7 +135,7 @@ pub fn trade_text(sim: &Sim, t: &Trade) -> String {
     };
     format!(
         "{} sold {} to {} for {}.",
-        capitalized(&household_name(sim, t.seller)),
+        capitalized(&seller_name(sim, t.seller)),
         of(t.good, t.units),
         household_name(sim, t.buyer),
         of(t.payment, t.paid)
@@ -141,15 +181,11 @@ pub fn summary(sim: &Sim, market: Option<&Market>) -> String {
     }
 }
 
-/// The settlements with a market or a household offering anything, by id.
-fn trading_settlements(sim: &Sim) -> Vec<PermanentId> {
-    let mut out: Vec<PermanentId> = sim
-        .people
-        .households
+/// The settlements with a market or a household or workshop offering anything, by id.
+fn trading_settlements(sim: &Sim, sellers: &[Seller<'_>]) -> Vec<PermanentId> {
+    let mut out: Vec<PermanentId> = sellers
         .iter()
-        .map(|(_, h)| h)
-        .filter(|h| !h.offers.is_empty())
-        .filter_map(|h| h.settlement)
+        .filter_map(|s| s.settlement)
         .chain(sim.people.markets.iter().map(|m| m.settlement))
         .collect();
     out.sort_unstable();
@@ -162,24 +198,21 @@ pub fn markets_response(sim: &Sim) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let goods = &sim.rules.catalog.goods;
     let mp = &sim.rules.people.market;
-    let list: Vec<_> = trading_settlements(sim)
+    let everyone = sellers(sim);
+    let list: Vec<_> = trading_settlements(sim, &everyone)
         .into_iter()
         .map(|settlement| {
             let market = sim.people.market(settlement);
-            let mut sellers: Vec<&Household> = sim
-                .people
-                .households
+            let sellers: Vec<&Seller<'_>> = everyone
                 .iter()
-                .map(|(_, h)| h)
-                .filter(|h| h.settlement == Some(settlement) && !h.offers.is_empty())
+                .filter(|s| s.settlement == Some(settlement))
                 .collect();
-            sellers.sort_by_key(|h| h.id);
-            // Per good: units offered (a household offers the same units for each payment it
-            // takes) and by how many households.
-            let mut offered = vec![(0.0f64, 0u16); goods.len()];
-            for h in &sellers {
+            // Per good: units offered (a seller offers the same units for each payment it
+            // takes), by how many sellers, and how many of those are workshops.
+            let mut offered = vec![(0.0f64, 0u16, 0u16); goods.len()];
+            for s in &sellers {
                 let mut most = vec![0.0f64; goods.len()];
-                for o in &h.offers {
+                for o in s.offers {
                     if let Some(x) = most.get_mut(usize::from(o.good)) {
                         *x = x.max(f64::from(o.units));
                     }
@@ -188,6 +221,7 @@ pub fn markets_response(sim: &Sim) -> Vec<u8> {
                     if units > 0.0 {
                         offered[g].0 += units;
                         offered[g].1 += 1;
+                        offered[g].2 += u16::from(s.firm);
                     }
                 }
             }
@@ -219,15 +253,16 @@ pub fn markets_response(sim: &Sim) -> Vec<u8> {
                                 acceptance: acceptance as f32,
                                 last_payment: last.map_or(-1, |(p, _)| i32::from(p)),
                                 last_price: last.map_or(0.0, |(_, price)| price),
+                                workshops: offered[g].2,
                             },
                         )
                     })
                 })
                 .collect();
             let lines = fbb.create_vector(&lines);
-            let mut rows: Vec<(&Household, &civ_agents::market::Offer)> = sellers
+            let mut rows: Vec<(&Seller<'_>, &Offer)> = sellers
                 .iter()
-                .flat_map(|h| h.offers.iter().map(move |o| (*h, o)))
+                .flat_map(|s| s.offers.iter().map(move |o| (*s, o)))
                 .collect();
             rows.sort_by(|a, b| {
                 (a.1.good, a.1.payment)
@@ -237,17 +272,18 @@ pub fn markets_response(sim: &Sim) -> Vec<u8> {
             });
             let offers: Vec<_> = rows
                 .into_iter()
-                .map(|(h, o)| {
-                    let name = fbb.create_string(&household_name(sim, h.id));
+                .map(|(s, o)| {
+                    let name = fbb.create_string(&seller_name(sim, s.id));
                     wire::OfferInfo::create(
                         &mut fbb,
                         &wire::OfferInfoArgs {
-                            household: h.id.get(),
+                            household: s.id.get(),
                             household_name: Some(name),
                             good: o.good,
                             payment: o.payment,
                             price: o.price,
                             units: o.units,
+                            firm: s.firm,
                         },
                     )
                 })
@@ -271,6 +307,7 @@ pub fn markets_response(sim: &Sim) -> Vec<u8> {
                             paid: t.paid,
                             sale: t.channel == Channel::Sale,
                             text: Some(text),
+                            seller_firm: sim.people.firm(t.seller).is_some(),
                         },
                     )
                 })
@@ -357,5 +394,6 @@ mod tests {
         assert_eq!(amount(&good("Hoe", true), 1.5), "1.5 hoes");
         assert_eq!(amount(&good("Grain", false), 12.3), "12 kg of grain");
         assert_eq!(amount(&good("Flour", false), 2.25), "2.2 kg of flour");
+        assert_eq!(amount(&good("Grain", false), 0.355), "0.35 kg of grain");
     }
 }

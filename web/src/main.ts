@@ -65,6 +65,7 @@ const client = new HostClient(socketUrl(), {
     void syncBuildings();
     void syncPaths();
     void syncMarkets();
+    void syncFirms();
     void refreshPerson(false);
   },
   events: (items) => store.update({ events: mergeEvents(store.state.events, items) }),
@@ -278,6 +279,91 @@ async function syncMarkets(): Promise<void> {
   if (ok) void syncMarkets();
 }
 
+/** `world:revision` of the workshops shown, the world they belong to, and when they were asked for. */
+let firmsKey = "";
+let firmsWorld = "";
+let firmsBusy = false;
+let firmsAskedAt = -Infinity;
+/** An ask held back by the rate limit, so the last change is always fetched. */
+let firmsTimer = 0;
+/** Least real time between fetches of the workshops while they change, milliseconds. */
+const FIRMS_REFRESH_MS = 1000;
+
+function errorText(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+/** Reads the page of workshop `id`, if it is still the one open. */
+async function loadFirm(id: number): Promise<void> {
+  try {
+    const info = await client.firm(id);
+    if (store.state.firm?.id === id) store.update({ firm: { id, info, error: null } });
+  } catch (e) {
+    const open = store.state.firm;
+    if (open?.id === id) store.update({ firm: { id, info: open.info, error: errorText(e) } });
+  }
+}
+
+/**
+ * Fetches the workshops, and the page of the one open, when one opened, closed, made, sold, paid
+ * or was reviewed.
+ */
+async function syncFirms(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const worldKey = world ? `${store.state.epoch}:${world.worldId}` : "";
+  if (worldKey !== firmsWorld) {
+    // Another world's workshops are not shown while this one's are read.
+    firmsWorld = worldKey;
+    firmsKey = "";
+    firmsAskedAt = -Infinity;
+    store.update({ firms: null, firmsError: null, firm: null });
+  }
+  if (!world) return;
+  const key = s.firmsRev !== 0 ? `${worldKey}:${s.firmsRev}` : `${worldKey}:none`;
+  if (key === firmsKey || firmsBusy) return;
+  if (s.firmsRev === 0) {
+    firmsKey = key;
+    store.update({ firms: [], firmsError: null });
+    return;
+  }
+  const now = performance.now();
+  const waited = now - firmsAskedAt;
+  if (waited < FIRMS_REFRESH_MS) {
+    if (!firmsTimer) {
+      firmsTimer = window.setTimeout(() => {
+        firmsTimer = 0;
+        void syncFirms();
+      }, FIRMS_REFRESH_MS - waited);
+    }
+    return;
+  }
+  firmsBusy = true;
+  firmsAskedAt = now;
+  let ok = false;
+  try {
+    const { firms } = await client.firms();
+    if (firmsWorld === worldKey) {
+      firmsKey = key;
+      store.update({ firms, firmsError: null });
+      ok = true;
+      const open = store.state.firm;
+      if (open) await loadFirm(open.id);
+    }
+  } catch (e) {
+    if (firmsWorld === worldKey) store.update({ firmsError: errorText(e) });
+  } finally {
+    firmsBusy = false;
+  }
+  if (ok) void syncFirms();
+}
+
+/** Opens workshop `id`'s page in the workshops panel, or goes back to the list. */
+function openFirm(id: number | null): void {
+  store.update({ firm: id === null ? null : { id, info: null, error: null } });
+  if (id !== null) void loadFirm(id);
+}
+
 let personBusy = false;
 let personAskedAt = 0;
 /** Another ask is due once the one on its way is answered. */
@@ -411,6 +497,7 @@ bindUi(store, {
     const s = store.state.snapshot?.settlements.find((x) => x.id === id);
     if (s) lookAt(s.x, s.y, 0.5);
   },
+  openFirm,
   runAhead: async (minutes) => {
     const clock = store.state.snapshot?.clock;
     if (clock) await command(M.runUntil(clock.minute + minutes));
@@ -462,6 +549,25 @@ const hooks = {
       fieldsRev: s.snapshot?.fieldsRev ?? 0,
       buildingsRev: s.snapshot?.buildingsRev ?? 0,
       marketsRev: s.snapshot?.marketsRev ?? 0,
+      firmsRev: s.snapshot?.firmsRev ?? 0,
+      firms:
+        s.firms?.map((f) => ({
+          id: f.id,
+          name: f.name,
+          open: f.open,
+          record: f.record,
+          hiringH: f.hiringH,
+        })) ?? null,
+      firm: s.firm
+        ? {
+            id: s.firm.id,
+            name: s.firm.info?.brief.name ?? null,
+            entries: s.firm.info?.entries.length ?? 0,
+            months: s.firm.info?.months.length ?? 0,
+            wage: s.firm.info?.wage?.text ?? null,
+            error: s.firm.error,
+          }
+        : null,
       markets:
         s.markets?.map((m) => ({
           settlement: m.settlementName,
@@ -485,6 +591,7 @@ const hooks = {
   briefs: () =>
     store.state.snapshot?.people.map((p) => ({ id: p.id, sex: p.sex, ageYears: p.ageYears })) ?? [],
   select: (id: number | null) => select(id),
+  openFirm: (id: number | null) => openFirm(id),
   map: () => map.debugState(),
   pointerAt: (x: number, y: number) => map.pointerInfo(x, y),
   panBy: (dx: number, dy: number) => map.panBy(dx, dy),

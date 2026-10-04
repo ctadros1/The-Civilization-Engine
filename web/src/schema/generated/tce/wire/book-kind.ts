@@ -2,9 +2,14 @@
 
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 
-export enum SpanKind {
-  Text = 0,
-  Person = 1,
-  Settlement = 2,
-  Firm = 3
+export enum BookKind {
+  Unknown = 0,
+  PutIn = 1,
+  Drawn = 2,
+  Made = 3,
+  Used = 4,
+  Sold = 5,
+  Paid = 6,
+  Wages = 7,
+  Lost = 8
 }

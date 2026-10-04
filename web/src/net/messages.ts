@@ -190,6 +190,8 @@ export interface Snapshot {
    * offered or traded yet).
    */
   marketsRev: number;
+  /** Changes whenever a workshop opens, closes, makes, sells, pays or is reviewed (0 = none yet). */
+  firmsRev: number;
 }
 
 export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
@@ -386,7 +388,7 @@ export interface TripInfo {
 }
 
 export interface Span {
-  kind: "text" | "person" | "settlement";
+  kind: "text" | "person" | "settlement" | "firm";
   text: string;
   id: number;
 }
@@ -495,9 +497,11 @@ export interface PersonInfo {
 export interface MarketGood {
   /** An index into Welcome.goods. */
   good: number;
-  /** Units offered, and by how many households. */
+  /** Units offered, and by how many sellers (households and workshops). */
   offered: number;
   sellers: number;
+  /** How many of the sellers are workshops. */
+  workshops: number;
   sold: number;
   /** Units wanted that found no offer, and what a unit was worth to those buyers, hours. */
   unmet: number;
@@ -509,15 +513,18 @@ export interface MarketGood {
   lastPrice: number;
 }
 
-/** A household's posted terms for a good: so much of a payment good for a unit. */
+/** A household's or workshop's posted terms for a good: so much of a payment good for a unit. */
 export interface OfferInfo {
+  /** The household's id, or the workshop's when `firm` is set. */
   household: number;
-  /** "Ada's household". */
+  /** "Ada's household", "Wren's sickle workshop". */
   householdName: string;
   good: number;
   payment: number;
   price: number;
   units: number;
+  /** The terms are a workshop's. */
+  firm: boolean;
 }
 
 /** A trade a settlement's market remembers. */
@@ -533,6 +540,8 @@ export interface TradeInfo {
   sale: boolean;
   /** Rendered by the kernel: "Ada's household sold a sickle to Bran's household for …". */
   text: string;
+  /** The seller was a workshop (`seller` is its id). */
+  sellerFirm: boolean;
 }
 
 /** A month of trade in one good: a line of the price history. */
@@ -565,6 +574,110 @@ export interface MarketInfo {
   history: MonthOfTrade[];
 }
 
+/** What a line of a workshop's books records (M3a slice J). */
+export type BookKind =
+  | "put-in"
+  | "drawn"
+  | "made"
+  | "used"
+  | "sold"
+  | "paid"
+  | "wages"
+  | "lost"
+  | "unknown";
+
+/** A workshop in brief (M3a slice J): in M3a, every firm is a household's workshop. */
+export interface FirmBrief {
+  id: number;
+  /** "Wren's sickle workshop". */
+  name: string;
+  /** The household that owns it. */
+  owner: number;
+  ownerName: string;
+  settlement: number;
+  settlementName: string;
+  foundedMinute: number;
+  open: boolean;
+  /** When it closed, and why: "it sold nothing for months" (closed workshops only). */
+  closedMinute: number;
+  closedWhy: string;
+  /** What it makes to sell: indexes into Welcome.goods. */
+  lines: number[];
+  /** Hours of work it would hire before its next review (0 = it hires no one now). */
+  hiringH: number;
+  /** Rendered by the kernel: "Made 3.0 sickles and sold a sickle." */
+  record: string;
+}
+
+/** What a workshop pays for work. */
+export interface WageInfo {
+  /** The work (an index into Welcome.activities) and what it pays in (into Welcome.goods). */
+  activity: number;
+  pay: number;
+  /** Units of the pay good for an hour's work, and what that is worth to its owners, hours. */
+  perHour: number;
+  hourH: number;
+  /** Hours of work it wants before its next review, and the hours taken of those. */
+  hours: number;
+  taken: number;
+  /** Rendered by the kernel: "Pays 0.90 kg of grain an hour; wants 6 more hours of work …". */
+  text: string;
+}
+
+/** A line of a workshop's books. */
+export interface BookEntry {
+  minute: number;
+  kind: BookKind;
+  /** An index into Welcome.goods, and how much of it, in its unit. */
+  good: number;
+  amount: number;
+  /** The household on the other side (0 = none). */
+  other: number;
+  /** Rendered by the kernel: "Sold a sickle to Bran's household." */
+  text: string;
+}
+
+/** How much of a good a workshop's books moved in a month, by kind. */
+export interface BookLine {
+  kind: BookKind;
+  good: number;
+  amount: number;
+}
+
+/** A month of a workshop's books. Worth is in hours of its owners' own work. */
+export interface MonthStatement {
+  /** Months since the calendar's origin: (year − 1) × 12 + month − 1. */
+  month: number;
+  lines: BookLine[];
+  /** Hours worked for it by its owners' household, and by people it hired. */
+  ownerH: number;
+  hiredH: number;
+  /** What its payments were worth, and its inputs and wages. */
+  incomeH: number;
+  costsH: number;
+  /** Its stock as the month ended (as it stands, for the month under way). */
+  stockH: number;
+}
+
+/** A workshop's page (M3a slice J). */
+export interface FirmInfo {
+  brief: FirmBrief;
+  founder: number;
+  founderName: string;
+  ownerSinceMinute: number;
+  /** When it last sold anything (-1 = never). */
+  lastSaleMinute: number;
+  /** What it holds: its stock and what it was paid. */
+  stores: StoreLine[];
+  offers: OfferInfo[];
+  /** What it pays for work (null if it never hired). */
+  wage: WageInfo | null;
+  /** The latest lines of its books, newest first. */
+  entries: BookEntry[];
+  /** Every month of its life, oldest first. */
+  months: MonthStatement[];
+}
+
 export type ResponseBody =
   | { kind: "ack"; message: string }
   | { kind: "raster"; tile: RasterTile }
@@ -576,7 +689,9 @@ export type ResponseBody =
   | { kind: "fields"; rev: number; fields: FieldInfo[] }
   | { kind: "buildings"; rev: number; buildings: BuildingInfo[] }
   | { kind: "paths"; paths: PathsInfo }
-  | { kind: "markets"; rev: number; markets: MarketInfo[] };
+  | { kind: "markets"; rev: number; markets: MarketInfo[] }
+  | { kind: "firms"; rev: number; firms: FirmBrief[] }
+  | { kind: "firm"; firm: FirmInfo };
 
 export type ErrorCode =
   | "unknown"
@@ -745,6 +860,17 @@ export function getMarkets(): Uint8Array {
   return query(b, W.QueryBody.GetMarkets, W.GetMarkets.endGetMarkets(b));
 }
 
+export function getFirms(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetFirms.startGetFirms(b);
+  return query(b, W.QueryBody.GetFirms, W.GetFirms.endGetFirms(b));
+}
+
+export function getFirm(id: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  return query(b, W.QueryBody.GetFirm, W.GetFirm.createGetFirm(b, BigInt(id)));
+}
+
 export function getChronicle(afterSeq: number, limit: number): Uint8Array {
   const b = new flatbuffers.Builder(32);
   return query(
@@ -904,6 +1030,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     buildingsRev: Number(s.buildingsRev()),
     pathsRev: Number(s.pathsRev()),
     marketsRev: Number(s.marketsRev()),
+    firmsRev: Number(s.firmsRev()),
   };
 }
 
@@ -1107,6 +1234,7 @@ const SPAN_KINDS: Record<number, Span["kind"]> = {
   [W.SpanKind.Text]: "text",
   [W.SpanKind.Person]: "person",
   [W.SpanKind.Settlement]: "settlement",
+  [W.SpanKind.Firm]: "firm",
 };
 
 function chronicle(c: W.Chronicle): { entries: ChronicleEntry[]; head: number } {
@@ -1260,6 +1388,25 @@ function paths(f: W.Paths): PathsInfo {
   return { rev: Number(f.rev()), tilesX: f.tilesX(), tileCells, worn, trails };
 }
 
+function offerList(n: number, at: (i: number, o: W.OfferInfo) => W.OfferInfo | null): OfferInfo[] {
+  const out: OfferInfo[] = [];
+  const offer = new W.OfferInfo();
+  for (let i = 0; i < n; i++) {
+    const o = at(i, offer);
+    if (!o) continue;
+    out.push({
+      household: Number(o.household()),
+      householdName: o.householdName() ?? "",
+      good: o.good(),
+      payment: o.payment(),
+      price: o.price(),
+      units: o.units(),
+      firm: o.firm(),
+    });
+  }
+  return out;
+}
+
 function marketInfo(m: W.MarketInfo): MarketInfo {
   const goods: MarketGood[] = [];
   const line = new W.MarketGood();
@@ -1276,22 +1423,10 @@ function marketInfo(m: W.MarketInfo): MarketInfo {
       acceptance: g.acceptance(),
       lastPayment: g.lastPayment(),
       lastPrice: g.lastPrice(),
+      workshops: g.workshops(),
     });
   }
-  const offers: OfferInfo[] = [];
-  const offer = new W.OfferInfo();
-  for (let i = 0; i < m.offersLength(); i++) {
-    const o = m.offers(i, offer);
-    if (!o) continue;
-    offers.push({
-      household: Number(o.household()),
-      householdName: o.householdName() ?? "",
-      good: o.good(),
-      payment: o.payment(),
-      price: o.price(),
-      units: o.units(),
-    });
-  }
+  const offers = offerList(m.offersLength(), (i, o) => m.offers(i, o));
   const recent: TradeInfo[] = [];
   const trade = new W.TradeInfo();
   for (let i = 0; i < m.recentLength(); i++) {
@@ -1307,6 +1442,7 @@ function marketInfo(m: W.MarketInfo): MarketInfo {
       paid: t.paid(),
       sale: t.sale(),
       text: t.text() ?? "",
+      sellerFirm: t.sellerFirm(),
     });
   }
   const history: MonthOfTrade[] = [];
@@ -1344,6 +1480,113 @@ function markets(f: W.Markets): { rev: number; markets: MarketInfo[] } {
     if (m) out.push(marketInfo(m));
   }
   return { rev: Number(f.rev()), markets: out };
+}
+
+const BOOK_KINDS: Record<number, BookKind> = {
+  [W.BookKind.PutIn]: "put-in",
+  [W.BookKind.Drawn]: "drawn",
+  [W.BookKind.Made]: "made",
+  [W.BookKind.Used]: "used",
+  [W.BookKind.Sold]: "sold",
+  [W.BookKind.Paid]: "paid",
+  [W.BookKind.Wages]: "wages",
+  [W.BookKind.Lost]: "lost",
+};
+
+function firmBrief(f: W.FirmBrief): FirmBrief {
+  return {
+    id: Number(f.id()),
+    name: f.name() ?? "",
+    owner: Number(f.owner()),
+    ownerName: f.ownerName() ?? "",
+    settlement: Number(f.settlement()),
+    settlementName: f.settlementName() ?? "",
+    foundedMinute: Number(f.foundedMinute()),
+    open: f.open(),
+    closedMinute: Number(f.closedMinute()),
+    closedWhy: f.closedWhy() ?? "",
+    lines: Array.from(f.linesArray() ?? []),
+    hiringH: f.hiringH(),
+    record: f.record() ?? "",
+  };
+}
+
+function firms(f: W.Firms): { rev: number; firms: FirmBrief[] } {
+  const out: FirmBrief[] = [];
+  const brief = new W.FirmBrief();
+  for (let i = 0; i < f.firmsLength(); i++) {
+    const b = f.firms(i, brief);
+    if (b) out.push(firmBrief(b));
+  }
+  return { rev: Number(f.rev()), firms: out };
+}
+
+function firmInfo(f: W.FirmInfo): FirmInfo {
+  const brief = f.brief();
+  if (!brief) throw new Error("a workshop's page came without the workshop");
+  const stores: StoreLine[] = [];
+  for (let k = 0; k < f.storesLength(); k++) {
+    const line = f.stores(k);
+    if (line) stores.push({ good: line.good(), kg: line.kg() });
+  }
+  const w = f.wage();
+  const entries: BookEntry[] = [];
+  const entry = new W.BookEntryInfo();
+  for (let k = 0; k < f.entriesLength(); k++) {
+    const e = f.entries(k, entry);
+    if (!e) continue;
+    entries.push({
+      minute: Number(e.minute()),
+      kind: BOOK_KINDS[e.kind()] ?? "unknown",
+      good: e.good(),
+      amount: e.amount(),
+      other: Number(e.other()),
+      text: e.text() ?? "",
+    });
+  }
+  const months: MonthStatement[] = [];
+  const month = new W.MonthStatement();
+  const line = new W.BookLine();
+  for (let k = 0; k < f.monthsLength(); k++) {
+    const m = f.months(k, month);
+    if (!m) continue;
+    const lines: BookLine[] = [];
+    for (let i = 0; i < m.linesLength(); i++) {
+      const l = m.lines(i, line);
+      if (l) lines.push({ kind: BOOK_KINDS[l.kind()] ?? "unknown", good: l.good(), amount: l.amount() });
+    }
+    months.push({
+      month: m.month(),
+      lines,
+      ownerH: m.ownerH(),
+      hiredH: m.hiredH(),
+      incomeH: m.incomeH(),
+      costsH: m.costsH(),
+      stockH: m.stockH(),
+    });
+  }
+  return {
+    brief: firmBrief(brief),
+    founder: Number(f.founder()),
+    founderName: f.founderName() ?? "",
+    ownerSinceMinute: Number(f.ownerSinceMinute()),
+    lastSaleMinute: Number(f.lastSaleMinute()),
+    stores,
+    offers: offerList(f.offersLength(), (i, o) => f.offers(i, o)),
+    wage: w
+      ? {
+          activity: w.activity(),
+          pay: w.pay(),
+          perHour: w.perHour(),
+          hourH: w.hourH(),
+          hours: w.hours(),
+          taken: w.taken(),
+          text: w.text() ?? "",
+        }
+      : null,
+    entries,
+    months,
+  };
 }
 
 function scoredOption(o: W.ScoredOption): ScoredOption {
@@ -1506,6 +1749,16 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Markets()) as W.Markets | null;
       if (!f) break;
       return { kind: "markets", ...markets(f) };
+    }
+    case W.ResponseBody.Firms: {
+      const f = r.body(new W.Firms()) as W.Firms | null;
+      if (!f) break;
+      return { kind: "firms", ...firms(f) };
+    }
+    case W.ResponseBody.FirmInfo: {
+      const f = r.body(new W.FirmInfo()) as W.FirmInfo | null;
+      if (!f) break;
+      return { kind: "firm", firm: firmInfo(f) };
     }
     default:
       break;

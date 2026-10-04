@@ -697,6 +697,124 @@ dialog label {
   color: var(--muted);
 }
 
+/* Workshops panel (M3a slice J) */
+#firms-body {
+  max-height: 420px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+
+#firms-body .aside {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 4px 0;
+}
+
+.firms {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.firms > li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.firms p {
+  margin: 0;
+}
+
+.firm-head {
+  margin: 0 0 2px;
+  font-weight: 600;
+}
+
+h3.firm-head {
+  font-size: 14px;
+  margin: 6px 0 4px;
+}
+
+#firms-body .since {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+#firms-body .record {
+  margin: 2px 0 6px;
+}
+
+#firms-body .hiring {
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.badge.open {
+  color: var(--bg);
+  background: var(--good);
+}
+
+.badge.closed {
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+#firms-body .back {
+  font-size: 12px;
+}
+
+#firms-body .back::before {
+  content: "← ";
+}
+
+#firms-body h4 {
+  margin: 10px 0 4px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.statements {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.statements th,
+.statements td {
+  text-align: left;
+  padding: 3px 5px 3px 0;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.statements th {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.books {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.books li {
+  padding: 3px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.books .when {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+}
+
 /* Panels alone (`?view=panels`), beside a world another host draws (ADR-0005 §6). */
 .panels-only .workspace {
   grid-template-columns: 1fr;

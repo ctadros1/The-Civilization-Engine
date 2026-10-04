@@ -54,8 +54,13 @@ units():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
+firm():boolean {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+}
+
 static startOfferInfo(builder:flatbuffers.Builder) {
-  builder.startObject(6);
+  builder.startObject(7);
 }
 
 static addHousehold(builder:flatbuffers.Builder, household:bigint) {
@@ -82,12 +87,16 @@ static addUnits(builder:flatbuffers.Builder, units:number) {
   builder.addFieldFloat32(5, units, 0.0);
 }
 
+static addFirm(builder:flatbuffers.Builder, firm:boolean) {
+  builder.addFieldInt8(6, +firm, +false);
+}
+
 static endOfferInfo(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createOfferInfo(builder:flatbuffers.Builder, household:bigint, householdNameOffset:flatbuffers.Offset, good:number, payment:number, price:number, units:number):flatbuffers.Offset {
+static createOfferInfo(builder:flatbuffers.Builder, household:bigint, householdNameOffset:flatbuffers.Offset, good:number, payment:number, price:number, units:number, firm:boolean):flatbuffers.Offset {
   OfferInfo.startOfferInfo(builder);
   OfferInfo.addHousehold(builder, household);
   OfferInfo.addHouseholdName(builder, householdNameOffset);
@@ -95,6 +104,7 @@ static createOfferInfo(builder:flatbuffers.Builder, household:bigint, householdN
   OfferInfo.addPayment(builder, payment);
   OfferInfo.addPrice(builder, price);
   OfferInfo.addUnits(builder, units);
+  OfferInfo.addFirm(builder, firm);
   return OfferInfo.endOfferInfo(builder);
 }
 }

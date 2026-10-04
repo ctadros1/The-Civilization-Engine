@@ -255,6 +255,60 @@ fn a_technique_is_lost_with_the_last_who_knew_it_there() {
 }
 
 #[test]
+fn an_older_save_gains_a_technique_founders_bring_that_the_content_has_added() {
+    let mut sim = world(content(), 3);
+    let pottery = technique(&sim, "core:technique/pottery");
+    let knapping = technique(&sim, "core:technique/knapping");
+    let settlement = sim.land().settlements[0].id;
+    // Knapping is lost there before the save: a technique the save names stays as it was.
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        p.knows.retain(|k| usize::from(k.technique) != knapping);
+    }
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION).expect("save dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "older").expect("saves");
+    // Content in which pottery is new: the save names it by an id this content does not have.
+    let mut newer = content().clone();
+    newer.catalog.techniques[pottery].id = "core:technique/pottery_anew".to_owned();
+    let loaded = persist::load(&saved.path, &newer).expect("loads");
+    // Everyone knows it as a founder of their age would bring it: as they did when founded.
+    for (_, p) in sim.people().people.iter() {
+        let q = loaded.people().person(p.id).expect("loaded");
+        assert_eq!(q.knows(pottery), p.knows(pottery), "{}", p.given);
+        assert!(!q.knows(knapping), "{} learnt knapping again", p.given);
+    }
+    assert!(sim.people().people.iter().any(|(_, p)| p.knows(pottery)));
+    // The settlement's record notes it once, as brought by its eldest knower, now.
+    let noted: Vec<_> = loaded
+        .people()
+        .knowledge
+        .iter()
+        .filter(|e| usize::from(e.technique) == pottery)
+        .collect();
+    assert_eq!(noted.len(), 1);
+    assert_eq!(noted[0].settlement, settlement);
+    assert_eq!(
+        noted[0].kind,
+        KnowledgeEventKind::Known(KnowSource::Founder)
+    );
+    assert_eq!(noted[0].at, sim.now());
+    assert!(loaded.people().known_in(settlement, pottery));
+    let records = |s: &Sim| {
+        s.people()
+            .knowledge
+            .iter()
+            .filter(|e| usize::from(e.technique) == knapping)
+            .count()
+    };
+    assert_eq!(
+        records(&loaded),
+        records(&sim),
+        "knapping's record is as it was"
+    );
+}
+
+#[test]
 fn someone_who_does_not_know_a_craft_learns_it_working_beside_a_knower() {
     // A variant of the core content in which knapping is a craft learnt by working beside a
     // knapper (not brought up with), quickly enough for a test.

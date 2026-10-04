@@ -43,8 +43,32 @@ fn volume(m3: f64) -> String {
     }
 }
 
-/// An earthwork in words: "the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled".
+/// What the pit or heap `w` is dug for, in words: "clay" (the good of its deposit).
+fn dug_for(sim: &Sim, w: &Earthwork) -> String {
+    w.deposit
+        .and_then(|id| sim.land.deposits.iter().find(|d| d.id == id))
+        .and_then(|d| sim.rules.catalog.goods.get(usize::from(d.body.good)))
+        .map_or_else(|| "earth".to_owned(), |g| g.name.to_lowercase())
+}
+
+/// An earthwork in words: "the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled",
+/// "Ada's household's clay pit, 1.2 m deep", "the spoil heap of a clay pit, 3.1 m³".
 fn words(sim: &Sim, w: &Earthwork, building: Option<&Building>) -> String {
+    match w.kind {
+        EarthKind::Platform => {}
+        EarthKind::Pit => {
+            let whose = eldest_name(sim, w.household)
+                .map_or_else(|| "a".to_owned(), |name| format!("{name}'s household's"));
+            return format!("{whose} {} pit, {:.1} m deep", dug_for(sim, w), w.depth_m());
+        }
+        EarthKind::Spoil => {
+            return format!(
+                "the spoil heap of a {} pit, {}",
+                dug_for(sim, w),
+                volume(f64::from(w.cut_m3))
+            );
+        }
+    }
     let what = match building {
         Some(b) => {
             let program = program_name(sim, &b.spec.program);
@@ -71,6 +95,8 @@ fn words(sim: &Sim, w: &Earthwork, building: Option<&Building>) -> String {
 fn kind(k: EarthKind) -> u8 {
     match k {
         EarthKind::Platform => 0,
+        EarthKind::Pit => 1,
+        EarthKind::Spoil => 2,
     }
 }
 
@@ -98,6 +124,7 @@ pub fn earthworks_response(sim: &Sim) -> Vec<u8> {
                 plot: w.plot.map_or(0, |p| p.get()),
                 building: building.map_or(0, |b| b.id.get()),
                 words: Some(text),
+                deposit: w.deposit.map_or(0, |d| d.get()),
             },
         ));
     }

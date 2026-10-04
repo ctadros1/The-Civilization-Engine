@@ -709,6 +709,87 @@ impl Population {
         }
     }
 
+    /// For a world saved before the content had techniques `new` (indexes into
+    /// `catalog.techniques` the save never named): everyone gets those of them a founder of their
+    /// age would bring, drawn as [`Population::give_founders_knowledge`] draws them, each
+    /// settlement brings at least one knower of each, and the settlements' records note them now.
+    /// Techniques the save named, known or lost, are left as they were.
+    pub fn give_new_founder_knowledge(
+        &mut self,
+        catalog: &Catalog,
+        params: &PeopleParams,
+        seed: u64,
+        now: SimTime,
+        new: &[usize],
+    ) {
+        let brought: Vec<usize> = params
+            .knowledge
+            .founders
+            .iter()
+            .filter(|&&(t, share)| share > 0.0 && new.contains(&t))
+            .map(|&(t, _)| t)
+            .collect();
+        if brought.is_empty() {
+            return;
+        }
+        for (_, p) in self.people.iter_mut() {
+            let mut rng = Rng64::from_key(&[seed, crate::found::PURPOSE_KNOW, p.id.get()]);
+            let drawn = crate::knowledge::founder_knowledge(
+                catalog,
+                &params.knowledge,
+                params.family.independent_age,
+                p.age_years(now),
+                &mut rng,
+                now,
+            );
+            for k in drawn {
+                if brought.contains(&usize::from(k.technique)) {
+                    p.come_to_know(usize::from(k.technique), KnowSource::Founder, now);
+                }
+            }
+        }
+        let mut by_settlement: std::collections::BTreeMap<PermanentId, Vec<PermanentId>> =
+            std::collections::BTreeMap::new();
+        for (_, x) in self.households.iter() {
+            if let Some(s) = x.settlement {
+                by_settlement
+                    .entry(s)
+                    .or_default()
+                    .extend(x.members.iter().copied());
+            }
+        }
+        for (s, mut people) in by_settlement {
+            people.sort_unstable();
+            for &t in &brought {
+                let Some(age) =
+                    crate::knowledge::knowing_age(catalog, t, params.family.independent_age)
+                else {
+                    continue;
+                };
+                if !self.household_knows(&people, t) {
+                    let eldest = people
+                        .iter()
+                        .filter_map(|id| self.person(*id))
+                        .filter(|p| p.age_years(now) >= age)
+                        .min_by_key(|p| (p.born, p.id))
+                        .map(|p| p.id);
+                    if let Some(p) = eldest.and_then(|id| self.person_mut_by_id(id)) {
+                        p.come_to_know(t, KnowSource::Founder, now);
+                    }
+                }
+                let eldest = people
+                    .iter()
+                    .filter_map(|id| self.person(*id))
+                    .filter(|p| p.knows(t))
+                    .min_by_key(|p| (p.born, p.id))
+                    .map(|p| p.id);
+                if let Some(who) = eldest {
+                    self.note_known(now, s, who, t, KnowSource::Founder);
+                }
+            }
+        }
+    }
+
     /// Whether anyone among `members` knows technique `t`.
     pub(crate) fn household_knows(&self, members: &[PermanentId], t: usize) -> bool {
         members

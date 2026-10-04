@@ -37,11 +37,14 @@ pub enum Behavior {
     /// Spend spare hours at home trying toward a technique that would answer a household problem
     /// (M3b, ADR-0008 §3): the activity's target names the technique.
     Try,
+    /// Walk to a deposit the settlement knows, dig its good from a pit there and carry it home
+    /// (M3b slice Q, ADR-0010 §2): the activity names the good.
+    Dig,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 14] = [
+    pub const ALL: [Behavior; 15] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -56,6 +59,7 @@ impl Behavior {
         Behavior::Trade,
         Behavior::Hire,
         Behavior::Try,
+        Behavior::Dig,
     ];
 
     /// The authored name of a behavior.
@@ -75,6 +79,7 @@ impl Behavior {
             Behavior::Trade => "trade",
             Behavior::Hire => "hire",
             Behavior::Try => "try",
+            Behavior::Dig => "dig",
         }
     }
 
@@ -101,6 +106,8 @@ pub struct ActivityDef {
     pub task: Option<FieldTask>,
     /// For making: the recipe, by index in the catalog's recipes.
     pub recipe: Option<usize>,
+    /// For digging: the good dug, by index in the catalog's goods (M3b slice Q).
+    pub digs: Option<usize>,
     /// Tools the work needs and wears, by index in the catalog's goods (a recipe's own tools are
     /// on the recipe).
     pub tools: Vec<usize>,
@@ -137,15 +144,18 @@ pub enum GoodUse {
     Material,
     /// Worked with: counted in standard tools' worth of use (ADR-0006 §1).
     Tool,
+    /// Keeps other goods in it (a pot): counted one by one, each giving room (M3b slice Q).
+    Store,
 }
 
 impl GoodUse {
     /// Every use, in a fixed order.
-    pub const ALL: [GoodUse; 4] = [
+    pub const ALL: [GoodUse; 5] = [
         GoodUse::Food,
         GoodUse::Fuel,
         GoodUse::Material,
         GoodUse::Tool,
+        GoodUse::Store,
     ];
 
     /// The authored name.
@@ -155,6 +165,7 @@ impl GoodUse {
             GoodUse::Fuel => "fuel",
             GoodUse::Material => "material",
             GoodUse::Tool => "tool",
+            GoodUse::Store => "store",
         }
     }
 
@@ -206,6 +217,13 @@ pub struct ToolDef {
     pub fixed: bool,
 }
 
+/// What a store good adds to being a good (M3b slice Q): the room each one gives.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StoreDef {
+    /// Kilograms of goods one holds, keeping them as a raised store's floor does.
+    pub keeps_kg: f64,
+}
+
 /// An authored good: something people carry home and keep.
 #[derive(Clone, Debug, PartialEq)]
 pub struct GoodDef {
@@ -232,6 +250,8 @@ pub struct GoodDef {
     pub tool: Option<ToolDef>,
     /// For a material built with as timber: what it carries (ADR-0009 §5).
     pub timber: Option<crate::structure::Timber>,
+    /// For a store (a pot): the room each one gives.
+    pub store: Option<StoreDef>,
 }
 
 impl GoodDef {
@@ -1176,6 +1196,16 @@ pub struct Levelling {
     pub side_run: f64,
 }
 
+/// How people dig at a deposit (M3b slice Q, ADR-0010 §2).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Digging {
+    /// Hours of a capable adult to dig a cubic metre of earth as it lay in the ground and lift it
+    /// out.
+    pub h_per_m3: f64,
+    /// The side of a pit, and of the spoil heap beside it, metres.
+    pub pit_side_m: f64,
+}
+
 /// Everything authored about people.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PeopleParams {
@@ -1215,6 +1245,8 @@ pub struct PeopleParams {
     pub firm: FirmParams,
     /// What founders know and how people learn.
     pub knowledge: KnowledgeParams,
+    /// How people dig at a deposit (M3b slice Q).
+    pub digging: Digging,
     /// Names.
     pub names: NameParams,
 }

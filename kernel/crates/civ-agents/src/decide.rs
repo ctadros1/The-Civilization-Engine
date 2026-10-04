@@ -94,6 +94,8 @@ pub struct PatchOption {
     pub tool_blocked: bool,
     /// Where to stand, metres.
     pub at: (f32, f32),
+    /// For digging: the deposit dug at, in place of a patch (M3b slice Q).
+    pub deposit: Option<PermanentId>,
 }
 
 /// Field work a person could do: on which field, where, and what it is worth.
@@ -517,7 +519,8 @@ pub fn candidates(
                 ];
                 out.push(finish(id, Target::Water(water.cell), terms, steps));
             }
-            Behavior::Gather => {
+            // Digging is gathering at a deposit (M3b slice Q).
+            Behavior::Gather | Behavior::Dig => {
                 let Some(patch) = best_patch(i) else {
                     excluded.push((id, Reason::NoPlace));
                     continue;
@@ -585,7 +588,7 @@ pub fn candidates(
                             term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
                         }
                     }
-                    GoodUse::Material | GoodUse::Tool => {
+                    GoodUse::Material | GoodUse::Tool | GoodUse::Store => {
                         if patch.need_kg <= 0.0 && patch.tool_need_kg <= 0.0 {
                             excluded.push((id, Reason::NotNeeded));
                             continue;
@@ -631,7 +634,10 @@ pub fn candidates(
                     Step::Walk { to: f.home },
                     Step::Deposit,
                 ];
-                out.push(finish(id, Target::Patch(patch.patch), terms, steps));
+                let target = patch
+                    .deposit
+                    .map_or(Target::Patch(patch.patch), Target::Deposit);
+                out.push(finish(id, target, terms, steps));
             }
             Behavior::Farm => {
                 let field = match best_field(i) {
@@ -1262,6 +1268,7 @@ mod tests {
             resource: None,
             task: (behavior == Behavior::Farm).then_some(civ_land::FieldTask::Reap),
             recipe: (behavior == Behavior::Make).then_some(0),
+            digs: None,
             tools,
             rate,
             par: 3.0,

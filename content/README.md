@@ -157,6 +157,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `quality_spread` | `[novice, master]`: how unevenly the parts of a building are made. Each part's quality is one less the spread at its builders' average building skill times the size of a normal draw (ADR-0009 §6; content API 15). `0 ≤ master ≤ novice < 1`. |
 | | `[build.caution]` | How builders answer what their settlement has seen of a technique's buildings (ADR-0009 §6; content API 17): `half_life_years` (0.5 to 100), over which failures and the building-years they stood fade by half; `most` (1 to 10), the most times its usual strength a frame building's joists and posts are made; `half_rate` (above 0), the failures a building-year at which caution is half way to its most; `death_weight` (0 to 100), how many failures more each death in one counts as. |
 | | `[build.levelling]` | How a household levels the plot of a building on sloping ground (ADR-0010 §2; content API 19): `from_m` and `most_m` (0 < from_m ≤ most_m ≤ 20), metres the ground may drop across a plot before it is cut and filled to one level, and beyond which it is not built on; `h_per_m3` (above 0), hours to dig a cubic metre of earth as it lay in the ground, carry it across the plot and spread and tamp it as fill; `side_run` (0.5 to 10), metres across a platform's sides run for each metre up or down. |
+| `digging` | `h_per_m3`, `pit_side_m` | How people dig at a deposit (ADR-0010 §2; content API 20): hours a capable adult takes to dig a cubic metre of earth as it lay in the ground and lift it out (above 0), and the side of the square pit, metres (1 to 20), whose spoil is heaped on a square of the same side beside it. |
 | `mortality` | `a`, `b`, `c`, `d`, `e` | Siler hazard `A·e^(−Bx) + C + D·e^(Ex)` per year: the founders' ages, and everyone's daily risk of dying. |
 | | `hunger_ratio_at_half`, `hunger_ratio_max` | Hunger multiplies that hazard: by the first at half the reserve drawn, as `ratio^(4d²)` of the share `d` drawn, up to the second. |
 | | `exhaustion_per_day`, `exhaustion_power` | A body at the end of its reserve dies with this chance a day, scaled by the share drawn to this power. |
@@ -200,7 +201,7 @@ Something people carry home and keep.
 
 | Field | Meaning |
 |---|---|
-| `purpose` | `food`, `fuel`, `material` (built with, or made into something) or `tool` (M3a). |
+| `purpose` | `food`, `fuel`, `material` (built with, or made into something), `tool` (M3a) or `store` (a vessel food is kept in; M3b, content API 20). |
 | `kcal_per_kg` | Food energy; 0 for anything else. |
 | `half_life_days` | Days for half a stored amount to spoil; 0 keeps. Fuel must keep. |
 | `sheltered_half_life_days` | The same in a household's store under its own roof; 0 when a roof makes no difference. Never shorter than `half_life_days`; a good that keeps needs none. |
@@ -209,6 +210,7 @@ Something people carry home and keep.
 | `reserve_for` | The food it is kept back from, like seed from grain, or `""`: a recipe that needs that food takes this one only in real hunger, and never the seed to sow the ground already cropped. |
 | `[tool]` | For a tool only: `life_h`, the hours of use a standard tool lasts (stores count tools in standard tools, so 2.4 sickles are two and what is left of a third, ADR-0006); `per_adult`, how many a household wants for each member of working age (rounded up; 0 for none); `fixed`, it stays where it was made and is never carried off. |
 | `[timber]` | For a material built with as timber only (content API 16, ADR-0009 §5): `bending_mpa`, `compression_mpa` and `stiffness_gpa`, its strength in bending and in compression along the grain and its stiffness; `creep`, how much further it bends under load carried for years than at first (φ); `sustained`, the share of its strength it keeps under such load (above 0, at most 1). Members of a material without it carry nothing in the checks. |
+| `[store]` | For a store only (content API 20, ADR-0010 §2): `keeps_kg` (above 0, at most 1000), the kilograms of food one keeps as a raised floor keeps them. A household under a roof counts its stores as that much more raised room, and makes more while the food lying anywhere but a raised floor or a store would keep better in one. A store takes no room of its own. |
 
 People eat the most perishable food that can be eaten first. A material or tool is never eaten,
 kept back or shared: a household brings it for what it builds and makes, and only as much as it
@@ -311,10 +313,11 @@ decided by people at run time.
 
 | Field | Meaning |
 |---|---|
-| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a). |
+| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b). |
 | `resource` | For `gather` only: the land resource gathered (hunting, fishing, collecting firewood and cutting building materials are gathering too). A trip works until its load is full or its time runs out. |
 | `task` | For `farm` only: the field work, one of `prepare`, `sow`, `tend`, `reap`, `thresh`. |
 | `recipe` | For `make` only: the recipe worked, at home. |
+| `digs` | For `dig` only: the good dug (a good id; content API 20). People dig it at a pit on a deposit of it that their settlement knows, while their household needs it, and carry it home; the land profile must lay down deposits of it. |
 | `tools` | Tools the work needs and wears (good ids; `[]` for none). Without a free one in the household the work is left out, and the tool counts as one work waits on. A `make` activity's tools are its recipe's, so it lists none. |
 | `rate` | Work done in an hour against the task's authored rates: 1 with the tools they assume, less by hand (reaping without a sickle). Field work at a lower rate is left out while the same task can be done at a higher one. |
 | `name`, `doing` | "Gather plants"; "gathering wild plants" (what the inspector says). |
@@ -460,10 +463,11 @@ The people profile's `[knowledge]` table (every value a tuning value):
 | `w_try` | Utility points for trying at a problem at home, times the share of the household's food the problem would cost. |
 | `try_gap_days` | Least days between one person's sessions of trying. |
 
-The core pack has eleven techniques. Eight are the founders' repertoire of today's work, known by
+The core pack has twelve techniques. Nine are the founders' repertoire of today's work, known by
 every founder and learnt in upbringing (research 06-08 §1.1, §3): growing emmer, grinding at a
-quern, pounding grain, baking flatbread, knapping sickle blades, shaping stone, shaping wood and
-building roundhouses. Three are not known at first. **Drying and smoking** (slice N) answers meat
+quern, pounding grain, baking flatbread, knapping sickle blades, shaping stone, shaping wood,
+building roundhouses and making pottery (slice Q: forming clay into storage pots and firing them
+in an open fire, research 07-05 §3.1). Three are not known at first. **Drying and smoking** (slice N) answers meat
 and fish spoiling and is found from hunting, fishing and trying. **Grinding at a rotary quern**
 (slice N) needs shaping stone and wood, and its E50 of 100,000 hours makes it, in practice, the
 observer's introduction. **Jointed timber framing** (slice O) builds the frame programs; no work

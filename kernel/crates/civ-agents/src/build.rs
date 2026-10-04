@@ -14,7 +14,7 @@ use civ_land::{Building, Land, RectCm};
 use civ_world::nav::NavGrid;
 use civ_world::{WATER_LAND, WorldMap};
 
-use crate::params::{BuildingDef, GoodDef};
+use crate::params::{BuildingDef, GoodDef, GoodUse};
 use crate::person::Keeping;
 
 /// Least distance between a plot and another plot or a field, centimetres: room to walk between
@@ -429,6 +429,8 @@ pub fn level_plot(
         level_cm,
         side_run_cm: (lev.side_run * 100.0).round().clamp(1.0, 65_535.0) as u16,
         plot: Some(plot),
+        deposit: None,
+        heap: None,
         household,
         cut_m3: shaped.cut_m3 as f32,
         done: 0.0,
@@ -778,6 +780,65 @@ pub fn store_saves_h(
         .sum()
 }
 
+/// Food, kcal, that `goods_kg` keep over `horizon_days` in `room` beyond what they would keep in
+/// the open: [`store_saves_h`]'s reckoning, each kilogram valued by the food in it.
+pub fn store_saves_kcal(
+    goods_kg: &[f64],
+    goods: &[GoodDef],
+    room: [f64; 3],
+    raised_factor: f64,
+    horizon_days: f64,
+) -> f64 {
+    let kcal: Vec<f64> = goods
+        .iter()
+        .map(|d| {
+            if d.purpose == GoodUse::Food {
+                d.kcal_per_kg
+            } else {
+                0.0
+            }
+        })
+        .collect();
+    store_saves_h(goods_kg, goods, &kcal, room, raised_factor, horizon_days)
+}
+
+/// The pots a household under a roof would gain from (M3b slice Q), each holding `keeps_kg` as a
+/// raised floor does, and the food the next one would keep over `horizon_days`, kcal: as many as
+/// would hold the food that lies anywhere but a raised floor or a pot and keeps better there, the
+/// next one worth what its room adds to what `keeping` (its pots counted) keeps
+/// ([`store_saves_kcal`]). None while there is no roof to keep pots under.
+pub fn pots_wanted(
+    stores: &[f64],
+    goods: &[GoodDef],
+    keeping: &Keeping,
+    sheltered: bool,
+    keeps_kg: f64,
+    horizon_days: f64,
+) -> (f64, f64) {
+    if !sheltered || keeps_kg <= 0.0 {
+        return (0.0, 0.0);
+    }
+    let room = [keeping.raised_kg, keeping.roofed_kg, 0.0];
+    let placed = Keeping::fill(stores, goods, room);
+    let outside: f64 = goods
+        .iter()
+        .enumerate()
+        .filter(|(_, d)| d.purpose == GoodUse::Food && d.sheltered_half_life_days > 0.0)
+        .map(|(g, _)| {
+            let raised = placed[civ_grammar::storage::RAISED][g];
+            (stores.get(g).copied().unwrap_or(0.0).max(0.0) - raised).max(0.0)
+        })
+        .sum();
+    if outside <= 0.0 {
+        return (0.0, 0.0);
+    }
+    let factor = keeping.raised_factor;
+    let now = store_saves_kcal(stores, goods, room, factor, horizon_days);
+    let more = [room[0] + keeps_kg, room[1], room[2]];
+    let next = store_saves_kcal(stores, goods, more, factor, horizon_days) - now;
+    ((outside / keeps_kg).ceil(), next.max(0.0))
+}
+
 /// What a household would keep in a storehouse (ADR-0009 §7): the goods its roofs have no room
 /// for, what each is worth to it, and how it reckons what a store would save.
 #[derive(Clone, Copy, Debug)]
@@ -1121,6 +1182,7 @@ pub(crate) mod tests {
             reserve_for: None,
             tool: None,
             timber: None,
+            store: None,
         };
         vec![good("core:good/timber"), good("core:good/thatch")]
     }
@@ -1376,5 +1438,63 @@ pub(crate) mod tests {
         assert!(march < 0.3 && october > 3.0, "{march} {october}");
         assert_eq!(urgency(400.0, 304, 15.0, 400), 400.0 / 7.5);
         assert_eq!(urgency(0.0, 304, 15.0, 100), 0.0);
+    }
+
+    #[test]
+    fn pots_are_wanted_for_food_kept_anywhere_but_a_raised_floor_and_the_next_keeps_some() {
+        use crate::params::{Eaten, StoreDef};
+        let good = |id: &str, purpose, kcal, half, sheltered| GoodDef {
+            id: id.to_owned(),
+            name: id.to_owned(),
+            purpose,
+            kcal_per_kg: kcal,
+            half_life_days: half,
+            sheltered_half_life_days: sheltered,
+            eaten: Eaten::Never,
+            shared: false,
+            reserve_for: None,
+            tool: None,
+            timber: None,
+            store: None,
+        };
+        let goods = vec![
+            good("grain", GoodUse::Food, 3340.0, 1560.0, 4932.0),
+            GoodDef {
+                store: Some(StoreDef { keeps_kg: 15.0 }),
+                ..good("pot", GoodUse::Store, 0.0, 1100.0, 0.0)
+            },
+        ];
+        let keeping = Keeping {
+            raised_kg: 0.0,
+            roofed_kg: 100.0,
+            raised_factor: 2.0,
+        };
+        // 160 kg of grain: 100 kg under the roof and 60 kg in the open would keep better in
+        // eleven pots, and the next keeps grain that would otherwise lie in the open.
+        let (want, kcal) = pots_wanted(&[160.0, 0.0], &goods, &keeping, true, 15.0, 1095.0);
+        assert_eq!(want, 11.0);
+        let open = 0.5f64.powf(1095.0 / 1560.0);
+        let raised = 0.5f64.powf(1095.0 / (4932.0 * 2.0));
+        assert!(
+            (kcal - 15.0 * (raised - open) * 3340.0).abs() < 1.0,
+            "{kcal}"
+        );
+        // Pots already held count as raised room: four of them leave seven to make.
+        let with_pots = keeping.with_stores(&[160.0, 4.0], &goods);
+        let (fewer, _) = pots_wanted(&[160.0, 4.0], &goods, &with_pots, true, 15.0, 1095.0);
+        assert_eq!(fewer, 7.0);
+        // No roof to keep pots under, or nothing that keeps better in them: none.
+        assert_eq!(
+            pots_wanted(&[160.0, 0.0], &goods, &keeping, false, 15.0, 1095.0),
+            (0.0, 0.0)
+        );
+        let all_raised = Keeping {
+            raised_kg: 200.0,
+            ..keeping
+        };
+        assert_eq!(
+            pots_wanted(&[160.0, 0.0], &goods, &all_raised, true, 15.0, 1095.0),
+            (0.0, 0.0)
+        );
     }
 }

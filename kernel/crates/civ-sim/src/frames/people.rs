@@ -324,6 +324,23 @@ pub fn describe_target(
                 || "something new".to_owned(),
                 |d| format!("toward {}", d.name.to_lowercase()),
             ),
+        // The deposit dug at: "the clay pit north-east of home".
+        Target::Deposit(id) => match sim.land.deposits.iter().find(|d| d.id == id) {
+            Some(d) => {
+                let good = sim
+                    .rules
+                    .catalog
+                    .goods
+                    .get(usize::from(d.body.good))
+                    .map_or_else(|| "a".to_owned(), |g| g.name.to_lowercase());
+                let at = (
+                    (d.body.at_cm.0 as f64 / 100.0) as f32,
+                    (d.body.at_cm.1 as f64 / 100.0) as f32,
+                );
+                format!("the {good} pit {} of home", bearing(home, at))
+            }
+            None => "a pit".to_owned(),
+        },
     }
 }
 
@@ -397,7 +414,7 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
                 Target::Patch(_) | Target::Water(_) | Target::Field(_) => {
                     format!("{what}, {place}")
                 }
-                Target::Household(_) => format!("{what} at {place}"),
+                Target::Household(_) | Target::Deposit(_) => format!("{what} at {place}"),
                 Target::Building(id) => {
                     match sim
                         .land

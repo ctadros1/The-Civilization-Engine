@@ -44,7 +44,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 19;
+pub const KERNEL_CONTENT_API: u32 = 20;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -908,6 +908,28 @@ fn resolve(
                 }
             },
         };
+        // What a `dig` activity digs: a good the land profile lays down deposits of.
+        let digs = match &d.file.digs {
+            None => None,
+            Some(g) => match (good_index(g), &land) {
+                (Some(i), Some(l)) if l.params.deposits.iter().any(|r| r.good == i) => Some(i),
+                (Some(_), Some(_)) => {
+                    c.push(
+                        "E3001",
+                        &d.rel,
+                        None,
+                        format!("`digs` names `{g}`, which the land profile lays no deposits of"),
+                    );
+                    continue;
+                }
+                // Without a land profile, its own error (E3004, or the profile's) is enough.
+                (Some(_), None) => continue,
+                (None, _) => {
+                    missing(c, parsed, &d.rel, "digs", g);
+                    continue;
+                }
+            },
+        };
         let mut tools = Vec::new();
         let mut ok = true;
         for t in &d.file.tools {
@@ -930,7 +952,7 @@ fn resolve(
         }
         let technique = gate(c, parsed, &technique_index, &d.rel, &d.file.technique);
         if let (true, Ok(technique)) = (ok, technique) {
-            activities.extend(d.file.def(resource, recipe, tools, technique));
+            activities.extend(d.file.def(resource, recipe, digs, tools, technique));
         }
     }
     activities.sort_by(|a, b| a.id.cmp(&b.id));
@@ -1012,8 +1034,8 @@ fn gate(
 
 /// The checks across techniques and recipes (ADR-0008 §1; research 07-03 §6): every technique
 /// gates some work (E3005), prerequisites form no cycle (E3006), and every recipe can be worked
-/// from goods the world renews: gathered, harvested, or made by recipes that can themselves be
-/// worked (E3007, the bootstrap test).
+/// from goods the world provides: gathered, harvested, dug from its deposits, or made by recipes
+/// that can themselves be worked (E3007, the bootstrap test).
 fn knowledge_problems(
     c: &mut Collector,
     parsed: &Parsed,
@@ -1096,6 +1118,13 @@ fn knowledge_problems(
     if let Some(l) = land {
         for r in &l.params.resources {
             mark(r.good, &mut renewed);
+        }
+    }
+    // Goods dug from the deposits the land profile lays down: finite, but in the ground of every
+    // world it makes (a `dig` activity names only such a good).
+    for a in &catalog.activities {
+        if let Some(g) = a.digs {
+            mark(g, &mut renewed);
         }
     }
     for crop in &catalog.crops {

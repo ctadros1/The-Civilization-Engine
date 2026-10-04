@@ -205,6 +205,7 @@ mod tests {
             resource: None,
             task: Some(civ_land::FieldTask::Sow),
             recipe: None,
+            digs: None,
             tools: Vec::new(),
             rate: 1.0,
             par: 3.0,
@@ -297,6 +298,7 @@ mod tests {
             reserve_for: None,
             tool: None,
             timber: None,
+            store: None,
         };
         let goods = vec![
             food("fish", 600.0, 2.0, 0.0),

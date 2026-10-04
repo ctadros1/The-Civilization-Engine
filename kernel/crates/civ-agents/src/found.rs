@@ -1142,6 +1142,10 @@ pub(crate) mod tests {
                 w_try: 2.0,
                 try_gap_days: 7.0,
             },
+            digging: crate::params::Digging {
+                h_per_m3: 8.0,
+                pit_side_m: 3.0,
+            },
             names: NameParams::default(),
             farm: FarmParams {
                 crop: 0,

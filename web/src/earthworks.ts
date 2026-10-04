@@ -14,12 +14,19 @@ export function earthworkAt(works: EarthworkInfo[], xM: number, yM: number): Ear
   return best;
 }
 
-/** Bare earth, the same for every platform. */
+/** Bare earth: a platform's. */
 export const EARTH_COLOUR = 0x9c7a52;
+/** A pit's open ground, darker and deeper. */
+export const PIT_COLOUR = 0x4e3b28;
+/** A spoil heap's loose earth, paler. */
+export const SPOIL_COLOUR = 0xc2a57c;
 
-/** How a platform is drawn: bare earth, more solid the more of it is done, always outlined so a
- * platform not yet begun still shows where it will be. */
+/** How an earthwork is drawn: a platform as bare earth, more solid the more of it is done and
+ * always outlined, so one not yet begun still shows where it will be; a pit dark and a spoil heap
+ * pale, both solid once there is earth in them. */
 export function earthworkLook(w: EarthworkInfo): { colour: number; alpha: number; outlineAlpha: number } {
+  if (w.kind === 1) return { colour: PIT_COLOUR, alpha: w.cutM3 > 0 ? 0.7 : 0.2, outlineAlpha: 0.9 };
+  if (w.kind === 2) return { colour: SPOIL_COLOUR, alpha: w.cutM3 > 0 ? 0.6 : 0.15, outlineAlpha: 0.6 };
   const done = Math.min(1, Math.max(0, w.done));
   return { colour: EARTH_COLOUR, alpha: 0.12 + 0.33 * done, outlineAlpha: 0.75 };
 }

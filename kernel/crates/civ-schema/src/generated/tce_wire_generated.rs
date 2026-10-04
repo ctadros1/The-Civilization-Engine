@@ -19459,6 +19459,7 @@ impl<'a> EarthworkInfo<'a> {
   pub const VT_PLOT: ::flatbuffers::VOffsetT = 26;
   pub const VT_BUILDING: ::flatbuffers::VOffsetT = 28;
   pub const VT_WORDS: ::flatbuffers::VOffsetT = 30;
+  pub const VT_DEPOSIT: ::flatbuffers::VOffsetT = 32;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -19470,6 +19471,7 @@ impl<'a> EarthworkInfo<'a> {
     args: &'args EarthworkInfoArgs<'args>
   ) -> ::flatbuffers::WIPOffset<EarthworkInfo<'bldr>> {
     let mut builder = EarthworkInfoBuilder::new(_fbb);
+    builder.add_deposit(args.deposit);
     builder.add_building(args.building);
     builder.add_plot(args.plot);
     builder.add_household(args.household);
@@ -19586,6 +19588,13 @@ impl<'a> EarthworkInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(EarthworkInfo::VT_WORDS, None)}
   }
+  #[inline]
+  pub fn deposit(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(EarthworkInfo::VT_DEPOSIT, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for EarthworkInfo<'_> {
@@ -19608,6 +19617,7 @@ impl ::flatbuffers::Verifiable for EarthworkInfo<'_> {
      .visit_field::<u64>("plot", Self::VT_PLOT, false)?
      .visit_field::<u64>("building", Self::VT_BUILDING, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .visit_field::<u64>("deposit", Self::VT_DEPOSIT, false)?
      .finish();
     Ok(())
   }
@@ -19627,6 +19637,7 @@ pub struct EarthworkInfoArgs<'a> {
     pub plot: u64,
     pub building: u64,
     pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub deposit: u64,
 }
 impl<'a> Default for EarthworkInfoArgs<'a> {
   #[inline]
@@ -19646,6 +19657,7 @@ impl<'a> Default for EarthworkInfoArgs<'a> {
       plot: 0,
       building: 0,
       words: None,
+      deposit: 0,
     }
   }
 }
@@ -19712,6 +19724,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EarthworkInfoBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(EarthworkInfo::VT_WORDS, words);
   }
   #[inline]
+  pub fn add_deposit(&mut self, deposit: u64) {
+    self.fbb_.push_slot::<u64>(EarthworkInfo::VT_DEPOSIT, deposit, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EarthworkInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     EarthworkInfoBuilder {
@@ -19743,6 +19759,7 @@ impl ::core::fmt::Debug for EarthworkInfo<'_> {
       ds.field("plot", &self.plot());
       ds.field("building", &self.building());
       ds.field("words", &self.words());
+      ds.field("deposit", &self.deposit());
       ds.finish()
   }
 }

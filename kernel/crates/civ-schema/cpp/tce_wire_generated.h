@@ -12085,7 +12085,8 @@ struct EarthworkInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_HOUSEHOLD = 24,
     VT_PLOT = 26,
     VT_BUILDING = 28,
-    VT_WORDS = 30
+    VT_WORDS = 30,
+    VT_DEPOSIT = 32
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -12129,6 +12130,9 @@ struct EarthworkInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *words() const {
     return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
   }
+  uint64_t deposit() const {
+    return GetField<uint64_t>(VT_DEPOSIT, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -12147,6 +12151,7 @@ struct EarthworkInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_BUILDING, 8) &&
            VerifyOffset(verifier, VT_WORDS) &&
            verifier.VerifyString(words()) &&
+           VerifyField<uint64_t>(verifier, VT_DEPOSIT, 8) &&
            verifier.EndTable();
   }
 };
@@ -12197,6 +12202,9 @@ struct EarthworkInfoBuilder {
   void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
     fbb_.AddOffset(EarthworkInfo::VT_WORDS, words);
   }
+  void add_deposit(uint64_t deposit) {
+    fbb_.AddElement<uint64_t>(EarthworkInfo::VT_DEPOSIT, deposit, 0);
+  }
   explicit EarthworkInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -12223,8 +12231,10 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfo(
     uint64_t household = 0,
     uint64_t plot = 0,
     uint64_t building = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0,
+    uint64_t deposit = 0) {
   EarthworkInfoBuilder builder_(_fbb);
+  builder_.add_deposit(deposit);
   builder_.add_building(building);
   builder_.add_plot(plot);
   builder_.add_household(household);
@@ -12262,7 +12272,8 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfoDirect(
     uint64_t household = 0,
     uint64_t plot = 0,
     uint64_t building = 0,
-    const char *words = nullptr) {
+    const char *words = nullptr,
+    uint64_t deposit = 0) {
   auto words__ = words ? _fbb.CreateString(words) : 0;
   return tce::wire::CreateEarthworkInfo(
       _fbb,
@@ -12279,7 +12290,8 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfoDirect(
       household,
       plot,
       building,
-      words__);
+      words__,
+      deposit);
 }
 
 struct Earthworks FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

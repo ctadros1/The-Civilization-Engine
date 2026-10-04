@@ -95,7 +95,7 @@ use commons_persist::{SectionData, SectionTag, SnapshotReader};
 use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
-    SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, finish, section, single_chunk, unreadable,
+    SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -256,6 +256,8 @@ enum Schema {
     V19,
     /// Earthworks and the ground they changed (ADR-0010 §2-3).
     V20,
+    /// Pits and spoil heaps linked to their deposits (ADR-0010 §2).
+    V21,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -289,7 +291,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V17 => Schema::V17,
         SCHEMA_V18 => Schema::V18,
         SCHEMA_V19 => Schema::V19,
-        SAVE_SCHEMA_VERSION => Schema::V20,
+        SCHEMA_V20 => Schema::V20,
+        SAVE_SCHEMA_VERSION => Schema::V21,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -307,7 +310,8 @@ pub(super) fn decode<R: Read + Seek>(
         people.insert_household(h);
     }
     let bytes = single_chunk(reader, SECTION_PEOPLE)?;
-    let (persons, next_trip, redecide, new_skills) = decode_people(&bytes, rules, schema)?;
+    let (persons, next_trip, redecide, new_skills, new_techniques) =
+        decode_people(&bytes, rules, schema)?;
     people.next_trip = next_trip;
     for p in persons {
         people.insert_person(p);
@@ -378,6 +382,15 @@ pub(super) fn decode<R: Read + Seek>(
         if schema >= Schema::V18 {
             people.trust = decode_trust(&bytes, rules)?;
         }
+        // A technique founders bring that the content has added since the save was made is
+        // given as a founder of their age would bring it, like a new skill.
+        people.give_new_founder_knowledge(
+            &rules.catalog,
+            &rules.people,
+            seed,
+            now,
+            &new_techniques,
+        );
     } else {
         people.give_founders_knowledge(&rules.catalog, &rules.people, seed, now);
     }
@@ -464,6 +477,8 @@ fn encode_earth(land: &Land) -> Vec<u8> {
                 w.version,
                 match w.kind {
                     civ_land::earth::EarthKind::Platform => 0,
+                    civ_land::earth::EarthKind::Pit => 1,
+                    civ_land::earth::EarthKind::Spoil => 2,
                 },
             )
         })
@@ -485,11 +500,19 @@ fn encode_earth(land: &Land) -> Vec<u8> {
         })
         .collect();
     let tiles = fbb.create_vector(&tiles);
+    let links: Vec<save::EarthLink> = land
+        .earthworks
+        .iter()
+        .filter(|w| w.deposit.is_some() || w.heap.is_some())
+        .map(|w| save::EarthLink::new(w.id.get(), raw(w.deposit), raw(w.heap)))
+        .collect();
+    let links = fbb.create_vector(&links);
     let root = save::Earth::create(
         &mut fbb,
         &save::EarthArgs {
             works: Some(works),
             tiles: Some(tiles),
+            links: Some(links),
         },
     );
     finish(fbb, root)
@@ -501,6 +524,8 @@ fn decode_earth(bytes: &[u8], land: &mut Land) -> Result<(), LoadError> {
     for w in root.works().iter().flatten() {
         let kind = match w.kind() {
             0 => civ_land::earth::EarthKind::Platform,
+            1 => civ_land::earth::EarthKind::Pit,
+            2 => civ_land::earth::EarthKind::Spoil,
             other => {
                 return Err(LoadError::Malformed(format!(
                     "an earthwork has kind {other}"
@@ -519,12 +544,26 @@ fn decode_earth(bytes: &[u8], land: &mut Land) -> Result<(), LoadError> {
             level_cm: w.level_cm(),
             side_run_cm: w.side_run_cm(),
             plot: id(w.plot()),
+            deposit: None,
+            heap: None,
             household: required(w.household(), "an earthwork")?,
             cut_m3: w.cut_m3(),
             done: w.done(),
             version: w.version(),
             begun: time(w.begun()),
         });
+    }
+    // Schema 21: what each pit and heap is linked to.
+    for l in root.links().iter().flatten() {
+        let work = land
+            .earthworks
+            .iter_mut()
+            .find(|w| w.id.get() == l.work())
+            .ok_or_else(|| {
+                LoadError::Malformed(format!("a link names earthwork {}, not saved", l.work()))
+            })?;
+        work.deposit = id(l.deposit());
+        work.heap = id(l.heap());
     }
     for t in root.tiles().iter().flatten() {
         let tile = civ_land::earth::DeltaTile {
@@ -743,6 +782,7 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
         Target::Firm(f) => (save::TargetKind::Firm, 0, f.get()),
         Target::NewFirm => (save::TargetKind::NewFirm, 0, 0),
         Target::Technique(t) => (save::TargetKind::Technique, u32::from(t), 0),
+        Target::Deposit(d) => (save::TargetKind::Deposit, 0, d.get()),
     }
 }
 
@@ -764,6 +804,7 @@ fn target_of(kind: save::TargetKind, index: u32, id: u64) -> Result<Target, Load
             u16::try_from(index)
                 .map_err(|_| LoadError::Malformed(format!("a target names technique {index}")))?,
         ),
+        save::TargetKind::Deposit => Target::Deposit(required(id, "a deposit target")?),
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",
@@ -1171,7 +1212,7 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
 
 /// The people, the next trip number, who decides again, and the skills of the content the save
 /// knew nothing of.
-type DecodedPeople = (Vec<Person>, u64, Vec<PermanentId>, Vec<usize>);
+type DecodedPeople = (Vec<Person>, u64, Vec<PermanentId>, Vec<usize>, Vec<usize>);
 
 fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedPeople, LoadError> {
     let root =
@@ -1197,6 +1238,15 @@ fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedP
         .iter()
         .map(|id| rules.catalog.technique_index(id))
         .collect();
+    // Techniques the content has and the save never named (none before schema 13, when nobody's
+    // knowledge was kept).
+    let new_techniques: Vec<usize> = if schema >= Schema::V13 {
+        (0..rules.catalog.techniques.len())
+            .filter(|t| !technique_ids.contains(&Some(*t)))
+            .collect()
+    } else {
+        Vec::new()
+    };
     let mut people = Vec::new();
     let mut redecide = Vec::new();
     for p in root.people().iter().flatten() {
@@ -1395,7 +1445,13 @@ fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedP
             tried: (p.tried() >= 0).then(|| time(p.tried())),
         });
     }
-    Ok((people, root.next_trip(), redecide, new_skills))
+    Ok((
+        people,
+        root.next_trip(),
+        redecide,
+        new_skills,
+        new_techniques,
+    ))
 }
 
 /// What a saved person carries, in the loaded content's goods.
@@ -1429,7 +1485,8 @@ fn carried(
         | Schema::V17
         | Schema::V18
         | Schema::V19
-        | Schema::V20 => {
+        | Schema::V20
+        | Schema::V21 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1554,7 +1611,8 @@ fn decode_households(
             | Schema::V17
             | Schema::V18
             | Schema::V19
-            | Schema::V20 => {
+            | Schema::V20
+            | Schema::V21 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

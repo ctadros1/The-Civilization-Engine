@@ -155,6 +155,7 @@ mod tests {
             tool: None,
             sheltered_half_life_days: 0.0,
             timber: None,
+            store: None,
         };
         vec![
             good("grain", GoodUse::Food),

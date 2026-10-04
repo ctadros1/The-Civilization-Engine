@@ -197,10 +197,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for Terminus {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_TARGET_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_TARGET_KIND: u8 = 12;
+pub const ENUM_MAX_TARGET_KIND: u8 = 13;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 13] = [
+pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 14] = [
   TargetKind::None,
   TargetKind::Home,
   TargetKind::Hearth,
@@ -214,6 +214,7 @@ pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 13] = [
   TargetKind::Firm,
   TargetKind::NewFirm,
   TargetKind::Technique,
+  TargetKind::Deposit,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -234,9 +235,10 @@ impl TargetKind {
   pub const Firm: Self = Self(10);
   pub const NewFirm: Self = Self(11);
   pub const Technique: Self = Self(12);
+  pub const Deposit: Self = Self(13);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 12;
+  pub const ENUM_MAX: u8 = 13;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::None,
     Self::Home,
@@ -251,6 +253,7 @@ impl TargetKind {
     Self::Firm,
     Self::NewFirm,
     Self::Technique,
+    Self::Deposit,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -268,6 +271,7 @@ impl TargetKind {
       Self::Firm => Some("Firm"),
       Self::NewFirm => Some("NewFirm"),
       Self::Technique => Some("Technique"),
+      Self::Deposit => Some("Deposit"),
       _ => None,
     }
   }
@@ -4677,6 +4681,165 @@ impl<'a> EarthworkRecord {
         &x_le as *const _ as *const u8,
         self.0[64..].as_mut_ptr(),
         ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct EarthLink, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct EarthLink(pub [u8; 24]);
+impl Default for EarthLink { 
+  fn default() -> Self { 
+    Self([0; 24])
+  }
+}
+impl ::core::fmt::Debug for EarthLink {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("EarthLink")
+      .field("work", &self.work())
+      .field("deposit", &self.deposit())
+      .field("heap", &self.heap())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for EarthLink {}
+impl<'a> ::flatbuffers::Follow<'a> for EarthLink {
+  type Inner = &'a EarthLink;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a EarthLink>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a EarthLink {
+  type Inner = &'a EarthLink;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<EarthLink>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for EarthLink {
+    type Output = EarthLink;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const EarthLink as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for EarthLink {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> EarthLink {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    work: u64,
+    deposit: u64,
+    heap: u64,
+  ) -> Self {
+    let mut s = Self([0; 24]);
+    s.set_work(work);
+    s.set_deposit(deposit);
+    s.set_heap(heap);
+    s
+  }
+
+  pub fn work(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_work(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn deposit(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_deposit(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn heap(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_heap(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
       );
     }
   }
@@ -15308,6 +15471,7 @@ impl<'a> ::flatbuffers::Follow<'a> for Earth<'a> {
 impl<'a> Earth<'a> {
   pub const VT_WORKS: ::flatbuffers::VOffsetT = 4;
   pub const VT_TILES: ::flatbuffers::VOffsetT = 6;
+  pub const VT_LINKS: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -15319,6 +15483,7 @@ impl<'a> Earth<'a> {
     args: &'args EarthArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Earth<'bldr>> {
     let mut builder = EarthBuilder::new(_fbb);
+    if let Some(x) = args.links { builder.add_links(x); }
     if let Some(x) = args.tiles { builder.add_tiles(x); }
     if let Some(x) = args.works { builder.add_works(x); }
     builder.finish()
@@ -15339,6 +15504,13 @@ impl<'a> Earth<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GroundTile>>>>(Earth::VT_TILES, None)}
   }
+  #[inline]
+  pub fn links(&self) -> Option<::flatbuffers::Vector<'a, EarthLink>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, EarthLink>>>(Earth::VT_LINKS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Earth<'_> {
@@ -15349,6 +15521,7 @@ impl ::flatbuffers::Verifiable for Earth<'_> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, EarthworkRecord>>>("works", Self::VT_WORKS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GroundTile>>>>("tiles", Self::VT_TILES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, EarthLink>>>("links", Self::VT_LINKS, false)?
      .finish();
     Ok(())
   }
@@ -15356,6 +15529,7 @@ impl ::flatbuffers::Verifiable for Earth<'_> {
 pub struct EarthArgs<'a> {
     pub works: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, EarthworkRecord>>>,
     pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GroundTile<'a>>>>>,
+    pub links: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, EarthLink>>>,
 }
 impl<'a> Default for EarthArgs<'a> {
   #[inline]
@@ -15363,6 +15537,7 @@ impl<'a> Default for EarthArgs<'a> {
     EarthArgs {
       works: None,
       tiles: None,
+      links: None,
     }
   }
 }
@@ -15379,6 +15554,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EarthBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<GroundTile<'b >>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Earth::VT_TILES, tiles);
+  }
+  #[inline]
+  pub fn add_links(&mut self, links: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , EarthLink>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Earth::VT_LINKS, links);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EarthBuilder<'a, 'b, A> {
@@ -15400,6 +15579,7 @@ impl ::core::fmt::Debug for Earth<'_> {
     let mut ds = f.debug_struct("Earth");
       ds.field("works", &self.works());
       ds.field("tiles", &self.tiles());
+      ds.field("links", &self.links());
       ds.finish()
   }
 }

@@ -284,6 +284,7 @@ mod tests {
             reserve_for: None,
             tool: None,
             timber: None,
+            store: None,
         }
     }
 

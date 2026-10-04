@@ -169,7 +169,7 @@ table Settlements {
 // weighed in a decision.
 // Schema 14 adds Technique: the technique a session of trying works toward, by index into
 // People.techniques (in a decision receipt, into the content's techniques when it was saved).
-enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12 }
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13 }
 
 enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3 }
 
@@ -858,7 +858,16 @@ struct EarthworkRecord {
   h_cm: int;
   side_run_cm: ushort;
   version: ushort;
+  // 0 a platform; schema 21: 1 a pit, 2 its spoil heap. Append only.
   kind: ubyte;
+}
+
+// Schema 21 (M3b slice Q): a pit's or heap's links, by earthwork id: the deposit the pit is dug
+// for, and the pit's heap (0 for none).
+struct EarthLink {
+  work: ulong;
+  deposit: ulong;
+  heap: ulong;
 }
 
 table GroundTile {
@@ -870,6 +879,7 @@ table GroundTile {
 table Earth {
   works: [EarthworkRecord] (id: 0);
   tiles: [GroundTile] (id: 1);
+  links: [EarthLink] (id: 2);
 }
 
 // Section "events": the scheduler's pending events.

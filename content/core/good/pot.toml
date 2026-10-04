@@ -1,0 +1,18 @@
+# A storage pot of about 20 litres, some 4 kg of fired clay: stoppered, it keeps grain and flour
+# dry and from vermin as well as a raised store's floor does (a tuning choice; research 07-05 §3.1
+# lists cooking and storage vessels among fired pottery's uses). It holds 15 kg (tuning). Pots
+# break: half are gone in three years, under a roof or not (the research gives no use-life; a
+# tuning value), and a pot takes no room of its own.
+kind = "good"
+id = "core:good/pot"
+name = "Pot"
+purpose = "store"
+kcal_per_kg = 0.0
+half_life_days = 1100.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[store]
+keeps_kg = 15.0

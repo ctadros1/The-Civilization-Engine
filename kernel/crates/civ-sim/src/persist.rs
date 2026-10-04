@@ -104,6 +104,8 @@ pub const SCHEMA_V17: u32 = 17;
 pub const SCHEMA_V18: u32 = 18;
 /// The schema version of M3b slice Q's first step: deposits, before earthworks (see [`agents`]).
 pub const SCHEMA_V19: u32 = 19;
+/// The schema version of M3b slice Q's second step: levelled plots, before pits (see [`agents`]).
+pub const SCHEMA_V20: u32 = 20;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

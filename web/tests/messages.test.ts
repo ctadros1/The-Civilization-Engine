@@ -781,7 +781,7 @@ describe("decoders", () => {
   it("decodes the earthworks with the ground tiles they changed, and builds their query", () => {
     const b = new flatbuffers.Builder(256);
     const words = b.createString("the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled");
-    const info = W.EarthworkInfo.createEarthworkInfo(b, 51n, 0, 100, 200, 6, 6, 42.25, 1.5, 6.5, 0.5, 7n, 9n, 11n, words);
+    const info = W.EarthworkInfo.createEarthworkInfo(b, 51n, 0, 100, 200, 6, 6, 42.25, 1.5, 6.5, 0.5, 7n, 9n, 11n, words, 0n);
     const works = W.Earthworks.createWorksVector(b, [info]);
     // Structs in a vector go in last first.
     W.Earthworks.startTilesVector(b, 2);
@@ -810,6 +810,7 @@ describe("decoders", () => {
           plot: 9,
           building: 11,
           words: "the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled",
+          deposit: 0,
         },
       ],
       tileCells: 64,

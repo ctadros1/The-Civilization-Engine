@@ -1,7 +1,7 @@
 //! Goods (`kind = "good"`): things people carry home and keep, with how they keep. What anyone
 //! gathers, stores or eats is decided by people at run time.
 
-use civ_agents::params::{Eaten, GoodDef, GoodUse, ToolDef};
+use civ_agents::params::{Eaten, GoodDef, GoodUse, StoreDef, ToolDef};
 use civ_agents::structure::Timber;
 use serde::Deserialize;
 
@@ -16,7 +16,7 @@ pub(crate) struct GoodFile {
     pub kind: String,
     pub id: String,
     pub name: String,
-    /// `food`, `fuel`, `material` or `tool`.
+    /// `food`, `fuel`, `material`, `tool` or `store`.
     pub purpose: String,
     pub kcal_per_kg: f64,
     pub half_life_days: f64,
@@ -32,6 +32,15 @@ pub(crate) struct GoodFile {
     pub tool: Option<Tool>,
     /// For a material that is built with as timber: its strength (content API 16).
     pub timber: Option<TimberFile>,
+    /// For a store: the room each one gives (content API 20).
+    pub store: Option<StoreFile>,
+}
+
+/// What a store holds (M3b slice Q).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct StoreFile {
+    pub keeps_kg: f64,
 }
 
 /// What a timber carries (ADR-0009 §5).
@@ -79,6 +88,9 @@ impl GoodFile {
                 stiffness_pa: t.stiffness_gpa * 1e9,
                 creep: t.creep,
                 sustained: t.sustained,
+            }),
+            store: self.store.as_ref().map(|t| StoreDef {
+                keeps_kg: t.keeps_kg,
             }),
         })
     }
@@ -139,6 +151,21 @@ impl GoodFile {
             (Some(_), Some(_)) => p.push("only a tool takes a `[tool]` table".to_owned()),
             _ => {}
         }
+        match (purpose, &self.store) {
+            (Some(GoodUse::Store), None) => {
+                p.push("a store needs its `[store]` table".to_owned());
+            }
+            (Some(GoodUse::Store), Some(t)) => {
+                if !(t.keeps_kg.is_finite() && t.keeps_kg > 0.0 && t.keeps_kg <= 1000.0) {
+                    p.push(format!(
+                        "`store.keeps_kg` must be above 0 and at most 1000 (got {})",
+                        t.keeps_kg
+                    ));
+                }
+            }
+            (Some(_), Some(_)) => p.push("only a store takes a `[store]` table".to_owned()),
+            _ => {}
+        }
         if let Some(t) = &self.timber {
             if purpose != Some(GoodUse::Material) {
                 p.push("only a material takes a `[timber]` table".to_owned());
@@ -167,7 +194,7 @@ impl GoodFile {
         }
         match purpose {
             None => p.push(format!(
-                "unknown purpose `{}` (known: food, fuel, material, tool)",
+                "unknown purpose `{}` (known: food, fuel, material, tool, store)",
                 self.purpose
             )),
             Some(GoodUse::Food) => {
@@ -191,7 +218,7 @@ impl GoodFile {
                     p.push("a fuel keeps: `sheltered_half_life_days` must be 0".to_owned());
                 }
             }
-            Some(GoodUse::Material | GoodUse::Tool) => {
+            Some(GoodUse::Material | GoodUse::Tool | GoodUse::Store) => {
                 if self.kcal_per_kg != 0.0 {
                     p.push(format!(
                         "a {} is not eaten: `kcal_per_kg` must be 0",

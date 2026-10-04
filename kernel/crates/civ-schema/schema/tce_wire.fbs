@@ -1231,10 +1231,11 @@ table Deposits {
   deposits: [DepositInfo] (id: 1);
 }
 
-// An earthwork (wire 1.20, M3b slice Q; ADR-0010 §2): for now a platform levelling a plot.
+// An earthwork (wire 1.20, M3b slice Q; ADR-0010 §2): a platform levelling a plot, a pit dug for a
+// deposit's goods, or the spoil heap beside a pit.
 table EarthworkInfo {
   id: ulong (id: 0);
-  // What it is: 0 a platform. Append only.
+  // What it is: 0 a platform; wire 1.21: 1 a pit, 2 a spoil heap. Append only.
   kind: ubyte (id: 1);
   // The rectangle it levels, metres from the map's north-west corner.
   x: float (id: 2);
@@ -1254,6 +1255,8 @@ table EarthworkInfo {
   building: ulong (id: 12);
   // In words: "the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled".
   words: string (id: 13);
+  // Wire 1.21: for a pit or its heap, the deposit the pit is dug for (0 for none).
+  deposit: ulong (id: 14);
 }
 
 // A tile of what earthworks have done to the ground, numbered row by row across the map. Its

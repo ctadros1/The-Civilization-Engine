@@ -3,6 +3,9 @@
 //!
 //! A platform levels a plot by cut and fill: inside its rectangle the ground is brought to one
 //! level, and around it the ground slopes back to the generated surface at the record's side slope.
+//! A pit is dug for a deposit's goods: its rectangle deepens as it is worked, and what is dug and
+//! not carried away (the cover over the body, and what of it is unfit) goes on a spoil heap beside
+//! it.
 //! The expansion samples the ground at a fine step, so it runs at the kernel's 8 m cells and at any
 //! finer resolution alike, and it never rewrites the generated bed: what it gives is a difference.
 
@@ -24,6 +27,10 @@ pub const SAMPLE_M: f64 = 0.5;
 pub enum EarthKind {
     /// A plot levelled by cut and fill.
     Platform,
+    /// A pit dug for a deposit's goods, deepening as it is worked.
+    Pit,
+    /// A heap of what a pit's digging leaves: the cover over the body, and what is unfit.
+    Spoil,
 }
 
 /// The surface an earthwork leaves, over the area it touches, and the earth it moves.
@@ -63,6 +70,14 @@ pub fn platform_level(rect: &RectCm, side_run: f64, base: &dyn Fn(f64, f64) -> f
         }
     }
     Some((lo + hi) / 2.0)
+}
+
+/// The highest of the ground `base` over `rect`, metres.
+pub fn highest(rect: &RectCm, base: &dyn Fn(f64, f64) -> f64) -> f64 {
+    samples(rect, 0.0)
+        .iter()
+        .map(|&(x, y)| base(x, y))
+        .fold(f64::NEG_INFINITY, f64::max)
 }
 
 /// How far the ground `base` drops across `rect`, metres: its highest less its lowest there.
@@ -194,11 +209,16 @@ pub struct Earthwork {
     pub side_run_cm: u16,
     /// The plot it levels, if any.
     pub plot: Option<PermanentId>,
+    /// For a pit or its heap: the deposit the pit is dug for.
+    pub deposit: Option<PermanentId>,
+    /// For a pit: its spoil heap.
+    pub heap: Option<PermanentId>,
     /// The household that made it.
     pub household: PermanentId,
-    /// Earth it cuts when done, cubic metres in the bank.
+    /// Earth it moves, cubic metres as it lay in the ground: a platform's cut when done, what a pit
+    /// has been dug of so far, what a heap has been given.
     pub cut_m3: f32,
-    /// The share of it done, 0 to 1.
+    /// The share of it done, 0 to 1: a platform's; a pit and a heap are as far as their earth.
     pub done: f32,
     /// The expansion version it was made under.
     pub version: u16,
@@ -215,6 +235,16 @@ impl Earthwork {
     /// Its sides' run, metres across per metre up or down.
     pub fn side_run(&self) -> f64 {
         f64::from(self.side_run_cm) / 100.0
+    }
+
+    /// A pit's depth, or a heap's height, metres: its earth over its area.
+    pub fn depth_m(&self) -> f64 {
+        let area = f64::from(self.rect.w.max(0)) * f64::from(self.rect.h.max(0)) / 10_000.0;
+        if area > 0.0 {
+            f64::from(self.cut_m3) / area
+        } else {
+            0.0
+        }
     }
 }
 
@@ -386,8 +416,63 @@ pub fn advance(work: &mut Earthwork, map: &WorldMap, ground: &mut GroundDelta, s
                 &mut |x, y, dz, area| ground.add((x, y), dz * area),
             );
         }
+        // A pit or a heap is as far as its earth ([`dig`]).
+        EarthKind::Pit | EarthKind::Spoil => return,
     }
     work.done = share;
+}
+
+/// Spreads `volume_m3` of earth evenly over `rect` (removes it, when negative).
+fn spread(rect: &RectCm, volume_m3: f64, ground: &mut GroundDelta) {
+    let points = samples(rect, 0.0);
+    if points.is_empty() {
+        return;
+    }
+    let each = volume_m3 / points.len() as f64;
+    for p in points {
+        ground.add(p, each);
+    }
+}
+
+/// Digs `m3` more from pit `pit` (cubic metres as it lay in the ground), of which `kept_m3` is
+/// carried away as goods and the rest goes on heap `heap` (ADR-0010 §2): the pit's ground falls by
+/// all of it over its rectangle, and the heap's rises by the rest over its, so the ground loses
+/// only what is carried away. The pit's level is its floor's, the heap's its top's, over the
+/// generated ground at their middles.
+pub fn dig(
+    pit: &mut Earthwork,
+    heap: &mut Earthwork,
+    map: &WorldMap,
+    ground: &mut GroundDelta,
+    m3: f64,
+    kept_m3: f64,
+) {
+    let m3 = m3.max(0.0);
+    let kept = kept_m3.clamp(0.0, m3);
+    spread(&pit.rect, -m3, ground);
+    spread(&heap.rect, m3 - kept, ground);
+    pit.cut_m3 += m3 as f32;
+    heap.cut_m3 += (m3 - kept) as f32;
+    let middle = |w: &Earthwork| {
+        let (x, y) = w.rect.centre_m();
+        bed_height(map, (f64::from(x), f64::from(y)))
+    };
+    pit.level_cm = ((middle(pit) - pit.depth_m()) * 100.0).round() as i32;
+    heap.level_cm = ((middle(heap) + heap.depth_m()) * 100.0).round() as i32;
+}
+
+/// What record `work` has done to the ground, applied afresh to `ground` (the records reproduce
+/// the tiles, ADR-0010 §3): a platform as far as it is done, a pit lowered and a heap raised by
+/// all their earth.
+pub fn replay(work: &Earthwork, map: &WorldMap, ground: &mut GroundDelta) {
+    match work.kind {
+        EarthKind::Platform => {
+            let mut fresh = Earthwork { done: 0.0, ..*work };
+            advance(&mut fresh, map, ground, work.done);
+        }
+        EarthKind::Pit => spread(&work.rect, -f64::from(work.cut_m3), ground),
+        EarthKind::Spoil => spread(&work.rect, f64::from(work.cut_m3), ground),
+    }
 }
 
 /// The centres of the squares of [`SAMPLE_M`] covering `rect` widened by `margin` metres.
@@ -515,6 +600,59 @@ mod tests {
         assert_eq!(ground.region((300, 0), (4, 4)), None);
     }
 
+    #[test]
+    fn digging_a_pit_heaps_what_is_left_and_only_the_goods_leave_the_ground() {
+        let map = crate::tests::map();
+        let square = |x: i32| RectCm {
+            x,
+            y: 2_000,
+            w: 300,
+            h: 300,
+        };
+        let work = |id: u64, kind, rect| Earthwork {
+            id: PermanentId::from_raw(id).expect("nonzero"),
+            kind,
+            rect,
+            level_cm: 1_000,
+            side_run_cm: 100,
+            plot: None,
+            deposit: PermanentId::from_raw(9),
+            heap: None,
+            household: PermanentId::from_raw(6).expect("nonzero"),
+            cut_m3: 0.0,
+            done: 1.0,
+            version: EARTH_VERSION,
+            begun: SimTime::ZERO,
+        };
+        let mut pit = work(7, EarthKind::Pit, square(2_000));
+        let mut heap = work(8, EarthKind::Spoil, square(2_350));
+        let mut ground = GroundDelta::new(map.width, map.height, map.cell_size_m);
+        // Two cubic metres dug, one of them carried away; then more, all of it spoil.
+        dig(&mut pit, &mut heap, &map, &mut ground, 2.0, 1.0);
+        dig(&mut pit, &mut heap, &map, &mut ground, 0.7, 0.0);
+        assert!((f64::from(pit.cut_m3) - 2.7).abs() < 1e-6);
+        assert!((f64::from(heap.cut_m3) - 1.7).abs() < 1e-6);
+        assert!((pit.depth_m() - 0.3).abs() < 1e-6, "{}", pit.depth_m());
+        assert!((ground.net_m3() + 1.0).abs() < 1e-3, "{}", ground.net_m3());
+        // The pit's floor is below the ground there, the heap's top above it.
+        assert!(pit.level_m() < bed_height(&map, (21.5, 21.5)));
+        assert!(heap.level_m() > bed_height(&map, (25.0, 21.5)));
+        // The records, applied afresh, give the same ground.
+        let mut replayed = GroundDelta::new(map.width, map.height, map.cell_size_m);
+        replay(&pit, &map, &mut replayed);
+        replay(&heap, &map, &mut replayed);
+        for cell in 0..(map.width * map.height) as usize {
+            assert!(
+                (replayed.at(cell) - ground.at(cell)).abs() < 1e-5,
+                "cell {cell}"
+            );
+        }
+        // Advancing a pit by share does nothing: a pit is as far as its earth.
+        let before = ground.clone();
+        advance(&mut pit, &map, &mut ground, 1.0);
+        assert_eq!(ground, before);
+    }
+
     /// A hash of everything a platform's expansion gives on a fixed slope, to the micrometre.
     fn golden() -> u64 {
         // Plain arithmetic only, which is exact on every platform.
@@ -574,6 +712,8 @@ mod tests {
             level_cm: (level * 100.0).round() as i32,
             side_run_cm: 150,
             plot: None,
+            deposit: None,
+            heap: None,
             household: PermanentId::from_raw(6).expect("nonzero"),
             cut_m3: whole.cut_m3 as f32,
             done: 0.0,

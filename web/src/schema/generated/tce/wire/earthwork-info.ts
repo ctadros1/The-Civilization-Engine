@@ -94,8 +94,13 @@ words(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+deposit():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 32);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startEarthworkInfo(builder:flatbuffers.Builder) {
-  builder.startObject(14);
+  builder.startObject(15);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -154,12 +159,16 @@ static addWords(builder:flatbuffers.Builder, wordsOffset:flatbuffers.Offset) {
   builder.addFieldOffset(13, wordsOffset, 0);
 }
 
+static addDeposit(builder:flatbuffers.Builder, deposit:bigint) {
+  builder.addFieldInt64(14, deposit, BigInt('0'));
+}
+
 static endEarthworkInfo(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createEarthworkInfo(builder:flatbuffers.Builder, id:bigint, kind:number, x:number, y:number, w:number, h:number, levelM:number, sideRun:number, cutM3:number, done:number, household:bigint, plot:bigint, building:bigint, wordsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createEarthworkInfo(builder:flatbuffers.Builder, id:bigint, kind:number, x:number, y:number, w:number, h:number, levelM:number, sideRun:number, cutM3:number, done:number, household:bigint, plot:bigint, building:bigint, wordsOffset:flatbuffers.Offset, deposit:bigint):flatbuffers.Offset {
   EarthworkInfo.startEarthworkInfo(builder);
   EarthworkInfo.addId(builder, id);
   EarthworkInfo.addKind(builder, kind);
@@ -175,6 +184,7 @@ static createEarthworkInfo(builder:flatbuffers.Builder, id:bigint, kind:number, 
   EarthworkInfo.addPlot(builder, plot);
   EarthworkInfo.addBuilding(builder, building);
   EarthworkInfo.addWords(builder, wordsOffset);
+  EarthworkInfo.addDeposit(builder, deposit);
   return EarthworkInfo.endEarthworkInfo(builder);
 }
 }

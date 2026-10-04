@@ -65,7 +65,10 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
 - As built: "passes near" is within 50 m of a body's edge along the route of a walk, checked when
   the walk ends (a tuning value). The god tool takes a radius and whether the body shows, and
   takes the rest of the body from the land profile's rule for its good. Both are chronicled.
-  Digging follows in this slice's next steps.
+- As built (slice Q's third step): a platform finds a buried body when the deepest cut on its
+  plot, times the share done, reaches the body's cover, and some of its plot lies over the body.
+  This is a simplification: the deepest cut need not lie over the body. A pit is dug only on a
+  body the settlement already knows, so it finds nothing new.
 
 ### 2. Earthworks are records
 
@@ -88,6 +91,18 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
   lay in the ground; bulking and compaction (11-12 §2.4) wait for spoil heaps and goods. Its
   earth costs hours on the building's first stage and is done with its first hours. The
   expansion samples every half metre; a golden hash pins version 1. Pits and spoil heaps follow.
+- As built (slice Q's third step): clay pits. People dig at a body of the good their settlement
+  knows, while their household needs it. A pit is a square of the people profile's
+  `pit_side_m` (3 m) on the body, at the free spot nearest the settlement's hearth. Its heap is a
+  square of the same size beside it, toward the hearth first. Each links to its deposit, and the
+  pit links to its heap. A pit deepens by what each session digs, at `h_per_m3` (8 h a cubic
+  metre: 11-12 §2.4's non-metal prior, dig and lift only). The cover and the share of the body
+  unfit for use (one less its quality) go on the heap, and the rest is carried home, a load at a
+  time. A pit dug through its body is done, and the next is begun on the body. Volumes balance as
+  the earth lay in the ground, so bulking is still not kept: what is dug equals what is heaped
+  plus what is carried, and the body's density turns volume into kilograms. Both change the
+  ground evenly over their squares, which are smaller than a cell, as cell-mean deltas.
+  Quarries for stone and flint follow.
 
 ### 3. The bed is the generated bed plus a delta layer
 
@@ -107,6 +122,9 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
   levelled only where every cell its platform's sides could reach is dry land; otherwise it is
   passed over. Only the tests read the bed plus its deltas so far; the elevation raster gains
   them with the boundary's next step.
+- As built (slice Q's third step): a pit or heap needs dry land and no other earthwork, plot or
+  field on its square. Every earthwork's change to the ground is reproduced from its record alone:
+  a platform as far as it is done, and a pit or heap as the earth it holds or lacks.
 
 ### 4. Saves and boundary
 
@@ -123,6 +141,9 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
   each earthwork in words with every changed tile and its revision, and elevation served as the
   bed plus its deltas. The deposits and `PlaceDeposit` came with 1.19. The query of a
   settlement's deposits is the deposits query's `known_by`.
+- As built (slice Q's third step): saves schema 21 add each earthwork's links to its deposit and
+  heap. Wire 1.21 appends each earthwork's deposit, and kinds 1 (pit) and 2 (spoil heap), which
+  the observer draws dark and pale.
 
 ## Consequences
 

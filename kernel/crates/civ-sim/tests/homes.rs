@@ -941,8 +941,7 @@ fn a_hut_on_sloping_ground_has_its_plot_levelled_first_and_the_ground_keeps_it()
     let map = sim.map();
     let mut replayed = earth::GroundDelta::new(map.width, map.height, map.cell_size_m);
     for w in &sim.land().earthworks {
-        let mut fresh = earth::Earthwork { done: 0.0, ..*w };
-        earth::advance(&mut fresh, map, &mut replayed, w.done);
+        earth::replay(w, map, &mut replayed);
     }
     for cell in 0..(map.width * map.height) as usize {
         assert!(

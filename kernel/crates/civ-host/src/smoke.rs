@@ -427,23 +427,32 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
     result.notes.extend(earthworks(sim));
 }
 
-/// The plots levelled by the end (ADR-0010 §2), in words: "3 plots levelled, 19 m³ cut".
-/// `None` without earthworks.
+/// The earthworks by the end (ADR-0010 §2), in words: "3 plots levelled, 19 m³ cut; 2 pits dug,
+/// 4.5 m³". `None` without earthworks.
 fn earthworks(sim: &Sim) -> Option<String> {
+    use civ_land::earth::EarthKind;
     let works = &sim.land().earthworks;
-    if works.is_empty() {
-        return None;
+    let of = |kind: EarthKind| works.iter().filter(move |w| w.kind == kind);
+    let mut parts = Vec::new();
+    let plots = of(EarthKind::Platform).count();
+    if plots > 0 {
+        let cut: f64 = of(EarthKind::Platform)
+            .map(|w| f64::from(w.cut_m3) * f64::from(w.done))
+            .sum();
+        let noun = if plots == 1 { "plot" } else { "plots" };
+        parts.push(format!("{plots} {noun} levelled, {cut:.0} m³ cut"));
     }
-    let cut: f64 = works
-        .iter()
-        .map(|w| f64::from(w.cut_m3) * f64::from(w.done))
-        .sum();
-    let plots = if works.len() == 1 { "plot" } else { "plots" };
-    Some(format!("{} {plots} levelled, {cut:.0} m³ cut", works.len()))
+    let pits = of(EarthKind::Pit).count();
+    if pits > 0 {
+        let dug: f64 = of(EarthKind::Pit).map(|w| f64::from(w.cut_m3)).sum();
+        let noun = if pits == 1 { "pit" } else { "pits" };
+        parts.push(format!("{pits} {noun} dug, {dug:.1} m³"));
+    }
+    (!parts.is_empty()).then(|| parts.join("; "))
 }
 
-/// The world's deposits at the end (ADR-0010 §1), in words: "96 deposits, 31 showing, 4 found".
-/// `None` without deposits.
+/// The world's deposits at the end (ADR-0010 §1), in words: "96 deposits, 31 showing, 4 found",
+/// and what has been dug from them: "; 1240 kg taken". `None` without deposits.
 fn deposits(sim: &Sim) -> Option<String> {
     let all = &sim.land().deposits;
     if all.is_empty() {
@@ -459,8 +468,14 @@ fn deposits(sim: &Sim) -> Option<String> {
                 .any(|k| k.deposit == d.id)
         })
         .count();
+    let taken: f64 = all.iter().map(|d| d.taken_kg).sum();
+    let dug = if taken > 0.0 {
+        format!("; {taken:.0} kg taken")
+    } else {
+        String::new()
+    };
     Some(format!(
-        "{} deposits, {showing} showing, {found} found",
+        "{} deposits, {showing} showing, {found} found{dug}",
         all.len()
     ))
 }

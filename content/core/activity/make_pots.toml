@@ -1,0 +1,17 @@
+# Making storage pots at home and firing them in an open fire, in daylight (tuning starting points).
+kind = "activity"
+id = "core:activity/make_pots"
+name = "Make pots"
+doing = "making pots"
+behavior = "make"
+recipe = "core:recipe/make_pots"
+par = 2.5
+min_age_years = 12.0
+max_age_years = 75.0
+min_minutes = 60
+max_minutes = 300
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

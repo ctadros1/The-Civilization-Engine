@@ -40,6 +40,17 @@ pub(crate) struct PeopleFile {
     pub market: Market,
     pub firm: Firm,
     pub knowledge: Knowledge,
+    pub digging: DiggingFile,
+}
+
+/// How people dig at a deposit (M3b slice Q, ADR-0010 §2; content API 20).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DiggingFile {
+    /// Hours to dig a cubic metre of earth as it lay in the ground and lift it out.
+    pub h_per_m3: f64,
+    /// The side of a pit, and of the spoil heap beside it, metres.
+    pub pit_side_m: f64,
 }
 
 /// What founders know and how people learn (ADR-0008).
@@ -603,6 +614,10 @@ impl PeopleFile {
                 w_try: self.knowledge.w_try,
                 try_gap_days: self.knowledge.try_gap_days,
             },
+            digging: civ_agents::params::Digging {
+                h_per_m3: self.digging.h_per_m3,
+                pit_side_m: self.digging.pit_side_m,
+            },
             names,
         }
     }
@@ -610,6 +625,14 @@ impl PeopleFile {
     /// Range problems, as messages.
     pub fn problems(&self) -> Vec<String> {
         let mut p = Vec::new();
+        positive("digging.h_per_m3", self.digging.h_per_m3, &mut p);
+        if !(self.digging.pit_side_m.is_finite() && (1.0..=20.0).contains(&self.digging.pit_side_m))
+        {
+            p.push(format!(
+                "`digging.pit_side_m` must be between 1 and 20 (got {})",
+                self.digging.pit_side_m
+            ));
+        }
         for f in &self.knowledge.founders {
             if !(f.share.is_finite() && (0.0..=1.0).contains(&f.share)) {
                 p.push(format!(

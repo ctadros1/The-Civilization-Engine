@@ -45,6 +45,8 @@ pub enum Target {
     /// A technique, by index in the catalog's techniques: the one a session of trying works
     /// toward (ADR-0008 §3).
     Technique(u16),
+    /// A deposit in the ground, by permanent id: the one dug at (M3b slice Q).
+    Deposit(PermanentId),
 }
 
 /// One step of an activity.
@@ -693,6 +695,20 @@ impl Keeping {
         raised_factor: 1.0,
     };
 
+    /// This keeping with the room `stores`' own pots give (M3b slice Q): each store good held
+    /// keeps its `keeps_kg` as a raised floor does, under the roofs that keep the rest.
+    pub fn with_stores(&self, stores: &[f64], goods: &[GoodDef]) -> Keeping {
+        let pots: f64 = goods
+            .iter()
+            .zip(stores)
+            .filter_map(|(g, &n)| g.store.as_ref().map(|s| n.max(0.0) * s.keeps_kg))
+            .sum();
+        Keeping {
+            raised_kg: self.raised_kg + pots,
+            ..*self
+        }
+    }
+
     /// For each good, the shares of `stores` kept on raised floors and elsewhere under a roof;
     /// the rest lies in the open. Only goods with a sheltered half-life take room.
     pub fn shares(&self, stores: &[f64], goods: &[GoodDef]) -> Vec<(f64, f64)> {
@@ -807,9 +823,10 @@ impl Household {
         }
         let days = (t1 - t0) as f64 / MINUTES_PER_DAY as f64;
         let mut burned = burned_kg(t0, t1, fuel_kg_per_day);
-        // Shares of each good under the roof, when the roof cannot hold them all.
-        let shares = (self.sheltered && !self.keeping.holds_all(&self.stores, goods))
-            .then(|| self.keeping.shares(&self.stores, goods));
+        // Shares of each good under the roof, when the roof and its pots cannot hold them all.
+        let keeping = self.keeping.with_stores(&self.stores, goods);
+        let shares = (self.sheltered && !keeping.holds_all(&self.stores, goods))
+            .then(|| keeping.shares(&self.stores, goods));
         let left = |half_life: f64| {
             if half_life > 0.0 {
                 0.5f64.powf(days / half_life)
@@ -822,7 +839,7 @@ impl Household {
             match shares.as_ref().and_then(|s| s.get(i)) {
                 Some(&(raised, under)) if roofed => {
                     let open = (1.0 - raised - under).max(0.0);
-                    *kg *= raised * left(g.sheltered_half_life_days * self.keeping.raised_factor)
+                    *kg *= raised * left(g.sheltered_half_life_days * keeping.raised_factor)
                         + under * left(g.sheltered_half_life_days)
                         + open * left(g.half_life_days);
                 }
@@ -994,6 +1011,7 @@ mod tests {
             tool: None,
             sheltered_half_life_days: 0.0,
             timber: None,
+            store: None,
         };
         vec![
             good("meat", GoodUse::Food, 1500.0, 3.0, Eaten::Cooked),

@@ -948,10 +948,11 @@ export interface DepositsInfo {
   deposits: DepositInfo[];
 }
 
-/** An earthwork (wire 1.20, M3b slice Q; ADR-0010 §2): for now a platform levelling a plot. */
+/** An earthwork (wire 1.20, M3b slice Q; ADR-0010 §2): a platform levelling a plot, a pit dug for
+ * a deposit's goods, or the spoil heap beside a pit. */
 export interface EarthworkInfo {
   id: number;
-  /** What it is: 0 a platform. */
+  /** What it is: 0 a platform; wire 1.21: 1 a pit, 2 a spoil heap. */
   kind: number;
   /** The rectangle it levels, metres from the map's north-west corner. */
   x: number;
@@ -970,6 +971,8 @@ export interface EarthworkInfo {
   building: number;
   /** In the kernel's words: "the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled". */
   words: string;
+  /** Wire 1.21: for a pit or its heap, the deposit the pit is dug for (0 for none). */
+  deposit: number;
 }
 
 export interface EarthworksInfo {
@@ -1479,6 +1482,7 @@ function earthworks(w: W.Earthworks): EarthworksInfo {
       plot: Number(e.plot()),
       building: Number(e.building()),
       words: e.words() ?? "",
+      deposit: Number(e.deposit()),
     });
   }
   const tiles: { index: number; rev: number }[] = [];

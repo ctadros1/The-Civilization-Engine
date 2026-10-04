@@ -37,6 +37,7 @@ use crate::person::{
 };
 
 mod deposits;
+mod digging;
 mod firm;
 mod knowledge;
 mod land;
@@ -1474,7 +1475,8 @@ impl Population {
         let first = programs.first().and_then(|&p| catalog.buildings.get(p))?;
         let goods = &catalog.goods;
         let stores = stores_now(hh, ctx.now, ctx.params, goods);
-        let room = [hh.keeping.raised_kg, hh.keeping.roofed_kg, 0.0];
+        let keeping = hh.keeping.with_stores(&stores, goods);
+        let room = [keeping.raised_kg, keeping.roofed_kg, 0.0];
         let placed = crate::person::Keeping::fill(&stores, goods, room);
         let overflow: Vec<f64> = stores
             .iter()
@@ -1964,6 +1966,24 @@ impl Population {
         let tool_need: Vec<f64> = (0..goods.len())
             .map(|g| make::tool_need(wants[g], held_of(g)))
             .collect();
+        // Pots: as many more as would keep the food that lies anywhere but a raised floor or a
+        // pot, and the food the next would keep over the store horizon (M3b slice Q).
+        let keeping_now = hh.keeping.with_stores(&stores, goods);
+        let pots: Vec<(f64, f64)> = goods
+            .iter()
+            .map(|d| {
+                d.store.as_ref().map_or((0.0, 0.0), |s| {
+                    build::pots_wanted(
+                        &stores,
+                        goods,
+                        &keeping_now,
+                        hh.sheltered,
+                        s.keeps_kg,
+                        params.build.store_horizon_days,
+                    )
+                })
+            })
+            .collect();
         // Tools others want and nobody offers, which the household makes for fewer hours than
         // they would give: worth making to sell (slice I).
         let for_sale = self.for_sale(ctx, &hh, &stores, &tool_need);
@@ -1991,6 +2011,26 @@ impl Population {
                 }
             }
         }
+        // And what the pots it would gain from are made of, a session's worth at most.
+        for (t, &(want, _)) in pots.iter().enumerate() {
+            let Some((r, per_unit)) = catalog.recipes.iter().find_map(|r| {
+                r.outputs
+                    .iter()
+                    .find(|&&(g, _)| g == t)
+                    .map(|&(_, amount)| (r, amount))
+            }) else {
+                continue;
+            };
+            if want <= 0.0 || per_unit <= 0.0 {
+                continue;
+            }
+            let units = (want / per_unit).min(r.max_units.max(1.0));
+            for &(g, amount) in &r.inputs {
+                if let Some(m) = tool_material.get_mut(g) {
+                    *m += (amount * units - held_of(g)).max(0.0);
+                }
+            }
+        }
         let home = self.homes.get(&field_key);
         let water = home.and_then(|f| {
             f.water.map(|(cell, s)| WaterOption {
@@ -2013,8 +2053,82 @@ impl Population {
             .iter()
             .map(|k| ((k.resource, k.patch), k))
             .collect();
+        // Where each dig activity would dig (M3b slice Q): the deposit of its good the settlement
+        // knows that brings most for the walk, while the household needs the good; otherwise the
+        // nearest it knows, to be weighed and found not needed.
+        let toward = hearth.unwrap_or(hh.home);
+        let toward = (f64::from(toward.0), f64::from(toward.1));
+        let digs: Vec<Option<PatchOption>> = catalog
+            .activities
+            .iter()
+            .map(|a| {
+                let g = a.digs?;
+                let settlement = hh.settlement?;
+                let reach = &home?.reach;
+                let good = catalog.goods.get(g)?;
+                let need_kg = build_need.get(g).copied().unwrap_or(0.0);
+                let tool_need_kg = tool_material.get(g).copied().unwrap_or(0.0);
+                let needed = need_kg > 0.0 || tool_need_kg > 0.0;
+                let hours = f64::from(a.max_minutes) / 60.0;
+                let mut best: Option<(f64, PatchOption)> = None;
+                for d in ctx.land.deposits.iter().filter(|d| {
+                    usize::from(d.body.good) == g
+                        && d.left_kg() > 0.0
+                        && self.knows_deposit(settlement, d.id)
+                }) {
+                    let centre = (
+                        (d.body.at_cm.0 as f64 / 100.0) as f32,
+                        (d.body.at_cm.1 as f64 / 100.0) as f32,
+                    );
+                    let at = if needed {
+                        let side = params.digging.pit_side_m;
+                        match digging::dig_place(ctx.land, map, d, toward, side) {
+                            Some(at) => at,
+                            None => continue,
+                        }
+                    } else {
+                        centre
+                    };
+                    let Some(secs) = reach.seconds_to(cell_of(map, at)) else {
+                        continue;
+                    };
+                    let walk = f64::from(secs) / 60.0;
+                    let kg_per_hour = digging::dig_kg_per_hour(&d.body, params.digging.h_per_m3);
+                    if walk > f64::from(a.max_walk_minutes) || kg_per_hour <= 0.0 {
+                        continue;
+                    }
+                    let value = kg_per_hour * hours / (hours + 2.0 * walk / 60.0);
+                    if best.is_none_or(|(v, _)| value > v) {
+                        best = Some((
+                            value,
+                            PatchOption {
+                                patch: 0,
+                                walk_min: walk,
+                                kg_per_hour,
+                                purpose: good.purpose,
+                                kcal_per_kg: good.kcal_per_kg,
+                                stored_days: 0.0,
+                                need_kg,
+                                urgency: build_urgency,
+                                tool_need_kg,
+                                tool_blocked: tool_material_blocked
+                                    .get(g)
+                                    .copied()
+                                    .unwrap_or(false),
+                                at,
+                                deposit: Some(d.id),
+                            },
+                        ));
+                    }
+                }
+                best.map(|(_, o)| o)
+            })
+            .collect();
         let best_patch = |def: usize| -> Option<PatchOption> {
             let a = &catalog.activities[def];
+            if a.digs.is_some() {
+                return digs.get(def).copied().flatten();
+            }
             let r = a.resource?;
             let res = land_params.resources.get(r)?;
             let good = catalog.goods.get(res.good)?;
@@ -2026,12 +2140,12 @@ impl Population {
             let stored_days = match good.purpose {
                 GoodUse::Food => held * good.kcal_per_kg / kcal_day.max(1.0),
                 GoodUse::Fuel => held / household_fuel_day.max(1e-6),
-                GoodUse::Material | GoodUse::Tool => 0.0,
+                GoodUse::Material | GoodUse::Tool | GoodUse::Store => 0.0,
             };
             // A material is worth bringing only toward what the household is building, or the
             // tools it lacks.
             let (need_kg, urgency) = match good.purpose {
-                GoodUse::Material | GoodUse::Tool => (
+                GoodUse::Material | GoodUse::Tool | GoodUse::Store => (
                     build_need.get(res.good).copied().unwrap_or(0.0),
                     build_urgency,
                 ),
@@ -2082,6 +2196,7 @@ impl Population {
                             tool_need_kg,
                             tool_blocked,
                             at: cell_centre(map, cell as usize),
+                            deposit: None,
                         },
                     ));
                 }
@@ -2213,6 +2328,22 @@ impl Population {
                     return Err((Reason::NotNeeded, None));
                 }
                 (MakeWorth::Preserve { kcal: per_unit }, spoil / per_unit)
+            } else if out_good.store.is_some() {
+                // Pots: the food the next would keep, as long as more would keep some (M3b
+                // slice Q).
+                let (want, kcal) = pots.get(out).copied().unwrap_or((0.0, 0.0));
+                let made = r
+                    .outputs
+                    .iter()
+                    .find(|&&(g, _)| g == out)
+                    .map_or(0.0, |&(_, amount)| amount);
+                if want <= 0.0
+                    || made <= 0.0
+                    || kcal < MIN_PRESERVE_DAYS * params.household.daily_kcal_per_person
+                {
+                    return Err((Reason::NotNeeded, None));
+                }
+                (MakeWorth::Preserve { kcal: kcal * made }, want / made)
             } else if out_good.purpose == GoodUse::Food {
                 let per_unit: f64 = r
                     .outputs
@@ -2764,6 +2895,7 @@ impl Population {
             ) => (def_par, false, params.social.household_quality),
             Some(
                 Behavior::Gather
+                | Behavior::Dig
                 | Behavior::FetchWater
                 | Behavior::Farm
                 | Behavior::Ask
@@ -2850,6 +2982,30 @@ impl Population {
                         let hh_id = p.household;
                         let seen = (r as u16, patch, got, hours, now.day_index());
                         self.remember_patch(hh_id, seen, res.renewal_days());
+                    }
+                }
+                // Digging at a deposit's pit (M3b slice Q, ADR-0010 §2).
+                Some(Behavior::Dig) => {
+                    if let (Some(d), Target::Deposit(deposit)) = (def.as_ref(), p.act.target)
+                        && let Some(good) = d.digs
+                    {
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * d.rate;
+                        let effort_h = f64::from(minutes) / 60.0 * eff;
+                        let settlement = self
+                            .hh_index
+                            .get(&household)
+                            .and_then(|&x| self.households.get(x))
+                            .and_then(|x| x.settlement);
+                        let toward = settlement
+                            .and_then(|s| ctx.land.settlements.iter().find(|x| x.id == s))
+                            .map_or(p.pos, |x| x.hearth_m);
+                        let toward = (f64::from(toward.0), f64::from(toward.1));
+                        let carry = params.household.carry_kg;
+                        let kg = digging::dig_at(ctx, household, toward, deposit, effort_h, carry);
+                        if kg > 0.0 {
+                            p.carrying.good = Some(good as u16);
+                            p.carrying.kg = kg as f32;
+                        }
                     }
                 }
                 Some(Behavior::FetchWater) => {
@@ -3393,7 +3549,8 @@ impl Population {
         let b = &mut ctx.land.buildings[bi];
         let done = b.work(hours, stage.labour_h, &stage.materials_kg, &held, now);
         b.skill_h += (done.hours * level) as f32;
-        // Its plot is levelled first, with the first stage's first hours.
+        // Its plot is levelled first, with the first stage's first hours; cutting into a buried
+        // deposit finds it (ADR-0010 §1).
         if levelling > 0.0 {
             let (plot, stage, work_h) = (b.plot, b.stage, f64::from(b.work_h));
             let share = if stage == 0 {
@@ -3405,7 +3562,20 @@ impl Population {
             for work in land.earthworks.iter_mut().filter(|w| w.plot == Some(plot)) {
                 civ_land::earth::advance(work, ctx.map, &mut land.ground, share as f32);
             }
+            let cut: Vec<civ_land::earth::Earthwork> = ctx
+                .land
+                .earthworks
+                .iter()
+                .filter(|w| w.plot == Some(plot))
+                .copied()
+                .collect();
+            for work in &cut {
+                self.find_by_cutting(ctx, who, household, work);
+            }
         }
+        let Some(x) = self.households.get_mut(hd) else {
+            return;
+        };
         let b = &mut ctx.land.buildings[bi];
         if let Some(finished) = done.finished {
             // How skilled its builders were on average, over the stage's work.
@@ -3988,6 +4158,7 @@ mod tests {
             tool: None,
             sheltered_half_life_days: 0.0,
             timber: None,
+            store: None,
         };
         vec![
             good("bread", GoodUse::Food, 2500.0, 1000.0, Eaten::Raw),

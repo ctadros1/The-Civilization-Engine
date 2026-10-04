@@ -339,6 +339,14 @@ wage_max_change = 0.05
 # hours a day (a tuning value).
 max_hire_hours = 21.0
 
+[digging]
+# How people dig at a deposit the settlement knows (ADR-0010 §2). With wooden, antler and stone
+# tools a cubic metre of workable earth, as it lay in the ground, takes 8 hours to dig and lift out
+# (research 11-12 §2.4: 1.0 m³ an 8-hour day, 0.5-2.0, a low-confidence prior for a non-metal kit).
+# A pit is 3 m square, its spoil heaped on a square beside it (tuning values).
+h_per_m3 = 8.0
+pit_side_m = 3.0
+
 [knowledge]                      # what founders know and how people learn (ADR-0008); tuning values
 # The share of founders old enough for each technique's work who know it. Founders arrive with
 # substantial practical knowledge (research 06-08 §3): every technique of today's work.
@@ -351,6 +359,7 @@ founders = [
   { technique = "core:technique/stone_shaping", share = 1.0 },
   { technique = "core:technique/wood_shaping", share = 1.0 },
   { technique = "core:technique/roundhouse", share = 1.0 },
+  { technique = "core:technique/pottery", share = 1.0 },
 ]
 # Learners one person teaches at once (research 07-02 §2.3: 1-3 a teacher).
 max_learners = 2

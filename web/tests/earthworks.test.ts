@@ -19,6 +19,7 @@ function work(over: Partial<EarthworkInfo> = {}): EarthworkInfo {
     plot: 9,
     building: 11,
     words: "the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled",
+    deposit: 0,
     ...over,
   };
 }
@@ -44,6 +45,14 @@ describe("earthworks", () => {
     expect(half.alpha).toBeLessThan(done.alpha);
     expect(begun.outlineAlpha).toBeGreaterThan(0);
     expect(begun.colour).toBe(done.colour);
+  });
+
+  it("draws a pit dark and its spoil heap pale, each solid once it holds earth", () => {
+    const pit = earthworkLook(work({ kind: 1, cutM3: 2.5, deposit: 4 }));
+    const heap = earthworkLook(work({ kind: 2, cutM3: 1.2, deposit: 4 }));
+    const platform = earthworkLook(work({ kind: 0, done: 1 }));
+    expect(new Set([pit.colour, heap.colour, platform.colour]).size).toBe(3);
+    expect(earthworkLook(work({ kind: 1, cutM3: 0 })).alpha).toBeLessThan(pit.alpha);
   });
 
   it("names the ground tiles whose revision changed since last seen", () => {

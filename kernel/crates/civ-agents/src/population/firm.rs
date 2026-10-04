@@ -73,17 +73,36 @@ impl Population {
             what,
             id,
         );
-        // A workshop building of its household whose firm closed, or that has none, is the new
-        // one's (ADR-0009 §7: a closed firm's building stays).
-        let free = ctx
-            .land
-            .buildings
-            .iter()
-            .position(|b| b.household == owner && self.free_workshop(ctx.catalog, b));
-        if let Some(i) = free {
-            ctx.land.buildings[i].firm = Some(id);
-        }
+        // A workshop building of its household whose firm closed, or that has none, goes to the
+        // new one if no older firm of the household lacks one (ADR-0009 §7).
+        self.hand_on_workshops(ctx.land, ctx.catalog);
         Some(id)
+    }
+
+    /// Every workshop building no open firm works in ([`Population::free_workshop`]) goes to an
+    /// open firm of its household that has no building of its own, the oldest first (ADR-0009 §7:
+    /// a closed firm's building stays, and the household's next firm works in it). Done when a
+    /// firm is founded and each day, so a firm that closes passes its building on by the next.
+    pub fn hand_on_workshops(&self, land: &mut civ_land::Land, catalog: &crate::params::Catalog) {
+        for i in 0..land.buildings.len() {
+            if !self.free_workshop(catalog, &land.buildings[i]) {
+                continue;
+            }
+            let owner = land.buildings[i].household;
+            let taker = self
+                .firms
+                .iter()
+                .filter(|f| {
+                    f.is_open()
+                        && f.owner == owner
+                        && !land.buildings.iter().any(|b| b.firm == Some(f.id))
+                })
+                .map(|f| f.id)
+                .min();
+            if taker.is_some() {
+                land.buildings[i].firm = taker;
+            }
+        }
     }
 
     /// Whether building `b` is a workshop no open firm works in: one whose firm closed, or that
@@ -94,23 +113,21 @@ impl Population {
                 .is_none_or(|f| self.firm(f).is_none_or(|f| !f.is_open()))
     }
 
-    /// Where firm `id` works: the middle of its workshop building, or else of a free one of its
-    /// owners' (see [`Population::free_workshop`]), once that has its roof on; `None` while it
-    /// works in its owners' home.
+    /// Where firm `id` works: the middle of its workshop building, once that has its roof on;
+    /// `None` while it works in its owners' home.
     pub fn firm_site(
         &self,
         land: &civ_land::Land,
         catalog: &crate::params::Catalog,
         id: PermanentId,
     ) -> Option<(f32, f32)> {
-        let owner = self.firm(id)?.owner;
+        self.firm(id)?;
         land.buildings
             .iter()
-            .find(|b| b.firm == Some(id) && b.roofed())
-            .or_else(|| {
-                land.buildings
-                    .iter()
-                    .find(|b| b.household == owner && b.roofed() && self.free_workshop(catalog, b))
+            .find(|b| {
+                b.firm == Some(id)
+                    && b.roofed()
+                    && catalog.use_of(&b.spec.program) == Some(PlotUse::Work)
             })
             .map(|b| crate::build::centre_m(&b.spec))
     }
@@ -270,7 +287,7 @@ impl Population {
             f.books.worked(now, hours, hired);
             f.saw_at_once(u8::try_from(at_once).unwrap_or(u8::MAX), now.day_index());
         }
-        // The work is done with the owners' tools, at their home.
+        // The work is done with the owners' tools.
         self.wear_tools(ctx, owner, &recipe.tools, hours);
         if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
             let next = s.practised(p.skill(k), hours);

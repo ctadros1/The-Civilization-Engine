@@ -180,6 +180,8 @@ impl Economy {
                 s.worked_ha_per_head,
                 s.floor_m2_per_house,
                 s.common_ha,
+                s.roofed_m2_per_house,
+                s.storage_kg_per_house,
             ];
             if shares.iter().any(|v| !(0.0..=1.0).contains(v))
                 || amounts.iter().any(|v| !(v.is_finite() && *v >= 0.0))

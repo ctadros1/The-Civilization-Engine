@@ -188,7 +188,7 @@ pub struct Population {
     /// Per household, the new ground it would mark out for a field, as found on a day.
     sites: HashMap<PermanentId, (i64, Option<Site>)>,
     /// Per household with nothing under way, the building it would begin and where (a home, or a
-    /// store beside it), as found on a day.
+    /// store or a workshop beside it), as found on a day.
     home_sites: HashMap<PermanentId, (i64, Option<NewHome>)>,
     /// Per building, what each of its stages needs (its design never changes). Derived.
     stage_needs: HashMap<PermanentId, Vec<StageNeeds>>,
@@ -1055,19 +1055,21 @@ impl Population {
         Some(needs)
     }
 
-    /// What household `hh` builds: one building at a time (ADR-0009 §7). Its building under way,
-    /// whatever it is for, or else the one it would begin and where (found once a day: for a home,
-    /// its home if the ground there is clear, else the nearest clear ground within reach of the
-    /// hearth; for a store, clear ground near its home). It builds to one of the programs it may
-    /// build, those someone in it knows how to (ADR-0009 §1). A first home is the cheapest that
-    /// covers its members and its goods, as large as what it puts in of its means makes it
-    /// ([`build::first_home`]). A household that has a home builds a storehouse beside it when the
-    /// goods its roofs have no room for would lose more in the open than one costs
-    /// ([`Population::storehouse_plan`]); failing that, a new home only when its means pay for all
-    /// of one markedly larger ([`build::new_home`]), beside the old. Its means are
-    /// [`Population::home_means`], for a household giving `labour_per_day`. `Built` while it has
-    /// a finished home and builds no other; `NoPlace` when there is no program it can build to
-    /// or no clear ground.
+    /// What household `hh` builds: one building at a time (ADR-0009 §7). Its building under way
+    /// that someone in it can work on, whatever it is for, or else the one it would begin and
+    /// where (found once a day: for a home, its home if the ground there is clear, else the
+    /// nearest clear ground within reach of the hearth; for a store or a workshop, clear ground
+    /// near its home). It builds to one of the programs it may build, those someone in it knows
+    /// how to (ADR-0009 §1). A first home is the cheapest that covers its members and its goods,
+    /// as large as what it puts in of its means makes it ([`build::first_home`]). A household
+    /// that has a home builds a storehouse beside it when the goods its roofs have no room for
+    /// would lose more in the open than one costs ([`Population::storehouse_plan`]); else a
+    /// workshop for a firm that has had more at work at once than a home has room for
+    /// ([`Population::workshop_plans`]); else a new home only when its means pay for all of one
+    /// markedly larger ([`build::new_home`]), beside the old: the first of these it can pay for
+    /// and find ground for. Its means are [`Population::home_means`], for a household giving
+    /// `labour_per_day`. `Built` while it has a finished home and builds no other; `NoPlace` when
+    /// there is no program it can build to or no clear ground.
     fn home_plan(
         &mut self,
         ctx: &Ctx,
@@ -1089,15 +1091,17 @@ impl Population {
             let floor = build::floor_m2(&b.spec);
             home = Some(home.map_or(floor, |f| f.max(floor)));
         }
-        // Its building under way, a home first.
-        let mut under_way: Vec<&Building> = ctx
+        // Its building under way that it can work on, a home first; one nobody in it can work on
+        // waits, and holds nothing else up.
+        let under_way = ctx
             .land
             .buildings
             .iter()
-            .filter(|b| b.household == hh.id && !b.finished())
-            .collect();
-        under_way.sort_by_key(|b| !dwelling(b));
-        if let Some(b) = under_way.first() {
+            .filter(|b| {
+                b.household == hh.id && !b.finished() && self.can_build(catalog, &hh.members, b)
+            })
+            .min_by_key(|b| !dwelling(b));
+        if let Some(b) = under_way {
             let def = catalog
                 .building_index(&b.spec.program)
                 .ok_or(Reason::NoPlace)?;
@@ -1145,8 +1149,9 @@ impl Population {
     }
 
     /// The building household `hh` would begin today and where, if any: its first home; or, when
-    /// it has a home of `home` square metres, a storehouse beside it if one is worth it, or else a
-    /// new home if its means pay for one markedly larger ([`Population::home_plan`]).
+    /// it has a home of `home` square metres, a storehouse beside it if one is worth it, a
+    /// workshop for a busy firm, or a new home if its means pay for one markedly larger
+    /// ([`Population::home_plan`]): the first of these that it can pay for and find ground for.
     fn new_building(
         &self,
         ctx: &Ctx,
@@ -1182,65 +1187,75 @@ impl Population {
                 ),
             }
         };
-        // A first home before anything; then a store, while goods are lost for want of room, and
-        // a workshop, while its firm has more at work than its home has room for, before more
-        // floor. A home's door faces the hearth; a store's or a workshop's, its household's home.
-        let (choice, toward, firm) = match home {
-            None => (home_choice(None)?, hearth, None),
-            Some(current) => match self.storehouse_plan(ctx, hh, labour_per_day, day) {
-                Some(store) => (store, Some(hh.home), None),
-                None => match self.workshop_plan(ctx, hh, labour_per_day, day) {
-                    Some((shop, firm)) => (shop, Some(hh.home), Some(firm)),
-                    None => (home_choice(Some(current))?, hearth, None),
-                },
-            },
-        };
-        let (p, shape) = choice;
-        let program = &catalog.buildings[p];
         let goods = &catalog.goods;
         let reach = self.homes.get(&field_key).map(|f| &f.reach);
-        let design_at = |at: (f32, f32)| {
-            let reachable = reach.is_none_or(|r| r.seconds_to(cell_of(ctx.map, at)).is_some());
-            reachable
-                .then(|| build::design_shape(program, goods, shape, at, toward))
-                .flatten()
+        // Where `choice` would stand, its door toward `toward`, if there is clear ground for it.
+        let site = |(p, shape): (usize, build::Shape),
+                    toward: Option<(f32, f32)>,
+                    firm: Option<PermanentId>| {
+            let program = &catalog.buildings[p];
+            let design_at = |at: (f32, f32)| {
+                let reachable = reach.is_none_or(|r| r.seconds_to(cell_of(ctx.map, at)).is_some());
+                reachable
+                    .then(|| build::design_shape(program, goods, shape, at, toward))
+                    .flatten()
+            };
+            let spec = build::home_site(
+                ctx.land,
+                ctx.map,
+                ctx.nav,
+                program,
+                &design_at,
+                hh.home,
+                hearth,
+                HOME_SHIFT_M,
+            )?;
+            let stages = build::stage_needs(&spec, program)?;
+            Some(NewHome { spec, stages, firm })
         };
-        let spec = build::home_site(
-            ctx.land,
-            ctx.map,
-            ctx.nav,
-            program,
-            &design_at,
-            hh.home,
-            hearth,
-            HOME_SHIFT_M,
-        )?;
-        let stages = build::stage_needs(&spec, program)?;
-        Some(NewHome { spec, stages, firm })
+        // A first home before anything; then a store, while goods are lost for want of room, and
+        // a workshop for each firm that has more at work than its home has room for, before more
+        // floor. A home's door faces the hearth; a store's or a workshop's, its household's home.
+        match home {
+            None => home_choice(None).and_then(|c| site(c, hearth, None)),
+            Some(current) => self
+                .storehouse_plan(ctx, hh, labour_per_day, day)
+                .and_then(|c| site(c, Some(hh.home), None))
+                .or_else(|| {
+                    self.workshop_plans(ctx, hh, labour_per_day, day)
+                        .into_iter()
+                        .find_map(|(c, firm)| site(c, Some(hh.home), Some(firm)))
+                })
+                .or_else(|| home_choice(Some(current)).and_then(|c| site(c, hearth, None))),
+        }
     }
 
-    /// The workshop household `hh` would build beside its home on day `day`, and the firm it is
-    /// for: of its open firms that have lately had more people working for them at once than a
-    /// home has places for ([`crate::params::BuildParams::home_work_places`]) and have no workshop
-    /// (nor a free one of the household's to use), the busiest; the cheapest building with places
-    /// for them all that its means and time pay for in full ([`build::workshop`]). Never because
-    /// a firm exists: only for the work it has.
-    fn workshop_plan(
+    /// The workshops household `hh` would build beside its home on day `day`, each with the firm
+    /// it is for, the busiest firm first: for each of its open firms that have lately had more
+    /// people working for them at once than a home has places for
+    /// ([`crate::params::BuildParams::home_work_places`]) and have no workshop, the cheapest
+    /// building with places for them all that its means and time pay for in full
+    /// ([`build::workshop`]). None while the household has a workshop no firm works in: that
+    /// goes to its firm without one ([`Population::hand_on_workshops`]). Never because a firm
+    /// exists: only for the work it has.
+    fn workshop_plans(
         &self,
         ctx: &Ctx,
         hh: &Household,
         labour_per_day: f64,
         day: i64,
-    ) -> Option<((usize, build::Shape), PermanentId)> {
+    ) -> Vec<((usize, build::Shape), PermanentId)> {
         let catalog = ctx.catalog;
         let programs = self.programs_for(ctx, &hh.members, civ_land::PlotUse::Work);
-        let first = programs.first().and_then(|&p| catalog.buildings.get(p))?;
+        let Some(first) = programs.first().and_then(|&p| catalog.buildings.get(p)) else {
+            return Vec::new();
+        };
         let mine = || ctx.land.buildings.iter().filter(|b| b.household == hh.id);
         if mine().any(|b| self.free_workshop(catalog, b)) {
-            return None;
+            return Vec::new();
         }
         let places = ctx.params.build.home_work_places;
-        let firm = self
+        let mut firms: Vec<&crate::firm::Firm> = self
             .firms
             .iter()
             .filter(|f| {
@@ -1249,17 +1264,26 @@ impl Population {
                     && u32::from(f.at_once(day)) > places
                     && !mine().any(|b| b.firm == Some(f.id))
             })
-            .max_by_key(|f| (f.at_once(day), std::cmp::Reverse(f.id)))?;
+            .collect();
+        if firms.is_empty() {
+            return Vec::new();
+        }
+        firms.sort_by_key(|f| (std::cmp::Reverse(f.at_once(day)), f.id));
         let (budget_h, time_h) = self.home_means(ctx, hh, first, labour_per_day, day);
-        build::workshop(
-            &catalog.buildings,
-            &programs,
-            u32::from(firm.at_once(day)),
-            ctx.params.household.carry_kg,
-            budget_h,
-            time_h,
-        )
-        .map(|shop| (shop, firm.id))
+        firms
+            .into_iter()
+            .filter_map(|f| {
+                build::workshop(
+                    &catalog.buildings,
+                    &programs,
+                    u32::from(f.at_once(day)),
+                    ctx.params.household.carry_kg,
+                    budget_h,
+                    time_h,
+                )
+                .map(|shop| (shop, f.id))
+            })
+            .collect()
     }
 
     /// The storehouse household `hh` would build beside its home on day `day`, if one is worth
@@ -1314,6 +1338,20 @@ impl Population {
             budget_h,
             time_h,
         )
+    }
+
+    /// Whether a household of `members` can work on building `b`: its program is still in the
+    /// content, and needs no technique or one someone among them knows (ADR-0009 §1).
+    pub(crate) fn can_build(
+        &self,
+        catalog: &Catalog,
+        members: &[PermanentId],
+        b: &Building,
+    ) -> bool {
+        catalog
+            .building_index(&b.spec.program)
+            .and_then(|i| catalog.buildings.get(i))
+            .is_some_and(|d| d.technique.is_none_or(|t| self.household_knows(members, t)))
     }
 
     /// The home programs a household of `members` may build: the people profile's dwellings, in
@@ -1423,6 +1461,16 @@ impl Population {
     fn begin_home(&mut self, ctx: &mut Ctx, household: PermanentId) -> Option<PermanentId> {
         let (_, site) = self.home_sites.remove(&household)?;
         let site = site?;
+        // A workshop is begun only for a firm still open, of this household, with none.
+        if let Some(f) = site.firm {
+            let wanted = self
+                .firm(f)
+                .is_some_and(|f| f.is_open() && f.owner == household)
+                && !ctx.land.buildings.iter().any(|b| b.firm == Some(f));
+            if !wanted {
+                return None;
+            }
+        }
         let def = ctx
             .catalog
             .building_index(&site.spec.program)
@@ -3396,6 +3444,8 @@ impl Population {
         }
         // Households whose day it is review what they offer and on what terms.
         self.review_offers(ctx, day);
+        // A workshop whose firm closed goes to another firm of its household that has none.
+        self.hand_on_workshops(ctx.land, ctx.catalog);
         // Births, deaths, couples and the households they make.
         self.live_day(ctx);
         // Children who have reached the age of their household's work learn it (ADR-0008 §4).

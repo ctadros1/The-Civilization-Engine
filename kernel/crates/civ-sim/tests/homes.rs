@@ -643,8 +643,130 @@ fn a_firm_works_in_its_workshop_once_roofed_and_the_building_outlasts_it() {
             next, household, founder, None, 0, goods, now,
         ));
     }
+    // Until the building is handed on the new firm works at home; by the next day it has it,
+    // and the map hears of the change.
+    assert_eq!(sim.people().firm_site(sim.land(), &catalog, next), None);
+    let rev = civ_sim::frames::buildings::buildings_rev(&sim);
+    sim.advance_minutes(24 * 60).expect("advances");
     assert_eq!(
         sim.people().firm_site(sim.land(), &catalog, next),
         Some(site)
     );
+    let b = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == id)
+        .expect("still standing");
+    assert_eq!(b.firm, Some(next));
+    assert_ne!(civ_sim::frames::buildings::buildings_rev(&sim), rev);
+}
+
+#[test]
+fn a_closed_firms_workshop_goes_to_the_oldest_firm_without_one() {
+    let (mut sim, household, home) = housed_framers(3, "core:good/grain", 0.0);
+    let catalog = content().catalog.clone();
+    let def = &catalog.buildings[program("core:building/workshop")];
+    let shape = Shape::Bays {
+        bays: 2,
+        storeys: 1,
+        lofts: 0,
+    };
+    let spec = build::design_shape(
+        def,
+        &catalog.goods,
+        shape,
+        (home.0 + 15.0, home.1),
+        Some(home),
+    )
+    .expect("designed");
+    // A workshop no firm works in, and two firms without one.
+    let shop = sim
+        .place_building_for_tests(household, spec, civ_grammar::Stage::ALL.len() as u8)
+        .expect("placed");
+    let older = busy_firm(&mut sim, household, 1);
+    let newer = busy_firm(&mut sim, household, 1);
+    assert!(older < newer);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let b = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == shop)
+        .expect("standing");
+    assert_eq!(b.firm, Some(older));
+    assert_eq!(sim.people().firm_site(sim.land(), &catalog, newer), None);
+}
+
+#[test]
+fn a_firm_busier_than_any_workshop_gets_the_largest() {
+    let catalog = &content().catalog;
+    let shop = program("core:building/workshop");
+    let most = catalog.buildings[shop]
+        .shapes
+        .iter()
+        .map(|c| c.work_places)
+        .max()
+        .expect("shapes");
+    let largest = build::workshop(&catalog.buildings, &[shop], most, CARRY, 1e9, 1e9);
+    assert!(largest.is_some());
+    assert_eq!(
+        build::workshop(&catalog.buildings, &[shop], most + 20, CARRY, 1e9, 1e9),
+        largest
+    );
+}
+
+#[test]
+fn a_firm_too_busy_to_house_leaves_the_next_firm_its_workshop() {
+    // The means pay for a small workshop, not the largest: the busiest firm gets none, and the
+    // next gets its own rather than nothing being built.
+    let (mut sim, household, _) = housed_framers(3, "core:good/timber", 40_000.0);
+    let crowded = busy_firm(&mut sim, household, 60);
+    let busy = busy_firm(&mut sim, household, 3);
+    let b = second_building(&mut sim, household, 20).expect("it begins a workshop");
+    assert_eq!(b.spec.program, "core:building/workshop");
+    assert_eq!(b.firm, Some(busy), "not for {crowded}");
+}
+
+#[test]
+fn a_building_nobody_can_work_on_holds_nothing_else_up() {
+    let (mut sim, household, _) = housed_framers(3, "core:good/grain", 8_000.0);
+    let granary = second_building(&mut sim, household, 20).expect("it begins a store");
+    assert_eq!(granary.spec.program, "core:building/granary");
+    // Nobody in the household knows framing any more: the granary waits.
+    let framing = content()
+        .catalog
+        .technique_index("core:technique/jointed_frame")
+        .expect("framing") as u16;
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.household == household {
+            p.knows.retain(|k| k.technique != framing);
+        }
+    }
+    let catalog = &content().catalog;
+    for _ in 0..30 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        // Something else is planned, or begun, while it waits.
+        let planned = sim
+            .people()
+            .planned_home(household)
+            .is_some_and(|spec| spec.program == "core:building/hut");
+        let begun = sim
+            .land()
+            .buildings
+            .iter()
+            .any(|b| b.household == household && b.id != granary.id && !b.finished());
+        if planned || begun {
+            let g = sim
+                .land()
+                .buildings
+                .iter()
+                .find(|b| b.id == granary.id)
+                .expect("still there");
+            assert_eq!(g.stage, granary.stage, "nobody works on it");
+            assert!(catalog.building_index(&g.spec.program).is_some());
+            return;
+        }
+    }
+    panic!("the household planned nothing else in thirty days");
 }

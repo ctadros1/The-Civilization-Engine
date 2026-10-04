@@ -753,9 +753,9 @@ pub fn storehouse(
 
 /// The workshop a household would build for a firm that has had `at_once` people working for it
 /// at once: among the shapes of the work programs `programs` it may build with places for them
-/// all, the one taking the fewest hours in all (`carry_kg` a load), among those its means pay for
-/// in all (`budget_h` hours, as for a new home) and that take no more than `time_h` hours. `None`
-/// when none is affordable.
+/// all (for more than any has places for, the largest), the one taking the fewest hours in all
+/// (`carry_kg` a load), among those its means pay for in all (`budget_h` hours, as for a new
+/// home) and that take no more than `time_h` hours. `None` when none is affordable.
 pub fn workshop(
     buildings: &[BuildingDef],
     programs: &[usize],
@@ -764,14 +764,20 @@ pub fn workshop(
     budget_h: f64,
     time_h: f64,
 ) -> Option<(usize, Shape)> {
+    let work = || {
+        programs
+            .iter()
+            .filter_map(|&p| buildings.get(p).map(|d| (p, d)))
+            .filter(|(_, d)| d.use_ == civ_land::PlotUse::Work)
+    };
+    // More at work at once than any workshop has places for: the largest.
+    let most = work()
+        .flat_map(|(_, d)| d.shapes.iter().map(|c| c.work_places))
+        .max()
+        .unwrap_or(0);
+    let at_once = at_once.min(most);
     let mut best: Option<(usize, Shape, f64)> = None;
-    for &p in programs {
-        let Some(def) = buildings
-            .get(p)
-            .filter(|d| d.use_ == civ_land::PlotUse::Work)
-        else {
-            continue;
-        };
+    for (p, def) in work() {
         for c in def.shapes.iter().filter(|c| c.work_places >= at_once) {
             let h = c.hours(carry_kg);
             if h <= budget_h && h <= time_h && best.is_none_or(|(_, _, b_h)| h < b_h) {

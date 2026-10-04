@@ -18,14 +18,15 @@ use civ_schema::wire;
 use super::response;
 use crate::Sim;
 
-/// A number that changes whenever ground is claimed for a building or work on one moves on (0 =
-/// no buildings): per building, when its stage began plus one, its stage, and the minutes of work
-/// done on that stage, summed.
+/// A number that changes whenever ground is claimed for a building, work on one moves on or a
+/// workshop changes firm (0 = no buildings): per building, when its stage began plus one, its
+/// stage, the minutes of work done on that stage and its firm, summed.
 pub fn buildings_rev(sim: &Sim) -> u64 {
     sim.land.buildings.iter().fold(0u64, |rev, b| {
         rev.wrapping_add(b.stage_since.minutes().max(0) as u64 + 1)
             .wrapping_add(u64::from(b.stage))
             .wrapping_add((f64::from(b.work_h) * 60.0).round().max(0.0) as u64)
+            .wrapping_add(b.firm.map_or(0, |f| f.get()))
     })
 }
 

@@ -378,12 +378,14 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
             .filter(|(_, h)| !h.members.is_empty())
             .map(|(_, h)| h.id)
             .collect();
+        // Under a roof of their own home: a store or a workshop is no home.
+        let catalog = &sim.rules().catalog;
         let roofed = households
             .iter()
             .filter(|&&h| {
                 land.buildings
                     .iter()
-                    .any(|b| b.household == h && b.roofed())
+                    .any(|b| b.household == h && b.roofed() && catalog.is_dwelling(&b.spec.program))
             })
             .count();
         if y >= 2 && (roofed as f64) < MIN_ROOFED * households.len() as f64 {

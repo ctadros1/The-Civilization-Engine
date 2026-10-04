@@ -291,14 +291,15 @@ pub struct Firm {
 }
 
 /// Days a firm remembers the most people it had working for it at once (a tuning value: about two
-/// months, longer than the spells a workshop sells nothing before it is given up).
+/// months, long enough that a busy season is still remembered when the household next decides
+/// what to build).
 pub const AT_ONCE_DAYS: i64 = 60;
 
 impl Firm {
     /// `n` people are working for it at once on `day`: its most lately, if as many or more, or if
     /// the last was seen more than [`AT_ONCE_DAYS`] ago.
     pub fn saw_at_once(&mut self, n: u8, day: i64) {
-        if n >= self.most_at_once || day - self.most_at_once_day > AT_ONCE_DAYS {
+        if n >= self.most_at_once || day.saturating_sub(self.most_at_once_day) > AT_ONCE_DAYS {
             self.most_at_once = n;
             self.most_at_once_day = day;
         }
@@ -306,7 +307,7 @@ impl Firm {
 
     /// The most people seen working for it at once in the [`AT_ONCE_DAYS`] days to `day`.
     pub fn at_once(&self, day: i64) -> u8 {
-        if day - self.most_at_once_day <= AT_ONCE_DAYS {
+        if day.saturating_sub(self.most_at_once_day) <= AT_ONCE_DAYS {
             self.most_at_once
         } else {
             0
@@ -450,6 +451,30 @@ mod tests {
             vec![BookKind::Sold, BookKind::Paid],
             "in kind order"
         );
+    }
+
+    #[test]
+    fn a_firm_remembers_its_busiest_hour_for_two_months() {
+        let mut f = Firm::new(id(7), id(2), id(3), None, 0, 4, SimTime::ZERO);
+        assert_eq!(f.at_once(0), 0);
+        f.saw_at_once(3, 10);
+        // Fewer at once later in the window leave the most as it was.
+        f.saw_at_once(1, 40);
+        assert_eq!((f.most_at_once, f.most_at_once_day), (3, 10));
+        assert_eq!(f.at_once(10 + AT_ONCE_DAYS), 3);
+        assert_eq!(
+            f.at_once(11 + AT_ONCE_DAYS),
+            0,
+            "forgotten after the window"
+        );
+        // Once the window has passed, any number seen is the most.
+        f.saw_at_once(1, 11 + AT_ONCE_DAYS);
+        assert_eq!(f.at_once(11 + AT_ONCE_DAYS), 1);
+        // A day from the far past never overflows.
+        f.most_at_once_day = i64::MIN;
+        assert_eq!(f.at_once(0), 0);
+        f.saw_at_once(2, 0);
+        assert_eq!(f.at_once(0), 2);
     }
 
     #[test]

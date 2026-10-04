@@ -200,16 +200,19 @@ their meanings), an expansion yields:
 
 - A building has a plot of its own, with a use: dwelling, store or work.
 - As built (slice O's third step), a household builds one thing at a time, from the programs
-  the people profile lists: what it has under way, else its first home, else a store beside its
-  home when the goods its roofs have no room for would lose more in the open over a horizon
-  than the store costs in hours and its means pay for all of it, else a larger home. A store
-  never moves its household's home.
+  the people profile lists: what it has under way and someone in it can work on, else its first
+  home, else a store beside its home when the goods its roofs have no room for would lose more
+  in the open over a horizon than the store costs in hours and its means pay for all of it, else
+  a workshop, else a larger home: the first of these it can pay for and find ground for. A
+  store never moves its household's home.
 - A workshop building may name a firm, and is then where the firm works, hires and keeps its
   stores (ADR-0006 §5).
-  - As built, a household builds one for a firm of its that has lately had more people at work
-    for it at once than a home holds (a tuning value), and never for a firm alone; the firm
-    works there once its roof is on, and the household's next firm takes it when that one
-    closes.
+  - As built, a household builds one for each firm of its that has lately had more people at
+    work for it at once than a home holds (a tuning value), the busiest first, and never for a
+    firm alone; one busier than any workshop has places for gets the largest. The firm works
+    and hires there once its roof is on; its stock is still kept and sold at its owners' home.
+    When a firm closes, its building goes to the household's oldest open firm without one, by
+    the next day; a firm that outgrows its workshop stays in it (no extensions yet).
 - Heirs take all of a household's buildings (ADR-0007 §1, widened from the home).
 - Style traits are realised decisions kept in the spec's parameters. A household's taste and the
   provenance of each trait are behaviour state, saved but cheap to change.

@@ -550,7 +550,8 @@ impl Population {
                 .filter_map(|m| ages.get(m).copied())
                 .collect();
             h.stores.resize(catalog.goods.len(), 0.0);
-            // The tools for the work founders know (ADR-0008 §1).
+            // The tools for the work founders know (ADR-0008 §1), but for those that stay where
+            // they are made (an oven).
             let founders_know = |t: usize| {
                 params
                     .knowledge
@@ -565,6 +566,9 @@ impl Population {
                 &founders_know,
             );
             for (g, want) in wants.into_iter().enumerate() {
+                if catalog.goods[g].tool.as_ref().is_some_and(|t| t.fixed) {
+                    continue;
+                }
                 h.stores[g] += want;
                 h.flows.add(Flow::Brought, g, want);
             }

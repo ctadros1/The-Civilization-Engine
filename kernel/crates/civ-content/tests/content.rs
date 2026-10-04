@@ -196,8 +196,8 @@ fn the_repository_content_is_clean() {
         .technique_index("core:technique/roundhouse")
         .expect("roundhouse");
     assert_eq!(c.work_age(roundhouse), Some(12.0), "building, from twelve");
-    // Founders bring today's work, pottery among it; drying and the rotary quern are found or
-    // brought in.
+    // Founders bring today's work, pottery and the oven among it; drying and the rotary quern are
+    // found or brought in.
     let founders: Vec<&str> = reg
         .people
         .params
@@ -206,8 +206,9 @@ fn the_repository_content_is_clean() {
         .iter()
         .map(|&(t, _)| c.techniques[t].id.as_str())
         .collect();
-    assert_eq!(founders.len(), 9);
+    assert_eq!(founders.len(), 10);
     assert!(founders.contains(&"core:technique/pottery"));
+    assert!(founders.contains(&"core:technique/oven_baking"));
     for later in ["core:technique/drying", "core:technique/rotary_quern"] {
         assert!(!founders.contains(&later), "{later}");
     }

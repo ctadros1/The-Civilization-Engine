@@ -1,0 +1,17 @@
+# Baking bread in the household's clay oven (research 08-03 §2.2; tuning starting points).
+kind = "activity"
+id = "core:activity/bake_bread_oven"
+name = "Bake bread in the oven"
+doing = "baking bread in the oven"
+behavior = "make"
+recipe = "core:recipe/bake_bread_oven"
+par = 2.0
+min_age_years = 12.0
+max_age_years = 75.0
+min_minutes = 30
+max_minutes = 240
+daylight_only = false
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

@@ -208,7 +208,7 @@ Something people carry home and keep.
 | `eaten` | `raw` (as it is), `cooked` (needs a fire: not eaten while the household has no firewood; cooking adds no energy, research 05-02 §1.1) or `never` (a recipe must make it food first, as grain is ground or pounded). Anything but food is `never`. |
 | `shared` | When brought home it is shared among every household of the settlement, by members. |
 | `reserve_for` | The food it is kept back from, like seed from grain, or `""`: a recipe that needs that food takes this one only in real hunger, and never the seed to sow the ground already cropped. |
-| `[tool]` | For a tool only: `life_h`, the hours of use a standard tool lasts (stores count tools in standard tools, so 2.4 sickles are two and what is left of a third, ADR-0006); `per_adult`, how many a household wants for each member of working age (rounded up; 0 for none); `fixed`, it stays where it was made and is never carried off. |
+| `[tool]` | For a tool only: `life_h`, the hours of use a standard tool lasts (stores count tools in standard tools, so 2.4 sickles are two and what is left of a third, ADR-0006); `per_adult`, how many a household wants for each member of working age (rounded up; 0 for none); `fixed`, it stays where it was made and is never carried off: founders and families the observer sends bring none of it (an oven). |
 | `[timber]` | For a material built with as timber only (content API 16, ADR-0009 §5): `bending_mpa`, `compression_mpa` and `stiffness_gpa`, its strength in bending and in compression along the grain and its stiffness; `creep`, how much further it bends under load carried for years than at first (φ); `sustained`, the share of its strength it keeps under such load (above 0, at most 1). Members of a material without it carry nothing in the checks. |
 | `[store]` | For a store only (content API 20, ADR-0010 §2): `keeps_kg` (above 0, at most 1000), the kilograms of food one keeps as a raised floor keeps them. A store stands under a roof in the room it keeps: a household counts each as turning that many kilograms of the room in its lofts and on its floors into raised room, and makes more while food lies in its lofts and on its floors that would keep better in one. Stores add no room, and food in the open gains nothing from them. |
 
@@ -463,11 +463,12 @@ The people profile's `[knowledge]` table (every value a tuning value):
 | `w_try` | Utility points for trying at a problem at home, times the share of the household's food the problem would cost. |
 | `try_gap_days` | Least days between one person's sessions of trying. |
 
-The core pack has twelve techniques. Nine are the founders' repertoire of today's work, known by
+The core pack has thirteen techniques. Ten are the founders' repertoire of today's work, known by
 every founder and learnt in upbringing (research 06-08 §1.1, §3): growing emmer, grinding at a
 quern, pounding grain, baking flatbread, knapping sickle blades, shaping stone, shaping wood,
-building roundhouses and making pottery (slice Q: forming clay into storage pots and firing them
-in an open fire, research 07-05 §3.1). Three are not known at first. **Drying and smoking** (slice N) answers meat
+building roundhouses, making pottery (slice Q: forming clay into storage pots and firing them in
+an open fire, research 07-05 §3.1) and baking in an oven (slice Q: a domed clay oven built beside
+the home, 11-13 §1.2). Three are not known at first. **Drying and smoking** (slice N) answers meat
 and fish spoiling and is found from hunting, fishing and trying. **Grinding at a rotary quern**
 (slice N) needs shaping stone and wood, and its E50 of 100,000 hours makes it, in practice, the
 observer's introduction. **Jointed timber framing** (slice O) builds the frame programs; no work

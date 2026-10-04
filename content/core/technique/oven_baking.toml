@@ -1,0 +1,19 @@
+# Building a domed clay oven and baking bread in it: a fire is burnt inside, raked out, and the
+# bread bakes in the heat the clay holds (research 11-13 §1.2, §3.1: ovens stood in early farming
+# houses at Çatalhöyük, among their platforms and stores). Founders bring it (06-08 §3), and
+# children learn it at home with the household's other work; 30 hours to learn beside someone who
+# knows it (07-02 §2.3, a tuning value).
+kind = "technique"
+id = "core:technique/oven_baking"
+name = "Baking in an oven"
+can = "build a domed clay oven and bake bread in it"
+domain = "core:skill/baking"
+requires = []
+tried_in = []
+needs = []
+e50_h = 100000.0                 # unused while no work tries toward it
+learn_h = 30.0
+upbringing = true
+
+[answers]
+spoilage = []

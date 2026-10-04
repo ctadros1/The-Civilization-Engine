@@ -516,7 +516,8 @@ fn add_family(
     {
         *seed += members * params.band.seed_kg_per_person;
     }
-    // And the tools their work needs (ADR-0006 §1).
+    // And the tools their work needs (ADR-0006 §1), but for those that stay where they are made
+    // (an oven), which they build where they settle.
     let ages: Vec<f64> = family.iter().map(|m| m.age).collect();
     let founders_know = |t: usize| {
         params
@@ -531,8 +532,10 @@ fn add_family(
         params.family.independent_age,
         &founders_know,
     );
-    for (kg, want) in stores.iter_mut().zip(wants) {
-        *kg += want;
+    for ((kg, want), good) in stores.iter_mut().zip(wants).zip(&ctx.catalog.goods) {
+        if !good.tool.as_ref().is_some_and(|t| t.fixed) {
+            *kg += want;
+        }
     }
     let mut flows = crate::person::Flows::default();
     for (g, kg) in stores.iter().enumerate() {

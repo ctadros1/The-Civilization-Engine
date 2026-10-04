@@ -1,0 +1,20 @@
+# A domed clay oven about a metre across inside, built of some 300 kg of clay beside the house
+# (research 11-13 §1.2: ovens in early farming houses). It stays where it was built: never carried
+# off, sold or shared out. Its unit is about 2,000 hours of baking, ten years and more of a
+# household's use (a tuning value: the research gives no use-life). A household wants one for up
+# to ten members old enough to bake who know how.
+kind = "good"
+id = "core:good/oven"
+name = "Oven"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 2000.0
+per_worker = 0.1
+fixed = true

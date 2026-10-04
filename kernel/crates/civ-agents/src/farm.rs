@@ -461,6 +461,7 @@ pub fn find_site(
         }
         if land.fields.iter().any(|f| f.rect.near(&rect, FIELD_GAP_CM))
             || land.plots.iter().any(|p| p.rect.near(&rect, FIELD_GAP_CM))
+            || civ_land::earth::dug_near(&land.earthworks, &rect, FIELD_GAP_CM)
         {
             continue;
         }

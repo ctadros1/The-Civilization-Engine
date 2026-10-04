@@ -158,7 +158,7 @@ pub fn plot_rect(spec: &BuildingSpec, def: &BuildingDef) -> RectCm {
 }
 
 /// Whether ground can be claimed as a plot: inside the map, every cell under it dry walkable
-/// land, and clear of every field and plot.
+/// land, and clear of every field, plot, pit and spoil heap.
 pub fn plot_clear(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectCm) -> bool {
     let cell_cm = cm(f64::from(map.cell_size_m)).max(1);
     let (map_w, map_h) = (map.width as i32 * cell_cm, map.height as i32 * cell_cm);
@@ -173,6 +173,7 @@ pub fn plot_clear(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectCm) -> 
     }
     if land.fields.iter().any(|f| f.rect.near(rect, PLOT_GAP_CM))
         || land.plots.iter().any(|p| p.rect.near(rect, PLOT_GAP_CM))
+        || civ_land::earth::dug_near(&land.earthworks, rect, PLOT_GAP_CM)
     {
         return false;
     }

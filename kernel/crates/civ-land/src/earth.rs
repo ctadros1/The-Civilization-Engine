@@ -461,6 +461,14 @@ pub fn dig(
     heap.level_cm = ((middle(heap) + heap.depth_m()) * 100.0).round() as i32;
 }
 
+/// Whether a pit or spoil heap among `works` lies within `gap_cm` of `rect`: ground nobody builds
+/// or farms on. A platform is its plot's ground and is not counted.
+pub fn dug_near(works: &[Earthwork], rect: &RectCm, gap_cm: i32) -> bool {
+    works
+        .iter()
+        .any(|w| w.kind != EarthKind::Platform && w.rect.near(rect, gap_cm))
+}
+
 /// What record `work` has done to the ground, applied afresh to `ground` (the records reproduce
 /// the tiles, ADR-0010 §3): a platform as far as it is done, a pit lowered and a heap raised by
 /// all their earth.
@@ -598,6 +606,41 @@ mod tests {
         // Nowhere near a change, and off the map.
         assert_eq!(ground.region((130, 70), (10, 10)), None);
         assert_eq!(ground.region((300, 0), (4, 4)), None);
+    }
+
+    #[test]
+    fn a_pit_or_heap_keeps_plots_and_fields_away_but_a_platform_is_its_plot_s_ground() {
+        let rect = |x, y| RectCm {
+            x,
+            y,
+            w: 300,
+            h: 300,
+        };
+        let work = |kind, at: RectCm| Earthwork {
+            id: PermanentId::from_raw(1).expect("nonzero"),
+            kind,
+            rect: at,
+            level_cm: 0,
+            side_run_cm: 100,
+            plot: None,
+            deposit: None,
+            heap: None,
+            household: PermanentId::from_raw(2).expect("nonzero"),
+            cut_m3: 1.0,
+            done: 1.0,
+            version: EARTH_VERSION,
+            begun: SimTime::ZERO,
+        };
+        let pit = [work(EarthKind::Pit, rect(1_000, 1_000))];
+        let heap = [work(EarthKind::Spoil, rect(1_000, 1_000))];
+        let platform = [work(EarthKind::Platform, rect(1_000, 1_000))];
+        // A plot over it, or within the gap of it, is refused; one beyond the gap is not.
+        for works in [&pit, &heap] {
+            assert!(dug_near(works, &rect(1_100, 1_100), 0));
+            assert!(dug_near(works, &rect(1_350, 1_000), 100));
+            assert!(!dug_near(works, &rect(1_450, 1_000), 100));
+        }
+        assert!(!dug_near(&platform, &rect(1_100, 1_100), 100));
     }
 
     #[test]

@@ -123,7 +123,7 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
   passed over. Only the tests read the bed plus its deltas so far; the elevation raster gains
   them with the boundary's next step.
 - As built (slice Q's third step): a pit or heap needs dry land and no other earthwork, plot or
-  field on its square. Every earthwork's change to the ground is reproduced from its record alone:
+  field on its square, and plots and fields keep their usual gaps from pits and heaps. Every earthwork's change to the ground is reproduced from its record alone:
   a platform as far as it is done, and a pit or heap as the earth it holds or lacks.
 
 ### 4. Saves and boundary

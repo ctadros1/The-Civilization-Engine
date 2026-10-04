@@ -19,8 +19,9 @@ fn building_on<'a>(sim: &'a Sim, w: &Earthwork) -> Option<&'a Building> {
     sim.land.buildings.iter().find(|b| b.plot == plot)
 }
 
-/// The earthworks' revision: changes whenever one is begun or advanced, or the building on a
-/// levelled plot changes; 0 when the world has none.
+/// The earthworks' revision: changes whenever one is begun or advanced (a platform's share done,
+/// a pit's or heap's earth), or the building on a levelled plot changes; 0 when the world has
+/// none.
 pub fn earthworks_rev(sim: &Sim) -> u64 {
     let works = &sim.land.earthworks;
     if works.is_empty() {
@@ -29,7 +30,7 @@ pub fn earthworks_rev(sim: &Sim) -> u64 {
     let mut hasher = DefaultHasher::new();
     for w in works {
         let building = building_on(sim, w).map_or(0, |b| b.id.get());
-        (w.id.get(), w.done.to_bits(), building).hash(&mut hasher);
+        (w.id.get(), w.done.to_bits(), w.cut_m3.to_bits(), building).hash(&mut hasher);
     }
     hasher.finish() | 1
 }

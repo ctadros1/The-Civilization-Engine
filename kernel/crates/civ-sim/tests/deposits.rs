@@ -5,6 +5,7 @@ use std::path::Path;
 use std::sync::OnceLock;
 use std::sync::atomic::AtomicBool;
 
+use civ_agents::build::plot_clear;
 use civ_agents::history::ChronicleKind;
 use civ_agents::person::{Step, Target};
 use civ_content::ContentRegistry;
@@ -236,6 +237,16 @@ fn a_household_short_of_good_room_digs_clay_it_knows_and_makes_pots() {
         .find(|w| Some(w.id) == pit.heap)
         .expect("its heap");
     assert_eq!(heap.kind, civ_land::earth::EarthKind::Spoil);
+    // Nobody claims a plot on the pit or its heap, ground that is otherwise clear.
+    let mut bare = sim.land().clone();
+    bare.earthworks.clear();
+    for w in [pit, heap] {
+        assert!(plot_clear(&bare, sim.map(), sim.nav(), &w.rect), "{w:?}");
+        assert!(
+            !plot_clear(sim.land(), sim.map(), sim.nav(), &w.rect),
+            "{w:?}"
+        );
+    }
     let r = f64::from(deposit.body.radius_cm) / 100.0;
     let density = deposit.body.initial_kg
         / (std::f64::consts::PI * r * r * f64::from(deposit.body.thickness_cm) / 100.0);
@@ -264,4 +275,14 @@ fn a_household_short_of_good_room_digs_clay_it_knows_and_makes_pots() {
     assert_eq!(loaded.land().earthworks, sim.land().earthworks);
     assert_eq!(loaded.land().ground, sim.land().ground);
     assert_eq!(loaded.land().deposits, sim.land().deposits);
+    // The observer hears of a pit deepening: the earthworks' revision changes with its earth.
+    let rev = civ_sim::frames::earthworks::earthworks_rev(&sim);
+    let at = sim
+        .land()
+        .earthworks
+        .iter()
+        .position(|w| w.kind == civ_land::earth::EarthKind::Pit)
+        .expect("the pit");
+    sim.land_mut_for_tests().earthworks[at].cut_m3 += 0.5;
+    assert_ne!(civ_sim::frames::earthworks::earthworks_rev(&sim), rev);
 }

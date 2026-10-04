@@ -40,6 +40,10 @@ pub(crate) struct BuildingFile {
     pub roof_by_day: u16,
     /// The technique building it needs: a technique id, or "" for none (ADR-0008 §1).
     pub technique: String,
+    /// The skill building it uses and trains: a skill id, or "" for none (ADR-0009 §6).
+    pub skill: String,
+    /// How its parts wear and decay (ADR-0009 §4).
+    pub upkeep: UpkeepFile,
     /// The good each material slot is made of: slot name to good id ([`HUT_SLOTS`],
     /// [`FRAME_SLOTS`]).
     pub materials: BTreeMap<String, String>,
@@ -49,6 +53,38 @@ pub(crate) struct BuildingFile {
     pub frame: Option<Frame>,
     /// The sizes people build a frame program to.
     pub design: Option<Design>,
+}
+
+/// How a program's parts wear and decay (`civ_agents::params::Upkeep`), as authored: for each
+/// kind, `[share lost a year, share at which it shows]`.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct UpkeepFile {
+    pub covering: [f64; 2],
+    pub posts: [f64; 2],
+    pub infill: [f64; 2],
+    pub under_leak: [f64; 2],
+}
+
+impl UpkeepFile {
+    fn kinds(&self) -> [(&'static str, [f64; 2]); 4] {
+        [
+            ("covering", self.covering),
+            ("posts", self.posts),
+            ("infill", self.infill),
+            ("under_leak", self.under_leak),
+        ]
+    }
+
+    fn upkeep(&self) -> civ_agents::params::Upkeep {
+        let wear = |[per_year, shows_at]: [f64; 2]| civ_agents::params::Wear { per_year, shows_at };
+        civ_agents::params::Upkeep {
+            covering: wear(self.covering),
+            posts: wear(self.posts),
+            infill: wear(self.infill),
+            under_leak: wear(self.under_leak),
+        }
+    }
 }
 
 /// The sizes people build a frame program to (`civ_agents::params::FrameDesign`), as authored.
@@ -263,14 +299,15 @@ impl BuildingFile {
     }
 
     /// The compiled program, with its materials resolved by `good_index` (in `goods`) and its
-    /// technique given, and the shapes people would build it in (`None` if a material is unknown,
-    /// which the cross-file check reports, or its rules do not compile, which
+    /// technique and skill given, and the shapes people would build it in (`None` if a material
+    /// is unknown, which the cross-file check reports, or its rules do not compile, which
     /// [`BuildingFile::problems`] reports).
     pub fn def(
         &self,
         good_index: &dyn Fn(&str) -> Option<usize>,
         goods: &[civ_agents::params::GoodDef],
         technique: Option<usize>,
+        skill: Option<usize>,
     ) -> Option<BuildingDef> {
         let materials = self
             .slots()
@@ -297,6 +334,8 @@ impl BuildingFile {
                 floor_raise_cm: d.floor_raise_cm,
             }),
             shapes: Vec::new(),
+            skill,
+            upkeep: self.upkeep.upkeep(),
         };
         def.shapes = civ_agents::build::shapes(&def, goods);
         Some(def)
@@ -335,6 +374,18 @@ impl BuildingFile {
                 self.grammar,
                 slots.join(", ")
             ));
+        }
+        for (name, [per_year, shows_at]) in self.upkeep.kinds() {
+            if !(per_year.is_finite() && per_year >= 0.0) {
+                p.push(format!(
+                    "`upkeep.{name}`: the share lost a year must be zero or more (got {per_year})"
+                ));
+            }
+            if !(shows_at > 0.0 && shows_at <= 1.0) {
+                p.push(format!(
+                    "`upkeep.{name}`: the share at which it shows must be in (0, 1] (got {shows_at})"
+                ));
+            }
         }
         if self.roof_by_day >= 365 {
             p.push(format!(

@@ -44,7 +44,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 14;
+pub const KERNEL_CONTENT_API: u32 = 15;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -638,6 +638,9 @@ fn resolve(
         }
     }
     let good_index = |id: &str| goods.iter().position(|g| g.id == id);
+    let mut skills: Vec<_> = parsed.skills.iter().map(|d| d.file.def()).collect();
+    skills.sort_by(|a, b| a.id.cmp(&b.id));
+    let skill_index = |id: &str| skills.iter().position(|k| k.id == id);
     // Techniques are indexed by id order, so the work that names one can be resolved before
     // the techniques themselves are (they name activities in turn).
     let mut technique_ids: Vec<&str> = parsed
@@ -710,9 +713,19 @@ fn resolve(
                 Some(_) => {}
             }
         }
+        let skill = if d.file.skill.is_empty() {
+            None
+        } else {
+            let found = skill_index(&d.file.skill);
+            if found.is_none() {
+                missing(c, parsed, &d.rel, "skill", &d.file.skill);
+                ok = false;
+            }
+            found
+        };
         let technique = gate(c, parsed, &technique_index, &d.rel, &d.file.technique);
         if let (true, Ok(technique)) = (ok, technique)
-            && let Some(def) = d.file.def(&good_index, &goods, technique)
+            && let Some(def) = d.file.def(&good_index, &goods, technique, skill)
         {
             if let Some(why) = civ_agents::build::unbuildable(&def, &goods) {
                 c.push(
@@ -726,11 +739,8 @@ fn resolve(
         }
     }
     buildings.sort_by(|a, b| a.id.cmp(&b.id));
-    let mut skills: Vec<_> = parsed.skills.iter().map(|d| d.file.def()).collect();
-    skills.sort_by(|a, b| a.id.cmp(&b.id));
     let mut regimes: Vec<_> = parsed.regimes.iter().map(|d| d.file.def()).collect();
     regimes.sort_by(|a, b| a.id.cmp(&b.id));
-    let skill_index = |id: &str| skills.iter().position(|k| k.id == id);
     let mut recipes = Vec::new();
     for d in &parsed.recipes {
         let mut ok = true;

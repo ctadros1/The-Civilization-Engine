@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 14
+kernel_content_api = 15
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -726,9 +726,14 @@ fn buildings_check_their_numbers_and_materials() {
         ("bays = [1, 8]", "bays = [1, 12]", "`frame.bays`"),
         ("storeys = [1, 2]", "storeys = [1, 3]", "`frame.storeys`"),
         (
-            "covering = ",
-            "thatch = ",
+            "covering = \"core:good/thatch\"",
+            "thatch = \"core:good/thatch\"",
             "`materials.covering` is missing",
+        ),
+        (
+            "covering = [0.06, 0.15]",
+            "covering = [0.06, 1.5]",
+            "`upkeep.covering`",
         ),
         (
             "grammar = \"frame\"",

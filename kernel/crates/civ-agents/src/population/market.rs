@@ -13,6 +13,7 @@ use crate::decide::{TradeOption, TradeWorth};
 use crate::farm;
 use crate::firm::{BookKind, Entry};
 use crate::ledger::{Channel, Leg, Trade};
+use crate::condition;
 use crate::make;
 use crate::market::{Market, Offer};
 use crate::params::{Catalog, GoodDef, GoodUse, MarketParams, PeopleParams, RecipeDef};
@@ -245,11 +246,19 @@ impl Population {
                 }
             }
         }
-        // Until its home is finished, and while it builds anything else it can work on, what it
-        // builds with stays for that.
+        // Until its home is finished, and while it builds or mends anything else it can work
+        // on, what it builds with stays for that.
         let mine = || ctx.land.buildings.iter().filter(|b| b.household == hh.id);
-        let housed = mine().any(|b| b.finished() && ctx.catalog.is_dwelling(&b.spec.program))
-            && mine().all(|b| b.finished() || !self.can_build(catalog, &hh.members, b));
+        let mending = |b: &civ_land::Building| {
+            catalog
+                .building_index(&b.spec.program)
+                .is_some_and(|i| condition::repair_of(b, &catalog.buildings[i].upkeep).is_some())
+        };
+        let housed = mine()
+            .any(|b| b.finished() && b.standing() && ctx.catalog.is_dwelling(&b.spec.program))
+            && mine().all(|b| {
+                (b.finished() && !mending(b)) || !self.can_build(catalog, &hh.members, b)
+            });
         let fuel_day = fuel_per_day(params, members, ctx.now.day_index());
         for (g, d) in goods.iter().enumerate() {
             if d.purpose == GoodUse::Fuel {

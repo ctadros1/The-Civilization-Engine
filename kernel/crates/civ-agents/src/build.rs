@@ -810,6 +810,16 @@ impl HomeWork {
         }
     }
 
+    /// Upkeep on a building, as work of one stage: renewing a share of one of its groups, which
+    /// needs `needs` ([`crate::condition::mend_needs`]), `done_h` hours of it done.
+    pub fn mend(needs: StageNeeds, done_h: f64) -> HomeWork {
+        HomeWork {
+            stages: vec![needs],
+            stage: 0,
+            done_h,
+        }
+    }
+
     /// The work on a building not yet begun, whose stages need `stages`.
     pub fn begin(stages: Vec<StageNeeds>) -> HomeWork {
         HomeWork {
@@ -951,7 +961,7 @@ pub fn urgency(hours_left: f64, deadline: i64, labour_per_day: f64, day: i64) ->
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::params::GoodUse;
     use civ_core::{PermanentId, SimTime};
@@ -959,7 +969,7 @@ mod tests {
     use civ_land::PlotUse;
 
     /// The core hut's figures (content `core:building/hut`).
-    fn hut_rules() -> HutRules {
+    pub(crate) fn hut_rules() -> HutRules {
         HutRules {
             radius_cm: (150, 400),
             eave_cm: (150, 250),
@@ -1004,6 +1014,8 @@ mod tests {
             technique: None,
             design: None,
             shapes: Vec::new(),
+            skill: None,
+            upkeep: crate::params::Upkeep::default(),
         }
     }
 
@@ -1243,15 +1255,15 @@ mod tests {
         assert!((work.workable_h(&held) - 100.0 / per_hour).abs() < 1e-9);
         // The household's own building gives the same figures.
         let b = Building {
-            id: PermanentId::from_raw(3).expect("non-zero"),
-            household: PermanentId::from_raw(2).expect("non-zero"),
-            plot: PermanentId::from_raw(4).expect("non-zero"),
-            spec,
             stage: Stage::Frame.index() as u8,
             work_h: work.done_h as f32,
-            started: SimTime::ZERO,
-            stage_since: SimTime::ZERO,
-            firm: None,
+            ..Building::new(
+                PermanentId::from_raw(3).expect("non-zero"),
+                PermanentId::from_raw(2).expect("non-zero"),
+                PermanentId::from_raw(4).expect("non-zero"),
+                spec,
+                SimTime::ZERO,
+            )
         };
         let of = HomeWork::of(&b, e.stages.clone());
         assert!((of.hours_left(Stage::Roof) - work.hours_left(Stage::Roof)).abs() < 1e-3);

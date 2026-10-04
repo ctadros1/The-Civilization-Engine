@@ -95,7 +95,10 @@ impl Population {
                 .filter(|f| {
                     f.is_open()
                         && f.owner == owner
-                        && !land.buildings.iter().any(|b| b.firm == Some(f.id))
+                        && !land
+                            .buildings
+                            .iter()
+                            .any(|b| b.firm == Some(f.id) && b.standing())
                 })
                 .map(|f| f.id)
                 .min();
@@ -105,10 +108,11 @@ impl Population {
         }
     }
 
-    /// Whether building `b` is a workshop no open firm works in: one whose firm closed, or that
-    /// never had one.
+    /// Whether building `b` is a standing workshop no open firm works in: one whose firm closed,
+    /// or that never had one.
     pub fn free_workshop(&self, catalog: &crate::params::Catalog, b: &civ_land::Building) -> bool {
         catalog.use_of(&b.spec.program) == Some(PlotUse::Work)
+            && b.standing()
             && b.firm
                 .is_none_or(|f| self.firm(f).is_none_or(|f| !f.is_open()))
     }

@@ -36,12 +36,14 @@ id = "water"
 name = "Open water"
 min_water_fraction = 0.5
 arable = false
+wetness = 2.0                    # open water: wet if anything is built at its edge
 
 [[habitat]]
 id = "wetland"
 name = "Wet margin"
 max_median_hand_m = 0.3
 arable = false
+wetness = 2.0                    # posts stand in wet ground (tuning)
 
 [[habitat]]
 id = "floodplain"
@@ -49,6 +51,7 @@ name = "Floodplain and terrace"
 max_mean_slope = 0.05
 max_median_hand_m = 6.0
 arable = true
+wetness = 1.3                    # damp ground near the water table (tuning)
 
 [[habitat]]
 id = "woodland"
@@ -58,11 +61,13 @@ arable = true
 # Felling and burning before a first crop, with stone axes: a tuning value (the research sets
 # no figure; 03-06 §1.3 expects woodland to be cleared for fields).
 clear_h_per_ha = 1000.0
+wetness = 1.0
 
 [[habitat]]
 id = "upland"
 name = "Upland"
 arable = false
+wetness = 0.7                    # drier, better-drained ground (tuning)
 
 [[resource]]
 id = "wild_plants"

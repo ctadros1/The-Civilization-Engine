@@ -64,6 +64,7 @@
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{Read, Seek};
 
+use civ_agents::condition;
 use civ_agents::firm::{BookKind, Books, Entry as BookEntryOf, Exit, Firm, Statement, WageOffer};
 use civ_agents::history::{ChronicleEvent, ChronicleKind, Origin, PersonRecord};
 use civ_agents::knowledge::{KnowledgeEvent, KnowledgeEventKind};
@@ -79,8 +80,8 @@ use civ_core::scheduler::PendingEvent;
 use civ_core::{PermanentId, SimTime};
 use civ_grammar::{BuildingSpec, Footprint, PARAMS};
 use civ_land::{
-    Building, ClimateYear, Field, FieldStage, Land, Lease, Party, Patches, PathParams, Plot,
-    PlotUse, RectCm, Settlement, Wear, WearTile,
+    Building, BuildingState, ClimateYear, Field, FieldStage, GroupCondition, GroupState, Land,
+    Lease, Party, Patches, PathParams, Plot, PlotUse, RectCm, Repair, Settlement, Wear, WearTile,
 };
 use civ_schema::SAVE_SCHEMA_VERSION;
 use civ_schema::flatbuffers::{self, FlatBufferBuilder, WIPOffset};
@@ -90,8 +91,8 @@ use commons_persist::{SectionData, SectionTag, SnapshotReader};
 
 use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
-    SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, finish,
-    section, single_chunk, unreadable,
+    SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
+    finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -231,6 +232,9 @@ enum Schema {
     /// Workshops that name their firms, firms' most at once, and roofed floor and storage in the
     /// wealth measures (ADR-0009 §7).
     V16,
+    /// The condition of buildings: each group's quality, loss and state, the building's state,
+    /// its builders' skill and upkeep under way (ADR-0009 §4, §6).
+    V17,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -260,7 +264,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V13 => Schema::V13,
         SCHEMA_V14 => Schema::V14,
         SCHEMA_V15 => Schema::V15,
-        SAVE_SCHEMA_VERSION => Schema::V16,
+        SCHEMA_V16 => Schema::V16,
+        SAVE_SCHEMA_VERSION => Schema::V17,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -278,7 +283,7 @@ pub(super) fn decode<R: Read + Seek>(
         people.insert_household(h);
     }
     let bytes = single_chunk(reader, SECTION_PEOPLE)?;
-    let (persons, next_trip, redecide) = decode_people(&bytes, rules, schema)?;
+    let (persons, next_trip, redecide, new_skills) = decode_people(&bytes, rules, schema)?;
     people.next_trip = next_trip;
     for p in persons {
         people.insert_person(p);
@@ -291,10 +296,12 @@ pub(super) fn decode<R: Read + Seek>(
     if schema < Schema::V6 {
         people.infer_couples(&rules.people, seed, now);
     }
-    // Before schema 9 nobody had tools or skills: everyone gets what a founder brings.
+    // Before schema 9 nobody had tools or skills: everyone gets what a founder brings. A skill
+    // added to the content since the save was made, likewise.
     if schema < Schema::V9 {
         people.give_founders_kit(&rules.catalog, &rules.people, seed, now);
     }
+    people.give_new_skills(&rules.catalog, &rules.people, seed, now, &new_skills);
     let bytes = single_chunk(reader, SECTION_RECEIPTS)?;
     decode_receipts(&bytes, rules, &mut people)?;
     let bytes = single_chunk(reader, SECTION_EVENTS)?;
@@ -307,7 +314,16 @@ pub(super) fn decode<R: Read + Seek>(
         let bytes = single_chunk(reader, SECTION_PLOTS)?;
         land.plots = decode_plots(&bytes)?;
         let bytes = single_chunk(reader, SECTION_BUILDS)?;
-        land.buildings = decode_buildings(&bytes)?;
+        land.buildings = decode_buildings(&bytes, schema)?;
+        // Each building's condition in line with its design: before schema 17 its groups in
+        // place are put there sound (ADR-0009 §8).
+        condition::reconcile_all(
+            &mut land.buildings,
+            &rules.catalog,
+            seed,
+            rules.people.build.quality_spread,
+            now,
+        );
     }
     // Before schema 7 nobody had worn the ground: it starts untrodden.
     if schema >= Schema::V7 {
@@ -902,7 +918,9 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
     )
 }
 
-type DecodedPeople = (Vec<Person>, u64, Vec<PermanentId>);
+/// The people, the next trip number, who decides again, and the skills of the content the save
+/// knew nothing of.
+type DecodedPeople = (Vec<Person>, u64, Vec<PermanentId>, Vec<usize>);
 
 fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedPeople, LoadError> {
     let root =
@@ -914,6 +932,15 @@ fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedP
         .iter()
         .map(|id| rules.catalog.skill_index(id))
         .collect();
+    // Skills the content has and the save never named (none before schema 9, when nobody had
+    // any).
+    let new_skills: Vec<usize> = if schema >= Schema::V9 {
+        (0..rules.catalog.skills.len())
+            .filter(|k| !skill_ids.contains(&Some(*k)))
+            .collect()
+    } else {
+        Vec::new()
+    };
     // Techniques by saved index, in the loaded content; one it no longer has is forgotten.
     let technique_ids: Vec<Option<usize>> = read_strings(root.techniques())
         .iter()
@@ -1117,7 +1144,7 @@ fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedP
             tried: (p.tried() >= 0).then(|| time(p.tried())),
         });
     }
-    Ok((people, root.next_trip(), redecide))
+    Ok((people, root.next_trip(), redecide, new_skills))
 }
 
 /// What a saved person carries, in the loaded content's goods.
@@ -1147,7 +1174,8 @@ fn carried(
         | Schema::V13
         | Schema::V14
         | Schema::V15
-        | Schema::V16 => {
+        | Schema::V16
+        | Schema::V17 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1268,7 +1296,8 @@ fn decode_households(
             | Schema::V13
             | Schema::V14
             | Schema::V15
-            | Schema::V16 => {
+            | Schema::V16
+            | Schema::V17 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -1991,6 +2020,35 @@ fn encode_buildings(buildings: &[Building]) -> Vec<u8> {
                     angle,
                 },
             );
+            let mut condition = Vec::with_capacity(b.condition.len());
+            for c in &b.condition {
+                condition.push(save::GroupCondition::create(
+                    &mut fbb,
+                    &save::GroupConditionArgs {
+                        group: c.group,
+                        quality: c.quality,
+                        loss: c.loss,
+                        installed: c.installed.minutes(),
+                        repaired: c.repaired.minutes(),
+                        state: match c.state {
+                            GroupState::Sound => save::GroupState::Sound,
+                            GroupState::Symptom => save::GroupState::Symptom,
+                            GroupState::Failed => save::GroupState::Failed,
+                        },
+                    },
+                ));
+            }
+            let condition = fbb.create_vector(&condition);
+            let repair = b.repair.map(|r| {
+                save::RepairState::create(
+                    &mut fbb,
+                    &save::RepairStateArgs {
+                        group: r.group,
+                        share: r.share,
+                        work_h: r.work_h,
+                    },
+                )
+            });
             save::Building::create(
                 &mut fbb,
                 &save::BuildingArgs {
@@ -2003,6 +2061,14 @@ fn encode_buildings(buildings: &[Building]) -> Vec<u8> {
                     started: b.started.minutes(),
                     stage_since: b.stage_since.minutes(),
                     firm: b.firm.map_or(0, |f| f.get()),
+                    condition: Some(condition),
+                    state: match b.state {
+                        BuildingState::Standing => save::BuildingState::Standing,
+                        BuildingState::Damaged => save::BuildingState::Damaged,
+                        BuildingState::Ruin => save::BuildingState::Ruin,
+                    },
+                    skill_h: b.skill_h,
+                    repair,
                 },
             )
         })
@@ -2017,7 +2083,47 @@ fn encode_buildings(buildings: &[Building]) -> Vec<u8> {
     finish(fbb, root)
 }
 
-fn decode_buildings(bytes: &[u8]) -> Result<Vec<Building>, LoadError> {
+/// A saved float, refused if it is not finite.
+fn finite(x: f32, what: &str) -> Result<f32, LoadError> {
+    if x.is_finite() {
+        Ok(x)
+    } else {
+        Err(LoadError::Malformed(format!(
+            "{what} is not a number ({x})"
+        )))
+    }
+}
+
+/// The condition of building `id`'s groups as saved (none before schema 17).
+fn decode_condition(
+    list: Option<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<save::GroupCondition<'_>>>>,
+    id: PermanentId,
+) -> Result<Vec<GroupCondition>, LoadError> {
+    let mut out: Vec<GroupCondition> = Vec::new();
+    for c in list.iter().flatten() {
+        if out.iter().any(|o| o.group == c.group()) {
+            return Err(LoadError::Malformed(format!(
+                "building {id} has group {} twice",
+                c.group()
+            )));
+        }
+        out.push(GroupCondition {
+            group: c.group(),
+            quality: finite(c.quality(), "a group's quality")?.clamp(0.0, 1.0),
+            loss: finite(c.loss(), "a group's loss")?.clamp(0.0, 1.0),
+            installed: time(c.installed()),
+            repaired: time(c.repaired()),
+            state: match c.state() {
+                save::GroupState::Symptom => GroupState::Symptom,
+                save::GroupState::Failed => GroupState::Failed,
+                _ => GroupState::Sound,
+            },
+        });
+    }
+    Ok(out)
+}
+
+fn decode_buildings(bytes: &[u8], schema: Schema) -> Result<Vec<Building>, LoadError> {
     let root =
         flatbuffers::root::<save::Builds>(bytes).map_err(|e| unreadable(SECTION_BUILDS, &e))?;
     let mut out = Vec::new();
@@ -2075,6 +2181,31 @@ fn decode_buildings(bytes: &[u8]) -> Result<Vec<Building>, LoadError> {
             stage_since: time(b.stage_since()),
             // Before schema 16 no building named a firm.
             firm: PermanentId::from_raw(b.firm()),
+            // Before schema 17 no building had a condition: the stage under way was worked at
+            // middling skill, and its groups are put in place on loading (ADR-0009 §8).
+            skill_h: if schema >= Schema::V17 {
+                finite(b.skill_h(), "skill hours")?.max(0.0)
+            } else {
+                b.work_h() * condition::MIDDLING_SKILL as f32
+            },
+            condition: if schema >= Schema::V17 {
+                decode_condition(b.condition(), id)?
+            } else {
+                Vec::new()
+            },
+            state: match b.state() {
+                save::BuildingState::Damaged if schema >= Schema::V17 => BuildingState::Damaged,
+                save::BuildingState::Ruin if schema >= Schema::V17 => BuildingState::Ruin,
+                _ => BuildingState::Standing,
+            },
+            repair: match b.repair() {
+                Some(r) if schema >= Schema::V17 => Some(Repair {
+                    group: r.group(),
+                    share: finite(r.share(), "a repair's share")?.clamp(0.0, 1.0),
+                    work_h: finite(r.work_h(), "a repair's hours")?.max(0.0),
+                }),
+                _ => None,
+            },
         });
     }
     Ok(out)
@@ -2911,7 +3042,7 @@ mod tests {
     #[test]
     fn a_schema_14_design_of_eight_parameters_loads_as_a_round_hut() {
         let eight = [240, 2500, 16_384, 0, 0, 0, 0, 0];
-        let loaded = decode_buildings(&schema_14_hut(&eight)).expect("decodes");
+        let loaded = decode_buildings(&schema_14_hut(&eight), Schema::V14).expect("decodes");
         let [b] = loaded.as_slice() else {
             panic!("one building: {loaded:?}")
         };
@@ -2935,12 +3066,17 @@ mod tests {
         );
         assert_eq!((b.stage, b.work_h), (2, 5.5));
         assert_eq!(b.firm, None, "no firm before schema 16");
+        // No condition before schema 17: the stage under way was worked at middling skill, and
+        // its finished stages' groups are put in place on loading.
+        assert!(b.condition.is_empty() && b.repair.is_none());
+        assert_eq!(b.state, BuildingState::Standing);
+        assert_eq!(b.skill_h, 5.5 * condition::MIDDLING_SKILL as f32);
         // Saved again, it keeps the eight and the eight zeros after them.
-        let again = decode_buildings(&encode_buildings(&loaded)).expect("decodes");
+        let again = decode_buildings(&encode_buildings(&loaded), Schema::V17).expect("decodes");
         assert_eq!(again, loaded);
         // More parameters than a design has is damage, not a design to cut short.
         assert!(matches!(
-            decode_buildings(&schema_14_hut(&[1; PARAMS + 1])),
+            decode_buildings(&schema_14_hut(&[1; PARAMS + 1]), Schema::V14),
             Err(LoadError::Malformed(_))
         ));
     }

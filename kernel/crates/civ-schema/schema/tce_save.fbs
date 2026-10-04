@@ -548,6 +548,33 @@ table BuildingSpec {
   angle: ushort (id: 12);
 }
 
+// Schema 17 (M3b slice P): how one component group of a building stands (ADR-0009 §4).
+enum GroupState : ubyte { Sound = 0, Symptom = 1, Failed = 2 }
+
+table GroupCondition {
+  // The group's semantic id in its building's expansion.
+  group: uint (id: 0);
+  // Its quality: a share of what sound members of its sizes carry, drawn once.
+  quality: float (id: 1);
+  // The share of its members' effective section lost, or of a covering worn.
+  loss: float (id: 2);
+  // When it was put in place, and last repaired (minutes).
+  installed: long (id: 3);
+  repaired: long (id: 4);
+  state: GroupState (id: 5);
+}
+
+// Schema 17: how a building stands as a whole.
+enum BuildingState : ubyte { Standing = 0, Damaged = 1, Ruin = 2 }
+
+// Schema 17: upkeep under way on one of a building's groups, renewing a share of it.
+table RepairState {
+  group: uint (id: 0);
+  share: float (id: 1);
+  // Person-hours done on it.
+  work_h: float (id: 2);
+}
+
 table Building {
   id: ulong (id: 0);
   household: ulong (id: 1);
@@ -561,6 +588,14 @@ table Building {
   stage_since: long (id: 7);
   // Schema 16 (M3b slice O): the firm it is the workshop of, 0 for none.
   firm: ulong (id: 8);
+  // Schema 17 (M3b slice P): the condition of each of its groups in place (ADR-0009 §4), how it
+  // stands, the person-hours of the stage under way each times its builder's building skill, and
+  // the upkeep under way. An earlier save has none of them: its groups in place are put there
+  // sound on loading, as if built at middling skill.
+  condition: [GroupCondition] (id: 9);
+  state: BuildingState (id: 10);
+  skill_h: float (id: 11);
+  repair: RepairState (id: 12);
 }
 
 table Builds {

@@ -4,6 +4,8 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { BuildingState } from '../../tce/wire/building-state.js';
+import { GroupInfo } from '../../tce/wire/group-info.js';
 import { Vec2 } from '../../tce/wire/vec2.js';
 
 
@@ -279,8 +281,42 @@ firmName(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+state():BuildingState {
+  const offset = this.bb!.__offset(this.bb_pos, 80);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : BuildingState.Standing;
+}
+
+symptoms():string|null
+symptoms(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+symptoms(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 82);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+leak():number {
+  const offset = this.bb!.__offset(this.bb_pos, 84);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+groups(index: number, obj?:GroupInfo):GroupInfo|null {
+  const offset = this.bb!.__offset(this.bb_pos, 86);
+  return offset ? (obj || new GroupInfo()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+groupsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 86);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+upkeep():string|null
+upkeep(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+upkeep(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 88);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startBuildingInfo(builder:flatbuffers.Builder) {
-  builder.startObject(38);
+  builder.startObject(43);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -500,6 +536,38 @@ static addFirm(builder:flatbuffers.Builder, firm:bigint) {
 
 static addFirmName(builder:flatbuffers.Builder, firmNameOffset:flatbuffers.Offset) {
   builder.addFieldOffset(37, firmNameOffset, 0);
+}
+
+static addState(builder:flatbuffers.Builder, state:BuildingState) {
+  builder.addFieldInt8(38, state, BuildingState.Standing);
+}
+
+static addSymptoms(builder:flatbuffers.Builder, symptomsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(39, symptomsOffset, 0);
+}
+
+static addLeak(builder:flatbuffers.Builder, leak:number) {
+  builder.addFieldFloat32(40, leak, 0.0);
+}
+
+static addGroups(builder:flatbuffers.Builder, groupsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(41, groupsOffset, 0);
+}
+
+static createGroupsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startGroupsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addUpkeep(builder:flatbuffers.Builder, upkeepOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(42, upkeepOffset, 0);
 }
 
 static endBuildingInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

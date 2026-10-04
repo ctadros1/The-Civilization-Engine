@@ -56,6 +56,11 @@ function hut(over: Partial<BuildingInfo> = {}): BuildingInfo {
     stored: "",
     firm: 0,
     firmName: "",
+    state: "standing",
+    symptoms: "",
+    leak: 0,
+    groups: [],
+    upkeep: "",
     ...over,
   };
 }
@@ -171,6 +176,47 @@ describe("buildings on the map", () => {
     );
   });
 
+  it("say what they show of their condition and what is being mended", () => {
+    const leaking = hut({
+      stage: 5,
+      roofed: true,
+      status: "finished",
+      symptoms: "the thatch leaks; rot at the posts' foot",
+      leak: 0.3,
+      upkeep: "mending the covering, 40% done",
+      stored: "floor: 1.8 t of 3.0 t, mostly provisions",
+    });
+    expect(buildingWords(leaking)).toBe(
+      "hut of 30 m², room for 5: finished; the thatch leaks; rot at the posts' foot; mending the covering, 40% done; floor: 1.8 t of 3.0 t, mostly provisions",
+    );
+    // A ruin says so once: its status is its state.
+    const ruin = hut({
+      stage: 5,
+      status: "a ruin",
+      state: "ruin",
+      symptoms: "a ruin: its posts gave way",
+    });
+    expect(buildingWords(ruin)).toBe("hut of 30 m², room for 5: a ruin");
+  });
+
+  it("darken a leaking roof and leave a ruin its posts", () => {
+    const sound = hut({ stage: 5, roofed: true });
+    const leaking = hut({ stage: 5, roofed: true, leak: 0.6 });
+    expect(buildingKey(sound)).toBe("roofed");
+    expect(buildingKey(hut({ stage: 5, roofed: true, leak: 0.01 }))).toBe("roofed");
+    expect(buildingKey(leaking)).toBe("leaking");
+    const brightness = (c: number) => ((c >> 16) & 0xff) + ((c >> 8) & 0xff) + (c & 0xff);
+    expect(brightness(buildingLook(leaking).roofFill)).toBeLessThan(
+      brightness(buildingLook(sound).roofFill),
+    );
+    const ruin = hut({ stage: 5, roofed: false, state: "ruin" });
+    expect(buildingKey(ruin)).toBe("ruin");
+    const look = buildingLook(ruin);
+    expect([look.posts, look.roofAlpha]).toEqual([20, 0]);
+    const marks = buildingMarks(ruin);
+    expect(marks.some((m) => m.kind === "circle" && m.r > 1)).toBe(false);
+  });
+
   it("find a frame building under its gabled roof, not its circle", () => {
     const b = longhouse();
     expect(underRoof(b, 204, 102.5)).toBe(true);
@@ -190,7 +236,9 @@ describe("buildings on the map", () => {
     expect(buildingKey(hut({ stage: 4, roofed: true }))).toBe("roofed");
     expect(buildingKey(hut({ stage: 5, roofed: true }))).toBe("roofed");
     const keys = new Set(BUILDING_LEGEND.map((e) => e.key));
-    for (const k of ["marked", "frame", "walls", "roofed"]) expect(keys.has(k)).toBe(true);
+    for (const k of ["marked", "frame", "walls", "roofed", "leaking", "ruin"]) {
+      expect(keys.has(k)).toBe(true);
+    }
   });
 
   it("show postholes as they are dug, then posts, walls and thatch", () => {

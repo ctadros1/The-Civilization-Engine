@@ -416,6 +416,44 @@ impl GroupKind {
             GroupKind::Floor => 9,
         }
     }
+
+    /// Its name in words: "posts", "roof frame".
+    pub fn name(self) -> &'static str {
+        match self {
+            GroupKind::Posts => "posts",
+            GroupKind::TieBeams => "tie beams",
+            GroupKind::LoftJoists => "loft joists",
+            GroupKind::FloorJoists => "floor joists",
+            GroupKind::RaisedFloor => "raised floor",
+            GroupKind::RoofFrame => "roof frame",
+            GroupKind::Covering => "covering",
+            GroupKind::Infill => "infill",
+            GroupKind::Floor => "floor",
+        }
+    }
+
+    /// Every kind, in code order.
+    pub const ALL: [GroupKind; 9] = [
+        GroupKind::Posts,
+        GroupKind::TieBeams,
+        GroupKind::LoftJoists,
+        GroupKind::FloorJoists,
+        GroupKind::RaisedFloor,
+        GroupKind::RoofFrame,
+        GroupKind::Covering,
+        GroupKind::Infill,
+        GroupKind::Floor,
+    ];
+
+    /// The kind with stable code `code`.
+    pub fn from_code(code: u8) -> Option<GroupKind> {
+        GroupKind::ALL.into_iter().find(|k| k.code() == code)
+    }
+
+    /// The kind of the group with semantic id `id` ([`group_id`]).
+    pub fn of_group(id: u32) -> Option<GroupKind> {
+        GroupKind::from_code(((id >> 8) & 0xff) as u8)
+    }
 }
 
 /// A group of like members that stand or fall together (ADR-0009 §3; research 11-06 §5.1).

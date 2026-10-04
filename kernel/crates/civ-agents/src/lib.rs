@@ -22,6 +22,7 @@
 #![forbid(unsafe_code)]
 
 pub mod build;
+pub mod condition;
 pub mod decide;
 pub mod demography;
 pub mod farm;

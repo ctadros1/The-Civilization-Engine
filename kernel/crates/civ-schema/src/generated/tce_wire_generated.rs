@@ -927,6 +927,182 @@ impl<'a> ::flatbuffers::Verifiable for SpanKind {
 
 impl ::flatbuffers::SimpleToVerifyInSlice for SpanKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_GROUP_STATE: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_GROUP_STATE: u8 = 2;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_GROUP_STATE: [GroupState; 3] = [
+  GroupState::Sound,
+  GroupState::Symptom,
+  GroupState::Failed,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct GroupState(pub u8);
+#[allow(non_upper_case_globals)]
+impl GroupState {
+  pub const Sound: Self = Self(0);
+  pub const Symptom: Self = Self(1);
+  pub const Failed: Self = Self(2);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 2;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Sound,
+    Self::Symptom,
+    Self::Failed,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Sound => Some("Sound"),
+      Self::Symptom => Some("Symptom"),
+      Self::Failed => Some("Failed"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for GroupState {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for GroupState {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for GroupState {
+    type Output = GroupState;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for GroupState {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for GroupState {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for GroupState {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_BUILDING_STATE: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_BUILDING_STATE: u8 = 2;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_BUILDING_STATE: [BuildingState; 3] = [
+  BuildingState::Standing,
+  BuildingState::Damaged,
+  BuildingState::Ruin,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct BuildingState(pub u8);
+#[allow(non_upper_case_globals)]
+impl BuildingState {
+  pub const Standing: Self = Self(0);
+  pub const Damaged: Self = Self(1);
+  pub const Ruin: Self = Self(2);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 2;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Standing,
+    Self::Damaged,
+    Self::Ruin,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Standing => Some("Standing"),
+      Self::Damaged => Some("Damaged"),
+      Self::Ruin => Some("Ruin"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for BuildingState {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for BuildingState {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for BuildingState {
+    type Output = BuildingState;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for BuildingState {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for BuildingState {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for BuildingState {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_BOOK_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MAX_BOOK_KIND: u8 = 8;
@@ -12912,6 +13088,204 @@ impl ::core::fmt::Debug for Fields<'_> {
       ds.finish()
   }
 }
+pub enum GroupInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GroupInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GroupInfo<'a> {
+  type Inner = GroupInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GroupInfo<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_KIND: ::flatbuffers::VOffsetT = 6;
+  pub const VT_QUALITY: ::flatbuffers::VOffsetT = 8;
+  pub const VT_LOSS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_STATE: ::flatbuffers::VOffsetT = 12;
+  pub const VT_INSTALLED_MINUTE: ::flatbuffers::VOffsetT = 14;
+  pub const VT_REPAIRED_MINUTE: ::flatbuffers::VOffsetT = 16;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GroupInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GroupInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<GroupInfo<'bldr>> {
+    let mut builder = GroupInfoBuilder::new(_fbb);
+    builder.add_repaired_minute(args.repaired_minute);
+    builder.add_installed_minute(args.installed_minute);
+    builder.add_loss(args.loss);
+    builder.add_quality(args.quality);
+    if let Some(x) = args.kind { builder.add_kind(x); }
+    builder.add_id(args.id);
+    builder.add_state(args.state);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GroupInfo::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn kind(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(GroupInfo::VT_KIND, None)}
+  }
+  #[inline]
+  pub fn quality(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GroupInfo::VT_QUALITY, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn loss(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GroupInfo::VT_LOSS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn state(&self) -> GroupState {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<GroupState>(GroupInfo::VT_STATE, Some(GroupState::Sound)).unwrap()}
+  }
+  #[inline]
+  pub fn installed_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(GroupInfo::VT_INSTALLED_MINUTE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn repaired_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(GroupInfo::VT_REPAIRED_MINUTE, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for GroupInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("kind", Self::VT_KIND, false)?
+     .visit_field::<f32>("quality", Self::VT_QUALITY, false)?
+     .visit_field::<f32>("loss", Self::VT_LOSS, false)?
+     .visit_field::<GroupState>("state", Self::VT_STATE, false)?
+     .visit_field::<i64>("installed_minute", Self::VT_INSTALLED_MINUTE, false)?
+     .visit_field::<i64>("repaired_minute", Self::VT_REPAIRED_MINUTE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GroupInfoArgs<'a> {
+    pub id: u32,
+    pub kind: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub quality: f32,
+    pub loss: f32,
+    pub state: GroupState,
+    pub installed_minute: i64,
+    pub repaired_minute: i64,
+}
+impl<'a> Default for GroupInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    GroupInfoArgs {
+      id: 0,
+      kind: None,
+      quality: 0.0,
+      loss: 0.0,
+      state: GroupState::Sound,
+      installed_minute: 0,
+      repaired_minute: 0,
+    }
+  }
+}
+
+pub struct GroupInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GroupInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(GroupInfo::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_kind(&mut self, kind: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GroupInfo::VT_KIND, kind);
+  }
+  #[inline]
+  pub fn add_quality(&mut self, quality: f32) {
+    self.fbb_.push_slot::<f32>(GroupInfo::VT_QUALITY, quality, 0.0);
+  }
+  #[inline]
+  pub fn add_loss(&mut self, loss: f32) {
+    self.fbb_.push_slot::<f32>(GroupInfo::VT_LOSS, loss, 0.0);
+  }
+  #[inline]
+  pub fn add_state(&mut self, state: GroupState) {
+    self.fbb_.push_slot::<GroupState>(GroupInfo::VT_STATE, state, GroupState::Sound);
+  }
+  #[inline]
+  pub fn add_installed_minute(&mut self, installed_minute: i64) {
+    self.fbb_.push_slot::<i64>(GroupInfo::VT_INSTALLED_MINUTE, installed_minute, 0);
+  }
+  #[inline]
+  pub fn add_repaired_minute(&mut self, repaired_minute: i64) {
+    self.fbb_.push_slot::<i64>(GroupInfo::VT_REPAIRED_MINUTE, repaired_minute, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GroupInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GroupInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GroupInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GroupInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GroupInfo");
+      ds.field("id", &self.id());
+      ds.field("kind", &self.kind());
+      ds.field("quality", &self.quality());
+      ds.field("loss", &self.loss());
+      ds.field("state", &self.state());
+      ds.field("installed_minute", &self.installed_minute());
+      ds.field("repaired_minute", &self.repaired_minute());
+      ds.finish()
+  }
+}
 pub enum BuildingInfoOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -12966,6 +13340,11 @@ impl<'a> BuildingInfo<'a> {
   pub const VT_STORED: ::flatbuffers::VOffsetT = 74;
   pub const VT_FIRM: ::flatbuffers::VOffsetT = 76;
   pub const VT_FIRM_NAME: ::flatbuffers::VOffsetT = 78;
+  pub const VT_STATE: ::flatbuffers::VOffsetT = 80;
+  pub const VT_SYMPTOMS: ::flatbuffers::VOffsetT = 82;
+  pub const VT_LEAK: ::flatbuffers::VOffsetT = 84;
+  pub const VT_GROUPS: ::flatbuffers::VOffsetT = 86;
+  pub const VT_UPKEEP: ::flatbuffers::VOffsetT = 88;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -12982,6 +13361,10 @@ impl<'a> BuildingInfo<'a> {
     builder.add_settlement(args.settlement);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    if let Some(x) = args.upkeep { builder.add_upkeep(x); }
+    if let Some(x) = args.groups { builder.add_groups(x); }
+    builder.add_leak(args.leak);
+    if let Some(x) = args.symptoms { builder.add_symptoms(x); }
     if let Some(x) = args.firm_name { builder.add_firm_name(x); }
     if let Some(x) = args.stored { builder.add_stored(x); }
     if let Some(x) = args.stored_kg { builder.add_stored_kg(x); }
@@ -13011,6 +13394,7 @@ impl<'a> BuildingInfo<'a> {
     if let Some(x) = args.centre { builder.add_centre(x); }
     if let Some(x) = args.program { builder.add_program(x); }
     builder.add_loft_bays(args.loft_bays);
+    builder.add_state(args.state);
     builder.add_bays(args.bays);
     builder.add_storeys(args.storeys);
     builder.add_roofed(args.roofed);
@@ -13285,6 +13669,41 @@ impl<'a> BuildingInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_FIRM_NAME, None)}
   }
+  #[inline]
+  pub fn state(&self) -> BuildingState {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<BuildingState>(BuildingInfo::VT_STATE, Some(BuildingState::Standing)).unwrap()}
+  }
+  #[inline]
+  pub fn symptoms(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_SYMPTOMS, None)}
+  }
+  #[inline]
+  pub fn leak(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(BuildingInfo::VT_LEAK, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn groups(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GroupInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GroupInfo>>>>(BuildingInfo::VT_GROUPS, None)}
+  }
+  #[inline]
+  pub fn upkeep(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_UPKEEP, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
@@ -13331,6 +13750,11 @@ impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("stored", Self::VT_STORED, false)?
      .visit_field::<u64>("firm", Self::VT_FIRM, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("firm_name", Self::VT_FIRM_NAME, false)?
+     .visit_field::<BuildingState>("state", Self::VT_STATE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("symptoms", Self::VT_SYMPTOMS, false)?
+     .visit_field::<f32>("leak", Self::VT_LEAK, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GroupInfo>>>>("groups", Self::VT_GROUPS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("upkeep", Self::VT_UPKEEP, false)?
      .finish();
     Ok(())
   }
@@ -13374,6 +13798,11 @@ pub struct BuildingInfoArgs<'a> {
     pub stored: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub firm: u64,
     pub firm_name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub state: BuildingState,
+    pub symptoms: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub leak: f32,
+    pub groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GroupInfo<'a>>>>>,
+    pub upkeep: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for BuildingInfoArgs<'a> {
   #[inline]
@@ -13417,6 +13846,11 @@ impl<'a> Default for BuildingInfoArgs<'a> {
       stored: None,
       firm: 0,
       firm_name: None,
+      state: BuildingState::Standing,
+      symptoms: None,
+      leak: 0.0,
+      groups: None,
+      upkeep: None,
     }
   }
 }
@@ -13579,6 +14013,26 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingInfoBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_FIRM_NAME, firm_name);
   }
   #[inline]
+  pub fn add_state(&mut self, state: BuildingState) {
+    self.fbb_.push_slot::<BuildingState>(BuildingInfo::VT_STATE, state, BuildingState::Standing);
+  }
+  #[inline]
+  pub fn add_symptoms(&mut self, symptoms: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_SYMPTOMS, symptoms);
+  }
+  #[inline]
+  pub fn add_leak(&mut self, leak: f32) {
+    self.fbb_.push_slot::<f32>(BuildingInfo::VT_LEAK, leak, 0.0);
+  }
+  #[inline]
+  pub fn add_groups(&mut self, groups: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<GroupInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_GROUPS, groups);
+  }
+  #[inline]
+  pub fn add_upkeep(&mut self, upkeep: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_UPKEEP, upkeep);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingInfoBuilder {
@@ -13634,6 +14088,11 @@ impl ::core::fmt::Debug for BuildingInfo<'_> {
       ds.field("stored", &self.stored());
       ds.field("firm", &self.firm());
       ds.field("firm_name", &self.firm_name());
+      ds.field("state", &self.state());
+      ds.field("symptoms", &self.symptoms());
+      ds.field("leak", &self.leak());
+      ds.field("groups", &self.groups());
+      ds.field("upkeep", &self.upkeep());
       ds.finish()
   }
 }

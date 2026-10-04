@@ -215,6 +215,9 @@ struct FieldInfoBuilder;
 struct Fields;
 struct FieldsBuilder;
 
+struct GroupInfo;
+struct GroupInfoBuilder;
+
 struct BuildingInfo;
 struct BuildingInfoBuilder;
 
@@ -792,6 +795,72 @@ inline const char *EnumNameSpanKind(SpanKind e) {
   if (::flatbuffers::IsOutRange(e, SpanKind::Text, SpanKind::Firm)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesSpanKind()[index];
+}
+
+enum class GroupState : uint8_t {
+  Sound = 0,
+  Symptom = 1,
+  Failed = 2,
+  MIN = Sound,
+  MAX = Failed
+};
+
+inline const GroupState (&EnumValuesGroupState())[3] {
+  static const GroupState values[] = {
+    GroupState::Sound,
+    GroupState::Symptom,
+    GroupState::Failed
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesGroupState() {
+  static const char * const names[4] = {
+    "Sound",
+    "Symptom",
+    "Failed",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameGroupState(GroupState e) {
+  if (::flatbuffers::IsOutRange(e, GroupState::Sound, GroupState::Failed)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesGroupState()[index];
+}
+
+enum class BuildingState : uint8_t {
+  Standing = 0,
+  Damaged = 1,
+  Ruin = 2,
+  MIN = Standing,
+  MAX = Ruin
+};
+
+inline const BuildingState (&EnumValuesBuildingState())[3] {
+  static const BuildingState values[] = {
+    BuildingState::Standing,
+    BuildingState::Damaged,
+    BuildingState::Ruin
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesBuildingState() {
+  static const char * const names[4] = {
+    "Standing",
+    "Damaged",
+    "Ruin",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameBuildingState(BuildingState e) {
+  if (::flatbuffers::IsOutRange(e, BuildingState::Standing, BuildingState::Ruin)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesBuildingState()[index];
 }
 
 enum class BookKind : uint8_t {
@@ -7838,6 +7907,136 @@ inline ::flatbuffers::Offset<Fields> CreateFieldsDirect(
       fields__);
 }
 
+struct GroupInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GroupInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_KIND = 6,
+    VT_QUALITY = 8,
+    VT_LOSS = 10,
+    VT_STATE = 12,
+    VT_INSTALLED_MINUTE = 14,
+    VT_REPAIRED_MINUTE = 16
+  };
+  uint32_t id() const {
+    return GetField<uint32_t>(VT_ID, 0);
+  }
+  const ::flatbuffers::String *kind() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_KIND);
+  }
+  float quality() const {
+    return GetField<float>(VT_QUALITY, 0.0f);
+  }
+  float loss() const {
+    return GetField<float>(VT_LOSS, 0.0f);
+  }
+  tce::wire::GroupState state() const {
+    return static_cast<tce::wire::GroupState>(GetField<uint8_t>(VT_STATE, 0));
+  }
+  int64_t installed_minute() const {
+    return GetField<int64_t>(VT_INSTALLED_MINUTE, 0);
+  }
+  int64_t repaired_minute() const {
+    return GetField<int64_t>(VT_REPAIRED_MINUTE, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ID, 4) &&
+           VerifyOffset(verifier, VT_KIND) &&
+           verifier.VerifyString(kind()) &&
+           VerifyField<float>(verifier, VT_QUALITY, 4) &&
+           VerifyField<float>(verifier, VT_LOSS, 4) &&
+           VerifyField<uint8_t>(verifier, VT_STATE, 1) &&
+           VerifyField<int64_t>(verifier, VT_INSTALLED_MINUTE, 8) &&
+           VerifyField<int64_t>(verifier, VT_REPAIRED_MINUTE, 8) &&
+           verifier.EndTable();
+  }
+};
+
+struct GroupInfoBuilder {
+  typedef GroupInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint32_t id) {
+    fbb_.AddElement<uint32_t>(GroupInfo::VT_ID, id, 0);
+  }
+  void add_kind(::flatbuffers::Offset<::flatbuffers::String> kind) {
+    fbb_.AddOffset(GroupInfo::VT_KIND, kind);
+  }
+  void add_quality(float quality) {
+    fbb_.AddElement<float>(GroupInfo::VT_QUALITY, quality, 0.0f);
+  }
+  void add_loss(float loss) {
+    fbb_.AddElement<float>(GroupInfo::VT_LOSS, loss, 0.0f);
+  }
+  void add_state(tce::wire::GroupState state) {
+    fbb_.AddElement<uint8_t>(GroupInfo::VT_STATE, static_cast<uint8_t>(state), 0);
+  }
+  void add_installed_minute(int64_t installed_minute) {
+    fbb_.AddElement<int64_t>(GroupInfo::VT_INSTALLED_MINUTE, installed_minute, 0);
+  }
+  void add_repaired_minute(int64_t repaired_minute) {
+    fbb_.AddElement<int64_t>(GroupInfo::VT_REPAIRED_MINUTE, repaired_minute, 0);
+  }
+  explicit GroupInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GroupInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GroupInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GroupInfo> CreateGroupInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> kind = 0,
+    float quality = 0.0f,
+    float loss = 0.0f,
+    tce::wire::GroupState state = tce::wire::GroupState::Sound,
+    int64_t installed_minute = 0,
+    int64_t repaired_minute = 0) {
+  GroupInfoBuilder builder_(_fbb);
+  builder_.add_repaired_minute(repaired_minute);
+  builder_.add_installed_minute(installed_minute);
+  builder_.add_loss(loss);
+  builder_.add_quality(quality);
+  builder_.add_kind(kind);
+  builder_.add_id(id);
+  builder_.add_state(state);
+  return builder_.Finish();
+}
+
+struct GroupInfo::Traits {
+  using type = GroupInfo;
+  static auto constexpr Create = CreateGroupInfo;
+};
+
+inline ::flatbuffers::Offset<GroupInfo> CreateGroupInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    const char *kind = nullptr,
+    float quality = 0.0f,
+    float loss = 0.0f,
+    tce::wire::GroupState state = tce::wire::GroupState::Sound,
+    int64_t installed_minute = 0,
+    int64_t repaired_minute = 0) {
+  auto kind__ = kind ? _fbb.CreateString(kind) : 0;
+  return tce::wire::CreateGroupInfo(
+      _fbb,
+      id,
+      kind__,
+      quality,
+      loss,
+      state,
+      installed_minute,
+      repaired_minute);
+}
+
 struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef BuildingInfoBuilder Builder;
   struct Traits;
@@ -7879,7 +8078,12 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_STORED_KG = 72,
     VT_STORED = 74,
     VT_FIRM = 76,
-    VT_FIRM_NAME = 78
+    VT_FIRM_NAME = 78,
+    VT_STATE = 80,
+    VT_SYMPTOMS = 82,
+    VT_LEAK = 84,
+    VT_GROUPS = 86,
+    VT_UPKEEP = 88
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -7995,6 +8199,21 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *firm_name() const {
     return GetPointer<const ::flatbuffers::String *>(VT_FIRM_NAME);
   }
+  tce::wire::BuildingState state() const {
+    return static_cast<tce::wire::BuildingState>(GetField<uint8_t>(VT_STATE, 0));
+  }
+  const ::flatbuffers::String *symptoms() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_SYMPTOMS);
+  }
+  float leak() const {
+    return GetField<float>(VT_LEAK, 0.0f);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GroupInfo>> *groups() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GroupInfo>> *>(VT_GROUPS);
+  }
+  const ::flatbuffers::String *upkeep() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_UPKEEP);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -8050,6 +8269,15 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_FIRM, 8) &&
            VerifyOffset(verifier, VT_FIRM_NAME) &&
            verifier.VerifyString(firm_name()) &&
+           VerifyField<uint8_t>(verifier, VT_STATE, 1) &&
+           VerifyOffset(verifier, VT_SYMPTOMS) &&
+           verifier.VerifyString(symptoms()) &&
+           VerifyField<float>(verifier, VT_LEAK, 4) &&
+           VerifyOffset(verifier, VT_GROUPS) &&
+           verifier.VerifyVector(groups()) &&
+           verifier.VerifyVectorOfTables(groups()) &&
+           VerifyOffset(verifier, VT_UPKEEP) &&
+           verifier.VerifyString(upkeep()) &&
            verifier.EndTable();
   }
 };
@@ -8172,6 +8400,21 @@ struct BuildingInfoBuilder {
   void add_firm_name(::flatbuffers::Offset<::flatbuffers::String> firm_name) {
     fbb_.AddOffset(BuildingInfo::VT_FIRM_NAME, firm_name);
   }
+  void add_state(tce::wire::BuildingState state) {
+    fbb_.AddElement<uint8_t>(BuildingInfo::VT_STATE, static_cast<uint8_t>(state), 0);
+  }
+  void add_symptoms(::flatbuffers::Offset<::flatbuffers::String> symptoms) {
+    fbb_.AddOffset(BuildingInfo::VT_SYMPTOMS, symptoms);
+  }
+  void add_leak(float leak) {
+    fbb_.AddElement<float>(BuildingInfo::VT_LEAK, leak, 0.0f);
+  }
+  void add_groups(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GroupInfo>>> groups) {
+    fbb_.AddOffset(BuildingInfo::VT_GROUPS, groups);
+  }
+  void add_upkeep(::flatbuffers::Offset<::flatbuffers::String> upkeep) {
+    fbb_.AddOffset(BuildingInfo::VT_UPKEEP, upkeep);
+  }
   explicit BuildingInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8222,13 +8465,22 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
     ::flatbuffers::Offset<::flatbuffers::Vector<float>> stored_kg = 0,
     ::flatbuffers::Offset<::flatbuffers::String> stored = 0,
     uint64_t firm = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> firm_name = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> firm_name = 0,
+    tce::wire::BuildingState state = tce::wire::BuildingState::Standing,
+    ::flatbuffers::Offset<::flatbuffers::String> symptoms = 0,
+    float leak = 0.0f,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GroupInfo>>> groups = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> upkeep = 0) {
   BuildingInfoBuilder builder_(_fbb);
   builder_.add_firm(firm);
   builder_.add_started_minute(started_minute);
   builder_.add_settlement(settlement);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_upkeep(upkeep);
+  builder_.add_groups(groups);
+  builder_.add_leak(leak);
+  builder_.add_symptoms(symptoms);
   builder_.add_firm_name(firm_name);
   builder_.add_stored(stored);
   builder_.add_stored_kg(stored_kg);
@@ -8258,6 +8510,7 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
   builder_.add_centre(centre);
   builder_.add_program(program);
   builder_.add_loft_bays(loft_bays);
+  builder_.add_state(state);
   builder_.add_bays(bays);
   builder_.add_storeys(storeys);
   builder_.add_roofed(roofed);
@@ -8309,7 +8562,12 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
     const std::vector<float> *stored_kg = nullptr,
     const char *stored = nullptr,
     uint64_t firm = 0,
-    const char *firm_name = nullptr) {
+    const char *firm_name = nullptr,
+    tce::wire::BuildingState state = tce::wire::BuildingState::Standing,
+    const char *symptoms = nullptr,
+    float leak = 0.0f,
+    const std::vector<::flatbuffers::Offset<tce::wire::GroupInfo>> *groups = nullptr,
+    const char *upkeep = nullptr) {
   auto program__ = program ? _fbb.CreateString(program) : 0;
   auto stage_name__ = stage_name ? _fbb.CreateString(stage_name) : 0;
   auto outline__ = outline ? _fbb.CreateVectorOfStructs<tce::wire::Vec2>(*outline) : 0;
@@ -8324,6 +8582,9 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
   auto stored_kg__ = stored_kg ? _fbb.CreateVector<float>(*stored_kg) : 0;
   auto stored__ = stored ? _fbb.CreateString(stored) : 0;
   auto firm_name__ = firm_name ? _fbb.CreateString(firm_name) : 0;
+  auto symptoms__ = symptoms ? _fbb.CreateString(symptoms) : 0;
+  auto groups__ = groups ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::GroupInfo>>(*groups) : 0;
+  auto upkeep__ = upkeep ? _fbb.CreateString(upkeep) : 0;
   return tce::wire::CreateBuildingInfo(
       _fbb,
       id,
@@ -8363,7 +8624,12 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
       stored_kg__,
       stored__,
       firm,
-      firm_name__);
+      firm_name__,
+      state,
+      symptoms__,
+      leak,
+      groups__,
+      upkeep__);
 }
 
 struct Buildings FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

@@ -675,7 +675,8 @@ impl Sim {
 
     /// Puts up a building to `spec` for `household`, through stage `stage` (the number of stages
     /// for a finished one), on a plot of its own with its program's use, for a test that needs a
-    /// building no household designs yet. Its ground is not checked; its household's goods keep
+    /// building no household designs yet. Its ground is not checked; the groups its finished
+    /// stages put in place are sound, as if built at middling skill; its household's goods keep
     /// under it from now. `None` if the content has no such program.
     #[doc(hidden)]
     pub fn place_building_for_tests(
@@ -699,17 +700,15 @@ impl Sim {
             use_,
             since: now,
         });
-        self.land.buildings.push(civ_land::Building {
-            id,
-            household,
-            plot,
-            spec,
+        let mut b = civ_land::Building {
             stage,
-            work_h: 0.0,
-            started: now,
-            stage_since: now,
-            firm: None,
-        });
+            ..civ_land::Building::new(id, household, plot, spec, now)
+        };
+        if let Ok(e) = civ_grammar::expand(&b.spec, &def.rules) {
+            let spread = self.rules.people.build.quality_spread;
+            civ_agents::condition::reconcile(&mut b, &e, self.meta.seed, spread, now);
+        }
+        self.land.buildings.push(b);
         self.people.buildings_changed(
             now,
             &self.land,

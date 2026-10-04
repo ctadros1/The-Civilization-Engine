@@ -439,6 +439,19 @@ describe("decoders", () => {
     const status = b.createString("walls going up, 40% done");
     // Struct vectors are written back to front.
     const firmName = b.createString("Wren's sickle workshop");
+    const symptoms = b.createString("the thatch leaks");
+    const upkeep = b.createString("mending the covering, 40% done");
+    const group = W.GroupInfo.createGroupInfo(
+      b,
+      0x0700,
+      b.createString("covering"),
+      0.9,
+      0.4,
+      W.GroupState.Symptom,
+      1_440n,
+      2_880n,
+    );
+    const groups = W.BuildingInfo.createGroupsVector(b, [group]);
     W.BuildingInfo.startOutlineVector(b, 2);
     W.Vec2.createVec2(b, 100, 203);
     W.Vec2.createVec2(b, 103, 200);
@@ -469,6 +482,11 @@ describe("decoders", () => {
     W.BuildingInfo.addStatus(b, status);
     W.BuildingInfo.addFirm(b, 41n);
     W.BuildingInfo.addFirmName(b, firmName);
+    W.BuildingInfo.addState(b, W.BuildingState.Damaged);
+    W.BuildingInfo.addSymptoms(b, symptoms);
+    W.BuildingInfo.addLeak(b, 0.25);
+    W.BuildingInfo.addGroups(b, groups);
+    W.BuildingInfo.addUpkeep(b, upkeep);
     const info = W.BuildingInfo.endBuildingInfo(b);
     const list = W.Buildings.createBuildingsVector(b, [info]);
     const buildings = W.Buildings.createBuildings(b, 77n, list);
@@ -520,6 +538,21 @@ describe("decoders", () => {
           stored: "",
           firm: 41,
           firmName: "Wren's sickle workshop",
+          state: "damaged",
+          symptoms: "the thatch leaks",
+          leak: 0.25,
+          groups: [
+            {
+              id: 0x0700,
+              kind: "covering",
+              quality: expect.closeTo(0.9, 6),
+              loss: expect.closeTo(0.4, 6),
+              state: "symptom",
+              installedMinute: 1_440,
+              repairedMinute: 2_880,
+            },
+          ],
+          upkeep: "mending the covering, 40% done",
         },
       ],
     });

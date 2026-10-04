@@ -677,6 +677,177 @@ fn frame_buildings_and_their_plots_survive_a_save_and_load_exactly() {
     assert_eq!(digests(&resaved.chunks), digests(&saved.chunks));
 }
 
+/// `loaded`, from a save made before buildings had a condition (schema 16 and earlier,
+/// ADR-0009 §8), has the buildings `saved` as they were, but for condition: the stage under way
+/// was worked at middling skill, and the groups of its finished stages are in place and sound
+/// as of loading.
+fn loaded_without_condition(loaded: &Sim, saved: &[civ_land::Building]) {
+    let bare = |b: &civ_land::Building| civ_land::Building {
+        skill_h: 0.0,
+        condition: Vec::new(),
+        state: civ_land::BuildingState::Standing,
+        repair: None,
+        ..b.clone()
+    };
+    let buildings = &loaded.land().buildings;
+    assert_eq!(
+        buildings.iter().map(bare).collect::<Vec<_>>(),
+        saved.iter().map(bare).collect::<Vec<_>>()
+    );
+    let catalog = &loaded.rules().catalog;
+    for b in buildings {
+        assert_eq!(
+            b.skill_h,
+            b.work_h * civ_agents::condition::MIDDLING_SKILL as f32
+        );
+        assert_eq!(b.state, civ_land::BuildingState::Standing);
+        assert!(b.repair.is_none());
+        let def = &catalog.buildings[catalog
+            .building_index(&b.spec.program)
+            .expect("its program")];
+        let e = civ_grammar::expand(&b.spec, &def.rules).expect("expands");
+        let done = usize::from(b.stage);
+        assert_eq!(
+            b.condition.len(),
+            e.groups.iter().filter(|g| g.stage.index() < done).count()
+        );
+        assert!(b.condition.iter().all(|c| c.loss == 0.0
+            && c.state == civ_land::GroupState::Sound
+            && c.installed == loaded.now()));
+    }
+}
+
+/// The first saved world with a finished hut placed beside the first building's household's
+/// home: the world, the hut and its expansion.
+fn with_a_finished_hut() -> (Sim, civ_core::PermanentId, civ_grammar::Expansion) {
+    let mut sim = load_first();
+    let (household, home) = {
+        let b = sim.land().buildings.first().expect("a home under way");
+        (b.household, b.spec.footprint.centre())
+    };
+    let catalog = sim.rules().catalog.clone();
+    let def = &catalog.buildings[catalog
+        .building_index("core:building/hut")
+        .expect("the hut")];
+    let spec = civ_agents::build::design_shape(
+        def,
+        &catalog.goods,
+        civ_agents::build::Shape::Round { radius: 300 },
+        (home.0 as f32 / 100.0 + 25.0, home.1 as f32 / 100.0),
+        None,
+    )
+    .expect("a hut");
+    let e = civ_grammar::expand(&spec, &def.rules).expect("expands");
+    let id = sim
+        .place_building_for_tests(household, spec, Stage::ALL.len() as u8)
+        .expect("placed");
+    (sim, id, e)
+}
+
+#[test]
+fn a_buildings_condition_and_its_upkeep_survive_a_save_exactly() {
+    // Schema 17 (ADR-0009 §4): each group's quality, loss and state, the building's state, the
+    // skill its builders brought to the stage under way, and the upkeep under way.
+    let (mut sim, hut, e) = with_a_finished_hut();
+    let covering = e
+        .groups
+        .iter()
+        .find(|g| g.kind == civ_grammar::GroupKind::Covering)
+        .map(|g| g.id)
+        .expect("a covering");
+    let at = sim.now();
+    for b in sim.land_mut_for_tests().buildings.iter_mut() {
+        if b.id == hut {
+            for c in &mut b.condition {
+                c.loss = if c.group == covering { 0.4 } else { 0.05 };
+                c.state = if c.group == covering {
+                    civ_land::GroupState::Symptom
+                } else {
+                    civ_land::GroupState::Sound
+                };
+                c.repaired = at;
+            }
+            b.repair = Some(civ_land::Repair {
+                group: covering,
+                share: 0.4,
+                work_h: 3.5,
+            });
+        } else if !b.finished() {
+            b.skill_h = b.work_h * 0.75;
+        }
+    }
+    let dir = scratch_dir("condition");
+    let saved = persist::save(&mut sim, &dir, SaveKind::Manual, "condition").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.land().buildings, sim.land().buildings);
+    let mut again = loaded;
+    let resaved = persist::save(&mut again, &dir, SaveKind::Manual, "again").expect("saves");
+    assert_eq!(digests(&resaved.chunks), digests(&saved.chunks));
+    // Wire 1.17: the map hears how it stands, what it shows and what is being mended.
+    let payload = frames::buildings::buildings_response(&sim);
+    let response = flatbuffers::root::<wire::Response>(&payload).expect("a response");
+    let info = response
+        .body_as_buildings()
+        .expect("buildings")
+        .buildings()
+        .expect("a list")
+        .iter()
+        .find(|i| i.id() == hut.get())
+        .expect("the hut");
+    assert_eq!(info.state(), wire::BuildingState::Standing);
+    let symptoms = info.symptoms().unwrap_or_default();
+    assert_eq!(symptoms, "the thatch leaks");
+    let u = &sim.rules().catalog.buildings[sim
+        .rules()
+        .catalog
+        .building_index("core:building/hut")
+        .expect("the hut")]
+    .upkeep;
+    let leak = (0.4 - u.covering.shows_at) / (1.0 - u.covering.shows_at);
+    assert!(
+        (f64::from(info.leak()) - leak).abs() < 1e-5,
+        "{}",
+        info.leak()
+    );
+    let groups = info.groups().expect("its groups");
+    assert_eq!(groups.len(), e.groups.len());
+    let c = groups
+        .iter()
+        .find(|g| g.id() == covering)
+        .expect("the covering");
+    assert_eq!(c.kind(), Some("covering"));
+    assert_eq!(c.state(), wire::GroupState::Symptom);
+    assert!((c.loss() - 0.4).abs() < 1e-6);
+    let upkeep = info.upkeep().unwrap_or_default();
+    assert!(upkeep.starts_with("mending the covering, "), "{upkeep}");
+}
+
+#[test]
+fn slice_o_third_step_saves_load_with_their_buildings_sound() {
+    // A schema-16 save: no building has a condition. Each finished stage's groups are put in
+    // place sound as it loads, as if built at middling skill (ADR-0009 §8).
+    let (sim, hut, e) = with_a_finished_hut();
+    let sections = persist::encode_sections(&sim);
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V16;
+    let path = republish("slice-o-3", &info, &sections);
+    let loaded = persist::load(&path, content()).expect("a schema-16 save loads");
+    loaded_without_condition(&loaded, &sim.land().buildings);
+    let b = loaded
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == hut)
+        .expect("the hut");
+    assert_eq!(b.condition.len(), e.groups.len());
+    assert!(b.roofed());
+    let h = loaded
+        .people()
+        .household(b.household)
+        .expect("its household");
+    assert!(h.sheltered && h.keeping.roofed_kg > 0.0);
+}
+
 #[test]
 fn slice_n_saves_load_with_their_huts_as_they_were() {
     // A schema-14 save has round footprints and eight parameters a design: they load as huts of
@@ -687,7 +858,7 @@ fn slice_n_saves_load_with_their_huts_as_they_were() {
     info.schema_version = persist::SCHEMA_V14;
     let path = republish("slice-n", &info, &sections);
     let loaded = persist::load(&path, content()).expect("a schema-14 save loads");
-    assert_eq!(loaded.land().buildings, fixture().first_buildings);
+    loaded_without_condition(&loaded, &fixture().first_buildings);
     assert!(
         loaded
             .land()
@@ -807,7 +978,7 @@ fn slice_o_saves_load_with_no_workshop_naming_a_firm() {
     info.schema_version = persist::SCHEMA_V15;
     let path = republish("slice-o", &info, &sections);
     let loaded = persist::load(&path, content()).expect("a schema-15 save loads");
-    assert_eq!(loaded.land().buildings, fixture().first_buildings);
+    loaded_without_condition(&loaded, &fixture().first_buildings);
     assert!(loaded.land().buildings.iter().all(|b| b.firm.is_none()));
 }
 

@@ -98,7 +98,10 @@ its bays, storeys and lofts and its floor by use ("longhouse of 3 bays, a loft o
 room for 6, 13 m² to store"). The readout also says what a building's household keeps in it
 ("loft over 1 bay: 1.2 t of 1.9 t, mostly grain"). A raised store is "raised on posts", and a
 firm's workshop goes by the firm's name ("Wren's sickle workshop of 2 bays"). Households build
-longhouses, granaries and workshops only once someone in them knows jointed framing.
+longhouses, granaries and workshops only once someone in them knows jointed framing. The readout
+says what a building shows of its wear ("the thatch leaks; rot at the posts' foot") and what is
+being mended ("mending the covering, 40% done"), the kernel's words (M3b slice P); a roof darkens
+as it leaks, and a ruin is drawn as its bare posts and the trace of its walls.
 
 ## The panels alone
 

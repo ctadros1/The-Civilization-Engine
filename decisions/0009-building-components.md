@@ -145,6 +145,22 @@ their meanings), an expansion yields:
 - Upkeep is work like building, aimed at the worst visible symptom. It renews a share of a
   group with that share of the group's labour and materials from the grammar, and changes only
   that group.
+- As built (slice P's first step): each group's quality, loss, state, and when it was put in
+  place and last mended; the building's state; no lean yet (it comes with the checks that read
+  it), and no builders' names: the stage under way keeps its builders' skill hours instead.
+  - Rates and thresholds are each program's `[upkeep]` table, per kind of group: coverings,
+    posts (times the wetness of the building's habitat), infill, and roofed timber (times how
+    much the roof over it leaks). Floors on the ground do not wear.
+  - A roof leaks by how far its coverings have gone beyond the share at which they leak,
+    averaged over them; fully once a covering or the roof frame has failed. Its room for goods
+    shrinks by that share (§5's capacities, as its condition leaves them), and a failed loft's
+    joists drop that loft's room.
+  - Posts that fail leave a ruin, which shelters nothing and is taken down when its household's
+    next building of the same use has its roof on; any other failure leaves it damaged.
+  - Upkeep comes after the building under way and before anything new, for the group gone
+    furthest beyond the share at which it shows. It renews all that group has lost, at the
+    group's part of its stage's labour and materials (by member volume for timber, by area for
+    coverings and infill), and is deferred while other work presses.
 
 ### 5. Loads, checks and failure
 
@@ -186,6 +202,10 @@ their meanings), an expansion yields:
 - **Builder skill:** building stages train a new skill, building. The hours-weighted skill of a
   stage's workers sets the distribution its groups' `q` is drawn from: skill buys fit and
   consistency, not stronger wood (11-05 §1.3).
+  - As built (slice P's first step): `q = 1 − σ·|z|`, z a normal draw keyed by the world, the
+    building and the group, never below 0.1, with σ from the people profile's
+    `quality_spread`, a novice's 0.30 (11-06 §2.2's dispersion) to a master's 0.10 (tuning).
+    Mending trains the skill too, and skill does not change how fast anyone builds.
 - **Trust:** each settlement keeps, for each building technique, two recency-weighted sums.
   Until cultures exist, the settlement stands in for its culture. The sums are:
   - failures seen, weighted by severity and deaths;
@@ -223,8 +243,10 @@ their meanings), an expansion yields:
   condition, its state and builders, plot uses and the firm link. Each settlement gains its
   trust sums. The schema becomes 13 or later in M3b.
   - As built, schema 15 (slice O's first step) adds the Rect footprint, sixteen parameters and
-    plot uses for stores and workshops, and schema 16 (its third step) the firm link. Condition
-    and builders come with the slices that use them.
+    plot uses for stores and workshops, and schema 16 (its third step) the firm link. Schema 17
+    (slice P's first step) adds each group's condition, the building's state, the stage's
+    builders' skill hours and the repair under way; saves of schema 16 and earlier load as the
+    next bullet says. Builders' names and lean come with the slices that use them.
 - Schema-12 saves load with every hut v1 and every building sound as of loading, with qualities
   drawn as if built at middling skill, so a loaded world shows no false wave of decay.
 - The wire's `BuildingInfo` gains, appended:
@@ -234,7 +256,9 @@ their meanings), an expansion yields:
   - floor and storage by use.
   - As built, wire 1.14 appends the grammar, the program's use, the size and direction, storeys,
     bays and loft bays, the gabled roof's corners and ridge, the apex height, floor by use,
-    storage by kind and places to work. Condition, state and symptoms come with slice P.
+    storage by kind and places to work. Wire 1.17 (slice P's first step) appends the state,
+    the symptoms in words, how much of the roof leaks, each group's condition and the upkeep
+    under way in words.
 - New chronicle kinds and the cause *collapse* are appended.
 
 ## Consequences

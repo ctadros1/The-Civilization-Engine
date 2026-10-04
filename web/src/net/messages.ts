@@ -320,6 +320,26 @@ export interface PathsInfo {
   trails: TrailInfo[];
 }
 
+/** How one component group of a building stands (wire 1.17). */
+export type GroupState = "sound" | "symptom" | "failed";
+
+/** How a building stands as a whole (wire 1.17). */
+export type BuildingState = "standing" | "damaged" | "ruin";
+
+/** The condition of one component group of a building (wire 1.17, ADR-0009 §4). */
+export interface GroupInfo {
+  /** Its semantic id in the building's expansion, and its kind in words: "posts", "covering". */
+  id: number;
+  kind: string;
+  /** A share of what sound members of its sizes carry, drawn once from its builders' skill. */
+  quality: number;
+  /** The share of its members' section lost, or of a covering worn, 0–1. */
+  loss: number;
+  state: GroupState;
+  installedMinute: number;
+  repairedMinute: number;
+}
+
 /** A building and the ground it stands on (M1 slice D), as the kernel expands its design. */
 export interface BuildingInfo {
   id: number;
@@ -382,6 +402,15 @@ export interface BuildingInfo {
    * workshop". */
   firm: number;
   firmName: string;
+  /** Wire 1.17 (M3b slice P): how it stands; what it shows in words, worst first ("the thatch
+   * leaks; rot at the posts' foot"; "" while nothing shows); the share of its roof that leaks,
+   * 0–1; each of its component groups in place; and the upkeep under way in words ("mending the
+   * covering, 40% done"; "" for none). */
+  state: BuildingState;
+  symptoms: string;
+  leak: number;
+  groups: GroupInfo[];
+  upkeep: string;
 }
 
 export type EventKind =
@@ -1580,6 +1609,37 @@ function vec2List(n: number, at: (i: number, v: W.Vec2) => W.Vec2 | null): [numb
   return out;
 }
 
+const GROUP_STATES: Record<number, GroupState> = {
+  [W.GroupState.Sound]: "sound",
+  [W.GroupState.Symptom]: "symptom",
+  [W.GroupState.Failed]: "failed",
+};
+
+const BUILDING_STATES: Record<number, BuildingState> = {
+  [W.BuildingState.Standing]: "standing",
+  [W.BuildingState.Damaged]: "damaged",
+  [W.BuildingState.Ruin]: "ruin",
+};
+
+function groups(x: W.BuildingInfo): GroupInfo[] {
+  const out: GroupInfo[] = [];
+  const g = new W.GroupInfo();
+  for (let k = 0; k < x.groupsLength(); k++) {
+    const y = x.groups(k, g);
+    if (!y) continue;
+    out.push({
+      id: y.id(),
+      kind: y.kind() ?? "",
+      quality: y.quality(),
+      loss: y.loss(),
+      state: GROUP_STATES[y.state()] ?? "sound",
+      installedMinute: Number(y.installedMinute()),
+      repairedMinute: Number(y.repairedMinute()),
+    });
+  }
+  return out;
+}
+
 function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
   const out: BuildingInfo[] = [];
   const info = new W.BuildingInfo();
@@ -1635,6 +1695,11 @@ function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
       stored: x.stored() ?? "",
       firm: Number(x.firm()),
       firmName: x.firmName() ?? "",
+      state: BUILDING_STATES[x.state()] ?? "standing",
+      symptoms: x.symptoms() ?? "",
+      leak: x.leak(),
+      groups: groups(x),
+      upkeep: x.upkeep() ?? "",
     });
   }
   return { rev: Number(f.rev()), buildings: out };

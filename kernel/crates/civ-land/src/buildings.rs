@@ -55,6 +55,48 @@ pub struct Plot {
     pub since: SimTime,
 }
 
+/// How a component group of a building stands (ADR-0009 §4).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GroupState {
+    /// Nothing shows.
+    Sound,
+    /// It shows its condition: a leak, a sag, rot at a post's foot, worn daub.
+    Symptom,
+    /// It has failed.
+    Failed,
+}
+
+/// The condition of one component group of a building (ADR-0009 §4), kept from when the stage
+/// that puts it in place is finished.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GroupCondition {
+    /// The group's semantic id in its building's expansion (`civ_grammar::Group::id`).
+    pub group: u32,
+    /// Its quality: how well its members were fitted, as a share of what sound members of its
+    /// sizes carry, drawn once from its builders' skill (ADR-0009 §6).
+    pub quality: f32,
+    /// Its loss: the share of its members' effective section lost, or of a covering worn.
+    pub loss: f32,
+    /// When it was put in place.
+    pub installed: SimTime,
+    /// When it was last repaired (when it was put in place, until then).
+    pub repaired: SimTime,
+    /// How it stands.
+    pub state: GroupState,
+}
+
+/// How a building stands as a whole (ADR-0009 §4).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum BuildingState {
+    /// Standing.
+    #[default]
+    Standing,
+    /// A part of it has failed, and the rest stands.
+    Damaged,
+    /// What held it up has failed: it shelters nobody and nothing.
+    Ruin,
+}
+
 /// A building and how far its construction has gone.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Building {
@@ -79,6 +121,59 @@ pub struct Building {
     /// owners' home). A closed firm's building keeps the link until another open firm of its
     /// household that has none takes it.
     pub firm: Option<PermanentId>,
+    /// Hours of the stage under way, each times the building skill of who did it: with
+    /// `work_h`, how skilled its builders were on average when it is finished (ADR-0009 §6).
+    pub skill_h: f32,
+    /// The condition of each of its component groups put in place so far (ADR-0009 §4).
+    pub condition: Vec<GroupCondition>,
+    /// How it stands as a whole.
+    pub state: BuildingState,
+    /// Upkeep under way, if any.
+    pub repair: Option<Repair>,
+}
+
+/// Upkeep under way on one of a building's groups (ADR-0009 §4): renewing a share of it, with
+/// that share of its labour and materials.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Repair {
+    /// The group's semantic id.
+    pub group: u32,
+    /// The share of it renewed.
+    pub share: f32,
+    /// Hours of a capable adult's work done on it.
+    pub work_h: f32,
+}
+
+impl Building {
+    /// A building begun at `now` to `spec` on `plot` by `household`: nothing done yet.
+    pub fn new(
+        id: PermanentId,
+        household: PermanentId,
+        plot: PermanentId,
+        spec: BuildingSpec,
+        now: SimTime,
+    ) -> Building {
+        Building {
+            id,
+            household,
+            plot,
+            spec,
+            stage: 0,
+            work_h: 0.0,
+            started: now,
+            stage_since: now,
+            firm: None,
+            skill_h: 0.0,
+            condition: Vec::new(),
+            state: BuildingState::Standing,
+            repair: None,
+        }
+    }
+
+    /// The condition of group `group`, once it is in place.
+    pub fn group(&self, group: u32) -> Option<&GroupCondition> {
+        self.condition.iter().find(|c| c.group == group)
+    }
 }
 
 /// Work left on a stage below which it counts as done, hours (about four seconds): work is kept
@@ -95,6 +190,17 @@ pub struct BuildWork {
     pub used_kg: Vec<f64>,
     /// The stage it finished, if it did.
     pub finished: Option<Stage>,
+}
+
+/// What a piece of upkeep did.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct MendWork {
+    /// Hours of work counted.
+    pub hours: f64,
+    /// Kilograms of each material slot used.
+    pub used_kg: Vec<f64>,
+    /// The repair is done.
+    pub done: bool,
 }
 
 /// Material a stage can be short of without its work being held up, kilograms per slot: the last
@@ -128,9 +234,14 @@ impl Building {
         Stage::from_index(usize::from(self.stage))
     }
 
-    /// The roof is on: its sleepers and stores are sheltered.
+    /// It still stands: it is not a ruin.
+    pub fn standing(&self) -> bool {
+        self.state != BuildingState::Ruin
+    }
+
+    /// The roof is on, and it stands: its sleepers and stores are sheltered.
     pub fn roofed(&self) -> bool {
-        usize::from(self.stage) > Stage::Roof.index()
+        usize::from(self.stage) > Stage::Roof.index() && self.standing()
     }
 
     /// Every stage is done.
@@ -179,6 +290,39 @@ impl Building {
         }
         done
     }
+
+    /// Does up to `hours` of a capable adult's work on the repair under way, which needs
+    /// `labour_h` and `materials_kg` per slot, with `held_kg` of each at hand, as [`Building::work`]
+    /// does on a stage. Nothing without a repair under way.
+    pub fn mend_work(
+        &mut self,
+        hours: f64,
+        labour_h: f64,
+        materials_kg: &[f64],
+        held_kg: &[f64],
+    ) -> MendWork {
+        let mut done = MendWork {
+            used_kg: vec![0.0; materials_kg.len()],
+            ..MendWork::default()
+        };
+        let Some(r) = self.repair.as_mut() else {
+            return done;
+        };
+        let before = f64::from(r.work_h);
+        let h = hours
+            .min(workable_h(labour_h, before, materials_kg, held_kg))
+            .max(0.0);
+        if labour_h > 0.0 {
+            for (used, need) in done.used_kg.iter_mut().zip(materials_kg) {
+                *used = need * h / labour_h;
+            }
+        }
+        done.hours = h;
+        let after = before + h;
+        done.done = after + STAGE_DONE_SLACK_H >= labour_h;
+        r.work_h = if done.done { labour_h } else { after } as f32;
+        done
+    }
 }
 
 #[cfg(test)]
@@ -187,11 +331,11 @@ mod tests {
     use civ_grammar::{Footprint, HUT_VERSION};
 
     fn building() -> Building {
-        Building {
-            id: PermanentId::from_raw(9).expect("non-zero"),
-            household: PermanentId::from_raw(2).expect("non-zero"),
-            plot: PermanentId::from_raw(8).expect("non-zero"),
-            spec: BuildingSpec {
+        Building::new(
+            PermanentId::from_raw(9).expect("non-zero"),
+            PermanentId::from_raw(2).expect("non-zero"),
+            PermanentId::from_raw(8).expect("non-zero"),
+            BuildingSpec {
                 program: "core:building/hut".into(),
                 version: HUT_VERSION,
                 footprint: Footprint::Round {
@@ -204,12 +348,8 @@ mod tests {
                 materials: Vec::new(),
                 style_seed: 0,
             },
-            stage: 0,
-            work_h: 0.0,
-            started: SimTime::ZERO,
-            stage_since: SimTime::ZERO,
-            firm: None,
-        }
+            SimTime::ZERO,
+        )
     }
 
     #[test]

@@ -27,6 +27,9 @@ pub const PURPOSE_SPAWN: u64 = 0x7370_6177_6e30_3031; // "spawn001"
 pub const PURPOSE_KNOW: u64 = 0x6b6e_6f77_3030_3031; // "know0001"
 /// Keys the draw of a find at the end of a session (ADR-0008 §3).
 pub const PURPOSE_FIND: u64 = 0x6669_6e64_3030_3031; // "find0001"
+/// Keyed-randomness purpose of the skills a founder brings: its own stream, so a skill added to
+/// the content changes none of the other founding draws.
+pub const PURPOSE_SKILLS: u64 = 0x736b_696c_6c73_3031; // "skills01"
 /// A family the observer sends within this of a settlement's hearth, metres, joins it; farther
 /// away it makes camp where it was placed.
 pub const SPAWN_JOIN_M: f32 = 600.0;
@@ -658,7 +661,7 @@ fn add_family(
                 &ctx.catalog.skills,
                 m.age,
                 params.family.independent_age,
-                &mut d.0,
+                &mut Rng64::from_key(&[ctx.seed, PURPOSE_SKILLS, id.get()]),
             ),
             knows: crate::knowledge::founder_knowledge(
                 ctx.catalog,
@@ -1155,6 +1158,7 @@ pub(crate) mod tests {
                 programs: vec![0],
                 store_horizon_days: 1095.0,
                 home_work_places: 2,
+                quality_spread: [0.3, 0.1],
             },
         }
     }

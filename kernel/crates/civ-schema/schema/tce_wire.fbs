@@ -716,6 +716,27 @@ table Fields {
   fields: [FieldInfo] (id: 1);
 }
 
+// How one component group of a building stands (wire 1.17, M3b slice P, ADR-0009 §4).
+enum GroupState : ubyte { Sound = 0, Symptom = 1, Failed = 2 }
+
+// How a building stands as a whole (wire 1.17).
+enum BuildingState : ubyte { Standing = 0, Damaged = 1, Ruin = 2 }
+
+// The condition of one component group of a building (wire 1.17, ADR-0009 §4).
+table GroupInfo {
+  // Its semantic id in the building's expansion, and its kind in words: "posts", "covering".
+  id: uint (id: 0);
+  kind: string (id: 1);
+  // Its quality: a share of what sound members of its sizes carry, drawn once from its
+  // builders' skill.
+  quality: float (id: 2);
+  // The share of its members' effective section lost, or of a covering worn, 0-1.
+  loss: float (id: 3);
+  state: GroupState (id: 4);
+  installed_minute: long (id: 5);
+  repaired_minute: long (id: 6);
+}
+
 // A building and the ground it stands on (M1 slice D). Geometry is expanded by the kernel from the
 // building's saved design (civ-grammar); the observer only draws it.
 table BuildingInfo {
@@ -785,6 +806,15 @@ table BuildingInfo {
   // sickle workshop".
   firm: ulong (id: 36);
   firm_name: string (id: 37);
+  // Wire 1.17 (M3b slice P, ADR-0009 §4, §8): how it stands; what it shows, in words, worst
+  // first ("the thatch leaks; rot at the posts' foot"; empty while nothing shows); the share of
+  // its roof that leaks, 0-1; each of its component groups in place; and the upkeep under way,
+  // in words ("mending the covering, 40% done"; empty for none).
+  state: BuildingState (id: 38);
+  symptoms: string (id: 39);
+  leak: float (id: 40);
+  groups: [GroupInfo] (id: 41);
+  upkeep: string (id: 42);
 }
 
 table Buildings {

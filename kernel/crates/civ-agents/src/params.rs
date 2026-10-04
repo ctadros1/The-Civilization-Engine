@@ -515,6 +515,32 @@ pub struct BuildingDef {
     /// Every shape people would build it in, with what each gives and costs, cheapest first
     /// ([`crate::build::shapes`]; derived from the rest when the content is compiled).
     pub shapes: Vec<crate::build::ShapeCost>,
+    /// The skill building it uses and trains, by index in the skills (ADR-0009 §6).
+    pub skill: Option<usize>,
+    /// How its parts wear and decay (ADR-0009 §4).
+    pub upkeep: Upkeep,
+}
+
+/// How one kind of a building's parts wears or decays (ADR-0009 §4).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Wear {
+    /// Share of its section or covering lost a year.
+    pub per_year: f64,
+    /// The share lost at which it shows.
+    pub shows_at: f64,
+}
+
+/// How a building program's parts wear and decay (ADR-0009 §4), by kind of component group.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Upkeep {
+    /// A covering in the weather: it leaks once it shows.
+    pub covering: Wear,
+    /// Posts set in the ground, at their foot, on ground of wetness 1.
+    pub posts: Wear,
+    /// Wattle and daub, at a wall's foot.
+    pub infill: Wear,
+    /// Timber under a covering, at a full leak (and not at all under a sound one).
+    pub under_leak: Wear,
 }
 
 /// The sizes people build a frame program to (ADR-0009 §2): its bays' length and width, its
@@ -1126,6 +1152,9 @@ pub struct BuildParams {
     /// People who can work at a craft at once in a household's home, beside living there: a firm
     /// that has more working for it at once builds a workshop.
     pub home_work_places: u32,
+    /// How unevenly the parts of a building are made, by a novice and by a master builder: a
+    /// group's quality is one less this times the size of a normal draw (ADR-0009 §6).
+    pub quality_spread: [f64; 2],
 }
 
 /// Everything authored about people.

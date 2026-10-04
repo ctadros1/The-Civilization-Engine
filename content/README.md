@@ -154,6 +154,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | `build` | `programs` | What a household may build (building ids), among what someone in it knows how to build: its home, the dwelling that covers its members and goods for the fewest hours, and stores beside it. At least one must be a dwelling its founders know how to build (content API 12; stores since API 13). |
 | | `store_horizon_days` | The days over which a household reckons what a store would save: a store is worth building when what the goods its roofs have no room for would lose in the open over these days, less what they would lose in it, is worth more hours of its work than the store takes (content API 13). |
 | | `home_work_places` | People who can work at a craft at once in a home, beside living there: a firm that has had more working for it at once lately builds a workshop with places for them all (content API 14). |
+| | `quality_spread` | `[novice, master]`: how unevenly the parts of a building are made. Each part's quality is one less the spread at its builders' average building skill times the size of a normal draw (ADR-0009 §6; content API 15). `0 ≤ master ≤ novice < 1`. |
 | `mortality` | `a`, `b`, `c`, `d`, `e` | Siler hazard `A·e^(−Bx) + C + D·e^(Ex)` per year: the founders' ages, and everyone's daily risk of dying. |
 | | `hunger_ratio_at_half`, `hunger_ratio_max` | Hunger multiplies that hazard: by the first at half the reserve drawn, as `ratio^(4d²)` of the share `d` drawn, up to the second. |
 | | `exhaustion_per_day`, `exhaustion_power` | A body at the end of its reserve dies with this chance a day, scaled by the share drawn to this power. |
@@ -179,7 +180,7 @@ How land is classified and what grows wild. Exactly one profile.
 | `richness_min`, `richness_max`, `richness_feature_m` | Patch-to-patch variation of productivity and its spatial scale. |
 | `climate_cv`, `climate_autocorrelation` | Year-to-year variation of production. |
 | `[paths]` | `wear_per_walk`, `wear_half_life_days`: a walk across an 8 m cell wears away this share of what is left unworn, and unused wear halves in this many days. `trail_at`, `trail_until`: a cell becomes trail at the first wear and stays trail until it fades below the second. |
-| `[[habitat]]` | `id`, `name`, `arable`, and optional `min_water_fraction`, `max_median_hand_m`, `max_mean_slope`. The first habitat whose conditions a patch meets is its habitat; the last must have none. Arable ground can carry fields; optional `clear_h_per_ha` is the work to clear it (woodland) before it is first broken. |
+| `[[habitat]]` | `id`, `name`, `arable`, and optional `min_water_fraction`, `max_median_hand_m`, `max_mean_slope`. The first habitat whose conditions a patch meets is its habitat; the last must have none. Arable ground can carry fields; optional `clear_h_per_ha` is the work to clear it (woodland) before it is first broken. `wetness` (zero or more; 1 is average ground) scales how fast posts set in it rot at their foot (content API 15). |
 | `[[resource]]` | `id`, `name`; `good` (the good a harvest yields) and `unit_kg` (its kilograms per unit of stock: 1 for stocks in kilograms, a carcass's meat for stocks in animals); `discrete` (harvests are whole units drawn from the expected count); `in_water` (lives in a patch's water, not its land); `range_patches` (a trip works a block of `2·range + 1` patches a side); `max_rate_per_hour` and `half_rate_stock_per_ha` (gathering slows as the stock falls). Then exactly one growth table. |
 | `[resource.plant]` | `production_per_ha_yr` (one figure per habitat, in habitat order), `loss_per_day`, `season` (twelve monthly weights): a seasonal production each day, a share of the standing stock lost each day. A new world's stock, and what people expect of land they have not worked, is the yearly cycle this settles into: what stands lags what grows by about the time it lasts (last summer's reeds still stand in March). |
 | `[resource.animal]` | `capacity_per_ha` (per habitat), `growth_per_year`, `spread_per_month`: logistic growth toward the habitat's capacity, and a monthly spread between neighbouring patches toward an even share of capacity. |
@@ -237,7 +238,8 @@ the dimensions people build it to. The grammar that expands a design into its pa
 post-framed buildings in bays (M3b slice O, ADR-0009). Who builds what, where and when is decided
 by people at run time: households build their homes, and stores beside them, to the people
 profile's `programs`. Content API 11 added `use` and the frame grammar, API 12 the frame programs'
-`[design]`, API 13 stores among the programs households build, API 14 workshops.
+`[design]`, API 13 stores among the programs households build, API 14 workshops, API 15 the
+building skill and `[upkeep]`.
 
 | Table | Fields | Meaning |
 |---|---|---|
@@ -246,6 +248,8 @@ profile's `programs`. Content API 11 added `use` and the frame grammar, API 12 t
 | | `eave_cm`, `pitch_deg` | The wall height (a frame's: each storey's) and roof pitch people build to, within the rules' ranges. |
 | | `roof_by_day` | The day of the year (from 0) a household wants to be under its roof by; the pressure to build grows as it nears. |
 | | `technique` | The technique building it needs (ADR-0008). |
+| | `skill` | The skill building and mending it use and train (a skill id, or `""`): its builders' average level sets how evenly its parts are made (ADR-0009 §6). |
+| `upkeep` | `covering`, `posts`, `infill`, `under_leak` | How its parts wear (ADR-0009 §4), each `[share lost a year, share at which it shows]`: the roof's covering in the weather; posts at their foot, times the wetness of the habitat it stands in; walls' infill at their foot; and roofed timber (beams, joists, rafters, a raised floor) times the share of the roof over it that leaks. Shares lost a year are zero or more, thresholds above 0 and at most 1. A part is lost entirely at a loss of 1: a covering is gone, posts give way (a ruin). |
 | `materials` | a hut's `timber`, `wattle`, `thatch`; a frame's `timber`, `wattle`, `covering`, `boards` | The good each material slot is made of (good ids, each a `material`). |
 | `rules` (a hut's) | `radius_cm`, `eave_cm`, `pitch_deg` | Allowed ranges, `[least, most]`. |
 | | `floor_base_m2`, `floor_m2_per_sleeper` | The floor a household needs whatever its size and per resident; the hut's radius follows, rounded up to whole decimetres. |

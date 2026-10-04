@@ -182,6 +182,11 @@ site_candidates = 24             # places looked at when marking out a new field
 programs = ["core:building/hut", "core:building/longhouse", "core:building/granary", "core:building/workshop"]
 store_horizon_days = 1095        # three years: grass thatch wants major repair every 2-3 (11-08; tuning)
 home_work_places = 2             # two at a craft beside living (tuning; the research gives no figure)
+# How unevenly the parts of a building are made, from a novice's to a master's: each group's
+# quality is one less this times the size of a normal draw (ADR-0009 §6). A novice's 0.30 is the
+# one dispersion figure the research gives, a building-to-building log-dispersion (11-06 §2.2);
+# a master's is a tuning value.
+quality_spread = [0.3, 0.1]
 
 [mortality]                      # Siler hazard, Hadza fit (research 05-01 §1.2): 1q0 216, e0 34
 a = 0.351

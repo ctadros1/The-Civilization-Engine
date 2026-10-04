@@ -48,6 +48,8 @@ pub(crate) struct Habitat {
     /// Person-hours to clear a hectare before it is first broken for a field (woodland); absent
     /// for open ground.
     pub clear_h_per_ha: Option<f64>,
+    /// How fast posts set in its ground rot at their foot, against average ground.
+    pub wetness: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -146,6 +148,7 @@ impl LandFile {
                     max_mean_slope: h.max_mean_slope,
                     arable: h.arable,
                     clear_h_per_ha: h.clear_h_per_ha.unwrap_or(0.0),
+                    wetness: h.wetness,
                 })
                 .collect(),
             richness_min: self.richness_min,
@@ -216,6 +219,12 @@ impl LandFile {
         for h in &self.habitat {
             if !seen.insert(h.id.as_str()) {
                 p.push(format!("habitat `{}` is listed twice", h.id));
+            }
+            if !(h.wetness.is_finite() && h.wetness >= 0.0) {
+                p.push(format!(
+                    "habitat `{}`: `wetness` must be zero or more (got {})",
+                    h.id, h.wetness
+                ));
             }
             if let Some(c) = h.clear_h_per_ha {
                 if !(c.is_finite() && c >= 0.0) {

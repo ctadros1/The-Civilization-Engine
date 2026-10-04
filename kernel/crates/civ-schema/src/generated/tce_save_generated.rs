@@ -1027,6 +1027,182 @@ impl<'a> ::flatbuffers::Verifiable for FootprintKind {
 
 impl ::flatbuffers::SimpleToVerifyInSlice for FootprintKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_GROUP_STATE: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_GROUP_STATE: u8 = 2;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_GROUP_STATE: [GroupState; 3] = [
+  GroupState::Sound,
+  GroupState::Symptom,
+  GroupState::Failed,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct GroupState(pub u8);
+#[allow(non_upper_case_globals)]
+impl GroupState {
+  pub const Sound: Self = Self(0);
+  pub const Symptom: Self = Self(1);
+  pub const Failed: Self = Self(2);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 2;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Sound,
+    Self::Symptom,
+    Self::Failed,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Sound => Some("Sound"),
+      Self::Symptom => Some("Symptom"),
+      Self::Failed => Some("Failed"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for GroupState {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for GroupState {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for GroupState {
+    type Output = GroupState;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for GroupState {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for GroupState {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for GroupState {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_BUILDING_STATE: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_BUILDING_STATE: u8 = 2;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_BUILDING_STATE: [BuildingState; 3] = [
+  BuildingState::Standing,
+  BuildingState::Damaged,
+  BuildingState::Ruin,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct BuildingState(pub u8);
+#[allow(non_upper_case_globals)]
+impl BuildingState {
+  pub const Standing: Self = Self(0);
+  pub const Damaged: Self = Self(1);
+  pub const Ruin: Self = Self(2);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 2;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Standing,
+    Self::Damaged,
+    Self::Ruin,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Standing => Some("Standing"),
+      Self::Damaged => Some("Damaged"),
+      Self::Ruin => Some("Ruin"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for BuildingState {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for BuildingState {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for BuildingState {
+    type Output = BuildingState;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for BuildingState {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for BuildingState {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for BuildingState {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_TRADE_CHANNEL: u8 = 5;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MAX_TRADE_CHANNEL: u8 = 6;
@@ -10167,6 +10343,317 @@ impl ::core::fmt::Debug for BuildingSpec<'_> {
       ds.finish()
   }
 }
+pub enum GroupConditionOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GroupCondition<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GroupCondition<'a> {
+  type Inner = GroupCondition<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GroupCondition<'a> {
+  pub const VT_GROUP: ::flatbuffers::VOffsetT = 4;
+  pub const VT_QUALITY: ::flatbuffers::VOffsetT = 6;
+  pub const VT_LOSS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_INSTALLED: ::flatbuffers::VOffsetT = 10;
+  pub const VT_REPAIRED: ::flatbuffers::VOffsetT = 12;
+  pub const VT_STATE: ::flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GroupCondition { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GroupConditionArgs
+  ) -> ::flatbuffers::WIPOffset<GroupCondition<'bldr>> {
+    let mut builder = GroupConditionBuilder::new(_fbb);
+    builder.add_repaired(args.repaired);
+    builder.add_installed(args.installed);
+    builder.add_loss(args.loss);
+    builder.add_quality(args.quality);
+    builder.add_group(args.group);
+    builder.add_state(args.state);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn group(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GroupCondition::VT_GROUP, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn quality(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GroupCondition::VT_QUALITY, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn loss(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GroupCondition::VT_LOSS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn installed(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(GroupCondition::VT_INSTALLED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn repaired(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(GroupCondition::VT_REPAIRED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn state(&self) -> GroupState {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<GroupState>(GroupCondition::VT_STATE, Some(GroupState::Sound)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for GroupCondition<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("group", Self::VT_GROUP, false)?
+     .visit_field::<f32>("quality", Self::VT_QUALITY, false)?
+     .visit_field::<f32>("loss", Self::VT_LOSS, false)?
+     .visit_field::<i64>("installed", Self::VT_INSTALLED, false)?
+     .visit_field::<i64>("repaired", Self::VT_REPAIRED, false)?
+     .visit_field::<GroupState>("state", Self::VT_STATE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GroupConditionArgs {
+    pub group: u32,
+    pub quality: f32,
+    pub loss: f32,
+    pub installed: i64,
+    pub repaired: i64,
+    pub state: GroupState,
+}
+impl<'a> Default for GroupConditionArgs {
+  #[inline]
+  fn default() -> Self {
+    GroupConditionArgs {
+      group: 0,
+      quality: 0.0,
+      loss: 0.0,
+      installed: 0,
+      repaired: 0,
+      state: GroupState::Sound,
+    }
+  }
+}
+
+pub struct GroupConditionBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GroupConditionBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_group(&mut self, group: u32) {
+    self.fbb_.push_slot::<u32>(GroupCondition::VT_GROUP, group, 0);
+  }
+  #[inline]
+  pub fn add_quality(&mut self, quality: f32) {
+    self.fbb_.push_slot::<f32>(GroupCondition::VT_QUALITY, quality, 0.0);
+  }
+  #[inline]
+  pub fn add_loss(&mut self, loss: f32) {
+    self.fbb_.push_slot::<f32>(GroupCondition::VT_LOSS, loss, 0.0);
+  }
+  #[inline]
+  pub fn add_installed(&mut self, installed: i64) {
+    self.fbb_.push_slot::<i64>(GroupCondition::VT_INSTALLED, installed, 0);
+  }
+  #[inline]
+  pub fn add_repaired(&mut self, repaired: i64) {
+    self.fbb_.push_slot::<i64>(GroupCondition::VT_REPAIRED, repaired, 0);
+  }
+  #[inline]
+  pub fn add_state(&mut self, state: GroupState) {
+    self.fbb_.push_slot::<GroupState>(GroupCondition::VT_STATE, state, GroupState::Sound);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GroupConditionBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GroupConditionBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GroupCondition<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GroupCondition<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GroupCondition");
+      ds.field("group", &self.group());
+      ds.field("quality", &self.quality());
+      ds.field("loss", &self.loss());
+      ds.field("installed", &self.installed());
+      ds.field("repaired", &self.repaired());
+      ds.field("state", &self.state());
+      ds.finish()
+  }
+}
+pub enum RepairStateOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RepairState<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for RepairState<'a> {
+  type Inner = RepairState<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> RepairState<'a> {
+  pub const VT_GROUP: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SHARE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_WORK_H: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    RepairState { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args RepairStateArgs
+  ) -> ::flatbuffers::WIPOffset<RepairState<'bldr>> {
+    let mut builder = RepairStateBuilder::new(_fbb);
+    builder.add_work_h(args.work_h);
+    builder.add_share(args.share);
+    builder.add_group(args.group);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn group(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RepairState::VT_GROUP, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn share(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(RepairState::VT_SHARE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn work_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(RepairState::VT_WORK_H, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for RepairState<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("group", Self::VT_GROUP, false)?
+     .visit_field::<f32>("share", Self::VT_SHARE, false)?
+     .visit_field::<f32>("work_h", Self::VT_WORK_H, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RepairStateArgs {
+    pub group: u32,
+    pub share: f32,
+    pub work_h: f32,
+}
+impl<'a> Default for RepairStateArgs {
+  #[inline]
+  fn default() -> Self {
+    RepairStateArgs {
+      group: 0,
+      share: 0.0,
+      work_h: 0.0,
+    }
+  }
+}
+
+pub struct RepairStateBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RepairStateBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_group(&mut self, group: u32) {
+    self.fbb_.push_slot::<u32>(RepairState::VT_GROUP, group, 0);
+  }
+  #[inline]
+  pub fn add_share(&mut self, share: f32) {
+    self.fbb_.push_slot::<f32>(RepairState::VT_SHARE, share, 0.0);
+  }
+  #[inline]
+  pub fn add_work_h(&mut self, work_h: f32) {
+    self.fbb_.push_slot::<f32>(RepairState::VT_WORK_H, work_h, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RepairStateBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    RepairStateBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<RepairState<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for RepairState<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("RepairState");
+      ds.field("group", &self.group());
+      ds.field("share", &self.share());
+      ds.field("work_h", &self.work_h());
+      ds.finish()
+  }
+}
 pub enum BuildingOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -10192,6 +10679,10 @@ impl<'a> Building<'a> {
   pub const VT_STARTED: ::flatbuffers::VOffsetT = 16;
   pub const VT_STAGE_SINCE: ::flatbuffers::VOffsetT = 18;
   pub const VT_FIRM: ::flatbuffers::VOffsetT = 20;
+  pub const VT_CONDITION: ::flatbuffers::VOffsetT = 22;
+  pub const VT_STATE: ::flatbuffers::VOffsetT = 24;
+  pub const VT_SKILL_H: ::flatbuffers::VOffsetT = 26;
+  pub const VT_REPAIR: ::flatbuffers::VOffsetT = 28;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -10209,8 +10700,12 @@ impl<'a> Building<'a> {
     builder.add_plot(args.plot);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    if let Some(x) = args.repair { builder.add_repair(x); }
+    builder.add_skill_h(args.skill_h);
+    if let Some(x) = args.condition { builder.add_condition(x); }
     builder.add_work_h(args.work_h);
     if let Some(x) = args.spec { builder.add_spec(x); }
+    builder.add_state(args.state);
     builder.add_stage(args.stage);
     builder.finish()
   }
@@ -10279,6 +10774,34 @@ impl<'a> Building<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(Building::VT_FIRM, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn condition(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GroupCondition<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GroupCondition>>>>(Building::VT_CONDITION, None)}
+  }
+  #[inline]
+  pub fn state(&self) -> BuildingState {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<BuildingState>(Building::VT_STATE, Some(BuildingState::Standing)).unwrap()}
+  }
+  #[inline]
+  pub fn skill_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Building::VT_SKILL_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn repair(&self) -> Option<RepairState<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<RepairState>>(Building::VT_REPAIR, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Building<'_> {
@@ -10296,6 +10819,10 @@ impl ::flatbuffers::Verifiable for Building<'_> {
      .visit_field::<i64>("started", Self::VT_STARTED, false)?
      .visit_field::<i64>("stage_since", Self::VT_STAGE_SINCE, false)?
      .visit_field::<u64>("firm", Self::VT_FIRM, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GroupCondition>>>>("condition", Self::VT_CONDITION, false)?
+     .visit_field::<BuildingState>("state", Self::VT_STATE, false)?
+     .visit_field::<f32>("skill_h", Self::VT_SKILL_H, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<RepairState>>("repair", Self::VT_REPAIR, false)?
      .finish();
     Ok(())
   }
@@ -10310,6 +10837,10 @@ pub struct BuildingArgs<'a> {
     pub started: i64,
     pub stage_since: i64,
     pub firm: u64,
+    pub condition: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GroupCondition<'a>>>>>,
+    pub state: BuildingState,
+    pub skill_h: f32,
+    pub repair: Option<::flatbuffers::WIPOffset<RepairState<'a>>>,
 }
 impl<'a> Default for BuildingArgs<'a> {
   #[inline]
@@ -10324,6 +10855,10 @@ impl<'a> Default for BuildingArgs<'a> {
       started: 0,
       stage_since: 0,
       firm: 0,
+      condition: None,
+      state: BuildingState::Standing,
+      skill_h: 0.0,
+      repair: None,
     }
   }
 }
@@ -10370,6 +10905,22 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(Building::VT_FIRM, firm, 0);
   }
   #[inline]
+  pub fn add_condition(&mut self, condition: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<GroupCondition<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Building::VT_CONDITION, condition);
+  }
+  #[inline]
+  pub fn add_state(&mut self, state: BuildingState) {
+    self.fbb_.push_slot::<BuildingState>(Building::VT_STATE, state, BuildingState::Standing);
+  }
+  #[inline]
+  pub fn add_skill_h(&mut self, skill_h: f32) {
+    self.fbb_.push_slot::<f32>(Building::VT_SKILL_H, skill_h, 0.0);
+  }
+  #[inline]
+  pub fn add_repair(&mut self, repair: ::flatbuffers::WIPOffset<RepairState<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<RepairState>>(Building::VT_REPAIR, repair);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingBuilder {
@@ -10396,6 +10947,10 @@ impl ::core::fmt::Debug for Building<'_> {
       ds.field("started", &self.started());
       ds.field("stage_since", &self.stage_since());
       ds.field("firm", &self.firm());
+      ds.field("condition", &self.condition());
+      ds.field("state", &self.state());
+      ds.field("skill_h", &self.skill_h());
+      ds.field("repair", &self.repair());
       ds.finish()
   }
 }

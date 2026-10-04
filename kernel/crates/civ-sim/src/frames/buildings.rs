@@ -7,27 +7,71 @@ use std::collections::HashMap;
 use std::f64::consts::TAU;
 
 use civ_agents::build::{self, HomeWork};
+use civ_agents::condition;
 use civ_agents::person::Keeping;
 use civ_agents::population;
 use civ_core::PermanentId;
-use civ_grammar::{Expansion, Footprint, PartKind, Stage, TURN, expand, frame_params};
-use civ_land::Building;
+use civ_grammar::{Expansion, Footprint, GroupKind, PartKind, Stage, TURN, expand, frame_params};
+use civ_land::{Building, BuildingState, GroupState};
 use civ_schema::flatbuffers::FlatBufferBuilder;
 use civ_schema::wire;
 
 use super::response;
 use crate::Sim;
 
-/// A number that changes whenever ground is claimed for a building, work on one moves on or a
-/// workshop changes firm (0 = no buildings): per building, when its stage began plus one, its
-/// stage, the minutes of work done on that stage and its firm, summed.
+/// A number that changes whenever ground is claimed for a building, work on one moves on, a
+/// workshop changes firm or a building's condition changes (0 = no buildings): per building, when
+/// its stage began plus one, its stage, the minutes of work done on that stage, its firm, its
+/// state, its groups' loss in ten-thousandths and states, and the minutes of upkeep done, summed.
 pub fn buildings_rev(sim: &Sim) -> u64 {
     sim.land.buildings.iter().fold(0u64, |rev, b| {
+        let condition = b.condition.iter().fold(0u64, |sum, c| {
+            sum.wrapping_add((f64::from(c.loss) * 1e4).round().max(0.0) as u64)
+                .wrapping_add(group_state(c.state) as u64)
+        });
         rev.wrapping_add(b.stage_since.minutes().max(0) as u64 + 1)
             .wrapping_add(u64::from(b.stage))
             .wrapping_add((f64::from(b.work_h) * 60.0).round().max(0.0) as u64)
             .wrapping_add(b.firm.map_or(0, |f| f.get()))
+            .wrapping_add(building_state(b.state) as u64)
+            .wrapping_add(condition)
+            .wrapping_add(b.repair.map_or(0, |r| {
+                (f64::from(r.work_h) * 60.0).round().max(0.0) as u64 + 1
+            }))
     })
+}
+
+fn group_state(s: GroupState) -> u8 {
+    match s {
+        GroupState::Sound => 0,
+        GroupState::Symptom => 1,
+        GroupState::Failed => 2,
+    }
+}
+
+fn building_state(s: BuildingState) -> u8 {
+    match s {
+        BuildingState::Standing => 0,
+        BuildingState::Damaged => 1,
+        BuildingState::Ruin => 2,
+    }
+}
+
+/// The upkeep under way on building `b` (of expansion `e`) in words: "mending the covering, 40%
+/// done"; empty for none.
+fn upkeep(b: &Building, e: Option<&Expansion>) -> String {
+    let (Some(r), Some(e)) = (b.repair, e) else {
+        return String::new();
+    };
+    let kind = GroupKind::of_group(r.group).map_or("building", GroupKind::name);
+    let done = condition::mend_needs(e, r.group, f64::from(r.share)).map_or(0.0, |n| {
+        if n.labour_h > 0.0 {
+            f64::from(r.work_h) / n.labour_h
+        } else {
+            1.0
+        }
+    });
+    format!("mending the {kind}, {} done", percent(done))
 }
 
 fn percent(x: f64) -> String {
@@ -53,7 +97,7 @@ pub fn status(sim: &Sim, b: &Building) -> String {
         .and_then(|d| build::stage_needs(&b.spec, d))
         .map(|stages| HomeWork::of(b, stages));
     let Some(stage) = b.stage() else {
-        return "finished".to_owned();
+        return if b.standing() { "finished" } else { "a ruin" }.to_owned();
     };
     let (Some(def), Some(work)) = (def, work) else {
         return format!("unfinished: the {}", stage.name());
@@ -273,6 +317,29 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                 .map(|f| super::people::firm_name(sim, f))
                 .unwrap_or_default();
             let firm_name = fbb.create_string(&firm_name);
+            let upkeep_words = fbb.create_string(&upkeep(b, expansion.as_ref()));
+            let symptoms = fbb.create_string(
+                &def.map_or_else(String::new, |d| condition::symptoms(b, &d.upkeep)),
+            );
+            let leak = def.map_or(0.0, |d| condition::leak(b, &d.upkeep)) as f32;
+            let mut groups = Vec::with_capacity(b.condition.len());
+            for c in &b.condition {
+                let kind =
+                    fbb.create_string(GroupKind::of_group(c.group).map_or("", GroupKind::name));
+                groups.push(wire::GroupInfo::create(
+                    &mut fbb,
+                    &wire::GroupInfoArgs {
+                        id: c.group,
+                        kind: Some(kind),
+                        quality: c.quality,
+                        loss: c.loss,
+                        state: wire::GroupState(group_state(c.state)),
+                        installed_minute: c.installed.minutes(),
+                        repaired_minute: c.repaired.minutes(),
+                    },
+                ));
+            }
+            let groups = fbb.create_vector(&groups);
             let grammar = fbb.create_string(def.map_or("", |d| d.grammar().name()));
             let purpose = fbb.create_string(def.map_or("", |d| d.use_.name()));
             let plot = sim
@@ -328,6 +395,11 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                     stored: Some(stored_words),
                     firm: b.firm.map_or(0, |f| f.get()),
                     firm_name: Some(firm_name),
+                    state: wire::BuildingState(building_state(b.state)),
+                    symptoms: Some(symptoms),
+                    leak,
+                    groups: Some(groups),
+                    upkeep: Some(upkeep_words),
                 },
             )
         })

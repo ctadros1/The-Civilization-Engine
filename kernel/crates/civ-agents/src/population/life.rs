@@ -1073,7 +1073,9 @@ impl Population {
         ctx.land
             .buildings
             .iter()
-            .filter(|b| b.household == household && ctx.catalog.is_dwelling(&b.spec.program))
+            .filter(|b| {
+                b.household == household && b.standing() && ctx.catalog.is_dwelling(&b.spec.program)
+            })
             .map(|b| b.stage.saturating_add(if b.roofed() { 10 } else { 0 }))
             .max()
             .unwrap_or(0)

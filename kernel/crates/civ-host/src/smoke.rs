@@ -422,6 +422,44 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
     }
     result.notes.extend(lost_where_people_live(sim));
     result.notes.extend(finds(sim));
+    result.notes.extend(condition(sim));
+}
+
+/// How the world's buildings stand at the end (ADR-0009 §4), in words: "14 buildings, 3 showing
+/// wear, 1 damaged, no ruin; 6 groups mended". `None` without buildings.
+fn condition(sim: &Sim) -> Option<String> {
+    use civ_land::{BuildingState, GroupState};
+    let buildings = &sim.land().buildings;
+    if buildings.is_empty() {
+        return None;
+    }
+    let count = |state: BuildingState| buildings.iter().filter(|b| b.state == state).count();
+    let showing = buildings
+        .iter()
+        .filter(|b| {
+            b.state == BuildingState::Standing
+                && b.condition.iter().any(|c| c.state != GroupState::Sound)
+        })
+        .count();
+    let mended: usize = buildings
+        .iter()
+        .map(|b| {
+            b.condition
+                .iter()
+                .filter(|c| c.repaired > c.installed)
+                .count()
+        })
+        .sum();
+    let ruins = match count(BuildingState::Ruin) {
+        0 => "no ruin".to_owned(),
+        1 => "1 ruin".to_owned(),
+        n => format!("{n} ruins"),
+    };
+    Some(format!(
+        "{} buildings, {showing} showing wear, {} damaged, {ruins}; {mended} groups mended",
+        buildings.len(),
+        count(BuildingState::Damaged)
+    ))
 }
 
 /// What people worked out (ADR-0008 §3), in words: "found drying and smoking in year 4".

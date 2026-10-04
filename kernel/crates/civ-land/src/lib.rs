@@ -24,7 +24,8 @@ pub mod fields;
 pub mod paths;
 
 pub use buildings::{
-    BuildWork, Building, MATERIAL_SLACK_KG, Plot, PlotUse, STAGE_DONE_SLACK_H, workable_h,
+    BuildWork, Building, BuildingState, GroupCondition, GroupState, MATERIAL_SLACK_KG, MendWork,
+    Plot, PlotUse, Repair, STAGE_DONE_SLACK_H, workable_h,
 };
 pub use fields::{CropParams, Field, FieldStage, FieldTask, Lease, Party, RectCm, WorkDone};
 pub use paths::{PathParams, Trail, Wear, WearTile};
@@ -58,6 +59,9 @@ pub struct HabitatRule {
     /// Work to clear a hectare of what grows on it before it is first broken for a field
     /// (woodland), person-hours; 0 for open ground.
     pub clear_h_per_ha: f64,
+    /// How wet its ground keeps what is set in it: posts rot at their foot this many times as
+    /// fast as on average ground (ADR-0009 §4).
+    pub wetness: f64,
 }
 
 /// How a resource's stock grows.
@@ -1026,6 +1030,7 @@ mod tests {
                     max_mean_slope: None,
                     arable: false,
                     clear_h_per_ha: 0.0,
+                    wetness: 1.0,
                 },
                 HabitatRule {
                     id: "flat".into(),
@@ -1035,6 +1040,7 @@ mod tests {
                     max_mean_slope: Some(0.05),
                     arable: true,
                     clear_h_per_ha: 0.0,
+                    wetness: 1.0,
                 },
                 HabitatRule {
                     id: "rest".into(),
@@ -1044,6 +1050,7 @@ mod tests {
                     max_mean_slope: None,
                     arable: false,
                     clear_h_per_ha: 0.0,
+                    wetness: 1.0,
                 },
             ],
             richness_min: 1.0,

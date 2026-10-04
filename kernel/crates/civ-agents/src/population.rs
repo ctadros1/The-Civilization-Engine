@@ -6,16 +6,18 @@
 //! decides what to do next. Needs are brought up to date only at step boundaries.
 
 use std::collections::{BTreeMap, HashMap};
+use std::sync::Arc;
 
 use civ_core::time::{DAYS_PER_YEAR, MINUTES_PER_DAY};
 use civ_core::{GenTable, Handle, IdAllocator, PermanentId, Rng64, SimTime};
-use civ_grammar::{BuildingSpec, Stage, StageNeeds};
+use civ_grammar::{BuildingSpec, Expansion, Stage, StageNeeds};
 use civ_land::paths::cells_along;
 use civ_land::{Building, CropParams, Field, FieldStage, FieldTask, Land, LandParams, Party, Plot};
 use civ_world::nav::{NavGrid, RouteResult, TravelField};
 use civ_world::{WATER_LAKE, WATER_LAND, WATER_RIVER, WorldMap};
 
 use crate::build::{self, HomeWork};
+use crate::condition;
 use crate::decide::{
     self, BuildOption, Facts, FieldOption, GiverOption, Limits, MakeOption, MakeWorth, PatchOption,
     WaterOption,
@@ -192,6 +194,8 @@ pub struct Population {
     home_sites: HashMap<PermanentId, (i64, Option<NewHome>)>,
     /// Per building, what each of its stages needs (its design never changes). Derived.
     stage_needs: HashMap<PermanentId, Vec<StageNeeds>>,
+    /// Per building, its expansion (its design never changes). Derived.
+    expansions: HashMap<PermanentId, Arc<Expansion>>,
     /// Households whose last member died today, with that member (within a day's step only).
     emptied: Vec<(PermanentId, PermanentId)>,
     /// What became of the goods of households that are no more (counters, not saved).
@@ -229,6 +233,20 @@ struct HomePlan {
     deadline: i64,
 }
 
+/// Takes what building work used, `used_kg` of each of `def`'s material slots, from household
+/// `x`'s stores.
+fn use_materials(x: &mut Household, def: &crate::params::BuildingDef, used_kg: &[f64]) {
+    for (slot, kg) in used_kg.iter().enumerate() {
+        if let Some(&g) = def.materials.get(slot)
+            && let Some(s) = x.stores.get_mut(g)
+        {
+            let used = s.max(0.0).min(*kg);
+            *s = (*s - kg).max(0.0);
+            x.flows.add(Flow::Built, g, used);
+        }
+    }
+}
+
 /// Whether household `household` keeps its stores under a roof, and how much room it has for them
 /// there (ADR-0009 §5): every building of its with its roof on, home or store, shelters them, and
 /// gives the room its floors on the ground or a storey hold; a finished one's lofts and raised
@@ -262,23 +280,30 @@ pub(crate) fn shelter_of(
 }
 
 /// The room for goods building `b` gives, kilograms by kind ([`civ_grammar::storage`]): none
-/// before its roof is on; then its floors on the ground or a storey; once finished, its lofts and
-/// raised floors too. A building whose program has left the content has room for everything.
+/// before its roof is on, or in a ruin; then its floors on the ground or a storey; once finished,
+/// its lofts and raised floors too; of that, what its condition leaves dry and standing
+/// ([`condition::room_left`]). A building whose program has left the content has room for
+/// everything.
 pub fn room_of(b: &Building, catalog: &Catalog) -> [f64; 3] {
     use civ_grammar::storage;
     if !b.roofed() {
         return [0.0; 3];
     }
-    let e = catalog
+    let def = catalog
         .building_index(&b.spec.program)
-        .and_then(|i| catalog.buildings.get(i))
-        .and_then(|d| civ_grammar::expand(&b.spec, &d.rules).ok());
+        .and_then(|i| catalog.buildings.get(i));
+    let e = def.and_then(|d| civ_grammar::expand(&b.spec, &d.rules).ok().map(|e| (d, e)));
     match e {
-        Some(e) if b.finished() => e.storage_kg,
-        Some(e) => {
-            let mut room = [0.0; 3];
-            room[storage::FLOOR] = e.storage_kg[storage::FLOOR];
-            room
+        Some((d, e)) => {
+            let room = if b.finished() {
+                e.storage_kg
+            } else {
+                let mut room = [0.0; 3];
+                room[storage::FLOOR] = e.storage_kg[storage::FLOOR];
+                room
+            };
+            // As its condition leaves it (ADR-0009 §4).
+            condition::room_left(b, &d.upkeep, &e, room)
         }
         None => {
             let mut room = [0.0; 3];
@@ -475,6 +500,7 @@ impl Population {
         self.sites.clear();
         self.home_sites.clear();
         self.stage_needs.clear();
+        self.expansions.clear();
     }
 
     /// Gives people and households of a world saved before tools and skills (save schema 8 and
@@ -527,6 +553,36 @@ impl Population {
                 params.family.independent_age,
                 &mut rng,
             );
+        }
+    }
+
+    /// Gives everyone the skills in `new` (indexes into `catalog.skills`; skills a save made
+    /// before they were in the content knows nothing of) as a founder of their age would bring
+    /// them, drawn from their founder's skill stream ([`crate::found::PURPOSE_SKILLS`]).
+    pub fn give_new_skills(
+        &mut self,
+        catalog: &Catalog,
+        params: &PeopleParams,
+        seed: u64,
+        now: SimTime,
+        new: &[usize],
+    ) {
+        if new.is_empty() {
+            return;
+        }
+        for (_, p) in self.people.iter_mut() {
+            let mut rng = Rng64::from_key(&[seed, crate::found::PURPOSE_SKILLS, p.id.get()]);
+            let drawn = crate::found::founder_skills(
+                &catalog.skills,
+                p.age_years(now),
+                params.family.independent_age,
+                &mut rng,
+            );
+            for (k, level) in drawn {
+                if new.contains(&usize::from(k)) {
+                    p.set_skill(usize::from(k), f64::from(level));
+                }
+            }
         }
     }
 
@@ -1055,11 +1111,72 @@ impl Population {
         Some(needs)
     }
 
+    /// The expansion of `building` under `def`'s rules (expanded once per building).
+    fn expansion_of(
+        &mut self,
+        building: &Building,
+        def: &crate::params::BuildingDef,
+    ) -> Option<Arc<Expansion>> {
+        if let Some(e) = self.expansions.get(&building.id) {
+            return Some(Arc::clone(e));
+        }
+        let e = Arc::new(civ_grammar::expand(&building.spec, &def.rules).ok()?);
+        self.expansions.insert(building.id, Arc::clone(&e));
+        Some(e)
+    }
+
+    /// The upkeep household `hh` would do (ADR-0009 §4): the repair under way on one of its
+    /// buildings, or else renewing all that is lost of the group gone furthest beyond showing its
+    /// condition, of all its standing buildings someone in it can work on
+    /// ([`condition::repair_of`]). Wanted, like any building, by the roof deadline. `None` when
+    /// nothing of its shows.
+    fn upkeep_plan(&mut self, ctx: &Ctx, hh: &Household) -> Option<HomePlan> {
+        let catalog = ctx.catalog;
+        // How far gone, the building's index and its program's.
+        let mut best: Option<(f64, usize, usize)> = None;
+        for (i, b) in ctx.land.buildings.iter().enumerate() {
+            if b.household != hh.id
+                || !b.finished()
+                || !b.standing()
+                || !self.can_build(catalog, &hh.members, b)
+            {
+                continue;
+            }
+            let Some(d) = catalog.building_index(&b.spec.program) else {
+                continue;
+            };
+            // A repair begun is finished first.
+            let over = match b.repair {
+                Some(_) => f64::INFINITY,
+                None => match condition::worst(b, &catalog.buildings[d].upkeep) {
+                    Some((_, over)) => over,
+                    None => continue,
+                },
+            };
+            if best.is_none_or(|(o, _, _)| over > o) {
+                best = Some((over, i, d));
+            }
+        }
+        let (_, i, d) = best?;
+        let (b, def) = (&ctx.land.buildings[i], &catalog.buildings[d]);
+        let r = condition::repair_of(b, &def.upkeep)?;
+        let e = self.expansion_of(b, def)?;
+        let needs = condition::mend_needs(&e, r.group, f64::from(r.share))?;
+        Some(HomePlan {
+            building: Some(b.id),
+            spec: b.spec.clone(),
+            work: HomeWork::mend(needs, f64::from(r.work_h)),
+            def: d,
+            deadline: build::roof_deadline(ctx.now.day_index(), def.roof_by_day),
+        })
+    }
+
     /// What household `hh` builds: one building at a time (ADR-0009 §7). Its building under way
     /// that someone in it can work on, whatever it is for, or else the one it would begin and
     /// where (found once a day: for a home, its home if the ground there is clear, else the
     /// nearest clear ground within reach of the hearth; for a store or a workshop, clear ground
-    /// near its home). It builds to one of the programs it may build, those someone in it knows
+    /// near its home); between the two, the upkeep of its buildings ([`Population::upkeep_plan`],
+    /// ADR-0009 §4). It builds to one of the programs it may build, those someone in it knows
     /// how to (ADR-0009 §1). A first home is the cheapest that covers its members and its goods,
     /// as large as what it puts in of its means makes it ([`build::first_home`]). A household
     /// that has a home builds a storehouse beside it when the goods its roofs have no room for
@@ -1080,13 +1197,13 @@ impl Population {
     ) -> Result<HomePlan, Reason> {
         let catalog = ctx.catalog;
         let dwelling = |b: &Building| catalog.is_dwelling(&b.spec.program);
-        // The floor of the finished home it lives in, if it has one.
+        // The floor of the finished home it lives in, if it has one (a ruin is none).
         let mut home: Option<f64> = None;
         for b in ctx
             .land
             .buildings
             .iter()
-            .filter(|b| b.household == hh.id && b.finished() && dwelling(b))
+            .filter(|b| b.household == hh.id && b.finished() && b.standing() && dwelling(b))
         {
             let floor = build::floor_m2(&b.spec);
             home = Some(home.map_or(floor, |f| f.max(floor)));
@@ -1118,6 +1235,10 @@ impl Population {
                     catalog.buildings[def].roof_by_day,
                 ),
             });
+        }
+        // Then upkeep, before anything new.
+        if let Some(plan) = self.upkeep_plan(ctx, hh) {
+            return Ok(plan);
         }
         let unbuilt = if home.is_some() {
             Reason::Built
@@ -1262,7 +1383,7 @@ impl Population {
                 f.is_open()
                     && f.owner == hh.id
                     && u32::from(f.at_once(day)) > places
-                    && !mine().any(|b| b.firm == Some(f.id))
+                    && !mine().any(|b| b.firm == Some(f.id) && b.standing())
             })
             .collect();
         if firms.is_empty() {
@@ -1461,12 +1582,16 @@ impl Population {
     fn begin_home(&mut self, ctx: &mut Ctx, household: PermanentId) -> Option<PermanentId> {
         let (_, site) = self.home_sites.remove(&household)?;
         let site = site?;
-        // A workshop is begun only for a firm still open, of this household, with none.
+        // A workshop is begun only for a firm still open, of this household, with none standing.
         if let Some(f) = site.firm {
             let wanted = self
                 .firm(f)
                 .is_some_and(|f| f.is_open() && f.owner == household)
-                && !ctx.land.buildings.iter().any(|b| b.firm == Some(f));
+                && !ctx
+                    .land
+                    .buildings
+                    .iter()
+                    .any(|b| b.firm == Some(f) && b.standing());
             if !wanted {
                 return None;
             }
@@ -1483,7 +1608,10 @@ impl Population {
         // building a store or a workshop lives where it did.
         let housed = def.use_ != civ_land::PlotUse::Dwelling
             || ctx.land.buildings.iter().any(|b| {
-                b.household == household && b.finished() && ctx.catalog.is_dwelling(&b.spec.program)
+                b.household == household
+                    && b.finished()
+                    && b.standing()
+                    && ctx.catalog.is_dwelling(&b.spec.program)
             });
         let (plot, id) = (ctx.ids.allocate(), ctx.ids.allocate());
         ctx.land.plots.push(Plot {
@@ -1494,15 +1622,8 @@ impl Population {
             since: ctx.now,
         });
         ctx.land.buildings.push(Building {
-            id,
-            household,
-            plot,
-            spec: site.spec.clone(),
-            stage: 0,
-            work_h: 0.0,
-            started: ctx.now,
-            stage_since: ctx.now,
             firm: site.firm,
+            ..Building::new(id, household, plot, site.spec.clone(), ctx.now)
         });
         self.stage_needs.insert(id, site.stages);
         let at = build::centre_m(&site.spec);
@@ -2695,7 +2816,7 @@ impl Population {
                         let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
-                        self.build_work(ctx, who, household, building, hours);
+                        self.build_work(ctx, (h, who), household, building, hours);
                     }
                 }
                 Some(Behavior::Hire) => {
@@ -3069,19 +3190,79 @@ impl Population {
         }
     }
 
-    /// Applies `hours` of a capable adult's work by person `who` of `household` to its building
-    /// `building`: the stage under way advances as far as the work and the materials in the
-    /// household's store allow, and the materials it uses leave the store. When the roof goes
-    /// on, the household's stores are under it from then on.
+    /// Applies `hours` of a capable adult's work by person `h` of `household` to the upkeep of
+    /// its finished building at index `bi` (of program `def`): the repair under way, or else one
+    /// begun on the worst of its groups that shows ([`condition::repair_of`]), advances as far as
+    /// the work and the materials in the household's store allow. The materials it uses leave the
+    /// store, and the work counts toward the builder's building skill. Once it is done the group
+    /// is mended, and the household's shelter derived again.
+    fn mend_work(
+        &mut self,
+        ctx: &mut Ctx,
+        h: Handle<Person>,
+        household: PermanentId,
+        bi: usize,
+        def: &crate::params::BuildingDef,
+        hours: f64,
+    ) {
+        let (now, params, catalog) = (ctx.now, ctx.params, ctx.catalog);
+        let goods = &catalog.goods;
+        let Some(repair) = condition::repair_of(&ctx.land.buildings[bi], &def.upkeep) else {
+            return;
+        };
+        let Some(e) = self.expansion_of(&ctx.land.buildings[bi], def) else {
+            return;
+        };
+        let Some(needs) = condition::mend_needs(&e, repair.group, f64::from(repair.share)) else {
+            return;
+        };
+        let skill = def
+            .skill
+            .and_then(|k| catalog.skills.get(k).map(|s| (k, s)));
+        let Some(&hd) = self.hh_index.get(&household) else {
+            return;
+        };
+        let Some(x) = self.households.get_mut(hd) else {
+            return;
+        };
+        let members = x.members.len().max(1);
+        x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
+        x.stores.resize(goods.len(), 0.0);
+        let work = HomeWork::mend(needs, f64::from(repair.work_h));
+        let Some(stage) = work.needs() else {
+            return;
+        };
+        let held = work.held_by_slot(def, &x.stores);
+        let b = &mut ctx.land.buildings[bi];
+        b.repair = Some(repair);
+        let done = b.mend_work(hours, stage.labour_h, &stage.materials_kg, &held);
+        use_materials(x, def, &done.used_kg);
+        if done.done {
+            condition::mend(b, repair.group, repair.share, &def.upkeep, now);
+            (x.sheltered, x.keeping) = shelter_of(ctx.land, catalog, params, household);
+        }
+        if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
+            p.set_skill(k, s.practised(p.skill(k), done.hours));
+        }
+    }
+
+    /// Applies `hours` of a capable adult's work by person `who` (handle and id) of `household`
+    /// to its building `building`: the stage under way advances as far as the work and the
+    /// materials in the household's store allow, and the materials it uses leave the store. The
+    /// work counts toward the builder's building skill, and toward the quality of the groups the
+    /// stage puts in place, drawn when it is finished from how skilled its builders were on
+    /// average (ADR-0009 §6). When the roof goes on, the household's stores are under it from
+    /// then on.
     fn build_work(
         &mut self,
         ctx: &mut Ctx,
-        who: PermanentId,
+        (h, who): (Handle<Person>, PermanentId),
         household: PermanentId,
         building: PermanentId,
         hours: f64,
     ) {
-        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let (now, params, catalog) = (ctx.now, ctx.params, ctx.catalog);
+        let goods = &catalog.goods;
         let Some(bi) = ctx
             .land
             .buildings
@@ -3090,15 +3271,25 @@ impl Population {
         else {
             return;
         };
-        let Some(def) = ctx
-            .catalog
+        let Some(def) = catalog
             .building_index(&ctx.land.buildings[bi].spec.program)
-            .and_then(|i| ctx.catalog.buildings.get(i))
+            .and_then(|i| catalog.buildings.get(i))
         else {
             return;
         };
+        if ctx.land.buildings[bi].finished() {
+            self.mend_work(ctx, h, household, bi, def, hours);
+            return;
+        }
         let Some(needs) = self.needs_of(&ctx.land.buildings[bi], def) else {
             return;
+        };
+        let skill = def
+            .skill
+            .and_then(|k| ctx.catalog.skills.get(k).map(|s| (k, s)));
+        let level = match skill {
+            Some((k, _)) => self.people.get(h).map_or(0.0, |p| p.skill(k)),
+            None => condition::MIDDLING_SKILL,
         };
         let Some(&hd) = self.hh_index.get(&household) else {
             return;
@@ -3114,17 +3305,26 @@ impl Population {
             return;
         };
         let held = work.held_by_slot(def, &x.stores);
-        let done =
-            ctx.land.buildings[bi].work(hours, stage.labour_h, &stage.materials_kg, &held, now);
-        for (slot, kg) in done.used_kg.iter().enumerate() {
-            if let Some(&g) = def.materials.get(slot)
-                && let Some(s) = x.stores.get_mut(g)
-            {
-                let used = s.max(0.0).min(*kg);
-                *s = (*s - kg).max(0.0);
-                x.flows.add(Flow::Built, g, used);
+        let b = &mut ctx.land.buildings[bi];
+        let done = b.work(hours, stage.labour_h, &stage.materials_kg, &held, now);
+        b.skill_h += (done.hours * level) as f32;
+        if let Some(finished) = done.finished {
+            // How skilled its builders were on average, over the stage's work.
+            let skill = if stage.labour_h > 0.0 {
+                (f64::from(b.skill_h) / stage.labour_h).clamp(0.0, 1.0)
+            } else {
+                level
+            };
+            if let Ok(e) = civ_grammar::expand(&b.spec, &def.rules) {
+                let spread = params.build.quality_spread;
+                condition::install(b, &e, finished, skill, ctx.seed, spread, now);
             }
+            b.skill_h = 0.0;
         }
+        if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
+            p.set_skill(k, s.practised(p.skill(k), done.hours));
+        }
+        use_materials(x, def, &done.used_kg);
         if done.finished == Some(Stage::Finish) {
             // Its lofts and raised floors take goods from now on; stores were settled above.
             (x.sheltered, x.keeping) = shelter_of(ctx.land, ctx.catalog, params, household);
@@ -3134,33 +3334,36 @@ impl Population {
         }
         let settlement = x.settlement;
         // A household that built itself a new home moves in once its roof is on, and the home it
-        // leaves is taken down and its ground given up.
+        // leaves is taken down and its ground given up; so is a ruin of the household's that the
+        // new building stands in for.
         let is_home = def.use_ == civ_land::PlotUse::Dwelling;
-        let catalog = ctx.catalog;
         let dwelling = |b: &Building| catalog.is_dwelling(&b.spec.program);
-        let old: Vec<(PermanentId, PermanentId)> = ctx
+        let old: Vec<(PermanentId, PermanentId, bool)> = ctx
             .land
             .buildings
             .iter()
             .filter(|b| {
-                is_home
-                    && b.household == household
+                b.household == household
                     && b.id != building
                     && b.finished()
-                    && dwelling(b)
+                    && ((is_home && dwelling(b))
+                        || (!b.standing() && catalog.use_of(&b.spec.program) == Some(def.use_)))
             })
-            .map(|b| (b.id, b.plot))
+            .map(|b| (b.id, b.plot, is_home && dwelling(b)))
             .collect();
-        if !old.is_empty() {
+        if old.iter().any(|&(_, _, home)| home) {
             x.home = build::centre_m(&ctx.land.buildings[bi].spec);
+        }
+        if !old.is_empty() {
             ctx.land
                 .buildings
-                .retain(|b| !old.iter().any(|&(id, _)| id == b.id));
+                .retain(|b| !old.iter().any(|&(id, _, _)| id == b.id));
             ctx.land
                 .plots
-                .retain(|p| !old.iter().any(|&(_, plot)| plot == p.id));
-            for (id, _) in &old {
+                .retain(|p| !old.iter().any(|&(_, plot, _)| plot == p.id));
+            for (id, _, _) in &old {
                 self.stage_needs.remove(id);
+                self.expansions.remove(id);
             }
         }
         // Stores were settled to now above, so they keep under the new roof from here on.
@@ -3385,6 +3588,43 @@ impl Population {
     /// in the chronicle (with a gap between running short and recovering, so a store hovering
     /// near the line is not noted every day), and then a day of life: births, deaths, couples and
     /// the households they make (see `life`). Newborns' first decisions go to `ctx.schedule`.
+    /// A month of wear on every building with groups in place (ADR-0009 §4), its posts set in
+    /// the ground of the habitat it stands in (its `wetness`). The households whose roofs leak
+    /// more, or whose buildings' state changed, have their stores settled under the roofs they
+    /// had and their shelter derived again.
+    fn wear_buildings(&mut self, ctx: &mut Ctx) {
+        let (map, catalog, land_params) = (ctx.map, ctx.catalog, ctx.land_params);
+        let patches = &ctx.land.patches;
+        let wetness: Vec<f64> = ctx
+            .land
+            .buildings
+            .iter()
+            .map(|b| {
+                let cell = cell_of(map, build::centre_m(&b.spec));
+                patches
+                    .class
+                    .get(patches.of_cell(cell, map.width))
+                    .and_then(|&c| land_params.habitats.get(usize::from(c)))
+                    .map_or(1.0, |h| h.wetness)
+            })
+            .collect();
+        let mut changed: Vec<PermanentId> = Vec::new();
+        for (b, wet) in ctx.land.buildings.iter_mut().zip(wetness) {
+            let Some(def) = catalog
+                .building_index(&b.spec.program)
+                .and_then(|i| catalog.buildings.get(i))
+            else {
+                continue;
+            };
+            if condition::wear_month(b, &def.upkeep, wet) && !changed.contains(&b.household) {
+                changed.push(b.household);
+            }
+        }
+        for household in changed {
+            self.buildings_changed(ctx.now, ctx.land, catalog, ctx.params, household);
+        }
+    }
+
     pub fn on_day(&mut self, ctx: &mut Ctx) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         // The season turns for every field: a sowing window passes, a crop left standing is lost.
@@ -3441,6 +3681,10 @@ impl Population {
             for s in ids {
                 self.review_land(ctx, s);
             }
+        }
+        // A month of weather on every building, on the first of the month (ADR-0009 §4).
+        if now.date().day == 1 {
+            self.wear_buildings(ctx);
         }
         // Households whose day it is review what they offer and on what terms.
         self.review_offers(ctx, day);

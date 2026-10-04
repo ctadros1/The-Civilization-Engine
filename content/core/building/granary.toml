@@ -12,6 +12,7 @@ eave_cm = 180
 pitch_deg = 45.0
 roof_by_day = 243                # 1 September: roofed before the harvest is stored (tuning)
 technique = "core:technique/jointed_frame"
+skill = "core:skill/building"     # trained by building it (ADR-0009 §6)
 
 [design]                         # what people build to (tuning; 08-11 §2.1: about 3 by 3 m)
 bay_cm = 250
@@ -21,6 +22,19 @@ wall_cm = 15
 overhang_cm = 60
 joist_cm = 15
 floor_raise_cm = 80              # 08-11 §2.1: raised and aired beneath (tuning)
+
+[upkeep]
+# How its parts wear and decay (ADR-0009 §4): for each kind, the share of its section or covering
+# lost a year and the share at which it shows. Thatch wants significant mending every 2-3 years
+# (11-08 §2.4); no report gives rates for posts set in the ground or for daub at a wall's foot
+# (11-06 §2.2, 11-08 §2.4: decay needs wet wood, and earth walls last as long as water is kept
+# off them), so those are tuning values. Posts rot at their foot on ground of wetness 1 (the land
+# profile's habitats set it); timber under a roof decays only under a leak, at the rate given for
+# a full leak.
+covering = [0.06, 0.15]          # [lost a year, leaks at]
+posts = [0.02, 0.3]              # [lost a year at the foot, rot shows at] (tuning)
+infill = [0.05, 0.2]             # [worn a year at the foot, shows at] (tuning)
+under_leak = [0.1, 0.3]          # [lost a year under a full leak, shows at] (tuning)
 
 [materials]
 timber = "core:good/timber"

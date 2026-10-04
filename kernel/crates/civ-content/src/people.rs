@@ -91,6 +91,8 @@ pub(crate) struct Build {
     pub store_horizon_days: f64,
     /// People who can work at a craft at once in a home, beside living there.
     pub home_work_places: u32,
+    /// How unevenly a novice and a master make the parts of a building.
+    pub quality_spread: [f64; 2],
 }
 
 #[derive(Debug, Deserialize)]
@@ -477,6 +479,7 @@ impl PeopleFile {
                 programs,
                 store_horizon_days: self.build.store_horizon_days,
                 home_work_places: self.build.home_work_places,
+                quality_spread: self.build.quality_spread,
             },
             mortality: MortalityParams {
                 siler: Siler {
@@ -726,6 +729,13 @@ impl PeopleFile {
             self.build.store_horizon_days,
             &mut p,
         );
+        let [novice, master] = self.build.quality_spread;
+        if !(master >= 0.0 && master <= novice && novice < 1.0) {
+            p.push(format!(
+                "`build.quality_spread` must be [novice, master] with 0 <= master <= novice < 1 \
+                 (got [{novice}, {master}])"
+            ));
+        }
         if !(h.raised_store_factor.is_finite() && h.raised_store_factor >= 1.0) {
             p.push("`household.raised_store_factor` must be 1 or more: a raised floor never keeps worse".to_owned());
         }

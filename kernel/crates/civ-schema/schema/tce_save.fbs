@@ -164,7 +164,7 @@ table Settlements {
 // Field (schema 4) names a field by `target_id`; NewField is new ground weighed in a decision.
 // Building (schema 5) names a building by `target_id`; NewBuilding is a home not yet begun,
 // weighed in a decision.
-enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9 }
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11 }
 
 enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3 }
 
@@ -359,6 +359,8 @@ table ChronicleEntry {
   place: Point (id: 6);
   number: double (id: 7);
   name: string (id: 8);
+  // Schema 11: the firm the entry is about (0 = none).
+  firm: ulong (id: 9);
 }
 
 // Schema 6: a couple, kept forever.
@@ -584,6 +586,63 @@ table MarketState {
 
 table Markets {
   markets: [MarketState] (id: 0);
+  // Good content ids at save time.
+  goods: [string] (id: 1);
+}
+
+// Section "firms" (schema 11): every firm there has been, open and closed (ADR-0006 §5). Goods are
+// indexed like Firms.goods.
+struct BookLine {
+  good: uint;
+  amount: float;
+  // civ_agents::firm::BookKind.
+  kind: ubyte;
+}
+
+table BookEntry {
+  at: long (id: 0);
+  // civ_agents::firm::BookKind.
+  kind: ubyte (id: 1);
+  good: uint (id: 2);
+  amount: float (id: 3);
+  // The household on the other side (0 = none).
+  other: ulong (id: 4);
+}
+
+table MonthStatement {
+  // Months since the calendar's origin.
+  month: uint (id: 0);
+  lines: [BookLine] (id: 1);
+  owner_h: float (id: 2);
+  hired_h: float (id: 3);
+  income_h: float (id: 4);
+  costs_h: float (id: 5);
+  stock_h: float (id: 6);
+}
+
+table FirmState {
+  id: ulong (id: 0);
+  owner: ulong (id: 1);
+  owner_since: long (id: 2);
+  founder: ulong (id: 3);
+  settlement: ulong (id: 4);
+  founded: long (id: 5);
+  closed: bool (id: 6);
+  closed_at: long (id: 7);
+  // civ_agents::firm::Exit.
+  exit: ubyte (id: 8);
+  lines: [uint] (id: 9);
+  stores: [double] (id: 10);
+  stores_at: long (id: 11);
+  offers: [Offer] (id: 12);
+  sold: bool (id: 13);
+  last_sale: long (id: 14);
+  entries: [BookEntry] (id: 15);
+  months: [MonthStatement] (id: 16);
+}
+
+table Firms {
+  firms: [FirmState] (id: 0);
   // Good content ids at save time.
   goods: [string] (id: 1);
 }

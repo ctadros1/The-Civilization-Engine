@@ -37,6 +37,11 @@ pub enum Target {
     /// A home not yet begun (an option weighed, never an activity's target: a chosen one is
     /// marked out at once).
     NewBuilding,
+    /// A firm, by permanent id: the workshop worked for, or the seller bought from (slice J).
+    Firm(PermanentId),
+    /// A workshop not yet founded (an option weighed, never an activity's target: a chosen one
+    /// is founded at once).
+    NewFirm,
 }
 
 /// One step of an activity.

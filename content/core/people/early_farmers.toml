@@ -274,3 +274,10 @@ money_min_trades = 10.0
 # A seller accepts a good it wants at least this much more of (1 when short of it), or the money.
 accept_want = 0.5
 recent_trades = 64
+
+[firm]                           # household workshops (slice J, ADR-0006 §5); every value a tuning value
+# A workshop that sells nothing for this long is given up by its owners: a voluntary exit, not a
+# failure (research 08-08 §1.8; §2.5: no closure hazard beyond the causes modelled).
+idle_close_days = 180.0
+# Entries its books keep in full; its monthly statements are kept for its life (ADR-0006 §5).
+book_entries = 64

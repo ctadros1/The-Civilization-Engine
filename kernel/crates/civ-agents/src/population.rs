@@ -35,6 +35,7 @@ use crate::person::{
     fuel_kg, reserve_food_kcal, stock_kcal,
 };
 
+mod firm;
 mod life;
 mod market;
 mod transfer;
@@ -191,6 +192,8 @@ pub struct Population {
     pub transfers: crate::ledger::Transfers,
     /// Each settlement's market (slice I).
     pub markets: Vec<crate::market::Market>,
+    /// Every firm there has been, open and closed, in the order they were founded (slice J).
+    pub firms: Vec<crate::firm::Firm>,
 }
 
 /// A hut a household would begin: its design (which says where it stands) and what each stage
@@ -437,25 +440,33 @@ impl Population {
         }
     }
 
-    /// What became of every household's goods since the counters began, those that are no more
-    /// included.
+    /// What became of every household's and firm's goods since the counters began, those that
+    /// are no more included.
     pub fn flows(&self) -> Flows {
         let mut all = self.flows_gone.clone();
         for (_, h) in self.households.iter() {
             all.absorb(&h.flows);
         }
+        for f in &self.firms {
+            all.absorb(&f.flows);
+        }
         all
     }
 
-    /// What all households hold, by good, as each one's stores were last brought up to date:
-    /// the balance that [`Population::flows`] accounts for (ADR-0006 §3).
+    /// What all households and firms hold, by good, as each one's stores were last brought up to
+    /// date: the balance that [`Population::flows`] accounts for (ADR-0006 §3).
     pub fn goods_held(&self) -> Vec<f64> {
         let mut out: Vec<f64> = Vec::new();
-        for (_, h) in self.households.iter() {
-            if out.len() < h.stores.len() {
-                out.resize(h.stores.len(), 0.0);
+        let stores = self
+            .households
+            .iter()
+            .map(|(_, h)| &h.stores)
+            .chain(self.firms.iter().map(|f| &f.stores));
+        for s in stores {
+            if out.len() < s.len() {
+                out.resize(s.len(), 0.0);
             }
-            for (o, kg) in out.iter_mut().zip(&h.stores) {
+            for (o, kg) in out.iter_mut().zip(s) {
                 *o += kg;
             }
         }
@@ -569,6 +580,27 @@ impl Population {
                 ));
             }
         }
+        let mut firm_ids = std::collections::HashSet::new();
+        for f in &self.firms {
+            if !firm_ids.insert(f.id) || hh_ids.contains(&f.id) || f.id.get() >= next_id {
+                out.push(format!("firm {} has a duplicate or unallocated id", f.id));
+            }
+            // A firm closed when its household was no more may name it; an open one may not.
+            if f.is_open() && self.household(f.owner).is_none() {
+                out.push(format!(
+                    "firm {} is open but its owner {} is not a household",
+                    f.id, f.owner
+                ));
+            }
+            if !f.stores.iter().all(|v| v.is_finite())
+                || (!f.is_open() && f.stores.iter().any(|&v| v != 0.0))
+            {
+                out.push(format!(
+                    "firm {} has a store that is not a number or outlived it",
+                    f.id
+                ));
+            }
+        }
         for (id, r) in &self.records {
             if *id != r.id || id.get() >= next_id {
                 out.push(format!("record {id} is filed under the wrong id"));
@@ -631,6 +663,25 @@ impl Population {
         out
     }
 
+    /// Adds a chronicle entry about firm `firm`.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn chronicle_push_firm(
+        &mut self,
+        at: SimTime,
+        kind: ChronicleKind,
+        people: Vec<PermanentId>,
+        settlement: Option<PermanentId>,
+        place: Option<(f32, f32)>,
+        number: f64,
+        name: String,
+        firm: PermanentId,
+    ) {
+        self.chronicle_push(at, kind, people, settlement, place, number, name);
+        if let Some(e) = self.chronicle.last_mut() {
+            e.firm = Some(firm);
+        }
+    }
+
     /// Adds a chronicle entry.
     #[allow(clippy::too_many_arguments)]
     pub fn chronicle_push(
@@ -653,6 +704,7 @@ impl Population {
             place,
             number,
             name,
+            firm: None,
         });
     }
 
@@ -1538,10 +1590,15 @@ impl Population {
                 },
                 tool => tool,
             };
+            let firm = match worth {
+                MakeWorth::Sale { .. } => self.workshop_of(hh_id, out),
+                _ => None,
+            };
             Ok(MakeOption {
                 units,
                 minutes: make::minutes_for(r, units, speed),
                 worth,
+                firm,
             })
         };
         let makes_tool = |def: usize| {
@@ -1632,6 +1689,24 @@ impl Population {
                 }
                 None => target = Target::None,
             }
+            receipt.chosen.target = target;
+        }
+        if target == Target::NewFirm {
+            // A workshop is set up when someone sets to work making what it sells.
+            let out = catalog
+                .activities
+                .get(usize::from(chosen.scored.def))
+                .and_then(|a| a.recipe)
+                .and_then(|r| catalog.recipes.get(r))
+                .and_then(|r| r.outputs.first())
+                .map(|&(g, _)| g);
+            let founder = self.people.get(h).map(|p| p.id);
+            target = match (out, founder) {
+                (Some(g), Some(founder)) => self
+                    .found_firm(ctx, hh_id, founder, g)
+                    .map_or(Target::Home, Target::Firm),
+                _ => Target::Home,
+            };
             receipt.chosen.target = target;
         }
         let mut steps = chosen.steps.clone();
@@ -1972,7 +2047,7 @@ impl Population {
                     }
                 }
                 Some(Behavior::Trade) => {
-                    if let Target::Household(seller) = p.act.target {
+                    if let Target::Household(seller) | Target::Firm(seller) = p.act.target {
                         let household = p.household;
                         self.settle_trade(ctx, household, seller);
                     }
@@ -1988,7 +2063,10 @@ impl Population {
                 }
                 Some(Behavior::Make) => {
                     if let Some(d) = def.as_ref() {
-                        self.make_work(ctx, h, d, minutes);
+                        match p.act.target {
+                            Target::Firm(firm) => self.firm_make(ctx, h, d, minutes, firm),
+                            _ => self.make_work(ctx, h, d, minutes),
+                        }
                     }
                 }
                 _ => {}

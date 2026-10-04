@@ -15,6 +15,7 @@
 //! | `builds` | buildings: their designs and how far their construction has gone (schema 5) |
 //! | `wear` | ground worn by walking (schema 7) |
 //! | `market` | each settlement's market: what sold, for what, and what found no seller (schema 10) |
+//! | `firms` | every firm there has been: its record, stores, terms and books (schema 11) |
 //!
 //! Activities, habitats, resources and goods are saved by content id, so a world still loads after
 //! the content adds, removes or reorders them. Where saved state names something the loaded
@@ -47,10 +48,15 @@
 //! settlement's market. An older save has none: households post their offers at their next
 //! review, and markets start empty. An offer, remembered terms or a remembered trade in a good
 //! the loaded content no longer has is dropped.
+//!
+//! **Schema 10 → 11.** Firms arrived with version 11 (M3a slice J); an older save has none, and a
+//! household sets up a workshop when it next makes something to sell. A firm's line, stock, book
+//! entry or month line in a good the loaded content no longer has is dropped.
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{Read, Seek};
 
+use civ_agents::firm::{BookKind, Books, Entry as BookEntryOf, Exit, Firm, Statement};
 use civ_agents::history::{ChronicleEvent, ChronicleKind, Origin, PersonRecord};
 use civ_agents::ledger::{Channel, Trade};
 use civ_agents::market::{Market, MonthOfTrade, Offer};
@@ -73,7 +79,7 @@ use commons_persist::{SectionData, SectionTag, SnapshotReader};
 
 use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
-    SCHEMA_V9, finish, section, single_chunk, unreadable,
+    SCHEMA_V9, SCHEMA_V10, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -101,6 +107,8 @@ pub const SECTION_BUILDS: SectionTag = SectionTag::new("builds");
 pub const SECTION_WEAR: SectionTag = SectionTag::new("wear");
 /// Section (schema 10): each settlement's market.
 pub const SECTION_MARKET: SectionTag = SectionTag::new("market");
+/// Section (schema 11): firms.
+pub const SECTION_FIRMS: SectionTag = SectionTag::new("firms");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -146,6 +154,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             encode_wear(&sim.land.wear, sim.now().day_index(), &rules.land.paths),
         ),
         section(SECTION_MARKET, 0, encode_markets(&sim.people, &goods)),
+        section(SECTION_FIRMS, 0, encode_firms(&sim.people, &goods)),
     ]
 }
 
@@ -179,6 +188,8 @@ enum Schema {
     V9,
     /// Offers and markets (ADR-0006 §4).
     V10,
+    /// Firms (ADR-0006 §5).
+    V11,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -202,7 +213,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V7 => Schema::V7,
         SCHEMA_V8 => Schema::V8,
         SCHEMA_V9 => Schema::V9,
-        SAVE_SCHEMA_VERSION => Schema::V10,
+        SCHEMA_V10 => Schema::V10,
+        SAVE_SCHEMA_VERSION => Schema::V11,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -260,6 +272,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V10 {
         let bytes = single_chunk(reader, SECTION_MARKET)?;
         people.markets = decode_markets(&bytes, rules)?;
+    }
+    // Before schema 11 there were no firms.
+    if schema >= Schema::V11 {
+        let bytes = single_chunk(reader, SECTION_FIRMS)?;
+        people.firms = decode_firms(&bytes, rules)?;
     }
     people.derive_shelter(&land);
 
@@ -392,6 +409,8 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
         Target::Household(h) => (save::TargetKind::Household, 0, h.get()),
         Target::Building(b) => (save::TargetKind::Building, 0, b.get()),
         Target::NewBuilding => (save::TargetKind::NewBuilding, 0, 0),
+        Target::Firm(f) => (save::TargetKind::Firm, 0, f.get()),
+        Target::NewFirm => (save::TargetKind::NewFirm, 0, 0),
     }
 }
 
@@ -407,6 +426,8 @@ fn target_of(kind: save::TargetKind, index: u32, id: u64) -> Result<Target, Load
         save::TargetKind::Household => Target::Household(required(id, "a household target")?),
         save::TargetKind::Building => Target::Building(required(id, "a building target")?),
         save::TargetKind::NewBuilding => Target::NewBuilding,
+        save::TargetKind::Firm => Target::Firm(required(id, "a firm target")?),
+        save::TargetKind::NewFirm => Target::NewFirm,
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",
@@ -969,7 +990,8 @@ fn carried(
         | Schema::V7
         | Schema::V8
         | Schema::V9
-        | Schema::V10 => {
+        | Schema::V10
+        | Schema::V11 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1015,22 +1037,7 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
             let mut stores = h.stores.clone();
             stores.resize(goods.len(), 0.0);
             let stores = fbb.create_vector(&stores);
-            let offers: Vec<_> = h
-                .offers
-                .iter()
-                .map(|o| {
-                    save::Offer::create(
-                        &mut fbb,
-                        &save::OfferArgs {
-                            good: u32::from(o.good),
-                            payment: u32::from(o.payment),
-                            price: o.price,
-                            units: o.units,
-                            ask_h: o.ask_h,
-                        },
-                    )
-                })
-                .collect();
+            let offers: Vec<_> = h.offers.iter().map(|o| encode_offer(&mut fbb, o)).collect();
             let offers = fbb.create_vector(&offers);
             save::Household::create(
                 &mut fbb,
@@ -1099,7 +1106,8 @@ fn decode_households(
             | Schema::V7
             | Schema::V8
             | Schema::V9
-            | Schema::V10 => {
+            | Schema::V10
+            | Schema::V11 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -1139,27 +1147,14 @@ fn decode_households(
             }
         };
         // Offers arrived with schema 10: before, households post them at their next review.
-        let mut offers = Vec::new();
         let saved_offers = if schema >= Schema::V10 {
             h.offers()
         } else {
             None
         };
-        for o in saved_offers.iter().flatten() {
-            let what = || format!("an offer of household {hh_id}");
-            let good = saved_good(&goods, o.good(), what)?;
-            let payment = saved_good(&goods, o.payment(), what)?;
-            // Terms in a good the content no longer has are withdrawn.
-            if let (Some(good), Some(payment)) = (good, payment) {
-                offers.push(Offer {
-                    good,
-                    payment,
-                    price: o.price(),
-                    units: o.units(),
-                    ask_h: o.ask_h(),
-                });
-            }
-        }
+        let offers = decode_offers(saved_offers, &goods, || {
+            format!("an offer of household {hh_id}")
+        })?;
         out.push(Household {
             id: hh_id,
             members,
@@ -1198,6 +1193,8 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Left => 12,
         ChronicleKind::FirstTrail => 13,
         ChronicleKind::FamilyArrived => 14,
+        ChronicleKind::WorkshopOpened => 15,
+        ChronicleKind::WorkshopClosed => 16,
     }
 }
 
@@ -1217,6 +1214,8 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         12 => Some(ChronicleKind::Left),
         13 => Some(ChronicleKind::FirstTrail),
         14 => Some(ChronicleKind::FamilyArrived),
+        15 => Some(ChronicleKind::WorkshopOpened),
+        16 => Some(ChronicleKind::WorkshopClosed),
         _ => None,
     }
 }
@@ -1283,6 +1282,7 @@ fn encode_history(pop: &Population) -> Vec<u8> {
                     place: Some(&point(e.place.unwrap_or((0.0, 0.0)))),
                     number: e.number,
                     name: Some(name),
+                    firm: raw(e.firm),
                 },
             )
         })
@@ -1387,6 +1387,7 @@ fn decode_history(bytes: &[u8]) -> Result<DecodedHistory, LoadError> {
             place: e.has_place().then(|| xy(e.place())),
             number: e.number(),
             name: e.name().unwrap_or_default().to_owned(),
+            firm: id(e.firm()),
         });
     }
     let mut unions = Vec::new();
@@ -2094,6 +2095,232 @@ fn decode_markets(bytes: &[u8], rules: &Rules) -> Result<Vec<Market>, LoadError>
         // In the loaded content's order of goods.
         market.history.sort_by_key(|h| (h.month, h.good));
         out.push(market);
+    }
+    Ok(out)
+}
+
+// ---- firms -------------------------------------------------------------------------------------
+
+fn encode_offer<'a>(fbb: &mut FlatBufferBuilder<'a>, o: &Offer) -> WIPOffset<save::Offer<'a>> {
+    save::Offer::create(
+        fbb,
+        &save::OfferArgs {
+            good: u32::from(o.good),
+            payment: u32::from(o.payment),
+            price: o.price,
+            units: o.units,
+            ask_h: o.ask_h,
+        },
+    )
+}
+
+fn encode_firms(pop: &Population, goods: &[&str]) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let good_dictionary = strings(&mut fbb, goods);
+    let list: Vec<_> = pop
+        .firms
+        .iter()
+        .map(|f| {
+            let lines: Vec<u32> = f.lines.iter().map(|&g| u32::from(g)).collect();
+            let lines = fbb.create_vector(&lines);
+            let mut stores = f.stores.clone();
+            stores.resize(goods.len(), 0.0);
+            let stores = fbb.create_vector(&stores);
+            let offers: Vec<_> = f.offers.iter().map(|o| encode_offer(&mut fbb, o)).collect();
+            let offers = fbb.create_vector(&offers);
+            let entries: Vec<_> = f
+                .books
+                .entries
+                .iter()
+                .map(|e| {
+                    save::BookEntry::create(
+                        &mut fbb,
+                        &save::BookEntryArgs {
+                            at: e.at.minutes(),
+                            kind: e.kind as u8,
+                            good: u32::from(e.good),
+                            amount: e.amount,
+                            other: raw(e.other),
+                        },
+                    )
+                })
+                .collect();
+            let entries = fbb.create_vector(&entries);
+            let months: Vec<_> = f
+                .books
+                .months
+                .iter()
+                .map(|m| {
+                    let lines: Vec<save::BookLine> = m
+                        .lines
+                        .iter()
+                        .map(|&(k, g, a)| save::BookLine::new(u32::from(g), a, k as u8))
+                        .collect();
+                    let lines = fbb.create_vector(&lines);
+                    save::MonthStatement::create(
+                        &mut fbb,
+                        &save::MonthStatementArgs {
+                            month: m.month,
+                            lines: Some(lines),
+                            owner_h: m.owner_h,
+                            hired_h: m.hired_h,
+                            income_h: m.income_h,
+                            costs_h: m.costs_h,
+                            stock_h: m.stock_h,
+                        },
+                    )
+                })
+                .collect();
+            let months = fbb.create_vector(&months);
+            save::FirmState::create(
+                &mut fbb,
+                &save::FirmStateArgs {
+                    id: f.id.get(),
+                    owner: f.owner.get(),
+                    owner_since: f.owner_since.minutes(),
+                    founder: f.founder.get(),
+                    settlement: raw(f.settlement),
+                    founded: f.founded.minutes(),
+                    closed: f.closed.is_some(),
+                    closed_at: f.closed.map_or(0, |(t, _)| t.minutes()),
+                    exit: f.closed.map_or(0, |(_, e)| e as u8),
+                    lines: Some(lines),
+                    stores: Some(stores),
+                    stores_at: f.stores_at.minutes(),
+                    offers: Some(offers),
+                    sold: f.last_sale.is_some(),
+                    last_sale: f.last_sale.map_or(0, SimTime::minutes),
+                    entries: Some(entries),
+                    months: Some(months),
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let root = save::Firms::create(
+        &mut fbb,
+        &save::FirmsArgs {
+            firms: Some(list),
+            goods: Some(good_dictionary),
+        },
+    );
+    finish(fbb, root)
+}
+
+/// Offers saved against dictionary `goods`, in the loaded catalog; terms in a good it no longer
+/// has are withdrawn.
+fn decode_offers<'a>(
+    saved: Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<save::Offer<'a>>>>,
+    goods: &[Option<usize>],
+    what: impl Fn() -> String + Copy,
+) -> Result<Vec<Offer>, LoadError> {
+    let mut out = Vec::new();
+    for o in saved.iter().flatten() {
+        let good = saved_good(goods, o.good(), what)?;
+        let payment = saved_good(goods, o.payment(), what)?;
+        if let (Some(good), Some(payment)) = (good, payment) {
+            out.push(Offer {
+                good,
+                payment,
+                price: o.price(),
+                units: o.units(),
+                ask_h: o.ask_h(),
+            });
+        }
+    }
+    Ok(out)
+}
+
+fn decode_firms(bytes: &[u8], rules: &Rules) -> Result<Vec<Firm>, LoadError> {
+    let root =
+        flatbuffers::root::<save::Firms>(bytes).map_err(|e| unreadable(SECTION_FIRMS, &e))?;
+    let goods = good_map(&read_strings(root.goods()), rules);
+    let catalog_goods = rules.catalog.goods.len();
+    let mut out = Vec::new();
+    for f in root.firms().iter().flatten() {
+        let fid = required(f.id(), "a firm")?;
+        let what = || format!("firm {fid}");
+        let mut lines = Vec::new();
+        for g in f.lines().iter().flatten() {
+            if let Some(g) = saved_good(&goods, g, what)? {
+                lines.push(g);
+            }
+        }
+        let saved: Vec<f64> = f.stores().map(|v| v.iter().collect()).unwrap_or_default();
+        if saved.len() != goods.len() {
+            return Err(LoadError::Malformed(format!(
+                "firm {fid} stores {} goods of {}",
+                saved.len(),
+                goods.len()
+            )));
+        }
+        let mut stores = vec![0.0; catalog_goods];
+        for (kg, g) in saved.iter().zip(&goods) {
+            if let Some(g) = g {
+                stores[*g] = *kg;
+            }
+        }
+        let closed = if f.closed() {
+            let why = Exit::from_code(f.exit()).ok_or_else(|| {
+                LoadError::Malformed(format!("firm {fid} closed for reason {}", f.exit()))
+            })?;
+            Some((time(f.closed_at()), why))
+        } else {
+            None
+        };
+        let mut books = Books::default();
+        for e in f.entries().iter().flatten() {
+            let kind = BookKind::from_code(e.kind()).ok_or_else(|| {
+                LoadError::Malformed(format!("{} has a book entry of kind {}", what(), e.kind()))
+            })?;
+            if let Some(good) = saved_good(&goods, e.good(), what)? {
+                books.entries.push_back(BookEntryOf {
+                    at: time(e.at()),
+                    kind,
+                    good,
+                    amount: e.amount(),
+                    other: id(e.other()),
+                });
+            }
+        }
+        for m in f.months().iter().flatten() {
+            let mut month_lines = Vec::new();
+            for l in m.lines().iter().flatten() {
+                let kind = BookKind::from_code(l.kind()).ok_or_else(|| {
+                    LoadError::Malformed(format!("{} has a book line of kind {}", what(), l.kind()))
+                })?;
+                if let Some(good) = saved_good(&goods, l.good(), what)? {
+                    month_lines.push((kind, good, l.amount()));
+                }
+            }
+            month_lines.sort_by_key(|&(k, g, _)| (k, g));
+            books.months.push(Statement {
+                month: m.month(),
+                lines: month_lines,
+                owner_h: m.owner_h(),
+                hired_h: m.hired_h(),
+                income_h: m.income_h(),
+                costs_h: m.costs_h(),
+                stock_h: m.stock_h(),
+            });
+        }
+        out.push(Firm {
+            id: fid,
+            owner: required(f.owner(), "a firm's owner")?,
+            owner_since: time(f.owner_since()),
+            founder: required(f.founder(), "a firm's founder")?,
+            settlement: id(f.settlement()),
+            founded: time(f.founded()),
+            closed,
+            lines,
+            stores,
+            stores_at: time(f.stores_at()),
+            offers: decode_offers(f.offers(), &goods, what)?,
+            last_sale: f.sold().then(|| time(f.last_sale())),
+            books,
+            // Counters start again on load.
+            flows: Default::default(),
+        });
     }
     Ok(out)
 }

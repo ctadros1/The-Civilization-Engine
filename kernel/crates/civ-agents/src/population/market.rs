@@ -9,6 +9,7 @@ use civ_world::nav::TravelField;
 use super::{Ctx, Population, cell_of, fuel_per_day, stores_now};
 use crate::decide::{TradeOption, TradeWorth};
 use crate::farm;
+use crate::firm::{BookKind, Entry};
 use crate::ledger::{Channel, Leg, Trade};
 use crate::make;
 use crate::market::{Market, Offer};
@@ -20,9 +21,9 @@ use crate::value;
 /// of that (a tuning value).
 const FOOD_KEEP_MARGIN: f64 = 0.25;
 /// Least of a tool worth offering, standard tools.
-const MIN_OFFER_TOOL: f64 = 0.5;
+pub(super) const MIN_OFFER_TOOL: f64 = 0.5;
 /// Least of any other good worth offering, kilograms.
-const MIN_OFFER_KG: f64 = 5.0;
+pub(super) const MIN_OFFER_KG: f64 = 5.0;
 /// Most goods a seller accepts in payment.
 const MAX_PAYMENTS: usize = 4;
 /// Least a food stays good for to be offered, days: food that keeps (grain), not food made to
@@ -37,10 +38,15 @@ pub(crate) struct Holding {
     pub want: Vec<f64>,
 }
 
+/// A seller a buyer could go to: its id, where it is, its offers, and whether it is a workshop.
+type Seller<'a> = (PermanentId, (f32, f32), &'a [Offer], bool);
+
 /// A purchase as it stands: from whom, what, how much, and what it is paid with.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Deal {
     pub seller: PermanentId,
+    /// The seller is a workshop.
+    pub firm: bool,
     pub at: (f32, f32),
     pub walk_min: f64,
     pub good: usize,
@@ -222,7 +228,8 @@ impl Population {
     /// Each household whose day it is reviews what it offers and on what terms (ADR-0006 §4):
     /// it offers what it holds beyond what it keeps, at its own cost and margin moved toward
     /// what the market shows, in each good it wants or its settlement's money; and the tools it
-    /// needs and finds nobody offering are recorded as demand.
+    /// needs and finds nobody offering are recorded as demand. Its workshops are reviewed the
+    /// same day.
     pub(super) fn review_offers(&mut self, ctx: &Ctx, day: i64) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let mp = &params.market;
@@ -249,7 +256,6 @@ impl Population {
             let stores = stores_now(hh, now, params, goods);
             let costs = self.own_costs_of(ctx, hh);
             let holding = self.holding_of(ctx, hh, &stores);
-            let money = self.money_of(Some(settlement), mp);
             let held = |g: usize| stores.get(g).copied().unwrap_or(0.0).max(0.0);
             // What it can spare.
             let mut offered: Vec<(usize, f64)> = Vec::new();
@@ -270,112 +276,8 @@ impl Population {
                     offered.push((g, spare));
                 }
             }
-            // What it takes in payment: what it wants, or its settlement's money, each valued at
-            // its own cost.
-            let mut accepts: Vec<(usize, f64)> = goods
-                .iter()
-                .enumerate()
-                .filter(|(_, d)| !d.kept_back() && !d.tool.as_ref().is_some_and(|t| t.fixed))
-                .filter_map(|(p, _)| {
-                    let want = if money == Some(p) {
-                        1.0
-                    } else {
-                        holding.want.get(p).copied().unwrap_or(0.0)
-                    };
-                    let cost = costs.get(p).copied().flatten()?;
-                    (want >= mp.accept_want && cost > 0.0).then_some((p, cost * want))
-                })
-                .collect();
-            // What it is shortest of first; then what its neighbours already pay in, what keeps
-            // longest, and what is worth most for its weight (research 08-06 §1.3: acceptance
-            // follows familiarity, durability and portability).
-            let want_of = |p: usize| {
-                if money == Some(p) {
-                    1.0
-                } else {
-                    holding.want.get(p).copied().unwrap_or(0.0)
-                }
-            };
-            let accepted: Vec<f64> = self
-                .market(settlement)
-                .map(|m| m.acceptance())
-                .unwrap_or_default();
-            let keeps = |p: usize| match goods[p].half_life_days {
-                h if h > 0.0 => h,
-                _ => f64::INFINITY,
-            };
-            accepts.sort_by(|a, b| {
-                want_of(b.0)
-                    .total_cmp(&want_of(a.0))
-                    .then(
-                        accepted
-                            .get(b.0)
-                            .copied()
-                            .unwrap_or(0.0)
-                            .total_cmp(&accepted.get(a.0).copied().unwrap_or(0.0)),
-                    )
-                    .then(keeps(b.0).total_cmp(&keeps(a.0)))
-                    .then(b.1.total_cmp(&a.1))
-                    .then(a.0.cmp(&b.0))
-            });
-            let (unmet, sold): (Vec<f64>, Vec<f64>) = match self.market(settlement) {
-                Some(m) => (m.unmet.clone(), m.sold.clone()),
-                None => (Vec::new(), Vec::new()),
-            };
             let old = hh.offers.clone();
-            let mut rows = Vec::new();
-            for &(g, units) in &offered {
-                let anchor = costs
-                    .get(g)
-                    .copied()
-                    .flatten()
-                    .map(|c| c * (1.0 + mp.margin));
-                let prev = old
-                    .iter()
-                    .find(|o| usize::from(o.good) == g)
-                    .map(|o| f64::from(o.ask_h));
-                let ask = match (prev, anchor) {
-                    (Some(prev), Some(anchor)) => reviewed_ask(
-                        prev,
-                        anchor,
-                        unmet.get(g).copied().unwrap_or(0.0) > 0.5,
-                        sold.get(g).copied().unwrap_or(0.0) < 0.1,
-                        mp.max_change,
-                    ),
-                    (None, Some(anchor)) => anchor,
-                    (Some(prev), None) => prev,
-                    (None, None) => continue,
-                };
-                // Terms in the goods it takes, as far as one person could carry what a unit costs
-                // (research 08-06 §1.3: a payment must be portable).
-                let mut posted = 0;
-                for &(p, value_h) in &accepts {
-                    if p == g || posted == MAX_PAYMENTS {
-                        continue;
-                    }
-                    let price = ask / value_h;
-                    let unit = if goods[g].tool.is_some() {
-                        1.0
-                    } else {
-                        MIN_OFFER_KG
-                    };
-                    if goods[p].tool.is_none() && price * unit > params.household.carry_kg {
-                        continue;
-                    }
-                    // A tool is paid whole or worn, not in splinters: at least half a tool.
-                    if goods[p].tool.is_some() && price * unit < MIN_OFFER_TOOL {
-                        continue;
-                    }
-                    rows.push(Offer {
-                        good: g as u16,
-                        payment: p as u16,
-                        price: price as f32,
-                        units: units as f32,
-                        ask_h: ask as f32,
-                    });
-                    posted += 1;
-                }
-            }
+            let rows = self.post_terms(ctx, settlement, &costs, &holding, &offered, &old);
             // The tools it needs and nobody in its settlement offers: demand on record, as much
             // as it needs, weighted so that a want recorded at every review adds up, as the
             // market forgets, to the want itself (a level, not a count of reviews).
@@ -385,6 +287,14 @@ impl Population {
                 .map(|(_, x)| x)
                 .filter(|x| x.settlement == Some(settlement) && x.id != id)
                 .flat_map(|x| x.offers.iter().map(|o| usize::from(o.good)))
+                .chain(
+                    self.firms
+                        .iter()
+                        .filter(|f| {
+                            f.is_open() && f.settlement == Some(settlement) && f.owner != id
+                        })
+                        .flat_map(|f| f.offers.iter().map(|o| usize::from(o.good))),
+                )
                 .collect();
             let mut wanted: Vec<(usize, f64, f64)> = Vec::new();
             for (t, d) in goods.iter().enumerate() {
@@ -409,6 +319,138 @@ impl Population {
                 m.record_unmet(t, need * weight, worth_h * need * weight);
             }
         }
+        // Workshops are reviewed on their owners' day.
+        let firms: Vec<PermanentId> = self
+            .firms
+            .iter()
+            .filter(|f| f.is_open() && (f.owner.get() as i64 + day).rem_euclid(review_days) == 0)
+            .map(|f| f.id)
+            .collect();
+        for id in firms {
+            self.review_firm(ctx, id);
+        }
+    }
+
+    /// The terms a seller posts for what it offers (`offered`: (good, units)), at its own
+    /// `costs` and margin moved toward what the market shows (its asks in `old`), in the goods
+    /// it wants (`holding`) or its settlement's money: those it is shortest of first, then what
+    /// its neighbours already pay in, what keeps longest and what is worth most for its weight
+    /// (research 08-06 §1.3: acceptance follows familiarity, durability and portability).
+    pub(super) fn post_terms(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+        costs: &[Option<f64>],
+        holding: &Holding,
+        offered: &[(usize, f64)],
+        old: &[Offer],
+    ) -> Vec<Offer> {
+        let (params, goods) = (ctx.params, &ctx.catalog.goods);
+        let mp = &params.market;
+        let money = self.money_of(Some(settlement), mp);
+        // What it takes in payment: what it wants, or its settlement's money, each valued at
+        // its own cost.
+        let mut accepts: Vec<(usize, f64)> = goods
+            .iter()
+            .enumerate()
+            .filter(|(_, d)| !d.kept_back() && !d.tool.as_ref().is_some_and(|t| t.fixed))
+            .filter_map(|(p, _)| {
+                let want = if money == Some(p) {
+                    1.0
+                } else {
+                    holding.want.get(p).copied().unwrap_or(0.0)
+                };
+                let cost = costs.get(p).copied().flatten()?;
+                (want >= mp.accept_want && cost > 0.0).then_some((p, cost * want))
+            })
+            .collect();
+        let want_of = |p: usize| {
+            if money == Some(p) {
+                1.0
+            } else {
+                holding.want.get(p).copied().unwrap_or(0.0)
+            }
+        };
+        let accepted: Vec<f64> = self
+            .market(settlement)
+            .map(|m| m.acceptance())
+            .unwrap_or_default();
+        let keeps = |p: usize| match goods[p].half_life_days {
+            h if h > 0.0 => h,
+            _ => f64::INFINITY,
+        };
+        accepts.sort_by(|a, b| {
+            want_of(b.0)
+                .total_cmp(&want_of(a.0))
+                .then(
+                    accepted
+                        .get(b.0)
+                        .copied()
+                        .unwrap_or(0.0)
+                        .total_cmp(&accepted.get(a.0).copied().unwrap_or(0.0)),
+                )
+                .then(keeps(b.0).total_cmp(&keeps(a.0)))
+                .then(b.1.total_cmp(&a.1))
+                .then(a.0.cmp(&b.0))
+        });
+        let (unmet, sold): (Vec<f64>, Vec<f64>) = match self.market(settlement) {
+            Some(m) => (m.unmet.clone(), m.sold.clone()),
+            None => (Vec::new(), Vec::new()),
+        };
+        let mut rows = Vec::new();
+        for &(g, units) in offered {
+            let anchor = costs
+                .get(g)
+                .copied()
+                .flatten()
+                .map(|c| c * (1.0 + mp.margin));
+            let prev = old
+                .iter()
+                .find(|o| usize::from(o.good) == g)
+                .map(|o| f64::from(o.ask_h));
+            let ask = match (prev, anchor) {
+                (Some(prev), Some(anchor)) => reviewed_ask(
+                    prev,
+                    anchor,
+                    unmet.get(g).copied().unwrap_or(0.0) > 0.5,
+                    sold.get(g).copied().unwrap_or(0.0) < 0.1,
+                    mp.max_change,
+                ),
+                (None, Some(anchor)) => anchor,
+                (Some(prev), None) => prev,
+                (None, None) => continue,
+            };
+            // Terms in the goods it takes, as far as one person could carry what a unit costs
+            // (research 08-06 §1.3: a payment must be portable).
+            let mut posted = 0;
+            for &(p, value_h) in &accepts {
+                if p == g || posted == MAX_PAYMENTS {
+                    continue;
+                }
+                let price = ask / value_h;
+                let unit = if goods[g].tool.is_some() {
+                    1.0
+                } else {
+                    MIN_OFFER_KG
+                };
+                if goods[p].tool.is_none() && price * unit > params.household.carry_kg {
+                    continue;
+                }
+                // A tool is paid whole or worn, not in splinters: at least half a tool.
+                if goods[p].tool.is_some() && price * unit < MIN_OFFER_TOOL {
+                    continue;
+                }
+                rows.push(Offer {
+                    good: g as u16,
+                    payment: p as u16,
+                    price: price as f32,
+                    units: units as f32,
+                    ask_h: ask as f32,
+                });
+                posted += 1;
+            }
+        }
+        rows
     }
 
     /// The best purchase household `hh` can make with its `stores` as they stand: the offer in
@@ -421,13 +463,15 @@ impl Population {
         ctx: &Ctx,
         hh: &Household,
         stores: &[f64],
-        walk_min: &dyn Fn(&Household) -> Option<f64>,
+        walk_min: &dyn Fn((f32, f32)) -> Option<f64>,
         only: Option<PermanentId>,
     ) -> Option<Deal> {
         let settlement = hh.settlement?;
         let (params, goods) = (ctx.params, &ctx.catalog.goods);
         let held = |g: usize| stores.get(g).copied().unwrap_or(0.0).max(0.0);
-        let mut sellers = self
+        // Its neighbours' offers, and those of the workshops among them (at their owners'
+        // homes), not its own.
+        let sellers: Vec<Seller> = self
             .households
             .iter()
             .map(|(_, x)| x)
@@ -437,8 +481,26 @@ impl Population {
                     && !x.offers.is_empty()
                     && only.is_none_or(|s| s == x.id)
             })
-            .peekable();
-        sellers.peek()?;
+            .map(|x| (x.id, x.home, x.offers.as_slice(), false))
+            .chain(
+                self.firms
+                    .iter()
+                    .filter(|f| {
+                        f.is_open()
+                            && f.owner != hh.id
+                            && f.settlement == Some(settlement)
+                            && !f.offers.is_empty()
+                            && only.is_none_or(|s| s == f.id)
+                    })
+                    .filter_map(|f| {
+                        let at = self.household(f.owner)?.home;
+                        Some((f.id, at, f.offers.as_slice(), true))
+                    }),
+            )
+            .collect();
+        if sellers.is_empty() {
+            return None;
+        }
         let costs = self.own_costs_of(ctx, hh);
         let holding = self.holding_of(ctx, hh, stores);
         // Food it is short of: what it keeps less what it has, by energy.
@@ -457,11 +519,11 @@ impl Population {
             0.0
         };
         let mut best: Option<Deal> = None;
-        for x in sellers {
-            let Some(walk) = walk_min(x) else {
+        for (seller, at, offers, firm) in sellers {
+            let Some(walk) = walk_min(at) else {
                 continue;
             };
-            for o in &x.offers {
+            for o in offers {
                 let (g, p) = (usize::from(o.good), usize::from(o.payment));
                 let Some(d) = goods.get(g) else {
                     continue;
@@ -532,12 +594,13 @@ impl Population {
                     };
                     rank > b_rank + 1e-9
                         || ((rank - b_rank).abs() <= 1e-9
-                            && (x.id, g, p) < (b.seller, b.good, b.payment))
+                            && (seller, g, p) < (b.seller, b.good, b.payment))
                 });
                 if better {
                     best = Some(Deal {
-                        seller: x.id,
-                        at: x.home,
+                        seller,
+                        firm,
+                        at,
                         walk_min: walk,
                         good: g,
                         units,
@@ -563,14 +626,15 @@ impl Population {
         reach: Option<&TravelField>,
     ) -> Option<TradeOption> {
         let reach = reach?;
-        let walk = |x: &Household| {
+        let walk = |at: (f32, f32)| {
             reach
-                .seconds_to(cell_of(ctx.map, x.home))
+                .seconds_to(cell_of(ctx.map, at))
                 .map(|s| f64::from(s) / 60.0)
         };
         let d = self.find_deal(ctx, hh, stores, &walk, None)?;
         Some(TradeOption {
             seller: d.seller,
+            firm: d.firm,
             walk_min: d.walk_min,
             at: d.at,
             good: d.good,
@@ -615,15 +679,44 @@ impl Population {
         if !self.transfer(now, params, goods, &legs, channel) {
             return;
         }
-        if let Some(x) = self.household_mut_by_id(seller) {
-            for o in x
-                .offers
-                .iter_mut()
-                .filter(|o| usize::from(o.good) == d.good)
-            {
+        let shrink = |offers: &mut Vec<Offer>| {
+            for o in offers.iter_mut().filter(|o| usize::from(o.good) == d.good) {
                 o.units = (f64::from(o.units) - d.units).max(0.0) as f32;
             }
-            x.offers.retain(|o| o.units > 1e-6);
+            offers.retain(|o| o.units > 1e-6);
+        };
+        if d.firm {
+            // A workshop's books keep the sale and what it was paid, at what that is worth to
+            // its owners.
+            let owner = self.firm(seller).map(|f| f.owner);
+            let worth = owner
+                .and_then(|o| self.household(o).cloned())
+                .map_or(0.0, |x| {
+                    self.own_costs_of(ctx, &x)
+                        .get(d.payment)
+                        .copied()
+                        .flatten()
+                        .unwrap_or(0.0)
+                        * d.paid
+                });
+            let keep = params.firm.book_entries;
+            if let Some(f) = self.firms.iter_mut().find(|f| f.id == seller) {
+                shrink(&mut f.offers);
+                let entry = |kind, good: usize, amount: f64| Entry {
+                    at: now,
+                    kind,
+                    good: good as u16,
+                    amount: amount as f32,
+                    other: Some(buyer),
+                };
+                f.books
+                    .record(entry(BookKind::Sold, d.good, d.units), 0.0, keep);
+                f.books
+                    .record(entry(BookKind::Paid, d.payment, d.paid), worth, keep);
+            }
+            self.note_sale(seller, now);
+        } else if let Some(x) = self.household_mut_by_id(seller) {
+            shrink(&mut x.offers);
         }
         let trade = Trade {
             at: now,
@@ -642,10 +735,11 @@ impl Population {
 
     /// For each tool household `hh` does not need itself: how much it is worth making to sell, 0–1
     /// (research 08-04 §1.2: produce for funded demand, not for sales already made). Others in
-    /// its settlement want it and found nobody offering it, and they would give more hours of
-    /// their own work for one than the household's own cost and margin; it is worth the share of
-    /// what they would give that the household keeps, times how much of it is wanted (up to one
-    /// tool). Nothing while the household still holds one to sell.
+    /// its settlement want it: they found nobody offering it, or it sold lately and nobody offers
+    /// any now; and what they would give for one (what those who found none would have given,
+    /// or what one fetched lately) is more than the household's own cost and margin. It is
+    /// worth the share of that the household keeps, times how much of it is wanted (up to one
+    /// tool). Nothing while the household, or its workshop, still holds one to sell.
     pub(crate) fn for_sale(
         &self,
         ctx: &Ctx,
@@ -655,33 +749,62 @@ impl Population {
     ) -> Vec<f64> {
         let goods = &ctx.catalog.goods;
         let mut out = vec![0.0; goods.len()];
-        let Some(market) = hh.settlement.and_then(|s| self.market(s)) else {
+        let Some(settlement) = hh.settlement else {
             return out;
         };
-        if !goods
+        let Some(market) = self.market(settlement) else {
+            return out;
+        };
+        // What is wanted of each tool: wants nobody met, and what sold lately when none is on
+        // offer now.
+        let on_offer = |t: usize| {
+            self.households
+                .iter()
+                .map(|(_, x)| x)
+                .filter(|x| x.settlement == Some(settlement))
+                .flat_map(|x| x.offers.iter())
+                .chain(
+                    self.firms
+                        .iter()
+                        .filter(|f| f.is_open() && f.settlement == Some(settlement))
+                        .flat_map(|f| f.offers.iter()),
+                )
+                .any(|o| usize::from(o.good) == t)
+        };
+        let wanted: Vec<(usize, f64, f64)> = goods
             .iter()
             .enumerate()
-            .any(|(t, d)| d.tool.is_some() && market.unmet_worth(t).is_some())
-        {
+            .filter(|(t, d)| d.tool.is_some() && tool_need.get(*t).copied().unwrap_or(0.0) <= 0.0)
+            .filter_map(|(t, _)| {
+                let unmet = market.unmet.get(t).copied().unwrap_or(0.0);
+                let sold = market.sold.get(t).copied().unwrap_or(0.0);
+                let (units, worth) = match market.unmet_worth(t) {
+                    Some(worth) => (unmet, worth),
+                    None if sold > 0.1 && !on_offer(t) => (sold, market.price_h(t)?),
+                    None => return None,
+                };
+                Some((t, units, worth))
+            })
+            .collect();
+        if wanted.is_empty() {
             return out;
         }
         let costs = self.own_costs_of(ctx, hh);
         let holding = self.holding_of(ctx, hh, stores);
         let margin = ctx.params.market.margin;
-        for (t, d) in goods.iter().enumerate() {
-            if d.tool.is_none() || tool_need.get(t).copied().unwrap_or(0.0) > 0.0 {
-                continue;
-            }
-            let (Some(worth), Some(cost)) = (market.unmet_worth(t), costs[t]) else {
+        for (t, units, worth) in wanted {
+            let Some(cost) = costs[t] else {
                 continue;
             };
-            let spare = stores.get(t).copied().unwrap_or(0.0) - holding.keep[t];
+            // What it holds beyond its keep, its workshop's stock included.
+            let spare = stores.get(t).copied().unwrap_or(0.0) - holding.keep[t]
+                + self.workshop_stock(hh, t);
             if spare >= 1.0 {
                 continue;
             }
             let share = 1.0 - cost * (1.0 + margin) / worth.max(1e-9);
             if share > 0.0 {
-                out[t] = share * market.unmet[t].min(1.0);
+                out[t] = share * units.min(1.0);
             }
         }
         out

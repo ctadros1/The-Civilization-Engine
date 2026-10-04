@@ -1,5 +1,5 @@
-//! The ledger (ADR-0006 §3): every movement of goods between holders is one operation that moves
-//! exact quantities and carries its channel. A transfer that cannot be covered does not happen,
+//! The ledger (ADR-0006 §3): every movement of goods between holders (households and firms) is
+//! one operation that moves exact quantities and carries its channel. A transfer that cannot be covered does not happen,
 //! so stores are never driven below zero, and over all holders goods are conserved: a transfer
 //! counts as given by one holder and received by the other (see `Population::transfer`).
 
@@ -22,17 +22,23 @@ pub enum Channel {
     Barter = 5,
     /// Goods for the settlement's commodity money.
     Sale = 6,
+    /// A firm's owners put goods in or draw them out (slice J).
+    Owner = 7,
+    /// Wages a firm pays for work (slice J).
+    Wage = 8,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 6] = [
+    pub const ALL: [Channel; 8] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
         Channel::Inherit,
         Channel::Barter,
         Channel::Sale,
+        Channel::Owner,
+        Channel::Wage,
     ];
 
     /// The channel with this code.
@@ -49,6 +55,8 @@ impl Channel {
             Channel::Inherit => "inheritance",
             Channel::Barter => "barter",
             Channel::Sale => "sale",
+            Channel::Owner => "owner",
+            Channel::Wage => "wage",
         }
     }
 }

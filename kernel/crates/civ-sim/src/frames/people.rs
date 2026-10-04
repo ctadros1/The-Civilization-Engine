@@ -182,6 +182,8 @@ pub fn chronicle_response(sim: &Sim, after_seq: u64, limit: u32) -> Vec<u8> {
                         Span::Settlement(id, n) => {
                             (wire::SpanKind::Settlement, n.as_str(), id.get())
                         }
+                        // Firms are named; their pages come with the firm panel.
+                        Span::Firm(_, n) => (wire::SpanKind::Text, n.as_str(), 0),
                     };
                     let text = fbb.create_string(text);
                     wire::Span::create(
@@ -296,6 +298,16 @@ pub fn describe_target(sim: &Sim, home: (f32, f32), target: Target) -> String {
                 .map_or("", |b| b.id.as_str());
             format!("a new {}", program_name(sim, program))
         }
+        Target::Firm(id) => firm_name(sim, id),
+        Target::NewFirm => "a new workshop".to_owned(),
+    }
+}
+
+/// A firm in words, by its founder and what it makes: "Wren's sickle workshop".
+pub fn firm_name(sim: &Sim, id: PermanentId) -> String {
+    match sim.people.firm(id) {
+        Some(f) => f.name(&sim.people.name_of(f.founder), &sim.rules.catalog.goods),
+        None => "a workshop".to_owned(),
     }
 }
 

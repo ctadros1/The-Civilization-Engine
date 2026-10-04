@@ -346,6 +346,12 @@ pub enum ChronicleKind {
     /// The observer sent a family (god tool): `people` is the family, the mother and father first,
     /// and `number` how many they are.
     FamilyArrived,
+    /// A household set up a workshop (slice J): `people` is who founded it, `firm` the workshop
+    /// and `name` the good it makes.
+    WorkshopOpened,
+    /// A workshop closed: `people` is who founded it, `firm` the workshop, `name` the good it
+    /// made and `number` why ([`crate::firm::Exit`] as a number).
+    WorkshopClosed,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -406,6 +412,8 @@ pub struct ChronicleEvent {
     pub number: f64,
     /// A name the entry reports (for example a settlement's).
     pub name: String,
+    /// The firm the entry is about (slice J).
+    pub firm: Option<PermanentId>,
 }
 
 /// A piece of rendered chronicle text.
@@ -417,6 +425,8 @@ pub enum Span {
     Person(PermanentId, String),
     /// A link to a settlement.
     Settlement(PermanentId, String),
+    /// A link to a firm (slice J).
+    Firm(PermanentId, String),
 }
 
 /// Renders an entry. `name_of` gives a person's name (alive or dead).
@@ -580,6 +590,37 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             }));
             spans
         }
+        ChronicleKind::WorkshopOpened => {
+            let what = workshop(&event.name);
+            let link = match event.firm {
+                Some(id) => Span::Firm(id, format!("a {what}")),
+                None => Span::Text(format!("a {what}")),
+            };
+            match person(0) {
+                Some(who) => vec![
+                    who,
+                    Span::Text(" set up ".to_owned()),
+                    link,
+                    Span::Text(".".to_owned()),
+                ],
+                None => vec![Span::Text(format!("A {what} was set up."))],
+            }
+        }
+        ChronicleKind::WorkshopClosed => {
+            let what = workshop(&event.name);
+            let founder = event.people.first().map(|&id| name_of(id));
+            let title = match founder {
+                Some(n) => format!("{n}'s {what}"),
+                None => format!("A {what}"),
+            };
+            let why = crate::firm::Exit::from_code(event.number.round() as u8)
+                .map_or_else(String::new, |e| format!(": {}", e.text()));
+            let link = match event.firm {
+                Some(id) => Span::Firm(id, title),
+                None => Span::Text(title),
+            };
+            vec![link, Span::Text(format!(" closed{why}."))]
+        }
         ChronicleKind::FirstTrail => vec![
             Span::Text("The first trail out of ".to_owned()),
             settlement(event),
@@ -602,6 +643,15 @@ fn thousands(n: u64) -> String {
         out.push(c);
     }
     out
+}
+
+/// "sickle workshop", or "workshop" when the good is not known.
+fn workshop(good: &str) -> String {
+    if good.is_empty() {
+        "workshop".to_owned()
+    } else {
+        format!("{} workshop", good.to_lowercase())
+    }
 }
 
 fn settlement(event: &ChronicleEvent) -> Span {
@@ -645,7 +695,7 @@ pub fn plain(spans: &[Span]) -> String {
         .iter()
         .map(|s| match s {
             Span::Text(t) => t.as_str(),
-            Span::Person(_, n) | Span::Settlement(_, n) => n.as_str(),
+            Span::Person(_, n) | Span::Settlement(_, n) | Span::Firm(_, n) => n.as_str(),
         })
         .collect()
 }
@@ -678,6 +728,7 @@ mod tests {
             place: Some((1.0, 2.0)),
             number: 0.0,
             name: "Alder Ford".to_owned(),
+            firm: None,
         };
         let spans = render(&e, &|_| String::new());
         assert!(spans.contains(&Span::Settlement(id, "Alder Ford".to_owned())));

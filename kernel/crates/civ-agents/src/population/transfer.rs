@@ -1,5 +1,5 @@
-//! The ledger's one operation (ADR-0006 §3): goods move between households in exact quantities,
-//! by a channel, all legs or none.
+//! The ledger's one operation (ADR-0006 §3): goods move between households and firms in exact
+//! quantities, by a channel, all legs or none.
 
 use std::collections::BTreeMap;
 
@@ -14,11 +14,63 @@ use crate::person::Flow;
 /// a shortfall.
 const COVER_SLACK: f64 = 1e-9;
 
+/// A holder of goods the ledger moves between: a household or an open firm.
+#[derive(Clone, Copy, Debug)]
+enum Holder {
+    Household(civ_core::Handle<crate::person::Household>),
+    Firm(usize),
+}
+
 impl Population {
-    /// Moves goods between households in one operation (ADR-0006 §3): each leg moves `amount`
-    /// of a good from one household to another. Every household touched has its stores brought
-    /// up to `now` first; if any cannot cover all it gives, or a leg is malformed, nothing moves
-    /// and `false` comes back. Each leg counts as given by one household and received by the
+    fn holder(&self, id: PermanentId) -> Option<Holder> {
+        if let Some(&hd) = self.hh_index.get(&id) {
+            return Some(Holder::Household(hd));
+        }
+        self.firms
+            .iter()
+            .position(|f| f.id == id && f.is_open())
+            .map(Holder::Firm)
+    }
+
+    /// Brings a holder's stores up to `now`: a household's spoil and burn, a firm's spoil (under
+    /// its owners' roof when they have one).
+    fn settle_holder(&mut self, h: Holder, now: SimTime, params: &PeopleParams, goods: &[GoodDef]) {
+        match h {
+            Holder::Household(hd) => {
+                if let Some(x) = self.households.get_mut(hd) {
+                    let members = x.members.len().max(1);
+                    x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
+                    x.stores.resize(goods.len(), 0.0);
+                }
+            }
+            Holder::Firm(i) => {
+                let sheltered = self
+                    .firms
+                    .get(i)
+                    .and_then(|f| self.household(f.owner))
+                    .is_some_and(|x| x.sheltered);
+                if let Some(f) = self.firms.get_mut(i) {
+                    f.settle_stores(now, goods, sheltered);
+                    f.stores.resize(goods.len(), 0.0);
+                }
+            }
+        }
+    }
+
+    fn holder_goods(&mut self, h: Holder) -> Option<(&mut Vec<f64>, &mut crate::person::Flows)> {
+        match h {
+            Holder::Household(hd) => self
+                .households
+                .get_mut(hd)
+                .map(|x| (&mut x.stores, &mut x.flows)),
+            Holder::Firm(i) => self.firms.get_mut(i).map(|f| (&mut f.stores, &mut f.flows)),
+        }
+    }
+
+    /// Moves goods between holders in one operation (ADR-0006 §3): each leg moves `amount` of a
+    /// good from one household or open firm to another. Every holder touched has its stores
+    /// brought up to `now` first; if any cannot cover all it gives, or a leg is malformed, nothing
+    /// moves and `false` comes back. Each leg counts as given by one holder and received by the
     /// other, so goods are conserved, and as moved by `channel`.
     pub(crate) fn transfer(
         &mut self,
@@ -39,24 +91,24 @@ impl Population {
         let mut touched: Vec<PermanentId> = legs.iter().flat_map(|l| [l.from, l.to]).collect();
         touched.sort_unstable();
         touched.dedup();
-        if touched.iter().any(|id| !self.hh_index.contains_key(id)) {
-            return false;
-        }
+        let mut holders = Vec::with_capacity(touched.len());
         for id in &touched {
-            if let Some(x) = self
-                .hh_index
-                .get(id)
-                .and_then(|&hd| self.households.get_mut(hd))
-            {
-                let members = x.members.len().max(1);
-                x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
-                x.stores.resize(goods.len(), 0.0);
+            match self.holder(*id) {
+                Some(h) => holders.push((*id, h)),
+                None => return false,
             }
         }
+        for &(_, h) in &holders {
+            self.settle_holder(h, now, params, goods);
+        }
+        let holder_of = |id: PermanentId| holders.iter().find(|(i, _)| *i == id).map(|(_, h)| *h);
         for (&(from, good), &amount) in &gives {
-            let held = self
-                .household(from)
-                .and_then(|x| x.stores.get(good))
+            let held = holder_of(from)
+                .and_then(|h| match h {
+                    Holder::Household(hd) => self.households.get(hd).map(|x| &x.stores),
+                    Holder::Firm(i) => self.firms.get(i).map(|f| &f.stores),
+                })
+                .and_then(|s| s.get(good))
                 .copied()
                 .unwrap_or(0.0);
             if held + COVER_SLACK < amount {
@@ -65,22 +117,14 @@ impl Population {
         }
         for l in legs {
             let mut moved = 0.0;
-            if let Some(x) = self
-                .hh_index
-                .get(&l.from)
-                .and_then(|&hd| self.households.get_mut(hd))
-            {
-                moved = l.amount.min(x.stores[l.good].max(0.0));
-                x.stores[l.good] -= moved;
-                x.flows.add(Flow::Given, l.good, moved);
+            if let Some((stores, flows)) = holder_of(l.from).and_then(|h| self.holder_goods(h)) {
+                moved = l.amount.min(stores[l.good].max(0.0));
+                stores[l.good] -= moved;
+                flows.add(Flow::Given, l.good, moved);
             }
-            if let Some(x) = self
-                .hh_index
-                .get(&l.to)
-                .and_then(|&hd| self.households.get_mut(hd))
-            {
-                x.stores[l.good] += moved;
-                x.flows.add(Flow::Received, l.good, moved);
+            if let Some((stores, flows)) = holder_of(l.to).and_then(|h| self.holder_goods(h)) {
+                stores[l.good] += moved;
+                flows.add(Flow::Received, l.good, moved);
             }
             self.transfers.add(channel, l.good, moved);
         }

@@ -757,6 +757,8 @@ impl Population {
     /// The land of household `from` passes to `to`, or, with no one to take it, stays as it is
     /// (fields fall fallow, huts stand empty).
     fn hand_over_land(&mut self, ctx: &mut Ctx, from: PermanentId, to: Option<PermanentId>) {
+        // Its workshops go with it (slice J).
+        self.pass_firms(ctx, from, to);
         self.homes.remove(&from);
         self.sites.remove(&from);
         self.home_sites.remove(&from);

@@ -554,14 +554,8 @@ fn walking_wears_trails_out_from_the_village() {
         .collect();
     assert_eq!(noted.len(), 1, "the first trail is noted once");
     assert!(noted[0].number >= f64::from(population::FIRST_TRAIL_M));
-    let text: String = civ_agents::history::render(noted[0], &|_| String::new())
-        .into_iter()
-        .map(|s| match s {
-            civ_agents::history::Span::Text(t)
-            | civ_agents::history::Span::Person(_, t)
-            | civ_agents::history::Span::Settlement(_, t) => t,
-        })
-        .collect();
+    let text =
+        civ_agents::history::plain(&civ_agents::history::render(noted[0], &|_| String::new()));
     assert!(text.starts_with("The first trail out of "), "{text}");
 }
 

@@ -827,6 +827,15 @@ pub struct MarketParams {
     pub recent_trades: usize,
 }
 
+/// Household workshops (slice J, ADR-0006 §5).
+#[derive(Clone, Debug, PartialEq)]
+pub struct FirmParams {
+    /// Days without a sale after which a workshop's owners give it up.
+    pub idle_close_days: f64,
+    /// Entries a firm's books keep in full (its monthly statements are kept for its life).
+    pub book_entries: usize,
+}
+
 /// Everything authored about people.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PeopleParams {
@@ -863,6 +872,8 @@ pub struct PeopleParams {
     pub family: FamilyParams,
     /// Trade.
     pub market: MarketParams,
+    /// Workshops.
+    pub firm: FirmParams,
     /// Names.
     pub names: NameParams,
 }

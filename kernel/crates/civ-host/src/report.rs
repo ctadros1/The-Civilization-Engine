@@ -94,6 +94,7 @@ pub fn run(
         let moved = sim.people().transfers.clone();
         report_moved(&sim, &moved_before, &moved, out)?;
         report_market(&sim, &moved_before, &moved, out)?;
+        report_firms(&sim, civ_core::SimTime::from_minutes(start), out)?;
         moved_before = moved;
     }
     Ok(())
@@ -232,6 +233,69 @@ fn report_market(
         } else {
             money.join("; ")
         }
+    )?;
+    Ok(())
+}
+
+/// The workshops (slice J): which are open, which closed and why, and what they made and sold
+/// since `start`, from their books' months.
+fn report_firms(sim: &Sim, start: civ_core::SimTime, out: &mut dyn Write) -> anyhow::Result<()> {
+    use civ_agents::firm::BookKind;
+    let pop = sim.people();
+    let goods = &sim.rules().catalog.goods;
+    let name = |f: &civ_agents::firm::Firm| f.name(&pop.name_of(f.founder), goods);
+    let open: Vec<String> = pop.firms.iter().filter(|f| f.is_open()).map(name).collect();
+    let closed: Vec<String> = pop
+        .firms
+        .iter()
+        .filter_map(|f| {
+            f.closed
+                .map(|(_, why)| format!("{} ({})", name(f), why.text()))
+        })
+        .collect();
+    let months = civ_agents::market::month_of(start)..civ_agents::market::month_of(sim.now());
+    let total = |kind: BookKind| {
+        goods
+            .iter()
+            .enumerate()
+            .filter_map(|(g, d)| {
+                let v: f32 = pop
+                    .firms
+                    .iter()
+                    .flat_map(|f| f.books.months.iter())
+                    .filter(|m| months.contains(&m.month))
+                    .map(|m| m.amount(kind, g as u16))
+                    .sum();
+                (v > 0.005).then(|| format!("{} {v:.1}", d.name))
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let hours: (f32, f32) = pop
+        .firms
+        .iter()
+        .flat_map(|f| f.books.months.iter())
+        .filter(|m| months.contains(&m.month))
+        .fold((0.0, 0.0), |(o, h), m| (o + m.owner_h, h + m.hired_h));
+    writeln!(
+        out,
+        "  workshops: {} open{}; {} closed{}; made {}; sold {}; worked {:.0} h by their owners, {:.0} h hired",
+        open.len(),
+        if open.is_empty() {
+            String::new()
+        } else {
+            format!(" ({})", open.join(", "))
+        },
+        closed.len(),
+        if closed.is_empty() {
+            String::new()
+        } else {
+            format!(" ({})", closed.join(", "))
+        },
+        or_none(total(BookKind::Made)),
+        or_none(total(BookKind::Sold)),
+        hours.0,
+        hours.1
     )?;
     Ok(())
 }

@@ -190,6 +190,16 @@ impl Market {
         (units > 1e-6).then(|| self.unmet_h[good] / units)
     }
 
+    /// What a unit of `good` fetched in the latest month it sold, hours of its sellers' work (from
+    /// the price history).
+    pub fn price_h(&self, good: usize) -> Option<f64> {
+        self.history
+            .iter()
+            .rev()
+            .find(|h| usize::from(h.good) == good && h.units > 0.0)
+            .map(|h| f64::from(h.paid_h) / f64::from(h.units))
+    }
+
     /// Each good's share of the worth of the payments remembered (acceptance, ADR-0006 §4).
     pub fn acceptance(&self) -> Vec<f64> {
         let total: f64 = self.paid_h.iter().sum();

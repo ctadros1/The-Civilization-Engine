@@ -11,7 +11,7 @@
 //! | `content` | 1 | fingerprint and packs of the content the state was produced with |
 //! | `hydro` | 1 | lakes, river reaches, inflows from beyond the map |
 //! | `r-elev`, `r-recv`, `r-water`, `r-lake` | one per 512² tile | the authoritative rasters |
-//! | `land`, `settle`, `people`, `houses`, `history`, `receipts`, `events`, `fields`, `plots`, `builds`, `wear`, `market` | 1 each | land and people (see [`agents`]) |
+//! | `land`, `settle`, `people`, `houses`, `history`, `receipts`, `events`, `fields`, `plots`, `builds`, `wear`, `market`, `firms` | 1 each | land and people (see [`agents`]) |
 //!
 //! The world id, the snapshot's own id and its parent live in the container header. Drainage area,
 //! the walking grid and the people's indexes are derived and rebuilt on load.
@@ -19,7 +19,8 @@
 //! **Schema versions.** Version 2 (M1) added the land and people sections; version 3 replaced
 //! food counted in kilocalories with goods; version 4 added fields; version 5 added plots and
 //! buildings; version 6 added couples, pregnancies and unions; version 7 worn ground; version 8
-//! families the observer sends; version 9 tools and skills; version 10 offers and markets. A
+//! families the observer sends; version 9 tools and skills; version 10 offers and markets;
+//! version 11 firms. A
 //! version-1 save (M0) is migrated as it loads: its land is classified and grown from the loaded
 //! content, exactly as for a new world, and it has no people yet, which is a valid world
 //! (ADR-0003 §4). Later versions are migrated as [`agents`] describes. A migrated world is
@@ -75,6 +76,8 @@ pub const SCHEMA_V8: u32 = 8;
 /// The schema version of M3a slice H saves, with tools and skills and no markets (see
 /// [`agents`]).
 pub const SCHEMA_V9: u32 = 9;
+/// The schema version of M3a slice I saves, with markets and no firms (see [`agents`]).
+pub const SCHEMA_V10: u32 = 10;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

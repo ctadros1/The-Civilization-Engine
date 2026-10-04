@@ -159,8 +159,10 @@ pub struct GiverOption {
 /// and what it would bring the household.
 #[derive(Clone, Copy, Debug)]
 pub struct TradeOption {
-    /// The selling household.
+    /// The selling household, or workshop.
     pub seller: PermanentId,
+    /// The seller is a workshop (slice J).
+    pub firm: bool,
     /// One-way walk to its home, minutes.
     pub walk_min: f64,
     /// Its home, metres.
@@ -230,6 +232,8 @@ pub struct MakeOption {
     pub minutes: f64,
     /// What they are worth.
     pub worth: MakeWorth,
+    /// Made to sell: the household's workshop for it, if it has one yet (slice J).
+    pub firm: Option<PermanentId>,
 }
 
 /// Least of a tool, in standard tools, that still does the work (the last of a worn one).
@@ -791,7 +795,12 @@ pub fn candidates(
                     },
                     Step::Walk { to: f.home },
                 ];
-                out.push(finish(id, Target::Household(t.seller), terms, steps));
+                let target = if t.firm {
+                    Target::Firm(t.seller)
+                } else {
+                    Target::Household(t.seller)
+                };
+                out.push(finish(id, target, terms, steps));
             }
             Behavior::Socialize => {
                 let Some(hearth) = f.hearth else {
@@ -884,7 +893,13 @@ pub fn candidates(
                 steps.push(Step::Work {
                     minutes: minutes.round().max(1.0) as u32,
                 });
-                out.push(finish(id, Target::Home, terms, steps));
+                // What is made to sell is made in the household's workshop, set up for it if it
+                // has none yet (slice J).
+                let target = match option.worth {
+                    MakeWorth::Sale { .. } => option.firm.map_or(Target::NewFirm, Target::Firm),
+                    _ => Target::Home,
+                };
+                out.push(finish(id, target, terms, steps));
             }
         }
         // Work that needs a tool the household has none of free is left out, and the tool is one
@@ -1145,6 +1160,7 @@ mod tests {
                 units: 1.0,
                 minutes: 180.0,
                 worth: MakeWorth::Tool { tool: 0, need: 0.5 },
+                firm: None,
             })
         };
         let makes = |d: usize| d == 2;
@@ -1190,6 +1206,7 @@ mod tests {
                         room: 0.5,
                         toward_meal: true,
                     },
+                    firm: None,
                 })
             }
         };

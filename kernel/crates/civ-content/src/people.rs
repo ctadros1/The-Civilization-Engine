@@ -3,8 +3,8 @@
 
 use civ_agents::params::{
     BandParams, DecisionParams, EnergyParams, FamilyParams, FarmParams, FertilityParams,
-    HouseholdParams, MarketParams, MortalityParams, NameParams, PeopleParams, Residence, Siler,
-    SleepParams, SocialParams,
+    FirmParams, HouseholdParams, MarketParams, MortalityParams, NameParams, PeopleParams,
+    Residence, Siler, SleepParams, SocialParams,
 };
 use civ_world::nav::NavParams;
 use serde::Deserialize;
@@ -38,6 +38,14 @@ pub(crate) struct PeopleFile {
     pub fertility: Fertility,
     pub family: Family,
     pub market: Market,
+    pub firm: Firm,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Firm {
+    pub idle_close_days: f64,
+    pub book_entries: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -488,6 +496,10 @@ impl PeopleFile {
                     recent_trades: k.recent_trades as usize,
                 }
             },
+            firm: FirmParams {
+                idle_close_days: self.firm.idle_close_days,
+                book_entries: self.firm.book_entries as usize,
+            },
             names,
         }
     }
@@ -744,6 +756,10 @@ impl PeopleFile {
         unit("market.accept_want", k.accept_want, &mut p);
         if k.recent_trades == 0 || k.recent_trades > 1000 {
             p.push("`market.recent_trades` must be between 1 and 1000".to_owned());
+        }
+        positive("firm.idle_close_days", self.firm.idle_close_days, &mut p);
+        if self.firm.book_entries == 0 || self.firm.book_entries > 10_000 {
+            p.push("`firm.book_entries` must be between 1 and 10000".to_owned());
         }
         let m = &self.mortality;
         for (name, v) in [("a", m.a), ("b", m.b), ("c", m.c), ("d", m.d), ("e", m.e)] {

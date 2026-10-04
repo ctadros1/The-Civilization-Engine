@@ -1020,6 +1020,10 @@ pub(crate) mod tests {
                 accept_want: 0.5,
                 recent_trades: 64,
             },
+            firm: crate::params::FirmParams {
+                idle_close_days: 180.0,
+                book_entries: 64,
+            },
             names: NameParams::default(),
             farm: FarmParams {
                 crop: 0,

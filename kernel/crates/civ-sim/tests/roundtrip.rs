@@ -156,9 +156,9 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 12 land, field, plot, building,
-    // wear, market and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 12);
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 13 land, field, plot, building,
+    // wear, market, firm and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 13);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -516,6 +516,36 @@ fn slice_h_saves_load_with_no_markets_and_post_offers_again() {
             .any(|(_, h)| !h.offers.is_empty()),
         "and its households post offers again"
     );
+}
+
+#[test]
+fn slice_i_saves_load_with_no_firms() {
+    // A schema-10 save has no firms section: nobody had set up a workshop yet.
+    let sim = load_first();
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_FIRMS)
+        .collect();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V10;
+    let path = republish("slice-i", &info, &sections);
+    let mut migrated = persist::load(&path, content()).expect("a schema-10 save loads");
+    assert!(migrated.is_dirty(), "the migration is new state");
+    assert!(migrated.people().firms.is_empty());
+    migrated
+        .advance_minutes(24 * 60)
+        .expect("a migrated world runs");
+}
+
+#[test]
+fn a_save_without_its_firms_section_is_refused() {
+    let sim = load_first();
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_FIRMS)
+        .collect();
+    let path = republish("no-firms", &fixture().first_info, &sections);
+    assert!(persist::load(&path, content()).is_err());
 }
 
 #[test]

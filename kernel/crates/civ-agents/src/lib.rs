@@ -24,6 +24,7 @@ pub mod build;
 pub mod decide;
 pub mod demography;
 pub mod farm;
+pub mod firm;
 pub mod found;
 pub mod history;
 pub mod ledger;

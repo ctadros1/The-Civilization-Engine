@@ -1117,6 +1117,35 @@ prices, buildings and wealth distribution), is M3a's.
   practitioner; a loaded loft sags and fails, and builders over-build for a while; new houses
   copy an admired one.
 - *Proves:* discovery without eras, failure from how things were built, style from copying.
+- *Design (2026-10-04):* six slices, from research 07-01 to 07-05, 07-07, 07-11, 06-06, 06-08,
+  04-05, 08-02, 08-11, 08-17, 10-06, 11-01 to 11-09, 11-12, 11-13, 03-01, 03-05, 14-01 and
+  14-06 (four briefs drawn from about 40 reports):
+  - **M**: knowledge carried by people. Techniques as content gate today's work (the founders'
+    repertoire: growing emmer, grinding, pounding, baking, knapping, shaping stone, shaping
+    wood, building roundhouses); each person keeps what they know, learn and have heard of;
+    upbringing, working alongside a knower (in the household, or as a hired hand); loss with
+    the last knower; the god tool *introduce a technology*; a knowledge panel.
+  - **N**: discovery and the first new crafts. Finds by named people from practice and from
+    spare hours spent trying at a household's problems; first-in-world, first-here and
+    independent finds; drying and smoking, and a rotary quern as an imported route.
+  - **O**: grammar v2. A frame grammar beside the frozen hut: rectangular post-framed houses,
+    storehouses and workshops in bays, lofts, raised floors and two storeys; storage as a
+    roofed capacity; techniques for jointed frames, lofts, upper storeys and raised stores.
+  - **P**: structural rules v0. Component groups with quality drawn from builders' skill, decay
+    from exposure, symptoms, upkeep, loads (a loaded loft), checks, partial failures and
+    collapses with their occupants, footings and slope, and caution per settlement and
+    technique that makes builders over-build after a failure.
+  - **Q**: the ground people change. Deposits of clay, stone and flint, found by passing or
+    digging; the god tool *place a deposit*; plot levelling, clay pits and quarries; clay crafts
+    (pottery, an oven, cob walls).
+  - **R**: style v0 with prestige copying, and the demo.
+
+  The graph v0 has about two dozen techniques with work behind each; nodes waiting for their
+  work (cordage and nets, salting, kilns, lime, mud brick, manuring, livestock, textiles) come
+  when it exists (§5.6). [ADR-0008](decisions/0008-knowledge-carried-by-people.md) governs
+  knowledge; [ADR-0009](decisions/0009-building-components.md) governs grammar v2, condition
+  and trust; [ADR-0010](decisions/0010-ground-people-change.md) governs deposits and
+  earthworks.
 
 **M3c: Seasons and time.**
 - *Contents:*
@@ -1513,3 +1542,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **The M3a demo (2026-10-04, M3a slice L, plan §7):** seed 2 (river valley, 6 km map), lived from the command line (`civ-host run`, which now reports each year's prices too, and with `--band` and `--families` makes a village of hundreds) under household fields and under village fields, three runs of each since runs differ; no seed was picked. **A band of 40, ten years:** at the tenth year's end, under household fields and village fields: 48–51 and 47–49 people, 12 households each; Gini of goods 0.15–0.19 and 0.16–0.18, of land worked 0.09–0.12 and 0.10, of land held 0.09–0.12 and 0 (the village held all 18–18.5 ha); floor area 0.21–0.22 in both and 27–28 m² a house; the top tenth 15–18% and 15–17% of the goods; 540–560 and 552–574 hours of goods a head; 0–1 field let and none (the regime lets none); a sickle sold for 3.6–3.9 and 3.6–4.4 hours of work, a hoe 2.3–2.5 and 2.5; grain asked at 1.87 in all as the year turned; no money anywhere; 8–24 and 15–28 workshops given up over the years. **A village of hundreds** (a band of 125 joined by 20 families, 214 people at the founding): at its fifth year's end 245–250 and 246–254 people in 59 households, with the same Ginis of goods (0.14–0.15 and 0.15), floor area (0.18) and floor per house (26 m²) under both; under household fields three fields were let for 99–155 kg of grain in rent. In its sixth year the harvest came in 37–41% short of the year before (35–38 t against about 60) and hunger followed under both. Under village fields 82–105 people died over the year and 5–7 left, leaving 154–175 at its end, with a Gini of goods of 0.27–0.32. Under household fields 25–73 died, but households left sooner (0, 129 and 229 people), leaving 189, 90 and 12, with Ginis of 0.11–0.24, and up to 38 fields let. Households left sooner under household fields and died more under village fields; why has not been traced. In the seventh year every household of every run left the valley.
 - **NUDGE: the regimes part only under scarcity (2026-10-04, M3a slice L):** with land plentiful, households under either regime work what they need, and nothing else in the economy depends on who holds the ground; the regimes came out the same but for who holds land and the few fields let (research 08-14 §2.2: where households can get an independent livelihood, holders have little hold over them). Only a famine parted them. A village crowded onto too little land for long enough, with people who stay, would test whether tenure shapes wealth; that needs villages that survive scarcity (next NUDGE). Nothing was tuned to make them part.
 - **NUDGE: a village of hundreds made at once does not last (2026-10-04, M3a slice L):** a band of 125 joined by 20 families never fed itself. Ground is broken only in the spring window, at 1,000 hours a hectare for new ground (plus 1,000 for woodland), so its fields grew from 35 to 81 ha in five years while its households needed about 100 (0.40 ha a head for a year's food at a cautious yield, 10-01 §2.3); it worked 0.31 ha a head and lived on what it carried and one good year, holding about four months' grain going into its sixth. Adults spent some ten hours a day resting or at the hearth, so labour was not short. A band of 40 has the same shortfall, but the valley's wild food covers far more of it. Likely remedies, for M3c's farming: breaking ground outside the sowing season, as farmers clear in autumn and winter, and reserves for more than the coming year (08-14 §3.7 proposes 30–180 days of reserve to test). Villages of 200–500 run at full detail (slice L's speed), but not for long.
+- **M3b design (2026-10-04, plan §7):** four research briefs (knowledge and technique; buildings and grammar v2; structural rules, failure and upkeep; style, earthworks and deposits) from about 40 reports, their key citations checked against the reports. Six slices, M to R (§7). Three ADRs, the share §9's *M3 in three parts* set aside for M3b: [ADR-0008](decisions/0008-knowledge-carried-by-people.md) (knowledge carried by people), [ADR-0009](decisions/0009-building-components.md) (grammar v2, condition and trust) and [ADR-0010](decisions/0010-ground-people-change.md) (deposits and earthworks). Choices that depart from the plan's first sketch: discovery is a hazard on a session's qualified hours, drawn at its end and tied to the person working (07-01 §5.3, §5.5), not the yearly roll from population and specialists of §4.4 and §5.6 (07-01 §1.4 warns against population multipliers); a building's margin is kept per component group and decays with exposure, not one margin per building decaying with age (§5.1; 11-06 §5.1, §5.7); and technique trust is kept per settlement, which stands in for its culture until cultures exist (M5). Style needs no ADR: its traits are realised decisions in the spec's parameters, and taste is behaviour state.

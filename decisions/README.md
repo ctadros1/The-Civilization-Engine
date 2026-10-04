@@ -14,6 +14,9 @@ the milestone is too big and gets split.
 | [0005](0005-kernel-c-interface.md) | The kernel's C interface | Accepted | M2 |
 | [0006](0006-goods-ledger-firms.md) | Goods, the ledger, prices and firms | Accepted | M3a |
 | [0007](0007-claims-property-regimes.md) | Claims and property regimes | Accepted | M3a |
+| [0008](0008-knowledge-carried-by-people.md) | Knowledge carried by people | Accepted | M3b |
+| [0009](0009-building-components.md) | Building components: grammar v2, condition and trust | Accepted | M3b |
+| [0010](0010-ground-people-change.md) | The ground people change: deposits and earthworks | Accepted | M3b |
 
 ## Template
 

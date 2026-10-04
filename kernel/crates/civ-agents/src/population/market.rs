@@ -4,6 +4,7 @@
 //! buyer arrives.
 
 use civ_core::PermanentId;
+use civ_core::time::SimTime;
 use civ_land::LandParams;
 use civ_world::nav::TravelField;
 
@@ -125,7 +126,7 @@ impl Population {
     /// What a household's goods cost it, hours of its own work per unit, at its best member's
     /// skills and from what it knows of the land.
     pub(crate) fn own_costs_of(&self, ctx: &Ctx, hh: &Household) -> Vec<Option<f64>> {
-        self.own_costs_with(ctx.catalog, ctx.params, ctx.land_params, hh)
+        self.own_costs_with(ctx.catalog, ctx.params, ctx.land_params, hh, ctx.now)
     }
 
     /// [`Population::own_costs_of`], from the rules alone (for measures read outside a step).
@@ -135,6 +136,7 @@ impl Population {
         params: &PeopleParams,
         land_params: &LandParams,
         hh: &Household,
+        now: SimTime,
     ) -> Vec<Option<f64>> {
         let mut levels: Vec<f64> = vec![0.0; catalog.skills.len()];
         for m in &hh.members {
@@ -146,7 +148,23 @@ impl Population {
         }
         let n = catalog.goods.len();
         let gathered = value::gathered_costs(&land_params.resources, &hh.known, n);
-        let grown = value::grown_costs(&catalog.crops, n, params.farm.plan_yield_share);
+        // What it grows is carried in its store from the harvest, under its roof if it has one.
+        let half_life = |g: usize| {
+            catalog.goods.get(g).map_or(0.0, |d| {
+                if hh.sheltered && d.sheltered_half_life_days > 0.0 {
+                    d.sheltered_half_life_days
+                } else {
+                    d.half_life_days
+                }
+            })
+        };
+        let grown = value::grown_costs(
+            &catalog.crops,
+            n,
+            params.farm.plan_yield_share,
+            now.day_index(),
+            &half_life,
+        );
         let mut costs = value::own_costs(catalog, &levels, &gathered, &grown);
         value::food_by_energy(&catalog.goods, &mut costs);
         costs

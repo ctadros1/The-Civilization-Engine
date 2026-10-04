@@ -191,13 +191,15 @@ fn a_skilled_household_sets_up_a_workshop_and_sells_what_it_makes() {
         .iter()
         .find(|f| f.owner == maker)
         .unwrap_or_else(|| panic!("no workshop; firms {:?}", pop.firms));
+    let firm_id = firm.id;
     assert!(sold(&sim), "the workshop sold nothing: {:?}", firm.books);
     assert!(firm.is_open());
     assert_eq!(firm.lines, vec![sickle as u16]);
+    // The chronicle notes it (other households may have set up workshops of their own).
     let opened = pop
         .chronicle
         .iter()
-        .find(|e| e.kind == ChronicleKind::WorkshopOpened)
+        .find(|e| e.kind == ChronicleKind::WorkshopOpened && e.firm == Some(firm.id))
         .expect("the chronicle notes it");
     assert_eq!(opened.firm, Some(firm.id));
     // Its books: what its owners put in and it used, what it made, sold and was paid.
@@ -329,16 +331,25 @@ fn a_skilled_household_sets_up_a_workshop_and_sells_what_it_makes() {
     assert_eq!(strip(&loaded), strip(&sim));
 
     // Months without a sale and its owners give it up: what it holds goes back to them.
-    let id = loaded.people().firms[0].id;
+    let id = firm_id;
     let long_ago = loaded.now().plus_minutes(-200 * 24 * 60);
-    {
-        let pop = loaded.people_mut_for_tests();
-        let f = pop.firms.iter_mut().find(|f| f.id == id).expect("firm");
-        f.last_sale = Some(long_ago);
-        f.founded = long_ago;
-    }
+    // Each night, a minute before the day's reviews, it has sold nothing for months (its owners
+    // could make and sell another sickle in the day), until its review gives it up.
     for _ in 0..8 {
-        loaded.advance_minutes(24 * 60).expect("advances");
+        let to_midnight = 24 * 60 - loaded.now().minute_of_day();
+        loaded.advance_minutes(to_midnight - 1).expect("advances");
+        {
+            let pop = loaded.people_mut_for_tests();
+            let f = pop.firms.iter_mut().find(|f| f.id == id).expect("firm");
+            if f.is_open() {
+                f.last_sale = Some(long_ago);
+                f.founded = long_ago;
+            }
+        }
+        loaded.advance_minutes(2).expect("the day's reviews come");
+        if loaded.people().firm(id).is_some_and(|f| !f.is_open()) {
+            break;
+        }
     }
     let f = loaded.people().firm(id).expect("kept on record");
     assert_eq!(f.closed.map(|(_, why)| why), Some(Exit::Idle));

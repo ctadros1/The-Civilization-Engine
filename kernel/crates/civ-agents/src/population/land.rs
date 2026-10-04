@@ -7,11 +7,11 @@
 use std::collections::HashSet;
 
 use civ_core::PermanentId;
-use civ_land::{Field, FieldStage, Party};
+use civ_land::{Field, FieldStage, Land, Party};
 
 use super::{Ctx, Population};
 use crate::farm;
-use crate::params::{LandUse, Succession};
+use crate::params::{LandHolder, LandUse, RegimeDef, Succession};
 
 /// Whether a field can change hands at a review: between crops, with nothing waiting to be
 /// threshed and no work begun on its next crop, so a crop and the work put into it stay with the
@@ -60,6 +60,78 @@ fn divide(areas: &[f64], heirs: usize) -> Vec<usize> {
 }
 
 impl Population {
+    /// What is wrong with who holds and works the land of `land` under `regime` (nothing, in a
+    /// sound world; ADR-0007 §2, §3): every holder is a settlement of the world or a household
+    /// that was once in it (`next_id` is the next id to be allocated), of the kind the regime
+    /// gives ground to (the settlement where it holds what is broken; the household that broke
+    /// it, or the settlement where holdings return to it); a lease only where the regime lets
+    /// land, from its holder to another household, for a share of the grain, over a term that
+    /// began before it ends; and where holders work their land, a field another household works
+    /// is let to it, unless one of them is no more.
+    pub fn claims_problems(&self, land: &Land, regime: &RegimeDef, next_id: u64) -> Vec<String> {
+        let mut out = Vec::new();
+        for f in &land.fields {
+            match f.holder {
+                Party::Settlement(s) => {
+                    if !land.settlements.iter().any(|x| x.id == s) {
+                        out.push(format!(
+                            "field {} is held by settlement {s}, which is not in the world",
+                            f.id
+                        ));
+                    }
+                    if regime.holder == LandHolder::Breaker
+                        && regime.succession != Succession::Settlement
+                    {
+                        out.push(format!(
+                            "field {} is held by a settlement under {}",
+                            f.id, regime.name
+                        ));
+                    }
+                }
+                Party::Household(h) => {
+                    if h.get() >= next_id {
+                        out.push(format!(
+                            "field {} is held by household {h}, never allocated",
+                            f.id
+                        ));
+                    }
+                    if regime.holder == LandHolder::Settlement {
+                        out.push(format!(
+                            "field {} is held by household {h} under {}",
+                            f.id, regime.name
+                        ));
+                    }
+                }
+            }
+            if let Some(lease) = f.lease {
+                if regime.lease.is_none() {
+                    out.push(format!(
+                        "field {} is let under {}, which lets no land",
+                        f.id, regime.name
+                    ));
+                }
+                if f.holder.household().is_none_or(|h| h == f.household) {
+                    out.push(format!("field {} is let by no other household", f.id));
+                }
+                let share = f64::from(lease.holder_share);
+                if !(share > 0.0 && share < 1.0) || lease.since > lease.until {
+                    out.push(format!("field {} has a malformed lease", f.id));
+                }
+            } else if regime.land_use == LandUse::Holder
+                && let Party::Household(h) = f.holder
+                && h != f.household
+                && self.household(h).is_some()
+                && self.household(f.household).is_some()
+            {
+                out.push(format!(
+                    "field {} is worked by household {} without a lease from its holder {h}",
+                    f.id, f.household
+                ));
+            }
+        }
+        out
+    }
+
     /// The area a household of `members` needs to crop, hectares, as households plan it
     /// themselves ([`farm::need_area_ha`]); 0 without a crop.
     pub(super) fn need_ha(&self, ctx: &Ctx, members: usize) -> f64 {

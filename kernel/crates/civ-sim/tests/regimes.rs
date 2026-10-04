@@ -105,6 +105,42 @@ fn held(pop: &Population) -> (Vec<f64>, civ_agents::person::Flows) {
     (pop.goods_held(), pop.flows())
 }
 
+/// Nothing is wrong with who holds and works the land.
+fn sound_claims(sim: &Sim) {
+    let problems = sim
+        .people()
+        .claims_problems(sim.land(), sim.regime(), sim.ids().peek_next());
+    assert!(problems.is_empty(), "{problems:?}");
+}
+
+#[test]
+fn broken_claims_are_found() {
+    let mut sim = with_fields("core:regime/village", 4);
+    sound_claims(&sim);
+    let household = households(&sim)[0].0;
+    let (regime, next, now) = (sim.regime().clone(), sim.ids().peek_next(), sim.now());
+    let land = sim.land_mut_for_tests();
+    land.fields[0].holder = Party::Household(household);
+    land.fields[1].lease = Some(civ_land::Lease {
+        since: now,
+        until: now,
+        holder_share: 0.25,
+    });
+    land.fields[2].holder = Party::Settlement(PermanentId::from_raw(next + 5).expect("an id"));
+    let problems = sim.people().claims_problems(sim.land(), &regime, next);
+    for words in [
+        "is held by household",
+        "which lets no land",
+        "is let by no other household",
+        "which is not in the world",
+    ] {
+        assert!(
+            problems.iter().any(|p| p.contains(words)),
+            "{words}: {problems:?}"
+        );
+    }
+}
+
 #[test]
 fn a_world_keeps_the_regime_it_was_made_under() {
     let sim = create(3, "").expect("generates");
@@ -184,6 +220,7 @@ fn village_fields_are_held_by_the_settlement_and_given_out_by_need() {
     let goods = sim.rules().catalog.goods.len();
     let gaps = population::unaccounted(goods, (&start.0, &start.1), (&end.0, &end.1));
     assert!(gaps.is_empty(), "unaccounted for: {gaps:?}");
+    sound_claims(&sim);
 }
 
 #[test]
@@ -498,6 +535,7 @@ fn wealth_is_measured_each_year_and_kept_in_saves() {
         spread.goods_h_per_head > 0.0,
         "the band's provisions are worth something"
     );
+    sound_claims(&sim);
 
     // Under village tenure the settlement holds it all; each year's end is recorded and saved.
     let mut sim = create(3, "core:regime/village").expect("generates");
@@ -513,6 +551,7 @@ fn wealth_is_measured_each_year_and_kept_in_saves() {
     assert_eq!(first.spread.gini_held, 0.0);
     assert!(first.spread.common_ha > 0.0, "the village holds its fields");
     assert!(first.spread.worked_ha_per_head > 0.0);
+    sound_claims(&sim);
     let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
     let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("save dir");
     let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "wealth").expect("saves");

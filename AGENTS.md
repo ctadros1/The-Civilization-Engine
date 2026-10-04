@@ -74,7 +74,7 @@ cargo test --workspace --locked --profile simcheck     # how CI runs tests
 cargo run --release -p civ-host                        # serve the observer on 127.0.0.1:7420
 cargo run --release -p civ-host -- content validate [--json]
 cargo run --release -p civ-host -- smoke               # the smoke seeds; must pass
-cargo run --release -p civ-host -- smoke --years 10    # and ten years of each (nightly; ~15 min on 4 cores)
+cargo run --release -p civ-host -- smoke --years 10    # and ten years of each, its economy graded (nightly; ~11 min on 4 cores)
 cargo run --release -p civ-host -- run --seed 2 --years 5   # one world, reported each year (calibration)
 cargo run --release -p civ-host -- run --seed 2 --years 3 --regime core:regime/village   # the same under village fields
 cargo run --release -p civ-host -- new --seed 7 --size 1024

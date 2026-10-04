@@ -12,17 +12,24 @@
 //! within the first. A band may fail and leave its valley, as foundings did (research 05-06 §5.2);
 //! across the worlds at least half the bands must still live where they settled. Runs differ from
 //! one to the next (determinism is not a goal), so the thresholds leave room for chance.
+//!
+//! The worlds take the content's property regimes in turn by seed, and a long run checks their
+//! economies too ([`crate::economy`]): land claims, fields and wealth measures at each year's end,
+//! and at the run's end, graded, whether food stocks rise with the harvest, whether grain is asked
+//! more for before it than after, how unequal goods are and how workshop sizes spread.
 
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use civ_content::ContentRegistry;
-use civ_core::time::MINUTES_PER_DAY;
+use civ_core::time::{MINUTES_PER_DAY, SimTime};
 use civ_schema::SAVE_EXTENSION;
 use civ_sim::{NewWorld, Sim, persist};
 use civ_world::MapStats;
 use commons_persist::{SaveDir, SaveKind};
+
+use crate::economy::{Check, Economy, Grade};
 
 /// Least elevation range, metres.
 pub const MIN_RELIEF_M: f32 = 20.0;
@@ -69,6 +76,10 @@ pub struct SmokeResult {
     pub living: Option<usize>,
     /// What else happened that a reader should know (a band that left its valley).
     pub notes: Vec<String>,
+    /// The property regime it lived under.
+    pub regime: String,
+    /// How its economy was graded, when it lived on for years.
+    pub economy: Vec<Check>,
 }
 
 fn check_world(stats: &MapStats) -> Vec<String> {
@@ -276,14 +287,31 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
     let founded = sim.now().minutes() - DAYS * MINUTES_PER_DAY;
     // The books at the start: every good held is accounted for from here on (ADR-0006 §3).
     let books = (sim.people().goods_held(), sim.people().flows());
+    let mut economy = Economy::default();
     for y in 1..=years {
-        let to_go = founded + i64::from(y) * year - sim.now().minutes();
-        if let Err(e) = sim.advance_minutes(to_go) {
-            result
-                .failures
-                .push(format!("the clock stopped in year {y}: {e}"));
-            return;
+        let end = founded + i64::from(y) * year;
+        // Month by month, sampling the economy as each begins.
+        loop {
+            let d = sim.now().date();
+            let (ny, nm) = if d.month == 12 {
+                (d.year + 1, 1)
+            } else {
+                (d.year, d.month + 1)
+            };
+            let next = SimTime::from_date(ny, nm, 1, 0, 0).map_or(end, |t| t.minutes());
+            let to = next.min(end);
+            if let Err(e) = sim.advance_minutes(to - sim.now().minutes()) {
+                result
+                    .failures
+                    .push(format!("the clock stopped in year {y}: {e}"));
+                return;
+            }
+            if to == end {
+                break;
+            }
+            economy.sample(sim);
         }
+        result.failures.extend(economy.year_end(sim, y));
         let now = sim.now();
         let living = sim.people().living();
         let stuck = sim
@@ -376,6 +404,10 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
         }
         result.living = Some(living);
     }
+    result.economy = economy.grade(sim);
+    for c in result.economy.iter().filter(|c| c.grade == Grade::Red) {
+        result.failures.push(format!("{}: {}", c.name, c.text));
+    }
 }
 
 /// Runs every preset with seeds `1..=seeds`, a few worlds at a time, reporting each result as it
@@ -428,6 +460,14 @@ fn run_one(
     seed: u64,
 ) -> SmokeResult {
     let started = Instant::now();
+    // The content's regimes in turn, by seed.
+    let regimes = &content.catalog.regimes;
+    let regime = regimes
+        .get((seed.max(1) - 1) as usize % regimes.len().max(1))
+        .map_or_else(
+            || (String::new(), String::new()),
+            |r| (r.id.clone(), r.name.clone()),
+        );
     let created = Sim::create(
         &NewWorld {
             name: format!("Smoke {seed}"),
@@ -435,7 +475,7 @@ fn run_one(
             preset_id: preset.to_owned(),
             size_cells: options.size,
             band_size: 0,
-            regime_id: String::new(),
+            regime_id: regime.0,
         },
         content,
         &mut |_| {},
@@ -449,6 +489,8 @@ fn run_one(
         failures: Vec::new(),
         living: None,
         notes: Vec::new(),
+        regime: regime.1,
+        economy: Vec::new(),
     };
     match created {
         Err(e) => result.failures.push(format!("generation failed: {e}")),
@@ -498,12 +540,59 @@ pub fn format_result(result: &SmokeResult) -> String {
     if !result.notes.is_empty() {
         verdict = format!("{verdict} ({})", result.notes.join("; "));
     }
-    format!(
+    let mut line = format!(
         "{:<28} {:>4} {:>6.1} s {figures}  {verdict}",
         result.preset,
         result.seed,
         result.elapsed.as_secs_f64()
-    )
+    );
+    if !result.economy.is_empty() {
+        let checks: Vec<String> = result
+            .economy
+            .iter()
+            .map(|c| format!("{} ({})", c.text, c.grade.word()))
+            .collect();
+        line.push_str(&format!(
+            "\n    {}: {}",
+            result.regime.to_lowercase(),
+            checks.join("; ")
+        ));
+    }
+    line
+}
+
+/// How the worlds' economies were graded, check by check: how many came out at each grade.
+pub fn economy_summary(results: &[SmokeResult]) -> Option<String> {
+    let names: Vec<&str> = results
+        .iter()
+        .flat_map(|r| r.economy.iter().map(|c| c.name))
+        .fold(Vec::new(), |mut v, n| {
+            if !v.contains(&n) {
+                v.push(n);
+            }
+            v
+        });
+    if names.is_empty() {
+        return None;
+    }
+    let parts: Vec<String> = names
+        .iter()
+        .map(|&name| {
+            let grades: Vec<String> = [Grade::Green, Grade::Amber, Grade::Gray, Grade::Red]
+                .iter()
+                .filter_map(|&g| {
+                    let n = results
+                        .iter()
+                        .flat_map(|r| &r.economy)
+                        .filter(|c| c.name == name && c.grade == g)
+                        .count();
+                    (n > 0).then(|| format!("{n} {}", g.word()))
+                })
+                .collect();
+            format!("{name} {}", grades.join(", "))
+        })
+        .collect();
+    Some(format!("economy: {}", parts.join("; ")))
 }
 
 /// The report table's header.

@@ -1,5 +1,6 @@
 # The ten-year smoke seeds (plan §4.7, the M1 sanity run): every smoke world lives on for ten
-# years after its first month and is checked at each year's end. Runs differ from one to the next
+# years after its first month and is checked at each year's end, the worlds taking the property
+# regimes in turn, and each world's economy is graded at the end. Runs differ from one to the next
 # (determinism is not a goal), so this is a nightly signal and a gate on pull requests into main,
 # not a check on every push; per-push CI keeps the 30-day smoke (ci.yml).
 #

@@ -231,10 +231,13 @@ impl Population {
         // Each settlement's prices.
         let mut costs: BTreeMap<PermanentId, Vec<Vec<Option<f64>>>> = BTreeMap::new();
         for &(h, s) in &living {
-            costs
-                .entry(s)
-                .or_default()
-                .push(self.own_costs_with(catalog, params, land_params, h));
+            costs.entry(s).or_default().push(self.own_costs_with(
+                catalog,
+                params,
+                land_params,
+                h,
+                now,
+            ));
         }
         let prices: BTreeMap<PermanentId, Vec<f64>> = costs
             .into_iter()

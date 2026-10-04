@@ -396,11 +396,18 @@ fn run_smoke(args: SmokeArgs) -> anyhow::Result<ExitCode> {
         println!(
             "then {} years, checked at each year's end: nobody stuck, no population or land \
              problems, every good accounted for, at most {}× the founders, ≥ {:.0}% of households roofed from year 2, a \
-             first trail in year 1; at least half the bands keep {} people",
+             first trail in year 1, land claims that fit the regime, no field lost, wealth measures in range; at least \
+             half the bands keep {} people. The worlds take the content's {} property regimes in turn. Each \
+             economy is graded at the end (red fails): food stocks after the harvest, grain asked before it against \
+             after, the Gini of goods from year {} (amber below {}), and workshop sizes (gray below {} workshops)",
             args.years,
             smoke::MAX_GROWTH,
             smoke::MIN_ROOFED * 100.0,
-            smoke::MIN_ALIVE
+            smoke::MIN_ALIVE,
+            content.catalog.regimes.len(),
+            civ_host::economy::GINI_FROM_YEAR,
+            civ_host::economy::LOW_GINI,
+            civ_host::economy::MIN_WORKSHOPS
         );
     }
     println!("{}", smoke::header());
@@ -414,6 +421,9 @@ fn run_smoke(args: SmokeArgs) -> anyhow::Result<ExitCode> {
         &|result| println!("{}", smoke::format_result(result)),
     );
     let failed = results.iter().filter(|r| !r.failures.is_empty()).count();
+    if let Some(summary) = smoke::economy_summary(&results) {
+        println!("{summary}");
+    }
     if !smoke::enough_alive(&results) {
         let long: Vec<_> = results.iter().filter_map(|r| r.living).collect();
         let alive = long.iter().filter(|&&n| n >= smoke::MIN_ALIVE).count();

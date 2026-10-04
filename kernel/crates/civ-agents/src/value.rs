@@ -3,6 +3,7 @@
 //! yardstick by which it judges an offer (research 08-04 §1.2: prices from a smoothed normal
 //! cost; 08-15 §2.1: keep work time per unit beside prices).
 
+use civ_core::time::DAYS_PER_YEAR;
 use civ_land::{CropParams, ResourceParams};
 
 use crate::params::{Catalog, interpolate};
@@ -19,8 +20,18 @@ const TRIP_OVERHEAD: f64 = 1.25;
 const UNSEEN_RATE_SHARE: f64 = 0.5;
 
 /// Hours per kilogram of growing each crop's grain and seed: the crop's field work over a
-/// cautious yield less the seed (`yield_share` of the average), and threshing.
-pub fn grown_costs(crops: &[CropParams], goods: usize, yield_share: f64) -> Vec<Option<f64>> {
+/// cautious yield less the seed (`yield_share` of the average), and threshing; and kept from the
+/// crop's harvest to `day` (a day index), what the store took of it meanwhile at
+/// `half_life(good)` days (0 for none). A kilogram held in spring had to be grown as more than a
+/// kilogram in the autumn before: storage links harvest prices to later ones (research 08-05
+/// §1.6), so grain is cheapest as it ripens and dearest just before.
+pub fn grown_costs(
+    crops: &[CropParams],
+    goods: usize,
+    yield_share: f64,
+    day: i64,
+    half_life: &dyn Fn(usize) -> f64,
+) -> Vec<Option<f64>> {
     let mut out = vec![None; goods];
     for c in crops {
         let net = c.yield_kg_per_ha * yield_share - c.seed_kg_per_ha;
@@ -29,9 +40,17 @@ pub fn grown_costs(crops: &[CropParams], goods: usize, yield_share: f64) -> Vec<
         }
         let field_h = c.prepare_h_per_ha + c.sow_h_per_ha + c.tend_h_per_ha + c.reap_h_per_ha;
         let h = field_h / net + c.thresh_h_per_kg;
+        let ripe = i64::from(c.sow_from_day) + i64::from(c.grow_days);
+        let kept = (civ_land::day_of_year(day) - ripe).rem_euclid(DAYS_PER_YEAR) as f64;
         for g in [c.good, c.seed_good] {
+            let life = half_life(g);
+            let carried = if life > 0.0 {
+                h * (kept * std::f64::consts::LN_2 / life).exp()
+            } else {
+                h
+            };
             if let Some(slot) = out.get_mut(g) {
-                *slot = Some(slot.map_or(h, |x: f64| x.min(h)));
+                *slot = Some(slot.map_or(carried, |x: f64| x.min(carried)));
             }
         }
     }
@@ -277,10 +296,18 @@ mod tests {
             thresh_h_per_kg: 0.1,
             straw: None,
         };
-        let costs = grown_costs(&[crop], 3, 0.8);
+        let ripe = i64::from(crop.sow_from_day) + i64::from(crop.grow_days);
+        let costs = grown_costs(std::slice::from_ref(&crop), 3, 0.8, ripe, &|_| 0.0);
         let h = 900.0 / (900.0 * 0.8 - 90.0) + 0.1;
         assert!((costs[0].expect("grain") - h).abs() < 1e-9);
         assert_eq!(costs[0], costs[1], "seed is grain");
         assert_eq!(costs[2], None);
+        // Kept in store, it costs what was lost meanwhile: half a half-life after the harvest,
+        // √2 as much; a year on, as it ripens again, as little as ever.
+        let half = |_: usize| 200.0;
+        let kept = grown_costs(std::slice::from_ref(&crop), 3, 0.8, ripe + 100, &half);
+        assert!((kept[0].expect("grain") - h * 2f64.sqrt()).abs() < 1e-9);
+        let again = grown_costs(&[crop], 3, 0.8, ripe + DAYS_PER_YEAR, &half);
+        assert!((again[0].expect("grain") - h).abs() < 1e-9);
     }
 }

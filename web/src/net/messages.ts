@@ -868,11 +868,15 @@ export function cancelTask(): Uint8Array {
   return command(b, W.CommandBody.CancelTask, W.CancelTask.endCancelTask(b));
 }
 
-/** Sends a family to a point on the map, metres (god tool). */
-export function spawnFamily(x: number, y: number): Uint8Array {
+/**
+ * Sends `families` families (1 to 20; the host refuses more) to a point on the map, metres
+ * (god tool). They arrive together and settle side by side.
+ */
+export function spawnFamily(x: number, y: number, families = 1): Uint8Array {
   const b = new flatbuffers.Builder(32);
   W.SpawnFamily.startSpawnFamily(b);
   W.SpawnFamily.addAt(b, W.Vec2.createVec2(b, x, y));
+  W.SpawnFamily.addFamilies(b, families);
   return command(b, W.CommandBody.SpawnFamily, W.SpawnFamily.endSpawnFamily(b));
 }
 

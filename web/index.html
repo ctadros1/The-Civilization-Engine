@@ -59,7 +59,13 @@
               <button id="zoom-in" type="button" class="icon" aria-label="Zoom in">+</button>
               <button id="zoom-out" type="button" class="icon" aria-label="Zoom out">−</button>
               <button id="zoom-fit" type="button" aria-label="Fit the map">Fit</button>
-              <button id="add-family" type="button" aria-pressed="false" title="Send a family: click where it should settle (Esc cancels)" disabled>Add a family</button>
+              <button id="add-family" type="button" aria-pressed="false" title="Send a family: click where they should settle (Esc cancels)" disabled>Add a family</button>
+              <select id="family-count" aria-label="Families that arrive together" title="How many families arrive together" disabled>
+                <option value="1">1 family</option>
+                <option value="5">5 families</option>
+                <option value="10">10 families</option>
+                <option value="20">20 families</option>
+              </select>
               <label class="toggle"><input type="checkbox" id="show-rivers" checked /> Rivers</label>
             </div>
           </div>

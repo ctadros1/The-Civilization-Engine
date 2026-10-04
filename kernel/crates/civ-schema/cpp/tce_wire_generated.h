@@ -3941,15 +3941,20 @@ struct SpawnFamily FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef SpawnFamilyBuilder Builder;
   struct Traits;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_AT = 4
+    VT_AT = 4,
+    VT_FAMILIES = 6
   };
   const tce::wire::Vec2 *at() const {
     return GetStruct<const tce::wire::Vec2 *>(VT_AT);
+  }
+  uint32_t families() const {
+    return GetField<uint32_t>(VT_FAMILIES, 0);
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<tce::wire::Vec2>(verifier, VT_AT, 4) &&
+           VerifyField<uint32_t>(verifier, VT_FAMILIES, 4) &&
            verifier.EndTable();
   }
 };
@@ -3960,6 +3965,9 @@ struct SpawnFamilyBuilder {
   ::flatbuffers::uoffset_t start_;
   void add_at(const tce::wire::Vec2 *at) {
     fbb_.AddStruct(SpawnFamily::VT_AT, at);
+  }
+  void add_families(uint32_t families) {
+    fbb_.AddElement<uint32_t>(SpawnFamily::VT_FAMILIES, families, 0);
   }
   explicit SpawnFamilyBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -3974,8 +3982,10 @@ struct SpawnFamilyBuilder {
 
 inline ::flatbuffers::Offset<SpawnFamily> CreateSpawnFamily(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    const tce::wire::Vec2 *at = nullptr) {
+    const tce::wire::Vec2 *at = nullptr,
+    uint32_t families = 0) {
   SpawnFamilyBuilder builder_(_fbb);
+  builder_.add_families(families);
   builder_.add_at(at);
   return builder_.Finish();
 }

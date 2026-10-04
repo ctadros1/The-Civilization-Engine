@@ -53,6 +53,8 @@ export interface AppState {
   selected: Selection | null;
   /** The map tool that sends a family where the map is clicked is armed. */
   placing: boolean;
+  /** How many families the map tool sends together (1 to 20). */
+  placeFamilies: number;
   /** The chronicle of the world on show, oldest first. */
   chronicle: ChronicleEntry[];
   /** The markets of the world on show (null = not read yet). */
@@ -86,6 +88,7 @@ export function initialState(): AppState {
     dismissedError: null,
     selected: null,
     placing: false,
+    placeFamilies: 1,
     chronicle: [],
     markets: null,
     marketsError: null,

@@ -44,10 +44,12 @@ pub enum Request {
         /// Load the offered save.
         accept: bool,
     },
-    /// Send a family to a point on the map (god tool).
+    /// Send families to a point on the map (god tool).
     SpawnFamily {
         /// Where, metres from the map's north-west corner.
         at: (f32, f32),
+        /// How many come together (at least one).
+        families: u32,
     },
     /// Run ahead to a time, unpaced and in full detail.
     RunUntil {
@@ -331,7 +333,10 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         .at()
                         .map(|v| (v.x(), v.y()))
                         .ok_or_else(|| missing("point"))?;
-                    Ok(Request::SpawnFamily { at })
+                    Ok(Request::SpawnFamily {
+                        at,
+                        families: b.families().max(1),
+                    })
                 }
                 wire::CommandBody::RunUntil => {
                     let b = command
@@ -823,7 +828,13 @@ mod tests {
         );
         let mut fbb = FlatBufferBuilder::new();
         let at = wire::Vec2::new(120.5, 64.0);
-        let body = wire::SpawnFamily::create(&mut fbb, &wire::SpawnFamilyArgs { at: Some(&at) });
+        let body = wire::SpawnFamily::create(
+            &mut fbb,
+            &wire::SpawnFamilyArgs {
+                at: Some(&at),
+                families: 0,
+            },
+        );
         let root = wire::Command::create(
             &mut fbb,
             &wire::CommandArgs {
@@ -833,7 +844,10 @@ mod tests {
         );
         assert_eq!(
             decode_request(FrameKind::Command, &finish(fbb, root)),
-            Ok(Request::SpawnFamily { at: (120.5, 64.0) })
+            Ok(Request::SpawnFamily {
+                at: (120.5, 64.0),
+                families: 1
+            })
         );
         let mut fbb = FlatBufferBuilder::new();
         let body = wire::RunUntil::create(&mut fbb, &wire::RunUntilArgs { minute: 525_600 });

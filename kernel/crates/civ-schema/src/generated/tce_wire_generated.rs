@@ -6392,6 +6392,7 @@ impl<'a> ::flatbuffers::Follow<'a> for SpawnFamily<'a> {
 
 impl<'a> SpawnFamily<'a> {
   pub const VT_AT: ::flatbuffers::VOffsetT = 4;
+  pub const VT_FAMILIES: ::flatbuffers::VOffsetT = 6;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6403,6 +6404,7 @@ impl<'a> SpawnFamily<'a> {
     args: &'args SpawnFamilyArgs<'args>
   ) -> ::flatbuffers::WIPOffset<SpawnFamily<'bldr>> {
     let mut builder = SpawnFamilyBuilder::new(_fbb);
+    builder.add_families(args.families);
     if let Some(x) = args.at { builder.add_at(x); }
     builder.finish()
   }
@@ -6415,6 +6417,13 @@ impl<'a> SpawnFamily<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<Vec2>(SpawnFamily::VT_AT, None)}
   }
+  #[inline]
+  pub fn families(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SpawnFamily::VT_FAMILIES, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for SpawnFamily<'_> {
@@ -6424,18 +6433,21 @@ impl ::flatbuffers::Verifiable for SpawnFamily<'_> {
   ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
     v.visit_table(pos)?
      .visit_field::<Vec2>("at", Self::VT_AT, false)?
+     .visit_field::<u32>("families", Self::VT_FAMILIES, false)?
      .finish();
     Ok(())
   }
 }
 pub struct SpawnFamilyArgs<'a> {
     pub at: Option<&'a Vec2>,
+    pub families: u32,
 }
 impl<'a> Default for SpawnFamilyArgs<'a> {
   #[inline]
   fn default() -> Self {
     SpawnFamilyArgs {
       at: None,
+      families: 0,
     }
   }
 }
@@ -6448,6 +6460,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SpawnFamilyBuilder<'a, 'b, A>
   #[inline]
   pub fn add_at(&mut self, at: &Vec2) {
     self.fbb_.push_slot_always::<&Vec2>(SpawnFamily::VT_AT, at);
+  }
+  #[inline]
+  pub fn add_families(&mut self, families: u32) {
+    self.fbb_.push_slot::<u32>(SpawnFamily::VT_FAMILIES, families, 0);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SpawnFamilyBuilder<'a, 'b, A> {
@@ -6468,6 +6484,7 @@ impl ::core::fmt::Debug for SpawnFamily<'_> {
   fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
     let mut ds = f.debug_struct("SpawnFamily");
       ds.field("at", &self.at());
+      ds.field("families", &self.families());
       ds.finish()
   }
 }

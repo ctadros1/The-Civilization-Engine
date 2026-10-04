@@ -32,7 +32,7 @@ test("a founding band lives on the map and explains itself", async ({ page }) =>
     await page.getByLabel("Size").selectOption("512");
     await page.getByLabel("Seed").fill("3");
     await page.getByRole("button", { name: "Create", exact: true }).click();
-    await expect(page.locator("#nw-error")).toContainText("30 to 50 people");
+    await expect(page.locator("#nw-error")).toContainText("30 to 125 people");
     await band.fill("30");
     await page.getByRole("button", { name: "Create", exact: true }).click();
     await page.waitForFunction(

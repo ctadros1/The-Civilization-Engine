@@ -27,6 +27,10 @@ pub const PURPOSE_SPAWN: u64 = 0x7370_6177_6e30_3031; // "spawn001"
 pub const SPAWN_JOIN_M: f32 = 600.0;
 /// Longest walk from the hearth to a home, seconds.
 pub(crate) const HOME_REACH_SECONDS: f32 = 300.0;
+/// Families in a band of the default size: a larger band's homes spread out from the hearth by
+/// the square root of how many more families it has.
+const CAMP_FAMILIES: f64 = 8.0;
+
 /// Farthest a home moves from where its family wanted it, cells.
 const HOME_SEARCH_CELLS: i64 = 8;
 
@@ -710,9 +714,12 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
         .nav
         .travel_field(&ctx.map.elevation, cell, HOME_REACH_SECONDS, &|_| 0.0);
     let count = families.len().max(1);
+    // A band of more families spreads out in proportion, keeping its camp as dense as a band of
+    // the default size (a tuning value).
+    let spread = (count as f64 / CAMP_FAMILIES).sqrt().max(1.0);
     for (fi, family) in families.iter().enumerate() {
         let angle = std::f64::consts::TAU * fi as f64 / count as f64 + d.range(-0.2, 0.2);
-        let radius = d.range(12.0, 24.0);
+        let radius = d.range(12.0, 24.0) * spread;
         let wanted = (
             hearth.0 + (radius * angle.cos()) as f32,
             hearth.1 + (radius * angle.sin()) as f32,
@@ -761,6 +768,48 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
     })
 }
 
+/// Most families the observer sends at once.
+pub const MAX_SPAWN_FAMILIES: u32 = 20;
+
+/// Metres between the homes of families sent together, about (a tuning value: a camp about as
+/// dense as a founding band's).
+const SPAWN_SPACING_M: f64 = 15.0;
+
+/// The observer's god tool for several families at once (chain migration: people follow those
+/// who went before, research 05-06 §1.2). `count` families (at most [`MAX_SPAWN_FAMILIES`]) arrive
+/// together: the first where the observer placed it, as [`spawn_family`] places one, and the
+/// others around it on dry ground, each made, provisioned and chronicled the same way. All of them
+/// join the settlement the first joins or founds. Fails only when not even the first can be
+/// placed; fewer than `count` come when the ground around is too wet or steep for the rest.
+pub fn spawn_families(
+    pop: &mut Population,
+    ctx: &mut Ctx,
+    at: (f32, f32),
+    count: u32,
+) -> Result<Vec<Spawned>, String> {
+    let count = count.clamp(1, MAX_SPAWN_FAMILIES) as usize;
+    let first = spawn_one(pop, ctx, at, 0, None)?;
+    let joining = Some((first.settlement, first.name.clone()));
+    let mut out = vec![first];
+    // The others on a spiral around the first, one home to each point; a point that is not dry
+    // land people can walk on is passed over.
+    let golden = std::f64::consts::PI * (3.0 - 5f64.sqrt());
+    for k in 1..count * 4 {
+        if out.len() >= count {
+            break;
+        }
+        let (r, angle) = (SPAWN_SPACING_M * (k as f64).sqrt(), golden * k as f64);
+        let p = (
+            at.0 + (r * angle.cos()) as f32,
+            at.1 + (r * angle.sin()) as f32,
+        );
+        if let Ok(spawned) = spawn_one(pop, ctx, p, k as u64, joining.clone()) {
+            out.push(spawned);
+        }
+    }
+    Ok(out)
+}
+
 /// What sending a family produced.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Spawned {
@@ -785,6 +834,18 @@ pub fn spawn_family(
     ctx: &mut Ctx,
     at: (f32, f32),
 ) -> Result<Spawned, String> {
+    spawn_one(pop, ctx, at, 0, None)
+}
+
+/// One family sent to `at`: the `index`th of those sent together (its own draws), joining
+/// `joining` when given or else as [`spawn_family`] decides.
+fn spawn_one(
+    pop: &mut Population,
+    ctx: &mut Ctx,
+    at: (f32, f32),
+    index: u64,
+    joining: Option<(PermanentId, String)>,
+) -> Result<Spawned, String> {
     let params = ctx.params;
     let now = ctx.now;
     let (w, h) = ctx.map.extent_m();
@@ -796,26 +857,33 @@ pub fn spawn_family(
     if ctx.map.water[cell] != WATER_LAND || !ctx.nav.walkable(cell) {
         return Err("a family can only be placed on dry land people can walk on".to_owned());
     }
-    let mut d = Draws(Rng64::from_key(&[
-        ctx.seed,
-        PURPOSE_SPAWN,
-        now.minutes() as u64,
-        cell as u64,
-    ]));
-    let lived_in: Vec<PermanentId> = pop
-        .households
-        .iter()
-        .filter(|(_, x)| !x.members.is_empty())
-        .filter_map(|(_, x)| x.settlement)
-        .collect();
+    // The first family's key is the one a lone family has always drawn from.
+    let mut d = Draws(if index == 0 {
+        Rng64::from_key(&[ctx.seed, PURPOSE_SPAWN, now.minutes() as u64, cell as u64])
+    } else {
+        Rng64::from_key(&[
+            ctx.seed,
+            PURPOSE_SPAWN,
+            now.minutes() as u64,
+            cell as u64,
+            index,
+        ])
+    });
     let distance = |p: (f32, f32)| ((p.0 - at.0).powi(2) + (p.1 - at.1).powi(2)).sqrt();
-    let near = ctx
-        .land
-        .settlements
-        .iter()
-        .filter(|s| lived_in.contains(&s.id) && distance(s.hearth_m) <= SPAWN_JOIN_M)
-        .min_by(|a, b| distance(a.hearth_m).total_cmp(&distance(b.hearth_m)))
-        .map(|s| (s.id, s.name.clone()));
+    let near = joining.or_else(|| {
+        let lived_in: Vec<PermanentId> = pop
+            .households
+            .iter()
+            .filter(|(_, x)| !x.members.is_empty())
+            .filter_map(|(_, x)| x.settlement)
+            .collect();
+        ctx.land
+            .settlements
+            .iter()
+            .filter(|s| lived_in.contains(&s.id) && distance(s.hearth_m) <= SPAWN_JOIN_M)
+            .min_by(|a, b| distance(a.hearth_m).total_cmp(&distance(b.hearth_m)))
+            .map(|s| (s.id, s.name.clone()))
+    });
     let wear = &ctx.land.wear;
     let reach = ctx
         .nav

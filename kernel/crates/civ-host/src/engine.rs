@@ -401,7 +401,7 @@ impl Engine {
             Request::SetClock { paused, speed } => self.set_clock(paused, speed),
             Request::CancelTask => self.cancel_task(),
             Request::RecoverWorld { accept } => self.recover(accept),
-            Request::SpawnFamily { at } => self.spawn_family(at),
+            Request::SpawnFamily { at, families } => self.spawn_families(at, families),
             Request::RunUntil { minute } => self.start_run_ahead(minute),
             Request::GetRaster(query) => match &self.world {
                 None => no_world(),
@@ -887,17 +887,28 @@ impl Engine {
         }
     }
 
-    fn spawn_family(&mut self, at: (f32, f32)) -> Reply {
+    fn spawn_families(&mut self, at: (f32, f32), families: u32) -> Reply {
         let Some(world) = self.world.as_mut() else {
             return no_world();
         };
-        match world.sim.spawn_family(at) {
+        if families > civ_agents::MAX_SPAWN_FAMILIES {
+            return Reply::Error(
+                wire::ErrorCode::BadRequest,
+                format!(
+                    "at most {} families can be sent at once",
+                    civ_agents::MAX_SPAWN_FAMILIES
+                ),
+            );
+        }
+        match world.sim.spawn_families(at, families) {
             Ok(spawned) => {
-                let n = spawned.people.len();
-                let text = if spawned.founded {
-                    format!("A family of {n} made camp at {}", spawned.name)
-                } else {
-                    format!("A family of {n} came to {}", spawned.name)
+                let first = &spawned[0];
+                let n: usize = spawned.iter().map(|s| s.people.len()).sum();
+                let text = match (spawned.len(), first.founded) {
+                    (1, true) => format!("A family of {n} made camp at {}", first.name),
+                    (1, false) => format!("A family of {n} came to {}", first.name),
+                    (k, true) => format!("{k} families, {n} people, made camp at {}", first.name),
+                    (k, false) => format!("{k} families, {n} people, came to {}", first.name),
                 };
                 self.changed = true;
                 self.urgent = true;
@@ -1278,7 +1289,10 @@ mod tests {
             let sim = &h.engine.world.as_ref().expect("a world").sim;
             (sim.land().settlements[0].hearth_m, sim.people().living())
         };
-        let reply = h.ask(Request::SpawnFamily { at: hearth });
+        let reply = h.ask(Request::SpawnFamily {
+            at: hearth,
+            families: 1,
+        });
         let Reply::Response(ack) = reply else {
             panic!("a family arrives: {reply:?}");
         };
@@ -1292,9 +1306,42 @@ mod tests {
         let sim = &h.engine.world.as_ref().expect("a world").sim;
         assert!(sim.people().living() > before);
         assert_eq!(
-            error_code(&h.ask(Request::SpawnFamily { at: (-1.0, -1.0) })),
+            error_code(&h.ask(Request::SpawnFamily {
+                at: (-1.0, -1.0),
+                families: 1
+            })),
             Some(wire::ErrorCode::BadRequest)
         );
+
+        let households = |h: &Harness| {
+            let sim = &h.engine.world.as_ref().expect("a world").sim;
+            sim.people().households.len()
+        };
+        let before = households(&h);
+        let reply = h.ask(Request::SpawnFamily {
+            at: hearth,
+            families: 3,
+        });
+        let Reply::Response(ack) = reply else {
+            panic!("three families arrive: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert!(message.starts_with("3 families, "), "{message}");
+        assert_eq!(households(&h), before + 3);
+        assert_eq!(
+            error_code(&h.ask(Request::SpawnFamily {
+                at: hearth,
+                families: civ_agents::MAX_SPAWN_FAMILIES + 1
+            })),
+            Some(wire::ErrorCode::BadRequest),
+            "no more than the host allows at once"
+        );
+        assert_eq!(households(&h), before + 3);
     }
 
     #[test]

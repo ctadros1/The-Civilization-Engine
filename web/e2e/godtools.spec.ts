@@ -1,6 +1,7 @@
 // M1 slice G, end to end: the observer runs ahead a day in full detail (a task that pauses the
 // clock where it arrives) and the inspector follows, then sends a family to the village with the
-// map tool; the chronicle names it as the observer's doing.
+// map tool; the chronicle names it as the observer's doing. Then (M3a slice L) five families
+// arrive together and join the same village.
 
 import { expect, test } from "@playwright/test";
 
@@ -81,6 +82,22 @@ test("the observer runs ahead and sends a family", async ({ page }) => {
       undefined,
       { timeout: 30_000 },
     );
+
+    // Five families together: the button names how many, and they all join the village.
+    const settled = await state(page);
+    await page.getByLabel("Families that arrive together").selectOption("5");
+    const add = page.getByRole("button", { name: "Add 5 families" });
+    await add.click();
+    await expect(add).toHaveAttribute("aria-pressed", "true");
+    await page.mouse.click(box.x + box.width / 2 - 20, box.y + box.height / 2 - 10);
+    await expect(page.locator("#banner-text")).toContainText("5 families, ");
+    await page.waitForFunction((n) => window.__TCE__.state().people > n, settled.people, {
+      timeout: 30_000,
+    });
+    const grown = await state(page);
+    expect(grown.settlements.length).toBe(settled.settlements.length);
+    expect(grown.people).toBeGreaterThanOrEqual(settled.people + 10);
+    await expect(add).toHaveAttribute("aria-pressed", "false");
   } finally {
     await host.stop();
   }

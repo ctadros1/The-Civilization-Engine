@@ -30,12 +30,21 @@ at(obj?:Vec2):Vec2|null {
   return offset ? (obj || new Vec2()).__init(this.bb_pos + offset, this.bb!) : null;
 }
 
+families():number {
+  const offset = this.bb!.__offset(this.bb_pos, 6);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
 static startSpawnFamily(builder:flatbuffers.Builder) {
-  builder.startObject(1);
+  builder.startObject(2);
 }
 
 static addAt(builder:flatbuffers.Builder, atOffset:flatbuffers.Offset) {
   builder.addFieldStruct(0, atOffset, 0);
+}
+
+static addFamilies(builder:flatbuffers.Builder, families:number) {
+  builder.addFieldInt32(1, families, 0);
 }
 
 static endSpawnFamily(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -43,9 +52,10 @@ static endSpawnFamily(builder:flatbuffers.Builder):flatbuffers.Offset {
   return offset;
 }
 
-static createSpawnFamily(builder:flatbuffers.Builder, atOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createSpawnFamily(builder:flatbuffers.Builder, atOffset:flatbuffers.Offset, families:number):flatbuffers.Offset {
   SpawnFamily.startSpawnFamily(builder);
   SpawnFamily.addAt(builder, atOffset);
+  SpawnFamily.addFamilies(builder, families);
   return SpawnFamily.endSpawnFamily(builder);
 }
 }

@@ -92,8 +92,11 @@ export interface Actions {
   openFirm(id: number | null): void;
   /** Run ahead by `minutes` of simulated time. */
   runAhead(minutes: number): Promise<void>;
-  /** Arm or disarm the map tool that sends a family where the map is clicked. */
-  setPlacing(on: boolean): void;
+  /**
+   * Arm or disarm the map tool that sends families where the map is clicked, and set how many
+   * come together.
+   */
+  setPlacing(on: boolean, families: number): void;
 }
 
 const MAX_SEED = (1n << 64n) - 1n;
@@ -425,9 +428,14 @@ export function bindUi(store: Store, actions: Actions): void {
     if (minutes > 0) void attempt(() => actions.runAhead(minutes));
   });
   const addFamily = $<HTMLButtonElement>("add-family");
+  const familyCount = $<HTMLSelectElement>("family-count");
+  const families = (): number => Number(familyCount.value) || 1;
   addFamily.addEventListener("click", () => {
     const on = addFamily.getAttribute("aria-pressed") !== "true";
-    actions.setPlacing(on);
+    actions.setPlacing(on, families());
+  });
+  familyCount.addEventListener("change", () => {
+    actions.setPlacing(addFamily.getAttribute("aria-pressed") === "true", families());
   });
   document.addEventListener("keydown", (event) => {
     if (event.key !== " " || isTyping(event.target)) return;
@@ -1580,6 +1588,10 @@ export function bindUi(store: Store, actions: Actions): void {
     placing.disabled = !open || !world;
     placing.setAttribute("aria-pressed", String(state.placing));
     placing.classList.toggle("active", state.placing);
+    const families = state.placeFamilies;
+    setText(placing, families === 1 ? "Add a family" : `Add ${families} families`);
+    placing.title = `Send ${families === 1 ? "a family" : `${families} families together`}: click where they should settle (Esc cancels)`;
+    $<HTMLSelectElement>("family-count").disabled = !open || !world;
     renderSpeeds(state);
     renderConnection(state);
     renderBanner(state);

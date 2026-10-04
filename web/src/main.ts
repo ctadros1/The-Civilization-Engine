@@ -571,9 +571,12 @@ bindUi(store, {
   setPlacing,
 });
 
-/** Arms or disarms the map tool that sends a family where the map is clicked. */
-function setPlacing(on: boolean): void {
-  store.update({ placing: on });
+/**
+ * Arms or disarms the map tool that sends families where the map is clicked, and sets how many
+ * come together.
+ */
+function setPlacing(on: boolean, families = store.state.placeFamilies): void {
+  store.update({ placing: on, placeFamilies: families });
   map.setPlacing(on);
 }
 
@@ -581,7 +584,7 @@ map.onPlace = (xM, yM) => {
   setPlacing(false);
   void (async () => {
     try {
-      const body = await client.command(M.spawnFamily(xM, yM));
+      const body = await client.command(M.spawnFamily(xM, yM, store.state.placeFamilies));
       const text = body.kind === "ack" && body.message ? body.message : "A family arrived";
       store.update({ notice: { kind: "info", text } });
     } catch (e) {

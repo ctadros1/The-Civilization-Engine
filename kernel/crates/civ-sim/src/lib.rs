@@ -419,6 +419,13 @@ impl Sim {
     /// The observer sends a family to `at` (god tool): it joins the settlement there or makes
     /// camp (see [`civ_agents::spawn_family`]).
     pub fn spawn_family(&mut self, at: (f32, f32)) -> Result<Spawned, String> {
+        self.spawn_families(at, 1).map(|mut all| all.remove(0))
+    }
+
+    /// The observer sends `count` families together (at most [`civ_agents::MAX_SPAWN_FAMILIES`]):
+    /// the first where it placed them and the others around it (see
+    /// [`civ_agents::spawn_families`]).
+    pub fn spawn_families(&mut self, at: (f32, f32), count: u32) -> Result<Vec<Spawned>, String> {
         let now = self.now();
         let mut pending = Vec::new();
         let spawned = {
@@ -435,7 +442,7 @@ impl Sim {
                 ids: &mut self.ids,
                 schedule: &mut pending,
             };
-            civ_agents::spawn_family(&mut self.people, &mut ctx, at)
+            civ_agents::spawn_families(&mut self.people, &mut ctx, at, count)
         };
         for (when, event) in pending {
             let _ = self

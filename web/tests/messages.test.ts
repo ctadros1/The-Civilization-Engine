@@ -59,6 +59,15 @@ describe("builders", () => {
       W.CommandBody.CancelTask,
     );
   });
+
+  it("builds a family arrival with how many families come", () => {
+    const one = W.Command.getRootAsCommand(bb(M.spawnFamily(120, 340)));
+    expect(one.bodyType()).toBe(W.CommandBody.SpawnFamily);
+    const single = one.body(new W.SpawnFamily()) as W.SpawnFamily;
+    expect([single.at()?.x(), single.at()?.y(), single.families()]).toEqual([120, 340, 1]);
+    const group = W.Command.getRootAsCommand(bb(M.spawnFamily(5, 6, 10)));
+    expect((group.body(new W.SpawnFamily()) as W.SpawnFamily).families()).toBe(10);
+  });
 });
 
 function finish(b: flatbuffers.Builder, root: flatbuffers.Offset): Uint8Array {

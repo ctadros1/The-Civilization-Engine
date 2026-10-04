@@ -320,6 +320,9 @@ table RecoverWorld {
 // settlement there or makes camp on the spot.
 table SpawnFamily {
   at: Vec2 (id: 0);
+  // M3a slice L: how many families come together (0 = one; the host sends at most 20). The
+  // first comes where `at` says, the others around it.
+  families: uint (id: 1);
 }
 
 // M1 slice G: run ahead to a time, as fast as the machine allows, in full detail. Shown as a

@@ -72,7 +72,9 @@ let and rent.
 Besides Run and the speeds, **Run ahead…** lives a day, a month, a year, 5 or 10 years at full
 detail as fast as the machine allows, shown as a task you can cancel; the world pauses when it
 gets there and is autosaved. **Add a family** (on the map) sends a family where you next click:
-it joins the nearest settlement within 600 m or camps there. Esc cancels.
+it joins the nearest settlement within 600 m or camps there. Esc cancels. The list beside it
+sends 5, 10 or 20 families together instead: they settle side by side around the click and all
+join the settlement the first one joins or founds.
 
 ## The panels alone
 

@@ -13,7 +13,8 @@
 //! `--profile-after N` are lived through `profiled_day`, for
 //! `valgrind --tool=callgrind --toggle-collect='*profiled_day*'` to measure them alone.
 //! `--digest` prints a digest of every section a save would hold, to check that a change meant
-//! to make the engine faster leaves what happens exactly as it was.
+//! to make the engine faster leaves what happens exactly as it was. `--families N` sends N
+//! families to the village once it is founded, in groups as the observer's god tool sends them.
 
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
@@ -34,6 +35,7 @@ struct Args {
     load: Option<String>,
     profile_after: u32,
     digest: bool,
+    families: u32,
 }
 
 fn args() -> Args {
@@ -48,6 +50,7 @@ fn args() -> Args {
         load: None,
         profile_after: 0,
         digest: false,
+        families: 0,
     };
     let mut it = std::env::args().skip(1);
     while let Some(flag) = it.next() {
@@ -66,6 +69,7 @@ fn args() -> Args {
             "--save-to" => a.save_to = Some(value),
             "--load" => a.load = Some(value),
             "--profile-after" => a.profile_after = value.parse().expect("--profile-after DAYS"),
+            "--families" => a.families = value.parse().expect("--families N"),
             other => panic!("unknown flag {other}"),
         }
     }
@@ -109,6 +113,28 @@ fn main() {
     };
     if let Some(problem) = sim.founding_problem() {
         panic!("the band could not settle: {problem}");
+    }
+    // Groups of families around the hearth, each group about its own point.
+    let hearth = sim.land().settlements[0].hearth_m;
+    let (mut left, mut group) = (a.families, 0u32);
+    while left > 0 {
+        let n = left.min(civ_agents::MAX_SPAWN_FAMILIES);
+        let angle = 2.4 * f64::from(group);
+        let at = (
+            hearth.0 + (150.0 * angle.cos()) as f32,
+            hearth.1 + (150.0 * angle.sin()) as f32,
+        );
+        match sim.spawn_families(at, n) {
+            Ok(sent) => println!(
+                "{} families, {} people, came to {}",
+                sent.len(),
+                sent.iter().map(|s| s.people.len()).sum::<usize>(),
+                sent[0].name
+            ),
+            Err(e) => println!("a group could not come: {e}"),
+        }
+        left -= n;
+        group += 1;
     }
     println!(
         "seed {} on {} cells: {} people in {} households, made in {:.1} s",

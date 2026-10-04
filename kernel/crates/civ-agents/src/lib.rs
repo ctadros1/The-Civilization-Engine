@@ -38,7 +38,7 @@ pub mod population;
 pub mod value;
 pub mod wealth;
 
-pub use found::{Founded, Spawned, found_band, spawn_family};
+pub use found::{Founded, MAX_SPAWN_FAMILIES, Spawned, found_band, spawn_families, spawn_family};
 pub use history::{
     Cause, ChronicleEvent, ChronicleKind, Moved, Origin, PersonRecord, Reason, Receipt, Scored,
     Span, Term, Union,

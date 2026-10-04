@@ -124,7 +124,9 @@ w_play = 3.0
 [band]                           # research 05-01 §4.5: bands of 40 in at least six unrelated families
 default_size = 40
 min_size = 30                    # the plan's decision log: 30-50 allowed
-max_size = 50
+# Up to about half the largest Hutterite colony at fission (research 05-06 §1.3: colonies split at
+# 104-251 people), for villages of hundreds (M3a slice L). A tuning value.
+max_size = 125
 min_families = 6
 camp_candidates = 48
 site_radius_m = 2000.0

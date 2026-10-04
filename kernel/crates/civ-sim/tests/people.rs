@@ -577,6 +577,76 @@ fn land_near(sim: &Sim, from: (f32, f32), metres: f32) -> Option<(f32, f32)> {
 }
 
 #[test]
+fn families_sent_together_settle_side_by_side_in_one_place() {
+    let mut sim = new_world(3, 0);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let village = sim.land().settlements[0].clone();
+    let (households, living) = (sim.people().households.len(), sim.people().living());
+    let far = land_near(&sim, village.hearth_m, 1500.0).expect("dry ground far away");
+    let group = sim.spawn_families(far, 10).expect("the families arrive");
+    assert_eq!(group.len(), 10, "dry ground around the first for all ten");
+    assert!(group[0].founded, "the first makes camp");
+    assert!(group[1..].iter().all(|s| !s.founded));
+    assert!(group.iter().all(|s| s.settlement == group[0].settlement));
+    assert_eq!(sim.land().settlements.len(), 2, "one camp, not ten");
+    let people: usize = group.iter().map(|s| s.people.len()).sum();
+    assert_eq!(sim.people().households.len(), households + 10);
+    assert_eq!(sim.people().living(), living + people);
+    let homes: Vec<(f32, f32)> = group
+        .iter()
+        .map(|s| {
+            let hh = sim
+                .people()
+                .households
+                .iter()
+                .find(|(_, h)| h.id == s.household)
+                .map(|(_, h)| h)
+                .expect("the household");
+            assert_eq!(hh.settlement, Some(group[0].settlement));
+            hh.home
+        })
+        .collect();
+    for (i, a) in homes.iter().enumerate() {
+        for b in &homes[i + 1..] {
+            let d = ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt();
+            assert!(
+                d > 5.0,
+                "homes side by side, not on top of each other: {d} m"
+            );
+        }
+        let d = ((a.0 - far.0).powi(2) + (a.1 - far.1).powi(2)).sqrt();
+        assert!(d < 150.0, "close to where they were sent: {d} m");
+    }
+    let arrived = sim
+        .people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == ChronicleKind::FamilyArrived)
+        .count();
+    assert_eq!(arrived, 10, "each family noted as it arrives");
+    // Each family is drawn on its own: not ten copies of the first.
+    let shapes: std::collections::BTreeSet<Vec<(i64, bool)>> = group
+        .iter()
+        .map(|s| {
+            s.people
+                .iter()
+                .map(|id| {
+                    let p = &sim.people().records[id];
+                    (p.born.minutes(), p.sex == Sex::Female)
+                })
+                .collect()
+        })
+        .collect();
+    assert!(shapes.len() > 1, "families of their own");
+
+    sim.advance_minutes(3 * 24 * 60).expect("the world goes on");
+    let problems = sim
+        .people()
+        .problems(sim.ids().peek_next(), sim.rules().catalog.activities.len());
+    assert!(problems.is_empty(), "{problems:?}");
+}
+
+#[test]
 fn the_observer_sends_families_that_join_a_village_or_make_camp() {
     let mut sim = new_world(3, 0);
     sim.advance_minutes(2 * 24 * 60).expect("advances");

@@ -234,6 +234,11 @@ select {
   margin-left: 6px;
 }
 
+#family-count {
+  width: auto;
+  padding: 4px 6px;
+}
+
 .map-state {
   position: absolute;
   inset: 0;

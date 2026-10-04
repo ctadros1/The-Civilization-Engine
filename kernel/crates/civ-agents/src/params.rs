@@ -1159,6 +1159,21 @@ pub struct BuildParams {
     pub quality_spread: [f64; 2],
     /// How builders answer the failures their settlement has seen (ADR-0009 §6).
     pub caution: crate::caution::CautionParams,
+    /// How households level a plot on sloping ground (ADR-0010 §2).
+    pub levelling: Levelling,
+}
+
+/// How households level the plot of a building on sloping ground (ADR-0010 §2).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Levelling {
+    /// Ground that drops more than this across a plot, metres, is levelled before building.
+    pub from_m: f64,
+    /// Ground that drops more than this across a plot, metres, is not built on.
+    pub most_m: f64,
+    /// Hours of a capable adult to cut a cubic metre of earth and place it where it is wanted.
+    pub h_per_m3: f64,
+    /// A platform's sides' run, metres across for each metre up or down.
+    pub side_run: f64,
 }
 
 /// Everything authored about people.

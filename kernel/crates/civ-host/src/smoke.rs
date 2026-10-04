@@ -424,6 +424,22 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
     result.notes.extend(finds(sim));
     result.notes.extend(condition(sim));
     result.notes.extend(deposits(sim));
+    result.notes.extend(earthworks(sim));
+}
+
+/// The plots levelled by the end (ADR-0010 §2), in words: "3 plots levelled, 19 m³ cut".
+/// `None` without earthworks.
+fn earthworks(sim: &Sim) -> Option<String> {
+    let works = &sim.land().earthworks;
+    if works.is_empty() {
+        return None;
+    }
+    let cut: f64 = works
+        .iter()
+        .map(|w| f64::from(w.cut_m3) * f64::from(w.done))
+        .sum();
+    let plots = if works.len() == 1 { "plot" } else { "plots" };
+    Some(format!("{} {plots} levelled, {cut:.0} m³ cut", works.len()))
 }
 
 /// The world's deposits at the end (ADR-0010 §1), in words: "96 deposits, 31 showing, 4 found".

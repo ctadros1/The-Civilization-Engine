@@ -336,6 +336,10 @@ pub struct Land {
     pub wear: Wear,
     /// Deposits in the ground, in the order they were placed (ADR-0010 §1). Saved.
     pub deposits: Vec<deposits::Deposit>,
+    /// Earthworks, in the order they were begun (ADR-0010 §2). Saved.
+    pub earthworks: Vec<earth::Earthwork>,
+    /// What earthworks have done to the ground (ADR-0010 §3). Saved.
+    pub ground: earth::GroundDelta,
 }
 
 /// Summary of a patch's terrain, for classification.
@@ -510,6 +514,8 @@ impl Land {
             buildings: Vec::new(),
             wear: Wear::new(map.width, map.height, map.cell_size_m),
             deposits: Vec::new(),
+            earthworks: Vec::new(),
+            ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
         };
         // Start each stock at its equilibrium for the season a year ago, then grow a year.
         for r in 0..params.resources.len() {
@@ -612,6 +618,22 @@ impl Land {
                 && (0.0..=b.initial_kg * (1.0 + 1e-9)).contains(&d.taken_kg);
             if !sized || !held || !(0.0..=1.0).contains(&b.quality) {
                 out.push(format!("deposit {} has an invalid body or inventory", d.id));
+            }
+        }
+        for e in &self.earthworks {
+            let sized = e.rect.w > 0 && e.rect.h > 0 && e.side_run_cm > 0;
+            let done = (0.0..=1.0).contains(&e.done) && e.cut_m3.is_finite() && e.cut_m3 >= 0.0;
+            if e.id.get() >= next_id || !seen.insert(e.id) || !sized || !done {
+                out.push(format!(
+                    "earthwork {} is unallocated, repeated or malformed",
+                    e.id
+                ));
+            }
+            if e.version != earth::EARTH_VERSION {
+                out.push(format!(
+                    "earthwork {} is of version {}, which this build does not know",
+                    e.id, e.version
+                ));
             }
         }
         let mut ids = std::collections::HashSet::new();

@@ -188,6 +188,23 @@ home_work_places = 2             # two at a craft beside living (tuning; the res
 # a master's is a tuning value.
 quality_spread = [0.3, 0.1]
 
+[build.levelling]
+# How a household levels the plot of a building on sloping ground (ADR-0010 §2): ground that
+# drops more than `from_m` across the plot is cut and filled to one level before the building
+# goes up, its sides sloping back to the ground; ground that drops more than `most_m` is not
+# built on. The research gives no threshold for either (tuning values). Households seek level
+# ground first.
+from_m = 0.4
+most_m = 2.0
+# Hours a cubic metre of earth cut (as it lay in the ground) takes, dug, carried across the plot
+# and spread and tamped as fill, with wooden, antler and stone tools: 8 to dig it (11-12 §2.4's
+# prior for a non-metal kit, 1.0 m³ an 8-hour day, 0.5-2.0, low confidence), 2.4 to spread and
+# tamp it (3 m³ compacted a day at 0.9 of the volume it had in the ground, the same table) and
+# about half an hour to carry it a few metres in 20 kg baskets (a tuning value). FAO's 3-4 m³ a
+# day for bench terraces (11-12 §2.2) is for steel tools.
+h_per_m3 = 11.0
+side_run = 1.5                   # 11-12 §2.3: 1.5 across to 1 up in ordinary earth (given for canals; tuning)
+
 [build.caution]
 # How builders answer what their settlement has seen of a technique's buildings (ADR-0009 §6):
 # failures and the building-years they stood, both fading by half over `half_life_years`; their

@@ -841,6 +841,37 @@ table Deposits {
   known: [DepositKnownEntry] (id: 2);
 }
 
+// Section "earth" (schema 20): earthworks and what they have done to the ground (ADR-0010 §2-3).
+// `kind` 0 a platform; `plot` 0 for none. Tiles are 64 by 64 cells, row by row across the map;
+// each cell is the change in its mean height, metres.
+struct EarthworkRecord {
+  id: ulong;
+  household: ulong;
+  plot: ulong;
+  begun: long;
+  cut_m3: float;
+  done: float;
+  level_cm: int;
+  x_cm: int;
+  y_cm: int;
+  w_cm: int;
+  h_cm: int;
+  side_run_cm: ushort;
+  version: ushort;
+  kind: ubyte;
+}
+
+table GroundTile {
+  index: uint (id: 0);
+  rev: uint (id: 1);
+  cells: [float] (id: 2);
+}
+
+table Earth {
+  works: [EarthworkRecord] (id: 0);
+  tiles: [GroundTile] (id: 1);
+}
+
 // Section "events": the scheduler's pending events.
 enum EventKind : ubyte { AgentStep = 0 }
 

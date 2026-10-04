@@ -102,6 +102,8 @@ pub const SCHEMA_V17: u32 = 17;
 /// The schema version of M3b slice P's third step: settlements' trust in their buildings, before
 /// deposits were bodies in the ground (see [`agents`]).
 pub const SCHEMA_V18: u32 = 18;
+/// The schema version of M3b slice Q's first step: deposits, before earthworks (see [`agents`]).
+pub const SCHEMA_V19: u32 = 19;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

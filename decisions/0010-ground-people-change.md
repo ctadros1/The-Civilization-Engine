@@ -82,6 +82,12 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
 - A **platform** levels a plot by cut and fill.
 - A **pit** deepens as material is taken; overburden and rejects go to a spoil heap beside it.
 - Earth balances: what is cut equals what is filled, heaped and taken as goods, in kilograms.
+- As built (slice Q's second step): platforms only, for plots whose ground drops more than the
+  people profile's threshold. Households seek level ground first, so the weighing is that rule,
+  not hours against hours. A platform's level balances its cut and fill by volume as the earth
+  lay in the ground; bulking and compaction (11-12 §2.4) wait for spoil heaps and goods. Its
+  earth costs hours on the building's first stage and is done with its first hours. The
+  expansion samples every half metre; a golden hash pins version 1. Pits and spoil heaps follow.
 
 ### 3. The bed is the generated bed plus a delta layer
 
@@ -94,6 +100,13 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
   not the bed's slope.
 - In M3b, routing and water stay as generated (03-01 §3.1): earthworks are refused on or beside
   water. M3c brings drainage invalidation with its ditches.
+- As built (slice Q's second step): cell-mean deltas in metres, in 64 × 64-cell tiles whose
+  revision changes with each change. A platform advanced from one share to the next adds only the
+  difference, and a test expands the records afresh and compares them with the tiles. Where two
+  platforms' sides overlap, their changes add, each designed on the generated bed. A plot is
+  levelled only where every cell its platform's sides could reach is dry land; otherwise it is
+  passed over. Only the tests read the bed plus its deltas so far; the elevation raster gains
+  them with the boundary's next step.
 
 ### 4. Saves and boundary
 

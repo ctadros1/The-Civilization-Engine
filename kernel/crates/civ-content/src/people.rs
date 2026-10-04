@@ -95,6 +95,21 @@ pub(crate) struct Build {
     pub quality_spread: [f64; 2],
     /// How builders answer the failures their settlement has seen.
     pub caution: Caution,
+    /// How households level a plot on sloping ground (content API 19).
+    pub levelling: Levelling,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Levelling {
+    /// Ground dropping more than this across a plot, metres, is levelled before building.
+    pub from_m: f64,
+    /// Ground dropping more than this across a plot, metres, is not built on.
+    pub most_m: f64,
+    /// Hours to cut a cubic metre of earth and place it where it is wanted.
+    pub h_per_m3: f64,
+    /// A platform's sides' run, metres across for each metre up or down.
+    pub side_run: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -495,6 +510,12 @@ impl PeopleFile {
                 store_horizon_days: self.build.store_horizon_days,
                 home_work_places: self.build.home_work_places,
                 quality_spread: self.build.quality_spread,
+                levelling: civ_agents::params::Levelling {
+                    from_m: self.build.levelling.from_m,
+                    most_m: self.build.levelling.most_m,
+                    h_per_m3: self.build.levelling.h_per_m3,
+                    side_run: self.build.levelling.side_run,
+                },
                 caution: civ_agents::caution::CautionParams {
                     half_life_years: self.build.caution.half_life_years,
                     most: self.build.caution.most,
@@ -755,6 +776,25 @@ impl PeopleFile {
             p.push(format!(
                 "`build.quality_spread` must be [novice, master] with 0 <= master <= novice < 1 \
                  (got [{novice}, {master}])"
+            ));
+        }
+        let l = &self.build.levelling;
+        if !(l.from_m.is_finite()
+            && l.most_m.is_finite()
+            && 0.0 < l.from_m
+            && l.from_m <= l.most_m
+            && l.most_m <= 20.0)
+        {
+            p.push(format!(
+                "`build.levelling` needs 0 < from_m <= most_m <= 20 (got {} and {})",
+                l.from_m, l.most_m
+            ));
+        }
+        positive("build.levelling.h_per_m3", l.h_per_m3, &mut p);
+        if !(l.side_run.is_finite() && (0.5..=10.0).contains(&l.side_run)) {
+            p.push(format!(
+                "`build.levelling.side_run` must be between 0.5 and 10 (got {})",
+                l.side_run
             ));
         }
         let c = &self.build.caution;

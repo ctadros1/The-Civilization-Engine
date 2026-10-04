@@ -246,6 +246,16 @@ struct HomePlan {
     deadline: i64,
 }
 
+/// Hours of levelling plot `plot` needs, all told: its platforms' earth at the profile's rate
+/// (ADR-0010 §2). 0 for a plot on level ground.
+fn levelling_h(land: &civ_land::Land, plot: PermanentId, params: &PeopleParams) -> f64 {
+    land.earthworks
+        .iter()
+        .filter(|w| w.plot == Some(plot))
+        .map(|w| f64::from(w.cut_m3) * params.build.levelling.h_per_m3)
+        .sum()
+}
+
 /// Takes what building work used, `used_kg` of each of `def`'s material slots, from household
 /// `x`'s stores.
 fn use_materials(x: &mut Household, def: &crate::params::BuildingDef, used_kg: &[f64]) {
@@ -1110,16 +1120,21 @@ impl Population {
         site
     }
 
-    /// What each stage of `building` needs (expanded once per building).
+    /// What each stage of `building` needs (expanded once per building), its first stage also
+    /// `levelling_h` of levelling its plot (ADR-0010 §2).
     fn needs_of(
         &mut self,
         building: &Building,
         def: &crate::params::BuildingDef,
+        levelling_h: f64,
     ) -> Option<Vec<StageNeeds>> {
         if let Some(n) = self.stage_needs.get(&building.id) {
             return Some(n.clone());
         }
-        let needs = build::stage_needs(&building.spec, def)?;
+        let mut needs = build::stage_needs(&building.spec, def)?;
+        if let Some(first) = needs.first_mut() {
+            first.labour_h += levelling_h;
+        }
         self.stage_needs.insert(building.id, needs.clone());
         Some(needs)
     }
@@ -1235,8 +1250,9 @@ impl Population {
             let def = catalog
                 .building_index(&b.spec.program)
                 .ok_or(Reason::NoPlace)?;
+            let levelling = levelling_h(ctx.land, b.plot, ctx.params);
             let needs = self
-                .needs_of(b, &catalog.buildings[def])
+                .needs_of(b, &catalog.buildings[def], levelling)
                 .ok_or(Reason::NoPlace)?;
             return Ok(HomePlan {
                 building: Some(b.id),
@@ -1341,6 +1357,21 @@ impl Population {
                     .then(|| build::design_cautious(program, goods, shape, at, toward, caution))
                     .flatten()
             };
+            // Ground that drops too far across a plot is levelled, and ground too steep to level
+            // by hand, or that would be levelled beside water, is not built on; level ground is
+            // sought first (ADR-0010 §2-3).
+            let lev = &ctx.params.build.levelling;
+            let bed = |x: f64, y: f64| civ_land::earth::bed_height(ctx.map, (x, y));
+            let levelling = |rect: &civ_land::RectCm| {
+                let drop = civ_land::earth::drop_across(rect, &bed);
+                if drop <= lev.from_m {
+                    Some(0.0)
+                } else {
+                    (drop <= lev.most_m
+                        && civ_land::earth::clear_of_water(ctx.map, rect, drop, lev.side_run))
+                    .then_some(drop)
+                }
+            };
             let spec = build::home_site(
                 ctx.land,
                 ctx.map,
@@ -1350,6 +1381,7 @@ impl Population {
                 hh.home,
                 hearth,
                 HOME_SHIFT_M,
+                &levelling,
             )?;
             let stages = build::stage_needs(&spec, program)?;
             Some(NewHome { spec, stages, firm })
@@ -1645,7 +1677,21 @@ impl Population {
             firm: site.firm,
             ..Building::new(id, household, plot, site.spec.clone(), ctx.now)
         });
-        self.stage_needs.insert(id, site.stages);
+        // Ground that drops too far across the plot is levelled first (ADR-0010 §2).
+        let mut stages = site.stages;
+        let levelling = build::level_plot(
+            ctx.land,
+            ctx.map,
+            ctx.ids,
+            &ctx.params.build.levelling,
+            (plot, rect),
+            household,
+            ctx.now,
+        );
+        if let Some(first) = stages.first_mut() {
+            first.labour_h += levelling;
+        }
+        self.stage_needs.insert(id, stages);
         let at = build::centre_m(&site.spec);
         if !housed
             && let Some(&hd) = self.hh_index.get(&household)
@@ -3319,7 +3365,8 @@ impl Population {
             self.mend_work(ctx, h, household, bi, def, hours);
             return;
         }
-        let Some(needs) = self.needs_of(&ctx.land.buildings[bi], def) else {
+        let levelling = levelling_h(ctx.land, ctx.land.buildings[bi].plot, params);
+        let Some(needs) = self.needs_of(&ctx.land.buildings[bi], def, levelling) else {
             return;
         };
         let skill = def
@@ -3346,6 +3393,20 @@ impl Population {
         let b = &mut ctx.land.buildings[bi];
         let done = b.work(hours, stage.labour_h, &stage.materials_kg, &held, now);
         b.skill_h += (done.hours * level) as f32;
+        // Its plot is levelled first, with the first stage's first hours.
+        if levelling > 0.0 {
+            let (plot, stage, work_h) = (b.plot, b.stage, f64::from(b.work_h));
+            let share = if stage == 0 {
+                (work_h / levelling).min(1.0)
+            } else {
+                1.0
+            };
+            let land = &mut *ctx.land;
+            for work in land.earthworks.iter_mut().filter(|w| w.plot == Some(plot)) {
+                civ_land::earth::advance(work, ctx.map, &mut land.ground, share as f32);
+            }
+        }
+        let b = &mut ctx.land.buildings[bi];
         if let Some(finished) = done.finished {
             // How skilled its builders were on average, over the stage's work.
             let skill = if stage.labour_h > 0.0 {

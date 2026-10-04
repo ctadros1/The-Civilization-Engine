@@ -95,7 +95,7 @@ use commons_persist::{SectionData, SectionTag, SnapshotReader};
 use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
-    SCHEMA_V17, SCHEMA_V18, finish, section, single_chunk, unreadable,
+    SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -132,6 +132,8 @@ pub const SECTION_WEALTH: SectionTag = SectionTag::new("wealth");
 pub const SECTION_KNOW: SectionTag = SectionTag::new("know");
 /// Section "deposits" (schema 19): bodies in the ground and what has been taken from each.
 pub const SECTION_DEPOSITS: SectionTag = SectionTag::new("deposits");
+/// Section "earth" (schema 20): earthworks and what they have done to the ground.
+pub const SECTION_EARTH: SectionTag = SectionTag::new("earth");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -195,6 +197,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             0,
             encode_deposits(&sim.land, &sim.people, &goods),
         ),
+        section(SECTION_EARTH, 0, encode_earth(&sim.land)),
     ]
 }
 
@@ -251,6 +254,8 @@ enum Schema {
     V18,
     /// Deposits as bodies in the ground (ADR-0010 §1).
     V19,
+    /// Earthworks and the ground they changed (ADR-0010 §2-3).
+    V20,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -283,7 +288,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V16 => Schema::V16,
         SCHEMA_V17 => Schema::V17,
         SCHEMA_V18 => Schema::V18,
-        SAVE_SCHEMA_VERSION => Schema::V19,
+        SCHEMA_V19 => Schema::V19,
+        SAVE_SCHEMA_VERSION => Schema::V20,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -380,6 +386,11 @@ pub(super) fn decode<R: Read + Seek>(
         let bytes = single_chunk(reader, SECTION_DEPOSITS)?;
         (land.deposits, people.deposits_known) = decode_deposits(&bytes, rules)?;
     }
+    // Earthworks (schema 20); before them nobody had changed the ground.
+    if schema >= Schema::V20 {
+        let bytes = single_chunk(reader, SECTION_EARTH)?;
+        decode_earth(&bytes, &mut land)?;
+    }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
 
     let mut problems = land.problems(map, rules.land.habitats.len(), next_id);
@@ -427,6 +438,107 @@ pub(super) fn decode<R: Read + Seek>(
         redecide,
         place_deposits: schema < Schema::V19,
     })
+}
+
+// ---- earth -------------------------------------------------------------------------------------
+
+fn encode_earth(land: &Land) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let works: Vec<save::EarthworkRecord> = land
+        .earthworks
+        .iter()
+        .map(|w| {
+            save::EarthworkRecord::new(
+                w.id.get(),
+                w.household.get(),
+                raw(w.plot),
+                w.begun.minutes(),
+                w.cut_m3,
+                w.done,
+                w.level_cm,
+                w.rect.x,
+                w.rect.y,
+                w.rect.w,
+                w.rect.h,
+                w.side_run_cm,
+                w.version,
+                match w.kind {
+                    civ_land::earth::EarthKind::Platform => 0,
+                },
+            )
+        })
+        .collect();
+    let works = fbb.create_vector(&works);
+    let tiles: Vec<_> = land
+        .ground
+        .tiles()
+        .map(|(index, t)| {
+            let cells = fbb.create_vector(&t.cells);
+            save::GroundTile::create(
+                &mut fbb,
+                &save::GroundTileArgs {
+                    index,
+                    rev: t.rev,
+                    cells: Some(cells),
+                },
+            )
+        })
+        .collect();
+    let tiles = fbb.create_vector(&tiles);
+    let root = save::Earth::create(
+        &mut fbb,
+        &save::EarthArgs {
+            works: Some(works),
+            tiles: Some(tiles),
+        },
+    );
+    finish(fbb, root)
+}
+
+fn decode_earth(bytes: &[u8], land: &mut Land) -> Result<(), LoadError> {
+    let root =
+        flatbuffers::root::<save::Earth>(bytes).map_err(|e| unreadable(SECTION_EARTH, &e))?;
+    for w in root.works().iter().flatten() {
+        let kind = match w.kind() {
+            0 => civ_land::earth::EarthKind::Platform,
+            other => {
+                return Err(LoadError::Malformed(format!(
+                    "an earthwork has kind {other}"
+                )));
+            }
+        };
+        land.earthworks.push(civ_land::earth::Earthwork {
+            id: required(w.id(), "an earthwork")?,
+            kind,
+            rect: civ_land::RectCm {
+                x: w.x_cm(),
+                y: w.y_cm(),
+                w: w.w_cm(),
+                h: w.h_cm(),
+            },
+            level_cm: w.level_cm(),
+            side_run_cm: w.side_run_cm(),
+            plot: id(w.plot()),
+            household: required(w.household(), "an earthwork")?,
+            cut_m3: w.cut_m3(),
+            done: w.done(),
+            version: w.version(),
+            begun: time(w.begun()),
+        });
+    }
+    for t in root.tiles().iter().flatten() {
+        let tile = civ_land::earth::DeltaTile {
+            rev: t.rev(),
+            cells: t.cells().map(|c| c.iter().collect()).unwrap_or_default(),
+        };
+        if !land.ground.set_tile(t.index(), tile) {
+            return Err(LoadError::Malformed(format!(
+                "ground tile {} is off the map or the wrong size",
+                t.index()
+            )));
+        }
+    }
+    Ok(())
 }
 
 // ---- deposits ----------------------------------------------------------------------------------
@@ -796,6 +908,9 @@ fn decode_land(bytes: &[u8], rules: &Rules, map: &WorldMap) -> Result<Land, Load
         wear: Wear::new(map.width, map.height, map.cell_size_m),
         // Read from its own section (schema 19 on), or placed from the seed on loading.
         deposits: Vec::new(),
+        // Read from its own section (schema 20 on).
+        earthworks: Vec::new(),
+        ground: civ_land::earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
     };
     // A grid of the wrong size is reported by `Land::problems`; only fill stocks on a sound one.
     if land.patches.class.len() == n
@@ -1313,7 +1428,8 @@ fn carried(
         | Schema::V16
         | Schema::V17
         | Schema::V18
-        | Schema::V19 => {
+        | Schema::V19
+        | Schema::V20 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1437,7 +1553,8 @@ fn decode_households(
             | Schema::V16
             | Schema::V17
             | Schema::V18
-            | Schema::V19 => {
+            | Schema::V19
+            | Schema::V20 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

@@ -191,8 +191,11 @@ pub fn plot_clear(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectCm) -> 
 }
 
 /// Where a household builds: the hut `design_at` designs at its home if the ground it needs there
-/// is clear, otherwise at the nearest point found stepping outward from home (away from the
-/// hearth first) no farther than `max_m`. Never on the hearth. `design_at` returns `None` for a
+/// is clear and level enough to build on as it is, otherwise at the nearest such point found
+/// stepping outward from home (away from the hearth first) no farther than `max_m`. When all the
+/// clear ground within that would have to be levelled, the plot that needs least, the nearest
+/// among equals: `levelling` says how much a plot's ground needs (0 for none; ADR-0010 §2), or
+/// `None` for ground too steep to build on. Never on the hearth. `design_at` returns `None` for a
 /// point the household would not build on (out of reach). `None` if no ground is clear.
 #[allow(clippy::too_many_arguments)]
 pub fn home_site(
@@ -204,6 +207,7 @@ pub fn home_site(
     home: (f32, f32),
     hearth: Option<(f32, f32)>,
     max_m: f64,
+    levelling: &dyn Fn(&RectCm) -> Option<f64>,
 ) -> Option<BuildingSpec> {
     let away = hearth.map_or(0.0, |h| {
         f64::from(home.1 - h.1).atan2(f64::from(home.0 - h.0))
@@ -226,11 +230,24 @@ pub fn home_site(
             (home.0 + (d * a.cos()) as f32, home.1 + (d * a.sin()) as f32)
         })
     });
-    std::iter::once(home).chain(around).find_map(|at| {
-        let spec = design_at(at)?;
+    let mut least: Option<(f64, BuildingSpec)> = None;
+    for at in std::iter::once(home).chain(around) {
+        let Some(spec) = design_at(at) else {
+            continue;
+        };
         let rect = plot_rect(&spec, def);
-        (clear_of_hearth(&rect) && plot_clear(land, map, nav, &rect)).then_some(spec)
-    })
+        if !(clear_of_hearth(&rect) && plot_clear(land, map, nav, &rect)) {
+            continue;
+        }
+        match levelling(&rect) {
+            Some(need) if need <= 0.0 => return Some(spec),
+            Some(need) if least.as_ref().is_none_or(|(l, _)| need < *l) => {
+                least = Some((need, spec));
+            }
+            _ => {}
+        }
+    }
+    least.map(|(_, spec)| spec)
 }
 
 /// What each construction stage of the building `spec` designs needs; `None` if the design does not
@@ -373,6 +390,53 @@ impl ShapeCost {
     pub fn hours(&self, carry_kg: f64) -> f64 {
         self.labour_h + self.materials_kg / carry_kg.max(1e-6) * HAUL_H_PER_LOAD
     }
+}
+
+/// Plot `plot` (its id and rectangle) of `household`, claimed at `now`: when its ground drops more
+/// than `lev`'s threshold across it, a platform is begun to level it, cut and filled to the level
+/// at which its earth balances (ADR-0010 §2). The hours its levelling takes, which the building's
+/// first stage takes on; 0 for ground level enough to build on as it is.
+pub fn level_plot(
+    land: &mut civ_land::Land,
+    map: &civ_world::WorldMap,
+    ids: &mut civ_core::IdAllocator,
+    lev: &crate::params::Levelling,
+    (plot, rect): (civ_core::PermanentId, civ_land::RectCm),
+    household: civ_core::PermanentId,
+    now: civ_core::SimTime,
+) -> f64 {
+    use civ_land::earth;
+    let bed = |x: f64, y: f64| earth::bed_height(map, (x, y));
+    if earth::drop_across(&rect, &bed) <= lev.from_m {
+        return 0.0;
+    }
+    let Some(level) = earth::platform_level(&rect, lev.side_run, &bed) else {
+        return 0.0;
+    };
+    let level_cm = (level * 100.0).round() as i32;
+    let shaped = earth::shape_platform(
+        &rect,
+        f64::from(level_cm) / 100.0,
+        lev.side_run,
+        1.0,
+        &bed,
+        &mut |_, _, _, _| {},
+    );
+    let work = earth::Earthwork {
+        id: ids.allocate(),
+        kind: earth::EarthKind::Platform,
+        rect,
+        level_cm,
+        side_run_cm: (lev.side_run * 100.0).round().clamp(1.0, 65_535.0) as u16,
+        plot: Some(plot),
+        household,
+        cut_m3: shaped.cut_m3 as f32,
+        done: 0.0,
+        version: earth::EARTH_VERSION,
+        begun: now,
+    };
+    land.earthworks.push(work);
+    f64::from(work.cut_m3) * lev.h_per_m3
 }
 
 /// The design of a building of program `def` in shape `shape` standing at `at` (metres), its

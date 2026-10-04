@@ -6,6 +6,11 @@
 //! The expansion samples the ground at a fine step, so it runs at the kernel's 8 m cells and at any
 //! finer resolution alike, and it never rewrites the generated bed: what it gives is a difference.
 
+use std::collections::BTreeMap;
+
+use civ_core::{PermanentId, SimTime};
+use civ_world::WorldMap;
+
 use crate::fields::RectCm;
 
 /// The expansion's version: records keep the version they were made under (ADR-0010 §2).
@@ -32,31 +37,73 @@ pub struct Shaped {
     pub area_m2: f64,
 }
 
-/// The level a platform over `rect` would be cut and filled to on ground `base` (metres from the
-/// map's corner to metres of height): the level at which what is cut inside its rectangle equals
-/// what is filled there, found by halving. `None` for an empty rectangle.
-pub fn platform_level(rect: &RectCm, base: &dyn Fn(f64, f64) -> f64) -> Option<f64> {
+/// The level a platform over `rect`, its sides at `side_run`, would be cut and filled to on ground
+/// `base` (metres from the map's corner to metres of height): the level at which all it cuts,
+/// sides and all, equals all it fills, so its earth balances (ADR-0010 §2), found by halving
+/// between the lowest and highest ground under it. `None` for an empty rectangle.
+pub fn platform_level(rect: &RectCm, side_run: f64, base: &dyn Fn(f64, f64) -> f64) -> Option<f64> {
     let points = samples(rect, 0.0);
     if points.is_empty() {
         return None;
     }
-    let heights: Vec<f64> = points.iter().map(|&(x, y)| base(x, y)).collect();
-    let (mut lo, mut hi) = heights
+    let (mut lo, mut hi) = points
         .iter()
-        .fold((f64::INFINITY, f64::NEG_INFINITY), |(l, h), &z| {
+        .map(|&(x, y)| base(x, y))
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(l, h), z| {
             (l.min(z), h.max(z))
         });
-    // Cut minus fill falls as the level rises; find where it crosses zero.
-    for _ in 0..60 {
+    // What it fills less what it cuts rises with the level; find where it crosses zero.
+    for _ in 0..40 {
         let mid = (lo + hi) / 2.0;
-        let net: f64 = heights.iter().map(|&z| z - mid).sum();
-        if net > 0.0 {
+        let s = shape_platform(rect, mid, side_run, 1.0, base, &mut |_, _, _, _| {});
+        if s.fill_m3 < s.cut_m3 {
             lo = mid;
         } else {
             hi = mid;
         }
     }
     Some((lo + hi) / 2.0)
+}
+
+/// How far the ground `base` drops across `rect`, metres: its highest less its lowest there.
+pub fn drop_across(rect: &RectCm, base: &dyn Fn(f64, f64) -> f64) -> f64 {
+    let (lo, hi) = samples(rect, 0.0)
+        .iter()
+        .map(|&(x, y)| base(x, y))
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(l, h), z| {
+            (l.min(z), h.max(z))
+        });
+    if hi >= lo { hi - lo } else { 0.0 }
+}
+
+/// Whether a platform over `rect` whose ground drops `drop_m` across it, its sides at `side_run`,
+/// stays clear of water: every cell its sides could reach is dry land on the map. Earthworks are
+/// refused on or beside water while routing and drainage stay as generated (ADR-0010 §3).
+pub fn clear_of_water(map: &WorldMap, rect: &RectCm, drop_m: f64, side_run: f64) -> bool {
+    let cell = f64::from(map.cell_size_m);
+    if cell <= 0.0 {
+        return false;
+    }
+    let reach = drop_m.max(0.0) * side_run.max(0.0) + SAMPLE_M;
+    let (x0, y0) = (
+        f64::from(rect.x) / 100.0 - reach,
+        f64::from(rect.y) / 100.0 - reach,
+    );
+    let (x1, y1) = (
+        f64::from(rect.x + rect.w) / 100.0 + reach,
+        f64::from(rect.y + rect.h) / 100.0 + reach,
+    );
+    let (w, h) = (f64::from(map.width) * cell, f64::from(map.height) * cell);
+    if x0 < 0.0 || y0 < 0.0 || x1 > w || y1 > h {
+        return false;
+    }
+    let (cx0, cy0) = ((x0 / cell) as usize, (y0 / cell) as usize);
+    let (cx1, cy1) = (
+        ((x1 / cell) as usize).min(map.width as usize - 1),
+        ((y1 / cell) as usize).min(map.height as usize - 1),
+    );
+    let width = map.width as usize;
+    (cy0..=cy1).all(|y| (cx0..=cx1).all(|x| map.water[y * width + x] == civ_world::WATER_LAND))
 }
 
 /// The finished surface at `(x, y)` of a platform over `rect` levelled to `level_m`, with sides
@@ -131,6 +178,185 @@ pub fn shape_platform(
     out
 }
 
+/// An earthwork's record (ADR-0010 §2): what it is, where, the level it is cut and filled to and
+/// how far it has gone. Saved; what it has done to the ground is kept in [`GroundDelta`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Earthwork {
+    /// Permanent id.
+    pub id: PermanentId,
+    /// What it is.
+    pub kind: EarthKind,
+    /// The area it levels.
+    pub rect: RectCm,
+    /// The level it is cut and filled to, centimetres of height.
+    pub level_cm: i32,
+    /// Its sides' run, centimetres across for each metre up or down.
+    pub side_run_cm: u16,
+    /// The plot it levels, if any.
+    pub plot: Option<PermanentId>,
+    /// The household that made it.
+    pub household: PermanentId,
+    /// Earth it cuts when done, cubic metres in the bank.
+    pub cut_m3: f32,
+    /// The share of it done, 0 to 1.
+    pub done: f32,
+    /// The expansion version it was made under.
+    pub version: u16,
+    /// When it was begun.
+    pub begun: SimTime,
+}
+
+impl Earthwork {
+    /// Its level, metres.
+    pub fn level_m(&self) -> f64 {
+        f64::from(self.level_cm) / 100.0
+    }
+
+    /// Its sides' run, metres across per metre up or down.
+    pub fn side_run(&self) -> f64 {
+        f64::from(self.side_run_cm) / 100.0
+    }
+}
+
+/// Cells a side of a tile of [`GroundDelta`].
+pub const DELTA_TILE: u32 = 64;
+
+/// What earthworks have done to the ground (ADR-0010 §3): for each cell they touched, the change
+/// in its mean height, metres, in sparse tiles of [`DELTA_TILE`] cells a side, each with a
+/// revision. The generated bed is never rewritten; the ground in use is the bed plus this.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GroundDelta {
+    width: u32,
+    height: u32,
+    cell_m: f32,
+    tiles: BTreeMap<u32, DeltaTile>,
+}
+
+/// One tile of a [`GroundDelta`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct DeltaTile {
+    /// Changes each time a cell of it changes.
+    pub rev: u32,
+    /// Each cell's change in mean height, metres, row by row.
+    pub cells: Vec<f32>,
+}
+
+impl GroundDelta {
+    /// No change yet, over a map of `width` by `height` cells of `cell_m` metres.
+    pub fn new(width: u32, height: u32, cell_m: f32) -> Self {
+        Self {
+            width,
+            height,
+            cell_m,
+            tiles: BTreeMap::new(),
+        }
+    }
+
+    /// Tiles across the map.
+    pub fn tiles_x(&self) -> u32 {
+        self.width.div_ceil(DELTA_TILE)
+    }
+
+    /// The change in cell `cell`'s mean height, metres.
+    pub fn at(&self, cell: usize) -> f32 {
+        let w = self.width as usize;
+        let (x, y) = ((cell % w.max(1)) as u32, (cell / w.max(1)) as u32);
+        let index = (y / DELTA_TILE) * self.tiles_x() + x / DELTA_TILE;
+        self.tiles.get(&index).map_or(0.0, |t| {
+            t.cells[((y % DELTA_TILE) * DELTA_TILE + x % DELTA_TILE) as usize]
+        })
+    }
+
+    /// Adds `volume_m3` of earth (removes, when negative) at `(x, y)` metres, spread over the
+    /// cell there as a change in its mean height. Off the map, nothing.
+    pub fn add(&mut self, (x, y): (f64, f64), volume_m3: f64) {
+        let cell_m = f64::from(self.cell_m);
+        if !(x >= 0.0 && y >= 0.0) || cell_m <= 0.0 {
+            return;
+        }
+        let (cx, cy) = ((x / cell_m) as u32, (y / cell_m) as u32);
+        if cx >= self.width || cy >= self.height {
+            return;
+        }
+        let index = (cy / DELTA_TILE) * self.tiles_x() + cx / DELTA_TILE;
+        let tile = self.tiles.entry(index).or_insert_with(|| DeltaTile {
+            rev: 0,
+            cells: vec![0.0; (DELTA_TILE * DELTA_TILE) as usize],
+        });
+        let at = ((cy % DELTA_TILE) * DELTA_TILE + cx % DELTA_TILE) as usize;
+        tile.cells[at] += (volume_m3 / (cell_m * cell_m)) as f32;
+        tile.rev = tile.rev.wrapping_add(1);
+    }
+
+    /// Every tile there is, by index (row by row across the map).
+    pub fn tiles(&self) -> impl Iterator<Item = (u32, &DeltaTile)> {
+        self.tiles.iter().map(|(&i, t)| (i, t))
+    }
+
+    /// Sets tile `index` (as loaded from a save). `false` if it is off the map or the wrong size.
+    pub fn set_tile(&mut self, index: u32, tile: DeltaTile) -> bool {
+        let count = self.tiles_x() * self.height.div_ceil(DELTA_TILE);
+        if index >= count || tile.cells.len() != (DELTA_TILE * DELTA_TILE) as usize {
+            return false;
+        }
+        self.tiles.insert(index, tile);
+        true
+    }
+
+    /// The sum of every cell's change times its area, cubic metres: earth added less earth taken.
+    pub fn net_m3(&self) -> f64 {
+        let area = f64::from(self.cell_m) * f64::from(self.cell_m);
+        self.tiles
+            .values()
+            .flat_map(|t| t.cells.iter())
+            .map(|&dz| f64::from(dz) * area)
+            .sum()
+    }
+}
+
+/// The generated ground's height at `(x, y)` metres: the cells' heights at their centres, joined
+/// bilinearly; at the map's edges, the edge cells'.
+pub fn bed_height(map: &WorldMap, (x, y): (f64, f64)) -> f64 {
+    let cell = f64::from(map.cell_size_m);
+    let (w, h) = (map.width as usize, map.height as usize);
+    if w == 0 || h == 0 || cell <= 0.0 {
+        return 0.0;
+    }
+    let fx = (x / cell - 0.5).clamp(0.0, (w - 1) as f64);
+    let fy = (y / cell - 0.5).clamp(0.0, (h - 1) as f64);
+    let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
+    let (x1, y1) = ((x0 + 1).min(w - 1), (y0 + 1).min(h - 1));
+    let (tx, ty) = (fx - x0 as f64, fy - y0 as f64);
+    let z = |cx: usize, cy: usize| f64::from(map.elevation[cy * w + cx]);
+    let top = z(x0, y0) * (1.0 - tx) + z(x1, y0) * tx;
+    let bottom = z(x0, y1) * (1.0 - tx) + z(x1, y1) * tx;
+    top * (1.0 - ty) + bottom * ty
+}
+
+/// Advances earthwork `work` on `map` to `share` done, adding what the step does to `ground`.
+/// Nothing for a share it has already reached.
+pub fn advance(work: &mut Earthwork, map: &WorldMap, ground: &mut GroundDelta, share: f32) {
+    let share = share.clamp(0.0, 1.0);
+    if share <= work.done {
+        return;
+    }
+    let step = f64::from(share - work.done);
+    let base = |x: f64, y: f64| bed_height(map, (x, y));
+    match work.kind {
+        EarthKind::Platform => {
+            shape_platform(
+                &work.rect,
+                work.level_m(),
+                work.side_run(),
+                step,
+                &base,
+                &mut |x, y, dz, area| ground.add((x, y), dz * area),
+            );
+        }
+    }
+    work.done = share;
+}
+
 /// The centres of the squares of [`SAMPLE_M`] covering `rect` widened by `margin` metres.
 fn samples(rect: &RectCm, margin: f64) -> Vec<(f64, f64)> {
     let (x0, y0) = (
@@ -173,7 +399,7 @@ mod tests {
     #[test]
     fn flat_ground_needs_no_earth_moved() {
         let flat = |_: f64, _: f64| 12.0;
-        let level = platform_level(&plot(), &flat).expect("a level");
+        let level = platform_level(&plot(), 1.5, &flat).expect("a level");
         assert!((level - 12.0).abs() < 1e-9);
         let s = shape_platform(&plot(), level, 1.5, 1.0, &flat, &mut |_, _, _, _| {});
         assert_eq!(s.cut_m3, 0.0);
@@ -184,9 +410,9 @@ mod tests {
     fn a_platform_on_a_slope_is_cut_where_high_and_filled_where_low_in_balance() {
         // Ground rising 10 cm a metre eastward: 80 cm across the 8 m plot.
         let slope = |x: f64, _: f64| 50.0 + 0.1 * x;
-        let level = platform_level(&plot(), &slope).expect("a level");
-        // Balanced at the plot's middle, 14 m east of the corner.
-        assert!((level - (50.0 + 0.1 * 14.0)).abs() < 1e-6, "{level}");
+        let level = platform_level(&plot(), 1.5, &slope).expect("a level");
+        // Balanced, sides and all, at the plot's middle, 14 m east of the corner.
+        assert!((level - (50.0 + 0.1 * 14.0)).abs() < 1e-3, "{level}");
         let mut changes = 0.0;
         let s = shape_platform(&plot(), level, 1.5, 1.0, &slope, &mut |_, _, dz, a| {
             changes += dz * a;
@@ -201,12 +427,49 @@ mod tests {
         assert!((half.cut_m3 - s.cut_m3 / 2.0).abs() < 1e-9);
     }
 
+    #[test]
+    fn a_middling_huts_plot_dropping_a_metre_cuts_about_six_and_a_half_cubic_metres() {
+        // A hut of 2.5 m radius under a 0.5 m overhang claims a 6 m square; the ground drops 1 m
+        // across it. Within the plot the cut is A·drop/8 (11-12 §2.5B); its sides add about 2 m³.
+        let rect = RectCm {
+            x: 10_000,
+            y: 10_000,
+            w: 600,
+            h: 600,
+        };
+        let slope = |x: f64, _: f64| 30.0 - (x - 100.0) / 6.0;
+        let level = platform_level(&rect, 1.5, &slope).expect("a level");
+        let s = shape_platform(&rect, level, 1.5, 1.0, &slope, &mut |_, _, _, _| {});
+        let inside = 36.0 * 1.0 / 8.0;
+        assert!(s.cut_m3 > inside + 1.5 && s.cut_m3 < 7.0, "{s:?}");
+        assert!((s.cut_m3 - s.fill_m3).abs() < 0.02 * s.cut_m3, "{s:?}");
+    }
+
+    #[test]
+    fn a_platform_whose_sides_could_reach_water_is_refused() {
+        // The test map's river runs along its west 16 m.
+        let map = crate::tests::map();
+        let rect = RectCm {
+            x: 2_000,
+            y: 2_000,
+            w: 600,
+            h: 600,
+        };
+        // Its sides reach 2 m beyond it for a metre's drop: still dry.
+        assert!(clear_of_water(&map, &rect, 1.0, 1.5));
+        // For 3 m, 5 m beyond it, over the river.
+        assert!(!clear_of_water(&map, &rect, 3.0, 1.5));
+        // Nor past the map's edge.
+        let corner = RectCm { x: 100, ..rect };
+        assert!(!clear_of_water(&map, &corner, 0.5, 1.5));
+    }
+
     /// A hash of everything a platform's expansion gives on a fixed slope, to the micrometre.
     fn golden() -> u64 {
         // Plain arithmetic only, which is exact on every platform.
         let ground = |x: f64, y: f64| 40.0 + 0.12 * x - 0.05 * y + 0.002 * x * y;
         let rect = plot();
-        let level = platform_level(&rect, &ground).expect("a level");
+        let level = platform_level(&rect, 1.5, &ground).expect("a level");
         let mut h: u64 = 0xcbf2_9ce4_8422_2325;
         let mut mix = |v: f64| {
             for b in ((v * 1e6).round() as i64).to_le_bytes() {
@@ -237,7 +500,55 @@ mod tests {
         assert_eq!(golden(), GOLDEN_V1, "{:#x}", golden());
     }
 
-    const GOLDEN_V1: u64 = 0xab80_fd09_54cf_79f4;
+    const GOLDEN_V1: u64 = 0x1e97_baba_e75b_ad2e;
+
+    #[test]
+    fn levelling_a_plot_moves_earth_within_the_ground_and_never_twice() {
+        let map = crate::tests::map();
+        // The plot over the steep south-east of the test map.
+        let rect = RectCm {
+            x: 3_400,
+            y: 3_400,
+            w: 1_200,
+            h: 1_200,
+        };
+        let base = |x: f64, y: f64| bed_height(&map, (x, y));
+        let level = platform_level(&rect, 1.5, &base).expect("a level");
+        let whole = shape_platform(&rect, level, 1.5, 1.0, &base, &mut |_, _, _, _| {});
+        assert!(whole.cut_m3 > 1.0, "{whole:?}");
+        let mut work = Earthwork {
+            id: PermanentId::from_raw(5).expect("nonzero"),
+            kind: EarthKind::Platform,
+            rect,
+            level_cm: (level * 100.0).round() as i32,
+            side_run_cm: 150,
+            plot: None,
+            household: PermanentId::from_raw(6).expect("nonzero"),
+            cut_m3: whole.cut_m3 as f32,
+            done: 0.0,
+            version: EARTH_VERSION,
+            begun: SimTime::ZERO,
+        };
+        let mut ground = GroundDelta::new(map.width, map.height, map.cell_size_m);
+        advance(&mut work, &map, &mut ground, 0.5);
+        advance(&mut work, &map, &mut ground, 0.5);
+        assert_eq!(work.done, 0.5);
+        advance(&mut work, &map, &mut ground, 1.0);
+        // What is cut is filled, give or take the rounding of its level to a centimetre and the
+        // sides' earth beyond the map's edge.
+        assert!(
+            ground.net_m3().abs() < 0.05 * whole.cut_m3 + 1.0,
+            "{} of {whole:?}",
+            ground.net_m3()
+        );
+        // The plot's cells are brought toward its level: the high ones down, the low ones up.
+        let cells: Vec<f32> = (0..(map.width * map.height) as usize)
+            .map(|c| ground.at(c))
+            .collect();
+        assert!(cells.iter().any(|&dz| dz < -0.01) && cells.iter().any(|&dz| dz > 0.01));
+        let tiles: Vec<u32> = ground.tiles().map(|(i, _)| i).collect();
+        assert_eq!(tiles, vec![0]);
+    }
 
     #[test]
     fn the_sides_slope_back_to_the_ground() {

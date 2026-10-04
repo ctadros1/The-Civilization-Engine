@@ -794,6 +794,22 @@ impl Sim {
             use_,
             since: now,
         });
+        // Its plot is levelled as one begun would be; past its first stage, it is done.
+        let levelling = civ_agents::build::level_plot(
+            &mut self.land,
+            &self.map,
+            &mut self.ids,
+            &self.rules.people.build.levelling,
+            (plot, rect),
+            household,
+            now,
+        );
+        if levelling > 0.0 && stage > 0 {
+            let land = &mut self.land;
+            for work in land.earthworks.iter_mut().filter(|w| w.plot == Some(plot)) {
+                civ_land::earth::advance(work, &self.map, &mut land.ground, 1.0);
+            }
+        }
         let mut b = civ_land::Building {
             stage,
             ..civ_land::Building::new(id, household, plot, spec, now)

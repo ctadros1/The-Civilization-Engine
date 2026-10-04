@@ -770,3 +770,162 @@ fn a_building_nobody_can_work_on_holds_nothing_else_up() {
     }
     panic!("the household planned nothing else in thirty days");
 }
+
+#[test]
+fn a_household_seeks_level_ground_before_it_levels_and_never_builds_on_ground_too_steep() {
+    let sim = world(3);
+    let catalog = &content().catalog;
+    let hut = &catalog.buildings[program("core:building/hut")];
+    let home = sim
+        .people()
+        .households
+        .iter()
+        .min_by_key(|(_, h)| h.id)
+        .map(|(_, h)| h.home)
+        .expect("a household");
+    let shape = Shape::Round { radius: 250 };
+    let design_at = |at: (f32, f32)| build::design_shape(hut, &catalog.goods, shape, at, None);
+    let site = |levelling: &dyn Fn(&civ_land::RectCm) -> Option<f64>| {
+        build::home_site(
+            sim.land(),
+            sim.map(),
+            sim.nav(),
+            hut,
+            &design_at,
+            home,
+            None,
+            30.0,
+            levelling,
+        )
+        .map(|spec| build::plot_rect(&spec, hut))
+    };
+    // Level ground at home: it builds there.
+    let at_home = site(&|_| Some(0.0)).expect("a site");
+    // Home's ground would have to be levelled and there is level ground beside it: it builds
+    // beside it.
+    let beside = site(&|r| Some(if *r == at_home { 0.8 } else { 0.0 })).expect("a site");
+    assert_ne!(beside, at_home);
+    // All of it would have to be levelled: the plot that needs least, the nearest among equals.
+    assert_eq!(
+        site(&|r| Some(if *r == at_home { 1.5 } else { 0.6 })),
+        Some(beside)
+    );
+    assert_eq!(
+        site(&|r| Some(if *r == at_home { 0.6 } else { 1.5 })),
+        Some(at_home)
+    );
+    // Too steep at home and level beside it: beside it. Too steep everywhere: nowhere.
+    assert_eq!(site(&|r| (*r != at_home).then_some(0.0)), Some(beside));
+    assert_eq!(site(&|_| None), None);
+}
+
+#[test]
+fn a_hut_on_sloping_ground_has_its_plot_levelled_first_and_the_ground_keeps_it() {
+    use civ_land::earth;
+    let mut sim = world(3);
+    let catalog = &content().catalog;
+    let hut = &catalog.buildings[program("core:building/hut")];
+    let (household, home) = {
+        let (_, h) = sim
+            .people()
+            .households
+            .iter()
+            .min_by_key(|(_, h)| h.id)
+            .expect("a household");
+        (h.id, h.home)
+    };
+    let lev = sim.rules().people.build.levelling;
+    // Somewhere near home whose ground drops between levelling's threshold and the most built on.
+    let shape = Shape::Round { radius: 250 };
+    let mut found = None;
+    'search: for r in 1..60 {
+        for k in 0..16 {
+            let a = f64::from(k) * std::f64::consts::TAU / 16.0;
+            let at = (
+                home.0 + (f64::from(r) * 8.0 * a.cos()) as f32,
+                home.1 + (f64::from(r) * 8.0 * a.sin()) as f32,
+            );
+            let Some(spec) = build::design_shape(hut, &catalog.goods, shape, at, None) else {
+                continue;
+            };
+            let rect = build::plot_rect(&spec, hut);
+            let drop = earth::drop_across(&rect, &|x, y| earth::bed_height(sim.map(), (x, y)));
+            if drop > lev.from_m + 0.2 && drop < lev.most_m - 0.2 {
+                found = Some(spec);
+                break 'search;
+            }
+        }
+    }
+    let spec = found.expect("sloping ground near home");
+    let house = sim
+        .place_building_for_tests(household, spec, 0)
+        .expect("placed");
+    let plot = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == house)
+        .expect("the hut")
+        .plot;
+    let work = *sim
+        .land()
+        .earthworks
+        .iter()
+        .find(|w| w.plot == Some(plot))
+        .expect("a platform for its plot");
+    assert_eq!(work.done, 0.0);
+    assert!(work.cut_m3 > 0.0, "{work:?}");
+    // The household levels it with the first stage's first hours.
+    for _ in 0..30 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        let w = sim
+            .land()
+            .earthworks
+            .iter()
+            .find(|w| w.id == work.id)
+            .expect("there");
+        if w.done >= 1.0 {
+            break;
+        }
+    }
+    let done = sim
+        .land()
+        .earthworks
+        .iter()
+        .find(|w| w.id == work.id)
+        .expect("there")
+        .done;
+    assert!(done > 0.0, "levelling began");
+    // Earth is moved, not made: what is cut is filled, give or take its sides at the map's edge.
+    let ground = &sim.land().ground;
+    assert!(
+        ground.net_m3().abs() < 0.05 * f64::from(work.cut_m3) + 0.5,
+        "{} of {}",
+        ground.net_m3(),
+        work.cut_m3
+    );
+    // The records reproduce the ground (ADR-0010 §3).
+    let map = sim.map();
+    let mut replayed = earth::GroundDelta::new(map.width, map.height, map.cell_size_m);
+    for w in &sim.land().earthworks {
+        let mut fresh = earth::Earthwork { done: 0.0, ..*w };
+        earth::advance(&mut fresh, map, &mut replayed, w.done);
+    }
+    for cell in 0..(map.width * map.height) as usize {
+        assert!(
+            (replayed.at(cell) - ground.at(cell)).abs() < 1e-3,
+            "cell {cell}"
+        );
+    }
+    // A save keeps the records and the ground.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION)
+            .expect("dir");
+    let saved =
+        civ_sim::persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "earth")
+            .expect("saves");
+    let loaded = civ_sim::persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.land().earthworks, sim.land().earthworks);
+    assert_eq!(loaded.land().ground, sim.land().ground);
+}

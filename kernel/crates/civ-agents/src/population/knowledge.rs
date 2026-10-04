@@ -132,12 +132,13 @@ impl Population {
             .filter_map(|m| self.person(*m))
             .filter(|q| q.knows(t) && working(q, def, target))
             .count();
+        // Learners at that work or on their way to it.
         let learners = hh
             .members
             .iter()
             .filter(|m| **m != who.id)
             .filter_map(|m| self.person(*m))
-            .filter(|q| !q.knows(t) && working(q, def, target))
+            .filter(|q| !q.knows(t) && q.act.def == def && q.act.target == target)
             .count();
         let room = teachers * ctx.params.knowledge.max_learners as usize;
         match self.knower_in(ctx, who.household, t, Some(who.id), Some((def, target))) {
@@ -149,7 +150,9 @@ impl Population {
     /// After `hours` of person `who`'s work at activity `def` aimed at `target`, which needs
     /// technique `t` (ADR-0008 §4): someone who knows it has practised it; a learner counts the
     /// hours toward learning it, from the household member at that work (or failing them, any who
-    /// knows it), or for hired work from the workshop's owners.
+    /// knows it), or for hired work from the workshop's owners. A session begun beside a teacher
+    /// counts whole even if the teacher finishes first: a simplification, as presence is checked
+    /// only when the learner chooses the work.
     pub(crate) fn practise(
         &mut self,
         ctx: &mut Ctx,
@@ -380,12 +383,14 @@ impl Population {
     /// People who have died or left (`gone`: who and what they knew), from settlement `s`: each
     /// technique they knew that nobody there knows any more is lost there (ADR-0008 §5), noted
     /// in the record and the chronicle with whether anyone there still knows of it and whether
-    /// what was made with it remains.
+    /// what was made with it remains, the buildings of a household that left (`left_behind`)
+    /// included.
     pub(crate) fn check_loss(
         &mut self,
         ctx: &mut Ctx,
         s: Option<PermanentId>,
         gone: &[(PermanentId, Vec<Know>)],
+        left_behind: Option<PermanentId>,
     ) {
         let Some(s) = s else {
             return;
@@ -423,7 +428,7 @@ impl Population {
                 .iter()
                 .filter_map(|id| self.person(*id))
                 .any(|p| p.know(t).is_some());
-            let made = self.made_with_remains(ctx, s, t);
+            let made = self.made_with_remains(ctx, s, t, left_behind);
             let flags =
                 if aware { LOST_AWARE } else { 0.0 } + if made { LOST_MADE_REMAIN } else { 0.0 };
             self.knowledge.push(KnowledgeEvent {
@@ -452,13 +457,20 @@ impl Population {
     /// Whether goods or buildings made with technique `t` remain in settlement `s`: a standing
     /// building of a program that needs it, or goods a recipe that needs it makes, held by a
     /// household or workshop there.
-    fn made_with_remains(&self, ctx: &Ctx, s: PermanentId, t: usize) -> bool {
+    fn made_with_remains(
+        &self,
+        ctx: &Ctx,
+        s: PermanentId,
+        t: usize,
+        left_behind: Option<PermanentId>,
+    ) -> bool {
         let catalog = ctx.catalog;
         let households: Vec<PermanentId> = self
             .households
             .iter()
             .filter(|(_, x)| x.settlement == Some(s))
             .map(|(_, x)| x.id)
+            .chain(left_behind)
             .collect();
         let building = ctx.land.buildings.iter().any(|b| {
             households.contains(&b.household)

@@ -346,6 +346,9 @@ pub struct Workshop<'a> {
     pub best_make: BestMake<'a>,
     /// Whether a make activity makes a tool (scored last, once the tools work waits on are known).
     pub makes_tool: &'a dyn Fn(usize) -> bool,
+    /// Whether the person knows a technique, by index (ADR-0008): a faster way they do not know
+    /// does not rule out a slower one they do.
+    pub knows: &'a dyn Fn(usize) -> bool,
 }
 
 impl std::fmt::Debug for Workshop<'_> {
@@ -1027,6 +1030,7 @@ pub fn candidates(
         out.iter()
             .map(|c| &defs[usize::from(c.scored.def)])
             .filter(|d| d.behavior == Behavior::Farm && d.task == Some(task))
+            .filter(|d| d.technique.is_none_or(|t| (shop.knows)(t)))
             .map(|d| d.rate)
             .fold(0.0, f64::max)
     };
@@ -1234,6 +1238,7 @@ mod tests {
             free_tools: free,
             best_make: make,
             makes_tool,
+            knows: &|_| true,
         };
         candidates(
             defs,
@@ -1355,6 +1360,7 @@ mod tests {
             free_tools: &[],
             best_make: &cannot,
             makes_tool: &|_| false,
+            knows: &|_| true,
         };
         // (eat, fetch water) totals for the hungriest of people.
         let totals = |daylight_left_min: f64, water_days: f64| {

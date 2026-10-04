@@ -15,8 +15,8 @@ use crate::firm::{BookKind, Entry};
 use crate::ledger::{Channel, Leg, Trade};
 use crate::make;
 use crate::market::{Market, Offer};
-use crate::params::{Catalog, GoodDef, GoodUse, MarketParams, PeopleParams};
-use crate::person::{Household, stock_kcal};
+use crate::params::{Catalog, GoodDef, GoodUse, MarketParams, PeopleParams, RecipeDef};
+use crate::person::{Household, Person, stock_kcal};
 use crate::value;
 
 /// Food a household keeps beyond what sees it to its next harvest before it offers any, a share
@@ -138,20 +138,20 @@ impl Population {
         hh: &Household,
         now: SimTime,
     ) -> Vec<Option<f64>> {
-        let mut levels: Vec<f64> = vec![0.0; catalog.skills.len()];
-        let mut known = vec![false; catalog.techniques.len()];
-        for m in &hh.members {
-            if let Some(p) = self.person(*m) {
-                for (k, l) in levels.iter_mut().enumerate() {
-                    *l = l.max(p.skill(k));
-                }
-                for k in p.knows.iter().filter(|k| k.known) {
-                    if let Some(x) = known.get_mut(usize::from(k.technique)) {
-                        *x = true;
-                    }
-                }
+        let members: Vec<&Person> = hh.members.iter().filter_map(|m| self.person(*m)).collect();
+        // Each recipe at the skill of the best of the members who know it (ADR-0008: knowing is
+        // the gate, skill is how well), or of them all if it needs no technique.
+        let level = |r: &RecipeDef| -> Option<f64> {
+            let skill = |p: &&Person| r.skill.map_or(0.0, |k| p.skill(k));
+            match r.technique {
+                None => Some(members.iter().map(skill).fold(0.0, f64::max)),
+                Some(t) => members
+                    .iter()
+                    .filter(|p| p.knows(t))
+                    .map(skill)
+                    .reduce(f64::max),
             }
-        }
+        };
         let n = catalog.goods.len();
         let gathered = value::gathered_costs(&land_params.resources, &hh.known, n);
         // What it grows is carried in its store from the harvest, under its roof if it has one.
@@ -171,8 +171,7 @@ impl Population {
             now.day_index(),
             &half_life,
         );
-        let knows = |t: usize| known.get(t).copied().unwrap_or(false);
-        let mut costs = value::own_costs(catalog, &levels, &knows, &gathered, &grown);
+        let mut costs = value::own_costs(catalog, &level, &gathered, &grown);
         value::food_by_energy(&catalog.goods, &mut costs);
         costs
     }

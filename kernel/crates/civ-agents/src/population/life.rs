@@ -448,7 +448,7 @@ impl Population {
             cause.key().to_owned(),
         );
         // What only they knew there is lost with them (ADR-0008 §5).
-        self.check_loss(ctx, settlement, &[(id, p.knows)]);
+        self.check_loss(ctx, settlement, &[(id, p.knows)], None);
     }
 
     /// Households no one is left in pass to the nearest kin of whoever lived there last; children
@@ -612,8 +612,9 @@ impl Population {
             count,
             String::new(),
         );
-        // What only they knew there leaves with them (ADR-0008 §5).
-        self.check_loss(ctx, settlement, &gone);
+        // What only they knew there leaves with them (ADR-0008 §5); the buildings they leave
+        // standing still count as made with it.
+        self.check_loss(ctx, settlement, &gone, Some(household));
     }
 
     /// Parents and children of everyone in the records.

@@ -1738,6 +1738,7 @@ impl Population {
             free_tools: &free_tools,
             best_make: &best_make,
             makes_tool: &makes_tool,
+            knows: &|t| self.people.get(h).is_some_and(|p| p.knows(t)),
         };
         let (cands, excluded) = decide::candidates(
             &catalog.activities,

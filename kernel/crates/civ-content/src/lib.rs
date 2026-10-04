@@ -956,6 +956,19 @@ fn knowledge_problems(
             .find(|d| d.file.id == id)
             .map_or_else(String::new, |d| d.rel.clone())
     };
+    // People and saves refer to techniques by a 16-bit index.
+    if catalog.techniques.len() > usize::from(u16::MAX) {
+        c.push(
+            "E3001",
+            &rel_of(&catalog.techniques[usize::from(u16::MAX)].id),
+            None,
+            format!(
+                "at most {} techniques (got {})",
+                u16::MAX,
+                catalog.techniques.len()
+            ),
+        );
+    }
     for (t, def) in catalog.techniques.iter().enumerate() {
         let gated = catalog.activities.iter().any(|a| a.technique == Some(t))
             || catalog.recipes.iter().any(|r| r.technique == Some(t))

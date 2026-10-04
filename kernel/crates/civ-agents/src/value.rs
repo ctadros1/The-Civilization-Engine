@@ -6,7 +6,7 @@
 use civ_core::time::DAYS_PER_YEAR;
 use civ_land::{CropParams, ResourceParams};
 
-use crate::params::{Catalog, interpolate};
+use crate::params::{Catalog, RecipeDef, interpolate};
 use crate::person::KnownPatch;
 
 /// Rounds of relaxation over the recipes: enough for the content's chains (an input of an input
@@ -121,14 +121,13 @@ pub fn food_by_energy(goods: &[crate::params::GoodDef], costs: &mut [Option<f64>
 }
 
 /// A household's own cost of each good, hours of a capable adult's work per unit: the cheapest of
-/// gathering it (`gathered`), growing it (`grown`), or making it by a recipe at its best member's
-/// skill (`levels`, by skill) from inputs at their own cost, with the tools the recipe wears; a
-/// recipe counts only if one of its members knows the technique it needs (`known`, by technique).
-/// `None` where it has no way to get the good.
+/// gathering it (`gathered`), growing it (`grown`), or making it by a recipe from inputs at their
+/// own cost, with the tools the recipe wears. A recipe is made at `level(recipe)`, the skill of
+/// the best of its members who know the technique it needs, and counts only if one of them does
+/// (`None`; ADR-0008 §1). `None` where it has no way to get the good.
 pub fn own_costs(
     catalog: &Catalog,
-    levels: &[f64],
-    known: &dyn Fn(usize) -> bool,
+    level: &dyn Fn(&RecipeDef) -> Option<f64>,
     gathered: &[Option<f64>],
     grown: &[Option<f64>],
 ) -> Vec<Option<f64>> {
@@ -153,11 +152,10 @@ pub fn own_costs(
             };
             // A recipe nobody in the household knows is no way for it to get a good
             // (ADR-0008 §1).
-            if r.technique.is_some_and(|t| !known(t)) {
+            let Some(level) = level(r) else {
                 continue;
-            }
+            };
             let skill = r.skill.and_then(|k| catalog.skills.get(k).map(|s| (k, s)));
-            let level = skill.map_or(0.0, |(k, _)| levels.get(k).copied().unwrap_or(0.0));
             let speed = skill
                 .map_or(1.0, |(_, s)| interpolate(&s.speed, level))
                 .max(1e-6);
@@ -264,8 +262,8 @@ mod tests {
     fn a_skilled_household_makes_a_tool_for_fewer_hours() {
         let c = catalog();
         let gathered = vec![Some(2.0), Some(0.5), None, None];
-        let novice = own_costs(&c, &[0.0], &|_| true, &gathered, &[]);
-        let master = own_costs(&c, &[1.0], &|_| true, &gathered, &[]);
+        let novice = own_costs(&c, &|_| Some(0.0), &gathered, &[]);
+        let master = own_costs(&c, &|_| Some(1.0), &gathered, &[]);
         // Materials: 0.3 kg of flint at 2 h/kg and 0.5 kg of wood at 0.5 h/kg, 0.85 h.
         // A novice works 3 / 0.5 = 6 h and makes half a standard sickle: 13.7 h a sickle.
         let n = novice[2].expect("a novice can make one");
@@ -276,8 +274,11 @@ mod tests {
         // What nobody can make or find has no cost: it can only be had from someone else.
         assert_eq!(novice[3], None);
         // Without flint to be found, no sickle either.
-        let none = own_costs(&c, &[1.0], &|_| true, &[None, Some(0.5), None, None], &[]);
+        let none = own_costs(&c, &|_| Some(1.0), &[None, Some(0.5), None, None], &[]);
         assert_eq!(none[2], None);
+        // Nor when nobody in the household knows how to make one (ADR-0008 §1).
+        let unknown = own_costs(&c, &|_| None, &gathered, &[]);
+        assert_eq!(unknown[2], None);
     }
 
     #[test]

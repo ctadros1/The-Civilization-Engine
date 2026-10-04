@@ -14,7 +14,7 @@ use crate::firm::{BookKind, Entry};
 use crate::ledger::{Channel, Leg, Trade};
 use crate::make;
 use crate::market::{Market, Offer};
-use crate::params::{Catalog, GoodUse, MarketParams, PeopleParams};
+use crate::params::{Catalog, GoodDef, GoodUse, MarketParams, PeopleParams};
 use crate::person::{Household, stock_kcal};
 use crate::value;
 
@@ -73,6 +73,17 @@ fn reviewed_ask(prev: f64, anchor: f64, unmet: bool, unsold: bool, max_change: f
         step -= max_change / 2.0;
     }
     prev * step.clamp(-max_change, max_change).exp()
+}
+
+/// Whether a household offers what it holds of good `d` beyond what it keeps: a tool that can be
+/// carried away, food not kept back for sowing, and materials; never firewood.
+pub(crate) fn can_offer(d: &GoodDef) -> bool {
+    match d.purpose {
+        GoodUse::Tool => !d.tool.as_ref().is_some_and(|t| t.fixed),
+        GoodUse::Food => !d.kept_back(),
+        GoodUse::Material => true,
+        GoodUse::Fuel => false,
+    }
 }
 
 impl Population {
@@ -277,13 +288,7 @@ impl Population {
                 } else {
                     MIN_OFFER_KG
                 };
-                let offerable = match d.purpose {
-                    GoodUse::Tool => !d.tool.as_ref().is_some_and(|t| t.fixed),
-                    GoodUse::Food => !d.kept_back(),
-                    GoodUse::Material => true,
-                    GoodUse::Fuel => false,
-                };
-                if offerable && spare >= least {
+                if can_offer(d) && spare >= least {
                     offered.push((g, spare));
                 }
             }

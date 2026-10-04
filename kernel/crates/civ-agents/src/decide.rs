@@ -457,12 +457,14 @@ pub fn candidates(
                 let mut short =
                     (1.0 - f.water_days / f.water_target_days.max(1e-6)).clamp(0.0, 1.0);
                 // No water is fetched in the dark: late in the day, what is at home must last
-                // until morning. In the last of the light it counts as a full shortage; once the
-                // light left would not see a meal and then the trip, the trip comes before
-                // anything that can wait until dark, the strongest hunger included.
-                let lasts_night = f.water_days * 1440.0 >= f.until_sunrise_min;
+                // until morning, through the first meal and the trip to the water at first light.
+                // In the last of the light it counts as a full shortage; once the light left would
+                // not see a meal and then the trip, the trip comes before anything that can wait
+                // until dark, the strongest hunger included.
+                let trip = 2.0 * water.walk_min + f64::from(def.min_minutes.max(1));
+                let morning = f.until_sunrise_min + f64::from(limits.meal_min) + trip;
+                let lasts_night = f.water_days * 1440.0 >= morning;
                 if !f.dark && !lasts_night {
-                    let trip = 2.0 * water.walk_min + f64::from(def.min_minutes.max(1));
                     if f.daylight_left_min < trip + f64::from(limits.meal_min) {
                         short = (w.w_hunger * w.max_hunger_drive + w.w_water) / w.w_water.max(1e-6);
                     } else if f.daylight_left_min < LAST_WATER_BEFORE_DARK_MIN {
@@ -1388,6 +1390,9 @@ mod tests {
         // Water enough for the night: no hurry.
         let (eat, water) = totals(30.0, 1.0);
         assert!(eat > water, "water {water} vs eat {eat}");
+        // Water that runs out at first light, before the morning's meal and trip: as short.
+        let (eat, water) = totals(30.0, 800.0 / 1440.0);
+        assert!(water > eat, "water {water} vs eat {eat}");
     }
 
     #[test]

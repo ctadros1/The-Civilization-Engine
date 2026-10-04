@@ -525,6 +525,204 @@ fn households_raise_their_huts_and_are_under_a_roof_before_winter() {
 }
 
 #[test]
+fn a_household_with_goods_to_spare_builds_a_larger_hut_than_it_needs() {
+    let mut sim = new_world(3, 0);
+    sim.advance_minutes(2 * 24 * 60).expect("advances");
+    let rules = sim.rules().clone();
+    let hut = &rules.catalog.buildings[rules.people.home_program];
+    let grain = rules
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/grain")
+        .expect("grain");
+    // Two founding households of a size lose the huts they began, and are to plan them again:
+    // one is given grain it does not need (in hours of its own work, some thousands), the other
+    // nothing.
+    let mut by_size: Vec<(usize, PermanentId)> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| (h.members.len(), h.id))
+        .collect();
+    by_size.sort_unstable();
+    let (members, rich, plain) = by_size
+        .windows(2)
+        .find(|w| w[0].0 == w[1].0)
+        .map(|w| (w[0].0, w[1].1, w[0].1))
+        .expect("two households of a size");
+    {
+        let land = sim.land_mut_for_tests();
+        let lost: Vec<PermanentId> = land
+            .buildings
+            .iter()
+            .filter(|b| b.household == rich || b.household == plain)
+            .map(|b| b.plot)
+            .collect();
+        assert_eq!(lost.len(), 2, "both have begun their huts");
+        land.buildings
+            .retain(|b| b.household != rich && b.household != plain);
+        land.plots.retain(|p| !lost.contains(&p.id));
+    }
+    {
+        let pop = sim.people_mut_for_tests();
+        let h = pop
+            .households
+            .iter_mut()
+            .map(|(_, h)| h)
+            .find(|h| h.id == rich)
+            .expect("household");
+        h.stores[grain] += 4000.0;
+    }
+    let radius = |sim: &Sim, id: PermanentId| {
+        sim.land()
+            .buildings
+            .iter()
+            .find(|b| b.household == id)
+            .map(|b| {
+                let civ_grammar::Footprint::Round { radius, .. } = b.spec.footprint;
+                radius
+            })
+    };
+    // Each begins again when it next chooses to build.
+    for _ in 0..20 {
+        if radius(&sim, rich).is_some() && radius(&sim, plain).is_some() {
+            break;
+        }
+        sim.advance_minutes(24 * 60).expect("advances");
+    }
+    let radius = |id: PermanentId| radius(&sim, id);
+    let need = hut.rules.radius_for(members);
+    let (rich_r, plain_r) = (
+        radius(rich).expect("the household with grain has begun again"),
+        radius(plain).expect("the other household has begun again"),
+    );
+    assert!(
+        rich_r > need && rich_r > plain_r,
+        "{members} people need {need} cm: {rich_r} cm with grain to spare, {plain_r} cm without"
+    );
+    assert!(plain_r >= need && rich_r <= hut.rules.radius_cm.1);
+}
+
+#[test]
+fn a_household_grown_rich_builds_a_larger_home_beside_its_old_one_and_moves_in() {
+    let mut sim = new_world(3, 0);
+    let rules = sim.rules().clone();
+    let hut = &rules.catalog.buildings[rules.people.home_program];
+    let good = |id: &str| {
+        rules
+            .catalog
+            .goods
+            .iter()
+            .position(|g| g.id == id)
+            .expect(id)
+    };
+    let radius_of = |b: &civ_land::Building| {
+        let civ_grammar::Footprint::Round { radius, .. } = b.spec.footprint;
+        radius
+    };
+    // Live until a household's first hut is finished.
+    let finished = |sim: &Sim| {
+        sim.land()
+            .buildings
+            .iter()
+            .find(|b| b.finished())
+            .map(|b| (b.household, b.id, b.plot, radius_of(b)))
+    };
+    let mut found = None;
+    for _ in 0..40 {
+        found = finished(&sim);
+        if found.is_some() {
+            break;
+        }
+        sim.advance_minutes(10 * 24 * 60).expect("advances");
+    }
+    let (rich, old, old_plot, old_r) = found.expect("a hut finished within the year");
+    let old_home = sim
+        .people()
+        .households
+        .iter()
+        .find(|(_, h)| h.id == rich)
+        .map(|(_, h)| h.home)
+        .expect("household");
+    // It grows rich: grain it does not need, worth thousands of hours of its work, and the
+    // timber and thatch a larger hut is built of.
+    {
+        let pop = sim.people_mut_for_tests();
+        let h = pop
+            .households
+            .iter_mut()
+            .map(|(_, h)| h)
+            .find(|h| h.id == rich)
+            .expect("household");
+        h.stores[good("core:good/grain")] += 10_000.0;
+        h.stores[good("core:good/timber")] += 3_000.0;
+        h.stores[good("core:good/thatch")] += 3_000.0;
+    }
+    let new_building = |sim: &Sim| {
+        sim.land()
+            .buildings
+            .iter()
+            .find(|b| b.household == rich && b.id != old)
+            .map(|b| (b.id, radius_of(b), b.roofed()))
+    };
+    let mut begun = None;
+    for _ in 0..30 {
+        begun = new_building(&sim);
+        if begun.is_some() {
+            break;
+        }
+        sim.advance_minutes(24 * 60).expect("advances");
+    }
+    let (new, new_r, _) = begun.expect("it begins a new home");
+    // At least a quarter more floor, within the rules; built beside the old one, which it lives
+    // in meanwhile.
+    assert!(
+        f64::from(new_r).powi(2) >= 1.25 * f64::from(old_r).powi(2) - 1.0
+            && new_r <= hut.rules.radius_cm.1,
+        "{old_r} cm to {new_r} cm"
+    );
+    let lives_at = |sim: &Sim| {
+        sim.people()
+            .households
+            .iter()
+            .find(|(_, h)| h.id == rich)
+            .map(|(_, h)| h.home)
+    };
+    assert_eq!(lives_at(&sim), Some(old_home), "it lives in the old home");
+    assert!(sim.land().buildings.iter().any(|b| b.id == old));
+    // Once the new roof is on it moves in, and the old home is taken down.
+    for _ in 0..300 {
+        if new_building(&sim).is_some_and(|(_, _, roofed)| roofed) {
+            break;
+        }
+        sim.advance_minutes(24 * 60).expect("advances");
+    }
+    let b = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == new)
+        .expect("the new home stands");
+    assert!(b.roofed(), "the new roof is on within the year");
+    assert_eq!(lives_at(&sim), Some(civ_agents::build::centre_m(&b.spec)));
+    assert!(!sim.land().buildings.iter().any(|b| b.id == old));
+    assert!(!sim.land().plots.iter().any(|p| p.id == old_plot));
+    assert_eq!(
+        sim.land()
+            .buildings
+            .iter()
+            .filter(|b| b.household == rich)
+            .count(),
+        1
+    );
+    let problems = sim
+        .land()
+        .problems(sim.map(), rules.land.habitats.len(), sim.ids().peek_next());
+    assert!(problems.is_empty(), "{problems:?}");
+}
+
+#[test]
 fn walking_wears_trails_out_from_the_village() {
     let (sim, _) = until_winter();
     let land = sim.land();

@@ -4,6 +4,7 @@
 
 import "./styles.css";
 
+import { buildingWords } from "./buildings.js";
 import { formatDistance } from "./format.js";
 import { MapView, type PointerInfo } from "./map/view.js";
 import { tenureText } from "./fields.js";
@@ -512,9 +513,7 @@ map.onPointer = (info: PointerInfo | null) => {
     ? ` · field: ${info.field.status}; ${tenureText(info.field, livingHouseholds())}`
     : "";
   const path = info.path && !info.building ? ` · ${pathWords(info.path)}` : "";
-  const building = info.building
-    ? ` · ${info.building.program.toLowerCase()}: ${info.building.status}`
-    : "";
+  const building = info.building ? ` · ${buildingWords(info.building)}` : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
     `${height} · ${info.water ?? ""}${path}${field}${building}`;

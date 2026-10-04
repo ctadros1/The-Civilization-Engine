@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { BUILDING_LEGEND, buildingAt, buildingKey, buildingLook } from "../src/buildings.js";
+import {
+  BUILDING_LEGEND,
+  buildingAt,
+  buildingKey,
+  buildingLook,
+  buildingWords,
+} from "../src/buildings.js";
 import type { BuildingInfo } from "../src/net/messages.js";
 
 function hut(over: Partial<BuildingInfo> = {}): BuildingInfo {
@@ -35,6 +41,11 @@ function hut(over: Partial<BuildingInfo> = {}): BuildingInfo {
 }
 
 describe("buildings on the map", () => {
+  it("are named in the readout with their size and state", () => {
+    expect(buildingWords(hut())).toBe("hut of 30 m², room for 5: ground marked out");
+    expect(buildingWords(hut({ floorM2: 0, status: "finished" }))).toBe("hut: finished");
+  });
+
   it("are drawn by how far their construction has gone", () => {
     expect(buildingKey(hut())).toBe("marked");
     expect(buildingKey(hut({ stage: 1 }))).toBe("frame");

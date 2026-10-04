@@ -22,6 +22,15 @@ const FRAME = 1;
 const WALLS = 2;
 const ROOF = 3;
 
+/**
+ * A building in the map's readout: "hut of 38 m², room for 7: walls going up, 40% done". Its size
+ * shows whether its household built for more than live there (M3a slice L: house size by wealth).
+ */
+export function buildingWords(b: BuildingInfo): string {
+  const size = b.floorM2 > 0 ? ` of ${Math.round(b.floorM2)} m², room for ${b.sleeps}` : "";
+  return `${b.program.toLowerCase()}${size}: ${b.status}`;
+}
+
 /** Which legend entry a building is drawn as. */
 export function buildingKey(b: BuildingInfo): string {
   if (b.roofed) return "roofed";

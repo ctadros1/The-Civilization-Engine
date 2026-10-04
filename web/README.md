@@ -74,7 +74,8 @@ detail as fast as the machine allows, shown as a task you can cancel; the world 
 gets there and is autosaved. **Add a family** (on the map) sends a family where you next click:
 it joins the nearest settlement within 600 m or camps there. Esc cancels. The list beside it
 sends 5, 10 or 20 families together instead: they settle side by side around the click and all
-join the settlement the first one joins or founds.
+join the settlement the first one joins or founds. Pointing at a hut, the readout gives its floor
+area, how many it sleeps and how far its building has gone.
 
 ## The panels alone
 

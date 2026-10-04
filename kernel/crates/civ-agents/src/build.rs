@@ -27,6 +27,20 @@ pub const HAUL_H_PER_LOAD: f64 = 1.5;
 /// weighs how pressing its roof is (a tuning value: fields, food, water and firewood take the
 /// rest).
 pub const BUILD_LABOUR_SHARE: f64 = 0.5;
+/// Share of what a household could spare, in hours of its own work, that it puts into a larger
+/// home than its members need: with goods in store it need not work for, it can give more time to
+/// building (research 08-14 §2.3: households meet consumption and keep reserves before they
+/// invest; §3.7 proposes 0.10, 0.30 and 0.60 as the share of discretionary resources offered to
+/// feasible investments, to be varied. The middle one; a tuning value).
+pub const HOUSE_INVESTMENT_SHARE: f64 = 0.3;
+/// Share of the building time a household can give before its roof deadline
+/// ([`BUILD_LABOUR_SHARE`]) that a larger home may take in all: nobody designs a hut it would have
+/// to work at every spare hour to roof in time (a tuning value).
+pub const HOUSE_TIME_SHARE: f64 = 0.5;
+/// Floor area a new home must add to the home a household has before it builds again, a share
+/// of the floor it has: nobody pulls down a sound home for a little more room (a tuning value;
+/// research 10-06 gives none).
+pub const REBUILD_GAIN: f64 = 0.25;
 /// Step between the rings of points tried when a home's own ground is not clear, metres.
 const SEARCH_STEP_M: f64 = 2.0;
 /// Points tried on each ring.
@@ -46,13 +60,16 @@ fn direction(from: (f32, f32), to: (f32, f32)) -> i32 {
     ((dy.atan2(dx) / TAU * TURN).round() as i32).rem_euclid(TURN as i32)
 }
 
-/// The hut a household of `residents` designs standing at `at` (metres): big enough for them to
-/// sleep in, built to the program's usual wall height and pitch, its door toward `toward` (the
-/// settlement's hearth), or facing east when there is none.
+/// The hut a household designs standing at `at` (metres), its wall line `radius` centimetres from
+/// the centre ([`HutRules::radius_for`] for the floor its members need, or
+/// [`radius_within`]), built to the program's usual wall height and pitch, its door toward
+/// `toward` (the settlement's hearth), or facing east when there is none.
+///
+/// [`HutRules::radius_for`]: civ_grammar::HutRules::radius_for
 pub fn design(
     def: &BuildingDef,
     goods: &[GoodDef],
-    residents: usize,
+    radius: i32,
     at: (f32, f32),
     toward: Option<(f32, f32)>,
 ) -> BuildingSpec {
@@ -66,7 +83,7 @@ pub fn design(
         footprint: Footprint::Round {
             x: cm(f64::from(at.0)),
             y: cm(f64::from(at.1)),
-            radius: def.rules.radius_for(residents),
+            radius,
         },
         storeys: 1,
         params,
@@ -178,6 +195,87 @@ pub fn home_site(
 /// expand under `def`'s rules.
 pub fn stage_needs(spec: &BuildingSpec, def: &BuildingDef) -> Option<Vec<StageNeeds>> {
     expand_hut(spec, &def.rules).ok().map(|e| e.stages)
+}
+
+/// Hours of work the hut `spec` designs takes in all: building it through every stage and bringing
+/// what it is built of, `carry_kg` a load ([`HAUL_H_PER_LOAD`]). `None` if the design does not
+/// expand under `def`'s rules.
+pub fn hut_hours(spec: &BuildingSpec, def: &BuildingDef, carry_kg: f64) -> Option<f64> {
+    let e = expand_hut(spec, &def.rules).ok()?;
+    let loads = e.total_materials_kg().iter().sum::<f64>() / carry_kg.max(1e-6);
+    Some(e.total_labour_h() + loads * HAUL_H_PER_LOAD)
+}
+
+/// The wall-line radius of the hut a household of `residents` designs, centimetres: the floor its
+/// members need ([`HutRules::radius_for`]), made larger a decimetre at a time, up to the largest
+/// the rules allow, while the extra work stays within `budget_h` hours (what the household puts
+/// into its home of the goods it could spare, [`HOUSE_INVESTMENT_SHARE`]) and the whole hut
+/// within `time_h` hours (the share of the building time it can give before its roof deadline
+/// that a home may take, [`HOUSE_TIME_SHARE`]). Never smaller than its members need.
+///
+/// [`HutRules::radius_for`]: civ_grammar::HutRules::radius_for
+pub fn radius_within(
+    def: &BuildingDef,
+    goods: &[GoodDef],
+    residents: usize,
+    carry_kg: f64,
+    budget_h: f64,
+    time_h: f64,
+) -> i32 {
+    let need = def.rules.radius_for(residents);
+    let mut spec = design(def, goods, need, (0.0, 0.0), None);
+    let hours = |spec: &BuildingSpec| hut_hours(spec, def, carry_kg);
+    let Some(base) = hours(&spec) else {
+        return need;
+    };
+    let mut best = need;
+    while best + 10 <= def.rules.radius_cm.1 {
+        spec.footprint = Footprint::Round {
+            x: 0,
+            y: 0,
+            radius: best + 10,
+        };
+        match hours(&spec) {
+            Some(h) if h - base <= budget_h && h <= time_h => best += 10,
+            _ => break,
+        }
+    }
+    best
+}
+
+/// The wall-line radius of the new home a household of `residents` living in a hut of radius
+/// `current` would build, centimetres, if any: the largest whose work its means pay for in all
+/// (`budget_h` hours: while it has a home, all of a new one is beyond its needs) and that takes
+/// no more than `time_h` hours, among those at least [`REBUILD_GAIN`] larger in floor area than
+/// the home it has and as large as its members need. `None` when it cannot afford the least of
+/// them.
+pub fn rebuild_radius(
+    def: &BuildingDef,
+    goods: &[GoodDef],
+    residents: usize,
+    current: i32,
+    carry_kg: f64,
+    budget_h: f64,
+    time_h: f64,
+) -> Option<i32> {
+    let larger =
+        (f64::from(current.max(0)) * (1.0 + REBUILD_GAIN).sqrt() / 10.0).ceil() as i32 * 10;
+    let mut r = larger.max(def.rules.radius_for(residents));
+    let mut spec = design(def, goods, r, (0.0, 0.0), None);
+    let mut best = None;
+    while r <= def.rules.radius_cm.1 {
+        spec.footprint = Footprint::Round {
+            x: 0,
+            y: 0,
+            radius: r,
+        };
+        match hut_hours(&spec, def, carry_kg) {
+            Some(h) if h <= budget_h && h <= time_h => best = Some(r),
+            _ => break,
+        }
+        r += 10;
+    }
+    best
 }
 
 /// Work on a building: what each of its stages needs, the stage under way and the hours done on
@@ -408,7 +506,13 @@ mod tests {
     fn a_hut_for_five_faces_the_hearth_and_claims_the_ground_its_roof_covers() {
         let (def, goods) = (def(), goods());
         // The hearth lies 20 m south of home.
-        let spec = design(&def, &goods, 5, (100.0, 100.0), Some((100.0, 120.0)));
+        let spec = design(
+            &def,
+            &goods,
+            def.rules.radius_for(5),
+            (100.0, 100.0),
+            Some((100.0, 120.0)),
+        );
         // 6 + 4.8 · 5 = 30 m² of floor: a radius of 3.09 m, rounded up to 3.1 m.
         assert_eq!(
             spec.footprint,
@@ -437,16 +541,91 @@ mod tests {
             }
         );
         // Without a hearth the door faces east; the design expands under the hut's rules.
-        let lone = design(&def, &goods, 5, (100.0, 100.0), None);
+        let lone = design(&def, &goods, def.rules.radius_for(5), (100.0, 100.0), None);
         assert_eq!(lone.params[hut_params::DOOR_DIR], 0);
         let e = expand_hut(&spec, &def.rules).expect("a valid hut");
         assert!(e.sleeping_places >= 5, "{}", e.sleeping_places);
     }
 
     #[test]
+    fn goods_to_spare_buy_a_larger_hut_within_the_time_before_winter() {
+        let (def, goods) = (def(), goods());
+        let (need, most) = (def.rules.radius_for(5), def.rules.radius_cm.1);
+        let carry = 20.0;
+        let hours = |r: i32| {
+            hut_hours(&design(&def, &goods, r, (0.0, 0.0), None), &def, carry).expect("expands")
+        };
+        let within = |budget: f64, time: f64| radius_within(&def, &goods, 5, carry, budget, time);
+        // Nothing to spare: the hut its members need.
+        assert_eq!(within(0.0, f64::INFINITY), need);
+        // Ample means and time: the largest the rules allow.
+        assert_eq!(within(1e9, 1e9), most);
+        // In between, the largest whose extra work its means cover.
+        let budget = 150.0;
+        let r = within(budget, 1e9);
+        assert!(r > need && r < most, "{r}");
+        assert!(hours(r) - hours(need) <= budget);
+        assert!(hours(r + 10) - hours(need) > budget);
+        // More to spare never makes a hut smaller.
+        let mut last = need;
+        for b in [0.0, 50.0, 100.0, 200.0, 400.0, 800.0] {
+            let r = within(b, 1e9);
+            assert!(r >= last, "{b} h: {r} after {last}");
+            last = r;
+        }
+        // Short of time, the hut its members need whatever it could spare, and never smaller.
+        assert_eq!(within(1e9, hours(need) - 1.0), need);
+        let tight = within(1e9, hours(need) + 100.0);
+        assert!(
+            tight > need && hours(tight) <= hours(need) + 100.0,
+            "{tight}"
+        );
+        // A household that needs the largest hut builds it already.
+        assert_eq!(radius_within(&def, &goods, 12, carry, 0.0, 1e9), most);
+        // Nonsense means change nothing.
+        assert_eq!(within(f64::NAN, 1e9), need);
+        assert_eq!(within(-5.0, 1e9), need);
+    }
+
+    #[test]
+    fn a_household_with_a_home_builds_again_only_for_a_markedly_larger_one_it_can_pay_for() {
+        let (def, goods) = (def(), goods());
+        let carry = 20.0;
+        let hours = |r: i32| {
+            hut_hours(&design(&def, &goods, r, (0.0, 0.0), None), &def, carry).expect("expands")
+        };
+        let rebuild = |current: i32, budget: f64, time: f64| {
+            rebuild_radius(&def, &goods, 5, current, carry, budget, time)
+        };
+        let need = def.rules.radius_for(5);
+        // At least a quarter more floor: 310 cm grows to 350 (√1.25 · 310 = 346.6, rounded up).
+        let least = 350;
+        assert_eq!(rebuild(need, hours(least), 1e9), Some(least));
+        // All of the new hut must be paid for, not just what it adds.
+        assert_eq!(rebuild(need, hours(least) - 1.0, 1e9), None);
+        assert_eq!(rebuild(need, hours(least) - hours(need), 1e9), None);
+        // More means build larger, up to the largest the rules allow.
+        let r = rebuild(need, hours(least + 30), 1e9).expect("affordable");
+        assert_eq!(r, least + 30);
+        assert_eq!(rebuild(need, 1e9, 1e9), Some(def.rules.radius_cm.1));
+        // Not without the time, and never from the largest.
+        assert_eq!(rebuild(need, 1e9, hours(least) - 1.0), None);
+        assert_eq!(rebuild(def.rules.radius_cm.1, 1e9, 1e9), None);
+        // A crowded household builds at least what its members need now.
+        let small = 200;
+        let crowded = rebuild(small, 1e9, 1e9).expect("affordable");
+        assert!(crowded >= need, "{crowded}");
+        assert_eq!(
+            rebuild_radius(&def, &goods, 5, small, carry, hours(need), 1e9),
+            Some(need),
+            "the least it would build is what its members need"
+        );
+    }
+
+    #[test]
     fn the_work_left_counts_down_through_the_stages() {
         let (def, goods) = (def(), goods());
-        let spec = design(&def, &goods, 5, (100.0, 100.0), None);
+        let spec = design(&def, &goods, def.rules.radius_for(5), (100.0, 100.0), None);
         let e = expand_hut(&spec, &def.rules).expect("expands");
         let mut work = HomeWork::begin(stage_needs(&spec, &def).expect("expands"));
         let roof: f64 = e.stages[..=Stage::Roof.index()]

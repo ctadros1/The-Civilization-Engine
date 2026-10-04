@@ -204,7 +204,9 @@ their meanings), an expansion yields:
     first it weighed every day of its month, which the step's smoke showed wrong). There is no
     separate check when loads change.
   - Deflection is serviceability: a sag past L/180 (11-05 §2.4) only shows, and a failure
-    needs a strength margin below 1. A sag or a lean is not mended by upkeep, which rebuilds
+    needs a strength margin below 1. The sag is checked on lofts, floors and beams only; a
+    roof frame shows only its strain, as thatched rafters bow under their covering without
+    harm (at first every hut's roof showed a sag). A sag or a lean is not mended by upkeep, which rebuilds
     a failed part whole.
   - Posts carry their share, by tributary area, of the whole building's weight, and fail by
     buckling (Euler's load halved for imperfection) or crushing. Mass walls and footings wait

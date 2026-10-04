@@ -26,7 +26,10 @@ const TIMBER_KG_M3: f64 = 760.0;
 pub const STRAIN_SHOWS: f64 = 1.5;
 
 /// Deflection over span past which a member visibly sags: 11-05 §2.4's screen of L/180, a
-/// serviceability limit, never a failure.
+/// serviceability limit, never a failure. It is checked on members that carry lofts, floors and
+/// beams, where a sag hinders their use. A roof frame's bow under its covering is not: 11-05 §2.4
+/// gives the screen as a later engineering analogue, not as past practice, and thatched rafters
+/// bow without harm, so a roof frame shows only its strain.
 pub const SAG_SHOWS: f64 = 1.0 / 180.0;
 
 /// How far short of Euler's load a real post buckles: crooked poles and loose joints (11-05 §5.2
@@ -71,7 +74,8 @@ pub struct Margin {
     /// What it can carry over what it must, in its mode: bending for beams, joists and rafters,
     /// buckling or crushing for posts. Infinite for a group nothing loads this way.
     pub strength: f64,
-    /// Its members' long-term deflection over their span (0 for posts).
+    /// Its members' long-term deflection over their span (0 for posts and roof frames, whose
+    /// sag shows nothing: [`SAG_SHOWS`]).
     pub sag: f64,
 }
 
@@ -276,7 +280,9 @@ pub fn margin(g: &Group, c: &GroupCondition, e: &Expansion, loads: &Loads, t: &T
     }
     let capacity = t.bending_pa * z * q * left.powi(3);
     let stiffness = t.stiffness_pa * i * left.powi(4);
-    let sag = if stiffness > 0.0 {
+    let sag = if g.kind == GroupKind::RoofFrame {
+        0.0
+    } else if stiffness > 0.0 {
         5.0 * span.powi(3) / (384.0 * stiffness) * ((1.0 + t.creep) * held + passing) / span
     } else {
         f64::INFINITY
@@ -396,6 +402,61 @@ mod tests {
         assert_eq!(poor.state(), GroupState::Failed, "{}", poor.strength);
         // 15 cm poles over 7 m under a full loft bend far past L/180.
         assert!(fair.sag > SAG_SHOWS, "{}", fair.sag);
+    }
+
+    #[test]
+    fn a_huts_rafters_bow_under_thatch_without_showing() {
+        // A hut's roof at 45°: twenty 10 cm rafters from the eaves to the apex under thatch at
+        // 30 kg/m² of slope.
+        let group = |kind: GroupKind, count: u32, d_cm: i32, length_cm: i32| Group {
+            id: group_id(Level::Roof, None, kind, 0),
+            kind,
+            stage: Stage::Frame,
+            material: Some(0),
+            count,
+            section_cm: [d_cm, d_cm],
+            length_cm,
+            spacing_cm: 100,
+            area_m2: 0.0,
+        };
+        let mut e = expansion_with(Vec::new());
+        let plan = roof_plan_m2(&e);
+        let slant = (plan / std::f64::consts::PI).sqrt() * std::f64::consts::SQRT_2;
+        let slope = plan * std::f64::consts::SQRT_2;
+        let mut rafters = group(GroupKind::RoofFrame, 20, 10, (slant * 100.0) as i32);
+        rafters.area_m2 = slope;
+        let mut covering = group(GroupKind::Covering, 1, 0, 0);
+        covering.area_m2 = slope;
+        e.groups = vec![rafters, covering];
+        let r = &e.groups[0];
+        let calm = Loads {
+            covering_pa: 30.0 * G,
+            ..Loads::default()
+        };
+        let m = margin(r, &sound(0.8), &e, &calm, &oak());
+        // Over the years they would bend past L/180 under the thatch alone...
+        let span = f64::from(r.length_cm) / 100.0;
+        let (_, _, i) = section(r);
+        let w = (calm.covering_pa * slope / 20.0 + own_weight(r)) * roof_cos(&e);
+        let bow = 5.0 * w * span.powi(3) / (384.0 * 8.6e9 * i) * 2.0 / span;
+        assert!(bow > SAG_SHOWS, "{bow}");
+        // ...which shows nothing: the roof is sound on a calm day.
+        assert_eq!(m.sag, 0.0);
+        assert_eq!(m.state(), GroupState::Sound, "{}", m.strength);
+        // What a storm does to them shows as their strain, and then as their breaking.
+        let storm = |peak_pa: f64| {
+            let loads = Loads { peak_pa, ..calm };
+            margin(r, &sound(0.8), &e, &loads, &oak())
+        };
+        let mut seen = Vec::new();
+        for kpa in 1..=20 {
+            seen.push(storm(f64::from(kpa) * 1_000.0).state());
+        }
+        seen.dedup();
+        assert_eq!(
+            seen,
+            vec![GroupState::Sound, GroupState::Symptom, GroupState::Failed]
+        );
     }
 
     #[test]

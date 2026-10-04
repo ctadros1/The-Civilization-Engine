@@ -243,6 +243,8 @@ stock_per_ha = [0.0, 0.0, 30.0, 10.0, 60.0]
 # erosion bares it on slopes and cut banks; flint in particular horizons, weathered out into
 # surface spreads. It gives no figures for slopes, heights, sizes or how many a square kilometre
 # holds, so every figure here is a tuning value. A body under no cover shows at the surface.
+# A body is dug at `dig_h_per_m3` hours a cubic metre as it lies, or as earth at the people
+# profile's `[digging]` rate when it gives none; its cover is always dug as earth (content API 21).
 
 [[deposit]]
 good = "core:good/clay"
@@ -255,6 +257,7 @@ thickness_m = [0.5, 2.0]
 quality = [0.3, 0.9]
 exposed_share = 0.3              # some show in a stream cut or a bank
 density_kg_m3 = 1800.0           # 11-12 §2.3: dry loose earth 1,300-1,500 kg/m³; in the bank about 1.2 times that
+working = "pit"                  # dug as earth
 
 [[deposit]]
 good = "core:good/stone"
@@ -267,6 +270,11 @@ thickness_m = [2.0, 10.0]
 quality = [0.1, 0.6]             # 03-05 §2.2: 0.1-0.6 of quarried stone is fit for use
 exposed_share = 0.7
 density_kg_m3 = 2500.0           # 11-08 §2.1: limestone 2,370-2,702 kg/m³
+# Broken out with hammerstones, wedges and levers: 12 hours a cubic metre of rock, so 20-120 hours
+# a cubic metre of stone fit for use at the quality above, against 11-08 §2.2's 8-80 for small
+# blocks from an easily worked, naturally jointed quarry (a low-confidence envelope; tuning).
+dig_h_per_m3 = 12.0
+working = "quarry"
 
 [[deposit]]
 good = "core:good/toolstone"
@@ -279,3 +287,5 @@ thickness_m = [0.2, 1.0]         # a bed with nodules in it, not solid flint
 quality = [0.3, 0.9]
 exposed_share = 0.5              # weathered out into a spread on the surface
 density_kg_m3 = 250.0            # flint in a cubic metre of its bed: the research gives no figure
+dig_h_per_m3 = 12.0              # a bed harder than earth, worked with picks of antler (tuning)
+working = "pit"

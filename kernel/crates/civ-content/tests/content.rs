@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 20
+kernel_content_api = 21
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -1493,4 +1493,65 @@ fn pots_hold_goods_and_digging_needs_deposits_of_what_it_digs() {
             .message
             .contains("lays no deposits of")
     );
+}
+
+#[test]
+fn deposits_say_how_hard_their_bodies_are_to_dig_and_what_a_working_is_called() {
+    let preset = real_preset();
+    let reg = registry(load_fixture(&[("worldgen/river_valley.toml", &preset)]));
+    let (c, land) = (&reg.catalog, &reg.land.params);
+    let rule = |id: &str| {
+        let g = c.goods.iter().position(|g| g.id == id).expect(id);
+        land.deposits.iter().find(|r| r.good == g).expect("a rule")
+    };
+    // Clay is dug as earth; stone is quarried and a flint bed dug, both slower than earth.
+    assert_eq!(
+        (
+            rule("core:good/clay").dig_h_per_m3,
+            rule("core:good/clay").working.as_str()
+        ),
+        (0.0, "pit")
+    );
+    assert_eq!(
+        (
+            rule("core:good/stone").dig_h_per_m3,
+            rule("core:good/stone").working.as_str()
+        ),
+        (12.0, "quarry")
+    );
+    assert_eq!(rule("core:good/toolstone").dig_h_per_m3, 12.0);
+    for (activity, good) in [
+        ("core:activity/quarry_stone", "core:good/stone"),
+        ("core:activity/dig_flint", "core:good/toolstone"),
+    ] {
+        let a = c
+            .activities
+            .iter()
+            .find(|a| a.id == activity)
+            .expect(activity);
+        assert_eq!(a.digs.map(|g| c.goods[g].id.as_str()), Some(good));
+    }
+
+    // Out of range, or no name: refused.
+    let land_file = real("land/temperate_valley.toml");
+    for (from, to, field) in [
+        (
+            "dig_h_per_m3 = 12.0\nworking = \"quarry\"",
+            "dig_h_per_m3 = -1.0\nworking = \"quarry\"",
+            "`dig_h_per_m3`",
+        ),
+        ("working = \"quarry\"", "working = \"\"", "`working`"),
+    ] {
+        let broken = land_file.replacen(from, to, 1);
+        assert_ne!(broken, land_file, "the edit applies");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("land/temperate_valley.toml", &broken),
+        ]);
+        assert!(
+            report.diagnostics.iter().any(|d| d.message.contains(field)),
+            "{field}: {:?}",
+            report.diagnostics
+        );
+    }
 }

@@ -480,6 +480,18 @@ pub struct Group {
     pub area_m2: f64,
 }
 
+impl Group {
+    /// The earth in it, cubic metres, if it is daubed infill: its area times its thickness
+    /// (ADR-0010 §2: daub is dug from the ground beside the building); 0 for any other group.
+    pub fn daub_m3(&self) -> f64 {
+        if self.kind == GroupKind::Infill {
+            self.area_m2 * f64::from(self.section_cm[0].max(0)) / 100.0
+        } else {
+            0.0
+        }
+    }
+}
+
 /// A group's semantic id.
 pub fn group_id(level: Level, bay: Option<u8>, kind: GroupKind, index: u8) -> u32 {
     (u32::from(level.code()) << 24)
@@ -581,6 +593,16 @@ pub struct Expansion {
 }
 
 impl Expansion {
+    /// The earth in the daub of the groups `stage` puts in place, or of every stage's when it is
+    /// `None`, cubic metres ([`Group::daub_m3`]).
+    pub fn daub_m3(&self, stage: Option<Stage>) -> f64 {
+        self.groups
+            .iter()
+            .filter(|g| stage.is_none_or(|s| g.stage == s))
+            .map(Group::daub_m3)
+            .sum()
+    }
+
     /// Labour of every stage together, person-hours.
     pub fn total_labour_h(&self) -> f64 {
         self.stages.iter().map(|s| s.labour_h).sum()
@@ -1331,6 +1353,15 @@ mod tests {
             e.groups[3].area_m2
         );
         assert!((e.groups[4].area_m2 - e.floor_area_m2).abs() < 1e-9);
+        // The daub is the infill's area at the wall's thickness, all put in place with the walls.
+        let infill = &e.groups[2];
+        let daub = infill.area_m2 * f64::from(r.wall_thickness_cm) / 100.0;
+        assert!(daub > 1.0, "{daub}");
+        assert!((infill.daub_m3() - daub).abs() < 1e-9);
+        assert_eq!(e.groups[0].daub_m3(), 0.0);
+        assert!((e.daub_m3(None) - daub).abs() < 1e-9);
+        assert!((e.daub_m3(Some(Stage::Walls)) - daub).abs() < 1e-9);
+        assert_eq!(e.daub_m3(Some(Stage::Roof)), 0.0);
         assert_eq!(e.spaces.len(), 1);
         assert_eq!(e.spaces[0].use_, SpaceUse::Living);
         assert_eq!(e.floor_by_use, [e.floor_area_m2, 0.0, 0.0]);

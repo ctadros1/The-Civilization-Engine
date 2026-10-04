@@ -670,3 +670,60 @@ fn a_loft_that_gives_way_makes_its_settlement_build_frames_stronger_for_a_while(
     );
     assert!(years_on < after, "{years_on} after {after}");
 }
+
+#[test]
+fn worn_daub_is_renewed_with_earth_dug_beside_the_hut() {
+    use civ_land::earth::EarthKind;
+    let (mut sim, household, hut) = housed(3);
+    let b = building(&sim, hut).clone();
+    let infill = group_of(&b, GroupKind::Infill);
+    let daub = expansion(&b)
+        .groups
+        .iter()
+        .find(|g| g.id == infill)
+        .expect("the walls")
+        .daub_m3();
+    assert!(daub > 1.0, "{daub}");
+    // Placed whole, as by a test: it has no daub pit yet.
+    let pit_of = |sim: &Sim| {
+        sim.land()
+            .earthworks
+            .iter()
+            .find(|w| w.kind == EarthKind::Pit && w.plot == Some(b.plot))
+            .copied()
+    };
+    assert!(pit_of(&sim).is_none());
+    // Its walls have lost more than half their daub; with wattle rods at hand they are mended.
+    let lost = 0.6;
+    {
+        let b = building_mut(&mut sim, hut);
+        let c = b
+            .condition
+            .iter_mut()
+            .find(|c| c.group == infill)
+            .expect("in place");
+        c.loss = lost;
+        c.state = GroupState::Symptom;
+    }
+    let timber = good("core:good/timber");
+    for (_, h) in sim.people_mut_for_tests().households.iter_mut() {
+        if h.id == household {
+            h.stores[timber] += 500.0;
+        }
+    }
+    for _ in 0..60 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        if loss(&sim, hut, infill) < 0.05 {
+            break;
+        }
+    }
+    assert!(loss(&sim, hut, infill) < 0.05, "mended");
+    // The daub renewed was dug from a pit begun beside it: what was lost of the walls' earth.
+    let pit = pit_of(&sim).expect("a daub pit");
+    assert_eq!(pit.deposit, None);
+    let dug = f64::from(pit.cut_m3);
+    assert!(
+        dug >= daub * f64::from(lost) * 0.99 && dug <= daub * 0.7,
+        "{dug} m³ of the walls' {daub}"
+    );
+}

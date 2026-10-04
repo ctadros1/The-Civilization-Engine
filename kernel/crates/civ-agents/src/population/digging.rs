@@ -1,17 +1,23 @@
-//! Digging at a deposit (ADR-0010 §2; M3b slice Q): a pit on the body, at its edge nearest the
-//! settlement's hearth, deepens as people dig there. The cover over the body, and what of the body
-//! is unfit for use, go on a spoil heap beside the pit; the rest is carried home. What is taken of
-//! a deposit plus what is left is always what it began with, and the ground loses only what is
-//! carried away. A platform that cuts into a buried body finds it.
+//! Digging (ADR-0010 §2; M3b slice Q). At a deposit, a pit or quarry on the body, at its edge
+//! nearest the settlement's hearth, deepens as people dig there: its cover is dug as earth and the
+//! body at its land profile rule's rate. The cover, and what of the body is unfit for use, go on a
+//! spoil heap beside it; the rest is carried home. What is taken of a deposit plus what is left is
+//! always what it began with, and the ground loses only what is carried away. A platform that cuts
+//! into a buried body finds it. Beside a building, a daub pit gives the earth its walls are daubed
+//! with, as they go up and as they are mended; all of that earth goes into the walls.
 
-use civ_land::RectCm;
 use civ_land::deposits::{Body, Deposit};
 use civ_land::earth::{self, EarthKind, Earthwork};
+use civ_land::{LandParams, RectCm};
 
 use super::*;
 
-/// The gap between a pit and its spoil heap, metres (a tuning value).
+/// The gap between a pit and its spoil heap, or a daub pit and its plot, metres (a tuning value).
 const HEAP_GAP_M: f64 = 0.5;
+/// How deep a daub pit is sized to go with its building's daub, metres (a tuning value).
+const DAUB_PIT_DEPTH_M: f64 = 1.0;
+/// The farthest a daub pit lies from its plot's edge, metres (a tuning value).
+const DAUB_PIT_REACH_M: f64 = 12.0;
 
 /// Kilograms of a body in a cubic metre of it: its mass over its volume.
 pub(crate) fn density(b: &Body) -> f64 {
@@ -32,14 +38,28 @@ fn layers(b: &Body) -> (f64, f64) {
     )
 }
 
-/// Kilograms of a body's good fit for use that an hour of a capable adult's digging at
-/// `h_per_m3` hours a cubic metre brings, its cover spread over the body under it.
-pub(crate) fn dig_kg_per_hour(b: &Body, h_per_m3: f64) -> f64 {
+/// Hours a capable adult takes to dig a cubic metre of body `b`'s cover and of the body itself:
+/// the cover as earth, at `earth_h`, and the body at the land profile's rate for its good, or as
+/// earth when the profile gives none.
+pub(crate) fn rates(land: &LandParams, b: &Body, earth_h: f64) -> (f64, f64) {
+    let body = land
+        .deposits
+        .iter()
+        .find(|r| r.good == usize::from(b.good))
+        .map_or(0.0, |r| r.dig_h_per_m3);
+    (earth_h, if body > 0.0 { body } else { earth_h })
+}
+
+/// Kilograms of a body's good fit for use that an hour of a capable adult's digging brings, at
+/// `rates` hours a cubic metre of its cover and of the body ([`rates`]), its cover spread over
+/// the body under it.
+pub(crate) fn dig_kg_per_hour(b: &Body, (cover_h, body_h): (f64, f64)) -> f64 {
     let (cover, thick) = layers(b);
-    if h_per_m3 <= 0.0 || cover + thick <= 0.0 {
+    let hours = cover * cover_h + thick * body_h;
+    if cover_h <= 0.0 || body_h <= 0.0 || hours <= 0.0 {
         return 0.0;
     }
-    density(b) * f64::from(b.quality) * thick / (cover + thick) / h_per_m3
+    density(b) * f64::from(b.quality) * thick / hours
 }
 
 /// The pit on deposit `d` not yet dug through its body, by index in the earthworks.
@@ -163,7 +183,8 @@ pub(super) fn dig_at(
     let d = ctx.land.deposits[di];
     let (cover, thick) = layers(&d.body);
     let (density, quality) = (density(&d.body), f64::from(d.body.quality));
-    if d.left_kg() <= 0.0 || density <= 0.0 || rules.h_per_m3 <= 0.0 || effort_h <= 0.0 {
+    let (cover_h, body_h) = rates(ctx.land_params, &d.body, rules.h_per_m3);
+    if d.left_kg() <= 0.0 || density <= 0.0 || cover_h <= 0.0 || body_h <= 0.0 || effort_h <= 0.0 {
         return 0.0;
     }
     let (pit_i, heap_i) = match open_pit(ctx.land, &d) {
@@ -223,13 +244,17 @@ pub(super) fn dig_at(
     let body_left = (cover + thick - depth.max(cover)).max(0.0) * area;
     let load = carry_kg.min(d.left_kg() * quality);
     let body_for_load = load / (density * quality).max(1e-9);
-    let m3 = (effort_h / rules.h_per_m3).min(cover_left + body_for_load.min(body_left));
+    // The cover first, as earth, then the body at its own rate, until the work is spent or the
+    // load is full.
+    let cover_m3 = cover_left.min(effort_h / cover_h);
+    let body_m3 = ((effort_h - cover_m3 * cover_h) / body_h)
+        .max(0.0)
+        .min(body_for_load.min(body_left));
+    let m3 = cover_m3 + body_m3;
     if m3 <= 0.0 {
         return 0.0;
     }
-    // Of what is dug, the body below the cover, and of that what is fit for use.
-    let below = (depth + m3 / area).min(cover + thick) - depth.max(cover);
-    let body_m3 = below.max(0.0) * area;
+    // Of the body dug, what is fit for use.
     let body_kg = (body_m3 * density).min(d.left_kg());
     let kg = body_kg * quality;
     earth::dig(
@@ -246,7 +271,128 @@ pub(super) fn dig_at(
     kg
 }
 
+/// Where the daub pit beside plot `plot` would go: a free square of side `side` as near the
+/// plot's edge as it can be, behind the plot (away from `toward`, its settlement's hearth) before
+/// beside or in front of it. `None` when no free square lies within [`DAUB_PIT_REACH_M`] of it.
+fn daub_pit_site(
+    land: &Land,
+    map: &WorldMap,
+    plot: &RectCm,
+    toward: (f64, f64),
+    side: f64,
+) -> Option<RectCm> {
+    let (cx, cy) = plot.centre_m();
+    let (cx, cy) = (f64::from(cx), f64::from(cy));
+    let (hw, hh) = (f64::from(plot.w) / 200.0, f64::from(plot.h) / 200.0);
+    let step = side / 2.0;
+    let n = ((hw.max(hh) + side + DAUB_PIT_REACH_M) / step).ceil() as i64;
+    let (fx, fy) = (toward.0 - cx, toward.1 - cy);
+    let reach = fx.hypot(fy);
+    // Its gap from the plot, a half metre at a time; how far it faces the hearth (-1 behind the
+    // plot, 1 in front); and where it is.
+    let mut spots: Vec<(i64, f64, (f64, f64))> = Vec::new();
+    for j in -n..=n {
+        for i in -n..=n {
+            let at = (cx + i as f64 * step, cy + j as f64 * step);
+            let (dx, dy) = (at.0 - cx, at.1 - cy);
+            let gap = (dx.abs() - hw - side / 2.0)
+                .max(0.0)
+                .hypot((dy.abs() - hh - side / 2.0).max(0.0));
+            if !(HEAP_GAP_M - 1e-9..=DAUB_PIT_REACH_M).contains(&gap) {
+                continue;
+            }
+            let facing = if reach > 0.0 {
+                (dx * fx + dy * fy) / (dx.hypot(dy).max(1e-9) * reach)
+            } else {
+                0.0
+            };
+            spots.push(((gap / HEAP_GAP_M).floor() as i64, facing, at));
+        }
+    }
+    spots.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.total_cmp(&b.1)));
+    spots
+        .into_iter()
+        .map(|(_, _, at)| square(at, side))
+        .find(|r| free(land, map, r))
+}
+
+/// Digs `m3` of earth for the daub of the building on plot `plot` from the plot's daub pit: begun
+/// when first needed, beside the plot and behind it from `toward` (its settlement's hearth), and
+/// sized so that the building's daub, `daub_m3` in all, would take it about a metre down. The earth
+/// goes into the walls, so the ground loses all of it. Nothing when there is no free ground beside
+/// the plot, and the walls are daubed all the same.
+pub(super) fn dig_daub(
+    ctx: &mut Ctx,
+    plot: PermanentId,
+    toward: (f64, f64),
+    daub_m3: f64,
+    m3: f64,
+) {
+    if m3 <= 0.0 {
+        return;
+    }
+    let Some((rect, household)) = ctx
+        .land
+        .plots
+        .iter()
+        .find(|p| p.id == plot)
+        .map(|p| (p.rect, p.household))
+    else {
+        return;
+    };
+    let at = match ctx
+        .land
+        .earthworks
+        .iter()
+        .position(|w| w.kind == EarthKind::Pit && w.plot == Some(plot))
+    {
+        Some(i) => i,
+        None => {
+            let side = (daub_m3.max(0.0) / DAUB_PIT_DEPTH_M)
+                .sqrt()
+                .max(ctx.params.digging.pit_side_m);
+            let side = (side * 2.0).ceil() / 2.0;
+            let Some(pit) = daub_pit_site(ctx.land, ctx.map, &rect, toward, side) else {
+                return;
+            };
+            let (x, y) = pit.centre_m();
+            let level = earth::bed_height(ctx.map, (f64::from(x), f64::from(y)));
+            ctx.land.earthworks.push(Earthwork {
+                id: ctx.ids.allocate(),
+                kind: EarthKind::Pit,
+                rect: pit,
+                level_cm: (level * 100.0).round() as i32,
+                // Unused: a pit's walls are below the cell size.
+                side_run_cm: 100,
+                plot: Some(plot),
+                deposit: None,
+                heap: None,
+                household,
+                cut_m3: 0.0,
+                done: 1.0,
+                version: earth::EARTH_VERSION,
+                begun: ctx.now,
+            });
+            ctx.land.earthworks.len() - 1
+        }
+    };
+    let mut pit = ctx.land.earthworks[at];
+    earth::dig_out(&mut pit, ctx.map, &mut ctx.land.ground, m3);
+    ctx.land.earthworks[at] = pit;
+}
+
 impl Population {
+    /// Where household `household`'s settlement has its hearth, metres, or its home when it
+    /// belongs to none. `None` for a household that is no more.
+    pub(super) fn hearth_toward(&self, land: &Land, household: PermanentId) -> Option<(f64, f64)> {
+        let h = self.household(household)?;
+        let at = h
+            .settlement
+            .and_then(|s| land.settlements.iter().find(|x| x.id == s))
+            .map_or(h.home, |s| s.hearth_m);
+        Some((f64::from(at.0), f64::from(at.1)))
+    }
+
     /// Platform `work`, as far as it is done, cut into the ground of household `household`'s plot:
     /// its settlement finds every buried deposit under the platform whose cover the cut has gone
     /// through, `who` its finder, and the chronicle says so (ADR-0010 §1).
@@ -311,5 +457,43 @@ impl Population {
                 format!("{what} while levelling a plot"),
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A body of 10 m radius at 2,500 kg a cubic metre, half of it fit for use.
+    fn body(top_cm: i32, thickness_cm: i32) -> Body {
+        let volume = std::f64::consts::PI * 10.0 * 10.0 * f64::from(thickness_cm) / 100.0;
+        Body {
+            good: 0,
+            at_cm: (0, 0),
+            radius_cm: 1_000,
+            top_cm,
+            thickness_cm,
+            quality: 0.5,
+            exposed: top_cm == 0,
+            initial_kg: volume * 2_500.0,
+        }
+    }
+
+    #[test]
+    fn a_body_slower_to_break_out_than_earth_brings_less_an_hour_and_its_cover_is_dug_as_earth() {
+        // Showing: an hour at 12 hours a cubic metre brings a twelfth of a cubic metre's good.
+        let bare = body(0, 200);
+        assert!((dig_kg_per_hour(&bare, (8.0, 12.0)) - 2_500.0 * 0.5 / 12.0).abs() < 1e-6);
+        assert!((dig_kg_per_hour(&bare, (8.0, 8.0)) - 2_500.0 * 0.5 / 8.0).abs() < 1e-6);
+        // Under a metre of cover over 2 m of it: each square metre of pit is 8 hours of earth and
+        // 24 of the body for 2 m³ of it.
+        let covered = body(100, 200);
+        let hours = 1.0 * 8.0 + 2.0 * 12.0;
+        assert!(
+            (dig_kg_per_hour(&covered, (8.0, 12.0)) - 2_500.0 * 0.5 * 2.0 / hours).abs() < 1e-6
+        );
+        // With no rate, nothing.
+        assert_eq!(dig_kg_per_hour(&bare, (8.0, 0.0)), 0.0);
+        assert_eq!(dig_kg_per_hour(&covered, (0.0, 12.0)), 0.0);
     }
 }

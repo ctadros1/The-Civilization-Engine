@@ -449,16 +449,25 @@ pub fn dig(
 ) {
     let m3 = m3.max(0.0);
     let kept = kept_m3.clamp(0.0, m3);
-    spread(&pit.rect, -m3, ground);
+    dig_out(pit, map, ground, m3);
     spread(&heap.rect, m3 - kept, ground);
-    pit.cut_m3 += m3 as f32;
     heap.cut_m3 += (m3 - kept) as f32;
-    let middle = |w: &Earthwork| {
-        let (x, y) = w.rect.centre_m();
-        bed_height(map, (f64::from(x), f64::from(y)))
-    };
-    pit.level_cm = ((middle(pit) - pit.depth_m()) * 100.0).round() as i32;
-    heap.level_cm = ((middle(heap) + heap.depth_m()) * 100.0).round() as i32;
+    heap.level_cm = ((middle_height(map, heap) + heap.depth_m()) * 100.0).round() as i32;
+}
+
+/// Digs `m3` more from pit `pit`, all of it taken away (as daub for walls): its ground falls by
+/// it over its rectangle, and its level is its floor's over the generated ground at its middle.
+pub fn dig_out(pit: &mut Earthwork, map: &WorldMap, ground: &mut GroundDelta, m3: f64) {
+    let m3 = m3.max(0.0);
+    spread(&pit.rect, -m3, ground);
+    pit.cut_m3 += m3 as f32;
+    pit.level_cm = ((middle_height(map, pit) - pit.depth_m()) * 100.0).round() as i32;
+}
+
+/// The generated ground at the middle of `w`'s rectangle, metres.
+fn middle_height(map: &WorldMap, w: &Earthwork) -> f64 {
+    let (x, y) = w.rect.centre_m();
+    bed_height(map, (f64::from(x), f64::from(y)))
 }
 
 /// Whether a pit or spoil heap among `works` lies within `gap_cm` of `rect`: ground nobody builds

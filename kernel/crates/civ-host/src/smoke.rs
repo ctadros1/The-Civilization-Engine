@@ -427,26 +427,32 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
     result.notes.extend(earthworks(sim));
 }
 
-/// The earthworks by the end (ADR-0010 §2), in words: "3 plots levelled, 19 m³ cut; 2 pits dug,
-/// 4.5 m³". `None` without earthworks.
+/// The earthworks by the end (ADR-0010 §2), in words: "3 plots levelled, 19 m³ cut; 2 pits and
+/// quarries at deposits, 4.5 m³; 14 daub pits, 61 m³". `None` without earthworks.
 fn earthworks(sim: &Sim) -> Option<String> {
-    use civ_land::earth::EarthKind;
+    use civ_land::earth::{EarthKind, Earthwork};
     let works = &sim.land().earthworks;
-    let of = |kind: EarthKind| works.iter().filter(move |w| w.kind == kind);
+    let count = |of: &dyn Fn(&Earthwork) -> bool| -> (usize, f64) {
+        works.iter().filter(|w| of(w)).fold((0, 0.0), |(n, m3), w| {
+            (n + 1, m3 + f64::from(w.cut_m3) * f64::from(w.done))
+        })
+    };
+    let plural = |n: usize, one: &str, many: &str| if n == 1 { one } else { many }.to_owned();
     let mut parts = Vec::new();
-    let plots = of(EarthKind::Platform).count();
+    let (plots, cut) = count(&|w| w.kind == EarthKind::Platform);
     if plots > 0 {
-        let cut: f64 = of(EarthKind::Platform)
-            .map(|w| f64::from(w.cut_m3) * f64::from(w.done))
-            .sum();
-        let noun = if plots == 1 { "plot" } else { "plots" };
+        let noun = plural(plots, "plot", "plots");
         parts.push(format!("{plots} {noun} levelled, {cut:.0} m³ cut"));
     }
-    let pits = of(EarthKind::Pit).count();
-    if pits > 0 {
-        let dug: f64 = of(EarthKind::Pit).map(|w| f64::from(w.cut_m3)).sum();
-        let noun = if pits == 1 { "pit" } else { "pits" };
-        parts.push(format!("{pits} {noun} dug, {dug:.1} m³"));
+    let (workings, dug) = count(&|w| w.kind == EarthKind::Pit && w.deposit.is_some());
+    if workings > 0 {
+        let noun = plural(workings, "pit or quarry", "pits and quarries");
+        parts.push(format!("{workings} {noun} at deposits, {dug:.1} m³"));
+    }
+    let (daub, daubed) = count(&|w| w.kind == EarthKind::Pit && w.deposit.is_none());
+    if daub > 0 {
+        let noun = plural(daub, "daub pit", "daub pits");
+        parts.push(format!("{daub} {noun}, {daubed:.0} m³"));
     }
     (!parts.is_empty()).then(|| parts.join("; "))
 }

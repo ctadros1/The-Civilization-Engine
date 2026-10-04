@@ -44,42 +44,66 @@ fn volume(m3: f64) -> String {
     }
 }
 
-/// What the pit or heap `w` is dug for, in words: "clay" (the good of its deposit).
-fn dug_for(sim: &Sim, w: &Earthwork) -> String {
-    w.deposit
+/// What the pit or heap `w` is dug for, and what it is called, in words: ("clay", "pit"),
+/// ("stone", "quarry"), from its deposit's good and the land profile's rule for it.
+fn dug_for(sim: &Sim, w: &Earthwork) -> (String, String) {
+    let body = w
+        .deposit
         .and_then(|id| sim.land.deposits.iter().find(|d| d.id == id))
-        .and_then(|d| sim.rules.catalog.goods.get(usize::from(d.body.good)))
-        .map_or_else(|| "earth".to_owned(), |g| g.name.to_lowercase())
+        .map(|d| usize::from(d.body.good));
+    let good = body
+        .and_then(|g| sim.rules.catalog.goods.get(g))
+        .map_or_else(|| "earth".to_owned(), |g| g.name.to_lowercase());
+    (good, working(sim, body))
+}
+
+/// What a working of a body of good `good` is called: the land profile's word for it, "pit" when
+/// it gives none.
+pub(crate) fn working(sim: &Sim, good: Option<usize>) -> String {
+    good.and_then(|g| sim.rules.land.deposits.iter().find(|r| r.good == g))
+        .map_or_else(|| "pit".to_owned(), |r| r.working.clone())
+}
+
+/// Building `b` as its owners call it: "Ada's hut", "a hut".
+fn whose_building(sim: &Sim, b: &Building) -> String {
+    let program = program_name(sim, &b.spec.program);
+    match eldest_name(sim, b.household) {
+        Some(name) => format!("{name}'s {program}"),
+        None => format!("a {program}"),
+    }
 }
 
 /// An earthwork in words: "the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled",
-/// "Ada's household's clay pit, 1.2 m deep", "the spoil heap of a clay pit, 3.1 m³".
+/// "Ada's household's clay pit, 1.2 m deep", "the spoil heap of a stone quarry, 3.1 m³", "the daub
+/// pit of Ada's hut, 0.6 m deep".
 fn words(sim: &Sim, w: &Earthwork, building: Option<&Building>) -> String {
     match w.kind {
         EarthKind::Platform => {}
+        EarthKind::Pit if w.deposit.is_none() => {
+            let of = building.map_or_else(
+                || "a daub pit".to_owned(),
+                |b| format!("the daub pit of {}", whose_building(sim, b)),
+            );
+            return format!("{of}, {:.1} m deep", w.depth_m());
+        }
         EarthKind::Pit => {
             let whose = eldest_name(sim, w.household)
                 .map_or_else(|| "a".to_owned(), |name| format!("{name}'s household's"));
-            return format!("{whose} {} pit, {:.1} m deep", dug_for(sim, w), w.depth_m());
+            let (good, working) = dug_for(sim, w);
+            return format!("{whose} {good} {working}, {:.1} m deep", w.depth_m());
         }
         EarthKind::Spoil => {
+            let (good, working) = dug_for(sim, w);
             return format!(
-                "the spoil heap of a {} pit, {}",
-                dug_for(sim, w),
+                "the spoil heap of a {good} {working}, {}",
                 volume(f64::from(w.cut_m3))
             );
         }
     }
-    let what = match building {
-        Some(b) => {
-            let program = program_name(sim, &b.spec.program);
-            match eldest_name(sim, b.household) {
-                Some(name) => format!("the plot of {name}'s {program}"),
-                None => format!("the plot of a {program}"),
-            }
-        }
-        None => "a plot".to_owned(),
-    };
+    let what = building.map_or_else(
+        || "a plot".to_owned(),
+        |b| format!("the plot of {}", whose_building(sim, b)),
+    );
     let earth = volume(f64::from(w.cut_m3));
     let done = f64::from(w.done);
     if done >= 1.0 {

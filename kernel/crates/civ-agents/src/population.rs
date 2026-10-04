@@ -2093,7 +2093,8 @@ impl Population {
                         continue;
                     };
                     let walk = f64::from(secs) / 60.0;
-                    let kg_per_hour = digging::dig_kg_per_hour(&d.body, params.digging.h_per_m3);
+                    let rates = digging::rates(ctx.land_params, &d.body, params.digging.h_per_m3);
+                    let kg_per_hour = digging::dig_kg_per_hour(&d.body, rates);
                     if walk > f64::from(a.max_walk_minutes) || kg_per_hour <= 0.0 {
                         continue;
                     }
@@ -3442,6 +3443,7 @@ impl Population {
         let skill = def
             .skill
             .and_then(|k| catalog.skills.get(k).map(|s| (k, s)));
+        let toward = self.hearth_toward(ctx.land, household);
         let Some(&hd) = self.hh_index.get(&household) else {
             return;
         };
@@ -3479,7 +3481,17 @@ impl Population {
                 )
             });
             condition::mend(b, repair.group, repair.share, &def.upkeep, now, rebuilt);
+            let plot = b.plot;
             (x.sheltered, x.keeping) = shelter_of(ctx.land, catalog, params, household);
+            // Daub renewed is dug beside the building (ADR-0010 §2).
+            let mended = e
+                .groups
+                .iter()
+                .find(|g| g.id == repair.group)
+                .map_or(0.0, |g| g.daub_m3() * f64::from(repair.share));
+            if let Some(toward) = toward {
+                digging::dig_daub(ctx, plot, toward, e.daub_m3(None), mended);
+            }
         }
         if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
             p.set_skill(k, s.practised(p.skill(k), done.hours));
@@ -3525,6 +3537,8 @@ impl Population {
         let Some(needs) = self.needs_of(&ctx.land.buildings[bi], def, levelling) else {
             return;
         };
+        let expansion = self.expansion_of(&ctx.land.buildings[bi], def);
+        let toward = self.hearth_toward(ctx.land, household);
         let skill = def
             .skill
             .and_then(|k| ctx.catalog.skills.get(k).map(|s| (k, s)));
@@ -3549,6 +3563,15 @@ impl Population {
         let b = &mut ctx.land.buildings[bi];
         let done = b.work(hours, stage.labour_h, &stage.materials_kg, &held, now);
         b.skill_h += (done.hours * level) as f32;
+        // The earth its walls are daubed with is dug beside it as they go up (ADR-0010 §2).
+        let daub = expansion.as_ref().map_or((0.0, 0.0), |e| {
+            let share = if stage.labour_h > 0.0 {
+                (done.hours / stage.labour_h).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            (e.daub_m3(None), e.daub_m3(Some(stage.stage)) * share)
+        });
         // Its plot is levelled first, with the first stage's first hours; cutting into a buried
         // deposit finds it (ADR-0010 §1).
         if levelling > 0.0 {
@@ -3572,6 +3595,10 @@ impl Population {
             for work in &cut {
                 self.find_by_cutting(ctx, who, household, work);
             }
+        }
+        if let (Some(toward), true) = (toward, daub.1 > 0.0) {
+            let plot = ctx.land.buildings[bi].plot;
+            digging::dig_daub(ctx, plot, toward, daub.0, daub.1);
         }
         let Some(x) = self.households.get_mut(hd) else {
             return;

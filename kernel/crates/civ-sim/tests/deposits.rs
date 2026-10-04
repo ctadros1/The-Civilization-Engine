@@ -1,5 +1,6 @@
 //! Deposits in the ground (ADR-0010 §1-2; M3b slice Q): found by walking near them, laid down by
-//! the observer, dug at a pit for clay that is made into pots, and kept across a save.
+//! the observer, dug at a pit for clay that is made into pots, quarried for stone once loose stone
+//! is gone, and kept across a save.
 
 use std::path::Path;
 use std::sync::OnceLock;
@@ -285,4 +286,138 @@ fn a_household_short_of_good_room_digs_clay_it_knows_and_makes_pots() {
         .expect("the pit");
     sim.land_mut_for_tests().earthworks[at].cut_m3 += 0.5;
     assert_ne!(civ_sim::frames::earthworks::earthworks_rev(&sim), rev);
+}
+
+#[test]
+fn with_no_loose_stone_left_a_household_needing_stone_quarries_it() {
+    let mut sim = world(3);
+    let hearth = sim
+        .land()
+        .settlements
+        .first()
+        .expect("a settlement")
+        .hearth_m;
+    // Stone showing beside the hearth, which the village finds as its people pass.
+    let stone = sim
+        .place_deposit((hearth.0 + 30.0, hearth.1), "core:good/stone", 8.0, true)
+        .expect("laid down");
+    // No loose stone anywhere, so a quarry is the only way to stone.
+    let loose = sim
+        .rules()
+        .land
+        .resources
+        .iter()
+        .position(|r| r.id == "stone")
+        .expect("loose stone");
+    for s in sim.land_mut_for_tests().stocks[loose].iter_mut() {
+        *s = 0.0;
+    }
+    // A household with no quern and no stone: it wants a quern, and stone to shape one.
+    let goods = &content().catalog.goods;
+    let index = |id: &str| goods.iter().position(|g| g.id == id).expect(id);
+    let (quern, stone_good) = (index("core:good/quern"), index("core:good/stone"));
+    let household = sim
+        .people()
+        .households
+        .iter()
+        .min_by_key(|(_, h)| h.id)
+        .map(|(_, h)| h.id)
+        .expect("a household");
+    for (_, h) in sim.people_mut_for_tests().households.iter_mut() {
+        if h.id == household {
+            h.stores[quern] = 0.0;
+            h.stores[stone_good] = 0.0;
+        }
+    }
+    // Hour by hour, until someone has been seen at work in the quarry.
+    let mut quarrying = None;
+    for _ in 0..120 * 24 {
+        sim.advance_minutes(60).expect("advances");
+        quarrying = sim
+            .people()
+            .people
+            .iter()
+            .map(|(_, p)| p)
+            .find(|p| {
+                matches!(p.act.target, Target::Deposit(d) if d == stone)
+                    && matches!(
+                        p.act.steps.get(usize::from(p.act.step)),
+                        Some(Step::Work { .. })
+                    )
+            })
+            .map(|p| civ_sim::frames::people::doing(&sim, p));
+        if quarrying.is_some() {
+            break;
+        }
+    }
+    let quarrying = quarrying.expect("someone quarries");
+    assert!(
+        quarrying.starts_with("quarrying stone at the stone quarry ")
+            && quarrying.ends_with(" of home"),
+        "{quarrying}"
+    );
+    // A quarry and its spoil heap, named so; the work goes on until stone has come out.
+    for _ in 0..30 * 24 {
+        if sim
+            .land()
+            .deposits
+            .iter()
+            .any(|d| d.id == stone && d.taken_kg > 0.0)
+        {
+            break;
+        }
+        sim.advance_minutes(60).expect("advances");
+    }
+    let deposit = *sim
+        .land()
+        .deposits
+        .iter()
+        .find(|d| d.id == stone)
+        .expect("the stone");
+    assert!(deposit.taken_kg > 0.0, "stone came out");
+    let earth = &sim.land().earthworks;
+    let pit = earth
+        .iter()
+        .find(|w| w.kind == civ_land::earth::EarthKind::Pit && w.deposit == Some(stone))
+        .expect("a quarry");
+    let heap = earth
+        .iter()
+        .find(|w| Some(w.id) == pit.heap)
+        .expect("its spoil heap");
+    let bytes = civ_sim::frames::earthworks::earthworks_response(&sim);
+    let response =
+        civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("decodes");
+    let works = response
+        .body_as_earthworks()
+        .expect("earthworks")
+        .works()
+        .expect("works");
+    let words = |id: civ_core::PermanentId| {
+        works
+            .iter()
+            .find(|w| w.id() == id.get())
+            .and_then(|w| w.words())
+            .unwrap_or_default()
+            .to_owned()
+    };
+    assert!(
+        words(pit.id).contains("'s household's stone quarry, "),
+        "{}",
+        words(pit.id)
+    );
+    assert!(
+        words(heap.id).starts_with("the spoil heap of a stone quarry, "),
+        "{}",
+        words(heap.id)
+    );
+    // What was broken out is what was heaped and carried home.
+    let r = f64::from(deposit.body.radius_cm) / 100.0;
+    let density = deposit.body.initial_kg
+        / (std::f64::consts::PI * r * r * f64::from(deposit.body.thickness_cm) / 100.0);
+    let carried_m3 = deposit.taken_kg * f64::from(deposit.body.quality) / density;
+    let moved = f64::from(pit.cut_m3) - f64::from(heap.cut_m3);
+    assert!(
+        (moved - carried_m3).abs() < 1e-3 * (1.0 + carried_m3),
+        "{moved} vs {carried_m3}"
+    );
 }

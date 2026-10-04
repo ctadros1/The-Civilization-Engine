@@ -961,3 +961,88 @@ fn a_hut_on_sloping_ground_has_its_plot_levelled_first_and_the_ground_keeps_it()
     assert_eq!(loaded.land().earthworks, sim.land().earthworks);
     assert_eq!(loaded.land().ground, sim.land().ground);
 }
+
+#[test]
+fn a_hut_s_daub_is_dug_from_a_pit_beside_it_as_its_walls_go_up() {
+    use civ_grammar::Stage;
+    use civ_land::earth::{self, EarthKind};
+    let mut sim = world(3);
+    let catalog = &content().catalog;
+    // Until a hut has its walls.
+    let walled =
+        |b: &civ_land::Building| b.finished() || b.stage().is_some_and(|s| s > Stage::Walls);
+    let mut hut = None;
+    for _ in 0..60 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        hut = sim.land().buildings.iter().find(|b| walled(b)).cloned();
+        if hut.is_some() {
+            break;
+        }
+    }
+    let hut = hut.expect("a hut has its walls");
+    let def = &catalog.buildings[program(&hut.spec.program)];
+    let daub = civ_grammar::expand(&hut.spec, &def.rules)
+        .expect("expands")
+        .daub_m3(None);
+    assert!(daub > 1.0, "{daub}");
+    // Its daub pit holds what its walls do: no more, as nothing has been mended yet.
+    let pit = *sim
+        .land()
+        .earthworks
+        .iter()
+        .find(|w| w.kind == EarthKind::Pit && w.plot == Some(hut.plot))
+        .expect("a daub pit");
+    assert_eq!(pit.deposit, None);
+    assert!(
+        (f64::from(pit.cut_m3) - daub).abs() < 1e-3 * daub,
+        "{} of {daub}",
+        pit.cut_m3
+    );
+    // Beside the plot, clear of it, and sized to go about a metre down with it, at least a pit's
+    // side across.
+    let plot = sim
+        .land()
+        .plots
+        .iter()
+        .find(|p| p.id == hut.plot)
+        .expect("its plot")
+        .rect;
+    assert!(!pit.rect.near(&plot, 0), "{pit:?}");
+    assert!(pit.rect.near(&plot, 1_300), "{pit:?}");
+    let side = f64::from(pit.rect.w) / 100.0;
+    assert!(side >= sim.rules().people.digging.pit_side_m, "{side}");
+    assert!(pit.depth_m() <= 1.0 + 1e-6, "{}", pit.depth_m());
+    // The ground lost it, and the records reproduce the ground.
+    let map = sim.map();
+    let mut replayed = earth::GroundDelta::new(map.width, map.height, map.cell_size_m);
+    for w in &sim.land().earthworks {
+        earth::replay(w, map, &mut replayed);
+    }
+    for cell in 0..(map.width * map.height) as usize {
+        assert!(
+            (replayed.at(cell) - sim.land().ground.at(cell)).abs() < 1e-3,
+            "cell {cell}"
+        );
+    }
+    // Nobody builds on it, and the observer names it.
+    assert!(!build::plot_clear(sim.land(), map, sim.nav(), &pit.rect));
+    let bytes = civ_sim::frames::earthworks::earthworks_response(&sim);
+    let response =
+        civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("decodes");
+    let info = response
+        .body_as_earthworks()
+        .expect("earthworks")
+        .works()
+        .expect("works")
+        .iter()
+        .find(|w| w.id() == pit.id.get())
+        .expect("the daub pit");
+    assert_eq!((info.kind(), info.deposit()), (1, 0));
+    let words = info.words().unwrap_or_default();
+    assert!(
+        words.starts_with("the daub pit of ")
+            && words.contains("'s hut, ")
+            && words.ends_with(" m deep"),
+        "{words}"
+    );
+}

@@ -102,7 +102,11 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
   the earth lay in the ground, so bulking is still not kept: what is dug equals what is heaped
   plus what is carried, and the body's density turns volume into kilograms. Both change the
   ground evenly over their squares, which are smaller than a cell, as cell-mean deltas.
-  Quarries for stone and flint follow.
+- As built (slice Q's fourth step): quarries and flint pits are the same workings with their
+  rule's `dig_h_per_m3` for the body (stone 12 h, a flint bed 12 h; the cover is dug as earth) and
+  its `working` name. A daub pit is a pit with a plot and no deposit, beside a building's plot:
+  its walls' daub is dug from it as they go up and as they are mended, and none of its earth is
+  heaped, as all of it goes into the walls.
 
 ### 3. The bed is the generated bed plus a delta layer
 

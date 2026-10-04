@@ -56,6 +56,19 @@ pub(crate) struct DepositFile {
     pub exposed_share: f64,
     /// Kilograms of the good in a cubic metre of a body.
     pub density_kg_m3: f64,
+    /// Hours a capable adult takes to break a cubic metre of a body out of the ground with the
+    /// founders' tools (content API 21); 0, the default, to dig it as earth at the people
+    /// profile's `[digging]` rate.
+    #[serde(default)]
+    pub dig_h_per_m3: f64,
+    /// What a working of it is called (content API 21): "pit", the default, or "quarry".
+    #[serde(default = "pit")]
+    pub working: String,
+}
+
+/// A working's name when a deposit rule gives none.
+fn pit() -> String {
+    "pit".to_owned()
 }
 
 /// The heaviest load wind and snow put on a roof in a month (ADR-0009 §5), a stand-in for
@@ -226,6 +239,8 @@ impl LandFile {
                         quality: pair(d.quality),
                         exposed_share: d.exposed_share,
                         density_kg_m3: d.density_kg_m3,
+                        dig_h_per_m3: d.dig_h_per_m3,
+                        working: d.working.clone(),
                     })
                 })
                 .collect::<Option<Vec<_>>>()?,
@@ -266,6 +281,18 @@ impl LandFile {
             if !(d.density_kg_m3.is_finite() && (100.0..=10_000.0).contains(&d.density_kg_m3)) {
                 p.push(format!(
                     "deposit {n}'s `density_kg_m3` must be between 100 and 10000"
+                ));
+            }
+            if !(d.dig_h_per_m3.is_finite() && (0.0..=1_000.0).contains(&d.dig_h_per_m3)) {
+                p.push(format!(
+                    "deposit {n}'s `dig_h_per_m3` must be between 0 and 1000"
+                ));
+            }
+            let words = d.working.trim();
+            if words.is_empty() || words.len() > 24 || words != d.working {
+                p.push(format!(
+                    "deposit {n}'s `working` must be a name of 1 to 24 characters (got {:?})",
+                    d.working
                 ));
             }
         }

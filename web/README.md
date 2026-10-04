@@ -98,6 +98,12 @@ debugging: `state()` (with a summary of each market, workshop and settlement's w
 `TCE_DEMO_VIDEO=1 npm run test:e2e` records a video of each spec into `test-results/`, and
 `TCE_SHOTS_DIR=<dir>` saves step screenshots.
 
+The M3a demo's pictures (`e2e/m3a-demo.spec.ts`: one seed under both property regimes, a village
+of hundreds lived five years from the command line, then each world's wealth and market panels
+and its village) run only when asked: `TCE_DEMO=1 TCE_SHOTS_DIR=<dir> npx playwright test
+m3a-demo` (about 15 minutes; `TCE_DEMO_SEED`, `TCE_DEMO_BAND`, `TCE_DEMO_FAMILIES` and
+`TCE_DEMO_DAYS` change the world).
+
 The M1 demo (`e2e/demo.spec.ts`: ten years of a band, then save and reload) runs only when asked,
 since it takes about four minutes: `TCE_DEMO=1 TCE_DEMO_VIDEO=1 npx playwright test demo`. It
 prints `demo-mark` lines with the seconds at which the long run ahead begins and ends;

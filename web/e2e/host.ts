@@ -26,12 +26,15 @@ export function tempSaves(): string {
   return mkdtempSync(path.join(tmpdir(), "tce-e2e-saves-"));
 }
 
-/** Makes a world with `civ-host new` in `saves` (for example lived some days), and waits. */
-export function makeWorld(saves: string, args: string[]): void {
+/**
+ * Makes a world with `civ-host new` in `saves` (for example lived some days), and waits up to
+ * `timeoutMs`.
+ */
+export function makeWorld(saves: string, args: string[], timeoutMs = 120_000): void {
   const done = spawnSync(hostBinary(), ["new", "--saves", saves, ...args], {
     cwd: repo,
     encoding: "utf8",
-    timeout: 120_000,
+    timeout: timeoutMs,
   });
   if (done.status !== 0) {
     throw new Error(`civ-host new failed (${done.status}):\n${done.stdout}\n${done.stderr}`);

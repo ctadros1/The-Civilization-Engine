@@ -422,6 +422,31 @@ impl Sim {
         self.spawn_families(at, 1).map(|mut all| all.remove(0))
     }
 
+    /// The observer sends `families` families to the world's first settlement, for runs of
+    /// villages larger than a founding band: in groups as large as the god tool sends
+    /// ([`civ_agents::MAX_SPAWN_FAMILIES`]), each group about its own point 150 m from the hearth.
+    /// Returns the people who came.
+    pub fn send_families_to_hearth(&mut self, families: u32) -> usize {
+        let Some(hearth) = self.land.settlements.first().map(|s| s.hearth_m) else {
+            return 0;
+        };
+        let (mut left, mut group, mut people) = (families, 0u32, 0);
+        while left > 0 {
+            let n = left.min(civ_agents::MAX_SPAWN_FAMILIES);
+            let angle = 2.4 * f64::from(group);
+            let at = (
+                hearth.0 + (150.0 * angle.cos()) as f32,
+                hearth.1 + (150.0 * angle.sin()) as f32,
+            );
+            if let Ok(sent) = self.spawn_families(at, n) {
+                people += sent.iter().map(|s| s.people.len()).sum::<usize>();
+            }
+            left -= n;
+            group += 1;
+        }
+        people
+    }
+
     /// The observer sends `count` families together (at most [`civ_agents::MAX_SPAWN_FAMILIES`]):
     /// the first where it placed them and the others around it (see
     /// [`civ_agents::spawn_families`]).

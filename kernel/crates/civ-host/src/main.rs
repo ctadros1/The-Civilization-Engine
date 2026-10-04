@@ -69,6 +69,9 @@ struct RunArgs {
     /// Property regime id [default: the content's default].
     #[arg(long)]
     regime: Option<String>,
+    /// Families the observer sends to the village as it is founded, in groups of up to 20.
+    #[arg(long, default_value_t = 0)]
+    families: u32,
 }
 
 #[derive(Args, Clone, Default)]
@@ -129,6 +132,12 @@ struct NewArgs {
     /// Property regime id [default: the content's default].
     #[arg(long)]
     regime: Option<String>,
+    /// Founding band size [default: the content's].
+    #[arg(long, default_value_t = 0)]
+    band: u32,
+    /// Families the observer sends to the village as it is founded, in groups of up to 20.
+    #[arg(long, default_value_t = 0)]
+    families: u32,
 }
 
 #[derive(Subcommand)]
@@ -218,6 +227,7 @@ fn run_world(args: RunArgs) -> anyhow::Result<ExitCode> {
         band: args.band,
         years: args.years,
         regime: args.regime,
+        families: args.families,
     };
     civ_host::report::run(&content, &options, &mut std::io::stdout().lock())?;
     Ok(ExitCode::SUCCESS)
@@ -358,6 +368,8 @@ fn new(args: NewArgs) -> anyhow::Result<ExitCode> {
             name: args.name,
             days: args.days,
             regime: args.regime,
+            band: args.band,
+            families: args.families,
         },
     )?;
     Ok(ExitCode::SUCCESS)

@@ -29,6 +29,8 @@ pub struct RunOptions {
     pub years: u32,
     /// The property regime, or the content's default.
     pub regime: Option<String>,
+    /// Families the observer sends to the village as it is founded.
+    pub families: u32,
 }
 
 /// Lives the world and writes a report to `out`.
@@ -57,6 +59,14 @@ pub fn run(
     .map_err(|e| anyhow::anyhow!("generation failed: {e}"))?;
     if let Some(problem) = sim.founding_problem() {
         anyhow::bail!("the band could not settle: {problem}");
+    }
+    if options.families > 0 {
+        let people = sim.send_families_to_hearth(options.families);
+        writeln!(
+            out,
+            "{} families sent: {people} people came",
+            options.families
+        )?;
     }
     writeln!(
         out,
@@ -100,6 +110,7 @@ pub fn run(
         let moved = sim.people().transfers.clone();
         report_moved(&sim, &moved_before, &moved, out)?;
         report_market(&sim, &moved_before, &moved, out)?;
+        report_prices(&sim, out)?;
         report_firms(&sim, civ_core::SimTime::from_minutes(start), out)?;
         report_land(&sim, &moved_before, &moved, out)?;
         report_wealth(&sim, &mut wealth_shown, out)?;
@@ -280,6 +291,81 @@ fn report_market(
             money.join("; ")
         }
     )?;
+    Ok(())
+}
+
+/// Each settlement's prices as the year ends, hours of the seller's own work a unit: per good,
+/// the middle of what its sellers ask (one ask a seller, households and workshops), and what
+/// its trades of the last twelve months paid on average.
+fn report_prices(sim: &Sim, out: &mut dyn Write) -> anyhow::Result<()> {
+    let pop = sim.people();
+    let goods = &sim.rules().catalog.goods;
+    let month = civ_agents::market::month_of(sim.now());
+    for m in &pop.markets {
+        let name = sim
+            .land()
+            .settlements
+            .iter()
+            .find(|s| s.id == m.settlement)
+            .map_or("a settlement", |s| s.name.as_str());
+        let mut asks: Vec<Vec<f64>> = vec![Vec::new(); goods.len()];
+        let mut seller = |offers: &[civ_agents::market::Offer]| {
+            let mut seen: Vec<u16> = Vec::new();
+            for o in offers {
+                if !seen.contains(&o.good)
+                    && let Some(a) = asks.get_mut(usize::from(o.good))
+                {
+                    seen.push(o.good);
+                    a.push(f64::from(o.ask_h));
+                }
+            }
+        };
+        for (_, h) in pop.households.iter() {
+            if h.settlement == Some(m.settlement) {
+                seller(&h.offers);
+            }
+        }
+        for f in &pop.firms {
+            if f.is_open() && f.settlement == Some(m.settlement) {
+                seller(&f.offers);
+            }
+        }
+        let mut paid: Vec<(f64, f64)> = vec![(0.0, 0.0); goods.len()];
+        for h in m.history.iter().filter(|h| h.month + 12 > month) {
+            if let Some(p) = paid.get_mut(usize::from(h.good)) {
+                p.0 += f64::from(h.units);
+                p.1 += f64::from(h.paid_h);
+            }
+        }
+        let mut parts = Vec::new();
+        for (g, d) in goods.iter().enumerate() {
+            let a = &mut asks[g];
+            let (units, hours) = paid[g];
+            if a.is_empty() && units <= 0.0 {
+                continue;
+            }
+            let mut words = d.name.to_lowercase();
+            if !a.is_empty() {
+                a.sort_by(f64::total_cmp);
+                let n = a.len();
+                let mid = if n % 2 == 1 {
+                    a[n / 2]
+                } else {
+                    (a[n / 2 - 1] + a[n / 2]) / 2.0
+                };
+                words.push_str(&format!(" asked {mid:.2} ({n})"));
+            }
+            if units > 0.0 {
+                words.push_str(&format!(" paid {:.2} ({units:.0} sold)", hours / units));
+            }
+            parts.push(words);
+        }
+        writeln!(
+            out,
+            "  prices in {name} (hours a unit; sellers, units sold in the last twelve months): {}",
+            or_none(parts.join("; "))
+        )?;
+    }
     Ok(())
 }
 

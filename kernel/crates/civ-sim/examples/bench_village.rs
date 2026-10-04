@@ -114,27 +114,9 @@ fn main() {
     if let Some(problem) = sim.founding_problem() {
         panic!("the band could not settle: {problem}");
     }
-    // Groups of families around the hearth, each group about its own point.
-    let hearth = sim.land().settlements[0].hearth_m;
-    let (mut left, mut group) = (a.families, 0u32);
-    while left > 0 {
-        let n = left.min(civ_agents::MAX_SPAWN_FAMILIES);
-        let angle = 2.4 * f64::from(group);
-        let at = (
-            hearth.0 + (150.0 * angle.cos()) as f32,
-            hearth.1 + (150.0 * angle.sin()) as f32,
-        );
-        match sim.spawn_families(at, n) {
-            Ok(sent) => println!(
-                "{} families, {} people, came to {}",
-                sent.len(),
-                sent.iter().map(|s| s.people.len()).sum::<usize>(),
-                sent[0].name
-            ),
-            Err(e) => println!("a group could not come: {e}"),
-        }
-        left -= n;
-        group += 1;
+    if a.families > 0 {
+        let people = sim.send_families_to_hearth(a.families);
+        println!("{} families sent: {people} people came", a.families);
     }
     println!(
         "seed {} on {} cells: {} people in {} households, made in {:.1} s",

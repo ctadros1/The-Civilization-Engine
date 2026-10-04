@@ -845,6 +845,22 @@ fn families_sent_together_settle_side_by_side_in_one_place() {
 }
 
 #[test]
+fn families_sent_to_the_hearth_come_in_groups_and_join_the_village() {
+    let mut sim = new_world(3, 0);
+    let (households, living) = (sim.people().households.len(), sim.people().living());
+    // Twenty-five families: a group of twenty and a group of five, about their own points.
+    let came = sim.send_families_to_hearth(25);
+    assert_eq!(sim.land().settlements.len(), 1, "all join the village");
+    assert_eq!(sim.people().living(), living + came);
+    let arrived = sim.people().households.len() - households;
+    assert!(
+        (20..=25).contains(&arrived),
+        "{arrived} of 25 families arrived"
+    );
+    assert_eq!(sim.send_families_to_hearth(0), 0);
+}
+
+#[test]
 fn the_observer_sends_families_that_join_a_village_or_make_camp() {
     let mut sim = new_world(3, 0);
     sim.advance_minutes(2 * 24 * 60).expect("advances");

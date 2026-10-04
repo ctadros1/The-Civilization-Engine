@@ -75,6 +75,10 @@ pub struct NewOptions {
     pub days: u32,
     /// Property regime id; the content's default when absent.
     pub regime: Option<String>,
+    /// Founding band size (0: the content's default).
+    pub band: u32,
+    /// Families the observer sends to the village as it is founded.
+    pub families: u32,
 }
 
 /// `civ-host new`: generates a world, lets it live `days` days, saves it and prints a summary.
@@ -95,7 +99,7 @@ pub fn new_world(
             seed: options.seed,
             preset_id,
             size_cells: options.size,
-            band_size: 0,
+            band_size: options.band,
             regime_id: options.regime.clone().unwrap_or_default(),
         },
         content,
@@ -108,6 +112,10 @@ pub fn new_world(
         &AtomicBool::new(false),
     )?;
     let generated = started.elapsed();
+    if options.families > 0 {
+        let people = sim.send_families_to_hearth(options.families);
+        println!("{} families sent: {people} people came", options.families);
+    }
     if options.days > 0 {
         let lived = Instant::now();
         sim.advance_minutes(i64::from(options.days) * civ_core::time::MINUTES_PER_DAY)?;

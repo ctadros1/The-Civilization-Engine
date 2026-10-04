@@ -77,6 +77,7 @@ cargo run --release -p civ-host -- smoke               # the smoke seeds; must p
 cargo run --release -p civ-host -- smoke --years 10    # and ten years of each, its economy graded (nightly; ~11 min on 4 cores)
 cargo run --release -p civ-host -- run --seed 2 --years 5   # one world, reported each year (calibration)
 cargo run --release -p civ-host -- run --seed 2 --years 3 --regime core:regime/village   # the same under village fields
+cargo run --release -p civ-host -- run --seed 2 --years 10 --band 125 --families 20   # a village of hundreds (the M3a demo's)
 cargo run --release -p civ-host -- new --seed 7 --size 1024
 cargo run --release -p civ-host -- save info|verify <file>
 

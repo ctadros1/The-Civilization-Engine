@@ -20,6 +20,7 @@
 #![forbid(unsafe_code)]
 
 pub mod buildings;
+pub mod deposits;
 pub mod fields;
 pub mod paths;
 
@@ -1134,7 +1135,7 @@ mod tests {
         }
     }
 
-    fn map() -> WorldMap {
+    pub(crate) fn map() -> WorldMap {
         // 8 x 8 cells of 8 m: a river along x = 0..2 (the west quarter), flat land elsewhere,
         // rising steeply in the south-east patch.
         let (w, h) = (8u32, 8u32);

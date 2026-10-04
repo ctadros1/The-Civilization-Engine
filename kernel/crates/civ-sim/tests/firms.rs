@@ -534,13 +534,22 @@ fn a_workshop_posts_a_wage_and_pays_those_who_take_the_work() {
     assert_eq!((wage.pay(), wage.per_hour()), (grain as u16, 2.0));
     let text = wage.text().expect("words");
     assert!(text.starts_with("Pays 2.0 kg of grain an hour"), "{text}");
+    // The page lists its books newest first.
     let wages = page
         .entries()
         .expect("its books")
         .iter()
         .find(|e| e.kind() == wire::BookKind::Wages)
         .expect("wages in its books");
-    assert_eq!(wages.other(), worker.get());
+    let newest = firm
+        .books
+        .entries
+        .iter()
+        .rev()
+        .find(|e| e.kind == BookKind::Wages)
+        .and_then(|e| e.other)
+        .expect("a worker's household");
+    assert_eq!(wages.other(), newest.get());
     let text = wages.text().expect("words");
     assert!(
         text.starts_with("Paid ") && text.ends_with(" in wages."),

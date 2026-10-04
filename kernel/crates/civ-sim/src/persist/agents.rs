@@ -68,8 +68,8 @@ use civ_core::scheduler::PendingEvent;
 use civ_core::{PermanentId, SimTime};
 use civ_grammar::{BuildingSpec, Footprint};
 use civ_land::{
-    Building, ClimateYear, Field, FieldStage, Land, Party, Patches, PathParams, Plot, PlotUse,
-    RectCm, Settlement, Wear, WearTile,
+    Building, ClimateYear, Field, FieldStage, Land, Lease, Party, Patches, PathParams, Plot,
+    PlotUse, RectCm, Settlement, Wear, WearTile,
 };
 use civ_schema::SAVE_SCHEMA_VERSION;
 use civ_schema::flatbuffers::{self, FlatBufferBuilder, WIPOffset};
@@ -1648,6 +1648,10 @@ fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
                         Party::Household(id) | Party::Settlement(id) => id.get(),
                     },
                     holder_settlement: matches!(f.holder, Party::Settlement(_)),
+                    leased: f.lease.is_some(),
+                    lease_since: f.lease.map_or(0, |l| l.since.minutes()),
+                    lease_until: f.lease.map_or(0, |l| l.until.minutes()),
+                    lease_share: f.lease.map_or(0.0, |l| l.holder_share),
                 },
             )
         })
@@ -1692,10 +1696,16 @@ fn decode_fields(bytes: &[u8], rules: &Rules) -> Result<Vec<Field>, LoadError> {
             (Some(id), false) => Party::Household(id),
             (None, _) => Party::Household(household),
         };
+        let lease = f.leased().then(|| Lease {
+            since: time(f.lease_since()),
+            until: time(f.lease_until()),
+            holder_share: f.lease_share(),
+        });
         out.push(Field {
             id,
             household,
             holder,
+            lease,
             rect: RectCm {
                 x: f.x_cm(),
                 y: f.y_cm(),

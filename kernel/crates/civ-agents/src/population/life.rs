@@ -857,6 +857,10 @@ impl Population {
                 if f.holder == Party::Household(from) {
                     f.holder = Party::Household(to);
                 }
+                // Holder and tenant under one roof: no lease between them.
+                if f.holder == Party::Household(f.household) {
+                    f.lease = None;
+                }
             }
         }
         for p in ctx.land.plots.iter_mut().filter(|p| p.household == from) {

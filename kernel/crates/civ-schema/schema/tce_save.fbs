@@ -461,6 +461,12 @@ table Field {
   // settlement. Absent in older saves: the household that works it holds it.
   holder: ulong (id: 17);
   holder_settlement: bool (id: 18);
+  // A lease from its holder to the household that works it (schema 12, ADR-0007 §3): when it
+  // began and ends, and the holder's share of the grain threshed from it.
+  leased: bool (id: 19);
+  lease_since: long (id: 20);
+  lease_until: long (id: 21);
+  lease_share: float (id: 22);
 }
 
 table Fields {

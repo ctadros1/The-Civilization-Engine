@@ -90,18 +90,33 @@ impl Population {
         }
     }
 
-    /// The land of `settlement` changes hands as the regime says (ADR-0007 §2), at its yearly
-    /// review and when a household forms or ends. Households short of the area they need take,
-    /// the furthest short first and nearest their home first:
+    /// The land of `settlement` changes hands as the regime says (ADR-0007 §2, §3), at its yearly
+    /// review and when a household forms or ends:
     ///
-    /// - under allocation by need, fields of the settlement that are vacant or beyond what the
-    ///   household working them needs (never leaving it short; research 08-09 §5.2);
-    /// - under holders, ground nobody holds any more, which the taker then holds (first
-    ///   occupation, 08-09 §1.2).
+    /// - fields let to households that are no more go back to their holders, and leases whose
+    ///   term is over are renewed while the holder can spare the field and the tenant still needs
+    ///   it, and otherwise end;
+    /// - households short of the area they need take, the furthest short first and nearest their
+    ///   home first: under allocation by need, fields of the settlement that are vacant or beyond
+    ///   what the household working them needs (never leaving it short; research 08-09 §5.2);
+    ///   under holders, ground nobody holds any more, which the taker then holds (first
+    ///   occupation, 08-09 §1.2), and failing that, where leasing is allowed, a field a household
+    ///   holds beyond its own need, let to the taker for a share of its grain (08-09 §1.4).
     ///
     /// Only fields between crops change hands. Returns how many did.
     pub(super) fn review_land(&mut self, ctx: &mut Ctx, settlement: PermanentId) -> usize {
-        let regime_use = ctx.regime.land_use;
+        let (regime_use, lease_rules, now) = (ctx.regime.land_use, ctx.regime.lease, ctx.now);
+        // A tenant that is no more leaves its field to its holder.
+        for f in &mut ctx.land.fields {
+            if let Party::Household(holder) = f.holder
+                && holder != f.household
+                && self.household(f.household).is_none()
+                && self.household(holder).is_some()
+            {
+                f.household = holder;
+                f.lease = None;
+            }
+        }
         // Households of the settlement: their home, need and the area they work.
         let mut households: Vec<(PermanentId, (f32, f32), f64, f64)> = self
             .households
@@ -119,8 +134,50 @@ impl Population {
                 x.3 += f.rect.area_ha();
             }
         }
-        // Fields that could change hands: the settlement's (allocation by need), or any vacant
-        // ground near it (holders).
+        let worked = |hh: &[(PermanentId, (f32, f32), f64, f64)], id: PermanentId| {
+            hh.iter().find(|x| x.0 == id).map(|x| (x.2, x.3))
+        };
+        let mut moved = 0;
+        // Leases whose term is over: renewed or ended.
+        let term_minutes = |years: u32| i64::from(years) * 365 * 24 * 60;
+        for i in 0..ctx.land.fields.len() {
+            let f = &ctx.land.fields[i];
+            let (Some(lease), Party::Household(holder)) = (f.lease, f.holder) else {
+                continue;
+            };
+            if lease.until > now || !between_crops(f) {
+                continue;
+            }
+            let (Some((h_need, h_worked)), tenant) = (worked(&households, holder), f.household)
+            else {
+                continue;
+            };
+            let area = f.rect.area_ha();
+            let tenant_short = worked(&households, tenant).is_some_and(|(need, w)| w - area < need);
+            let f = &mut ctx.land.fields[i];
+            match lease_rules {
+                Some(rules) if h_worked >= h_need && tenant_short => {
+                    f.lease = Some(civ_land::Lease {
+                        until: now.plus_minutes(term_minutes(rules.term_years)),
+                        ..lease
+                    });
+                }
+                _ => {
+                    f.household = holder;
+                    f.lease = None;
+                    for x in households.iter_mut() {
+                        if x.0 == tenant {
+                            x.3 -= area;
+                        } else if x.0 == holder {
+                            x.3 += area;
+                        }
+                    }
+                    moved += 1;
+                }
+            }
+        }
+        // Fields that could change hands: the settlement's (allocation by need), or ground
+        // nearby nobody holds any more and fields its households hold (holders).
         let mine: HashSet<PermanentId> = households.iter().map(|x| x.0).collect();
         let candidates: Vec<usize> = ctx
             .land
@@ -130,12 +187,17 @@ impl Population {
             .filter(|(_, f)| between_crops(f))
             .filter(|(_, f)| match regime_use {
                 LandUse::Need => f.holder == Party::Settlement(settlement),
-                LandUse::Holder => self.vacant(regime_use, f),
+                LandUse::Holder => {
+                    self.vacant(regime_use, f)
+                        || (lease_rules.is_some()
+                            && f.lease.is_none()
+                            && f.holder == Party::Household(f.household)
+                            && mine.contains(&f.household))
+                }
             })
             .map(|(i, _)| i)
             .collect();
         let mut done: HashSet<PermanentId> = HashSet::new();
-        let mut moved = 0;
         loop {
             // The household furthest short of its need, by share of it.
             let taker = households
@@ -150,43 +212,58 @@ impl Population {
             let Some((taker, home)) = taker else {
                 break;
             };
+            // Vacant ground before a field someone holds, then the nearest.
             let pick = candidates
                 .iter()
                 .copied()
                 .filter(|&i| {
                     let f = &ctx.land.fields[i];
-                    if f.household == taker {
+                    if f.household == taker || f.lease.is_some() {
                         return false;
                     }
                     if self.vacant(regime_use, f) {
                         return true;
                     }
-                    // A field beyond what its household needs, under allocation by need.
-                    regime_use == LandUse::Need
-                        && mine.contains(&f.household)
-                        && households
-                            .iter()
-                            .find(|x| x.0 == f.household)
-                            .is_some_and(|x| x.3 - f.rect.area_ha() >= x.2)
+                    // A field beyond what the household working it needs: given out by the
+                    // settlement, or let by its holder.
+                    mine.contains(&f.household)
+                        && worked(&households, f.household)
+                            .is_some_and(|(need, w)| w - f.rect.area_ha() >= need)
                 })
                 .min_by(|&a, &b| {
                     let (fa, fb) = (&ctx.land.fields[a], &ctx.land.fields[b]);
-                    distance_m(fa.rect.centre_m(), home)
-                        .total_cmp(&distance_m(fb.rect.centre_m(), home))
+                    let free = |f: &Field| !self.vacant(regime_use, f);
+                    free(fa)
+                        .cmp(&free(fb))
+                        .then(
+                            distance_m(fa.rect.centre_m(), home)
+                                .total_cmp(&distance_m(fb.rect.centre_m(), home)),
+                        )
                         .then(fa.id.cmp(&fb.id))
                 });
             let Some(i) = pick else {
                 done.insert(taker);
                 continue;
             };
+            let vacant = self.vacant(regime_use, &ctx.land.fields[i]);
             let f = &mut ctx.land.fields[i];
             let area = f.rect.area_ha();
             if let Some(giver) = households.iter_mut().find(|x| x.0 == f.household) {
                 giver.3 -= area;
             }
             f.household = taker;
-            if regime_use == LandUse::Holder {
-                f.holder = Party::Household(taker);
+            match (regime_use, vacant, lease_rules) {
+                // Ground nobody holds is the taker's to hold.
+                (LandUse::Holder, true, _) => f.holder = Party::Household(taker),
+                // A field its holder can spare is let.
+                (LandUse::Holder, false, Some(rules)) => {
+                    f.lease = Some(civ_land::Lease {
+                        since: now,
+                        until: now.plus_minutes(term_minutes(rules.term_years)),
+                        holder_share: rules.holder_share as f32,
+                    });
+                }
+                _ => {}
             }
             if let Some(x) = households.iter_mut().find(|x| x.0 == taker) {
                 x.3 += area;
@@ -278,6 +355,10 @@ impl Population {
                     f.holder = Party::Household(heirs[k]);
                     if f.household == from {
                         f.household = heirs[k];
+                    }
+                    // A tenant that inherits its field holds it now.
+                    if f.holder == Party::Household(f.household) {
+                        f.lease = None;
                     }
                 }
             }

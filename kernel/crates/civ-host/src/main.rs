@@ -66,6 +66,9 @@ struct RunArgs {
     /// Years to live.
     #[arg(long, default_value_t = 3)]
     years: u32,
+    /// Property regime id [default: the content's default].
+    #[arg(long)]
+    regime: Option<String>,
 }
 
 #[derive(Args, Clone, Default)]
@@ -211,6 +214,7 @@ fn run_world(args: RunArgs) -> anyhow::Result<ExitCode> {
         size: args.size,
         band: args.band,
         years: args.years,
+        regime: args.regime,
     };
     civ_host::report::run(&content, &options, &mut std::io::stdout().lock())?;
     Ok(ExitCode::SUCCESS)

@@ -8367,6 +8367,10 @@ impl<'a> Field<'a> {
   pub const VT_BROKEN: ::flatbuffers::VOffsetT = 36;
   pub const VT_HOLDER: ::flatbuffers::VOffsetT = 38;
   pub const VT_HOLDER_SETTLEMENT: ::flatbuffers::VOffsetT = 40;
+  pub const VT_LEASED: ::flatbuffers::VOffsetT = 42;
+  pub const VT_LEASE_SINCE: ::flatbuffers::VOffsetT = 44;
+  pub const VT_LEASE_UNTIL: ::flatbuffers::VOffsetT = 46;
+  pub const VT_LEASE_SHARE: ::flatbuffers::VOffsetT = 48;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -8378,11 +8382,14 @@ impl<'a> Field<'a> {
     args: &'args FieldArgs
   ) -> ::flatbuffers::WIPOffset<Field<'bldr>> {
     let mut builder = FieldBuilder::new(_fbb);
+    builder.add_lease_until(args.lease_until);
+    builder.add_lease_since(args.lease_since);
     builder.add_holder(args.holder);
     builder.add_sown_day(args.sown_day);
     builder.add_stage_since(args.stage_since);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    builder.add_lease_share(args.lease_share);
     builder.add_clear_h_per_ha(args.clear_h_per_ha);
     builder.add_sheaves_kg(args.sheaves_kg);
     builder.add_ground(args.ground);
@@ -8394,6 +8401,7 @@ impl<'a> Field<'a> {
     builder.add_x_cm(args.x_cm);
     builder.add_harvests(args.harvests);
     builder.add_crop(args.crop);
+    builder.add_leased(args.leased);
     builder.add_holder_settlement(args.holder_settlement);
     builder.add_broken(args.broken);
     builder.add_stage(args.stage);
@@ -8534,6 +8542,34 @@ impl<'a> Field<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(Field::VT_HOLDER_SETTLEMENT, Some(false)).unwrap()}
   }
+  #[inline]
+  pub fn leased(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(Field::VT_LEASED, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn lease_since(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Field::VT_LEASE_SINCE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn lease_until(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Field::VT_LEASE_UNTIL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn lease_share(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Field::VT_LEASE_SHARE, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Field<'_> {
@@ -8561,6 +8597,10 @@ impl ::flatbuffers::Verifiable for Field<'_> {
      .visit_field::<bool>("broken", Self::VT_BROKEN, false)?
      .visit_field::<u64>("holder", Self::VT_HOLDER, false)?
      .visit_field::<bool>("holder_settlement", Self::VT_HOLDER_SETTLEMENT, false)?
+     .visit_field::<bool>("leased", Self::VT_LEASED, false)?
+     .visit_field::<i64>("lease_since", Self::VT_LEASE_SINCE, false)?
+     .visit_field::<i64>("lease_until", Self::VT_LEASE_UNTIL, false)?
+     .visit_field::<f32>("lease_share", Self::VT_LEASE_SHARE, false)?
      .finish();
     Ok(())
   }
@@ -8585,6 +8625,10 @@ pub struct FieldArgs {
     pub broken: bool,
     pub holder: u64,
     pub holder_settlement: bool,
+    pub leased: bool,
+    pub lease_since: i64,
+    pub lease_until: i64,
+    pub lease_share: f32,
 }
 impl<'a> Default for FieldArgs {
   #[inline]
@@ -8609,6 +8653,10 @@ impl<'a> Default for FieldArgs {
       broken: false,
       holder: 0,
       holder_settlement: false,
+      leased: false,
+      lease_since: 0,
+      lease_until: 0,
+      lease_share: 0.0,
     }
   }
 }
@@ -8695,6 +8743,22 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FieldBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<bool>(Field::VT_HOLDER_SETTLEMENT, holder_settlement, false);
   }
   #[inline]
+  pub fn add_leased(&mut self, leased: bool) {
+    self.fbb_.push_slot::<bool>(Field::VT_LEASED, leased, false);
+  }
+  #[inline]
+  pub fn add_lease_since(&mut self, lease_since: i64) {
+    self.fbb_.push_slot::<i64>(Field::VT_LEASE_SINCE, lease_since, 0);
+  }
+  #[inline]
+  pub fn add_lease_until(&mut self, lease_until: i64) {
+    self.fbb_.push_slot::<i64>(Field::VT_LEASE_UNTIL, lease_until, 0);
+  }
+  #[inline]
+  pub fn add_lease_share(&mut self, lease_share: f32) {
+    self.fbb_.push_slot::<f32>(Field::VT_LEASE_SHARE, lease_share, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FieldBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FieldBuilder {
@@ -8731,6 +8795,10 @@ impl ::core::fmt::Debug for Field<'_> {
       ds.field("broken", &self.broken());
       ds.field("holder", &self.holder());
       ds.field("holder_settlement", &self.holder_settlement());
+      ds.field("leased", &self.leased());
+      ds.field("lease_since", &self.lease_since());
+      ds.field("lease_until", &self.lease_until());
+      ds.field("lease_share", &self.lease_share());
       ds.finish()
   }
 }

@@ -10,6 +10,7 @@ use civ_agents::ledger::{Channel, Transfers};
 use civ_agents::params::GoodUse;
 use civ_agents::person::{Flow, Flows, Step};
 use civ_content::ContentRegistry;
+use civ_core::PermanentId;
 use civ_core::time::MINUTES_PER_YEAR;
 use civ_sim::{NewWorld, Sim};
 
@@ -26,6 +27,8 @@ pub struct RunOptions {
     pub band: u32,
     /// Years to live.
     pub years: u32,
+    /// The property regime, or the content's default.
+    pub regime: Option<String>,
 }
 
 /// Lives the world and writes a report to `out`.
@@ -45,7 +48,7 @@ pub fn run(
             preset_id: preset.clone(),
             size_cells: options.size,
             band_size: options.band,
-            regime_id: String::new(),
+            regime_id: options.regime.clone().unwrap_or_default(),
         },
         content,
         &mut |_| {},
@@ -57,9 +60,10 @@ pub fn run(
     }
     writeln!(
         out,
-        "{preset} seed {} on a {}-cell map: {} people, {}",
+        "{preset} seed {} on a {}-cell map under {}: {} people, {}",
         options.seed,
         options.size,
+        sim.regime().name.to_lowercase(),
         sim.people().living(),
         sim.date()
     )?;
@@ -96,6 +100,7 @@ pub fn run(
         report_moved(&sim, &moved_before, &moved, out)?;
         report_market(&sim, &moved_before, &moved, out)?;
         report_firms(&sim, civ_core::SimTime::from_minutes(start), out)?;
+        report_land(&sim, &moved_before, &moved, out)?;
         moved_before = moved;
     }
     Ok(())
@@ -234,6 +239,71 @@ fn report_market(
         } else {
             money.join("; ")
         }
+    )?;
+    Ok(())
+}
+
+/// Land under the regime (slice K): the fields and who holds them, how much is let, how many
+/// households work no field, and the rent paid over the year.
+fn report_land(
+    sim: &Sim,
+    before: &Transfers,
+    after: &Transfers,
+    out: &mut dyn Write,
+) -> anyhow::Result<()> {
+    let fields = &sim.land().fields;
+    let ha = |f: &civ_land::Field| f.rect.area_ha();
+    // (An empty sum of floats is -0.0; adding 0.0 prints it as 0.0.)
+    let total: f64 = fields.iter().map(ha).sum::<f64>() + 0.0;
+    let by_settlement: f64 = fields
+        .iter()
+        .filter(|f| matches!(f.holder, civ_land::Party::Settlement(_)))
+        .map(ha)
+        .sum::<f64>()
+        + 0.0;
+    let let_out: Vec<&civ_land::Field> = fields.iter().filter(|f| f.lease.is_some()).collect();
+    let pop = sim.people();
+    let vacant = fields
+        .iter()
+        .filter(|f| pop.household(f.household).is_none())
+        .count();
+    let living: Vec<PermanentId> = pop
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .filter(|h| !h.members.is_empty())
+        .map(|h| h.id)
+        .collect();
+    let landless = living
+        .iter()
+        .filter(|&&h| !fields.iter().any(|f| f.household == h))
+        .count();
+    let holding = living
+        .iter()
+        .filter(|&&h| {
+            fields
+                .iter()
+                .any(|f| f.holder == civ_land::Party::Household(h))
+        })
+        .count();
+    let rules = sim.rules();
+    let crop = rules.catalog.crops.get(rules.people.farm.crop);
+    let rent: f64 = crop.map_or(0.0, |c| {
+        [c.good, c.seed_good]
+            .into_iter()
+            .map(|g| after.get(Channel::Rent, g) - before.get(Channel::Rent, g))
+            .sum()
+    });
+    writeln!(
+        out,
+        "  land: {} fields ({total:.1} ha), {by_settlement:.1} ha held by settlements; {} of {} \
+         households hold land and {landless} work none; {} fields let ({:.1} ha), {vacant} vacant; \
+         rent {rent:.0} kg of grain",
+        fields.len(),
+        holding,
+        living.len(),
+        let_out.len(),
+        let_out.iter().map(|f| ha(f)).sum::<f64>() + 0.0,
     )?;
     Ok(())
 }

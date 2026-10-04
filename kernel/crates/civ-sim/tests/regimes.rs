@@ -309,3 +309,167 @@ fn ground_nobody_holds_is_taken_up_by_households_short_of_land() {
         assert_eq!(f.household, taker, "and worked by its new holder");
     }
 }
+
+/// Sets the review to the coming midnight and lives until just past it, with `setup` done just
+/// before, when nobody is in the fields.
+fn review_after(sim: &mut Sim, setup: impl FnOnce(&mut Sim)) {
+    let day = sim.now().day_index();
+    sim.regime_mut_for_tests().review_day = ((day + 1).rem_euclid(365)) as u16;
+    let to_midnight = 24 * 60 - sim.now().minute_of_day();
+    sim.advance_minutes(to_midnight - 1).expect("advances");
+    setup(sim);
+    sim.advance_minutes(2).expect("the review comes");
+}
+
+#[test]
+fn a_household_lets_ground_it_can_spare_for_a_share_of_its_grain() {
+    let mut sim = with_fields("", 8);
+    let rules = sim.rules().clone();
+    let crop = &rules.catalog.crops[rules.people.farm.crop];
+    let lease = rules
+        .catalog
+        .regime("core:regime/household")
+        .and_then(|r| r.lease);
+    let share = lease.expect("household tenure allows leases").holder_share;
+    let all = households(&sim);
+    let (landlord, members) = *all
+        .iter()
+        .min_by_key(|&&(id, n)| (n, id))
+        .expect("households");
+    let need = need_ha(&sim, members);
+    // One household holds every field, more than it needs; the others none.
+    review_after(&mut sim, |sim| {
+        between_crops(sim);
+        for f in &mut sim.land_mut_for_tests().fields {
+            f.household = landlord;
+            f.holder = Party::Household(landlord);
+            f.lease = None;
+        }
+    });
+    let now = sim.now();
+    let let_out: Vec<PermanentId> = sim
+        .land()
+        .fields
+        .iter()
+        .filter(|f| f.household != landlord)
+        .map(|f| f.id)
+        .collect();
+    assert!(!let_out.is_empty(), "nothing was let");
+    for f in sim.land().fields.iter().filter(|f| let_out.contains(&f.id)) {
+        assert_eq!(
+            f.holder,
+            Party::Household(landlord),
+            "letting keeps the holder"
+        );
+        let l = f.lease.expect("a lease");
+        assert!((f64::from(l.holder_share) - share).abs() < 1e-6);
+        assert!(
+            l.until > now.plus_minutes(300 * 24 * 60),
+            "a crop year's term"
+        );
+    }
+    assert!(
+        worked_ha(&sim, landlord) >= need - 1e-9,
+        "it keeps what it needs"
+    );
+    // A let field's grain is threshed: its holder's share goes to it as rent.
+    let field = let_out[0];
+    let tenant = sim
+        .land()
+        .fields
+        .iter()
+        .find(|f| f.id == field)
+        .expect("field")
+        .household;
+    let start = held(sim.people());
+    let grain_of =
+        |sim: &Sim, h: PermanentId| sim.people().household(h).expect("household").stores[crop.good];
+    let before = grain_of(&sim, landlord);
+    for f in &mut sim.land_mut_for_tests().fields {
+        if f.id == field {
+            f.stage = FieldStage::Reaped;
+            f.sheaves_kg = 150.0;
+        }
+    }
+    let threshed = |sim: &Sim| {
+        sim.land()
+            .fields
+            .iter()
+            .find(|f| f.id == field)
+            .is_some_and(|f| f.sheaves_kg < 150.0)
+    };
+    for _ in 0..30 {
+        if threshed(&sim) {
+            break;
+        }
+        sim.advance_minutes(24 * 60).expect("advances");
+    }
+    assert!(threshed(&sim), "the tenant never threshed");
+    let rent = sim
+        .people()
+        .transfers
+        .get(civ_agents::Channel::Rent, crop.good)
+        + sim
+            .people()
+            .transfers
+            .get(civ_agents::Channel::Rent, crop.seed_good);
+    let left = sim
+        .land()
+        .fields
+        .iter()
+        .find(|f| f.id == field)
+        .map_or(0.0, |f| f64::from(f.sheaves_kg));
+    let paid_for = 150.0 - left;
+    assert!(
+        (rent - paid_for * share).abs() < 1e-6 * paid_for.max(1.0),
+        "rent {rent} kg for {paid_for} kg threshed"
+    );
+    assert!(
+        grain_of(&sim, landlord) > before - 1e-9,
+        "the landlord got its share"
+    );
+    assert_ne!(tenant, landlord);
+    let end = held(sim.people());
+    let goods = sim.rules().catalog.goods.len();
+    let gaps = population::unaccounted(goods, (&start.0, &start.1), (&end.0, &end.1));
+    assert!(gaps.is_empty(), "unaccounted for: {gaps:?}");
+    // Leases survive a save and load.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("save dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "leases").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.land().fields, sim.land().fields);
+    // At the end of its term a lease is renewed while the holder can spare the field and the
+    // tenant still needs it.
+    let renewable: Vec<PermanentId> = let_out[1..].to_vec();
+    review_after(&mut sim, |sim| {
+        between_crops(sim);
+        let now = sim.now();
+        for f in &mut sim.land_mut_for_tests().fields {
+            if let Some(l) = f.lease.as_mut() {
+                l.until = now;
+            }
+        }
+    });
+    // (A tenant that broke enough ground of its own meanwhile gives its lease up.)
+    let now = sim.now();
+    let mut renewed = 0;
+    for f in sim
+        .land()
+        .fields
+        .iter()
+        .filter(|f| renewable.contains(&f.id))
+    {
+        if f.household != landlord {
+            let l = f.lease.expect("still let");
+            assert!(l.until > now, "renewed for another term");
+            renewed += 1;
+        } else {
+            assert_eq!(
+                f.lease, None,
+                "a lease given up leaves the field to its holder"
+            );
+        }
+    }
+    assert!(renewed > 0, "no lease was renewed");
+}

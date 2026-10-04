@@ -26,11 +26,13 @@ pub enum Channel {
     Owner = 7,
     /// Wages a firm pays for work (slice J).
     Wage = 8,
+    /// A tenant's share of a let field's grain to its holder (slice K, ADR-0007 §3).
+    Rent = 9,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 8] = [
+    pub const ALL: [Channel; 9] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -39,6 +41,7 @@ impl Channel {
         Channel::Sale,
         Channel::Owner,
         Channel::Wage,
+        Channel::Rent,
     ];
 
     /// The channel with this code.
@@ -57,6 +60,7 @@ impl Channel {
             Channel::Sale => "sale",
             Channel::Owner => "owner",
             Channel::Wage => "wage",
+            Channel::Rent => "rent",
         }
     }
 }

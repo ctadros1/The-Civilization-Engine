@@ -1694,6 +1694,7 @@ impl Population {
                         id,
                         household: hh_id,
                         holder,
+                        lease: None,
                         rect: site.rect,
                         crop: params.farm.crop as u16,
                         stage: FieldStage::Fallow,
@@ -2402,6 +2403,38 @@ impl Population {
             }
         }
         let settlement = x.settlement;
+        // A let field's holder takes its share of the grain threshed from it, through the ledger
+        // (ADR-0007 §3): in grain, and in seed grain for what the grain does not cover.
+        if done.grain_kg > 0.0
+            && let (Some(lease), Party::Household(holder)) =
+                (ctx.land.fields[fi].lease, ctx.land.fields[fi].holder)
+            && holder != household
+            && self.household(holder).is_some()
+        {
+            let rent = done.grain_kg * f64::from(lease.holder_share);
+            let held = |pop: &Population, g: usize| {
+                pop.household(household)
+                    .and_then(|x| x.stores.get(g))
+                    .copied()
+                    .unwrap_or(0.0)
+                    .max(0.0)
+            };
+            let in_grain = rent.min(held(self, crop.good));
+            let in_seed = (rent - in_grain).min(held(self, crop.seed_good));
+            let legs: Vec<Leg> = [(crop.good, in_grain), (crop.seed_good, in_seed)]
+                .into_iter()
+                .filter(|&(_, kg)| kg > 1e-9)
+                .map(|(good, amount)| Leg {
+                    from: household,
+                    to: holder,
+                    good,
+                    amount,
+                })
+                .collect();
+            if !legs.is_empty() {
+                self.transfer(now, params, goods, &legs, Channel::Rent);
+            }
+        }
         let Some(si) = settlement.and_then(|s| ctx.land.settlements.iter().position(|x| x.id == s))
         else {
             return;

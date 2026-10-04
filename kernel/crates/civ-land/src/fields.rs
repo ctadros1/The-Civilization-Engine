@@ -204,6 +204,18 @@ impl Party {
     }
 }
 
+/// A household's lease of a field from the household that holds it (ADR-0007 §3): it works the
+/// field until `until`, and pays its holder `holder_share` of the grain it threshes from it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Lease {
+    /// When it began.
+    pub since: SimTime,
+    /// When its term ends, to be renewed or not at the holder's next review.
+    pub until: SimTime,
+    /// The holder's share of the grain threshed from the field.
+    pub holder_share: f32,
+}
+
 /// Ground a household works for a crop.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Field {
@@ -214,6 +226,8 @@ pub struct Field {
     /// Who holds it (ADR-0007): the household that broke it or its settlement, by the world's
     /// regime. Holding it changes nothing about how it yields.
     pub holder: Party,
+    /// The lease its user works it under, when its holder let it to another household.
+    pub lease: Option<Lease>,
     /// Where it is.
     pub rect: RectCm,
     /// The crop, by index in the content's crops.
@@ -496,6 +510,7 @@ pub(crate) mod tests {
             id: PermanentId::from_raw(7).expect("non-zero"),
             household: PermanentId::from_raw(3).expect("non-zero"),
             holder: Party::Household(PermanentId::from_raw(3).expect("non-zero")),
+            lease: None,
             // 50 m x 20 m = 0.1 ha.
             rect: RectCm {
                 x: 0,

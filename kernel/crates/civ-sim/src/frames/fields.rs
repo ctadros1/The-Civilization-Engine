@@ -189,6 +189,7 @@ mod tests {
             id: PermanentId::from_raw(5).expect("non-zero"),
             household: PermanentId::from_raw(2).expect("non-zero"),
             holder: civ_land::Party::Household(PermanentId::from_raw(2).expect("non-zero")),
+            lease: None,
             rect: RectCm {
                 x: 0,
                 y: 0,

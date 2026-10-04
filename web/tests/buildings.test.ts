@@ -5,8 +5,10 @@ import {
   buildingAt,
   buildingKey,
   buildingLook,
+  buildingMarks,
   buildingWords,
   underRoof,
+  type Mark,
 } from "../src/buildings.js";
 import type { BuildingInfo } from "../src/net/messages.js";
 
@@ -183,6 +185,53 @@ describe("buildings on the map", () => {
     const thatching = buildingLook(hut({ stage: 3, progress: 0.5 }));
     expect(thatching.roofAlpha).toBeGreaterThan(0);
     expect(thatching.roofAlpha).toBeLessThan(buildingLook(hut({ stage: 4, roofed: true })).roofAlpha);
+  });
+
+  it("draw a frame building's gabled roof, its ridge and its doorway once roofed", () => {
+    const b = longhouse({ door: [202, 102.575], doorDir: Math.PI / 2 });
+    const marks = buildingMarks(b);
+    const of = <K extends Mark["kind"]>(kind: K) =>
+      marks.filter((m): m is Extract<Mark, { kind: K }> => m.kind === kind);
+    // The plot first, then the roof over its four corners, and the ridge along its length.
+    expect(marks[0]).toMatchObject({ kind: "rect", x: 195.75, y: 97, w: 8.5, h: 6 });
+    const [roof, ...others] = of("poly");
+    expect(roof?.points).toEqual(b.roofOutline.flat());
+    expect(roof?.fill).toEqual({ color: buildingLook(b).roofFill, alpha: 0.95 });
+    expect(others).toEqual([]);
+    expect(of("line")).toEqual([
+      expect.objectContaining({ from: [195.75, 100], to: [204.25, 100] }),
+    ]);
+    // No cone, no posts under the thatch: one circle, the doorway just outside the door.
+    const circles = of("circle");
+    expect(circles).toHaveLength(1);
+    expect(circles[0]?.x).toBeCloseTo(202, 9);
+    expect(circles[0]?.y).toBeCloseTo(102.875, 9);
+    expect(underRoof(b, circles[0]!.x, circles[0]!.y)).toBe(true);
+  });
+
+  it("draw a frame building going up by its walls' outline and its posts, without a roof", () => {
+    const posts: [number, number][] = [
+      [196.175, 97.425],
+      [198.725, 97.425],
+      [201.275, 97.425],
+      [203.825, 97.425],
+    ];
+    const b = longhouse({ stage: 2, progress: 0.5, roofed: false, status: "walls going up", posts });
+    const marks = buildingMarks(b);
+    expect(marks.some((m) => m.kind === "line")).toBe(false);
+    const polys = marks.filter((m) => m.kind === "poly");
+    expect(polys).toHaveLength(1);
+    expect(polys[0]).toMatchObject({ points: b.outline.flat(), stroke: { width: 0.3 } });
+    expect(marks.filter((m) => m.kind === "circle")).toHaveLength(posts.length);
+  });
+
+  it("draw a roofed hut as a cone with its doorway at the eaves", () => {
+    const b = hut({ stage: 4, roofed: true, status: "roofed", doorDir: 0 });
+    const circles = buildingMarks(b).filter((m) => m.kind === "circle");
+    expect(circles[0]).toMatchObject({ x: 100, y: 200, r: 3.6 });
+    expect(circles[1]).toMatchObject({ y: 200, r: 0.35 });
+    expect(circles[1]?.kind === "circle" && circles[1].x).toBeCloseTo(100 + 3.6 * 0.92, 9);
+    expect(circles).toHaveLength(2);
   });
 
   it("are found under a point, on their plot or under their roof", () => {

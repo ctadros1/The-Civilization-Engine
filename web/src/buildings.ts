@@ -128,6 +128,78 @@ export function buildingLook(b: BuildingInfo): BuildingLook {
   };
 }
 
+/** How a mark is filled: colour and opacity. */
+export interface Fill {
+  color: number;
+  alpha: number;
+}
+
+/** How a mark is outlined: colour, opacity and width in metres. */
+export interface Stroke extends Fill {
+  width: number;
+}
+
+/** One shape drawn for a building, in metres from the map's north-west corner. */
+export type Mark =
+  | { kind: "rect"; x: number; y: number; w: number; h: number; fill?: Fill; stroke?: Stroke }
+  | { kind: "poly"; points: number[]; fill?: Fill; stroke?: Stroke }
+  | { kind: "line"; from: [number, number]; to: [number, number]; fill?: Fill; stroke?: Stroke }
+  | { kind: "circle"; x: number; y: number; r: number; fill?: Fill; stroke?: Stroke };
+
+const PLOT_EDGE = 0xe8dcc0;
+const EAVES = 0x6b5426;
+const DOORWAY = 0x2b2117;
+
+/**
+ * What is drawn for a building, bottom first: its plot's edge; its roof once thatching starts, a
+ * frame building's gabled roof with its ridge or a hut's cone; its walls' outline and its posts
+ * until the thatch hides them; and once roofed, the doorway as a dark notch at the eaves.
+ */
+export function buildingMarks(b: BuildingInfo): Mark[] {
+  const look = buildingLook(b);
+  const marks: Mark[] = [];
+  if (b.plot) {
+    const { x, y, w, h } = b.plot;
+    marks.push({ kind: "rect", x, y, w, h, stroke: { width: 0.25, color: PLOT_EDGE, alpha: 0.5 } });
+  }
+  const gabled = b.roofOutline.length >= 3;
+  if (look.roofAlpha > 0) {
+    const fill = { color: look.roofFill, alpha: look.roofAlpha };
+    const stroke = { width: 0.2, color: EAVES, alpha: look.roofAlpha };
+    if (gabled) {
+      // A gabled roof, its two slopes meeting at the ridge.
+      marks.push({ kind: "poly", points: b.roofOutline.flat(), fill, stroke });
+      const [r0, r1] = b.ridge;
+      if (r0 && r1) {
+        marks.push({ kind: "line", from: r0, to: r1, stroke: { ...stroke, width: 0.25 } });
+      }
+    } else {
+      marks.push({ kind: "circle", x: b.x, y: b.y, r: b.roofRadiusM, fill, stroke });
+    }
+  }
+  if (look.wallAlpha > 0 && b.outline.length > 2 && look.roofAlpha < 0.9) {
+    marks.push({
+      kind: "poly",
+      points: b.outline.flat(),
+      stroke: { width: 0.3, color: look.wallFill, alpha: look.wallAlpha },
+    });
+  }
+  if (look.roofAlpha < 0.9) {
+    for (const [x, y] of b.posts.slice(0, look.posts)) {
+      marks.push({ kind: "circle", x, y, r: 0.15, fill: { color: look.postFill, alpha: 0.9 } });
+    }
+  }
+  if (b.roofed) {
+    // The doorway: just outside a frame building's door, at the eaves of a hut's cone.
+    const [dx, dy] = [Math.cos(b.doorDir), Math.sin(b.doorDir)];
+    const [x, y] = gabled
+      ? [b.door[0] + dx * 0.3, b.door[1] + dy * 0.3]
+      : [b.x + dx * b.roofRadiusM * 0.92, b.y + dy * b.roofRadiusM * 0.92];
+    marks.push({ kind: "circle", x, y, r: 0.35, fill: { color: DOORWAY, alpha: 0.9 } });
+  }
+  return marks;
+}
+
 /** The building under a point in metres, if any: within its roof's reach, or on its plot while it
  * has no roof yet (the last drawn wins where they touch). */
 export function buildingAt(

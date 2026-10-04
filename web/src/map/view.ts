@@ -18,7 +18,7 @@
 
 import { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 
-import { buildingAt, buildingLook } from "../buildings.js";
+import { buildingAt, buildingMarks, type Mark } from "../buildings.js";
 import { fieldAt, fieldLook } from "../fields.js";
 import type { HostClient } from "../net/client.js";
 import { TRAIL_COLOUR, pathAt, smoothed, trailLook, wornPixels } from "../paths.js";
@@ -126,6 +126,26 @@ function texture(rgba: Uint8ClampedArray, w: number, h: number): Texture {
   const tex = Texture.from(canvas, true);
   tex.source.scaleMode = "linear";
   return tex;
+}
+
+/** Draws one of a building's marks: its shape, then its fill and its outline. */
+function drawMark(g: Graphics, m: Mark): void {
+  switch (m.kind) {
+    case "rect":
+      g.rect(m.x, m.y, m.w, m.h);
+      break;
+    case "poly":
+      g.poly(m.points, true);
+      break;
+    case "line":
+      g.moveTo(m.from[0], m.from[1]).lineTo(m.to[0], m.to[1]);
+      break;
+    case "circle":
+      g.circle(m.x, m.y, m.r);
+      break;
+  }
+  if (m.fill) g.fill(m.fill);
+  if (m.stroke) g.stroke(m.stroke);
 }
 
 export class MapView {
@@ -287,49 +307,7 @@ export class MapView {
     const g = this.buildingsLayer;
     g.clear();
     for (const b of buildings) {
-      const look = buildingLook(b);
-      if (b.plot) {
-        const p = b.plot;
-        g.rect(p.x, p.y, p.w, p.h).stroke({ width: 0.25, color: 0xe8dcc0, alpha: 0.5 });
-      }
-      const gabled = b.roofOutline.length >= 3;
-      if (look.roofAlpha > 0 && gabled) {
-        // A gabled roof, its two slopes meeting at the ridge.
-        const roof = b.roofOutline.flat();
-        g.poly(roof, true).fill({ color: look.roofFill, alpha: look.roofAlpha });
-        g.poly(roof, true).stroke({ width: 0.2, color: 0x6b5426, alpha: look.roofAlpha });
-        const [r0, r1] = b.ridge;
-        if (r0 && r1) {
-          g.moveTo(r0[0], r0[1])
-            .lineTo(r1[0], r1[1])
-            .stroke({ width: 0.25, color: 0x6b5426, alpha: look.roofAlpha });
-        }
-      } else if (look.roofAlpha > 0) {
-        g.circle(b.x, b.y, b.roofRadiusM).fill({ color: look.roofFill, alpha: look.roofAlpha });
-        g.circle(b.x, b.y, b.roofRadiusM).stroke({ width: 0.2, color: 0x6b5426, alpha: look.roofAlpha });
-      }
-      if (look.wallAlpha > 0 && b.outline.length > 2 && look.roofAlpha < 0.9) {
-        g.poly(b.outline.flat(), true).stroke({
-          width: 0.3,
-          color: look.wallFill,
-          alpha: look.wallAlpha,
-        });
-      }
-      if (look.roofAlpha < 0.9) {
-        for (const [x, y] of b.posts.slice(0, look.posts)) {
-          g.circle(x, y, 0.15).fill({ color: look.postFill, alpha: 0.9 });
-        }
-      }
-      if (b.roofed) {
-        // The doorway, a dark notch at the eaves.
-        const [dx, dy] = [Math.cos(b.doorDir), Math.sin(b.doorDir)];
-        if (gabled) {
-          g.circle(b.door[0] + dx * 0.3, b.door[1] + dy * 0.3, 0.35).fill({ color: 0x2b2117, alpha: 0.9 });
-        } else {
-          const r = b.roofRadiusM;
-          g.circle(b.x + dx * r * 0.92, b.y + dy * r * 0.92, 0.35).fill({ color: 0x2b2117, alpha: 0.9 });
-        }
-      }
+      for (const m of buildingMarks(b)) drawMark(g, m);
     }
     if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
   }

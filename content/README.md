@@ -265,9 +265,18 @@ A frame program's rules are a `[frame]` table instead:
 | `groundwork_h_per_m2`, `posthole_h`, `post_h`, `beam_h_per_m`, `rafter_h`, `joist_h_per_m`, `wattle_h_per_m2`, `daub_h_per_m3`, `thatch_h_per_m2`, `finish_h_per_m2`, `decking_h_per_m2`, `ladder_h` | Person-hours of a capable adult for each part. All positive. |
 | `wattle_kg_per_m2`, `thatch_kg_per_m2`, `ladder_kg` | Material in each part besides the timber its sizes give. |
 
+A bay and the width between the long walls must each be longer than the thickest post allows
+(`bay_cm`'s and `width_cm`'s least above `post_cm`'s most). The grammar refuses some buildings
+whose every size lies within these ranges: a raised floor whose ladder would stand beyond the
+roof's edge (half the wall's thickness plus 0.364 of the raise must not exceed the overhang, the
+ladder rising at 70°), and a building of more than 32 component groups (posts, beams, walls,
+floors and the roof, many of them one to a bay: two storeys of eight bays, each lofted, are too
+many).
+
 A frame program also has a `[design]` table: the sizes people build it to (`bay_cm`, `width_cm`,
-`post_cm`, `wall_cm`, `overhang_cm`, `joist_cm`), each within its `[frame]` range. What varies
-between its buildings is how many bays, storeys and lofts they have.
+`post_cm`, `wall_cm`, `overhang_cm`, `joist_cm`, and `floor_raise_cm`, 0 unless set), each within
+its `[frame]` range. What varies between its buildings is how many bays, storeys and lofts they
+have. At least one of those must be a building the grammar allows.
 
 The core pack has the hut and three frame programs: a longhouse (a dwelling, with lofts and up to
 two storeys), a granary (a store raised on posts) and a workshop (a working floor with a store

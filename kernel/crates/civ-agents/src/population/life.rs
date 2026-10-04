@@ -1068,12 +1068,12 @@ impl Population {
         out
     }
 
-    /// How far a household's home is built: its best building's stage, roofed ones first.
+    /// How far a household's home is built: its best dwelling's stage, roofed ones first.
     fn home_built(&self, ctx: &Ctx, household: PermanentId) -> u8 {
         ctx.land
             .buildings
             .iter()
-            .filter(|b| b.household == household)
+            .filter(|b| b.household == household && ctx.catalog.is_dwelling(&b.spec.program))
             .map(|b| b.stage.saturating_add(if b.roofed() { 10 } else { 0 }))
             .max()
             .unwrap_or(0)

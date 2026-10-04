@@ -61,6 +61,9 @@ pub(crate) struct Design {
     pub wall_cm: i32,
     pub overhang_cm: i32,
     pub joist_cm: i32,
+    /// A raised floor's height; none unless authored.
+    #[serde(default)]
+    pub floor_raise_cm: i32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -291,6 +294,7 @@ impl BuildingFile {
                 wall_cm: d.wall_cm,
                 overhang_cm: d.overhang_cm,
                 joist_cm: d.joist_cm,
+                floor_raise_cm: d.floor_raise_cm,
             }),
             shapes: Vec::new(),
         };
@@ -464,6 +468,15 @@ impl BuildingFile {
         }
         pitch_range(p, t, f.pitch_deg);
         self.usual_within(t, f.eave_cm, f.pitch_deg, p);
+        // The grammar refuses a bay or a width no longer than its posts are thick.
+        for (name, [lo, _]) in [("bay_cm", f.bay_cm), ("width_cm", f.width_cm)] {
+            if lo <= f.post_cm[1] {
+                p.push(format!(
+                    "`frame.{name}` must start above `frame.post_cm`'s most ({lo} <= {})",
+                    f.post_cm[1]
+                ));
+            }
+        }
         for (name, v) in [("ground", &f.ground), ("upper", &f.upper)] {
             if SpaceUse::from_name(v).is_none() {
                 let known: Vec<&str> = SpaceUse::ALL.iter().map(|u| u.name()).collect();
@@ -529,6 +542,7 @@ fn design_problems(d: &Design, f: &Frame, p: &mut Vec<String>) {
         ("wall_cm", d.wall_cm, f.wall_cm),
         ("overhang_cm", d.overhang_cm, f.overhang_cm),
         ("joist_cm", d.joist_cm, f.joist_cm),
+        ("floor_raise_cm", d.floor_raise_cm, f.floor_raise_cm),
     ] {
         if !(lo..=hi).contains(&v) {
             p.push(format!(

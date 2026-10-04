@@ -402,9 +402,10 @@ pub fn design_shape(
             params[fp::BAYS] = bays;
             params[fp::DOOR] = fp::door(fp::SIDE_RIGHT, bays / 2);
             params[fp::LOFT_BAYS] = (1 << lofts.clamp(0, bays)) - 1;
-            if lofts > 0 || storeys > 1 {
+            if lofts > 0 || storeys > 1 || d.floor_raise_cm > 0 {
                 params[fp::JOIST_CM] = d.joist_cm;
             }
+            params[fp::FLOOR_RAISE_CM] = d.floor_raise_cm;
             params[fp::OVERHANG_CM] = d.overhang_cm;
             params[fp::POST_CM] = d.post_cm;
             params[fp::WALL_CM] = d.wall_cm;
@@ -478,6 +479,31 @@ pub fn shapes(def: &BuildingDef, goods: &[GoodDef]) -> Vec<ShapeCost> {
             })
         })
         .collect()
+}
+
+/// Why nothing can be built to program `def`'s design, when nothing can: the grammar's refusal of
+/// its least shape. `None` when it has [`shapes`].
+pub fn unbuildable(def: &BuildingDef, goods: &[GoodDef]) -> Option<String> {
+    if !def.shapes.is_empty() {
+        return None;
+    }
+    let least = match &def.rules {
+        ProgramRules::Hut(h) => Shape::Round {
+            radius: h.radius_cm.0,
+        },
+        ProgramRules::Frame(f) => Shape::Bays {
+            bays: f.bays.0,
+            storeys: f.storeys.0,
+            lofts: 0,
+        },
+    };
+    Some(match design_shape(def, goods, least, (0.0, 0.0), None) {
+        None => "it has no design".to_owned(),
+        Some(spec) => match expand(&spec, &def.rules) {
+            Err(e) => e.to_string(),
+            Ok(_) => "every shape it has is refused".to_owned(),
+        },
+    })
 }
 
 /// What a household needs of a home: room for its members to live, and for its goods under the

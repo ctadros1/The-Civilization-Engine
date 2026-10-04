@@ -143,7 +143,9 @@ impl Footprint {
                 let (l, w) = (f64::from(length) / 2.0, f64::from(width) / 2.0);
                 let hx = (l * a.cos()).abs() + (w * a.sin()).abs();
                 let hy = (l * a.sin()).abs() + (w * a.cos()).abs();
-                (x, y, hx.ceil() as i32, hy.ceil() as i32)
+                // Rounding noise in the sine of a quarter turn must not widen the box.
+                let up = |h: f64| (h - 1e-6).ceil() as i32;
+                (x, y, up(hx), up(hy))
             }
             _ => return None,
         };
@@ -452,7 +454,10 @@ pub fn group_id(level: Level, bay: Option<u8>, kind: GroupKind, index: u8) -> u3
 /// ground).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Part {
-    /// Stable within the expansion: the stage times 1000 plus a running number.
+    /// Stable within the expansion. A hut's: the stage times 1000 plus a running number; a frame
+    /// building's: what it is and where, `level << 24 | (bay or frame line + 1) << 16 | kind << 8
+    /// | index` (0 in the second byte for a part of no one bay), the same for the same part of
+    /// buildings that differ elsewhere.
     pub id: u32,
     /// What it is.
     pub kind: PartKind,

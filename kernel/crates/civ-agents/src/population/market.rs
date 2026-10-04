@@ -246,11 +246,9 @@ impl Population {
             }
         }
         // Until its home is finished, what it builds with stays for that.
-        let housed = ctx
-            .land
-            .buildings
-            .iter()
-            .any(|b| b.household == hh.id && b.finished());
+        let housed = ctx.land.buildings.iter().any(|b| {
+            b.household == hh.id && b.finished() && ctx.catalog.is_dwelling(&b.spec.program)
+        });
         let fuel_day = fuel_per_day(params, members, ctx.now.day_index());
         for (g, d) in goods.iter().enumerate() {
             if d.purpose == GoodUse::Fuel {

@@ -2829,4 +2829,88 @@ mod tests {
         // An index past the saved dictionary is damage.
         assert!(carried(&p, &[Some(0)], &rules, Schema::V3, who).is_err());
     }
+
+    /// A buildings section of one hut, as schema 14 wrote it: `params` of the given length, and no
+    /// footprint kind, length, width or angle.
+    fn schema_14_hut(params: &[i32]) -> Vec<u8> {
+        let mut fbb = FlatBufferBuilder::new();
+        let program = fbb.create_string("core:building/hut");
+        let params = fbb.create_vector(params);
+        let materials = strings(
+            &mut fbb,
+            &["core:good/timber", "core:good/timber", "core:good/thatch"],
+        );
+        let spec = save::BuildingSpec::create(
+            &mut fbb,
+            &save::BuildingSpecArgs {
+                program: Some(program),
+                version: civ_grammar::HUT_VERSION,
+                x_cm: 120_000,
+                y_cm: 80_000,
+                radius_cm: 310,
+                storeys: 1,
+                params: Some(params),
+                materials: Some(materials),
+                style_seed: 7,
+                ..Default::default()
+            },
+        );
+        let building = save::Building::create(
+            &mut fbb,
+            &save::BuildingArgs {
+                id: 11,
+                household: 12,
+                plot: 13,
+                spec: Some(spec),
+                stage: 2,
+                work_h: 5.5,
+                started: 60,
+                stage_since: 120,
+            },
+        );
+        let list = fbb.create_vector(&[building]);
+        let root = save::Builds::create(
+            &mut fbb,
+            &save::BuildsArgs {
+                buildings: Some(list),
+            },
+        );
+        finish(fbb, root)
+    }
+
+    #[test]
+    fn a_schema_14_design_of_eight_parameters_loads_as_a_round_hut() {
+        let eight = [240, 2500, 16_384, 0, 0, 0, 0, 0];
+        let loaded = decode_buildings(&schema_14_hut(&eight)).expect("decodes");
+        let [b] = loaded.as_slice() else {
+            panic!("one building: {loaded:?}")
+        };
+        assert_eq!(
+            b.spec.footprint,
+            Footprint::Round {
+                x: 120_000,
+                y: 80_000,
+                radius: 310
+            }
+        );
+        assert_eq!(b.spec.params[..8], eight);
+        assert!(
+            b.spec.params[8..].iter().all(|&p| p == 0),
+            "{:?}",
+            b.spec.params
+        );
+        assert_eq!(
+            (b.spec.version, b.spec.storeys, b.spec.style_seed),
+            (1, 1, 7)
+        );
+        assert_eq!((b.stage, b.work_h), (2, 5.5));
+        // Saved again, it keeps the eight and the eight zeros after them.
+        let again = decode_buildings(&encode_buildings(&loaded)).expect("decodes");
+        assert_eq!(again, loaded);
+        // More parameters than a design has is damage, not a design to cut short.
+        assert!(matches!(
+            decode_buildings(&schema_14_hut(&[1; PARAMS + 1])),
+            Err(LoadError::Malformed(_))
+        ));
+    }
 }

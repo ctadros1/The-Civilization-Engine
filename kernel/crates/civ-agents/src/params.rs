@@ -517,8 +517,8 @@ pub struct BuildingDef {
     pub shapes: Vec<crate::build::ShapeCost>,
 }
 
-/// The sizes people build a frame program to (ADR-0009 §2): its bays' length and width, and its
-/// posts', walls', joists' and eaves' sizes. What varies between buildings of it is how many bays,
+/// The sizes people build a frame program to (ADR-0009 §2): its bays' length and width, its
+/// posts', walls', joists' and eaves' sizes, and how high its floor is raised. What varies between buildings of it is how many bays,
 /// storeys and lofts they have.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FrameDesign {
@@ -534,6 +534,8 @@ pub struct FrameDesign {
     pub overhang_cm: i32,
     /// Diameter of a joist, centimetres.
     pub joist_cm: i32,
+    /// Height of a raised floor above the ground, centimetres (0 for a floor on the ground).
+    pub floor_raise_cm: i32,
 }
 
 impl BuildingDef {
@@ -570,6 +572,12 @@ impl Catalog {
     /// The building program with this content id.
     pub fn building_index(&self, id: &str) -> Option<usize> {
         self.buildings.iter().position(|b| b.id == id)
+    }
+
+    /// Whether program `id` is a home: a dwelling, not a store or a workshop.
+    pub fn is_dwelling(&self, id: &str) -> bool {
+        self.building_index(id)
+            .is_some_and(|i| self.buildings[i].use_ == civ_land::PlotUse::Dwelling)
     }
 
     /// The skill with this content id.

@@ -228,9 +228,10 @@ struct HomePlan {
     deadline: i64,
 }
 
-/// Whether household `household` keeps its stores under a roof, and how much room it has there
-/// (ADR-0009 §5): every building of its with its roof on shelters it, and gives the room its
-/// floors on the ground or a storey hold; a finished one's lofts and raised floors hold goods too.
+/// Whether household `household` lives under a roof, and how much room it has for its goods
+/// under roofs (ADR-0009 §5): a home of its with its roof on shelters it, and every building of
+/// its with its roof on gives the room its floors on the ground or a storey hold; a finished one's
+/// lofts and raised floors hold goods too.
 /// A building whose program has left the content keeps room for everything, as before storage
 /// had a capacity.
 pub(crate) fn shelter_of(
@@ -251,7 +252,8 @@ pub(crate) fn shelter_of(
         .iter()
         .filter(|b| b.household == household && b.roofed())
     {
-        sheltered = true;
+        // It lives under a home's roof; a store's or a workshop's keeps only goods.
+        sheltered |= catalog.is_dwelling(&b.spec.program);
         let room = room_of(b, catalog);
         keeping.raised_kg += room[storage::RAISED];
         keeping.roofed_kg += room[storage::LOFT] + room[storage::FLOOR];
@@ -1050,12 +1052,7 @@ impl Population {
         labour_per_day: f64,
     ) -> Result<HomePlan, Reason> {
         let catalog = ctx.catalog;
-        let dwelling = |b: &Building| {
-            catalog
-                .building_index(&b.spec.program)
-                .and_then(|i| catalog.buildings.get(i))
-                .is_some_and(|d| d.use_ == civ_land::PlotUse::Dwelling)
-        };
+        let dwelling = |b: &Building| catalog.is_dwelling(&b.spec.program);
         // The floor of the finished home it lives in, if it has one.
         let mut home: Option<f64> = None;
         for b in ctx
@@ -1273,12 +1270,12 @@ impl Population {
         if !build::plot_clear(ctx.land, ctx.map, ctx.nav, &rect) {
             return None;
         }
-        // A household building a new home lives in the old until the new one's roof is on.
-        let housed = ctx
-            .land
-            .buildings
-            .iter()
-            .any(|b| b.household == household && b.finished());
+        // A household building a new home lives in the old until the new one's roof is on; one
+        // building a store or a workshop lives where it did.
+        let housed = def.use_ != civ_land::PlotUse::Dwelling
+            || ctx.land.buildings.iter().any(|b| {
+                b.household == household && b.finished() && ctx.catalog.is_dwelling(&b.spec.program)
+            });
         let (plot, id) = (ctx.ids.allocate(), ctx.ids.allocate());
         ctx.land.plots.push(Plot {
             id: plot,
@@ -2919,12 +2916,7 @@ impl Population {
         // leaves is taken down and its ground given up.
         let is_home = def.use_ == civ_land::PlotUse::Dwelling;
         let catalog = ctx.catalog;
-        let dwelling = |b: &Building| {
-            catalog
-                .building_index(&b.spec.program)
-                .and_then(|i| catalog.buildings.get(i))
-                .is_some_and(|d| d.use_ == civ_land::PlotUse::Dwelling)
-        };
+        let dwelling = |b: &Building| catalog.is_dwelling(&b.spec.program);
         let old: Vec<(PermanentId, PermanentId)> = ctx
             .land
             .buildings

@@ -23,7 +23,7 @@ another port. `?host=127.0.0.1:7421` in the page URL connects to a host directly
 | `src/net/messages.ts` | Builds commands and queries, decodes the host's payloads. The only module that touches generated code. |
 | `src/net/client.ts` | The WebSocket: handshake, correlation ids, reconnect with backoff. |
 | `src/map/` | Terrain shading (`shade.ts`) and the PixiJS map with detail tiles, people, fields, huts, worn ground and trails (`view.ts`). |
-| `src/people.ts`, `src/fields.ts`, `src/buildings.ts`, `src/paths.ts` | How people, fields, buildings and paths look on the map and what lies under a point: pure functions, unit tested. Buildings are drawn from the shape the kernel expands and trails from the lines it traces, never designed here. |
+| `src/people.ts`, `src/fields.ts`, `src/buildings.ts`, `src/paths.ts` | How people, fields, buildings and paths look on the map and what lies under a point: pure functions, unit tested. Buildings are drawn from the shape the kernel expands, as marks (`buildingMarks`) the map only renders, and trails from the lines it traces; neither is designed here. |
 | `src/format.ts` | Numbers, distances and simulated times in words. |
 | `src/market.ts` | What the market panel says about amounts, terms, payments and the price history: pure functions, unit tested. Terms, trades and money come from the kernel; the panel only words and draws them. |
 | `src/firm.ts` | What the workshops panel says about a workshop's goods, holdings, monthly statements and hours: pure functions, unit tested. Records, wages and book lines come in words from the kernel. |

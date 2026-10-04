@@ -230,209 +230,391 @@ fn round_section_m2(d: f64) -> f64 {
     std::f64::consts::PI * d * d / 4.0 * 1.0e-4
 }
 
-/// Expands a frame building (see the module's description).
-pub fn expand_frame(spec: &BuildingSpec, rules: &FrameRules) -> Result<Expansion, GrammarError> {
-    use frame_params as fp;
-    if spec.version != FRAME_VERSION {
-        return Err(GrammarError::UnknownVersion(spec.version));
-    }
-    let Footprint::Rect {
-        x: cx,
-        y: cy,
-        length,
-        width,
-        angle,
-    } = spec.footprint
-    else {
-        return refuse("a frame building stands on a rectangular footprint");
-    };
-    let p = &spec.params;
-    if spec.materials.len() != frame_materials::COUNT {
-        return refuse(format!(
-            "a frame names {} materials, not {}",
-            frame_materials::COUNT,
-            spec.materials.len()
-        ));
-    }
-    for (name, v) in [
-        ("beam diameter", rules.beam_cm),
-        ("rafter diameter", rules.rafter_cm),
-        ("rafter spacing", rules.rafter_spacing_cm),
-        ("joist spacing", rules.joist_spacing_cm),
-        ("decking", rules.decking_cm),
-        ("door width", rules.door_cm),
-    ] {
-        if v <= 0 {
-            return refuse(format!("the rules' {name} must be positive, not {v}"));
-        }
-    }
+/// Square metres in a square centimetre.
+const M2: f64 = 1.0e-4;
 
-    // What the spec chose, against what the program allows.
-    let bays = p[fp::BAYS];
-    within("bays", bays, rules.bays)?;
-    within("bays", bays, (1, MAX_BAYS))?;
-    for (name, v) in [("length", length), ("width", width)] {
-        if v <= 0 || v % RECT_QUANTUM_CM != 0 {
+/// A spec checked against its program's rules, and its dimensions: centimetres, with `u` along
+/// the length, `v` across it and `z` up from the ground.
+struct Layout<'r> {
+    rules: &'r FrameRules,
+    /// Centre, and the cosine and sine of the length's direction.
+    centre: (f64, f64),
+    turn: (f64, f64),
+    /// The length's direction, turn units.
+    angle: u16,
+    /// Length, width, a bay's length.
+    l: f64,
+    w: f64,
+    b: f64,
+    /// Bays and storeys.
+    n: usize,
+    storeys: i32,
+    /// Storey height, floor raise, overhang.
+    h: f64,
+    r: f64,
+    o: f64,
+    /// Post, joist and wall sizes; beam, rafter and decking sizes; posthole depth; door width.
+    pd: f64,
+    jst: f64,
+    wt: f64,
+    beam: f64,
+    raf: f64,
+    dk: f64,
+    depth: f64,
+    door_w: f64,
+    /// Roof pitch, hundredths of a degree and radians.
+    pitch_cd: i32,
+    pitch: f64,
+    /// Heights: the first floor, the plates, the apex, the eaves' edge.
+    z_g: f64,
+    z_p: f64,
+    z_a: f64,
+    z_e: f64,
+    /// A raised floor's posts' height above the ground.
+    floor_post_h: f64,
+    /// A rafter's length.
+    slope: f64,
+    rafters_per_bay: usize,
+    joists_per_bay: usize,
+    joist_spacing: f64,
+    /// The lofted bays, their mask, and the mask of every bay.
+    lofts: Vec<usize>,
+    loft_mask: i32,
+    all_bays: i32,
+    raised: bool,
+    door_side: i32,
+    door_bay: i32,
+    /// Floors on joists: a raised floor (with its middle rail) and an upper storey's, with the
+    /// height of their surface.
+    floors: Vec<(Level, f64, bool)>,
+}
+
+impl<'r> Layout<'r> {
+    /// Checks `spec` against `rules` (ADR-0009 §2) and lays it out.
+    fn new(spec: &BuildingSpec, rules: &'r FrameRules) -> Result<Layout<'r>, GrammarError> {
+        use frame_params as fp;
+        if spec.version != FRAME_VERSION {
+            return Err(GrammarError::UnknownVersion(spec.version));
+        }
+        let Footprint::Rect {
+            x: cx,
+            y: cy,
+            length,
+            width,
+            angle,
+        } = spec.footprint
+        else {
+            return refuse("a frame building stands on a rectangular footprint");
+        };
+        let p = &spec.params;
+        if spec.materials.len() != frame_materials::COUNT {
             return refuse(format!(
-                "{name} {v} is not a positive multiple of {RECT_QUANTUM_CM} cm"
+                "a frame names {} materials, not {}",
+                frame_materials::COUNT,
+                spec.materials.len()
             ));
         }
-    }
-    if length % bays != 0 {
-        return refuse(format!("length {length} does not divide into {bays} bays"));
-    }
-    let bay = length / bays;
-    within("bay length", bay, rules.bay_cm)?;
-    within("width", width, rules.width_cm)?;
-    let storeys = i32::from(spec.storeys);
-    within(
-        "storeys",
-        storeys,
-        (i32::from(rules.storeys.0), i32::from(rules.storeys.1)),
-    )?;
-    within("storeys", storeys, (1, i32::from(MAX_STOREYS)))?;
-    let eave = p[fp::EAVE_CM];
-    within("storey height", eave, rules.eave_cm)?;
-    let pitch_cd = p[fp::PITCH_CENTIDEG];
-    within("roof pitch", pitch_cd, rules.pitch_centideg)?;
-    within("roof pitch", pitch_cd, (1, 8_999))?;
-    let post = p[fp::POST_CM];
-    within("post diameter", post, rules.post_cm)?;
-    let overhang = p[fp::OVERHANG_CM];
-    within("overhang", overhang, rules.overhang_cm)?;
-    let wall = p[fp::WALL_CM];
-    within("wall thickness", wall, rules.wall_cm)?;
-    if p[fp::WALL_KIND] != 0 {
-        return refuse(format!(
-            "wall kind {} is unknown to frame version 1",
-            p[fp::WALL_KIND]
-        ));
-    }
-    if p[fp::FOOTING] != 0 {
-        return refuse(format!(
-            "footing {} is unknown to frame version 1",
-            p[fp::FOOTING]
-        ));
-    }
-    if p[fp::STYLE..fp::STYLE + fp::STYLE_TRAITS]
-        .iter()
-        .any(|&t| t != 0)
-    {
-        return refuse("frame version 1 has no style traits");
-    }
-    let raise = p[fp::FLOOR_RAISE_CM];
-    if raise != 0 {
+        for (name, v) in [
+            ("beam diameter", rules.beam_cm),
+            ("rafter diameter", rules.rafter_cm),
+            ("rafter spacing", rules.rafter_spacing_cm),
+            ("joist spacing", rules.joist_spacing_cm),
+            ("decking", rules.decking_cm),
+            ("door width", rules.door_cm),
+            ("posthole depth", rules.posthole_depth_cm),
+            ("thatch thickness", rules.thatch_thickness_cm),
+            ("hearth", rules.hearth_cm),
+        ] {
+            if v <= 0 {
+                return refuse(format!("the rules' {name} must be positive, not {v}"));
+            }
+        }
+
+        // What the spec chose, against what the program allows.
+        let bays = p[fp::BAYS];
+        within("bays", bays, rules.bays)?;
+        within("bays", bays, (1, MAX_BAYS))?;
+        for (name, v) in [("length", length), ("width", width)] {
+            if v <= 0 || v % RECT_QUANTUM_CM != 0 {
+                return refuse(format!(
+                    "{name} {v} is not a positive multiple of {RECT_QUANTUM_CM} cm"
+                ));
+            }
+        }
+        if length % bays != 0 {
+            return refuse(format!("length {length} does not divide into {bays} bays"));
+        }
+        let bay = length / bays;
+        within("bay length", bay, rules.bay_cm)?;
+        within("width", width, rules.width_cm)?;
+        let storeys = i32::from(spec.storeys);
+        within(
+            "storeys",
+            storeys,
+            (i32::from(rules.storeys.0), i32::from(rules.storeys.1)),
+        )?;
+        within("storeys", storeys, (1, i32::from(MAX_STOREYS)))?;
+        let eave = p[fp::EAVE_CM];
+        within("storey height", eave, rules.eave_cm)?;
+        let pitch_cd = p[fp::PITCH_CENTIDEG];
+        within("roof pitch", pitch_cd, rules.pitch_centideg)?;
+        within("roof pitch", pitch_cd, (1, 8_999))?;
+        let post = p[fp::POST_CM];
+        within("post diameter", post, rules.post_cm)?;
+        if bay - post <= 0 || width - post <= 0 {
+            return refuse(format!("posts {post} cm across leave no wall between them"));
+        }
+        let overhang = p[fp::OVERHANG_CM];
+        within("overhang", overhang, rules.overhang_cm)?;
+        let wall = p[fp::WALL_CM];
+        within("wall thickness", wall, rules.wall_cm)?;
+        if p[fp::WALL_KIND] != 0 {
+            return refuse(format!(
+                "wall kind {} is unknown to frame version 1",
+                p[fp::WALL_KIND]
+            ));
+        }
+        if p[fp::FOOTING] != 0 {
+            return refuse(format!(
+                "footing {} is unknown to frame version 1",
+                p[fp::FOOTING]
+            ));
+        }
+        if p[fp::STYLE..fp::STYLE + fp::STYLE_TRAITS]
+            .iter()
+            .any(|&t| t != 0)
+        {
+            return refuse("frame version 1 has no style traits");
+        }
+        // A program with no raised floor allows only 0; one whose floor may stand on the ground
+        // or be raised allows 0 among the rest.
+        let raise = p[fp::FLOOR_RAISE_CM];
         within("floor raise", raise, rules.floor_raise_cm)?;
-    }
-    let loft_mask = p[fp::LOFT_BAYS];
-    let all_bays = (1_i32 << bays) - 1;
-    if loft_mask < 0 || loft_mask & !all_bays != 0 {
-        return refuse(format!(
-            "loft bays {loft_mask:#b} are not among the {bays} bays"
-        ));
-    }
-    if loft_mask != 0 && !rules.lofts {
-        return refuse("this program has no lofts");
-    }
-    let n = bays as usize;
-    let lofts: Vec<usize> = (0..n).filter(|b| loft_mask & (1 << b) != 0).collect();
-    let raised = raise > 0;
-    let joisted = !lofts.is_empty() || storeys > 1 || raised;
-    let joist = p[fp::JOIST_CM];
-    if joisted {
-        within("joist diameter", joist, rules.joist_cm)?;
-    } else if joist != 0 {
-        return refuse("a building without joists has a joist diameter of 0");
-    }
-    let door = p[fp::DOOR];
-    let (door_side, door_bay) = (door.div_euclid(16), door.rem_euclid(16));
-    let door_fits_side = match door_side {
-        SIDE_RIGHT | SIDE_LEFT => door_bay < bays,
-        SIDE_BACK | SIDE_FRONT => door_bay == 0,
-        _ => false,
-    };
-    if door < 0 || !door_fits_side {
-        return refuse(format!("door {door} is on no wall of {bays} bays"));
-    }
-    let door_panel = if door_side < SIDE_BACK {
-        bay - post
-    } else {
-        width - post
-    };
-    if rules.door_cm >= door_panel {
-        return refuse(format!(
-            "a door {} cm wide does not fit a panel {door_panel} cm wide",
-            rules.door_cm
-        ));
+        let loft_mask = p[fp::LOFT_BAYS];
+        let all_bays = (1_i32 << bays) - 1;
+        if loft_mask < 0 || loft_mask & !all_bays != 0 {
+            return refuse(format!(
+                "loft bays {loft_mask:#b} are not among the {bays} bays"
+            ));
+        }
+        if loft_mask != 0 && !rules.lofts {
+            return refuse("this program has no lofts");
+        }
+        let n = bays as usize;
+        let lofts: Vec<usize> = (0..n).filter(|b| loft_mask & (1 << b) != 0).collect();
+        let raised = raise > 0;
+        let joisted = !lofts.is_empty() || storeys > 1 || raised;
+        let joist = p[fp::JOIST_CM];
+        if joisted {
+            within("joist diameter", joist, rules.joist_cm)?;
+        } else if joist != 0 {
+            return refuse("a building without joists has a joist diameter of 0");
+        }
+        let door = p[fp::DOOR];
+        let (door_side, door_bay) = (door.div_euclid(16), door.rem_euclid(16));
+        let door_fits_side = match door_side {
+            SIDE_RIGHT | SIDE_LEFT => door_bay < bays,
+            SIDE_BACK | SIDE_FRONT => door_bay == 0,
+            _ => false,
+        };
+        if door < 0 || !door_fits_side {
+            return refuse(format!("door {door} is on no wall of {bays} bays"));
+        }
+        let door_panel = if door_side < SIDE_BACK {
+            bay - post
+        } else {
+            width - post
+        };
+        if rules.door_cm >= door_panel {
+            return refuse(format!(
+                "a door {} cm wide does not fit a panel {door_panel} cm wide",
+                rules.door_cm
+            ));
+        }
+
+        let (l, w, b) = (f64::from(length), f64::from(width), f64::from(bay));
+        let (h, r, o) = (f64::from(eave), f64::from(raise), f64::from(overhang));
+        let (jst, dk) = (f64::from(joist), f64::from(rules.decking_cm));
+        let beam = f64::from(rules.beam_cm);
+        let pitch = f64::from(pitch_cd) / 100.0 * TAU / 360.0;
+        let z_p = r + h * f64::from(storeys);
+        let z_e = z_p - o * pitch.tan();
+        if z_e <= 0.0 {
+            return refuse("the eaves would reach the ground");
+        }
+        let floor_post_h = r - dk - jst - beam;
+        if raised && floor_post_h <= 0.0 {
+            return refuse(format!(
+                "a floor raised {raise} cm leaves no room for its posts under the joists"
+            ));
+        }
+        let rafters_per_bay = ((b / f64::from(rules.rafter_spacing_cm)).round() as usize).max(1);
+        let joists_per_bay =
+            (((b / f64::from(rules.joist_spacing_cm)).round() as usize).max(2) - 1).max(1);
+        if rafters_per_bay > MAX_MEMBERS_PER_BAY / 2 || joists_per_bay > MAX_MEMBERS_PER_BAY {
+            return refuse("the rules space rafters or joists too closely");
+        }
+        let a = f64::from(angle) / TURN * TAU;
+        let layout = Layout {
+            rules,
+            centre: (f64::from(cx), f64::from(cy)),
+            turn: (a.cos(), a.sin()),
+            angle,
+            l,
+            w,
+            b,
+            n,
+            storeys,
+            h,
+            r,
+            o,
+            pd: f64::from(post),
+            jst,
+            wt: f64::from(wall),
+            beam,
+            raf: f64::from(rules.rafter_cm),
+            dk,
+            depth: f64::from(rules.posthole_depth_cm),
+            door_w: f64::from(rules.door_cm),
+            pitch_cd,
+            pitch,
+            z_g: r,
+            z_p,
+            z_a: z_p + w / 2.0 * pitch.tan(),
+            z_e,
+            floor_post_h,
+            slope: (w / 2.0 + o) / pitch.cos(),
+            rafters_per_bay,
+            joists_per_bay,
+            joist_spacing: b / (joists_per_bay + 1) as f64,
+            lofts,
+            loft_mask,
+            all_bays,
+            raised,
+            door_side,
+            door_bay,
+            floors: [
+                raised.then_some((Level::Ground, r, true)),
+                (storeys > 1).then_some((Level::Upper, r + h, false)),
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+        };
+        if raised && layout.wt / 2.0 + layout.ladder_run(r) > o {
+            return refuse(format!(
+                "the ladder up to a floor raised {raise} cm would stand beyond the roof's edge"
+            ));
+        }
+        Ok(layout)
     }
 
-    // Dimensions, centimetres; u along the length, v across it, z up from the ground.
-    let (l, w, b) = (f64::from(length), f64::from(width), f64::from(bay));
-    let (h, r, o) = (f64::from(eave), f64::from(raise), f64::from(overhang));
-    let (pd, jst, wt) = (f64::from(post), f64::from(joist), f64::from(wall));
-    let beam = f64::from(rules.beam_cm);
-    let raf = f64::from(rules.rafter_cm);
-    let dk = f64::from(rules.decking_cm);
-    let depth = f64::from(rules.posthole_depth_cm);
-    let door_w = f64::from(rules.door_cm);
-    let pitch = f64::from(pitch_cd) / 100.0 * TAU / 360.0;
-    let z_g = r;
-    let z_p = r + h * f64::from(storeys);
-    let z_a = z_p + w / 2.0 * pitch.tan();
-    let z_e = z_p - o * pitch.tan();
-    if z_e <= 0.0 {
-        return refuse("the eaves would reach the ground");
-    }
-    let floor_post_h = r - dk - jst - beam;
-    if raised && floor_post_h <= 0.0 {
-        return refuse(format!(
-            "a floor raised {raise} cm leaves no room for its posts under the joists"
-        ));
-    }
-    let slope = (w / 2.0 + o) / pitch.cos();
-    let rafters_per_bay = ((b / f64::from(rules.rafter_spacing_cm)).round() as usize).max(1);
-    let joists_per_bay =
-        (((b / f64::from(rules.joist_spacing_cm)).round() as usize).max(2) - 1).max(1);
-    if rafters_per_bay > MAX_MEMBERS_PER_BAY / 2 || joists_per_bay > MAX_MEMBERS_PER_BAY {
-        return refuse("the rules space rafters or joists too closely");
-    }
-    let joist_spacing = b / (joists_per_bay + 1) as f64;
-    let ladder_tilt = f64::from(LADDER_TILT_CENTIDEG) / 100.0 * TAU / 360.0;
-    let ladder_run = |rise: f64| rise / ladder_tilt.tan();
-    let ladder_len = |rise: f64| rise / ladder_tilt.sin();
-    if raised && wt / 2.0 + ladder_run(r) > o {
-        return refuse(format!(
-            "the ladder up to a floor raised {raise} cm would stand beyond the roof's edge"
-        ));
+    /// The point `(u, v)` on the map, centimetres.
+    fn at(&self, u: f64, v: f64) -> (f64, f64) {
+        let ((cx, cy), (ca, sa)) = (self.centre, self.turn);
+        (cx + u * ca - v * sa, cy + u * sa + v * ca)
     }
 
-    let a = f64::from(angle) / TURN * TAU;
-    let (ca, sa) = (a.cos(), a.sin());
-    let (cxf, cyf) = (f64::from(cx), f64::from(cy));
-    let at = |u: f64, v: f64| (cxf + u * ca - v * sa, cyf + u * sa + v * ca);
-    let along = angle;
-    let across = turned(angle, 1);
-    let back = turned(angle, 2);
-    let back_across = turned(angle, 3);
-    let u_line = |k: usize| -l / 2.0 + b * k as f64;
-    let long_walls = [(SIDE_RIGHT, w / 2.0), (SIDE_LEFT, -w / 2.0)];
-    let end_walls = [(SIDE_BACK, -l / 2.0), (SIDE_FRONT, l / 2.0)];
-    let slopes = [(0_usize, 1.0_f64), (1, -1.0)];
-    let storey_level = |t: i32| if t == 0 { Level::Ground } else { Level::Upper };
+    /// `u` of frame line `k`, the start of bay `k`.
+    fn u_line(&self, k: usize) -> f64 {
+        -self.l / 2.0 + self.b * k as f64
+    }
 
-    let mut parts: Vec<Part> = Vec::new();
-    let mut push = |level: Level,
-                    slot: Option<usize>,
-                    kind: PartKind,
-                    index: usize,
-                    stage: Stage,
-                    (u, v, z): (f64, f64, f64),
-                    size: [f64; 3],
-                    angle: u16,
-                    tilt: i32,
-                    material: Option<u8>| {
-        let (x, y) = at(u, v);
-        parts.push(Part {
+    /// Directions: along the length, across it (`+v`), back along it, back across it (`-v`).
+    fn along(&self) -> u16 {
+        self.angle
+    }
+
+    fn across(&self) -> u16 {
+        turned(self.angle, 1)
+    }
+
+    fn back(&self) -> u16 {
+        turned(self.angle, 2)
+    }
+
+    fn back_across(&self) -> u16 {
+        turned(self.angle, 3)
+    }
+
+    /// The long walls (side, `v`) and the ends (side, `u`).
+    fn long_walls(&self) -> [(i32, f64); 2] {
+        [(SIDE_RIGHT, self.w / 2.0), (SIDE_LEFT, -self.w / 2.0)]
+    }
+
+    fn end_walls(&self) -> [(i32, f64); 2] {
+        [(SIDE_BACK, -self.l / 2.0), (SIDE_FRONT, self.l / 2.0)]
+    }
+
+    /// How far a ladder reaches out to rise `rise`, and its length.
+    fn ladder_run(&self, rise: f64) -> f64 {
+        rise / ladder_tilt().tan()
+    }
+
+    fn ladder_len(&self, rise: f64) -> f64 {
+        rise / ladder_tilt().sin()
+    }
+
+    /// Every floor on joists by bay: (level, bay, floor surface height); raised and upper floors
+    /// cover every bay, lofts their own.
+    fn decks(&self) -> Vec<(Level, usize, f64)> {
+        let mut decks: Vec<(Level, usize, f64)> = Vec::new();
+        for &(level, z_floor, _) in &self.floors {
+            decks.extend((0..self.n).map(|j| (level, j, z_floor)));
+        }
+        let loft_floor = self.z_p + self.jst + self.dk;
+        decks.extend(self.lofts.iter().map(|&j| (Level::Loft, j, loft_floor)));
+        decks
+    }
+
+    /// The door's middle `(u, v)` on its wall line, and the direction it faces.
+    fn door(&self) -> (f64, f64, u16) {
+        let mid = self.u_line(self.door_bay as usize) + self.b / 2.0;
+        match self.door_side {
+            SIDE_RIGHT => (mid, self.w / 2.0, self.across()),
+            SIDE_LEFT => (mid, -self.w / 2.0, self.back_across()),
+            SIDE_BACK => (-self.l / 2.0, 0.0, self.back()),
+            _ => (self.l / 2.0, 0.0, self.along()),
+        }
+    }
+}
+
+/// A ladder's rise from the horizontal, radians.
+fn ladder_tilt() -> f64 {
+    f64::from(LADDER_TILT_CENTIDEG) / 100.0 * TAU / 360.0
+}
+
+/// The slopes: index and which side of the ridge (`+v`, `-v`).
+const SLOPES: [(usize, f64); 2] = [(0, 1.0), (1, -1.0)];
+
+/// The level of storey `t` (0 the first).
+fn storey_level(t: i32) -> Level {
+    if t == 0 { Level::Ground } else { Level::Upper }
+}
+
+/// The parts of a building as they are laid out, with their semantic ids.
+struct Parts<'l, 'r> {
+    layout: &'l Layout<'r>,
+    parts: Vec<Part>,
+}
+
+/// A part's place in its building: level, bay or frame line, kind and index.
+type Slot = (Level, Option<usize>, PartKind, usize);
+
+impl Parts<'_, '_> {
+    /// Adds a part: its slot, stage, centre `(u, v, z)`, size along its own axes, direction and
+    /// tilt, and material.
+    fn push(
+        &mut self,
+        (level, slot, kind, index): Slot,
+        stage: Stage,
+        (u, v, z): (f64, f64, f64),
+        size: [f64; 3],
+        (angle, tilt): (u16, i32),
+        material: Option<u8>,
+    ) {
+        let (x, y) = self.layout.at(u, v);
+        self.parts.push(Part {
             id: part_id(level, slot, kind, index),
             kind,
             stage,
@@ -442,486 +624,419 @@ pub fn expand_frame(spec: &BuildingSpec, rules: &FrameRules) -> Result<Expansion
             tilt,
             material,
         });
-    };
+    }
 
-    // Foundation: postholes, and a raised floor's posts down the middle.
-    for k in 0..=n {
-        for (side, v) in long_walls {
-            push(
-                Level::Ground,
-                Some(k),
-                PartKind::Posthole,
-                side as usize,
+    /// A timber member lying flat.
+    fn member(
+        &mut self,
+        slot: Slot,
+        stage: Stage,
+        at: (f64, f64, f64),
+        size: [f64; 3],
+        angle: u16,
+    ) {
+        self.push(slot, stage, at, size, (angle, 0), Some(TIMBER));
+    }
+}
+
+/// Foundation: postholes, and a raised floor's posts down the middle.
+fn foundation(p: &mut Parts) {
+    let l = p.layout;
+    let hole = [l.pd + POSTHOLE_SLACK_CM, l.pd + POSTHOLE_SLACK_CM, l.depth];
+    for k in 0..=l.n {
+        for (side, v) in l.long_walls() {
+            let slot = (Level::Ground, Some(k), PartKind::Posthole, side as usize);
+            p.push(
+                slot,
                 Stage::Foundation,
-                (u_line(k), v, -depth / 2.0),
-                [pd + POSTHOLE_SLACK_CM, pd + POSTHOLE_SLACK_CM, depth],
-                along,
-                0,
+                (l.u_line(k), v, -l.depth / 2.0),
+                hole,
+                (l.along(), 0),
                 None,
             );
         }
-        if raised {
-            push(
-                Level::Ground,
-                Some(k),
-                PartKind::Posthole,
-                2,
+        if l.raised {
+            let slot = (Level::Ground, Some(k), PartKind::Posthole, 2);
+            p.push(
+                slot,
                 Stage::Foundation,
-                (u_line(k), 0.0, -depth / 2.0),
-                [pd + POSTHOLE_SLACK_CM, pd + POSTHOLE_SLACK_CM, depth],
-                along,
-                0,
+                (l.u_line(k), 0.0, -l.depth / 2.0),
+                hole,
+                (l.along(), 0),
                 None,
             );
-            push(
-                Level::Ground,
-                Some(k),
-                PartKind::FloorPost,
-                0,
+            p.member(
+                (Level::Ground, Some(k), PartKind::FloorPost, 0),
                 Stage::Foundation,
-                (u_line(k), 0.0, (floor_post_h - depth) / 2.0),
-                [pd, pd, floor_post_h + depth],
-                along,
-                0,
-                Some(TIMBER),
+                (l.u_line(k), 0.0, (l.floor_post_h - l.depth) / 2.0),
+                [l.pd, l.pd, l.floor_post_h + l.depth],
+                l.along(),
             );
         }
     }
+}
 
-    // Frame: posts through every storey, plates along the wall heads a bay at a time, tie beams
-    // across them at each frame line.
-    for k in 0..=n {
-        for (side, v) in long_walls {
-            push(
-                Level::Ground,
-                Some(k),
-                PartKind::Post,
-                side as usize,
+/// Frame: posts through every storey, tie beams across their heads at each frame line, plates
+/// along the wall heads a bay at a time; floors on joists; lofts; rafters and the ridge.
+fn frame(p: &mut Parts) {
+    let l = p.layout;
+    for k in 0..=l.n {
+        for (side, v) in l.long_walls() {
+            p.member(
+                (Level::Ground, Some(k), PartKind::Post, side as usize),
                 Stage::Frame,
-                (u_line(k), v, (z_p - depth) / 2.0),
-                [pd, pd, z_p + depth],
-                along,
-                0,
-                Some(TIMBER),
+                (l.u_line(k), v, (l.z_p - l.depth) / 2.0),
+                [l.pd, l.pd, l.z_p + l.depth],
+                l.along(),
             );
         }
-        push(
-            Level::Roof,
-            Some(k),
-            PartKind::TieBeam,
-            0,
+        p.member(
+            (Level::Roof, Some(k), PartKind::TieBeam, 0),
             Stage::Frame,
-            (u_line(k), 0.0, z_p + beam / 2.0),
-            [w, beam, beam],
-            across,
-            0,
-            Some(TIMBER),
+            (l.u_line(k), 0.0, l.z_p + l.beam / 2.0),
+            [l.w, l.beam, l.beam],
+            l.across(),
         );
     }
-    for j in 0..n {
-        for (side, v) in long_walls {
-            push(
-                Level::Roof,
-                Some(j),
-                PartKind::WallPlate,
-                side as usize,
+    for j in 0..l.n {
+        for (side, v) in l.long_walls() {
+            p.member(
+                (Level::Roof, Some(j), PartKind::WallPlate, side as usize),
                 Stage::Frame,
-                (u_line(j) + b / 2.0, v, z_p - beam / 2.0),
-                [b, beam, beam],
-                along,
-                0,
-                Some(TIMBER),
+                (l.u_line(j) + l.b / 2.0, v, l.z_p - l.beam / 2.0),
+                [l.b, l.beam, l.beam],
+                l.along(),
             );
         }
     }
     // Floors on joists: an upper storey's, and a raised floor (with its middle rail).
-    let floors: Vec<(Level, f64, bool)> = [
-        (raised).then_some((Level::Ground, z_g, true)),
-        (storeys > 1).then_some((Level::Upper, z_g + h, false)),
-    ]
-    .into_iter()
-    .flatten()
-    .collect();
-    for &(level, z_floor, middle) in &floors {
-        let z_joist = z_floor - dk - jst / 2.0;
-        let z_rail = z_floor - dk - jst - beam / 2.0;
-        let rails: Vec<(usize, f64)> = long_walls
+    for &(level, z_floor, middle) in &l.floors {
+        let z_joist = z_floor - l.dk - l.jst / 2.0;
+        let z_rail = z_floor - l.dk - l.jst - l.beam / 2.0;
+        let rails: Vec<(usize, f64)> = l
+            .long_walls()
             .iter()
             .map(|&(side, v)| (side as usize, v))
             .chain(middle.then_some((2, 0.0)))
             .collect();
-        for j in 0..n {
+        for j in 0..l.n {
             for &(index, v) in &rails {
-                push(
-                    level,
-                    Some(j),
-                    PartKind::WallPlate,
-                    index,
+                p.member(
+                    (level, Some(j), PartKind::WallPlate, index),
                     Stage::Frame,
-                    (u_line(j) + b / 2.0, v, z_rail),
-                    [b, beam, beam],
-                    along,
-                    0,
-                    Some(TIMBER),
+                    (l.u_line(j) + l.b / 2.0, v, z_rail),
+                    [l.b, l.beam, l.beam],
+                    l.along(),
                 );
             }
-            for i in 0..joists_per_bay {
-                push(
-                    level,
-                    Some(j),
-                    PartKind::Joist,
-                    i,
+            for i in 0..l.joists_per_bay {
+                p.member(
+                    (level, Some(j), PartKind::Joist, i),
                     Stage::Frame,
-                    (u_line(j) + joist_spacing * (i + 1) as f64, 0.0, z_joist),
-                    [w, jst, jst],
-                    across,
-                    0,
-                    Some(TIMBER),
+                    (l.u_line(j) + l.joist_spacing * (i + 1) as f64, 0.0, z_joist),
+                    [l.w, l.jst, l.jst],
+                    l.across(),
                 );
             }
         }
-        for k in 0..=n {
-            push(
-                level,
-                Some(k),
-                PartKind::TieBeam,
-                0,
+        for k in 0..=l.n {
+            p.member(
+                (level, Some(k), PartKind::TieBeam, 0),
                 Stage::Frame,
-                (u_line(k), 0.0, z_floor - dk - beam / 2.0),
-                [w, beam, beam],
-                across,
-                0,
-                Some(TIMBER),
+                (l.u_line(k), 0.0, z_floor - l.dk - l.beam / 2.0),
+                [l.w, l.beam, l.beam],
+                l.across(),
             );
         }
     }
     // Lofts: joists across the plates over the bays the spec names.
-    for &j in &lofts {
-        for i in 0..joists_per_bay {
-            push(
-                Level::Loft,
-                Some(j),
-                PartKind::Joist,
-                i,
+    for &j in &l.lofts {
+        for i in 0..l.joists_per_bay {
+            p.member(
+                (Level::Loft, Some(j), PartKind::Joist, i),
                 Stage::Frame,
                 (
-                    u_line(j) + joist_spacing * (i + 1) as f64,
+                    l.u_line(j) + l.joist_spacing * (i + 1) as f64,
                     0.0,
-                    z_p + jst / 2.0,
+                    l.z_p + l.jst / 2.0,
                 ),
-                [w, jst, jst],
-                across,
-                0,
-                Some(TIMBER),
+                [l.w, l.jst, l.jst],
+                l.across(),
             );
         }
     }
     // Rafters from the eaves to the ridge, in pairs along the length (the last pair on the end
     // frame line, which a further bay would begin with), and the ridge a bay at a time.
-    for line in 0..=n {
-        let count = if line < n { rafters_per_bay } else { 1 };
+    for line in 0..=l.n {
+        let count = if line < l.n { l.rafters_per_bay } else { 1 };
         for i in 0..count {
-            let u = u_line(line) + b * i as f64 / rafters_per_bay as f64;
-            for (sl, sign) in slopes {
-                push(
-                    Level::Roof,
-                    Some(line),
-                    PartKind::Rafter,
-                    i * 2 + sl,
+            let u = l.u_line(line) + l.b * i as f64 / l.rafters_per_bay as f64;
+            for (sl, sign) in SLOPES {
+                p.push(
+                    (Level::Roof, Some(line), PartKind::Rafter, i * 2 + sl),
                     Stage::Frame,
-                    (u, sign * (w / 2.0 + o) / 2.0, (z_e + z_a) / 2.0),
-                    [slope, raf, raf],
-                    if sign > 0.0 { back_across } else { across },
-                    pitch_cd,
+                    (u, sign * (l.w / 2.0 + l.o) / 2.0, (l.z_e + l.z_a) / 2.0),
+                    [l.slope, l.raf, l.raf],
+                    (
+                        if sign > 0.0 {
+                            l.back_across()
+                        } else {
+                            l.across()
+                        },
+                        l.pitch_cd,
+                    ),
                     Some(TIMBER),
                 );
             }
         }
     }
-    for j in 0..n {
-        let u0 = u_line(j) - if j == 0 { o } else { 0.0 };
-        let u1 = u_line(j + 1) + if j + 1 == n { o } else { 0.0 };
-        push(
-            Level::Roof,
-            Some(j),
-            PartKind::Ridge,
-            0,
+    for j in 0..l.n {
+        let u0 = l.u_line(j) - if j == 0 { l.o } else { 0.0 };
+        let u1 = l.u_line(j + 1) + if j + 1 == l.n { l.o } else { 0.0 };
+        p.member(
+            (Level::Roof, Some(j), PartKind::Ridge, 0),
             Stage::Frame,
-            ((u0 + u1) / 2.0, 0.0, z_a),
-            [u1 - u0, beam, beam],
-            along,
-            0,
-            Some(TIMBER),
+            ((u0 + u1) / 2.0, 0.0, l.z_a),
+            [u1 - u0, l.beam, l.beam],
+            l.along(),
         );
     }
+}
 
-    // Walls: wattle and daub between the posts, storey by storey, the door's panel split either
-    // side of it; and the gables.
-    let pieces = |panel: f64, door_here: bool| -> Vec<(usize, f64, f64)> {
-        if door_here {
-            let side = (panel - door_w) / 2.0;
-            vec![
-                (0, -(door_w + side) / 2.0, side),
-                (1, (door_w + side) / 2.0, side),
-            ]
-        } else {
-            vec![(0, 0.0, panel)]
-        }
-    };
-    let mut wall_area_cm2 = 0.0;
-    for t in 0..storeys {
+/// The pieces of a wall panel `panel` wide: whole, or split either side of the door, as (index,
+/// offset from its middle, width).
+fn pieces(panel: f64, door_w: f64, door_here: bool) -> Vec<(usize, f64, f64)> {
+    if door_here {
+        let side = (panel - door_w) / 2.0;
+        vec![
+            (0, -(door_w + side) / 2.0, side),
+            (1, (door_w + side) / 2.0, side),
+        ]
+    } else {
+        vec![(0, 0.0, panel)]
+    }
+}
+
+/// Walls: wattle and daub between the posts, storey by storey, the door's panel split either
+/// side of it; and the gables. The walls' area, square centimetres.
+fn walls(p: &mut Parts) -> f64 {
+    let l = p.layout;
+    let mut area = 0.0;
+    for t in 0..l.storeys {
         let level = storey_level(t);
-        let zc = z_g + h * f64::from(t) + h / 2.0;
+        let zc = l.z_g + l.h * f64::from(t) + l.h / 2.0;
         for kind in [PartKind::Wattle, PartKind::Daub] {
             let (thickness, material) = match kind {
-                PartKind::Wattle => (wt / 3.0, Some(WATTLE)),
-                _ => (wt, None),
+                PartKind::Wattle => (l.wt / 3.0, Some(WATTLE)),
+                _ => (l.wt, None),
             };
-            for j in 0..n {
-                for (side, v) in long_walls {
-                    let door_here = t == 0 && side == door_side && j as i32 == door_bay;
-                    for (half, du, pw) in pieces(b - pd, door_here) {
+            for j in 0..l.n {
+                for (side, v) in l.long_walls() {
+                    let door_here = t == 0 && side == l.door_side && j as i32 == l.door_bay;
+                    for (half, du, pw) in pieces(l.b - l.pd, l.door_w, door_here) {
                         if kind == PartKind::Wattle {
-                            wall_area_cm2 += pw * h;
+                            area += pw * l.h;
                         }
-                        push(
-                            level,
-                            Some(j),
-                            kind,
-                            side as usize * 2 + half,
+                        p.push(
+                            (level, Some(j), kind, side as usize * 2 + half),
                             Stage::Walls,
-                            (u_line(j) + b / 2.0 + du, v, zc),
-                            [pw, thickness, h],
-                            along,
-                            0,
+                            (l.u_line(j) + l.b / 2.0 + du, v, zc),
+                            [pw, thickness, l.h],
+                            (l.along(), 0),
                             material,
                         );
                     }
                 }
             }
-            for (side, u) in end_walls {
-                let door_here = t == 0 && side == door_side;
-                for (half, dv, pw) in pieces(w - pd, door_here) {
+            for (side, u) in l.end_walls() {
+                let door_here = t == 0 && side == l.door_side;
+                for (half, dv, pw) in pieces(l.w - l.pd, l.door_w, door_here) {
                     if kind == PartKind::Wattle {
-                        wall_area_cm2 += pw * h;
+                        area += pw * l.h;
                     }
-                    push(
-                        level,
-                        None,
-                        kind,
-                        side as usize * 2 + half,
+                    p.push(
+                        (level, None, kind, side as usize * 2 + half),
                         Stage::Walls,
                         (u, dv, zc),
-                        [pw, thickness, h],
-                        across,
-                        0,
+                        [pw, thickness, l.h],
+                        (l.across(), 0),
                         material,
                     );
                 }
             }
         }
     }
-    let gable_h = z_a - z_p;
-    for (side, u) in end_walls {
-        wall_area_cm2 += (w - pd) * gable_h / 2.0;
-        push(
-            Level::Roof,
-            None,
-            PartKind::GableInfill,
-            side as usize,
+    let gable_h = l.z_a - l.z_p;
+    for (side, u) in l.end_walls() {
+        area += (l.w - l.pd) * gable_h / 2.0;
+        p.push(
+            (Level::Roof, None, PartKind::GableInfill, side as usize),
             Stage::Walls,
-            (u, 0.0, z_p + gable_h / 3.0),
-            [w - pd, wt, gable_h],
-            across,
-            0,
+            (u, 0.0, l.z_p + gable_h / 3.0),
+            [l.w - l.pd, l.wt, gable_h],
+            (l.across(), 0),
             Some(WATTLE),
         );
     }
+    area
+}
 
-    // Roof: the covering, a slope at a time.
-    for (sl, sign) in slopes {
-        push(
-            Level::Roof,
-            None,
-            PartKind::Thatch,
-            sl,
+/// Roof: the covering, a slope at a time.
+fn roof(p: &mut Parts) {
+    let l = p.layout;
+    for (sl, sign) in SLOPES {
+        p.push(
+            (Level::Roof, None, PartKind::Thatch, sl),
             Stage::Roof,
-            (0.0, sign * (w / 2.0 + o) / 2.0, (z_e + z_a) / 2.0),
-            [slope, l + 2.0 * o, f64::from(rules.thatch_thickness_cm)],
-            if sign > 0.0 { back_across } else { across },
-            pitch_cd,
+            (0.0, sign * (l.w / 2.0 + l.o) / 2.0, (l.z_e + l.z_a) / 2.0),
+            [
+                l.slope,
+                l.l + 2.0 * l.o,
+                f64::from(l.rules.thatch_thickness_cm),
+            ],
+            (
+                if sign > 0.0 {
+                    l.back_across()
+                } else {
+                    l.across()
+                },
+                l.pitch_cd,
+            ),
             Some(COVERING),
         );
     }
+}
 
-    // Finish: a floor beaten on the ground, or boards on the joists of every floor; the hearth on
-    // the lowest living storey; ladders up to a raised floor, an upper storey and a loft.
-    if !raised {
-        push(
-            Level::Ground,
-            None,
-            PartKind::Floor,
-            0,
+/// Finish: a floor beaten on the ground, or boards on the joists of every floor; the hearth on
+/// the lowest living storey; ladders up to a raised floor, an upper storey and a loft. How many
+/// ladders.
+fn finish(p: &mut Parts) -> usize {
+    let l = p.layout;
+    if !l.raised {
+        p.push(
+            (Level::Ground, None, PartKind::Floor, 0),
             Stage::Finish,
             (0.0, 0.0, 0.0),
-            [l, w, 0.0],
-            along,
-            0,
+            [l.l, l.w, 0.0],
+            (l.along(), 0),
             None,
         );
     }
-    let mut decks: Vec<(Level, usize, f64)> = Vec::new();
-    for &(level, z_floor, _) in &floors {
-        decks.extend((0..n).map(|j| (level, j, z_floor)));
-    }
-    decks.extend(lofts.iter().map(|&j| (Level::Loft, j, z_p + jst + dk)));
-    for &(level, j, z_floor) in &decks {
-        push(
-            level,
-            Some(j),
-            PartKind::Decking,
-            0,
+    for (level, j, z_floor) in l.decks() {
+        p.push(
+            (level, Some(j), PartKind::Decking, 0),
             Stage::Finish,
-            (u_line(j) + b / 2.0, 0.0, z_floor - dk / 2.0),
-            [b, w, dk],
-            along,
-            0,
+            (l.u_line(j) + l.b / 2.0, 0.0, z_floor - l.dk / 2.0),
+            [l.b, l.w, l.dk],
+            (l.along(), 0),
             Some(BOARDS),
         );
     }
-    let uses = [rules.ground_use, rules.upper_use];
-    if let Some(t) = (0..storeys).find(|&t| uses[t as usize] == SpaceUse::Living) {
-        let hearth = f64::from(rules.hearth_cm);
-        push(
-            storey_level(t),
-            None,
-            PartKind::Hearth,
-            0,
+    let uses = [l.rules.ground_use, l.rules.upper_use];
+    if let Some(t) = (0..l.storeys).find(|&t| uses[t as usize] == SpaceUse::Living) {
+        let hearth = f64::from(l.rules.hearth_cm);
+        p.push(
+            (storey_level(t), None, PartKind::Hearth, 0),
             Stage::Finish,
-            (u_line(n / 2) + b / 2.0, 0.0, z_g + h * f64::from(t)),
+            (
+                l.u_line(l.n / 2) + l.b / 2.0,
+                0.0,
+                l.z_g + l.h * f64::from(t),
+            ),
             [hearth, hearth, HEARTH_HEIGHT_CM],
-            along,
-            0,
+            (l.along(), 0),
             None,
         );
     }
-    let mut ladders = 0_usize;
-    let ladder_size = |rise: f64| {
+    let size = |rise: f64| {
         [
-            ladder_len(rise),
+            l.ladder_len(rise),
             f64::from(LADDER_WIDTH_CM),
             LADDER_DEPTH_CM,
         ]
     };
-    if raised {
+    let mut ladders = 0;
+    if l.raised {
         // Outside the door, its top at the doorway, its foot under the eaves.
-        let out = wt / 2.0 + ladder_run(r) / 2.0;
-        let (u, v, up) = match door_side {
-            SIDE_RIGHT => (
-                u_line(door_bay as usize) + b / 2.0,
-                w / 2.0 + out,
-                back_across,
-            ),
-            SIDE_LEFT => (u_line(door_bay as usize) + b / 2.0, -w / 2.0 - out, across),
-            SIDE_BACK => (-l / 2.0 - out, 0.0, along),
-            _ => (l / 2.0 + out, 0.0, back),
+        let out = l.wt / 2.0 + l.ladder_run(l.r) / 2.0;
+        let mid = l.u_line(l.door_bay as usize) + l.b / 2.0;
+        let (u, v, up) = match l.door_side {
+            SIDE_RIGHT => (mid, l.w / 2.0 + out, l.back_across()),
+            SIDE_LEFT => (mid, -l.w / 2.0 - out, l.across()),
+            SIDE_BACK => (-l.l / 2.0 - out, 0.0, l.along()),
+            _ => (l.l / 2.0 + out, 0.0, l.back()),
         };
         ladders += 1;
-        push(
-            Level::Ground,
-            None,
-            PartKind::Ladder,
-            0,
+        p.push(
+            (Level::Ground, None, PartKind::Ladder, 0),
             Stage::Finish,
-            (u, v, r / 2.0),
-            ladder_size(r),
-            up,
-            LADDER_TILT_CENTIDEG,
+            (u, v, l.r / 2.0),
+            size(l.r),
+            (up, LADDER_TILT_CENTIDEG),
             Some(BOARDS),
         );
     }
-    if storeys > 1 {
+    if l.storeys > 1 {
         ladders += 1;
-        push(
-            Level::Upper,
-            None,
-            PartKind::Ladder,
-            0,
+        p.push(
+            (Level::Upper, None, PartKind::Ladder, 0),
             Stage::Finish,
-            (u_line(0) + b / 2.0, -w / 4.0, z_g + h / 2.0),
-            ladder_size(h),
-            along,
-            LADDER_TILT_CENTIDEG,
+            (l.u_line(0) + l.b / 2.0, -l.w / 4.0, l.z_g + l.h / 2.0),
+            size(l.h),
+            (l.along(), LADDER_TILT_CENTIDEG),
             Some(BOARDS),
         );
     }
-    if let Some(&j) = lofts.first() {
-        let from = z_g + h * f64::from(storeys - 1);
-        let rise = z_p + jst + dk - from;
+    if let Some(&j) = l.lofts.first() {
+        let from = l.z_g + l.h * f64::from(l.storeys - 1);
+        let rise = l.z_p + l.jst + l.dk - from;
         ladders += 1;
-        push(
-            Level::Loft,
-            None,
-            PartKind::Ladder,
-            0,
+        p.push(
+            (Level::Loft, None, PartKind::Ladder, 0),
             Stage::Finish,
-            (u_line(j) + b / 2.0, w / 4.0, from + rise / 2.0),
-            ladder_size(rise),
-            along,
-            LADDER_TILT_CENTIDEG,
+            (l.u_line(j) + l.b / 2.0, l.w / 4.0, from + rise / 2.0),
+            size(rise),
+            (l.along(), LADDER_TILT_CENTIDEG),
             Some(BOARDS),
         );
     }
-    parts.sort_by_key(|p| (p.stage, p.id));
+    ladders
+}
 
-    // Outline, roof and door.
-    let corners = |du: f64, dv: f64| -> Vec<(i32, i32)> {
-        [(-du, -dv), (du, -dv), (du, dv), (-du, dv)]
-            .into_iter()
-            .map(|(u, v)| {
-                let (x, y) = at(u, v);
-                (cm(x), cm(y))
-            })
-            .collect()
-    };
-    let outline = corners(l / 2.0 + wt / 2.0, w / 2.0 + wt / 2.0);
-    let roof_outline = corners(l / 2.0 + o, w / 2.0 + o);
-    let ridge = {
-        let (x0, y0) = at(-l / 2.0 - o, 0.0);
-        let (x1, y1) = at(l / 2.0 + o, 0.0);
-        [(cm(x0), cm(y0)), (cm(x1), cm(y1))]
-    };
-    let (door_u, door_v, facing) = match door_side {
-        SIDE_RIGHT => (u_line(door_bay as usize) + b / 2.0, w / 2.0, across),
-        SIDE_LEFT => (u_line(door_bay as usize) + b / 2.0, -w / 2.0, back_across),
-        SIDE_BACK => (-l / 2.0, 0.0, back),
-        _ => (l / 2.0, 0.0, along),
-    };
-    let (dx, dy) = at(door_u, door_v);
+/// What the spaces give: the spaces, floor by use, storage by kind, places to work, floor area
+/// and sleeping places.
+struct Facts {
+    spaces: Vec<Space>,
+    floor_by_use: [f64; 3],
+    storage_kg: [f64; 3],
+    work_places: u32,
+    floor_area_m2: f64,
+    sleeping_places: u32,
+}
 
-    // Spaces and what they give.
-    let m2 = 1.0e-4;
-    let storey_m2 = l * w * m2;
-    let bay_m2 = b * w * m2;
+fn facts(l: &Layout) -> Facts {
+    let rules = l.rules;
+    let storey_m2 = l.l * l.w * M2;
+    let bay_m2 = l.b * l.w * M2;
     let mut spaces = vec![Space {
         level: Level::Ground,
-        bays: all_bays as u16,
+        bays: l.all_bays as u16,
         area_m2: storey_m2,
         use_: rules.ground_use,
     }];
-    if storeys > 1 {
+    if l.storeys > 1 {
         spaces.push(Space {
             level: Level::Upper,
-            bays: all_bays as u16,
+            bays: l.all_bays as u16,
             area_m2: storey_m2,
             use_: rules.upper_use,
         });
     }
-    if !lofts.is_empty() {
+    if !l.lofts.is_empty() {
         spaces.push(Space {
             level: Level::Loft,
-            bays: loft_mask as u16,
-            area_m2: bay_m2 * lofts.len() as f64,
+            bays: l.loft_mask as u16,
+            area_m2: bay_m2 * l.lofts.len() as f64,
             use_: SpaceUse::Store,
         });
     }
@@ -932,7 +1047,7 @@ pub fn expand_frame(spec: &BuildingSpec, rules: &FrameRules) -> Result<Expansion
         floor_by_use[s.use_.index()] += s.area_m2;
         match (s.use_, s.level) {
             (SpaceUse::Store, Level::Loft) => storage_kg[1] += s.area_m2 * rules.loft_kg_per_m2,
-            (SpaceUse::Store, Level::Ground) if raised => {
+            (SpaceUse::Store, Level::Ground) if l.raised => {
                 storage_kg[0] += s.area_m2 * rules.store_kg_per_m2;
             }
             (SpaceUse::Store, _) => storage_kg[2] += s.area_m2 * rules.store_kg_per_m2,
@@ -949,34 +1064,51 @@ pub fn expand_frame(spec: &BuildingSpec, rules: &FrameRules) -> Result<Expansion
     } else {
         0
     };
+    Facts {
+        spaces,
+        floor_by_use,
+        storage_kg,
+        work_places,
+        floor_area_m2,
+        sleeping_places,
+    }
+}
 
-    // Members, by kind.
+/// The labour and materials of each stage, from the members' counts and sizes, the walls'
+/// area (square centimetres) and the ladders.
+fn needs(l: &Layout, wall_area_cm2: f64, ladders: usize) -> Vec<StageNeeds> {
+    let rules = l.rules;
+    let n = l.n;
+    let storey_m2 = l.l * l.w * M2;
+    let bay_m2 = l.b * l.w * M2;
     let wall_posts = 2 * (n + 1);
-    let floor_posts = if raised { n + 1 } else { 0 };
-    let rafters = 2 * (n * rafters_per_bay + 1);
-    let floored_bays = decks.len();
-    let joists = joists_per_bay * floored_bays;
-    let rails = floors
+    let floor_posts = if l.raised { n + 1 } else { 0 };
+    let rafters = 2 * (n * l.rafters_per_bay + 1);
+    let floored_bays = l.decks().len();
+    let joists = l.joists_per_bay * floored_bays;
+    let rails = l
+        .floors
         .iter()
         .map(|&(_, _, middle)| if middle { 3 } else { 2 })
         .sum::<usize>()
         * n;
-    let cross_beams = (1 + floors.len()) * (n + 1);
-    let beams_m = (2 * n + rails) as f64 * b * 0.01 + cross_beams as f64 * w * 0.01;
-    let ridge_m = (l + 2.0 * o) * 0.01;
-    let roof_m2 = (l + 2.0 * o) * (w + 2.0 * o) * m2 / pitch.cos();
-    let wall_m2 = wall_area_cm2 * m2;
+    let cross_beams = (1 + l.floors.len()) * (n + 1);
+    let beams_m = (2 * n + rails) as f64 * l.b * 0.01 + cross_beams as f64 * l.w * 0.01;
+    let ridge_m = (l.l + 2.0 * l.o) * 0.01;
+    let roof_m2 = (l.l + 2.0 * l.o) * (l.w + 2.0 * l.o) * M2 / l.pitch.cos();
+    let wall_m2 = wall_area_cm2 * M2;
     let deck_m2 = floored_bays as f64 * bay_m2;
-    let beaten_m2 = if raised { 0.0 } else { storey_m2 };
+    let beaten_m2 = if l.raised { 0.0 } else { storey_m2 };
     let timber = |d: f64, count: usize, len_cm: f64| {
         round_section_m2(d) * count as f64 * len_cm * 0.01 * rules.timber_kg_per_m3
     };
-    let floor_posts_kg = timber(pd, floor_posts, floor_post_h + depth);
-    let frame_kg = timber(pd, wall_posts, z_p + depth)
-        + timber(beam, 1, beams_m * 100.0 + ridge_m * 100.0)
-        + timber(raf, rafters, slope)
-        + timber(jst, joists, w);
-    let boards_kg = deck_m2 * dk * 0.01 * rules.timber_kg_per_m3 + rules.ladder_kg * ladders as f64;
+    let floor_posts_kg = timber(l.pd, floor_posts, l.floor_post_h + l.depth);
+    let frame_kg = timber(l.pd, wall_posts, l.z_p + l.depth)
+        + timber(l.beam, 1, beams_m * 100.0 + ridge_m * 100.0)
+        + timber(l.raf, rafters, l.slope)
+        + timber(l.jst, joists, l.w);
+    let boards_kg =
+        deck_m2 * l.dk * 0.01 * rules.timber_kg_per_m3 + rules.ladder_kg * ladders as f64;
     let slots = |timber: f64, wattle: f64, covering: f64, boards: f64| {
         let mut kg = vec![0.0; frame_materials::COUNT];
         kg[usize::from(TIMBER)] = timber;
@@ -985,7 +1117,7 @@ pub fn expand_frame(spec: &BuildingSpec, rules: &FrameRules) -> Result<Expansion
         kg[usize::from(BOARDS)] = boards;
         kg
     };
-    let stages = vec![
+    vec![
         StageNeeds {
             stage: Stage::Foundation,
             labour_h: rules.groundwork_h_per_m2 * storey_m2
@@ -998,12 +1130,12 @@ pub fn expand_frame(spec: &BuildingSpec, rules: &FrameRules) -> Result<Expansion
             labour_h: rules.post_h * wall_posts as f64
                 + rules.beam_h_per_m * (beams_m + ridge_m)
                 + rules.rafter_h * rafters as f64
-                + rules.joist_h_per_m * joists as f64 * w * 0.01,
+                + rules.joist_h_per_m * joists as f64 * l.w * 0.01,
             materials_kg: slots(frame_kg, 0.0, 0.0, 0.0),
         },
         StageNeeds {
             stage: Stage::Walls,
-            labour_h: (rules.wattle_h_per_m2 + rules.daub_h_per_m3 * wt * 0.01) * wall_m2,
+            labour_h: (rules.wattle_h_per_m2 + rules.daub_h_per_m3 * l.wt * 0.01) * wall_m2,
             materials_kg: slots(0.0, rules.wattle_kg_per_m2 * wall_m2, 0.0, 0.0),
         },
         StageNeeds {
@@ -1018,227 +1150,283 @@ pub fn expand_frame(spec: &BuildingSpec, rules: &FrameRules) -> Result<Expansion
                 + rules.ladder_h * ladders as f64,
             materials_kg: slots(0.0, 0.0, 0.0, boards_kg),
         },
-    ];
+    ]
+}
 
-    // Component groups (ADR-0009 §3), each with what it carries or covers.
-    let roof_plan_side_m2 = (l + 2.0 * o) * (w / 2.0 + o) * m2;
-    let suspended_m2 = deck_m2;
-    let raised_m2 = if raised { storey_m2 } else { 0.0 };
-    let joist_share = joists_per_bay as f64 / (joists_per_bay + 1) as f64;
-    let mut groups = Vec::new();
-    let mut group = |level: Level,
-                     bay: Option<usize>,
-                     kind: GroupKind,
-                     index: u8,
-                     stage: Stage,
-                     material: Option<u8>,
-                     count: usize,
-                     section: [f64; 2],
-                     length: f64,
-                     spacing: f64,
-                     area_m2: f64| {
-        groups.push(Group {
-            id: group_id(level, bay.map(|b| b as u8), kind, index),
-            kind,
-            stage,
-            material,
-            count: count as u32,
-            section_cm: section.map(cm),
-            length_cm: cm(length),
-            spacing_cm: cm(spacing),
-            area_m2,
-        });
-    };
-    for (side, _) in long_walls {
+/// A group of members, before its id is made: level, bay, kind and index; stage and material;
+/// count; section, span and spacing (centimetres); the area it carries or covers.
+struct GroupOf {
+    level: Level,
+    bay: Option<usize>,
+    kind: GroupKind,
+    index: u8,
+    stage: Stage,
+    material: Option<u8>,
+    count: usize,
+    section: [f64; 2],
+    length: f64,
+    spacing: f64,
+    area_m2: f64,
+}
+
+impl GroupOf {
+    fn group(self) -> Group {
+        Group {
+            id: group_id(self.level, self.bay.map(|b| b as u8), self.kind, self.index),
+            kind: self.kind,
+            stage: self.stage,
+            material: self.material,
+            count: self.count as u32,
+            section_cm: self.section.map(cm),
+            length_cm: cm(self.length),
+            spacing_cm: cm(self.spacing),
+            area_m2: self.area_m2,
+        }
+    }
+}
+
+/// The component groups (ADR-0009 §3), each with what it carries or covers, in stage order.
+fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
+    let n = l.n;
+    let storey_m2 = l.l * l.w * M2;
+    let bay_m2 = l.b * l.w * M2;
+    let roof_m2 = (l.l + 2.0 * l.o) * (l.w + 2.0 * l.o) * M2 / l.pitch.cos();
+    let decks = l.decks();
+    let roof_plan_side_m2 = (l.l + 2.0 * l.o) * (l.w / 2.0 + l.o) * M2;
+    let suspended_m2 = decks.len() as f64 * bay_m2;
+    let raised_m2 = if l.raised { storey_m2 } else { 0.0 };
+    let joist_share = l.joists_per_bay as f64 / (l.joists_per_bay + 1) as f64;
+    let timber = Some(TIMBER);
+    let mut out = Vec::new();
+    for (side, _) in l.long_walls() {
         // Each long wall carries its slope of the roof and half of every floor across the width
         // (a raised floor's middle line takes half of that one).
-        group(
-            Level::Ground,
-            None,
-            GroupKind::Posts,
-            side as u8,
-            Stage::Frame,
-            Some(TIMBER),
-            n + 1,
-            [pd, pd],
-            z_p,
-            b,
-            roof_plan_side_m2 + (suspended_m2 - raised_m2) / 2.0 + raised_m2 / 4.0,
-        );
+        out.push(GroupOf {
+            level: Level::Ground,
+            bay: None,
+            kind: GroupKind::Posts,
+            index: side as u8,
+            stage: Stage::Frame,
+            material: timber,
+            count: n + 1,
+            section: [l.pd, l.pd],
+            length: l.z_p,
+            spacing: l.b,
+            area_m2: roof_plan_side_m2 + (suspended_m2 - raised_m2) / 2.0 + raised_m2 / 4.0,
+        });
     }
-    if raised {
-        group(
-            Level::Ground,
-            None,
-            GroupKind::Posts,
-            2,
-            Stage::Foundation,
-            Some(TIMBER),
-            n + 1,
-            [pd, pd],
-            floor_post_h,
-            b,
-            raised_m2 / 2.0,
-        );
+    if l.raised {
+        out.push(GroupOf {
+            level: Level::Ground,
+            bay: None,
+            kind: GroupKind::Posts,
+            index: 2,
+            stage: Stage::Foundation,
+            material: timber,
+            count: n + 1,
+            section: [l.pd, l.pd],
+            length: l.floor_post_h,
+            spacing: l.b,
+            area_m2: raised_m2 / 2.0,
+        });
     }
     // Tie beams at the wall heads carry the edges of the lofts beside them; cross beams carry
     // their floor's edges, the share its joists do not.
-    group(
-        Level::Roof,
-        None,
-        GroupKind::TieBeams,
-        0,
-        Stage::Frame,
-        Some(TIMBER),
-        n + 1,
-        [beam, beam],
-        w,
-        b,
-        lofts.len() as f64 * bay_m2 * (1.0 - joist_share),
-    );
-    for &(level, _, middle) in &floors {
-        group(
+    out.push(GroupOf {
+        level: Level::Roof,
+        bay: None,
+        kind: GroupKind::TieBeams,
+        index: 0,
+        stage: Stage::Frame,
+        material: timber,
+        count: n + 1,
+        section: [l.beam, l.beam],
+        length: l.w,
+        spacing: l.b,
+        area_m2: l.lofts.len() as f64 * bay_m2 * (1.0 - joist_share),
+    });
+    for &(level, _, middle) in &l.floors {
+        out.push(GroupOf {
             level,
-            None,
-            GroupKind::TieBeams,
-            0,
-            Stage::Frame,
-            Some(TIMBER),
-            n + 1,
-            [beam, beam],
-            if middle { w / 2.0 } else { w },
-            b,
-            storey_m2 * (1.0 - joist_share),
-        );
+            bay: None,
+            kind: GroupKind::TieBeams,
+            index: 0,
+            stage: Stage::Frame,
+            material: timber,
+            count: n + 1,
+            section: [l.beam, l.beam],
+            length: if middle { l.w / 2.0 } else { l.w },
+            spacing: l.b,
+            area_m2: storey_m2 * (1.0 - joist_share),
+        });
     }
     for &(level, j, _) in &decks {
         let (kind, span) = match level {
-            Level::Loft => (GroupKind::LoftJoists, w),
-            Level::Upper => (GroupKind::FloorJoists, w),
-            _ => (GroupKind::RaisedFloor, w / 2.0),
+            Level::Loft => (GroupKind::LoftJoists, l.w),
+            Level::Upper => (GroupKind::FloorJoists, l.w),
+            // A raised floor, with its middle rail.
+            Level::Ground | Level::Roof => (GroupKind::RaisedFloor, l.w / 2.0),
         };
-        group(
+        out.push(GroupOf {
             level,
-            Some(j),
+            bay: Some(j),
             kind,
-            0,
-            Stage::Frame,
-            Some(TIMBER),
-            joists_per_bay,
-            [jst, jst],
-            span,
-            joist_spacing,
-            bay_m2 * joist_share,
-        );
+            index: 0,
+            stage: Stage::Frame,
+            material: timber,
+            count: l.joists_per_bay,
+            section: [l.jst, l.jst],
+            length: span,
+            spacing: l.joist_spacing,
+            area_m2: bay_m2 * joist_share,
+        });
     }
     for j in 0..n {
-        let ends = if j == 0 { o } else { 0.0 } + if j + 1 == n { o } else { 0.0 };
+        let ends = if j == 0 { l.o } else { 0.0 } + if j + 1 == n { l.o } else { 0.0 };
         let last = if j + 1 == n { 2 } else { 0 };
-        group(
-            Level::Roof,
-            Some(j),
-            GroupKind::RoofFrame,
-            0,
-            Stage::Frame,
-            Some(TIMBER),
-            2 * rafters_per_bay + last,
-            [raf, raf],
-            slope,
-            b / rafters_per_bay as f64,
-            (b + ends) * (w + 2.0 * o) * m2 / pitch.cos(),
-        );
+        out.push(GroupOf {
+            level: Level::Roof,
+            bay: Some(j),
+            kind: GroupKind::RoofFrame,
+            index: 0,
+            stage: Stage::Frame,
+            material: timber,
+            count: 2 * l.rafters_per_bay + last,
+            section: [l.raf, l.raf],
+            length: l.slope,
+            spacing: l.b / l.rafters_per_bay as f64,
+            area_m2: (l.b + ends) * (l.w + 2.0 * l.o) * M2 / l.pitch.cos(),
+        });
     }
-    for (sl, _) in slopes {
-        group(
-            Level::Roof,
-            None,
-            GroupKind::Covering,
-            sl as u8,
-            Stage::Roof,
-            Some(COVERING),
-            1,
-            [f64::from(rules.thatch_thickness_cm); 2],
-            slope,
-            0.0,
-            roof_m2 / 2.0,
-        );
+    for (sl, _) in SLOPES {
+        out.push(GroupOf {
+            level: Level::Roof,
+            bay: None,
+            kind: GroupKind::Covering,
+            index: sl as u8,
+            stage: Stage::Roof,
+            material: Some(COVERING),
+            count: 1,
+            section: [f64::from(l.rules.thatch_thickness_cm); 2],
+            length: l.slope,
+            spacing: 0.0,
+            area_m2: roof_m2 / 2.0,
+        });
     }
-    let storeys_h = h * f64::from(storeys);
-    let door_m2 = door_w * h * m2;
-    for (side, _) in long_walls {
-        let door = if side == door_side { door_m2 } else { 0.0 };
-        group(
-            Level::Ground,
-            None,
-            GroupKind::Infill,
-            side as u8,
-            Stage::Walls,
-            Some(WATTLE),
-            n * storeys as usize + usize::from(side == door_side),
-            [wt, wt],
-            storeys_h,
-            b,
-            (b - pd) * storeys_h * m2 * n as f64 - door,
-        );
+    let storeys_h = l.h * f64::from(l.storeys);
+    let gable_h = l.z_a - l.z_p;
+    let door_m2 = l.door_w * l.h * M2;
+    for (side, _) in l.long_walls() {
+        let door = if side == l.door_side { door_m2 } else { 0.0 };
+        out.push(GroupOf {
+            level: Level::Ground,
+            bay: None,
+            kind: GroupKind::Infill,
+            index: side as u8,
+            stage: Stage::Walls,
+            material: Some(WATTLE),
+            count: n * l.storeys as usize + usize::from(side == l.door_side),
+            section: [l.wt, l.wt],
+            length: storeys_h,
+            spacing: l.b,
+            area_m2: (l.b - l.pd) * storeys_h * M2 * n as f64 - door,
+        });
     }
-    for (side, _) in end_walls {
-        let door = if side == door_side { door_m2 } else { 0.0 };
-        group(
-            Level::Ground,
-            None,
-            GroupKind::Infill,
-            side as u8,
-            Stage::Walls,
-            Some(WATTLE),
-            storeys as usize + 1 + usize::from(side == door_side),
-            [wt, wt],
-            storeys_h + gable_h,
-            0.0,
-            (w - pd) * (storeys_h + gable_h / 2.0) * m2 - door,
-        );
+    for (side, _) in l.end_walls() {
+        let door = if side == l.door_side { door_m2 } else { 0.0 };
+        out.push(GroupOf {
+            level: Level::Ground,
+            bay: None,
+            kind: GroupKind::Infill,
+            index: side as u8,
+            stage: Stage::Walls,
+            material: Some(WATTLE),
+            count: l.storeys as usize + 1 + usize::from(side == l.door_side),
+            section: [l.wt, l.wt],
+            length: storeys_h + gable_h,
+            spacing: 0.0,
+            area_m2: (l.w - l.pd) * (storeys_h + gable_h / 2.0) * M2 - door,
+        });
     }
-    if !raised {
-        group(
-            Level::Ground,
-            None,
-            GroupKind::Floor,
-            0,
-            Stage::Finish,
-            None,
-            1,
-            [0.0, 0.0],
-            0.0,
-            0.0,
-            storey_m2,
-        );
+    if !l.raised {
+        out.push(GroupOf {
+            level: Level::Ground,
+            bay: None,
+            kind: GroupKind::Floor,
+            index: 0,
+            stage: Stage::Finish,
+            material: None,
+            count: 1,
+            section: [0.0, 0.0],
+            length: 0.0,
+            spacing: 0.0,
+            area_m2: storey_m2,
+        });
     }
-    if groups.len() > MAX_GROUPS {
+    if out.len() > MAX_GROUPS {
         return refuse(format!(
             "{} component groups are more than {MAX_GROUPS}",
-            groups.len()
+            out.len()
         ));
     }
+    let mut groups: Vec<Group> = out.into_iter().map(GroupOf::group).collect();
     groups.sort_by_key(|g| (g.stage, g.id));
+    Ok(groups)
+}
 
+/// Expands a frame building (see the module's description).
+pub fn expand_frame(spec: &BuildingSpec, rules: &FrameRules) -> Result<Expansion, GrammarError> {
+    let l = Layout::new(spec, rules)?;
+    let groups = groups(&l)?;
+    let mut p = Parts {
+        layout: &l,
+        parts: Vec::new(),
+    };
+    foundation(&mut p);
+    frame(&mut p);
+    let wall_area_cm2 = walls(&mut p);
+    roof(&mut p);
+    let ladders = finish(&mut p);
+    let mut parts = p.parts;
+    parts.sort_by_key(|p| (p.stage, p.id));
+
+    // Outline, roof and door.
+    let corners = |du: f64, dv: f64| -> Vec<(i32, i32)> {
+        [(-du, -dv), (du, -dv), (du, dv), (-du, dv)]
+            .into_iter()
+            .map(|(u, v)| {
+                let (x, y) = l.at(u, v);
+                (cm(x), cm(y))
+            })
+            .collect()
+    };
+    let ridge = {
+        let (x0, y0) = l.at(-l.l / 2.0 - l.o, 0.0);
+        let (x1, y1) = l.at(l.l / 2.0 + l.o, 0.0);
+        [(cm(x0), cm(y0)), (cm(x1), cm(y1))]
+    };
+    let (door_u, door_v, facing) = l.door();
+    let (dx, dy) = l.at(door_u, door_v);
+    let f = facts(&l);
     Ok(Expansion {
         grammar: Grammar::Frame,
         version: FRAME_VERSION,
         parts,
-        outline,
-        roof_radius_cm: cm((l / 2.0 + o).hypot(w / 2.0 + o)),
-        apex_cm: cm(z_a),
+        outline: corners(l.l / 2.0 + l.wt / 2.0, l.w / 2.0 + l.wt / 2.0),
+        roof_radius_cm: cm((l.l / 2.0 + l.o).hypot(l.w / 2.0 + l.o)),
+        apex_cm: cm(l.z_a),
         door: (cm(dx), cm(dy), facing),
         door_width_cm: rules.door_cm,
-        stages,
-        floor_area_m2,
-        sleeping_places,
-        roof_outline,
+        stages: needs(&l, wall_area_cm2, ladders),
+        floor_area_m2: f.floor_area_m2,
+        sleeping_places: f.sleeping_places,
+        roof_outline: corners(l.l / 2.0 + l.o, l.w / 2.0 + l.o),
         ridge: Some(ridge),
-        spaces,
+        spaces: f.spaces,
         groups,
-        floor_by_use,
-        storage_kg,
-        work_places,
+        floor_by_use: f.floor_by_use,
+        storage_kg: f.storage_kg,
+        work_places: f.work_places,
     })
 }
 
@@ -1790,11 +1978,19 @@ mod tests {
             expand_frame(&s, &r),
             Err(GrammarError::OutOfRange(m)) if m.contains("groups")
         ));
-        // A granary raised too low for its posts, or too high for its ladder to stay dry.
+        // A granary raised too low for its posts, or too high for its ladder to stay dry; nor on
+        // the ground, when its program raises every floor.
         let g = granary();
         let mut low = raised_store();
         low.params[fp::FLOOR_RAISE_CM] = 30;
         assert!(expand_frame(&low, &g).is_err());
+        let mut flat = raised_store();
+        flat.params[fp::FLOOR_RAISE_CM] = 0;
+        flat.params[fp::JOIST_CM] = 0;
+        assert!(matches!(
+            expand_frame(&flat, &g),
+            Err(GrammarError::OutOfRange(m)) if m.contains("floor raise")
+        ));
         let mut high = raised_store();
         high.params[fp::FLOOR_RAISE_CM] = 120;
         high.params[fp::OVERHANG_CM] = 40;

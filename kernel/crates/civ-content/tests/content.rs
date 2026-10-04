@@ -730,6 +730,41 @@ fn buildings_check_their_numbers_and_materials() {
             report.diagnostics
         );
     }
+    // A granary built to a raise and an overhang that put its ladder beyond the roof's edge
+    // gives nothing to build, and no bay may be as short as a post is thick.
+    let real_granary = real("building/granary.toml");
+    for (edits, needle) in [
+        (
+            vec![
+                ("overhang_cm = 60\n", "overhang_cm = 40\n"),
+                ("floor_raise_cm = 80 ", "floor_raise_cm = 120 "),
+                ("overhang_cm = [60, 120]", "overhang_cm = [40, 120]"),
+            ],
+            "nothing can be built to its design",
+        ),
+        (
+            vec![("post_cm = [12, 30]", "post_cm = [12, 250]")],
+            "`frame.bay_cm` must start above",
+        ),
+    ] {
+        let mut body = real_granary.clone();
+        for (from, to) in edits {
+            assert!(body.contains(from), "{needle}: {from}");
+            body = body.replace(from, to);
+        }
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("building/granary.toml", &body),
+        ]);
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.code == "E3001" && d.message.contains(needle)),
+            "{needle}: {:?}",
+            report.diagnostics
+        );
+    }
     // A material is never eaten, cooked, kept back or shared, and a roof never speeds spoiling.
     let timber = real("good/timber.toml");
     for (path, body, needle) in [

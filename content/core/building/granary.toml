@@ -20,6 +20,7 @@ post_cm = 15
 wall_cm = 15
 overhang_cm = 60
 joist_cm = 15
+floor_raise_cm = 80              # 08-11 §2.1: raised and aired beneath (tuning)
 
 [materials]
 timber = "core:good/timber"
@@ -36,7 +37,7 @@ eave_cm = [150, 250]
 pitch_deg = [45.0, 55.0]
 joist_cm = [10, 25]              # a store's floor carries far more than a dwelling's (11-05 §2.4)
 post_cm = [12, 30]
-overhang_cm = [40, 120]
+overhang_cm = [60, 120]          # deep enough that the ladder to any floor raise stays dry
 floor_raise_cm = [50, 120]       # off the ground and aired beneath (tuning)
 wall_cm = [10, 20]
 lofts = false

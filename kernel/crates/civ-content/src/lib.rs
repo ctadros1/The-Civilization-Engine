@@ -711,8 +711,18 @@ fn resolve(
             }
         }
         let technique = gate(c, parsed, &technique_index, &d.rel, &d.file.technique);
-        if let (true, Ok(technique)) = (ok, technique) {
-            buildings.extend(d.file.def(&good_index, &goods, technique));
+        if let (true, Ok(technique)) = (ok, technique)
+            && let Some(def) = d.file.def(&good_index, &goods, technique)
+        {
+            if let Some(why) = civ_agents::build::unbuildable(&def, &goods) {
+                c.push(
+                    "E3001",
+                    &d.rel,
+                    None,
+                    format!("nothing can be built to its design: {why}"),
+                );
+            }
+            buildings.push(def);
         }
     }
     buildings.sort_by(|a, b| a.id.cmp(&b.id));

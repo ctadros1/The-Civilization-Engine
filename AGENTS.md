@@ -47,7 +47,7 @@ Before changing anything:
 | `kernel/crates/civ-agents` | People: needs, decisions, activities, trips, households, founding bands, births, deaths and couples (`demography.rs`, `population/life.rs`), history (ADR-0003); recipes, tools and skills as arithmetic on stores (`make.rs`, ADR-0006); the ledger that moves goods between households by channel (`ledger.rs`, `population/transfer.rs`), what goods are worth in hours of a household's work (`value.rs`), markets: posted terms, trades, acceptance, the inferred money (`market.rs`, `population/market.rs`), and household workshops with their books and wages (`firm.rs`, `population/firm.rs`). |
 | `kernel/crates/civ-content` | The content compiler: TOML packs, stable diagnostics, fingerprints. |
 | `kernel/crates/civ-schema` | FlatBuffers schemas and generated Rust (boundary and saves). |
-| `kernel/crates/civ-sim` | The composition root: a world's state, save/load, boundary payloads (`frames/`, where the kernel puts fields, buildings, markets, trades and workshops in words). `examples/workshop_world.rs` builds the world with a workshop at work that the web's browser test loads. |
+| `kernel/crates/civ-sim` | The composition root: a world's state, save/load, boundary payloads (`frames/`, where the kernel puts fields, buildings, markets, trades, workshops, property regimes and wealth measures in words). `examples/workshop_world.rs` builds the world with a workshop at work that the web's browser test loads. |
 | `kernel/crates/civ-host` | The command line and the localhost observer server. |
 | `kernel/crates/civ-ffi` | The kernel's C interface: the `tce_kernel` library Unreal loads, with its generated header `include/tce_kernel.h` (ADR-0005). |
 | `commons/` | `engine-commons`, staged in-repo: `commons-wire` (frame envelope), `commons-persist` (snapshot container), and `cpp/` (the envelope and timed paths in header-only C++ for C++ hosts, tested by `crates/commons-cpp`). Engine-agnostic. |
@@ -76,6 +76,7 @@ cargo run --release -p civ-host -- content validate [--json]
 cargo run --release -p civ-host -- smoke               # the smoke seeds; must pass
 cargo run --release -p civ-host -- smoke --years 10    # and ten years of each (nightly; ~15 min on 4 cores)
 cargo run --release -p civ-host -- run --seed 2 --years 5   # one world, reported each year (calibration)
+cargo run --release -p civ-host -- run --seed 2 --years 3 --regime core:regime/village   # the same under village fields
 cargo run --release -p civ-host -- new --seed 7 --size 1024
 cargo run --release -p civ-host -- save info|verify <file>
 

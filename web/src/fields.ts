@@ -1,6 +1,8 @@
-// How fields look on the map (M1 slice C): a colour for where each field is in its year, and
-// which field lies under a point. Pure functions, so they can be tested without a renderer.
+// How fields look on the map (M1 slice C): a colour for where each field is in its year, which
+// field lies under a point, and who holds it (M3a slice K). Pure functions, so they can be tested
+// without a renderer.
 
+import { formatPercent, formatSimMinute } from "./format.js";
 import type { FieldInfo } from "./net/messages.js";
 
 /** A field's look: fill colour and opacity. */
@@ -44,4 +46,23 @@ export function fieldAt(fields: readonly FieldInfo[], x: number, y: number): Fie
     if (x >= f.x && x < f.x + f.w && y >= f.y && y < f.y + f.h) return f;
   }
   return null;
+}
+
+/**
+ * Who holds a field and on what terms, in words (M3a slice K): "the settlement's, given out to
+ * work", "let for 25% of its grain until 1 Mar, year 3", "held by the household that works it".
+ * `living` holds the households someone lives in.
+ */
+export function tenureText(f: FieldInfo, living: ReadonlySet<number>): string {
+  const worked = living.has(f.household);
+  if (f.holderSettlement !== 0) {
+    return worked ? "the settlement's, given out to work" : "the settlement's, not given out";
+  }
+  if (!worked) return living.has(f.holder) ? "its tenant is gone" : "nobody holds it now";
+  if (f.leaseUntilMinute >= 0) {
+    return `let for ${formatPercent(f.leaseShare)} of its grain until ${formatSimMinute(f.leaseUntilMinute)}`;
+  }
+  return f.holder === f.household
+    ? "held by the household that works it"
+    : "worked for the household that holds it";
 }

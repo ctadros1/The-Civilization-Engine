@@ -6,6 +6,7 @@ import "./styles.css";
 
 import { formatDistance } from "./format.js";
 import { MapView, type PointerInfo } from "./map/view.js";
+import { tenureText } from "./fields.js";
 import { pathWords } from "./paths.js";
 import { HostClient, HostError } from "./net/client.js";
 import * as M from "./net/messages.js";
@@ -66,6 +67,7 @@ const client = new HostClient(socketUrl(), {
     void syncPaths();
     void syncMarkets();
     void syncFirms();
+    void syncWealth();
     void refreshPerson(false);
   },
   events: (items) => store.update({ events: mergeEvents(store.state.events, items) }),
@@ -358,6 +360,63 @@ async function syncFirms(): Promise<void> {
   if (ok) void syncFirms();
 }
 
+/** `world:revision` of the wealth measures shown, the world they belong to, and when they were asked for. */
+let wealthKey = "";
+let wealthWorld = "";
+let wealthBusy = false;
+let wealthAskedAt = -Infinity;
+/** An ask held back by the rate limit, so the last change is always fetched. */
+let wealthTimer = 0;
+/** Least real time between fetches of the wealth measures, milliseconds. */
+const WEALTH_REFRESH_MS = 2000;
+
+/**
+ * Fetches the wealth measures at the start of each month, when households form or end, and when
+ * a year's measures are recorded.
+ */
+async function syncWealth(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const worldKey = world ? `${store.state.epoch}:${world.worldId}` : "";
+  if (worldKey !== wealthWorld) {
+    // Another world's measures are not shown while this one's are read.
+    wealthWorld = worldKey;
+    wealthKey = "";
+    wealthAskedAt = -Infinity;
+    store.update({ wealth: null, wealthError: null });
+  }
+  if (!world) return;
+  const key = `${worldKey}:${s.wealthRev}`;
+  if (key === wealthKey || wealthBusy) return;
+  const now = performance.now();
+  const waited = now - wealthAskedAt;
+  if (waited < WEALTH_REFRESH_MS) {
+    if (!wealthTimer) {
+      wealthTimer = window.setTimeout(() => {
+        wealthTimer = 0;
+        void syncWealth();
+      }, WEALTH_REFRESH_MS - waited);
+    }
+    return;
+  }
+  wealthBusy = true;
+  wealthAskedAt = now;
+  let ok = false;
+  try {
+    const wealth = await client.wealth();
+    if (wealthWorld === worldKey) {
+      wealthKey = key;
+      store.update({ wealth, wealthError: null });
+      ok = true;
+    }
+  } catch (e) {
+    if (wealthWorld === worldKey) store.update({ wealthError: errorText(e) });
+  } finally {
+    wealthBusy = false;
+  }
+  if (ok) void syncWealth();
+}
+
 /** Opens workshop `id`'s page in the workshops panel, or goes back to the list. */
 function openFirm(id: number | null): void {
   store.update({ firm: id === null ? null : { id, info: null, error: null } });
@@ -433,6 +492,11 @@ async function command(payload: Uint8Array): Promise<void> {
 
 map.onStatus = (status) => store.update({ map: status });
 
+/** The households with someone living in them, from the latest snapshot. */
+function livingHouseholds(): Set<number> {
+  return new Set(store.state.snapshot?.people.map((p) => p.household) ?? []);
+}
+
 const readout = byId("readout");
 const IDLE_READOUT = "Point at the map for coordinates and elevation";
 readout.textContent = IDLE_READOUT;
@@ -444,7 +508,9 @@ map.onPointer = (info: PointerInfo | null) => {
     return;
   }
   const height = info.elevationM === null ? "" : ` · ${Math.round(info.elevationM)} m`;
-  const field = info.field ? ` · field: ${info.field.status}` : "";
+  const field = info.field
+    ? ` · field: ${info.field.status}; ${tenureText(info.field, livingHouseholds())}`
+    : "";
   const path = info.path && !info.building ? ` · ${pathWords(info.path)}` : "";
   const building = info.building
     ? ` · ${info.building.program.toLowerCase()}: ${info.building.status}`
@@ -550,6 +616,20 @@ const hooks = {
       buildingsRev: s.snapshot?.buildingsRev ?? 0,
       marketsRev: s.snapshot?.marketsRev ?? 0,
       firmsRev: s.snapshot?.firmsRev ?? 0,
+      wealthRev: s.snapshot?.wealthRev ?? 0,
+      wealth: s.wealth
+        ? {
+            regime: s.wealth.regimeName,
+            settlements: s.wealth.settlements.map((x) => ({
+              name: x.name,
+              people: x.now?.people ?? 0,
+              households: x.households.length,
+              history: x.history.map((y) => y.year),
+              holdingNone: x.now?.holdingNone ?? null,
+              commonHa: x.now?.commonHa ?? null,
+            })),
+          }
+        : null,
       firms:
         s.firms?.map((f) => ({
           id: f.id,

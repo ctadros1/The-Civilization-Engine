@@ -41,6 +41,9 @@ struct CropInfoBuilder;
 struct ReasonInfo;
 struct ReasonInfoBuilder;
 
+struct RegimeInfo;
+struct RegimeInfoBuilder;
+
 struct Welcome;
 struct WelcomeBuilder;
 
@@ -133,6 +136,9 @@ struct GetFirmsBuilder;
 
 struct GetFirm;
 struct GetFirmBuilder;
+
+struct GetWealth;
+struct GetWealthBuilder;
 
 struct Query;
 struct QueryBuilder;
@@ -248,6 +254,18 @@ struct MonthStatementBuilder;
 
 struct FirmInfo;
 struct FirmInfoBuilder;
+
+struct WealthSpread;
+struct WealthSpreadBuilder;
+
+struct HouseholdWealth;
+struct HouseholdWealthBuilder;
+
+struct SettlementWealth;
+struct SettlementWealthBuilder;
+
+struct Wealth;
+struct WealthBuilder;
 
 struct Response;
 struct ResponseBuilder;
@@ -589,11 +607,12 @@ enum class QueryBody : uint8_t {
   GetMarkets = 10,
   GetFirms = 11,
   GetFirm = 12,
+  GetWealth = 13,
   MIN = NONE,
-  MAX = GetFirm
+  MAX = GetWealth
 };
 
-inline const QueryBody (&EnumValuesQueryBody())[13] {
+inline const QueryBody (&EnumValuesQueryBody())[14] {
   static const QueryBody values[] = {
     QueryBody::NONE,
     QueryBody::GetRaster,
@@ -607,13 +626,14 @@ inline const QueryBody (&EnumValuesQueryBody())[13] {
     QueryBody::GetPaths,
     QueryBody::GetMarkets,
     QueryBody::GetFirms,
-    QueryBody::GetFirm
+    QueryBody::GetFirm,
+    QueryBody::GetWealth
   };
   return values;
 }
 
 inline const char * const *EnumNamesQueryBody() {
-  static const char * const names[14] = {
+  static const char * const names[15] = {
     "NONE",
     "GetRaster",
     "GetHydrography",
@@ -627,13 +647,14 @@ inline const char * const *EnumNamesQueryBody() {
     "GetMarkets",
     "GetFirms",
     "GetFirm",
+    "GetWealth",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameQueryBody(QueryBody e) {
-  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetFirm)) return "";
+  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetWealth)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesQueryBody()[index];
 }
@@ -688,6 +709,10 @@ template<> struct QueryBodyTraits<tce::wire::GetFirms> {
 
 template<> struct QueryBodyTraits<tce::wire::GetFirm> {
   static const QueryBody enum_value = QueryBody::GetFirm;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetWealth> {
+  static const QueryBody enum_value = QueryBody::GetWealth;
 };
 
 template <bool B = false>
@@ -797,11 +822,12 @@ enum class ResponseBody : uint8_t {
   Markets = 11,
   Firms = 12,
   FirmInfo = 13,
+  Wealth = 14,
   MIN = NONE,
-  MAX = FirmInfo
+  MAX = Wealth
 };
 
-inline const ResponseBody (&EnumValuesResponseBody())[14] {
+inline const ResponseBody (&EnumValuesResponseBody())[15] {
   static const ResponseBody values[] = {
     ResponseBody::NONE,
     ResponseBody::Ack,
@@ -816,13 +842,14 @@ inline const ResponseBody (&EnumValuesResponseBody())[14] {
     ResponseBody::Paths,
     ResponseBody::Markets,
     ResponseBody::Firms,
-    ResponseBody::FirmInfo
+    ResponseBody::FirmInfo,
+    ResponseBody::Wealth
   };
   return values;
 }
 
 inline const char * const *EnumNamesResponseBody() {
-  static const char * const names[15] = {
+  static const char * const names[16] = {
     "NONE",
     "Ack",
     "RasterTile",
@@ -837,13 +864,14 @@ inline const char * const *EnumNamesResponseBody() {
     "Markets",
     "Firms",
     "FirmInfo",
+    "Wealth",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameResponseBody(ResponseBody e) {
-  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::FirmInfo)) return "";
+  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Wealth)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesResponseBody()[index];
 }
@@ -902,6 +930,10 @@ template<> struct ResponseBodyTraits<tce::wire::Firms> {
 
 template<> struct ResponseBodyTraits<tce::wire::FirmInfo> {
   static const ResponseBody enum_value = ResponseBody::FirmInfo;
+};
+
+template<> struct ResponseBodyTraits<tce::wire::Wealth> {
+  static const ResponseBody enum_value = ResponseBody::Wealth;
 };
 
 template <bool B = false>
@@ -1758,6 +1790,119 @@ inline ::flatbuffers::Offset<ReasonInfo> CreateReasonInfoDirect(
       label__);
 }
 
+struct RegimeInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef RegimeInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_NAME = 6,
+    VT_DESCRIPTION = 8,
+    VT_IS_DEFAULT = 10,
+    VT_RULES = 12
+  };
+  const ::flatbuffers::String *id() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_ID);
+  }
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  const ::flatbuffers::String *description() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_DESCRIPTION);
+  }
+  bool is_default() const {
+    return GetField<uint8_t>(VT_IS_DEFAULT, 0) != 0;
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *rules() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_RULES);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ID) &&
+           verifier.VerifyString(id()) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyOffset(verifier, VT_DESCRIPTION) &&
+           verifier.VerifyString(description()) &&
+           VerifyField<uint8_t>(verifier, VT_IS_DEFAULT, 1) &&
+           VerifyOffset(verifier, VT_RULES) &&
+           verifier.VerifyVector(rules()) &&
+           verifier.VerifyVectorOfStrings(rules()) &&
+           verifier.EndTable();
+  }
+};
+
+struct RegimeInfoBuilder {
+  typedef RegimeInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(::flatbuffers::Offset<::flatbuffers::String> id) {
+    fbb_.AddOffset(RegimeInfo::VT_ID, id);
+  }
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(RegimeInfo::VT_NAME, name);
+  }
+  void add_description(::flatbuffers::Offset<::flatbuffers::String> description) {
+    fbb_.AddOffset(RegimeInfo::VT_DESCRIPTION, description);
+  }
+  void add_is_default(bool is_default) {
+    fbb_.AddElement<uint8_t>(RegimeInfo::VT_IS_DEFAULT, static_cast<uint8_t>(is_default), 0);
+  }
+  void add_rules(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> rules) {
+    fbb_.AddOffset(RegimeInfo::VT_RULES, rules);
+  }
+  explicit RegimeInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<RegimeInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<RegimeInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<RegimeInfo> CreateRegimeInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::String> id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> description = 0,
+    bool is_default = false,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> rules = 0) {
+  RegimeInfoBuilder builder_(_fbb);
+  builder_.add_rules(rules);
+  builder_.add_description(description);
+  builder_.add_name(name);
+  builder_.add_id(id);
+  builder_.add_is_default(is_default);
+  return builder_.Finish();
+}
+
+struct RegimeInfo::Traits {
+  using type = RegimeInfo;
+  static auto constexpr Create = CreateRegimeInfo;
+};
+
+inline ::flatbuffers::Offset<RegimeInfo> CreateRegimeInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const char *id = nullptr,
+    const char *name = nullptr,
+    const char *description = nullptr,
+    bool is_default = false,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *rules = nullptr) {
+  auto id__ = id ? _fbb.CreateString(id) : 0;
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto description__ = description ? _fbb.CreateString(description) : 0;
+  auto rules__ = rules ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*rules) : 0;
+  return tce::wire::CreateRegimeInfo(
+      _fbb,
+      id__,
+      name__,
+      description__,
+      is_default,
+      rules__);
+}
+
 struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef WelcomeBuilder Builder;
   struct Traits;
@@ -1778,7 +1923,8 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_BAND_SIZE_DEFAULT = 30,
     VT_GOODS = 32,
     VT_CROPS = 34,
-    VT_SKILLS = 36
+    VT_SKILLS = 36,
+    VT_REGIMES = 38
   };
   const ::flatbuffers::String *host() const {
     return GetPointer<const ::flatbuffers::String *>(VT_HOST);
@@ -1831,6 +1977,9 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SkillInfo>> *skills() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SkillInfo>> *>(VT_SKILLS);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RegimeInfo>> *regimes() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RegimeInfo>> *>(VT_REGIMES);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1868,6 +2017,9 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_SKILLS) &&
            verifier.VerifyVector(skills()) &&
            verifier.VerifyVectorOfTables(skills()) &&
+           VerifyOffset(verifier, VT_REGIMES) &&
+           verifier.VerifyVector(regimes()) &&
+           verifier.VerifyVectorOfTables(regimes()) &&
            verifier.EndTable();
   }
 };
@@ -1927,6 +2079,9 @@ struct WelcomeBuilder {
   void add_skills(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SkillInfo>>> skills) {
     fbb_.AddOffset(Welcome::VT_SKILLS, skills);
   }
+  void add_regimes(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RegimeInfo>>> regimes) {
+    fbb_.AddOffset(Welcome::VT_REGIMES, regimes);
+  }
   explicit WelcomeBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -1956,8 +2111,10 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcome(
     uint32_t band_size_default = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GoodInfo>>> goods = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CropInfo>>> crops = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SkillInfo>>> skills = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SkillInfo>>> skills = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RegimeInfo>>> regimes = 0) {
   WelcomeBuilder builder_(_fbb);
+  builder_.add_regimes(regimes);
   builder_.add_skills(skills);
   builder_.add_crops(crops);
   builder_.add_goods(goods);
@@ -2001,7 +2158,8 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
     uint32_t band_size_default = 0,
     const std::vector<::flatbuffers::Offset<tce::wire::GoodInfo>> *goods = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::CropInfo>> *crops = nullptr,
-    const std::vector<::flatbuffers::Offset<tce::wire::SkillInfo>> *skills = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::SkillInfo>> *skills = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::RegimeInfo>> *regimes = nullptr) {
   auto host__ = host ? _fbb.CreateString(host) : 0;
   auto version__ = version ? _fbb.CreateString(version) : 0;
   auto presets__ = presets ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PresetInfo>>(*presets) : 0;
@@ -2013,6 +2171,7 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
   auto goods__ = goods ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::GoodInfo>>(*goods) : 0;
   auto crops__ = crops ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::CropInfo>>(*crops) : 0;
   auto skills__ = skills ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SkillInfo>>(*skills) : 0;
+  auto regimes__ = regimes ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::RegimeInfo>>(*regimes) : 0;
   return tce::wire::CreateWelcome(
       _fbb,
       host__,
@@ -2031,7 +2190,8 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
       band_size_default,
       goods__,
       crops__,
-      skills__);
+      skills__,
+      regimes__);
 }
 
 struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -2212,7 +2372,9 @@ struct WorldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_OCEAN_FRACTION = 38,
     VT_GENERATION = 40,
     VT_CONTENT_CHANGED = 42,
-    VT_CREATED_UNIX_MS = 44
+    VT_CREATED_UNIX_MS = 44,
+    VT_REGIME_ID = 46,
+    VT_REGIME_NAME = 48
   };
   const ::flatbuffers::String *world_id() const {
     return GetPointer<const ::flatbuffers::String *>(VT_WORLD_ID);
@@ -2277,6 +2439,12 @@ struct WorldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   int64_t created_unix_ms() const {
     return GetField<int64_t>(VT_CREATED_UNIX_MS, 0);
   }
+  const ::flatbuffers::String *regime_id() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_REGIME_ID);
+  }
+  const ::flatbuffers::String *regime_name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_REGIME_NAME);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -2304,6 +2472,10 @@ struct WorldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_GENERATION, 8) &&
            VerifyField<uint8_t>(verifier, VT_CONTENT_CHANGED, 1) &&
            VerifyField<int64_t>(verifier, VT_CREATED_UNIX_MS, 8) &&
+           VerifyOffset(verifier, VT_REGIME_ID) &&
+           verifier.VerifyString(regime_id()) &&
+           VerifyOffset(verifier, VT_REGIME_NAME) &&
+           verifier.VerifyString(regime_name()) &&
            verifier.EndTable();
   }
 };
@@ -2375,6 +2547,12 @@ struct WorldInfoBuilder {
   void add_created_unix_ms(int64_t created_unix_ms) {
     fbb_.AddElement<int64_t>(WorldInfo::VT_CREATED_UNIX_MS, created_unix_ms, 0);
   }
+  void add_regime_id(::flatbuffers::Offset<::flatbuffers::String> regime_id) {
+    fbb_.AddOffset(WorldInfo::VT_REGIME_ID, regime_id);
+  }
+  void add_regime_name(::flatbuffers::Offset<::flatbuffers::String> regime_name) {
+    fbb_.AddOffset(WorldInfo::VT_REGIME_NAME, regime_name);
+  }
   explicit WorldInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -2408,11 +2586,15 @@ inline ::flatbuffers::Offset<WorldInfo> CreateWorldInfo(
     float ocean_fraction = 0.0f,
     uint64_t generation = 0,
     bool content_changed = false,
-    int64_t created_unix_ms = 0) {
+    int64_t created_unix_ms = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> regime_id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> regime_name = 0) {
   WorldInfoBuilder builder_(_fbb);
   builder_.add_created_unix_ms(created_unix_ms);
   builder_.add_generation(generation);
   builder_.add_seed(seed);
+  builder_.add_regime_name(regime_name);
+  builder_.add_regime_id(regime_id);
   builder_.add_ocean_fraction(ocean_fraction);
   builder_.add_land_fraction(land_fraction);
   builder_.add_gentle_land_fraction(gentle_land_fraction);
@@ -2461,10 +2643,14 @@ inline ::flatbuffers::Offset<WorldInfo> CreateWorldInfoDirect(
     float ocean_fraction = 0.0f,
     uint64_t generation = 0,
     bool content_changed = false,
-    int64_t created_unix_ms = 0) {
+    int64_t created_unix_ms = 0,
+    const char *regime_id = nullptr,
+    const char *regime_name = nullptr) {
   auto world_id__ = world_id ? _fbb.CreateString(world_id) : 0;
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto preset_id__ = preset_id ? _fbb.CreateString(preset_id) : 0;
+  auto regime_id__ = regime_id ? _fbb.CreateString(regime_id) : 0;
+  auto regime_name__ = regime_name ? _fbb.CreateString(regime_name) : 0;
   return tce::wire::CreateWorldInfo(
       _fbb,
       world_id__,
@@ -2487,7 +2673,9 @@ inline ::flatbuffers::Offset<WorldInfo> CreateWorldInfoDirect(
       ocean_fraction,
       generation,
       content_changed,
-      created_unix_ms);
+      created_unix_ms,
+      regime_id__,
+      regime_name__);
 }
 
 struct Task FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -2985,7 +3173,8 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_BUILDINGS_REV = 24,
     VT_PATHS_REV = 26,
     VT_MARKETS_REV = 28,
-    VT_FIRMS_REV = 30
+    VT_FIRMS_REV = 30,
+    VT_WEALTH_REV = 32
   };
   const tce::wire::WorldInfo *world() const {
     return GetPointer<const tce::wire::WorldInfo *>(VT_WORLD);
@@ -3029,6 +3218,9 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint64_t firms_rev() const {
     return GetField<uint64_t>(VT_FIRMS_REV, 0);
   }
+  uint64_t wealth_rev() const {
+    return GetField<uint64_t>(VT_WEALTH_REV, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -3055,6 +3247,7 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_PATHS_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_MARKETS_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_FIRMS_REV, 8) &&
+           VerifyField<uint64_t>(verifier, VT_WEALTH_REV, 8) &&
            verifier.EndTable();
   }
 };
@@ -3105,6 +3298,9 @@ struct SnapshotBuilder {
   void add_firms_rev(uint64_t firms_rev) {
     fbb_.AddElement<uint64_t>(Snapshot::VT_FIRMS_REV, firms_rev, 0);
   }
+  void add_wealth_rev(uint64_t wealth_rev) {
+    fbb_.AddElement<uint64_t>(Snapshot::VT_WEALTH_REV, wealth_rev, 0);
+  }
   explicit SnapshotBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -3131,8 +3327,10 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshot(
     uint64_t buildings_rev = 0,
     uint64_t paths_rev = 0,
     uint64_t markets_rev = 0,
-    uint64_t firms_rev = 0) {
+    uint64_t firms_rev = 0,
+    uint64_t wealth_rev = 0) {
   SnapshotBuilder builder_(_fbb);
+  builder_.add_wealth_rev(wealth_rev);
   builder_.add_firms_rev(firms_rev);
   builder_.add_markets_rev(markets_rev);
   builder_.add_paths_rev(paths_rev);
@@ -3170,7 +3368,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
     uint64_t buildings_rev = 0,
     uint64_t paths_rev = 0,
     uint64_t markets_rev = 0,
-    uint64_t firms_rev = 0) {
+    uint64_t firms_rev = 0,
+    uint64_t wealth_rev = 0) {
   auto last_error__ = last_error ? _fbb.CreateString(last_error) : 0;
   auto people__ = people ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PersonBrief>>(*people) : 0;
   auto settlements__ = settlements ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SettlementBrief>>(*settlements) : 0;
@@ -3189,7 +3388,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
       buildings_rev,
       paths_rev,
       markets_rev,
-      firms_rev);
+      firms_rev,
+      wealth_rev);
 }
 
 struct Event FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -3365,7 +3565,8 @@ struct NewWorld FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_PRESET_ID = 6,
     VT_SIZE_CELLS = 8,
     VT_NAME = 10,
-    VT_BAND_SIZE = 12
+    VT_BAND_SIZE = 12,
+    VT_REGIME_ID = 14
   };
   uint64_t seed() const {
     return GetField<uint64_t>(VT_SEED, 0);
@@ -3382,6 +3583,9 @@ struct NewWorld FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint32_t band_size() const {
     return GetField<uint32_t>(VT_BAND_SIZE, 0);
   }
+  const ::flatbuffers::String *regime_id() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_REGIME_ID);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -3392,6 +3596,8 @@ struct NewWorld FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_NAME) &&
            verifier.VerifyString(name()) &&
            VerifyField<uint32_t>(verifier, VT_BAND_SIZE, 4) &&
+           VerifyOffset(verifier, VT_REGIME_ID) &&
+           verifier.VerifyString(regime_id()) &&
            verifier.EndTable();
   }
 };
@@ -3415,6 +3621,9 @@ struct NewWorldBuilder {
   void add_band_size(uint32_t band_size) {
     fbb_.AddElement<uint32_t>(NewWorld::VT_BAND_SIZE, band_size, 0);
   }
+  void add_regime_id(::flatbuffers::Offset<::flatbuffers::String> regime_id) {
+    fbb_.AddOffset(NewWorld::VT_REGIME_ID, regime_id);
+  }
   explicit NewWorldBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -3432,9 +3641,11 @@ inline ::flatbuffers::Offset<NewWorld> CreateNewWorld(
     ::flatbuffers::Offset<::flatbuffers::String> preset_id = 0,
     uint32_t size_cells = 0,
     ::flatbuffers::Offset<::flatbuffers::String> name = 0,
-    uint32_t band_size = 0) {
+    uint32_t band_size = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> regime_id = 0) {
   NewWorldBuilder builder_(_fbb);
   builder_.add_seed(seed);
+  builder_.add_regime_id(regime_id);
   builder_.add_band_size(band_size);
   builder_.add_name(name);
   builder_.add_size_cells(size_cells);
@@ -3453,16 +3664,19 @@ inline ::flatbuffers::Offset<NewWorld> CreateNewWorldDirect(
     const char *preset_id = nullptr,
     uint32_t size_cells = 0,
     const char *name = nullptr,
-    uint32_t band_size = 0) {
+    uint32_t band_size = 0,
+    const char *regime_id = nullptr) {
   auto preset_id__ = preset_id ? _fbb.CreateString(preset_id) : 0;
   auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto regime_id__ = regime_id ? _fbb.CreateString(regime_id) : 0;
   return tce::wire::CreateNewWorld(
       _fbb,
       seed,
       preset_id__,
       size_cells,
       name__,
-      band_size);
+      band_size,
+      regime_id__);
 }
 
 struct SaveWorld FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -4519,6 +4733,42 @@ struct GetFirm::Traits {
   static auto constexpr Create = CreateGetFirm;
 };
 
+struct GetWealth FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetWealthBuilder Builder;
+  struct Traits;
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetWealthBuilder {
+  typedef GetWealth Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  explicit GetWealthBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetWealth> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetWealth>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetWealth> CreateGetWealth(
+    ::flatbuffers::FlatBufferBuilder &_fbb) {
+  GetWealthBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct GetWealth::Traits {
+  using type = GetWealth;
+  static auto constexpr Create = CreateGetWealth;
+};
+
 struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef QueryBuilder Builder;
   struct Traits;
@@ -4568,6 +4818,9 @@ struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::GetFirm *body_as_GetFirm() const {
     return body_type() == tce::wire::QueryBody::GetFirm ? static_cast<const tce::wire::GetFirm *>(body()) : nullptr;
+  }
+  const tce::wire::GetWealth *body_as_GetWealth() const {
+    return body_type() == tce::wire::QueryBody::GetWealth ? static_cast<const tce::wire::GetWealth *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -4625,6 +4878,10 @@ template<> inline const tce::wire::GetFirms *Query::body_as<tce::wire::GetFirms>
 
 template<> inline const tce::wire::GetFirm *Query::body_as<tce::wire::GetFirm>() const {
   return body_as_GetFirm();
+}
+
+template<> inline const tce::wire::GetWealth *Query::body_as<tce::wire::GetWealth>() const {
+  return body_as_GetWealth();
 }
 
 struct QueryBuilder {
@@ -6750,7 +7007,11 @@ struct FieldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_SHEAVES_KG = 28,
     VT_HARVESTS = 30,
     VT_STATUS = 32,
-    VT_RIPE = 34
+    VT_RIPE = 34,
+    VT_HOLDER = 36,
+    VT_HOLDER_SETTLEMENT = 38,
+    VT_LEASE_UNTIL_MINUTE = 40,
+    VT_LEASE_SHARE = 42
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -6800,6 +7061,18 @@ struct FieldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   bool ripe() const {
     return GetField<uint8_t>(VT_RIPE, 0) != 0;
   }
+  uint64_t holder() const {
+    return GetField<uint64_t>(VT_HOLDER, 0);
+  }
+  uint64_t holder_settlement() const {
+    return GetField<uint64_t>(VT_HOLDER_SETTLEMENT, 0);
+  }
+  int64_t lease_until_minute() const {
+    return GetField<int64_t>(VT_LEASE_UNTIL_MINUTE, -1LL);
+  }
+  float lease_share() const {
+    return GetField<float>(VT_LEASE_SHARE, 0.0f);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -6820,6 +7093,10 @@ struct FieldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_STATUS) &&
            verifier.VerifyString(status()) &&
            VerifyField<uint8_t>(verifier, VT_RIPE, 1) &&
+           VerifyField<uint64_t>(verifier, VT_HOLDER, 8) &&
+           VerifyField<uint64_t>(verifier, VT_HOLDER_SETTLEMENT, 8) &&
+           VerifyField<int64_t>(verifier, VT_LEASE_UNTIL_MINUTE, 8) &&
+           VerifyField<float>(verifier, VT_LEASE_SHARE, 4) &&
            verifier.EndTable();
   }
 };
@@ -6876,6 +7153,18 @@ struct FieldInfoBuilder {
   void add_ripe(bool ripe) {
     fbb_.AddElement<uint8_t>(FieldInfo::VT_RIPE, static_cast<uint8_t>(ripe), 0);
   }
+  void add_holder(uint64_t holder) {
+    fbb_.AddElement<uint64_t>(FieldInfo::VT_HOLDER, holder, 0);
+  }
+  void add_holder_settlement(uint64_t holder_settlement) {
+    fbb_.AddElement<uint64_t>(FieldInfo::VT_HOLDER_SETTLEMENT, holder_settlement, 0);
+  }
+  void add_lease_until_minute(int64_t lease_until_minute) {
+    fbb_.AddElement<int64_t>(FieldInfo::VT_LEASE_UNTIL_MINUTE, lease_until_minute, -1LL);
+  }
+  void add_lease_share(float lease_share) {
+    fbb_.AddElement<float>(FieldInfo::VT_LEASE_SHARE, lease_share, 0.0f);
+  }
   explicit FieldInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -6904,12 +7193,20 @@ inline ::flatbuffers::Offset<FieldInfo> CreateFieldInfo(
     float sheaves_kg = 0.0f,
     uint32_t harvests = 0,
     ::flatbuffers::Offset<::flatbuffers::String> status = 0,
-    bool ripe = false) {
+    bool ripe = false,
+    uint64_t holder = 0,
+    uint64_t holder_settlement = 0,
+    int64_t lease_until_minute = -1LL,
+    float lease_share = 0.0f) {
   FieldInfoBuilder builder_(_fbb);
+  builder_.add_lease_until_minute(lease_until_minute);
+  builder_.add_holder_settlement(holder_settlement);
+  builder_.add_holder(holder);
   builder_.add_stage_since_minute(stage_since_minute);
   builder_.add_settlement(settlement);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_lease_share(lease_share);
   builder_.add_status(status);
   builder_.add_harvests(harvests);
   builder_.add_sheaves_kg(sheaves_kg);
@@ -6947,7 +7244,11 @@ inline ::flatbuffers::Offset<FieldInfo> CreateFieldInfoDirect(
     float sheaves_kg = 0.0f,
     uint32_t harvests = 0,
     const char *status = nullptr,
-    bool ripe = false) {
+    bool ripe = false,
+    uint64_t holder = 0,
+    uint64_t holder_settlement = 0,
+    int64_t lease_until_minute = -1LL,
+    float lease_share = 0.0f) {
   auto status__ = status ? _fbb.CreateString(status) : 0;
   return tce::wire::CreateFieldInfo(
       _fbb,
@@ -6966,7 +7267,11 @@ inline ::flatbuffers::Offset<FieldInfo> CreateFieldInfoDirect(
       sheaves_kg,
       harvests,
       status__,
-      ripe);
+      ripe,
+      holder,
+      holder_settlement,
+      lease_until_minute,
+      lease_share);
 }
 
 struct Fields FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -9217,6 +9522,536 @@ inline ::flatbuffers::Offset<FirmInfo> CreateFirmInfoDirect(
       months__);
 }
 
+struct WealthSpread FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef WealthSpreadBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_YEAR = 4,
+    VT_HOUSEHOLDS = 6,
+    VT_PEOPLE = 8,
+    VT_GINI_GOODS = 10,
+    VT_GINI_HELD = 12,
+    VT_GINI_WORKED = 14,
+    VT_GINI_FLOOR = 16,
+    VT_TOP_TENTH_GOODS = 18,
+    VT_HOLDING_NONE = 20,
+    VT_WORKING_NONE = 22,
+    VT_GOODS_H_PER_HEAD = 24,
+    VT_WORKED_HA_PER_HEAD = 26,
+    VT_FLOOR_M2_PER_HOUSE = 28,
+    VT_COMMON_HA = 30
+  };
+  int64_t year() const {
+    return GetField<int64_t>(VT_YEAR, 0);
+  }
+  uint32_t households() const {
+    return GetField<uint32_t>(VT_HOUSEHOLDS, 0);
+  }
+  uint32_t people() const {
+    return GetField<uint32_t>(VT_PEOPLE, 0);
+  }
+  float gini_goods() const {
+    return GetField<float>(VT_GINI_GOODS, 0.0f);
+  }
+  float gini_held() const {
+    return GetField<float>(VT_GINI_HELD, 0.0f);
+  }
+  float gini_worked() const {
+    return GetField<float>(VT_GINI_WORKED, 0.0f);
+  }
+  float gini_floor() const {
+    return GetField<float>(VT_GINI_FLOOR, 0.0f);
+  }
+  float top_tenth_goods() const {
+    return GetField<float>(VT_TOP_TENTH_GOODS, 0.0f);
+  }
+  float holding_none() const {
+    return GetField<float>(VT_HOLDING_NONE, 0.0f);
+  }
+  float working_none() const {
+    return GetField<float>(VT_WORKING_NONE, 0.0f);
+  }
+  float goods_h_per_head() const {
+    return GetField<float>(VT_GOODS_H_PER_HEAD, 0.0f);
+  }
+  float worked_ha_per_head() const {
+    return GetField<float>(VT_WORKED_HA_PER_HEAD, 0.0f);
+  }
+  float floor_m2_per_house() const {
+    return GetField<float>(VT_FLOOR_M2_PER_HOUSE, 0.0f);
+  }
+  float common_ha() const {
+    return GetField<float>(VT_COMMON_HA, 0.0f);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int64_t>(verifier, VT_YEAR, 8) &&
+           VerifyField<uint32_t>(verifier, VT_HOUSEHOLDS, 4) &&
+           VerifyField<uint32_t>(verifier, VT_PEOPLE, 4) &&
+           VerifyField<float>(verifier, VT_GINI_GOODS, 4) &&
+           VerifyField<float>(verifier, VT_GINI_HELD, 4) &&
+           VerifyField<float>(verifier, VT_GINI_WORKED, 4) &&
+           VerifyField<float>(verifier, VT_GINI_FLOOR, 4) &&
+           VerifyField<float>(verifier, VT_TOP_TENTH_GOODS, 4) &&
+           VerifyField<float>(verifier, VT_HOLDING_NONE, 4) &&
+           VerifyField<float>(verifier, VT_WORKING_NONE, 4) &&
+           VerifyField<float>(verifier, VT_GOODS_H_PER_HEAD, 4) &&
+           VerifyField<float>(verifier, VT_WORKED_HA_PER_HEAD, 4) &&
+           VerifyField<float>(verifier, VT_FLOOR_M2_PER_HOUSE, 4) &&
+           VerifyField<float>(verifier, VT_COMMON_HA, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct WealthSpreadBuilder {
+  typedef WealthSpread Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_year(int64_t year) {
+    fbb_.AddElement<int64_t>(WealthSpread::VT_YEAR, year, 0);
+  }
+  void add_households(uint32_t households) {
+    fbb_.AddElement<uint32_t>(WealthSpread::VT_HOUSEHOLDS, households, 0);
+  }
+  void add_people(uint32_t people) {
+    fbb_.AddElement<uint32_t>(WealthSpread::VT_PEOPLE, people, 0);
+  }
+  void add_gini_goods(float gini_goods) {
+    fbb_.AddElement<float>(WealthSpread::VT_GINI_GOODS, gini_goods, 0.0f);
+  }
+  void add_gini_held(float gini_held) {
+    fbb_.AddElement<float>(WealthSpread::VT_GINI_HELD, gini_held, 0.0f);
+  }
+  void add_gini_worked(float gini_worked) {
+    fbb_.AddElement<float>(WealthSpread::VT_GINI_WORKED, gini_worked, 0.0f);
+  }
+  void add_gini_floor(float gini_floor) {
+    fbb_.AddElement<float>(WealthSpread::VT_GINI_FLOOR, gini_floor, 0.0f);
+  }
+  void add_top_tenth_goods(float top_tenth_goods) {
+    fbb_.AddElement<float>(WealthSpread::VT_TOP_TENTH_GOODS, top_tenth_goods, 0.0f);
+  }
+  void add_holding_none(float holding_none) {
+    fbb_.AddElement<float>(WealthSpread::VT_HOLDING_NONE, holding_none, 0.0f);
+  }
+  void add_working_none(float working_none) {
+    fbb_.AddElement<float>(WealthSpread::VT_WORKING_NONE, working_none, 0.0f);
+  }
+  void add_goods_h_per_head(float goods_h_per_head) {
+    fbb_.AddElement<float>(WealthSpread::VT_GOODS_H_PER_HEAD, goods_h_per_head, 0.0f);
+  }
+  void add_worked_ha_per_head(float worked_ha_per_head) {
+    fbb_.AddElement<float>(WealthSpread::VT_WORKED_HA_PER_HEAD, worked_ha_per_head, 0.0f);
+  }
+  void add_floor_m2_per_house(float floor_m2_per_house) {
+    fbb_.AddElement<float>(WealthSpread::VT_FLOOR_M2_PER_HOUSE, floor_m2_per_house, 0.0f);
+  }
+  void add_common_ha(float common_ha) {
+    fbb_.AddElement<float>(WealthSpread::VT_COMMON_HA, common_ha, 0.0f);
+  }
+  explicit WealthSpreadBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<WealthSpread> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<WealthSpread>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<WealthSpread> CreateWealthSpread(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t year = 0,
+    uint32_t households = 0,
+    uint32_t people = 0,
+    float gini_goods = 0.0f,
+    float gini_held = 0.0f,
+    float gini_worked = 0.0f,
+    float gini_floor = 0.0f,
+    float top_tenth_goods = 0.0f,
+    float holding_none = 0.0f,
+    float working_none = 0.0f,
+    float goods_h_per_head = 0.0f,
+    float worked_ha_per_head = 0.0f,
+    float floor_m2_per_house = 0.0f,
+    float common_ha = 0.0f) {
+  WealthSpreadBuilder builder_(_fbb);
+  builder_.add_year(year);
+  builder_.add_common_ha(common_ha);
+  builder_.add_floor_m2_per_house(floor_m2_per_house);
+  builder_.add_worked_ha_per_head(worked_ha_per_head);
+  builder_.add_goods_h_per_head(goods_h_per_head);
+  builder_.add_working_none(working_none);
+  builder_.add_holding_none(holding_none);
+  builder_.add_top_tenth_goods(top_tenth_goods);
+  builder_.add_gini_floor(gini_floor);
+  builder_.add_gini_worked(gini_worked);
+  builder_.add_gini_held(gini_held);
+  builder_.add_gini_goods(gini_goods);
+  builder_.add_people(people);
+  builder_.add_households(households);
+  return builder_.Finish();
+}
+
+struct WealthSpread::Traits {
+  using type = WealthSpread;
+  static auto constexpr Create = CreateWealthSpread;
+};
+
+struct HouseholdWealth FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef HouseholdWealthBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_HOUSEHOLD = 4,
+    VT_NAME = 6,
+    VT_MEMBERS = 8,
+    VT_HELD_HA = 10,
+    VT_WORKED_HA = 12,
+    VT_LET_HA = 14,
+    VT_RENTED_HA = 16,
+    VT_GOODS_H = 18,
+    VT_FLOOR_M2 = 20
+  };
+  uint64_t household() const {
+    return GetField<uint64_t>(VT_HOUSEHOLD, 0);
+  }
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  uint32_t members() const {
+    return GetField<uint32_t>(VT_MEMBERS, 0);
+  }
+  float held_ha() const {
+    return GetField<float>(VT_HELD_HA, 0.0f);
+  }
+  float worked_ha() const {
+    return GetField<float>(VT_WORKED_HA, 0.0f);
+  }
+  float let_ha() const {
+    return GetField<float>(VT_LET_HA, 0.0f);
+  }
+  float rented_ha() const {
+    return GetField<float>(VT_RENTED_HA, 0.0f);
+  }
+  float goods_h() const {
+    return GetField<float>(VT_GOODS_H, 0.0f);
+  }
+  float floor_m2() const {
+    return GetField<float>(VT_FLOOR_M2, 0.0f);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_HOUSEHOLD, 8) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyField<uint32_t>(verifier, VT_MEMBERS, 4) &&
+           VerifyField<float>(verifier, VT_HELD_HA, 4) &&
+           VerifyField<float>(verifier, VT_WORKED_HA, 4) &&
+           VerifyField<float>(verifier, VT_LET_HA, 4) &&
+           VerifyField<float>(verifier, VT_RENTED_HA, 4) &&
+           VerifyField<float>(verifier, VT_GOODS_H, 4) &&
+           VerifyField<float>(verifier, VT_FLOOR_M2, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct HouseholdWealthBuilder {
+  typedef HouseholdWealth Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_household(uint64_t household) {
+    fbb_.AddElement<uint64_t>(HouseholdWealth::VT_HOUSEHOLD, household, 0);
+  }
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(HouseholdWealth::VT_NAME, name);
+  }
+  void add_members(uint32_t members) {
+    fbb_.AddElement<uint32_t>(HouseholdWealth::VT_MEMBERS, members, 0);
+  }
+  void add_held_ha(float held_ha) {
+    fbb_.AddElement<float>(HouseholdWealth::VT_HELD_HA, held_ha, 0.0f);
+  }
+  void add_worked_ha(float worked_ha) {
+    fbb_.AddElement<float>(HouseholdWealth::VT_WORKED_HA, worked_ha, 0.0f);
+  }
+  void add_let_ha(float let_ha) {
+    fbb_.AddElement<float>(HouseholdWealth::VT_LET_HA, let_ha, 0.0f);
+  }
+  void add_rented_ha(float rented_ha) {
+    fbb_.AddElement<float>(HouseholdWealth::VT_RENTED_HA, rented_ha, 0.0f);
+  }
+  void add_goods_h(float goods_h) {
+    fbb_.AddElement<float>(HouseholdWealth::VT_GOODS_H, goods_h, 0.0f);
+  }
+  void add_floor_m2(float floor_m2) {
+    fbb_.AddElement<float>(HouseholdWealth::VT_FLOOR_M2, floor_m2, 0.0f);
+  }
+  explicit HouseholdWealthBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<HouseholdWealth> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<HouseholdWealth>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<HouseholdWealth> CreateHouseholdWealth(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t household = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    uint32_t members = 0,
+    float held_ha = 0.0f,
+    float worked_ha = 0.0f,
+    float let_ha = 0.0f,
+    float rented_ha = 0.0f,
+    float goods_h = 0.0f,
+    float floor_m2 = 0.0f) {
+  HouseholdWealthBuilder builder_(_fbb);
+  builder_.add_household(household);
+  builder_.add_floor_m2(floor_m2);
+  builder_.add_goods_h(goods_h);
+  builder_.add_rented_ha(rented_ha);
+  builder_.add_let_ha(let_ha);
+  builder_.add_worked_ha(worked_ha);
+  builder_.add_held_ha(held_ha);
+  builder_.add_members(members);
+  builder_.add_name(name);
+  return builder_.Finish();
+}
+
+struct HouseholdWealth::Traits {
+  using type = HouseholdWealth;
+  static auto constexpr Create = CreateHouseholdWealth;
+};
+
+inline ::flatbuffers::Offset<HouseholdWealth> CreateHouseholdWealthDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t household = 0,
+    const char *name = nullptr,
+    uint32_t members = 0,
+    float held_ha = 0.0f,
+    float worked_ha = 0.0f,
+    float let_ha = 0.0f,
+    float rented_ha = 0.0f,
+    float goods_h = 0.0f,
+    float floor_m2 = 0.0f) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  return tce::wire::CreateHouseholdWealth(
+      _fbb,
+      household,
+      name__,
+      members,
+      held_ha,
+      worked_ha,
+      let_ha,
+      rented_ha,
+      goods_h,
+      floor_m2);
+}
+
+struct SettlementWealth FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef SettlementWealthBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SETTLEMENT = 4,
+    VT_NAME = 6,
+    VT_NOW = 8,
+    VT_HOUSEHOLDS = 10,
+    VT_HISTORY = 12
+  };
+  uint64_t settlement() const {
+    return GetField<uint64_t>(VT_SETTLEMENT, 0);
+  }
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  const tce::wire::WealthSpread *now() const {
+    return GetPointer<const tce::wire::WealthSpread *>(VT_NOW);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::HouseholdWealth>> *households() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::HouseholdWealth>> *>(VT_HOUSEHOLDS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WealthSpread>> *history() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WealthSpread>> *>(VT_HISTORY);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_SETTLEMENT, 8) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyOffset(verifier, VT_NOW) &&
+           verifier.VerifyTable(now()) &&
+           VerifyOffset(verifier, VT_HOUSEHOLDS) &&
+           verifier.VerifyVector(households()) &&
+           verifier.VerifyVectorOfTables(households()) &&
+           VerifyOffset(verifier, VT_HISTORY) &&
+           verifier.VerifyVector(history()) &&
+           verifier.VerifyVectorOfTables(history()) &&
+           verifier.EndTable();
+  }
+};
+
+struct SettlementWealthBuilder {
+  typedef SettlementWealth Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_settlement(uint64_t settlement) {
+    fbb_.AddElement<uint64_t>(SettlementWealth::VT_SETTLEMENT, settlement, 0);
+  }
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(SettlementWealth::VT_NAME, name);
+  }
+  void add_now(::flatbuffers::Offset<tce::wire::WealthSpread> now) {
+    fbb_.AddOffset(SettlementWealth::VT_NOW, now);
+  }
+  void add_households(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::HouseholdWealth>>> households) {
+    fbb_.AddOffset(SettlementWealth::VT_HOUSEHOLDS, households);
+  }
+  void add_history(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WealthSpread>>> history) {
+    fbb_.AddOffset(SettlementWealth::VT_HISTORY, history);
+  }
+  explicit SettlementWealthBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<SettlementWealth> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<SettlementWealth>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<SettlementWealth> CreateSettlementWealth(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t settlement = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    ::flatbuffers::Offset<tce::wire::WealthSpread> now = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::HouseholdWealth>>> households = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WealthSpread>>> history = 0) {
+  SettlementWealthBuilder builder_(_fbb);
+  builder_.add_settlement(settlement);
+  builder_.add_history(history);
+  builder_.add_households(households);
+  builder_.add_now(now);
+  builder_.add_name(name);
+  return builder_.Finish();
+}
+
+struct SettlementWealth::Traits {
+  using type = SettlementWealth;
+  static auto constexpr Create = CreateSettlementWealth;
+};
+
+inline ::flatbuffers::Offset<SettlementWealth> CreateSettlementWealthDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t settlement = 0,
+    const char *name = nullptr,
+    ::flatbuffers::Offset<tce::wire::WealthSpread> now = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::HouseholdWealth>> *households = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::WealthSpread>> *history = nullptr) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto households__ = households ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::HouseholdWealth>>(*households) : 0;
+  auto history__ = history ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::WealthSpread>>(*history) : 0;
+  return tce::wire::CreateSettlementWealth(
+      _fbb,
+      settlement,
+      name__,
+      now,
+      households__,
+      history__);
+}
+
+struct Wealth FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef WealthBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_REV = 4,
+    VT_REGIME_NAME = 6,
+    VT_SETTLEMENTS = 8
+  };
+  uint64_t rev() const {
+    return GetField<uint64_t>(VT_REV, 0);
+  }
+  const ::flatbuffers::String *regime_name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_REGIME_NAME);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SettlementWealth>> *settlements() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SettlementWealth>> *>(VT_SETTLEMENTS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_REV, 8) &&
+           VerifyOffset(verifier, VT_REGIME_NAME) &&
+           verifier.VerifyString(regime_name()) &&
+           VerifyOffset(verifier, VT_SETTLEMENTS) &&
+           verifier.VerifyVector(settlements()) &&
+           verifier.VerifyVectorOfTables(settlements()) &&
+           verifier.EndTable();
+  }
+};
+
+struct WealthBuilder {
+  typedef Wealth Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_rev(uint64_t rev) {
+    fbb_.AddElement<uint64_t>(Wealth::VT_REV, rev, 0);
+  }
+  void add_regime_name(::flatbuffers::Offset<::flatbuffers::String> regime_name) {
+    fbb_.AddOffset(Wealth::VT_REGIME_NAME, regime_name);
+  }
+  void add_settlements(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SettlementWealth>>> settlements) {
+    fbb_.AddOffset(Wealth::VT_SETTLEMENTS, settlements);
+  }
+  explicit WealthBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Wealth> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Wealth>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Wealth> CreateWealth(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> regime_name = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SettlementWealth>>> settlements = 0) {
+  WealthBuilder builder_(_fbb);
+  builder_.add_rev(rev);
+  builder_.add_settlements(settlements);
+  builder_.add_regime_name(regime_name);
+  return builder_.Finish();
+}
+
+struct Wealth::Traits {
+  using type = Wealth;
+  static auto constexpr Create = CreateWealth;
+};
+
+inline ::flatbuffers::Offset<Wealth> CreateWealthDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    const char *regime_name = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::SettlementWealth>> *settlements = nullptr) {
+  auto regime_name__ = regime_name ? _fbb.CreateString(regime_name) : 0;
+  auto settlements__ = settlements ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SettlementWealth>>(*settlements) : 0;
+  return tce::wire::CreateWealth(
+      _fbb,
+      rev,
+      regime_name__,
+      settlements__);
+}
+
 struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef ResponseBuilder Builder;
   struct Traits;
@@ -9269,6 +10104,9 @@ struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::FirmInfo *body_as_FirmInfo() const {
     return body_type() == tce::wire::ResponseBody::FirmInfo ? static_cast<const tce::wire::FirmInfo *>(body()) : nullptr;
+  }
+  const tce::wire::Wealth *body_as_Wealth() const {
+    return body_type() == tce::wire::ResponseBody::Wealth ? static_cast<const tce::wire::Wealth *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -9330,6 +10168,10 @@ template<> inline const tce::wire::Firms *Response::body_as<tce::wire::Firms>() 
 
 template<> inline const tce::wire::FirmInfo *Response::body_as<tce::wire::FirmInfo>() const {
   return body_as_FirmInfo();
+}
+
+template<> inline const tce::wire::Wealth *Response::body_as<tce::wire::Wealth>() const {
+  return body_as_Wealth();
 }
 
 struct ResponseBuilder {
@@ -9547,6 +10389,10 @@ inline bool VerifyQueryBody(::flatbuffers::VerifierTemplate<B> &verifier, const 
       auto ptr = reinterpret_cast<const tce::wire::GetFirm *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case QueryBody::GetWealth: {
+      auto ptr = reinterpret_cast<const tce::wire::GetWealth *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -9620,6 +10466,10 @@ inline bool VerifyResponseBody(::flatbuffers::VerifierTemplate<B> &verifier, con
     }
     case ResponseBody::FirmInfo: {
       auto ptr = reinterpret_cast<const tce::wire::FirmInfo *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::Wealth: {
+      auto ptr = reinterpret_cast<const tce::wire::Wealth *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

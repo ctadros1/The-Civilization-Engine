@@ -11,6 +11,7 @@ import type {
   MarketInfo,
   PersonInfo,
   Snapshot,
+  WealthInfo,
   Welcome,
 } from "./net/messages.js";
 
@@ -64,6 +65,10 @@ export interface AppState {
   firmsError: string | null;
   /** The workshop whose page is open. */
   firm: FirmPage | null;
+  /** The wealth measures of the world on show (null = not read yet). */
+  wealth: WealthInfo | null;
+  /** Why the wealth measures could not be read. */
+  wealthError: string | null;
 }
 
 export const MAX_EVENTS = 300;
@@ -87,6 +92,8 @@ export function initialState(): AppState {
     firms: null,
     firmsError: null,
     firm: null,
+    wealth: null,
+    wealthError: null,
   };
 }
 

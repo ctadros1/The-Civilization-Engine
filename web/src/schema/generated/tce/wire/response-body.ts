@@ -15,6 +15,7 @@ import { PersonInfo } from '../../tce/wire/person-info.js';
 import { RasterTile } from '../../tce/wire/raster-tile.js';
 import { SaveList } from '../../tce/wire/save-list.js';
 import { Trips } from '../../tce/wire/trips.js';
+import { Wealth } from '../../tce/wire/wealth.js';
 
 
 export enum ResponseBody {
@@ -31,13 +32,14 @@ export enum ResponseBody {
   Paths = 10,
   Markets = 11,
   Firms = 12,
-  FirmInfo = 13
+  FirmInfo = 13,
+  Wealth = 14
 }
 
 export function unionToResponseBody(
   type: ResponseBody,
-  accessor: (obj:Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips) => Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|null
-): Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|null {
+  accessor: (obj:Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth) => Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth|null
+): Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth|null {
   switch(ResponseBody[type]) {
     case 'NONE': return null; 
     case 'Ack': return accessor(new Ack())! as Ack;
@@ -53,15 +55,16 @@ export function unionToResponseBody(
     case 'Markets': return accessor(new Markets())! as Markets;
     case 'Firms': return accessor(new Firms())! as Firms;
     case 'FirmInfo': return accessor(new FirmInfo())! as FirmInfo;
+    case 'Wealth': return accessor(new Wealth())! as Wealth;
     default: return null;
   }
 }
 
 export function unionListToResponseBody(
   type: ResponseBody, 
-  accessor: (index: number, obj:Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips) => Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|null, 
+  accessor: (index: number, obj:Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth) => Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth|null, 
   index: number
-): Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|null {
+): Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth|null {
   switch(ResponseBody[type]) {
     case 'NONE': return null; 
     case 'Ack': return accessor(index, new Ack())! as Ack;
@@ -77,6 +80,7 @@ export function unionListToResponseBody(
     case 'Markets': return accessor(index, new Markets())! as Markets;
     case 'Firms': return accessor(index, new Firms())! as Firms;
     case 'FirmInfo': return accessor(index, new FirmInfo())! as FirmInfo;
+    case 'Wealth': return accessor(index, new Wealth())! as Wealth;
     default: return null;
   }
 }

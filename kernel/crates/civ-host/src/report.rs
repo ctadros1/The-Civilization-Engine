@@ -70,6 +70,7 @@ pub fn run(
     let start = sim.now().minutes();
     let mut flows_before = sim.people().flows();
     let mut moved_before = sim.people().transfers.clone();
+    let mut wealth_shown = 0;
     for year in 1..=options.years {
         let mut hours: BTreeMap<u16, f64> = BTreeMap::new();
         let mut adult_hours = 0.0;
@@ -101,8 +102,47 @@ pub fn run(
         report_market(&sim, &moved_before, &moved, out)?;
         report_firms(&sim, civ_core::SimTime::from_minutes(start), out)?;
         report_land(&sim, &moved_before, &moved, out)?;
+        report_wealth(&sim, &mut wealth_shown, out)?;
         moved_before = moved;
     }
+    Ok(())
+}
+
+/// The wealth measures recorded since the last report (slice K; ADR-0007 §4): each settlement's
+/// at the end of each calendar year.
+fn report_wealth(sim: &Sim, shown: &mut usize, out: &mut dyn Write) -> anyhow::Result<()> {
+    let years = &sim.people().wealth_years;
+    for y in years.iter().skip(*shown) {
+        let s = &y.spread;
+        let name = sim
+            .land()
+            .settlements
+            .iter()
+            .find(|x| x.id == s.settlement)
+            .map_or("a settlement", |x| x.name.as_str());
+        let count = |share: f64| (share * f64::from(s.households)).round();
+        writeln!(
+            out,
+            "  wealth at the end of year {} in {name}: Gini of goods {:.2}, land worked {:.2}, \
+             land held {:.2}, floor area {:.2}; the top tenth have {:.0}% of the goods; {} of {} \
+             households hold no land ({:.1} ha held in common) and {} work none; {:.0} h of goods \
+             and {:.2} ha worked a head, {:.0} m² a house",
+            y.year,
+            s.gini_goods,
+            s.gini_worked,
+            s.gini_held,
+            s.gini_floor,
+            s.top_tenth_goods * 100.0,
+            count(s.holding_none),
+            s.households,
+            s.common_ha,
+            count(s.working_none),
+            s.goods_h_per_head,
+            s.worked_ha_per_head,
+            s.floor_m2_per_house,
+        )?;
+    }
+    *shown = years.len();
     Ok(())
 }
 

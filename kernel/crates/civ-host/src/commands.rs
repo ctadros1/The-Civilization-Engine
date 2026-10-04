@@ -73,6 +73,8 @@ pub struct NewOptions {
     pub name: String,
     /// Days the founding band lives before the world is saved.
     pub days: u32,
+    /// Property regime id; the content's default when absent.
+    pub regime: Option<String>,
 }
 
 /// `civ-host new`: generates a world, lets it live `days` days, saves it and prints a summary.
@@ -94,7 +96,7 @@ pub fn new_world(
             preset_id,
             size_cells: options.size,
             band_size: 0,
-            regime_id: String::new(),
+            regime_id: options.regime.clone().unwrap_or_default(),
         },
         content,
         &mut |p| {

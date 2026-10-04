@@ -14,6 +14,7 @@
 //! - [`found`]: a founding band arriving and choosing its camp.
 //! - [`history`]: person records, unions, decision receipts and the chronicle.
 //! - [`demography`]: births, deaths and couples as pure rules, applied by the population daily.
+//! - [`wealth`]: what households have, measured several ways, and how it spreads (ADR-0007 §4).
 //!
 //! The engine authors the vocabulary, never the plot (plan §1): activities, needs and their
 //! weights are content; what people do, and where, follows from their circumstances.
@@ -35,6 +36,7 @@ pub mod params;
 pub mod person;
 pub mod population;
 pub mod value;
+pub mod wealth;
 
 pub use found::{Founded, Spawned, found_band, spawn_family};
 pub use history::{

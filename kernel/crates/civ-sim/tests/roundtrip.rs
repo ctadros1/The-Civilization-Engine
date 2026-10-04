@@ -157,9 +157,9 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 13 land, field, plot, building,
-    // wear, market, firm and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 13);
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 14 land, field, plot, building,
+    // wear, market, firm, wealth and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 14);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -548,6 +548,33 @@ fn a_save_without_its_firms_section_is_refused() {
         .collect();
     let path = republish("no-firms", &fixture().first_info, &sections);
     assert!(persist::load(&path, content()).is_err());
+}
+
+#[test]
+fn a_save_without_a_wealth_history_loads_with_none() {
+    // The wealth section came partway through schema 12; its history is a measure, not state.
+    let mut sim = load_first();
+    let settlement = sim.land().settlements[0].id;
+    let rules = sim.rules().clone();
+    let (land, now) = (sim.land().clone(), sim.now());
+    sim.people_mut_for_tests().record_wealth(
+        &rules.catalog,
+        &rules.people,
+        &rules.land,
+        &land,
+        now,
+        1,
+    );
+    assert_eq!(sim.people().wealth_years.len(), 1);
+    assert_eq!(sim.people().wealth_years[0].spread.settlement, settlement);
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_WEALTH)
+        .collect();
+    let path = republish("no-wealth", &fixture().first_info, &sections);
+    let loaded = persist::load(&path, content()).expect("loads");
+    assert!(loaded.people().wealth_years.is_empty());
+    assert_eq!(loaded.people().living(), sim.people().living());
 }
 
 #[test]

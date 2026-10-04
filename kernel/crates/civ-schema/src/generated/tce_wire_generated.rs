@@ -695,10 +695,10 @@ pub struct CommandBodyUnionTableOffset {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_QUERY_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_QUERY_BODY: u8 = 12;
+pub const ENUM_MAX_QUERY_BODY: u8 = 13;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 13] = [
+pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 14] = [
   QueryBody::NONE,
   QueryBody::GetRaster,
   QueryBody::GetHydrography,
@@ -712,6 +712,7 @@ pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 13] = [
   QueryBody::GetMarkets,
   QueryBody::GetFirms,
   QueryBody::GetFirm,
+  QueryBody::GetWealth,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -732,9 +733,10 @@ impl QueryBody {
   pub const GetMarkets: Self = Self(10);
   pub const GetFirms: Self = Self(11);
   pub const GetFirm: Self = Self(12);
+  pub const GetWealth: Self = Self(13);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 12;
+  pub const ENUM_MAX: u8 = 13;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::GetRaster,
@@ -749,6 +751,7 @@ impl QueryBody {
     Self::GetMarkets,
     Self::GetFirms,
     Self::GetFirm,
+    Self::GetWealth,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -766,6 +769,7 @@ impl QueryBody {
       Self::GetMarkets => Some("GetMarkets"),
       Self::GetFirms => Some("GetFirms"),
       Self::GetFirm => Some("GetFirm"),
+      Self::GetWealth => Some("GetWealth"),
       _ => None,
     }
   }
@@ -1029,10 +1033,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for BookKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_RESPONSE_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_RESPONSE_BODY: u8 = 13;
+pub const ENUM_MAX_RESPONSE_BODY: u8 = 14;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 14] = [
+pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 15] = [
   ResponseBody::NONE,
   ResponseBody::Ack,
   ResponseBody::RasterTile,
@@ -1047,6 +1051,7 @@ pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 14] = [
   ResponseBody::Markets,
   ResponseBody::Firms,
   ResponseBody::FirmInfo,
+  ResponseBody::Wealth,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1068,9 +1073,10 @@ impl ResponseBody {
   pub const Markets: Self = Self(11);
   pub const Firms: Self = Self(12);
   pub const FirmInfo: Self = Self(13);
+  pub const Wealth: Self = Self(14);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 13;
+  pub const ENUM_MAX: u8 = 14;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::Ack,
@@ -1086,6 +1092,7 @@ impl ResponseBody {
     Self::Markets,
     Self::Firms,
     Self::FirmInfo,
+    Self::Wealth,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1104,6 +1111,7 @@ impl ResponseBody {
       Self::Markets => Some("Markets"),
       Self::Firms => Some("Firms"),
       Self::FirmInfo => Some("FirmInfo"),
+      Self::Wealth => Some("Wealth"),
       _ => None,
     }
   }
@@ -3104,6 +3112,170 @@ impl ::core::fmt::Debug for ReasonInfo<'_> {
       ds.finish()
   }
 }
+pub enum RegimeInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RegimeInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for RegimeInfo<'a> {
+  type Inner = RegimeInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> RegimeInfo<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_DESCRIPTION: ::flatbuffers::VOffsetT = 8;
+  pub const VT_IS_DEFAULT: ::flatbuffers::VOffsetT = 10;
+  pub const VT_RULES: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    RegimeInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args RegimeInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<RegimeInfo<'bldr>> {
+    let mut builder = RegimeInfoBuilder::new(_fbb);
+    if let Some(x) = args.rules { builder.add_rules(x); }
+    if let Some(x) = args.description { builder.add_description(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    if let Some(x) = args.id { builder.add_id(x); }
+    builder.add_is_default(args.is_default);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(RegimeInfo::VT_ID, None)}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(RegimeInfo::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn description(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(RegimeInfo::VT_DESCRIPTION, None)}
+  }
+  #[inline]
+  pub fn is_default(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(RegimeInfo::VT_IS_DEFAULT, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn rules(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(RegimeInfo::VT_RULES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for RegimeInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("id", Self::VT_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("description", Self::VT_DESCRIPTION, false)?
+     .visit_field::<bool>("is_default", Self::VT_IS_DEFAULT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("rules", Self::VT_RULES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RegimeInfoArgs<'a> {
+    pub id: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub description: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub is_default: bool,
+    pub rules: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+}
+impl<'a> Default for RegimeInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    RegimeInfoArgs {
+      id: None,
+      name: None,
+      description: None,
+      is_default: false,
+      rules: None,
+    }
+  }
+}
+
+pub struct RegimeInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RegimeInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RegimeInfo::VT_ID, id);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RegimeInfo::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_description(&mut self, description: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RegimeInfo::VT_DESCRIPTION, description);
+  }
+  #[inline]
+  pub fn add_is_default(&mut self, is_default: bool) {
+    self.fbb_.push_slot::<bool>(RegimeInfo::VT_IS_DEFAULT, is_default, false);
+  }
+  #[inline]
+  pub fn add_rules(&mut self, rules: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RegimeInfo::VT_RULES, rules);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RegimeInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    RegimeInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<RegimeInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for RegimeInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("RegimeInfo");
+      ds.field("id", &self.id());
+      ds.field("name", &self.name());
+      ds.field("description", &self.description());
+      ds.field("is_default", &self.is_default());
+      ds.field("rules", &self.rules());
+      ds.finish()
+  }
+}
 pub enum WelcomeOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -3137,6 +3309,7 @@ impl<'a> Welcome<'a> {
   pub const VT_GOODS: ::flatbuffers::VOffsetT = 32;
   pub const VT_CROPS: ::flatbuffers::VOffsetT = 34;
   pub const VT_SKILLS: ::flatbuffers::VOffsetT = 36;
+  pub const VT_REGIMES: ::flatbuffers::VOffsetT = 38;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -3148,6 +3321,7 @@ impl<'a> Welcome<'a> {
     args: &'args WelcomeArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Welcome<'bldr>> {
     let mut builder = WelcomeBuilder::new(_fbb);
+    if let Some(x) = args.regimes { builder.add_regimes(x); }
     if let Some(x) = args.skills { builder.add_skills(x); }
     if let Some(x) = args.crops { builder.add_crops(x); }
     if let Some(x) = args.goods { builder.add_goods(x); }
@@ -3288,6 +3462,13 @@ impl<'a> Welcome<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SkillInfo>>>>(Welcome::VT_SKILLS, None)}
   }
+  #[inline]
+  pub fn regimes(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RegimeInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RegimeInfo>>>>(Welcome::VT_REGIMES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Welcome<'_> {
@@ -3313,6 +3494,7 @@ impl ::flatbuffers::Verifiable for Welcome<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GoodInfo>>>>("goods", Self::VT_GOODS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CropInfo>>>>("crops", Self::VT_CROPS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<SkillInfo>>>>("skills", Self::VT_SKILLS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RegimeInfo>>>>("regimes", Self::VT_REGIMES, false)?
      .finish();
     Ok(())
   }
@@ -3335,6 +3517,7 @@ pub struct WelcomeArgs<'a> {
     pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GoodInfo<'a>>>>>,
     pub crops: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CropInfo<'a>>>>>,
     pub skills: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SkillInfo<'a>>>>>,
+    pub regimes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RegimeInfo<'a>>>>>,
 }
 impl<'a> Default for WelcomeArgs<'a> {
   #[inline]
@@ -3357,6 +3540,7 @@ impl<'a> Default for WelcomeArgs<'a> {
       goods: None,
       crops: None,
       skills: None,
+      regimes: None,
     }
   }
 }
@@ -3435,6 +3619,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WelcomeBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Welcome::VT_SKILLS, skills);
   }
   #[inline]
+  pub fn add_regimes(&mut self, regimes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<RegimeInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Welcome::VT_REGIMES, regimes);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WelcomeBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WelcomeBuilder {
@@ -3469,6 +3657,7 @@ impl ::core::fmt::Debug for Welcome<'_> {
       ds.field("goods", &self.goods());
       ds.field("crops", &self.crops());
       ds.field("skills", &self.skills());
+      ds.field("regimes", &self.regimes());
       ds.finish()
   }
 }
@@ -3741,6 +3930,8 @@ impl<'a> WorldInfo<'a> {
   pub const VT_GENERATION: ::flatbuffers::VOffsetT = 40;
   pub const VT_CONTENT_CHANGED: ::flatbuffers::VOffsetT = 42;
   pub const VT_CREATED_UNIX_MS: ::flatbuffers::VOffsetT = 44;
+  pub const VT_REGIME_ID: ::flatbuffers::VOffsetT = 46;
+  pub const VT_REGIME_NAME: ::flatbuffers::VOffsetT = 48;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -3755,6 +3946,8 @@ impl<'a> WorldInfo<'a> {
     builder.add_created_unix_ms(args.created_unix_ms);
     builder.add_generation(args.generation);
     builder.add_seed(args.seed);
+    if let Some(x) = args.regime_name { builder.add_regime_name(x); }
+    if let Some(x) = args.regime_id { builder.add_regime_id(x); }
     builder.add_ocean_fraction(args.ocean_fraction);
     builder.add_land_fraction(args.land_fraction);
     builder.add_gentle_land_fraction(args.gentle_land_fraction);
@@ -3924,6 +4117,20 @@ impl<'a> WorldInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(WorldInfo::VT_CREATED_UNIX_MS, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn regime_id(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WorldInfo::VT_REGIME_ID, None)}
+  }
+  #[inline]
+  pub fn regime_name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WorldInfo::VT_REGIME_NAME, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WorldInfo<'_> {
@@ -3953,6 +4160,8 @@ impl ::flatbuffers::Verifiable for WorldInfo<'_> {
      .visit_field::<u64>("generation", Self::VT_GENERATION, false)?
      .visit_field::<bool>("content_changed", Self::VT_CONTENT_CHANGED, false)?
      .visit_field::<i64>("created_unix_ms", Self::VT_CREATED_UNIX_MS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("regime_id", Self::VT_REGIME_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("regime_name", Self::VT_REGIME_NAME, false)?
      .finish();
     Ok(())
   }
@@ -3979,6 +4188,8 @@ pub struct WorldInfoArgs<'a> {
     pub generation: u64,
     pub content_changed: bool,
     pub created_unix_ms: i64,
+    pub regime_id: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub regime_name: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for WorldInfoArgs<'a> {
   #[inline]
@@ -4005,6 +4216,8 @@ impl<'a> Default for WorldInfoArgs<'a> {
       generation: 0,
       content_changed: false,
       created_unix_ms: 0,
+      regime_id: None,
+      regime_name: None,
     }
   }
 }
@@ -4099,6 +4312,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WorldInfoBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<i64>(WorldInfo::VT_CREATED_UNIX_MS, created_unix_ms, 0);
   }
   #[inline]
+  pub fn add_regime_id(&mut self, regime_id: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WorldInfo::VT_REGIME_ID, regime_id);
+  }
+  #[inline]
+  pub fn add_regime_name(&mut self, regime_name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WorldInfo::VT_REGIME_NAME, regime_name);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WorldInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WorldInfoBuilder {
@@ -4137,6 +4358,8 @@ impl ::core::fmt::Debug for WorldInfo<'_> {
       ds.field("generation", &self.generation());
       ds.field("content_changed", &self.content_changed());
       ds.field("created_unix_ms", &self.created_unix_ms());
+      ds.field("regime_id", &self.regime_id());
+      ds.field("regime_name", &self.regime_name());
       ds.finish()
   }
 }
@@ -4928,6 +5151,7 @@ impl<'a> Snapshot<'a> {
   pub const VT_PATHS_REV: ::flatbuffers::VOffsetT = 26;
   pub const VT_MARKETS_REV: ::flatbuffers::VOffsetT = 28;
   pub const VT_FIRMS_REV: ::flatbuffers::VOffsetT = 30;
+  pub const VT_WEALTH_REV: ::flatbuffers::VOffsetT = 32;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4939,6 +5163,7 @@ impl<'a> Snapshot<'a> {
     args: &'args SnapshotArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Snapshot<'bldr>> {
     let mut builder = SnapshotBuilder::new(_fbb);
+    builder.add_wealth_rev(args.wealth_rev);
     builder.add_firms_rev(args.firms_rev);
     builder.add_markets_rev(args.markets_rev);
     builder.add_paths_rev(args.paths_rev);
@@ -5055,6 +5280,13 @@ impl<'a> Snapshot<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(Snapshot::VT_FIRMS_REV, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn wealth_rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Snapshot::VT_WEALTH_REV, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Snapshot<'_> {
@@ -5077,6 +5309,7 @@ impl ::flatbuffers::Verifiable for Snapshot<'_> {
      .visit_field::<u64>("paths_rev", Self::VT_PATHS_REV, false)?
      .visit_field::<u64>("markets_rev", Self::VT_MARKETS_REV, false)?
      .visit_field::<u64>("firms_rev", Self::VT_FIRMS_REV, false)?
+     .visit_field::<u64>("wealth_rev", Self::VT_WEALTH_REV, false)?
      .finish();
     Ok(())
   }
@@ -5096,6 +5329,7 @@ pub struct SnapshotArgs<'a> {
     pub paths_rev: u64,
     pub markets_rev: u64,
     pub firms_rev: u64,
+    pub wealth_rev: u64,
 }
 impl<'a> Default for SnapshotArgs<'a> {
   #[inline]
@@ -5115,6 +5349,7 @@ impl<'a> Default for SnapshotArgs<'a> {
       paths_rev: 0,
       markets_rev: 0,
       firms_rev: 0,
+      wealth_rev: 0,
     }
   }
 }
@@ -5181,6 +5416,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SnapshotBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(Snapshot::VT_FIRMS_REV, firms_rev, 0);
   }
   #[inline]
+  pub fn add_wealth_rev(&mut self, wealth_rev: u64) {
+    self.fbb_.push_slot::<u64>(Snapshot::VT_WEALTH_REV, wealth_rev, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SnapshotBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SnapshotBuilder {
@@ -5212,6 +5451,7 @@ impl ::core::fmt::Debug for Snapshot<'_> {
       ds.field("paths_rev", &self.paths_rev());
       ds.field("markets_rev", &self.markets_rev());
       ds.field("firms_rev", &self.firms_rev());
+      ds.field("wealth_rev", &self.wealth_rev());
       ds.finish()
   }
 }
@@ -5496,6 +5736,7 @@ impl<'a> NewWorld<'a> {
   pub const VT_SIZE_CELLS: ::flatbuffers::VOffsetT = 8;
   pub const VT_NAME: ::flatbuffers::VOffsetT = 10;
   pub const VT_BAND_SIZE: ::flatbuffers::VOffsetT = 12;
+  pub const VT_REGIME_ID: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -5508,6 +5749,7 @@ impl<'a> NewWorld<'a> {
   ) -> ::flatbuffers::WIPOffset<NewWorld<'bldr>> {
     let mut builder = NewWorldBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.regime_id { builder.add_regime_id(x); }
     builder.add_band_size(args.band_size);
     if let Some(x) = args.name { builder.add_name(x); }
     builder.add_size_cells(args.size_cells);
@@ -5551,6 +5793,13 @@ impl<'a> NewWorld<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(NewWorld::VT_BAND_SIZE, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn regime_id(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(NewWorld::VT_REGIME_ID, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for NewWorld<'_> {
@@ -5564,6 +5813,7 @@ impl ::flatbuffers::Verifiable for NewWorld<'_> {
      .visit_field::<u32>("size_cells", Self::VT_SIZE_CELLS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
      .visit_field::<u32>("band_size", Self::VT_BAND_SIZE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("regime_id", Self::VT_REGIME_ID, false)?
      .finish();
     Ok(())
   }
@@ -5574,6 +5824,7 @@ pub struct NewWorldArgs<'a> {
     pub size_cells: u32,
     pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub band_size: u32,
+    pub regime_id: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for NewWorldArgs<'a> {
   #[inline]
@@ -5584,6 +5835,7 @@ impl<'a> Default for NewWorldArgs<'a> {
       size_cells: 0,
       name: None,
       band_size: 0,
+      regime_id: None,
     }
   }
 }
@@ -5614,6 +5866,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> NewWorldBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u32>(NewWorld::VT_BAND_SIZE, band_size, 0);
   }
   #[inline]
+  pub fn add_regime_id(&mut self, regime_id: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(NewWorld::VT_REGIME_ID, regime_id);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> NewWorldBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     NewWorldBuilder {
@@ -5636,6 +5892,7 @@ impl ::core::fmt::Debug for NewWorld<'_> {
       ds.field("size_cells", &self.size_cells());
       ds.field("name", &self.name());
       ds.field("band_size", &self.band_size());
+      ds.field("regime_id", &self.regime_id());
       ds.finish()
   }
 }
@@ -7778,6 +8035,84 @@ impl ::core::fmt::Debug for GetFirm<'_> {
       ds.finish()
   }
 }
+pub enum GetWealthOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetWealth<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GetWealth<'a> {
+  type Inner = GetWealth<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GetWealth<'a> {
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GetWealth { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    _args: &'args GetWealthArgs
+  ) -> ::flatbuffers::WIPOffset<GetWealth<'bldr>> {
+    let mut builder = GetWealthBuilder::new(_fbb);
+    builder.finish()
+  }
+
+}
+
+impl ::flatbuffers::Verifiable for GetWealth<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetWealthArgs {
+}
+impl<'a> Default for GetWealthArgs {
+  #[inline]
+  fn default() -> Self {
+    GetWealthArgs {
+    }
+  }
+}
+
+pub struct GetWealthBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GetWealthBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GetWealthBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetWealthBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GetWealth<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GetWealth<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GetWealth");
+      ds.finish()
+  }
+}
 pub enum QueryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -8007,6 +8342,21 @@ impl<'a> Query<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_get_wealth(&self) -> Option<GetWealth<'a>> {
+    if self.body_type() == QueryBody::GetWealth {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { GetWealth::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Query<'_> {
@@ -8029,6 +8379,7 @@ impl ::flatbuffers::Verifiable for Query<'_> {
           QueryBody::GetMarkets => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetMarkets>>("QueryBody::GetMarkets", pos),
           QueryBody::GetFirms => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetFirms>>("QueryBody::GetFirms", pos),
           QueryBody::GetFirm => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetFirm>>("QueryBody::GetFirm", pos),
+          QueryBody::GetWealth => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetWealth>>("QueryBody::GetWealth", pos),
           _ => Ok(()),
         }
      })?
@@ -8162,6 +8513,13 @@ impl ::core::fmt::Debug for Query<'_> {
         },
         QueryBody::GetFirm => {
           if let Some(x) = self.body_as_get_firm() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        QueryBody::GetWealth => {
+          if let Some(x) = self.body_as_get_wealth() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -11307,6 +11665,10 @@ impl<'a> FieldInfo<'a> {
   pub const VT_HARVESTS: ::flatbuffers::VOffsetT = 30;
   pub const VT_STATUS: ::flatbuffers::VOffsetT = 32;
   pub const VT_RIPE: ::flatbuffers::VOffsetT = 34;
+  pub const VT_HOLDER: ::flatbuffers::VOffsetT = 36;
+  pub const VT_HOLDER_SETTLEMENT: ::flatbuffers::VOffsetT = 38;
+  pub const VT_LEASE_UNTIL_MINUTE: ::flatbuffers::VOffsetT = 40;
+  pub const VT_LEASE_SHARE: ::flatbuffers::VOffsetT = 42;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -11318,10 +11680,14 @@ impl<'a> FieldInfo<'a> {
     args: &'args FieldInfoArgs<'args>
   ) -> ::flatbuffers::WIPOffset<FieldInfo<'bldr>> {
     let mut builder = FieldInfoBuilder::new(_fbb);
+    builder.add_lease_until_minute(args.lease_until_minute);
+    builder.add_holder_settlement(args.holder_settlement);
+    builder.add_holder(args.holder);
     builder.add_stage_since_minute(args.stage_since_minute);
     builder.add_settlement(args.settlement);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    builder.add_lease_share(args.lease_share);
     if let Some(x) = args.status { builder.add_status(x); }
     builder.add_harvests(args.harvests);
     builder.add_sheaves_kg(args.sheaves_kg);
@@ -11450,6 +11816,34 @@ impl<'a> FieldInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(FieldInfo::VT_RIPE, Some(false)).unwrap()}
   }
+  #[inline]
+  pub fn holder(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(FieldInfo::VT_HOLDER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn holder_settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(FieldInfo::VT_HOLDER_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn lease_until_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(FieldInfo::VT_LEASE_UNTIL_MINUTE, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn lease_share(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FieldInfo::VT_LEASE_SHARE, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FieldInfo<'_> {
@@ -11474,6 +11868,10 @@ impl ::flatbuffers::Verifiable for FieldInfo<'_> {
      .visit_field::<u32>("harvests", Self::VT_HARVESTS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("status", Self::VT_STATUS, false)?
      .visit_field::<bool>("ripe", Self::VT_RIPE, false)?
+     .visit_field::<u64>("holder", Self::VT_HOLDER, false)?
+     .visit_field::<u64>("holder_settlement", Self::VT_HOLDER_SETTLEMENT, false)?
+     .visit_field::<i64>("lease_until_minute", Self::VT_LEASE_UNTIL_MINUTE, false)?
+     .visit_field::<f32>("lease_share", Self::VT_LEASE_SHARE, false)?
      .finish();
     Ok(())
   }
@@ -11495,6 +11893,10 @@ pub struct FieldInfoArgs<'a> {
     pub harvests: u32,
     pub status: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub ripe: bool,
+    pub holder: u64,
+    pub holder_settlement: u64,
+    pub lease_until_minute: i64,
+    pub lease_share: f32,
 }
 impl<'a> Default for FieldInfoArgs<'a> {
   #[inline]
@@ -11516,6 +11918,10 @@ impl<'a> Default for FieldInfoArgs<'a> {
       harvests: 0,
       status: None,
       ripe: false,
+      holder: 0,
+      holder_settlement: 0,
+      lease_until_minute: -1,
+      lease_share: 0.0,
     }
   }
 }
@@ -11590,6 +11996,22 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FieldInfoBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<bool>(FieldInfo::VT_RIPE, ripe, false);
   }
   #[inline]
+  pub fn add_holder(&mut self, holder: u64) {
+    self.fbb_.push_slot::<u64>(FieldInfo::VT_HOLDER, holder, 0);
+  }
+  #[inline]
+  pub fn add_holder_settlement(&mut self, holder_settlement: u64) {
+    self.fbb_.push_slot::<u64>(FieldInfo::VT_HOLDER_SETTLEMENT, holder_settlement, 0);
+  }
+  #[inline]
+  pub fn add_lease_until_minute(&mut self, lease_until_minute: i64) {
+    self.fbb_.push_slot::<i64>(FieldInfo::VT_LEASE_UNTIL_MINUTE, lease_until_minute, -1);
+  }
+  #[inline]
+  pub fn add_lease_share(&mut self, lease_share: f32) {
+    self.fbb_.push_slot::<f32>(FieldInfo::VT_LEASE_SHARE, lease_share, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FieldInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FieldInfoBuilder {
@@ -11623,6 +12045,10 @@ impl ::core::fmt::Debug for FieldInfo<'_> {
       ds.field("harvests", &self.harvests());
       ds.field("status", &self.status());
       ds.field("ripe", &self.ripe());
+      ds.field("holder", &self.holder());
+      ds.field("holder_settlement", &self.holder_settlement());
+      ds.field("lease_until_minute", &self.lease_until_minute());
+      ds.field("lease_share", &self.lease_share());
       ds.finish()
   }
 }
@@ -15009,6 +15435,849 @@ impl ::core::fmt::Debug for FirmInfo<'_> {
       ds.finish()
   }
 }
+pub enum WealthSpreadOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WealthSpread<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WealthSpread<'a> {
+  type Inner = WealthSpread<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WealthSpread<'a> {
+  pub const VT_YEAR: ::flatbuffers::VOffsetT = 4;
+  pub const VT_HOUSEHOLDS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PEOPLE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_GINI_GOODS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_GINI_HELD: ::flatbuffers::VOffsetT = 12;
+  pub const VT_GINI_WORKED: ::flatbuffers::VOffsetT = 14;
+  pub const VT_GINI_FLOOR: ::flatbuffers::VOffsetT = 16;
+  pub const VT_TOP_TENTH_GOODS: ::flatbuffers::VOffsetT = 18;
+  pub const VT_HOLDING_NONE: ::flatbuffers::VOffsetT = 20;
+  pub const VT_WORKING_NONE: ::flatbuffers::VOffsetT = 22;
+  pub const VT_GOODS_H_PER_HEAD: ::flatbuffers::VOffsetT = 24;
+  pub const VT_WORKED_HA_PER_HEAD: ::flatbuffers::VOffsetT = 26;
+  pub const VT_FLOOR_M2_PER_HOUSE: ::flatbuffers::VOffsetT = 28;
+  pub const VT_COMMON_HA: ::flatbuffers::VOffsetT = 30;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WealthSpread { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WealthSpreadArgs
+  ) -> ::flatbuffers::WIPOffset<WealthSpread<'bldr>> {
+    let mut builder = WealthSpreadBuilder::new(_fbb);
+    builder.add_year(args.year);
+    builder.add_common_ha(args.common_ha);
+    builder.add_floor_m2_per_house(args.floor_m2_per_house);
+    builder.add_worked_ha_per_head(args.worked_ha_per_head);
+    builder.add_goods_h_per_head(args.goods_h_per_head);
+    builder.add_working_none(args.working_none);
+    builder.add_holding_none(args.holding_none);
+    builder.add_top_tenth_goods(args.top_tenth_goods);
+    builder.add_gini_floor(args.gini_floor);
+    builder.add_gini_worked(args.gini_worked);
+    builder.add_gini_held(args.gini_held);
+    builder.add_gini_goods(args.gini_goods);
+    builder.add_people(args.people);
+    builder.add_households(args.households);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn year(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(WealthSpread::VT_YEAR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn households(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WealthSpread::VT_HOUSEHOLDS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn people(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WealthSpread::VT_PEOPLE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn gini_goods(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WealthSpread::VT_GINI_GOODS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn gini_held(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WealthSpread::VT_GINI_HELD, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn gini_worked(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WealthSpread::VT_GINI_WORKED, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn gini_floor(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WealthSpread::VT_GINI_FLOOR, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn top_tenth_goods(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WealthSpread::VT_TOP_TENTH_GOODS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn holding_none(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WealthSpread::VT_HOLDING_NONE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn working_none(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WealthSpread::VT_WORKING_NONE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn goods_h_per_head(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WealthSpread::VT_GOODS_H_PER_HEAD, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn worked_ha_per_head(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WealthSpread::VT_WORKED_HA_PER_HEAD, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn floor_m2_per_house(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WealthSpread::VT_FLOOR_M2_PER_HOUSE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn common_ha(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WealthSpread::VT_COMMON_HA, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WealthSpread<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("year", Self::VT_YEAR, false)?
+     .visit_field::<u32>("households", Self::VT_HOUSEHOLDS, false)?
+     .visit_field::<u32>("people", Self::VT_PEOPLE, false)?
+     .visit_field::<f32>("gini_goods", Self::VT_GINI_GOODS, false)?
+     .visit_field::<f32>("gini_held", Self::VT_GINI_HELD, false)?
+     .visit_field::<f32>("gini_worked", Self::VT_GINI_WORKED, false)?
+     .visit_field::<f32>("gini_floor", Self::VT_GINI_FLOOR, false)?
+     .visit_field::<f32>("top_tenth_goods", Self::VT_TOP_TENTH_GOODS, false)?
+     .visit_field::<f32>("holding_none", Self::VT_HOLDING_NONE, false)?
+     .visit_field::<f32>("working_none", Self::VT_WORKING_NONE, false)?
+     .visit_field::<f32>("goods_h_per_head", Self::VT_GOODS_H_PER_HEAD, false)?
+     .visit_field::<f32>("worked_ha_per_head", Self::VT_WORKED_HA_PER_HEAD, false)?
+     .visit_field::<f32>("floor_m2_per_house", Self::VT_FLOOR_M2_PER_HOUSE, false)?
+     .visit_field::<f32>("common_ha", Self::VT_COMMON_HA, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WealthSpreadArgs {
+    pub year: i64,
+    pub households: u32,
+    pub people: u32,
+    pub gini_goods: f32,
+    pub gini_held: f32,
+    pub gini_worked: f32,
+    pub gini_floor: f32,
+    pub top_tenth_goods: f32,
+    pub holding_none: f32,
+    pub working_none: f32,
+    pub goods_h_per_head: f32,
+    pub worked_ha_per_head: f32,
+    pub floor_m2_per_house: f32,
+    pub common_ha: f32,
+}
+impl<'a> Default for WealthSpreadArgs {
+  #[inline]
+  fn default() -> Self {
+    WealthSpreadArgs {
+      year: 0,
+      households: 0,
+      people: 0,
+      gini_goods: 0.0,
+      gini_held: 0.0,
+      gini_worked: 0.0,
+      gini_floor: 0.0,
+      top_tenth_goods: 0.0,
+      holding_none: 0.0,
+      working_none: 0.0,
+      goods_h_per_head: 0.0,
+      worked_ha_per_head: 0.0,
+      floor_m2_per_house: 0.0,
+      common_ha: 0.0,
+    }
+  }
+}
+
+pub struct WealthSpreadBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WealthSpreadBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_year(&mut self, year: i64) {
+    self.fbb_.push_slot::<i64>(WealthSpread::VT_YEAR, year, 0);
+  }
+  #[inline]
+  pub fn add_households(&mut self, households: u32) {
+    self.fbb_.push_slot::<u32>(WealthSpread::VT_HOUSEHOLDS, households, 0);
+  }
+  #[inline]
+  pub fn add_people(&mut self, people: u32) {
+    self.fbb_.push_slot::<u32>(WealthSpread::VT_PEOPLE, people, 0);
+  }
+  #[inline]
+  pub fn add_gini_goods(&mut self, gini_goods: f32) {
+    self.fbb_.push_slot::<f32>(WealthSpread::VT_GINI_GOODS, gini_goods, 0.0);
+  }
+  #[inline]
+  pub fn add_gini_held(&mut self, gini_held: f32) {
+    self.fbb_.push_slot::<f32>(WealthSpread::VT_GINI_HELD, gini_held, 0.0);
+  }
+  #[inline]
+  pub fn add_gini_worked(&mut self, gini_worked: f32) {
+    self.fbb_.push_slot::<f32>(WealthSpread::VT_GINI_WORKED, gini_worked, 0.0);
+  }
+  #[inline]
+  pub fn add_gini_floor(&mut self, gini_floor: f32) {
+    self.fbb_.push_slot::<f32>(WealthSpread::VT_GINI_FLOOR, gini_floor, 0.0);
+  }
+  #[inline]
+  pub fn add_top_tenth_goods(&mut self, top_tenth_goods: f32) {
+    self.fbb_.push_slot::<f32>(WealthSpread::VT_TOP_TENTH_GOODS, top_tenth_goods, 0.0);
+  }
+  #[inline]
+  pub fn add_holding_none(&mut self, holding_none: f32) {
+    self.fbb_.push_slot::<f32>(WealthSpread::VT_HOLDING_NONE, holding_none, 0.0);
+  }
+  #[inline]
+  pub fn add_working_none(&mut self, working_none: f32) {
+    self.fbb_.push_slot::<f32>(WealthSpread::VT_WORKING_NONE, working_none, 0.0);
+  }
+  #[inline]
+  pub fn add_goods_h_per_head(&mut self, goods_h_per_head: f32) {
+    self.fbb_.push_slot::<f32>(WealthSpread::VT_GOODS_H_PER_HEAD, goods_h_per_head, 0.0);
+  }
+  #[inline]
+  pub fn add_worked_ha_per_head(&mut self, worked_ha_per_head: f32) {
+    self.fbb_.push_slot::<f32>(WealthSpread::VT_WORKED_HA_PER_HEAD, worked_ha_per_head, 0.0);
+  }
+  #[inline]
+  pub fn add_floor_m2_per_house(&mut self, floor_m2_per_house: f32) {
+    self.fbb_.push_slot::<f32>(WealthSpread::VT_FLOOR_M2_PER_HOUSE, floor_m2_per_house, 0.0);
+  }
+  #[inline]
+  pub fn add_common_ha(&mut self, common_ha: f32) {
+    self.fbb_.push_slot::<f32>(WealthSpread::VT_COMMON_HA, common_ha, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WealthSpreadBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WealthSpreadBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WealthSpread<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WealthSpread<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WealthSpread");
+      ds.field("year", &self.year());
+      ds.field("households", &self.households());
+      ds.field("people", &self.people());
+      ds.field("gini_goods", &self.gini_goods());
+      ds.field("gini_held", &self.gini_held());
+      ds.field("gini_worked", &self.gini_worked());
+      ds.field("gini_floor", &self.gini_floor());
+      ds.field("top_tenth_goods", &self.top_tenth_goods());
+      ds.field("holding_none", &self.holding_none());
+      ds.field("working_none", &self.working_none());
+      ds.field("goods_h_per_head", &self.goods_h_per_head());
+      ds.field("worked_ha_per_head", &self.worked_ha_per_head());
+      ds.field("floor_m2_per_house", &self.floor_m2_per_house());
+      ds.field("common_ha", &self.common_ha());
+      ds.finish()
+  }
+}
+pub enum HouseholdWealthOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct HouseholdWealth<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for HouseholdWealth<'a> {
+  type Inner = HouseholdWealth<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> HouseholdWealth<'a> {
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_MEMBERS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_HELD_HA: ::flatbuffers::VOffsetT = 10;
+  pub const VT_WORKED_HA: ::flatbuffers::VOffsetT = 12;
+  pub const VT_LET_HA: ::flatbuffers::VOffsetT = 14;
+  pub const VT_RENTED_HA: ::flatbuffers::VOffsetT = 16;
+  pub const VT_GOODS_H: ::flatbuffers::VOffsetT = 18;
+  pub const VT_FLOOR_M2: ::flatbuffers::VOffsetT = 20;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    HouseholdWealth { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args HouseholdWealthArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<HouseholdWealth<'bldr>> {
+    let mut builder = HouseholdWealthBuilder::new(_fbb);
+    builder.add_household(args.household);
+    builder.add_floor_m2(args.floor_m2);
+    builder.add_goods_h(args.goods_h);
+    builder.add_rented_ha(args.rented_ha);
+    builder.add_let_ha(args.let_ha);
+    builder.add_worked_ha(args.worked_ha);
+    builder.add_held_ha(args.held_ha);
+    builder.add_members(args.members);
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(HouseholdWealth::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(HouseholdWealth::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn members(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(HouseholdWealth::VT_MEMBERS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn held_ha(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(HouseholdWealth::VT_HELD_HA, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn worked_ha(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(HouseholdWealth::VT_WORKED_HA, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn let_ha(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(HouseholdWealth::VT_LET_HA, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn rented_ha(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(HouseholdWealth::VT_RENTED_HA, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn goods_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(HouseholdWealth::VT_GOODS_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn floor_m2(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(HouseholdWealth::VT_FLOOR_M2, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for HouseholdWealth<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<u32>("members", Self::VT_MEMBERS, false)?
+     .visit_field::<f32>("held_ha", Self::VT_HELD_HA, false)?
+     .visit_field::<f32>("worked_ha", Self::VT_WORKED_HA, false)?
+     .visit_field::<f32>("let_ha", Self::VT_LET_HA, false)?
+     .visit_field::<f32>("rented_ha", Self::VT_RENTED_HA, false)?
+     .visit_field::<f32>("goods_h", Self::VT_GOODS_H, false)?
+     .visit_field::<f32>("floor_m2", Self::VT_FLOOR_M2, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct HouseholdWealthArgs<'a> {
+    pub household: u64,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub members: u32,
+    pub held_ha: f32,
+    pub worked_ha: f32,
+    pub let_ha: f32,
+    pub rented_ha: f32,
+    pub goods_h: f32,
+    pub floor_m2: f32,
+}
+impl<'a> Default for HouseholdWealthArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    HouseholdWealthArgs {
+      household: 0,
+      name: None,
+      members: 0,
+      held_ha: 0.0,
+      worked_ha: 0.0,
+      let_ha: 0.0,
+      rented_ha: 0.0,
+      goods_h: 0.0,
+      floor_m2: 0.0,
+    }
+  }
+}
+
+pub struct HouseholdWealthBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdWealthBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(HouseholdWealth::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(HouseholdWealth::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_members(&mut self, members: u32) {
+    self.fbb_.push_slot::<u32>(HouseholdWealth::VT_MEMBERS, members, 0);
+  }
+  #[inline]
+  pub fn add_held_ha(&mut self, held_ha: f32) {
+    self.fbb_.push_slot::<f32>(HouseholdWealth::VT_HELD_HA, held_ha, 0.0);
+  }
+  #[inline]
+  pub fn add_worked_ha(&mut self, worked_ha: f32) {
+    self.fbb_.push_slot::<f32>(HouseholdWealth::VT_WORKED_HA, worked_ha, 0.0);
+  }
+  #[inline]
+  pub fn add_let_ha(&mut self, let_ha: f32) {
+    self.fbb_.push_slot::<f32>(HouseholdWealth::VT_LET_HA, let_ha, 0.0);
+  }
+  #[inline]
+  pub fn add_rented_ha(&mut self, rented_ha: f32) {
+    self.fbb_.push_slot::<f32>(HouseholdWealth::VT_RENTED_HA, rented_ha, 0.0);
+  }
+  #[inline]
+  pub fn add_goods_h(&mut self, goods_h: f32) {
+    self.fbb_.push_slot::<f32>(HouseholdWealth::VT_GOODS_H, goods_h, 0.0);
+  }
+  #[inline]
+  pub fn add_floor_m2(&mut self, floor_m2: f32) {
+    self.fbb_.push_slot::<f32>(HouseholdWealth::VT_FLOOR_M2, floor_m2, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdWealthBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    HouseholdWealthBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<HouseholdWealth<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for HouseholdWealth<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("HouseholdWealth");
+      ds.field("household", &self.household());
+      ds.field("name", &self.name());
+      ds.field("members", &self.members());
+      ds.field("held_ha", &self.held_ha());
+      ds.field("worked_ha", &self.worked_ha());
+      ds.field("let_ha", &self.let_ha());
+      ds.field("rented_ha", &self.rented_ha());
+      ds.field("goods_h", &self.goods_h());
+      ds.field("floor_m2", &self.floor_m2());
+      ds.finish()
+  }
+}
+pub enum SettlementWealthOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SettlementWealth<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for SettlementWealth<'a> {
+  type Inner = SettlementWealth<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> SettlementWealth<'a> {
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_NOW: ::flatbuffers::VOffsetT = 8;
+  pub const VT_HOUSEHOLDS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_HISTORY: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    SettlementWealth { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SettlementWealthArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<SettlementWealth<'bldr>> {
+    let mut builder = SettlementWealthBuilder::new(_fbb);
+    builder.add_settlement(args.settlement);
+    if let Some(x) = args.history { builder.add_history(x); }
+    if let Some(x) = args.households { builder.add_households(x); }
+    if let Some(x) = args.now { builder.add_now(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SettlementWealth::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(SettlementWealth::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn now(&self) -> Option<WealthSpread<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<WealthSpread>>(SettlementWealth::VT_NOW, None)}
+  }
+  #[inline]
+  pub fn households(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HouseholdWealth<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HouseholdWealth>>>>(SettlementWealth::VT_HOUSEHOLDS, None)}
+  }
+  #[inline]
+  pub fn history(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WealthSpread<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WealthSpread>>>>(SettlementWealth::VT_HISTORY, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for SettlementWealth<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<WealthSpread>>("now", Self::VT_NOW, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<HouseholdWealth>>>>("households", Self::VT_HOUSEHOLDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WealthSpread>>>>("history", Self::VT_HISTORY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SettlementWealthArgs<'a> {
+    pub settlement: u64,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub now: Option<::flatbuffers::WIPOffset<WealthSpread<'a>>>,
+    pub households: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HouseholdWealth<'a>>>>>,
+    pub history: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WealthSpread<'a>>>>>,
+}
+impl<'a> Default for SettlementWealthArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SettlementWealthArgs {
+      settlement: 0,
+      name: None,
+      now: None,
+      households: None,
+      history: None,
+    }
+  }
+}
+
+pub struct SettlementWealthBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SettlementWealthBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(SettlementWealth::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SettlementWealth::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_now(&mut self, now: ::flatbuffers::WIPOffset<WealthSpread<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<WealthSpread>>(SettlementWealth::VT_NOW, now);
+  }
+  #[inline]
+  pub fn add_households(&mut self, households: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<HouseholdWealth<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SettlementWealth::VT_HOUSEHOLDS, households);
+  }
+  #[inline]
+  pub fn add_history(&mut self, history: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WealthSpread<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SettlementWealth::VT_HISTORY, history);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SettlementWealthBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SettlementWealthBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<SettlementWealth<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for SettlementWealth<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("SettlementWealth");
+      ds.field("settlement", &self.settlement());
+      ds.field("name", &self.name());
+      ds.field("now", &self.now());
+      ds.field("households", &self.households());
+      ds.field("history", &self.history());
+      ds.finish()
+  }
+}
+pub enum WealthOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Wealth<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Wealth<'a> {
+  type Inner = Wealth<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Wealth<'a> {
+  pub const VT_REV: ::flatbuffers::VOffsetT = 4;
+  pub const VT_REGIME_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SETTLEMENTS: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Wealth { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WealthArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Wealth<'bldr>> {
+    let mut builder = WealthBuilder::new(_fbb);
+    builder.add_rev(args.rev);
+    if let Some(x) = args.settlements { builder.add_settlements(x); }
+    if let Some(x) = args.regime_name { builder.add_regime_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Wealth::VT_REV, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn regime_name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(Wealth::VT_REGIME_NAME, None)}
+  }
+  #[inline]
+  pub fn settlements(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SettlementWealth<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SettlementWealth>>>>(Wealth::VT_SETTLEMENTS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Wealth<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("rev", Self::VT_REV, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("regime_name", Self::VT_REGIME_NAME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<SettlementWealth>>>>("settlements", Self::VT_SETTLEMENTS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WealthArgs<'a> {
+    pub rev: u64,
+    pub regime_name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub settlements: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SettlementWealth<'a>>>>>,
+}
+impl<'a> Default for WealthArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WealthArgs {
+      rev: 0,
+      regime_name: None,
+      settlements: None,
+    }
+  }
+}
+
+pub struct WealthBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WealthBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_rev(&mut self, rev: u64) {
+    self.fbb_.push_slot::<u64>(Wealth::VT_REV, rev, 0);
+  }
+  #[inline]
+  pub fn add_regime_name(&mut self, regime_name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Wealth::VT_REGIME_NAME, regime_name);
+  }
+  #[inline]
+  pub fn add_settlements(&mut self, settlements: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<SettlementWealth<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Wealth::VT_SETTLEMENTS, settlements);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WealthBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WealthBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Wealth<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Wealth<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Wealth");
+      ds.field("rev", &self.rev());
+      ds.field("regime_name", &self.regime_name());
+      ds.field("settlements", &self.settlements());
+      ds.finish()
+  }
+}
 pub enum ResponseOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -15253,6 +16522,21 @@ impl<'a> Response<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_wealth(&self) -> Option<Wealth<'a>> {
+    if self.body_type() == ResponseBody::Wealth {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Wealth::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Response<'_> {
@@ -15276,6 +16560,7 @@ impl ::flatbuffers::Verifiable for Response<'_> {
           ResponseBody::Markets => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Markets>>("ResponseBody::Markets", pos),
           ResponseBody::Firms => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Firms>>("ResponseBody::Firms", pos),
           ResponseBody::FirmInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<FirmInfo>>("ResponseBody::FirmInfo", pos),
+          ResponseBody::Wealth => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Wealth>>("ResponseBody::Wealth", pos),
           _ => Ok(()),
         }
      })?
@@ -15416,6 +16701,13 @@ impl ::core::fmt::Debug for Response<'_> {
         },
         ResponseBody::FirmInfo => {
           if let Some(x) = self.body_as_firm_info() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ResponseBody::Wealth => {
+          if let Some(x) = self.body_as_wealth() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

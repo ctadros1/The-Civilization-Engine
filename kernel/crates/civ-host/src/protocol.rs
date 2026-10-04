@@ -97,6 +97,8 @@ pub enum Request {
         /// Permanent id.
         id: u64,
     },
+    /// Read every settlement's wealth measures.
+    GetWealth,
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -286,7 +288,7 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         preset_id: b.preset_id().unwrap_or_default().to_owned(),
                         size_cells: b.size_cells(),
                         band_size: b.band_size(),
-                        regime_id: String::new(),
+                        regime_id: b.regime_id().unwrap_or_default().to_owned(),
                     }))
                 }
                 wire::CommandBody::SaveWorld => {
@@ -388,6 +390,7 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                     let b = query.body_as_get_firm().ok_or_else(|| missing("query"))?;
                     Ok(Request::GetFirm { id: b.id() })
                 }
+                wire::QueryBody::GetWealth => Ok(Request::GetWealth),
                 other => Err(format!("unknown query {}", other.0)),
             }
         }
@@ -481,6 +484,32 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
         })
         .collect();
     let skills = fbb.create_vector(&skills);
+    let regimes: Vec<_> = content
+        .catalog
+        .regimes
+        .iter()
+        .map(|r| {
+            let id = fbb.create_string(&r.id);
+            let name = fbb.create_string(&r.name);
+            let description = fbb.create_string(&r.description);
+            let rules: Vec<_> = civ_sim::frames::wealth::regime_rules(r)
+                .iter()
+                .map(|s| fbb.create_string(s))
+                .collect();
+            let rules = fbb.create_vector(&rules);
+            wire::RegimeInfo::create(
+                &mut fbb,
+                &wire::RegimeInfoArgs {
+                    id: Some(id),
+                    name: Some(name),
+                    description: Some(description),
+                    is_default: r.is_default,
+                    rules: Some(rules),
+                },
+            )
+        })
+        .collect();
+    let regimes = fbb.create_vector(&regimes);
     let crops: Vec<_> = content
         .catalog
         .crops
@@ -540,6 +569,7 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
             goods: Some(goods),
             crops: Some(crops),
             skills: Some(skills),
+            regimes: Some(regimes),
         },
     );
     finish(fbb, root)
@@ -581,6 +611,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
     let paths_rev = parts.sim.map_or(0, civ_sim::frames::paths::paths_rev);
     let markets_rev = parts.sim.map_or(0, civ_sim::frames::markets::markets_rev);
     let firms_rev = parts.sim.map_or(0, civ_sim::frames::firms::firms_rev);
+    let wealth_rev = parts.sim.map_or(0, civ_sim::frames::wealth::wealth_rev);
     let task = parts.task.map(|t| {
         let name = fbb.create_string(&t.name);
         let stage = fbb.create_string(&t.stage);
@@ -628,6 +659,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
             paths_rev,
             markets_rev,
             firms_rev,
+            wealth_rev,
         },
     );
     finish(fbb, root)
@@ -839,6 +871,46 @@ mod tests {
             decode_request(FrameKind::Query, &query(wire::QueryBody::GetFirm, Some(42))),
             Ok(Request::GetFirm { id: 42 })
         );
+    }
+
+    #[test]
+    fn the_wealth_query_and_a_regime_choice_decode() {
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::GetWealth::create(&mut fbb, &wire::GetWealthArgs {});
+        let root = wire::Query::create(
+            &mut fbb,
+            &wire::QueryArgs {
+                body_type: wire::QueryBody::GetWealth,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &finish(fbb, root)),
+            Ok(Request::GetWealth)
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let regime_id = fbb.create_string("core:regime/village");
+        let body = wire::NewWorld::create(
+            &mut fbb,
+            &wire::NewWorldArgs {
+                seed: 7,
+                regime_id: Some(regime_id),
+                ..Default::default()
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::NewWorld,
+                body: Some(body.as_union_value()),
+            },
+        );
+        match decode_request(FrameKind::Command, &finish(fbb, root)) {
+            Ok(Request::NewWorld(w)) => {
+                assert_eq!((w.seed, w.regime_id.as_str()), (7, "core:regime/village"));
+            }
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]

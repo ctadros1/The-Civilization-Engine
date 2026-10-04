@@ -21,6 +21,19 @@ describe("builders", () => {
     expect(body.presetId()).toBe("core:worldgen/river_valley");
     expect(body.sizeCells()).toBe(1024);
     expect(body.name()).toBe("Old River");
+    expect(body.regimeId()).toBe("");
+    const village = W.Command.getRootAsCommand(
+      bb(
+        M.newWorld({
+          seed: 1n,
+          presetId: "core:worldgen/river_valley",
+          sizeCells: 512,
+          name: "",
+          regimeId: "core:regime/village",
+        }),
+      ),
+    );
+    expect((village.body(new W.NewWorld()) as W.NewWorld).regimeId()).toBe("core:regime/village");
   });
 
   it("builds clock and raster requests", () => {
@@ -59,6 +72,8 @@ describe("decoders", () => {
     const id = b.createString("ab".repeat(16));
     const name = b.createString("Test Valley");
     const preset = b.createString("core:worldgen/ria_coast");
+    const regimeId = b.createString("core:regime/village");
+    const regimeName = b.createString("Village fields");
     W.WorldInfo.startWorldInfo(b);
     W.WorldInfo.addWorldId(b, id);
     W.WorldInfo.addName(b, name);
@@ -69,6 +84,8 @@ describe("decoders", () => {
     W.WorldInfo.addCellSizeM(b, 8);
     W.WorldInfo.addGeneration(b, 3n);
     W.WorldInfo.addContentChanged(b, true);
+    W.WorldInfo.addRegimeId(b, regimeId);
+    W.WorldInfo.addRegimeName(b, regimeName);
     const world = W.WorldInfo.endWorldInfo(b);
     const season = b.createString("spring");
     const clock = W.Clock.createClock(b, 85_320n, 1n, 3, 1, 6, 0, season, true, 96);
@@ -95,6 +112,10 @@ describe("decoders", () => {
     expect(snapshot.world?.seed).toBe(42n);
     expect(snapshot.world?.generation).toBe(3);
     expect(snapshot.world?.contentChanged).toBe(true);
+    expect([snapshot.world?.regimeId, snapshot.world?.regimeName]).toEqual([
+      "core:regime/village",
+      "Village fields",
+    ]);
     expect(snapshot.clock).toMatchObject({
       minute: 85_320,
       year: 1,
@@ -132,6 +153,7 @@ describe("decoders", () => {
       pathsRev: 0,
       marketsRev: 0,
       firmsRev: 0,
+      wealthRev: 0,
     });
   });
 
@@ -484,6 +506,9 @@ describe("decoders", () => {
     W.FieldInfo.addExpectedKg(b, 220);
     W.FieldInfo.addHarvests(b, 1);
     W.FieldInfo.addStatus(b, status);
+    W.FieldInfo.addHolder(b, 8n);
+    W.FieldInfo.addLeaseUntilMinute(b, 700_000n);
+    W.FieldInfo.addLeaseShare(b, 0.25);
     const field = W.FieldInfo.endFieldInfo(b);
     const list = W.Fields.createFieldsVector(b, [field]);
     const fields = W.Fields.createFields(b, 99n, list);
@@ -512,9 +537,71 @@ describe("decoders", () => {
           sheavesKg: 0,
           harvests: 1,
           status: "growing; ripe in about 20 days",
+          holder: 8,
+          holderSettlement: 0,
+          leaseUntilMinute: 700_000,
+          leaseShare: 0.25,
         },
       ],
     });
+  });
+
+  it("builds the wealth query and decodes each settlement's measures", () => {
+    expect(W.Query.getRootAsQuery(bb(M.getWealth())).bodyType()).toBe(W.QueryBody.GetWealth);
+    const b = new flatbuffers.Builder(512);
+    const spread = (year: bigint, gini: number) => {
+      W.WealthSpread.startWealthSpread(b);
+      W.WealthSpread.addYear(b, year);
+      W.WealthSpread.addHouseholds(b, 2);
+      W.WealthSpread.addPeople(b, 7);
+      W.WealthSpread.addGiniGoods(b, gini);
+      W.WealthSpread.addTopTenthGoods(b, 0.25);
+      W.WealthSpread.addHoldingNone(b, 1);
+      W.WealthSpread.addCommonHa(b, 1.5);
+      return W.WealthSpread.endWealthSpread(b);
+    };
+    const now = spread(3n, 0.5);
+    const name = b.createString("Wren's household");
+    const household = W.HouseholdWealth.createHouseholdWealth(b, 9n, name, 4, 0, 0.75, 0, 0.25, 120, 24);
+    const households = W.SettlementWealth.createHouseholdsVector(b, [household]);
+    const history = W.SettlementWealth.createHistoryVector(b, [spread(1n, 0.25), spread(2n, 0.5)]);
+    const place = b.createString("Alderford");
+    W.SettlementWealth.startSettlementWealth(b);
+    W.SettlementWealth.addSettlement(b, 3n);
+    W.SettlementWealth.addName(b, place);
+    W.SettlementWealth.addNow(b, now);
+    W.SettlementWealth.addHouseholds(b, households);
+    W.SettlementWealth.addHistory(b, history);
+    const settlement = W.SettlementWealth.endSettlementWealth(b);
+    const regime = b.createString("Village fields");
+    const list = W.Wealth.createSettlementsVector(b, [settlement]);
+    const wealth = W.Wealth.createWealth(b, 5n, regime, list);
+    const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Wealth, wealth)));
+    expect(body.kind).toBe("wealth");
+    if (body.kind !== "wealth") return;
+    expect(body.wealth.rev).toBe(5);
+    expect(body.wealth.regimeName).toBe("Village fields");
+    const s = body.wealth.settlements[0]!;
+    expect([s.settlement, s.name]).toEqual([3, "Alderford"]);
+    expect(s.now).toMatchObject({ year: 3, households: 2, people: 7, giniGoods: 0.5, holdingNone: 1 });
+    expect(s.now?.commonHa).toBe(1.5);
+    expect(s.history.map((y) => [y.year, y.giniGoods])).toEqual([
+      [1, 0.25],
+      [2, 0.5],
+    ]);
+    expect(s.households).toEqual([
+      {
+        household: 9,
+        name: "Wren's household",
+        members: 4,
+        heldHa: 0,
+        workedHa: 0.75,
+        letHa: 0,
+        rentedHa: 0.25,
+        goodsH: 120,
+        floorM2: 24,
+      },
+    ]);
   });
 
   it("decodes a raster tile response", () => {

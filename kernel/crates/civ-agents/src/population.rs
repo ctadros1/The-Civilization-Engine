@@ -198,6 +198,8 @@ pub struct Population {
     pub markets: Vec<crate::market::Market>,
     /// Every firm there has been, open and closed, in the order they were founded (slice J).
     pub firms: Vec<crate::firm::Firm>,
+    /// Each settlement's wealth measures at the end of each year, oldest first (ADR-0007 §4).
+    pub wealth_years: Vec<crate::wealth::WealthYear>,
 }
 
 /// A hut a household would begin: its design (which says where it stands) and what each stage

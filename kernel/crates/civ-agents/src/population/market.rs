@@ -4,6 +4,7 @@
 //! buyer arrives.
 
 use civ_core::PermanentId;
+use civ_land::LandParams;
 use civ_world::nav::TravelField;
 
 use super::{Ctx, Population, cell_of, fuel_per_day, stores_now};
@@ -13,7 +14,7 @@ use crate::firm::{BookKind, Entry};
 use crate::ledger::{Channel, Leg, Trade};
 use crate::make;
 use crate::market::{Market, Offer};
-use crate::params::{GoodUse, MarketParams};
+use crate::params::{Catalog, GoodUse, MarketParams, PeopleParams};
 use crate::person::{Household, stock_kcal};
 use crate::value;
 
@@ -113,7 +114,17 @@ impl Population {
     /// What a household's goods cost it, hours of its own work per unit, at its best member's
     /// skills and from what it knows of the land.
     pub(crate) fn own_costs_of(&self, ctx: &Ctx, hh: &Household) -> Vec<Option<f64>> {
-        let catalog = ctx.catalog;
+        self.own_costs_with(ctx.catalog, ctx.params, ctx.land_params, hh)
+    }
+
+    /// [`Population::own_costs_of`], from the rules alone (for measures read outside a step).
+    pub(crate) fn own_costs_with(
+        &self,
+        catalog: &Catalog,
+        params: &PeopleParams,
+        land_params: &LandParams,
+        hh: &Household,
+    ) -> Vec<Option<f64>> {
         let mut levels: Vec<f64> = vec![0.0; catalog.skills.len()];
         for m in &hh.members {
             if let Some(p) = self.person(*m) {
@@ -123,8 +134,8 @@ impl Population {
             }
         }
         let n = catalog.goods.len();
-        let gathered = value::gathered_costs(&ctx.land_params.resources, &hh.known, n);
-        let grown = value::grown_costs(&catalog.crops, n, ctx.params.farm.plan_yield_share);
+        let gathered = value::gathered_costs(&land_params.resources, &hh.known, n);
+        let grown = value::grown_costs(&catalog.crops, n, params.farm.plan_yield_share);
         let mut costs = value::own_costs(catalog, &levels, &gathered, &grown);
         value::food_by_energy(&catalog.goods, &mut costs);
         costs

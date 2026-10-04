@@ -133,8 +133,22 @@ createdUnixMs():bigint {
   return offset ? this.bb!.readInt64(this.bb_pos + offset) : BigInt('0');
 }
 
+regimeId():string|null
+regimeId(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+regimeId(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 46);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+regimeName():string|null
+regimeName(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+regimeName(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 48);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startWorldInfo(builder:flatbuffers.Builder) {
-  builder.startObject(21);
+  builder.startObject(23);
 }
 
 static addWorldId(builder:flatbuffers.Builder, worldIdOffset:flatbuffers.Offset) {
@@ -221,12 +235,20 @@ static addCreatedUnixMs(builder:flatbuffers.Builder, createdUnixMs:bigint) {
   builder.addFieldInt64(20, createdUnixMs, BigInt('0'));
 }
 
+static addRegimeId(builder:flatbuffers.Builder, regimeIdOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(21, regimeIdOffset, 0);
+}
+
+static addRegimeName(builder:flatbuffers.Builder, regimeNameOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(22, regimeNameOffset, 0);
+}
+
 static endWorldInfo(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWorldInfo(builder:flatbuffers.Builder, worldIdOffset:flatbuffers.Offset, nameOffset:flatbuffers.Offset, seed:bigint, presetIdOffset:flatbuffers.Offset, width:number, height:number, cellSizeM:number, seaLevelM:number, minElevationM:number, maxElevationM:number, generatorVersion:number, lakes:number, reaches:number, riverLengthKm:number, maxDischargeM3s:number, gentleLandFraction:number, landFraction:number, oceanFraction:number, generation:bigint, contentChanged:boolean, createdUnixMs:bigint):flatbuffers.Offset {
+static createWorldInfo(builder:flatbuffers.Builder, worldIdOffset:flatbuffers.Offset, nameOffset:flatbuffers.Offset, seed:bigint, presetIdOffset:flatbuffers.Offset, width:number, height:number, cellSizeM:number, seaLevelM:number, minElevationM:number, maxElevationM:number, generatorVersion:number, lakes:number, reaches:number, riverLengthKm:number, maxDischargeM3s:number, gentleLandFraction:number, landFraction:number, oceanFraction:number, generation:bigint, contentChanged:boolean, createdUnixMs:bigint, regimeIdOffset:flatbuffers.Offset, regimeNameOffset:flatbuffers.Offset):flatbuffers.Offset {
   WorldInfo.startWorldInfo(builder);
   WorldInfo.addWorldId(builder, worldIdOffset);
   WorldInfo.addName(builder, nameOffset);
@@ -249,6 +271,8 @@ static createWorldInfo(builder:flatbuffers.Builder, worldIdOffset:flatbuffers.Of
   WorldInfo.addGeneration(builder, generation);
   WorldInfo.addContentChanged(builder, contentChanged);
   WorldInfo.addCreatedUnixMs(builder, createdUnixMs);
+  WorldInfo.addRegimeId(builder, regimeIdOffset);
+  WorldInfo.addRegimeName(builder, regimeNameOffset);
   return WorldInfo.endWorldInfo(builder);
 }
 }

@@ -1,19 +1,36 @@
 //! Fields on the boundary (M1 slice C): the snapshot's field revision and the response to a
-//! fields query. Each field's state in words is rendered here; observers show it.
+//! fields query. Each field's state in words is rendered here; observers show it. Who holds and
+//! who works each field, and its lease, came with M3a slice K (ADR-0007).
 
-use civ_land::{CropParams, Field, FieldStage};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
+use civ_land::{CropParams, Field, FieldStage, Party};
 use civ_schema::flatbuffers::FlatBufferBuilder;
 use civ_schema::wire;
 
 use super::response;
 use crate::Sim;
 
-/// A number that changes whenever a field is marked out or changes stage (0 = no fields): every
-/// field's stage start, which only moves forward, plus one, summed.
+/// A number that changes whenever a field is marked out, changes stage or changes hands (0 = no
+/// fields): a hash of each field's stage start, user, holder and lease.
 pub fn fields_rev(sim: &Sim) -> u64 {
-    sim.land.fields.iter().fold(0u64, |rev, f| {
-        rev.wrapping_add(f.stage_since.minutes().max(0) as u64 + 1)
-    })
+    let fields = &sim.land.fields;
+    if fields.is_empty() {
+        return 0;
+    }
+    let mut hasher = DefaultHasher::new();
+    for f in fields {
+        (
+            f.id.get(),
+            f.stage_since.minutes(),
+            f.household.get(),
+            f.holder,
+            f.lease.map(|l| l.until.minutes()),
+        )
+            .hash(&mut hasher);
+    }
+    hasher.finish() | 1
 }
 
 fn stage(s: FieldStage) -> wire::FieldStage {
@@ -113,10 +130,12 @@ pub fn fields_response(sim: &Sim) -> Vec<u8> {
             let crop = crops.get(usize::from(f.crop));
             let text = crop.map_or_else(String::new, |c| status(f, c, day));
             let text = fbb.create_string(&text);
+            // Its settlement: its user's, or else the settlement that holds it.
             let settlement = sim
                 .people
                 .household(f.household)
                 .and_then(|h| h.settlement)
+                .or(f.holder.settlement())
                 .map_or(0, |s| s.get());
             let r = f.rect;
             wire::FieldInfo::create(
@@ -138,6 +157,13 @@ pub fn fields_response(sim: &Sim) -> Vec<u8> {
                     harvests: u32::from(f.harvests),
                     status: Some(text),
                     ripe: f.stage == FieldStage::Sown && crop.is_some_and(|c| day >= f.ripe_day(c)),
+                    holder: f.holder.household().map_or(0, |h| h.get()),
+                    holder_settlement: match f.holder {
+                        Party::Settlement(s) => s.get(),
+                        Party::Household(_) => 0,
+                    },
+                    lease_until_minute: f.lease.map_or(-1, |l| l.until.minutes()),
+                    lease_share: f.lease.map_or(0.0, |l| l.holder_share),
                 },
             )
         })

@@ -98,6 +98,18 @@ table ReasonInfo {
   label: string (id: 1);
 }
 
+// A property regime (M3a slice K; ADR-0007): who holds, works, lets and inherits land. Content
+// authors the rules; which ground anyone breaks, works or lets is decided at run time.
+table RegimeInfo {
+  id: string (id: 0);
+  name: string (id: 1);
+  description: string (id: 2);
+  // The regime a new world is made under unless it chooses another.
+  is_default: bool (id: 3);
+  // Its rules, rendered by the kernel, one sentence each.
+  rules: [string] (id: 4);
+}
+
 table Welcome {
   host: string (id: 0);
   version: string (id: 1);
@@ -124,6 +136,8 @@ table Welcome {
   crops: [CropInfo] (id: 15);
   // The skills catalogue (M3a).
   skills: [SkillInfo] (id: 16);
+  // The property regimes a new world can be made under (M3a slice K).
+  regimes: [RegimeInfo] (id: 17);
 }
 
 // ---- Snapshot: replaceable host and world state --------------------------------------------
@@ -166,6 +180,9 @@ table WorldInfo {
   // The world was made with different content than is loaded now.
   content_changed: bool (id: 19);
   created_unix_ms: long (id: 20);
+  // The property regime it lives under, fixed when it was made (M3a slice K).
+  regime_id: string (id: 21);
+  regime_name: string (id: 22);
 }
 
 table Task {
@@ -245,6 +262,10 @@ table Snapshot {
   // (0 = no workshop yet). Fetch the workshops with GetFirms, and a workshop's page with GetFirm,
   // when it differs from the revision last fetched.
   firms_rev: ulong (id: 13);
+  // M3a slice K: changes at the start of each month, when households form or end and when a
+  // year's wealth measures are recorded (0 = no households). Fetch the measures with GetWealth
+  // when it differs from the revision last fetched.
+  wealth_rev: ulong (id: 14);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -270,6 +291,8 @@ table NewWorld {
   name: string (id: 3);
   // People in the founding band; 0 = the content's default.
   band_size: uint (id: 4);
+  // The property regime, by content id; empty = the content's default (M3a slice K).
+  regime_id: string (id: 5);
 }
 
 table SaveWorld {
@@ -370,7 +393,11 @@ table GetFirm {
   id: ulong (id: 0);
 }
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm }
+// Every settlement's wealth measures: as they stand, each household's, and at the end of each
+// year (M3a slice K).
+table GetWealth {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth }
 
 table Query {
   body: QueryBody (id: 1);
@@ -613,6 +640,14 @@ table FieldInfo {
   status: string (id: 14);
   // Sown and ripe, waiting to be reaped.
   ripe: bool (id: 15);
+  // Who holds it (M3a slice K; ADR-0007): a household (its id) or else a settlement (its id);
+  // `household` above works it.
+  holder: ulong (id: 16);
+  holder_settlement: ulong (id: 17);
+  // When it is let: when the lease's term ends (-1 = not let), and the holder's share of the grain
+  // threshed from it.
+  lease_until_minute: long = -1 (id: 18);
+  lease_share: float (id: 19);
 }
 
 table Fields {
@@ -897,7 +932,71 @@ table FirmInfo {
   months: [MonthStatement] (id: 9);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo }
+// How a settlement's wealth measures spread over its people (M3a slice K; ADR-0007 §4). Several
+// measures, not one: Ginis of goods, land held and land worked per head are person-weighted (each
+// person counts at their household's measure per head); floor area is compared house by house.
+// Goods are valued in hours of work at the settlement's prices, the median of what each good costs
+// its households in their own work.
+table WealthSpread {
+  // The year that ended, for a year's record; the year under way, for the measures as they stand.
+  year: long (id: 0);
+  households: uint (id: 1);
+  people: uint (id: 2);
+  gini_goods: float (id: 3);
+  gini_held: float (id: 4);
+  gini_worked: float (id: 5);
+  // Over the households with a roof of their own.
+  gini_floor: float (id: 6);
+  // The share of all goods the richest tenth of people have.
+  top_tenth_goods: float (id: 7);
+  // The shares of households that hold no land, and that work none.
+  holding_none: float (id: 8);
+  working_none: float (id: 9);
+  goods_h_per_head: float (id: 10);
+  worked_ha_per_head: float (id: 11);
+  floor_m2_per_house: float (id: 12);
+  // Land the settlement itself holds, hectares.
+  common_ha: float (id: 13);
+}
+
+// A household's wealth measures (M3a slice K).
+table HouseholdWealth {
+  household: ulong (id: 0);
+  // "Wren's household".
+  name: string (id: 1);
+  members: uint (id: 2);
+  // Land it holds and land it works, hectares; of those, what it has let to others and what it
+  // works on lease from others.
+  held_ha: float (id: 3);
+  worked_ha: float (id: 4);
+  let_ha: float (id: 5);
+  rented_ha: float (id: 6);
+  // Its goods and its workshops' stock, hours of work at the settlement's prices.
+  goods_h: float (id: 7);
+  // Floor area under its roofs, square metres.
+  floor_m2: float (id: 8);
+}
+
+table SettlementWealth {
+  settlement: ulong (id: 0);
+  name: string (id: 1);
+  // As they stand.
+  now: WealthSpread (id: 2);
+  // Its households, the most goods per head first.
+  households: [HouseholdWealth] (id: 3);
+  // At the end of each year, oldest first.
+  history: [WealthSpread] (id: 4);
+}
+
+table Wealth {
+  // The snapshot revision these measures are at.
+  rev: ulong (id: 0);
+  // The world's property regime, by name.
+  regime_name: string (id: 1);
+  settlements: [SettlementWealth] (id: 2);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth }
 
 table Response {
   body: ResponseBody (id: 1);

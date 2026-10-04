@@ -676,6 +676,32 @@ table Firms {
   activities: [string] (id: 2);
 }
 
+// Section "wealth" (schema 12, written from M3a slice K's wealth measures on; an earlier save has
+// none): each settlement's wealth measures at the end of each year, oldest first (ADR-0007 §4).
+// Derived measures, never inputs to behaviour.
+table WealthYear {
+  // The year that ended.
+  year: long (id: 0);
+  settlement: ulong (id: 1);
+  households: uint (id: 2);
+  people: uint (id: 3);
+  gini_goods: double (id: 4);
+  gini_held: double (id: 5);
+  gini_worked: double (id: 6);
+  gini_floor: double (id: 7);
+  top_tenth_goods: double (id: 8);
+  holding_none: double (id: 9);
+  working_none: double (id: 10);
+  goods_h_per_head: double (id: 11);
+  worked_ha_per_head: double (id: 12);
+  floor_m2_per_house: double (id: 13);
+  common_ha: double (id: 14);
+}
+
+table Wealth {
+  years: [WealthYear] (id: 0);
+}
+
 // Section "events": the scheduler's pending events.
 enum EventKind : ubyte { AgentStep = 0 }
 

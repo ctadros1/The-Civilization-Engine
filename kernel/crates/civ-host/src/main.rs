@@ -126,6 +126,9 @@ struct NewArgs {
     /// Days the founding band lives before the world is saved.
     #[arg(long, default_value_t = 0)]
     days: u32,
+    /// Property regime id [default: the content's default].
+    #[arg(long)]
+    regime: Option<String>,
 }
 
 #[derive(Subcommand)]
@@ -354,6 +357,7 @@ fn new(args: NewArgs) -> anyhow::Result<ExitCode> {
             size: args.size,
             name: args.name,
             days: args.days,
+            regime: args.regime,
         },
     )?;
     Ok(ExitCode::SUCCESS)

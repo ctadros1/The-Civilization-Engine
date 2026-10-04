@@ -9,6 +9,7 @@ import { CropInfo } from '../../tce/wire/crop-info.js';
 import { GoodInfo } from '../../tce/wire/good-info.js';
 import { PresetInfo } from '../../tce/wire/preset-info.js';
 import { ReasonInfo } from '../../tce/wire/reason-info.js';
+import { RegimeInfo } from '../../tce/wire/regime-info.js';
 import { SkillInfo } from '../../tce/wire/skill-info.js';
 
 
@@ -171,8 +172,18 @@ skillsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+regimes(index: number, obj?:RegimeInfo):RegimeInfo|null {
+  const offset = this.bb!.__offset(this.bb_pos, 38);
+  return offset ? (obj || new RegimeInfo()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+regimesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 38);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startWelcome(builder:flatbuffers.Builder) {
-  builder.startObject(17);
+  builder.startObject(18);
 }
 
 static addHost(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset) {
@@ -349,12 +360,28 @@ static startSkillsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addRegimes(builder:flatbuffers.Builder, regimesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(17, regimesOffset, 0);
+}
+
+static createRegimesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startRegimesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endWelcome(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset, versionOffset:flatbuffers.Offset, presetsOffset:flatbuffers.Offset, mapSizesOffset:flatbuffers.Offset, cellSizeM:number, contentFingerprintOffset:flatbuffers.Offset, defaultMapSize:number, speed1x:number, speedMultipliersOffset:flatbuffers.Offset, activitiesOffset:flatbuffers.Offset, reasonsOffset:flatbuffers.Offset, bandSizeMin:number, bandSizeMax:number, bandSizeDefault:number, goodsOffset:flatbuffers.Offset, cropsOffset:flatbuffers.Offset, skillsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset, versionOffset:flatbuffers.Offset, presetsOffset:flatbuffers.Offset, mapSizesOffset:flatbuffers.Offset, cellSizeM:number, contentFingerprintOffset:flatbuffers.Offset, defaultMapSize:number, speed1x:number, speedMultipliersOffset:flatbuffers.Offset, activitiesOffset:flatbuffers.Offset, reasonsOffset:flatbuffers.Offset, bandSizeMin:number, bandSizeMax:number, bandSizeDefault:number, goodsOffset:flatbuffers.Offset, cropsOffset:flatbuffers.Offset, skillsOffset:flatbuffers.Offset, regimesOffset:flatbuffers.Offset):flatbuffers.Offset {
   Welcome.startWelcome(builder);
   Welcome.addHost(builder, hostOffset);
   Welcome.addVersion(builder, versionOffset);
@@ -373,6 +400,7 @@ static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset,
   Welcome.addGoods(builder, goodsOffset);
   Welcome.addCrops(builder, cropsOffset);
   Welcome.addSkills(builder, skillsOffset);
+  Welcome.addRegimes(builder, regimesOffset);
   return Welcome.endWelcome(builder);
 }
 }

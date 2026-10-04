@@ -461,6 +461,10 @@ impl Engine {
                     Err(e) => Reply::Error(wire::ErrorCode::NotFound, e.to_string()),
                 },
             },
+            Request::GetWealth => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::wealth::wealth_response(&w.sim)),
+            },
             Request::ListSaves => {
                 match session::list_saves(&self.config.saves_root, &self.config.content) {
                     Ok(entries) => Reply::Response(protocol::save_list_response(&entries)),
@@ -517,6 +521,19 @@ impl Engine {
                     request.size_cells,
                     civ_sim::MAP_SIZES
                 ),
+            );
+        }
+        if !request.regime_id.is_empty()
+            && self
+                .config
+                .content
+                .catalog
+                .regime(&request.regime_id)
+                .is_none()
+        {
+            return Reply::Error(
+                wire::ErrorCode::BadRequest,
+                format!("there is no property regime `{}`", request.regime_id),
             );
         }
         let name = civ_sim::normalize_name(&request.name);
@@ -1370,6 +1387,12 @@ mod tests {
             Some(wire::ErrorCode::BadRequest)
         );
         new_world.preset_id = PRESET.to_owned();
+        new_world.regime_id = "core:regime/nobody".to_owned();
+        assert_eq!(
+            error_code(&h.ask(Request::NewWorld(new_world.clone()))),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        new_world.regime_id = "core:regime/village".to_owned();
         assert!(matches!(
             h.ask(Request::NewWorld(new_world.clone())),
             Reply::Response(_)

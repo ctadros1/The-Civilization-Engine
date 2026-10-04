@@ -1,6 +1,6 @@
 # ADR-0007: Claims and property regimes
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-04
 Milestone: M3a
 
@@ -108,8 +108,9 @@ points:
   - its goods, valued at the settlement's prices (the median of its households' own costs, in
     hours of work), so households can be compared;
   - its house floor area.
-- From these it reports person-weighted Ginis, the top tenth's share, and the shares of
-  households that hold no land and that work none.
+- From these it reports person-weighted Ginis (of goods, land held and land worked per head;
+  floor area is compared house by house, as archaeologists compare houses), the top tenth's
+  share of goods, and the shares of households that hold no land and that work none.
 - It keeps a yearly history of these per settlement, for the panel and the smoke checks.
 - The measures are derived. They are never inputs to behaviour, except where a later slice
   names one (house size by wealth in slice L).
@@ -117,7 +118,8 @@ points:
 ### 5. Saves and boundary
 
 - Saves gain each field's holder (its user is the household saved with it), the leases, the
-  regime id in the world's metadata, and each settlement's yearly wealth history.
+  regime id in the world's metadata, and each settlement's yearly wealth history (in schema 12;
+  the history's section is read when present, since it is a measure and nothing depends on it).
 - Saves from before slice K load under the default regime with every field held by the
   household that works it, as before.
 - The wire gains the world's regime (and the regimes a new world can choose), each field's

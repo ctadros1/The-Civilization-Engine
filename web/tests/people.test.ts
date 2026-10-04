@@ -292,9 +292,17 @@ describe("people payloads", () => {
     const skillName = w.createString("Milling");
     const skill = W.SkillInfo.createSkillInfo(w, skillId, skillName);
     const skills = W.Welcome.createSkillsVector(w, [skill]);
+    const regimeId = w.createString("core:regime/village");
+    const regimeName = w.createString("Village fields");
+    const regimeText = w.createString("The village holds the land.");
+    const rule = w.createString("The settlement holds the ground its households break.");
+    const rules = W.RegimeInfo.createRulesVector(w, [rule]);
+    const regime = W.RegimeInfo.createRegimeInfo(w, regimeId, regimeName, regimeText, false, rules);
+    const regimes = W.Welcome.createRegimesVector(w, [regime]);
     W.Welcome.startWelcome(w);
     W.Welcome.addGoods(w, goods);
     W.Welcome.addSkills(w, skills);
+    W.Welcome.addRegimes(w, regimes);
     w.finish(W.Welcome.endWelcome(w));
     const welcome = M.decodeWelcome(w.asUint8Array());
     expect(welcome.goods).toEqual([
@@ -302,6 +310,15 @@ describe("people payloads", () => {
       { id: "core:good/sickle", name: "Sickle", purpose: "tool", kcalPerKg: 0, eaten: "never", toolLifeH: 100 },
     ]);
     expect(welcome.skills).toEqual([{ id: "core:skill/milling", name: "Milling" }]);
+    expect(welcome.regimes).toEqual([
+      {
+        id: "core:regime/village",
+        name: "Village fields",
+        description: "The village holds the land.",
+        isDefault: false,
+        rules: ["The settlement holds the ground its households break."],
+      },
+    ]);
   });
 
   it("decode a chronicle with links", () => {

@@ -320,6 +320,27 @@ impl Firm {
         self.closed.is_none()
     }
 
+    /// Its stores at `t`, as [`Firm::settle_stores`] would leave them, without settling them.
+    pub fn stores_at_time(&self, t: SimTime, goods: &[GoodDef], sheltered: bool) -> Vec<f64> {
+        let days = (t.minutes() - self.stores_at.minutes()).max(0) as f64 / 1440.0;
+        self.stores
+            .iter()
+            .zip(goods)
+            .map(|(&kg, d)| {
+                let half_life = if sheltered && d.sheltered_half_life_days > 0.0 {
+                    d.sheltered_half_life_days
+                } else {
+                    d.half_life_days
+                };
+                if half_life > 0.0 && kg > 0.0 {
+                    kg * 0.5f64.powf(days / half_life)
+                } else {
+                    kg
+                }
+            })
+            .collect()
+    }
+
     /// Brings its stores up to `t`: goods spoil by their half-lives, their sheltered ones under
     /// its owners' roof. A firm burns no firewood.
     pub fn settle_stores(&mut self, t: SimTime, goods: &[GoodDef], sheltered: bool) {

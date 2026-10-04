@@ -108,8 +108,28 @@ ripe():boolean {
   return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
 }
 
+holder():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 36);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
+holderSettlement():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 38);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
+leaseUntilMinute():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 40);
+  return offset ? this.bb!.readInt64(this.bb_pos + offset) : BigInt('-1');
+}
+
+leaseShare():number {
+  const offset = this.bb!.__offset(this.bb_pos, 42);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
 static startFieldInfo(builder:flatbuffers.Builder) {
-  builder.startObject(16);
+  builder.startObject(20);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -174,6 +194,22 @@ static addStatus(builder:flatbuffers.Builder, statusOffset:flatbuffers.Offset) {
 
 static addRipe(builder:flatbuffers.Builder, ripe:boolean) {
   builder.addFieldInt8(15, +ripe, +false);
+}
+
+static addHolder(builder:flatbuffers.Builder, holder:bigint) {
+  builder.addFieldInt64(16, holder, BigInt('0'));
+}
+
+static addHolderSettlement(builder:flatbuffers.Builder, holderSettlement:bigint) {
+  builder.addFieldInt64(17, holderSettlement, BigInt('0'));
+}
+
+static addLeaseUntilMinute(builder:flatbuffers.Builder, leaseUntilMinute:bigint) {
+  builder.addFieldInt64(18, leaseUntilMinute, BigInt('-1'));
+}
+
+static addLeaseShare(builder:flatbuffers.Builder, leaseShare:number) {
+  builder.addFieldFloat32(19, leaseShare, 0.0);
 }
 
 static endFieldInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

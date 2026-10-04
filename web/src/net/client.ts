@@ -282,6 +282,13 @@ export class HostClient {
     return body.firm;
   }
 
+  /** Every settlement's wealth measures: as they stand, each household's, and each year's. */
+  async wealth(): Promise<M.WealthInfo> {
+    const body = await this.query(M.getWealth());
+    if (body.kind !== "wealth") throw new HostError("internal", "expected wealth measures");
+    return body.wealth;
+  }
+
   /** Every field, with the revision it is at. */
   async fields(): Promise<{ rev: number; fields: M.FieldInfo[] }> {
     const body = await this.query(M.getFields());

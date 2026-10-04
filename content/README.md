@@ -302,6 +302,30 @@ A domain people get better at with practice (ADR-0006 §2).
 | `quality` | `[[level, factor], …]`: the life of the tools made. |
 | `founder_level` | `[from, to]`: a grown founder's level is drawn evenly between them; younger founders bring a part of it, growing from age 10. |
 
+### `regime`
+
+A property regime (slice K, ADR-0007): who holds the land a household breaks, who works it, how
+its use is given, what becomes of it when a household is no more, and whether it may be let. A
+world is made under one and keeps it for its life; exactly one regime is the default
+(`default = true`). Which ground anyone breaks, works or lets, and when, is decided at run time.
+Names such as "village" or "household" are content, not states the engine switches between.
+
+| Table | Field | Meaning |
+|---|---|---|
+| `land` | `holder` | `breaker`: the household that breaks ground holds it. `settlement`: the settlement it lies by holds it. |
+| | `use` | `holder`: a holder works its own ground or lets it, and ground whose holder is no more is taken up by a household short of land, which then holds it. `need`: the settlement gives each household fields to work by how many it feeds, never leaving a household short of its own need. Needs `holder = "settlement"`; `holder` needs `breaker`. |
+| | `review` | `[month, day]` of the yearly review, when fields change hands between crops (a review also follows when a household forms or ends). |
+| `succession` | `holdings` | What becomes of a household's fields when it is no more: `heir` (all to one heir), `divided` (shared among its heirs' households, whole fields as near equal in area as they can be) or `settlement` (back to the settlement). Heirs are the households of its last member's nearest living kin, those in its own settlement first. |
+| | `union_share` | A new couple's household takes a share of its families' fields, nearest its home first, as it takes a share of their stores. |
+| `lease` | `allowed` | Whether a holder may let ground it does not need. Needs `use = "holder"`. |
+| | `holder_share` | The holder's share of the grain threshed from a let field, 0 to below 1, paid through the ledger (`rent`). |
+| | `term_years` | Crop years a lease runs before it is renewed (while the holder can spare the field and the tenant still needs it) or ends. |
+
+The core pack has two: `core:regime/household` (the default: households hold what they break,
+let it for a quarter of the grain, take a share at a union and divide it among their heirs) and
+`core:regime/village` (the village holds the ground and gives it out by need; fields go back to
+it). Content API 8 added the kind.
+
 ### Changes to M1 kinds
 
 - `good`: `purpose = "tool"` and its `[tool]` table; `eaten` replaces `cooked`; `reserve_for`
@@ -352,5 +376,5 @@ A domain people get better at with practice (ADR-0006 §2).
 ## Planned kinds
 
 Technologies (each only with its content footprint), more building programs with authored rule
-graphs (grammar v2) and style primitives, property regimes, offices and policies, service
-capability ladders, all as the milestones in the plan introduce them (§5, §7).
+graphs (grammar v2) and style primitives, offices and policies, service capability ladders, all
+as the milestones in the plan introduce them (§5, §7).

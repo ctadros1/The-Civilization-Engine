@@ -112,8 +112,13 @@ firmsRev():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+wealthRev():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 32);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startSnapshot(builder:flatbuffers.Builder) {
-  builder.startObject(14);
+  builder.startObject(15);
 }
 
 static addWorld(builder:flatbuffers.Builder, worldOffset:flatbuffers.Offset) {
@@ -194,6 +199,10 @@ static addMarketsRev(builder:flatbuffers.Builder, marketsRev:bigint) {
 
 static addFirmsRev(builder:flatbuffers.Builder, firmsRev:bigint) {
   builder.addFieldInt64(13, firmsRev, BigInt('0'));
+}
+
+static addWealthRev(builder:flatbuffers.Builder, wealthRev:bigint) {
+  builder.addFieldInt64(14, wealthRev, BigInt('0'));
 }
 
 static endSnapshot(builder:flatbuffers.Builder):flatbuffers.Offset {

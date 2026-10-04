@@ -16,6 +16,7 @@
 //! | `wear` | ground worn by walking (schema 7) |
 //! | `market` | each settlement's market: what sold, for what, and what found no seller (schema 10) |
 //! | `firms` | every firm there has been: its record, stores, terms and books (schema 11) |
+//! | `wealth` | each settlement's wealth measures at the end of each year (schema 12) |
 //!
 //! Activities, habitats, resources and goods are saved by content id, so a world still loads after
 //! the content adds, removes or reorders them. Where saved state names something the loaded
@@ -52,6 +53,13 @@
 //! **Schema 10 → 11.** Firms arrived with version 11 (M3a slice J); an older save has none, and a
 //! household sets up a workshop when it next makes something to sell. A firm's line, stock, book
 //! entry or month line in a good the loaded content no longer has is dropped.
+//!
+//! **Schema 11 → 12.** Property regimes arrived with version 12 (M3a slice K, ADR-0007): the
+//! world's regime in its metadata, and each field's holder and lease. An older save loads under the
+//! content's default regime, every field held by the household that works it. The `wealth`
+//! section came later in the same slice and is read when present: a save without it (older, or
+//! made while the slice was under way) starts the yearly history afresh. The history is a measure,
+//! never an input to behaviour, so nothing a world does depends on it.
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{Read, Seek};
@@ -60,6 +68,7 @@ use civ_agents::firm::{BookKind, Books, Entry as BookEntryOf, Exit, Firm, Statem
 use civ_agents::history::{ChronicleEvent, ChronicleKind, Origin, PersonRecord};
 use civ_agents::ledger::{Channel, Trade};
 use civ_agents::market::{Market, MonthOfTrade, Offer};
+use civ_agents::wealth::{Spread, WealthYear};
 use civ_agents::{
     Activity, AgentEvent, Cause, Household, KnownPatch, Load, Person, Population, Reason, Receipt,
     Repro, Scored, Sex, Step, Target, Term, Traits, Trip, Union,
@@ -109,6 +118,8 @@ pub const SECTION_WEAR: SectionTag = SectionTag::new("wear");
 pub const SECTION_MARKET: SectionTag = SectionTag::new("market");
 /// Section (schema 11): firms.
 pub const SECTION_FIRMS: SectionTag = SectionTag::new("firms");
+/// Section (schema 12): each settlement's yearly wealth measures.
+pub const SECTION_WEALTH: SectionTag = SectionTag::new("wealth");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -159,6 +170,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             0,
             encode_firms(&sim.people, &goods, &activities),
         ),
+        section(SECTION_WEALTH, 0, encode_wealth(&sim.people)),
     ]
 }
 
@@ -284,6 +296,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V11 {
         let bytes = single_chunk(reader, SECTION_FIRMS)?;
         people.firms = decode_firms(&bytes, rules)?;
+    }
+    // The yearly wealth history, when the save has one.
+    if schema >= Schema::V12 && reader.has_section(SECTION_WEALTH) {
+        let bytes = single_chunk(reader, SECTION_WEALTH)?;
+        people.wealth_years = decode_wealth(&bytes)?;
     }
     people.derive_shelter(&land);
 
@@ -2389,6 +2406,70 @@ fn decode_firms(bytes: &[u8], rules: &Rules) -> Result<Vec<Firm>, LoadError> {
             books,
             // Counters start again on load.
             flows: Default::default(),
+        });
+    }
+    Ok(out)
+}
+
+// ---- wealth ------------------------------------------------------------------------------------
+
+fn encode_wealth(pop: &Population) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let years: Vec<_> = pop
+        .wealth_years
+        .iter()
+        .map(|y| {
+            let s = &y.spread;
+            save::WealthYear::create(
+                &mut fbb,
+                &save::WealthYearArgs {
+                    year: y.year,
+                    settlement: s.settlement.get(),
+                    households: s.households,
+                    people: s.people,
+                    gini_goods: s.gini_goods,
+                    gini_held: s.gini_held,
+                    gini_worked: s.gini_worked,
+                    gini_floor: s.gini_floor,
+                    top_tenth_goods: s.top_tenth_goods,
+                    holding_none: s.holding_none,
+                    working_none: s.working_none,
+                    goods_h_per_head: s.goods_h_per_head,
+                    worked_ha_per_head: s.worked_ha_per_head,
+                    floor_m2_per_house: s.floor_m2_per_house,
+                    common_ha: s.common_ha,
+                },
+            )
+        })
+        .collect();
+    let years = fbb.create_vector(&years);
+    let root = save::Wealth::create(&mut fbb, &save::WealthArgs { years: Some(years) });
+    finish(fbb, root)
+}
+
+fn decode_wealth(bytes: &[u8]) -> Result<Vec<WealthYear>, LoadError> {
+    let root =
+        flatbuffers::root::<save::Wealth>(bytes).map_err(|e| unreadable(SECTION_WEALTH, &e))?;
+    let mut out = Vec::new();
+    for y in root.years().iter().flatten() {
+        out.push(WealthYear {
+            year: y.year(),
+            spread: Spread {
+                settlement: required(y.settlement(), "a year's wealth measures")?,
+                households: y.households(),
+                people: y.people(),
+                gini_goods: y.gini_goods(),
+                gini_held: y.gini_held(),
+                gini_worked: y.gini_worked(),
+                gini_floor: y.gini_floor(),
+                top_tenth_goods: y.top_tenth_goods(),
+                holding_none: y.holding_none(),
+                working_none: y.working_none(),
+                goods_h_per_head: y.goods_h_per_head(),
+                worked_ha_per_head: y.worked_ha_per_head(),
+                floor_m2_per_house: y.floor_m2_per_house(),
+                common_ha: y.common_ha(),
+            },
         });
     }
     Ok(out)

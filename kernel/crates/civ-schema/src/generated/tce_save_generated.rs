@@ -11794,6 +11794,436 @@ impl ::core::fmt::Debug for Firms<'_> {
       ds.finish()
   }
 }
+pub enum WealthYearOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WealthYear<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WealthYear<'a> {
+  type Inner = WealthYear<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WealthYear<'a> {
+  pub const VT_YEAR: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_HOUSEHOLDS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_PEOPLE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_GINI_GOODS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_GINI_HELD: ::flatbuffers::VOffsetT = 14;
+  pub const VT_GINI_WORKED: ::flatbuffers::VOffsetT = 16;
+  pub const VT_GINI_FLOOR: ::flatbuffers::VOffsetT = 18;
+  pub const VT_TOP_TENTH_GOODS: ::flatbuffers::VOffsetT = 20;
+  pub const VT_HOLDING_NONE: ::flatbuffers::VOffsetT = 22;
+  pub const VT_WORKING_NONE: ::flatbuffers::VOffsetT = 24;
+  pub const VT_GOODS_H_PER_HEAD: ::flatbuffers::VOffsetT = 26;
+  pub const VT_WORKED_HA_PER_HEAD: ::flatbuffers::VOffsetT = 28;
+  pub const VT_FLOOR_M2_PER_HOUSE: ::flatbuffers::VOffsetT = 30;
+  pub const VT_COMMON_HA: ::flatbuffers::VOffsetT = 32;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WealthYear { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WealthYearArgs
+  ) -> ::flatbuffers::WIPOffset<WealthYear<'bldr>> {
+    let mut builder = WealthYearBuilder::new(_fbb);
+    builder.add_common_ha(args.common_ha);
+    builder.add_floor_m2_per_house(args.floor_m2_per_house);
+    builder.add_worked_ha_per_head(args.worked_ha_per_head);
+    builder.add_goods_h_per_head(args.goods_h_per_head);
+    builder.add_working_none(args.working_none);
+    builder.add_holding_none(args.holding_none);
+    builder.add_top_tenth_goods(args.top_tenth_goods);
+    builder.add_gini_floor(args.gini_floor);
+    builder.add_gini_worked(args.gini_worked);
+    builder.add_gini_held(args.gini_held);
+    builder.add_gini_goods(args.gini_goods);
+    builder.add_settlement(args.settlement);
+    builder.add_year(args.year);
+    builder.add_people(args.people);
+    builder.add_households(args.households);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn year(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(WealthYear::VT_YEAR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WealthYear::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn households(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WealthYear::VT_HOUSEHOLDS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn people(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WealthYear::VT_PEOPLE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn gini_goods(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WealthYear::VT_GINI_GOODS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn gini_held(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WealthYear::VT_GINI_HELD, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn gini_worked(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WealthYear::VT_GINI_WORKED, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn gini_floor(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WealthYear::VT_GINI_FLOOR, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn top_tenth_goods(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WealthYear::VT_TOP_TENTH_GOODS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn holding_none(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WealthYear::VT_HOLDING_NONE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn working_none(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WealthYear::VT_WORKING_NONE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn goods_h_per_head(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WealthYear::VT_GOODS_H_PER_HEAD, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn worked_ha_per_head(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WealthYear::VT_WORKED_HA_PER_HEAD, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn floor_m2_per_house(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WealthYear::VT_FLOOR_M2_PER_HOUSE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn common_ha(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WealthYear::VT_COMMON_HA, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WealthYear<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("year", Self::VT_YEAR, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<u32>("households", Self::VT_HOUSEHOLDS, false)?
+     .visit_field::<u32>("people", Self::VT_PEOPLE, false)?
+     .visit_field::<f64>("gini_goods", Self::VT_GINI_GOODS, false)?
+     .visit_field::<f64>("gini_held", Self::VT_GINI_HELD, false)?
+     .visit_field::<f64>("gini_worked", Self::VT_GINI_WORKED, false)?
+     .visit_field::<f64>("gini_floor", Self::VT_GINI_FLOOR, false)?
+     .visit_field::<f64>("top_tenth_goods", Self::VT_TOP_TENTH_GOODS, false)?
+     .visit_field::<f64>("holding_none", Self::VT_HOLDING_NONE, false)?
+     .visit_field::<f64>("working_none", Self::VT_WORKING_NONE, false)?
+     .visit_field::<f64>("goods_h_per_head", Self::VT_GOODS_H_PER_HEAD, false)?
+     .visit_field::<f64>("worked_ha_per_head", Self::VT_WORKED_HA_PER_HEAD, false)?
+     .visit_field::<f64>("floor_m2_per_house", Self::VT_FLOOR_M2_PER_HOUSE, false)?
+     .visit_field::<f64>("common_ha", Self::VT_COMMON_HA, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WealthYearArgs {
+    pub year: i64,
+    pub settlement: u64,
+    pub households: u32,
+    pub people: u32,
+    pub gini_goods: f64,
+    pub gini_held: f64,
+    pub gini_worked: f64,
+    pub gini_floor: f64,
+    pub top_tenth_goods: f64,
+    pub holding_none: f64,
+    pub working_none: f64,
+    pub goods_h_per_head: f64,
+    pub worked_ha_per_head: f64,
+    pub floor_m2_per_house: f64,
+    pub common_ha: f64,
+}
+impl<'a> Default for WealthYearArgs {
+  #[inline]
+  fn default() -> Self {
+    WealthYearArgs {
+      year: 0,
+      settlement: 0,
+      households: 0,
+      people: 0,
+      gini_goods: 0.0,
+      gini_held: 0.0,
+      gini_worked: 0.0,
+      gini_floor: 0.0,
+      top_tenth_goods: 0.0,
+      holding_none: 0.0,
+      working_none: 0.0,
+      goods_h_per_head: 0.0,
+      worked_ha_per_head: 0.0,
+      floor_m2_per_house: 0.0,
+      common_ha: 0.0,
+    }
+  }
+}
+
+pub struct WealthYearBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WealthYearBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_year(&mut self, year: i64) {
+    self.fbb_.push_slot::<i64>(WealthYear::VT_YEAR, year, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(WealthYear::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_households(&mut self, households: u32) {
+    self.fbb_.push_slot::<u32>(WealthYear::VT_HOUSEHOLDS, households, 0);
+  }
+  #[inline]
+  pub fn add_people(&mut self, people: u32) {
+    self.fbb_.push_slot::<u32>(WealthYear::VT_PEOPLE, people, 0);
+  }
+  #[inline]
+  pub fn add_gini_goods(&mut self, gini_goods: f64) {
+    self.fbb_.push_slot::<f64>(WealthYear::VT_GINI_GOODS, gini_goods, 0.0);
+  }
+  #[inline]
+  pub fn add_gini_held(&mut self, gini_held: f64) {
+    self.fbb_.push_slot::<f64>(WealthYear::VT_GINI_HELD, gini_held, 0.0);
+  }
+  #[inline]
+  pub fn add_gini_worked(&mut self, gini_worked: f64) {
+    self.fbb_.push_slot::<f64>(WealthYear::VT_GINI_WORKED, gini_worked, 0.0);
+  }
+  #[inline]
+  pub fn add_gini_floor(&mut self, gini_floor: f64) {
+    self.fbb_.push_slot::<f64>(WealthYear::VT_GINI_FLOOR, gini_floor, 0.0);
+  }
+  #[inline]
+  pub fn add_top_tenth_goods(&mut self, top_tenth_goods: f64) {
+    self.fbb_.push_slot::<f64>(WealthYear::VT_TOP_TENTH_GOODS, top_tenth_goods, 0.0);
+  }
+  #[inline]
+  pub fn add_holding_none(&mut self, holding_none: f64) {
+    self.fbb_.push_slot::<f64>(WealthYear::VT_HOLDING_NONE, holding_none, 0.0);
+  }
+  #[inline]
+  pub fn add_working_none(&mut self, working_none: f64) {
+    self.fbb_.push_slot::<f64>(WealthYear::VT_WORKING_NONE, working_none, 0.0);
+  }
+  #[inline]
+  pub fn add_goods_h_per_head(&mut self, goods_h_per_head: f64) {
+    self.fbb_.push_slot::<f64>(WealthYear::VT_GOODS_H_PER_HEAD, goods_h_per_head, 0.0);
+  }
+  #[inline]
+  pub fn add_worked_ha_per_head(&mut self, worked_ha_per_head: f64) {
+    self.fbb_.push_slot::<f64>(WealthYear::VT_WORKED_HA_PER_HEAD, worked_ha_per_head, 0.0);
+  }
+  #[inline]
+  pub fn add_floor_m2_per_house(&mut self, floor_m2_per_house: f64) {
+    self.fbb_.push_slot::<f64>(WealthYear::VT_FLOOR_M2_PER_HOUSE, floor_m2_per_house, 0.0);
+  }
+  #[inline]
+  pub fn add_common_ha(&mut self, common_ha: f64) {
+    self.fbb_.push_slot::<f64>(WealthYear::VT_COMMON_HA, common_ha, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WealthYearBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WealthYearBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WealthYear<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WealthYear<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WealthYear");
+      ds.field("year", &self.year());
+      ds.field("settlement", &self.settlement());
+      ds.field("households", &self.households());
+      ds.field("people", &self.people());
+      ds.field("gini_goods", &self.gini_goods());
+      ds.field("gini_held", &self.gini_held());
+      ds.field("gini_worked", &self.gini_worked());
+      ds.field("gini_floor", &self.gini_floor());
+      ds.field("top_tenth_goods", &self.top_tenth_goods());
+      ds.field("holding_none", &self.holding_none());
+      ds.field("working_none", &self.working_none());
+      ds.field("goods_h_per_head", &self.goods_h_per_head());
+      ds.field("worked_ha_per_head", &self.worked_ha_per_head());
+      ds.field("floor_m2_per_house", &self.floor_m2_per_house());
+      ds.field("common_ha", &self.common_ha());
+      ds.finish()
+  }
+}
+pub enum WealthOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Wealth<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Wealth<'a> {
+  type Inner = Wealth<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Wealth<'a> {
+  pub const VT_YEARS: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Wealth { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WealthArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Wealth<'bldr>> {
+    let mut builder = WealthBuilder::new(_fbb);
+    if let Some(x) = args.years { builder.add_years(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn years(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WealthYear<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WealthYear>>>>(Wealth::VT_YEARS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Wealth<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WealthYear>>>>("years", Self::VT_YEARS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WealthArgs<'a> {
+    pub years: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WealthYear<'a>>>>>,
+}
+impl<'a> Default for WealthArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WealthArgs {
+      years: None,
+    }
+  }
+}
+
+pub struct WealthBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WealthBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_years(&mut self, years: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WealthYear<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Wealth::VT_YEARS, years);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WealthBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WealthBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Wealth<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Wealth<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Wealth");
+      ds.field("years", &self.years());
+      ds.finish()
+  }
+}
 pub enum PendingEventOffset {}
 #[derive(Copy, Clone, PartialEq)]
 

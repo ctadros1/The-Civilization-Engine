@@ -1,6 +1,6 @@
 # Web observer
 
-The web observer (the M0 shell, M1's people, families, fields, huts, trails and god tool, and M3a's tools, skills, market panel and workshops panel): TypeScript, Vite and PixiJS 8,
+The web observer (the M0 shell, M1's people, families, fields, huts, trails and god tool, and M3a's tools, skills, market panel, workshops panel, land tenure and wealth panel): TypeScript, Vite and PixiJS 8,
 without a UI framework. `civ-host serve` serves
 the built files from `web/dist` and the observer socket at `/ws` from the same origin.
 
@@ -27,6 +27,7 @@ another port. `?host=127.0.0.1:7421` in the page URL connects to a host directly
 | `src/format.ts` | Numbers, distances and simulated times in words. |
 | `src/market.ts` | What the market panel says about amounts, terms, payments and the price history: pure functions, unit tested. Terms, trades and money come from the kernel; the panel only words and draws them. |
 | `src/firm.ts` | What the workshops panel says about a workshop's goods, holdings, monthly statements and hours: pure functions, unit tested. Records, wages and book lines come in words from the kernel. |
+| `src/wealth.ts` | What the wealth panel says about a settlement's measures, its households and its yearly history, and the Gini chart's lines: pure functions, unit tested. The measures are the kernel's. |
 | `src/ui.ts`, `src/state.ts`, `src/main.ts` | Panels, dialogs, the store, and wiring. |
 | `src/schema/generated/` | FlatBuffers TypeScript from `kernel/crates/civ-schema/schema/tce_wire.fbs`. Never edit; run `tools/gen-schema.sh`. |
 | `e2e/` | Playwright specs; they start their own `civ-host` against a temporary saves folder. The workshops spec builds its world with `cargo run --release -p civ-sim --example workshop_world`, so it needs cargo. |
@@ -50,6 +51,22 @@ have had it, its last sale, what it holds, its terms, its wage, its life in hour
 last twelve monthly statements and the latest lines of its books. Workshop names in the
 chronicle and in the market's list of offers open the same page.
 
+## Land tenure and the wealth panel
+
+The new-world dialog's **Land tenure** lists the content's property regimes (M3a slice K), the
+default chosen, with each one's description and its rules in sentences the kernel writes. The
+world panel names the regime a world lives under and its rules, and the map's readout says who
+holds the field under the pointer: its household, the settlement, or a holder that let it for a
+share of its grain until a date.
+
+The wealth panel, fetched with `GetWealth` when the snapshot's `wealth_rev` changes (at most
+every two seconds; it changes monthly, when households form or end and when a year is
+recorded), shows each settlement's measures as they stand: goods (in hours of work at its
+prices), land worked, land held and floor area, each with its level and Gini; the richest
+tenth's share of goods and who holds and works no land; a table and a chart of the Ginis at
+each year's end; and its households, the most goods a head first, with what they hold, work,
+let and rent.
+
 ## Controls
 
 Besides Run and the speeds, **Run ahead…** lives a day, a month, a year, 5 or 10 years at full
@@ -70,7 +87,7 @@ from this machine.
 ## Test hooks
 
 `window.__TCE__` (mirroring Genesis's `window.__OBS__`) exposes plain-data state for tests and
-debugging: `state()` (with a summary of each market and workshop, and the workshop page open), `map()`, `pointerAt(x, y)`, `panBy(dx, dy)`, `zoomBy(f)`, `fit()`,
+debugging: `state()` (with a summary of each market, workshop and settlement's wealth, and the workshop page open), `map()`, `pointerAt(x, y)`, `panBy(dx, dy)`, `zoomBy(f)`, `fit()`,
 `peopleOnScreen()`, `briefs()` (each person's id, sex and age), `select(id)` and `openFirm(id)`.
 
 ## Recording the demo

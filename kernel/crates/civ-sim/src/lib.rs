@@ -736,7 +736,18 @@ impl Sim {
                         land.wear.survey(at.day_index(), &rules.land.paths);
                         people.note_trails(land, at);
                     }
-                    Cadence::Year => advance.years += 1,
+                    Cadence::Year => {
+                        advance.years += 1;
+                        // Each settlement's wealth as the year ends (ADR-0007 §4).
+                        people.record_wealth(
+                            &rules.catalog,
+                            &rules.people,
+                            &rules.land,
+                            land,
+                            at,
+                            at.date().year - 1,
+                        );
+                    }
                     _ => {}
                 },
                 Due::Event {

@@ -58,6 +58,17 @@ export interface CropInfo {
   seedGood: number;
 }
 
+/** A property regime a new world can be made under (M3a slice K; ADR-0007). */
+export interface RegimeInfo {
+  id: string;
+  /** "Household fields" */
+  name: string;
+  description: string;
+  isDefault: boolean;
+  /** Its rules, rendered by the kernel, one sentence each. */
+  rules: string[];
+}
+
 export interface Welcome {
   host: string;
   version: string;
@@ -81,6 +92,8 @@ export interface Welcome {
   crops: CropInfo[];
   /** The skills catalogue, in the order people's skills refer to. */
   skills: SkillInfo[];
+  /** The property regimes a new world can be made under. */
+  regimes: RegimeInfo[];
 }
 
 export interface WorldInfo {
@@ -105,6 +118,9 @@ export interface WorldInfo {
   generation: number;
   contentChanged: boolean;
   createdUnixMs: number;
+  /** The property regime it lives under, fixed when it was made (M3a slice K). */
+  regimeId: string;
+  regimeName: string;
 }
 
 export interface Clock {
@@ -192,6 +208,11 @@ export interface Snapshot {
   marketsRev: number;
   /** Changes whenever a workshop opens, closes, makes, sells, pays or is reviewed (0 = none yet). */
   firmsRev: number;
+  /**
+   * Changes at the start of each month, when households form or end, and when a year's wealth
+   * measures are recorded (0 = no households).
+   */
+  wealthRev: number;
 }
 
 export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
@@ -222,6 +243,12 @@ export interface FieldInfo {
   harvests: number;
   /** Rendered by the kernel: "growing; ripe in about 20 days". */
   status: string;
+  /** Who holds it (M3a slice K): a household's id, or else a settlement's; `household` works it. */
+  holder: number;
+  holderSettlement: number;
+  /** When it is let: when the lease's term ends (-1 = not let), and the holder's share of the grain. */
+  leaseUntilMinute: number;
+  leaseShare: number;
 }
 
 /** Ground worn by walking in one tile of cells (M1 slice F), as last surveyed. */
@@ -678,6 +705,65 @@ export interface FirmInfo {
   months: MonthStatement[];
 }
 
+/**
+ * How a settlement's wealth measures spread over its people (M3a slice K; ADR-0007 §4). Ginis of
+ * goods and land are person-weighted per head; floor area is compared house by house. Goods are
+ * valued in hours of work at the settlement's prices.
+ */
+export interface WealthSpread {
+  /** The year that ended (a year's record), or the year under way (as they stand). */
+  year: number;
+  households: number;
+  people: number;
+  giniGoods: number;
+  giniHeld: number;
+  giniWorked: number;
+  giniFloor: number;
+  /** The share of all goods the richest tenth of people have. */
+  topTenthGoods: number;
+  /** The shares of households that hold no land, and that work none. */
+  holdingNone: number;
+  workingNone: number;
+  goodsHPerHead: number;
+  workedHaPerHead: number;
+  floorM2PerHouse: number;
+  /** Land the settlement itself holds, hectares. */
+  commonHa: number;
+}
+
+/** A household's wealth measures (M3a slice K). */
+export interface HouseholdWealth {
+  household: number;
+  /** "Wren's household" */
+  name: string;
+  members: number;
+  heldHa: number;
+  workedHa: number;
+  letHa: number;
+  rentedHa: number;
+  /** Its goods and its workshops' stock, hours of work at the settlement's prices. */
+  goodsH: number;
+  floorM2: number;
+}
+
+export interface SettlementWealth {
+  settlement: number;
+  name: string;
+  /** As they stand (null for a settlement with nobody left). */
+  now: WealthSpread | null;
+  /** Its households, the most goods per head first. */
+  households: HouseholdWealth[];
+  /** At the end of each year, oldest first. */
+  history: WealthSpread[];
+}
+
+export interface WealthInfo {
+  rev: number;
+  /** The world's property regime, by name. */
+  regimeName: string;
+  settlements: SettlementWealth[];
+}
+
 export type ResponseBody =
   | { kind: "ack"; message: string }
   | { kind: "raster"; tile: RasterTile }
@@ -691,7 +777,8 @@ export type ResponseBody =
   | { kind: "paths"; paths: PathsInfo }
   | { kind: "markets"; rev: number; markets: MarketInfo[] }
   | { kind: "firms"; rev: number; firms: FirmBrief[] }
-  | { kind: "firm"; firm: FirmInfo };
+  | { kind: "firm"; firm: FirmInfo }
+  | { kind: "wealth"; wealth: WealthInfo };
 
 export type ErrorCode =
   | "unknown"
@@ -739,10 +826,13 @@ export function newWorld(args: {
   name: string;
   /** People in the founding band; 0 = the content's default. */
   bandSize?: number;
+  /** The property regime, by content id; empty or absent = the content's default. */
+  regimeId?: string;
 }): Uint8Array {
   const b = new flatbuffers.Builder(128);
   const preset = b.createString(args.presetId);
   const name = b.createString(args.name);
+  const regime = b.createString(args.regimeId ?? "");
   const body = W.NewWorld.createNewWorld(
     b,
     args.seed,
@@ -750,6 +840,7 @@ export function newWorld(args: {
     args.sizeCells,
     name,
     args.bandSize ?? 0,
+    regime,
   );
   return command(b, W.CommandBody.NewWorld, body);
 }
@@ -871,6 +962,12 @@ export function getFirm(id: number): Uint8Array {
   return query(b, W.QueryBody.GetFirm, W.GetFirm.createGetFirm(b, BigInt(id)));
 }
 
+export function getWealth(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetWealth.startGetWealth(b);
+  return query(b, W.QueryBody.GetWealth, W.GetWealth.endGetWealth(b));
+}
+
 export function getChronicle(afterSeq: number, limit: number): Uint8Array {
   const b = new flatbuffers.Builder(32);
   return query(
@@ -929,6 +1026,18 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
     if (!c) continue;
     crops.push({ id: c.id() ?? "", name: c.name() ?? "", good: c.good(), seedGood: c.seedGood() });
   }
+  const regimes: RegimeInfo[] = [];
+  for (let i = 0; i < w.regimesLength(); i++) {
+    const r = w.regimes(i);
+    if (!r) continue;
+    regimes.push({
+      id: r.id() ?? "",
+      name: r.name() ?? "",
+      description: r.description() ?? "",
+      isDefault: r.isDefault(),
+      rules: Array.from({ length: r.rulesLength() }, (_, k) => r.rules(k) ?? ""),
+    });
+  }
   const reasons: Record<number, string> = {};
   for (let i = 0; i < w.reasonsLength(); i++) {
     const r = w.reasons(i);
@@ -952,6 +1061,7 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
     goods,
     crops,
     skills,
+    regimes,
   };
 }
 
@@ -980,6 +1090,8 @@ function worldInfo(w: W.WorldInfo): WorldInfo {
     generation: Number(w.generation()),
     contentChanged: w.contentChanged(),
     createdUnixMs: Number(w.createdUnixMs()),
+    regimeId: w.regimeId() ?? "",
+    regimeName: w.regimeName() ?? "",
   };
 }
 
@@ -1031,6 +1143,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     pathsRev: Number(s.pathsRev()),
     marketsRev: Number(s.marketsRev()),
     firmsRev: Number(s.firmsRev()),
+    wealthRev: Number(s.wealthRev()),
   };
 }
 
@@ -1289,6 +1402,10 @@ function fields(f: W.Fields): { rev: number; fields: FieldInfo[] } {
       sheavesKg: x.sheavesKg(),
       harvests: x.harvests(),
       status: x.status() ?? "",
+      holder: Number(x.holder()),
+      holderSettlement: Number(x.holderSettlement()),
+      leaseUntilMinute: Number(x.leaseUntilMinute()),
+      leaseShare: x.leaseShare(),
     });
   }
   return { rev: Number(f.rev()), fields: out };
@@ -1589,6 +1706,63 @@ function firmInfo(f: W.FirmInfo): FirmInfo {
   };
 }
 
+function wealthSpread(s: W.WealthSpread): WealthSpread {
+  return {
+    year: Number(s.year()),
+    households: s.households(),
+    people: s.people(),
+    giniGoods: s.giniGoods(),
+    giniHeld: s.giniHeld(),
+    giniWorked: s.giniWorked(),
+    giniFloor: s.giniFloor(),
+    topTenthGoods: s.topTenthGoods(),
+    holdingNone: s.holdingNone(),
+    workingNone: s.workingNone(),
+    goodsHPerHead: s.goodsHPerHead(),
+    workedHaPerHead: s.workedHaPerHead(),
+    floorM2PerHouse: s.floorM2PerHouse(),
+    commonHa: s.commonHa(),
+  };
+}
+
+function wealth(w: W.Wealth): WealthInfo {
+  const settlements: SettlementWealth[] = [];
+  for (let i = 0; i < w.settlementsLength(); i++) {
+    const s = w.settlements(i);
+    if (!s) continue;
+    const households: HouseholdWealth[] = [];
+    for (let k = 0; k < s.householdsLength(); k++) {
+      const h = s.households(k);
+      if (!h) continue;
+      households.push({
+        household: Number(h.household()),
+        name: h.name() ?? "",
+        members: h.members(),
+        heldHa: h.heldHa(),
+        workedHa: h.workedHa(),
+        letHa: h.letHa(),
+        rentedHa: h.rentedHa(),
+        goodsH: h.goodsH(),
+        floorM2: h.floorM2(),
+      });
+    }
+    const history: WealthSpread[] = [];
+    for (let k = 0; k < s.historyLength(); k++) {
+      const y = s.history(k);
+      if (y) history.push(wealthSpread(y));
+    }
+    const now = s.now();
+    settlements.push({
+      settlement: Number(s.settlement()),
+      name: s.name() ?? "",
+      now: now ? wealthSpread(now) : null,
+      households,
+      history,
+    });
+  }
+  return { rev: Number(w.rev()), regimeName: w.regimeName() ?? "", settlements };
+}
+
 function scoredOption(o: W.ScoredOption): ScoredOption {
   const terms: Term[] = [];
   for (let k = 0; k < o.termsLength(); k++) {
@@ -1759,6 +1933,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.FirmInfo()) as W.FirmInfo | null;
       if (!f) break;
       return { kind: "firm", firm: firmInfo(f) };
+    }
+    case W.ResponseBody.Wealth: {
+      const f = r.body(new W.Wealth()) as W.Wealth | null;
+      if (!f) break;
+      return { kind: "wealth", wealth: wealth(f) };
     }
     default:
       break;

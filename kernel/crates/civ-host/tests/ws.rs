@@ -288,6 +288,20 @@ async fn an_observer_creates_saves_and_loads_a_world() {
     );
     assert_eq!(welcome.speed_1x(), civ_sim::SPEED_1X);
     assert_eq!(welcome.default_map_size(), civ_sim::DEFAULT_MAP_SIZE);
+    // The property regimes a new world can choose, one of them the default, each with its rules.
+    let regimes: Vec<_> = welcome.regimes().iter().flatten().collect();
+    assert!(regimes.len() >= 2, "{}", regimes.len());
+    assert_eq!(regimes.iter().filter(|r| r.is_default()).count(), 1);
+    assert!(
+        regimes
+            .iter()
+            .all(|r| r.rules().is_some_and(|l| !l.is_empty()))
+    );
+    assert!(
+        regimes
+            .iter()
+            .any(|r| r.id() == Some("core:regime/village"))
+    );
     let preset = welcome
         .presets()
         .and_then(|p| p.iter().find(|p| p.is_default()))
@@ -315,6 +329,7 @@ async fn an_observer_creates_saves_and_loads_a_world() {
         .ack(command(wire::CommandBody::NewWorld, move |fbb| {
             let preset_id = fbb.create_string(&preset_for_command);
             let name = fbb.create_string("Socket Valley");
+            let regime_id = fbb.create_string("core:regime/village");
             wire::NewWorld::create(
                 fbb,
                 &wire::NewWorldArgs {
@@ -323,6 +338,7 @@ async fn an_observer_creates_saves_and_loads_a_world() {
                     size_cells: 256,
                     name: Some(name),
                     band_size: 32,
+                    regime_id: Some(regime_id),
                 },
             )
             .as_union_value()
@@ -332,6 +348,31 @@ async fn an_observer_creates_saves_and_loads_a_world() {
         .wait_snapshot(|s| s.world().is_some() && s.task().is_none())
         .await;
     assert_eq!(epoch, 1);
+    {
+        let snapshot = client
+            .snapshot
+            .as_ref()
+            .expect("a snapshot")
+            .payload
+            .clone();
+        let world = flatbuffers::root::<wire::Snapshot>(&snapshot)
+            .expect("decodes")
+            .world()
+            .map(|w| {
+                (
+                    w.regime_id().map(str::to_owned),
+                    w.regime_name().map(str::to_owned),
+                )
+            });
+        assert_eq!(
+            world,
+            Some((
+                Some("core:regime/village".to_owned()),
+                Some("Village fields".to_owned())
+            )),
+            "the world lives under the regime it was made with"
+        );
+    }
 
     // Read a raster and the rivers.
     let tile = client
@@ -484,6 +525,33 @@ async fn an_observer_creates_saves_and_loads_a_world() {
         assert!(asked.contains(&t.id()));
         assert!(t.points().is_some_and(|p| p.len() >= 2));
     }
+
+    // The wealth measures: one settlement, its households as they stand, no year ended yet.
+    let wealth = client
+        .request(
+            FrameKind::Query,
+            query(wire::QueryBody::GetWealth, |fbb| {
+                wire::GetWealth::create(fbb, &wire::GetWealthArgs {}).as_union_value()
+            }),
+        )
+        .await;
+    assert_eq!(
+        wealth.meta.kind,
+        FrameKind::Response,
+        "{}",
+        error_text(&wealth)
+    );
+    let wealth = flatbuffers::root::<wire::Response>(&wealth.payload)
+        .expect("decodes")
+        .body_as_wealth()
+        .expect("wealth");
+    assert_eq!(wealth.regime_name(), Some("Village fields"));
+    let settlements: Vec<_> = wealth.settlements().iter().flatten().collect();
+    assert_eq!(settlements.len(), 1);
+    let now = settlements[0].now().expect("measures as they stand");
+    assert_eq!(now.people(), 32);
+    assert!(settlements[0].households().is_some_and(|h| !h.is_empty()));
+    assert!(settlements[0].history().is_some_and(|h| h.is_empty()));
 
     // Save, list, load.
     client

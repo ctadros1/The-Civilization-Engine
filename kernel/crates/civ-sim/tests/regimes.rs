@@ -473,3 +473,49 @@ fn a_household_lets_ground_it_can_spare_for_a_share_of_its_grain() {
     }
     assert!(renewed > 0, "no lease was renewed");
 }
+
+#[test]
+fn wealth_is_measured_each_year_and_kept_in_saves() {
+    // Under household tenure the households hold the ground they broke.
+    let sim = with_fields("", 8);
+    let rules = sim.rules();
+    let now = sim.people().wealth_by_settlement(
+        &rules.catalog,
+        &rules.people,
+        &rules.land,
+        sim.land(),
+        sim.now(),
+    );
+    assert_eq!(now.len(), 1, "one settlement");
+    let (spread, households) = &now[0];
+    let held: f64 = households.iter().map(|h| h.held_ha).sum();
+    let fields: f64 = sim.land().fields.iter().map(|f| f.rect.area_ha()).sum();
+    assert!((held - fields).abs() < 1e-9, "{held} of {fields} ha held");
+    assert!(spread.holding_none < 1.0);
+    assert_eq!(spread.common_ha, 0.0);
+    assert_eq!(spread.people as usize, sim.people().living());
+    assert!(
+        spread.goods_h_per_head > 0.0,
+        "the band's provisions are worth something"
+    );
+
+    // Under village tenure the settlement holds it all; each year's end is recorded and saved.
+    let mut sim = create(3, "core:regime/village").expect("generates");
+    let new_year = civ_core::time::MINUTES_PER_YEAR;
+    sim.advance_minutes(new_year - sim.now().minutes() + 60)
+        .expect("advances");
+    let years = sim.people().wealth_years.clone();
+    assert!(!years.is_empty(), "the year's end was recorded");
+    let first = years[0];
+    assert_eq!(first.year, 1, "the year that ended");
+    assert!(first.spread.people > 0 && first.spread.households > 0);
+    assert_eq!(first.spread.holding_none, 1.0, "no household holds a field");
+    assert_eq!(first.spread.gini_held, 0.0);
+    assert!(first.spread.common_ha > 0.0, "the village holds its fields");
+    assert!(first.spread.worked_ha_per_head > 0.0);
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("save dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "wealth").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().wealth_years, years, "kept in its saves");
+}

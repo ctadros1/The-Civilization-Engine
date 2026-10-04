@@ -40,6 +40,14 @@ import {
   statementRows,
 } from "./firm.js";
 import { PATH_LEGEND } from "./paths.js";
+import {
+  HOUSEHOLDS_SHOWN,
+  giniLines,
+  householdRows,
+  measureRows,
+  spreadText,
+  yearRows,
+} from "./wealth.js";
 import { HostError } from "./net/client.js";
 import type {
   ChronicleEntry,
@@ -50,6 +58,7 @@ import type {
   PersonInfo,
   SaveEntry,
   ScoredOption,
+  SettlementWealth,
   Welcome,
   WorldInfo,
 } from "./net/messages.js";
@@ -63,6 +72,8 @@ export interface Actions {
     sizeCells: number;
     seed: bigint;
     bandSize: number;
+    /** The property regime, by content id; empty = the content's default. */
+    regimeId: string;
   }): Promise<void>;
   save(label: string): Promise<void>;
   listSaves(): Promise<SaveEntry[]>;
@@ -156,6 +167,7 @@ export function bindUi(store: Store, actions: Actions): void {
   const nwSize = $<HTMLSelectElement>("nw-size");
   const nwSeed = $<HTMLInputElement>("nw-seed");
   const nwBand = $<HTMLInputElement>("nw-band");
+  const nwRegime = $<HTMLSelectElement>("nw-regime");
   const nwError = $("nw-error");
   const nwCreate = $<HTMLButtonElement>("nw-create");
   let filledFor: Welcome | null = null;
@@ -163,6 +175,13 @@ export function bindUi(store: Store, actions: Actions): void {
   const describePreset = () => {
     const preset = store.state.welcome?.presets.find((p) => p.id === nwPreset.value);
     setText($("nw-preset-description"), preset?.description ?? "");
+  };
+  const describeRegime = () => {
+    const regime = store.state.welcome?.regimes.find((r) => r.id === nwRegime.value);
+    setText($("nw-regime-description"), regime?.description ?? "");
+    $("nw-regime-rules").replaceChildren(
+      ...(regime?.rules ?? []).map((rule) => el("li", { text: rule })),
+    );
   };
   const fillNewWorld = (welcome: Welcome) => {
     if (filledFor === welcome) return;
@@ -183,6 +202,15 @@ export function bindUi(store: Store, actions: Actions): void {
         return option;
       }),
     );
+    nwRegime.replaceChildren(
+      ...welcome.regimes.map((r) => {
+        const option = el("option", { text: r.name });
+        option.value = r.id;
+        option.selected = r.isDefault;
+        return option;
+      }),
+    );
+    nwRegime.disabled = welcome.regimes.length === 0;
     nwBand.min = String(welcome.bandSizeMin);
     nwBand.max = String(welcome.bandSizeMax);
     setText(
@@ -190,8 +218,10 @@ export function bindUi(store: Store, actions: Actions): void {
       `People in the first band, ${welcome.bandSizeMin} to ${welcome.bandSizeMax}. They choose where to camp.`,
     );
     describePreset();
+    describeRegime();
   };
   nwPreset.addEventListener("change", describePreset);
+  nwRegime.addEventListener("change", describeRegime);
   $("nw-seed-random").addEventListener("click", () => {
     nwSeed.value = randomSeed().toString();
   });
@@ -233,6 +263,7 @@ export function bindUi(store: Store, actions: Actions): void {
         sizeCells: Number(nwSize.value),
         seed: BigInt(text),
         bandSize: welcome ? band : 0,
+        regimeId: nwRegime.value,
       })
       .then(() => nwDialog.close())
       .catch((e: unknown) => {
@@ -565,12 +596,19 @@ export function bindUi(store: Store, actions: Actions): void {
         `${world.reaches} reaches · ${world.riverLengthKm.toFixed(1)} km · up to ${world.maxDischargeM3s.toFixed(1)} m³/s`,
       ],
       ["Lakes", String(world.lakes)],
+      ["Land tenure", world.regimeName || "household fields"],
       ["Saved", world.generation ? `generation ${world.generation}` : "not yet"],
       ["Autosaved", formatAge(state.snapshot?.lastAutosaveUnixMs ?? 0)],
     ];
     const list = el("dl", { className: "facts" });
     for (const [k, v] of facts) list.append(el("dt", { text: k }), el("dd", { text: v }));
     const children: Node[] = [list];
+    const regime = state.welcome?.regimes.find((r) => r.id === world.regimeId);
+    if (regime && regime.rules.length > 0) {
+      children.push(
+        el("ul", { className: "rules" }, ...regime.rules.map((rule) => el("li", { text: rule }))),
+      );
+    }
     if (world.contentChanged) {
       children.push(
         el("p", {
@@ -1304,6 +1342,180 @@ export function bindUi(store: Store, actions: Actions): void {
     firmsBody.replaceChildren(...nodes);
   };
 
+  // ---- Wealth ------------------------------------------------------------------------------
+  const wealthBody = $("wealth-body");
+  let wealthKey: unknown[] = [];
+  const LINE_W = 220;
+  const LINE_H = 48;
+  const giniChart = (s: SettlementWealth): Node | null => {
+    const lines = giniLines(s.history, LINE_W, LINE_H);
+    if (!lines.goods) return null;
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", `0 0 ${LINE_W} ${LINE_H}`);
+    svg.setAttribute("class", "gini-chart");
+    svg.setAttribute("role", "img");
+    svg.setAttribute(
+      "aria-label",
+      `Ginis at the end of each year from year ${s.history[0]?.year} to year ${s.history.at(-1)?.year}`,
+    );
+    for (const [key, points] of Object.entries(lines)) {
+      const line = document.createElementNS(ns, "polyline");
+      line.setAttribute("points", points);
+      line.setAttribute("class", `gini-${key}`);
+      svg.append(line);
+    }
+    return el(
+      "figure",
+      { className: "gini-figure" },
+      svg,
+      el(
+        "figcaption",
+        {},
+        el("span", { className: "key gini-goods", text: "goods" }),
+        el("span", { className: "key gini-worked", text: "land worked" }),
+        el("span", { className: "key gini-floor", text: "floor area" }),
+        el("span", { className: "aside", text: " · Gini at each year's end, 0 to 1" }),
+      ),
+    );
+  };
+  const wealthBlock = (s: SettlementWealth): Node => {
+    const block = el("div", { className: "wealth-settlement" });
+    block.append(el("h3", { text: s.name || "A settlement" }));
+    if (!s.now) {
+      block.append(el("p", { className: "empty", text: "Nobody lives here now." }));
+    } else {
+      const now = s.now;
+      block.append(
+        el("p", {
+          className: "since",
+          text: `${now.people} people in ${now.households} household${now.households === 1 ? "" : "s"}, as things stand.`,
+        }),
+      );
+      const head = el("tr", {}, ...["Measure", "Level", "Gini"].map((h) => el("th", { text: h })));
+      const rows = measureRows(now, s.households).map((r) =>
+        el("tr", {}, ...[r.measure, r.level, r.gini].map((v) => el("td", { text: v }))),
+      );
+      block.append(
+        el("table", { className: "measures" }, el("thead", {}, head), el("tbody", {}, ...rows)),
+        el("p", { className: "record", text: spreadText(now) }),
+      );
+    }
+    const chart = giniChart(s);
+    if (chart) block.append(chart);
+    if (s.history.length > 0) {
+      const head = el(
+        "tr",
+        {},
+        ...["Year", "Goods", "Worked", "Floor", "Top tenth", "Hold none"].map((h) =>
+          el("th", { text: h }),
+        ),
+      );
+      const rows = yearRows(s.history).map((r) =>
+        el(
+          "tr",
+          {},
+          ...[String(r.year), r.goods, r.worked, r.floor, r.topTenth, r.holdingNone].map((v) =>
+            el("td", { text: v }),
+          ),
+        ),
+      );
+      block.append(
+        el("h4", { text: "At each year's end" }),
+        el(
+          "div",
+          { className: "table-scroll" },
+          el("table", { className: "statements" }, el("thead", {}, head), el("tbody", {}, ...rows)),
+        ),
+      );
+    } else {
+      block.append(
+        el("p", {
+          className: "aside",
+          text: "The measures are recorded at each year's end; none has ended here yet.",
+        }),
+      );
+    }
+    if (s.households.length > 0) {
+      const head = el(
+        "tr",
+        {},
+        ...["Household", "People", "Holds", "Works", "Goods a head", "Floor"].map((h) =>
+          el("th", { text: h }),
+        ),
+      );
+      const rows = householdRows(s.households).map((r) =>
+        el(
+          "tr",
+          {},
+          ...[r.name, r.people, r.holds, r.works, r.goods, r.floor].map((v) =>
+            el("td", { text: v }),
+          ),
+        ),
+      );
+      block.append(
+        el("h4", { text: "Households" }),
+        el(
+          "div",
+          { className: "table-scroll" },
+          el(
+            "table",
+            { className: "statements households" },
+            el("thead", {}, head),
+            el("tbody", {}, ...rows),
+          ),
+        ),
+      );
+      if (s.households.length > HOUSEHOLDS_SHOWN) {
+        block.append(
+          el("p", {
+            className: "aside",
+            text: `The ${HOUSEHOLDS_SHOWN} with the most goods a head of ${s.households.length}.`,
+          }),
+        );
+      }
+    }
+    return block;
+  };
+  const renderWealth = (state: AppState) => {
+    const world = state.snapshot?.world ?? null;
+    const key = [world?.worldId ?? null, state.wealth, state.wealthError];
+    if (key.length === wealthKey.length && key.every((k, i) => k === wealthKey[i])) return;
+    wealthKey = key;
+    if (!world) {
+      wealthBody.replaceChildren(el("p", { className: "empty", text: "No world loaded." }));
+      return;
+    }
+    if (state.wealth === null) {
+      wealthBody.replaceChildren(
+        state.wealthError
+          ? el("p", {
+              className: "form-error",
+              text: `The wealth measures could not be read: ${state.wealthError}`,
+            })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      );
+      return;
+    }
+    if (state.wealth.settlements.length === 0) {
+      wealthBody.replaceChildren(
+        el("p", { className: "empty", text: "Nobody has settled yet." }),
+      );
+      return;
+    }
+    const nodes: Node[] = [
+      el("p", {
+        className: "aside",
+        text: `Under ${state.wealth.regimeName.toLowerCase()}. Goods are valued in hours of work at each settlement's prices, the median of what they cost its households to get themselves; Ginis of goods and land count each person at their household's share a head, and floor area is compared house by house.`,
+      }),
+      ...state.wealth.settlements.map((s) => wealthBlock(s)),
+    ];
+    if (state.wealthError) {
+      nodes.push(el("p", { className: "note", text: `Not up to date: ${state.wealthError}` }));
+    }
+    wealthBody.replaceChildren(...nodes);
+  };
+
   const renderTask = (state: AppState) => {
     const task = state.snapshot?.task ?? null;
     $("task").hidden = !task;
@@ -1376,6 +1588,7 @@ export function bindUi(store: Store, actions: Actions): void {
     renderChronicle(state);
     renderMarkets(state);
     renderFirms(state);
+    renderWealth(state);
     renderWorld(state);
     renderEvents(state);
     renderTask(state);

@@ -1,7 +1,7 @@
 //! Boundary payloads built from a world (ADR-0001): the world and clock tables of a `Snapshot`,
 //! and the `Response` bodies of raster and hydrography queries. People, settlements, trips and
 //! the chronicle are in [`people`]; fields in [`fields`]; markets in [`markets`]; workshops in
-//! [`firms`].
+//! [`firms`]; property regimes and wealth in [`wealth`].
 //!
 //! Rasters are served at power-of-two downsampling levels, so a client can show a whole 2048² map
 //! without moving 16 MB. Level `L` has `ceil(side / 2^L)` cells per side, each summarising the
@@ -28,6 +28,7 @@ pub mod firms;
 pub mod markets;
 pub mod paths;
 pub mod people;
+pub mod wealth;
 
 /// Largest region one raster query may ask for, in cells of its level.
 pub const MAX_QUERY_CELLS: u64 = 1024 * 1024;
@@ -88,6 +89,8 @@ pub fn world_info<'a>(
     let world_id = fbb.create_string(&meta.world_id_hex());
     let name = fbb.create_string(&meta.name);
     let preset_id = fbb.create_string(&meta.preset_id);
+    let regime_id = fbb.create_string(&sim.regime().id);
+    let regime_name = fbb.create_string(&sim.regime().name);
     wire::WorldInfo::create(
         fbb,
         &wire::WorldInfoArgs {
@@ -112,6 +115,8 @@ pub fn world_info<'a>(
             generation: sim.generation(),
             content_changed: sim.content_changed(),
             created_unix_ms: meta.created_unix_ms,
+            regime_id: Some(regime_id),
+            regime_name: Some(regime_name),
         },
     )
 }

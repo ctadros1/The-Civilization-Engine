@@ -3254,12 +3254,29 @@ impl Population {
             return;
         };
         let held = work.held_by_slot(def, &x.stores);
+        let mender_skill = skill
+            .and_then(|(k, _)| self.people.get(h).map(|p| p.skill(k)))
+            .unwrap_or(condition::MIDDLING_SKILL);
         let b = &mut ctx.land.buildings[bi];
         b.repair = Some(repair);
         let done = b.mend_work(hours, stage.labour_h, &stage.materials_kg, &held);
         use_materials(x, def, &done.used_kg);
         if done.done {
-            condition::mend(b, repair.group, repair.share, &def.upkeep, now);
+            // A part that gave way is rebuilt whole of new members, as well as its mender can.
+            let failed = b
+                .group(repair.group)
+                .is_some_and(|c| c.state == civ_land::GroupState::Failed);
+            let rebuilt = failed.then(|| {
+                condition::draw_rebuilt_quality(
+                    ctx.seed,
+                    b.id,
+                    repair.group,
+                    now,
+                    mender_skill,
+                    params.build.quality_spread,
+                )
+            });
+            condition::mend(b, repair.group, repair.share, &def.upkeep, now, rebuilt);
             (x.sheltered, x.keeping) = shelter_of(ctx.land, catalog, params, household);
         }
         if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {

@@ -226,7 +226,10 @@ their meanings), an expansion yields:
   - As built (slice P's first step): `q = 1 − σ·|z|`, z a normal draw keyed by the world, the
     building and the group, never below 0.1, with σ from the people profile's
     `quality_spread`, a novice's 0.30 (11-06 §2.2's dispersion) to a master's 0.10 (tuning).
-    Mending trains the skill too, and skill does not change how fast anyone builds.
+    Mending trains the skill too, and skill does not change how fast anyone builds. A worn
+    group mended keeps its quality; a group rebuilt whole after it gave way is drawn anew from
+    its mender's skill (at first it kept its old quality, and a part too poor for its load gave
+    way again and again).
 - **Trust:** each settlement keeps, for each building technique, two recency-weighted sums.
   Until cultures exist, the settlement stands in for its culture. The sums are:
   - failures seen, weighted by severity and deaths;

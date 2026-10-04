@@ -48,6 +48,32 @@ pub fn draw_quality(
     ((1.0 - sigma * z) as f32).clamp(MIN_QUALITY, 1.0)
 }
 
+/// The quality of group `group` of building `building` rebuilt whole at `at` after it gave way,
+/// by a builder of building skill `skill`: new members, so a new draw ([`draw_quality`]), keyed
+/// also by when, so each rebuilding is its own draw and the first build's draw is untouched.
+pub fn draw_rebuilt_quality(
+    seed: u64,
+    building: PermanentId,
+    group: u32,
+    at: SimTime,
+    skill: f64,
+    spread: [f64; 2],
+) -> f32 {
+    let s = skill.clamp(0.0, 1.0);
+    let sigma = spread[0] + (spread[1] - spread[0]) * s;
+    let mut rng = Rng64::from_key(&[
+        seed,
+        PURPOSE_QUALITY,
+        building.get(),
+        u64::from(group),
+        at.minutes() as u64,
+    ]);
+    let u1 = rng.next_f64().max(f64::MIN_POSITIVE);
+    let u2 = rng.next_f64();
+    let z = ((-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos()).abs();
+    ((1.0 - sigma * z) as f32).clamp(MIN_QUALITY, 1.0)
+}
+
 /// Puts in place the groups of `e` that stage `stage` builds, on building `b`, made at average
 /// building skill `skill`, at `now` (ADR-0009 §4). A group already in place is left as it is.
 pub fn install(
@@ -377,13 +403,24 @@ pub fn mend_needs(e: &Expansion, group: u32, share: f64) -> Option<StageNeeds> {
 }
 
 /// Group `group` of building `b` is mended at `now`: `share` of its section or covering is
-/// renewed, its state and the building's follow, and the repair under way is done. Its quality
-/// stays: the new members are fitted among the old.
-pub fn mend(b: &mut Building, group: u32, share: f32, upkeep: &Upkeep, now: SimTime) {
+/// renewed, its state and the building's follow, and the repair under way is done. A worn group
+/// keeps its quality, the new members fitted among the old; a group rebuilt whole after it gave
+/// way takes `rebuilt`, the quality of its new members ([`draw_rebuilt_quality`]).
+pub fn mend(
+    b: &mut Building,
+    group: u32,
+    share: f32,
+    upkeep: &Upkeep,
+    now: SimTime,
+    rebuilt: Option<f32>,
+) {
     b.repair = None;
     let Some(c) = b.condition.iter_mut().find(|c| c.group == group) else {
         return;
     };
+    if let Some(q) = rebuilt {
+        c.quality = q;
+    }
     c.loss = (c.loss - share).max(0.0);
     c.repaired = now;
     // Renewed, it stands by its wear until its load is next weighed.
@@ -603,6 +640,52 @@ mod tests {
     }
 
     #[test]
+    fn a_part_rebuilt_after_it_gave_way_is_a_new_draw_and_a_worn_one_keeps_its_quality() {
+        let spread = [0.3, 0.1];
+        let first = draw_quality(7, id(9), 3, 0.2, spread);
+        let at = SimTime::from_minutes(1_000);
+        let again = draw_rebuilt_quality(7, id(9), 3, at, 0.2, spread);
+        assert_eq!(again, draw_rebuilt_quality(7, id(9), 3, at, 0.2, spread));
+        assert_ne!(again, first, "a new draw");
+        let later = SimTime::from_minutes(2_000);
+        assert_ne!(again, draw_rebuilt_quality(7, id(9), 3, later, 0.2, spread));
+        // Over many rebuildings a novice's parts are as uneven as their first ones.
+        let mean = (0..2_000)
+            .map(|t| {
+                f64::from(draw_rebuilt_quality(
+                    7,
+                    id(9),
+                    3,
+                    SimTime::from_minutes(t),
+                    0.0,
+                    spread,
+                ))
+            })
+            .sum::<f64>()
+            / 2_000.0;
+        assert!(
+            (mean - (1.0 - 0.3 * (2.0 / std::f64::consts::PI).sqrt())).abs() < 0.02,
+            "{mean}"
+        );
+        // Mending sets a rebuilt part's quality and leaves a worn one's.
+        let (mut b, e) = hut();
+        let u = upkeep();
+        let covering = group_of(&e, GroupKind::Covering);
+        let q = b.group(covering).expect("in place").quality;
+        mend(&mut b, covering, 0.1, &u, SimTime::from_minutes(1), None);
+        assert_eq!(b.group(covering).expect("in place").quality, q);
+        mend(
+            &mut b,
+            covering,
+            1.0,
+            &u,
+            SimTime::from_minutes(2),
+            Some(0.42),
+        );
+        assert_eq!(b.group(covering).expect("in place").quality, 0.42);
+    }
+
+    #[test]
     fn a_finished_hut_has_its_five_groups_in_place_and_sound() {
         let (b, e) = hut();
         assert_eq!(e.groups.len(), 5);
@@ -645,7 +728,7 @@ mod tests {
         assert!((room[2] - 3000.0 * (1.0 - l)).abs() < 1e-6);
         // Mending renews the thatch: dry again, and the rafters keep what they lost.
         let lost = b.group(covering).expect("in place").loss;
-        mend(&mut b, covering, lost, &u, SimTime::from_minutes(1));
+        mend(&mut b, covering, lost, &u, SimTime::from_minutes(1), None);
         assert_eq!(leak(&b, &u), 0.0);
         assert!(
             b.group(rafters).expect("in place").loss > 0.0,

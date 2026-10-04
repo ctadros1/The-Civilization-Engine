@@ -30,11 +30,13 @@ pub enum Behavior {
     Build,
     /// Work a recipe at home: grind grain, bake, make a tool (M3a).
     Make,
+    /// Go to another household of the settlement and exchange goods at its posted terms (M3a).
+    Trade,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 11] = [
+    pub const ALL: [Behavior; 12] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -46,6 +48,7 @@ impl Behavior {
         Behavior::Ask,
         Behavior::Build,
         Behavior::Make,
+        Behavior::Trade,
     ];
 
     /// The authored name of a behavior.
@@ -62,6 +65,7 @@ impl Behavior {
             Behavior::Ask => "ask",
             Behavior::Build => "build",
             Behavior::Make => "make",
+            Behavior::Trade => "trade",
         }
     }
 
@@ -800,6 +804,29 @@ pub struct NameParams {
     pub place_second: Vec<String>,
 }
 
+/// How households trade (slice I, ADR-0006 §4).
+#[derive(Clone, Debug, PartialEq)]
+pub struct MarketParams {
+    /// Days between a household's reviews of what it offers and on what terms.
+    pub review_days: u32,
+    /// What a seller asks over its own cost, a share of it.
+    pub margin: f64,
+    /// The largest change of an ask in one review, a share of it.
+    pub max_change: f64,
+    /// Half-life of what a market remembers of sales, payments and demand, days.
+    pub memory_days: f64,
+    /// The share of the payments' worth one good must settle for it to be the settlement's
+    /// money.
+    pub money_share: f64,
+    /// Trades a market must remember before one good can be its money.
+    pub money_min_trades: f64,
+    /// A seller accepts a good in payment when it wants at least this much more of it (1 when
+    /// it is short of it), or when the good is its settlement's money.
+    pub accept_want: f64,
+    /// Trades a market keeps in its list of the latest.
+    pub recent_trades: usize,
+}
+
 /// Everything authored about people.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PeopleParams {
@@ -834,6 +861,8 @@ pub struct PeopleParams {
     pub fertility: FertilityParams,
     /// Couples and households.
     pub family: FamilyParams,
+    /// Trade.
+    pub market: MarketParams,
     /// Names.
     pub names: NameParams,
 }

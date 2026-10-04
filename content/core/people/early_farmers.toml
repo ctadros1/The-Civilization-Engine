@@ -253,3 +253,23 @@ residence = "new_household"
 independent_age = 15.0
 # A child's personality regresses on the mean of its parents' by this share (research 04-03 §1.2).
 trait_heritability = 0.4
+
+[market]                         # how households trade (slice I, ADR-0006 §4); every value a tuning value
+# Each household reviews what it offers and its terms on its own day (research 08-04 §4.3: every
+# 3-14 days; 08-06 §2.3: 1-7 for ordinary retail).
+review_days = 7
+# A seller asks its own cost and this much more (08-04 §1.2: p* = (1 + m) c, from a smoothed
+# normal cost, never this week's).
+margin = 0.25
+# The largest change of an ask in one review (08-04 §4.3: 1-5 %; 08-05 §3.2: 5-15 %).
+max_change = 0.05
+# A market's tallies of sales, payments and demand halve in this many days (08-04 §4.3: demand
+# memory 14-56 days).
+memory_days = 30.0
+# A good is the settlement's money once it settles this share of the payments' worth over at least
+# this many remembered trades (08-06 §1.3: money is acceptance, not a flag).
+money_share = 0.5
+money_min_trades = 5.0
+# A seller accepts a good it wants at least this much more of (1 when short of it), or the money.
+accept_want = 0.5
+recent_trades = 64

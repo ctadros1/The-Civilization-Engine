@@ -93,6 +93,7 @@ pub fn run(
         flows_before = flows;
         let moved = sim.people().transfers.clone();
         report_moved(&sim, &moved_before, &moved, out)?;
+        report_market(&sim, &moved_before, &moved, out)?;
         moved_before = moved;
     }
     Ok(())
@@ -159,6 +160,88 @@ fn report_moved(
         lines.join(", ")
     )?;
     Ok(())
+}
+
+/// The year's exchange: what households offer, what changed hands by barter and by sale (both
+/// sides of each trade), and each settlement's money, if it has one.
+fn report_market(
+    sim: &Sim,
+    before: &Transfers,
+    after: &Transfers,
+    out: &mut dyn Write,
+) -> anyhow::Result<()> {
+    let pop = sim.people();
+    let goods = &sim.rules().catalog.goods;
+    let market = &sim.rules().people.market;
+    let offering = pop
+        .households
+        .iter()
+        .filter(|(_, h)| !h.offers.is_empty())
+        .count();
+    let mut offered: Vec<usize> = pop
+        .households
+        .iter()
+        .flat_map(|(_, h)| h.offers.iter().map(|o| usize::from(o.good)))
+        .collect();
+    offered.sort_unstable();
+    offered.dedup();
+    let names = |list: &[usize]| {
+        list.iter()
+            .filter_map(|&g| goods.get(g).map(|d| d.name.clone()))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let moved = |c: Channel| {
+        goods
+            .iter()
+            .enumerate()
+            .filter_map(|(g, d)| {
+                let v = after.get(c, g) - before.get(c, g);
+                (v > 0.005).then(|| format!("{} {v:.1}", d.name))
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let money: Vec<String> = pop
+        .markets
+        .iter()
+        .map(|m| {
+            let shares = m.acceptance();
+            match m.money(market.money_share, market.money_min_trades) {
+                Some(g) => format!(
+                    "{} ({:.0}% of payments)",
+                    goods.get(g).map_or("?", |d| d.name.as_str()),
+                    shares[g] * 100.0
+                ),
+                None => "none".to_owned(),
+            }
+        })
+        .collect();
+    writeln!(
+        out,
+        "  trade: {offering} households offer {}; barter moved {}; sales moved {}; money: {}",
+        if offered.is_empty() {
+            "nothing".to_owned()
+        } else {
+            names(&offered)
+        },
+        or_none(moved(Channel::Barter)),
+        or_none(moved(Channel::Sale)),
+        if money.is_empty() {
+            "none".to_owned()
+        } else {
+            money.join("; ")
+        }
+    )?;
+    Ok(())
+}
+
+fn or_none(s: String) -> String {
+    if s.is_empty() {
+        "nothing".to_owned()
+    } else {
+        s
+    }
 }
 
 fn report_year(

@@ -48,6 +48,8 @@ pub enum Reason {
     ReadyFood = 17,
     /// The household's stores will not last until its next harvest is in.
     LeanSeason = 18,
+    /// Others want it and nobody offers it: made to sell.
+    ForSale = 19,
     /// Excluded: there is no food at home.
     NoFood = 100,
     /// Excluded: too young.
@@ -87,11 +89,15 @@ pub enum Reason {
     /// Excluded: a better way to do the same work is at hand (a tool for what is otherwise done
     /// by hand).
     BetterWay = 118,
+    /// Excluded: it costs less to get it from another household than to make it.
+    Cheaper = 119,
+    /// Excluded: nobody nearby offers what the household needs on terms it can meet.
+    NoOffer = 120,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 37] = [
+    pub const ALL: [Reason; 40] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -110,6 +116,7 @@ impl Reason {
         Reason::Tools,
         Reason::ReadyFood,
         Reason::LeanSeason,
+        Reason::ForSale,
         Reason::NoFood,
         Reason::TooYoung,
         Reason::TooOld,
@@ -129,6 +136,8 @@ impl Reason {
         Reason::NoTool,
         Reason::NoInputs,
         Reason::BetterWay,
+        Reason::Cheaper,
+        Reason::NoOffer,
     ];
 
     /// The reason with this code.
@@ -157,6 +166,7 @@ impl Reason {
             Reason::Tools => "tools for the work",
             Reason::ReadyFood => "food to make ready",
             Reason::LeanSeason => "stores will not last to the harvest",
+            Reason::ForSale => "others want it",
             Reason::NoFood => "no food at home",
             Reason::TooYoung => "too young",
             Reason::TooOld => "too old",
@@ -176,6 +186,8 @@ impl Reason {
             Reason::NoTool => "no tool for it at home",
             Reason::NoInputs => "nothing to make it from at home",
             Reason::BetterWay => "a better way to do it is at hand",
+            Reason::Cheaper => "it costs less to get it from a neighbour",
+            Reason::NoOffer => "nobody nearby offers what is needed",
         }
     }
 }

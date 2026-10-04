@@ -528,6 +528,7 @@ fn add_family(
         known: Vec::new(),
         sheltered: false,
         flows,
+        offers: Vec::new(),
     });
     let couple = founding_couple(params, family, now, d);
     for (mi, m) in family.iter().enumerate() {
@@ -1009,6 +1010,16 @@ pub(crate) mod tests {
             mortality: crate::demography::tests::mortality(),
             fertility: crate::demography::tests::fertility(),
             family: crate::demography::tests::family(),
+            market: crate::params::MarketParams {
+                review_days: 7,
+                margin: 0.25,
+                max_change: 0.05,
+                memory_days: 30.0,
+                money_share: 0.5,
+                money_min_trades: 5.0,
+                accept_want: 0.5,
+                recent_trades: 64,
+            },
             names: NameParams::default(),
             farm: FarmParams {
                 crop: 0,

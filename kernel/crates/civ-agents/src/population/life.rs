@@ -1158,6 +1158,7 @@ impl Population {
             known: natal.known.clone(),
             sheltered: false,
             flows: Flows::default(),
+            offers: Vec::new(),
         });
         for who in [woman, man] {
             let Some(from) = self.person(who).map(|p| p.household) else {

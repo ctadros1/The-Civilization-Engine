@@ -491,6 +491,8 @@ pub struct Household {
     pub sheltered: bool,
     /// What became of their goods since the counters began (not saved).
     pub flows: Flows,
+    /// What they offer for sale, and on what terms (slice I).
+    pub offers: Vec<crate::market::Offer>,
 }
 
 impl Household {
@@ -670,6 +672,7 @@ mod tests {
             known: Vec::new(),
             sheltered: false,
             flows: Flows::default(),
+            offers: Vec::new(),
         }
     }
 

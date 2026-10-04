@@ -539,6 +539,13 @@ impl Sim {
         &self.people
     }
 
+    /// People, to set up a situation in a test. The observer never edits people: it sends
+    /// commands.
+    #[doc(hidden)]
+    pub fn people_mut_for_tests(&mut self) -> &mut Population {
+        &mut self.people
+    }
+
     /// Why the founding band of a new world could not settle, when it could not.
     pub fn founding_problem(&self) -> Option<&str> {
         self.founding_problem.as_deref()

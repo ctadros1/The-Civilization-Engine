@@ -136,6 +136,7 @@ mod tests {
                 known: Vec::new(),
                 sheltered: false,
                 flows: Flows::default(),
+                offers: Vec::new(),
             });
         }
         pop

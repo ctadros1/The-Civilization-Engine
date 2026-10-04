@@ -155,6 +155,31 @@ pub struct GiverOption {
     pub kcal: f64,
 }
 
+/// The best purchase a household knows of (slice I): the seller, the walk to its home, the good
+/// and what it would bring the household.
+#[derive(Clone, Copy, Debug)]
+pub struct TradeOption {
+    /// The selling household.
+    pub seller: PermanentId,
+    /// One-way walk to its home, minutes.
+    pub walk_min: f64,
+    /// Its home, metres.
+    pub at: (f32, f32),
+    /// The good bought, by index in the catalog's goods.
+    pub good: usize,
+    /// What it brings the household.
+    pub worth: TradeWorth,
+}
+
+/// What a purchase brings the household that makes it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum TradeWorth {
+    /// A tool it needs: how much of one it still wants, 0–1, as for making one.
+    Tool { need: f64 },
+    /// Food, kcal.
+    Food { kcal: f64 },
+}
+
 /// A nearby water point: walking minutes one way and the destination.
 #[derive(Clone, Copy, Debug)]
 pub struct WaterOption {
@@ -187,6 +212,12 @@ pub enum MakeWorth {
         tool: usize,
         /// Units of the household's want it answers, 0–1.
         need: f64,
+    },
+    /// A good others want and nobody offers, made to sell (slice I): the share of what they would
+    /// give that the household keeps over its own cost, times how much of it is wanted, 0–1.
+    Sale {
+        /// 0–1.
+        share: f64,
     },
 }
 
@@ -306,6 +337,7 @@ pub fn candidates(
     best_field: &dyn Fn(usize) -> Result<FieldOption, Reason>,
     water: Option<WaterOption>,
     giver: Option<GiverOption>,
+    trade: Option<TradeOption>,
     build: Result<BuildOption, Reason>,
     shop: &Workshop,
 ) -> (Vec<Candidate>, Vec<(u16, Reason)>) {
@@ -715,6 +747,52 @@ pub fn candidates(
                 ];
                 out.push(finish(id, Target::Household(giver.household), terms, steps));
             }
+            Behavior::Trade => {
+                // Buy what is cheaper to get from a neighbour than to make or gather (research
+                // 08-05 §1.4: a buyer compares the few sellers it knows by payment and walk).
+                let Some(t) = trade else {
+                    excluded.push((id, Reason::NoOffer));
+                    continue;
+                };
+                if t.walk_min > f64::from(def.max_walk_minutes) {
+                    excluded.push((id, Reason::Unreachable));
+                    continue;
+                }
+                match t.worth {
+                    TradeWorth::Tool { need } => {
+                        term(&mut terms, Reason::Tools, w.w_tools * need.clamp(0.0, 1.0));
+                    }
+                    TradeWorth::Food { kcal } => {
+                        let half = w.trip_half_worth_days * f.household_kcal_day.max(1.0);
+                        let worth = kcal / (kcal + half.max(1.0));
+                        let target = f.food_target_days.max(1e-6);
+                        let short = (1.0 - f.food_days / target).clamp(0.0, 1.0);
+                        term(&mut terms, Reason::FoodShortage, w.w_food * short * worth);
+                        let lean = if f.food_outlook_days > 0.0 {
+                            (1.0 - f.food_days / f.food_outlook_days).clamp(0.0, 1.0)
+                        } else {
+                            0.0
+                        };
+                        term(&mut terms, Reason::LeanSeason, w.w_lean * lean * worth);
+                        if !f.has_food {
+                            term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
+                        }
+                    }
+                }
+                term(
+                    &mut terms,
+                    Reason::Walking,
+                    -w.w_walk_hour * 2.0 * t.walk_min / 60.0,
+                );
+                let steps = vec![
+                    Step::Walk { to: t.at },
+                    Step::Work {
+                        minutes: def.min_minutes.max(1),
+                    },
+                    Step::Walk { to: f.home },
+                ];
+                out.push(finish(id, Target::Household(t.seller), terms, steps));
+            }
             Behavior::Socialize => {
                 let Some(hearth) = f.hearth else {
                     excluded.push((id, Reason::NoHearth));
@@ -778,6 +856,13 @@ pub fn candidates(
                         if toward_meal && !f.has_food {
                             term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
                         }
+                    }
+                    MakeWorth::Sale { share } => {
+                        term(
+                            &mut terms,
+                            Reason::ForSale,
+                            w.w_tools * share.clamp(0.0, 1.0),
+                        );
                     }
                     MakeWorth::Tool { tool, need } => {
                         term(&mut terms, Reason::Tools, w.w_tools * need.clamp(0.0, 1.0));
@@ -1039,6 +1124,7 @@ mod tests {
             &limits(),
             &|_| None,
             &|_| Ok(field()),
+            None,
             None,
             None,
             Err(Reason::Built),

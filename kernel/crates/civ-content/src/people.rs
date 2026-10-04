@@ -3,8 +3,8 @@
 
 use civ_agents::params::{
     BandParams, DecisionParams, EnergyParams, FamilyParams, FarmParams, FertilityParams,
-    HouseholdParams, MortalityParams, NameParams, PeopleParams, Residence, Siler, SleepParams,
-    SocialParams,
+    HouseholdParams, MarketParams, MortalityParams, NameParams, PeopleParams, Residence, Siler,
+    SleepParams, SocialParams,
 };
 use civ_world::nav::NavParams;
 use serde::Deserialize;
@@ -37,6 +37,7 @@ pub(crate) struct PeopleFile {
     pub mortality: Mortality,
     pub fertility: Fertility,
     pub family: Family,
+    pub market: Market,
 }
 
 #[derive(Debug, Deserialize)]
@@ -218,6 +219,19 @@ pub(crate) struct Fertility {
     pub weaned_recovery_months: f64,
     pub boys_per_100_girls: f64,
     pub pregnancy_kcal_day: [f64; 3],
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Market {
+    pub review_days: u32,
+    pub margin: f64,
+    pub max_change: f64,
+    pub memory_days: f64,
+    pub money_share: f64,
+    pub money_min_trades: f64,
+    pub accept_want: f64,
+    pub recent_trades: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -459,6 +473,19 @@ impl PeopleFile {
                         .unwrap_or(Residence::NewHousehold),
                     independent_age: y.independent_age,
                     trait_heritability: y.trait_heritability,
+                }
+            },
+            market: {
+                let k = &self.market;
+                MarketParams {
+                    review_days: k.review_days,
+                    margin: k.margin,
+                    max_change: k.max_change,
+                    memory_days: k.memory_days,
+                    money_share: k.money_share,
+                    money_min_trades: k.money_min_trades,
+                    accept_want: k.accept_want,
+                    recent_trades: k.recent_trades as usize,
                 }
             },
             names,
@@ -704,6 +731,19 @@ impl PeopleFile {
             ("site_flood_hand_m", b.site_flood_hand_m),
         ] {
             non_negative(&format!("band.{name}"), v, &mut p);
+        }
+        let k = &self.market;
+        if !(1..=90).contains(&k.review_days) {
+            p.push("`market.review_days` must be between 1 and 90".to_owned());
+        }
+        non_negative("market.margin", k.margin, &mut p);
+        unit("market.max_change", k.max_change, &mut p);
+        positive("market.memory_days", k.memory_days, &mut p);
+        unit("market.money_share", k.money_share, &mut p);
+        non_negative("market.money_min_trades", k.money_min_trades, &mut p);
+        unit("market.accept_want", k.accept_want, &mut p);
+        if k.recent_trades == 0 || k.recent_trades > 1000 {
+            p.push("`market.recent_trades` must be between 1 and 1000".to_owned());
         }
         let m = &self.mortality;
         for (name, v) in [("a", m.a), ("b", m.b), ("c", m.c), ("d", m.d), ("e", m.e)] {

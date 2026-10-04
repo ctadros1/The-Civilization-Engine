@@ -1080,6 +1080,7 @@ fn decode_households(
             sheltered: false,
             // Counters start again on load.
             flows: Default::default(),
+            offers: Vec::new(),
         });
     }
     Ok(out)

@@ -36,6 +36,7 @@ use crate::person::{
 };
 
 mod life;
+mod market;
 mod transfer;
 
 pub use life::{depleted, extra_kcal_day};
@@ -188,6 +189,8 @@ pub struct Population {
     pub flows_gone: Flows,
     /// What moved between households, by channel (counters, not saved).
     pub transfers: crate::ledger::Transfers,
+    /// Each settlement's market (slice I).
+    pub markets: Vec<crate::market::Market>,
 }
 
 /// A hut a household would begin: its design (which says where it stands) and what each stage
@@ -1253,10 +1256,13 @@ impl Population {
         let tool_need: Vec<f64> = (0..goods.len())
             .map(|g| make::tool_need(wants[g], held_of(g)))
             .collect();
+        // Tools others want and nobody offers, which the household makes for fewer hours than
+        // they would give: worth making to sell (slice I).
+        let for_sale = self.for_sale(ctx, &hh, &stores, &tool_need);
         let mut tool_material = vec![0.0; goods.len()];
         let mut tool_material_blocked = vec![false; goods.len()];
         for (t, need) in tool_need.iter().enumerate() {
-            if *need <= 0.0 {
+            if *need <= 0.0 && for_sale.get(t).copied().unwrap_or(0.0) <= 0.0 {
                 continue;
             }
             let Some(r) = catalog
@@ -1388,6 +1394,8 @@ impl Population {
             view.best(task, f64::from(a.max_minutes) / 60.0, site.as_ref(), &walk)
         };
         let giver = self.best_giver(ctx, &hh, field_key, kcal_day, stock);
+        // A purchase that costs the household fewer hours than getting the good itself.
+        let trade = self.best_purchase(ctx, &hh, &stores, reach);
         let build = plan.as_ref().map_err(|why| *why).and_then(|p| {
             let def = &catalog.buildings[p.def];
             let held = p.work.held_by_slot(def, &stores);
@@ -1426,6 +1434,9 @@ impl Population {
                 .ok_or((Reason::NoPlace, None))?;
             let &(out, _) = r.outputs.first().ok_or((Reason::NotNeeded, None))?;
             let out_good = goods.get(out).ok_or((Reason::NotNeeded, None))?;
+            if trade.is_some_and(|t| t.good == out) {
+                return Err((Reason::Cheaper, None));
+            }
             let level = match (r.skill, person) {
                 (Some(k), Some(p)) => p.skill(k),
                 _ => 0.0,
@@ -1444,10 +1455,14 @@ impl Population {
             // What making it is worth, and how much of it is wanted.
             let (worth, wanted) = if let Some(_tool) = &out_good.tool {
                 let need = tool_need.get(out).copied().unwrap_or(0.0);
-                if need <= 0.0 {
+                let sale = for_sale.get(out).copied().unwrap_or(0.0);
+                if need > 0.0 {
+                    (MakeWorth::Tool { tool: out, need }, 1.0)
+                } else if sale > 0.0 {
+                    (MakeWorth::Sale { share: sale }, 1.0)
+                } else {
                     return Err((Reason::NotNeeded, None));
                 }
-                (MakeWorth::Tool { tool: out, need }, 1.0)
             } else if out_good.purpose == GoodUse::Food {
                 let per_unit: f64 = r
                     .outputs
@@ -1551,6 +1566,7 @@ impl Population {
             &best_field,
             water,
             giver,
+            trade,
             build,
             &shop,
         );
@@ -1868,6 +1884,7 @@ impl Population {
                 | Behavior::FetchWater
                 | Behavior::Farm
                 | Behavior::Ask
+                | Behavior::Trade
                 | Behavior::Build,
             ) => (def_par, false, 0.0),
             None => (params.energy.idle_par, false, 0.0),
@@ -1952,6 +1969,12 @@ impl Population {
                     if let Target::Household(giver) = p.act.target {
                         let household = p.household;
                         self.give_food(ctx, giver, household);
+                    }
+                }
+                Some(Behavior::Trade) => {
+                    if let Target::Household(seller) = p.act.target {
+                        let household = p.household;
+                        self.settle_trade(ctx, household, seller);
                     }
                 }
                 Some(Behavior::Build) => {
@@ -2602,6 +2625,8 @@ impl Population {
             let (name, place) = (s.name.clone(), s.hearth_m);
             self.chronicle_push(now, kind, Vec::new(), Some(id), Some(place), days, name);
         }
+        // Households whose day it is review what they offer and on what terms.
+        self.review_offers(ctx, day);
         // Births, deaths, couples and the households they make.
         self.live_day(ctx);
     }

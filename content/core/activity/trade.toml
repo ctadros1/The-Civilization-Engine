@@ -1,0 +1,18 @@
+# Going to another household of the settlement to exchange goods at the terms it posts (research
+# 08-05 §1.3-1.4: a buyer compares the few sellers it knows by payment and walk; one bounded
+# exchange, not rounds of haggling). Settled through the ledger as barter or, paid in the
+# settlement's money, a sale (ADR-0006 §3-4).
+kind = "activity"
+id = "core:activity/trade"
+name = "Trade"
+doing = "trading"
+behavior = "trade"
+par = 1.5
+min_age_years = 14.0
+max_age_years = 90.0
+min_minutes = 15                 # looking the goods over, settling, carrying them back
+max_minutes = 15
+daylight_only = true
+max_walk_minutes = 30
+tools = []
+rate = 1.0

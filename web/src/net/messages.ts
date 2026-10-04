@@ -374,6 +374,10 @@ export interface BuildingInfo {
   /** Goods it can hold under its roof, kilograms: on a raised floor, in lofts, on other floors. */
   storageKg: number[];
   workPlaces: number;
+  /** Wire 1.15: what its household keeps in it now, kilograms by kind of room, and in words
+   * rendered by the kernel: "loft over 1 bay: 1.2 t of 1.9 t, mostly grain". */
+  storedKg: number[];
+  stored: string;
 }
 
 export type EventKind =
@@ -1614,6 +1618,8 @@ function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
       floorByUse: Array.from(x.floorByUseArray() ?? []),
       storageKg: Array.from(x.storageKgArray() ?? []),
       workPlaces: x.workPlaces(),
+      storedKg: Array.from(x.storedKgArray() ?? []),
+      stored: x.stored() ?? "",
     });
   }
   return { rev: Number(f.rev()), buildings: out };

@@ -5,7 +5,7 @@
 
 use std::collections::BTreeMap;
 
-use civ_agents::params::BuildingDef;
+use civ_agents::params::{BuildingDef, FrameDesign};
 use civ_grammar::{FrameRules, Grammar, HutRules, MAX_BAYS, MAX_STOREYS, ProgramRules, SpaceUse};
 use civ_land::PlotUse;
 use serde::Deserialize;
@@ -47,6 +47,20 @@ pub(crate) struct BuildingFile {
     pub rules: Option<Rules>,
     /// A frame building's rules.
     pub frame: Option<Frame>,
+    /// The sizes people build a frame program to.
+    pub design: Option<Design>,
+}
+
+/// The sizes people build a frame program to (`civ_agents::params::FrameDesign`), as authored.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Design {
+    pub bay_cm: i32,
+    pub width_cm: i32,
+    pub post_cm: i32,
+    pub wall_cm: i32,
+    pub overhang_cm: i32,
+    pub joist_cm: i32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -245,12 +259,14 @@ impl BuildingFile {
         }
     }
 
-    /// The compiled program, with its materials resolved by `good_index` and its technique
-    /// given (`None` if a material is unknown, which the cross-file check reports, or its rules do
-    /// not compile, which [`BuildingFile::problems`] reports).
+    /// The compiled program, with its materials resolved by `good_index` (in `goods`) and its
+    /// technique given, and the shapes people would build it in (`None` if a material is unknown,
+    /// which the cross-file check reports, or its rules do not compile, which
+    /// [`BuildingFile::problems`] reports).
     pub fn def(
         &self,
         good_index: &dyn Fn(&str) -> Option<usize>,
+        goods: &[civ_agents::params::GoodDef],
         technique: Option<usize>,
     ) -> Option<BuildingDef> {
         let materials = self
@@ -258,7 +274,7 @@ impl BuildingFile {
             .iter()
             .map(|(_, id)| good_index(id))
             .collect::<Option<Vec<usize>>>()?;
-        Some(BuildingDef {
+        let mut def = BuildingDef {
             id: self.id.clone(),
             name: self.name.clone(),
             use_: PlotUse::from_name(&self.use_)?,
@@ -268,7 +284,18 @@ impl BuildingFile {
             pitch_centideg: centideg(self.pitch_deg),
             roof_by_day: self.roof_by_day,
             technique,
-        })
+            design: self.design.as_ref().map(|d| FrameDesign {
+                bay_cm: d.bay_cm,
+                width_cm: d.width_cm,
+                post_cm: d.post_cm,
+                wall_cm: d.wall_cm,
+                overhang_cm: d.overhang_cm,
+                joist_cm: d.joist_cm,
+            }),
+            shapes: Vec::new(),
+        };
+        def.shapes = civ_agents::build::shapes(&def, goods);
+        Some(def)
     }
 
     /// Range problems, as messages. Materials are checked against the goods later.
@@ -313,8 +340,8 @@ impl BuildingFile {
         }
         match grammar {
             Grammar::Hut => {
-                if self.frame.is_some() {
-                    p.push("a hut program has `[rules]`, not `[frame]`".to_owned());
+                if self.frame.is_some() || self.design.is_some() {
+                    p.push("a hut program has `[rules]`, not `[frame]` or `[design]`".to_owned());
                 }
                 match &self.rules {
                     Some(r) => self.hut_problems(r, &mut p),
@@ -328,6 +355,11 @@ impl BuildingFile {
                 match &self.frame {
                     Some(f) => self.frame_problems(f, &mut p),
                     None => p.push("a frame program needs `[frame]`".to_owned()),
+                }
+                match (&self.design, &self.frame) {
+                    (Some(d), Some(f)) => design_problems(d, f, &mut p),
+                    (None, _) => p.push("a frame program needs `[design]`".to_owned()),
+                    (Some(_), None) => {}
                 }
             }
         }
@@ -483,6 +515,33 @@ impl BuildingFile {
             ("ladder_kg", f.ladder_kg),
         ] {
             positive(p, t, name, v);
+        }
+    }
+}
+
+/// The sizes people build to must lie within the frame's ranges, its bay and width on the
+/// footprint's quantum.
+fn design_problems(d: &Design, f: &Frame, p: &mut Vec<String>) {
+    for (name, v, [lo, hi]) in [
+        ("bay_cm", d.bay_cm, f.bay_cm),
+        ("width_cm", d.width_cm, f.width_cm),
+        ("post_cm", d.post_cm, f.post_cm),
+        ("wall_cm", d.wall_cm, f.wall_cm),
+        ("overhang_cm", d.overhang_cm, f.overhang_cm),
+        ("joist_cm", d.joist_cm, f.joist_cm),
+    ] {
+        if !(lo..=hi).contains(&v) {
+            p.push(format!(
+                "`design.{name}` ({v}) must be within `frame.{name}`"
+            ));
+        }
+    }
+    for (name, v) in [("bay_cm", d.bay_cm), ("width_cm", d.width_cm)] {
+        if v % civ_grammar::RECT_QUANTUM_CM != 0 {
+            p.push(format!(
+                "`design.{name}` ({v}) must be a multiple of {} cm",
+                civ_grammar::RECT_QUANTUM_CM
+            ));
         }
     }
 }

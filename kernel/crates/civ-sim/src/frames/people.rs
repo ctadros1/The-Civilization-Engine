@@ -247,8 +247,13 @@ pub fn bearing(from: (f32, f32), to: (f32, f32)) -> String {
     format!("{distance} {wind}")
 }
 
-/// What a target is, in words, seen from `home`.
-pub fn describe_target(sim: &Sim, home: (f32, f32), target: Target) -> String {
+/// What a target of a member of `household` is, in words, seen from `home`.
+pub fn describe_target(
+    sim: &Sim,
+    home: (f32, f32),
+    household: PermanentId,
+    target: Target,
+) -> String {
     match target {
         Target::None => String::new(),
         Target::Home => "home".to_owned(),
@@ -289,12 +294,21 @@ pub fn describe_target(sim: &Sim, home: (f32, f32), target: Target) -> String {
             None => "a building".to_owned(),
         },
         Target::NewBuilding => {
-            let program = sim
-                .rules
-                .catalog
-                .buildings
-                .get(sim.rules.people.home_program)
-                .map_or("", |b| b.id.as_str());
+            // The home the household plans, or else the first it may build.
+            let planned = sim
+                .people
+                .planned_home(household)
+                .map(|s| s.program.as_str());
+            let program = planned
+                .or_else(|| {
+                    sim.rules
+                        .people
+                        .home_programs
+                        .first()
+                        .and_then(|&p| sim.rules.catalog.buildings.get(p))
+                        .map(|b| b.id.as_str())
+                })
+                .unwrap_or("");
             format!("a new {}", program_name(sim, program))
         }
         Target::Firm(id) => firm_name(sim, id),
@@ -352,7 +366,9 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
     let def = sim.rules.catalog.activities.get(usize::from(p.act.def));
     let what = def.map_or("busy", |d| d.doing.as_str());
     let home = sim.people.household(p.household).map(|h| h.home);
-    let place = home.map_or_else(String::new, |h| describe_target(sim, h, p.act.target));
+    let place = home.map_or_else(String::new, |h| {
+        describe_target(sim, h, p.household, p.act.target)
+    });
     match p.act.steps.get(usize::from(p.act.step)) {
         Some(Step::Walk { to }) => {
             if home.is_some_and(|h| (h.0 - to.0).abs() < 1.0 && (h.1 - to.1).abs() < 1.0) {
@@ -402,10 +418,10 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
 fn scored<'a>(
     fbb: &mut FlatBufferBuilder<'a>,
     sim: &Sim,
-    home: (f32, f32),
+    (home, household): ((f32, f32), PermanentId),
     s: &Scored,
 ) -> WIPOffset<wire::ScoredOption<'a>> {
-    let target = fbb.create_string(&describe_target(sim, home, s.target));
+    let target = fbb.create_string(&describe_target(sim, home, household, s.target));
     let terms: Vec<wire::Term> = s
         .terms
         .iter()
@@ -426,11 +442,11 @@ fn scored<'a>(
 fn decision<'a>(
     fbb: &mut FlatBufferBuilder<'a>,
     sim: &Sim,
-    home: (f32, f32),
+    from: ((f32, f32), PermanentId),
     r: &Receipt,
 ) -> WIPOffset<wire::Decision<'a>> {
-    let chosen = scored(fbb, sim, home, &r.chosen);
-    let runner_up = r.runner_up.as_ref().map(|s| scored(fbb, sim, home, s));
+    let chosen = scored(fbb, sim, from, &r.chosen);
+    let runner_up = r.runner_up.as_ref().map(|s| scored(fbb, sim, from, s));
     let others: Vec<_> = r
         .others
         .iter()
@@ -735,7 +751,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
             .iter()
             .rev()
             .take(take)
-            .map(|r| decision(&mut fbb, sim, home, r))
+            .map(|r| decision(&mut fbb, sim, (home, p.household), r))
             .collect();
         let receipts = fbb.create_vector(&receipts);
         let t = &p.traits;

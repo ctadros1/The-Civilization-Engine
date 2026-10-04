@@ -93,7 +93,9 @@ join the settlement the first one joins or founds. Pointing at a hut, the readou
 area, how many it sleeps and how far its building has gone. A frame building (M3b slice O) is
 drawn as its turned walls and posts and then its gabled roof with the ridge; the readout names
 its bays, storeys and lofts and its floor by use ("longhouse of 3 bays, a loft over 1 bay, 50 m²,
-room for 6, 13 m² to store"). No world has one yet: households still build huts.
+room for 6, 13 m² to store"). The readout also says what a building's household keeps in it
+("loft over 1 bay: 1.2 t of 1.9 t, mostly grain"). Households build longhouses only once someone
+in them knows jointed framing.
 
 ## The panels alone
 

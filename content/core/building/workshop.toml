@@ -13,6 +13,14 @@ pitch_deg = 45.0
 roof_by_day = 304
 technique = "core:technique/jointed_frame"
 
+[design]                         # what people build to (tuning)
+bay_cm = 300
+width_cm = 500
+post_cm = 15
+wall_cm = 15
+overhang_cm = 50
+joist_cm = 15
+
 [materials]
 timber = "core:good/timber"
 wattle = "core:good/timber"
@@ -48,7 +56,7 @@ floor_m2_per_sleeper = 4.8
 work_m2_per_worker = 6.0         # the research gives no figure (tuning; 11-13 §2.1)
 store_kg_per_m2 = 500.0
 loft_kg_per_m2 = 150.0
-living_kg_per_m2 = 60.0
+living_kg_per_m2 = 100.0
 timber_kg_per_m3 = 760.0
 groundwork_h_per_m2 = 3.0
 posthole_h = 0.8

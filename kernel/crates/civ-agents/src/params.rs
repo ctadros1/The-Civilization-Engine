@@ -510,6 +510,30 @@ pub struct BuildingDef {
     pub roof_by_day: u16,
     /// The technique building it needs, by index in the techniques (ADR-0008 §1).
     pub technique: Option<usize>,
+    /// The sizes people build a frame program's bays and members to (`None` for a hut).
+    pub design: Option<FrameDesign>,
+    /// Every shape people would build it in, with what each gives and costs, cheapest first
+    /// ([`crate::build::shapes`]; derived from the rest when the content is compiled).
+    pub shapes: Vec<crate::build::ShapeCost>,
+}
+
+/// The sizes people build a frame program to (ADR-0009 §2): its bays' length and width, and its
+/// posts', walls', joists' and eaves' sizes. What varies between buildings of it is how many bays,
+/// storeys and lofts they have.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FrameDesign {
+    /// Length of a bay, centimetres.
+    pub bay_cm: i32,
+    /// Width between the long walls, centimetres.
+    pub width_cm: i32,
+    /// Diameter of a post, centimetres.
+    pub post_cm: i32,
+    /// Thickness of a wall, centimetres.
+    pub wall_cm: i32,
+    /// How far the roof reaches beyond the walls, centimetres.
+    pub overhang_cm: i32,
+    /// Diameter of a joist, centimetres.
+    pub joist_cm: i32,
 }
 
 impl BuildingDef {
@@ -680,6 +704,9 @@ pub struct HouseholdParams {
     pub ready_food_days: f64,
     /// Days of food beyond its next harvest a household wants in store to see it through.
     pub harvest_margin_days: f64,
+    /// How many times as long goods keep on a raised store's floor as elsewhere under a roof
+    /// (ADR-0009 §5; research 08-02 §7.1).
+    pub raised_store_factor: f64,
     /// Days of each food that is a step from ready (flour) a household tries to keep.
     pub processed_food_days: f64,
     /// What one person carries home, kilograms.
@@ -1100,9 +1127,9 @@ pub struct PeopleParams {
     pub band: BandParams,
     /// Farming.
     pub farm: FarmParams,
-    /// Building: the program households build their home to, by index in the catalog's
-    /// buildings.
-    pub home_program: usize,
+    /// Building: the programs households may build their homes to, by index in the catalog's
+    /// buildings, in the profile's order (ADR-0009 §1). A household builds one it knows how to.
+    pub home_programs: Vec<usize>,
     /// Mortality.
     pub mortality: MortalityParams,
     /// Conception, pregnancy and birth.

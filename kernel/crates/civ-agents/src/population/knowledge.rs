@@ -31,14 +31,16 @@ pub const LOST_AWARE: f64 = 1.0;
 pub const LOST_MADE_REMAIN: f64 = 2.0;
 
 impl Population {
-    /// The technique the work of activity `def` aimed at `target` needs (ADR-0008 §1): the
-    /// activity's own or its recipe's, the program's of the building it works on, or the recipe's
-    /// of the workshop that hires it.
+    /// The technique the work of activity `def` aimed at `target` by a member of `household`
+    /// needs (ADR-0008 §1): the activity's own or its recipe's, the program's of the building it
+    /// works on (a new home's: the one the household plans), or the recipe's of the workshop that
+    /// hires it.
     pub(crate) fn technique_for(
         &self,
         ctx: &Ctx,
         def: &ActivityDef,
         target: Target,
+        household: PermanentId,
     ) -> Option<usize> {
         let catalog = ctx.catalog;
         match def.behavior {
@@ -50,9 +52,12 @@ impl Population {
                     .find(|x| x.id == b)
                     .and_then(|x| catalog.building_index(&x.spec.program))
                     .and_then(|i| catalog.buildings[i].technique),
-                Target::NewBuilding => catalog
-                    .buildings
-                    .get(ctx.params.home_program)
+                // The home it plans, or else the first it may build.
+                Target::NewBuilding => self
+                    .planned_home(household)
+                    .and_then(|spec| catalog.building_index(&spec.program))
+                    .or_else(|| ctx.params.home_programs.first().copied())
+                    .and_then(|p| catalog.buildings.get(p))
                     .and_then(|b| b.technique),
                 _ => None,
             },
@@ -643,12 +648,16 @@ impl Population {
         } else {
             p.come_to_know(t, KnowSource::Observer, now);
         }
-        let settlement = self
-            .person(person)
-            .and_then(|p| self.household(p.household))
+        let household = self.person(person).map(|p| p.household);
+        let settlement = household
+            .and_then(|h| self.household(h))
             .and_then(|x| x.settlement);
         if !aware_only && let Some(s) = settlement {
             self.note_known(now, s, person, t, KnowSource::Observer);
+        }
+        // What it can build changes with what its members know: it plans its home again.
+        if let Some(h) = household {
+            self.home_sites.remove(&h);
         }
         self.chronicle_push(
             now,

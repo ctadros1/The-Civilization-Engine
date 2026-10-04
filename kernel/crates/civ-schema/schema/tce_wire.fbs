@@ -776,6 +776,11 @@ table BuildingInfo {
   storage_kg: [float] (id: 32);
   // Places to work at a craft.
   work_places: uint (id: 33);
+  // Wire 1.15 (M3b slice O): what its household keeps in it now, kilograms by kind of room
+  // (raised floors, lofts, other floors), and in words: "loft over 1 bay: 1.2 t of 1.9 t, mostly
+  // grain".
+  stored_kg: [float] (id: 34);
+  stored: string (id: 35);
 }
 
 table Buildings {

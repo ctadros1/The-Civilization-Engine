@@ -179,6 +179,7 @@ mod tests {
                 water_at: SimTime::ZERO,
                 known: Vec::new(),
                 sheltered: false,
+                keeping: crate::person::Keeping::default(),
                 flows: Flows::default(),
                 offers: Vec::new(),
             });

@@ -333,7 +333,7 @@ pub(super) fn decode<R: Read + Seek>(
     } else {
         people.give_founders_knowledge(&rules.catalog, &rules.people, seed, now);
     }
-    people.derive_shelter(&land);
+    people.derive_shelter(&land, &rules.catalog, &rules.people);
 
     let mut problems = land.problems(map, rules.land.habitats.len(), next_id);
     problems.extend(land.wear.problems());
@@ -1312,6 +1312,7 @@ fn decode_households(
             known,
             // Derived from the buildings once the land is read.
             sheltered: false,
+            keeping: civ_agents::person::Keeping::default(),
             // Counters start again on load.
             flows: Default::default(),
             offers,

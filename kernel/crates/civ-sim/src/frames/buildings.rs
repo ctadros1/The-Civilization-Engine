@@ -3,10 +3,13 @@
 //! grammar the kernel uses for its facts (ADR-0004 §2); each building's state in words is rendered
 //! here too. Observers only draw.
 
+use std::collections::HashMap;
 use std::f64::consts::TAU;
 
 use civ_agents::build::{self, HomeWork};
+use civ_agents::person::Keeping;
 use civ_agents::population;
+use civ_core::PermanentId;
 use civ_grammar::{Expansion, Footprint, PartKind, Stage, TURN, expand, frame_params};
 use civ_land::Building;
 use civ_schema::flatbuffers::FlatBufferBuilder;
@@ -95,6 +98,87 @@ pub fn status(sim: &Sim, b: &Building) -> String {
     text
 }
 
+/// What each household keeps under its roofs now: the room its buildings give by kind
+/// ([`civ_grammar::storage`]) and the kilograms of each good in each kind of room.
+type Kept = HashMap<PermanentId, ([f64; 3], [Vec<f64>; 3])>;
+
+fn kept_by_household(sim: &Sim) -> Kept {
+    let catalog = &sim.rules.catalog;
+    let mut room: HashMap<PermanentId, [f64; 3]> = HashMap::new();
+    for b in &sim.land.buildings {
+        let r = population::room_of(b, catalog);
+        let e = room.entry(b.household).or_insert([0.0; 3]);
+        for (e, r) in e.iter_mut().zip(r) {
+            *e += r;
+        }
+    }
+    room.into_iter()
+        .map(|(h, room)| {
+            let fill = sim.people.household(h).map_or_else(
+                || [Vec::new(), Vec::new(), Vec::new()],
+                |x| {
+                    let stores =
+                        population::stores_now(x, sim.now(), &sim.rules.people, &catalog.goods);
+                    Keeping::fill(&stores, &catalog.goods, room)
+                },
+            );
+            (h, (room, fill))
+        })
+        .collect()
+}
+
+/// A mass in words: "850 kg", "1.2 t".
+fn mass(kg: f64) -> String {
+    if kg < 1_000.0 {
+        format!("{:.0} kg", kg.max(0.0))
+    } else {
+        format!("{:.1} t", kg / 1_000.0)
+    }
+}
+
+/// What building `b` holds of its household's goods, kilograms by kind of room, and in words:
+/// "loft over 1 bay: 1.2 t of 1.9 t, mostly grain; floor: 2.1 t of 3.8 t, mostly provisions".
+/// Each kind of room's goods are shared among the household's buildings by the room each gives.
+fn stored(sim: &Sim, b: &Building, kept: &Kept) -> ([f64; 3], String) {
+    use civ_grammar::storage;
+    let catalog = &sim.rules.catalog;
+    let mine = population::room_of(b, catalog);
+    let Some((room, fill)) = kept.get(&b.household) else {
+        return ([0.0; 3], String::new());
+    };
+    let mut kg = [0.0; 3];
+    let mut words = Vec::new();
+    for kind in 0..storage::KINDS {
+        if !(mine[kind] > 0.0 && mine[kind].is_finite() && room[kind] > 0.0) {
+            continue;
+        }
+        let part = mine[kind] / room[kind];
+        let goods = fill[kind].iter().map(|g| g * part);
+        kg[kind] = goods.clone().sum();
+        let mostly = goods
+            .enumerate()
+            .filter(|(_, g)| *g > 0.0)
+            .max_by(|a, b| a.1.total_cmp(&b.1).then(b.0.cmp(&a.0)))
+            .and_then(|(g, _)| catalog.goods.get(g))
+            .map(|g| format!(", mostly {}", g.name.to_lowercase()))
+            .unwrap_or_default();
+        let label = match kind {
+            storage::RAISED => "raised floor".to_owned(),
+            storage::LOFT => {
+                let n = b.spec.params[frame_params::LOFT_BAYS].count_ones();
+                format!("loft over {n} {}", if n == 1 { "bay" } else { "bays" })
+            }
+            _ => "floor".to_owned(),
+        };
+        words.push(format!(
+            "{label}: {} of {}{mostly}",
+            mass(kg[kind]),
+            mass(mine[kind])
+        ));
+    }
+    (kg, words.join("; "))
+}
+
 fn vec2((x, y): (i32, i32)) -> wire::Vec2 {
     wire::Vec2::new(x as f32 / 100.0, y as f32 / 100.0)
 }
@@ -103,6 +187,7 @@ fn vec2((x, y): (i32, i32)) -> wire::Vec2 {
 pub fn buildings_response(sim: &Sim) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let catalog = &sim.rules.catalog;
+    let kept = kept_by_household(sim);
     let list: Vec<_> = sim
         .land
         .buildings
@@ -179,6 +264,9 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                 .map(|e| e.storage_kg.iter().map(|&kg| kg as f32).collect())
                 .unwrap_or_default();
             let storage_kg = fbb.create_vector(&storage_kg);
+            let (stored_kg, stored_words) = stored(sim, b, &kept);
+            let stored_kg = fbb.create_vector(&stored_kg.map(|kg| kg as f32));
+            let stored_words = fbb.create_string(&stored_words);
             let grammar = fbb.create_string(def.map_or("", |d| d.grammar().name()));
             let purpose = fbb.create_string(def.map_or("", |d| d.use_.name()));
             let plot = sim
@@ -230,6 +318,8 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                     floor_by_use: Some(floor_by_use),
                     storage_kg: Some(storage_kg),
                     work_places: expansion.as_ref().map_or(0, |e| e.work_places),
+                    stored_kg: Some(stored_kg),
+                    stored: Some(stored_words),
                 },
             )
         })

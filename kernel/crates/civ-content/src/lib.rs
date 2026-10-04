@@ -44,7 +44,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 11;
+pub const KERNEL_CONTENT_API: u32 = 12;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -712,7 +712,7 @@ fn resolve(
         }
         let technique = gate(c, parsed, &technique_index, &d.rel, &d.file.technique);
         if let (true, Ok(technique)) = (ok, technique) {
-            buildings.extend(d.file.def(&good_index, technique));
+            buildings.extend(d.file.def(&good_index, &goods, technique));
         }
     }
     buildings.sort_by(|a, b| a.id.cmp(&b.id));
@@ -762,30 +762,50 @@ fn resolve(
             if crop.is_none() {
                 missing(c, parsed, &d.rel, "farm.crop", &d.file.farm.crop);
             }
-            let home = buildings
-                .iter()
-                .position(|x| x.id == d.file.build.home_program);
-            match home.map(|h| &buildings[h]) {
-                None => missing(
-                    c,
-                    parsed,
-                    &d.rel,
-                    "build.home_program",
-                    &d.file.build.home_program,
-                ),
-                // Households design their homes as huts until they choose among programs
-                // (ADR-0009, slice O's second step).
-                Some(b) if b.hut().is_none() || b.use_ != civ_land::PlotUse::Dwelling => c.push(
+            // The programs households may build their homes to: dwellings, at least one of
+            // which the founders know how to build (ADR-0009 §1).
+            let mut homes = Vec::new();
+            for id in &d.file.build.programs {
+                match buildings.iter().position(|x| &x.id == id) {
+                    None => missing(c, parsed, &d.rel, "build.programs", id),
+                    Some(h) if buildings[h].use_ != civ_land::PlotUse::Dwelling => c.push(
+                        "E3001",
+                        &d.rel,
+                        None,
+                        format!("`build.programs` must name dwellings; `{id}` is not one"),
+                    ),
+                    Some(h) => homes.push(h),
+                }
+            }
+            let founders_know = |t: Option<usize>| {
+                t.is_none_or(|t| {
+                    d.file
+                        .knowledge
+                        .founders
+                        .iter()
+                        .any(|f| f.share > 0.0 && technique_index(&f.technique) == Some(t))
+                })
+            };
+            if d.file.build.programs.is_empty() {
+                c.push(
                     "E3001",
                     &d.rel,
                     None,
-                    format!(
-                        "`build.home_program` must be a hut dwelling; `{}` is not",
-                        b.id
-                    ),
-                ),
-                Some(_) => {}
+                    "`build.programs` must name at least one dwelling".to_owned(),
+                );
+            } else if homes.len() == d.file.build.programs.len()
+                && !homes.iter().any(|&h| founders_know(buildings[h].technique))
+            {
+                c.push(
+                    "E3001",
+                    &d.rel,
+                    None,
+                    "`build.programs` must include a home its founders know how to build"
+                        .to_owned(),
+                );
             }
+            let home =
+                (homes.len() == d.file.build.programs.len() && !homes.is_empty()).then_some(homes);
             let provisions = &d.file.band.provisions_good;
             let good = good_index(provisions);
             match good.map(|g| &goods[g]) {

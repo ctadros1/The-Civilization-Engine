@@ -460,7 +460,7 @@ fn households_raise_their_huts_and_are_under_a_roof_before_winter() {
     let (sim, founding) = until_winter();
     let rules = sim.rules().clone();
     let land = sim.land();
-    let hut = &rules.catalog.buildings[rules.people.home_program];
+    let hut = &rules.catalog.buildings[rules.people.home_programs[0]];
     // The households the band arrived in (couples who set up their own households later in the
     // year may still be building).
     for (_, h) in sim
@@ -529,7 +529,7 @@ fn a_household_with_goods_to_spare_builds_a_larger_hut_than_it_needs() {
     let mut sim = new_world(3, 0);
     sim.advance_minutes(2 * 24 * 60).expect("advances");
     let rules = sim.rules().clone();
-    let hut = &rules.catalog.buildings[rules.people.home_program];
+    let hut = &rules.catalog.buildings[rules.people.home_programs[0]];
     let grain = rules
         .catalog
         .goods
@@ -608,7 +608,7 @@ fn a_household_with_goods_to_spare_builds_a_larger_hut_than_it_needs() {
 fn a_household_grown_rich_builds_a_larger_home_beside_its_old_one_and_moves_in() {
     let mut sim = new_world(3, 0);
     let rules = sim.rules().clone();
-    let hut = &rules.catalog.buildings[rules.people.home_program];
+    let hut = &rules.catalog.buildings[rules.people.home_programs[0]];
     let good = |id: &str| {
         rules
             .catalog

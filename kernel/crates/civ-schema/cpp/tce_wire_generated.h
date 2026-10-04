@@ -7875,7 +7875,9 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_APEX_M = 64,
     VT_FLOOR_BY_USE = 66,
     VT_STORAGE_KG = 68,
-    VT_WORK_PLACES = 70
+    VT_WORK_PLACES = 70,
+    VT_STORED_KG = 72,
+    VT_STORED = 74
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -7979,6 +7981,12 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint32_t work_places() const {
     return GetField<uint32_t>(VT_WORK_PLACES, 0);
   }
+  const ::flatbuffers::Vector<float> *stored_kg() const {
+    return GetPointer<const ::flatbuffers::Vector<float> *>(VT_STORED_KG);
+  }
+  const ::flatbuffers::String *stored() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_STORED);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -8027,6 +8035,10 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_STORAGE_KG) &&
            verifier.VerifyVector(storage_kg()) &&
            VerifyField<uint32_t>(verifier, VT_WORK_PLACES, 4) &&
+           VerifyOffset(verifier, VT_STORED_KG) &&
+           verifier.VerifyVector(stored_kg()) &&
+           VerifyOffset(verifier, VT_STORED) &&
+           verifier.VerifyString(stored()) &&
            verifier.EndTable();
   }
 };
@@ -8137,6 +8149,12 @@ struct BuildingInfoBuilder {
   void add_work_places(uint32_t work_places) {
     fbb_.AddElement<uint32_t>(BuildingInfo::VT_WORK_PLACES, work_places, 0);
   }
+  void add_stored_kg(::flatbuffers::Offset<::flatbuffers::Vector<float>> stored_kg) {
+    fbb_.AddOffset(BuildingInfo::VT_STORED_KG, stored_kg);
+  }
+  void add_stored(::flatbuffers::Offset<::flatbuffers::String> stored) {
+    fbb_.AddOffset(BuildingInfo::VT_STORED, stored);
+  }
   explicit BuildingInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8183,12 +8201,16 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
     float apex_m = 0.0f,
     ::flatbuffers::Offset<::flatbuffers::Vector<float>> floor_by_use = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<float>> storage_kg = 0,
-    uint32_t work_places = 0) {
+    uint32_t work_places = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<float>> stored_kg = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> stored = 0) {
   BuildingInfoBuilder builder_(_fbb);
   builder_.add_started_minute(started_minute);
   builder_.add_settlement(settlement);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_stored(stored);
+  builder_.add_stored_kg(stored_kg);
   builder_.add_work_places(work_places);
   builder_.add_storage_kg(storage_kg);
   builder_.add_floor_by_use(floor_by_use);
@@ -8262,7 +8284,9 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
     float apex_m = 0.0f,
     const std::vector<float> *floor_by_use = nullptr,
     const std::vector<float> *storage_kg = nullptr,
-    uint32_t work_places = 0) {
+    uint32_t work_places = 0,
+    const std::vector<float> *stored_kg = nullptr,
+    const char *stored = nullptr) {
   auto program__ = program ? _fbb.CreateString(program) : 0;
   auto stage_name__ = stage_name ? _fbb.CreateString(stage_name) : 0;
   auto outline__ = outline ? _fbb.CreateVectorOfStructs<tce::wire::Vec2>(*outline) : 0;
@@ -8274,6 +8298,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
   auto ridge__ = ridge ? _fbb.CreateVectorOfStructs<tce::wire::Vec2>(*ridge) : 0;
   auto floor_by_use__ = floor_by_use ? _fbb.CreateVector<float>(*floor_by_use) : 0;
   auto storage_kg__ = storage_kg ? _fbb.CreateVector<float>(*storage_kg) : 0;
+  auto stored_kg__ = stored_kg ? _fbb.CreateVector<float>(*stored_kg) : 0;
+  auto stored__ = stored ? _fbb.CreateString(stored) : 0;
   return tce::wire::CreateBuildingInfo(
       _fbb,
       id,
@@ -8309,7 +8335,9 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
       apex_m,
       floor_by_use__,
       storage_kg__,
-      work_places);
+      work_places,
+      stored_kg__,
+      stored__);
 }
 
 struct Buildings FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

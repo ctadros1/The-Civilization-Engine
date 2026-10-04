@@ -31,7 +31,8 @@ thatch_thickness_cm = 30         # tuning
 hearth_cm = 80                   # tuning
 floor_base_m2 = 6.0              # 10-06 §2.3: 6 m² plus 4.8 m² a resident, 30 m² for five
 floor_m2_per_sleeper = 4.8
-store_kg_per_m2 = 60.0           # goods the floor holds besides living on it: room for a year's grain (tuning; ADR-0009 §3)
+store_kg_per_m2 = 100.0          # goods the floor holds besides living on it (tuning; ADR-0009 §3): households of the
+                                 # ten-year smoke worlds held at most 83 kg/m² of what keeps better under a roof
 groundwork_h_per_m2 = 3.0        # 11-04 §2.6: groundworks, floor and completion 20-40 pd8 for 30 m², split with finish
 posthole_h = 0.5                 # 11-04 §2.2: digging 0.25-0.8 pd8/m³; a posthole is about 0.03 m³, setting out included (tuning)
 post_h = 2.0                     # 11-04 §2.2: pole-and-lashing frame 0.1-0.5 pd8/m² of footprint; posts and rafters

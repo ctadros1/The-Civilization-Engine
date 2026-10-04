@@ -245,8 +245,30 @@ workPlaces():number {
   return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
 }
 
+storedKg(index: number):number|null {
+  const offset = this.bb!.__offset(this.bb_pos, 72);
+  return offset ? this.bb!.readFloat32(this.bb!.__vector(this.bb_pos + offset) + index * 4) : 0;
+}
+
+storedKgLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 72);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+storedKgArray():Float32Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 72);
+  return offset ? new Float32Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
+}
+
+stored():string|null
+stored(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+stored(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 74);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startBuildingInfo(builder:flatbuffers.Builder) {
-  builder.startObject(34);
+  builder.startObject(36);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -433,6 +455,31 @@ static startStorageKgVector(builder:flatbuffers.Builder, numElems:number) {
 
 static addWorkPlaces(builder:flatbuffers.Builder, workPlaces:number) {
   builder.addFieldInt32(33, workPlaces, 0);
+}
+
+static addStoredKg(builder:flatbuffers.Builder, storedKgOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(34, storedKgOffset, 0);
+}
+
+static createStoredKgVector(builder:flatbuffers.Builder, data:number[]|Float32Array):flatbuffers.Offset;
+/**
+ * @deprecated This Uint8Array overload will be removed in the future.
+ */
+static createStoredKgVector(builder:flatbuffers.Builder, data:number[]|Uint8Array):flatbuffers.Offset;
+static createStoredKgVector(builder:flatbuffers.Builder, data:number[]|Float32Array|Uint8Array):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addFloat32(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startStoredKgVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addStored(builder:flatbuffers.Builder, storedOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(35, storedOffset, 0);
 }
 
 static endBuildingInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

@@ -885,13 +885,9 @@ impl Population {
         }
         self.sites.remove(&to);
         self.home_sites.remove(&to);
-        let roofed = ctx
-            .land
-            .buildings
-            .iter()
-            .any(|b| b.household == to && b.roofed());
+        let shelter = super::shelter_of(ctx.land, ctx.catalog, ctx.params, to);
         if let Some(x) = self.household_mut(to) {
-            x.sheltered = roofed;
+            (x.sheltered, x.keeping) = shelter;
         }
     }
 
@@ -1276,6 +1272,7 @@ impl Population {
             water_at: ctx.now,
             known: natal.known.clone(),
             sheltered: false,
+            keeping: crate::person::Keeping::default(),
             flows: Flows::default(),
             offers: Vec::new(),
         });

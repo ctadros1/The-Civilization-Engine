@@ -85,8 +85,8 @@ pub(crate) struct Firm {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Build {
-    /// The program a household builds its home to: a building id.
-    pub home_program: String,
+    /// The programs a household may build its home to: building ids of dwellings.
+    pub programs: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -165,6 +165,7 @@ pub(crate) struct Household {
     pub food_target_days: f64,
     pub ready_food_days: f64,
     pub harvest_margin_days: f64,
+    pub raised_store_factor: f64,
     pub processed_food_days: f64,
     pub carry_kg: f64,
     pub fuel_kg_per_person_day: [f64; 12],
@@ -330,14 +331,14 @@ fn unit(name: &str, v: f64, problems: &mut Vec<String>) {
 
 impl PeopleFile {
     /// The parameters, with the given names and the indexes of the provisions good, the crop and
-    /// the home program. Field by field on purpose: a new parameter fails to compile here until
+    /// the home programs. Field by field on purpose: a new parameter fails to compile here until
     /// the authoring format carries it.
     pub fn params(
         &self,
         names: NameParams,
         provisions_good: usize,
         crop: usize,
-        home_program: usize,
+        home_programs: Vec<usize>,
         founders: Vec<(usize, f64)>,
     ) -> PeopleParams {
         let (w, e, s, so, h, d, b, m) = (
@@ -401,6 +402,7 @@ impl PeopleFile {
                 food_target_days: h.food_target_days,
                 ready_food_days: h.ready_food_days,
                 harvest_margin_days: h.harvest_margin_days,
+                raised_store_factor: h.raised_store_factor,
                 processed_food_days: h.processed_food_days,
                 carry_kg: h.carry_kg,
                 fuel_kg_per_person_day: h.fuel_kg_per_person_day,
@@ -467,7 +469,7 @@ impl PeopleFile {
                 max_walk_minutes: self.farm.max_walk_minutes,
                 site_candidates: self.farm.site_candidates,
             },
-            home_program,
+            home_programs,
             mortality: MortalityParams {
                 siler: Siler {
                     a: m.a,
@@ -711,6 +713,9 @@ impl PeopleFile {
         positive("household.water_target_days", h.water_target_days, &mut p);
         positive("household.food_target_days", h.food_target_days, &mut p);
         positive("household.ready_food_days", h.ready_food_days, &mut p);
+        if !(h.raised_store_factor.is_finite() && h.raised_store_factor >= 1.0) {
+            p.push("`household.raised_store_factor` must be 1 or more: a raised floor never keeps worse".to_owned());
+        }
         if !(h.harvest_margin_days.is_finite() && (0.0..=365.0).contains(&h.harvest_margin_days)) {
             p.push("`household.harvest_margin_days` must be between 0 and 365".to_owned());
         }

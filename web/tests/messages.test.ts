@@ -513,6 +513,8 @@ describe("decoders", () => {
           floorByUse: [],
           storageKg: [],
           workPlaces: 0,
+          storedKg: [],
+          stored: "",
         },
       ],
     });

@@ -657,13 +657,123 @@ pub struct Household {
     pub water_at: SimTime,
     /// Patches they have gathered in, and what they found.
     pub known: Vec<KnownPatch>,
-    /// Their stores are under a roof: goods spoil at their sheltered rates. Derived from their
-    /// buildings (not saved); stores are settled whenever it changes.
+    /// Their stores are under a roof: goods that keep better there spoil at their sheltered rates,
+    /// as far as `keeping` has room for them. Derived from their buildings (not saved); stores are
+    /// settled whenever it changes.
     pub sheltered: bool,
+    /// Room for their goods under their roofs (ADR-0009 §5). Derived from their buildings with
+    /// `sheltered`.
+    pub keeping: Keeping,
     /// What became of their goods since the counters began (not saved).
     pub flows: Flows,
     /// What they offer for sale, and on what terms (slice I).
     pub offers: Vec<crate::market::Offer>,
+}
+
+/// Room for a household's goods under its roofs (ADR-0009 §5), from its roofed buildings: on
+/// raised stores' floors, and in lofts and on other floors. Goods that keep better under a roof
+/// fill it, those gaining most first (the most loss a day avoided per kilogram); the rest lie in
+/// the open. Derived whenever its buildings change, and never saved.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Keeping {
+    /// Kilograms raised stores' floors hold.
+    pub raised_kg: f64,
+    /// Kilograms lofts and other floors under a roof hold.
+    pub roofed_kg: f64,
+    /// How many times as long goods keep on a raised store's floor as elsewhere under a roof.
+    pub raised_factor: f64,
+}
+
+impl Keeping {
+    /// Room for everything: a roof as it was before storage had a capacity (a building whose
+    /// program has left the content).
+    pub const UNBOUNDED: Keeping = Keeping {
+        raised_kg: 0.0,
+        roofed_kg: f64::INFINITY,
+        raised_factor: 1.0,
+    };
+
+    /// For each good, the shares of `stores` kept on raised floors and elsewhere under a roof;
+    /// the rest lies in the open. Only goods with a sheltered half-life take room.
+    pub fn shares(&self, stores: &[f64], goods: &[GoodDef]) -> Vec<(f64, f64)> {
+        let mut out = vec![(0.0, 0.0); goods.len()];
+        let rate = |h: f64| {
+            if h > 0.0 {
+                std::f64::consts::LN_2 / h
+            } else {
+                0.0
+            }
+        };
+        let gain =
+            |g: usize| rate(goods[g].half_life_days) - rate(goods[g].sheltered_half_life_days);
+        let mut order: Vec<usize> = (0..goods.len())
+            .filter(|&g| {
+                goods[g].sheltered_half_life_days > 0.0 && stores.get(g).is_some_and(|&kg| kg > 0.0)
+            })
+            .collect();
+        order.sort_by(|&a, &b| gain(b).total_cmp(&gain(a)).then(a.cmp(&b)));
+        let (mut raised, mut roofed) = (self.raised_kg.max(0.0), self.roofed_kg.max(0.0));
+        for g in order {
+            let kg = stores[g];
+            let r = kg.min(raised);
+            raised -= r;
+            let s = (kg - r).min(roofed);
+            roofed -= s;
+            out[g] = (r / kg, s / kg);
+        }
+        out
+    }
+
+    /// Where `stores`' goods lie under a roof, by kind of room (`room` kilograms: raised floors,
+    /// lofts, other floors; [`civ_grammar::storage`]): raised floors fill first, then lofts, then
+    /// other floors, with the goods that gain most from a roof first, as [`Keeping::shares`]
+    /// keeps them. Kilograms of each good in each kind; what does not fit lies in the open.
+    pub fn fill(stores: &[f64], goods: &[GoodDef], room: [f64; 3]) -> [Vec<f64>; 3] {
+        let mut out = [
+            vec![0.0; goods.len()],
+            vec![0.0; goods.len()],
+            vec![0.0; goods.len()],
+        ];
+        let rate = |h: f64| {
+            if h > 0.0 {
+                std::f64::consts::LN_2 / h
+            } else {
+                0.0
+            }
+        };
+        let gain =
+            |g: usize| rate(goods[g].half_life_days) - rate(goods[g].sheltered_half_life_days);
+        let mut order: Vec<usize> = (0..goods.len())
+            .filter(|&g| {
+                goods[g].sheltered_half_life_days > 0.0 && stores.get(g).is_some_and(|&kg| kg > 0.0)
+            })
+            .collect();
+        order.sort_by(|&a, &b| gain(b).total_cmp(&gain(a)).then(a.cmp(&b)));
+        let mut left = room.map(|r| r.max(0.0));
+        for g in order {
+            let mut kg = stores[g];
+            for (kind, room) in left.iter_mut().enumerate() {
+                let put = kg.min(*room);
+                *room -= put;
+                kg -= put;
+                out[kind][g] = put;
+            }
+        }
+        out
+    }
+
+    /// Whether `stores` fit under the roof as before storage had a capacity: no raised floor,
+    /// and room elsewhere for all that keeps better there.
+    fn holds_all(&self, stores: &[f64], goods: &[GoodDef]) -> bool {
+        self.raised_kg <= 0.0
+            && stores
+                .iter()
+                .zip(goods)
+                .filter(|(_, g)| g.sheltered_half_life_days > 0.0)
+                .map(|(kg, _)| kg.max(0.0))
+                .sum::<f64>()
+                <= self.roofed_kg
+    }
 }
 
 impl Household {
@@ -679,9 +789,11 @@ impl Household {
         self.water_at = t;
     }
 
-    /// The stores at `t`: every good spoils by its half-life (its sheltered one under a roof),
-    /// and firewood burns at `fuel_kg_per_day(day)` kilograms on each day (the household's
-    /// total). Exact for any split of time.
+    /// The stores at `t`: every good spoils by its half-life (its sheltered one under a roof, as
+    /// far as there is room for it there, and longer still on a raised floor), and firewood burns
+    /// at `fuel_kg_per_day(day)` kilograms on each day (the household's total). Exact for any
+    /// split of time while the room under the roof holds what keeps better there; otherwise
+    /// each good's shares are those of the stores at the last settling.
     pub fn stores_at_time(
         &self,
         t: SimTime,
@@ -695,14 +807,35 @@ impl Household {
         }
         let days = (t1 - t0) as f64 / MINUTES_PER_DAY as f64;
         let mut burned = burned_kg(t0, t1, fuel_kg_per_day);
-        for (kg, g) in out.iter_mut().zip(goods) {
-            let half_life = if self.sheltered && g.sheltered_half_life_days > 0.0 {
-                g.sheltered_half_life_days
-            } else {
-                g.half_life_days
-            };
+        // Shares of each good under the roof, when the roof cannot hold them all.
+        let shares = (self.sheltered && !self.keeping.holds_all(&self.stores, goods))
+            .then(|| self.keeping.shares(&self.stores, goods));
+        let left = |half_life: f64| {
             if half_life > 0.0 {
-                *kg *= 0.5f64.powf(days / half_life);
+                0.5f64.powf(days / half_life)
+            } else {
+                1.0
+            }
+        };
+        for (i, (kg, g)) in out.iter_mut().zip(goods).enumerate() {
+            let roofed = self.sheltered && g.sheltered_half_life_days > 0.0;
+            match shares.as_ref().and_then(|s| s.get(i)) {
+                Some(&(raised, under)) if roofed => {
+                    let open = (1.0 - raised - under).max(0.0);
+                    *kg *= raised * left(g.sheltered_half_life_days * self.keeping.raised_factor)
+                        + under * left(g.sheltered_half_life_days)
+                        + open * left(g.half_life_days);
+                }
+                _ => {
+                    let half_life = if roofed {
+                        g.sheltered_half_life_days
+                    } else {
+                        g.half_life_days
+                    };
+                    if half_life > 0.0 {
+                        *kg *= 0.5f64.powf(days / half_life);
+                    }
+                }
             }
             if g.purpose == GoodUse::Fuel && burned > 0.0 {
                 let take = burned.min(*kg);
@@ -842,6 +975,7 @@ mod tests {
             water_at: SimTime::ZERO,
             known: Vec::new(),
             sheltered: false,
+            keeping: Keeping::default(),
             flows: Flows::default(),
             offers: Vec::new(),
         }
@@ -877,6 +1011,7 @@ mod tests {
         let t = SimTime::from_minutes(400 * 1440);
         let open = h.stores_at_time(t, &goods, &|_| 0.0);
         h.sheltered = true;
+        h.keeping = Keeping::UNBOUNDED;
         let roofed = h.stores_at_time(t, &goods, &|_| 0.0);
         assert!((open[1] - 0.5).abs() < 1e-9, "four half-lives: {}", open[1]);
         assert!(
@@ -885,6 +1020,66 @@ mod tests {
             roofed[1]
         );
         assert_eq!(open[0], roofed[0], "a roof does nothing for fresh meat");
+    }
+
+    #[test]
+    fn goods_beyond_the_room_under_the_roof_spoil_as_in_the_open() {
+        let mut goods = goods();
+        // Nuts: 100 days in the open, 400 under a roof; 400 days is one or four half-lives.
+        goods[1].half_life_days = 100.0;
+        goods[1].sheltered_half_life_days = 400.0;
+        let t = SimTime::from_minutes(400 * 1440);
+        let mut h = household(vec![8.0, 8.0, 0.0]);
+        h.sheltered = true;
+        // Room for 6 of the 8 kg: 6 keep as under a roof, 2 as in the open.
+        h.keeping = Keeping {
+            raised_kg: 0.0,
+            roofed_kg: 6.0,
+            raised_factor: 2.0,
+        };
+        let s = h.stores_at_time(t, &goods, &|_| 0.0);
+        assert!((s[1] - (6.0 * 0.5 + 2.0 * 0.0625)).abs() < 1e-9, "{}", s[1]);
+        // While the room holds it all, exactly as under an unbounded roof.
+        h.keeping.roofed_kg = 8.0;
+        let all = h.stores_at_time(t, &goods, &|_| 0.0);
+        h.keeping = Keeping::UNBOUNDED;
+        assert_eq!(all, h.stores_at_time(t, &goods, &|_| 0.0));
+        // On a raised floor goods keep twice as long: 4 kg there lose a quarter of a half-life's
+        // worth less (800 days' half-life), the other 4 keep as under a roof.
+        h.keeping = Keeping {
+            raised_kg: 4.0,
+            roofed_kg: 4.0,
+            raised_factor: 2.0,
+        };
+        let raised = h.stores_at_time(t, &goods, &|_| 0.0);
+        let expect = 4.0 * 0.5f64.powf(0.5) + 4.0 * 0.5;
+        assert!((raised[1] - expect).abs() < 1e-9, "{}", raised[1]);
+        // Fresh meat takes no room: it spoils as before.
+        assert_eq!(s[0], all[0]);
+        // Without a roof, room does nothing.
+        h.sheltered = false;
+        let open = h.stores_at_time(t, &goods, &|_| 0.0);
+        assert!((open[1] - 0.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn the_goods_that_gain_most_from_a_roof_take_its_room_first() {
+        let mut goods = goods();
+        // Nuts gain little from a roof (1000 to 2000 days); meat-like "berries" much (10 to 40).
+        goods[1].half_life_days = 1000.0;
+        goods[1].sheltered_half_life_days = 2000.0;
+        goods[0].half_life_days = 10.0;
+        goods[0].sheltered_half_life_days = 40.0;
+        let k = Keeping {
+            raised_kg: 2.0,
+            roofed_kg: 6.0,
+            raised_factor: 2.0,
+        };
+        let shares = k.shares(&[5.0, 5.0, 3.0], &goods);
+        // Berries: 2 kg raised, 3 roofed; nuts: the 3 kg left of the room; wood takes none.
+        assert_eq!(shares[0], (0.4, 0.6));
+        assert_eq!(shares[1], (0.0, 0.6));
+        assert_eq!(shares[2], (0.0, 0.0));
     }
 
     #[test]

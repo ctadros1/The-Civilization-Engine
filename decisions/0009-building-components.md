@@ -4,7 +4,8 @@ Status: Accepted
 Date: 2026-10-04
 Milestone: M3b
 Amended: 2026-10-04, to match what was built. Slice O's first step: §2's parameters as frame
-version 1 names them, §3's group kinds and storage, §8's schema 15 and wire 1.14
+version 1 names them, §3's group kinds and storage, §8's schema 15 and wire 1.14. Second step:
+§1's repertoire and choice, §5's room under a roof
 
 ## Context
 
@@ -74,6 +75,10 @@ and 08-11 on storage. Their main points:
   the programs its households may build.
 - `expand` dispatches on the program's grammar and the spec's version, and refuses unknown
   versions. Expansions stay pure and golden-hashed per grammar version.
+- As built (slice O's second step), a household's first home is the shape, among the programs
+  it may build, that covers its members and its goods for the fewest hours; its means then buy
+  the largest shape of that program they pay for. A program's frame buildings vary in bays,
+  storeys and lofts, at sizes the program gives.
 
 ### 2. Specs
 
@@ -149,6 +154,9 @@ their meanings), an expansion yields:
     as unsheltered goods do.
   - The allocation is derived at each daily review and whenever a roof goes on or a group
     fails, and never saved.
+  - As built (slice O's second step), the goods that lose the most a day in the open per
+    kilogram fill the room first, and the shares are worked out from the stores whenever they
+    are settled; a loft's and a raised floor's room counts once the building is finished.
   - A loft's load is the kilograms allocated to it over its area. A floor's is its people plus
     its goods.
 - **Margins:**

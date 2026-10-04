@@ -7,8 +7,8 @@ use std::f64::consts::TAU;
 
 use civ_core::time::DAYS_PER_YEAR;
 use civ_grammar::{
-    BuildingSpec, Footprint, HUT_VERSION, PARAMS, Stage, StageNeeds, TURN, expand, frame_params,
-    hut_params,
+    BuildingSpec, FRAME_VERSION, Footprint, HUT_VERSION, PARAMS, ProgramRules, Stage, StageNeeds,
+    TURN, expand, frame_params, hut_params,
 };
 use civ_land::{Building, Land, RectCm};
 use civ_world::nav::NavGrid;
@@ -101,6 +101,23 @@ pub fn design(
 pub fn centre_m(spec: &BuildingSpec) -> (f32, f32) {
     let (x, y) = spec.footprint.centre();
     ((f64::from(x) / 100.0) as f32, (f64::from(y) / 100.0) as f32)
+}
+
+/// Floor area of a building over every level, square metres, from its design alone (what its
+/// expansion gives: a hut's circle, a frame's storeys and lofts, each to its wall lines).
+pub fn floor_m2(spec: &BuildingSpec) -> f64 {
+    match spec.footprint {
+        Footprint::Round { radius, .. } => {
+            std::f64::consts::PI * f64::from(radius) * f64::from(radius) * 1e-4
+        }
+        Footprint::Rect { length, width, .. } => {
+            let bays = spec.params[frame_params::BAYS].max(1);
+            let lofts = spec.params[frame_params::LOFT_BAYS].count_ones() as f64;
+            let storey = f64::from(length) * f64::from(width);
+            let bay = storey / f64::from(bays);
+            (storey * f64::from(spec.storeys) + bay * lofts) * 1e-4
+        }
+    }
 }
 
 /// The ground a building's roof covers, which its household claims as its plot: the box round
@@ -303,6 +320,302 @@ pub fn rebuild_radius(
         r += 10;
     }
     best
+}
+
+/// The shape a building of a program takes (ADR-0009 §1): how large a hut is, or how many bays,
+/// storeys and lofts a frame building has (its other sizes are the program's
+/// [`FrameDesign`](crate::params::FrameDesign)).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Shape {
+    /// A hut whose wall line is `radius` centimetres from its centre.
+    Round {
+        /// Radius of the wall line, centimetres.
+        radius: i32,
+    },
+    /// A frame building of `bays` bays and `storeys` storeys, with lofts over its first `lofts`
+    /// bays from the end its length runs from.
+    Bays {
+        /// Bays.
+        bays: i32,
+        /// Storeys.
+        storeys: u8,
+        /// Bays floored as lofts.
+        lofts: i32,
+    },
+}
+
+/// What a shape of a program gives and costs. Neither depends on where it stands or which way it
+/// faces, so each program's shapes are expanded once, when the content is compiled.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ShapeCost {
+    /// The shape.
+    pub shape: Shape,
+    /// Person-hours of a capable adult to build it, every stage.
+    pub labour_h: f64,
+    /// Kilograms of every material it is built of.
+    pub materials_kg: f64,
+    /// Floor area over every level, square metres.
+    pub floor_m2: f64,
+    /// Living floor, square metres.
+    pub living_m2: f64,
+    /// Goods it holds under its roof, kilograms.
+    pub storage_kg: f64,
+}
+
+impl ShapeCost {
+    /// Hours of work it takes in all: building it and bringing what it is built of, `carry_kg` a
+    /// load ([`HAUL_H_PER_LOAD`]).
+    pub fn hours(&self, carry_kg: f64) -> f64 {
+        self.labour_h + self.materials_kg / carry_kg.max(1e-6) * HAUL_H_PER_LOAD
+    }
+}
+
+/// The design of a building of program `def` in shape `shape` standing at `at` (metres), its
+/// door toward `toward` (the settlement's hearth), or facing east when there is none. A hut is
+/// built to the program's usual wall height and pitch; a frame building to its usual sizes, its
+/// door in the middle of the long wall that faces `toward` and its lofts from the back. `None`
+/// when the shape is not the program's kind.
+pub fn design_shape(
+    def: &BuildingDef,
+    goods: &[GoodDef],
+    shape: Shape,
+    at: (f32, f32),
+    toward: Option<(f32, f32)>,
+) -> Option<BuildingSpec> {
+    match (shape, &def.rules) {
+        (Shape::Round { radius }, ProgramRules::Hut(_)) => {
+            Some(design(def, goods, radius, at, toward))
+        }
+        (
+            Shape::Bays {
+                bays,
+                storeys,
+                lofts,
+            },
+            ProgramRules::Frame(_),
+        ) => {
+            use frame_params as fp;
+            let d = def.design?;
+            let mut params = [0; PARAMS];
+            params[fp::EAVE_CM] = def.eave_cm;
+            params[fp::PITCH_CENTIDEG] = def.pitch_centideg;
+            params[fp::BAYS] = bays;
+            params[fp::DOOR] = fp::door(fp::SIDE_RIGHT, bays / 2);
+            params[fp::LOFT_BAYS] = (1 << lofts.clamp(0, bays)) - 1;
+            if lofts > 0 || storeys > 1 {
+                params[fp::JOIST_CM] = d.joist_cm;
+            }
+            params[fp::OVERHANG_CM] = d.overhang_cm;
+            params[fp::POST_CM] = d.post_cm;
+            params[fp::WALL_CM] = d.wall_cm;
+            // The door's wall faces `toward`: it faces a quarter turn on from the length.
+            let facing = toward.map_or(0, |t| direction(at, t));
+            let angle = (facing - TURN as i32 / 4).rem_euclid(TURN as i32) as u16;
+            Some(BuildingSpec {
+                program: def.id.clone(),
+                version: FRAME_VERSION,
+                footprint: Footprint::Rect {
+                    x: cm(f64::from(at.0)),
+                    y: cm(f64::from(at.1)),
+                    length: bays * d.bay_cm,
+                    width: d.width_cm,
+                    angle,
+                },
+                storeys,
+                params,
+                materials: def
+                    .materials
+                    .iter()
+                    .map(|&g| goods.get(g).map_or_else(String::new, |g| g.id.clone()))
+                    .collect(),
+                style_seed: 0,
+            })
+        }
+        _ => None,
+    }
+}
+
+/// Every shape people would build program `def` in, with what each gives and costs: a hut of
+/// each radius its rules allow, a decimetre apart; a frame building of each number of bays and
+/// storeys its rules allow, with lofts over none to all of its bays where it may have them.
+/// Shapes that do not expand are left out.
+pub fn shapes(def: &BuildingDef, goods: &[GoodDef]) -> Vec<ShapeCost> {
+    let mut candidates = Vec::new();
+    match &def.rules {
+        ProgramRules::Hut(h) => {
+            let mut radius = h.radius_cm.0;
+            while radius <= h.radius_cm.1 {
+                candidates.push(Shape::Round { radius });
+                radius += 10;
+            }
+        }
+        ProgramRules::Frame(f) => {
+            for storeys in f.storeys.0..=f.storeys.1 {
+                for bays in f.bays.0..=f.bays.1 {
+                    for lofts in 0..=(if f.lofts { bays } else { 0 }) {
+                        candidates.push(Shape::Bays {
+                            bays,
+                            storeys,
+                            lofts,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    candidates
+        .into_iter()
+        .filter_map(|shape| {
+            let spec = design_shape(def, goods, shape, (0.0, 0.0), None)?;
+            let e = expand(&spec, &def.rules).ok()?;
+            Some(ShapeCost {
+                shape,
+                labour_h: e.total_labour_h(),
+                materials_kg: e.total_materials_kg().iter().sum(),
+                floor_m2: e.floor_area_m2,
+                living_m2: e.floor_by_use[civ_grammar::SpaceUse::Living.index()],
+                storage_kg: e.storage_total_kg(),
+            })
+        })
+        .collect()
+}
+
+/// What a household needs of a home: room for its members to live, and for its goods under the
+/// roof (ADR-0009 §1; research 10-06 §2.3).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HomeNeed {
+    /// Its members.
+    pub residents: usize,
+    /// The goods it keeps under a roof, kilograms.
+    pub storage_kg: f64,
+}
+
+/// The living floor program `def` gives `residents` people, square metres: what a household
+/// needs whatever its size and what each resident adds (research 10-06 §2.3).
+fn living_need_m2(def: &BuildingDef, residents: usize) -> f64 {
+    let (base, per) = match &def.rules {
+        ProgramRules::Hut(h) => (h.floor_base_m2, h.floor_m2_per_sleeper),
+        ProgramRules::Frame(f) => (f.floor_base_m2, f.floor_m2_per_sleeper),
+    };
+    base + per * residents as f64
+}
+
+/// How well shape `c` of program `def` covers `need`: 2 for its members and its goods, 1 for its
+/// members only, 0 for neither.
+fn coverage(def: &BuildingDef, c: &ShapeCost, need: &HomeNeed) -> u8 {
+    let living = c.living_m2 + 1e-9 >= living_need_m2(def, need.residents);
+    let goods = c.storage_kg + 1e-9 >= need.storage_kg;
+    match (living, goods) {
+        (true, true) => 2,
+        (true, false) => 1,
+        _ => 0,
+    }
+}
+
+/// Whether shape `c` (`hours` of work, covering `need` this well) is a better first home than
+/// `b`: one that covers more of the need; among those covering it all, the cheaper; among those
+/// covering only its members, the one holding more goods, then the cheaper; otherwise the one
+/// with more living floor, then the cheaper.
+fn better_base(c: (&ShapeCost, u8, f64), b: (&ShapeCost, u8, f64)) -> bool {
+    let ((c, c_cov, c_h), (b, b_cov, b_h)) = (c, b);
+    if c_cov != b_cov {
+        return c_cov > b_cov;
+    }
+    let near = |x: f64, y: f64| (x - y).abs() <= 1e-9;
+    match c_cov {
+        2 => c_h < b_h,
+        1 => c.storage_kg > b.storage_kg + 1e-9 || (near(c.storage_kg, b.storage_kg) && c_h < b_h),
+        _ => c.living_m2 > b.living_m2 + 1e-9 || (near(c.living_m2, b.living_m2) && c_h < b_h),
+    }
+}
+
+/// The first home a household designs, as a program (an index into `buildings`) and a shape.
+/// Among the programs `programs` it may build, the shape that covers `need` for the fewest hours
+/// of work (`carry_kg` a load); if none can hold all its goods, the one covering its members that
+/// holds the most of them, and if none covers its members, the one with the most living floor
+/// (see `better_base`). Then, within
+/// that program, the shape with the most floor whose extra hours over that one stay within
+/// `budget_h` (what it puts into its home of the goods it could spare,
+/// [`HOUSE_INVESTMENT_SHARE`]) and whose whole stays within `time_h` (the share of the building
+/// time it can give before its roof deadline that a home may take, [`HOUSE_TIME_SHARE`]): never
+/// less than the first, and more means never give less floor. `None` if it may build none.
+pub fn first_home(
+    buildings: &[BuildingDef],
+    programs: &[usize],
+    need: HomeNeed,
+    carry_kg: f64,
+    budget_h: f64,
+    time_h: f64,
+) -> Option<(usize, Shape)> {
+    let mut base: Option<(usize, &ShapeCost, u8, f64)> = None;
+    for &p in programs {
+        let Some(def) = buildings.get(p) else {
+            continue;
+        };
+        for c in &def.shapes {
+            let (cov, h) = (coverage(def, c, &need), c.hours(carry_kg));
+            if base.is_none_or(|(_, b, b_cov, b_h)| better_base((c, cov, h), (b, b_cov, b_h))) {
+                base = Some((p, c, cov, h));
+            }
+        }
+    }
+    let (p, b, cov, b_h) = base?;
+    let def = &buildings[p];
+    let mut best = (b, b_h);
+    for c in &def.shapes {
+        let h = c.hours(carry_kg);
+        let affordable = h - b_h <= budget_h && h <= time_h;
+        if affordable
+            && coverage(def, c, &need) >= cov
+            && (c.floor_m2 > best.0.floor_m2 + 1e-9
+                || ((c.floor_m2 - best.0.floor_m2).abs() <= 1e-9 && h < best.1))
+            && c.floor_m2 + 1e-9 >= b.floor_m2
+        {
+            best = (c, h);
+        }
+    }
+    Some((p, best.0.shape))
+}
+
+/// The new home a household living in a home of `current_m2` square metres of floor would build,
+/// if any: among the programs `programs` it may build, the shape with the most floor whose work
+/// its means pay for in all (`budget_h` hours: while it has a home, all of a new one is beyond its
+/// needs) and that takes no more than `time_h` hours, among those at least [`REBUILD_GAIN`]
+/// larger in floor than the home it has and with living floor for its members (room for its
+/// goods comes with the floor). `None` when it can afford none.
+pub fn new_home(
+    buildings: &[BuildingDef],
+    programs: &[usize],
+    need: HomeNeed,
+    current_m2: f64,
+    carry_kg: f64,
+    budget_h: f64,
+    time_h: f64,
+) -> Option<(usize, Shape)> {
+    let least = current_m2.max(0.0) * (1.0 + REBUILD_GAIN);
+    let mut best: Option<(usize, &ShapeCost, f64)> = None;
+    for &p in programs {
+        let Some(def) = buildings.get(p) else {
+            continue;
+        };
+        for c in &def.shapes {
+            let h = c.hours(carry_kg);
+            if c.floor_m2 + 1e-9 < least
+                || coverage(def, c, &need) == 0
+                || !(h <= budget_h && h <= time_h)
+            {
+                continue;
+            }
+            let better = best.is_none_or(|(_, b, b_h)| {
+                c.floor_m2 > b.floor_m2 + 1e-9
+                    || ((c.floor_m2 - b.floor_m2).abs() <= 1e-9 && h < b_h)
+            });
+            if better {
+                best = Some((p, c, h));
+            }
+        }
+    }
+    best.map(|(p, c, _)| (p, c.shape))
 }
 
 /// Work on a building: what each of its stages needs, the stage under way and the hours done on
@@ -519,6 +832,8 @@ mod tests {
             pitch_centideg: 4500,
             roof_by_day: 304,
             technique: None,
+            design: None,
+            shapes: Vec::new(),
         }
     }
 

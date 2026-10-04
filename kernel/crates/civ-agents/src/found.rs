@@ -548,6 +548,7 @@ fn add_family(
         water_at: now,
         known: Vec::new(),
         sheltered: false,
+        keeping: crate::person::Keeping::default(),
         flows,
         offers: Vec::new(),
     });
@@ -1061,6 +1062,7 @@ pub(crate) mod tests {
                 leave_unless_ripe_within_days: 30.0,
                 ready_food_days: 2.0,
                 harvest_margin_days: 30.0,
+                raised_store_factor: 2.0,
                 processed_food_days: 5.0,
             },
             decision: DecisionParams {
@@ -1149,7 +1151,7 @@ pub(crate) mod tests {
                 max_walk_minutes: 30.0,
                 site_candidates: 24,
             },
-            home_program: 0,
+            home_programs: vec![0],
         }
     }
 

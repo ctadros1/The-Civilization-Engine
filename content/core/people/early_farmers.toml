@@ -71,6 +71,10 @@ ready_food_days = 2.0            # bread and porridge in hand: bread keeps a few
 # Food a household wants in store beyond its next harvest's first grain: research 08-01 §2.3
 # proposes a seasonal reserve until the next reliable food, plus 0-90 days (a tuning value).
 harvest_margin_days = 30.0
+# Goods keep twice as long on a raised store's floor, aired and off the damp ground, as elsewhere
+# under a roof: grain's 5 % a year becomes 2.5 %, inside the 2-8 % that maintained dry stores lose
+# in 6-12 months (research 08-02 §7.1; a tuning value).
+raised_store_factor = 2.0
 processed_food_days = 3.0        # flour ground ahead of baking: grinding is a near-daily chore (tuning)
 carry_kg = 20.0                  # a load carried home on foot (a tuning value)
 # Firewood burned per person per day, January first: 1.8 kg in winter (research 03-06 §2.5),
@@ -170,7 +174,9 @@ max_walk_minutes = 30.0          # the farthest walk to a field (10-01 §2.3: 15
 site_candidates = 24             # places looked at when marking out a new field
 
 [build]
-home_program = "core:building/hut" # what a household builds its home to
+# The homes a household may build, among those it knows how to: a hut, or a longhouse in bays
+# (ADR-0009 §1). It builds the one that costs it least to cover its members and its goods.
+programs = ["core:building/hut", "core:building/longhouse"]
 
 [mortality]                      # Siler hazard, Hadza fit (research 05-01 §1.2): 1q0 216, e0 34
 a = 0.351

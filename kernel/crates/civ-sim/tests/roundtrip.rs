@@ -1246,6 +1246,10 @@ fn every_building_is_described_with_its_expanded_shape() {
         assert_eq!(by_use, vec![info.floor_m2(), 0.0, 0.0]);
         assert!(info.storage_kg().expect("storage").get(2) > 0.0);
         assert!(info.apex_m() > 2.0);
+        // Nothing is kept in a hut before its roof is on.
+        if !b.roofed() {
+            assert!(info.stored().unwrap_or_default().is_empty());
+        }
     }
 }
 
@@ -1315,6 +1319,16 @@ fn a_frame_building_is_described_with_its_gabled_roof_and_floors() {
         assert!(p.y() >= plot.0.y() - 0.01 && p.y() <= plot.0.y() + plot.1.y() + 0.01);
     }
     assert_eq!(info.status(), Some("finished"));
+    // Wire 1.15: its raised floor takes the household's goods that keep better under a roof
+    // first (its huts have no roof yet).
+    let stored: Vec<f32> = info.stored_kg().expect("stored").iter().collect();
+    assert!(
+        stored[0] > 0.0 && stored[1] == 0.0 && stored[2] == 0.0,
+        "{stored:?}"
+    );
+    let words = info.stored().unwrap_or_default();
+    assert!(words.starts_with("raised floor: "), "{words}");
+    assert!(words.contains("of 7.5 t, mostly"), "{words}");
 }
 
 #[test]

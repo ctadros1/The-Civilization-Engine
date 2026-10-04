@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 11
+kernel_content_api = 12
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -540,7 +540,7 @@ fn crops_and_field_work_check_their_numbers() {
 fn buildings_check_their_numbers_and_materials() {
     let preset = real_preset();
     let reg = registry(load_fixture(&[("worldgen/river_valley.toml", &preset)]));
-    let hut = &reg.catalog.buildings[reg.people.params.home_program];
+    let hut = &reg.catalog.buildings[reg.people.params.home_programs[0]];
     assert_eq!(hut.id, "core:building/hut");
     let goods: Vec<&str> = hut
         .materials
@@ -605,23 +605,44 @@ fn buildings_check_their_numbers_and_materials() {
             "{needle}"
         );
     }
-    // People build their homes to a program that exists, and, until they choose among
-    // programs, to a hut dwelling.
-    for (program, code, needle) in [
-        ("core:building/palace", "E2006", "build.home_program"),
-        ("core:building/longhouse", "E3001", "must be a hut dwelling"),
+    // People build their homes to programs that exist and are dwellings, at least one of which
+    // the founders know how to build.
+    let programs = "programs = [\"core:building/hut\", \"core:building/longhouse\"]";
+    for (to, code, needle) in [
+        (
+            "programs = [\"core:building/hut\", \"core:building/palace\"]",
+            "E2006",
+            "build.programs",
+        ),
+        (
+            "programs = [\"core:building/hut\", \"core:building/granary\"]",
+            "E3001",
+            "must name dwellings",
+        ),
+        (
+            "programs = [\"core:building/longhouse\"]",
+            "E3001",
+            "founders know how to build",
+        ),
+        ("programs = []", "E3001", "at least one dwelling"),
     ] {
-        let people = real("people/early_farmers.toml").replace(
-            "home_program = \"core:building/hut\"",
-            &format!("home_program = \"{program}\""),
-        );
+        let people = real("people/early_farmers.toml").replace(programs, to);
+        assert_ne!(people, real("people/early_farmers.toml"), "{to}");
         let report = load_fixture(&[
             ("worldgen/river_valley.toml", &preset),
             ("people/early_farmers.toml", &people),
         ]);
-        assert_eq!(codes(&report), vec![code], "{program}");
-        assert!(report.diagnostics[0].message.contains(needle), "{program}");
+        assert_eq!(codes(&report), vec![code], "{to}");
+        assert!(report.diagnostics[0].message.contains(needle), "{to}");
     }
+    let homes: Vec<&str> = reg
+        .people
+        .params
+        .home_programs
+        .iter()
+        .map(|&h| reg.catalog.buildings[h].id.as_str())
+        .collect();
+    assert_eq!(homes, ["core:building/hut", "core:building/longhouse"]);
     // Frame programs: a longhouse, a raised granary and a workshop, their rules from `[frame]`.
     let c = &reg.catalog;
     for (id, use_, raised) in [

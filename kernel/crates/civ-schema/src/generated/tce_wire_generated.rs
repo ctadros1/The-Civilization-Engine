@@ -12962,6 +12962,8 @@ impl<'a> BuildingInfo<'a> {
   pub const VT_FLOOR_BY_USE: ::flatbuffers::VOffsetT = 66;
   pub const VT_STORAGE_KG: ::flatbuffers::VOffsetT = 68;
   pub const VT_WORK_PLACES: ::flatbuffers::VOffsetT = 70;
+  pub const VT_STORED_KG: ::flatbuffers::VOffsetT = 72;
+  pub const VT_STORED: ::flatbuffers::VOffsetT = 74;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -12977,6 +12979,8 @@ impl<'a> BuildingInfo<'a> {
     builder.add_settlement(args.settlement);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    if let Some(x) = args.stored { builder.add_stored(x); }
+    if let Some(x) = args.stored_kg { builder.add_stored_kg(x); }
     builder.add_work_places(args.work_places);
     if let Some(x) = args.storage_kg { builder.add_storage_kg(x); }
     if let Some(x) = args.floor_by_use { builder.add_floor_by_use(x); }
@@ -13249,6 +13253,20 @@ impl<'a> BuildingInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(BuildingInfo::VT_WORK_PLACES, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn stored_kg(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(BuildingInfo::VT_STORED_KG, None)}
+  }
+  #[inline]
+  pub fn stored(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_STORED, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
@@ -13291,6 +13309,8 @@ impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("floor_by_use", Self::VT_FLOOR_BY_USE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("storage_kg", Self::VT_STORAGE_KG, false)?
      .visit_field::<u32>("work_places", Self::VT_WORK_PLACES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("stored_kg", Self::VT_STORED_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("stored", Self::VT_STORED, false)?
      .finish();
     Ok(())
   }
@@ -13330,6 +13350,8 @@ pub struct BuildingInfoArgs<'a> {
     pub floor_by_use: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
     pub storage_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
     pub work_places: u32,
+    pub stored_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub stored: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for BuildingInfoArgs<'a> {
   #[inline]
@@ -13369,6 +13391,8 @@ impl<'a> Default for BuildingInfoArgs<'a> {
       floor_by_use: None,
       storage_kg: None,
       work_places: 0,
+      stored_kg: None,
+      stored: None,
     }
   }
 }
@@ -13515,6 +13539,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingInfoBuilder<'a, 'b, A
     self.fbb_.push_slot::<u32>(BuildingInfo::VT_WORK_PLACES, work_places, 0);
   }
   #[inline]
+  pub fn add_stored_kg(&mut self, stored_kg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_STORED_KG, stored_kg);
+  }
+  #[inline]
+  pub fn add_stored(&mut self, stored: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_STORED, stored);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingInfoBuilder {
@@ -13566,6 +13598,8 @@ impl ::core::fmt::Debug for BuildingInfo<'_> {
       ds.field("floor_by_use", &self.floor_by_use());
       ds.field("storage_kg", &self.storage_kg());
       ds.field("work_places", &self.work_places());
+      ds.field("stored_kg", &self.stored_kg());
+      ds.field("stored", &self.stored());
       ds.finish()
   }
 }

@@ -38,14 +38,22 @@ function bays(n: number): string {
 /**
  * A building in the map's readout: "hut of 38 m², room for 7: walls going up, 40% done", or for
  * a frame building its bays, storeys and lofts and its floor by use: "longhouse of 3 bays, a
- * loft over 1 bay, 50 m², room for 6, 13 m² to store: finished". Its size shows whether its
- * household built for more than live there (M3a slice L: house size by wealth).
+ * loft over 1 bay, 50 m², room for 6, 13 m² to store: finished", then what its household keeps
+ * in it ("loft over 1 bay: 1.2 t of 1.9 t, mostly grain"). Its size shows whether its household
+ * built for more than live there (M3a slice L: house size by wealth).
  */
 export function buildingWords(b: BuildingInfo): string {
+  const kept = b.stored ? `; ${b.stored}` : "";
+  return `${shapeWords(b)}: ${b.status}${kept}`;
+}
+
+/** A building's program and shape: "hut of 30 m², room for 5", or a frame building's bays,
+ * storeys, lofts and floor by use. */
+function shapeWords(b: BuildingInfo): string {
   const name = b.program.toLowerCase();
   if (b.grammar !== "frame") {
     const size = b.floorM2 > 0 ? ` of ${Math.round(b.floorM2)} m², room for ${b.sleeps}` : "";
-    return `${name}${size}: ${b.status}`;
+    return `${name}${size}`;
   }
   const shape = [bays(b.bays)];
   if (b.storeys > 1) shape.push(`${b.storeys} storeys`);
@@ -56,7 +64,7 @@ export function buildingWords(b: BuildingInfo): string {
   if (living > 0) uses.push(`room for ${b.sleeps}`);
   if (store > 0) uses.push(`${Math.round(store)} m² to store`);
   if (work > 0) uses.push(`${b.workPlaces} ${b.workPlaces === 1 ? "place" : "places"} to work`);
-  return `${name} of ${shape.join(", ")}, ${uses.join(", ")}: ${b.status}`;
+  return `${name} of ${shape.join(", ")}, ${uses.join(", ")}`;
 }
 
 /** Whether `(x, y)` lies inside the polygon `poly` (even-odd rule). */

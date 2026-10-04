@@ -135,6 +135,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | `household` | `water_l_per_person_day`, `carry_water_l`, `water_target_days` | Water use, what one trip carries, the store people aim for. |
 | | `food_target_days`, `carry_kg`, `daily_kcal_per_person` | The food store people aim for, the load one person carries home, average need. |
 | | `harvest_margin_days` | The food a household wants in store beyond the first grain of its next harvest: stores short of that much make wild food worth going out for (`decision.w_lean`). |
+| | `raised_store_factor` | How many times as long goods keep on a raised store's floor as elsewhere under a roof (1 or more). |
 | | `fuel_kg_per_person_day`, `fuel_target_days` | Firewood burned per person per day by month (January first), and the store people aim for. |
 | | `short_food_days`, `recovered_food_days` | The chronicle notes a settlement's shortage below the first and its end above the second. |
 | | `leave_at_depletion`, `leave_per_day`, `leave_unless_ripe_within_days` | A household with less than a day's food, whose members have drawn on average this share of their reserve, and with no crop of its own ripening within these days or reaped and waiting, gives up and leaves with this chance a day. |
@@ -150,7 +151,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `grain_target_days` | Grain held at which another harvest is worth half as much. |
 | | `work_hours_per_day` | Field work a capable adult gives a day, for planning what the household can prepare and sow in a season. |
 | | `field_m`, `max_walk_minutes`, `site_candidates` | New fields are squares of `field_m`, within this walk of the settlement; how many places are looked at when marking one out. |
-| `build` | `home_program` | The building program households build their homes to (a building id). |
+| `build` | `programs` | The dwellings a household may build its home to (building ids), at least one of which its founders know how to build. It builds the one that covers its members and goods for the fewest hours among those someone in it knows how to build (content API 12). |
 | `mortality` | `a`, `b`, `c`, `d`, `e` | Siler hazard `A·e^(−Bx) + C + D·e^(Ex)` per year: the founders' ages, and everyone's daily risk of dying. |
 | | `hunger_ratio_at_half`, `hunger_ratio_max` | Hunger multiplies that hazard: by the first at half the reserve drawn, as `ratio^(4d²)` of the share `d` drawn, up to the second. |
 | | `exhaustion_per_day`, `exhaustion_power` | A body at the end of its reserve dies with this chance a day, scaled by the share drawn to this power. |
@@ -232,9 +233,8 @@ A building program: what it is for, what it is made of, the work and material ea
 the dimensions people build it to. The grammar that expands a design into its parts is code
 (`civ-grammar`): `hut`, the round hut of M1, frozen at version 1, and `frame`, rectangular
 post-framed buildings in bays (M3b slice O, ADR-0009). Who builds what, where and when is decided
-by people at run time; until they choose among programs, households build their homes to the
-people profile's `home_program`, which must be a hut dwelling. Content API 11 added `use` and
-the frame grammar.
+by people at run time: households build their homes to one of the people profile's `programs`.
+Content API 11 added `use` and the frame grammar, API 12 the frame programs' `[design]`.
 
 | Table | Fields | Meaning |
 |---|---|---|
@@ -265,9 +265,14 @@ A frame program's rules are a `[frame]` table instead:
 | `groundwork_h_per_m2`, `posthole_h`, `post_h`, `beam_h_per_m`, `rafter_h`, `joist_h_per_m`, `wattle_h_per_m2`, `daub_h_per_m3`, `thatch_h_per_m2`, `finish_h_per_m2`, `decking_h_per_m2`, `ladder_h` | Person-hours of a capable adult for each part. All positive. |
 | `wattle_kg_per_m2`, `thatch_kg_per_m2`, `ladder_kg` | Material in each part besides the timber its sizes give. |
 
-The core pack has the hut and three frame programs, none of them built by households yet: a
-longhouse (a dwelling, with lofts and up to two storeys), a granary (a store raised on posts) and
-a workshop (a working floor with a store loft). They need jointed timber framing.
+A frame program also has a `[design]` table: the sizes people build it to (`bay_cm`, `width_cm`,
+`post_cm`, `wall_cm`, `overhang_cm`, `joist_cm`), each within its `[frame]` range. What varies
+between its buildings is how many bays, storeys and lofts they have.
+
+The core pack has the hut and three frame programs: a longhouse (a dwelling, with lofts and up to
+two storeys), a granary (a store raised on posts) and a workshop (a working floor with a store
+loft). They need jointed timber framing. Households may build the hut or the longhouse as their
+home; granaries and workshops are not built yet.
 
 A stage uses its materials in proportion to its work and waits when they run out; the last half
 kilogram of a material is made up from scraps. Under its roof, a household keeps its stores at

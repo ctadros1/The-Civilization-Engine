@@ -50,6 +50,8 @@ function hut(over: Partial<BuildingInfo> = {}): BuildingInfo {
     floorByUse: [30.2, 0, 0],
     storageKg: [0, 0, 1812],
     workPlaces: 0,
+    storedKg: [0, 0, 0],
+    stored: "",
     ...over,
   };
 }
@@ -136,6 +138,16 @@ describe("buildings on the map", () => {
         }),
       ),
     ).toBe("workshop of 2 bays, a loft over every bay, 60 m², 30 m² to store, 5 places to work: finished");
+  });
+
+  it("say what their household keeps in them", () => {
+    const b = longhouse({ stored: "loft over 1 bay: 1.2 t of 1.9 t, mostly grain" });
+    expect(buildingWords(b)).toBe(
+      "longhouse of 3 bays, a loft over 1 bay, 50 m², room for 6, 13 m² to store: finished; loft over 1 bay: 1.2 t of 1.9 t, mostly grain",
+    );
+    expect(buildingWords(hut({ status: "finished", stored: "floor: 1.8 t of 3.0 t, mostly provisions" }))).toBe(
+      "hut of 30 m², room for 5: finished; floor: 1.8 t of 3.0 t, mostly provisions",
+    );
   });
 
   it("find a frame building under its gabled roof, not its circle", () => {

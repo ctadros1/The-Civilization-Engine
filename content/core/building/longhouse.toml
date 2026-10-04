@@ -16,6 +16,14 @@ pitch_deg = 45.0                 # 11-01 §3: grass thatch wants at least 45° t
 roof_by_day = 304                # 1 November: under a roof before winter (tuning)
 technique = "core:technique/jointed_frame"
 
+[design]                         # what people build to (tuning; 10-06 §2.1, 11-01 §3.4)
+bay_cm = 250
+width_cm = 500
+post_cm = 15
+wall_cm = 15
+overhang_cm = 50
+joist_cm = 15                    # the brief's loft: 15 cm poles sag about L/180 under a year's grain (11-05 §5.2)
+
 [materials]
 timber = "core:good/timber"      # posts, plates, beams, rafters and joists
 wattle = "core:good/timber"      # rods, cut like poles
@@ -51,7 +59,7 @@ floor_m2_per_sleeper = 4.8
 work_m2_per_worker = 6.0         # the research gives no figure (tuning; 11-13 §2.1)
 store_kg_per_m2 = 500.0          # a store room's floor: grain about 0.65 m deep at 770 kg/m³ (11-05 §2.4; tuning)
 loft_kg_per_m2 = 150.0           # a year's grain for five on a one-bay loft is about 100 kg/m² (tuning)
-living_kg_per_m2 = 60.0          # what living floor holds besides, as the hut's (tuning)
+living_kg_per_m2 = 100.0         # what living floor holds besides, as the hut's (tuning)
 timber_kg_per_m3 = 760.0         # 11-08 §2.1: at 12 % moisture
 groundwork_h_per_m2 = 3.0        # as the hut's (11-04 §2.6)
 posthole_h = 0.8                 # 11-04 §2.2: digging 0.25-0.8 pd8/m³; deeper holes than the hut's (tuning)

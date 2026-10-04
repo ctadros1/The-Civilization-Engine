@@ -1110,6 +1110,17 @@ pub struct FirmParams {
     pub max_hire_hours: f64,
 }
 
+/// What households build (ADR-0009 §1, §7).
+#[derive(Clone, Debug, PartialEq)]
+pub struct BuildParams {
+    /// The programs households may build, by index in the catalog's buildings, in the profile's
+    /// order: homes, stores and workshops. A household builds one someone in it knows how to.
+    pub programs: Vec<usize>,
+    /// Days over which a household reckons what a storehouse would save of the goods it holds:
+    /// what they would lose in the open over these days less what they would lose in it.
+    pub store_horizon_days: f64,
+}
+
 /// Everything authored about people.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PeopleParams {
@@ -1135,9 +1146,8 @@ pub struct PeopleParams {
     pub band: BandParams,
     /// Farming.
     pub farm: FarmParams,
-    /// Building: the programs households may build their homes to, by index in the catalog's
-    /// buildings, in the profile's order (ADR-0009 §1). A household builds one it knows how to.
-    pub home_programs: Vec<usize>,
+    /// Building.
+    pub build: BuildParams,
     /// Mortality.
     pub mortality: MortalityParams,
     /// Conception, pregnancy and birth.

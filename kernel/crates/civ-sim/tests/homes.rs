@@ -1,13 +1,15 @@
 //! Homes chosen among building programs (M3b slice O, ADR-0009 §1): a household builds the
 //! cheapest home, hut or bays, that covers its members and its goods, and its means buy more
-//! floor; goods beyond the room under its roofs keep as in the open.
+//! floor; goods beyond the room under its roofs keep as in the open, and a storehouse beside its
+//! home raises them when they would lose more there than it costs (ADR-0009 §7).
 
 use std::path::Path;
 use std::sync::OnceLock;
 use std::sync::atomic::AtomicBool;
 
-use civ_agents::build::{self, HomeNeed, Shape};
+use civ_agents::build::{self, HomeNeed, Shape, StoreNeed};
 use civ_content::ContentRegistry;
+use civ_core::PermanentId;
 use civ_sim::{NewWorld, Sim};
 
 fn content() -> &'static ContentRegistry {
@@ -318,4 +320,211 @@ fn a_household_that_knows_framing_and_has_grain_to_keep_builds_bays_with_lofts()
     {
         assert_eq!(b.spec.program, "core:building/hut");
     }
+}
+
+fn good(id: &str) -> usize {
+    content()
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == id)
+        .unwrap_or_else(|| panic!("{id}"))
+}
+
+#[test]
+fn a_granary_must_save_more_than_it_costs_and_be_paid_for() {
+    let granary = program("core:building/granary");
+    let (buildings, goods) = (&content().catalog.buildings, &content().catalog.goods);
+    let grain = good("core:good/grain");
+    let hours: Vec<f64> = buildings[granary]
+        .shapes
+        .iter()
+        .map(|c| c.hours(CARRY))
+        .collect();
+    let cheapest = hours.iter().copied().fold(f64::INFINITY, f64::min);
+    // Grain worth half an hour a kilogram, over three years.
+    let cost = vec![0.5; goods.len()];
+    let mut overflow = vec![0.0; goods.len()];
+    let choose = |overflow: &[f64], budget: f64, time: f64| {
+        build::storehouse(
+            buildings,
+            &[granary],
+            &StoreNeed {
+                overflow,
+                cost_h: &cost,
+                raised_factor: 2.0,
+                horizon_days: 1095.0,
+            },
+            goods,
+            CARRY,
+            budget,
+            time,
+        )
+    };
+    // A tonne beyond the room saves less than any granary costs.
+    overflow[grain] = 1_000.0;
+    assert_eq!(choose(&overflow, 1e9, 1e9), None);
+    // Eight tonnes are worth raising: the granary chosen saves more than it costs.
+    overflow[grain] = 8_000.0;
+    let (p, shape) = choose(&overflow, 1e9, 1e9).expect("a granary");
+    assert_eq!(p, granary);
+    let c = buildings[granary]
+        .shapes
+        .iter()
+        .find(|c| c.shape == shape)
+        .expect("its shape");
+    let saves = build::store_saves_h(&overflow, goods, &cost, c.room_kg, 2.0, 1095.0);
+    assert!(
+        saves > c.hours(CARRY),
+        "{saves} h saved for {} h",
+        c.hours(CARRY)
+    );
+    // On a raised floor grain loses a quarter as fast as in the open here: 5 % a year under a
+    // roof, twice as long raised, against 16 % in the open.
+    let open = 0.5f64.powf(1095.0 / 1560.0);
+    let raised = 0.5f64.powf(1095.0 / (4932.0 * 2.0));
+    let held = c.room_kg[civ_grammar::storage::RAISED].min(8_000.0);
+    assert!(
+        (saves - held * (raised - open) * 0.5).abs() < 1e-6,
+        "{saves}"
+    );
+    // Without the means to pay for one in full, or the time to build it, none.
+    assert_eq!(choose(&overflow, cheapest - 1.0, 1e9), None);
+    assert_eq!(choose(&overflow, 1e9, cheapest - 1.0), None);
+    // Goods that keep no better under a roof are not worth one.
+    let mut meat = vec![0.0; goods.len()];
+    meat[good("core:good/meat")] = 8_000.0;
+    assert_eq!(choose(&meat, 1e9, 1e9), None);
+}
+
+/// World `seed`'s first household, given a finished hut at its home, `extra` kilograms more of
+/// good `id`, and an eldest adult who knows jointed framing: its id and its home.
+fn housed_framers(seed: u64, id: &str, extra: f64) -> (Sim, PermanentId, (f32, f32)) {
+    let mut sim = world(seed);
+    let (household, who, home) = {
+        let pop = sim.people();
+        let now = sim.now();
+        let (_, h) = pop
+            .households
+            .iter()
+            .min_by_key(|(_, h)| h.id)
+            .expect("a household");
+        let who = h
+            .members
+            .iter()
+            .filter_map(|m| pop.person(*m))
+            .filter(|p| p.age_years(now) >= 18.0)
+            .max_by(|a, b| a.age_years(now).total_cmp(&b.age_years(now)))
+            .map(|p| p.id)
+            .expect("an adult");
+        (h.id, who, h.home)
+    };
+    let hut = &content().catalog.buildings[program("core:building/hut")];
+    let spec = build::design_shape(
+        hut,
+        &content().catalog.goods,
+        Shape::Round { radius: 310 },
+        home,
+        None,
+    )
+    .expect("a hut");
+    sim.place_building_for_tests(household, spec, civ_grammar::Stage::ALL.len() as u8)
+        .expect("placed");
+    let g = good(id);
+    for (_, h) in sim.people_mut_for_tests().households.iter_mut() {
+        if h.id == household {
+            h.stores[g] += extra;
+        }
+    }
+    sim.introduce_technique(who, "core:technique/jointed_frame", false)
+        .expect("introduced");
+    (sim, household, home)
+}
+
+/// The first building other than its hut that `household` begins within `days` days.
+fn second_building(sim: &mut Sim, household: PermanentId, days: u32) -> Option<civ_land::Building> {
+    for _ in 0..days {
+        sim.advance_minutes(24 * 60).expect("advances");
+        let found = sim
+            .land()
+            .buildings
+            .iter()
+            .find(|b| b.household == household && b.spec.program != "core:building/hut")
+            .cloned();
+        if found.is_some() {
+            return found;
+        }
+    }
+    None
+}
+
+#[test]
+fn with_grain_beyond_its_roof_and_the_means_a_household_raises_a_granary_beside_its_home() {
+    let (mut sim, household, home) = housed_framers(3, "core:good/grain", 8_000.0);
+    let b = second_building(&mut sim, household, 20).expect("it begins a store");
+    assert_eq!(b.spec.program, "core:building/granary");
+    let (x, y) = build::centre_m(&b.spec);
+    let away = f64::from(x - home.0).hypot(f64::from(y - home.1));
+    assert!(away <= 30.0 + 1e-3, "{away} m from home");
+    let plot = sim
+        .land()
+        .plots
+        .iter()
+        .find(|p| p.id == b.plot)
+        .expect("its plot");
+    assert_eq!(plot.use_, civ_land::PlotUse::Store);
+    // Its door faces the home, and the household lives where it did.
+    let def = &content().catalog.buildings[program("core:building/granary")];
+    let e = civ_grammar::expand(&b.spec, &def.rules).expect("expands");
+    let (dx, dy) = (
+        f64::from(e.door.0) / 100.0 - f64::from(x),
+        f64::from(e.door.1) / 100.0 - f64::from(y),
+    );
+    let (hx, hy) = (f64::from(home.0 - x), f64::from(home.1 - y));
+    assert!(
+        dx * hx + dy * hy > 0.0,
+        "door ({dx}, {dy}) and home ({hx}, {hy})"
+    );
+    let lives = sim
+        .people()
+        .households
+        .iter()
+        .find(|(_, h)| h.id == household)
+        .map(|(_, h)| h.home)
+        .expect("the household");
+    assert_eq!(lives, home);
+}
+
+#[test]
+fn lacking_the_means_a_household_raises_no_granary() {
+    // As much beyond its roof, but seed it keeps for sowing: it has nothing to spare for one.
+    let (mut sim, household, _) = housed_framers(3, "core:good/seed_grain", 8_000.0);
+    assert_eq!(second_building(&mut sim, household, 20), None);
+}
+
+#[test]
+fn a_finished_granary_raises_what_the_hut_has_no_room_for() {
+    let (mut sim, household, home) = housed_framers(3, "core:good/grain", 8_000.0);
+    let goods = &content().catalog.goods;
+    let grain = good("core:good/grain");
+    let before = sim.people().household(household).expect("it").clone();
+    let granary = &content().catalog.buildings[program("core:building/granary")];
+    let shape = Shape::Bays {
+        bays: 2,
+        storeys: 1,
+        lofts: 0,
+    };
+    let spec = build::design_shape(granary, goods, shape, (home.0 + 15.0, home.1), Some(home))
+        .expect("a granary");
+    sim.place_building_for_tests(household, spec, civ_grammar::Stage::ALL.len() as u8)
+        .expect("placed");
+    let after = sim.people().household(household).expect("it").clone();
+    assert_eq!(after.keeping.raised_kg, 7_500.0);
+    assert_eq!(after.keeping.roofed_kg, before.keeping.roofed_kg);
+    // A year on, uneaten: the grain the hut had no room for lost 16 % in the open; on the
+    // granary's floor it loses about 2.5 %.
+    let year = civ_core::SimTime::from_minutes(sim.now().minutes() + 365 * 24 * 60);
+    let kept = |h: &civ_agents::Household| h.stores_at_time(year, goods, &|_| 0.0)[grain];
+    let (open, raised) = (kept(&before), kept(&after));
+    assert!(raised > open + 500.0, "{raised} kg against {open} kg");
 }

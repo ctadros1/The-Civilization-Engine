@@ -174,9 +174,12 @@ max_walk_minutes = 30.0          # the farthest walk to a field (10-01 §2.3: 15
 site_candidates = 24             # places looked at when marking out a new field
 
 [build]
-# The homes a household may build, among those it knows how to: a hut, or a longhouse in bays
-# (ADR-0009 §1). It builds the one that costs it least to cover its members and its goods.
-programs = ["core:building/hut", "core:building/longhouse"]
+# What a household may build, among what it knows how to (ADR-0009 §1, §7): a home, a hut or a
+# longhouse in bays, the one that costs it least to cover its members and its goods; and a
+# granary on posts beside it, when the goods its roofs have no room for would lose more in the
+# open than the granary costs to build.
+programs = ["core:building/hut", "core:building/longhouse", "core:building/granary"]
+store_horizon_days = 1095        # three years: grass thatch wants major repair every 2-3 (11-08; tuning)
 
 [mortality]                      # Siler hazard, Hadza fit (research 05-01 §1.2): 1q0 216, e0 34
 a = 0.351

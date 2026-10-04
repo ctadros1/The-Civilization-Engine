@@ -122,11 +122,11 @@ pub struct FieldOption {
     pub soon: bool,
 }
 
-/// Work on the household's home: which building (or a new one), where, the stage under way and
-/// how much of it can be done with the materials at home.
+/// Work on what the household builds, its home or a store: which building (or a new one), where,
+/// the stage under way and how much of it can be done with the materials at home.
 #[derive(Clone, Copy, Debug)]
 pub struct BuildOption {
-    /// The building, or `None` for a home not yet begun.
+    /// The building, or `None` for one not yet begun.
     pub building: Option<PermanentId>,
     /// Where to work, metres.
     pub at: (f32, f32),

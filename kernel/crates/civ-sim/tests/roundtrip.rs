@@ -1264,6 +1264,13 @@ fn a_frame_building_is_described_with_its_gabled_roof_and_floors() {
     let id = sim
         .place_building_for_tests(household, spec, Stage::ALL.len() as u8)
         .expect("placed");
+    // Its only roof is the granary's, and its goods keep under it.
+    let keeping = {
+        let h = sim.people().household(household).expect("household");
+        assert!(h.sheltered);
+        h.keeping
+    };
+    assert_eq!((keeping.raised_kg, keeping.roofed_kg), (7_500.0, 0.0));
     let payload = frames::buildings::buildings_response(&sim);
     let response = flatbuffers::root::<wire::Response>(&payload).expect("a response");
     let list = response.body_as_buildings().expect("buildings");

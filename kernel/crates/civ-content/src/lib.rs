@@ -44,7 +44,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 12;
+pub const KERNEL_CONTENT_API: u32 = 13;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -772,21 +772,20 @@ fn resolve(
             if crop.is_none() {
                 missing(c, parsed, &d.rel, "farm.crop", &d.file.farm.crop);
             }
-            // The programs households may build their homes to: dwellings, at least one of
-            // which the founders know how to build (ADR-0009 §1).
-            let mut homes = Vec::new();
+            // The programs households may build: homes, stores and workshops, with at least one
+            // home its founders know how to build (ADR-0009 §1, §7).
+            let mut programs = Vec::new();
             for id in &d.file.build.programs {
                 match buildings.iter().position(|x| &x.id == id) {
                     None => missing(c, parsed, &d.rel, "build.programs", id),
-                    Some(h) if buildings[h].use_ != civ_land::PlotUse::Dwelling => c.push(
-                        "E3001",
-                        &d.rel,
-                        None,
-                        format!("`build.programs` must name dwellings; `{id}` is not one"),
-                    ),
-                    Some(h) => homes.push(h),
+                    Some(b) => programs.push(b),
                 }
             }
+            let homes: Vec<usize> = programs
+                .iter()
+                .copied()
+                .filter(|&b| buildings[b].use_ == civ_land::PlotUse::Dwelling)
+                .collect();
             let founders_know = |t: Option<usize>| {
                 t.is_none_or(|t| {
                     d.file
@@ -796,16 +795,15 @@ fn resolve(
                         .any(|f| f.share > 0.0 && technique_index(&f.technique) == Some(t))
                 })
             };
-            if d.file.build.programs.is_empty() {
+            let resolved = programs.len() == d.file.build.programs.len();
+            if resolved && homes.is_empty() {
                 c.push(
                     "E3001",
                     &d.rel,
                     None,
                     "`build.programs` must name at least one dwelling".to_owned(),
                 );
-            } else if homes.len() == d.file.build.programs.len()
-                && !homes.iter().any(|&h| founders_know(buildings[h].technique))
-            {
+            } else if resolved && !homes.iter().any(|&h| founders_know(buildings[h].technique)) {
                 c.push(
                     "E3001",
                     &d.rel,
@@ -814,8 +812,7 @@ fn resolve(
                         .to_owned(),
                 );
             }
-            let home =
-                (homes.len() == d.file.build.programs.len() && !homes.is_empty()).then_some(homes);
+            let home = (resolved && !homes.is_empty()).then_some(programs);
             let provisions = &d.file.band.provisions_good;
             let good = good_index(provisions);
             match good.map(|g| &goods[g]) {

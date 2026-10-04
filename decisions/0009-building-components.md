@@ -199,6 +199,11 @@ their meanings), an expansion yields:
 ### 7. Other uses, plots and style
 
 - A building has a plot of its own, with a use: dwelling, store or work.
+- As built (slice O's third step), a household builds one thing at a time, from the programs
+  the people profile lists: what it has under way, else its first home, else a store beside its
+  home when the goods its roofs have no room for would lose more in the open over a horizon
+  than the store costs in hours and its means pay for all of it, else a larger home. A store
+  never moves its household's home.
 - A workshop building may name a firm, and is then where the firm works, hires and keeps its
   stores (ADR-0006 §5).
 - Heirs take all of a household's buildings (ADR-0007 §1, widened from the home).

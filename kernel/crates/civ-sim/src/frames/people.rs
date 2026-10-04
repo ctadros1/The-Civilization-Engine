@@ -303,7 +303,8 @@ pub fn describe_target(
                 .or_else(|| {
                     sim.rules
                         .people
-                        .home_programs
+                        .build
+                        .programs
                         .first()
                         .and_then(|&p| sim.rules.catalog.buildings.get(p))
                         .map(|b| b.id.as_str())

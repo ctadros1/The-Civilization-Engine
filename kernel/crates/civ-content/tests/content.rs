@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 12
+kernel_content_api = 13
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -540,7 +540,7 @@ fn crops_and_field_work_check_their_numbers() {
 fn buildings_check_their_numbers_and_materials() {
     let preset = real_preset();
     let reg = registry(load_fixture(&[("worldgen/river_valley.toml", &preset)]));
-    let hut = &reg.catalog.buildings[reg.people.params.home_programs[0]];
+    let hut = &reg.catalog.buildings[reg.people.params.build.programs[0]];
     assert_eq!(hut.id, "core:building/hut");
     let goods: Vec<&str> = hut
         .materials
@@ -605,9 +605,9 @@ fn buildings_check_their_numbers_and_materials() {
             "{needle}"
         );
     }
-    // People build their homes to programs that exist and are dwellings, at least one of which
-    // the founders know how to build.
-    let programs = "programs = [\"core:building/hut\", \"core:building/longhouse\"]";
+    // People build programs that exist, among them at least one home the founders know how to
+    // build; a horizon for storehouses is a number of days.
+    let programs = "programs = [\"core:building/hut\", \"core:building/longhouse\", \"core:building/granary\"]";
     for (to, code, needle) in [
         (
             "programs = [\"core:building/hut\", \"core:building/palace\"]",
@@ -615,12 +615,12 @@ fn buildings_check_their_numbers_and_materials() {
             "build.programs",
         ),
         (
-            "programs = [\"core:building/hut\", \"core:building/granary\"]",
+            "programs = [\"core:building/granary\"]",
             "E3001",
-            "must name dwellings",
+            "at least one dwelling",
         ),
         (
-            "programs = [\"core:building/longhouse\"]",
+            "programs = [\"core:building/longhouse\", \"core:building/granary\"]",
             "E3001",
             "founders know how to build",
         ),
@@ -635,14 +635,35 @@ fn buildings_check_their_numbers_and_materials() {
         assert_eq!(codes(&report), vec![code], "{to}");
         assert!(report.diagnostics[0].message.contains(needle), "{to}");
     }
+    let people = real("people/early_farmers.toml")
+        .replace("store_horizon_days = 1095 ", "store_horizon_days = 0 ");
+    assert_ne!(people, real("people/early_farmers.toml"));
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("people/early_farmers.toml", &people),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("build.store_horizon_days")
+    );
     let homes: Vec<&str> = reg
         .people
         .params
-        .home_programs
+        .build
+        .programs
         .iter()
         .map(|&h| reg.catalog.buildings[h].id.as_str())
         .collect();
-    assert_eq!(homes, ["core:building/hut", "core:building/longhouse"]);
+    assert_eq!(
+        homes,
+        [
+            "core:building/hut",
+            "core:building/longhouse",
+            "core:building/granary"
+        ]
+    );
     // Frame programs: a longhouse, a raised granary and a workshop, their rules from `[frame]`.
     let c = &reg.catalog;
     for (id, use_, raised) in [

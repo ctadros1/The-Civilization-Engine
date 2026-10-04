@@ -1,7 +1,7 @@
-//! Building homes (plan §7 M1; ADR-0004 §2–3): the hut a household designs for itself, the ground
-//! it claims for it, the work and materials still needed, and how pressing that work is. Whether
-//! anyone builds, and when, is decided like every other activity ([`crate::decide`]); nothing here
-//! makes anyone build.
+//! Building (plan §7 M1; ADR-0004 §2–3, ADR-0009): the home a household designs for itself and
+//! the storehouse it would build beside it, the ground it claims for them, the work and materials
+//! still needed, and how pressing that work is. Whether anyone builds, and when, is decided like
+//! every other activity ([`crate::decide`]); nothing here makes anyone build.
 
 use std::f64::consts::TAU;
 
@@ -15,6 +15,7 @@ use civ_world::nav::NavGrid;
 use civ_world::{WATER_LAND, WorldMap};
 
 use crate::params::{BuildingDef, GoodDef};
+use crate::person::Keeping;
 
 /// Least distance between a plot and another plot or a field, centimetres: room to walk between
 /// them (a tuning value; the research gives no spacing).
@@ -360,6 +361,8 @@ pub struct ShapeCost {
     pub living_m2: f64,
     /// Goods it holds under its roof, kilograms.
     pub storage_kg: f64,
+    /// The same by kind of room: raised floors, lofts, other floors ([`civ_grammar::storage`]).
+    pub room_kg: [f64; 3],
 }
 
 impl ShapeCost {
@@ -476,6 +479,7 @@ pub fn shapes(def: &BuildingDef, goods: &[GoodDef]) -> Vec<ShapeCost> {
                 floor_m2: e.floor_area_m2,
                 living_m2: e.floor_by_use[civ_grammar::SpaceUse::Living.index()],
                 storage_kg: e.storage_total_kg(),
+                room_kg: e.storage_kg,
             })
         })
         .collect()
@@ -642,6 +646,106 @@ pub fn new_home(
         }
     }
     best.map(|(p, c, _)| (p, c.shape))
+}
+
+/// What goods kept in a store instead of in the open would save over `horizon_days`, in hours of
+/// its household's own work: `goods_kg` kilograms of each good, worth `cost_h` hours a kilogram,
+/// in `room` kilograms of room by kind ([`civ_grammar::storage`]). The goods that gain most from a
+/// roof fill it first, raised floors first ([`Keeping::fill`]); each kilogram saves what it would
+/// lose in the open over the horizon less what it loses there, at its sheltered half-life
+/// (`raised_factor` times as long on a raised floor). Goods that keep no better under a roof take
+/// no room and save nothing.
+pub fn store_saves_h(
+    goods_kg: &[f64],
+    goods: &[GoodDef],
+    cost_h: &[f64],
+    room: [f64; 3],
+    raised_factor: f64,
+    horizon_days: f64,
+) -> f64 {
+    use civ_grammar::storage;
+    let keeps = |half_life: f64| {
+        if half_life > 0.0 {
+            0.5f64.powf(horizon_days.max(0.0) / half_life)
+        } else {
+            1.0
+        }
+    };
+    let placed = Keeping::fill(goods_kg, goods, room);
+    goods
+        .iter()
+        .enumerate()
+        .map(|(g, d)| {
+            let open = keeps(d.half_life_days);
+            let roofed = keeps(d.sheltered_half_life_days) - open;
+            let raised = keeps(d.sheltered_half_life_days * raised_factor.max(1.0)) - open;
+            let kept = placed[storage::RAISED][g] * raised
+                + (placed[storage::LOFT][g] + placed[storage::FLOOR][g]) * roofed;
+            kept.max(0.0) * cost_h.get(g).copied().unwrap_or(0.0).max(0.0)
+        })
+        .sum()
+}
+
+/// What a household would keep in a storehouse (ADR-0009 §7): the goods its roofs have no room
+/// for, what each is worth to it, and how it reckons what a store would save.
+#[derive(Clone, Copy, Debug)]
+pub struct StoreNeed<'a> {
+    /// Kilograms of each good its roofs have no room for.
+    pub overflow: &'a [f64],
+    /// Hours of its own work a kilogram of each good is worth to it.
+    pub cost_h: &'a [f64],
+    /// How many times as long goods keep on a raised floor as elsewhere under a roof.
+    pub raised_factor: f64,
+    /// Days over which it reckons what a store would save.
+    pub horizon_days: f64,
+}
+
+/// The storehouse a household would build beside its home, if one is worth it: among the shapes
+/// of the store programs `programs` it may build, the one whose saving on `need`'s overflow
+/// ([`store_saves_h`]) most exceeds the hours it takes in all (`carry_kg` a load), among those its
+/// means pay for in all (`budget_h` hours, as for a new home: all of a store is beyond its needs)
+/// and that take no more than `time_h` hours. `None` when none saves more than it costs, or none
+/// is affordable.
+pub fn storehouse(
+    buildings: &[BuildingDef],
+    programs: &[usize],
+    need: &StoreNeed,
+    goods: &[GoodDef],
+    carry_kg: f64,
+    budget_h: f64,
+    time_h: f64,
+) -> Option<(usize, Shape)> {
+    let mut best: Option<(usize, Shape, f64, f64)> = None;
+    for &p in programs {
+        let Some(def) = buildings
+            .get(p)
+            .filter(|d| d.use_ == civ_land::PlotUse::Store)
+        else {
+            continue;
+        };
+        for c in &def.shapes {
+            let h = c.hours(carry_kg);
+            if !(h <= budget_h && h <= time_h) {
+                continue;
+            }
+            let saves = store_saves_h(
+                need.overflow,
+                goods,
+                need.cost_h,
+                c.room_kg,
+                need.raised_factor,
+                need.horizon_days,
+            );
+            let net = saves - h;
+            let better = best.is_none_or(|(_, _, b_net, b_h)| {
+                net > b_net + 1e-9 || ((net - b_net).abs() <= 1e-9 && h < b_h)
+            });
+            if net > 0.0 && better {
+                best = Some((p, c.shape, net, h));
+            }
+        }
+    }
+    best.map(|(p, shape, _, _)| (p, shape))
 }
 
 /// Work on a building: what each of its stages needs, the stage under way and the hours done on

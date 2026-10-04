@@ -668,8 +668,8 @@ impl Sim {
 
     /// Puts up a building to `spec` for `household`, through stage `stage` (the number of stages
     /// for a finished one), on a plot of its own with its program's use, for a test that needs a
-    /// building no household designs yet. Its ground is not checked. `None` if the content has no
-    /// such program.
+    /// building no household designs yet. Its ground is not checked; its household's goods keep
+    /// under it from now. `None` if the content has no such program.
     #[doc(hidden)]
     pub fn place_building_for_tests(
         &mut self,
@@ -702,6 +702,13 @@ impl Sim {
             started: now,
             stage_since: now,
         });
+        self.people.buildings_changed(
+            now,
+            &self.land,
+            &self.rules.catalog,
+            &self.rules.people,
+            household,
+        );
         self.dirty = true;
         Some(id)
     }

@@ -2,9 +2,9 @@
 //! Every field is required: an omitted number is an error, never a silent engine default.
 
 use civ_agents::params::{
-    BandParams, DecisionParams, EnergyParams, FamilyParams, FarmParams, FertilityParams,
-    FirmParams, HouseholdParams, KnowledgeParams, MarketParams, MortalityParams, NameParams,
-    PeopleParams, Residence, Siler, SleepParams, SocialParams,
+    BandParams, BuildParams, DecisionParams, EnergyParams, FamilyParams, FarmParams,
+    FertilityParams, FirmParams, HouseholdParams, KnowledgeParams, MarketParams, MortalityParams,
+    NameParams, PeopleParams, Residence, Siler, SleepParams, SocialParams,
 };
 use civ_world::nav::NavParams;
 use serde::Deserialize;
@@ -85,8 +85,10 @@ pub(crate) struct Firm {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Build {
-    /// The programs a household may build its home to: building ids of dwellings.
+    /// The programs a household may build: building ids of homes, stores and workshops.
     pub programs: Vec<String>,
+    /// Days over which a household reckons what a storehouse would save of its goods.
+    pub store_horizon_days: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -331,14 +333,14 @@ fn unit(name: &str, v: f64, problems: &mut Vec<String>) {
 
 impl PeopleFile {
     /// The parameters, with the given names and the indexes of the provisions good, the crop and
-    /// the home programs. Field by field on purpose: a new parameter fails to compile here until
+    /// the programs households may build. Field by field on purpose: a new parameter fails to compile here until
     /// the authoring format carries it.
     pub fn params(
         &self,
         names: NameParams,
         provisions_good: usize,
         crop: usize,
-        home_programs: Vec<usize>,
+        programs: Vec<usize>,
         founders: Vec<(usize, f64)>,
     ) -> PeopleParams {
         let (w, e, s, so, h, d, b, m) = (
@@ -469,7 +471,10 @@ impl PeopleFile {
                 max_walk_minutes: self.farm.max_walk_minutes,
                 site_candidates: self.farm.site_candidates,
             },
-            home_programs,
+            build: BuildParams {
+                programs,
+                store_horizon_days: self.build.store_horizon_days,
+            },
             mortality: MortalityParams {
                 siler: Siler {
                     a: m.a,
@@ -713,6 +718,11 @@ impl PeopleFile {
         positive("household.water_target_days", h.water_target_days, &mut p);
         positive("household.food_target_days", h.food_target_days, &mut p);
         positive("household.ready_food_days", h.ready_food_days, &mut p);
+        positive(
+            "build.store_horizon_days",
+            self.build.store_horizon_days,
+            &mut p,
+        );
         if !(h.raised_store_factor.is_finite() && h.raised_store_factor >= 1.0) {
             p.push("`household.raised_store_factor` must be 1 or more: a raised floor never keeps worse".to_owned());
         }

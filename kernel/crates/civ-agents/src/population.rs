@@ -187,8 +187,8 @@ pub struct Population {
     priors: Vec<Prior>,
     /// Per household, the new ground it would mark out for a field, as found on a day.
     sites: HashMap<PermanentId, (i64, Option<Site>)>,
-    /// Per household without a home under way, the hut it would build and where, as found on a
-    /// day.
+    /// Per household with nothing under way, the building it would begin and where (a home, or a
+    /// store beside it), as found on a day.
     home_sites: HashMap<PermanentId, (i64, Option<NewHome>)>,
     /// Per building, what each of its stages needs (its design never changes). Derived.
     stage_needs: HashMap<PermanentId, Vec<StageNeeds>>,
@@ -209,16 +209,16 @@ pub struct Population {
     pub knowledge: Vec<crate::knowledge::KnowledgeEvent>,
 }
 
-/// A hut a household would begin: its design (which says where it stands) and what each stage
-/// needs.
+/// A building a household would begin: its design (which says where it stands) and what each
+/// stage needs.
 #[derive(Clone, Debug)]
 struct NewHome {
     spec: BuildingSpec,
     stages: Vec<StageNeeds>,
 }
 
-/// What a household's home needs: the building under way (or the one it would begin), the work
-/// left on it, the program it follows and the day it wants its roof by.
+/// What a household builds: the building under way (or the one it would begin), the work left on
+/// it, the program it follows and the day it wants its roof by.
 #[derive(Clone, Debug)]
 struct HomePlan {
     building: Option<PermanentId>,
@@ -228,10 +228,10 @@ struct HomePlan {
     deadline: i64,
 }
 
-/// Whether household `household` lives under a roof, and how much room it has for its goods
-/// under roofs (ADR-0009 §5): a home of its with its roof on shelters it, and every building of
-/// its with its roof on gives the room its floors on the ground or a storey hold; a finished one's
-/// lofts and raised floors hold goods too.
+/// Whether household `household` keeps its stores under a roof, and how much room it has for them
+/// there (ADR-0009 §5): every building of its with its roof on, home or store, shelters them, and
+/// gives the room its floors on the ground or a storey hold; a finished one's lofts and raised
+/// floors hold goods too.
 /// A building whose program has left the content keeps room for everything, as before storage
 /// had a capacity.
 pub(crate) fn shelter_of(
@@ -252,8 +252,7 @@ pub(crate) fn shelter_of(
         .iter()
         .filter(|b| b.household == household && b.roofed())
     {
-        // It lives under a home's roof; a store's or a workshop's keeps only goods.
-        sheltered |= catalog.is_dwelling(&b.spec.program);
+        sheltered = true;
         let room = room_of(b, catalog);
         keeping.raised_kg += room[storage::RAISED];
         keeping.roofed_kg += room[storage::LOFT] + room[storage::FLOOR];
@@ -563,6 +562,27 @@ impl Population {
         out
     }
 
+    /// Household `household`'s buildings changed other than by its own work (a test's): its
+    /// stores are settled to `now` under the roofs it had, and its shelter derived again.
+    pub fn buildings_changed(
+        &mut self,
+        now: SimTime,
+        land: &Land,
+        catalog: &Catalog,
+        params: &PeopleParams,
+        household: PermanentId,
+    ) {
+        if let Some(x) = self
+            .hh_index
+            .get(&household)
+            .and_then(|&hd| self.households.get_mut(hd))
+        {
+            let members = x.members.len().max(1);
+            x.settle_stores(now, &catalog.goods, &|d| fuel_per_day(params, members, d));
+            (x.sheltered, x.keeping) = shelter_of(land, catalog, params, household);
+        }
+    }
+
     /// Brings every household's shelter up to date with the land's buildings (after loading,
     /// where it is not saved; [`shelter_of`]).
     pub fn derive_shelter(&mut self, land: &Land, catalog: &Catalog, params: &PeopleParams) {
@@ -571,7 +591,8 @@ impl Population {
         }
     }
 
-    /// The new home household `household` plans to begin, as it planned it today, if any.
+    /// The new building household `household` plans to begin, as it planned it today, if any: a
+    /// home, or a store beside it.
     pub fn planned_home(&self, household: PermanentId) -> Option<&BuildingSpec> {
         self.home_sites
             .get(&household)
@@ -1033,13 +1054,16 @@ impl Population {
         Some(needs)
     }
 
-    /// What household `hh`'s home needs: its building under way, or else the home it would begin
-    /// and where (found once a day: its home if the ground there is clear, else the nearest clear
-    /// ground within reach of the hearth). It builds to one of the programs it may build, those
-    /// someone in it knows how to (ADR-0009 §1). A first home is the cheapest that covers its
-    /// members and its goods, as large as what it puts in of its means makes it
-    /// ([`build::first_home`]); a household that has a home builds a new one only when its means
-    /// pay for all of one markedly larger ([`build::new_home`]), beside the old. Its means are
+    /// What household `hh` builds: one building at a time (ADR-0009 §7). Its building under way,
+    /// whatever it is for, or else the one it would begin and where (found once a day: for a home,
+    /// its home if the ground there is clear, else the nearest clear ground within reach of the
+    /// hearth; for a store, clear ground near its home). It builds to one of the programs it may
+    /// build, those someone in it knows how to (ADR-0009 §1). A first home is the cheapest that
+    /// covers its members and its goods, as large as what it puts in of its means makes it
+    /// ([`build::first_home`]). A household that has a home builds a storehouse beside it when the
+    /// goods its roofs have no room for would lose more in the open than one costs
+    /// ([`Population::storehouse_plan`]); failing that, a new home only when its means pay for all
+    /// of one markedly larger ([`build::new_home`]), beside the old. Its means are
     /// [`Population::home_means`], for a household giving `labour_per_day`. `Built` while it has
     /// a finished home and builds no other; `NoPlace` when there is no program it can build to
     /// or no clear ground.
@@ -1059,13 +1083,20 @@ impl Population {
             .land
             .buildings
             .iter()
-            .filter(|b| b.household == hh.id && dwelling(b))
+            .filter(|b| b.household == hh.id && b.finished() && dwelling(b))
         {
-            if b.finished() {
-                let floor = build::floor_m2(&b.spec);
-                home = Some(home.map_or(floor, |f| f.max(floor)));
-                continue;
-            }
+            let floor = build::floor_m2(&b.spec);
+            home = Some(home.map_or(floor, |f| f.max(floor)));
+        }
+        // Its building under way, a home first.
+        let mut under_way: Vec<&Building> = ctx
+            .land
+            .buildings
+            .iter()
+            .filter(|b| b.household == hh.id && !b.finished())
+            .collect();
+        under_way.sort_by_key(|b| !dwelling(b));
+        if let Some(b) = under_way.first() {
             let def = catalog
                 .building_index(&b.spec.program)
                 .ok_or(Reason::NoPlace)?;
@@ -1083,70 +1114,16 @@ impl Population {
                 ),
             });
         }
-        let programs = self.home_programs(ctx, &hh.members);
         let unbuilt = if home.is_some() {
             Reason::Built
         } else {
             Reason::NoPlace
         };
-        let Some(first) = programs.first().and_then(|&p| catalog.buildings.get(p)) else {
-            return Err(unbuilt);
-        };
         let day = ctx.now.day_index();
         let found = match self.home_sites.get(&hh.id) {
             Some((seen, site)) if *seen == day => site.clone(),
             _ => {
-                let (budget_h, time_h) = self.home_means(ctx, hh, first, labour_per_day, day);
-                let carry = ctx.params.household.carry_kg;
-                let need = build::HomeNeed {
-                    residents: hh.members.len().max(1),
-                    storage_kg: self.storage_need(ctx, hh),
-                };
-                let goods = &catalog.goods;
-                let choice = match home {
-                    None => build::first_home(
-                        &catalog.buildings,
-                        &programs,
-                        need,
-                        carry,
-                        budget_h,
-                        time_h,
-                    ),
-                    Some(current) => build::new_home(
-                        &catalog.buildings,
-                        &programs,
-                        need,
-                        current,
-                        carry,
-                        budget_h,
-                        time_h,
-                    ),
-                };
-                let reach = self.homes.get(&field_key).map(|f| &f.reach);
-                let site = choice.and_then(|(p, shape)| {
-                    let program = &catalog.buildings[p];
-                    let design_at = |at: (f32, f32)| {
-                        let reachable =
-                            reach.is_none_or(|r| r.seconds_to(cell_of(ctx.map, at)).is_some());
-                        reachable
-                            .then(|| build::design_shape(program, goods, shape, at, hearth))
-                            .flatten()
-                    };
-                    build::home_site(
-                        ctx.land,
-                        ctx.map,
-                        ctx.nav,
-                        program,
-                        &design_at,
-                        hh.home,
-                        hearth,
-                        HOME_SHIFT_M,
-                    )
-                    .and_then(|spec| {
-                        let stages = build::stage_needs(&spec, program)?;
-                        Some(NewHome { spec, stages })
-                    })
-                });
+                let site = self.new_building(ctx, hh, hearth, field_key, labour_per_day, home);
                 self.home_sites.insert(hh.id, (day, site.clone()));
                 site
             }
@@ -1166,18 +1143,154 @@ impl Population {
         })
     }
 
-    /// The home programs a household of `members` may build: the people profile's, in its
-    /// order, that someone among them knows how to build (or that need no technique).
+    /// The building household `hh` would begin today and where, if any: its first home; or, when
+    /// it has a home of `home` square metres, a storehouse beside it if one is worth it, or else a
+    /// new home if its means pay for one markedly larger ([`Population::home_plan`]).
+    fn new_building(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        hearth: Option<(f32, f32)>,
+        field_key: PermanentId,
+        labour_per_day: f64,
+        home: Option<f64>,
+    ) -> Option<NewHome> {
+        let catalog = ctx.catalog;
+        let day = ctx.now.day_index();
+        let programs = self.home_programs(ctx, &hh.members);
+        let carry = ctx.params.household.carry_kg;
+        let home_choice = |current: Option<f64>| {
+            let first = programs.first().and_then(|&p| catalog.buildings.get(p))?;
+            let (budget_h, time_h) = self.home_means(ctx, hh, first, labour_per_day, day);
+            let need = build::HomeNeed {
+                residents: hh.members.len().max(1),
+                storage_kg: self.storage_need(ctx, hh),
+            };
+            match current {
+                None => {
+                    build::first_home(&catalog.buildings, &programs, need, carry, budget_h, time_h)
+                }
+                Some(current) => build::new_home(
+                    &catalog.buildings,
+                    &programs,
+                    need,
+                    current,
+                    carry,
+                    budget_h,
+                    time_h,
+                ),
+            }
+        };
+        // A first home before anything; then a store, while goods are lost for want of room,
+        // before more floor. A home's door faces the hearth; a store's, its household's home.
+        let (choice, toward) = match home {
+            None => (home_choice(None)?, hearth),
+            Some(current) => match self.storehouse_plan(ctx, hh, labour_per_day, day) {
+                Some(store) => (store, Some(hh.home)),
+                None => (home_choice(Some(current))?, hearth),
+            },
+        };
+        let (p, shape) = choice;
+        let program = &catalog.buildings[p];
+        let goods = &catalog.goods;
+        let reach = self.homes.get(&field_key).map(|f| &f.reach);
+        let design_at = |at: (f32, f32)| {
+            let reachable = reach.is_none_or(|r| r.seconds_to(cell_of(ctx.map, at)).is_some());
+            reachable
+                .then(|| build::design_shape(program, goods, shape, at, toward))
+                .flatten()
+        };
+        let spec = build::home_site(
+            ctx.land,
+            ctx.map,
+            ctx.nav,
+            program,
+            &design_at,
+            hh.home,
+            hearth,
+            HOME_SHIFT_M,
+        )?;
+        let stages = build::stage_needs(&spec, program)?;
+        Some(NewHome { spec, stages })
+    }
+
+    /// The storehouse household `hh` would build beside its home on day `day`, if one is worth
+    /// it ([`build::storehouse`]): for the goods its roofs have no room for now, at what they
+    /// are worth to it, with its means and time reckoned to the store's own roof deadline.
+    fn storehouse_plan(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        labour_per_day: f64,
+        day: i64,
+    ) -> Option<(usize, build::Shape)> {
+        let catalog = ctx.catalog;
+        let programs = self.programs_for(ctx, &hh.members, civ_land::PlotUse::Store);
+        let first = programs.first().and_then(|&p| catalog.buildings.get(p))?;
+        let goods = &catalog.goods;
+        let stores = stores_now(hh, ctx.now, ctx.params, goods);
+        let room = [hh.keeping.raised_kg, hh.keeping.roofed_kg, 0.0];
+        let placed = crate::person::Keeping::fill(&stores, goods, room);
+        let overflow: Vec<f64> = stores
+            .iter()
+            .zip(goods)
+            .enumerate()
+            .map(|(g, (kg, d))| {
+                if d.sheltered_half_life_days > 0.0 {
+                    (kg - placed.iter().map(|k| k[g]).sum::<f64>()).max(0.0)
+                } else {
+                    0.0
+                }
+            })
+            .collect();
+        if overflow.iter().all(|&kg| kg <= 0.0) {
+            return None;
+        }
+        let cost_h: Vec<f64> = self
+            .own_costs_of(ctx, hh)
+            .into_iter()
+            .map(|c| c.unwrap_or(0.0))
+            .collect();
+        let (budget_h, time_h) = self.home_means(ctx, hh, first, labour_per_day, day);
+        build::storehouse(
+            &catalog.buildings,
+            &programs,
+            &build::StoreNeed {
+                overflow: &overflow,
+                cost_h: &cost_h,
+                raised_factor: ctx.params.household.raised_store_factor,
+                horizon_days: ctx.params.build.store_horizon_days,
+            },
+            goods,
+            ctx.params.household.carry_kg,
+            budget_h,
+            time_h,
+        )
+    }
+
+    /// The home programs a household of `members` may build: the people profile's dwellings, in
+    /// its order, that someone among them knows how to build (or that need no technique).
     pub(crate) fn home_programs(&self, ctx: &Ctx, members: &[PermanentId]) -> Vec<usize> {
+        self.programs_for(ctx, members, civ_land::PlotUse::Dwelling)
+    }
+
+    /// The programs of use `use_` a household of `members` may build: the people profile's, in
+    /// its order, that someone among them knows how to build (or that need no technique).
+    fn programs_for(
+        &self,
+        ctx: &Ctx,
+        members: &[PermanentId],
+        use_: civ_land::PlotUse,
+    ) -> Vec<usize> {
         ctx.params
-            .home_programs
+            .build
+            .programs
             .iter()
             .copied()
             .filter(|&p| {
-                ctx.catalog
-                    .buildings
-                    .get(p)
-                    .is_some_and(|d| d.technique.is_none_or(|t| self.household_knows(members, t)))
+                ctx.catalog.buildings.get(p).is_some_and(|d| {
+                    d.use_ == use_ && d.technique.is_none_or(|t| self.household_knows(members, t))
+                })
             })
             .collect()
     }
@@ -1513,7 +1626,7 @@ impl Population {
             Some(c) if wants_land => self.site_for(ctx, &hh, field_key, c),
             _ => None,
         };
-        // Building: the home under way or the one the household would begin, what it still has
+        // Building: what is under way or what the household would begin, what it still has
         // to bring for it, and how pressing it is.
         let plan = self.home_plan(ctx, &hh, hearth, field_key, labour_per_day);
         let (build_need, build_urgency) = match &plan {

@@ -151,7 +151,8 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `grain_target_days` | Grain held at which another harvest is worth half as much. |
 | | `work_hours_per_day` | Field work a capable adult gives a day, for planning what the household can prepare and sow in a season. |
 | | `field_m`, `max_walk_minutes`, `site_candidates` | New fields are squares of `field_m`, within this walk of the settlement; how many places are looked at when marking one out. |
-| `build` | `programs` | The dwellings a household may build its home to (building ids), at least one of which its founders know how to build. It builds the one that covers its members and goods for the fewest hours among those someone in it knows how to build (content API 12). |
+| `build` | `programs` | What a household may build (building ids), among what someone in it knows how to build: its home, the dwelling that covers its members and goods for the fewest hours, and stores beside it. At least one must be a dwelling its founders know how to build (content API 12; stores since API 13). |
+| | `store_horizon_days` | The days over which a household reckons what a store would save: a store is worth building when what the goods its roofs have no room for would lose in the open over these days, less what they would lose in it, is worth more hours of its work than the store takes (content API 13). |
 | `mortality` | `a`, `b`, `c`, `d`, `e` | Siler hazard `A·e^(−Bx) + C + D·e^(Ex)` per year: the founders' ages, and everyone's daily risk of dying. |
 | | `hunger_ratio_at_half`, `hunger_ratio_max` | Hunger multiplies that hazard: by the first at half the reserve drawn, as `ratio^(4d²)` of the share `d` drawn, up to the second. |
 | | `exhaustion_per_day`, `exhaustion_power` | A body at the end of its reserve dies with this chance a day, scaled by the share drawn to this power. |
@@ -233,8 +234,9 @@ A building program: what it is for, what it is made of, the work and material ea
 the dimensions people build it to. The grammar that expands a design into its parts is code
 (`civ-grammar`): `hut`, the round hut of M1, frozen at version 1, and `frame`, rectangular
 post-framed buildings in bays (M3b slice O, ADR-0009). Who builds what, where and when is decided
-by people at run time: households build their homes to one of the people profile's `programs`.
-Content API 11 added `use` and the frame grammar, API 12 the frame programs' `[design]`.
+by people at run time: households build their homes, and stores beside them, to the people
+profile's `programs`. Content API 11 added `use` and the frame grammar, API 12 the frame programs'
+`[design]`, API 13 stores among the programs households build.
 
 | Table | Fields | Meaning |
 |---|---|---|
@@ -281,7 +283,7 @@ have. At least one of those must be a building the grammar allows.
 The core pack has the hut and three frame programs: a longhouse (a dwelling, with lofts and up to
 two storeys), a granary (a store raised on posts) and a workshop (a working floor with a store
 loft). They need jointed timber framing. Households may build the hut or the longhouse as their
-home; granaries and workshops are not built yet.
+home, and a granary beside it; workshops are not built yet.
 
 A stage uses its materials in proportion to its work and waits when they run out; the last half
 kilogram of a material is made up from scraps. Under its roof, a household keeps its stores at

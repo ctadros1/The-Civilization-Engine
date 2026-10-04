@@ -178,8 +178,8 @@ impl Population {
 
     /// What a household keeps of each good and how much more of each it wants, from its
     /// `stores`: food to see it to its next harvest and its margin (pooled by energy), the tools
-    /// its members' work needs and a spare, what the tools it lacks are made of, and its
-    /// firewood.
+    /// its members' work needs and a spare, what the tools it lacks are made of, its firewood,
+    /// and what it builds with while it has no finished home or builds anything.
     pub(crate) fn holding_of(&self, ctx: &Ctx, hh: &Household, stores: &[f64]) -> Holding {
         let (params, catalog) = (ctx.params, ctx.catalog);
         let goods = &catalog.goods;
@@ -245,10 +245,11 @@ impl Population {
                 }
             }
         }
-        // Until its home is finished, what it builds with stays for that.
-        let housed = ctx.land.buildings.iter().any(|b| {
-            b.household == hh.id && b.finished() && ctx.catalog.is_dwelling(&b.spec.program)
-        });
+        // Until its home is finished, and while it builds anything else, what it builds with
+        // stays for that.
+        let mine = || ctx.land.buildings.iter().filter(|b| b.household == hh.id);
+        let housed = mine().any(|b| b.finished() && ctx.catalog.is_dwelling(&b.spec.program))
+            && mine().all(|b| b.finished());
         let fuel_day = fuel_per_day(params, members, ctx.now.day_index());
         for (g, d) in goods.iter().enumerate() {
             if d.purpose == GoodUse::Fuel {

@@ -56,7 +56,7 @@ impl Population {
                 Target::NewBuilding => self
                     .planned_home(household)
                     .and_then(|spec| catalog.building_index(&spec.program))
-                    .or_else(|| ctx.params.home_programs.first().copied())
+                    .or_else(|| ctx.params.build.programs.first().copied())
                     .and_then(|p| catalog.buildings.get(p))
                     .and_then(|b| b.technique),
                 _ => None,

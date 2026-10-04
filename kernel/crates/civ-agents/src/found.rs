@@ -1151,7 +1151,10 @@ pub(crate) mod tests {
                 max_walk_minutes: 30.0,
                 site_candidates: 24,
             },
-            home_programs: vec![0],
+            build: crate::params::BuildParams {
+                programs: vec![0],
+                store_horizon_days: 1095.0,
+            },
         }
     }
 

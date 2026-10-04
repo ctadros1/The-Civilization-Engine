@@ -37,9 +37,10 @@ function bays(n: number): string {
 
 /**
  * A building in the map's readout: "hut of 38 m², room for 7: walls going up, 40% done", or for
- * a frame building its bays, storeys and lofts and its floor by use: "longhouse of 3 bays, a
- * loft over 1 bay, 50 m², room for 6, 13 m² to store: finished", then what its household keeps
- * in it ("loft over 1 bay: 1.2 t of 1.9 t, mostly grain"). Its size shows whether its household
+ * a frame building its bays, a raised floor, storeys and lofts and its floor by use: "longhouse
+ * of 3 bays, a loft over 1 bay, 50 m², room for 6, 13 m² to store: finished", "granary of 2
+ * bays, raised on posts, 15 m², 15 m² to store", then what its household keeps in it ("loft over
+ * 1 bay: 1.2 t of 1.9 t, mostly grain"). Its size shows whether its household
  * built for more than live there (M3a slice L: house size by wealth).
  */
 export function buildingWords(b: BuildingInfo): string {
@@ -56,6 +57,7 @@ function shapeWords(b: BuildingInfo): string {
     return `${name}${size}`;
   }
   const shape = [bays(b.bays)];
+  if ((b.storageKg[0] ?? 0) > 0) shape.push("raised on posts");
   if (b.storeys > 1) shape.push(`${b.storeys} storeys`);
   const lofts = bitCount(b.loftBays);
   if (lofts > 0) shape.push(lofts === b.bays ? "a loft over every bay" : `a loft over ${bays(lofts)}`);

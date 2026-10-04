@@ -123,10 +123,11 @@ describe("buildings on the map", () => {
           loftBays: 0,
           floorM2: 15,
           floorByUse: [0, 15, 0],
+          storageKg: [7500, 0, 0],
           sleeps: 0,
         }),
       ),
-    ).toBe("granary of 2 bays, 15 m², 15 m² to store: finished");
+    ).toBe("granary of 2 bays, raised on posts, 15 m², 15 m² to store: finished");
     expect(
       buildingWords(
         longhouse({

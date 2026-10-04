@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>The Civilization Engine</title>
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <div class="brand">The Civilization Engine</div>
+        <div class="world-title" id="world-title">No world</div>
+        <div class="clock" id="clock"></div>
+        <div class="time-controls" role="group" aria-label="Time">
+          <button id="btn-run" type="button" class="run" disabled>Run</button>
+          <div class="speeds" id="speeds" role="radiogroup" aria-label="Speed"></div>
+          <select id="run-ahead" aria-label="Run ahead" disabled>
+            <option value="">Run ahead…</option>
+            <option value="1440">a day</option>
+            <option value="43200">a month</option>
+            <option value="525600">a year</option>
+            <option value="2628000">5 years</option>
+            <option value="5256000">10 years</option>
+          </select>
+        </div>
+        <div class="actions">
+          <button id="btn-new" type="button" disabled>New world</button>
+          <button id="btn-save" type="button" disabled>Save</button>
+          <button id="btn-load" type="button" disabled>Load</button>
+        </div>
+        <div class="connection" id="connection" role="status" aria-live="polite">Connecting…</div>
+      </header>
+
+      <div class="banner" id="banner" role="alert" hidden>
+        <span id="banner-text"></span>
+        <button id="banner-close" type="button" class="icon" aria-label="Dismiss">×</button>
+      </div>
+
+      <main class="workspace">
+        <section class="map-pane" aria-label="Map">
+          <div id="map" class="map"></div>
+          <div class="map-state" id="map-state">
+            <div class="map-state-box">
+              <p class="map-state-title" id="map-state-title">Connecting to the host…</p>
+              <p class="map-state-text" id="map-state-text"></p>
+              <div class="map-state-actions" id="map-state-actions" hidden>
+                <button id="state-new" type="button" class="primary">Create a world</button>
+                <button id="state-load" type="button">Load a save</button>
+              </div>
+              <button id="state-retry" type="button" hidden>Try again</button>
+            </div>
+          </div>
+          <div class="map-hud" id="map-hud" hidden>
+            <div class="readout" id="readout" aria-live="off">&nbsp;</div>
+            <div class="scalebar" id="scalebar"><div class="bar" id="scalebar-bar"></div><span id="scalebar-text"></span></div>
+            <div class="map-buttons" role="group" aria-label="Map view">
+              <button id="zoom-in" type="button" class="icon" aria-label="Zoom in">+</button>
+              <button id="zoom-out" type="button" class="icon" aria-label="Zoom out">−</button>
+              <button id="zoom-fit" type="button" aria-label="Fit the map">Fit</button>
+              <button id="add-family" type="button" aria-pressed="false" title="Send a family: click where they should settle (Esc cancels)" disabled>Add a family</button>
+              <select id="family-count" aria-label="Families that arrive together" title="How many families arrive together" disabled>
+                <option value="1">1 family</option>
+                <option value="5">5 families</option>
+                <option value="10">10 families</option>
+                <option value="20">20 families</option>
+              </select>
+              <label class="toggle"><input type="checkbox" id="show-rivers" checked /> Rivers</label>
+            </div>
+          </div>
+        </section>
+
+        <aside class="side">
+          <section class="panel people-panel" aria-labelledby="people-heading">
+            <h2 id="people-heading">People</h2>
+            <div class="panel-body" id="people-body"></div>
+          </section>
+          <section class="panel chronicle-panel" aria-labelledby="chronicle-heading">
+            <h2 id="chronicle-heading">Chronicle</h2>
+            <ol class="chronicle" id="chronicle" aria-live="polite"></ol>
+            <p class="empty" id="chronicle-empty">Nothing has been recorded yet.</p>
+          </section>
+          <section class="panel market-panel" aria-labelledby="market-heading">
+            <h2 id="market-heading">Market</h2>
+            <div class="panel-body" id="market-body"></div>
+          </section>
+          <section class="panel firms-panel" id="firms-panel" aria-labelledby="firms-heading">
+            <h2 id="firms-heading">Workshops</h2>
+            <div class="panel-body" id="firms-body"></div>
+          </section>
+          <section class="panel wealth-panel" id="wealth-panel" aria-labelledby="wealth-heading">
+            <h2 id="wealth-heading">Wealth</h2>
+            <div class="panel-body" id="wealth-body"></div>
+          </section>
+          <section class="panel knowledge-panel" id="knowledge-panel" aria-labelledby="knowledge-heading">
+            <h2 id="knowledge-heading">Knowledge</h2>
+            <div class="panel-body" id="knowledge-body"></div>
+          </section>
+          <section class="panel" aria-labelledby="world-heading">
+            <h2 id="world-heading">World</h2>
+            <div class="panel-body" id="world-body"></div>
+          </section>
+          <section class="panel events-panel" aria-labelledby="events-heading">
+            <h2 id="events-heading">Events</h2>
+            <ol class="events" id="events" aria-live="polite"></ol>
+            <p class="empty" id="events-empty">Nothing has happened yet.</p>
+          </section>
+        </aside>
+      </main>
+
+      <div class="task" id="task" role="status" aria-live="polite" hidden>
+        <div class="task-name" id="task-name"></div>
+        <div class="task-stage" id="task-stage"></div>
+        <progress id="task-progress" max="1" value="0"></progress>
+        <button id="task-cancel" type="button" hidden>Cancel</button>
+      </div>
+    </div>
+
+    <dialog id="new-world-dialog" aria-labelledby="nw-title">
+      <form id="new-world-form" novalidate>
+        <h2 id="nw-title">New world</h2>
+        <label for="nw-name">Name</label>
+        <input id="nw-name" name="name" maxlength="64" placeholder="Unnamed world" autocomplete="off" />
+        <label for="nw-preset">Landscape</label>
+        <select id="nw-preset" name="preset"></select>
+        <p class="hint" id="nw-preset-description"></p>
+        <label for="nw-size">Size</label>
+        <select id="nw-size" name="size"></select>
+        <label for="nw-seed">Seed</label>
+        <div class="seed-row">
+          <input id="nw-seed" name="seed" inputmode="numeric" autocomplete="off" />
+          <button type="button" id="nw-seed-random">Random</button>
+        </div>
+        <p class="hint">On a given version, the same landscape, size and seed always make the same terrain.</p>
+        <label for="nw-band">Founding band</label>
+        <input id="nw-band" name="band" type="number" inputmode="numeric" />
+        <p class="hint" id="nw-band-hint"></p>
+        <label for="nw-regime">Land tenure</label>
+        <select id="nw-regime" name="regime"></select>
+        <p class="hint" id="nw-regime-description"></p>
+        <ul class="hint rules" id="nw-regime-rules"></ul>
+        <p class="form-error" id="nw-error" role="alert" hidden></p>
+        <div class="dialog-buttons">
+          <button type="button" id="nw-cancel">Cancel</button>
+          <button type="submit" id="nw-create" class="primary">Create</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="save-dialog" aria-labelledby="save-title">
+      <form id="save-form" novalidate>
+        <h2 id="save-title">Save the world</h2>
+        <label for="save-label">Label</label>
+        <input id="save-label" name="label" maxlength="48" placeholder="Manual save" autocomplete="off" />
+        <p class="hint">Every save is a new file; nothing is overwritten.</p>
+        <p class="form-error" id="save-error" role="alert" hidden></p>
+        <div class="dialog-buttons">
+          <button type="button" id="save-cancel">Cancel</button>
+          <button type="submit" id="save-submit" class="primary">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="load-dialog" class="wide" aria-labelledby="load-title">
+      <div class="dialog-head">
+        <h2 id="load-title">Load a save</h2>
+        <button type="button" id="load-refresh">Refresh</button>
+        <button type="button" id="load-close" class="icon" aria-label="Close">×</button>
+      </div>
+      <div class="load-body" id="load-body"></div>
+    </dialog>
+
+    <dialog id="recovery-dialog" aria-labelledby="recovery-title">
+      <h2 id="recovery-title">Recover your world?</h2>
+      <p id="recovery-reason"></p>
+      <p>
+        The newest intact save of <strong id="recovery-world"></strong> is
+        “<span id="recovery-label"></span>”, at <span id="recovery-time"></span>.
+      </p>
+      <p class="form-error" id="recovery-error" role="alert" hidden></p>
+      <div class="dialog-buttons">
+        <button type="button" id="recovery-dismiss">Not now</button>
+        <button type="button" id="recovery-accept" class="primary">Recover</button>
+      </div>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

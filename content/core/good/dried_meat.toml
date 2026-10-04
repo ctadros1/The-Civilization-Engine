@@ -1,0 +1,14 @@
+# Meat dried and smoked into strips. Drying takes water out and adds no calories (research 07-04:
+# "fermentation and drying do not create calories"): lean meat of about 70 % water dried to about
+# 25 % keeps 0.4 kg of each kilogram, at 1,500 / 0.4 = 3,750 kcal/kg. It keeps for months, longer
+# under a roof (half-lives are tuning values; the research gives none). Eaten as it is.
+kind = "good"
+id = "core:good/dried_meat"
+name = "Dried meat"
+purpose = "food"
+kcal_per_kg = 3750.0
+half_life_days = 180.0
+sheltered_half_life_days = 365.0
+eaten = "raw"
+shared = false
+reserve_for = ""

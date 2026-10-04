@@ -1,0 +1,14 @@
+# Grain and dried food a band carries in. Cereals run about 3,400 kcal/kg (research 08-01 §2.2).
+# Storage loss is taken as 20 % a year (half-life about 3 years): twice the 10 % reconstruction
+# assumption for stored cereals (research 08-01 §2.2, low confidence), since there is no proper
+# store yet.
+kind = "good"
+id = "core:good/provisions"
+name = "Provisions"
+purpose = "food"
+kcal_per_kg = 3000.0
+half_life_days = 1100.0
+sheltered_half_life_days = 2400.0 # under a roof the 10 % a year of 08-01 §2.2
+eaten = "raw"
+shared = false
+reserve_for = ""

@@ -1,0 +1,18 @@
+[package]
+name = "commons-wire"
+description = "Engine-agnostic frame envelope for simulation boundaries: kinds, delivery contracts, schema versioning."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+crc32fast = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

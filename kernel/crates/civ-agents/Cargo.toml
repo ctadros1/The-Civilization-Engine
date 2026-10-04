@@ -1,0 +1,16 @@
+[package]
+name = "civ-agents"
+description = "People: needs, daily activities, decisions with recorded reasons, trips, households, founding bands, and their history (ADR-0003)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+civ-core = { workspace = true }
+civ-grammar = { workspace = true }
+civ-land = { workspace = true }
+civ-world = { workspace = true }
+
+[lints]
+workspace = true

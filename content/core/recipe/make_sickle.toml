@@ -1,0 +1,14 @@
+# Knapping about ten flint blades (0.02-0.2 h each, research 07-05 §2.2) and setting them in a
+# wooden haft: about three hours, with 0.3 kg of flint and 0.5 kg of wood (tuning values).
+kind = "recipe"
+id = "core:recipe/make_sickle"
+name = "Make a sickle"
+skill = "core:skill/knapping"
+technique = "core:technique/knapping"
+unit_h = 3.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [{ good = "core:good/toolstone", amount = 0.3 }, { good = "core:good/timber", amount = 0.5 }]
+outputs = [{ good = "core:good/sickle", amount = 1.0 }]
+session_inputs = []

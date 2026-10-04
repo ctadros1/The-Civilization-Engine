@@ -1,0 +1,12 @@
+[package]
+name = "civ-grammar"
+description = "Building designs and their expansion into parts, outlines and construction needs: pure functions shared by the kernel and, over FFI, by Unreal (ADR-0004)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

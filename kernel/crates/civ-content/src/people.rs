@@ -1,0 +1,1056 @@
+//! People profiles (`kind = "people"`): how a world's people live, and their founding bands.
+//! Every field is required: an omitted number is an error, never a silent engine default.
+
+use civ_agents::params::{
+    BandParams, BuildParams, DecisionParams, EnergyParams, FamilyParams, FarmParams,
+    FertilityParams, FirmParams, HouseholdParams, KnowledgeParams, MarketParams, MortalityParams,
+    NameParams, PeopleParams, Residence, Siler, SleepParams, SocialParams,
+};
+use civ_world::nav::NavParams;
+use serde::Deserialize;
+
+/// The `kind` value of a people profile.
+pub const KIND: &str = "people";
+/// The id segment: `pack:people/name`.
+pub const ID_KIND: &str = "people";
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PeopleFile {
+    pub kind: String,
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub names: String,
+    pub latitude_deg: f64,
+    pub walk_speed_by_age: Vec<[f64; 2]>,
+    pub capacity_by_age: Vec<[f64; 2]>,
+    pub walking: Walking,
+    pub energy: Energy,
+    pub sleep: Sleep,
+    pub social: Social,
+    pub household: Household,
+    pub decision: Decision,
+    pub band: Band,
+    pub farm: Farm,
+    pub build: Build,
+    pub mortality: Mortality,
+    pub fertility: Fertility,
+    pub family: Family,
+    pub market: Market,
+    pub firm: Firm,
+    pub knowledge: Knowledge,
+}
+
+/// What founders know and how people learn (ADR-0008).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Knowledge {
+    /// The share of founders old enough for the work who know each technique.
+    pub founders: Vec<Founders>,
+    /// Learners one person teaches at once.
+    pub max_learners: u32,
+    /// Utility points for working beside someone to learn what they know.
+    pub w_learn: f64,
+    /// The share of routine work's hours that counts as experiment (research 07-01 §2.3).
+    pub experiment_share: f64,
+    /// How many times its hours trying counts for someone already aware of the technique.
+    pub aware_try_factor: f64,
+    /// Utility points for trying at a problem, times the share of food it would cost.
+    pub w_try: f64,
+    /// Least days between one person's sessions of trying.
+    pub try_gap_days: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Founders {
+    /// A technique id.
+    pub technique: String,
+    /// The share of founders old enough for its work who know it, 0-1.
+    pub share: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Firm {
+    pub idle_close_days: f64,
+    pub book_entries: u32,
+    pub wage_share: f64,
+    pub wage_review_days: u32,
+    pub wage_max_change: f64,
+    pub max_hire_hours: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Build {
+    /// The programs a household may build: building ids of homes, stores and workshops.
+    pub programs: Vec<String>,
+    /// Days over which a household reckons what a storehouse would save of its goods.
+    pub store_horizon_days: f64,
+    /// People who can work at a craft at once in a home, beside living there.
+    pub home_work_places: u32,
+    /// How unevenly a novice and a master make the parts of a building.
+    pub quality_spread: [f64; 2],
+    /// How builders answer the failures their settlement has seen.
+    pub caution: Caution,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Caution {
+    /// Years over which a settlement's memory of failures and of years without them fades by half.
+    pub half_life_years: f64,
+    /// How many times its usual strength a member is made at most.
+    pub most: f64,
+    /// Failures a building-year at which caution is half way to its most.
+    pub half_rate: f64,
+    /// How many failures more each death in one counts as.
+    pub death_weight: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Farm {
+    /// The crop: a crop id.
+    pub crop: String,
+    pub grain_share: f64,
+    pub plan_yield_share: f64,
+    pub loss_share: f64,
+    pub grain_target_days: f64,
+    pub work_hours_per_day: f64,
+    pub field_m: f64,
+    pub max_walk_minutes: f64,
+    pub site_candidates: u32,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Walking {
+    pub top_speed_kmh: f64,
+    pub slope_sensitivity: f64,
+    pub best_slope_offset: f64,
+    pub offtrail_factor: f64,
+    pub wading_factor: f64,
+    pub ford_max_discharge_m3s: f64,
+    pub max_slope: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Energy {
+    pub bmr_band_starts: Vec<f64>,
+    pub bmr_male: Vec<[f64; 2]>,
+    pub bmr_female: Vec<[f64; 2]>,
+    pub mass_by_age: Vec<[f64; 3]>,
+    pub walk_par: f64,
+    pub idle_par: f64,
+    pub satiety_hours: f64,
+    pub hunger_ramp_hours: f64,
+    pub deficit_unit_kcal: f64,
+    pub max_surplus_kcal: f64,
+    pub reserve_kcal_per_kg: f64,
+    pub eat_reserve_at_deficit: f64,
+    pub meal_minutes: u32,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Sleep {
+    pub tau_awake_h: f64,
+    pub tau_asleep_h: f64,
+    pub wake_pressure: f64,
+    pub min_hours: f64,
+    pub max_hours: f64,
+    pub nap_min_minutes: f64,
+    pub nap_max_minutes: f64,
+    pub bedtime_after_sunset_hours: f64,
+    pub day_factor: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Social {
+    pub tau_h: f64,
+    pub quality_per_companion: f64,
+    pub household_quality: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Household {
+    pub water_l_per_person_day: f64,
+    pub carry_water_l: f64,
+    pub water_target_days: f64,
+    pub food_target_days: f64,
+    pub ready_food_days: f64,
+    pub harvest_margin_days: f64,
+    pub raised_store_factor: f64,
+    pub processed_food_days: f64,
+    pub carry_kg: f64,
+    pub fuel_kg_per_person_day: [f64; 12],
+    pub fuel_target_days: f64,
+    pub short_food_days: f64,
+    pub recovered_food_days: f64,
+    pub daily_kcal_per_person: f64,
+    pub leave_at_depletion: f64,
+    pub leave_per_day: f64,
+    pub leave_unless_ripe_within_days: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Decision {
+    pub temperature_sd_fraction: f64,
+    pub min_temperature: f64,
+    pub w_hunger: f64,
+    pub max_hunger_drive: f64,
+    pub w_sleep: f64,
+    pub w_social: f64,
+    pub w_food: f64,
+    pub w_lean: f64,
+    pub w_work: f64,
+    pub w_fuel: f64,
+    pub w_farm: f64,
+    pub w_deadline: f64,
+    pub w_shelter: f64,
+    pub w_tools: f64,
+    pub trip_half_worth_days: f64,
+    pub w_water: f64,
+    pub w_walk_hour: f64,
+    pub w_effort: f64,
+    pub w_dark: f64,
+    pub w_rest: f64,
+    pub w_play: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Band {
+    pub default_size: u32,
+    pub min_size: u32,
+    pub max_size: u32,
+    pub min_families: u32,
+    pub camp_candidates: u32,
+    pub site_radius_m: f64,
+    pub provisions_days: f64,
+    /// The good provisions are carried as: a good id.
+    pub provisions_good: String,
+    pub seed_kg_per_person: f64,
+    pub elder_chance: f64,
+    pub young_adult_chance: f64,
+    pub birth_spacing_months: f64,
+    pub site_max_slope: f64,
+    pub site_w_food: f64,
+    pub site_w_arable: f64,
+    pub site_w_water_per_100m: f64,
+    pub site_w_slope_per_pct: f64,
+    pub site_w_flood: f64,
+    pub site_flood_hand_m: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Mortality {
+    pub a: f64,
+    pub b: f64,
+    pub c: f64,
+    pub d: f64,
+    pub e: f64,
+    pub hunger_ratio_at_half: f64,
+    pub hunger_ratio_max: f64,
+    pub exhaustion_per_day: f64,
+    pub exhaustion_power: f64,
+    pub maternal_death_per_birth: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Fertility {
+    pub conception_per_month: f64,
+    pub age_factor: Vec<[f64; 2]>,
+    pub fecundity_sd: f64,
+    pub hunger_halving: f64,
+    pub pregnancy_days: f64,
+    pub pregnancy_sd_days: f64,
+    pub loss_by_age: Vec<[f64; 2]>,
+    pub loss_days: [f64; 2],
+    pub recovery_months: f64,
+    pub recovery_sd_months: f64,
+    pub recovery_min_months: f64,
+    pub loss_recovery_months: f64,
+    pub weaned_recovery_months: f64,
+    pub boys_per_100_girls: f64,
+    pub pregnancy_kcal_day: [f64; 3],
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Market {
+    pub review_days: u32,
+    pub margin: f64,
+    pub max_change: f64,
+    pub memory_days: f64,
+    pub money_share: f64,
+    pub money_min_trades: f64,
+    pub accept_want: f64,
+    pub recent_trades: u32,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Family {
+    pub seek_min_age_female: f64,
+    pub seek_min_age_male: f64,
+    pub seek_max_age_female: f64,
+    pub seek_max_age_male: f64,
+    pub seek_per_month_female: f64,
+    pub seek_per_month_male: f64,
+    pub age_gap_years: [f64; 2],
+    pub preferred_gap_years: f64,
+    pub w_gap_per_year: f64,
+    pub kin_exclusion_generations: u32,
+    /// `new_household`, `his_household` or `her_household`.
+    pub residence: String,
+    pub independent_age: f64,
+    pub trait_heritability: f64,
+}
+
+fn pairs(v: &[[f64; 2]]) -> Vec<(f64, f64)> {
+    v.iter().map(|&[a, b]| (a, b)).collect()
+}
+
+fn ascending(name: &str, xs: impl Iterator<Item = f64>, problems: &mut Vec<String>) {
+    let xs: Vec<f64> = xs.collect();
+    if xs.is_empty() {
+        problems.push(format!("`{name}` must not be empty"));
+    } else if xs.windows(2).any(|w| w[1] <= w[0]) || xs.iter().any(|x| !x.is_finite()) {
+        problems.push(format!(
+            "`{name}` ages must be finite and strictly ascending"
+        ));
+    }
+}
+
+fn positive(name: &str, v: f64, problems: &mut Vec<String>) {
+    if !(v.is_finite() && v > 0.0) {
+        problems.push(format!("`{name}` must be positive (got {v})"));
+    }
+}
+
+fn non_negative(name: &str, v: f64, problems: &mut Vec<String>) {
+    if !(v.is_finite() && v >= 0.0) {
+        problems.push(format!("`{name}` must be zero or more (got {v})"));
+    }
+}
+
+fn unit(name: &str, v: f64, problems: &mut Vec<String>) {
+    if !(v.is_finite() && (0.0..=1.0).contains(&v)) {
+        problems.push(format!("`{name}` must be between 0 and 1 (got {v})"));
+    }
+}
+
+impl PeopleFile {
+    /// The parameters, with the given names and the indexes of the provisions good, the crop and
+    /// the programs households may build. Field by field on purpose: a new parameter fails to compile here until
+    /// the authoring format carries it.
+    pub fn params(
+        &self,
+        names: NameParams,
+        provisions_good: usize,
+        crop: usize,
+        programs: Vec<usize>,
+        founders: Vec<(usize, f64)>,
+    ) -> PeopleParams {
+        let (w, e, s, so, h, d, b, m) = (
+            &self.walking,
+            &self.energy,
+            &self.sleep,
+            &self.social,
+            &self.household,
+            &self.decision,
+            &self.band,
+            &self.mortality,
+        );
+        PeopleParams {
+            nav: NavParams {
+                top_speed_kmh: w.top_speed_kmh,
+                slope_sensitivity: w.slope_sensitivity,
+                best_slope_offset: w.best_slope_offset,
+                offtrail_factor: w.offtrail_factor,
+                wading_factor: w.wading_factor,
+                ford_max_discharge_m3s: w.ford_max_discharge_m3s,
+                max_slope: w.max_slope,
+            },
+            walk_speed_by_age: pairs(&self.walk_speed_by_age),
+            capacity_by_age: pairs(&self.capacity_by_age),
+            latitude_deg: self.latitude_deg,
+            energy: EnergyParams {
+                bmr_male: pairs(&e.bmr_male),
+                bmr_female: pairs(&e.bmr_female),
+                bmr_band_starts: e.bmr_band_starts.clone(),
+                mass_by_age: e.mass_by_age.iter().map(|&[a, x, y]| (a, x, y)).collect(),
+                walk_par: e.walk_par,
+                idle_par: e.idle_par,
+                satiety_hours: e.satiety_hours,
+                hunger_ramp_hours: e.hunger_ramp_hours,
+                deficit_unit_kcal: e.deficit_unit_kcal,
+                max_surplus_kcal: e.max_surplus_kcal,
+                reserve_kcal_per_kg: e.reserve_kcal_per_kg,
+                eat_reserve_at_deficit: e.eat_reserve_at_deficit,
+                meal_minutes: e.meal_minutes,
+            },
+            sleep: SleepParams {
+                tau_awake_h: s.tau_awake_h,
+                tau_asleep_h: s.tau_asleep_h,
+                wake_pressure: s.wake_pressure,
+                min_hours: s.min_hours,
+                max_hours: s.max_hours,
+                nap_min_minutes: s.nap_min_minutes,
+                nap_max_minutes: s.nap_max_minutes,
+                bedtime_after_sunset_hours: s.bedtime_after_sunset_hours,
+                day_factor: s.day_factor,
+            },
+            social: SocialParams {
+                tau_h: so.tau_h,
+                quality_per_companion: so.quality_per_companion,
+                household_quality: so.household_quality,
+            },
+            household: HouseholdParams {
+                water_l_per_person_day: h.water_l_per_person_day,
+                carry_water_l: h.carry_water_l,
+                water_target_days: h.water_target_days,
+                food_target_days: h.food_target_days,
+                ready_food_days: h.ready_food_days,
+                harvest_margin_days: h.harvest_margin_days,
+                raised_store_factor: h.raised_store_factor,
+                processed_food_days: h.processed_food_days,
+                carry_kg: h.carry_kg,
+                fuel_kg_per_person_day: h.fuel_kg_per_person_day,
+                fuel_target_days: h.fuel_target_days,
+                short_food_days: h.short_food_days,
+                recovered_food_days: h.recovered_food_days,
+                daily_kcal_per_person: h.daily_kcal_per_person,
+                leave_at_depletion: h.leave_at_depletion,
+                leave_per_day: h.leave_per_day,
+                leave_unless_ripe_within_days: h.leave_unless_ripe_within_days,
+            },
+            decision: DecisionParams {
+                temperature_sd_fraction: d.temperature_sd_fraction,
+                min_temperature: d.min_temperature,
+                w_hunger: d.w_hunger,
+                max_hunger_drive: d.max_hunger_drive,
+                w_sleep: d.w_sleep,
+                w_social: d.w_social,
+                w_food: d.w_food,
+                w_lean: d.w_lean,
+                w_work: d.w_work,
+                w_fuel: d.w_fuel,
+                w_farm: d.w_farm,
+                w_deadline: d.w_deadline,
+                w_shelter: d.w_shelter,
+                w_tools: d.w_tools,
+                trip_half_worth_days: d.trip_half_worth_days,
+                w_water: d.w_water,
+                w_walk_hour: d.w_walk_hour,
+                w_effort: d.w_effort,
+                w_dark: d.w_dark,
+                w_rest: d.w_rest,
+                w_play: d.w_play,
+            },
+            band: BandParams {
+                default_size: b.default_size,
+                min_size: b.min_size,
+                max_size: b.max_size,
+                min_families: b.min_families,
+                camp_candidates: b.camp_candidates,
+                site_radius_m: b.site_radius_m,
+                provisions_days: b.provisions_days,
+                provisions_good,
+                seed_kg_per_person: b.seed_kg_per_person,
+                elder_chance: b.elder_chance,
+                young_adult_chance: b.young_adult_chance,
+                birth_spacing_months: b.birth_spacing_months,
+                site_max_slope: b.site_max_slope,
+                site_w_food: b.site_w_food,
+                site_w_arable: b.site_w_arable,
+                site_w_water_per_100m: b.site_w_water_per_100m,
+                site_w_slope_per_pct: b.site_w_slope_per_pct,
+                site_w_flood: b.site_w_flood,
+                site_flood_hand_m: b.site_flood_hand_m,
+            },
+            farm: FarmParams {
+                crop,
+                grain_share: self.farm.grain_share,
+                plan_yield_share: self.farm.plan_yield_share,
+                loss_share: self.farm.loss_share,
+                grain_target_days: self.farm.grain_target_days,
+                work_hours_per_day: self.farm.work_hours_per_day,
+                field_m: self.farm.field_m,
+                max_walk_minutes: self.farm.max_walk_minutes,
+                site_candidates: self.farm.site_candidates,
+            },
+            build: BuildParams {
+                programs,
+                store_horizon_days: self.build.store_horizon_days,
+                home_work_places: self.build.home_work_places,
+                quality_spread: self.build.quality_spread,
+                caution: civ_agents::caution::CautionParams {
+                    half_life_years: self.build.caution.half_life_years,
+                    most: self.build.caution.most,
+                    half_rate: self.build.caution.half_rate,
+                    death_weight: self.build.caution.death_weight,
+                },
+            },
+            mortality: MortalityParams {
+                siler: Siler {
+                    a: m.a,
+                    b: m.b,
+                    c: m.c,
+                    d: m.d,
+                    e: m.e,
+                },
+                hunger_ratio_at_half: m.hunger_ratio_at_half,
+                hunger_ratio_max: m.hunger_ratio_max,
+                exhaustion_per_day: m.exhaustion_per_day,
+                exhaustion_power: m.exhaustion_power,
+                maternal_death_per_birth: m.maternal_death_per_birth,
+            },
+            fertility: {
+                let f = &self.fertility;
+                FertilityParams {
+                    conception_per_month: f.conception_per_month,
+                    age_factor: pairs(&f.age_factor),
+                    fecundity_sd: f.fecundity_sd,
+                    hunger_halving: f.hunger_halving,
+                    pregnancy_days: f.pregnancy_days,
+                    pregnancy_sd_days: f.pregnancy_sd_days,
+                    loss_by_age: pairs(&f.loss_by_age),
+                    loss_days: f.loss_days,
+                    recovery_months: f.recovery_months,
+                    recovery_sd_months: f.recovery_sd_months,
+                    recovery_min_months: f.recovery_min_months,
+                    loss_recovery_months: f.loss_recovery_months,
+                    weaned_recovery_months: f.weaned_recovery_months,
+                    boys_per_100_girls: f.boys_per_100_girls,
+                    pregnancy_kcal_day: f.pregnancy_kcal_day,
+                }
+            },
+            family: {
+                let y = &self.family;
+                FamilyParams {
+                    seek_min_age: [y.seek_min_age_female, y.seek_min_age_male],
+                    seek_max_age: [y.seek_max_age_female, y.seek_max_age_male],
+                    seek_per_month: [y.seek_per_month_female, y.seek_per_month_male],
+                    age_gap_years: y.age_gap_years,
+                    preferred_gap_years: y.preferred_gap_years,
+                    w_gap_per_year: y.w_gap_per_year,
+                    kin_exclusion_generations: y.kin_exclusion_generations,
+                    residence: Residence::from_name(&y.residence)
+                        .unwrap_or(Residence::NewHousehold),
+                    independent_age: y.independent_age,
+                    trait_heritability: y.trait_heritability,
+                }
+            },
+            market: {
+                let k = &self.market;
+                MarketParams {
+                    review_days: k.review_days,
+                    margin: k.margin,
+                    max_change: k.max_change,
+                    memory_days: k.memory_days,
+                    money_share: k.money_share,
+                    money_min_trades: k.money_min_trades,
+                    accept_want: k.accept_want,
+                    recent_trades: k.recent_trades as usize,
+                }
+            },
+            firm: FirmParams {
+                idle_close_days: self.firm.idle_close_days,
+                book_entries: self.firm.book_entries as usize,
+                wage_share: self.firm.wage_share,
+                wage_review_days: self.firm.wage_review_days,
+                wage_max_change: self.firm.wage_max_change,
+                max_hire_hours: self.firm.max_hire_hours,
+            },
+            knowledge: KnowledgeParams {
+                founders,
+                max_learners: self.knowledge.max_learners,
+                w_learn: self.knowledge.w_learn,
+                experiment_share: self.knowledge.experiment_share,
+                aware_try_factor: self.knowledge.aware_try_factor,
+                w_try: self.knowledge.w_try,
+                try_gap_days: self.knowledge.try_gap_days,
+            },
+            names,
+        }
+    }
+
+    /// Range problems, as messages.
+    pub fn problems(&self) -> Vec<String> {
+        let mut p = Vec::new();
+        for f in &self.knowledge.founders {
+            if !(f.share.is_finite() && (0.0..=1.0).contains(&f.share)) {
+                p.push(format!(
+                    "`knowledge.founders` share of `{}` must be between 0 and 1 (got {})",
+                    f.technique, f.share
+                ));
+            }
+        }
+        if !(1..=10).contains(&self.knowledge.max_learners) {
+            p.push(format!(
+                "`knowledge.max_learners` must be 1-10 (got {})",
+                self.knowledge.max_learners
+            ));
+        }
+        if !(self.knowledge.w_learn.is_finite() && self.knowledge.w_learn >= 0.0) {
+            p.push(format!(
+                "`knowledge.w_learn` must be zero or more (got {})",
+                self.knowledge.w_learn
+            ));
+        }
+        let k = &self.knowledge;
+        if !(k.experiment_share.is_finite() && (0.0..=1.0).contains(&k.experiment_share)) {
+            p.push(format!(
+                "`knowledge.experiment_share` must be between 0 and 1 (got {})",
+                k.experiment_share
+            ));
+        }
+        if !(k.aware_try_factor.is_finite() && k.aware_try_factor >= 1.0) {
+            p.push(format!(
+                "`knowledge.aware_try_factor` must be at least 1 (got {})",
+                k.aware_try_factor
+            ));
+        }
+        if !(k.w_try.is_finite() && k.w_try >= 0.0) {
+            p.push(format!(
+                "`knowledge.w_try` must be zero or more (got {})",
+                k.w_try
+            ));
+        }
+        if !(k.try_gap_days.is_finite() && k.try_gap_days >= 0.0) {
+            p.push(format!(
+                "`knowledge.try_gap_days` must be zero or more (got {})",
+                k.try_gap_days
+            ));
+        }
+        if !(self.latitude_deg.is_finite() && self.latitude_deg.abs() <= 66.0) {
+            p.push(format!(
+                "`latitude_deg` must be between -66 and 66 (got {})",
+                self.latitude_deg
+            ));
+        }
+        ascending(
+            "walk_speed_by_age",
+            self.walk_speed_by_age.iter().map(|x| x[0]),
+            &mut p,
+        );
+        ascending(
+            "capacity_by_age",
+            self.capacity_by_age.iter().map(|x| x[0]),
+            &mut p,
+        );
+        for &[_, v] in self.walk_speed_by_age.iter().chain(&self.capacity_by_age) {
+            if !(v.is_finite() && (0.0..=2.0).contains(&v)) {
+                p.push(format!("age factors must be between 0 and 2 (got {v})"));
+            }
+        }
+        let w = &self.walking;
+        positive("walking.top_speed_kmh", w.top_speed_kmh, &mut p);
+        non_negative("walking.slope_sensitivity", w.slope_sensitivity, &mut p);
+        unit("walking.offtrail_factor", w.offtrail_factor, &mut p);
+        unit("walking.wading_factor", w.wading_factor, &mut p);
+        non_negative(
+            "walking.ford_max_discharge_m3s",
+            w.ford_max_discharge_m3s,
+            &mut p,
+        );
+        positive("walking.max_slope", w.max_slope, &mut p);
+        if w.offtrail_factor <= 0.0 {
+            p.push("`walking.offtrail_factor` must be above 0".to_owned());
+        }
+        let e = &self.energy;
+        let bands = e.bmr_band_starts.len();
+        if bands == 0 || e.bmr_male.len() != bands || e.bmr_female.len() != bands {
+            p.push(
+                "`energy.bmr_male` and `energy.bmr_female` need one entry per band start"
+                    .to_owned(),
+            );
+        }
+        ascending(
+            "energy.bmr_band_starts",
+            e.bmr_band_starts.iter().copied(),
+            &mut p,
+        );
+        ascending(
+            "energy.mass_by_age",
+            e.mass_by_age.iter().map(|x| x[0]),
+            &mut p,
+        );
+        for &[_, m, f] in &e.mass_by_age {
+            if !(m > 0.0 && f > 0.0 && m.is_finite() && f.is_finite()) {
+                p.push("body masses must be positive".to_owned());
+            }
+        }
+        positive("energy.walk_par", e.walk_par, &mut p);
+        positive("energy.idle_par", e.idle_par, &mut p);
+        positive("energy.satiety_hours", e.satiety_hours, &mut p);
+        positive("energy.hunger_ramp_hours", e.hunger_ramp_hours, &mut p);
+        positive("energy.deficit_unit_kcal", e.deficit_unit_kcal, &mut p);
+        non_negative("energy.max_surplus_kcal", e.max_surplus_kcal, &mut p);
+        positive("energy.reserve_kcal_per_kg", e.reserve_kcal_per_kg, &mut p);
+        unit(
+            "energy.eat_reserve_at_deficit",
+            e.eat_reserve_at_deficit,
+            &mut p,
+        );
+        if e.meal_minutes == 0 {
+            p.push("`energy.meal_minutes` must be at least 1".to_owned());
+        }
+        let s = &self.sleep;
+        positive("sleep.tau_awake_h", s.tau_awake_h, &mut p);
+        positive("sleep.tau_asleep_h", s.tau_asleep_h, &mut p);
+        if !(s.wake_pressure > 0.0 && s.wake_pressure < 1.0) {
+            p.push("`sleep.wake_pressure` must be between 0 and 1".to_owned());
+        }
+        positive("sleep.min_hours", s.min_hours, &mut p);
+        if s.max_hours < s.min_hours {
+            p.push("`sleep.max_hours` must be at least `sleep.min_hours`".to_owned());
+        }
+        if !(s.nap_min_minutes >= 1.0 && s.nap_min_minutes <= s.nap_max_minutes) {
+            p.push("naps must satisfy 1 <= nap_min_minutes <= nap_max_minutes".to_owned());
+        }
+        unit("sleep.day_factor", s.day_factor, &mut p);
+        if !(1.0..=12.0).contains(&s.bedtime_after_sunset_hours) {
+            p.push("`sleep.bedtime_after_sunset_hours` must be between 1 and 12".to_owned());
+        }
+        positive("social.tau_h", self.social.tau_h, &mut p);
+        unit(
+            "social.quality_per_companion",
+            self.social.quality_per_companion,
+            &mut p,
+        );
+        unit(
+            "social.household_quality",
+            self.social.household_quality,
+            &mut p,
+        );
+        let h = &self.household;
+        positive(
+            "household.water_l_per_person_day",
+            h.water_l_per_person_day,
+            &mut p,
+        );
+        positive("household.carry_water_l", h.carry_water_l, &mut p);
+        positive("household.water_target_days", h.water_target_days, &mut p);
+        positive("household.food_target_days", h.food_target_days, &mut p);
+        positive("household.ready_food_days", h.ready_food_days, &mut p);
+        positive(
+            "build.store_horizon_days",
+            self.build.store_horizon_days,
+            &mut p,
+        );
+        let [novice, master] = self.build.quality_spread;
+        if !(master >= 0.0 && master <= novice && novice < 1.0) {
+            p.push(format!(
+                "`build.quality_spread` must be [novice, master] with 0 <= master <= novice < 1 \
+                 (got [{novice}, {master}])"
+            ));
+        }
+        let c = &self.build.caution;
+        if !(c.half_life_years.is_finite() && (0.5..=100.0).contains(&c.half_life_years)) {
+            p.push(format!(
+                "`build.caution.half_life_years` must be between 0.5 and 100 (got {})",
+                c.half_life_years
+            ));
+        }
+        if !(c.most.is_finite() && (1.0..=10.0).contains(&c.most)) {
+            p.push(format!(
+                "`build.caution.most` must be between 1 and 10: builders never build weaker for \
+                 what they have seen (got {})",
+                c.most
+            ));
+        }
+        positive("build.caution.half_rate", c.half_rate, &mut p);
+        if !(c.death_weight.is_finite() && (0.0..=100.0).contains(&c.death_weight)) {
+            p.push(format!(
+                "`build.caution.death_weight` must be between 0 and 100 (got {})",
+                c.death_weight
+            ));
+        }
+        if !(h.raised_store_factor.is_finite() && h.raised_store_factor >= 1.0) {
+            p.push("`household.raised_store_factor` must be 1 or more: a raised floor never keeps worse".to_owned());
+        }
+        if !(h.harvest_margin_days.is_finite() && (0.0..=365.0).contains(&h.harvest_margin_days)) {
+            p.push("`household.harvest_margin_days` must be between 0 and 365".to_owned());
+        }
+        positive(
+            "household.processed_food_days",
+            h.processed_food_days,
+            &mut p,
+        );
+        positive("household.carry_kg", h.carry_kg, &mut p);
+        for v in h.fuel_kg_per_person_day {
+            non_negative("household.fuel_kg_per_person_day", v, &mut p);
+        }
+        positive("household.fuel_target_days", h.fuel_target_days, &mut p);
+        non_negative("household.short_food_days", h.short_food_days, &mut p);
+        if !(h.recovered_food_days.is_finite() && h.recovered_food_days > h.short_food_days) {
+            p.push(
+                "`household.recovered_food_days` must be more than `household.short_food_days`"
+                    .to_owned(),
+            );
+        }
+        positive(
+            "household.daily_kcal_per_person",
+            h.daily_kcal_per_person,
+            &mut p,
+        );
+        unit("household.leave_at_depletion", h.leave_at_depletion, &mut p);
+        unit("household.leave_per_day", h.leave_per_day, &mut p);
+        non_negative(
+            "household.leave_unless_ripe_within_days",
+            h.leave_unless_ripe_within_days,
+            &mut p,
+        );
+        let d = &self.decision;
+        positive(
+            "decision.temperature_sd_fraction",
+            d.temperature_sd_fraction,
+            &mut p,
+        );
+        positive("decision.min_temperature", d.min_temperature, &mut p);
+        if !(d.max_hunger_drive.is_finite() && d.max_hunger_drive >= 1.0) {
+            p.push(format!(
+                "`decision.max_hunger_drive` must be at least 1, full hunger (got {})",
+                d.max_hunger_drive
+            ));
+        }
+        positive(
+            "decision.trip_half_worth_days",
+            d.trip_half_worth_days,
+            &mut p,
+        );
+        for (name, v) in [
+            ("w_hunger", d.w_hunger),
+            ("w_sleep", d.w_sleep),
+            ("w_social", d.w_social),
+            ("w_food", d.w_food),
+            ("w_lean", d.w_lean),
+            ("w_work", d.w_work),
+            ("w_fuel", d.w_fuel),
+            ("w_farm", d.w_farm),
+            ("w_deadline", d.w_deadline),
+            ("w_shelter", d.w_shelter),
+            ("w_tools", d.w_tools),
+            ("w_water", d.w_water),
+            ("w_walk_hour", d.w_walk_hour),
+            ("w_effort", d.w_effort),
+            ("w_dark", d.w_dark),
+            ("w_rest", d.w_rest),
+            ("w_play", d.w_play),
+        ] {
+            non_negative(&format!("decision.{name}"), v, &mut p);
+        }
+        let b = &self.band;
+        if !(b.min_size >= 2 && b.min_size <= b.default_size && b.default_size <= b.max_size) {
+            p.push("band sizes must satisfy 2 <= min_size <= default_size <= max_size".to_owned());
+        }
+        if b.min_families == 0 {
+            p.push("`band.min_families` must be at least 1".to_owned());
+        }
+        if b.min_size < 2 * b.min_families {
+            p.push(
+                "`band.min_size` must be at least twice `band.min_families` (a couple per family)"
+                    .to_owned(),
+            );
+        }
+        if b.camp_candidates == 0 {
+            p.push("`band.camp_candidates` must be at least 1".to_owned());
+        }
+        positive("band.site_radius_m", b.site_radius_m, &mut p);
+        non_negative("band.provisions_days", b.provisions_days, &mut p);
+        non_negative("band.seed_kg_per_person", b.seed_kg_per_person, &mut p);
+        let f = &self.farm;
+        unit("farm.grain_share", f.grain_share, &mut p);
+        if !(f.plan_yield_share.is_finite()
+            && f.plan_yield_share > 0.0
+            && f.plan_yield_share <= 2.0)
+        {
+            p.push("`farm.plan_yield_share` must be above 0 and at most 2".to_owned());
+        }
+        if !(f.loss_share.is_finite() && (0.0..=0.5).contains(&f.loss_share)) {
+            p.push("`farm.loss_share` must be between 0 and 0.5".to_owned());
+        }
+        positive("farm.grain_target_days", f.grain_target_days, &mut p);
+        if !(f.work_hours_per_day.is_finite() && (0.5..=16.0).contains(&f.work_hours_per_day)) {
+            p.push("`farm.work_hours_per_day` must be between 0.5 and 16".to_owned());
+        }
+        if !(f.field_m.is_finite() && (10.0..=500.0).contains(&f.field_m)) {
+            p.push("`farm.field_m` must be between 10 and 500 metres".to_owned());
+        }
+        positive("farm.max_walk_minutes", f.max_walk_minutes, &mut p);
+        if f.site_candidates == 0 {
+            p.push("`farm.site_candidates` must be at least 1".to_owned());
+        }
+        unit("band.elder_chance", b.elder_chance, &mut p);
+        unit("band.young_adult_chance", b.young_adult_chance, &mut p);
+        positive("band.birth_spacing_months", b.birth_spacing_months, &mut p);
+        positive("band.site_max_slope", b.site_max_slope, &mut p);
+        for (name, v) in [
+            ("site_w_food", b.site_w_food),
+            ("site_w_arable", b.site_w_arable),
+            ("site_w_water_per_100m", b.site_w_water_per_100m),
+            ("site_w_slope_per_pct", b.site_w_slope_per_pct),
+            ("site_w_flood", b.site_w_flood),
+            ("site_flood_hand_m", b.site_flood_hand_m),
+        ] {
+            non_negative(&format!("band.{name}"), v, &mut p);
+        }
+        let k = &self.market;
+        if !(1..=90).contains(&k.review_days) {
+            p.push("`market.review_days` must be between 1 and 90".to_owned());
+        }
+        non_negative("market.margin", k.margin, &mut p);
+        unit("market.max_change", k.max_change, &mut p);
+        positive("market.memory_days", k.memory_days, &mut p);
+        unit("market.money_share", k.money_share, &mut p);
+        non_negative("market.money_min_trades", k.money_min_trades, &mut p);
+        unit("market.accept_want", k.accept_want, &mut p);
+        if k.recent_trades == 0 || k.recent_trades > 1000 {
+            p.push("`market.recent_trades` must be between 1 and 1000".to_owned());
+        }
+        positive("firm.idle_close_days", self.firm.idle_close_days, &mut p);
+        if self.firm.book_entries == 0 || self.firm.book_entries > 10_000 {
+            p.push("`firm.book_entries` must be between 1 and 10000".to_owned());
+        }
+        if !(1..=365).contains(&self.firm.wage_review_days) {
+            p.push("`firm.wage_review_days` must be between 1 and 365".to_owned());
+        }
+        unit("firm.wage_share", self.firm.wage_share, &mut p);
+        unit("firm.wage_max_change", self.firm.wage_max_change, &mut p);
+        non_negative("firm.max_hire_hours", self.firm.max_hire_hours, &mut p);
+        let m = &self.mortality;
+        for (name, v) in [("a", m.a), ("b", m.b), ("c", m.c), ("d", m.d), ("e", m.e)] {
+            non_negative(&format!("mortality.{name}"), v, &mut p);
+        }
+        if m.b <= 0.0 || m.e <= 0.0 {
+            p.push("`mortality.b` and `mortality.e` must be positive".to_owned());
+        }
+        if !(m.hunger_ratio_at_half.is_finite() && m.hunger_ratio_at_half >= 1.0) {
+            p.push("`mortality.hunger_ratio_at_half` must be at least 1".to_owned());
+        }
+        if !(m.hunger_ratio_max.is_finite() && m.hunger_ratio_max >= m.hunger_ratio_at_half) {
+            p.push(
+                "`mortality.hunger_ratio_max` must be at least `mortality.hunger_ratio_at_half`"
+                    .to_owned(),
+            );
+        }
+        non_negative("mortality.exhaustion_per_day", m.exhaustion_per_day, &mut p);
+        positive("mortality.exhaustion_power", m.exhaustion_power, &mut p);
+        unit(
+            "mortality.maternal_death_per_birth",
+            m.maternal_death_per_birth,
+            &mut p,
+        );
+        let f = &self.fertility;
+        unit(
+            "fertility.conception_per_month",
+            f.conception_per_month,
+            &mut p,
+        );
+        for (name, table) in [
+            ("fertility.age_factor", &f.age_factor),
+            ("fertility.loss_by_age", &f.loss_by_age),
+        ] {
+            ascending(name, table.iter().map(|x| x[0]), &mut p);
+        }
+        for &[_, v] in &f.age_factor {
+            if !(v.is_finite() && (0.0..=2.0).contains(&v)) {
+                p.push(format!(
+                    "fertility age factors must be between 0 and 2 (got {v})"
+                ));
+            }
+        }
+        for &[_, v] in &f.loss_by_age {
+            unit("fertility.loss_by_age", v, &mut p);
+        }
+        non_negative("fertility.fecundity_sd", f.fecundity_sd, &mut p);
+        positive("fertility.hunger_halving", f.hunger_halving, &mut p);
+        positive("fertility.pregnancy_days", f.pregnancy_days, &mut p);
+        non_negative("fertility.pregnancy_sd_days", f.pregnancy_sd_days, &mut p);
+        if !(f.loss_days[0].is_finite()
+            && f.loss_days[0] >= 1.0
+            && f.loss_days[1] >= f.loss_days[0]
+            && f.loss_days[1] < f.pregnancy_days)
+        {
+            p.push(
+                "`fertility.loss_days` must be [from, to] with 1 <= from <= to < pregnancy_days"
+                    .to_owned(),
+            );
+        }
+        positive("fertility.recovery_months", f.recovery_months, &mut p);
+        non_negative("fertility.recovery_sd_months", f.recovery_sd_months, &mut p);
+        non_negative(
+            "fertility.recovery_min_months",
+            f.recovery_min_months,
+            &mut p,
+        );
+        non_negative(
+            "fertility.loss_recovery_months",
+            f.loss_recovery_months,
+            &mut p,
+        );
+        non_negative(
+            "fertility.weaned_recovery_months",
+            f.weaned_recovery_months,
+            &mut p,
+        );
+        non_negative("fertility.boys_per_100_girls", f.boys_per_100_girls, &mut p);
+        for v in f.pregnancy_kcal_day {
+            non_negative("fertility.pregnancy_kcal_day", v, &mut p);
+        }
+        let y = &self.family;
+        for (name, lo, hi) in [
+            ("female", y.seek_min_age_female, y.seek_max_age_female),
+            ("male", y.seek_min_age_male, y.seek_max_age_male),
+        ] {
+            if !(lo.is_finite() && hi.is_finite() && lo >= 10.0 && hi > lo) {
+                p.push(format!(
+                    "`family.seek_min_age_{name}` must be at least 10 and below `family.seek_max_age_{name}`"
+                ));
+            }
+        }
+        unit(
+            "family.seek_per_month_female",
+            y.seek_per_month_female,
+            &mut p,
+        );
+        unit("family.seek_per_month_male", y.seek_per_month_male, &mut p);
+        if !(y.age_gap_years[0].is_finite() && y.age_gap_years[1] >= y.age_gap_years[0]) {
+            p.push("`family.age_gap_years` must be [from, to] with from <= to".to_owned());
+        }
+        if !(y.age_gap_years[0]..=y.age_gap_years[1]).contains(&y.preferred_gap_years) {
+            p.push(
+                "`family.preferred_gap_years` must lie within `family.age_gap_years`".to_owned(),
+            );
+        }
+        non_negative("family.w_gap_per_year", y.w_gap_per_year, &mut p);
+        if y.kin_exclusion_generations > 6 {
+            p.push("`family.kin_exclusion_generations` must be at most 6".to_owned());
+        }
+        if Residence::from_name(&y.residence).is_none() {
+            let names: Vec<&str> = Residence::ALL.iter().map(|r| r.name()).collect();
+            p.push(format!(
+                "`family.residence` must be one of {} (got `{}`)",
+                names.join(", "),
+                y.residence
+            ));
+        }
+        if !(y.independent_age.is_finite() && (10.0..=25.0).contains(&y.independent_age)) {
+            p.push("`family.independent_age` must be between 10 and 25".to_owned());
+        }
+        unit("family.trait_heritability", y.trait_heritability, &mut p);
+        p
+    }
+}

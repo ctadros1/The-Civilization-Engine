@@ -1,0 +1,16 @@
+# Flatbread on the household hearth: a 5 kg batch of bread takes 1-3 hours (research 08-03 §2.2,
+# 0.20-0.60 h/kg). Here a quarter hour to set the fire and 0.3 h per kilogram of bread, so 0.39 h
+# per kilogram of flour, which makes 1.3 kg. Fuel: 0.3-0.8 kg of wood per kilogram of bread, from
+# wood's 15.6 MJ/kg at 5-15 % useful heat (07-06 §2.3): 0.5 kg per kilogram of flour (tuning).
+kind = "recipe"
+id = "core:recipe/bake_bread"
+name = "Bake bread"
+skill = "core:skill/baking"
+technique = "core:technique/hearth_baking"
+unit_h = 0.39
+session_h = 0.25
+max_units = 0.0
+tools = []
+inputs = [{ good = "core:good/flour", amount = 1.0 }, { good = "core:good/firewood", amount = 0.5 }]
+outputs = [{ good = "core:good/bread", amount = 1.3 }]
+session_inputs = []

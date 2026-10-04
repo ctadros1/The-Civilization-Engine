@@ -1,0 +1,17 @@
+# Pecking and grinding stone into axe heads and querns (research 07-05 L2: ground-edge stone
+# tools). Founders know it (06-08 §3), and in slice M it passes to children at home. 200 hours
+# (07-02 §2.3, a tuning value).
+kind = "technique"
+id = "core:technique/stone_shaping"
+name = "Shaping stone"
+can = "peck and grind stone into an axe head or a quern"
+domain = "core:skill/stoneworking"
+requires = []
+tried_in = []
+needs = []
+e50_h = 100000.0                 # unused while no work tries toward it
+learn_h = 200.0
+upbringing = true
+
+[answers]
+spoilage = []

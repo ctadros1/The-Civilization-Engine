@@ -1,0 +1,16 @@
+kind = "activity"
+id = "core:activity/tend_crop"
+name = "Weed the crop"
+doing = "weeding the crop"
+behavior = "farm"
+task = "tend"
+par = 3.5
+min_age_years = 7.0
+max_age_years = 75.0
+min_minutes = 60
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 30
+technique = "core:technique/emmer_growing"
+tools = []                       # weeds are pulled by hand
+rate = 1.0

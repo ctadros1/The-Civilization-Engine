@@ -1,0 +1,16 @@
+# Baking flatbread on the hearth (research 07-04 P02: bread-like food is older than farming).
+# Everyday work, learnt at home (06-08 §1.1); 20 hours (07-02 §2.3, a tuning value).
+kind = "technique"
+id = "core:technique/hearth_baking"
+name = "Baking flatbread"
+can = "bake flatbread from meal on the hearth"
+domain = "core:skill/baking"
+requires = []
+tried_in = []
+needs = []
+e50_h = 100000.0                 # unused while no work tries toward it
+learn_h = 20.0
+upbringing = true
+
+[answers]
+spoilage = []

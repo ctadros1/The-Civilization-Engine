@@ -1,0 +1,15 @@
+kind = "activity"
+id = "core:activity/socialize"
+name = "Sit at the hearth"
+doing = "sitting at the hearth"
+behavior = "socialize"
+par = 1.5
+min_age_years = 3.0
+max_age_years = 130.0
+min_minutes = 60
+max_minutes = 60
+daylight_only = false
+max_walk_minutes = 20
+technique = ""
+tools = []
+rate = 1.0

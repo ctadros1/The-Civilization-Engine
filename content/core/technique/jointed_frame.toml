@@ -1,0 +1,21 @@
+# Building rectangular post-framed buildings in bays, their posts joined by plates and tie beams
+# with fitted joints (research 07-07 WO02: fitted joinery needs shaping wood, layout and fitting
+# skill; central European wells of 5469-5098 BCE were jointed with stone tools; 11-04 §2.2:
+# 0.5-2 pd8 a square metre of footprint for a jointed frame). Nobody knows it at first and no
+# work tries toward it yet: a world has it only from the observer's introduction until
+# households choose among building programs (ADR-0009, slice O). Learnt in 300 hours beside a
+# knower, and at home by children who build (07-02 §2.3, a tuning value).
+kind = "technique"
+id = "core:technique/jointed_frame"
+name = "Jointed timber framing"
+can = "build rectangular post-framed houses, stores and workshops in bays, with lofts, upper storeys and raised floors"
+domain = "core:skill/woodworking"
+requires = [["core:technique/roundhouse", "core:technique/wood_shaping"]]
+tried_in = []
+needs = []
+e50_h = 100000.0                 # unused while no work tries toward it
+learn_h = 300.0
+upbringing = true
+
+[answers]
+spoilage = []

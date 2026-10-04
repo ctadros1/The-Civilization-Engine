@@ -1,0 +1,12 @@
+# Roots, nuts, fruit and greens gathered wild. Both numbers are tuning values for a mixed bag:
+# nuts are far denser in energy than roots, fruit and greens, and keep far longer.
+kind = "good"
+id = "core:good/wild_plant_food"
+name = "Wild plant food"
+purpose = "food"
+kcal_per_kg = 1000.0
+half_life_days = 10.0
+sheltered_half_life_days = 0.0    # a roof makes no difference
+eaten = "raw"
+shared = false
+reserve_for = ""

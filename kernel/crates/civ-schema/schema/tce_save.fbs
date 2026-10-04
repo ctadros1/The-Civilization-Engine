@@ -1,0 +1,828 @@
+// The Civilization Engine save schema: payloads of commons-persist sections (ADR-0002).
+//
+// This is the durable world model, deliberately separate from the boundary schema: it stores
+// authoritative state only. Derived data (drainage area, presentation shading, geometry) is
+// rebuilt on load. Same evolution rules as tce_wire.fbs; a section's version in the container
+// manifest names the encoding of its payload.
+
+namespace tce.save;
+
+// Section "meta": who and what this world is, and how it was made.
+table Param {
+  name: string (id: 0);
+  value: double (id: 1);
+}
+
+table Meta {
+  world_name: string (id: 0);
+  seed: ulong (id: 1);
+  preset_id: string (id: 2);
+  generator_version: uint (id: 3);
+  width: uint (id: 4);
+  height: uint (id: 5);
+  cell_size_m: float (id: 6);
+  sea_level_m: float (id: 7);
+  created_unix_ms: long (id: 8);
+  // Effective generation parameters, by name (provenance; terrain is not regenerated from them).
+  params: [Param] (id: 9);
+  precipitation_mm_per_yr: float (id: 10);
+  evapotranspiration_mm_per_yr: float (id: 11);
+  lake_evaporation_mm_per_yr: float (id: 12);
+  // Schema 12 (M3a slice K, ADR-0007): the content id of the world's property regime (absent in
+  // older saves, which load under the content's default regime).
+  regime_id: string (id: 13);
+}
+
+// Section "clock": simulation time and the scheduler's state.
+table Clock {
+  minute: long (id: 0);
+  paused: bool (id: 1);
+  speed: float (id: 2);
+  scheduler_seq: ulong (id: 3);
+  tiebreak_state: [ulong] (id: 4);
+  next_permanent_id: ulong (id: 5);
+}
+
+// Section "content": what content the world was made with.
+table Pack {
+  id: string (id: 0);
+  version: string (id: 1);
+  artifact_fingerprint: [ubyte] (id: 2);
+}
+
+table Content {
+  fingerprint: [ubyte] (id: 0);
+  packs: [Pack] (id: 1);
+}
+
+// Section "raster", one chunk per tile and layer.
+enum Layer : ubyte { Elevation = 0, Receivers = 1, Water = 2, LakeId = 3 }
+
+table RasterTile {
+  layer: Layer (id: 0);
+  x0: uint (id: 1);
+  y0: uint (id: 2);
+  width: uint (id: 3);
+  height: uint (id: 4);
+  // Little-endian samples, row-major: f32 elevation, u8 receivers, u8 water, u32 lake ids.
+  data: [ubyte] (id: 5);
+}
+
+// Section "hydro": lakes, river reaches and boundary inflows.
+table Lake {
+  id: uint (id: 0);
+  level_m: float (id: 1);
+  spill_m: float (id: 2);
+  closed: bool (id: 3);
+  cell_count: uint (id: 4);
+  area_m2: double (id: 5);
+  volume_m3: double (id: 6);
+  catchment_m2: double (id: 7);
+  // -1 = none.
+  outlet_cell: long (id: 8);
+  centroid_x_m: float (id: 9);
+  centroid_y_m: float (id: 10);
+}
+
+enum Terminus : ubyte { Junction = 0, Lake = 1, Outlet = 2, Sink = 3 }
+
+table Reach {
+  id: uint (id: 0);
+  cells: [uint] (id: 1);
+  // -1 = none.
+  downstream: long (id: 2);
+  terminus: Terminus (id: 3);
+  terminus_lake: uint (id: 4);
+  order: ubyte (id: 5);
+  discharge_m3s: float (id: 6);
+  width_m: float (id: 7);
+  drainage_area_km2: float (id: 8);
+}
+
+table Inflow {
+  cell: uint (id: 0);
+  area_m2: double (id: 1);
+}
+
+table Hydro {
+  lakes: [Lake] (id: 0);
+  reaches: [Reach] (id: 1);
+  inflows: [Inflow] (id: 2);
+}
+
+// ---- People and land (ADR-0003, ADR-0004; schema versions 2 to 4) -------------------------
+//
+// Permanent ids are ulong, 0 meaning "none". Times are minutes since the calendar origin.
+// Activities, resources and goods are referred to by content id through a per-section dictionary,
+// so a world still loads after content adds, removes or reorders them. Fields marked "schema 2"
+// are written by schema-2 saves only and read to migrate them; fields marked "schema 3" are new
+// in version 3 (M1 slice B: goods), "schema 4" in version 4 (M1 slice C: fields).
+
+struct Point {
+  x: float;
+  y: float;
+}
+
+// Section "land": the habitat patch grid and its wild stocks.
+table Land {
+  cols: uint (id: 0);
+  rows: uint (id: 1);
+  patch_cells: uint (id: 2);
+  cell_size_m: float (id: 3);
+  // Habitat ids at save time; `class` indexes this list.
+  habitats: [string] (id: 4);
+  class: [ubyte] (id: 5);
+  richness: [float] (id: 6);
+  // Resource ids at save time; `stocks` holds one run of patches per resource, in this order.
+  resources: [string] (id: 7);
+  stocks: [float] (id: 8);
+  stock_day: long (id: 9);
+  climate_year: long (id: 10);
+  climate_deviate: double (id: 11);
+  climate_factor: double (id: 12);
+  // Schema 3: the good and the kilograms of it per unit of each saved resource, in the order of
+  // `resources`. A resource's stocks carry over only if both are unchanged; otherwise its units
+  // may mean something else, and it starts at equilibrium.
+  resource_goods: [string] (id: 13);
+  resource_unit_kg: [double] (id: 14);
+}
+
+// Section "settle": settlements.
+table Settlement {
+  id: ulong (id: 0);
+  name: string (id: 1);
+  founded: long (id: 2);
+  hearth: Point (id: 3);
+  // Schema 3: its food has run short and not yet recovered (for the chronicle).
+  food_short: bool (id: 4);
+  // Schema 4: grain threshed from its fields since its last harvest was noted, kilograms.
+  harvest_kg: double (id: 5);
+}
+
+table Settlements {
+  settlements: [Settlement] (id: 0);
+}
+
+// Section "people": living people and what they are doing.
+// Field (schema 4) names a field by `target_id`; NewField is new ground weighed in a decision.
+// Building (schema 5) names a building by `target_id`; NewBuilding is a home not yet begun,
+// weighed in a decision.
+// Schema 14 adds Technique: the technique a session of trying works toward, by index into
+// People.techniques (in a decision receipt, into the content's techniques when it was saved).
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12 }
+
+enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3 }
+
+table Step {
+  kind: StepKind (id: 0);
+  // Walk destination.
+  to: Point (id: 1);
+  // Work or wait length.
+  minutes: uint (id: 2);
+}
+
+table Activity {
+  // Index into People.activities.
+  def: uint (id: 0);
+  target_kind: TargetKind (id: 1);
+  target_index: uint (id: 2);
+  steps: [Step] (id: 3);
+  step: ubyte (id: 4);
+  started: long (id: 5);
+  step_started: long (id: 6);
+  step_ends: long (id: 7);
+  version: uint (id: 8);
+  // Schema 4: the permanent id a Field target names.
+  target_id: ulong (id: 9);
+}
+
+table Trip {
+  id: ulong (id: 0);
+  rev: uint (id: 1);
+  depart: long (id: 2);
+  points: [Point] (id: 3);
+  minutes: [float] (id: 4);
+}
+
+enum Sex : ubyte { Female = 0, Male = 1 }
+
+// Schema 6: where a woman is in the reproductive cycle.
+enum Repro : ubyte { Open = 0, Pregnant = 1, Recovering = 2 }
+
+table Person {
+  id: ulong (id: 0);
+  given: string (id: 1);
+  sex: Sex (id: 2);
+  born: long (id: 3);
+  mother: ulong (id: 4);
+  father: ulong (id: 5);
+  household: ulong (id: 6);
+  // Openness, conscientiousness, extraversion, agreeableness, neuroticism, risk.
+  traits: [float] (id: 7);
+  pos: Point (id: 8);
+  energy_kcal: float (id: 9);
+  satiety_until: long (id: 10);
+  sleep_pressure: float (id: 11);
+  relatedness: float (id: 12);
+  needs_at: long (id: 13);
+  burn_kcal_min: float (id: 14);
+  asleep: bool (id: 15);
+  company: float (id: 16);
+  activity: Activity (id: 17);
+  // Absent while not walking.
+  trip: Trip (id: 18);
+  // Schema 2: food carried, kcal.
+  carry_food_kcal: float (id: 19);
+  carry_water_l: float (id: 20);
+  draws: ulong (id: 21);
+  // Schema 3: the good carried, as an index into People.goods, or -1; and how much, kilograms.
+  carry_good: int = -1 (id: 22);
+  carry_kg: float (id: 23);
+  // Schema 6: their partner (0 = none); a woman's place in the reproductive cycle (pregnant
+  // since `conceived` by `pregnancy_father` (0 = unknown), ending at `repro_until` in a loss if
+  // `loss`; or recovering until `repro_until`); her lasting fecundability; the child she nurses
+  // (0 = none).
+  partner: ulong (id: 24);
+  repro: Repro (id: 25);
+  conceived: long (id: 26);
+  repro_until: long (id: 27);
+  pregnancy_father: ulong (id: 28);
+  loss: bool (id: 29);
+  fecundity: float = 1.0 (id: 30);
+  nursing: ulong (id: 31);
+  // Schema 9: skill levels, 0-1, by index into People.skills; skills never practised are absent.
+  skills: [SkillLevel] (id: 32);
+  // Schema 13: what they know, are learning or have heard of (ADR-0008 §2).
+  knows: [Knowing] (id: 33);
+  // Schema 14: when their last session of trying toward a technique ended (-1 = never).
+  tried: long = -1 (id: 34);
+}
+
+// Schema 13: what a person knows of one technique, by index into People.techniques. `known`:
+// they can do and teach it; otherwise `hours` learnt so far (0: only heard of it). `source`: 0
+// brought it, 1 brought up with it by `source_person`, 2 taught by `source_person`, 3 found it,
+// 4 introduced by the observer.
+struct Knowing {
+  since: long;
+  used: long;
+  source_person: ulong;
+  hours: float;
+  technique: ushort;
+  known: bool;
+  source: ubyte;
+}
+
+// Schema 9: a person's level in one skill.
+struct SkillLevel {
+  skill: ushort;
+  level: float;
+}
+
+
+table People {
+  // Activity content ids at save time; Activity.def indexes this list.
+  activities: [string] (id: 0);
+  people: [Person] (id: 1);
+  // The last trip id handed out.
+  next_trip: ulong (id: 2);
+  // Schema 3: good content ids at save time; Person.carry_good indexes this list.
+  goods: [string] (id: 3);
+  // Schema 9: skill content ids at save time; SkillLevel.skill indexes this list.
+  skills: [string] (id: 4);
+  // Schema 13: technique content ids at save time; Knowing.technique indexes this list.
+  techniques: [string] (id: 5);
+}
+
+// Section "houses": households.
+// Schema 2: a patch's remembered return of the one gathered resource (forgotten on migration:
+// its units no longer apply).
+struct KnownPatch {
+  patch: uint;
+  rate: float;
+  seen_day: long;
+}
+
+// Schema 3: what was seen of a place where a resource is gathered (an index into
+// Households.resources): the mean return of the hours worked there, and those hours as of the
+// last visit.
+struct KnownResource {
+  seen_day: long;
+  patch: uint;
+  rate: float;
+  hours: float;
+  resource: ushort;
+}
+
+table Household {
+  id: ulong (id: 0);
+  members: [ulong] (id: 1);
+  home: Point (id: 2);
+  settlement: ulong (id: 3);
+  // Schema 2: the household's food, kcal.
+  food_kcal: double (id: 4);
+  water_l: double (id: 5);
+  water_at: long (id: 6);
+  // Schema 2.
+  known: [KnownPatch] (id: 7);
+  // Schema 3: goods in store at `stores_at`, kilograms, indexed like Households.goods.
+  stores: [double] (id: 8);
+  stores_at: long (id: 9);
+  known_resources: [KnownResource] (id: 10);
+  // Schema 10: what the household offers, and on what terms.
+  offers: [Offer] (id: 11);
+}
+
+// Schema 10: one row of a household's posted terms (ADR-0006 §4). Goods are indexed like
+// Households.goods.
+table Offer {
+  good: uint (id: 0);
+  payment: uint (id: 1);
+  // Units of the payment asked for a unit of the good.
+  price: float (id: 2);
+  // Units of the good offered.
+  units: float (id: 3);
+  // What a unit is worth to the seller behind these terms, hours of its own work.
+  ask_h: float (id: 4);
+}
+
+table Households {
+  households: [Household] (id: 0);
+  // Schema 3: good and resource content ids at save time.
+  goods: [string] (id: 1);
+  resources: [string] (id: 2);
+}
+
+// Section "history": everyone who ever lived here, and the chronicle. Kept forever.
+enum Origin : ubyte { Founder = 0, Born = 1, Spawned = 2 }
+
+// Collapse (3): a building gave way around them (slice P's second step, ADR-0009 §5).
+enum Cause : ubyte { Unspecified = 0, Starvation = 1, Childbirth = 2, Collapse = 3 }
+
+table PersonRecord {
+  id: ulong (id: 0);
+  given: string (id: 1);
+  sex: Sex (id: 2);
+  born: long (id: 3);
+  died: bool (id: 4);
+  died_at: long (id: 5);
+  cause: Cause (id: 6);
+  mother: ulong (id: 7);
+  father: ulong (id: 8);
+  origin: Origin (id: 9);
+  // Schema 6: they left the world alive (their household gave up and left the valley).
+  left: bool (id: 10);
+  left_at: long (id: 11);
+}
+
+table ChronicleEntry {
+  seq: ulong (id: 0);
+  at: long (id: 1);
+  // civ_agents::ChronicleKind, numbered append-only.
+  kind: ushort (id: 2);
+  people: [ulong] (id: 3);
+  settlement: ulong (id: 4);
+  has_place: bool (id: 5);
+  place: Point (id: 6);
+  number: double (id: 7);
+  name: string (id: 8);
+  // Schema 11: the firm the entry is about (0 = none).
+  firm: ulong (id: 9);
+}
+
+// Schema 6: a couple, kept forever.
+table Union {
+  woman: ulong (id: 0);
+  man: ulong (id: 1);
+  since: long (id: 2);
+  ended: bool (id: 3);
+  ended_at: long (id: 4);
+}
+
+table History {
+  records: [PersonRecord] (id: 0);
+  chronicle: [ChronicleEntry] (id: 1);
+  // Schema 6: every couple there has been, oldest first.
+  unions: [Union] (id: 2);
+}
+
+// Section "receipts": why people chose what they did, a bounded ring per person.
+struct Term {
+  reason: ushort;
+  points: float;
+}
+
+table Scored {
+  // Index into Receipts.activities.
+  def: uint (id: 0);
+  target_kind: TargetKind (id: 1);
+  target_index: uint (id: 2);
+  total: float (id: 3);
+  terms: [Term] (id: 4);
+  // Schema 4: the permanent id a Field target names.
+  target_id: ulong (id: 5);
+}
+
+struct OtherOption {
+  def: uint;
+  total: float;
+}
+
+struct Exclusion {
+  def: uint;
+  reason: ushort;
+}
+
+table Receipt {
+  at: long (id: 0);
+  chosen: Scored (id: 1);
+  runner_up: Scored (id: 2);
+  others: [OtherOption] (id: 3);
+  excluded: [Exclusion] (id: 4);
+  probability: float (id: 5);
+  temperature: float (id: 6);
+  // Hunger, sleep drive, loneliness, days of food, days of water.
+  needs: [float] (id: 7);
+}
+
+table PersonReceipts {
+  person: ulong (id: 0);
+  receipts: [Receipt] (id: 1);
+}
+
+table Receipts {
+  // Activity content ids at save time.
+  activities: [string] (id: 0);
+  people: [PersonReceipts] (id: 1);
+}
+
+// Section "fields" (schema 4): ground households work for a crop (ADR-0004 §3).
+enum FieldStage : ubyte { Fallow = 0, Prepared = 1, Sown = 2, Reaped = 3 }
+
+table Field {
+  id: ulong (id: 0);
+  household: ulong (id: 1);
+  // Integer centimetres from the map's north-west corner: west and north edges, width, height.
+  x_cm: int (id: 2);
+  y_cm: int (id: 3);
+  w_cm: int (id: 4);
+  h_cm: int (id: 5);
+  // Index into Fields.crops.
+  crop: ushort (id: 6);
+  stage: FieldStage (id: 7);
+  stage_since: long (id: 8);
+  work_h: float (id: 9);
+  tended_h: float (id: 10);
+  ground: float (id: 11);
+  sown_day: long (id: 12);
+  sheaves_kg: float (id: 13);
+  harvests: ushort (id: 14);
+  // Work to clear its ground before it is first broken, person-hours per hectare (0 = open).
+  clear_h_per_ha: float (id: 15);
+  // The ground has been broken for a first crop.
+  broken: bool (id: 16);
+  // Schema 12 (M3a slice K, ADR-0007): who holds it, a household or (holder_settlement) a
+  // settlement. Absent in older saves: the household that works it holds it.
+  holder: ulong (id: 17);
+  holder_settlement: bool (id: 18);
+  // A lease from its holder to the household that works it (schema 12, ADR-0007 §3): when it
+  // began and ends, and the holder's share of the grain threshed from it.
+  leased: bool (id: 19);
+  lease_since: long (id: 20);
+  lease_until: long (id: 21);
+  lease_share: float (id: 22);
+}
+
+table Fields {
+  // Crop content ids at save time.
+  crops: [string] (id: 0);
+  fields: [Field] (id: 1);
+}
+
+// Section "plots" (schema 5): ground households have claimed (ADR-0004 §3). A plot outlives
+// its building.
+// Schema 15 (M3b slice O, ADR-0009 §7): stores and workshops beside dwellings.
+enum PlotUse : ubyte { Dwelling = 0, Store = 1, Work = 2 }
+
+table Plot {
+  id: ulong (id: 0);
+  household: ulong (id: 1);
+  // Integer centimetres from the map's north-west corner: west and north edges, width, height.
+  x_cm: int (id: 2);
+  y_cm: int (id: 3);
+  w_cm: int (id: 4);
+  h_cm: int (id: 5);
+  purpose: PlotUse (id: 6);
+  since: long (id: 7);
+}
+
+table Plots {
+  plots: [Plot] (id: 0);
+}
+
+// Section "builds" (schema 5): buildings as their builders designed them, and how far their
+// construction has gone (ADR-0004 §2). The design is authoritative; its parts, outline and
+// needs are expanded from it with the grammar version it records.
+// Schema 15 (M3b slice O, ADR-0009 §2): rectangular footprints for frame buildings.
+enum FootprintKind : ubyte { Round = 0, Rect = 1 }
+
+table BuildingSpec {
+  // The program's content id, for example `core:building/hut`.
+  program: string (id: 0);
+  // The grammar version it was designed under.
+  version: ushort (id: 1);
+  footprint: FootprintKind (id: 2);
+  // The centre, integer centimetres; Round: the radius of the wall line.
+  x_cm: int (id: 3);
+  y_cm: int (id: 4);
+  radius_cm: int (id: 5);
+  storeys: ubyte (id: 6);
+  // Integer parameters, the grammar's to name: eight before schema 15 (a hut uses its first
+  // three: eave height, roof pitch, door direction), up to sixteen since (ADR-0009 §2).
+  params: [int] (id: 7);
+  // The good each material slot is made of, as content ids.
+  materials: [string] (id: 8);
+  style_seed: ulong (id: 9);
+  // Schema 15, Rect: the length and width between the wall lines, integer centimetres, and the
+  // direction the length runs, 1/65,536 of a turn from east toward south.
+  length_cm: int (id: 10);
+  width_cm: int (id: 11);
+  angle: ushort (id: 12);
+}
+
+// Schema 17 (M3b slice P): how one component group of a building stands (ADR-0009 §4).
+enum GroupState : ubyte { Sound = 0, Symptom = 1, Failed = 2 }
+
+table GroupCondition {
+  // The group's semantic id in its building's expansion.
+  group: uint (id: 0);
+  // Its quality: a share of what sound members of its sizes carry, drawn once.
+  quality: float (id: 1);
+  // The share of its members' effective section lost, or of a covering worn.
+  loss: float (id: 2);
+  // When it was put in place, and last repaired (minutes).
+  installed: long (id: 3);
+  repaired: long (id: 4);
+  state: GroupState (id: 5);
+}
+
+// Schema 17: how a building stands as a whole.
+enum BuildingState : ubyte { Standing = 0, Damaged = 1, Ruin = 2 }
+
+// Schema 17: upkeep under way on one of a building's groups, renewing a share of it.
+table RepairState {
+  group: uint (id: 0);
+  share: float (id: 1);
+  // Person-hours done on it.
+  work_h: float (id: 2);
+}
+
+table Building {
+  id: ulong (id: 0);
+  household: ulong (id: 1);
+  plot: ulong (id: 2);
+  spec: BuildingSpec (id: 3);
+  // The stage under way (0 foundation .. 4 finish); 5 once finished.
+  stage: ubyte (id: 4);
+  // Person-hours done on the stage under way.
+  work_h: float (id: 5);
+  started: long (id: 6);
+  stage_since: long (id: 7);
+  // Schema 16 (M3b slice O): the firm it is the workshop of, 0 for none.
+  firm: ulong (id: 8);
+  // Schema 17 (M3b slice P): the condition of each of its groups in place (ADR-0009 §4), how it
+  // stands, the person-hours of the stage under way each times its builder's building skill, and
+  // the upkeep under way. An earlier save has none of them: its groups in place are put there
+  // sound on loading, as if built at middling skill.
+  condition: [GroupCondition] (id: 9);
+  state: BuildingState (id: 10);
+  skill_h: float (id: 11);
+  repair: RepairState (id: 12);
+}
+
+table Builds {
+  buildings: [Building] (id: 0);
+}
+
+// Section "wear" (schema 7): ground worn by walking (ADR-0004 §4), in 64 × 64-cell tiles where
+// people have walked, as it stood when saved. The routing view and the trails are derived.
+table WearTile {
+  // Tile row × tiles per row + tile column.
+  index: uint (id: 0);
+  // Wear of each cell, row by row, 0-65535 for 0-1.
+  wear: [ushort] (id: 1);
+  // Whether each cell is trail, one bit per cell, row by row (bit k of word k / 64).
+  trail: [ulong] (id: 2);
+}
+
+table Wear {
+  tiles: [WearTile] (id: 0);
+}
+
+// Section "market" (schema 10): each settlement's market (ADR-0006 §4). Tallies are indexed like
+// Markets.goods; they fade with a half-life from `day`.
+table LastTerms {
+  good: uint (id: 0);
+  payment: uint (id: 1);
+  // Paid per unit.
+  price: float (id: 2);
+}
+
+enum TradeChannel : ubyte { Barter = 5, Sale = 6 }
+
+table TradeRecord {
+  at: long (id: 0);
+  seller: ulong (id: 1);
+  buyer: ulong (id: 2);
+  good: uint (id: 3);
+  units: float (id: 4);
+  payment: uint (id: 5);
+  paid: float (id: 6);
+  channel: TradeChannel = Barter (id: 7);
+}
+
+// A month of trade in one good: a line of the price history. `month` counts months from the
+// calendar's origin; `good` is indexed like Markets.goods.
+struct MonthOfTrade {
+  month: uint;
+  good: uint;
+  trades: uint;
+  units: float;
+  // What the payments were worth to the sellers, hours of their own work.
+  paid_h: float;
+}
+
+table MarketState {
+  settlement: ulong (id: 0);
+  day: long (id: 1);
+  paid_h: [double] (id: 2);
+  sold: [double] (id: 3);
+  unmet: [double] (id: 4);
+  unmet_h: [double] (id: 5);
+  trades: double (id: 6);
+  last: [LastTerms] (id: 7);
+  recent: [TradeRecord] (id: 8);
+  history: [MonthOfTrade] (id: 9);
+}
+
+table Markets {
+  markets: [MarketState] (id: 0);
+  // Good content ids at save time.
+  goods: [string] (id: 1);
+}
+
+// Section "firms" (schema 11): every firm there has been, open and closed (ADR-0006 §5). Goods are
+// indexed like Firms.goods.
+struct BookLine {
+  good: uint;
+  amount: float;
+  // civ_agents::firm::BookKind.
+  kind: ubyte;
+}
+
+table BookEntry {
+  at: long (id: 0);
+  // civ_agents::firm::BookKind.
+  kind: ubyte (id: 1);
+  good: uint (id: 2);
+  amount: float (id: 3);
+  // The household on the other side (0 = none).
+  other: ulong (id: 4);
+}
+
+table MonthStatement {
+  // Months since the calendar's origin.
+  month: uint (id: 0);
+  lines: [BookLine] (id: 1);
+  owner_h: float (id: 2);
+  hired_h: float (id: 3);
+  income_h: float (id: 4);
+  costs_h: float (id: 5);
+  stock_h: float (id: 6);
+}
+
+table FirmState {
+  id: ulong (id: 0);
+  owner: ulong (id: 1);
+  owner_since: long (id: 2);
+  founder: ulong (id: 3);
+  settlement: ulong (id: 4);
+  founded: long (id: 5);
+  closed: bool (id: 6);
+  closed_at: long (id: 7);
+  // civ_agents::firm::Exit.
+  exit: ubyte (id: 8);
+  lines: [uint] (id: 9);
+  stores: [double] (id: 10);
+  stores_at: long (id: 11);
+  offers: [Offer] (id: 12);
+  sold: bool (id: 13);
+  last_sale: long (id: 14);
+  entries: [BookEntry] (id: 15);
+  months: [MonthStatement] (id: 16);
+  // What it pays for work, when it has posted a wage (none in a save that has no field).
+  wage: WageOfferState (id: 17);
+  // Schema 16 (M3b slice O): the most people seen working for it at once lately, and the day
+  // that was seen (0 and 0 in an earlier save).
+  most_at_once: ubyte (id: 18);
+  most_at_once_day: long (id: 19);
+}
+
+table WageOfferState {
+  // Index into the catalog's activities at save time, by content id in Firms.activities.
+  activity: uint (id: 0);
+  // Indexed like Firms.goods.
+  pay: uint (id: 1);
+  per_hour: float (id: 2);
+  hour_h: float (id: 3);
+  hours: float (id: 4);
+  taken: float (id: 5);
+  reviewed: long (id: 6);
+}
+
+table Firms {
+  firms: [FirmState] (id: 0);
+  // Good content ids at save time.
+  goods: [string] (id: 1);
+  // Activity content ids at save time (for wage offers).
+  activities: [string] (id: 2);
+}
+
+// Section "wealth" (schema 12, written from M3a slice K's wealth measures on; an earlier save has
+// none): each settlement's wealth measures at the end of each year, oldest first (ADR-0007 §4).
+// Derived measures, never inputs to behaviour.
+table WealthYear {
+  // The year that ended.
+  year: long (id: 0);
+  settlement: ulong (id: 1);
+  households: uint (id: 2);
+  people: uint (id: 3);
+  gini_goods: double (id: 4);
+  gini_held: double (id: 5);
+  gini_worked: double (id: 6);
+  gini_floor: double (id: 7);
+  top_tenth_goods: double (id: 8);
+  holding_none: double (id: 9);
+  working_none: double (id: 10);
+  goods_h_per_head: double (id: 11);
+  worked_ha_per_head: double (id: 12);
+  floor_m2_per_house: double (id: 13);
+  common_ha: double (id: 14);
+  // Schema 16 (M3b slice O): floor under every roof a household has, homes, stores and
+  // workshops, square metres, and room for goods under them, kilograms, a household (0 in an
+  // earlier save).
+  roofed_m2_per_house: double (id: 15);
+  storage_kg_per_house: double (id: 16);
+}
+
+table Wealth {
+  years: [WealthYear] (id: 0);
+}
+
+// Section "knowledge" (schema 13): each settlement's record of when it came to know a technique
+// and when it lost one, oldest first (ADR-0008 §2). `kind`: 0 known (by `person`, `source` as in
+// Knowing, from `source_person`), 1 lost (`person` knew it last).
+struct KnowledgeEntry {
+  at: long;
+  settlement: ulong;
+  person: ulong;
+  source_person: ulong;
+  technique: ushort;
+  kind: ubyte;
+  source: ubyte;
+}
+
+// Schema 18: what a settlement has seen of a technique's buildings (ADR-0009 §6): failures (a
+// death in one counting for more) and building-years of standing, both faded to `at`.
+struct TrustEntry {
+  at: long;
+  settlement: ulong;
+  failures: double;
+  years: double;
+  technique: ushort;
+}
+
+table Knowledge {
+  // Technique content ids at save time; KnowledgeEntry.technique and TrustEntry.technique index
+  // this list.
+  techniques: [string] (id: 0);
+  entries: [KnowledgeEntry] (id: 1);
+  // Schema 18: each settlement's trust in each technique's buildings, in the order first seen.
+  trust: [TrustEntry] (id: 2);
+}
+
+// Section "events": the scheduler's pending events.
+enum EventKind : ubyte { AgentStep = 0 }
+
+table PendingEvent {
+  at: long (id: 0);
+  phase: ubyte (id: 1);
+  tiebreak: ulong (id: 2);
+  seq: ulong (id: 3);
+  kind: EventKind (id: 4);
+  person: ulong (id: 5);
+  version: uint (id: 6);
+}
+
+table PendingEvents {
+  events: [PendingEvent] (id: 0);
+}

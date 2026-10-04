@@ -1,0 +1,18 @@
+# A ground-stone axe on a wooden haft, for felling and shaping poles (research 07-05 L2). Its
+# unit is about 200 hours of use, regrinding included (a tuning value; the research gives no tool
+# lifetimes). A household wants one for every two members old enough for the work it is needed for.
+kind = "good"
+id = "core:good/axe"
+name = "Axe"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 200.0
+per_worker = 0.5
+fixed = false

@@ -1,0 +1,17 @@
+# Drying and smoking meat at home, when more would spoil than the household can eat in time.
+kind = "activity"
+id = "core:activity/dry_meat"
+name = "Dry meat"
+doing = "drying meat"
+behavior = "make"
+recipe = "core:recipe/dry_meat"
+par = 2.0
+min_age_years = 10.0
+max_age_years = 75.0
+min_minutes = 30
+max_minutes = 300
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

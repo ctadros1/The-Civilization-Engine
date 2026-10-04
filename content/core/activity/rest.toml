@@ -1,0 +1,15 @@
+kind = "activity"
+id = "core:activity/rest"
+name = "Rest"
+doing = "resting"
+behavior = "rest"
+par = 1.3
+min_age_years = 0.0
+max_age_years = 130.0
+min_minutes = 30
+max_minutes = 30
+daylight_only = false
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

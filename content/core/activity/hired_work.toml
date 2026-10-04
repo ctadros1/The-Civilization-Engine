@@ -1,0 +1,19 @@
+# Working for wages at another household's workshop (research 08-10 §1.1, §5.3: a posted offer a
+# worker takes or leaves, set against what the household would do with the time instead). The
+# work is the workshop's recipe, at its home, with its tools; the pay is settled through the ledger
+# when the session ends (ADR-0006 §3, §5). Which workshop, and whether to go, is decided at run time.
+kind = "activity"
+id = "core:activity/hired_work"
+name = "Work for hire"
+doing = "working for wages"
+behavior = "hire"
+par = 2.5                        # the middle of the make activities' 1.8-3.5 (a tuning value)
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 180                # a session, as when working a recipe at home
+daylight_only = true
+max_walk_minutes = 30
+technique = ""
+tools = []
+rate = 1.0

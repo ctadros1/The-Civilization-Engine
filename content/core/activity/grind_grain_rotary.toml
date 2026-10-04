@@ -1,0 +1,19 @@
+# Grinding grain at the household's rotary quern: turning the stone is lighter work than pushing
+# a saddle quern's hand stone (the activity ratio is a tuning value). It can be done by
+# firelight.
+kind = "activity"
+id = "core:activity/grind_grain_rotary"
+name = "Grind grain at a rotary quern"
+doing = "grinding grain at a rotary quern"
+behavior = "make"
+recipe = "core:recipe/grind_grain_rotary"
+par = 3.0
+min_age_years = 10.0
+max_age_years = 75.0
+min_minutes = 20
+max_minutes = 180
+daylight_only = false
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

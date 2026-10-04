@@ -1,0 +1,17 @@
+# Pecking, grinding and hafting a stone axe: a long job, worked in sessions over days.
+kind = "activity"
+id = "core:activity/make_axe"
+name = "Make an axe"
+doing = "making an axe"
+behavior = "make"
+recipe = "core:recipe/make_axe"
+par = 2.5
+min_age_years = 16.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 300
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

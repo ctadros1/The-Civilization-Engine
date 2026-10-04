@@ -1,0 +1,14 @@
+# Wholemeal flour from a quern. Grinding adds no energy (research 07-04 §1.8, 08-03 §5.5): a
+# kilogram of grain gives 0.98 kg of flour (the rest is dust and spill, a tuning value) at the
+# grain's 3,340 kcal/kg. It is baked before it is eaten. Wholemeal goes stale and rancid within
+# months: the half-lives are tuning values (the research gives no figure).
+kind = "good"
+id = "core:good/flour"
+name = "Flour"
+purpose = "food"
+kcal_per_kg = 3340.0
+half_life_days = 90.0
+sheltered_half_life_days = 120.0
+eaten = "never"
+shared = false
+reserve_for = ""

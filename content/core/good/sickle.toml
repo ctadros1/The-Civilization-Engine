@@ -1,0 +1,18 @@
+# A wooden sickle set with flint blades (research 07-04 T03, 08-02 §3.1: flint sickles cut 30-40
+# m² an hour). Its unit is a sickle's worth of use: blades dull within a harvest, so about 100
+# hours (a tuning value; the research gives no tool lifetimes). Everyone old enough to reap wants one.
+kind = "good"
+id = "core:good/sickle"
+name = "Sickle"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 100.0
+per_worker = 1.0
+fixed = false

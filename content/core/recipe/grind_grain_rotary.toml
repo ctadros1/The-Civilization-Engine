@@ -1,0 +1,15 @@
+# Grinding grain to wholemeal flour at a rotary quern: 3-5 kg an hour in experiments with Iron
+# Age querns, 0.20-0.33 h/kg (research 08-03 §2.1): 0.25 h/kg at middling skill, half the saddle
+# quern's 0.5. As at the saddle quern, 2 % is lost as dust and spill (a tuning value).
+kind = "recipe"
+id = "core:recipe/grind_grain_rotary"
+name = "Grind grain at a rotary quern"
+skill = "core:skill/milling"
+technique = "core:technique/rotary_quern"
+unit_h = 0.25
+session_h = 0.0
+max_units = 0.0
+tools = ["core:good/rotary_quern"]
+inputs = [{ good = "core:good/grain", amount = 1.0 }]
+outputs = [{ good = "core:good/flour", amount = 0.98 }]
+session_inputs = []

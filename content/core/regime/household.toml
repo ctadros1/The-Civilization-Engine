@@ -1,0 +1,28 @@
+# Household tenure (ADR-0007 §2): a frontier rule that recognizes first cultivation (research 08-09
+# §1.2). A household holds the ground it breaks and works it, or lets it; a couple setting up
+# its own household takes a share of its families' fields, as it takes a share of their stores;
+# and when a household is no more its fields are divided among its heirs' households (08-09
+# §1.7, 08-14 §2.4: equal division is one of the succession rules to support). Which ground anyone
+# breaks, works or lets is decided at run time.
+kind = "regime"
+id = "core:regime/household"
+name = "Household fields"
+description = "A household holds the ground it breaks, works it or lets it for a share of the crop, and leaves it to its children."
+default = true
+
+[land]
+holder = "breaker"
+use = "holder"
+review = [2, 15]                 # the yearly review, when ground nobody holds any more is taken up
+
+[succession]
+holdings = "divided"
+union_share = true
+
+[lease]
+allowed = true
+# The holder's share of the grain threshed from a let field: the tenant brings the seed, tools and
+# work (research 08-09 §2.1: Operation Barga's rule gave the landlord 25 % where the tenant
+# supplied the non-labour inputs; a legal anchor, not a calibrated value).
+holder_share = 0.25
+term_years = 1                   # a crop year, renewed while both want it (a tuning value)

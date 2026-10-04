@@ -1,0 +1,18 @@
+# Felling and trimming poles and cutting rods with stone tools, and carrying them home
+# (tuning starting points). Only done while the household needs wood to build with.
+kind = "activity"
+id = "core:activity/cut_poles"
+name = "Cut poles"
+doing = "cutting poles"
+behavior = "gather"
+resource = "poles"
+par = 4.5
+min_age_years = 14.0
+max_age_years = 65.0
+min_minutes = 30
+max_minutes = 60
+daylight_only = true
+max_walk_minutes = 45
+technique = ""
+tools = ["core:good/axe"]
+rate = 1.0

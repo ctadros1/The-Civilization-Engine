@@ -1,0 +1,19 @@
+# Building a round post-built hut with wattle-and-daub walls and a thatched roof (research 07-05
+# E1 for daub, 07-07 WO01 for posts; 11-01 §5.1: circular dwellings are common). Founders know it
+# (06-08 §3: farming, construction and ecological competence), and children learn it at home as
+# they join the building. 200 hours, about two fifths of a hut's work (07-02 §2.3, a tuning
+# value).
+kind = "technique"
+id = "core:technique/roundhouse"
+name = "Building roundhouses"
+can = "build a round post-built hut with wattle-and-daub walls and a thatched roof"
+domain = ""
+requires = []
+tried_in = []
+needs = []
+e50_h = 100000.0                 # unused while no work tries toward it
+learn_h = 200.0
+upbringing = true
+
+[answers]
+spoilage = []

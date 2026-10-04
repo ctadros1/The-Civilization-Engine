@@ -1,0 +1,23 @@
+[package]
+name = "civ-sim"
+description = "The kernel's composition root: a world's identity, clock, terrain and content lock; saving and loading it; and the boundary payloads built from it."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+civ-agents = { workspace = true }
+civ-grammar = { workspace = true }
+civ-content = { workspace = true }
+civ-core = { workspace = true }
+civ-land = { workspace = true }
+civ-schema = { workspace = true }
+civ-world = { workspace = true }
+commons-persist = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

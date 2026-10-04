@@ -1,0 +1,1189 @@
+// The Civilization Engine boundary schema: payloads of commons-wire frames (ADR-0001).
+//
+// The root table of a payload is chosen by the frame kind:
+//   Hello -> Hello, Welcome -> Welcome, Snapshot -> Snapshot, Events -> Events,
+//   Command -> Command, Query -> Query, Response -> Response, Error -> ErrorInfo.
+//
+// Evolution rules (ADR-0001): every field has an explicit id; never renumber, reuse, retype or
+// remove a field (deprecate it); never reorder enum values or union members; append only.
+// Additive changes bump the schema minor (civ-schema WIRE_SCHEMA_MINOR); anything else is a
+// major bump and an ADR.
+
+namespace tce.wire;
+
+enum RasterLayer : ubyte { Elevation = 0, Water = 1, DrainageArea = 2, LakeId = 3 }
+
+enum RasterFormat : ubyte { U8 = 0, U16 = 1, U32 = 2, F32 = 3 }
+
+enum EventKind : ubyte { Info = 0, WorldCreated = 1, Saved = 2, Loaded = 3, Autosaved = 4, Warning = 5, Failure = 6 }
+
+enum ErrorCode : ushort { Unknown = 0, BadRequest = 1, Busy = 2, NoWorld = 3, NotFound = 4, Incompatible = 5, Internal = 6 }
+
+enum Sex : ubyte { Female = 0, Male = 1 }
+
+// Where a field is in its year (M1 slice C).
+enum FieldStage : ubyte { Fallow = 0, Prepared = 1, Sown = 2, Reaped = 3 }
+
+struct Vec2 {
+  x: float;
+  y: float;
+}
+
+// ---- Handshake ---------------------------------------------------------------------------
+
+table Hello {
+  client: string (id: 0);
+}
+
+table PresetInfo {
+  id: string (id: 0);
+  name: string (id: 1);
+  description: string (id: 2);
+  is_default: bool (id: 3);
+}
+
+// An authored activity, in the order PersonBrief.activity and decisions index.
+table ActivityInfo {
+  id: string (id: 0);
+  // "Gather plants".
+  name: string (id: 1);
+  // "gathering wild plants".
+  doing: string (id: 2);
+}
+
+// A good people carry and keep (M1 slice B). Stores and loads refer to goods by their index in
+// Welcome.goods.
+table GoodInfo {
+  id: string (id: 0);
+  // "Meat".
+  name: string (id: 1);
+  // "food", "fuel", "material" or "tool" (M3a).
+  purpose: string (id: 2);
+  // Food energy, kcal per kilogram (0 for fuel).
+  kcal_per_kg: float (id: 3);
+  // M3a: how it is eaten: "raw", "cooked" or "never" (a recipe must make it food first).
+  eaten: string (id: 4);
+  // M3a: for a tool, the hours of use a standard tool lasts (stores count tools in standard
+  // tools); 0 for other goods, which stores count in kilograms.
+  tool_life_h: float (id: 5);
+}
+
+// A skill people get better at with practice (M3a). PersonInfo.skills refers to skills by their
+// index in Welcome.skills.
+table SkillInfo {
+  id: string (id: 0);
+  // "Milling".
+  name: string (id: 1);
+}
+
+// A person's level in a skill, 0-1 (M3a).
+struct SkillLine {
+  skill: ushort;
+  level: float;
+}
+
+// A crop people grow (M1 slice C). Fields refer to crops by their index in Welcome.crops.
+table CropInfo {
+  id: string (id: 0);
+  // "Emmer wheat".
+  name: string (id: 1);
+  // Indexes into Welcome.goods: the grain it yields and the seed it is sown from.
+  good: ushort (id: 2);
+  seed_good: ushort (id: 3);
+}
+
+// A technique people know, learn and can lose (M3b slice M; ADR-0008). PersonInfo.knows and
+// Knowledge refer to techniques by their index in Welcome.techniques.
+table TechniqueInfo {
+  id: string (id: 0);
+  // "Shaping stone".
+  name: string (id: 1);
+  // What a competent person can do, completing "A competent person can ...".
+  can: string (id: 2);
+  // Index into Welcome.skills of the skill whose practice it is, or -1.
+  domain: int = -1 (id: 3);
+  // Its prerequisites in words ("Shaping wood and Knapping, or Quarrying"); empty for none.
+  requires: string (id: 4);
+  // Hours of work beside someone who knows it that teach it.
+  learn_h: float (id: 5);
+  // Children brought up in a household that knows it learn it at the work's age.
+  upbringing: bool (id: 6);
+}
+
+// A consideration or exclusion reason that decision receipts refer to by code.
+table ReasonInfo {
+  code: ushort (id: 0);
+  label: string (id: 1);
+}
+
+// A property regime (M3a slice K; ADR-0007): who holds, works, lets and inherits land. Content
+// authors the rules; which ground anyone breaks, works or lets is decided at run time.
+table RegimeInfo {
+  id: string (id: 0);
+  name: string (id: 1);
+  description: string (id: 2);
+  // The regime a new world is made under unless it chooses another.
+  is_default: bool (id: 3);
+  // Its rules, rendered by the kernel, one sentence each.
+  rules: [string] (id: 4);
+}
+
+table Welcome {
+  host: string (id: 0);
+  version: string (id: 1);
+  presets: [PresetInfo] (id: 2);
+  // Map sizes the host offers, in cells per side.
+  map_sizes: [uint] (id: 3);
+  cell_size_m: float (id: 4);
+  content_fingerprint: string (id: 5);
+  // The size the new-world dialog selects first.
+  default_map_size: uint (id: 6);
+  // Simulated seconds per real second at 1x, and the speeds offered, as multiples of 1x.
+  speed_1x: float (id: 7);
+  speed_multipliers: [float] (id: 8);
+  // The activity catalogue and receipt reasons (M1).
+  activities: [ActivityInfo] (id: 9);
+  reasons: [ReasonInfo] (id: 10);
+  // Founding band sizes the new-world dialog offers.
+  band_size_min: uint (id: 11);
+  band_size_max: uint (id: 12);
+  band_size_default: uint (id: 13);
+  // The goods catalogue (M1 slice B).
+  goods: [GoodInfo] (id: 14);
+  // The crops catalogue (M1 slice C).
+  crops: [CropInfo] (id: 15);
+  // The skills catalogue (M3a).
+  skills: [SkillInfo] (id: 16);
+  // The property regimes a new world can be made under (M3a slice K).
+  regimes: [RegimeInfo] (id: 17);
+  // The techniques (M3b slice M).
+  techniques: [TechniqueInfo] (id: 18);
+}
+
+// ---- Snapshot: replaceable host and world state --------------------------------------------
+
+table Clock {
+  // Simulation minutes since the calendar origin.
+  minute: long (id: 0);
+  year: long (id: 1);
+  month: ubyte (id: 2);
+  day: ubyte (id: 3);
+  hour: ubyte (id: 4);
+  minute_of_hour: ubyte (id: 5);
+  season: string (id: 6);
+  paused: bool (id: 7);
+  // Simulated seconds per real second while running.
+  speed: float (id: 8);
+}
+
+table WorldInfo {
+  world_id: string (id: 0);
+  name: string (id: 1);
+  seed: ulong (id: 2);
+  preset_id: string (id: 3);
+  width: uint (id: 4);
+  height: uint (id: 5);
+  cell_size_m: float (id: 6);
+  sea_level_m: float (id: 7);
+  min_elevation_m: float (id: 8);
+  max_elevation_m: float (id: 9);
+  generator_version: uint (id: 10);
+  lakes: uint (id: 11);
+  reaches: uint (id: 12);
+  river_length_km: float (id: 13);
+  max_discharge_m3s: float (id: 14);
+  gentle_land_fraction: float (id: 15);
+  land_fraction: float (id: 16);
+  ocean_fraction: float (id: 17);
+  // Generation of the last save this world was written to or loaded from (0 = unsaved).
+  generation: ulong (id: 18);
+  // The world was made with different content than is loaded now.
+  content_changed: bool (id: 19);
+  created_unix_ms: long (id: 20);
+  // The property regime it lives under, fixed when it was made (M3a slice K).
+  regime_id: string (id: 21);
+  regime_name: string (id: 22);
+}
+
+table Task {
+  name: string (id: 0);
+  stage: string (id: 1);
+  fraction: float (id: 2);
+  cancellable: bool (id: 3);
+}
+
+// Offered after the host stopped unexpectedly: the last good save to resume from.
+table Recovery {
+  reason: string (id: 0);
+  save_file: string (id: 1);
+  save_label: string (id: 2);
+  sim_minute: long (id: 3);
+  world_name: string (id: 4);
+}
+
+// One living person, compactly (ADR-0003 §2.3). Trip geometry is fetched with GetTrips when an
+// observer sees a trip id or revision it does not have.
+table PersonBrief {
+  id: ulong (id: 0);
+  // Where they are at the snapshot's minute, metres from the map's north-west corner.
+  pos: Vec2 (id: 1);
+  // Index into Welcome.activities.
+  activity: ushort (id: 2);
+  // The walk they are on (0 = none) and its revision.
+  trip: ulong (id: 3);
+  trip_rev: uint (id: 4);
+  sex: Sex (id: 5);
+  age_years: float (id: 6);
+  household: ulong (id: 7);
+  asleep: bool (id: 8);
+}
+
+table SettlementBrief {
+  id: ulong (id: 0);
+  name: string (id: 1);
+  hearth: Vec2 (id: 2);
+  founded_minute: long (id: 3);
+  // Living people whose household belongs to it.
+  population: uint (id: 4);
+  // Days of food in its households' stores at its people's needs (M1 slice B).
+  food_days: float (id: 5);
+  // Its food has run short and not yet recovered.
+  food_short: bool (id: 6);
+  // Grain threshed from its fields this harvest, kilograms (M1 slice C).
+  harvest_kg: float (id: 7);
+}
+
+table Snapshot {
+  world: WorldInfo (id: 0);
+  clock: Clock (id: 1);
+  task: Task (id: 2);
+  recovery: Recovery (id: 3);
+  last_error: string (id: 4);
+  // Unix milliseconds of the last autosave of the current world (0 = none yet).
+  last_autosave_unix_ms: long (id: 5);
+  // M1: the living, the settlements, and the newest chronicle entry's sequence number (0 = none).
+  people: [PersonBrief] (id: 6);
+  settlements: [SettlementBrief] (id: 7);
+  chronicle_head: ulong (id: 8);
+  // M1 slice C: changes whenever a field is marked out or changes stage (0 = no fields). Fetch
+  // the fields with GetFields when it differs from the revision last fetched.
+  fields_rev: ulong (id: 9);
+  // M1 slice D: changes whenever ground is claimed for a building or a building's work moves on
+  // (0 = none). Fetch them with GetBuildings when it differs from the revision last fetched.
+  buildings_rev: ulong (id: 10);
+  // M1 slice F: changes whenever the paths are surveyed, monthly and on load (0 = never). Fetch
+  // the worn ground and trails with GetPaths when it differs from the revision last fetched.
+  paths_rev: ulong (id: 11);
+  // M3a slice I: changes whenever a household posts terms, a trade is made or a want goes unmet
+  // (0 = nothing offered or traded yet). Fetch the markets with GetMarkets when it differs from
+  // the revision last fetched.
+  markets_rev: ulong (id: 12);
+  // M3a slice J: changes whenever a workshop opens, closes, makes, sells, pays or is reviewed
+  // (0 = no workshop yet). Fetch the workshops with GetFirms, and a workshop's page with GetFirm,
+  // when it differs from the revision last fetched.
+  firms_rev: ulong (id: 13);
+  // M3a slice K: changes at the start of each month, when households form or end and when a
+  // year's wealth measures are recorded (0 = no households). Fetch the measures with GetWealth
+  // when it differs from the revision last fetched.
+  wealth_rev: ulong (id: 14);
+  // M3b slice M: changes whenever someone comes to know, learns toward, hears of or loses a
+  // technique, and when people arrive, leave or die (0 = no people). Fetch the settlements'
+  // knowledge with GetKnowledge when it differs from the revision last fetched.
+  knowledge_rev: ulong (id: 15);
+}
+
+// ---- Events: ordered log -------------------------------------------------------------------
+
+table Event {
+  id: ulong (id: 0);
+  sim_minute: long (id: 1);
+  unix_ms: long (id: 2);
+  kind: EventKind (id: 3);
+  text: string (id: 4);
+}
+
+table Events {
+  events: [Event] (id: 0);
+}
+
+// ---- Commands: change state ----------------------------------------------------------------
+
+table NewWorld {
+  seed: ulong (id: 0);
+  preset_id: string (id: 1);
+  size_cells: uint (id: 2);
+  name: string (id: 3);
+  // People in the founding band; 0 = the content's default.
+  band_size: uint (id: 4);
+  // The property regime, by content id; empty = the content's default (M3a slice K).
+  regime_id: string (id: 5);
+}
+
+table SaveWorld {
+  label: string (id: 0);
+}
+
+table LoadWorld {
+  // A file name from SaveList.
+  file: string (id: 0);
+}
+
+table SetClock {
+  paused: bool (id: 0);
+  speed: float (id: 1);
+}
+
+table CancelTask {}
+
+table RecoverWorld {
+  // true: load the offered save; false: dismiss the offer.
+  accept: bool (id: 0);
+}
+
+// M1 slice G: the observer sends a family to a point on the map (god tool). It joins the
+// settlement there or makes camp on the spot.
+table SpawnFamily {
+  at: Vec2 (id: 0);
+  // M3a slice L: how many families come together (0 = one; the host sends at most 20). The
+  // first comes where `at` says, the others around it.
+  families: uint (id: 1);
+}
+
+// M1 slice G: run ahead to a time, as fast as the machine allows, in full detail. Shown as a
+// task; CancelTask stops it. The clock is paused when it arrives.
+table RunUntil {
+  minute: long (id: 0);
+}
+
+// M3b slice M: the observer introduces a technique (god tool, ADR-0008 §6): a living person comes
+// to know it, as if they had learnt it elsewhere, or with `aware_only` only hears of it.
+table IntroduceTechnique {
+  person: ulong (id: 0);
+  // Index into Welcome.techniques.
+  technique: uint (id: 1);
+  aware_only: bool (id: 2);
+}
+
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique }
+
+table Command {
+  body: CommandBody (id: 1);
+}
+
+// ---- Queries: read state -------------------------------------------------------------------
+
+table GetRaster {
+  layer: RasterLayer (id: 0);
+  // Downsampling level: each level halves the resolution.
+  level: ubyte (id: 1);
+  // Region in cells of the requested level.
+  x0: uint (id: 2);
+  y0: uint (id: 3);
+  width: uint (id: 4);
+  height: uint (id: 5);
+}
+
+table GetHydrography {
+  // Polyline simplification tolerance, metres.
+  tolerance_m: float (id: 0);
+}
+
+table ListSaves {}
+
+// Trip geometry by trip id.
+table GetTrips {
+  ids: [ulong] (id: 0);
+}
+
+// Everything the inspector shows about one person, living or dead.
+table GetPerson {
+  id: ulong (id: 0);
+  // Decision receipts to include, newest first (at most 64).
+  decisions: uint (id: 1);
+}
+
+// Chronicle entries with sequence numbers after `after_seq`, oldest first.
+table GetChronicle {
+  after_seq: ulong (id: 0);
+  limit: uint (id: 1);
+}
+
+// Every field, with its state (M1 slice C).
+table GetFields {}
+
+// Every building, with its state and what its grammar expands it to (M1 slice D).
+table GetBuildings {}
+
+// The worn ground and the trails, as last surveyed (M1 slice F).
+table GetPaths {}
+
+// Every settlement's market: what is offered and on what terms, what sold, what was wanted and
+// found no seller, and the money if there is one (M3a slice I).
+table GetMarkets {}
+
+// Every workshop, in brief (M3a slice J).
+table GetFirms {}
+
+// One workshop's page: what it holds, its terms, its wage and its books (M3a slice J).
+table GetFirm {
+  id: ulong (id: 0);
+}
+
+// Every settlement's wealth measures: as they stand, each household's, and at the end of each
+// year (M3a slice K).
+table GetWealth {}
+
+// What each settlement knows: each technique's knowers, learners and history (M3b slice M).
+table GetKnowledge {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge }
+
+table Query {
+  body: QueryBody (id: 1);
+}
+
+// ---- Responses -----------------------------------------------------------------------------
+
+table Ack {
+  message: string (id: 0);
+}
+
+table RasterTile {
+  layer: RasterLayer (id: 0);
+  level: ubyte (id: 1);
+  x0: uint (id: 2);
+  y0: uint (id: 3);
+  width: uint (id: 4);
+  height: uint (id: 5);
+  format: RasterFormat (id: 6);
+  // value = raw * scale + offset (for quantised formats).
+  scale: float (id: 7);
+  offset: float (id: 8);
+  // Little-endian samples, row-major.
+  data: [ubyte] (id: 9);
+  // Size of the whole layer at this level.
+  full_width: uint (id: 10);
+  full_height: uint (id: 11);
+}
+
+table Reach {
+  id: uint (id: 0);
+  order: ubyte (id: 1);
+  discharge_m3s: float (id: 2);
+  width_m: float (id: 3);
+  // Reach this one flows into at a confluence, or -1.
+  downstream: int (id: 4);
+  // Metres from the map's north-west corner.
+  points: [Vec2] (id: 5);
+}
+
+table LakeInfo {
+  id: uint (id: 0);
+  level_m: float (id: 1);
+  area_m2: float (id: 2);
+  closed: bool (id: 3);
+  centroid: Vec2 (id: 4);
+}
+
+table Hydrography {
+  reaches: [Reach] (id: 0);
+  lakes: [LakeInfo] (id: 1);
+}
+
+table SaveEntry {
+  file: string (id: 0);
+  world_name: string (id: 1);
+  label: string (id: 2);
+  // "manual", "auto" or "crash".
+  kind: string (id: 3);
+  generation: ulong (id: 4);
+  created_unix_ms: long (id: 5);
+  sim_minute: long (id: 6);
+  size_bytes: ulong (id: 7);
+  // This build can load it.
+  compatible: bool (id: 8);
+  // It was written with different content than is loaded now.
+  content_changed: bool (id: 9);
+  note: string (id: 10);
+  world_id: string (id: 11);
+}
+
+table SaveList {
+  saves: [SaveEntry] (id: 0);
+}
+
+table TripInfo {
+  id: ulong (id: 0);
+  rev: uint (id: 1);
+  person: ulong (id: 2);
+  // Departure, simulation minutes since the calendar origin.
+  depart_minute: long (id: 3);
+  // Route vertices, metres, and minutes after departure at each.
+  points: [Vec2] (id: 4);
+  minutes: [float] (id: 5);
+}
+
+table Trips {
+  // The trips that are still under way; ids not listed have ended.
+  trips: [TripInfo] (id: 0);
+}
+
+// Firm: M3a slice J, a link to a workshop's page.
+enum SpanKind : ubyte { Text = 0, Person = 1, Settlement = 2, Firm = 3 }
+
+// A piece of kernel-rendered text: plain, or a link to a person, settlement or workshop.
+table Span {
+  kind: SpanKind (id: 0);
+  text: string (id: 1);
+  id: ulong (id: 2);
+}
+
+table ChronicleEntry {
+  seq: ulong (id: 0);
+  minute: long (id: 1);
+  spans: [Span] (id: 2);
+}
+
+table Chronicle {
+  entries: [ChronicleEntry] (id: 0);
+  // The newest entry's sequence number.
+  head: ulong (id: 1);
+}
+
+// One consideration's contribution to an option, in utility points.
+struct Term {
+  reason: ushort;
+  points: float;
+}
+
+struct Exclusion {
+  activity: ushort;
+  reason: ushort;
+}
+
+table ScoredOption {
+  // Index into Welcome.activities; 65535 = an activity the content no longer has.
+  activity: ushort (id: 0);
+  // What it was aimed at, rendered by the kernel ("home", "the hearth", "a patch 600 m east").
+  target: string (id: 1);
+  total: float (id: 2);
+  terms: [Term] (id: 3);
+}
+
+// Why a person chose what they did, recorded when they chose it (ADR-0003 §3).
+table Decision {
+  minute: long (id: 0);
+  chosen: ScoredOption (id: 1);
+  runner_up: ScoredOption (id: 2);
+  // Further options, totals only.
+  others: [ScoredOption] (id: 3);
+  excluded: [Exclusion] (id: 4);
+  probability: float (id: 5);
+  temperature: float (id: 6);
+  // Hunger, sleep drive, loneliness (0-1 scales), and the household's days of food and water.
+  needs: [float] (id: 7);
+}
+
+table KinLink {
+  id: ulong (id: 0);
+  name: string (id: 1);
+  // "mother", "father", "son", "daughter", "brother", "sister", "partner", "former partner".
+  relation: string (id: 2);
+  alive: bool (id: 3);
+  // M1 slice E: they left the valley alive (`alive` is false).
+  left: bool (id: 4);
+}
+
+// A good in a household's store.
+struct StoreLine {
+  good: ushort;
+  kg: float;
+}
+
+table PersonInfo {
+  id: ulong (id: 0);
+  name: string (id: 1);
+  sex: Sex (id: 2);
+  born_minute: long (id: 3);
+  age_years: float (id: 4);
+  alive: bool (id: 5);
+  died_minute: long (id: 6);
+  cause: string (id: 7);
+  // "one of the founding band", "born here".
+  origin: string (id: 8);
+  household: ulong (id: 9);
+  settlement: ulong (id: 10);
+  settlement_name: string (id: 11);
+  kin: [KinLink] (id: 12);
+  // The living only: what they are doing now, rendered by the kernel.
+  activity: ushort (id: 13);
+  doing: string (id: 14);
+  since_minute: long (id: 15);
+  until_minute: long (id: 16);
+  hunger: float (id: 17);
+  sleep_pressure: float (id: 18);
+  loneliness: float (id: 19);
+  energy_kcal: float (id: 20);
+  carry_food_kcal: float (id: 21);
+  carry_water_l: float (id: 22);
+  household_food_days: float (id: 23);
+  household_water_days: float (id: 24);
+  // Newest first.
+  decisions: [Decision] (id: 25);
+  // Openness, conscientiousness, extraversion, agreeableness, neuroticism, risk (standard scores).
+  traits: [float] (id: 26);
+  pos: Vec2 (id: 27);
+  // M1 slice B: the good carried (an index into Welcome.goods, or -1) and how much, kilograms;
+  // `carry_food_kcal` is its food energy. The household's goods in store, and its firewood in
+  // days of use.
+  carry_good: int = -1 (id: 28);
+  carry_kg: float (id: 29);
+  stores: [StoreLine] (id: 30);
+  household_fuel_days: float (id: 31);
+  // M1 slice E: their partner (0 = none), and their family life in sentences rendered by the
+  // kernel ("Expecting a child, due in about 3 months.", "Nursing Wren.").
+  partner: ulong (id: 32);
+  family: [string] (id: 33);
+  // When they left the valley alive (0 = they did not; `alive` is then false and `died_minute`
+  // 0).
+  left_minute: long (id: 34);
+  // M3a: their skills, and the household's food ready to eat in days (`household_food_days`
+  // counts all its food, grain and flour included).
+  skills: [SkillLine] (id: 35);
+  household_ready_days: float (id: 36);
+  // M3b slice M: what they know, are learning or have heard of.
+  knows: [KnowLine] (id: 37);
+}
+
+// What a person knows of a technique (M3b slice M).
+table KnowLine {
+  // Index into Welcome.techniques.
+  technique: ushort (id: 0);
+  // 0 heard of, 1 learning, 2 known.
+  state: ubyte (id: 1);
+  // Hours learnt beside someone who knows it, while learning; and the hours that teach it.
+  hours: float (id: 2);
+  learn_h: float (id: 3);
+  since_minute: long (id: 4);
+  // How it came, in words rendered by the kernel: "brought it", "brought up with it by Ash",
+  // "taught by Wren", "found it", "introduced by the observer".
+  source: string (id: 5);
+  // Who it came from (0 = nobody).
+  source_person: ulong (id: 6);
+  // When they last did its work.
+  used_minute: long (id: 7);
+}
+
+// A field people work (M1 slice C).
+table FieldInfo {
+  id: ulong (id: 0);
+  household: ulong (id: 1);
+  settlement: ulong (id: 2);
+  // North-west corner and size, metres.
+  min: Vec2 (id: 3);
+  size: Vec2 (id: 4);
+  // Index into Welcome.crops.
+  crop: ushort (id: 5);
+  stage: FieldStage (id: 6);
+  stage_since_minute: long (id: 7);
+  // Share of the work of the stage under way that is done, 0-1.
+  progress: float (id: 8);
+  // Ground not yet broken for a first crop, and whether it is woodland to clear first.
+  new_ground: bool (id: 9);
+  woodland: bool (id: 10);
+  // The grain its crop is expected to give, kilograms (0 when nothing is planned for it).
+  expected_kg: float (id: 11);
+  // Reaped and not yet threshed, kilograms.
+  sheaves_kg: float (id: 12);
+  harvests: uint (id: 13);
+  // Its state in words, rendered by the kernel: "growing; ripe in about 20 days".
+  status: string (id: 14);
+  // Sown and ripe, waiting to be reaped.
+  ripe: bool (id: 15);
+  // Who holds it (M3a slice K; ADR-0007): a household (its id) or else a settlement (its id);
+  // `household` above works it.
+  holder: ulong (id: 16);
+  holder_settlement: ulong (id: 17);
+  // When it is let: when the lease's term ends (-1 = not let), and the holder's share of the grain
+  // threshed from it.
+  lease_until_minute: long = -1 (id: 18);
+  lease_share: float (id: 19);
+}
+
+table Fields {
+  // The snapshot revision these fields are at.
+  rev: ulong (id: 0);
+  fields: [FieldInfo] (id: 1);
+}
+
+// How one component group of a building stands (wire 1.17, M3b slice P, ADR-0009 §4).
+enum GroupState : ubyte { Sound = 0, Symptom = 1, Failed = 2 }
+
+// How a building stands as a whole (wire 1.17).
+enum BuildingState : ubyte { Standing = 0, Damaged = 1, Ruin = 2 }
+
+// The condition of one component group of a building (wire 1.17, ADR-0009 §4).
+table GroupInfo {
+  // Its semantic id in the building's expansion, and its kind in words: "posts", "covering".
+  id: uint (id: 0);
+  kind: string (id: 1);
+  // Its quality: a share of what sound members of its sizes carry, drawn once from its
+  // builders' skill.
+  quality: float (id: 2);
+  // The share of its members' effective section lost, or of a covering worn, 0-1.
+  loss: float (id: 3);
+  state: GroupState (id: 4);
+  installed_minute: long (id: 5);
+  repaired_minute: long (id: 6);
+}
+
+// A building and the ground it stands on (M1 slice D). Geometry is expanded by the kernel from the
+// building's saved design (civ-grammar); the observer only draws it.
+table BuildingInfo {
+  id: ulong (id: 0);
+  household: ulong (id: 1);
+  settlement: ulong (id: 2);
+  // The program's display name: "Hut".
+  program: string (id: 3);
+  // Centre and radius of the wall line, and radius of the roof's edge, metres.
+  centre: Vec2 (id: 4);
+  radius_m: float (id: 5);
+  roof_radius_m: float (id: 6);
+  // The doorway's middle, metres, and the direction it faces, radians from east toward south.
+  door: Vec2 (id: 7);
+  door_dir: float (id: 8);
+  // The stage under way (0 foundation, 1 frame, 2 walls, 3 roof, 4 finish; 5 once finished),
+  // its name, and the share of its work done, 0-1.
+  stage: ubyte (id: 9);
+  stage_name: string (id: 10);
+  progress: float (id: 11);
+  roofed: bool (id: 12);
+  // The outer face of the walls, metres, going round from the door.
+  outline: [Vec2] (id: 13);
+  // Where the posts stand, metres.
+  posts: [Vec2] (id: 14);
+  // The plot it stands on: north-west corner and size, metres.
+  plot_min: Vec2 (id: 15);
+  plot_size: Vec2 (id: 16);
+  // Floor area over every level, square metres, and the people it sleeps.
+  floor_m2: float (id: 17);
+  sleeps: uint (id: 18);
+  started_minute: long (id: 19);
+  // Its state in words, rendered by the kernel: "walls going up (40%); waiting for timber".
+  status: string (id: 20);
+  // Wire 1.14 (M3b slice O, ADR-0009 §8): the grammar that expands it ("hut" or "frame") and
+  // what it is for ("dwelling", "store" or "work").
+  grammar: string (id: 21);
+  purpose: string (id: 22);
+  // Its length and width between the wall lines, metres (a hut: its wall line's diameter both
+  // ways), and the direction its length runs, radians from east toward south.
+  size: Vec2 (id: 23);
+  angle: float (id: 24);
+  storeys: ubyte (id: 25);
+  bays: ubyte (id: 26);
+  // The bays floored as a loft, a bit each (bit b for bay b).
+  loft_bays: ushort (id: 27);
+  // A gabled roof's edge (its corners) and its ridge's two ends, metres; both empty for a hut,
+  // whose cone's edge is the circle of roof_radius_m.
+  roof_outline: [Vec2] (id: 28);
+  ridge: [Vec2] (id: 29);
+  // Height of the roof's apex or ridge, metres.
+  apex_m: float (id: 30);
+  // Floor by use, square metres: living, store and work (floor_m2 is their sum, over every
+  // level).
+  floor_by_use: [float] (id: 31);
+  // Goods it can hold under its roof, kilograms: on a raised store's floor, in lofts, and on
+  // other floors.
+  storage_kg: [float] (id: 32);
+  // Places to work at a craft.
+  work_places: uint (id: 33);
+  // Wire 1.15 (M3b slice O): what its household keeps in it now, kilograms by kind of room
+  // (raised floors, lofts, other floors), and in words: "loft over 1 bay: 1.2 t of 1.9 t, mostly
+  // grain".
+  stored_kg: [float] (id: 34);
+  stored: string (id: 35);
+  // Wire 1.16 (M3b slice O): the firm it is the workshop of (0 for none), and its name: "Wren's
+  // sickle workshop".
+  firm: ulong (id: 36);
+  firm_name: string (id: 37);
+  // Wire 1.17 (M3b slice P, ADR-0009 §4, §8): how it stands; what it shows, in words, worst
+  // first ("the thatch leaks; rot at the posts' foot"; empty while nothing shows); the share of
+  // its roof that leaks, 0-1; each of its component groups in place; and the upkeep under way,
+  // in words ("mending the covering, 40% done"; empty for none).
+  state: BuildingState (id: 38);
+  symptoms: string (id: 39);
+  leak: float (id: 40);
+  groups: [GroupInfo] (id: 41);
+  upkeep: string (id: 42);
+}
+
+table Buildings {
+  // The snapshot revision these buildings are at.
+  rev: ulong (id: 0);
+  buildings: [BuildingInfo] (id: 1);
+}
+
+// Ground worn by walking in one tile of cells (M1 slice F), as last surveyed.
+table WornTile {
+  // Tile row × tiles per row + tile column.
+  index: uint (id: 0);
+  // Wear of each cell, row by row, 0-255 for 0-1.
+  wear: [ubyte] (id: 1);
+  // Whether each cell is trail, one bit per cell, row by row (bit k of word k / 64).
+  trail: [ulong] (id: 2);
+}
+
+// A trail traced through trail cells, from end to end or junction to junction.
+table TrailInfo {
+  // Vertices, metres.
+  points: [Vec2] (id: 0);
+  // Mean wear of the cells it runs through, 0-1.
+  wear: float (id: 1);
+  length_m: float (id: 2);
+}
+
+table Paths {
+  // The snapshot revision these paths are at.
+  rev: ulong (id: 0);
+  // Tiles per row, and cells per tile side.
+  tiles_x: uint (id: 1);
+  tile_cells: uint (id: 2);
+  worn: [WornTile] (id: 3);
+  trails: [TrailInfo] (id: 4);
+}
+
+// A household's posted terms for a good: so much of a payment good for a unit (M3a slice I).
+table OfferInfo {
+  household: ulong (id: 0);
+  // "Ada's household".
+  household_name: string (id: 1);
+  // Indexes into Welcome.goods.
+  good: ushort (id: 2);
+  payment: ushort (id: 3);
+  // Units of the payment asked for a unit of the good, and units of the good offered.
+  price: float (id: 4);
+  units: float (id: 5);
+  // M3a slice J: a workshop's terms: `household` is the workshop's id and `household_name` its
+  // name ("Wren's sickle workshop").
+  firm: bool (id: 6);
+}
+
+// A trade a settlement's market remembers (M3a slice I).
+table TradeInfo {
+  minute: long (id: 0);
+  seller: ulong (id: 1);
+  buyer: ulong (id: 2);
+  // Indexes into Welcome.goods, and how much of each changed hands.
+  good: ushort (id: 3);
+  units: float (id: 4);
+  payment: ushort (id: 5);
+  paid: float (id: 6);
+  // Paid in the settlement's money (a sale), not goods for goods (barter).
+  sale: bool (id: 7);
+  // Rendered by the kernel: "Ada's household sold a sickle to Bran's household for 12 kg of
+  // grain."
+  text: string (id: 8);
+  // M3a slice J: the seller was a workshop (`seller` is its id).
+  seller_firm: bool (id: 9);
+}
+
+// One good in a settlement's market (M3a slice I). Tallies fade by half every
+// MarketInfo.memory_days.
+table MarketGood {
+  // Index into Welcome.goods.
+  good: ushort (id: 0);
+  // Units offered, and by how many sellers: households and, from M3a slice J, workshops.
+  offered: float (id: 1);
+  sellers: ushort (id: 2);
+  sold: float (id: 3);
+  // Units buyers wanted and found no offer for, and what they would have given for a unit,
+  // hours of their own work (recorded demand).
+  unmet: float (id: 4);
+  unmet_worth_h: float (id: 5);
+  // Its share of the worth of the payments made, 0-1 (acceptance).
+  acceptance: float (id: 6);
+  // The last trade's terms: what it was paid in (an index into Welcome.goods, or -1 when it has
+  // not sold) and how much of that for a unit.
+  last_payment: int = -1 (id: 7);
+  last_price: float (id: 8);
+  // M3a slice J: how many of the sellers are workshops.
+  workshops: ushort (id: 9);
+}
+
+// A month of trade in one good: a line of the price history (M3a slice I).
+struct MonthOfTrade {
+  // Months since the calendar's origin: (year - 1) * 12 + month - 1.
+  month: uint;
+  trades: uint;
+  units: float;
+  // What the payments were worth to the sellers, hours of their own work.
+  paid_h: float;
+  // Index into Welcome.goods.
+  good: ushort;
+}
+
+// A settlement's market (M3a slice I).
+table MarketInfo {
+  settlement: ulong (id: 0);
+  settlement_name: string (id: 1);
+  // Its money, an index into Welcome.goods, or -1 while it has none and trades by barter.
+  money: int = -1 (id: 2);
+  // Rendered by the kernel: "Barter: no good settles most payments yet (grain 34%)."
+  summary: string (id: 3);
+  // Trades remembered, and the half-life of what the market remembers, days.
+  trades: float (id: 4);
+  memory_days: float (id: 5);
+  // The goods offered, sold, wanted or paid in.
+  goods: [MarketGood] (id: 6);
+  offers: [OfferInfo] (id: 7);
+  // Newest first.
+  recent: [TradeInfo] (id: 8);
+  // Oldest first.
+  history: [MonthOfTrade] (id: 9);
+}
+
+table Markets {
+  // The snapshot revision these markets are at.
+  rev: ulong (id: 0);
+  markets: [MarketInfo] (id: 1);
+}
+
+// What a line of a workshop's books records (M3a slice J): the kernel's codes.
+enum BookKind : ubyte { Unknown = 0, PutIn = 1, Drawn = 2, Made = 3, Used = 4, Sold = 5, Paid = 6, Wages = 7, Lost = 8 }
+
+// A workshop in brief (M3a slice J). In M3a every firm is a household's workshop: the household
+// owns it and works for it unpaid, and it keeps its own stores and books.
+table FirmBrief {
+  id: ulong (id: 0);
+  // "Wren's sickle workshop".
+  name: string (id: 1);
+  // The household that owns it.
+  owner: ulong (id: 2);
+  owner_name: string (id: 3);
+  settlement: ulong (id: 4);
+  settlement_name: string (id: 5);
+  founded_minute: long (id: 6);
+  open: bool (id: 7);
+  // When it closed, and why, rendered by the kernel: "it sold nothing for months" (closed
+  // workshops only).
+  closed_minute: long (id: 8);
+  closed_why: string (id: 9);
+  // What it makes to sell: indexes into Welcome.goods.
+  lines: [ushort] (id: 10);
+  // Hours of work it would hire before its next review (0 = it hires no one now).
+  hiring_h: float (id: 11);
+  // What it made and sold in its life, rendered by the kernel: "Made 3 sickles and sold 2."
+  record: string (id: 12);
+}
+
+table Firms {
+  // The snapshot revision these workshops are at.
+  rev: ulong (id: 0);
+  // Open workshops first, then closed ones; the newest first within each.
+  firms: [FirmBrief] (id: 1);
+}
+
+// What a workshop pays for work (M3a slice J).
+table WageInfo {
+  // The work, an index into Welcome.activities; what it pays in, an index into Welcome.goods;
+  // and how much of that for an hour's work.
+  activity: ushort (id: 0);
+  pay: ushort (id: 1);
+  per_hour: float (id: 2);
+  // What an hour's pay is worth to its owners, hours of their own work.
+  hour_h: float (id: 3);
+  // Hours of work it wants before its next review, and the hours taken of those.
+  hours: float (id: 4);
+  taken: float (id: 5);
+  // Rendered by the kernel: "Pays 0.9 kg of grain an hour; wants 6 more hours of work this week."
+  text: string (id: 6);
+}
+
+// A line of a workshop's books (M3a slice J).
+table BookEntryInfo {
+  minute: long (id: 0);
+  kind: BookKind (id: 1);
+  // Index into Welcome.goods, and how much of it, in its unit.
+  good: ushort (id: 2);
+  amount: float (id: 3);
+  // The household on the other side: the buyer, the owners, the worker's (0 = none).
+  other: ulong (id: 4);
+  // Rendered by the kernel: "Sold a sickle to Bran's household."
+  text: string (id: 5);
+}
+
+// How much of a good a workshop's books moved in a month, by kind.
+struct BookLine {
+  amount: float;
+  // Index into Welcome.goods.
+  good: ushort;
+  kind: BookKind;
+}
+
+// A month of a workshop's books (M3a slice J). Worth is in hours of its owners' own work: what
+// the goods would have cost them to get themselves (a settlement need not have a money).
+table MonthStatement {
+  // Months since the calendar's origin: (year - 1) * 12 + month - 1.
+  month: uint (id: 0);
+  lines: [BookLine] (id: 1);
+  // Hours worked for it by its owners' household, and by people it hired.
+  owner_h: float (id: 2);
+  hired_h: float (id: 3);
+  // What its payments were worth, and its inputs and wages.
+  income_h: float (id: 4);
+  costs_h: float (id: 5);
+  // Its stock as the month ended (as it stands, for the month under way).
+  stock_h: float (id: 6);
+}
+
+// A workshop's page (M3a slice J).
+table FirmInfo {
+  brief: FirmBrief (id: 0);
+  // Who set it up, and since when its owners have had it.
+  founder: ulong (id: 1);
+  founder_name: string (id: 2);
+  owner_since_minute: long (id: 3);
+  // When it last sold anything (-1 = never).
+  last_sale_minute: long = -1 (id: 4);
+  // What it holds: its stock and what it was paid.
+  stores: [StoreLine] (id: 5);
+  // Its posted terms (`firm` set, `household` its id).
+  offers: [OfferInfo] (id: 6);
+  // What it pays for work (absent if it never hired).
+  wage: WageInfo (id: 7);
+  // The latest lines of its books, newest first.
+  entries: [BookEntryInfo] (id: 8);
+  // Every month of its life, oldest first.
+  months: [MonthStatement] (id: 9);
+}
+
+// How a settlement's wealth measures spread over its people (M3a slice K; ADR-0007 §4). Several
+// measures, not one: Ginis of goods, land held and land worked per head are person-weighted (each
+// person counts at their household's measure per head); floor area is compared house by house.
+// Goods are valued in hours of work at the settlement's prices, the median of what each good costs
+// its households in their own work.
+table WealthSpread {
+  // The year that ended, for a year's record; the year under way, for the measures as they stand.
+  year: long (id: 0);
+  households: uint (id: 1);
+  people: uint (id: 2);
+  gini_goods: float (id: 3);
+  gini_held: float (id: 4);
+  gini_worked: float (id: 5);
+  // Over the households with a roof of their own.
+  gini_floor: float (id: 6);
+  // The share of all goods the richest tenth of people have.
+  top_tenth_goods: float (id: 7);
+  // The shares of households that hold no land, and that work none.
+  holding_none: float (id: 8);
+  working_none: float (id: 9);
+  goods_h_per_head: float (id: 10);
+  worked_ha_per_head: float (id: 11);
+  floor_m2_per_house: float (id: 12);
+  // Land the settlement itself holds, hectares.
+  common_ha: float (id: 13);
+  // Wire 1.16 (M3b slice O): floor under every roof a household has (homes, stores, workshops),
+  // square metres, and room for goods under them, kilograms, a household.
+  roofed_m2_per_house: float (id: 14);
+  storage_kg_per_house: float (id: 15);
+}
+
+// A household's wealth measures (M3a slice K).
+table HouseholdWealth {
+  household: ulong (id: 0);
+  // "Wren's household".
+  name: string (id: 1);
+  members: uint (id: 2);
+  // Land it holds and land it works, hectares; of those, what it has let to others and what it
+  // works on lease from others.
+  held_ha: float (id: 3);
+  worked_ha: float (id: 4);
+  let_ha: float (id: 5);
+  rented_ha: float (id: 6);
+  // Its goods and its workshops' stock, hours of work at the settlement's prices.
+  goods_h: float (id: 7);
+  // Floor area of its home, square metres.
+  floor_m2: float (id: 8);
+  // Wire 1.16 (M3b slice O): floor under all its roofs, homes, stores and workshops, square
+  // metres, and room for goods under them, kilograms.
+  roofed_m2: float (id: 9);
+  storage_kg: float (id: 10);
+}
+
+table SettlementWealth {
+  settlement: ulong (id: 0);
+  name: string (id: 1);
+  // As they stand.
+  now: WealthSpread (id: 2);
+  // Its households, the most goods per head first.
+  households: [HouseholdWealth] (id: 3);
+  // At the end of each year, oldest first.
+  history: [WealthSpread] (id: 4);
+}
+
+table Wealth {
+  // The snapshot revision these measures are at.
+  rev: ulong (id: 0);
+  // The world's property regime, by name.
+  regime_name: string (id: 1);
+  settlements: [SettlementWealth] (id: 2);
+}
+
+// Someone named in a knowledge listing.
+table PersonRef {
+  id: ulong (id: 0);
+  name: string (id: 1);
+  age_years: float (id: 2);
+}
+
+// A technique in one settlement (M3b slice M).
+table TechniqueHere {
+  // Index into Welcome.techniques.
+  technique: ushort (id: 0);
+  // Known there now.
+  known: bool (id: 1);
+  // Who knows it, eldest first; who is learning it; who has only heard of it.
+  knowers: [PersonRef] (id: 2);
+  learners: [PersonRef] (id: 3);
+  heard: [PersonRef] (id: 4);
+  // Knowers who did its work in the last year.
+  practised_last_year: uint (id: 5);
+  // Its state in words, rendered by the kernel: "known by 12", "known by one, aged 61; nobody
+  // learning", "lost; two still know of it".
+  status: string (id: 6);
+  // Its history there, oldest first, in sentences: "Brought by Ash in year 1.", "Lost in year 9
+  // with Wren."
+  history: [string] (id: 7);
+  // Wire 1.18: how many times their usual strength builders there make the joists and posts of
+  // its frame buildings after the failures they have seen (1 when they build as usual;
+  // ADR-0009 §6), and what they have seen in words, rendered by the kernel: "2 buildings gave
+  // way lately in 31 building-years: built 1.4 times as strong"; empty for a technique nothing
+  // is built by there.
+  caution: float = 1.0 (id: 8);
+  trust: string (id: 9);
+}
+
+table SettlementKnowledge {
+  settlement: ulong (id: 0);
+  name: string (id: 1);
+  // Every technique known there, ever known there or known of there, and (wire 1.18) any whose
+  // buildings its builders remember.
+  techniques: [TechniqueHere] (id: 2);
+}
+
+table Knowledge {
+  // The snapshot revision this is at.
+  rev: ulong (id: 0);
+  settlements: [SettlementKnowledge] (id: 1);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge }
+
+table Response {
+  body: ResponseBody (id: 1);
+}
+
+table ErrorInfo {
+  code: ErrorCode (id: 0);
+  message: string (id: 1);
+}

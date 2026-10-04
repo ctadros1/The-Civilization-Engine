@@ -1,0 +1,13 @@
+# Grain pounded in a mortar and boiled as porridge: the way to eat grain without a quern (research
+# 07-04 §6.5: household grinding and non-bread grain foods must stay possible). It keeps like
+# cracked grain; the half-lives are tuning values.
+kind = "good"
+id = "core:good/groats"
+name = "Groats"
+purpose = "food"
+kcal_per_kg = 3340.0
+half_life_days = 60.0
+sheltered_half_life_days = 90.0
+eaten = "cooked"
+shared = false
+reserve_for = ""

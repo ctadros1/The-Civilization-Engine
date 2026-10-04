@@ -1,0 +1,18 @@
+# Knapping flint blades and setting them in sickles (research 07-05 L1; 07-04 T03). Founders
+# know it (06-08 §3), and in slice M it passes to children at home as everyday work does. 200
+# hours, the top of 07-02 §2.3's range for a narrow procedure (a tuning value); skill in the craft
+# keeps rising with practice after it is known (ADR-0006 §2).
+kind = "technique"
+id = "core:technique/knapping"
+name = "Knapping sickle blades"
+can = "knap flint into blades and set them in a sickle"
+domain = "core:skill/knapping"
+requires = []
+tried_in = []
+needs = []
+e50_h = 100000.0                 # unused while no work tries toward it
+learn_h = 200.0
+upbringing = true
+
+[answers]
+spoilage = []

@@ -1,0 +1,21 @@
+# Grinding at a rotary quern, an upper stone turned on a lower by a handle, and making one
+# (research 07-04 P09: first millennium BCE, Mediterranean). It grinds in half the time of a
+# saddle quern: 3-5 kg an hour in experiments, 0.20-0.33 h/kg (08-03 §2.1). It needs both shaping
+# stone and shaping wood. Grinding counts 1 % of its hours toward finding it, but half of those
+# would need 100,000 qualified hours: a far technique that in practice comes from elsewhere, as
+# the observer's introduction (07-01 §2.3; a tuning value). Learnt in 100 hours beside a knower,
+# and at home by children who grind (07-02 §2.3).
+kind = "technique"
+id = "core:technique/rotary_quern"
+name = "Grinding at a rotary quern"
+can = "make a rotary quern of two shaped stones and a wooden handle, and grind with it"
+domain = "core:skill/milling"
+requires = [["core:technique/stone_shaping", "core:technique/wood_shaping"]]
+tried_in = ["core:activity/grind_grain"]
+needs = ["core:good/stone", "core:good/timber"]
+e50_h = 100000.0
+learn_h = 100.0
+upbringing = true
+
+[answers]
+spoilage = []

@@ -1,0 +1,79 @@
+# The Civilization Engine kernel (PROJECT_PLAN.md §3). No Unreal dependency, ever.
+#
+# Crates appear in the milestone that needs them (§3.6). Engine-agnostic code lives in the staged
+# engine-commons workspace (../commons) and is used here by path until it is extracted and pinned
+# by tag.
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+
+[workspace.dependencies]
+civ-agents = { path = "crates/civ-agents" }
+civ-content = { path = "crates/civ-content" }
+civ-core = { path = "crates/civ-core" }
+civ-grammar = { path = "crates/civ-grammar" }
+civ-land = { path = "crates/civ-land" }
+civ-schema = { path = "crates/civ-schema" }
+civ-sim = { path = "crates/civ-sim" }
+civ-world = { path = "crates/civ-world" }
+commons-persist = { path = "../commons/crates/commons-persist" }
+commons-wire = { path = "../commons/crates/commons-wire" }
+
+anyhow = "1.0.104"
+axum = { version = "0.8.9", features = ["ws"] }
+blake3 = "1.8.7"
+clap = { version = "4.6.7", features = ["derive"] }
+flatbuffers = "25.12.19"
+futures-util = "0.3.34"
+proptest = "1.11.0"
+rayon = "1.12.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+tempfile = "3.27.0"
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "sync", "net", "time", "signal"] }
+toml = "1.1.6"
+tower-http = { version = "0.7.1", features = ["fs"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+unwrap_used = "warn"
+
+# Terrain generation is far too slow unoptimized; keep dev builds usable.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+lto = "thin"
+
+# The kernel library Unreal loads (ADR-0005; research 01-06 §2.1): optimized as for release, with
+# full debug information kept (a PDB beside the DLL on Windows) so a crash inside it can be read.
+# Panics must unwind, so they can be caught at the C interface.
+[profile.dll]
+inherits = "release"
+debug = "full"
+strip = "none"
+
+# Optimized, with debug assertions and overflow checks: how CI runs the kernel tests
+# (research 01-11 §4.2).
+[profile.simcheck]
+inherits = "release"
+debug = 1
+debug-assertions = true
+overflow-checks = true
+lto = false

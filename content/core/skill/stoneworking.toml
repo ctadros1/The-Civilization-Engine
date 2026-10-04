@@ -1,0 +1,9 @@
+# Pecking and grinding stone into querns and axe heads: a broad craft (research 06-08 §5.2: T80 2-5
+# years of exposure), taken as 1,500 hours. Speeds, quality and levels are tuning values.
+kind = "skill"
+id = "core:skill/stoneworking"
+name = "Stoneworking"
+t80_h = 1500.0
+speed = [[0.0, 0.5], [0.5, 1.0], [1.0, 1.4]]
+quality = [[0.0, 0.5], [0.5, 1.0], [1.0, 1.5]]
+founder_level = [0.1, 0.6]

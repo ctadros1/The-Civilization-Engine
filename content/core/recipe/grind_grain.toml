@@ -1,0 +1,16 @@
+# Grinding grain to wholemeal flour at a saddle quern. Experiments take 0.77-3.33 h/kg of wheat,
+# ethnographic grinders 0.25-0.50 h/kg (research 08-03 §2.1): 0.5 h/kg at middling skill, from
+# 0.83 h/kg for a novice to 0.38 for a master (`core:skill/milling`). One grinder to a quern.
+# Wholemeal keeps the bran: 2 % is lost as dust and spill (a tuning value).
+kind = "recipe"
+id = "core:recipe/grind_grain"
+name = "Grind grain"
+skill = "core:skill/milling"
+technique = "core:technique/quern_grinding"
+unit_h = 0.5
+session_h = 0.0
+max_units = 0.0
+tools = ["core:good/quern"]
+inputs = [{ good = "core:good/grain", amount = 1.0 }]
+outputs = [{ good = "core:good/flour", amount = 0.98 }]
+session_inputs = []

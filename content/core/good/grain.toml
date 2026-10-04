@@ -1,0 +1,15 @@
+# Threshed grain. Wheat grain carries 3,340 kcal/kg (research 05-02 §2.5). It is not eaten as it
+# is: it is ground at a quern and baked, or pounded and boiled as porridge (research 08-03 §2.1,
+# 07-04 §4.5; cooking adds water, not energy: 05-02 §1.1). Kept without a proper store it loses
+# about 15 % a year, the middle of the 10-20 % the research proposes for poorly kept or
+# pest-exposed stores (08-02 §7.1). Kept under a household's roof, it loses about 5 % a year.
+kind = "good"
+id = "core:good/grain"
+name = "Grain"
+purpose = "food"
+kcal_per_kg = 3340.0
+half_life_days = 1560.0
+sheltered_half_life_days = 4932.0 # under a roof about 5 % a year: 08-02 §7.1 gives 2-8 % for a sound store
+eaten = "never"
+shared = false
+reserve_for = ""

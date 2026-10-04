@@ -1,0 +1,17 @@
+# Threshing and cleaning the reaped crop at home.
+kind = "activity"
+id = "core:activity/thresh"
+name = "Thresh"
+doing = "threshing grain"
+behavior = "farm"
+task = "thresh"
+par = 3.5
+min_age_years = 10.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 0
+technique = "core:technique/emmer_growing"
+tools = []
+rate = 1.0

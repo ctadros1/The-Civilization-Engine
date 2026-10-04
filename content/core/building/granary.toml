@@ -1,0 +1,90 @@
+# A small store raised on posts, off the damp ground and aired beneath (ADR-0009 §1; research
+# 08-11 §2.1: early farmers at Dhra' built raised, ventilated granaries about 3 by 3 m; 07-04
+# §4.5: dedicated bulk stores with raised floors). Maintained dry stores lose 2-8 % of grain in
+# 6-12 months, poor ones 10-20 % (08-02 §7.1); what it changes for stored goods comes with storage
+# by capacity (slice O's second step). The figures not noted are the longhouse's.
+kind = "building"
+id = "core:building/granary"
+name = "Granary"
+grammar = "frame"
+use = "store"
+eave_cm = 180
+pitch_deg = 45.0
+roof_by_day = 243                # 1 September: roofed before the harvest is stored (tuning)
+technique = "core:technique/jointed_frame"
+skill = "core:skill/building"     # trained by building it (ADR-0009 §6)
+
+[design]                         # what people build to (tuning; 08-11 §2.1: about 3 by 3 m)
+bay_cm = 250
+width_cm = 300
+post_cm = 15
+wall_cm = 15
+overhang_cm = 60
+joist_cm = 15
+floor_raise_cm = 80              # 08-11 §2.1: raised and aired beneath (tuning)
+
+[upkeep]
+# How its parts wear and decay (ADR-0009 §4): for each kind, the share of its section or covering
+# lost a year and the share at which it shows. Thatch wants significant mending every 2-3 years
+# (11-08 §2.4); no report gives rates for posts set in the ground or for daub at a wall's foot
+# (11-06 §2.2, 11-08 §2.4: decay needs wet wood, and earth walls last as long as water is kept
+# off them), so those are tuning values. Posts rot at their foot on ground of wetness 1 (the land
+# profile's habitats set it); timber under a roof decays only under a leak, at the rate given for
+# a full leak.
+covering = [0.06, 0.15]          # [lost a year, leaks at]
+posts = [0.02, 0.3]              # [lost a year at the foot, rot shows at] (tuning)
+infill = [0.05, 0.2]             # [worn a year at the foot, shows at] (tuning)
+under_leak = [0.1, 0.3]          # [lost a year under a full leak, shows at] (tuning)
+
+[materials]
+timber = "core:good/timber"
+wattle = "core:good/timber"
+covering = "core:good/thatch"
+boards = "core:good/timber"
+
+[frame]
+bays = [1, 2]
+bay_cm = [200, 350]              # 08-11 §2.1: about 3 m
+width_cm = [200, 400]
+storeys = [1, 1]
+eave_cm = [150, 250]
+pitch_deg = [45.0, 55.0]
+joist_cm = [10, 25]              # a store's floor carries far more than a dwelling's (11-05 §2.4)
+post_cm = [12, 30]
+overhang_cm = [60, 120]          # deep enough that the ladder to any floor raise stays dry
+floor_raise_cm = [50, 120]       # off the ground and aired beneath (tuning)
+wall_cm = [10, 20]
+lofts = false
+ground = "store"
+upper = "store"
+posthole_depth_cm = 70
+beam_cm = 15
+rafter_cm = 10
+rafter_spacing_cm = 60
+joist_spacing_cm = 40            # closer joists under a store (tuning)
+decking_cm = 4
+thatch_thickness_cm = 30
+hearth_cm = 90
+door_cm = 80
+floor_base_m2 = 0.0
+floor_m2_per_sleeper = 4.8
+work_m2_per_worker = 6.0
+store_kg_per_m2 = 500.0          # grain about 0.65 m deep at 770 kg/m³ (11-05 §2.4; tuning)
+loft_kg_per_m2 = 150.0
+living_kg_per_m2 = 100.0
+timber_kg_per_m3 = 760.0
+groundwork_h_per_m2 = 3.0
+posthole_h = 0.8
+post_h = 12.0
+beam_h_per_m = 4.0
+rafter_h = 2.0
+joist_h_per_m = 1.0
+wattle_h_per_m2 = 1.0
+daub_h_per_m3 = 13.3
+thatch_h_per_m2 = 2.4
+finish_h_per_m2 = 3.0
+decking_h_per_m2 = 2.0
+ladder_h = 4.0
+wattle_kg_per_m2 = 6.0
+thatch_kg_per_m2 = 30.0
+ladder_kg = 15.0

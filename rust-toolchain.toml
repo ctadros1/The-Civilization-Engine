@@ -1,0 +1,6 @@
+# Pinned toolchain for every Rust workspace in this repository (kernel/ and commons/).
+# Upgrade deliberately, between milestones, and record it in PROJECT_PLAN.md §9.
+[toolchain]
+channel = "1.97.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

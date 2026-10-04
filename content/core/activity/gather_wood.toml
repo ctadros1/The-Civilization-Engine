@@ -1,0 +1,17 @@
+# Collecting fallen wood and carrying it home for the fire (tuning starting points).
+kind = "activity"
+id = "core:activity/gather_wood"
+name = "Gather firewood"
+doing = "gathering firewood"
+behavior = "gather"
+resource = "deadwood"
+par = 3.5
+min_age_years = 8.0
+max_age_years = 70.0
+min_minutes = 30
+max_minutes = 120
+daylight_only = true
+max_walk_minutes = 45
+technique = ""
+tools = []
+rate = 1.0

@@ -1,0 +1,238 @@
+# How land is classified and what lives wild on it (ADR-0004; research 03-06, 08-01, 10-01).
+# Production is what people can actually gather, not what the land grows: most of a forest's
+# food goes to animals, rots or cannot be reached. Starting points, checked by the smoke seeds.
+#
+# A resource grows as a plant (a seasonal production each day, a share of the standing stock
+# lost each day) or as animals (logistic growth toward the habitat's capacity, and a monthly
+# spread toward neighbouring patches). Harvest rate per person-hour is
+# max_rate_per_hour * S / (S + half_rate_stock_per_ha * area), so it falls as a patch empties.
+# Research 03-06 §2.7: on a map this size, wild food alone feeds only a few dozen people.
+kind = "land"
+id = "core:land/temperate_valley"
+name = "Temperate valley"
+patch_cells = 16                 # 128 m patches at 8 m cells (research 03-06 §5.1)
+channel_area_km2 = 1.0           # drainage that counts as a stream when measuring height above it
+richness_min = 0.6
+richness_max = 1.4
+richness_feature_m = 1500.0
+climate_cv = 0.25                # research 08-01 §2.3: crop CV 0.25-0.35
+climate_autocorrelation = 0.3    # 0.2-0.4
+
+# Walking wears the ground of each 8 m cell it crosses; unused wear fades as plants grow back
+# (research 10-03 §1.1: dw/dt = aq(1 - w) - bw). Starting values from the research's sensitivity
+# ranges (10-03 §2.2), which it marks as uncalibrated: a walk wears 0.002-0.02 of what is left, and
+# unused wear halves in 30-365 days. A cell walked about every four days settles at trail wear.
+[paths]
+wear_per_walk = 0.01
+wear_half_life_days = 120.0
+# A cell becomes trail at this wear and stays trail until it fades below the lower figure, so a
+# trail outlives a season out of use (tuning values).
+trail_at = 0.3
+trail_until = 0.15
+
+[peak_load]
+# The heaviest load wind and snow put on a roof in a month, kilopascals on its plan, drawn once a
+# month for each settlement: log-normal, its median and the spread of its logarithm. It stands in
+# for weather until weather exists (M3c), and is replaced by it then (ADR-0009 §5). Wind at
+# 20 m/s presses about 0.25 kPa, at 40 m/s about 1 kPa (research 11-05 §2.4); snow presses its
+# depth times its density. The figures are tuning values: a median month's gusts, one month in
+# twenty above about 0.7 kPa, one in a thousand above about 1.6.
+median_kpa = 0.25
+spread = 0.6
+
+# Habitats, first match wins (research 03-06 §5.1, 10-01 §5.5).
+[[habitat]]
+id = "water"
+name = "Open water"
+min_water_fraction = 0.5
+arable = false
+wetness = 2.0                    # open water: wet if anything is built at its edge
+
+[[habitat]]
+id = "wetland"
+name = "Wet margin"
+max_median_hand_m = 0.3
+arable = false
+wetness = 2.0                    # posts stand in wet ground (tuning)
+
+[[habitat]]
+id = "floodplain"
+name = "Floodplain and terrace"
+max_mean_slope = 0.05
+max_median_hand_m = 6.0
+arable = true
+wetness = 1.3                    # damp ground near the water table (tuning)
+
+[[habitat]]
+id = "woodland"
+name = "Lower-slope woodland"
+max_mean_slope = 0.15
+arable = true
+# Felling and burning before a first crop, with stone axes: a tuning value (the research sets
+# no figure; 03-06 §1.3 expects woodland to be cleared for fields).
+clear_h_per_ha = 1000.0
+wetness = 1.0
+
+[[habitat]]
+id = "upland"
+name = "Upland"
+arable = false
+wetness = 0.7                    # drier, better-drained ground (tuning)
+
+[[resource]]
+id = "wild_plants"
+name = "Wild plant food"
+good = "core:good/wild_plant_food"
+unit_kg = 1.0                    # the stock is counted in kilograms
+discrete = false
+in_water = false
+range_patches = 1                # a gatherer works the best spot of a 3 x 3 block
+# Research 03-06 §2.2: temperate plant gathering returns 300-1,500 kcal per person-hour.
+max_rate_per_hour = 1.5
+half_rate_stock_per_ha = 0.3
+
+[resource.plant]
+# Gatherable kilograms per hectare per year by habitat, in the habitat order above (research
+# 03-06 §2.3: landscape berry yields 4-8 kg/ha a year).
+production_per_ha_yr = [0.0, 9.0, 6.0, 5.0, 2.5]
+loss_per_day = 0.03              # rot and wildlife: food left standing lasts about a month
+# Monthly weights, January first: greens in spring, berries in summer, nuts in autumn, little in winter.
+season = [0.2, 0.2, 0.5, 1.0, 1.4, 1.5, 1.6, 1.7, 1.8, 1.4, 0.5, 0.2]
+
+[[resource]]
+id = "game"
+name = "Game"
+good = "core:good/meat"
+unit_kg = 30.0                   # usable meat of a deer-like animal (research 03-06 §2.6)
+discrete = true                  # whole animals: most hunts bring nothing
+in_water = false
+range_patches = 2                # a hunter ranges over a 5 x 5 block (640 m)
+# Kills per hunter-hour approach max_rate * density / half_rate at low density: about 0.3 ha
+# searched effectively per hour. Gives 500-800 kcal per hunting hour at the habitat capacities
+# below, failures included (research 03-06 §2.2: 300-1,500).
+max_rate_per_hour = 0.16
+half_rate_stock_per_ha = 0.5
+
+[resource.animal]
+# Animals per hectare at richness 1 by habitat: 3-6 per km² (research 03-06 §2.6 uses 5 per km²).
+capacity_per_ha = [0.0, 0.03, 0.04, 0.06, 0.04]
+growth_per_year = 0.3            # research 03-06 §2.6: r = 0.3 for deer-like animals
+spread_per_month = 0.25
+
+[[resource]]
+id = "fish"
+name = "Fish"
+good = "core:good/fish"
+unit_kg = 1.0                    # the stock is counted in kilograms of whole fish
+discrete = false
+in_water = true                  # lives in a patch's water, not on its land
+range_patches = 1
+# Research 03-06 §2.4 proposes 0.2-2 kg whole fish per person-hour for early technology.
+max_rate_per_hour = 2.0
+half_rate_stock_per_ha = 100.0
+
+[resource.animal]
+# Kilograms of fish per hectare of water at richness 1 by the habitat of the patch the water is
+# in: richer in wetland and floodplain water, poorer in upland streams. With r = 0.6 the logistic
+# maximum yield, r K / 4, is 30-45 kg/ha a year (research 03-06 §2.4: floodplain fisheries 40-60,
+# lagoons a median of 51).
+capacity_per_ha = [200.0, 300.0, 300.0, 150.0, 80.0]
+growth_per_year = 0.6
+spread_per_month = 0.3
+
+[[resource]]
+id = "deadwood"
+name = "Fallen wood"
+good = "core:good/firewood"
+unit_kg = 1.0
+discrete = false
+in_water = false
+range_patches = 1
+# Research 03-06 §2.5: fuelwood collection about 5.7 kg per person-hour.
+max_rate_per_hour = 6.0
+half_rate_stock_per_ha = 500.0
+
+[resource.plant]
+# Deadwood is its own budget: branch fall and mortality in, collection and decay out (research
+# 03-06 §1.5). Kilograms per hectare per year by habitat: woodland grows 2-5 t of wood a year and
+# only part of it falls as gatherable wood (03-06 §2.5); open ground has little.
+production_per_ha_yr = [0.0, 100.0, 150.0, 500.0, 150.0]
+loss_per_day = 0.0002            # decay: about 7 % a year (a tuning value)
+season = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+[[resource]]
+id = "poles"
+name = "Poles"
+good = "core:good/timber"
+unit_kg = 1.0
+discrete = false
+in_water = false
+range_patches = 1
+# Felling and trimming poles and cutting rods with stone tools: a tuning value (the research gives
+# no rate; 11-04 §2.2 counts felling and preparation apart from building).
+max_rate_per_hour = 20.0
+half_rate_stock_per_ha = 1000.0
+
+[resource.plant]
+# Kilograms of building-size poles and rods per hectare per year by habitat: a part of the 2-5 t of
+# wood woodland grows a year (research 03-06 §2.5), and the alder and willow of wet margins and
+# river terraces; tuning values.
+production_per_ha_yr = [0.0, 400.0, 300.0, 600.0, 150.0]
+loss_per_day = 0.0005            # poles grow past use or die: about 17 % a year (a tuning value)
+season = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+[[resource]]
+id = "reeds"
+name = "Reeds and tall grass"
+good = "core:good/thatch"
+unit_kg = 1.0
+discrete = false
+in_water = false
+range_patches = 1
+# Research 11-04 §3: collecting the grass for one roof took about 60 person-hours.
+max_rate_per_hour = 30.0
+half_rate_stock_per_ha = 300.0
+
+[resource.plant]
+# Kilograms of stems fit for thatch per hectare per year by habitat: reed beds on wet margins,
+# tall grass on floodplains and uplands. Tuning values: the research gives no thatch yields.
+production_per_ha_yr = [0.0, 4000.0, 800.0, 0.0, 300.0]
+loss_per_day = 0.004             # standing stems fall and rot within about a year (a tuning value)
+# Grows from late spring to early autumn and stands through the winter.
+season = [0.0, 0.0, 0.0, 0.5, 1.5, 2.5, 2.5, 2.5, 1.5, 0.5, 0.5, 0.0]
+
+[[resource]]
+id = "stone"
+name = "Fieldstone and cobbles"
+good = "core:good/stone"
+unit_kg = 1.0
+discrete = false
+in_water = false
+range_patches = 1
+# Picking up loose stone and cobbles: a tuning value (research 11-08 §2.2 gives quarrying at 8-80
+# hours per cubic metre of accepted stone; loose stone is far quicker to collect).
+max_rate_per_hour = 150.0
+half_rate_stock_per_ha = 2000.0
+
+[resource.deposit]
+# Workable loose stone per hectare by habitat, laid down once and never renewed: bedrock is
+# exposed on steep slopes and cut banks, and cobbles lie in channels and on terraces (research
+# 03-05 §1.2). Tuning values until geology arrives (M3b).
+stock_per_ha = [0.0, 0.0, 3000.0, 2000.0, 20000.0]
+
+[[resource]]
+id = "toolstone"
+name = "Flint and chert"
+good = "core:good/toolstone"
+unit_kg = 1.0
+discrete = false
+in_water = false
+range_patches = 1
+# Searching surface spreads and gravels for nodules good enough to knap: a tuning value.
+max_rate_per_hour = 2.0
+half_rate_stock_per_ha = 20.0
+
+[resource.deposit]
+# Knappable nodules per hectare by habitat: weathered out of carbonate uplands and washed into
+# floodplain gravels (research 03-05 §1.2, 07-05 §1.1; quality varies). Tuning values.
+stock_per_ha = [0.0, 0.0, 30.0, 10.0, 60.0]

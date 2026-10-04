@@ -13,6 +13,9 @@ Thumbs.db
 # Rust
 target/
 
+# Built kernel libraries (tools/build-kernel-dll.*)
+dist/
+
 # Web
 node_modules/
 web/dist/
@@ -38,3 +41,5 @@ unreal/Plugins/*/Intermediate/
 saves/
 recordings/
 *.record
+test-results/
+playwright-report/

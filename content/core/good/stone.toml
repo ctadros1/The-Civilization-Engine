@@ -1,0 +1,12 @@
+# Fieldstone and river cobbles: for querns and ground-stone axe heads (research 03-05 §1.2, 07-05
+# §2.2). It keeps.
+kind = "good"
+id = "core:good/stone"
+name = "Stone"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

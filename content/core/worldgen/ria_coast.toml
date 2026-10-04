@@ -1,0 +1,49 @@
+# A kind of landscape, not a particular world. Tuning starting points, not calibrations.
+kind = "worldgen_preset"
+id = "core:worldgen/ria_coast"
+name = "Ria coast"
+description = "A wet, hilly coast where the sea has flooded river valleys into long inlets, with headlands between them."
+
+[region]
+context_factor = 2.0
+outlet_edges = 1
+base_level_m = -40.0          # the base-level edge is under the sea
+initial_relief_m = 40.0
+regional_slope = 0.003
+trunk_inflow_km2 = 800.0
+window_offset = 0.9           # slide the map toward the coast so the shoreline is on it
+
+[uplift]
+uplift_mm_per_yr = 0.6
+lowland_uplift_fraction = 0.04
+range_scale_km = 14.0
+basin_strength = 0.0
+
+[erosion]
+erodibility = 1.0e-5
+erodibility_variation = 0.35
+area_exponent = 0.5
+channel_initiation_km2 = 0.0
+diffusivity_m2_per_yr = 0.04
+talus_slope = 0.85
+endorheic_depth_m = 0.0
+coarse_iterations = 150
+coarse_dt_years = 20000.0
+
+[refinement]
+fine_iterations = [10, 6, 3]
+fine_dt_years = 2000.0
+detail_amplitude = 0.25
+routing_jitter = 0.35
+floodplain_min_area_km2 = 2.0
+floodplain_width_factor = 45.0
+
+[water]
+sea_level_m = 0.0
+precipitation_mm_per_yr = 1000.0
+evapotranspiration_mm_per_yr = 520.0
+lake_evaporation_mm_per_yr = 800.0
+channel_area_km2 = 0.5
+min_lake_depth_m = 2.0
+min_lake_area_m2 = 5000.0
+channel_width_coefficient = 4.0

@@ -1,0 +1,50 @@
+{
+  "comment": "Golden envelope vectors built independently of the Rust encoder, from the ADR-0001 field table with CRC-32 from Python zlib. The Rust and TypeScript decoders must both reproduce them byte for byte. 64-bit fields are strings so JavaScript reads them exactly. Never edit a vector to make a test pass: a changed byte here is a wire-format change.",
+  "vectors": [
+    {
+      "name": "snapshot-without-crc",
+      "hex": "4357495201030000544345000100000007000000040000002a00000000000000000000000000000040e20100000000000000000000000000deadbeef",
+      "kind": 3,
+      "flags": 0,
+      "schema_tag_hex": "54434500",
+      "major": 1,
+      "minor": 0,
+      "epoch": 7,
+      "sequence": "42",
+      "correlation": "0",
+      "sim_time": "123456",
+      "payload_crc32": 0,
+      "payload_hex": "deadbeef"
+    },
+    {
+      "name": "command-with-crc-negative-time",
+      "hex": "43574952010601005443450001000300010000000500000000000000000000000900000000000000fbffffffffffffff86a610360000000068656c6c6f",
+      "kind": 6,
+      "flags": 1,
+      "schema_tag_hex": "54434500",
+      "major": 1,
+      "minor": 3,
+      "epoch": 1,
+      "sequence": "0",
+      "correlation": "9",
+      "sim_time": "-5",
+      "payload_crc32": 907060870,
+      "payload_hex": "68656c6c6f"
+    },
+    {
+      "name": "heartbeat-extremes-empty-payload",
+      "hex": "43574952010a000050524d0002000100ffffffff00000000ffffffffffffffff000000000000000000000000000000800000000000000000",
+      "kind": 10,
+      "flags": 0,
+      "schema_tag_hex": "50524d00",
+      "major": 2,
+      "minor": 1,
+      "epoch": 4294967295,
+      "sequence": "18446744073709551615",
+      "correlation": "0",
+      "sim_time": "-9223372036854775808",
+      "payload_crc32": 0,
+      "payload_hex": ""
+    }
+  ]
+}

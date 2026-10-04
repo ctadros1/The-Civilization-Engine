@@ -1,0 +1,14 @@
+# Shaping a saddle quern, a slab and a hand stone, from about 30 kg of stone: 10-30 hours (a
+# tuning value; the research gives none), here 20.
+kind = "recipe"
+id = "core:recipe/make_quern"
+name = "Make a quern"
+skill = "core:skill/stoneworking"
+technique = "core:technique/stone_shaping"
+unit_h = 20.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [{ good = "core:good/stone", amount = 30.0 }]
+outputs = [{ good = "core:good/quern", amount = 1.0 }]
+session_inputs = []

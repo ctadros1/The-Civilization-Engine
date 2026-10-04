@@ -1,0 +1,15 @@
+[package]
+name = "civ-land"
+description = "Land state that changes over time: habitat patches and their wild stocks, the yearly climate factor, fields, plots, path wear and settlements (ADR-0004)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+civ-core = { workspace = true }
+civ-grammar = { workspace = true }
+civ-world = { workspace = true }
+
+[lints]
+workspace = true

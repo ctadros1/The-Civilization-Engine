@@ -1,0 +1,354 @@
+# How the people of a world live: bodies, sleep, company, households, choices and founding bands.
+# Values are research figures where the research gives one (cited) and tuning starting points
+# otherwise; they are checked against the smoke thresholds, not calibrated. See content/README.md.
+kind = "people"
+id = "core:people/early_farmers"
+name = "Early farmers"
+description = "A band of early farmers arriving in an unsettled valley with seed grain and stores to last until their first harvest."
+names = "core:names/valley_folk"
+
+latitude_deg = 48.0              # mid-latitude temperate: 16 h days in June, 8.4 h in December
+# Walking speed and work capacity by age: [age years, factor]. Children and elders are slower and
+# less productive (research 04-12 §1.8: no "child = half an adult" constant).
+walk_speed_by_age = [[0.0, 0.0], [2.0, 0.45], [6.0, 0.7], [12.0, 0.95], [16.0, 1.0], [55.0, 1.0], [70.0, 0.8], [85.0, 0.6]]
+capacity_by_age = [[0.0, 0.0], [5.0, 0.1], [9.0, 0.35], [13.0, 0.65], [17.0, 0.9], [22.0, 1.0], [50.0, 1.0], [62.0, 0.8], [75.0, 0.5], [90.0, 0.25]]
+
+[walking]                        # Tobler's hiking function (research 01-08)
+top_speed_kmh = 6.0              # at a 5 % descent; 5 km/h on the flat
+slope_sensitivity = 3.5
+best_slope_offset = 0.05
+offtrail_factor = 0.6            # unworn ground; a worn trail restores full speed
+wading_factor = 0.25             # speed while wading a fordable river
+ford_max_discharge_m3s = 3.0     # mean discharge a river can be waded at
+max_slope = 1.0                  # 45 degrees
+
+[energy]                         # FAO/WHO/UNU Schofield equations (research 05-02 §2.1)
+bmr_band_starts = [0.0, 3.0, 10.0, 18.0, 30.0, 60.0]
+bmr_male = [[59.512, -30.4], [22.706, 504.3], [17.686, 658.2], [15.057, 692.2], [11.472, 873.1], [11.711, 587.7]]
+bmr_female = [[58.317, -31.1], [20.315, 485.9], [13.384, 692.6], [14.818, 486.6], [8.126, 845.6], [9.082, 658.5]]
+# Body mass, [age years, male kg, female kg]: small-bodied early farmers (research 05-02 §2.1).
+mass_by_age = [[0.0, 3.4, 3.3], [1.0, 9.8, 9.2], [5.0, 18.0, 17.5], [10.0, 29.0, 29.0], [15.0, 48.0, 46.0], [20.0, 60.0, 52.0], [60.0, 60.0, 52.0], [80.0, 56.0, 48.0]]
+walk_par = 3.2                   # walking with a light load
+idle_par = 1.4
+satiety_hours = 5.0              # research 04-01 §3.2: satiety time constant 2-6 h
+hunger_ramp_hours = 3.0
+deficit_unit_kcal = 3000.0
+max_surplus_kcal = 2000.0
+# What the body can draw on in a shortage before it fails: fat and lean tissue down to about a
+# third of body mass lost, at roughly 6,000 kcal a kilogram of mixed tissue (a tuning value: the
+# research gives famine thresholds as BMI, not as a store of energy, and warns against counting
+# every kilogram lost alike, 05-02 §5.3). With it, a deficit grows hunger but has a floor, and
+# the share of it drawn is what hunger's hazards follow.
+reserve_kcal_per_kg = 2000.0
+# Seed is eaten only once a person has drawn this share of that reserve (a tuning value; research
+# 08-02 §2.3: households can eat seed in a crisis, at the cost of the next sowing), and never the
+# seed to sow again the ground a household already crops (§10: protect a minimum viable reserve).
+eat_reserve_at_deficit = 0.25
+meal_minutes = 25
+
+[sleep]                          # two-process model (research 04-02 §2.2)
+tau_awake_h = 18.2
+tau_asleep_h = 4.2
+wake_pressure = 0.12
+min_hours = 4.0
+max_hours = 10.5                 # sleep period 6.9-8.5 h, longer in winter
+nap_min_minutes = 20.0           # daytime naps are short; a night's sleep runs to about sunrise
+nap_max_minutes = 90.0
+day_factor = 0.15
+bedtime_after_sunset_hours = 3.3 # sleep onset about 3.3 h after sunset (research 04-02)
+
+[social]                         # relatedness eases toward the quality of company (research 04-01 §2.3)
+tau_h = 36.0
+quality_per_companion = 0.2
+household_quality = 0.45
+
+[household]
+water_l_per_person_day = 20.0    # research 10-01 §2.1
+carry_water_l = 15.0             # 10-25 L per trip
+water_target_days = 1.5
+food_target_days = 5.0
+ready_food_days = 2.0            # bread and porridge in hand: bread keeps a few days (tuning)
+# Food a household wants in store beyond its next harvest's first grain: research 08-01 §2.3
+# proposes a seasonal reserve until the next reliable food, plus 0-90 days (a tuning value).
+harvest_margin_days = 30.0
+# Goods keep twice as long on a raised store's floor, aired and off the damp ground, as elsewhere
+# under a roof: grain's 5 % a year becomes 2.5 %, inside the 2-8 % that maintained dry stores lose
+# in 6-12 months (research 08-02 §7.1; a tuning value).
+raised_store_factor = 2.0
+processed_food_days = 3.0        # flour ground ahead of baking: grinding is a near-daily chore (tuning)
+carry_kg = 20.0                  # a load carried home on foot (a tuning value)
+# Firewood burned per person per day, January first: 1.8 kg in winter (research 03-06 §2.5),
+# less in summer when the fire is mostly for cooking (a tuning value). Baking bread charges its
+# own fuel (0.5 kg per kg of flour), so these are 0.3 kg below M1's, about what a person's bread
+# takes.
+fuel_kg_per_person_day = [1.5, 1.5, 1.3, 1.0, 0.8, 0.7, 0.7, 0.7, 0.8, 1.0, 1.3, 1.5]
+fuel_target_days = 3.0
+# The chronicle notes a shortage when a settlement's stores fall below `short_food_days` of its
+# needs, and its end when they rise above `recovered_food_days` (a gap, so a store hovering near
+# one line is not noted every day).
+short_food_days = 2.0
+recovered_food_days = 5.0
+daily_kcal_per_person = 2100.0   # band average (research 05-02 §2.2)
+# A household out of food whose members have drawn on average this share of their bodies' reserve,
+# with no crop of its own ripening within a month, may give up and leave the valley, with this
+# chance a day (research 05-06 §1.4: famine migration follows expected access to food; §5.2: a
+# founding can fail, and its households withdraw). Tuning values.
+leave_at_depletion = 0.3
+leave_per_day = 0.1
+leave_unless_ripe_within_days = 30.0
+
+[decision]                       # utility points; softmax over each activity's best target (research 01-09 §4.3)
+temperature_sd_fraction = 0.35
+min_temperature = 0.4
+w_hunger = 10.0
+# Hunger counts toward choices up to full hunger and a day and a half of deficit; beyond it people
+# are not more driven, only weaker, and a starving household still sows (a tuning value).
+max_hunger_drive = 2.0
+w_sleep = 14.0
+w_social = 5.0
+w_food = 10.0
+# Stores that will not see the household through to its next harvest make wild food worth going
+# out for while there is time (08-05 §1.5: a grain holder plans a stock path to the next harvest).
+# Half the weight of a shortage at hand (a tuning value).
+w_lean = 5.0
+w_work = 2.5
+w_fuel = 6.0
+w_farm = 8.0                     # field work is worth the food it brings for the year ahead
+w_deadline = 6.0                 # per unit of work left over the work that can still be done in time
+w_shelter = 4.0                  # building the household's roof, and bringing what it is made of (tuning)
+w_tools = 4.0                    # making a tool the household lacks, and bringing what it is made of (tuning)
+trip_half_worth_days = 0.25      # a trip bringing a quarter of a household-day of food is worth half
+w_water = 8.0
+w_walk_hour = 2.0
+w_effort = 0.8
+w_dark = 6.0
+w_rest = 1.0
+w_play = 3.0
+
+[band]                           # research 05-01 §4.5: bands of 40 in at least six unrelated families
+default_size = 40
+min_size = 30                    # the plan's decision log: 30-50 allowed
+# Up to about half the largest Hutterite colony at fission (research 05-06 §1.3: colonies split at
+# 104-251 people), for villages of hundreds (M3a slice L). A tuning value.
+max_size = 125
+min_families = 6
+camp_candidates = 48
+site_radius_m = 2000.0
+# Food carried in: until dependable production plus one to three months (research 10-01 §2.3;
+# 05-06 §5.4: budget to the next reliable food supply, testing 6-12 months for crop-dependent
+# founding). Arriving in March, a band can break only so much ground in its first spring, and with
+# hand tools it crops all it needs only by its third harvest; a poor second harvest then empties
+# its stores. Eighteen months of food carries it to the third (a tuning value). It also stands for
+# the herds real colonists drove in, which M1 does not have.
+provisions_days = 545.0
+provisions_good = "core:good/provisions"
+# Seed carried in: about a quarter hectare's worth a person at 90 kg/ha, roughly what a band can
+# break and sow in its first spring (a tuning value).
+seed_kg_per_person = 22.0
+elder_chance = 0.3
+young_adult_chance = 0.35
+birth_spacing_months = 36.0      # research 05-01 §2.2: intervals 28-48 months
+site_max_slope = 0.06
+site_w_food = 3.0
+# Farmers choose a livelihood catchment before a camp (research 10-01 §1.1): land they can crop
+# within a field walk, against the area they mean to crop (a tuning value).
+site_w_arable = 3.0
+site_w_water_per_100m = 1.0
+site_w_slope_per_pct = 0.5
+site_w_flood = 3.0
+site_flood_hand_m = 1.5
+
+[farm]                           # research 08-02 §10 and 10-01 §2.3: keep seed, plan on a poor year
+crop = "core:crop/emmer"
+grain_share = 1.0                # share of a year's food a household plans to grow (tuning; gathering adds to it)
+plan_yield_share = 0.8           # plan on a cautious harvest: the 10th-30th percentile (10-01 §2.3)
+# Grain lost before it is eaten: in store, at the quern and as bread and flour go off. Research
+# 08-01 §2.3 tests 5, 10 and 20 % a year for routine losses from dry stores. In the test villages
+# about 7 % of the food was lost this way, and grinding and pounding are hard work that people
+# eat for (a tuning value).
+loss_share = 0.1
+grain_target_days = 400.0        # grain held at which a harvest is worth half as much: a year plus a margin (10-01 §2.3)
+work_hours_per_day = 6.0         # field work a capable adult gives a day: 6 h ordinary, 10 h at a peak (04-02 §2.4)
+field_m = 50.0                   # a new field is 50 m square, 0.25 ha (03-04 §5.1: soil patches 0.25-1 ha)
+max_walk_minutes = 30.0          # the farthest walk to a field (10-01 §2.3: 15-60 minutes one way)
+site_candidates = 24             # places looked at when marking out a new field
+
+[build]
+# What a household may build, among what it knows how to (ADR-0009 §1, §7): a home, a hut or a
+# longhouse in bays, the one that costs it least to cover its members and its goods; a granary
+# on posts beside it, when the goods its roofs have no room for would lose more in the open than
+# the granary costs to build; and a workshop, when more work for its firm at once than its home
+# has room for.
+programs = ["core:building/hut", "core:building/longhouse", "core:building/granary", "core:building/workshop"]
+store_horizon_days = 1095        # three years: grass thatch wants major repair every 2-3 (11-08; tuning)
+home_work_places = 2             # two at a craft beside living (tuning; the research gives no figure)
+# How unevenly the parts of a building are made, from a novice's to a master's: each group's
+# quality is one less this times the size of a normal draw (ADR-0009 §6). A novice's 0.30 is the
+# one dispersion figure the research gives, a building-to-building log-dispersion (11-06 §2.2);
+# a master's is a tuning value.
+quality_spread = [0.3, 0.1]
+
+[build.caution]
+# How builders answer what their settlement has seen of a technique's buildings (ADR-0009 §6):
+# failures and the building-years they stood, both fading by half over `half_life_years`; their
+# ratio is the failure rate builders believe in, and caution, how many times their usual strength
+# they make joists and posts, rises toward `most` as it does. 11-09 §2.3 puts personal memory of
+# a disaster at a half-life of 2-20 years (low confidence); 11-06 §2.4 bounds plausible failure
+# rates at 1e-5 to 1e-3 a building-year. The rest are tuning values with no source.
+half_life_years = 8.0            # inside 11-09 §2.3's 2-20 years
+most = 2.0                       # at most twice the usual strength (tuning)
+half_rate = 0.01                 # failures a building-year at half the most: ten times 11-06's top (tuning)
+death_weight = 2.0               # a death counts as two more failures (tuning)
+
+[mortality]                      # Siler hazard, Hadza fit (research 05-01 §1.2): 1q0 216, e0 34
+a = 0.351
+b = 0.895
+c = 0.011
+d = 6.70e-6
+e = 0.125
+# Hunger makes illness deadlier; it modifies this hazard and is not a second copy of it (research
+# 05-02 §1.6). A person who has drawn half their body's reserve is 2.63 times as likely to die
+# (05-02 §2.7: moderately underweight children), rising as 2.63^(4d²) with the share d drawn, to
+# at most 11.6 times (severe wasting).
+hunger_ratio_at_half = 2.63
+hunger_ratio_max = 11.6
+# A body at the end of its reserve fails: this hazard a day there, rising as the twentieth power of
+# the share drawn, so it matters only near the end (a tuning value; 05-02 §2.7 gives no "dies after
+# N days" rule).
+exhaustion_per_day = 0.05
+exhaustion_power = 20.0
+# Mothers' deaths in childbirth per live birth: 750 per 100,000 (05-01 §2.2: England 1750-1800;
+# 1,050 to 500 across 1700-1850).
+maternal_death_per_birth = 0.0075
+
+[fertility]                      # a reproductive state machine (research 05-01 §1.4-1.5, 04-08 §1.5)
+# Chance a fecund woman living with her partner conceives in a month at her most fecund ages
+# (04-08 §2.3: start at 0.20, explore 0.10-0.30). With the spacing below, 0.10 brings a band's
+# fertility, birth intervals and first births into the research envelope (05-01 §2.2: TFR mean
+# 5.98, intervals 24-48 months, Agta first birth 20.1); a tuning value.
+conception_per_month = 0.10
+# Fecundability from each age until the next, relative to the peak: the shape of 05-01 §2.3's
+# high-fertility schedule (a tuning value).
+age_factor = [[15.0, 0.30], [20.0, 1.0], [30.0, 0.85], [35.0, 0.6], [40.0, 0.25], [45.0, 0.02], [50.0, 0.0]]
+# Women differ lastingly (05-01 §4.5): a lognormal factor with mean 1 and this spread of its log.
+fecundity_sd = 0.5
+# Hunger lowers fecundability smoothly, without a threshold (05-02 §4.3): it halves for each third
+# of the body's reserve drawn (a tuning value).
+hunger_halving = 0.33
+# A pregnancy at term: 266 days from conception, give or take 10.
+pregnancy_days = 266.0
+pregnancy_sd_days = 10.0
+# Chance a pregnancy is lost, by the mother's age at conception (05-01 §2.2, Norwegian registers:
+# 9.8 % at 25-29, 53.6 % at 45 and over; the ages between are interpolated, a tuning value).
+loss_by_age = [[0.0, 0.09], [25.0, 0.098], [30.0, 0.12], [35.0, 0.18], [40.0, 0.33], [45.0, 0.536]]
+# A loss comes 6 to 20 weeks after conception (a tuning value).
+loss_days = [42.0, 140.0]
+# After a birth a mother cannot conceive for about 20 months, give or take 7, at least 6 (05-01
+# §1.5: Amele mothers conceived about 19 months after a birth; !Kung spacing about 44 months).
+recovery_months = 20.0
+recovery_sd_months = 7.0
+recovery_min_months = 6.0
+loss_recovery_months = 1.0
+# A nursing child's death ends its mother's recovery within two months (05-01 §1.5).
+weaned_recovery_months = 2.0
+boys_per_100_girls = 105.0       # 05-01 §2.2
+# What a pregnancy costs its mother by trimester, kcal a day (05-02 §2.4). A nursing child's food
+# is counted as its own: it eats from its household's store.
+pregnancy_kcal_day = [85.0, 285.0, 475.0]
+
+[family]                         # couples and households (research 04-08 §1.1-1.4, 06-01 §1.3-1.4)
+# Unpartnered women and men look for a partner between these ages, with this chance a month: an
+# age schedule with persistent nonmarriage, not a wedding age (04-08 §2.1). Tuned so first unions
+# come at about 16-25 for women and 18-28 for men (a tuning value).
+seek_min_age_female = 16.0
+seek_min_age_male = 18.0
+seek_max_age_female = 45.0
+seek_max_age_male = 60.0
+seek_per_month_female = 0.04
+seek_per_month_male = 0.03
+# How much older a man may be than his partner, years (negative: younger); the gap people look for,
+# and the points a candidate loses for each year away from it (tuning values).
+age_gap_years = [-2.0, 14.0]
+preferred_gap_years = 3.0
+w_gap_per_year = 0.5
+# No couple shares a parent or grandparent, or has one partner descend from the other within two
+# generations: parents, siblings, half-siblings, first cousins, aunts and uncles. This is this
+# people's rule, not a universal one (06-01 §1.4).
+kin_exclusion_generations = 2
+# A new couple sets up a household of its own (06-01 §1.3: residence is its own rule;
+# "new_household", "his_household" or "her_household"). Someone who keeps a household with no
+# other adult is joined there whatever the rule.
+residence = "new_household"
+# From this age someone can keep a household; younger children left alone go to their kin.
+independent_age = 15.0
+# A child's personality regresses on the mean of its parents' by this share (research 04-03 §1.2).
+trait_heritability = 0.4
+
+[market]                         # how households trade (slice I, ADR-0006 §4); every value a tuning value
+# Each household reviews what it offers and its terms on its own day (research 08-04 §4.3: every
+# 3-14 days; 08-06 §2.3: 1-7 for ordinary retail).
+review_days = 7
+# A seller asks its own cost and this much more (08-04 §1.2: p* = (1 + m) c, from a smoothed
+# normal cost, never this week's).
+margin = 0.25
+# The largest change of an ask in one review (08-04 §4.3: 1-5 %; 08-05 §3.2: 5-15 %).
+max_change = 0.05
+# A market's tallies of sales, payments and demand halve in this many days (08-04 §4.3: demand
+# memory 14-56 days).
+memory_days = 30.0
+# A good is the settlement's money once it settles this share of the payments' worth over at least
+# this many remembered trades (08-06 §1.3: money is acceptance, not a flag; §2.3: acceptance
+# beliefs from 10-100 payments per half-life, here the fewest).
+money_share = 0.5
+money_min_trades = 10.0
+# A seller accepts a good it wants at least this much more of (1 when short of it), or the money.
+accept_want = 0.5
+recent_trades = 64
+
+[firm]                           # household workshops (slice J, ADR-0006 §5); every value a tuning value
+# A workshop that sells nothing for this long is given up by its owners: a voluntary exit, not a
+# failure (research 08-08 §1.8; §2.5: no closure hazard beyond the causes modelled).
+idle_close_days = 180.0
+# Entries its books keep in full; its monthly statements are kept for its life (ADR-0006 §5).
+book_entries = 64
+# A workshop first offers this share of what an hour's work adds for it, at middling skill: its
+# terms less the inputs (a tuning value; the research gives no share of labour).
+wage_share = 0.5
+# A workshop reviews its wage every so many days, by at most this share, raising it while work goes
+# unfilled (research 08-10 §5.6: employer wage reviews every 14-30 days, 1-5 % a review).
+wage_review_days = 14
+wage_max_change = 0.05
+# Most hours of work a workshop hires between two of its weekly reviews: one person's three
+# hours a day (a tuning value).
+max_hire_hours = 21.0
+
+[knowledge]                      # what founders know and how people learn (ADR-0008); tuning values
+# The share of founders old enough for each technique's work who know it. Founders arrive with
+# substantial practical knowledge (research 06-08 §3): every technique of today's work.
+founders = [
+  { technique = "core:technique/emmer_growing", share = 1.0 },
+  { technique = "core:technique/quern_grinding", share = 1.0 },
+  { technique = "core:technique/pounding", share = 1.0 },
+  { technique = "core:technique/hearth_baking", share = 1.0 },
+  { technique = "core:technique/knapping", share = 1.0 },
+  { technique = "core:technique/stone_shaping", share = 1.0 },
+  { technique = "core:technique/wood_shaping", share = 1.0 },
+  { technique = "core:technique/roundhouse", share = 1.0 },
+]
+# Learners one person teaches at once (research 07-02 §2.3: 1-3 a teacher).
+max_learners = 2
+# Utility points for working beside someone to learn what they know: about what useful work is
+# worth (a tuning value).
+w_learn = 2.0
+# The share of routine work's hours that counts as experiment toward what its practice can find
+# (research 07-01 §2.3: 1 %, tested 0-5 %).
+experiment_share = 0.01
+# Trying counts three times its hours for someone already aware of what they try toward:
+# finding again what is known of is easier than inventing (07-02 §1.7; a tuning value).
+aware_try_factor = 3.0
+# Utility points for trying at a problem at home, times the share of the household's food it
+# would cost (a tuning value, about what useful work is worth).
+w_try = 2.0
+# Least days between one person's sessions of trying: an hour a week at most, about 2 % of
+# working time (07-01 §2.3 tests 0-5 %; 07-11 §2.2 finds 0-10 % protected time for craft workers).
+try_gap_days = 7.0

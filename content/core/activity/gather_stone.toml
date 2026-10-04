@@ -1,0 +1,18 @@
+# Collecting fieldstone and cobbles and carrying them home (tuning starting points). Only done
+# while the household needs stone for something it makes.
+kind = "activity"
+id = "core:activity/gather_stone"
+name = "Gather stone"
+doing = "gathering stone"
+behavior = "gather"
+resource = "stone"
+par = 5.0
+min_age_years = 14.0
+max_age_years = 65.0
+min_minutes = 30
+max_minutes = 120
+daylight_only = true
+max_walk_minutes = 60
+technique = ""
+tools = []
+rate = 1.0

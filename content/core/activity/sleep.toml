@@ -1,0 +1,15 @@
+kind = "activity"
+id = "core:activity/sleep"
+name = "Sleep"
+doing = "sleeping"
+behavior = "sleep"
+par = 1.0
+min_age_years = 0.0
+max_age_years = 130.0
+min_minutes = 1                  # sleep length comes from sleep pressure and the night
+max_minutes = 1
+daylight_only = false
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

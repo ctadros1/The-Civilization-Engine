@@ -1,0 +1,15 @@
+# Shaping a rotary quern: two dressed stones with a central eye and a socket, and a wooden
+# handle, from about 40 kg of stone and a little timber. Twice a saddle quern's work, 40 hours (a
+# tuning value; the research gives none).
+kind = "recipe"
+id = "core:recipe/make_rotary_quern"
+name = "Make a rotary quern"
+skill = "core:skill/stoneworking"
+technique = "core:technique/rotary_quern"
+unit_h = 40.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [{ good = "core:good/stone", amount = 40.0 }, { good = "core:good/timber", amount = 2.0 }]
+outputs = [{ good = "core:good/rotary_quern", amount = 1.0 }]
+session_inputs = []

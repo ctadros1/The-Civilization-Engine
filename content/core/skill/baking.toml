@@ -1,0 +1,9 @@
+# Baking bread on the hearth or in an oven: routine work (research 06-08 §5.2: T80 0.1-0.5 years
+# of exposure). Speeds and levels are tuning values.
+kind = "skill"
+id = "core:skill/baking"
+name = "Baking"
+t80_h = 150.0
+speed = [[0.0, 0.7], [0.5, 1.0], [1.0, 1.2]]
+quality = [[0.0, 1.0], [1.0, 1.0]]             # makes no tools
+founder_level = [0.4, 0.9]

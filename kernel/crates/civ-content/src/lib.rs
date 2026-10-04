@@ -44,7 +44,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 17;
+pub const KERNEL_CONTENT_API: u32 = 18;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -660,6 +660,17 @@ fn resolve(
                         &d.rel,
                         &format!("resource `{}` good", r.id),
                         &r.good,
+                    );
+                }
+            }
+            for (n, dep) in d.file.deposit.iter().enumerate() {
+                if good_index(&dep.good).is_none() {
+                    missing(
+                        c,
+                        parsed,
+                        &d.rel,
+                        &format!("deposit {} good", n + 1),
+                        &dep.good,
                     );
                 }
             }

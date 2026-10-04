@@ -234,5 +234,48 @@ half_rate_stock_per_ha = 20.0
 
 [resource.deposit]
 # Knappable nodules per hectare by habitat: weathered out of carbonate uplands and washed into
-# floodplain gravels (research 03-05 §1.2, 07-05 §1.1; quality varies). Tuning values.
+# floodplain gravels (research 03-05 §1.1-1.2; quality varies). Tuning values.
 stock_per_ha = [0.0, 0.0, 30.0, 10.0, 60.0]
+
+# Deposits: bodies in the ground, placed once from the seed and never renewed (ADR-0010 §1;
+# content API 18), beside the loose stone and flint above. The research says where they lie only
+# in words (03-05 §1.1-1.2): clay in floodplains and old channels, often under cover; stone where
+# erosion bares it on slopes and cut banks; flint in particular horizons, weathered out into
+# surface spreads. It gives no figures for slopes, heights, sizes or how many a square kilometre
+# holds, so every figure here is a tuning value. A body under no cover shows at the surface.
+
+[[deposit]]
+good = "core:good/clay"
+slope = [0.0, 0.05]              # flat floodplain and terrace ground
+hand_m = [0.5, 6.0]              # above the channel's water, within the floodplain
+per_km2 = 4.0
+radius_m = [10.0, 40.0]
+top_m = [0.0, 1.5]               # under up to 1.5 m of silt and soil
+thickness_m = [0.5, 2.0]
+quality = [0.3, 0.9]
+exposed_share = 0.3              # some show in a stream cut or a bank
+density_kg_m3 = 1800.0           # 11-12 §2.3: dry loose earth 1,300-1,500 kg/m³; in the bank about 1.2 times that
+
+[[deposit]]
+good = "core:good/stone"
+slope = [0.15, 1.0]              # slopes where erosion bares the rock
+hand_m = [5.0, 500.0]
+per_km2 = 2.0
+radius_m = [10.0, 30.0]
+top_m = [0.0, 0.5]
+thickness_m = [2.0, 10.0]
+quality = [0.1, 0.6]             # 03-05 §2.2: 0.1-0.6 of quarried stone is fit for use
+exposed_share = 0.7
+density_kg_m3 = 2500.0           # 11-08 §2.1: limestone 2,370-2,702 kg/m³
+
+[[deposit]]
+good = "core:good/toolstone"
+slope = [0.05, 0.6]              # upland slopes where the horizon comes out
+hand_m = [10.0, 500.0]
+per_km2 = 0.5
+radius_m = [5.0, 20.0]
+top_m = [0.0, 3.0]
+thickness_m = [0.2, 1.0]         # a bed with nodules in it, not solid flint
+quality = [0.3, 0.9]
+exposed_share = 0.5              # weathered out into a spread on the surface
+density_kg_m3 = 250.0            # flint in a cubic metre of its bed: the research gives no figure

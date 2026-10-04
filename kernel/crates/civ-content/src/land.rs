@@ -1,5 +1,6 @@
 //! Land profiles (`kind = "land"`): habitat rules and wild resources (ADR-0004).
 
+use civ_land::deposits::DepositRule;
 use civ_land::{Growth, HabitatRule, LandParams, PathParams, PeakLoad, ResourceParams};
 use serde::Deserialize;
 
@@ -25,6 +26,36 @@ pub(crate) struct LandFile {
     pub peak_load: PeakLoadFile,
     pub habitat: Vec<Habitat>,
     pub resource: Vec<Resource>,
+    /// Where deposits lie (content API 18); a profile may have none.
+    #[serde(default)]
+    pub deposit: Vec<DepositFile>,
+}
+
+/// Where one kind of deposit lies and how large its bodies are (ADR-0010 §1; content API 18).
+/// Every figure is a tuning value: the research gives none (03-05 §1.1-1.2 is qualitative).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DepositFile {
+    /// The good it yields.
+    pub good: String,
+    /// `[least, most]` mean slope of the ground it lies under (rise over run).
+    pub slope: [f64; 2],
+    /// `[least, most]` height above the nearest channel, metres.
+    pub hand_m: [f64; 2],
+    /// Bodies expected on each square kilometre of land that qualifies.
+    pub per_km2: f64,
+    /// `[least, most]` radius of a body, metres.
+    pub radius_m: [f64; 2],
+    /// `[least, most]` depth of what covers it, metres.
+    pub top_m: [f64; 2],
+    /// `[least, most]` thickness of a body, metres.
+    pub thickness_m: [f64; 2],
+    /// `[least, most]` quality, 0 to 1.
+    pub quality: [f64; 2],
+    /// The share of covered bodies that still show (a stream cut, a slip).
+    pub exposed_share: f64,
+    /// Kilograms of the good in a cubic metre of a body.
+    pub density_kg_m3: f64,
 }
 
 /// The heaviest load wind and snow put on a roof in a month (ADR-0009 §5), a stand-in for
@@ -179,12 +210,65 @@ impl LandFile {
                 median_pa: self.peak_load.median_kpa * 1000.0,
                 spread: self.peak_load.spread,
             },
+            deposits: self
+                .deposit
+                .iter()
+                .map(|d| {
+                    let pair = |[lo, hi]: [f64; 2]| (lo, hi);
+                    Some(DepositRule {
+                        good: good_index(&d.good)?,
+                        slope: pair(d.slope),
+                        hand_m: pair(d.hand_m),
+                        per_km2: d.per_km2,
+                        radius_m: pair(d.radius_m),
+                        top_m: pair(d.top_m),
+                        thickness_m: pair(d.thickness_m),
+                        quality: pair(d.quality),
+                        exposed_share: d.exposed_share,
+                        density_kg_m3: d.density_kg_m3,
+                    })
+                })
+                .collect::<Option<Vec<_>>>()?,
         })
     }
 
     /// Range problems, as messages.
     pub fn problems(&self) -> Vec<String> {
         let mut p = Vec::new();
+        for (n, d) in self.deposit.iter().enumerate() {
+            let n = n + 1;
+            let range =
+                |name: &str, [lo, hi]: [f64; 2], least: f64, most: f64, p: &mut Vec<String>| {
+                    if !(lo.is_finite() && hi.is_finite() && least <= lo && lo <= hi && hi <= most)
+                    {
+                        p.push(format!(
+                            "deposit {n}'s `{name}` must be [least, most] within {least} to {most} \
+                         (got [{lo}, {hi}])"
+                        ));
+                    }
+                };
+            range("slope", d.slope, 0.0, 10.0, &mut p);
+            range("hand_m", d.hand_m, 0.0, 10_000.0, &mut p);
+            range("radius_m", d.radius_m, 0.5, 1_000.0, &mut p);
+            range("top_m", d.top_m, 0.0, 100.0, &mut p);
+            range("thickness_m", d.thickness_m, 0.05, 100.0, &mut p);
+            range("quality", d.quality, 0.0, 1.0, &mut p);
+            if !(d.per_km2.is_finite() && (0.0..=1_000.0).contains(&d.per_km2)) {
+                p.push(format!(
+                    "deposit {n}'s `per_km2` must be between 0 and 1000"
+                ));
+            }
+            if !(d.exposed_share.is_finite() && (0.0..=1.0).contains(&d.exposed_share)) {
+                p.push(format!(
+                    "deposit {n}'s `exposed_share` must be between 0 and 1"
+                ));
+            }
+            if !(d.density_kg_m3.is_finite() && (100.0..=10_000.0).contains(&d.density_kg_m3)) {
+                p.push(format!(
+                    "deposit {n}'s `density_kg_m3` must be between 100 and 10000"
+                ));
+            }
+        }
         if !(4..=64).contains(&self.patch_cells) {
             p.push(format!(
                 "`patch_cells` must be between 4 and 64 (got {})",

@@ -158,9 +158,9 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 15 land, field, plot, building,
-    // wear, market, firm, wealth, knowledge and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 15);
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 16 land, field, plot, building,
+    // wear, market, firm, wealth, knowledge, deposits and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 16);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -1890,4 +1890,39 @@ fn what_settlements_have_seen_of_their_buildings_survives_a_save_and_load() {
         here.trust(),
         Some("built 1.9 times as strong: failures weigh 1.0 against 12 building-years")
     );
+}
+
+#[test]
+fn a_new_world_has_deposits_and_an_older_save_gains_the_same_on_loading() {
+    let sim = load_first();
+    let bodies = |s: &Sim| -> Vec<civ_land::deposits::Body> {
+        s.land().deposits.iter().map(|d| d.body).collect()
+    };
+    // The core land profile lays down clay, stone and flint (ADR-0010 §1).
+    let catalog = &sim.rules().catalog;
+    let kinds: std::collections::BTreeSet<u16> = bodies(&sim).iter().map(|b| b.good).collect();
+    assert!(!kinds.is_empty(), "the world has deposits");
+    for id in ["core:good/clay", "core:good/stone", "core:good/toolstone"] {
+        let g = catalog.good_index(id).expect("the good") as u16;
+        assert!(kinds.contains(&g), "{id} lies somewhere");
+    }
+    // A schema-18 save, from before deposits were bodies, gains the bodies a new world of its
+    // seed has, with ids of its own, and is changed by it.
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_DEPOSITS)
+        .collect();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V18;
+    let path = republish("slice-p", &info, &sections);
+    let loaded = persist::load(&path, content()).expect("a schema-18 save loads");
+    assert!(loaded.is_dirty(), "the migration is new state");
+    assert_eq!(bodies(&loaded), bodies(&sim));
+    // What has been taken survives a save and load.
+    let mut sim = sim;
+    sim.land_mut_for_tests().deposits[0].taken_kg = 125.0;
+    let dir = scratch_dir("deposits");
+    let saved = persist::save(&mut sim, &dir, SaveKind::Manual, "deposits").expect("saves");
+    let again = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(again.land().deposits, sim.land().deposits);
 }

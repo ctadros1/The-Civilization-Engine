@@ -80,6 +80,7 @@ use civ_agents::{
 use civ_core::scheduler::PendingEvent;
 use civ_core::{PermanentId, SimTime};
 use civ_grammar::{BuildingSpec, Footprint, PARAMS};
+use civ_land::deposits::{Body, Deposit};
 use civ_land::{
     Building, BuildingState, ClimateYear, Field, FieldStage, GroupCondition, GroupState, Land,
     Lease, Party, Patches, PathParams, Plot, PlotUse, RectCm, Repair, Settlement, Wear, WearTile,
@@ -93,7 +94,7 @@ use commons_persist::{SectionData, SectionTag, SnapshotReader};
 use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
-    SCHEMA_V17, finish, section, single_chunk, unreadable,
+    SCHEMA_V17, SCHEMA_V18, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -128,6 +129,8 @@ pub const SECTION_WEALTH: SectionTag = SectionTag::new("wealth");
 /// Section "know" (schema 13): each settlement's record of the techniques it came to know and
 /// lost.
 pub const SECTION_KNOW: SectionTag = SectionTag::new("know");
+/// Section "deposits" (schema 19): bodies in the ground and what has been taken from each.
+pub const SECTION_DEPOSITS: SectionTag = SectionTag::new("deposits");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -186,6 +189,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         ),
         section(SECTION_WEALTH, 0, encode_wealth(&sim.people)),
         section(SECTION_KNOW, 0, encode_knowledge(&sim.people, &techniques)),
+        section(SECTION_DEPOSITS, 0, encode_deposits(&sim.land, &goods)),
     ]
 }
 
@@ -196,6 +200,8 @@ pub(super) struct Decoded {
     pub events: Vec<PendingEvent<SimEvent>>,
     /// People whose activity the loaded content no longer has: they decide again on load.
     pub redecide: Vec<PermanentId>,
+    /// The save is from before deposits were bodies: they are placed from the seed on load.
+    pub place_deposits: bool,
 }
 
 /// What a schema version stores, for the decoders.
@@ -238,6 +244,8 @@ enum Schema {
     V17,
     /// What each settlement has seen of each technique's buildings (ADR-0009 §6).
     V18,
+    /// Deposits as bodies in the ground (ADR-0010 §1).
+    V19,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -269,7 +277,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V15 => Schema::V15,
         SCHEMA_V16 => Schema::V16,
         SCHEMA_V17 => Schema::V17,
-        SAVE_SCHEMA_VERSION => Schema::V18,
+        SCHEMA_V18 => Schema::V18,
+        SAVE_SCHEMA_VERSION => Schema::V19,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -361,6 +370,11 @@ pub(super) fn decode<R: Read + Seek>(
     } else {
         people.give_founders_knowledge(&rules.catalog, &rules.people, seed, now);
     }
+    // Deposits (schema 19); an older save places them from the seed once it is loaded.
+    if schema >= Schema::V19 {
+        let bytes = single_chunk(reader, SECTION_DEPOSITS)?;
+        land.deposits = decode_deposits(&bytes, rules)?;
+    }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
 
     let mut problems = land.problems(map, rules.land.habitats.len(), next_id);
@@ -406,7 +420,82 @@ pub(super) fn decode<R: Read + Seek>(
         people,
         events,
         redecide,
+        place_deposits: schema < Schema::V19,
     })
+}
+
+// ---- deposits ----------------------------------------------------------------------------------
+
+fn encode_deposits(land: &Land, goods: &[&str]) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let dictionary = strings(&mut fbb, goods);
+    let bodies: Vec<save::DepositBody> = land
+        .deposits
+        .iter()
+        .map(|d| {
+            let b = &d.body;
+            save::DepositBody::new(
+                b.at_cm.0,
+                b.at_cm.1,
+                d.id.get(),
+                b.initial_kg,
+                d.taken_kg,
+                b.radius_cm,
+                b.top_cm,
+                b.thickness_cm,
+                b.quality,
+                b.good,
+                b.exposed,
+            )
+        })
+        .collect();
+    let bodies = fbb.create_vector(&bodies);
+    let root = save::Deposits::create(
+        &mut fbb,
+        &save::DepositsArgs {
+            goods: Some(dictionary),
+            bodies: Some(bodies),
+        },
+    );
+    finish(fbb, root)
+}
+
+fn decode_deposits(bytes: &[u8], rules: &Rules) -> Result<Vec<Deposit>, LoadError> {
+    let root =
+        flatbuffers::root::<save::Deposits>(bytes).map_err(|e| unreadable(SECTION_DEPOSITS, &e))?;
+    let goods: Vec<Option<usize>> = read_strings(root.goods())
+        .iter()
+        .map(|id| rules.catalog.good_index(id))
+        .collect();
+    let mut out = Vec::new();
+    for b in root.bodies().iter().flatten() {
+        let good = goods.get(usize::from(b.good())).ok_or_else(|| {
+            LoadError::Malformed(format!(
+                "a deposit names good {} of {}",
+                b.good(),
+                goods.len()
+            ))
+        })?;
+        // A good the loaded content no longer has: the body is dropped.
+        let Some(good) = good else {
+            continue;
+        };
+        out.push(Deposit {
+            id: required(b.id(), "a deposit")?,
+            body: Body {
+                good: *good as u16,
+                at_cm: (b.x_cm(), b.y_cm()),
+                radius_cm: b.radius_cm(),
+                top_cm: b.top_cm(),
+                thickness_cm: b.thickness_cm(),
+                quality: b.quality(),
+                exposed: b.exposed(),
+                initial_kg: b.initial_kg(),
+            },
+            taken_kg: b.taken_kg(),
+        });
+    }
+    Ok(out)
 }
 
 // ---- Helpers -----------------------------------------------------------------------------------
@@ -668,6 +757,8 @@ fn decode_land(bytes: &[u8], rules: &Rules, map: &WorldMap) -> Result<Land, Load
         buildings: Vec::new(),
         // Read from its own section (schema 7 on).
         wear: Wear::new(map.width, map.height, map.cell_size_m),
+        // Read from its own section (schema 19 on), or placed from the seed on loading.
+        deposits: Vec::new(),
     };
     // A grid of the wrong size is reported by `Land::problems`; only fill stocks on a sound one.
     if land.patches.class.len() == n
@@ -1184,7 +1275,8 @@ fn carried(
         | Schema::V15
         | Schema::V16
         | Schema::V17
-        | Schema::V18 => {
+        | Schema::V18
+        | Schema::V19 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1307,7 +1399,8 @@ fn decode_households(
             | Schema::V15
             | Schema::V16
             | Schema::V17
-            | Schema::V18 => {
+            | Schema::V18
+            | Schema::V19 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

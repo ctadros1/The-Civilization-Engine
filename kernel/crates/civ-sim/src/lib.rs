@@ -383,6 +383,10 @@ impl Sim {
         if let Err(why) = sim.found_band(band_size) {
             sim.founding_problem = Some(why);
         }
+        // Deposits are laid down once, after the band arrives so its founding draws are as they
+        // were before deposits existed (ADR-0010 §1).
+        sim.land
+            .place_deposits(&sim.map, &sim.rules.land, sim.meta.seed, &mut sim.ids);
         Ok(sim)
     }
 

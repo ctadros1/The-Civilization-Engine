@@ -56,6 +56,13 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
   - a buried one is found when an earthwork cuts into it.
 - **The god tool** `PlaceDeposit { at, kind, size, exposed }` creates a body on dry land and
   records it in the chronicle.
+- As built (slice Q's first step): each `[[deposit]]` rule gives a slope range and a height-above-
+  drainage range (distance to a channel waits), a count per qualifying square kilometre, and
+  ranges for radius, cover, thickness and quality, a share of covered bodies that still show, and
+  a density. Bodies are discs in plan with a centre and radius in centimetres. A new world places
+  them after its founding band arrives, so the founding draws do not move; a save from before
+  them gains, on loading, the bodies a new world of its seed has, with ids of its own. Finding,
+  the god tool and digging follow in this slice's next steps.
 
 ### 2. Earthworks are records
 

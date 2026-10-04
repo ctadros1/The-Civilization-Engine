@@ -810,6 +810,28 @@ table Knowledge {
   trust: [TrustEntry] (id: 2);
 }
 
+// Section "deposits" (schema 19): bodies in the ground (ADR-0010 §1), in the order they were
+// placed, with what has been taken from each. `good` indexes `goods`, the good content ids at save
+// time; a body whose good the loaded content no longer has is dropped.
+struct DepositBody {
+  x_cm: long;
+  y_cm: long;
+  id: ulong;
+  initial_kg: double;
+  taken_kg: double;
+  radius_cm: int;
+  top_cm: int;
+  thickness_cm: int;
+  quality: float;
+  good: ushort;
+  exposed: bool;
+}
+
+table Deposits {
+  goods: [string] (id: 0);
+  bodies: [DepositBody] (id: 1);
+}
+
 // Section "events": the scheduler's pending events.
 enum EventKind : ubyte { AgentStep = 0 }
 

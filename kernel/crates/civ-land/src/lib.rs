@@ -150,6 +150,8 @@ pub struct LandParams {
     pub paths: PathParams,
     /// The heaviest load weather puts on a roof in a month (ADR-0009 §5).
     pub peak_load: PeakLoad,
+    /// Where deposits of clay, stone and flint lie, by kind (ADR-0010 §1).
+    pub deposits: Vec<deposits::DepositRule>,
 }
 
 /// The heaviest load wind and snow put on a roof in a month, on its plan, drawn once a month for
@@ -331,6 +333,8 @@ pub struct Land {
     pub buildings: Vec<Building>,
     /// Ground worn by walking. Saved.
     pub wear: Wear,
+    /// Deposits in the ground, in the order they were placed (ADR-0010 §1). Saved.
+    pub deposits: Vec<deposits::Deposit>,
 }
 
 /// Summary of a patch's terrain, for classification.
@@ -504,6 +508,7 @@ impl Land {
             plots: Vec::new(),
             buildings: Vec::new(),
             wear: Wear::new(map.width, map.height, map.cell_size_m),
+            deposits: Vec::new(),
         };
         // Start each stock at its equilibrium for the season a year ago, then grow a year.
         for r in 0..params.resources.len() {
@@ -515,6 +520,33 @@ impl Land {
 
     /// What is wrong with saved land state for a map, if anything. A save holding any of these
     /// is refused (ADR-0002).
+    /// Places the deposits `params` rules lay down on `map` for world `seed`
+    /// ([`deposits::place`]), each with a new permanent id from `ids`, after any it has; returns
+    /// how many it placed. A world places them once: a new world as it is made, an older save on
+    /// loading, so both have the bodies a new world of the seed would have.
+    pub fn place_deposits(
+        &mut self,
+        map: &WorldMap,
+        params: &LandParams,
+        seed: u64,
+        ids: &mut civ_core::IdAllocator,
+    ) -> usize {
+        let bodies = deposits::place(
+            map,
+            &params.deposits,
+            (params.channel_area_km2 * 1e6) as f32,
+            seed,
+        );
+        let n = bodies.len();
+        self.deposits
+            .extend(bodies.into_iter().map(|body| deposits::Deposit {
+                id: ids.allocate(),
+                body,
+                taken_kg: 0.0,
+            }));
+        n
+    }
+
     pub fn problems(&self, map: &WorldMap, habitats: usize, next_id: u64) -> Vec<String> {
         let mut out = Vec::new();
         let p = &self.patches;
@@ -562,6 +594,25 @@ impl Land {
             }
         }
         let (w_cm, h_cm) = (f64::from(w) * 100.0, f64::from(h) * 100.0);
+        let mut seen = std::collections::HashSet::new();
+        for d in &self.deposits {
+            let b = &d.body;
+            let (x, y) = (b.at_cm.0 as f64, b.at_cm.1 as f64);
+            if d.id.get() >= next_id || !seen.insert(d.id) {
+                out.push(format!("deposit {} is unallocated or repeated", d.id));
+            }
+            if !((0.0..=w_cm).contains(&x) && (0.0..=h_cm).contains(&y)) {
+                out.push(format!("deposit {} is outside the map", d.id));
+            }
+            let sized = b.radius_cm > 0 && b.top_cm >= 0 && b.thickness_cm > 0;
+            let held = b.initial_kg.is_finite()
+                && b.initial_kg >= 0.0
+                && d.taken_kg.is_finite()
+                && (0.0..=b.initial_kg * (1.0 + 1e-9)).contains(&d.taken_kg);
+            if !sized || !held || !(0.0..=1.0).contains(&b.quality) {
+                out.push(format!("deposit {} has an invalid body or inventory", d.id));
+            }
+        }
         let mut ids = std::collections::HashSet::new();
         for f in &self.fields {
             let r = f.rect;
@@ -1132,6 +1183,7 @@ mod tests {
                 median_pa: 250.0,
                 spread: 0.6,
             },
+            deposits: Vec::new(),
         }
     }
 

@@ -19,7 +19,7 @@ use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
-use civ_agents::params::{Catalog, PeopleParams};
+use civ_agents::params::{Catalog, PeopleParams, RegimeDef};
 use civ_agents::{AgentEvent, Ctx, Founded, Population, Spawned};
 use civ_content::ContentRegistry;
 use civ_core::time::DEFAULT_WORLD_START;
@@ -59,6 +59,8 @@ pub struct NewWorld {
     pub size_cells: u32,
     /// People in the founding band; 0 means the people profile's default.
     pub band_size: u32,
+    /// Content id of the property regime (ADR-0007); empty means the content's default.
+    pub regime_id: String,
 }
 
 /// Who and what a world is. Fixed when the world is created.
@@ -79,6 +81,9 @@ pub struct WorldMeta {
     /// Effective generation parameters, by name. Provenance only: terrain is saved, never
     /// regenerated from these.
     pub params: Vec<(String, f64)>,
+    /// Content id of the property regime the world lives under (ADR-0007), fixed when it is
+    /// created; empty for the rules every world lived by before regimes.
+    pub regime_id: String,
 }
 
 impl WorldMeta {
@@ -177,6 +182,8 @@ pub struct Advance {
 pub enum SimError {
     /// The content has no preset with this id.
     UnknownPreset(String),
+    /// The content has no property regime with this id.
+    UnknownRegime(String),
     /// A founding band must have between the people profile's smallest and largest size.
     InvalidBandSize {
         /// What was asked for.
@@ -198,6 +205,7 @@ impl fmt::Display for SimError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SimError::UnknownPreset(id) => write!(f, "there is no world preset `{id}`"),
+            SimError::UnknownRegime(id) => write!(f, "there is no property regime `{id}`"),
             SimError::InvalidBandSize { size, min, max } => write!(
                 f,
                 "a founding band of {size} is out of range ({min} to {max} people)"
@@ -230,6 +238,8 @@ pub struct Sim {
     content_changed: bool,
     /// What the people and land run by (from the loaded content).
     rules: Arc<Rules>,
+    /// The world's property regime, from the loaded content by the id the world keeps.
+    regime: RegimeDef,
     /// Where people can walk, and how fast. Derived from the map and the rules.
     nav: Arc<NavGrid>,
     /// Habitat patches, wild stocks and settlements.
@@ -304,6 +314,16 @@ impl Sim {
             params: preset.params.clone(),
         };
         let map = civ_world::generate(&generate, progress, cancel).map_err(SimError::Generation)?;
+        let regime = if request.regime_id.is_empty() {
+            content.catalog.default_regime()
+        } else {
+            content.catalog.regime(&request.regime_id)
+        };
+        let regime_id = match regime {
+            Some(r) => r.id.clone(),
+            None if request.regime_id.is_empty() => String::new(),
+            None => return Err(SimError::UnknownRegime(request.regime_id.clone())),
+        };
         let world_id = commons_persist::random_id().unwrap_or_else(|_| {
             // No OS randomness: fall back to time and seed. Identity only needs to be unique
             // among this player's worlds.
@@ -328,6 +348,7 @@ impl Sim {
                 .into_iter()
                 .map(|(name, value)| (name.to_owned(), value))
                 .collect(),
+            regime_id,
         };
         let tiebreak_seed = civ_core::rng::key(&[
             request.seed,
@@ -379,6 +400,7 @@ impl Sim {
                 land_params: &self.rules.land,
                 params: &self.rules.people,
                 catalog: &self.rules.catalog,
+                regime: &self.regime,
                 ids: &mut self.ids,
                 schedule: &mut pending,
             };
@@ -409,6 +431,7 @@ impl Sim {
                 land_params: &self.rules.land,
                 params: &self.rules.people,
                 catalog: &self.rules.catalog,
+                regime: &self.regime,
                 ids: &mut self.ids,
                 schedule: &mut pending,
             };
@@ -428,7 +451,7 @@ impl Sim {
     /// Puts a world together from its parts, paused at 1x and never saved.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn assemble(
-        meta: WorldMeta,
+        mut meta: WorldMeta,
         map: WorldMap,
         mut scheduler: Scheduler<SimEvent>,
         ids: IdAllocator,
@@ -447,6 +470,15 @@ impl Sim {
         let stats = map.stats();
         let nav = Arc::new(NavGrid::new(&map, rules.people.nav));
         people.rebuild_indexes();
+        // The world's regime by the id it keeps; a world from before regimes, or whose regime the
+        // content no longer has, lives under the content's default (ADR-0007 §5).
+        let regime = rules
+            .catalog
+            .regime(&meta.regime_id)
+            .or_else(|| rules.catalog.default_regime())
+            .cloned()
+            .unwrap_or_else(RegimeDef::legacy);
+        meta.regime_id.clone_from(&regime.id);
         Sim {
             meta,
             map: Arc::new(map),
@@ -459,6 +491,7 @@ impl Sim {
             content,
             content_changed: false,
             rules,
+            regime,
             nav,
             land,
             people,
@@ -472,6 +505,11 @@ impl Sim {
     /// Identity and provenance.
     pub fn meta(&self) -> &WorldMeta {
         &self.meta
+    }
+
+    /// The property regime the world lives under (ADR-0007).
+    pub fn regime(&self) -> &RegimeDef {
+        &self.regime
     }
 
     /// Terrain and water. Immutable; clone the `Arc` to read it from another thread.
@@ -546,6 +584,49 @@ impl Sim {
         &mut self.people
     }
 
+    /// Land, to set up a situation in a test.
+    #[doc(hidden)]
+    pub fn land_mut_for_tests(&mut self) -> &mut Land {
+        &mut self.land
+    }
+
+    /// Someone dies now (for a test that needs a death on a given day; see
+    /// [`Population::die_for_tests`]).
+    #[doc(hidden)]
+    pub fn die_for_tests(&mut self, person: civ_core::PermanentId) {
+        let now = self.now();
+        let mut pending = Vec::new();
+        {
+            let mut ctx = Ctx {
+                now,
+                seed: self.meta.seed,
+                map: &self.map,
+                nav: &self.nav,
+                land: &mut self.land,
+                land_params: &self.rules.land,
+                params: &self.rules.people,
+                catalog: &self.rules.catalog,
+                regime: &self.regime,
+                ids: &mut self.ids,
+                schedule: &mut pending,
+            };
+            self.people.die_for_tests(&mut ctx, person);
+        }
+        for (at, event) in pending {
+            let _ = self
+                .scheduler
+                .schedule(at, PHASE_AGENT, SimEvent::Agent(event));
+        }
+        self.dirty = true;
+    }
+
+    /// The world's regime, to set up a situation in a test (a review sooner, say). A world's
+    /// regime is otherwise fixed when it is created.
+    #[doc(hidden)]
+    pub fn regime_mut_for_tests(&mut self) -> &mut RegimeDef {
+        &mut self.regime
+    }
+
     /// Why the founding band of a new world could not settle, when it could not.
     pub fn founding_problem(&self) -> Option<&str> {
         self.founding_problem.as_deref()
@@ -616,6 +697,7 @@ impl Sim {
             scheduler,
             ids,
             rules,
+            regime,
             nav,
             land,
             people,
@@ -638,6 +720,7 @@ impl Sim {
                             land_params: &rules.land,
                             params: &rules.people,
                             catalog: &rules.catalog,
+                            regime,
                             ids,
                             schedule: &mut pending,
                         };
@@ -670,6 +753,7 @@ impl Sim {
                         land_params: &rules.land,
                         params: &rules.people,
                         catalog: &rules.catalog,
+                        regime,
                         ids,
                         schedule: &mut pending,
                     };

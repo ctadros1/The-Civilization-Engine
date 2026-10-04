@@ -268,6 +268,124 @@ impl SkillDef {
     }
 }
 
+/// Who holds ground once it is broken (ADR-0007 §2; research 08-09 §1.2: claims form by first
+/// cultivation, or by membership and allocation).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum LandHolder {
+    /// The household that broke it.
+    Breaker,
+    /// The settlement it lies by.
+    Settlement,
+}
+
+/// How the use of broken ground is given (ADR-0007 §2).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum LandUse {
+    /// Its holder works it, or lets it where leasing is allowed.
+    Holder,
+    /// Its settlement gives each household fields to work by how many it feeds, at a yearly
+    /// review and when households form or end (research 08-09 §5.2).
+    Need,
+}
+
+/// What becomes of a household's holdings when it is no more (ADR-0007 §2; research 08-09 §1.7).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Succession {
+    /// All of it goes to one heir: the household its people joined, or its nearest kin's.
+    Heir,
+    /// Its fields are shared out among its heirs' households, whole fields as near equal in
+    /// area as they can be.
+    Divided,
+    /// It returns to the settlement.
+    Settlement,
+}
+
+macro_rules! named {
+    ($t:ty, $($v:path => $n:literal),+ $(,)?) => {
+        impl $t {
+            /// Every value, in a fixed order.
+            pub const ALL: &'static [$t] = &[$($v),+];
+
+            /// The authored name.
+            pub fn name(self) -> &'static str {
+                match self {
+                    $($v => $n),+
+                }
+            }
+
+            /// The value with an authored name.
+            pub fn from_name(name: &str) -> Option<$t> {
+                Self::ALL.iter().copied().find(|v| v.name() == name)
+            }
+        }
+    };
+}
+
+named!(LandHolder, LandHolder::Breaker => "breaker", LandHolder::Settlement => "settlement");
+named!(LandUse, LandUse::Holder => "holder", LandUse::Need => "need");
+named!(
+    Succession,
+    Succession::Heir => "heir",
+    Succession::Divided => "divided",
+    Succession::Settlement => "settlement",
+);
+
+/// What a lease is, where a regime allows one (ADR-0007 §3).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LeaseRules {
+    /// The share of the grain threshed from a let field that goes to its holder.
+    pub holder_share: f64,
+    /// Crop years a lease runs before it is renewed or ends.
+    pub term_years: u32,
+}
+
+/// A property regime: who holds, works, lets and inherits land (ADR-0007 §2). Chosen for a
+/// world when it is created; its name is content, not a state the engine switches between.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RegimeDef {
+    /// Content id, for example `core:regime/household`.
+    pub id: String,
+    /// Display name.
+    pub name: String,
+    /// What it means for the people who live under it, in a sentence or two.
+    pub description: String,
+    /// The regime a new world gets unless another is chosen.
+    pub is_default: bool,
+    /// Who holds ground once it is broken.
+    pub holder: LandHolder,
+    /// How its use is given.
+    pub land_use: LandUse,
+    /// Under [`LandUse::Need`], the day of the year (0 = 1 January) of the yearly review.
+    pub review_day: u16,
+    /// What becomes of a household's holdings when it is no more.
+    pub succession: Succession,
+    /// A new couple's household takes a share of its families' fields, as of their stores.
+    pub union_share: bool,
+    /// Whether use may be let, and on what terms.
+    pub lease: Option<LeaseRules>,
+}
+
+impl RegimeDef {
+    /// The rules every world lived by before regimes (M1 to M3a slice J): the household that
+    /// breaks ground holds and works it, and when a household is no more everything goes to one
+    /// heir. For content with no regimes, and worlds whose regime the content no longer has.
+    pub fn legacy() -> RegimeDef {
+        RegimeDef {
+            id: String::new(),
+            name: "Household fields".to_owned(),
+            description: "A household holds the ground it breaks and leaves it to one heir."
+                .to_owned(),
+            is_default: true,
+            holder: LandHolder::Breaker,
+            land_use: LandUse::Holder,
+            review_day: 45,
+            succession: Succession::Heir,
+            union_share: false,
+            lease: None,
+        }
+    }
+}
+
 /// A recipe: what goes in, what comes out, the work and the tools (ADR-0006 §2).
 #[derive(Clone, Debug, PartialEq)]
 pub struct RecipeDef {
@@ -308,6 +426,23 @@ pub struct Catalog {
     pub recipes: Vec<RecipeDef>,
     /// Skills, in content id order. Their index is how people's skills refer to them.
     pub skills: Vec<SkillDef>,
+    /// Property regimes, in content id order (ADR-0007). A world keeps its regime's id.
+    pub regimes: Vec<RegimeDef>,
+}
+
+impl Catalog {
+    /// The regime with content id `id`.
+    pub fn regime(&self, id: &str) -> Option<&RegimeDef> {
+        self.regimes.iter().find(|r| r.id == id)
+    }
+
+    /// The default regime (content validation guarantees exactly one), if there are any.
+    pub fn default_regime(&self) -> Option<&RegimeDef> {
+        self.regimes
+            .iter()
+            .find(|r| r.is_default)
+            .or(self.regimes.first())
+    }
 }
 
 /// An authored building program (M1: the hut) with what people decide when they design one.

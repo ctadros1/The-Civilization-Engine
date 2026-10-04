@@ -12,7 +12,7 @@ use civ_core::{GenTable, Handle, IdAllocator, PermanentId, Rng64, SimTime};
 use civ_grammar::{BuildingSpec, Stage, StageNeeds};
 use civ_land::paths::cells_along;
 use civ_land::{
-    Building, CropParams, Field, FieldStage, FieldTask, Land, LandParams, Plot, PlotUse,
+    Building, CropParams, Field, FieldStage, FieldTask, Land, LandParams, Party, Plot, PlotUse,
 };
 use civ_world::nav::{NavGrid, RouteResult, TravelField};
 use civ_world::{WATER_LAKE, WATER_LAND, WATER_RIVER, WorldMap};
@@ -28,7 +28,8 @@ use crate::ledger::{Channel, Leg};
 use crate::make;
 use crate::needs;
 use crate::params::{
-    ActivityDef, Behavior, Catalog, GoodDef, GoodUse, HouseholdParams, PeopleParams, interpolate,
+    ActivityDef, Behavior, Catalog, GoodDef, GoodUse, HouseholdParams, LandHolder, PeopleParams,
+    RegimeDef, interpolate,
 };
 use crate::person::{
     Activity, Flow, Flows, Household, KnownPatch, Load, Person, Step, Target, Trip, food_kcal,
@@ -36,6 +37,7 @@ use crate::person::{
 };
 
 mod firm;
+mod land;
 mod life;
 mod market;
 mod transfer;
@@ -99,6 +101,8 @@ pub struct Ctx<'a> {
     pub params: &'a PeopleParams,
     /// Activities.
     pub catalog: &'a Catalog,
+    /// The world's property regime (ADR-0007).
+    pub regime: &'a RegimeDef,
     /// Permanent ids.
     pub ids: &'a mut IdAllocator,
     /// Events to schedule.
@@ -1681,9 +1685,15 @@ impl Population {
             match site {
                 Some(site) => {
                     let id = ctx.ids.allocate();
+                    // Who holds new ground is the regime's rule (ADR-0007 §2).
+                    let holder = match (ctx.regime.holder, hh.settlement) {
+                        (LandHolder::Settlement, Some(s)) => Party::Settlement(s),
+                        _ => Party::Household(hh_id),
+                    };
                     ctx.land.fields.push(Field {
                         id,
                         household: hh_id,
+                        holder,
                         rect: site.rect,
                         crop: params.farm.crop as u16,
                         stage: FieldStage::Fallow,
@@ -2739,6 +2749,14 @@ impl Population {
             s.food_short = kind == ChronicleKind::FoodRanShort;
             let (name, place) = (s.name.clone(), s.hearth_m);
             self.chronicle_push(now, kind, Vec::new(), Some(id), Some(place), days, name);
+        }
+        // The yearly land review (ADR-0007 §2): fields given out by need, or ground nobody holds
+        // any more taken up.
+        if day.rem_euclid(365) == i64::from(ctx.regime.review_day) {
+            let ids: Vec<PermanentId> = ctx.land.settlements.iter().map(|s| s.id).collect();
+            for s in ids {
+                self.review_land(ctx, s);
+            }
         }
         // Households whose day it is review what they offer and on what terms.
         self.review_offers(ctx, day);

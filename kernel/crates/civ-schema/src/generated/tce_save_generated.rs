@@ -2715,6 +2715,7 @@ impl<'a> Meta<'a> {
   pub const VT_PRECIPITATION_MM_PER_YR: ::flatbuffers::VOffsetT = 24;
   pub const VT_EVAPOTRANSPIRATION_MM_PER_YR: ::flatbuffers::VOffsetT = 26;
   pub const VT_LAKE_EVAPORATION_MM_PER_YR: ::flatbuffers::VOffsetT = 28;
+  pub const VT_REGIME_ID: ::flatbuffers::VOffsetT = 30;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -2728,6 +2729,7 @@ impl<'a> Meta<'a> {
     let mut builder = MetaBuilder::new(_fbb);
     builder.add_created_unix_ms(args.created_unix_ms);
     builder.add_seed(args.seed);
+    if let Some(x) = args.regime_id { builder.add_regime_id(x); }
     builder.add_lake_evaporation_mm_per_yr(args.lake_evaporation_mm_per_yr);
     builder.add_evapotranspiration_mm_per_yr(args.evapotranspiration_mm_per_yr);
     builder.add_precipitation_mm_per_yr(args.precipitation_mm_per_yr);
@@ -2834,6 +2836,13 @@ impl<'a> Meta<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(Meta::VT_LAKE_EVAPORATION_MM_PER_YR, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn regime_id(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(Meta::VT_REGIME_ID, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Meta<'_> {
@@ -2855,6 +2864,7 @@ impl ::flatbuffers::Verifiable for Meta<'_> {
      .visit_field::<f32>("precipitation_mm_per_yr", Self::VT_PRECIPITATION_MM_PER_YR, false)?
      .visit_field::<f32>("evapotranspiration_mm_per_yr", Self::VT_EVAPOTRANSPIRATION_MM_PER_YR, false)?
      .visit_field::<f32>("lake_evaporation_mm_per_yr", Self::VT_LAKE_EVAPORATION_MM_PER_YR, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("regime_id", Self::VT_REGIME_ID, false)?
      .finish();
     Ok(())
   }
@@ -2873,6 +2883,7 @@ pub struct MetaArgs<'a> {
     pub precipitation_mm_per_yr: f32,
     pub evapotranspiration_mm_per_yr: f32,
     pub lake_evaporation_mm_per_yr: f32,
+    pub regime_id: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for MetaArgs<'a> {
   #[inline]
@@ -2891,6 +2902,7 @@ impl<'a> Default for MetaArgs<'a> {
       precipitation_mm_per_yr: 0.0,
       evapotranspiration_mm_per_yr: 0.0,
       lake_evaporation_mm_per_yr: 0.0,
+      regime_id: None,
     }
   }
 }
@@ -2953,6 +2965,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MetaBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(Meta::VT_LAKE_EVAPORATION_MM_PER_YR, lake_evaporation_mm_per_yr, 0.0);
   }
   #[inline]
+  pub fn add_regime_id(&mut self, regime_id: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Meta::VT_REGIME_ID, regime_id);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> MetaBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     MetaBuilder {
@@ -2983,6 +2999,7 @@ impl ::core::fmt::Debug for Meta<'_> {
       ds.field("precipitation_mm_per_yr", &self.precipitation_mm_per_yr());
       ds.field("evapotranspiration_mm_per_yr", &self.evapotranspiration_mm_per_yr());
       ds.field("lake_evaporation_mm_per_yr", &self.lake_evaporation_mm_per_yr());
+      ds.field("regime_id", &self.regime_id());
       ds.finish()
   }
 }
@@ -8348,6 +8365,8 @@ impl<'a> Field<'a> {
   pub const VT_HARVESTS: ::flatbuffers::VOffsetT = 32;
   pub const VT_CLEAR_H_PER_HA: ::flatbuffers::VOffsetT = 34;
   pub const VT_BROKEN: ::flatbuffers::VOffsetT = 36;
+  pub const VT_HOLDER: ::flatbuffers::VOffsetT = 38;
+  pub const VT_HOLDER_SETTLEMENT: ::flatbuffers::VOffsetT = 40;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -8359,6 +8378,7 @@ impl<'a> Field<'a> {
     args: &'args FieldArgs
   ) -> ::flatbuffers::WIPOffset<Field<'bldr>> {
     let mut builder = FieldBuilder::new(_fbb);
+    builder.add_holder(args.holder);
     builder.add_sown_day(args.sown_day);
     builder.add_stage_since(args.stage_since);
     builder.add_household(args.household);
@@ -8374,6 +8394,7 @@ impl<'a> Field<'a> {
     builder.add_x_cm(args.x_cm);
     builder.add_harvests(args.harvests);
     builder.add_crop(args.crop);
+    builder.add_holder_settlement(args.holder_settlement);
     builder.add_broken(args.broken);
     builder.add_stage(args.stage);
     builder.finish()
@@ -8499,6 +8520,20 @@ impl<'a> Field<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(Field::VT_BROKEN, Some(false)).unwrap()}
   }
+  #[inline]
+  pub fn holder(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Field::VT_HOLDER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn holder_settlement(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(Field::VT_HOLDER_SETTLEMENT, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Field<'_> {
@@ -8524,6 +8559,8 @@ impl ::flatbuffers::Verifiable for Field<'_> {
      .visit_field::<u16>("harvests", Self::VT_HARVESTS, false)?
      .visit_field::<f32>("clear_h_per_ha", Self::VT_CLEAR_H_PER_HA, false)?
      .visit_field::<bool>("broken", Self::VT_BROKEN, false)?
+     .visit_field::<u64>("holder", Self::VT_HOLDER, false)?
+     .visit_field::<bool>("holder_settlement", Self::VT_HOLDER_SETTLEMENT, false)?
      .finish();
     Ok(())
   }
@@ -8546,6 +8583,8 @@ pub struct FieldArgs {
     pub harvests: u16,
     pub clear_h_per_ha: f32,
     pub broken: bool,
+    pub holder: u64,
+    pub holder_settlement: bool,
 }
 impl<'a> Default for FieldArgs {
   #[inline]
@@ -8568,6 +8607,8 @@ impl<'a> Default for FieldArgs {
       harvests: 0,
       clear_h_per_ha: 0.0,
       broken: false,
+      holder: 0,
+      holder_settlement: false,
     }
   }
 }
@@ -8646,6 +8687,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FieldBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<bool>(Field::VT_BROKEN, broken, false);
   }
   #[inline]
+  pub fn add_holder(&mut self, holder: u64) {
+    self.fbb_.push_slot::<u64>(Field::VT_HOLDER, holder, 0);
+  }
+  #[inline]
+  pub fn add_holder_settlement(&mut self, holder_settlement: bool) {
+    self.fbb_.push_slot::<bool>(Field::VT_HOLDER_SETTLEMENT, holder_settlement, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FieldBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FieldBuilder {
@@ -8680,6 +8729,8 @@ impl ::core::fmt::Debug for Field<'_> {
       ds.field("harvests", &self.harvests());
       ds.field("clear_h_per_ha", &self.clear_h_per_ha());
       ds.field("broken", &self.broken());
+      ds.field("holder", &self.holder());
+      ds.field("holder_settlement", &self.holder_settlement());
       ds.finish()
   }
 }

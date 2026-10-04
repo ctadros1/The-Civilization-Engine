@@ -1166,6 +1166,7 @@ mod tests {
                 preset_id: PRESET.to_owned(),
                 size_cells: 256,
                 band_size: 0,
+                regime_id: String::new(),
             }));
             assert!(matches!(reply, Reply::Response(_)), "{reply:?}");
             self.finish_task();
@@ -1356,6 +1357,7 @@ mod tests {
             preset_id: PRESET.to_owned(),
             size_cells: 300,
             band_size: 0,
+            regime_id: String::new(),
         };
         assert_eq!(
             error_code(&h.ask(Request::NewWorld(new_world.clone()))),
@@ -1396,6 +1398,7 @@ mod tests {
                 preset_id: PRESET.to_owned(),
                 size_cells: 2048,
                 band_size: 0,
+                regime_id: String::new(),
             })),
             Reply::Response(_)
         ));

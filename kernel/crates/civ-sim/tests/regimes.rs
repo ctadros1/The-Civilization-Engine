@@ -1,0 +1,311 @@
+//! Property regimes (M3a slice K, ADR-0007): a world lives under the regime it was made under.
+//! Under village tenure the settlement holds the ground its households break and gives it out by
+//! need at its yearly review; under household tenure a household holds what it breaks, its
+//! fields are divided among its heirs when it is no more, and ground nobody holds any more is
+//! taken up by households short of land. Goods stay accounted for throughout.
+
+use std::path::Path;
+use std::sync::OnceLock;
+use std::sync::atomic::AtomicBool;
+
+use civ_agents::{Population, population};
+use civ_content::ContentRegistry;
+use civ_core::PermanentId;
+use civ_land::{FieldStage, Party};
+use civ_sim::{NewWorld, Sim, SimError, persist};
+use commons_persist::{SaveDir, SaveKind};
+
+fn content() -> &'static ContentRegistry {
+    static CONTENT: OnceLock<ContentRegistry> = OnceLock::new();
+    CONTENT.get_or_init(|| {
+        let root = civ_content::find_content_root(Path::new(env!("CARGO_MANIFEST_DIR")))
+            .expect("content/ is above the crate");
+        civ_content::load(&root)
+            .registry
+            .expect("the core content loads")
+    })
+}
+
+fn create(seed: u64, regime: &str) -> Result<Sim, SimError> {
+    Sim::create(
+        &NewWorld {
+            name: "Tenure".to_owned(),
+            seed,
+            preset_id: "core:worldgen/river_valley".to_owned(),
+            size_cells: 512,
+            band_size: 0,
+            regime_id: regime.to_owned(),
+        },
+        content(),
+        &mut |_| {},
+        &AtomicBool::new(false),
+    )
+}
+
+/// A world of seed 3 under `regime` (empty: the default), lived until its households have
+/// marked out at least `fields` fields.
+fn with_fields(regime: &str, fields: usize) -> Sim {
+    let mut sim = create(3, regime).expect("generates");
+    for _ in 0..40 {
+        if sim.land().fields.len() >= fields {
+            break;
+        }
+        sim.advance_minutes(24 * 60).expect("advances");
+    }
+    assert!(
+        sim.land().fields.len() >= fields,
+        "only {} fields after 40 days",
+        sim.land().fields.len()
+    );
+    sim
+}
+
+/// Living households with their member counts, by id.
+fn households(sim: &Sim) -> Vec<(PermanentId, usize)> {
+    let mut out: Vec<(PermanentId, usize)> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| (h.id, h.members.len()))
+        .filter(|&(_, n)| n > 0)
+        .collect();
+    out.sort_unstable();
+    out
+}
+
+/// The area a household of `members` plans to crop, hectares.
+fn need_ha(sim: &Sim, members: usize) -> f64 {
+    let rules = sim.rules();
+    let crop = &rules.catalog.crops[rules.people.farm.crop];
+    let kcal = rules.catalog.goods[crop.good].kcal_per_kg;
+    civ_agents::farm::need_area_ha(members, &rules.people, crop, kcal)
+}
+
+fn worked_ha(sim: &Sim, household: PermanentId) -> f64 {
+    sim.land()
+        .fields
+        .iter()
+        .filter(|f| f.household == household)
+        .map(|f| f.rect.area_ha())
+        .sum()
+}
+
+/// Puts every field between crops (fallow, nothing done toward its next crop or waiting to be
+/// threshed), as they are at a winter review.
+fn between_crops(sim: &mut Sim) {
+    for f in &mut sim.land_mut_for_tests().fields {
+        f.stage = FieldStage::Fallow;
+        f.work_h = 0.0;
+        f.tended_h = 0.0;
+        f.sheaves_kg = 0.0;
+    }
+}
+
+fn held(pop: &Population) -> (Vec<f64>, civ_agents::person::Flows) {
+    (pop.goods_held(), pop.flows())
+}
+
+#[test]
+fn a_world_keeps_the_regime_it_was_made_under() {
+    let sim = create(3, "").expect("generates");
+    assert_eq!(sim.regime().id, "core:regime/household", "the default");
+    assert_eq!(sim.meta().regime_id, "core:regime/household");
+    let sim = create(3, "core:regime/village").expect("generates");
+    assert_eq!(sim.regime().id, "core:regime/village");
+    let mut sim = sim;
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("save dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "tenure").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(
+        loaded.regime().id,
+        "core:regime/village",
+        "kept in its saves"
+    );
+    assert!(matches!(
+        create(3, "core:regime/feudal"),
+        Err(SimError::UnknownRegime(_))
+    ));
+}
+
+#[test]
+fn village_fields_are_held_by_the_settlement_and_given_out_by_need() {
+    let mut sim = with_fields("core:regime/village", 8);
+    let settlement = sim.land().settlements[0].id;
+    assert!(
+        sim.land()
+            .fields
+            .iter()
+            .all(|f| f.holder == Party::Settlement(settlement)),
+        "the village holds the ground its households break"
+    );
+    // Before the review, the smallest household works every field, all of them between crops.
+    let all = households(&sim);
+    let (rich, members) = *all
+        .iter()
+        .min_by_key(|&&(id, n)| (n, id))
+        .expect("households");
+    let need = need_ha(&sim, members);
+    let day = sim.now().day_index();
+    sim.regime_mut_for_tests().review_day = ((day + 1).rem_euclid(365)) as u16;
+    // Just before midnight, when nobody is in the fields.
+    let to_midnight = 24 * 60 - sim.now().minute_of_day();
+    sim.advance_minutes(to_midnight - 1).expect("advances");
+    between_crops(&mut sim);
+    for f in &mut sim.land_mut_for_tests().fields {
+        f.household = rich;
+    }
+    let total: f64 = sim.land().fields.iter().map(|f| f.rect.area_ha()).sum();
+    assert!(total > need + 0.25, "{total} ha against a need of {need}");
+    let start = held(sim.people());
+    sim.advance_minutes(2).expect("the review comes");
+    // The village gave out what the household did not need, and left it what it does.
+    let kept = worked_ha(&sim, rich);
+    assert!(kept >= need - 1e-9, "kept {kept} ha of a need of {need}");
+    assert!(
+        kept < total - 1e-9,
+        "nothing was given out: {kept} of {total} ha"
+    );
+    let others: Vec<PermanentId> = all
+        .iter()
+        .map(|&(id, _)| id)
+        .filter(|&id| id != rich && worked_ha(&sim, id) > 0.0)
+        .collect();
+    assert!(!others.is_empty(), "no household short of land got any");
+    assert!(
+        sim.land()
+            .fields
+            .iter()
+            .all(|f| f.holder == Party::Settlement(settlement)),
+        "giving out its use does not change who holds it"
+    );
+    // Changing hands moves no goods.
+    let end = held(sim.people());
+    let goods = sim.rules().catalog.goods.len();
+    let gaps = population::unaccounted(goods, (&start.0, &start.1), (&end.0, &end.1));
+    assert!(gaps.is_empty(), "unaccounted for: {gaps:?}");
+}
+
+#[test]
+fn household_fields_are_divided_among_heirs_when_a_household_is_no_more() {
+    let mut sim = with_fields("", 6);
+    assert!(
+        sim.land()
+            .fields
+            .iter()
+            .all(|f| f.holder == Party::Household(f.household)),
+        "a household holds the ground it breaks"
+    );
+    let all = households(&sim);
+    assert!(all.len() >= 3, "{all:?}");
+    let (a, b, c) = (all[0].0, all[1].0, all[2].0);
+    // Household `a` holds and works four fields; `b` and `c` are its last member's children.
+    let fields: Vec<PermanentId> = sim.land().fields.iter().take(4).map(|f| f.id).collect();
+    for f in &mut sim.land_mut_for_tests().fields {
+        if fields.contains(&f.id) {
+            f.household = a;
+            f.holder = Party::Household(a);
+        }
+    }
+    let members_of = |sim: &Sim, h: PermanentId| -> Vec<PermanentId> {
+        sim.people()
+            .household(h)
+            .expect("household")
+            .members
+            .clone()
+    };
+    // The youngest die first, so the household is never left to children alone (who would be
+    // taken in by kin, its land with them) and empties with its eldest.
+    let mut gone = members_of(&sim, a);
+    let now = sim.now();
+    gone.sort_by(|x, y| {
+        let age = |id: &PermanentId| sim.people().person(*id).expect("alive").age_years(now);
+        age(x).total_cmp(&age(y))
+    });
+    let last = *gone.last().expect("a member");
+    let child_b = members_of(&sim, b)[0];
+    let child_c = members_of(&sim, c)[0];
+    {
+        let pop = sim.people_mut_for_tests();
+        for child in [child_b, child_c] {
+            let r = pop.records.get_mut(&child).expect("a record");
+            r.mother = Some(last);
+        }
+    }
+    let start = held(sim.people());
+    for &m in &gone {
+        sim.die_for_tests(m);
+    }
+    assert!(
+        sim.people().household(a).is_none(),
+        "the household is no more"
+    );
+    let land = &sim.land().fields;
+    let mut to_b = 0;
+    let mut to_c = 0;
+    for f in land.iter().filter(|f| fields.contains(&f.id)) {
+        match f.holder {
+            Party::Household(h) if h == b => to_b += 1,
+            Party::Household(h) if h == c => to_c += 1,
+            other => panic!("field {} went to {other:?}", f.id),
+        }
+        assert_eq!(Party::Household(f.household), f.holder, "the heir works it");
+    }
+    assert_eq!((to_b, to_c), (2, 2), "divided evenly between the two heirs");
+    // Its goods went to one heir through the ledger; nothing was lost.
+    let end = held(sim.people());
+    let goods = sim.rules().catalog.goods.len();
+    let gaps = population::unaccounted(goods, (&start.0, &start.1), (&end.0, &end.1));
+    assert!(gaps.is_empty(), "unaccounted for: {gaps:?}");
+}
+
+#[test]
+fn ground_nobody_holds_is_taken_up_by_households_short_of_land() {
+    let mut sim = with_fields("", 4);
+    let all = households(&sim);
+    let a = all[0].0;
+    let fields: Vec<PermanentId> = sim.land().fields.iter().take(2).map(|f| f.id).collect();
+    between_crops(&mut sim);
+    for f in &mut sim.land_mut_for_tests().fields {
+        if fields.contains(&f.id) {
+            f.household = a;
+            f.holder = Party::Household(a);
+        }
+    }
+    // Its people die with no kin outside it: its ground is held by no one.
+    {
+        let pop = sim.people_mut_for_tests();
+        let members = pop.household(a).expect("household").members.clone();
+        for r in pop.records.values_mut() {
+            if !members.contains(&r.id) {
+                r.mother = r.mother.filter(|m| !members.contains(m));
+                r.father = r.father.filter(|m| !members.contains(m));
+            }
+        }
+        for m in &members {
+            let r = pop.records.get_mut(m).expect("a record");
+            r.mother = None;
+            r.father = None;
+        }
+    }
+    for m in sim
+        .people()
+        .household(a)
+        .expect("household")
+        .members
+        .clone()
+    {
+        sim.die_for_tests(m);
+    }
+    for f in sim.land().fields.iter().filter(|f| fields.contains(&f.id)) {
+        let Party::Household(taker) = f.holder else {
+            panic!("field {} is held by {:?}", f.id, f.holder);
+        };
+        assert_ne!(taker, a);
+        assert!(
+            sim.people().household(taker).is_some(),
+            "taken up by the living"
+        );
+        assert_eq!(f.household, taker, "and worked by its new holder");
+    }
+}

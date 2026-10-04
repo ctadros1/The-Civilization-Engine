@@ -68,8 +68,8 @@ use civ_core::scheduler::PendingEvent;
 use civ_core::{PermanentId, SimTime};
 use civ_grammar::{BuildingSpec, Footprint};
 use civ_land::{
-    Building, ClimateYear, Field, FieldStage, Land, Patches, PathParams, Plot, PlotUse, RectCm,
-    Settlement, Wear, WearTile,
+    Building, ClimateYear, Field, FieldStage, Land, Party, Patches, PathParams, Plot, PlotUse,
+    RectCm, Settlement, Wear, WearTile,
 };
 use civ_schema::SAVE_SCHEMA_VERSION;
 use civ_schema::flatbuffers::{self, FlatBufferBuilder, WIPOffset};
@@ -79,7 +79,7 @@ use commons_persist::{SectionData, SectionTag, SnapshotReader};
 
 use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
-    SCHEMA_V9, SCHEMA_V10, finish, section, single_chunk, unreadable,
+    SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -194,6 +194,8 @@ enum Schema {
     V10,
     /// Firms (ADR-0006 §5).
     V11,
+    /// Property regimes: who holds each field (ADR-0007).
+    V12,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -218,7 +220,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V8 => Schema::V8,
         SCHEMA_V9 => Schema::V9,
         SCHEMA_V10 => Schema::V10,
-        SAVE_SCHEMA_VERSION => Schema::V11,
+        SCHEMA_V11 => Schema::V11,
+        SAVE_SCHEMA_VERSION => Schema::V12,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -995,7 +998,8 @@ fn carried(
         | Schema::V8
         | Schema::V9
         | Schema::V10
-        | Schema::V11 => {
+        | Schema::V11
+        | Schema::V12 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1111,7 +1115,8 @@ fn decode_households(
             | Schema::V8
             | Schema::V9
             | Schema::V10
-            | Schema::V11 => {
+            | Schema::V11
+            | Schema::V12 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -1639,6 +1644,10 @@ fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
                     harvests: f.harvests,
                     clear_h_per_ha: f.clear_h_per_ha,
                     broken: f.broken,
+                    holder: match f.holder {
+                        Party::Household(id) | Party::Settlement(id) => id.get(),
+                    },
+                    holder_settlement: matches!(f.holder, Party::Settlement(_)),
                 },
             )
         })
@@ -1676,9 +1685,17 @@ fn decode_fields(bytes: &[u8], rules: &Rules) -> Result<Vec<Field>, LoadError> {
                 )));
             }
         };
+        let household = required(f.household(), "a field's household")?;
+        // Saves before schema 12 have no holder: the household that works a field held it.
+        let holder = match (PermanentId::from_raw(f.holder()), f.holder_settlement()) {
+            (Some(id), true) => Party::Settlement(id),
+            (Some(id), false) => Party::Household(id),
+            (None, _) => Party::Household(household),
+        };
         out.push(Field {
             id,
-            household: required(f.household(), "a field's household")?,
+            household,
+            holder,
             rect: RectCm {
                 x: f.x_cm(),
                 y: f.y_cm(),

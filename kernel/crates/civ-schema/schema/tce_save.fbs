@@ -28,6 +28,9 @@ table Meta {
   precipitation_mm_per_yr: float (id: 10);
   evapotranspiration_mm_per_yr: float (id: 11);
   lake_evaporation_mm_per_yr: float (id: 12);
+  // Schema 12 (M3a slice K, ADR-0007): the content id of the world's property regime (absent in
+  // older saves, which load under the content's default regime).
+  regime_id: string (id: 13);
 }
 
 // Section "clock": simulation time and the scheduler's state.
@@ -454,6 +457,10 @@ table Field {
   clear_h_per_ha: float (id: 15);
   // The ground has been broken for a first crop.
   broken: bool (id: 16);
+  // Schema 12 (M3a slice K, ADR-0007): who holds it, a household or (holder_settlement) a
+  // settlement. Absent in older saves: the household that works it holds it.
+  holder: ulong (id: 17);
+  holder_settlement: bool (id: 18);
 }
 
 table Fields {

@@ -63,7 +63,7 @@ pub const WIRE_SCHEMA: SchemaId = SchemaId::new(*b"TCE\0", WIRE_SCHEMA_MAJOR, WI
 pub const SAVE_ENGINE_TAG: [u8; 8] = *b"TCE\0\0\0\0\0";
 /// World-state schema version written into save headers. Bump it, and add a migration, whenever a
 /// section's meaning changes.
-pub const SAVE_SCHEMA_VERSION: u32 = 11;
+pub const SAVE_SCHEMA_VERSION: u32 = 12;
 /// File extension of save generations.
 pub const SAVE_EXTENSION: &str = "tcesave";
 

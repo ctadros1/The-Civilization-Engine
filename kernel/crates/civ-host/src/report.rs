@@ -45,6 +45,7 @@ pub fn run(
             preset_id: preset.clone(),
             size_cells: options.size,
             band_size: options.band,
+            regime_id: String::new(),
         },
         content,
         &mut |_| {},

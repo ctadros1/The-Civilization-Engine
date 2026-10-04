@@ -177,13 +177,43 @@ impl RectCm {
     }
 }
 
+/// Who holds a claim to land (ADR-0007 §1): a household, or a settlement for its people.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Party {
+    /// A household.
+    Household(PermanentId),
+    /// A settlement.
+    Settlement(PermanentId),
+}
+
+impl Party {
+    /// The household, when the party is one.
+    pub fn household(self) -> Option<PermanentId> {
+        match self {
+            Party::Household(id) => Some(id),
+            Party::Settlement(_) => None,
+        }
+    }
+
+    /// The settlement, when the party is one.
+    pub fn settlement(self) -> Option<PermanentId> {
+        match self {
+            Party::Household(_) => None,
+            Party::Settlement(id) => Some(id),
+        }
+    }
+}
+
 /// Ground a household works for a crop.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Field {
     /// Permanent id.
     pub id: PermanentId,
-    /// The household that works it.
+    /// The household that works it and keeps its crop: its user.
     pub household: PermanentId,
+    /// Who holds it (ADR-0007): the household that broke it or its settlement, by the world's
+    /// regime. Holding it changes nothing about how it yields.
+    pub holder: Party,
     /// Where it is.
     pub rect: RectCm,
     /// The crop, by index in the content's crops.
@@ -465,6 +495,7 @@ pub(crate) mod tests {
         Field {
             id: PermanentId::from_raw(7).expect("non-zero"),
             household: PermanentId::from_raw(3).expect("non-zero"),
+            holder: Party::Household(PermanentId::from_raw(3).expect("non-zero")),
             // 50 m x 20 m = 0.1 ha.
             rect: RectCm {
                 x: 0,

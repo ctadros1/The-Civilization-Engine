@@ -39,10 +39,11 @@ pub fn content_validate(root: &Path, json: bool) -> ExitCode {
         }
         match &report.registry {
             Some(registry) => println!(
-                "content OK: {} pack(s), {} world preset(s), people `{}`, land `{}`, {} \
-                 activities, {} goods, fingerprint {}",
+                "content OK: {} pack(s), {} world preset(s), {} regime(s), people `{}`, land \
+                 `{}`, {} activities, {} goods, fingerprint {}",
                 registry.packs.len(),
                 registry.presets.len(),
+                registry.catalog.regimes.len(),
                 registry.people.id,
                 registry.land.id,
                 registry.catalog.activities.len(),
@@ -93,6 +94,7 @@ pub fn new_world(
             preset_id,
             size_cells: options.size,
             band_size: 0,
+            regime_id: String::new(),
         },
         content,
         &mut |p| {

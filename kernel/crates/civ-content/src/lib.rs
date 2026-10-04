@@ -12,7 +12,8 @@
 //!   record, so reformatting a file does not mark every save as "content changed".
 //!
 //! Kinds so far: world-generation presets (M0); the people profile, the land profile, name lists,
-//! activities, goods, crops and building programs (M1). Later milestones add technologies, offices and the rest of the
+//! activities, goods, crops and building programs (M1); recipes and skills (M3a slice H) and
+//! property regimes (slice K). Later milestones add technologies, offices and the rest of the
 //! plan's primitives, each as a new `kind`.
 
 #![forbid(unsafe_code)]
@@ -35,13 +36,14 @@ mod land;
 mod names;
 mod people;
 mod recipe;
+mod regime;
 mod skill;
 mod worldgen;
 
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 7;
+pub const KERNEL_CONTENT_API: u32 = 8;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -394,6 +396,7 @@ struct Parsed {
     buildings: Vec<Def<building::BuildingFile>>,
     recipes: Vec<Def<recipe::RecipeFile>>,
     skills: Vec<Def<skill::SkillFile>>,
+    regimes: Vec<Def<regime::RegimeFile>>,
     /// Files declaring `kind = "people"`, parsed or not (so a broken profile is not also
     /// reported as a missing one).
     people_files: usize,
@@ -535,6 +538,15 @@ pub fn load(root: &Path) -> LoadReport {
             format!(
                 "exactly one world-generation preset must set `default = true`; found {defaults}"
             ),
+        );
+    }
+    let defaults = parsed.regimes.iter().filter(|r| r.file.default).count();
+    if defaults != 1 {
+        c.push(
+            "E3003",
+            "",
+            None,
+            format!("exactly one regime must set `default = true`; found {defaults}"),
         );
     }
     let (people, land, catalog) = resolve(&mut c, &parsed);
@@ -683,6 +695,8 @@ fn resolve(
     buildings.sort_by(|a, b| a.id.cmp(&b.id));
     let mut skills: Vec<_> = parsed.skills.iter().map(|d| d.file.def()).collect();
     skills.sort_by(|a, b| a.id.cmp(&b.id));
+    let mut regimes: Vec<_> = parsed.regimes.iter().map(|d| d.file.def()).collect();
+    regimes.sort_by(|a, b| a.id.cmp(&b.id));
     let skill_index = |id: &str| skills.iter().position(|k| k.id == id);
     let mut recipes = Vec::new();
     for d in &parsed.recipes {
@@ -832,6 +846,7 @@ fn resolve(
             buildings,
             recipes,
             skills,
+            regimes,
         },
     )
 }
@@ -850,6 +865,7 @@ fn parsed_tables(parsed: &Parsed) -> Vec<(&str, &toml::Table)> {
     all.extend(tables(&parsed.buildings, |f| &f.id));
     all.extend(tables(&parsed.recipes, |f| &f.id));
     all.extend(tables(&parsed.skills, |f| &f.id));
+    all.extend(tables(&parsed.regimes, |f| &f.id));
     all
 }
 
@@ -919,7 +935,7 @@ fn range_problems(c: &mut Collector, rel: &str, problems: Vec<String>) {
     }
 }
 
-const KINDS: [&str; 10] = [
+const KINDS: [&str; 11] = [
     worldgen::KIND,
     people::KIND,
     land::KIND,
@@ -930,6 +946,7 @@ const KINDS: [&str; 10] = [
     building::KIND,
     recipe::KIND,
     skill::KIND,
+    regime::KIND,
 ];
 
 fn compile_file(
@@ -1071,6 +1088,16 @@ fn compile_file(
             if check_identity(c, pack, rel, &file.id, skill::ID_KIND, seen_ids) {
                 range_problems(c, rel, file.problems());
                 parsed.skills.push(def(rel, pack, file, table));
+            }
+        }
+        regime::KIND => {
+            let Some(file) = parse::<regime::RegimeFile>(c, rel, source) else {
+                return;
+            };
+            debug_assert_eq!(file.kind, regime::KIND, "dispatched on kind");
+            if check_identity(c, pack, rel, &file.id, regime::ID_KIND, seen_ids) {
+                range_problems(c, rel, file.problems());
+                parsed.regimes.push(def(rel, pack, file, table));
             }
         }
         "" => c.push(

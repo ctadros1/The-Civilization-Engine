@@ -78,6 +78,9 @@ pub const SCHEMA_V8: u32 = 8;
 pub const SCHEMA_V9: u32 = 9;
 /// The schema version of M3a slice I saves, with markets and no firms (see [`agents`]).
 pub const SCHEMA_V10: u32 = 10;
+/// The schema version of M3a slice J saves, with firms and no property regime: every field held
+/// by the household that works it (see [`agents`]).
+pub const SCHEMA_V11: u32 = 11;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");
@@ -282,6 +285,7 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
                     .collect()
             })
             .unwrap_or_default(),
+        regime_id: meta.regime_id().unwrap_or_default().to_owned(),
     };
     let climate = Climate {
         precipitation_mm_per_yr: meta.precipitation_mm_per_yr(),
@@ -520,6 +524,7 @@ fn encode_meta(sim: &Sim) -> Vec<u8> {
     let params = fbb.create_vector(&params);
     let world_name = fbb.create_string(&meta.name);
     let preset_id = fbb.create_string(&meta.preset_id);
+    let regime_id = fbb.create_string(&meta.regime_id);
     let root = save::Meta::create(
         &mut fbb,
         &save::MetaArgs {
@@ -536,6 +541,7 @@ fn encode_meta(sim: &Sim) -> Vec<u8> {
             precipitation_mm_per_yr: map.climate.precipitation_mm_per_yr,
             evapotranspiration_mm_per_yr: map.climate.evapotranspiration_mm_per_yr,
             lake_evaporation_mm_per_yr: map.climate.lake_evaporation_mm_per_yr,
+            regime_id: Some(regime_id),
         },
     );
     finish(fbb, root)
@@ -917,6 +923,7 @@ mod tests {
             generator_version: 1,
             created_unix_ms: 0,
             params: Vec::new(),
+            regime_id: String::new(),
         };
         assert_eq!(world_dir_name(&meta), "old-river-valley-abababab");
         let unnamed = WorldMeta {

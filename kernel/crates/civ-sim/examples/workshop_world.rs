@@ -53,6 +53,7 @@ fn make(saves: &Path) -> Result<String, String> {
             preset_id: "core:worldgen/river_valley".to_owned(),
             size_cells: 512,
             band_size: 0,
+            regime_id: String::new(),
         },
         &content,
         &mut |_| {},

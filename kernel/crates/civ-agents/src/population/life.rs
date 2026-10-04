@@ -365,6 +365,15 @@ impl Population {
         }
     }
 
+    /// Someone dies now, and a household left with no one is cared for as at the day's end: for
+    /// tests that need a death on a given day. Deaths in a world come from the life table.
+    #[doc(hidden)]
+    pub fn die_for_tests(&mut self, ctx: &mut Ctx, id: PermanentId) {
+        self.die(ctx, id, Cause::Unspecified);
+        self.care_for_households(ctx);
+        self.emptied.clear();
+    }
+
     /// Someone dies: they leave their household (what they carried stays with it), their partner
     /// is widowed, a mother nursing them can conceive again soon, and the chronicle notes it.
     pub(crate) fn die(&mut self, ctx: &mut Ctx, id: PermanentId, cause: Cause) {
@@ -452,7 +461,8 @@ impl Population {
                 continue;
             }
             let heir = self.kin_household(ctx, last, household, false);
-            self.dissolve(ctx, household, heir);
+            let heirs = self.heir_households(last, household, heir);
+            self.dissolve(ctx, household, heir, &heirs);
         }
         let grown = ctx.params.family.independent_age;
         let mut ids: Vec<PermanentId> = self.households.iter().map(|(_, x)| x.id).collect();
@@ -473,7 +483,7 @@ impl Population {
                 continue;
             };
             let taker = self.household(to).and_then(|x| x.members.first().copied());
-            self.merge_household(ctx, household, to);
+            self.merge_household(ctx, household, to, true);
             let settlement = self.household(to).and_then(|x| x.settlement);
             let place = self.household(to).map(|x| x.home);
             let mut people: Vec<PermanentId> = taker.into_iter().collect();
@@ -582,7 +592,11 @@ impl Population {
             }
             self.flows_gone.absorb(&gone.flows);
         }
-        self.hand_over_land(ctx, household, None);
+        self.hand_over_land(ctx, household, None, false);
+        // Ground it leaves may be taken up, or given out again (ADR-0007 §2).
+        if let Some(s) = settlement {
+            self.review_land(ctx, s);
+        }
         let count = members.len() as f64;
         self.chronicle_push(
             now,
@@ -653,6 +667,67 @@ impl Population {
         None
     }
 
+    /// The households of `from`'s nearest living relatives (at the first step out where any is
+    /// found), other than `exclude`, with `first` (the household its goods go to) first: who
+    /// inherits under a rule that divides (ADR-0007 §2). Relatives in `exclude`'s settlement come
+    /// before those elsewhere: only they are counted when there are any, so land is not divided
+    /// among households too far away to work it.
+    fn heir_households(
+        &self,
+        from: PermanentId,
+        exclude: PermanentId,
+        first: Option<PermanentId>,
+    ) -> Vec<PermanentId> {
+        let Some(first) = first else {
+            return Vec::new();
+        };
+        let settlement = self.household(exclude).and_then(|x| x.settlement);
+        let links = self.family_links();
+        let mut seen = vec![from];
+        let mut layer = vec![from];
+        for _ in 0..KIN_SEARCH_STEPS {
+            let mut next = Vec::new();
+            for x in &layer {
+                for n in links.get(x).into_iter().flatten() {
+                    if !seen.contains(n) {
+                        seen.push(*n);
+                        next.push(*n);
+                    }
+                }
+            }
+            next.sort_unstable();
+            let mut found: Vec<PermanentId> = next
+                .iter()
+                .filter_map(|n| self.person(*n))
+                .map(|p| p.household)
+                .filter(|h| *h != exclude)
+                .collect();
+            if !found.is_empty() {
+                found.sort_unstable();
+                found.dedup();
+                let near: Vec<PermanentId> = found
+                    .iter()
+                    .copied()
+                    .filter(|h| {
+                        settlement.is_some()
+                            && self.household(*h).and_then(|x| x.settlement) == settlement
+                    })
+                    .collect();
+                if !near.is_empty() {
+                    found = near;
+                }
+                let mut out = vec![first];
+                out.extend(found.into_iter().filter(|h| *h != first));
+                return out;
+            }
+            if next.is_empty() {
+                break;
+            }
+            layer = next;
+        }
+        vec![first]
+    }
+
     /// Where children left alone in `household` go: their nearest adult kin's household, else
     /// the household of their settlement with the most food for each of its members.
     fn foster_household(
@@ -692,8 +767,10 @@ impl Population {
     }
 
     /// Household `from` joins household `to`: its members, stores, water, what it knows of the
-    /// land, and its fields, plots and buildings. `from` is no more.
-    fn merge_household(&mut self, ctx: &mut Ctx, from: PermanentId, to: PermanentId) {
+    /// land, and its plots and buildings, and with `fields` its fields too (when its people move
+    /// with them; the fields of a household that is no more go by the regime's succession rule
+    /// instead). `from` is no more.
+    fn merge_household(&mut self, ctx: &mut Ctx, from: PermanentId, to: PermanentId, fields: bool) {
         if from == to || self.household(to).is_none() {
             return;
         }
@@ -751,12 +828,19 @@ impl Population {
             }
         }
         self.sort_members(to);
-        self.hand_over_land(ctx, from, Some(to));
+        self.hand_over_land(ctx, from, Some(to), fields);
     }
 
     /// The land of household `from` passes to `to`, or, with no one to take it, stays as it is
-    /// (fields fall fallow, huts stand empty).
-    fn hand_over_land(&mut self, ctx: &mut Ctx, from: PermanentId, to: Option<PermanentId>) {
+    /// (fields fall fallow, huts stand empty): its plots and buildings, and with `fields` the
+    /// fields it holds and works.
+    fn hand_over_land(
+        &mut self,
+        ctx: &mut Ctx,
+        from: PermanentId,
+        to: Option<PermanentId>,
+        fields: bool,
+    ) {
         // Its workshops go with it (slice J).
         self.pass_firms(ctx, from, to);
         self.homes.remove(&from);
@@ -765,8 +849,15 @@ impl Population {
         let Some(to) = to else {
             return;
         };
-        for f in ctx.land.fields.iter_mut().filter(|f| f.household == from) {
-            f.household = to;
+        if fields {
+            for f in &mut ctx.land.fields {
+                if f.household == from {
+                    f.household = to;
+                }
+                if f.holder == Party::Household(from) {
+                    f.holder = Party::Household(to);
+                }
+            }
         }
         for p in ctx.land.plots.iter_mut().filter(|p| p.household == from) {
             p.household = to;
@@ -791,10 +882,20 @@ impl Population {
         }
     }
 
-    /// A household with no one left goes to `heir`, or is no more.
-    fn dissolve(&mut self, ctx: &mut Ctx, household: PermanentId, heir: Option<PermanentId>) {
+    /// A household with no one left goes to `heir`, or is no more. Its fields go as the regime's
+    /// succession rule says, to `heirs` or back to its settlement (ADR-0007 §2), and its
+    /// settlement's land is reviewed.
+    fn dissolve(
+        &mut self,
+        ctx: &mut Ctx,
+        household: PermanentId,
+        heir: Option<PermanentId>,
+        heirs: &[PermanentId],
+    ) {
+        let settlement = self.household(household).and_then(|x| x.settlement);
+        self.succeed(ctx, household, heirs);
         match heir {
-            Some(to) => self.merge_household(ctx, household, to),
+            Some(to) => self.merge_household(ctx, household, to, false),
             None => {
                 self.settle_household(ctx, household);
                 if let Some(hd) = self.hh_index.remove(&household)
@@ -806,8 +907,11 @@ impl Population {
                     }
                     self.flows_gone.absorb(&gone.flows);
                 }
-                self.hand_over_land(ctx, household, None);
+                self.hand_over_land(ctx, household, None, false);
             }
+        }
+        if let Some(s) = settlement {
+            self.review_land(ctx, s);
         }
     }
 
@@ -1005,10 +1109,10 @@ impl Population {
                         }
                     };
                     if to_his {
-                        self.merge_household(ctx, hw, hm);
+                        self.merge_household(ctx, hw, hm, true);
                         Moved::HerToHis
                     } else {
-                        self.merge_household(ctx, hm, hw);
+                        self.merge_household(ctx, hm, hw, true);
                         Moved::HisToHers
                     }
                 }
@@ -1073,7 +1177,7 @@ impl Population {
             return;
         };
         if people.len() >= before {
-            self.merge_household(ctx, from, to);
+            self.merge_household(ctx, from, to, true);
             return;
         }
         self.settle_household(ctx, from);
@@ -1167,7 +1271,16 @@ impl Population {
                 continue;
             };
             let group = self.with_dependants(ctx, who);
+            let before = self.household(from).map_or(0, |x| x.members.len());
             self.move_people(ctx, &group, from, id);
+            // A share of the family's fields, as of its stores, where the regime says so
+            // (ADR-0007 §2); a whole household that moves brings all of them.
+            if ctx.regime.union_share && before > group.len() && self.household(from).is_some() {
+                self.share_fields(ctx, from, id, group.len() as f64 / before as f64);
+            }
+        }
+        if let Some(s) = natal.settlement {
+            self.review_land(ctx, s);
         }
     }
 

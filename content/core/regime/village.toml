@@ -1,0 +1,25 @@
+# Village tenure (ADR-0007 §2), after research 08-09 §5.2's composable village: the village holds
+# the ground its households break, and gives each household fields to work by how many it feeds,
+# at a review before the year's field work and when households form or end. Households work their
+# fields separately and keep their crops (collective ownership is not collective production);
+# nobody lets land or leaves it to heirs, since holdings return to the village. The review's
+# date is a tuning value: before field preparation begins on 1 March.
+kind = "regime"
+id = "core:regime/village"
+name = "Village fields"
+description = "The village holds the land. Before each year's field work it gives every household fields to work by how many it feeds; nobody lets land or leaves it to heirs."
+default = false
+
+[land]
+holder = "settlement"
+use = "need"
+review = [2, 15]
+
+[succession]
+holdings = "settlement"
+union_share = false
+
+[lease]
+allowed = false
+holder_share = 0.0
+term_years = 1

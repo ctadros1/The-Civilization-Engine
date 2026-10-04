@@ -435,6 +435,7 @@ fn run_one(
             preset_id: preset.to_owned(),
             size_cells: options.size,
             band_size: 0,
+            regime_id: String::new(),
         },
         content,
         &mut |_| {},

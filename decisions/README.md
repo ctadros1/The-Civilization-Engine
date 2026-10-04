@@ -13,6 +13,7 @@ the milestone is too big and gets split.
 | [0004](0004-buildings-land-paths.md) | Building specs, land state and paths | Accepted | M1 |
 | [0005](0005-kernel-c-interface.md) | The kernel's C interface | Accepted | M2 |
 | [0006](0006-goods-ledger-firms.md) | Goods, the ledger, prices and firms | Accepted | M3a |
+| [0007](0007-claims-property-regimes.md) | Claims and property regimes | Proposed | M3a |
 
 ## Template
 

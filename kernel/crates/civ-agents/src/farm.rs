@@ -301,6 +301,7 @@ impl FarmView<'_> {
             let ground = Field {
                 id: site.placeholder,
                 household: site.placeholder,
+                holder: civ_land::Party::Household(site.placeholder),
                 rect: site.rect,
                 crop: 0,
                 stage: FieldStage::Fallow,
@@ -522,6 +523,7 @@ mod tests {
         Field {
             id: PermanentId::from_raw(id).expect("non-zero"),
             household: PermanentId::from_raw(1).expect("non-zero"),
+            holder: civ_land::Party::Household(PermanentId::from_raw(1).expect("non-zero")),
             rect: RectCm {
                 x: 0,
                 y: 0,

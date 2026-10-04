@@ -372,17 +372,58 @@ pub fn site_value(crop: &CropParams, ground: f64, clear_h_per_ha: f64, walk_min:
     PLAN_YEARS * grain / work.max(1e-6) * session_h / (session_h + 2.0 * walk_min / 60.0)
 }
 
-/// Looks for new ground for a field of side `params.farm.field_m` on arable land within the
-/// farthest field walk of `reach` (from the settlement's hearth), clear of other fields and of
-/// `homes`: samples `params.farm.site_candidates` reachable cells with a draw keyed by `key`,
-/// and keeps the one worth most for `crop` ([`site_value`]).
+/// Whether new ground could be broken on `cell`: dry, walkable and arable.
+fn breakable(
+    map: &WorldMap,
+    nav: &NavGrid,
+    land: &Land,
+    land_params: &LandParams,
+    cell: usize,
+) -> bool {
+    let p = land.patches.of_cell(cell, map.width);
+    map.water[cell] == WATER_LAND
+        && nav.walkable(cell)
+        && land
+            .patches
+            .class
+            .get(p)
+            .and_then(|&c| land_params.habitats.get(usize::from(c)))
+            .is_some_and(|h| h.arable)
+}
+
+/// The cells within a field walk of a home (`reach`, its walking times) where new ground could be
+/// broken, with those times, in cell order: what [`find_site`] picks from. The ground does not
+/// change, so this is worked out once for each home's walking times.
+pub fn breakable_in_reach(
+    map: &WorldMap,
+    nav: &NavGrid,
+    land: &Land,
+    land_params: &LandParams,
+    reach: &TravelField,
+    params: &PeopleParams,
+) -> Vec<(u32, f32)> {
+    let max_s = (params.farm.max_walk_minutes * 60.0) as f32;
+    // Cells in reach, in a fixed order (the field's own order is not stable).
+    let mut cells: Vec<(u32, f32)> = reach
+        .iter()
+        .filter(|&(c, s)| s <= max_s && breakable(map, nav, land, land_params, c))
+        .map(|(c, s)| (c as u32, s))
+        .collect();
+    cells.sort_unstable_by_key(|c| c.0);
+    cells
+}
+
+/// Looks for new ground for a field of side `params.farm.field_m` among `cells`, the breakable
+/// cells within the farthest field walk of a home ([`breakable_in_reach`]), clear of other fields
+/// and of `homes`: samples `params.farm.site_candidates` of them with a draw keyed by `key`, and
+/// keeps the one worth most for `crop` ([`site_value`]).
 #[allow(clippy::too_many_arguments)]
 pub fn find_site(
     map: &WorldMap,
     nav: &NavGrid,
     land: &Land,
     land_params: &LandParams,
-    reach: &TravelField,
+    cells: &[(u32, f32)],
     homes: &[(f32, f32)],
     params: &PeopleParams,
     crop: &CropParams,
@@ -390,7 +431,6 @@ pub fn find_site(
     placeholder: PermanentId,
 ) -> Option<Site> {
     let w = map.width as usize;
-    let max_s = (params.farm.max_walk_minutes * 60.0) as f32;
     let habitat = |cell: usize| {
         let p = land.patches.of_cell(cell, map.width);
         land.patches
@@ -398,21 +438,10 @@ pub fn find_site(
             .get(p)
             .and_then(|&c| land_params.habitats.get(usize::from(c)))
     };
-    let ok = |cell: usize| {
-        map.water[cell] == WATER_LAND
-            && nav.walkable(cell)
-            && habitat(cell).is_some_and(|h| h.arable)
-    };
-    // Cells in reach, in a fixed order (the field's own order is not stable).
-    let mut cells: Vec<(u32, f32)> = reach
-        .iter()
-        .filter(|&(c, s)| s <= max_s && ok(c))
-        .map(|(c, s)| (c as u32, s))
-        .collect();
+    let ok = |cell: usize| breakable(map, nav, land, land_params, cell);
     if cells.is_empty() {
         return None;
     }
-    cells.sort_unstable_by_key(|c| c.0);
     let side_cm = (params.farm.field_m * 100.0).round() as i32;
     let cell_cm = (map.cell_size_m * 100.0).round() as i32;
     let (map_w_cm, map_h_cm) = (map.width as i32 * cell_cm, map.height as i32 * cell_cm);

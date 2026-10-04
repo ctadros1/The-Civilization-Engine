@@ -496,6 +496,8 @@ fn a_workshop_posts_a_wage_and_pays_those_who_take_the_work() {
         generous(&mut sim);
         sim.advance_minutes(24 * 60).expect("advances");
     }
+    // Its weekly review may have set its wage again since; the page shows the wage it posts.
+    generous(&mut sim);
     let pop = sim.people();
     let firm = pop
         .firms

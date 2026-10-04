@@ -362,9 +362,9 @@ pub fn candidates(
     best_patch: &dyn Fn(usize) -> Option<PatchOption>,
     best_field: &dyn Fn(usize) -> Result<FieldOption, Reason>,
     water: Option<WaterOption>,
-    giver: Option<GiverOption>,
-    trade: Option<TradeOption>,
-    job: Option<JobOption>,
+    giver: &dyn Fn() -> Option<GiverOption>,
+    trade: &dyn Fn() -> Option<TradeOption>,
+    job: &dyn Fn() -> Option<JobOption>,
     build: Result<BuildOption, Reason>,
     shop: &Workshop,
 ) -> (Vec<Candidate>, Vec<(u16, Reason)>) {
@@ -753,7 +753,7 @@ pub fn candidates(
                     excluded.push((id, Reason::NotShort));
                     continue;
                 }
-                let Some(giver) = giver else {
+                let Some(giver) = giver() else {
                     excluded.push((id, Reason::NoOneToAsk));
                     continue;
                 };
@@ -784,7 +784,7 @@ pub fn candidates(
             Behavior::Trade => {
                 // Buy what is cheaper to get from a neighbour than to make or gather (research
                 // 08-05 §1.4: a buyer compares the few sellers it knows by payment and walk).
-                let Some(t) = trade else {
+                let Some(t) = trade() else {
                     excluded.push((id, Reason::NoOffer));
                     continue;
                 };
@@ -840,7 +840,7 @@ pub fn candidates(
                 // Paid work at another household's workshop, for what the pay brings the
                 // household (research 08-10 §1.3: a wage is worth it set against what the time
                 // would do otherwise, which the other options weigh).
-                let Some(j) = job else {
+                let Some(j) = job() else {
                     excluded.push((id, Reason::NoWork));
                     continue;
                 };
@@ -1232,9 +1232,9 @@ mod tests {
             &|_| None,
             &|_| Ok(field()),
             None,
-            None,
-            None,
-            None,
+            &|| None,
+            &|| None,
+            &|| None,
             Err(Reason::Built),
             &shop,
         )
@@ -1364,9 +1364,9 @@ mod tests {
                 &|_| None,
                 &|_| Err(Reason::NoPlace),
                 Some(water),
-                None,
-                None,
-                None,
+                &|| None,
+                &|| None,
+                &|| None,
                 Err(Reason::Built),
                 &shop,
             );

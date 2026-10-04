@@ -144,6 +144,8 @@ struct HomeField {
     places: Vec<Vec<(u32, f32)>>,
     /// Walking times to every cell in reach, for fields.
     reach: TravelField,
+    /// The cells in reach where new ground could be broken, in cell order ([`farm::find_site`]).
+    breakable: Vec<(u32, f32)>,
 }
 
 /// What a gathering activity is expected to bring from each patch on one day, at equilibrium
@@ -861,6 +863,14 @@ impl Population {
                 out
             })
             .collect();
+        let breakable = farm::breakable_in_reach(
+            ctx.map,
+            ctx.nav,
+            ctx.land,
+            ctx.land_params,
+            &field,
+            ctx.params,
+        );
         self.homes.insert(
             key,
             HomeField {
@@ -870,6 +880,7 @@ impl Population {
                 water,
                 places,
                 reach: field,
+                breakable,
             },
         );
     }
@@ -888,7 +899,7 @@ impl Population {
         {
             return *site;
         }
-        let reach = &self.homes.get(&field_key)?.reach;
+        let breakable = &self.homes.get(&field_key)?.breakable;
         // Clear of every home of the settlement and of its hearth.
         let mut homes: Vec<(f32, f32)> = self
             .households
@@ -910,7 +921,7 @@ impl Population {
             ctx.nav,
             ctx.land,
             ctx.land_params,
-            reach,
+            breakable,
             &homes,
             ctx.params,
             crop,
@@ -1357,6 +1368,12 @@ impl Population {
             .iter()
             .map(|a| a.resource.and_then(|r| self.places_for(land_params, r)))
             .collect();
+        // What the settlement knows of each resource, by place (the last of any repeats wins).
+        let memory: civ_core::FastMap<(u16, u32), &KnownPatch> = hh
+            .known
+            .iter()
+            .map(|k| ((k.resource, k.patch), k))
+            .collect();
         let best_patch = |def: usize| -> Option<PatchOption> {
             let a = &catalog.activities[def];
             let r = a.resource?;
@@ -1387,13 +1404,6 @@ impl Population {
                 .copied()
                 .unwrap_or(false);
             let kind = place_kinds.get(def).copied().flatten()?;
-            // What the settlement knows of this resource, by place.
-            let memory: HashMap<u32, &KnownPatch> = hh
-                .known
-                .iter()
-                .filter(|k| usize::from(k.resource) == r)
-                .map(|k| (k.patch, k))
-                .collect();
             let mut best: Option<(f64, PatchOption)> = None;
             for &(block, secs) in home.places.get(kind)? {
                 let walk = f64::from(secs) / 60.0;
@@ -1409,7 +1419,7 @@ impl Population {
                     .get(patch as usize)
                     .map_or(0.0, |&y| f64::from(y) / hours.max(1e-6));
                 // What they have seen there, weighed against what they would expect.
-                let rate = match memory.get(&patch) {
+                let rate = match memory.get(&(r as u16, patch)) {
                     Some(k) => k.belief(prior, today, res.renewal_days()),
                     None => prior,
                 };
@@ -1451,9 +1461,14 @@ impl Population {
             };
             view.best(task, f64::from(a.max_minutes) / 60.0, site.as_ref(), &walk)
         };
-        let giver = self.best_giver(ctx, &hh, field_key, kcal_day, stock);
+        // Whom to ask, what to buy and where to work are each worked out only if an option
+        // needs them (they cost a search of the settlement), and then once.
+        let giver_once = std::cell::OnceCell::new();
+        let giver =
+            || *giver_once.get_or_init(|| self.best_giver(ctx, &hh, field_key, kcal_day, stock));
         // A purchase that costs the household fewer hours than getting the good itself.
-        let trade = self.best_purchase(ctx, &hh, &stores, reach);
+        let trade_once = std::cell::OnceCell::new();
+        let trade = || *trade_once.get_or_init(|| self.best_purchase(ctx, &hh, &stores, reach));
         // Paid work at a workshop of another household (slice J).
         let session_min = catalog
             .activities
@@ -1461,10 +1476,15 @@ impl Population {
             .filter(|a| a.behavior == Behavior::Hire)
             .map(|a| f64::from(a.max_minutes))
             .fold(0.0, f64::max);
-        let job = if session_min > 0.0 {
-            self.best_job(ctx, &hh, &stores, reach, session_min)
-        } else {
-            None
+        let job_once = std::cell::OnceCell::new();
+        let job = || {
+            *job_once.get_or_init(|| {
+                if session_min > 0.0 {
+                    self.best_job(ctx, &hh, &stores, reach, session_min)
+                } else {
+                    None
+                }
+            })
         };
         let build = plan.as_ref().map_err(|why| *why).and_then(|p| {
             let def = &catalog.buildings[p.def];
@@ -1504,7 +1524,7 @@ impl Population {
                 .ok_or((Reason::NoPlace, None))?;
             let &(out, _) = r.outputs.first().ok_or((Reason::NotNeeded, None))?;
             let out_good = goods.get(out).ok_or((Reason::NotNeeded, None))?;
-            if trade.is_some_and(|t| t.good == out) {
+            if trade().is_some_and(|t| t.good == out) {
                 return Err((Reason::Cheaper, None));
             }
             let level = match (r.skill, person) {
@@ -1640,9 +1660,9 @@ impl Population {
             &best_patch,
             &best_field,
             water,
-            giver,
-            trade,
-            job,
+            &giver,
+            &trade,
+            &job,
             build,
             &shop,
         );

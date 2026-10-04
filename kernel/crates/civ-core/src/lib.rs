@@ -6,16 +6,19 @@
 //!   01-02 §1.3).
 //! - [`rng`]: small in-house generators, so a seed keeps meaning the same world across dependency
 //!   upgrades (research 01-01 §4.2).
+//! - [`hash`]: a fast, deterministic hasher for maps of the engine's own integer keys.
 //!
 //! Nothing here knows about people, settlements or terrain.
 
 #![forbid(unsafe_code)]
 
+pub mod hash;
 pub mod ids;
 pub mod rng;
 pub mod scheduler;
 pub mod time;
 
+pub use hash::{FastMap, FastSet};
 pub use ids::{GenTable, Handle, IdAllocator, PermanentId};
 pub use rng::{Rng64, SplitMix64};
 pub use scheduler::{Cadence, Due, Followups, ScheduleError, Scheduler};

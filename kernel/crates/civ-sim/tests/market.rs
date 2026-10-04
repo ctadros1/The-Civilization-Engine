@@ -138,10 +138,11 @@ fn a_household_short_of_a_tool_buys_one_from_a_neighbour_that_can_spare_it() {
         .and_then(|h| h.settlement)
         .expect("settled");
     let market = pop.market(settlement).expect("a market");
+    // Other households may buy a sickle too; this is the one the buyer made.
     let trade = market
         .recent
         .iter()
-        .find(|t| usize::from(t.good) == sickle)
+        .find(|t| usize::from(t.good) == sickle && t.buyer == buyer)
         .expect("the trade is remembered");
     assert_eq!((trade.seller, trade.buyer), (seller, buyer));
     // Paid in one of the goods the seller asked for (grain, or something else it is short of

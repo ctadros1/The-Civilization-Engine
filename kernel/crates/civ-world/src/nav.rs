@@ -12,8 +12,11 @@
 //! Travel time (what advances the clock) and route choice are the same thing here: the cost of a
 //! step is the seconds it takes.
 
+use std::cell::RefCell;
 use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::BinaryHeap;
+
+use civ_core::FastMap;
 
 use crate::grid::{D8, D8_DIST};
 use crate::{WATER_LAKE, WATER_OCEAN, WATER_RIVER, WorldMap};
@@ -140,6 +143,72 @@ impl TravelField {
             (c, self.seconds_to(c).unwrap_or(f32::INFINITY))
         })
     }
+}
+
+/// The best time found to each cell and the cell it came from, during one route search.
+trait Scores {
+    fn get(&self, cell: u32) -> Option<(f32, u32)>;
+    fn set(&mut self, cell: u32, g: f32, parent: u32);
+}
+
+impl Scores for FastMap<u32, (f32, u32)> {
+    fn get(&self, cell: u32) -> Option<(f32, u32)> {
+        FastMap::get(self, &cell).copied()
+    }
+
+    fn set(&mut self, cell: u32, g: f32, parent: u32) {
+        self.insert(cell, (g, parent));
+    }
+}
+
+/// [`Scores`] over the whole grid in flat arrays, kept on a thread between searches and cleared
+/// lazily by a generation stamp, so a search allocates nothing (research 01-08 §7: reusable
+/// search scratch).
+#[derive(Default)]
+struct DenseScores {
+    generation: u32,
+    stamp: Vec<u32>,
+    g: Vec<f32>,
+    parent: Vec<u32>,
+}
+
+impl DenseScores {
+    /// Readies the arrays for a new search over `cells` cells.
+    fn begin(&mut self, cells: usize) {
+        if self.stamp.len() != cells {
+            self.stamp = vec![0; cells];
+            self.g = vec![0.0; cells];
+            self.parent = vec![0; cells];
+            self.generation = 0;
+        }
+        self.generation = self.generation.wrapping_add(1);
+        if self.generation == 0 {
+            self.stamp.fill(0);
+            self.generation = 1;
+        }
+    }
+}
+
+impl Scores for DenseScores {
+    fn get(&self, cell: u32) -> Option<(f32, u32)> {
+        let i = cell as usize;
+        (self.stamp[i] == self.generation).then(|| (self.g[i], self.parent[i]))
+    }
+
+    fn set(&mut self, cell: u32, g: f32, parent: u32) {
+        let i = cell as usize;
+        self.stamp[i] = self.generation;
+        self.g[i] = g;
+        self.parent[i] = parent;
+    }
+}
+
+/// Grids up to this many cells (a 2048² map) search with [`DenseScores`], about 12 bytes a cell;
+/// larger ones with a map of the cells reached.
+const DENSE_SCORES_MAX_CELLS: usize = 1 << 22;
+
+thread_local! {
+    static DENSE_SCORES: RefCell<DenseScores> = RefCell::new(DenseScores::default());
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -297,9 +366,41 @@ impl NavGrid {
                 seconds: vec![0.0],
             });
         }
-        let mut best: HashMap<u32, (f32, u32)> = HashMap::new();
+        let search =
+            |best: &mut dyn Scores| self.search(elevation, from, to, trail, fastest, budget, best);
+        if n <= DENSE_SCORES_MAX_CELLS {
+            // A search started from inside another on this thread (none does today) gets its
+            // own arrays.
+            let shared = DENSE_SCORES.with(|d| {
+                d.try_borrow_mut().ok().map(|mut d| {
+                    d.begin(n);
+                    search(&mut *d)
+                })
+            });
+            if let Some(found) = shared {
+                return found;
+            }
+            let mut own = DenseScores::default();
+            own.begin(n);
+            return search(&mut own);
+        }
+        search(&mut FastMap::default())
+    }
+
+    /// The A* search of [`NavGrid::route_bounded`], keeping its scores in `best`.
+    #[allow(clippy::too_many_arguments)]
+    fn search(
+        &self,
+        elevation: &[f32],
+        from: usize,
+        to: usize,
+        trail: &dyn Fn(usize) -> f32,
+        fastest: f64,
+        budget: usize,
+        best: &mut dyn Scores,
+    ) -> RouteResult {
         let mut open = BinaryHeap::new();
-        best.insert(from as u32, (0.0, u32::MAX));
+        best.set(from as u32, 0.0, u32::MAX);
         open.push(Open {
             f: self.heuristic(from, to, fastest),
             g: 0.0,
@@ -308,11 +409,11 @@ impl NavGrid {
         let mut expanded = 0usize;
         while let Some(Open { g, cell, .. }) = open.pop() {
             let i = cell as usize;
-            if best.get(&cell).is_some_and(|&(bg, _)| g > bg) {
+            if best.get(cell).is_some_and(|(bg, _)| g > bg) {
                 continue;
             }
             if i == to {
-                return RouteResult::Found(reconstruct(&best, from, to));
+                return RouteResult::Found(reconstruct(best, from, to));
             }
             expanded += 1;
             if expanded > budget {
@@ -323,9 +424,9 @@ impl NavGrid {
                     continue;
                 };
                 let ng = g + step;
-                let better = best.get(&(j as u32)).is_none_or(|&(bg, _)| ng < bg);
+                let better = best.get(j as u32).is_none_or(|(bg, _)| ng < bg);
                 if better {
-                    best.insert(j as u32, (ng, cell));
+                    best.set(j as u32, ng, cell);
                     open.push(Open {
                         f: ng + self.heuristic(j, to, fastest),
                         g: ng,
@@ -576,12 +677,11 @@ impl NavGrid {
     }
 }
 
-fn reconstruct(best: &HashMap<u32, (f32, u32)>, from: usize, to: usize) -> Route {
+fn reconstruct(best: &dyn Scores, from: usize, to: usize) -> Route {
     let mut cells = Vec::new();
     let mut seconds = Vec::new();
     let mut cur = to as u32;
-    loop {
-        let (g, parent) = best[&cur];
+    while let Some((g, parent)) = best.get(cur) {
         cells.push(cur);
         seconds.push(g);
         if cur as usize == from || parent == u32::MAX {

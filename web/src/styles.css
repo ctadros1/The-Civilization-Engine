@@ -581,6 +581,122 @@ dialog label {
   color: var(--warn);
 }
 
+/* Market panel (M3a slice I) */
+#market-body {
+  max-height: 360px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+
+.market + .market {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.market-head {
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.market-summary {
+  margin: 0 0 6px;
+}
+
+.market .aside {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 4px 0;
+}
+
+.badge.barter {
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.badge.money {
+  color: var(--bg);
+  background: var(--good);
+}
+
+.market-goods,
+.market .offers,
+.market .trades {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.market-goods > li {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.market-goods .good {
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.market .since {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.market .terms {
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+
+.market .price {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.spark polyline {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.spark circle {
+  fill: var(--accent);
+}
+
+.offers-list {
+  margin: 6px 0;
+}
+
+.offers-list summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.market .offers li {
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+.market h4 {
+  margin: 8px 0 4px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.market .trades li {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.market .trades .when {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+}
+
 /* Panels alone (`?view=panels`), beside a world another host draws (ADR-0005 §6). */
 .panels-only .workspace {
   grid-template-columns: 1fr;

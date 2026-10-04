@@ -125,6 +125,9 @@ struct GetBuildingsBuilder;
 struct GetPaths;
 struct GetPathsBuilder;
 
+struct GetMarkets;
+struct GetMarketsBuilder;
+
 struct Query;
 struct QueryBuilder;
 
@@ -202,6 +205,23 @@ struct TrailInfoBuilder;
 
 struct Paths;
 struct PathsBuilder;
+
+struct OfferInfo;
+struct OfferInfoBuilder;
+
+struct TradeInfo;
+struct TradeInfoBuilder;
+
+struct MarketGood;
+struct MarketGoodBuilder;
+
+struct MonthOfTrade;
+
+struct MarketInfo;
+struct MarketInfoBuilder;
+
+struct Markets;
+struct MarketsBuilder;
 
 struct Response;
 struct ResponseBuilder;
@@ -540,11 +560,12 @@ enum class QueryBody : uint8_t {
   GetFields = 7,
   GetBuildings = 8,
   GetPaths = 9,
+  GetMarkets = 10,
   MIN = NONE,
-  MAX = GetPaths
+  MAX = GetMarkets
 };
 
-inline const QueryBody (&EnumValuesQueryBody())[10] {
+inline const QueryBody (&EnumValuesQueryBody())[11] {
   static const QueryBody values[] = {
     QueryBody::NONE,
     QueryBody::GetRaster,
@@ -555,13 +576,14 @@ inline const QueryBody (&EnumValuesQueryBody())[10] {
     QueryBody::GetChronicle,
     QueryBody::GetFields,
     QueryBody::GetBuildings,
-    QueryBody::GetPaths
+    QueryBody::GetPaths,
+    QueryBody::GetMarkets
   };
   return values;
 }
 
 inline const char * const *EnumNamesQueryBody() {
-  static const char * const names[11] = {
+  static const char * const names[12] = {
     "NONE",
     "GetRaster",
     "GetHydrography",
@@ -572,13 +594,14 @@ inline const char * const *EnumNamesQueryBody() {
     "GetFields",
     "GetBuildings",
     "GetPaths",
+    "GetMarkets",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameQueryBody(QueryBody e) {
-  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetPaths)) return "";
+  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetMarkets)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesQueryBody()[index];
 }
@@ -621,6 +644,10 @@ template<> struct QueryBodyTraits<tce::wire::GetBuildings> {
 
 template<> struct QueryBodyTraits<tce::wire::GetPaths> {
   static const QueryBody enum_value = QueryBody::GetPaths;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetMarkets> {
+  static const QueryBody enum_value = QueryBody::GetMarkets;
 };
 
 template <bool B = false>
@@ -673,11 +700,12 @@ enum class ResponseBody : uint8_t {
   Fields = 8,
   Buildings = 9,
   Paths = 10,
+  Markets = 11,
   MIN = NONE,
-  MAX = Paths
+  MAX = Markets
 };
 
-inline const ResponseBody (&EnumValuesResponseBody())[11] {
+inline const ResponseBody (&EnumValuesResponseBody())[12] {
   static const ResponseBody values[] = {
     ResponseBody::NONE,
     ResponseBody::Ack,
@@ -689,13 +717,14 @@ inline const ResponseBody (&EnumValuesResponseBody())[11] {
     ResponseBody::Chronicle,
     ResponseBody::Fields,
     ResponseBody::Buildings,
-    ResponseBody::Paths
+    ResponseBody::Paths,
+    ResponseBody::Markets
   };
   return values;
 }
 
 inline const char * const *EnumNamesResponseBody() {
-  static const char * const names[12] = {
+  static const char * const names[13] = {
     "NONE",
     "Ack",
     "RasterTile",
@@ -707,13 +736,14 @@ inline const char * const *EnumNamesResponseBody() {
     "Fields",
     "Buildings",
     "Paths",
+    "Markets",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameResponseBody(ResponseBody e) {
-  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Paths)) return "";
+  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Markets)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesResponseBody()[index];
 }
@@ -760,6 +790,10 @@ template<> struct ResponseBodyTraits<tce::wire::Buildings> {
 
 template<> struct ResponseBodyTraits<tce::wire::Paths> {
   static const ResponseBody enum_value = ResponseBody::Paths;
+};
+
+template<> struct ResponseBodyTraits<tce::wire::Markets> {
+  static const ResponseBody enum_value = ResponseBody::Markets;
 };
 
 template <bool B = false>
@@ -920,6 +954,57 @@ FLATBUFFERS_STRUCT_END(StoreLine, 8);
 
 struct StoreLine::Traits {
   using type = StoreLine;
+};
+
+FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) MonthOfTrade FLATBUFFERS_FINAL_CLASS {
+ private:
+  uint32_t month_;
+  uint32_t trades_;
+  float units_;
+  float paid_h_;
+  uint16_t good_;
+  int16_t padding0__;
+
+ public:
+  struct Traits;
+  MonthOfTrade()
+      : month_(0),
+        trades_(0),
+        units_(0),
+        paid_h_(0),
+        good_(0),
+        padding0__(0) {
+    (void)padding0__;
+  }
+  MonthOfTrade(uint32_t _month, uint32_t _trades, float _units, float _paid_h, uint16_t _good)
+      : month_(::flatbuffers::EndianScalar(_month)),
+        trades_(::flatbuffers::EndianScalar(_trades)),
+        units_(::flatbuffers::EndianScalar(_units)),
+        paid_h_(::flatbuffers::EndianScalar(_paid_h)),
+        good_(::flatbuffers::EndianScalar(_good)),
+        padding0__(0) {
+    (void)padding0__;
+  }
+  uint32_t month() const {
+    return ::flatbuffers::EndianScalar(month_);
+  }
+  uint32_t trades() const {
+    return ::flatbuffers::EndianScalar(trades_);
+  }
+  float units() const {
+    return ::flatbuffers::EndianScalar(units_);
+  }
+  float paid_h() const {
+    return ::flatbuffers::EndianScalar(paid_h_);
+  }
+  uint16_t good() const {
+    return ::flatbuffers::EndianScalar(good_);
+  }
+};
+FLATBUFFERS_STRUCT_END(MonthOfTrade, 20);
+
+struct MonthOfTrade::Traits {
+  using type = MonthOfTrade;
 };
 
 struct Hello FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -2751,7 +2836,8 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_CHRONICLE_HEAD = 20,
     VT_FIELDS_REV = 22,
     VT_BUILDINGS_REV = 24,
-    VT_PATHS_REV = 26
+    VT_PATHS_REV = 26,
+    VT_MARKETS_REV = 28
   };
   const tce::wire::WorldInfo *world() const {
     return GetPointer<const tce::wire::WorldInfo *>(VT_WORLD);
@@ -2789,6 +2875,9 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint64_t paths_rev() const {
     return GetField<uint64_t>(VT_PATHS_REV, 0);
   }
+  uint64_t markets_rev() const {
+    return GetField<uint64_t>(VT_MARKETS_REV, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -2813,6 +2902,7 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_FIELDS_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_BUILDINGS_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_PATHS_REV, 8) &&
+           VerifyField<uint64_t>(verifier, VT_MARKETS_REV, 8) &&
            verifier.EndTable();
   }
 };
@@ -2857,6 +2947,9 @@ struct SnapshotBuilder {
   void add_paths_rev(uint64_t paths_rev) {
     fbb_.AddElement<uint64_t>(Snapshot::VT_PATHS_REV, paths_rev, 0);
   }
+  void add_markets_rev(uint64_t markets_rev) {
+    fbb_.AddElement<uint64_t>(Snapshot::VT_MARKETS_REV, markets_rev, 0);
+  }
   explicit SnapshotBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -2881,8 +2974,10 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshot(
     uint64_t chronicle_head = 0,
     uint64_t fields_rev = 0,
     uint64_t buildings_rev = 0,
-    uint64_t paths_rev = 0) {
+    uint64_t paths_rev = 0,
+    uint64_t markets_rev = 0) {
   SnapshotBuilder builder_(_fbb);
+  builder_.add_markets_rev(markets_rev);
   builder_.add_paths_rev(paths_rev);
   builder_.add_buildings_rev(buildings_rev);
   builder_.add_fields_rev(fields_rev);
@@ -2916,7 +3011,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
     uint64_t chronicle_head = 0,
     uint64_t fields_rev = 0,
     uint64_t buildings_rev = 0,
-    uint64_t paths_rev = 0) {
+    uint64_t paths_rev = 0,
+    uint64_t markets_rev = 0) {
   auto last_error__ = last_error ? _fbb.CreateString(last_error) : 0;
   auto people__ = people ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PersonBrief>>(*people) : 0;
   auto settlements__ = settlements ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SettlementBrief>>(*settlements) : 0;
@@ -2933,7 +3029,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
       chronicle_head,
       fields_rev,
       buildings_rev,
-      paths_rev);
+      paths_rev,
+      markets_rev);
 }
 
 struct Event FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -4143,6 +4240,42 @@ struct GetPaths::Traits {
   static auto constexpr Create = CreateGetPaths;
 };
 
+struct GetMarkets FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetMarketsBuilder Builder;
+  struct Traits;
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetMarketsBuilder {
+  typedef GetMarkets Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  explicit GetMarketsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetMarkets> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetMarkets>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetMarkets> CreateGetMarkets(
+    ::flatbuffers::FlatBufferBuilder &_fbb) {
+  GetMarketsBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct GetMarkets::Traits {
+  using type = GetMarkets;
+  static auto constexpr Create = CreateGetMarkets;
+};
+
 struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef QueryBuilder Builder;
   struct Traits;
@@ -4183,6 +4316,9 @@ struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::GetPaths *body_as_GetPaths() const {
     return body_type() == tce::wire::QueryBody::GetPaths ? static_cast<const tce::wire::GetPaths *>(body()) : nullptr;
+  }
+  const tce::wire::GetMarkets *body_as_GetMarkets() const {
+    return body_type() == tce::wire::QueryBody::GetMarkets ? static_cast<const tce::wire::GetMarkets *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -4228,6 +4364,10 @@ template<> inline const tce::wire::GetBuildings *Query::body_as<tce::wire::GetBu
 
 template<> inline const tce::wire::GetPaths *Query::body_as<tce::wire::GetPaths>() const {
   return body_as_GetPaths();
+}
+
+template<> inline const tce::wire::GetMarkets *Query::body_as<tce::wire::GetMarkets>() const {
+  return body_as_GetMarkets();
 }
 
 struct QueryBuilder {
@@ -7296,6 +7436,656 @@ inline ::flatbuffers::Offset<Paths> CreatePathsDirect(
       trails__);
 }
 
+struct OfferInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef OfferInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_HOUSEHOLD = 4,
+    VT_HOUSEHOLD_NAME = 6,
+    VT_GOOD = 8,
+    VT_PAYMENT = 10,
+    VT_PRICE = 12,
+    VT_UNITS = 14
+  };
+  uint64_t household() const {
+    return GetField<uint64_t>(VT_HOUSEHOLD, 0);
+  }
+  const ::flatbuffers::String *household_name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_HOUSEHOLD_NAME);
+  }
+  uint16_t good() const {
+    return GetField<uint16_t>(VT_GOOD, 0);
+  }
+  uint16_t payment() const {
+    return GetField<uint16_t>(VT_PAYMENT, 0);
+  }
+  float price() const {
+    return GetField<float>(VT_PRICE, 0.0f);
+  }
+  float units() const {
+    return GetField<float>(VT_UNITS, 0.0f);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_HOUSEHOLD, 8) &&
+           VerifyOffset(verifier, VT_HOUSEHOLD_NAME) &&
+           verifier.VerifyString(household_name()) &&
+           VerifyField<uint16_t>(verifier, VT_GOOD, 2) &&
+           VerifyField<uint16_t>(verifier, VT_PAYMENT, 2) &&
+           VerifyField<float>(verifier, VT_PRICE, 4) &&
+           VerifyField<float>(verifier, VT_UNITS, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct OfferInfoBuilder {
+  typedef OfferInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_household(uint64_t household) {
+    fbb_.AddElement<uint64_t>(OfferInfo::VT_HOUSEHOLD, household, 0);
+  }
+  void add_household_name(::flatbuffers::Offset<::flatbuffers::String> household_name) {
+    fbb_.AddOffset(OfferInfo::VT_HOUSEHOLD_NAME, household_name);
+  }
+  void add_good(uint16_t good) {
+    fbb_.AddElement<uint16_t>(OfferInfo::VT_GOOD, good, 0);
+  }
+  void add_payment(uint16_t payment) {
+    fbb_.AddElement<uint16_t>(OfferInfo::VT_PAYMENT, payment, 0);
+  }
+  void add_price(float price) {
+    fbb_.AddElement<float>(OfferInfo::VT_PRICE, price, 0.0f);
+  }
+  void add_units(float units) {
+    fbb_.AddElement<float>(OfferInfo::VT_UNITS, units, 0.0f);
+  }
+  explicit OfferInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<OfferInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<OfferInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<OfferInfo> CreateOfferInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t household = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> household_name = 0,
+    uint16_t good = 0,
+    uint16_t payment = 0,
+    float price = 0.0f,
+    float units = 0.0f) {
+  OfferInfoBuilder builder_(_fbb);
+  builder_.add_household(household);
+  builder_.add_units(units);
+  builder_.add_price(price);
+  builder_.add_household_name(household_name);
+  builder_.add_payment(payment);
+  builder_.add_good(good);
+  return builder_.Finish();
+}
+
+struct OfferInfo::Traits {
+  using type = OfferInfo;
+  static auto constexpr Create = CreateOfferInfo;
+};
+
+inline ::flatbuffers::Offset<OfferInfo> CreateOfferInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t household = 0,
+    const char *household_name = nullptr,
+    uint16_t good = 0,
+    uint16_t payment = 0,
+    float price = 0.0f,
+    float units = 0.0f) {
+  auto household_name__ = household_name ? _fbb.CreateString(household_name) : 0;
+  return tce::wire::CreateOfferInfo(
+      _fbb,
+      household,
+      household_name__,
+      good,
+      payment,
+      price,
+      units);
+}
+
+struct TradeInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef TradeInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_MINUTE = 4,
+    VT_SELLER = 6,
+    VT_BUYER = 8,
+    VT_GOOD = 10,
+    VT_UNITS = 12,
+    VT_PAYMENT = 14,
+    VT_PAID = 16,
+    VT_SALE = 18,
+    VT_TEXT = 20
+  };
+  int64_t minute() const {
+    return GetField<int64_t>(VT_MINUTE, 0);
+  }
+  uint64_t seller() const {
+    return GetField<uint64_t>(VT_SELLER, 0);
+  }
+  uint64_t buyer() const {
+    return GetField<uint64_t>(VT_BUYER, 0);
+  }
+  uint16_t good() const {
+    return GetField<uint16_t>(VT_GOOD, 0);
+  }
+  float units() const {
+    return GetField<float>(VT_UNITS, 0.0f);
+  }
+  uint16_t payment() const {
+    return GetField<uint16_t>(VT_PAYMENT, 0);
+  }
+  float paid() const {
+    return GetField<float>(VT_PAID, 0.0f);
+  }
+  bool sale() const {
+    return GetField<uint8_t>(VT_SALE, 0) != 0;
+  }
+  const ::flatbuffers::String *text() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_TEXT);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int64_t>(verifier, VT_MINUTE, 8) &&
+           VerifyField<uint64_t>(verifier, VT_SELLER, 8) &&
+           VerifyField<uint64_t>(verifier, VT_BUYER, 8) &&
+           VerifyField<uint16_t>(verifier, VT_GOOD, 2) &&
+           VerifyField<float>(verifier, VT_UNITS, 4) &&
+           VerifyField<uint16_t>(verifier, VT_PAYMENT, 2) &&
+           VerifyField<float>(verifier, VT_PAID, 4) &&
+           VerifyField<uint8_t>(verifier, VT_SALE, 1) &&
+           VerifyOffset(verifier, VT_TEXT) &&
+           verifier.VerifyString(text()) &&
+           verifier.EndTable();
+  }
+};
+
+struct TradeInfoBuilder {
+  typedef TradeInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_minute(int64_t minute) {
+    fbb_.AddElement<int64_t>(TradeInfo::VT_MINUTE, minute, 0);
+  }
+  void add_seller(uint64_t seller) {
+    fbb_.AddElement<uint64_t>(TradeInfo::VT_SELLER, seller, 0);
+  }
+  void add_buyer(uint64_t buyer) {
+    fbb_.AddElement<uint64_t>(TradeInfo::VT_BUYER, buyer, 0);
+  }
+  void add_good(uint16_t good) {
+    fbb_.AddElement<uint16_t>(TradeInfo::VT_GOOD, good, 0);
+  }
+  void add_units(float units) {
+    fbb_.AddElement<float>(TradeInfo::VT_UNITS, units, 0.0f);
+  }
+  void add_payment(uint16_t payment) {
+    fbb_.AddElement<uint16_t>(TradeInfo::VT_PAYMENT, payment, 0);
+  }
+  void add_paid(float paid) {
+    fbb_.AddElement<float>(TradeInfo::VT_PAID, paid, 0.0f);
+  }
+  void add_sale(bool sale) {
+    fbb_.AddElement<uint8_t>(TradeInfo::VT_SALE, static_cast<uint8_t>(sale), 0);
+  }
+  void add_text(::flatbuffers::Offset<::flatbuffers::String> text) {
+    fbb_.AddOffset(TradeInfo::VT_TEXT, text);
+  }
+  explicit TradeInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<TradeInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<TradeInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<TradeInfo> CreateTradeInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t minute = 0,
+    uint64_t seller = 0,
+    uint64_t buyer = 0,
+    uint16_t good = 0,
+    float units = 0.0f,
+    uint16_t payment = 0,
+    float paid = 0.0f,
+    bool sale = false,
+    ::flatbuffers::Offset<::flatbuffers::String> text = 0) {
+  TradeInfoBuilder builder_(_fbb);
+  builder_.add_buyer(buyer);
+  builder_.add_seller(seller);
+  builder_.add_minute(minute);
+  builder_.add_text(text);
+  builder_.add_paid(paid);
+  builder_.add_units(units);
+  builder_.add_payment(payment);
+  builder_.add_good(good);
+  builder_.add_sale(sale);
+  return builder_.Finish();
+}
+
+struct TradeInfo::Traits {
+  using type = TradeInfo;
+  static auto constexpr Create = CreateTradeInfo;
+};
+
+inline ::flatbuffers::Offset<TradeInfo> CreateTradeInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t minute = 0,
+    uint64_t seller = 0,
+    uint64_t buyer = 0,
+    uint16_t good = 0,
+    float units = 0.0f,
+    uint16_t payment = 0,
+    float paid = 0.0f,
+    bool sale = false,
+    const char *text = nullptr) {
+  auto text__ = text ? _fbb.CreateString(text) : 0;
+  return tce::wire::CreateTradeInfo(
+      _fbb,
+      minute,
+      seller,
+      buyer,
+      good,
+      units,
+      payment,
+      paid,
+      sale,
+      text__);
+}
+
+struct MarketGood FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef MarketGoodBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_GOOD = 4,
+    VT_OFFERED = 6,
+    VT_SELLERS = 8,
+    VT_SOLD = 10,
+    VT_UNMET = 12,
+    VT_UNMET_WORTH_H = 14,
+    VT_ACCEPTANCE = 16,
+    VT_LAST_PAYMENT = 18,
+    VT_LAST_PRICE = 20
+  };
+  uint16_t good() const {
+    return GetField<uint16_t>(VT_GOOD, 0);
+  }
+  float offered() const {
+    return GetField<float>(VT_OFFERED, 0.0f);
+  }
+  uint16_t sellers() const {
+    return GetField<uint16_t>(VT_SELLERS, 0);
+  }
+  float sold() const {
+    return GetField<float>(VT_SOLD, 0.0f);
+  }
+  float unmet() const {
+    return GetField<float>(VT_UNMET, 0.0f);
+  }
+  float unmet_worth_h() const {
+    return GetField<float>(VT_UNMET_WORTH_H, 0.0f);
+  }
+  float acceptance() const {
+    return GetField<float>(VT_ACCEPTANCE, 0.0f);
+  }
+  int32_t last_payment() const {
+    return GetField<int32_t>(VT_LAST_PAYMENT, -1);
+  }
+  float last_price() const {
+    return GetField<float>(VT_LAST_PRICE, 0.0f);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint16_t>(verifier, VT_GOOD, 2) &&
+           VerifyField<float>(verifier, VT_OFFERED, 4) &&
+           VerifyField<uint16_t>(verifier, VT_SELLERS, 2) &&
+           VerifyField<float>(verifier, VT_SOLD, 4) &&
+           VerifyField<float>(verifier, VT_UNMET, 4) &&
+           VerifyField<float>(verifier, VT_UNMET_WORTH_H, 4) &&
+           VerifyField<float>(verifier, VT_ACCEPTANCE, 4) &&
+           VerifyField<int32_t>(verifier, VT_LAST_PAYMENT, 4) &&
+           VerifyField<float>(verifier, VT_LAST_PRICE, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct MarketGoodBuilder {
+  typedef MarketGood Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_good(uint16_t good) {
+    fbb_.AddElement<uint16_t>(MarketGood::VT_GOOD, good, 0);
+  }
+  void add_offered(float offered) {
+    fbb_.AddElement<float>(MarketGood::VT_OFFERED, offered, 0.0f);
+  }
+  void add_sellers(uint16_t sellers) {
+    fbb_.AddElement<uint16_t>(MarketGood::VT_SELLERS, sellers, 0);
+  }
+  void add_sold(float sold) {
+    fbb_.AddElement<float>(MarketGood::VT_SOLD, sold, 0.0f);
+  }
+  void add_unmet(float unmet) {
+    fbb_.AddElement<float>(MarketGood::VT_UNMET, unmet, 0.0f);
+  }
+  void add_unmet_worth_h(float unmet_worth_h) {
+    fbb_.AddElement<float>(MarketGood::VT_UNMET_WORTH_H, unmet_worth_h, 0.0f);
+  }
+  void add_acceptance(float acceptance) {
+    fbb_.AddElement<float>(MarketGood::VT_ACCEPTANCE, acceptance, 0.0f);
+  }
+  void add_last_payment(int32_t last_payment) {
+    fbb_.AddElement<int32_t>(MarketGood::VT_LAST_PAYMENT, last_payment, -1);
+  }
+  void add_last_price(float last_price) {
+    fbb_.AddElement<float>(MarketGood::VT_LAST_PRICE, last_price, 0.0f);
+  }
+  explicit MarketGoodBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<MarketGood> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<MarketGood>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<MarketGood> CreateMarketGood(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint16_t good = 0,
+    float offered = 0.0f,
+    uint16_t sellers = 0,
+    float sold = 0.0f,
+    float unmet = 0.0f,
+    float unmet_worth_h = 0.0f,
+    float acceptance = 0.0f,
+    int32_t last_payment = -1,
+    float last_price = 0.0f) {
+  MarketGoodBuilder builder_(_fbb);
+  builder_.add_last_price(last_price);
+  builder_.add_last_payment(last_payment);
+  builder_.add_acceptance(acceptance);
+  builder_.add_unmet_worth_h(unmet_worth_h);
+  builder_.add_unmet(unmet);
+  builder_.add_sold(sold);
+  builder_.add_offered(offered);
+  builder_.add_sellers(sellers);
+  builder_.add_good(good);
+  return builder_.Finish();
+}
+
+struct MarketGood::Traits {
+  using type = MarketGood;
+  static auto constexpr Create = CreateMarketGood;
+};
+
+struct MarketInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef MarketInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SETTLEMENT = 4,
+    VT_SETTLEMENT_NAME = 6,
+    VT_MONEY = 8,
+    VT_SUMMARY = 10,
+    VT_TRADES = 12,
+    VT_MEMORY_DAYS = 14,
+    VT_GOODS = 16,
+    VT_OFFERS = 18,
+    VT_RECENT = 20,
+    VT_HISTORY = 22
+  };
+  uint64_t settlement() const {
+    return GetField<uint64_t>(VT_SETTLEMENT, 0);
+  }
+  const ::flatbuffers::String *settlement_name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_SETTLEMENT_NAME);
+  }
+  int32_t money() const {
+    return GetField<int32_t>(VT_MONEY, -1);
+  }
+  const ::flatbuffers::String *summary() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_SUMMARY);
+  }
+  float trades() const {
+    return GetField<float>(VT_TRADES, 0.0f);
+  }
+  float memory_days() const {
+    return GetField<float>(VT_MEMORY_DAYS, 0.0f);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MarketGood>> *goods() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MarketGood>> *>(VT_GOODS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OfferInfo>> *offers() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OfferInfo>> *>(VT_OFFERS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TradeInfo>> *recent() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TradeInfo>> *>(VT_RECENT);
+  }
+  const ::flatbuffers::Vector<const tce::wire::MonthOfTrade *> *history() const {
+    return GetPointer<const ::flatbuffers::Vector<const tce::wire::MonthOfTrade *> *>(VT_HISTORY);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_SETTLEMENT, 8) &&
+           VerifyOffset(verifier, VT_SETTLEMENT_NAME) &&
+           verifier.VerifyString(settlement_name()) &&
+           VerifyField<int32_t>(verifier, VT_MONEY, 4) &&
+           VerifyOffset(verifier, VT_SUMMARY) &&
+           verifier.VerifyString(summary()) &&
+           VerifyField<float>(verifier, VT_TRADES, 4) &&
+           VerifyField<float>(verifier, VT_MEMORY_DAYS, 4) &&
+           VerifyOffset(verifier, VT_GOODS) &&
+           verifier.VerifyVector(goods()) &&
+           verifier.VerifyVectorOfTables(goods()) &&
+           VerifyOffset(verifier, VT_OFFERS) &&
+           verifier.VerifyVector(offers()) &&
+           verifier.VerifyVectorOfTables(offers()) &&
+           VerifyOffset(verifier, VT_RECENT) &&
+           verifier.VerifyVector(recent()) &&
+           verifier.VerifyVectorOfTables(recent()) &&
+           VerifyOffset(verifier, VT_HISTORY) &&
+           verifier.VerifyVector(history()) &&
+           verifier.EndTable();
+  }
+};
+
+struct MarketInfoBuilder {
+  typedef MarketInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_settlement(uint64_t settlement) {
+    fbb_.AddElement<uint64_t>(MarketInfo::VT_SETTLEMENT, settlement, 0);
+  }
+  void add_settlement_name(::flatbuffers::Offset<::flatbuffers::String> settlement_name) {
+    fbb_.AddOffset(MarketInfo::VT_SETTLEMENT_NAME, settlement_name);
+  }
+  void add_money(int32_t money) {
+    fbb_.AddElement<int32_t>(MarketInfo::VT_MONEY, money, -1);
+  }
+  void add_summary(::flatbuffers::Offset<::flatbuffers::String> summary) {
+    fbb_.AddOffset(MarketInfo::VT_SUMMARY, summary);
+  }
+  void add_trades(float trades) {
+    fbb_.AddElement<float>(MarketInfo::VT_TRADES, trades, 0.0f);
+  }
+  void add_memory_days(float memory_days) {
+    fbb_.AddElement<float>(MarketInfo::VT_MEMORY_DAYS, memory_days, 0.0f);
+  }
+  void add_goods(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MarketGood>>> goods) {
+    fbb_.AddOffset(MarketInfo::VT_GOODS, goods);
+  }
+  void add_offers(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OfferInfo>>> offers) {
+    fbb_.AddOffset(MarketInfo::VT_OFFERS, offers);
+  }
+  void add_recent(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TradeInfo>>> recent) {
+    fbb_.AddOffset(MarketInfo::VT_RECENT, recent);
+  }
+  void add_history(::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::MonthOfTrade *>> history) {
+    fbb_.AddOffset(MarketInfo::VT_HISTORY, history);
+  }
+  explicit MarketInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<MarketInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<MarketInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<MarketInfo> CreateMarketInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t settlement = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> settlement_name = 0,
+    int32_t money = -1,
+    ::flatbuffers::Offset<::flatbuffers::String> summary = 0,
+    float trades = 0.0f,
+    float memory_days = 0.0f,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MarketGood>>> goods = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OfferInfo>>> offers = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TradeInfo>>> recent = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::MonthOfTrade *>> history = 0) {
+  MarketInfoBuilder builder_(_fbb);
+  builder_.add_settlement(settlement);
+  builder_.add_history(history);
+  builder_.add_recent(recent);
+  builder_.add_offers(offers);
+  builder_.add_goods(goods);
+  builder_.add_memory_days(memory_days);
+  builder_.add_trades(trades);
+  builder_.add_summary(summary);
+  builder_.add_money(money);
+  builder_.add_settlement_name(settlement_name);
+  return builder_.Finish();
+}
+
+struct MarketInfo::Traits {
+  using type = MarketInfo;
+  static auto constexpr Create = CreateMarketInfo;
+};
+
+inline ::flatbuffers::Offset<MarketInfo> CreateMarketInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t settlement = 0,
+    const char *settlement_name = nullptr,
+    int32_t money = -1,
+    const char *summary = nullptr,
+    float trades = 0.0f,
+    float memory_days = 0.0f,
+    const std::vector<::flatbuffers::Offset<tce::wire::MarketGood>> *goods = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::OfferInfo>> *offers = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::TradeInfo>> *recent = nullptr,
+    const std::vector<tce::wire::MonthOfTrade> *history = nullptr) {
+  auto settlement_name__ = settlement_name ? _fbb.CreateString(settlement_name) : 0;
+  auto summary__ = summary ? _fbb.CreateString(summary) : 0;
+  auto goods__ = goods ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::MarketGood>>(*goods) : 0;
+  auto offers__ = offers ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::OfferInfo>>(*offers) : 0;
+  auto recent__ = recent ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::TradeInfo>>(*recent) : 0;
+  auto history__ = history ? _fbb.CreateVectorOfStructs<tce::wire::MonthOfTrade>(*history) : 0;
+  return tce::wire::CreateMarketInfo(
+      _fbb,
+      settlement,
+      settlement_name__,
+      money,
+      summary__,
+      trades,
+      memory_days,
+      goods__,
+      offers__,
+      recent__,
+      history__);
+}
+
+struct Markets FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef MarketsBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_REV = 4,
+    VT_MARKETS = 6
+  };
+  uint64_t rev() const {
+    return GetField<uint64_t>(VT_REV, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MarketInfo>> *markets() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MarketInfo>> *>(VT_MARKETS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_REV, 8) &&
+           VerifyOffset(verifier, VT_MARKETS) &&
+           verifier.VerifyVector(markets()) &&
+           verifier.VerifyVectorOfTables(markets()) &&
+           verifier.EndTable();
+  }
+};
+
+struct MarketsBuilder {
+  typedef Markets Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_rev(uint64_t rev) {
+    fbb_.AddElement<uint64_t>(Markets::VT_REV, rev, 0);
+  }
+  void add_markets(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MarketInfo>>> markets) {
+    fbb_.AddOffset(Markets::VT_MARKETS, markets);
+  }
+  explicit MarketsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Markets> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Markets>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Markets> CreateMarkets(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MarketInfo>>> markets = 0) {
+  MarketsBuilder builder_(_fbb);
+  builder_.add_rev(rev);
+  builder_.add_markets(markets);
+  return builder_.Finish();
+}
+
+struct Markets::Traits {
+  using type = Markets;
+  static auto constexpr Create = CreateMarkets;
+};
+
+inline ::flatbuffers::Offset<Markets> CreateMarketsDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::MarketInfo>> *markets = nullptr) {
+  auto markets__ = markets ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::MarketInfo>>(*markets) : 0;
+  return tce::wire::CreateMarkets(
+      _fbb,
+      rev,
+      markets__);
+}
+
 struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef ResponseBuilder Builder;
   struct Traits;
@@ -7339,6 +8129,9 @@ struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::Paths *body_as_Paths() const {
     return body_type() == tce::wire::ResponseBody::Paths ? static_cast<const tce::wire::Paths *>(body()) : nullptr;
+  }
+  const tce::wire::Markets *body_as_Markets() const {
+    return body_type() == tce::wire::ResponseBody::Markets ? static_cast<const tce::wire::Markets *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -7388,6 +8181,10 @@ template<> inline const tce::wire::Buildings *Response::body_as<tce::wire::Build
 
 template<> inline const tce::wire::Paths *Response::body_as<tce::wire::Paths>() const {
   return body_as_Paths();
+}
+
+template<> inline const tce::wire::Markets *Response::body_as<tce::wire::Markets>() const {
+  return body_as_Markets();
 }
 
 struct ResponseBuilder {
@@ -7593,6 +8390,10 @@ inline bool VerifyQueryBody(::flatbuffers::VerifierTemplate<B> &verifier, const 
       auto ptr = reinterpret_cast<const tce::wire::GetPaths *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case QueryBody::GetMarkets: {
+      auto ptr = reinterpret_cast<const tce::wire::GetMarkets *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -7654,6 +8455,10 @@ inline bool VerifyResponseBody(::flatbuffers::VerifierTemplate<B> &verifier, con
     }
     case ResponseBody::Paths: {
       auto ptr = reinterpret_cast<const tce::wire::Paths *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::Markets: {
+      auto ptr = reinterpret_cast<const tce::wire::Markets *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

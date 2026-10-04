@@ -261,6 +261,13 @@ export class HostClient {
     return body.paths;
   }
 
+  /** Every settlement's market, with the revision they are at. */
+  async markets(): Promise<{ rev: number; markets: M.MarketInfo[] }> {
+    const body = await this.query(M.getMarkets());
+    if (body.kind !== "markets") throw new HostError("internal", "expected markets");
+    return { rev: body.rev, markets: body.markets };
+  }
+
   /** Every field, with the revision it is at. */
   async fields(): Promise<{ rev: number; fields: M.FieldInfo[] }> {
     const body = await this.query(M.getFields());

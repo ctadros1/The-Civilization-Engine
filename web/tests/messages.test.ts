@@ -130,6 +130,7 @@ describe("decoders", () => {
       fieldsRev: 0,
       buildingsRev: 0,
       pathsRev: 0,
+      marketsRev: 0,
     });
   });
 
@@ -169,6 +170,75 @@ describe("decoders", () => {
     const trailCells = [...p.worn[0]!.trail.entries()].filter(([, v]) => v === 1).map(([k]) => k);
     expect(trailCells).toEqual([5, 100]);
     expect(p.trails).toEqual([{ points: [[100, 40], [300, 40]], wear: 0.75, lengthM: 200 }]);
+  });
+
+  it("builds a markets query and decodes a settlement's market", () => {
+    const query = W.Query.getRootAsQuery(bb(M.getMarkets()));
+    expect(query.bodyType()).toBe(W.QueryBody.GetMarkets);
+
+    const b = new flatbuffers.Builder(1024);
+    const sickle = W.MarketGood.createMarketGood(b, 4, 2, 1, 1.5, 3, 12, 0.6, 0, 11.5);
+    const goods = W.MarketInfo.createGoodsVector(b, [sickle]);
+    const ada = b.createString("Ada's household");
+    const offer = W.OfferInfo.createOfferInfo(b, 7n, ada, 4, 0, 12.25, 2);
+    const offers = W.MarketInfo.createOffersVector(b, [offer]);
+    const text = b.createString("Ada's household sold 1 sickle to Bran's household for 12 kg of grain.");
+    const trade = W.TradeInfo.createTradeInfo(b, 1440n, 7n, 9n, 4, 1, 0, 12, false, text);
+    const recent = W.MarketInfo.createRecentVector(b, [trade]);
+    W.MarketInfo.startHistoryVector(b, 1);
+    W.MonthOfTrade.createMonthOfTrade(b, 14, 2, 1.5, 18, 4);
+    const history = b.endVector();
+    const name = b.createString("Hearth");
+    const summary = b.createString("Barter: no good settles most of what is paid; grain settles 60%.");
+    const info = W.MarketInfo.createMarketInfo(
+      b,
+      3n,
+      name,
+      -1,
+      summary,
+      2.5,
+      30,
+      goods,
+      offers,
+      recent,
+      history,
+    );
+    const list = W.Markets.createMarketsVector(b, [info]);
+    const markets = W.Markets.createMarkets(b, 41n, list);
+    const response = W.Response.createResponse(b, W.ResponseBody.Markets, markets);
+    const body = M.decodeResponse(finish(b, response));
+    expect(body.kind).toBe("markets");
+    if (body.kind !== "markets") return;
+    expect(body.rev).toBe(41);
+    expect(body.markets).toHaveLength(1);
+    const m = body.markets[0]!;
+    expect([m.settlement, m.settlementName, m.money, m.trades, m.memoryDays]).toEqual([
+      3,
+      "Hearth",
+      -1,
+      2.5,
+      30,
+    ]);
+    expect(m.summary).toContain("Barter");
+    expect(m.goods).toEqual([
+      {
+        good: 4,
+        offered: 2,
+        sellers: 1,
+        sold: 1.5,
+        unmet: 3,
+        unmetWorthH: 12,
+        acceptance: expect.closeTo(0.6, 5),
+        lastPayment: 0,
+        lastPrice: 11.5,
+      },
+    ]);
+    expect(m.offers).toEqual([
+      { household: 7, householdName: "Ada's household", good: 4, payment: 0, price: 12.25, units: 2 },
+    ]);
+    expect(m.recent[0]).toMatchObject({ minute: 1440, seller: 7, buyer: 9, good: 4, sale: false });
+    expect(m.recent[0]!.text).toContain("sold 1 sickle");
+    expect(m.history).toEqual([{ month: 14, good: 4, trades: 2, units: 1.5, paidH: 18 }]);
   });
 
   it("builds a buildings query and decodes the buildings", () => {

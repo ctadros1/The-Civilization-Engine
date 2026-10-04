@@ -267,9 +267,10 @@ max_change = 0.05
 # memory 14-56 days).
 memory_days = 30.0
 # A good is the settlement's money once it settles this share of the payments' worth over at least
-# this many remembered trades (08-06 §1.3: money is acceptance, not a flag).
+# this many remembered trades (08-06 §1.3: money is acceptance, not a flag; §2.3: acceptance
+# beliefs from 10-100 payments per half-life, here the fewest).
 money_share = 0.5
-money_min_trades = 5.0
+money_min_trades = 10.0
 # A seller accepts a good it wants at least this much more of (1 when short of it), or the money.
 accept_want = 0.5
 recent_trades = 64

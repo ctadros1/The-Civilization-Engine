@@ -362,6 +362,10 @@ impl Population {
                     if goods[p].tool.is_none() && price * unit > params.household.carry_kg {
                         continue;
                     }
+                    // A tool is paid whole or worn, not in splinters: at least half a tool.
+                    if goods[p].tool.is_some() && price * unit < MIN_OFFER_TOOL {
+                        continue;
+                    }
                     rows.push(Offer {
                         good: g as u16,
                         payment: p as u16,
@@ -372,7 +376,9 @@ impl Population {
                     posted += 1;
                 }
             }
-            // The tools it needs and nobody in its settlement offers: demand on record.
+            // The tools it needs and nobody in its settlement offers: demand on record, as much
+            // as it needs, weighted so that a want recorded at every review adds up, as the
+            // market forgets, to the want itself (a level, not a count of reviews).
             let offered_here: Vec<usize> = self
                 .households
                 .iter()
@@ -380,25 +386,27 @@ impl Population {
                 .filter(|x| x.settlement == Some(settlement) && x.id != id)
                 .flat_map(|x| x.offers.iter().map(|o| usize::from(o.good)))
                 .collect();
-            let mut wanted: Vec<(usize, f64)> = Vec::new();
+            let mut wanted: Vec<(usize, f64, f64)> = Vec::new();
             for (t, d) in goods.iter().enumerate() {
                 if d.tool.is_none() || offered_here.contains(&t) {
                     continue;
                 }
                 let wants =
                     (holding.keep.get(t).copied().unwrap_or(0.0) - make::SPARE_TOOL).max(0.0);
-                if make::tool_need(wants, held(t)) > 0.0
+                let need = make::tool_need(wants, held(t));
+                if need > 0.0
                     && let Some(c) = costs.get(t).copied().flatten()
                 {
-                    wanted.push((t, c));
+                    wanted.push((t, need, c));
                 }
             }
             if let Some(x) = self.household_mut_by_id(id) {
                 x.offers = rows;
             }
+            let weight = 1.0 - 0.5f64.powf(review_days as f64 / mp.memory_days.max(1e-6));
             let m = self.market_mut(settlement, goods.len(), day, mp.memory_days);
-            for (t, worth_h) in wanted {
-                m.record_unmet(t, 1.0, worth_h);
+            for (t, need, worth_h) in wanted {
+                m.record_unmet(t, need * weight, worth_h * need * weight);
             }
         }
     }
@@ -494,9 +502,12 @@ impl Population {
                     units
                 };
                 let paid = f64::from(o.price) * units;
-                // It pays out of what it holds beyond what it keeps, valued at its own cost.
+                // It pays out of what it holds beyond what it keeps, valued at its own cost; a
+                // tool whole or worn, not in splinters.
                 let spare = held(p) - holding.keep.get(p).copied().unwrap_or(0.0);
-                if !(paid > 0.0 && paid <= spare + 1e-9) {
+                if !(paid > 0.0 && paid <= spare + 1e-9)
+                    || (goods[p].tool.is_some() && paid < MIN_OFFER_TOOL - 1e-9)
+                {
                     continue;
                 }
                 let Some(pay_cost) = costs.get(p).copied().flatten() else {

@@ -303,6 +303,21 @@ table Household {
   stores: [double] (id: 8);
   stores_at: long (id: 9);
   known_resources: [KnownResource] (id: 10);
+  // Schema 10: what the household offers, and on what terms.
+  offers: [Offer] (id: 11);
+}
+
+// Schema 10: one row of a household's posted terms (ADR-0006 §4). Goods are indexed like
+// Households.goods.
+table Offer {
+  good: uint (id: 0);
+  payment: uint (id: 1);
+  // Units of the payment asked for a unit of the good.
+  price: float (id: 2);
+  // Units of the good offered.
+  units: float (id: 3);
+  // What a unit is worth to the seller behind these terms, hours of its own work.
+  ask_h: float (id: 4);
 }
 
 table Households {
@@ -519,6 +534,58 @@ table WearTile {
 
 table Wear {
   tiles: [WearTile] (id: 0);
+}
+
+// Section "market" (schema 10): each settlement's market (ADR-0006 §4). Tallies are indexed like
+// Markets.goods; they fade with a half-life from `day`.
+table LastTerms {
+  good: uint (id: 0);
+  payment: uint (id: 1);
+  // Paid per unit.
+  price: float (id: 2);
+}
+
+enum TradeChannel : ubyte { Barter = 5, Sale = 6 }
+
+table TradeRecord {
+  at: long (id: 0);
+  seller: ulong (id: 1);
+  buyer: ulong (id: 2);
+  good: uint (id: 3);
+  units: float (id: 4);
+  payment: uint (id: 5);
+  paid: float (id: 6);
+  channel: TradeChannel = Barter (id: 7);
+}
+
+// A month of trade in one good: a line of the price history. `month` counts months from the
+// calendar's origin; `good` is indexed like Markets.goods.
+struct MonthOfTrade {
+  month: uint;
+  good: uint;
+  trades: uint;
+  units: float;
+  // What the payments were worth to the sellers, hours of their own work.
+  paid_h: float;
+}
+
+table MarketState {
+  settlement: ulong (id: 0);
+  day: long (id: 1);
+  paid_h: [double] (id: 2);
+  sold: [double] (id: 3);
+  unmet: [double] (id: 4);
+  unmet_h: [double] (id: 5);
+  trades: double (id: 6);
+  last: [LastTerms] (id: 7);
+  recent: [TradeRecord] (id: 8);
+  history: [MonthOfTrade] (id: 9);
+}
+
+table Markets {
+  markets: [MarketState] (id: 0);
+  // Good content ids at save time.
+  goods: [string] (id: 1);
 }
 
 // Section "events": the scheduler's pending events.

@@ -258,7 +258,7 @@ decided by people at run time.
 
 | Field | Meaning |
 |---|---|
-| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a). |
+| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a). |
 | `resource` | For `gather` only: the land resource gathered (hunting, fishing, collecting firewood and cutting building materials are gathering too). A trip works until its load is full or its time runs out. |
 | `task` | For `farm` only: the field work, one of `prepare`, `sow`, `tend`, `reap`, `thresh`. |
 | `recipe` | For `make` only: the recipe worked, at home. |
@@ -316,6 +316,23 @@ A domain people get better at with practice (ADR-0006 §2).
   through to its next harvest make wild food worth going out for); `farm.loss_share` (the grain
   lost before it is eaten, which a household grows over); `decision.w_tools` (what a session
   making a tool the household lacks, or a load of what it is made of, is worth).
+- `activity`: `behavior = "trade"` (slice I): a person walks to the household whose posted terms
+  save their own household the most hours of its work, the walk included, and the deal settles
+  at its door through the ledger. Which seller, what and what is paid are decided at run time.
+- `people`: a `[market]` table (slice I, ADR-0006 §4):
+
+  | Field | Meaning |
+  |---|---|
+  | `review_days` | Days between a household's reviews of what it can spare and the terms it posts (each on its own day). |
+  | `margin` | What a seller asks over its own cost of a good, a share of that cost. |
+  | `max_change` | The largest change of an ask in one review, a share of it. |
+  | `memory_days` | Half-life of what a settlement's market remembers: sales, payments, demand nobody met, trades. |
+  | `money_share`, `money_min_trades` | A good is the settlement's money once it settles at least this share of the payments' worth over at least this many remembered trades. Nothing names a money good. |
+  | `accept_want` | A seller takes a good in payment when it wants at least this much more of it (1 when short of it), or when the good is the settlement's money. |
+  | `recent_trades` | Trades a market keeps in its list of the latest. |
+
+  New decision reasons: *others want it* (making a tool to sell), *it costs less from a
+  neighbour* and *nobody nearby offers it*.
 
 ## Planned kinds
 

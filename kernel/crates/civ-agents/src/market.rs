@@ -6,9 +6,12 @@
 
 use std::collections::VecDeque;
 
-use civ_core::PermanentId;
+use civ_core::{PermanentId, SimTime};
 
 use crate::ledger::Trade;
+
+/// Months of trade a market's price history keeps: twenty years (a bound on memory).
+pub const HISTORY_MONTHS: u32 = 240;
 
 /// What a household offers, and on what terms (ADR-0006 §4): one row per good it sells and good
 /// it accepts in payment.
@@ -25,6 +28,28 @@ pub struct Offer {
     /// What a unit is worth to the seller behind these terms, hours of its own work: its cost
     /// and margin, moved by what sold.
     pub ask_h: f32,
+}
+
+/// A month of trade in one good at a settlement's market: a line of its price history (ADR-0006
+/// §6).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MonthOfTrade {
+    /// Months since the calendar's origin (see [`month_of`]).
+    pub month: u32,
+    /// The good sold, by index in the catalog's goods.
+    pub good: u16,
+    /// Trades made.
+    pub trades: u32,
+    /// Units sold.
+    pub units: f32,
+    /// What the payments were worth to the sellers, hours of their own work.
+    pub paid_h: f32,
+}
+
+/// Months from the calendar's origin to the month of `t`: (year − 1) × 12 + month − 1.
+pub fn month_of(t: SimTime) -> u32 {
+    let d = t.date();
+    ((d.year - 1) * 12 + i64::from(d.month) - 1).max(0) as u32
 }
 
 /// A settlement's market.
@@ -48,6 +73,9 @@ pub struct Market {
     pub last: Vec<Option<(u16, f32)>>,
     /// The latest trades, oldest first.
     pub recent: VecDeque<Trade>,
+    /// The price history: per month and good, what sold and what it was paid, oldest first, for
+    /// the last [`HISTORY_MONTHS`] months.
+    pub history: Vec<MonthOfTrade>,
 }
 
 impl Market {
@@ -63,6 +91,7 @@ impl Market {
             trades: 0.0,
             last: vec![None; goods],
             recent: VecDeque::new(),
+            history: Vec::new(),
         }
     }
 
@@ -118,6 +147,30 @@ impl Market {
         while self.recent.len() > keep {
             self.recent.pop_front();
         }
+        let month = month_of(trade.at);
+        let at = self
+            .history
+            .partition_point(|h| (h.month, h.good) < (month, trade.good));
+        match self.history.get_mut(at) {
+            Some(h) if (h.month, h.good) == (month, trade.good) => {
+                h.trades += 1;
+                h.units += trade.units.max(0.0);
+                h.paid_h += worth_h.max(0.0) as f32;
+            }
+            _ => self.history.insert(
+                at,
+                MonthOfTrade {
+                    month,
+                    good: trade.good,
+                    trades: 1,
+                    units: trade.units.max(0.0),
+                    paid_h: worth_h.max(0.0) as f32,
+                },
+            ),
+        }
+        let first = month.saturating_sub(HISTORY_MONTHS - 1);
+        let old = self.history.partition_point(|h| h.month < first);
+        self.history.drain(..old);
     }
 
     /// Records `units` of `good` a buyer wanted and found no offer for, which it would have
@@ -203,6 +256,39 @@ mod tests {
         }
         assert_eq!(m.money(0.5, 3.0), Some(1));
         assert_eq!(m.recent.len(), 4, "the latest trades only");
+    }
+
+    #[test]
+    fn the_price_history_keeps_each_month_of_each_good() {
+        let mut m = Market::new(id(9), 3, 0);
+        let at = |year: i64, month: u8| SimTime::from_date(year, month, 3, 12, 0).expect("a date");
+        let mut sickle = trade(2, 1.0, 0, 2.0);
+        sickle.at = at(1, 2);
+        m.record_trade(sickle, 3.0, 4);
+        m.record_trade(sickle, 5.0, 4);
+        let mut grain = trade(0, 10.0, 2, 0.5);
+        grain.at = at(1, 2);
+        m.record_trade(grain, 4.0, 4);
+        sickle.at = at(2, 1);
+        m.record_trade(sickle, 4.0, 4);
+        let lines: Vec<(u32, u16, u32, f32, f32)> = m
+            .history
+            .iter()
+            .map(|h| (h.month, h.good, h.trades, h.units, h.paid_h))
+            .collect();
+        assert_eq!(
+            lines,
+            vec![
+                (1, 0, 1, 10.0, 4.0),
+                (1, 2, 2, 2.0, 8.0),
+                (12, 2, 1, 1.0, 4.0)
+            ]
+        );
+        // Twenty years on, the first year is forgotten.
+        sickle.at = at(21, 2);
+        m.record_trade(sickle, 4.0, 4);
+        assert_eq!(m.history.first().map(|h| h.month), Some(12));
+        assert_eq!(month_of(at(21, 2)), 241);
     }
 
     #[test]

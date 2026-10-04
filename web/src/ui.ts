@@ -19,6 +19,18 @@ import {
   formatWhen,
 } from "./format.js";
 import { BUILDING_LEGEND } from "./buildings.js";
+import {
+  amountText,
+  askingText,
+  monthIndex,
+  monthText,
+  offerGroups,
+  paymentsText,
+  priceSeries,
+  priceText,
+  sparkline,
+  worthText,
+} from "./market.js";
 import { FIELD_LEGEND } from "./fields.js";
 import { PATH_LEGEND } from "./paths.js";
 import { HostError } from "./net/client.js";
@@ -26,6 +38,7 @@ import type {
   ChronicleEntry,
   Decision,
   EventItem,
+  MarketInfo,
   PersonInfo,
   SaveEntry,
   ScoredOption,
@@ -918,6 +931,181 @@ export function bindUi(store: Store, actions: Actions): void {
     if (atEnd) chronicleList.scrollTop = chronicleList.scrollHeight;
   };
 
+  // ---- Markets --------------------------------------------------------------------------
+  const marketBody = $("market-body");
+  let marketKey: unknown[] = [];
+  /** Trades the panel lists, newest first. */
+  const TRADES_SHOWN = 8;
+  const SVG = "http://www.w3.org/2000/svg";
+  const priceChart = (welcome: Welcome | null, m: MarketInfo, good: number, month: number) => {
+    const points = priceSeries(m.history, good, month);
+    const runs = sparkline(points, 96, 20);
+    if (runs.length === 0) return null;
+    const svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("class", "spark");
+    svg.setAttribute("viewBox", "-2 -2 100 24");
+    svg.setAttribute("width", "100");
+    svg.setAttribute("height", "24");
+    svg.setAttribute("role", "img");
+    const goods = welcome?.goods ?? [];
+    const label = points
+      .filter((p) => p.hoursPerUnit !== null)
+      .map((p) => `${monthText(p.month)}: ${worthText(goods, good, [p])}`)
+      .join("; ");
+    svg.setAttribute("aria-label", `What it sold for, in hours of the sellers' work: ${label}`);
+    const title = document.createElementNS(SVG, "title");
+    title.textContent = label;
+    svg.append(title);
+    for (const run of runs) {
+      if (run.includes(" ")) {
+        const line = document.createElementNS(SVG, "polyline");
+        line.setAttribute("points", run);
+        svg.append(line);
+      } else {
+        const [x, y] = run.split(",");
+        const dot = document.createElementNS(SVG, "circle");
+        dot.setAttribute("cx", x ?? "0");
+        dot.setAttribute("cy", y ?? "0");
+        dot.setAttribute("r", "1.6");
+        svg.append(dot);
+      }
+    }
+    return el(
+      "div",
+      { className: "price" },
+      svg,
+      el("span", { className: "since", text: worthText(goods, good, points) }),
+    );
+  };
+  const marketBlock = (state: AppState, m: MarketInfo, month: number): Node => {
+    const welcome = state.welcome;
+    const goods = welcome?.goods ?? [];
+    const name = (g: number) => goods[g]?.name ?? "A good no longer known";
+    const head = el(
+      "p",
+      { className: "market-head" },
+      link(m.settlementName || "A settlement", () => actions.focusSettlement(m.settlement)),
+      m.money >= 0
+        ? el("span", { className: "badge money", text: `money: ${name(m.money).toLowerCase()}` })
+        : el("span", { className: "badge barter", text: "barter" }),
+    );
+    const nodes: Node[] = [head, el("p", { className: "market-summary", text: m.summary })];
+    const paid = paymentsText(goods, m);
+    if (paid) nodes.push(el("p", { className: "aside", text: `Paid in: ${paid}.` }));
+    const lines = el("ul", { className: "market-goods" });
+    for (const g of m.goods) {
+      const facts: string[] = [];
+      if (g.sellers > 0) {
+        facts.push(
+          `${amountText(goods[g.good], g.offered)} offered by ${g.sellers} household${g.sellers === 1 ? "" : "s"}`,
+        );
+      }
+      if (g.sold >= 0.05) facts.push(`${amountText(goods[g.good], g.sold)} sold lately`);
+      if (g.unmet >= 0.05) {
+        facts.push(`${amountText(goods[g.good], g.unmet)} wanted, none on offer`);
+      }
+      if (g.acceptance >= 0.005) facts.push(`${formatPercent(g.acceptance)} of what is paid`);
+      const item = el(
+        "li",
+        {},
+        el("span", { className: "good", text: name(g.good) }),
+        el("span", { className: "since", text: facts.join(" · ") }),
+      );
+      if (g.sellers > 0) {
+        item.append(el("p", { className: "terms", text: `Asking ${askingText(goods, m.offers, g.good)}` }));
+      }
+      if (g.lastPayment >= 0) {
+        item.append(
+          el("p", {
+            className: "terms",
+            text: `Last sold for ${priceText(goods, g.good, g.lastPayment, g.lastPrice)}`,
+          }),
+        );
+      }
+      const chart = priceChart(welcome, m, g.good, month);
+      if (chart) item.append(chart);
+      lines.append(item);
+    }
+    nodes.push(lines);
+    const groups = offerGroups(goods, m.offers);
+    if (groups.length > 0) {
+      const list = el("ul", { className: "offers" });
+      for (const o of groups) {
+        list.append(
+          el(
+            "li",
+            {},
+            `${o.householdName}: ${amountText(goods[o.good], o.units)} for ${o.terms}`,
+          ),
+        );
+      }
+      nodes.push(
+        el(
+          "details",
+          { className: "offers-list" },
+          el("summary", { text: `Every offer (${groups.length})` }),
+          list,
+        ),
+      );
+    }
+    if (m.recent.length > 0) {
+      const trades = el("ol", { className: "trades" });
+      for (const t of m.recent.slice(0, TRADES_SHOWN)) {
+        trades.append(
+          el(
+            "li",
+            {},
+            el("span", { className: "when", text: formatSimMinute(t.minute) }),
+            el("span", { className: "text", text: t.text }),
+            el("span", { className: `badge ${t.sale ? "money" : "barter"}`, text: t.sale ? "sale" : "barter" }),
+          ),
+        );
+      }
+      nodes.push(el("h4", { text: "Latest trades" }), trades);
+    }
+    nodes.push(
+      el("p", {
+        className: "aside",
+        text: `What sold and what was wanted fade by half every ${Math.round(m.memoryDays)} days. Prices are what the sellers' terms said a unit was worth, in hours of their own work.`,
+      }),
+    );
+    return el("div", { className: "market" }, ...nodes);
+  };
+  const renderMarkets = (state: AppState) => {
+    const world = state.snapshot?.world ?? null;
+    const clock = state.snapshot?.clock ?? null;
+    const month = clock ? monthIndex(clock.year, clock.month) : 0;
+    const key = [world?.worldId ?? null, state.markets, state.marketsError, month, state.welcome];
+    if (key.length === marketKey.length && key.every((k, i) => k === marketKey[i])) return;
+    marketKey = key;
+    if (!world) {
+      marketBody.replaceChildren(el("p", { className: "empty", text: "No world loaded." }));
+      return;
+    }
+    if (state.markets === null) {
+      marketBody.replaceChildren(
+        state.marketsError
+          ? el("p", { className: "form-error", text: `The markets could not be read: ${state.marketsError}` })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      );
+      return;
+    }
+    if (state.markets.length === 0) {
+      marketBody.replaceChildren(
+        el("p", {
+          className: "empty",
+          text: "Nobody offers anything yet. Each household looks over what it can spare once a week.",
+        }),
+      );
+      return;
+    }
+    const nodes = state.markets.map((m) => marketBlock(state, m, month));
+    if (state.marketsError) {
+      nodes.push(el("p", { className: "note", text: `Not up to date: ${state.marketsError}` }));
+    }
+    marketBody.replaceChildren(...nodes);
+  };
+
   const renderTask = (state: AppState) => {
     const task = state.snapshot?.task ?? null;
     $("task").hidden = !task;
@@ -988,6 +1176,7 @@ export function bindUi(store: Store, actions: Actions): void {
     renderMapState(state);
     renderPeople(state);
     renderChronicle(state);
+    renderMarkets(state);
     renderWorld(state);
     renderEvents(state);
     renderTask(state);

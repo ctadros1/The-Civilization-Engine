@@ -1003,6 +1003,90 @@ impl<'a> ::flatbuffers::Verifiable for FootprintKind {
 
 impl ::flatbuffers::SimpleToVerifyInSlice for FootprintKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_TRADE_CHANNEL: u8 = 5;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_TRADE_CHANNEL: u8 = 6;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_TRADE_CHANNEL: [TradeChannel; 2] = [
+  TradeChannel::Barter,
+  TradeChannel::Sale,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct TradeChannel(pub u8);
+#[allow(non_upper_case_globals)]
+impl TradeChannel {
+  pub const Barter: Self = Self(5);
+  pub const Sale: Self = Self(6);
+
+  pub const ENUM_MIN: u8 = 5;
+  pub const ENUM_MAX: u8 = 6;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Barter,
+    Self::Sale,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Barter => Some("Barter"),
+      Self::Sale => Some("Sale"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for TradeChannel {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for TradeChannel {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for TradeChannel {
+    type Output = TradeChannel;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for TradeChannel {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for TradeChannel {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for TradeChannel {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_EVENT_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MAX_EVENT_KIND: u8 = 0;
@@ -2093,6 +2177,229 @@ impl<'a> Exclusion {
         &x_le as *const _ as *const u8,
         self.0[4..].as_mut_ptr(),
         ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct MonthOfTrade, aligned to 4
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct MonthOfTrade(pub [u8; 20]);
+impl Default for MonthOfTrade { 
+  fn default() -> Self { 
+    Self([0; 20])
+  }
+}
+impl ::core::fmt::Debug for MonthOfTrade {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("MonthOfTrade")
+      .field("month", &self.month())
+      .field("good", &self.good())
+      .field("trades", &self.trades())
+      .field("units", &self.units())
+      .field("paid_h", &self.paid_h())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for MonthOfTrade {}
+impl<'a> ::flatbuffers::Follow<'a> for MonthOfTrade {
+  type Inner = &'a MonthOfTrade;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a MonthOfTrade>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a MonthOfTrade {
+  type Inner = &'a MonthOfTrade;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<MonthOfTrade>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for MonthOfTrade {
+    type Output = MonthOfTrade;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const MonthOfTrade as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(4)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for MonthOfTrade {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> MonthOfTrade {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    month: u32,
+    good: u32,
+    trades: u32,
+    units: f32,
+    paid_h: f32,
+  ) -> Self {
+    let mut s = Self([0; 20]);
+    s.set_month(month);
+    s.set_good(good);
+    s.set_trades(trades);
+    s.set_units(units);
+    s.set_paid_h(paid_h);
+    s
+  }
+
+  pub fn month(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_month(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn good(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_good(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn trades(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_trades(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn units(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[12..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_units(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[12..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn paid_h(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_paid_h(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
       );
     }
   }
@@ -5843,6 +6150,7 @@ impl<'a> Household<'a> {
   pub const VT_STORES: ::flatbuffers::VOffsetT = 20;
   pub const VT_STORES_AT: ::flatbuffers::VOffsetT = 22;
   pub const VT_KNOWN_RESOURCES: ::flatbuffers::VOffsetT = 24;
+  pub const VT_OFFERS: ::flatbuffers::VOffsetT = 26;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -5860,6 +6168,7 @@ impl<'a> Household<'a> {
     builder.add_food_kcal(args.food_kcal);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.offers { builder.add_offers(x); }
     if let Some(x) = args.known_resources { builder.add_known_resources(x); }
     if let Some(x) = args.stores { builder.add_stores(x); }
     if let Some(x) = args.known { builder.add_known(x); }
@@ -5946,6 +6255,13 @@ impl<'a> Household<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, KnownResource>>>(Household::VT_KNOWN_RESOURCES, None)}
   }
+  #[inline]
+  pub fn offers(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Offer<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Offer>>>>(Household::VT_OFFERS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Household<'_> {
@@ -5965,6 +6281,7 @@ impl ::flatbuffers::Verifiable for Household<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("stores", Self::VT_STORES, false)?
      .visit_field::<i64>("stores_at", Self::VT_STORES_AT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, KnownResource>>>("known_resources", Self::VT_KNOWN_RESOURCES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Offer>>>>("offers", Self::VT_OFFERS, false)?
      .finish();
     Ok(())
   }
@@ -5981,6 +6298,7 @@ pub struct HouseholdArgs<'a> {
     pub stores: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
     pub stores_at: i64,
     pub known_resources: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, KnownResource>>>,
+    pub offers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Offer<'a>>>>>,
 }
 impl<'a> Default for HouseholdArgs<'a> {
   #[inline]
@@ -5997,6 +6315,7 @@ impl<'a> Default for HouseholdArgs<'a> {
       stores: None,
       stores_at: 0,
       known_resources: None,
+      offers: None,
     }
   }
 }
@@ -6051,6 +6370,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_KNOWN_RESOURCES, known_resources);
   }
   #[inline]
+  pub fn add_offers(&mut self, offers: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Offer<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_OFFERS, offers);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HouseholdBuilder {
@@ -6079,6 +6402,171 @@ impl ::core::fmt::Debug for Household<'_> {
       ds.field("stores", &self.stores());
       ds.field("stores_at", &self.stores_at());
       ds.field("known_resources", &self.known_resources());
+      ds.field("offers", &self.offers());
+      ds.finish()
+  }
+}
+pub enum OfferOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Offer<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Offer<'a> {
+  type Inner = Offer<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Offer<'a> {
+  pub const VT_GOOD: ::flatbuffers::VOffsetT = 4;
+  pub const VT_PAYMENT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PRICE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_UNITS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_ASK_H: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Offer { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args OfferArgs
+  ) -> ::flatbuffers::WIPOffset<Offer<'bldr>> {
+    let mut builder = OfferBuilder::new(_fbb);
+    builder.add_ask_h(args.ask_h);
+    builder.add_units(args.units);
+    builder.add_price(args.price);
+    builder.add_payment(args.payment);
+    builder.add_good(args.good);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn good(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Offer::VT_GOOD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn payment(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Offer::VT_PAYMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn price(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Offer::VT_PRICE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn units(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Offer::VT_UNITS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn ask_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Offer::VT_ASK_H, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Offer<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("good", Self::VT_GOOD, false)?
+     .visit_field::<u32>("payment", Self::VT_PAYMENT, false)?
+     .visit_field::<f32>("price", Self::VT_PRICE, false)?
+     .visit_field::<f32>("units", Self::VT_UNITS, false)?
+     .visit_field::<f32>("ask_h", Self::VT_ASK_H, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct OfferArgs {
+    pub good: u32,
+    pub payment: u32,
+    pub price: f32,
+    pub units: f32,
+    pub ask_h: f32,
+}
+impl<'a> Default for OfferArgs {
+  #[inline]
+  fn default() -> Self {
+    OfferArgs {
+      good: 0,
+      payment: 0,
+      price: 0.0,
+      units: 0.0,
+      ask_h: 0.0,
+    }
+  }
+}
+
+pub struct OfferBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> OfferBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_good(&mut self, good: u32) {
+    self.fbb_.push_slot::<u32>(Offer::VT_GOOD, good, 0);
+  }
+  #[inline]
+  pub fn add_payment(&mut self, payment: u32) {
+    self.fbb_.push_slot::<u32>(Offer::VT_PAYMENT, payment, 0);
+  }
+  #[inline]
+  pub fn add_price(&mut self, price: f32) {
+    self.fbb_.push_slot::<f32>(Offer::VT_PRICE, price, 0.0);
+  }
+  #[inline]
+  pub fn add_units(&mut self, units: f32) {
+    self.fbb_.push_slot::<f32>(Offer::VT_UNITS, units, 0.0);
+  }
+  #[inline]
+  pub fn add_ask_h(&mut self, ask_h: f32) {
+    self.fbb_.push_slot::<f32>(Offer::VT_ASK_H, ask_h, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> OfferBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    OfferBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Offer<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Offer<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Offer");
+      ds.field("good", &self.good());
+      ds.field("payment", &self.payment());
+      ds.field("price", &self.price());
+      ds.field("units", &self.units());
+      ds.field("ask_h", &self.ask_h());
       ds.finish()
   }
 }
@@ -9218,6 +9706,713 @@ impl ::core::fmt::Debug for Wear<'_> {
   fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
     let mut ds = f.debug_struct("Wear");
       ds.field("tiles", &self.tiles());
+      ds.finish()
+  }
+}
+pub enum LastTermsOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct LastTerms<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for LastTerms<'a> {
+  type Inner = LastTerms<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> LastTerms<'a> {
+  pub const VT_GOOD: ::flatbuffers::VOffsetT = 4;
+  pub const VT_PAYMENT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PRICE: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    LastTerms { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args LastTermsArgs
+  ) -> ::flatbuffers::WIPOffset<LastTerms<'bldr>> {
+    let mut builder = LastTermsBuilder::new(_fbb);
+    builder.add_price(args.price);
+    builder.add_payment(args.payment);
+    builder.add_good(args.good);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn good(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LastTerms::VT_GOOD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn payment(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LastTerms::VT_PAYMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn price(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(LastTerms::VT_PRICE, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for LastTerms<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("good", Self::VT_GOOD, false)?
+     .visit_field::<u32>("payment", Self::VT_PAYMENT, false)?
+     .visit_field::<f32>("price", Self::VT_PRICE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct LastTermsArgs {
+    pub good: u32,
+    pub payment: u32,
+    pub price: f32,
+}
+impl<'a> Default for LastTermsArgs {
+  #[inline]
+  fn default() -> Self {
+    LastTermsArgs {
+      good: 0,
+      payment: 0,
+      price: 0.0,
+    }
+  }
+}
+
+pub struct LastTermsBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LastTermsBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_good(&mut self, good: u32) {
+    self.fbb_.push_slot::<u32>(LastTerms::VT_GOOD, good, 0);
+  }
+  #[inline]
+  pub fn add_payment(&mut self, payment: u32) {
+    self.fbb_.push_slot::<u32>(LastTerms::VT_PAYMENT, payment, 0);
+  }
+  #[inline]
+  pub fn add_price(&mut self, price: f32) {
+    self.fbb_.push_slot::<f32>(LastTerms::VT_PRICE, price, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LastTermsBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    LastTermsBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<LastTerms<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for LastTerms<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("LastTerms");
+      ds.field("good", &self.good());
+      ds.field("payment", &self.payment());
+      ds.field("price", &self.price());
+      ds.finish()
+  }
+}
+pub enum TradeRecordOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TradeRecord<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for TradeRecord<'a> {
+  type Inner = TradeRecord<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> TradeRecord<'a> {
+  pub const VT_AT: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SELLER: ::flatbuffers::VOffsetT = 6;
+  pub const VT_BUYER: ::flatbuffers::VOffsetT = 8;
+  pub const VT_GOOD: ::flatbuffers::VOffsetT = 10;
+  pub const VT_UNITS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_PAYMENT: ::flatbuffers::VOffsetT = 14;
+  pub const VT_PAID: ::flatbuffers::VOffsetT = 16;
+  pub const VT_CHANNEL: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    TradeRecord { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args TradeRecordArgs
+  ) -> ::flatbuffers::WIPOffset<TradeRecord<'bldr>> {
+    let mut builder = TradeRecordBuilder::new(_fbb);
+    builder.add_buyer(args.buyer);
+    builder.add_seller(args.seller);
+    builder.add_at(args.at);
+    builder.add_paid(args.paid);
+    builder.add_payment(args.payment);
+    builder.add_units(args.units);
+    builder.add_good(args.good);
+    builder.add_channel(args.channel);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(TradeRecord::VT_AT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn seller(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TradeRecord::VT_SELLER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn buyer(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TradeRecord::VT_BUYER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn good(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(TradeRecord::VT_GOOD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn units(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TradeRecord::VT_UNITS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn payment(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(TradeRecord::VT_PAYMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn paid(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TradeRecord::VT_PAID, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn channel(&self) -> TradeChannel {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<TradeChannel>(TradeRecord::VT_CHANNEL, Some(TradeChannel::Barter)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for TradeRecord<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("at", Self::VT_AT, false)?
+     .visit_field::<u64>("seller", Self::VT_SELLER, false)?
+     .visit_field::<u64>("buyer", Self::VT_BUYER, false)?
+     .visit_field::<u32>("good", Self::VT_GOOD, false)?
+     .visit_field::<f32>("units", Self::VT_UNITS, false)?
+     .visit_field::<u32>("payment", Self::VT_PAYMENT, false)?
+     .visit_field::<f32>("paid", Self::VT_PAID, false)?
+     .visit_field::<TradeChannel>("channel", Self::VT_CHANNEL, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TradeRecordArgs {
+    pub at: i64,
+    pub seller: u64,
+    pub buyer: u64,
+    pub good: u32,
+    pub units: f32,
+    pub payment: u32,
+    pub paid: f32,
+    pub channel: TradeChannel,
+}
+impl<'a> Default for TradeRecordArgs {
+  #[inline]
+  fn default() -> Self {
+    TradeRecordArgs {
+      at: 0,
+      seller: 0,
+      buyer: 0,
+      good: 0,
+      units: 0.0,
+      payment: 0,
+      paid: 0.0,
+      channel: TradeChannel::Barter,
+    }
+  }
+}
+
+pub struct TradeRecordBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TradeRecordBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_at(&mut self, at: i64) {
+    self.fbb_.push_slot::<i64>(TradeRecord::VT_AT, at, 0);
+  }
+  #[inline]
+  pub fn add_seller(&mut self, seller: u64) {
+    self.fbb_.push_slot::<u64>(TradeRecord::VT_SELLER, seller, 0);
+  }
+  #[inline]
+  pub fn add_buyer(&mut self, buyer: u64) {
+    self.fbb_.push_slot::<u64>(TradeRecord::VT_BUYER, buyer, 0);
+  }
+  #[inline]
+  pub fn add_good(&mut self, good: u32) {
+    self.fbb_.push_slot::<u32>(TradeRecord::VT_GOOD, good, 0);
+  }
+  #[inline]
+  pub fn add_units(&mut self, units: f32) {
+    self.fbb_.push_slot::<f32>(TradeRecord::VT_UNITS, units, 0.0);
+  }
+  #[inline]
+  pub fn add_payment(&mut self, payment: u32) {
+    self.fbb_.push_slot::<u32>(TradeRecord::VT_PAYMENT, payment, 0);
+  }
+  #[inline]
+  pub fn add_paid(&mut self, paid: f32) {
+    self.fbb_.push_slot::<f32>(TradeRecord::VT_PAID, paid, 0.0);
+  }
+  #[inline]
+  pub fn add_channel(&mut self, channel: TradeChannel) {
+    self.fbb_.push_slot::<TradeChannel>(TradeRecord::VT_CHANNEL, channel, TradeChannel::Barter);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TradeRecordBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    TradeRecordBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<TradeRecord<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for TradeRecord<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("TradeRecord");
+      ds.field("at", &self.at());
+      ds.field("seller", &self.seller());
+      ds.field("buyer", &self.buyer());
+      ds.field("good", &self.good());
+      ds.field("units", &self.units());
+      ds.field("payment", &self.payment());
+      ds.field("paid", &self.paid());
+      ds.field("channel", &self.channel());
+      ds.finish()
+  }
+}
+pub enum MarketStateOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct MarketState<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for MarketState<'a> {
+  type Inner = MarketState<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> MarketState<'a> {
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 4;
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PAID_H: ::flatbuffers::VOffsetT = 8;
+  pub const VT_SOLD: ::flatbuffers::VOffsetT = 10;
+  pub const VT_UNMET: ::flatbuffers::VOffsetT = 12;
+  pub const VT_UNMET_H: ::flatbuffers::VOffsetT = 14;
+  pub const VT_TRADES: ::flatbuffers::VOffsetT = 16;
+  pub const VT_LAST: ::flatbuffers::VOffsetT = 18;
+  pub const VT_RECENT: ::flatbuffers::VOffsetT = 20;
+  pub const VT_HISTORY: ::flatbuffers::VOffsetT = 22;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    MarketState { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args MarketStateArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<MarketState<'bldr>> {
+    let mut builder = MarketStateBuilder::new(_fbb);
+    builder.add_trades(args.trades);
+    builder.add_day(args.day);
+    builder.add_settlement(args.settlement);
+    if let Some(x) = args.history { builder.add_history(x); }
+    if let Some(x) = args.recent { builder.add_recent(x); }
+    if let Some(x) = args.last { builder.add_last(x); }
+    if let Some(x) = args.unmet_h { builder.add_unmet_h(x); }
+    if let Some(x) = args.unmet { builder.add_unmet(x); }
+    if let Some(x) = args.sold { builder.add_sold(x); }
+    if let Some(x) = args.paid_h { builder.add_paid_h(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(MarketState::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(MarketState::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn paid_h(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(MarketState::VT_PAID_H, None)}
+  }
+  #[inline]
+  pub fn sold(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(MarketState::VT_SOLD, None)}
+  }
+  #[inline]
+  pub fn unmet(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(MarketState::VT_UNMET, None)}
+  }
+  #[inline]
+  pub fn unmet_h(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(MarketState::VT_UNMET_H, None)}
+  }
+  #[inline]
+  pub fn trades(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(MarketState::VT_TRADES, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn last(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LastTerms<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LastTerms>>>>(MarketState::VT_LAST, None)}
+  }
+  #[inline]
+  pub fn recent(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TradeRecord<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TradeRecord>>>>(MarketState::VT_RECENT, None)}
+  }
+  #[inline]
+  pub fn history(&self) -> Option<::flatbuffers::Vector<'a, MonthOfTrade>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, MonthOfTrade>>>(MarketState::VT_HISTORY, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for MarketState<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("paid_h", Self::VT_PAID_H, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("sold", Self::VT_SOLD, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("unmet", Self::VT_UNMET, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("unmet_h", Self::VT_UNMET_H, false)?
+     .visit_field::<f64>("trades", Self::VT_TRADES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<LastTerms>>>>("last", Self::VT_LAST, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TradeRecord>>>>("recent", Self::VT_RECENT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, MonthOfTrade>>>("history", Self::VT_HISTORY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct MarketStateArgs<'a> {
+    pub settlement: u64,
+    pub day: i64,
+    pub paid_h: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+    pub sold: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+    pub unmet: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+    pub unmet_h: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+    pub trades: f64,
+    pub last: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LastTerms<'a>>>>>,
+    pub recent: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TradeRecord<'a>>>>>,
+    pub history: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, MonthOfTrade>>>,
+}
+impl<'a> Default for MarketStateArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    MarketStateArgs {
+      settlement: 0,
+      day: 0,
+      paid_h: None,
+      sold: None,
+      unmet: None,
+      unmet_h: None,
+      trades: 0.0,
+      last: None,
+      recent: None,
+      history: None,
+    }
+  }
+}
+
+pub struct MarketStateBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MarketStateBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(MarketState::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(MarketState::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_paid_h(&mut self, paid_h: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(MarketState::VT_PAID_H, paid_h);
+  }
+  #[inline]
+  pub fn add_sold(&mut self, sold: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(MarketState::VT_SOLD, sold);
+  }
+  #[inline]
+  pub fn add_unmet(&mut self, unmet: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(MarketState::VT_UNMET, unmet);
+  }
+  #[inline]
+  pub fn add_unmet_h(&mut self, unmet_h: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(MarketState::VT_UNMET_H, unmet_h);
+  }
+  #[inline]
+  pub fn add_trades(&mut self, trades: f64) {
+    self.fbb_.push_slot::<f64>(MarketState::VT_TRADES, trades, 0.0);
+  }
+  #[inline]
+  pub fn add_last(&mut self, last: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<LastTerms<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(MarketState::VT_LAST, last);
+  }
+  #[inline]
+  pub fn add_recent(&mut self, recent: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<TradeRecord<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(MarketState::VT_RECENT, recent);
+  }
+  #[inline]
+  pub fn add_history(&mut self, history: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , MonthOfTrade>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(MarketState::VT_HISTORY, history);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> MarketStateBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    MarketStateBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<MarketState<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for MarketState<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("MarketState");
+      ds.field("settlement", &self.settlement());
+      ds.field("day", &self.day());
+      ds.field("paid_h", &self.paid_h());
+      ds.field("sold", &self.sold());
+      ds.field("unmet", &self.unmet());
+      ds.field("unmet_h", &self.unmet_h());
+      ds.field("trades", &self.trades());
+      ds.field("last", &self.last());
+      ds.field("recent", &self.recent());
+      ds.field("history", &self.history());
+      ds.finish()
+  }
+}
+pub enum MarketsOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Markets<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Markets<'a> {
+  type Inner = Markets<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Markets<'a> {
+  pub const VT_MARKETS: ::flatbuffers::VOffsetT = 4;
+  pub const VT_GOODS: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Markets { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args MarketsArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Markets<'bldr>> {
+    let mut builder = MarketsBuilder::new(_fbb);
+    if let Some(x) = args.goods { builder.add_goods(x); }
+    if let Some(x) = args.markets { builder.add_markets(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn markets(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MarketState<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MarketState>>>>(Markets::VT_MARKETS, None)}
+  }
+  #[inline]
+  pub fn goods(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Markets::VT_GOODS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Markets<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MarketState>>>>("markets", Self::VT_MARKETS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("goods", Self::VT_GOODS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct MarketsArgs<'a> {
+    pub markets: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MarketState<'a>>>>>,
+    pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+}
+impl<'a> Default for MarketsArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    MarketsArgs {
+      markets: None,
+      goods: None,
+    }
+  }
+}
+
+pub struct MarketsBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MarketsBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_markets(&mut self, markets: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<MarketState<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Markets::VT_MARKETS, markets);
+  }
+  #[inline]
+  pub fn add_goods(&mut self, goods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Markets::VT_GOODS, goods);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> MarketsBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    MarketsBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Markets<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Markets<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Markets");
+      ds.field("markets", &self.markets());
+      ds.field("goods", &self.goods());
       ds.finish()
   }
 }

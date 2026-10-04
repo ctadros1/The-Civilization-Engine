@@ -446,6 +446,10 @@ impl Engine {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::paths::paths_response(&w.sim)),
             },
+            Request::GetMarkets => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::markets::markets_response(&w.sim)),
+            },
             Request::ListSaves => {
                 match session::list_saves(&self.config.saves_root, &self.config.content) {
                     Ok(entries) => Reply::Response(protocol::save_list_response(&entries)),

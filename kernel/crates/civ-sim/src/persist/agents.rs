@@ -13,6 +13,8 @@
 //! | `fields` | fields and their crops (schema 4) |
 //! | `plots` | ground households have claimed (schema 5) |
 //! | `builds` | buildings: their designs and how far their construction has gone (schema 5) |
+//! | `wear` | ground worn by walking (schema 7) |
+//! | `market` | each settlement's market: what sold, for what, and what found no seller (schema 10) |
 //!
 //! Activities, habitats, resources and goods are saved by content id, so a world still loads after
 //! the content adds, removes or reorders them. Where saved state names something the loaded
@@ -40,11 +42,18 @@
 //! unrelated woman and man it lists) become partners, every woman draws her lasting
 //! fecundability, and nobody is pregnant or nursing yet. A field, plot or building whose
 //! household is no more stands abandoned.
+//!
+//! **Schema 9 → 10.** Markets arrived with version 10 (M3a slice I): households' offers and each
+//! settlement's market. An older save has none: households post their offers at their next
+//! review, and markets start empty. An offer, remembered terms or a remembered trade in a good
+//! the loaded content no longer has is dropped.
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{Read, Seek};
 
 use civ_agents::history::{ChronicleEvent, ChronicleKind, Origin, PersonRecord};
+use civ_agents::ledger::{Channel, Trade};
+use civ_agents::market::{Market, MonthOfTrade, Offer};
 use civ_agents::{
     Activity, AgentEvent, Cause, Household, KnownPatch, Load, Person, Population, Reason, Receipt,
     Repro, Scored, Sex, Step, Target, Term, Traits, Trip, Union,
@@ -63,8 +72,8 @@ use civ_world::WorldMap;
 use commons_persist::{SectionData, SectionTag, SnapshotReader};
 
 use super::{
-    LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8, finish,
-    section, single_chunk, unreadable,
+    LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
+    SCHEMA_V9, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -90,6 +99,8 @@ pub const SECTION_PLOTS: SectionTag = SectionTag::new("plots");
 pub const SECTION_BUILDS: SectionTag = SectionTag::new("builds");
 /// Section (schema 7): ground worn by walking.
 pub const SECTION_WEAR: SectionTag = SectionTag::new("wear");
+/// Section (schema 10): each settlement's market.
+pub const SECTION_MARKET: SectionTag = SectionTag::new("market");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -134,6 +145,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             0,
             encode_wear(&sim.land.wear, sim.now().day_index(), &rules.land.paths),
         ),
+        section(SECTION_MARKET, 0, encode_markets(&sim.people, &goods)),
     ]
 }
 
@@ -165,6 +177,8 @@ enum Schema {
     V8,
     /// Tools and skills (ADR-0006).
     V9,
+    /// Offers and markets (ADR-0006 §4).
+    V10,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -187,7 +201,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V6 => Schema::V6,
         SCHEMA_V7 => Schema::V7,
         SCHEMA_V8 => Schema::V8,
-        SAVE_SCHEMA_VERSION => Schema::V9,
+        SCHEMA_V9 => Schema::V9,
+        SAVE_SCHEMA_VERSION => Schema::V10,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -241,6 +256,11 @@ pub(super) fn decode<R: Read + Seek>(
         let bytes = single_chunk(reader, SECTION_WEAR)?;
         land.wear = decode_wear(&bytes, map, now.day_index())?;
     }
+    // Before schema 10 there were no markets: they start empty.
+    if schema >= Schema::V10 {
+        let bytes = single_chunk(reader, SECTION_MARKET)?;
+        people.markets = decode_markets(&bytes, rules)?;
+    }
     people.derive_shelter(&land);
 
     let mut problems = land.problems(map, rules.land.habitats.len(), next_id);
@@ -250,6 +270,20 @@ pub(super) fn decode<R: Read + Seek>(
     for (_, h) in people.households.iter() {
         if h.settlement.is_some_and(|s| !settlements.contains(&s)) {
             problems.push(format!("household {} names a missing settlement", h.id));
+        }
+    }
+    for (i, m) in people.markets.iter().enumerate() {
+        if !settlements.contains(&m.settlement) {
+            problems.push(format!(
+                "a market names missing settlement {}",
+                m.settlement
+            ));
+        }
+        if people.markets[..i]
+            .iter()
+            .any(|o| o.settlement == m.settlement)
+        {
+            problems.push(format!("settlement {} has two markets", m.settlement));
         }
     }
     // A field, plot or building may belong to a household that is no more (it died out with no
@@ -317,6 +351,24 @@ fn good_map(saved: &[String], rules: &Rules) -> Vec<Option<usize>> {
         .iter()
         .map(|id| rules.catalog.good_index(id))
         .collect()
+}
+
+/// Good `index` of a saved dictionary mapped by `map` (see `good_map`): its index in the loaded
+/// catalog, or `None` when the content no longer has it. `what` names the record that refers to
+/// it, for the error when the index is past the dictionary.
+fn saved_good(
+    map: &[Option<usize>],
+    index: u32,
+    what: impl Fn() -> String,
+) -> Result<Option<u16>, LoadError> {
+    match map.get(index as usize) {
+        Some(g) => Ok(g.and_then(|g| u16::try_from(g).ok())),
+        None => Err(LoadError::Malformed(format!(
+            "{} names good {index} of {}",
+            what(),
+            map.len()
+        ))),
+    }
 }
 
 /// Kilograms of the provisions good holding `kcal` (schema-2 migration), or `None` when the
@@ -916,7 +968,8 @@ fn carried(
         | Schema::V6
         | Schema::V7
         | Schema::V8
-        | Schema::V9 => {
+        | Schema::V9
+        | Schema::V10 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -962,6 +1015,23 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
             let mut stores = h.stores.clone();
             stores.resize(goods.len(), 0.0);
             let stores = fbb.create_vector(&stores);
+            let offers: Vec<_> = h
+                .offers
+                .iter()
+                .map(|o| {
+                    save::Offer::create(
+                        &mut fbb,
+                        &save::OfferArgs {
+                            good: u32::from(o.good),
+                            payment: u32::from(o.payment),
+                            price: o.price,
+                            units: o.units,
+                            ask_h: o.ask_h,
+                        },
+                    )
+                })
+                .collect();
+            let offers = fbb.create_vector(&offers);
             save::Household::create(
                 &mut fbb,
                 &save::HouseholdArgs {
@@ -976,6 +1046,7 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                     stores: Some(stores),
                     stores_at: h.stores_at.minutes(),
                     known_resources: Some(known),
+                    offers: Some(offers),
                 },
             )
         })
@@ -1027,7 +1098,8 @@ fn decode_households(
             | Schema::V6
             | Schema::V7
             | Schema::V8
-            | Schema::V9 => {
+            | Schema::V9
+            | Schema::V10 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -1066,6 +1138,28 @@ fn decode_households(
                 (time(h.stores_at()), known)
             }
         };
+        // Offers arrived with schema 10: before, households post them at their next review.
+        let mut offers = Vec::new();
+        let saved_offers = if schema >= Schema::V10 {
+            h.offers()
+        } else {
+            None
+        };
+        for o in saved_offers.iter().flatten() {
+            let what = || format!("an offer of household {hh_id}");
+            let good = saved_good(&goods, o.good(), what)?;
+            let payment = saved_good(&goods, o.payment(), what)?;
+            // Terms in a good the content no longer has are withdrawn.
+            if let (Some(good), Some(payment)) = (good, payment) {
+                offers.push(Offer {
+                    good,
+                    payment,
+                    price: o.price(),
+                    units: o.units(),
+                    ask_h: o.ask_h(),
+                });
+            }
+        }
         out.push(Household {
             id: hh_id,
             members,
@@ -1080,7 +1174,7 @@ fn decode_households(
             sheltered: false,
             // Counters start again on load.
             flows: Default::default(),
-            offers: Vec::new(),
+            offers,
         });
     }
     Ok(out)
@@ -1766,7 +1860,7 @@ fn decode_buildings(bytes: &[u8]) -> Result<Vec<Building>, LoadError> {
     Ok(out)
 }
 
-// ---- events ------------------------------------------------------------------------------------
+// ---- wear --------------------------------------------------------------------------------------
 
 fn encode_wear(wear: &Wear, day: i64, params: &PathParams) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
@@ -1816,6 +1910,195 @@ fn decode_wear(bytes: &[u8], map: &WorldMap, day: i64) -> Result<Wear, LoadError
         .unwrap_or_default();
     Ok(Wear::new(map.width, map.height, map.cell_size_m).with_tiles(tiles))
 }
+
+// ---- market ------------------------------------------------------------------------------------
+
+/// A market's tally, one value per good of the dictionary.
+fn tally<'a>(
+    fbb: &mut FlatBufferBuilder<'a>,
+    v: &[f64],
+    goods: usize,
+) -> WIPOffset<flatbuffers::Vector<'a, f64>> {
+    let mut v = v.to_vec();
+    v.resize(goods, 0.0);
+    fbb.create_vector(&v)
+}
+
+fn encode_markets(pop: &Population, goods: &[&str]) -> Vec<u8> {
+    let mut markets: Vec<&Market> = pop.markets.iter().collect();
+    markets.sort_by_key(|m| m.settlement);
+    let mut fbb = FlatBufferBuilder::new();
+    let good_dictionary = strings(&mut fbb, goods);
+    let list: Vec<_> = markets
+        .into_iter()
+        .map(|m| {
+            let paid_h = tally(&mut fbb, &m.paid_h, goods.len());
+            let sold = tally(&mut fbb, &m.sold, goods.len());
+            let unmet = tally(&mut fbb, &m.unmet, goods.len());
+            let unmet_h = tally(&mut fbb, &m.unmet_h, goods.len());
+            // Terms are kept for the goods that have sold.
+            let last: Vec<_> = m
+                .last
+                .iter()
+                .enumerate()
+                .filter_map(|(g, t)| t.map(|(payment, price)| (g, payment, price)))
+                .map(|(g, payment, price)| {
+                    save::LastTerms::create(
+                        &mut fbb,
+                        &save::LastTermsArgs {
+                            good: g as u32,
+                            payment: u32::from(payment),
+                            price,
+                        },
+                    )
+                })
+                .collect();
+            let last = fbb.create_vector(&last);
+            let recent: Vec<_> = m
+                .recent
+                .iter()
+                .map(|t| {
+                    save::TradeRecord::create(
+                        &mut fbb,
+                        &save::TradeRecordArgs {
+                            at: t.at.minutes(),
+                            seller: t.seller.get(),
+                            buyer: t.buyer.get(),
+                            good: u32::from(t.good),
+                            units: t.units,
+                            payment: u32::from(t.payment),
+                            paid: t.paid,
+                            // The ledger's channel codes.
+                            channel: save::TradeChannel(t.channel as u8),
+                        },
+                    )
+                })
+                .collect();
+            let recent = fbb.create_vector(&recent);
+            let history: Vec<save::MonthOfTrade> = m
+                .history
+                .iter()
+                .map(|h| {
+                    save::MonthOfTrade::new(h.month, u32::from(h.good), h.trades, h.units, h.paid_h)
+                })
+                .collect();
+            let history = fbb.create_vector(&history);
+            save::MarketState::create(
+                &mut fbb,
+                &save::MarketStateArgs {
+                    settlement: m.settlement.get(),
+                    day: m.day,
+                    paid_h: Some(paid_h),
+                    sold: Some(sold),
+                    unmet: Some(unmet),
+                    unmet_h: Some(unmet_h),
+                    trades: m.trades,
+                    last: Some(last),
+                    recent: Some(recent),
+                    history: Some(history),
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let root = save::Markets::create(
+        &mut fbb,
+        &save::MarketsArgs {
+            markets: Some(list),
+            goods: Some(good_dictionary),
+        },
+    );
+    finish(fbb, root)
+}
+
+fn decode_markets(bytes: &[u8], rules: &Rules) -> Result<Vec<Market>, LoadError> {
+    let root =
+        flatbuffers::root::<save::Markets>(bytes).map_err(|e| unreadable(SECTION_MARKET, &e))?;
+    let goods = good_map(&read_strings(root.goods()), rules);
+    let catalog_goods = rules.catalog.goods.len();
+    let mut out = Vec::new();
+    for m in root.markets().iter().flatten() {
+        let settlement = required(m.settlement(), "a market's settlement")?;
+        let what = || format!("the market of settlement {settlement}");
+        let mut market = Market::new(settlement, catalog_goods, m.day());
+        market.trades = m.trades();
+        for (saved, kept) in [
+            (m.paid_h(), &mut market.paid_h),
+            (m.sold(), &mut market.sold),
+            (m.unmet(), &mut market.unmet),
+            (m.unmet_h(), &mut market.unmet_h),
+        ] {
+            let saved: Vec<f64> = saved.map(|v| v.iter().collect()).unwrap_or_default();
+            if saved.len() != goods.len() {
+                return Err(LoadError::Malformed(format!(
+                    "{} tallies {} goods of {}",
+                    what(),
+                    saved.len(),
+                    goods.len()
+                )));
+            }
+            // Goods the content no longer has are dropped.
+            for (x, g) in saved.iter().zip(&goods) {
+                if let Some(g) = g {
+                    kept[*g] = *x;
+                }
+            }
+        }
+        for t in m.last().iter().flatten() {
+            let good = saved_good(&goods, t.good(), what)?;
+            let payment = saved_good(&goods, t.payment(), what)?;
+            if let (Some(good), Some(payment)) = (good, payment) {
+                market.last[usize::from(good)] = Some((payment, t.price()));
+            }
+        }
+        for r in m.recent().iter().flatten() {
+            let channel = match Channel::from_code(r.channel().0) {
+                Some(c @ (Channel::Barter | Channel::Sale)) => c,
+                _ => {
+                    return Err(LoadError::Malformed(format!(
+                        "{} remembers a trade on channel {}",
+                        what(),
+                        r.channel().0
+                    )));
+                }
+            };
+            let good = saved_good(&goods, r.good(), what)?;
+            let payment = saved_good(&goods, r.payment(), what)?;
+            // A trade in a good the content no longer has is forgotten.
+            let (Some(good), Some(payment)) = (good, payment) else {
+                continue;
+            };
+            market.recent.push_back(Trade {
+                at: time(r.at()),
+                seller: required(r.seller(), "a trade's seller")?,
+                buyer: required(r.buyer(), "a trade's buyer")?,
+                good,
+                units: r.units(),
+                payment,
+                paid: r.paid(),
+                channel,
+            });
+        }
+        for h in m.history().iter().flatten() {
+            // A good the content no longer has leaves the history.
+            if let Some(good) = saved_good(&goods, h.good(), what)? {
+                market.history.push(MonthOfTrade {
+                    month: h.month(),
+                    good,
+                    trades: h.trades(),
+                    units: h.units(),
+                    paid_h: h.paid_h(),
+                });
+            }
+        }
+        // In the loaded content's order of goods.
+        market.history.sort_by_key(|h| (h.month, h.good));
+        out.push(market);
+    }
+    Ok(out)
+}
+
+// ---- events ------------------------------------------------------------------------------------
 
 fn encode_events(sim: &Sim) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();

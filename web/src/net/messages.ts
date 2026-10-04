@@ -185,6 +185,11 @@ export interface Snapshot {
   buildingsRev: number;
   /** Changes whenever the paths are surveyed: monthly, and when a world is made or loaded. */
   pathsRev: number;
+  /**
+   * Changes whenever a household posts terms, a trade is made or a want goes unmet (0 = nothing
+   * offered or traded yet).
+   */
+  marketsRev: number;
 }
 
 export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
@@ -486,6 +491,80 @@ export interface PersonInfo {
   leftMinute: number;
 }
 
+/** One good in a settlement's market (M3a slice I). Tallies fade by half every memory. */
+export interface MarketGood {
+  /** An index into Welcome.goods. */
+  good: number;
+  /** Units offered, and by how many households. */
+  offered: number;
+  sellers: number;
+  sold: number;
+  /** Units wanted that found no offer, and what a unit was worth to those buyers, hours. */
+  unmet: number;
+  unmetWorthH: number;
+  /** Its share of the worth of the payments made, 0–1. */
+  acceptance: number;
+  /** The last trade's payment good (-1 = not sold yet) and units of it for a unit. */
+  lastPayment: number;
+  lastPrice: number;
+}
+
+/** A household's posted terms for a good: so much of a payment good for a unit. */
+export interface OfferInfo {
+  household: number;
+  /** "Ada's household". */
+  householdName: string;
+  good: number;
+  payment: number;
+  price: number;
+  units: number;
+}
+
+/** A trade a settlement's market remembers. */
+export interface TradeInfo {
+  minute: number;
+  seller: number;
+  buyer: number;
+  good: number;
+  units: number;
+  payment: number;
+  paid: number;
+  /** Paid in the settlement's money, not goods for goods. */
+  sale: boolean;
+  /** Rendered by the kernel: "Ada's household sold a sickle to Bran's household for …". */
+  text: string;
+}
+
+/** A month of trade in one good: a line of the price history. */
+export interface MonthOfTrade {
+  /** Months since the calendar's origin: (year − 1) × 12 + month − 1. */
+  month: number;
+  good: number;
+  trades: number;
+  units: number;
+  /** What the payments were worth to the sellers, hours of their own work. */
+  paidH: number;
+}
+
+/** A settlement's market (M3a slice I). */
+export interface MarketInfo {
+  settlement: number;
+  settlementName: string;
+  /** Its money, an index into Welcome.goods, or -1 while it trades by barter. */
+  money: number;
+  /** Rendered by the kernel: "Barter: no good settles most of what is paid; …". */
+  summary: string;
+  /** Trades remembered, and the half-life of what the market remembers, days. */
+  trades: number;
+  memoryDays: number;
+  goods: MarketGood[];
+  offers: OfferInfo[];
+  /** Newest first. */
+  recent: TradeInfo[];
+  /** Oldest first. */
+  history: MonthOfTrade[];
+}
+
 export type ResponseBody =
   | { kind: "ack"; message: string }
   | { kind: "raster"; tile: RasterTile }
@@ -496,7 +575,8 @@ export type ResponseBody =
   | { kind: "chronicle"; entries: ChronicleEntry[]; head: number }
   | { kind: "fields"; rev: number; fields: FieldInfo[] }
   | { kind: "buildings"; rev: number; buildings: BuildingInfo[] }
-  | { kind: "paths"; paths: PathsInfo };
+  | { kind: "paths"; paths: PathsInfo }
+  | { kind: "markets"; rev: number; markets: MarketInfo[] };
 
 export type ErrorCode =
   | "unknown"
@@ -659,6 +739,12 @@ export function getPaths(): Uint8Array {
   return query(b, W.QueryBody.GetPaths, W.GetPaths.endGetPaths(b));
 }
 
+export function getMarkets(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetMarkets.startGetMarkets(b);
+  return query(b, W.QueryBody.GetMarkets, W.GetMarkets.endGetMarkets(b));
+}
+
 export function getChronicle(afterSeq: number, limit: number): Uint8Array {
   const b = new flatbuffers.Builder(32);
   return query(
@@ -817,6 +903,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     fieldsRev: Number(s.fieldsRev()),
     buildingsRev: Number(s.buildingsRev()),
     pathsRev: Number(s.pathsRev()),
+    marketsRev: Number(s.marketsRev()),
   };
 }
 
@@ -1173,6 +1260,92 @@ function paths(f: W.Paths): PathsInfo {
   return { rev: Number(f.rev()), tilesX: f.tilesX(), tileCells, worn, trails };
 }
 
+function marketInfo(m: W.MarketInfo): MarketInfo {
+  const goods: MarketGood[] = [];
+  const line = new W.MarketGood();
+  for (let i = 0; i < m.goodsLength(); i++) {
+    const g = m.goods(i, line);
+    if (!g) continue;
+    goods.push({
+      good: g.good(),
+      offered: g.offered(),
+      sellers: g.sellers(),
+      sold: g.sold(),
+      unmet: g.unmet(),
+      unmetWorthH: g.unmetWorthH(),
+      acceptance: g.acceptance(),
+      lastPayment: g.lastPayment(),
+      lastPrice: g.lastPrice(),
+    });
+  }
+  const offers: OfferInfo[] = [];
+  const offer = new W.OfferInfo();
+  for (let i = 0; i < m.offersLength(); i++) {
+    const o = m.offers(i, offer);
+    if (!o) continue;
+    offers.push({
+      household: Number(o.household()),
+      householdName: o.householdName() ?? "",
+      good: o.good(),
+      payment: o.payment(),
+      price: o.price(),
+      units: o.units(),
+    });
+  }
+  const recent: TradeInfo[] = [];
+  const trade = new W.TradeInfo();
+  for (let i = 0; i < m.recentLength(); i++) {
+    const t = m.recent(i, trade);
+    if (!t) continue;
+    recent.push({
+      minute: Number(t.minute()),
+      seller: Number(t.seller()),
+      buyer: Number(t.buyer()),
+      good: t.good(),
+      units: t.units(),
+      payment: t.payment(),
+      paid: t.paid(),
+      sale: t.sale(),
+      text: t.text() ?? "",
+    });
+  }
+  const history: MonthOfTrade[] = [];
+  const month = new W.MonthOfTrade();
+  for (let i = 0; i < m.historyLength(); i++) {
+    const h = m.history(i, month);
+    if (!h) continue;
+    history.push({
+      month: h.month(),
+      good: h.good(),
+      trades: h.trades(),
+      units: h.units(),
+      paidH: h.paidH(),
+    });
+  }
+  return {
+    settlement: Number(m.settlement()),
+    settlementName: m.settlementName() ?? "",
+    money: m.money(),
+    summary: m.summary() ?? "",
+    trades: m.trades(),
+    memoryDays: m.memoryDays(),
+    goods,
+    offers,
+    recent,
+    history,
+  };
+}
+
+function markets(f: W.Markets): { rev: number; markets: MarketInfo[] } {
+  const out: MarketInfo[] = [];
+  const info = new W.MarketInfo();
+  for (let i = 0; i < f.marketsLength(); i++) {
+    const m = f.markets(i, info);
+    if (m) out.push(marketInfo(m));
+  }
+  return { rev: Number(f.rev()), markets: out };
+}
+
 function scoredOption(o: W.ScoredOption): ScoredOption {
   const terms: Term[] = [];
   for (let k = 0; k < o.termsLength(); k++) {
@@ -1328,6 +1501,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Paths()) as W.Paths | null;
       if (!f) break;
       return { kind: "paths", paths: paths(f) };
+    }
+    case W.ResponseBody.Markets: {
+      const f = r.body(new W.Markets()) as W.Markets | null;
+      if (!f) break;
+      return { kind: "markets", ...markets(f) };
     }
     default:
       break;

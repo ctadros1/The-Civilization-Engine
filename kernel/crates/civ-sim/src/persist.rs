@@ -11,19 +11,19 @@
 //! | `content` | 1 | fingerprint and packs of the content the state was produced with |
 //! | `hydro` | 1 | lakes, river reaches, inflows from beyond the map |
 //! | `r-elev`, `r-recv`, `r-water`, `r-lake` | one per 512² tile | the authoritative rasters |
-//! | `land`, `settle`, `people`, `houses`, `history`, `receipts`, `events`, `fields`, `plots`, `builds` | 1 each | land and people (see [`agents`]) |
+//! | `land`, `settle`, `people`, `houses`, `history`, `receipts`, `events`, `fields`, `plots`, `builds`, `wear`, `market` | 1 each | land and people (see [`agents`]) |
 //!
 //! The world id, the snapshot's own id and its parent live in the container header. Drainage area,
 //! the walking grid and the people's indexes are derived and rebuilt on load.
 //!
 //! **Schema versions.** Version 2 (M1) added the land and people sections; version 3 replaced
 //! food counted in kilocalories with goods; version 4 added fields; version 5 added plots and
-//! buildings; version 6 added couples, pregnancies and unions. A version-1 save (M0) is migrated
-//! as it loads: its
-//! land is classified and grown from the loaded content, exactly as for a new world, and it has no
-//! people yet, which is a valid world (ADR-0003 §4). A version-2 save is migrated as
-//! [`agents`] describes. A migrated world is written at the current version the next time it is
-//! saved.
+//! buildings; version 6 added couples, pregnancies and unions; version 7 worn ground; version 8
+//! families the observer sends; version 9 tools and skills; version 10 offers and markets. A
+//! version-1 save (M0) is migrated as it loads: its land is classified and grown from the loaded
+//! content, exactly as for a new world, and it has no people yet, which is a valid world
+//! (ADR-0003 §4). Later versions are migrated as [`agents`] describes. A migrated world is
+//! written at the current version the next time it is saved.
 //!
 //! Loading refuses, never repairs. A file that is incomplete or corrupt, comes from another engine
 //! or an unknown schema version, or describes a world that breaks its invariants is not loaded. A
@@ -72,6 +72,9 @@ pub const SCHEMA_V7: u32 = 7;
 /// The schema version of M1 slice G saves, with families the observer sent and no tools or
 /// skills (see [`agents`]).
 pub const SCHEMA_V8: u32 = 8;
+/// The schema version of M3a slice H saves, with tools and skills and no markets (see
+/// [`agents`]).
+pub const SCHEMA_V9: u32 = 9;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

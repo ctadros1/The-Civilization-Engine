@@ -1016,7 +1016,7 @@ pub(crate) mod tests {
                 max_change: 0.05,
                 memory_days: 30.0,
                 money_share: 0.5,
-                money_min_trades: 5.0,
+                money_min_trades: 10.0,
                 accept_want: 0.5,
                 recent_trades: 64,
             },

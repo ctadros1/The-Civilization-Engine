@@ -156,9 +156,9 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 11 land, field, plot, building,
-    // wear and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 11);
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 12 land, field, plot, building,
+    // wear, market and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 12);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -481,6 +481,52 @@ fn slice_f_saves_load_as_they_are() {
         loaded.land().wear.tiles().len(),
         sim.land().wear.tiles().len()
     );
+}
+
+#[test]
+fn slice_h_saves_load_with_no_markets_and_post_offers_again() {
+    // A schema-9 save has no market section and no offers: markets start empty, and households
+    // post their terms at their next weekly review.
+    let sim = load_first();
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_MARKET)
+        .collect();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V9;
+    let path = republish("slice-h", &info, &sections);
+    let mut migrated = persist::load(&path, content()).expect("a schema-9 save loads");
+    assert!(migrated.is_dirty(), "the migration is new state");
+    assert!(migrated.people().markets.is_empty());
+    assert!(
+        migrated
+            .people()
+            .households
+            .iter()
+            .all(|(_, h)| h.offers.is_empty())
+    );
+    migrated
+        .advance_minutes(8 * 24 * 60)
+        .expect("a migrated world runs");
+    assert!(
+        migrated
+            .people()
+            .households
+            .iter()
+            .any(|(_, h)| !h.offers.is_empty()),
+        "and its households post offers again"
+    );
+}
+
+#[test]
+fn a_save_without_its_market_section_is_refused() {
+    let sim = load_first();
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_MARKET)
+        .collect();
+    let path = republish("no-market", &fixture().first_info, &sections);
+    assert!(persist::load(&path, content()).is_err());
 }
 
 #[test]

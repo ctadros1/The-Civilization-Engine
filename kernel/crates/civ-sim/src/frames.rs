@@ -1,6 +1,6 @@
 //! Boundary payloads built from a world (ADR-0001): the world and clock tables of a `Snapshot`,
 //! and the `Response` bodies of raster and hydrography queries. People, settlements, trips and
-//! the chronicle are in [`people`]; fields in [`fields`].
+//! the chronicle are in [`people`]; fields in [`fields`]; markets in [`markets`].
 //!
 //! Rasters are served at power-of-two downsampling levels, so a client can show a whole 2048² map
 //! without moving 16 MB. Level `L` has `ceil(side / 2^L)` cells per side, each summarising the
@@ -23,6 +23,7 @@ use crate::Sim;
 
 pub mod buildings;
 pub mod fields;
+pub mod markets;
 pub mod paths;
 pub mod people;
 

@@ -6,6 +6,7 @@ import type { ConnectionStatus } from "./net/client.js";
 import type {
   ChronicleEntry,
   EventItem,
+  MarketInfo,
   PersonInfo,
   Snapshot,
   Welcome,
@@ -44,6 +45,10 @@ export interface AppState {
   placing: boolean;
   /** The chronicle of the world on show, oldest first. */
   chronicle: ChronicleEntry[];
+  /** The markets of the world on show (null = not read yet). */
+  markets: MarketInfo[] | null;
+  /** Why the markets could not be read. */
+  marketsError: string | null;
 }
 
 export const MAX_EVENTS = 300;
@@ -62,6 +67,8 @@ export function initialState(): AppState {
     selected: null,
     placing: false,
     chronicle: [],
+    markets: null,
+    marketsError: null,
   };
 }
 

@@ -1,14 +1,18 @@
 //! Exchange (slice I, ADR-0006 §3-4): a household offers what it can spare, and a neighbour that
-//! needs it and holds what the seller wants buys it at the posted terms, through the ledger.
+//! needs it and holds what the seller wants buys it at the posted terms, through the ledger; the
+//! market remembers it across a save and load.
 
 use std::path::Path;
 use std::sync::OnceLock;
 use std::sync::atomic::AtomicBool;
 
 use civ_agents::ledger::Channel;
+use civ_agents::market::{Market, Offer};
 use civ_content::ContentRegistry;
 use civ_core::PermanentId;
-use civ_sim::{NewWorld, Sim};
+use civ_schema::{flatbuffers, wire};
+use civ_sim::{NewWorld, Sim, frames, persist};
+use commons_persist::{SaveDir, SaveKind};
 
 fn content() -> &'static ContentRegistry {
     static CONTENT: OnceLock<ContentRegistry> = OnceLock::new();
@@ -139,16 +143,82 @@ fn a_household_short_of_a_tool_buys_one_from_a_neighbour_that_can_spare_it() {
         .find(|t| usize::from(t.good) == sickle)
         .expect("the trade is remembered");
     assert_eq!((trade.seller, trade.buyer), (seller, buyer));
-    assert_eq!(
-        usize::from(trade.payment),
-        grain,
-        "paid in what the seller wants"
+    // Paid in one of the goods the seller asked for (grain, or something else it is short of
+    // that costs the buyer less).
+    assert!(
+        terms
+            .iter()
+            .any(|o| usize::from(o.good) == sickle && o.payment == trade.payment),
+        "paid in what the seller wants: {trade:?}, terms {terms:?}"
     );
     assert!(trade.paid > 0.0 && trade.units >= 0.5);
     let bought = pop.household(buyer).expect("buyer").stores[sickle];
     assert!(bought > 0.0, "the buyer holds what it bought");
     assert!(
-        pop.household(seller).expect("seller").stores[grain] > 0.0,
+        pop.household(seller).expect("seller").stores[usize::from(trade.payment)] > 0.0,
         "the seller holds the payment"
     );
+
+    // The observer sees the trade, the terms and the price history.
+    let payload = frames::markets::markets_response(&sim);
+    let response = flatbuffers::root::<wire::Response>(&payload).expect("a response");
+    let answer = response.body_as_markets().expect("markets");
+    assert_eq!(answer.rev(), frames::markets::markets_rev(&sim));
+    assert_ne!(answer.rev(), 0);
+    let info = answer
+        .markets()
+        .expect("a list")
+        .iter()
+        .find(|m| m.settlement() == settlement.get())
+        .expect("the settlement's market");
+    assert!(!info.summary().expect("a summary").is_empty());
+    let shown = info
+        .recent()
+        .expect("trades")
+        .iter()
+        .find(|t| usize::from(t.good()) == sickle && t.buyer() == buyer.get())
+        .expect("the trade is listed");
+    let text = shown.text().expect("words");
+    assert!(text.contains("sickle") && text.contains(" sold "), "{text}");
+    let line = info
+        .goods()
+        .expect("goods")
+        .iter()
+        .find(|g| usize::from(g.good()) == sickle)
+        .expect("a line for sickles");
+    assert!(line.sold() > 0.0);
+    // The last sickle sold (perhaps by another household since) and what it was paid in.
+    assert!(line.last_payment() >= 0 && line.last_price() > 0.0);
+    assert!(
+        info.history()
+            .expect("history")
+            .iter()
+            .any(|h| usize::from(h.good()) == sickle && h.trades() >= 1)
+    );
+
+    // The market and the terms posted survive a save and load.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("save dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "market").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(markets(&loaded), markets(&sim));
+    assert_eq!(offers(&loaded), offers(&sim));
+    assert!(offers(&sim).iter().any(|(_, o)| !o.is_empty()));
+}
+
+fn markets(sim: &Sim) -> Vec<Market> {
+    let mut out = sim.people().markets.clone();
+    out.sort_by_key(|m| m.settlement);
+    out
+}
+
+fn offers(sim: &Sim) -> Vec<(PermanentId, Vec<Offer>)> {
+    let mut out: Vec<_> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| (h.id, h.offers.clone()))
+        .collect();
+    out.sort_by_key(|o| o.0);
+    out
 }

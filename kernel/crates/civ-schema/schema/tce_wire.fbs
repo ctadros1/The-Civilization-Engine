@@ -237,6 +237,10 @@ table Snapshot {
   // M1 slice F: changes whenever the paths are surveyed, monthly and on load (0 = never). Fetch
   // the worn ground and trails with GetPaths when it differs from the revision last fetched.
   paths_rev: ulong (id: 11);
+  // M3a slice I: changes whenever a household posts terms, a trade is made or a want goes unmet
+  // (0 = nothing offered or traded yet). Fetch the markets with GetMarkets when it differs from
+  // the revision last fetched.
+  markets_rev: ulong (id: 12);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -350,7 +354,11 @@ table GetBuildings {}
 // The worn ground and the trails, as last surveyed (M1 slice F).
 table GetPaths {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths }
+// Every settlement's market: what is offered and on what terms, what sold, what was wanted and
+// found no seller, and the money if there is one (M3a slice I).
+table GetMarkets {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets }
 
 table Query {
   body: QueryBody (id: 1);
@@ -671,7 +679,96 @@ table Paths {
   trails: [TrailInfo] (id: 4);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths }
+// A household's posted terms for a good: so much of a payment good for a unit (M3a slice I).
+table OfferInfo {
+  household: ulong (id: 0);
+  // "Ada's household".
+  household_name: string (id: 1);
+  // Indexes into Welcome.goods.
+  good: ushort (id: 2);
+  payment: ushort (id: 3);
+  // Units of the payment asked for a unit of the good, and units of the good offered.
+  price: float (id: 4);
+  units: float (id: 5);
+}
+
+// A trade a settlement's market remembers (M3a slice I).
+table TradeInfo {
+  minute: long (id: 0);
+  seller: ulong (id: 1);
+  buyer: ulong (id: 2);
+  // Indexes into Welcome.goods, and how much of each changed hands.
+  good: ushort (id: 3);
+  units: float (id: 4);
+  payment: ushort (id: 5);
+  paid: float (id: 6);
+  // Paid in the settlement's money (a sale), not goods for goods (barter).
+  sale: bool (id: 7);
+  // Rendered by the kernel: "Ada's household sold a sickle to Bran's household for 12 kg of
+  // grain."
+  text: string (id: 8);
+}
+
+// One good in a settlement's market (M3a slice I). Tallies fade by half every
+// MarketInfo.memory_days.
+table MarketGood {
+  // Index into Welcome.goods.
+  good: ushort (id: 0);
+  // Units offered, and by how many households.
+  offered: float (id: 1);
+  sellers: ushort (id: 2);
+  sold: float (id: 3);
+  // Units buyers wanted and found no offer for, and what they would have given for a unit,
+  // hours of their own work (recorded demand).
+  unmet: float (id: 4);
+  unmet_worth_h: float (id: 5);
+  // Its share of the worth of the payments made, 0-1 (acceptance).
+  acceptance: float (id: 6);
+  // The last trade's terms: what it was paid in (an index into Welcome.goods, or -1 when it has
+  // not sold) and how much of that for a unit.
+  last_payment: int = -1 (id: 7);
+  last_price: float (id: 8);
+}
+
+// A month of trade in one good: a line of the price history (M3a slice I).
+struct MonthOfTrade {
+  // Months since the calendar's origin: (year - 1) * 12 + month - 1.
+  month: uint;
+  trades: uint;
+  units: float;
+  // What the payments were worth to the sellers, hours of their own work.
+  paid_h: float;
+  // Index into Welcome.goods.
+  good: ushort;
+}
+
+// A settlement's market (M3a slice I).
+table MarketInfo {
+  settlement: ulong (id: 0);
+  settlement_name: string (id: 1);
+  // Its money, an index into Welcome.goods, or -1 while it has none and trades by barter.
+  money: int = -1 (id: 2);
+  // Rendered by the kernel: "Barter: no good settles most payments yet (grain 34%)."
+  summary: string (id: 3);
+  // Trades remembered, and the half-life of what the market remembers, days.
+  trades: float (id: 4);
+  memory_days: float (id: 5);
+  // The goods offered, sold, wanted or paid in.
+  goods: [MarketGood] (id: 6);
+  offers: [OfferInfo] (id: 7);
+  // Newest first.
+  recent: [TradeInfo] (id: 8);
+  // Oldest first.
+  history: [MonthOfTrade] (id: 9);
+}
+
+table Markets {
+  // The snapshot revision these markets are at.
+  rev: ulong (id: 0);
+  markets: [MarketInfo] (id: 1);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets }
 
 table Response {
   body: ResponseBody (id: 1);

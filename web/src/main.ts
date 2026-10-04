@@ -64,6 +64,7 @@ const client = new HostClient(socketUrl(), {
     void syncFields();
     void syncBuildings();
     void syncPaths();
+    void syncMarkets();
     void refreshPerson(false);
   },
   events: (items) => store.update({ events: mergeEvents(store.state.events, items) }),
@@ -214,6 +215,67 @@ async function syncPaths(): Promise<void> {
     pathsBusy = false;
   }
   if (ok) void syncPaths();
+}
+
+/** `world:revision` of the markets shown, the world they belong to, and when they were asked for. */
+let marketsKey = "";
+let marketsWorld = "";
+let marketsBusy = false;
+let marketsAskedAt = -Infinity;
+/** An ask held back by the rate limit, so the last change is always fetched. */
+let marketsTimer = 0;
+/** Least real time between fetches of the markets while they change, milliseconds. */
+const MARKETS_REFRESH_MS = 1000;
+
+/** Fetches the markets when terms were posted, a trade made or a want went unmet. */
+async function syncMarkets(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const worldKey = world ? `${store.state.epoch}:${world.worldId}` : "";
+  if (worldKey !== marketsWorld) {
+    // Another world's markets are not shown while this one's are read.
+    marketsWorld = worldKey;
+    marketsKey = "";
+    marketsAskedAt = -Infinity;
+    store.update({ markets: null, marketsError: null });
+  }
+  if (!world) return;
+  const key = s.marketsRev !== 0 ? `${worldKey}:${s.marketsRev}` : `${worldKey}:none`;
+  if (key === marketsKey || marketsBusy) return;
+  if (s.marketsRev === 0) {
+    marketsKey = key;
+    store.update({ markets: [], marketsError: null });
+    return;
+  }
+  const now = performance.now();
+  const waited = now - marketsAskedAt;
+  if (waited < MARKETS_REFRESH_MS) {
+    if (!marketsTimer) {
+      marketsTimer = window.setTimeout(() => {
+        marketsTimer = 0;
+        void syncMarkets();
+      }, MARKETS_REFRESH_MS - waited);
+    }
+    return;
+  }
+  marketsBusy = true;
+  marketsAskedAt = now;
+  let ok = false;
+  try {
+    const { markets } = await client.markets();
+    if (marketsWorld === worldKey) {
+      marketsKey = key;
+      store.update({ markets, marketsError: null });
+      ok = true;
+    }
+  } catch (e) {
+    if (marketsWorld === worldKey) {
+      store.update({ marketsError: e instanceof Error ? e.message : String(e) });
+    }
+  } finally {
+    marketsBusy = false;
+  }
+  if (ok) void syncMarkets();
 }
 
 let personBusy = false;
@@ -399,6 +461,15 @@ const hooks = {
       settlements: s.snapshot?.settlements.map((x) => ({ name: x.name, population: x.population })) ?? [],
       fieldsRev: s.snapshot?.fieldsRev ?? 0,
       buildingsRev: s.snapshot?.buildingsRev ?? 0,
+      marketsRev: s.snapshot?.marketsRev ?? 0,
+      markets:
+        s.markets?.map((m) => ({
+          settlement: m.settlementName,
+          money: m.money,
+          goods: m.goods.length,
+          offers: m.offers.length,
+          trades: m.recent.length,
+        })) ?? null,
       chronicle: s.chronicle.map((e) => e.spans.map((x) => x.text).join("")),
       selected: s.selected
         ? {

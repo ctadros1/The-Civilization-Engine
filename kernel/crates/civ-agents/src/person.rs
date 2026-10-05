@@ -670,6 +670,11 @@ pub struct Household {
     pub flows: Flows,
     /// What they offer for sale, and on what terms (slice I).
     pub offers: Vec<crate::market::Offer>,
+    /// The way they would build: roof pitch, eaves and overhang (M3b slice R).
+    pub taste: crate::params::Taste,
+    /// The building that moved their taste most at its last review, which their next building
+    /// follows (M3b slice R).
+    pub admired: Option<PermanentId>,
 }
 
 /// Room for a household's goods under its roofs (ADR-0009 §5), from its roofed buildings: on
@@ -998,6 +1003,8 @@ mod tests {
             keeping: Keeping::default(),
             flows: Flows::default(),
             offers: Vec::new(),
+            taste: Default::default(),
+            admired: None,
         }
     }
 

@@ -95,7 +95,8 @@ use commons_persist::{SectionData, SectionTag, SnapshotReader};
 use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
-    SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, finish, section, single_chunk, unreadable,
+    SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, finish, section, single_chunk,
+    unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -258,6 +259,8 @@ enum Schema {
     V20,
     /// Pits and spoil heaps linked to their deposits (ADR-0010 §2).
     V21,
+    /// Households' taste in building and the building each followed (M3b slice R).
+    V22,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -292,7 +295,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V18 => Schema::V18,
         SCHEMA_V19 => Schema::V19,
         SCHEMA_V20 => Schema::V20,
-        SAVE_SCHEMA_VERSION => Schema::V21,
+        SCHEMA_V21 => Schema::V21,
+        SAVE_SCHEMA_VERSION => Schema::V22,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -306,7 +310,17 @@ pub(super) fn decode<R: Read + Seek>(
 
     let mut people = Population::new();
     let bytes = single_chunk(reader, SECTION_HOUSES)?;
-    for h in decode_households(&bytes, rules, schema, now)? {
+    for mut h in decode_households(&bytes, rules, schema, now)? {
+        // Before schema 22 nobody had a taste in building: each household gets the one its band
+        // would have brought (M3b slice R).
+        if schema < Schema::V22 {
+            h.taste = civ_agents::style::founding_taste(
+                &rules.people.style,
+                seed,
+                h.settlement.unwrap_or(h.id),
+                h.id,
+            );
+        }
         people.insert_household(h);
     }
     let bytes = single_chunk(reader, SECTION_PEOPLE)?;
@@ -1486,7 +1500,8 @@ fn carried(
         | Schema::V18
         | Schema::V19
         | Schema::V20
-        | Schema::V21 => {
+        | Schema::V21
+        | Schema::V22 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1534,6 +1549,7 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
             let stores = fbb.create_vector(&stores);
             let offers: Vec<_> = h.offers.iter().map(|o| encode_offer(&mut fbb, o)).collect();
             let offers = fbb.create_vector(&offers);
+            let taste = fbb.create_vector(&h.taste.traits());
             save::Household::create(
                 &mut fbb,
                 &save::HouseholdArgs {
@@ -1549,6 +1565,8 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                     stores_at: h.stores_at.minutes(),
                     known_resources: Some(known),
                     offers: Some(offers),
+                    taste: Some(taste),
+                    admired: raw(h.admired),
                 },
             )
         })
@@ -1612,7 +1630,8 @@ fn decode_households(
             | Schema::V18
             | Schema::V19
             | Schema::V20
-            | Schema::V21 => {
+            | Schema::V21
+            | Schema::V22 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -1676,6 +1695,25 @@ fn decode_households(
             // Counters start again on load.
             flows: Default::default(),
             offers,
+            // Before schema 22 nobody had a taste: it is drawn on loading, as a band's would be.
+            taste: match h.taste() {
+                Some(t) if schema >= Schema::V22 && t.len() == 3 => {
+                    let t: Vec<f32> = t.iter().collect();
+                    if t.iter().any(|v| !v.is_finite()) {
+                        return Err(LoadError::Malformed(format!(
+                            "household {hh_id} has a taste that is not a number"
+                        )));
+                    }
+                    civ_agents::params::Taste::from_traits([t[0], t[1], t[2]])
+                }
+                Some(_) if schema >= Schema::V22 => {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} has a taste of other than three traits"
+                    )));
+                }
+                _ => civ_agents::params::Taste::default(),
+            },
+            admired: id(h.admired()),
         });
     }
     Ok(out)
@@ -2392,6 +2430,7 @@ fn encode_buildings(buildings: &[Building]) -> Vec<u8> {
                     },
                     skill_h: b.skill_h,
                     repair,
+                    style_from: b.style_from.map_or(0, |s| s.get()),
                 },
             )
         })
@@ -2529,6 +2568,8 @@ fn decode_buildings(bytes: &[u8], schema: Schema) -> Result<Vec<Building>, LoadE
                 }),
                 _ => None,
             },
+            // Before schema 22 no building followed another's style.
+            style_from: PermanentId::from_raw(b.style_from()),
         });
     }
     Ok(out)

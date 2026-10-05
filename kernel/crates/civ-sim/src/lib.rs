@@ -987,6 +987,8 @@ impl Sim {
                             at,
                             at.date().year - 1,
                         );
+                        // Taste moves toward the year's admired buildings (M3b slice R).
+                        people.review_tastes(&rules.catalog, &rules.people, &rules.land, land, at);
                     }
                     _ => {}
                 },

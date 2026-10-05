@@ -1206,6 +1206,57 @@ pub struct Digging {
     pub pit_side_m: f64,
 }
 
+/// A taste in building, or the traits of a building (M3b slice R): the roof pitch, the height to
+/// the eaves and the roof's overhang beyond the walls a household would build to, each held to
+/// what a program allows when it builds.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Taste {
+    /// Roof pitch, hundredths of a degree.
+    pub pitch_centideg: f32,
+    /// Height of the walls to the eaves, centimetres.
+    pub eave_cm: f32,
+    /// How far the roof reaches beyond the walls, centimetres.
+    pub overhang_cm: f32,
+}
+
+impl Taste {
+    /// Its traits in order: pitch, eaves, overhang.
+    pub fn traits(&self) -> [f32; 3] {
+        [self.pitch_centideg, self.eave_cm, self.overhang_cm]
+    }
+
+    /// The taste with traits `t` in that order.
+    pub fn from_traits(t: [f32; 3]) -> Taste {
+        Taste {
+            pitch_centideg: t[0],
+            eave_cm: t[1],
+            overhang_cm: t[2],
+        }
+    }
+}
+
+/// How households' taste in building moves (M3b slice R; research 11-02 §1.1, §2.2): toward the
+/// buildings their settlement admires, a little at a time, with now and then something new.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StyleParams {
+    /// How far a household's taste moves toward a new building of its settlement's that it
+    /// admires most, as a share of the way (11-02 §2.2: 0.02-0.20 a meaningful encounter).
+    pub alpha: f64,
+    /// How many times more the most admired new building of a settlement's weighs than the least
+    /// admired (11-02 §2.2: 1-3 times a neutral exemplar).
+    pub prestige_most: f64,
+    /// The chance a building has one trait new to its builders, drawn within what its program
+    /// allows (11-02 §2.2: 0.1-3 % a commission).
+    pub innovation: f64,
+    /// The way of building a founding band's is drawn around: the content's.
+    pub tradition_mean: Taste,
+    /// How far a founding band's shared way of building lies from the content's, each trait's
+    /// standard deviation in its units.
+    pub tradition_spread: Taste,
+    /// How far each founding household's taste lies from its band's, likewise.
+    pub personal_spread: Taste,
+}
+
 /// Everything authored about people.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PeopleParams {
@@ -1247,6 +1298,8 @@ pub struct PeopleParams {
     pub knowledge: KnowledgeParams,
     /// How people dig at a deposit (M3b slice Q).
     pub digging: Digging,
+    /// Taste in building and how it moves (M3b slice R).
+    pub style: StyleParams,
     /// Names.
     pub names: NameParams,
 }

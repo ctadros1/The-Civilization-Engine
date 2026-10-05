@@ -330,6 +330,10 @@ table Household {
   known_resources: [KnownResource] (id: 10);
   // Schema 10: what the household offers, and on what terms.
   offers: [Offer] (id: 11);
+  // Schema 22 (M3b slice R): its taste in building, roof pitch in hundredths of a degree and
+  // eaves and overhang in centimetres, and the building that moved it most (0 for none).
+  taste: [float] (id: 12);
+  admired: ulong (id: 13);
 }
 
 // Schema 10: one row of a household's posted terms (ADR-0006 §4). Goods are indexed like
@@ -597,6 +601,8 @@ table Building {
   state: BuildingState (id: 10);
   skill_h: float (id: 11);
   repair: RepairState (id: 12);
+  // Schema 22 (M3b slice R): the building its builders' taste followed (0 for none).
+  style_from: ulong (id: 13);
 }
 
 table Builds {

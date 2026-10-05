@@ -454,14 +454,16 @@ pub fn design_shape(
     at: (f32, f32),
     toward: Option<(f32, f32)>,
 ) -> Option<BuildingSpec> {
-    design_cautious(def, goods, shape, at, toward, 1.0)
+    design_cautious(def, goods, shape, at, toward, 1.0, None)
 }
 
 /// [`design_shape`], by builders who make the members that carry a frame building's load
 /// `caution` times as strong as usual after failures they have seen (ADR-0009 §6): a joist's
 /// diameter by the cube root of it (bending strength goes as d³), a post's by its fourth root
 /// (buckling goes as d⁴), each to the nearest centimetre and no more than the program allows.
-/// A hut is built as usual: its rules leave nothing to size.
+/// A hut is built as usual: its rules leave nothing to size. `style`, when given, is the roof
+/// pitch, eaves and overhang it is built to ([`crate::style::commission`], within what the program
+/// allows; a hut's overhang is its rules'), else the program's usual ones.
 pub fn design_cautious(
     def: &BuildingDef,
     goods: &[GoodDef],
@@ -469,10 +471,16 @@ pub fn design_cautious(
     at: (f32, f32),
     toward: Option<(f32, f32)>,
     caution: f64,
+    style: Option<[i32; 3]>,
 ) -> Option<BuildingSpec> {
     match (shape, &def.rules) {
         (Shape::Round { radius }, ProgramRules::Hut(_)) => {
-            Some(design(def, goods, radius, at, toward))
+            let mut spec = design(def, goods, radius, at, toward);
+            if let Some([pitch, eave, _]) = style {
+                spec.params[hut_params::PITCH_CENTIDEG] = pitch;
+                spec.params[hut_params::EAVE_CM] = eave;
+            }
+            Some(spec)
         }
         (
             Shape::Bays {
@@ -504,6 +512,11 @@ pub fn design_cautious(
             }
             params[fp::FLOOR_RAISE_CM] = d.floor_raise_cm;
             params[fp::OVERHANG_CM] = d.overhang_cm;
+            if let Some([pitch, eave, overhang]) = style {
+                params[fp::PITCH_CENTIDEG] = pitch;
+                params[fp::EAVE_CM] = eave;
+                params[fp::OVERHANG_CM] = overhang;
+            }
             params[fp::POST_CM] = stronger(d.post_cm, 4.0, rules.post_cm.1);
             params[fp::WALL_CM] = d.wall_cm;
             // The door's wall faces `toward`: it faces a quarter turn on from the length.

@@ -41,6 +41,44 @@ pub(crate) struct PeopleFile {
     pub firm: Firm,
     pub knowledge: Knowledge,
     pub digging: DiggingFile,
+    pub style: StyleFile,
+}
+
+/// Taste in building, as authored: roof pitch in degrees, eaves and overhang in metres.
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TasteFile {
+    pub pitch_deg: f64,
+    pub eave_m: f64,
+    pub overhang_m: f64,
+}
+
+impl TasteFile {
+    fn taste(self) -> civ_agents::params::Taste {
+        civ_agents::params::Taste {
+            pitch_centideg: (self.pitch_deg * 100.0) as f32,
+            eave_cm: (self.eave_m * 100.0) as f32,
+            overhang_cm: (self.overhang_m * 100.0) as f32,
+        }
+    }
+}
+
+/// How households' taste in building moves (M3b slice R; content API 22).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct StyleFile {
+    /// The share of the way a taste moves toward the most admired new building.
+    pub alpha: f64,
+    /// How many times the least admired the most admired building weighs.
+    pub prestige_most: f64,
+    /// The chance a building has one trait new to its builders.
+    pub innovation: f64,
+    /// The way of building founding bands' are drawn around.
+    pub tradition: TasteFile,
+    /// How far a band's lies from it.
+    pub tradition_spread: TasteFile,
+    /// How far a household's lies from its band's.
+    pub personal_spread: TasteFile,
 }
 
 /// How people dig at a deposit (M3b slice Q, ADR-0010 §2; content API 20).
@@ -618,6 +656,14 @@ impl PeopleFile {
                 h_per_m3: self.digging.h_per_m3,
                 pit_side_m: self.digging.pit_side_m,
             },
+            style: civ_agents::params::StyleParams {
+                alpha: self.style.alpha,
+                prestige_most: self.style.prestige_most,
+                innovation: self.style.innovation,
+                tradition_mean: self.style.tradition.taste(),
+                tradition_spread: self.style.tradition_spread.taste(),
+                personal_spread: self.style.personal_spread.taste(),
+            },
             names,
         }
     }
@@ -626,6 +672,45 @@ impl PeopleFile {
     pub fn problems(&self) -> Vec<String> {
         let mut p = Vec::new();
         positive("digging.h_per_m3", self.digging.h_per_m3, &mut p);
+        let st = &self.style;
+        for (name, v, lo, hi) in [
+            ("style.alpha", st.alpha, 0.0, 1.0),
+            ("style.prestige_most", st.prestige_most, 1.0, 10.0),
+            ("style.innovation", st.innovation, 0.0, 1.0),
+            (
+                "style.tradition.pitch_deg",
+                st.tradition.pitch_deg,
+                0.0,
+                80.0,
+            ),
+            ("style.tradition.eave_m", st.tradition.eave_m, 0.5, 6.0),
+            (
+                "style.tradition.overhang_m",
+                st.tradition.overhang_m,
+                0.0,
+                3.0,
+            ),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        for (name, t) in [
+            ("style.tradition_spread", st.tradition_spread),
+            ("style.personal_spread", st.personal_spread),
+        ] {
+            for (field, v, most) in [
+                ("pitch_deg", t.pitch_deg, 20.0),
+                ("eave_m", t.eave_m, 1.0),
+                ("overhang_m", t.overhang_m, 1.0),
+            ] {
+                if !(v.is_finite() && (0.0..=most).contains(&v)) {
+                    p.push(format!(
+                        "`{name}.{field}` must be between 0 and {most} (got {v})"
+                    ));
+                }
+            }
+        }
         if !(self.digging.pit_side_m.is_finite() && (1.0..=20.0).contains(&self.digging.pit_side_m))
         {
             p.push(format!(

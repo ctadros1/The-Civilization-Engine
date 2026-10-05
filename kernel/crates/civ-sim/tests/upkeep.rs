@@ -597,8 +597,9 @@ fn a_loft_that_gives_way_makes_its_settlement_build_frames_stronger_for_a_while(
         lofts: 2,
     };
     let sized = |caution: f64| {
-        let spec = build::design_cautious(def, &catalog.goods, shape, (0.0, 0.0), None, caution)
-            .expect("a longhouse");
+        let spec =
+            build::design_cautious(def, &catalog.goods, shape, (0.0, 0.0), None, caution, None)
+                .expect("a longhouse");
         (spec.params[fp::JOIST_CM], spec.params[fp::POST_CM])
     };
     // Builders who have seen nothing fail build as usual; twice as cautious, joists of 19 cm
@@ -609,7 +610,7 @@ fn a_loft_that_gives_way_makes_its_settlement_build_frames_stronger_for_a_while(
     assert_eq!(sized(100.0), (25, 30));
     assert_eq!(
         build::design_shape(def, &catalog.goods, shape, (0.0, 0.0), None),
-        build::design_cautious(def, &catalog.goods, shape, (0.0, 0.0), None, 1.0)
+        build::design_cautious(def, &catalog.goods, shape, (0.0, 0.0), None, 1.0, None)
     );
 
     // A loft on poles a novice chose badly gives way under a full load...

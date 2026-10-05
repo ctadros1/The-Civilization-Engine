@@ -8659,6 +8659,8 @@ impl<'a> Household<'a> {
   pub const VT_STORES_AT: ::flatbuffers::VOffsetT = 22;
   pub const VT_KNOWN_RESOURCES: ::flatbuffers::VOffsetT = 24;
   pub const VT_OFFERS: ::flatbuffers::VOffsetT = 26;
+  pub const VT_TASTE: ::flatbuffers::VOffsetT = 28;
+  pub const VT_ADMIRED: ::flatbuffers::VOffsetT = 30;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -8670,12 +8672,14 @@ impl<'a> Household<'a> {
     args: &'args HouseholdArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Household<'bldr>> {
     let mut builder = HouseholdBuilder::new(_fbb);
+    builder.add_admired(args.admired);
     builder.add_stores_at(args.stores_at);
     builder.add_water_at(args.water_at);
     builder.add_water_l(args.water_l);
     builder.add_food_kcal(args.food_kcal);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.taste { builder.add_taste(x); }
     if let Some(x) = args.offers { builder.add_offers(x); }
     if let Some(x) = args.known_resources { builder.add_known_resources(x); }
     if let Some(x) = args.stores { builder.add_stores(x); }
@@ -8770,6 +8774,20 @@ impl<'a> Household<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Offer>>>>(Household::VT_OFFERS, None)}
   }
+  #[inline]
+  pub fn taste(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(Household::VT_TASTE, None)}
+  }
+  #[inline]
+  pub fn admired(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Household::VT_ADMIRED, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Household<'_> {
@@ -8790,6 +8808,8 @@ impl ::flatbuffers::Verifiable for Household<'_> {
      .visit_field::<i64>("stores_at", Self::VT_STORES_AT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, KnownResource>>>("known_resources", Self::VT_KNOWN_RESOURCES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Offer>>>>("offers", Self::VT_OFFERS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("taste", Self::VT_TASTE, false)?
+     .visit_field::<u64>("admired", Self::VT_ADMIRED, false)?
      .finish();
     Ok(())
   }
@@ -8807,6 +8827,8 @@ pub struct HouseholdArgs<'a> {
     pub stores_at: i64,
     pub known_resources: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, KnownResource>>>,
     pub offers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Offer<'a>>>>>,
+    pub taste: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub admired: u64,
 }
 impl<'a> Default for HouseholdArgs<'a> {
   #[inline]
@@ -8824,6 +8846,8 @@ impl<'a> Default for HouseholdArgs<'a> {
       stores_at: 0,
       known_resources: None,
       offers: None,
+      taste: None,
+      admired: 0,
     }
   }
 }
@@ -8882,6 +8906,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_OFFERS, offers);
   }
   #[inline]
+  pub fn add_taste(&mut self, taste: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_TASTE, taste);
+  }
+  #[inline]
+  pub fn add_admired(&mut self, admired: u64) {
+    self.fbb_.push_slot::<u64>(Household::VT_ADMIRED, admired, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HouseholdBuilder {
@@ -8911,6 +8943,8 @@ impl ::core::fmt::Debug for Household<'_> {
       ds.field("stores_at", &self.stores_at());
       ds.field("known_resources", &self.known_resources());
       ds.field("offers", &self.offers());
+      ds.field("taste", &self.taste());
+      ds.field("admired", &self.admired());
       ds.finish()
   }
 }
@@ -12190,6 +12224,7 @@ impl<'a> Building<'a> {
   pub const VT_STATE: ::flatbuffers::VOffsetT = 24;
   pub const VT_SKILL_H: ::flatbuffers::VOffsetT = 26;
   pub const VT_REPAIR: ::flatbuffers::VOffsetT = 28;
+  pub const VT_STYLE_FROM: ::flatbuffers::VOffsetT = 30;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -12201,6 +12236,7 @@ impl<'a> Building<'a> {
     args: &'args BuildingArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Building<'bldr>> {
     let mut builder = BuildingBuilder::new(_fbb);
+    builder.add_style_from(args.style_from);
     builder.add_firm(args.firm);
     builder.add_stage_since(args.stage_since);
     builder.add_started(args.started);
@@ -12309,6 +12345,13 @@ impl<'a> Building<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<RepairState>>(Building::VT_REPAIR, None)}
   }
+  #[inline]
+  pub fn style_from(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Building::VT_STYLE_FROM, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Building<'_> {
@@ -12330,6 +12373,7 @@ impl ::flatbuffers::Verifiable for Building<'_> {
      .visit_field::<BuildingState>("state", Self::VT_STATE, false)?
      .visit_field::<f32>("skill_h", Self::VT_SKILL_H, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<RepairState>>("repair", Self::VT_REPAIR, false)?
+     .visit_field::<u64>("style_from", Self::VT_STYLE_FROM, false)?
      .finish();
     Ok(())
   }
@@ -12348,6 +12392,7 @@ pub struct BuildingArgs<'a> {
     pub state: BuildingState,
     pub skill_h: f32,
     pub repair: Option<::flatbuffers::WIPOffset<RepairState<'a>>>,
+    pub style_from: u64,
 }
 impl<'a> Default for BuildingArgs<'a> {
   #[inline]
@@ -12366,6 +12411,7 @@ impl<'a> Default for BuildingArgs<'a> {
       state: BuildingState::Standing,
       skill_h: 0.0,
       repair: None,
+      style_from: 0,
     }
   }
 }
@@ -12428,6 +12474,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<RepairState>>(Building::VT_REPAIR, repair);
   }
   #[inline]
+  pub fn add_style_from(&mut self, style_from: u64) {
+    self.fbb_.push_slot::<u64>(Building::VT_STYLE_FROM, style_from, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingBuilder {
@@ -12458,6 +12508,7 @@ impl ::core::fmt::Debug for Building<'_> {
       ds.field("state", &self.state());
       ds.field("skill_h", &self.skill_h());
       ds.field("repair", &self.repair());
+      ds.field("style_from", &self.style_from());
       ds.finish()
   }
 }

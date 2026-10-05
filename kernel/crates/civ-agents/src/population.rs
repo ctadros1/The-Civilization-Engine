@@ -49,6 +49,7 @@ pub use deposits::{DepositKnown, FIND_M};
 pub use loads::{
     DIES_IN_RUIN, DIES_UNDER_FLOOR, DIES_UNDER_ROOF, LIVE_PA, SPILLED, month_peak, peak_pa,
 };
+mod taste;
 mod transfer;
 mod trust;
 
@@ -1356,10 +1357,34 @@ impl Population {
                 ctx.now,
                 &ctx.params.build.caution,
             );
+            // Built to the household's taste, held to what the program allows, and now and then
+            // with something new to it (M3b slice R).
+            let style = crate::style::commission(
+                &ctx.params.style,
+                &hh.taste,
+                program,
+                &[
+                    ctx.seed,
+                    crate::style::PURPOSE_STYLE,
+                    hh.id.get(),
+                    day as u64,
+                    p as u64,
+                ],
+            );
             let design_at = |at: (f32, f32)| {
                 let reachable = reach.is_none_or(|r| r.seconds_to(cell_of(ctx.map, at)).is_some());
                 reachable
-                    .then(|| build::design_cautious(program, goods, shape, at, toward, caution))
+                    .then(|| {
+                        build::design_cautious(
+                            program,
+                            goods,
+                            shape,
+                            at,
+                            toward,
+                            caution,
+                            Some(style),
+                        )
+                    })
                     .flatten()
             };
             // Ground that drops too far across a plot is levelled, and ground too steep to level
@@ -1679,8 +1704,11 @@ impl Population {
             use_: def.use_,
             since: ctx.now,
         });
+        // Its builders' taste followed the building that moved it most (M3b slice R).
+        let style_from = self.household(household).and_then(|h| h.admired);
         ctx.land.buildings.push(Building {
             firm: site.firm,
+            style_from,
             ..Building::new(id, household, plot, site.spec.clone(), ctx.now)
         });
         // Ground that drops too far across the plot is levelled first (ADR-0010 §2).

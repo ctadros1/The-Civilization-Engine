@@ -487,6 +487,7 @@ fn add_family(
     ctx: &mut Ctx,
     family: &[Member],
     settlement: PermanentId,
+    band: Option<PermanentId>,
     home: (f32, f32),
     origin: Origin,
     d: &mut Draws,
@@ -557,6 +558,9 @@ fn add_family(
         keeping: crate::person::Keeping::default(),
         flows,
         offers: Vec::new(),
+        // Its band's way of building, or its own when it comes alone (M3b slice R).
+        taste: crate::style::founding_taste(&params.style, ctx.seed, band.unwrap_or(hh_id), hh_id),
+        admired: None,
     });
     let couple = founding_couple(params, family, now, d);
     for (mi, m) in family.iter().enumerate() {
@@ -763,6 +767,7 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
             ctx,
             family,
             settlement,
+            Some(settlement),
             home,
             Origin::Founder,
             &mut d,
@@ -825,8 +830,9 @@ pub fn spawn_families(
     count: u32,
 ) -> Result<Vec<Spawned>, String> {
     let count = count.clamp(1, MAX_SPAWN_FAMILIES) as usize;
-    let first = spawn_one(pop, ctx, at, 0, None)?;
+    let first = spawn_one(pop, ctx, at, 0, None, None)?;
     let joining = Some((first.settlement, first.name.clone()));
+    let band = Some(first.household);
     let mut out = vec![first];
     // The others on a spiral around the first, one home to each point; a point that is not dry
     // land people can walk on is passed over.
@@ -840,7 +846,7 @@ pub fn spawn_families(
             at.0 + (r * angle.cos()) as f32,
             at.1 + (r * angle.sin()) as f32,
         );
-        if let Ok(spawned) = spawn_one(pop, ctx, p, k as u64, joining.clone()) {
+        if let Ok(spawned) = spawn_one(pop, ctx, p, k as u64, joining.clone(), band) {
             out.push(spawned);
         }
     }
@@ -871,17 +877,19 @@ pub fn spawn_family(
     ctx: &mut Ctx,
     at: (f32, f32),
 ) -> Result<Spawned, String> {
-    spawn_one(pop, ctx, at, 0, None)
+    spawn_one(pop, ctx, at, 0, None, None)
 }
 
 /// One family sent to `at`: the `index`th of those sent together (its own draws), joining
-/// `joining` when given or else as [`spawn_family`] decides.
+/// `joining` when given or else as [`spawn_family`] decides, and building as the first of them,
+/// household `band`, does when given, or in its own way.
 fn spawn_one(
     pop: &mut Population,
     ctx: &mut Ctx,
     at: (f32, f32),
     index: u64,
     joining: Option<(PermanentId, String)>,
+    band: Option<PermanentId>,
 ) -> Result<Spawned, String> {
     let params = ctx.params;
     let now = ctx.now;
@@ -958,6 +966,7 @@ fn spawn_one(
         ctx,
         &family,
         settlement,
+        band,
         home,
         Origin::Spawned,
         &mut d,
@@ -1148,6 +1157,26 @@ pub(crate) mod tests {
             digging: crate::params::Digging {
                 h_per_m3: 8.0,
                 pit_side_m: 3.0,
+            },
+            style: crate::params::StyleParams {
+                alpha: 0.1,
+                prestige_most: 3.0,
+                innovation: 0.01,
+                tradition_mean: crate::params::Taste {
+                    pitch_centideg: 4_500.0,
+                    eave_cm: 180.0,
+                    overhang_cm: 50.0,
+                },
+                tradition_spread: crate::params::Taste {
+                    pitch_centideg: 300.0,
+                    eave_cm: 10.0,
+                    overhang_cm: 8.0,
+                },
+                personal_spread: crate::params::Taste {
+                    pitch_centideg: 100.0,
+                    eave_cm: 3.0,
+                    overhang_cm: 3.0,
+                },
             },
             names: NameParams::default(),
             farm: FarmParams {

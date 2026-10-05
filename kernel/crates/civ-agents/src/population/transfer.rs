@@ -184,6 +184,8 @@ mod tests {
                 keeping: crate::person::Keeping::default(),
                 flows: Flows::default(),
                 offers: Vec::new(),
+                taste: Default::default(),
+                admired: None,
             });
         }
         pop

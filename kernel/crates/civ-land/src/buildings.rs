@@ -130,6 +130,9 @@ pub struct Building {
     pub state: BuildingState,
     /// Upkeep under way, if any.
     pub repair: Option<Repair>,
+    /// The building its builders' taste followed when it was begun: the one that had moved
+    /// their taste most (M3b slice R). `None` for one begun before any had, or before style.
+    pub style_from: Option<PermanentId>,
 }
 
 /// Upkeep under way on one of a building's groups (ADR-0009 §4): renewing a share of it, with
@@ -167,6 +170,7 @@ impl Building {
             condition: Vec::new(),
             state: BuildingState::Standing,
             repair: None,
+            style_from: None,
         }
     }
 

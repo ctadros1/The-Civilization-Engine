@@ -106,6 +106,9 @@ pub const SCHEMA_V18: u32 = 18;
 pub const SCHEMA_V19: u32 = 19;
 /// The schema version of M3b slice Q's second step: levelled plots, before pits (see [`agents`]).
 pub const SCHEMA_V20: u32 = 20;
+/// The schema version of M3b slice Q's third step: pits and spoil heaps, before taste in
+/// building (see [`agents`]).
+pub const SCHEMA_V21: u32 = 21;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

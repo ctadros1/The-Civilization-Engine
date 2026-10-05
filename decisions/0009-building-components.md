@@ -273,6 +273,12 @@ their meanings), an expansion yields:
 - Heirs take all of a household's buildings (ADR-0007 §1, widened from the home).
 - Style traits are realised decisions kept in the spec's parameters. A household's taste and the
   provenance of each trait are behaviour state, saved but cheap to change.
+  - As built (slice R's first step): the traits are the roof's pitch, the storey height to the
+    eaves and the roof's overhang, parameters the grammars already expand, each held to its
+    program's range; the four parameters frame v1 keeps for style stay 0 until a grammar expands
+    ornament. Each household keeps its taste in the three and the building that last moved it
+    most, and each building keeps the one building its household's taste followed when it was
+    begun (one link for the building, not one a trait). Saves schema 22.
 
 ### 8. Saves and boundary
 

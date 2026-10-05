@@ -425,6 +425,65 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
     result.notes.extend(condition(sim));
     result.notes.extend(deposits(sim));
     result.notes.extend(earthworks(sim));
+    result.notes.extend(kept_and_fixed(sim));
+    result.notes.extend(style(sim));
+}
+
+/// What households hold of goods that keep others or stay where they are made (M3b slice Q), in
+/// words: "held: 41 × Pot, 2 × Oven". `None` when they hold none.
+fn kept_and_fixed(sim: &Sim) -> Option<String> {
+    let goods = &sim.rules().catalog.goods;
+    let parts: Vec<String> = goods
+        .iter()
+        .enumerate()
+        .filter(|(_, g)| g.store.is_some() || g.tool.as_ref().is_some_and(|t| t.fixed))
+        .filter_map(|(i, g)| {
+            let held: f64 = sim
+                .people()
+                .households
+                .iter()
+                .map(|(_, h)| h.stores.get(i).copied().unwrap_or(0.0))
+                .sum();
+            (held >= 0.5).then(|| format!("{held:.0} × {}", g.name))
+        })
+        .collect();
+    (!parts.is_empty()).then(|| format!("held: {}", parts.join(", ")))
+}
+
+/// The ways the world's buildings were built at the end (M3b slice R), in words: "roofs pitched
+/// 46-51°, eaves 1.8-2.1 m; 3 of 12 buildings built after an admired one". `None` without
+/// buildings.
+fn style(sim: &Sim) -> Option<String> {
+    let catalog = &sim.rules().catalog;
+    let buildings = &sim.land().buildings;
+    let traits: Vec<[f32; 3]> = buildings
+        .iter()
+        .filter_map(|b| {
+            let def = catalog
+                .buildings
+                .get(catalog.building_index(&b.spec.program)?)?;
+            Some(civ_agents::style::traits_of(&b.spec, def).traits())
+        })
+        .collect();
+    if traits.is_empty() {
+        return None;
+    }
+    let range = |k: usize| {
+        traits.iter().fold((f32::MAX, f32::MIN), |(lo, hi), t| {
+            (lo.min(t[k]), hi.max(t[k]))
+        })
+    };
+    let ((p0, p1), (e0, e1)) = (range(0), range(1));
+    let followed = buildings.iter().filter(|b| b.style_from.is_some()).count();
+    Some(format!(
+        "roofs pitched {:.0}-{:.0}°, eaves {:.1}-{:.1} m; {followed} of {} buildings built after an \
+         admired one",
+        p0 / 100.0,
+        p1 / 100.0,
+        e0 / 100.0,
+        e1 / 100.0,
+        buildings.len()
+    ))
 }
 
 /// The earthworks by the end (ADR-0010 §2), in words: "3 plots levelled, 19 m³ cut; 2 pits and

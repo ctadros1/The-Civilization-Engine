@@ -1263,6 +1263,14 @@ impl Population {
         });
         let id = ctx.ids.allocate();
         let home = self.new_home_site(ctx, natal.home, hearth, id);
+        // They build as the households they grew up in did, halfway between the two.
+        let his = self
+            .person(man)
+            .and_then(|p| self.household(p.household))
+            .map_or(natal.taste, |h| h.taste);
+        let taste = crate::params::Taste::from_traits(std::array::from_fn(|k| {
+            (natal.taste.traits()[k] + his.traits()[k]) / 2.0
+        }));
         self.insert_household(Household {
             id,
             members: Vec::new(),
@@ -1277,6 +1285,8 @@ impl Population {
             keeping: crate::person::Keeping::default(),
             flows: Flows::default(),
             offers: Vec::new(),
+            taste,
+            admired: None,
         });
         for who in [woman, man] {
             let Some(from) = self.person(who).map(|p| p.household) else {

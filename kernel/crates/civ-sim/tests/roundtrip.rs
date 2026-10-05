@@ -1960,3 +1960,30 @@ fn a_new_world_has_deposits_and_an_older_save_gains_the_same_on_loading() {
     let again = persist::load(&saved.path, content()).expect("loads");
     assert_eq!(again.land().deposits, sim.land().deposits);
 }
+
+#[test]
+fn slice_q_saves_load_with_each_household_s_taste_drawn_as_its_band_s() {
+    let mut sim = load_first();
+    // Tastes no band would bring, which the migration replaces.
+    for (_, h) in sim.people_mut_for_tests().households.iter_mut() {
+        h.taste = civ_agents::params::Taste::default();
+    }
+    // A schema-21 save, from before taste in building, gives each household the taste its band
+    // would have brought (M3b slice R): one band to a settlement.
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V21;
+    let path = republish("slice-q", &info, &persist::encode_sections(&sim));
+    let loaded = persist::load(&path, content()).expect("a schema-21 save loads");
+    assert!(loaded.is_dirty(), "the migration is new state");
+    let (style, seed) = (&loaded.rules().people.style, loaded.meta().seed);
+    assert!(!loaded.people().households.is_empty());
+    for (_, h) in loaded.people().households.iter() {
+        let band = h.settlement.unwrap_or(h.id);
+        assert_eq!(
+            h.taste,
+            civ_agents::style::founding_taste(style, seed, band, h.id),
+            "{}",
+            h.id
+        );
+    }
+}

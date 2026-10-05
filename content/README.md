@@ -325,7 +325,7 @@ decided by people at run time.
 | `recipe` | For `make` only: the recipe worked, at home. |
 | `digs` | For `dig` only: the good dug (a good id; content API 20). People dig it at a pit on a deposit of it that their settlement knows, while their household needs it, and carry it home; the land profile must lay down deposits of it. |
 | `tools` | Tools the work needs and wears (good ids; `[]` for none). Without a free one in the household the work is left out, and the tool counts as one work waits on. A `make` activity's tools are its recipe's, so it lists none. |
-| `rate` | Work done in an hour against the task's authored rates: 1 with the tools they assume, less by hand (reaping without a sickle). Field work at a lower rate is left out while the same task can be done at a higher one. |
+| `rate` | Work done in an hour against the task's authored rates: 1 with the tools they assume, less by hand (reaping without a sickle, cutting rods without an axe). Field work at a lower rate is left out while the same task can be done at a higher one, and gathering at a lower rate while the household holds the tool for a higher one. |
 | `name`, `doing` | "Gather plants"; "gathering wild plants" (what the inspector says). |
 | `par` | Physical activity ratio of the work (1–10). |
 | `min_age_years`, `max_age_years` | Who does it. |
@@ -494,6 +494,11 @@ profile's `[weather]`, a daily series. A `[resource.plant]` may follow the soil 
 (`follows_water`). A crop states its water use (`kc`, `kc_days`, `ky`). The core pack's wild plant
 food follows the soil water, and fallen wood, poles and reeds keep their authored growth whatever
 the weather.
+
+The core pack's `core:activity/cut_rods` (no API change) cuts thin rods by hand or with a flint
+flake at a fifth of an axe's rate. It is left out while the household holds an axe, even one in
+another member's hands: it is how a household whose axe has worn out gets the wood for a new
+haft.
 
 ## Planned kinds
 

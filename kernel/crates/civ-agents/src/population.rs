@@ -1988,6 +1988,7 @@ impl Population {
                 }
             })
             .collect();
+        let held_tools = free_tools.clone();
         for m in &hh.members {
             let Some(q) = self.person(*m).filter(|q| Some(q.id) != me) else {
                 continue;
@@ -2520,6 +2521,7 @@ impl Population {
         };
         let shop = decide::Workshop {
             free_tools: &free_tools,
+            held_tools: &held_tools,
             best_make: &best_make,
             makes_tool: &makes_tool,
             knows: &|t| self.people.get(h).is_some_and(|p| p.knows(t)),

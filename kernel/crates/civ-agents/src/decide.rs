@@ -7,6 +7,7 @@
 //! with a keyed draw. The scores, the runner-up and the exclusions are kept as the receipt.
 
 use civ_core::PermanentId;
+use civ_land::FieldTask;
 
 use crate::history::{Reason, Scored, Term};
 use crate::params::{ActivityDef, Behavior, DecisionParams, GoodUse};
@@ -361,6 +362,9 @@ pub type BestMake<'a> = &'a dyn Fn(usize, &[usize]) -> Result<MakeOption, (Reaso
 pub struct Workshop<'a> {
     /// Tools free for the person to use, in standard tools, by good index (0 for other goods).
     pub free_tools: &'a [f64],
+    /// Tools the household holds, free or in another member's hands, in standard tools, by good
+    /// index (0 for other goods).
+    pub held_tools: &'a [f64],
     /// For a make activity: the recipe option, or why there is none (and the tool it lacks, if
     /// that is why). Given the tools work is already waiting on.
     pub best_make: BestMake<'a>,
@@ -376,6 +380,26 @@ impl std::fmt::Debug for Workshop<'_> {
         f.debug_struct("Workshop")
             .field("free_tools", &self.free_tools)
             .finish_non_exhaustive()
+    }
+}
+
+/// The work an activity does, where more than one activity can do it at different rates: reaping
+/// with a sickle or by hand, cutting wood with an axe or by hand.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Way {
+    /// A task in a field.
+    Field(FieldTask),
+    /// A resource gathered, by index.
+    Gather(usize),
+}
+
+impl Way {
+    fn of(def: &ActivityDef) -> Option<Way> {
+        match def.behavior {
+            Behavior::Farm => def.task.map(Way::Field),
+            Behavior::Gather => def.resource.map(Way::Gather),
+            _ => None,
+        }
     }
 }
 
@@ -403,6 +427,8 @@ pub fn candidates(
     let mut out: Vec<Candidate> = Vec::new();
     let mut excluded = Vec::new();
     let mut blocked: Vec<usize> = Vec::new();
+    // Work left out only because another member has the tools for it.
+    let mut busy: Vec<u16> = Vec::new();
     // Make activities wait until the tools work waits on are known: food recipes first, then the
     // ones that make tools.
     let mut order: Vec<usize> = (0..defs.len())
@@ -1090,14 +1116,29 @@ pub fn candidates(
             if !blocked.contains(&missing) {
                 blocked.push(missing);
             }
+            if def
+                .tools
+                .iter()
+                .all(|&t| shop.held_tools.get(t).copied().unwrap_or(0.0) >= MIN_TOOL)
+            {
+                busy.push(id);
+            }
         }
     }
-    // Field work done at a slower rate (by hand) is left out while the same task can be done
-    // faster (with the tool for it).
-    let fastest = |task| {
+    // Work done at a slower rate (by hand) is left out while the same work can be done faster
+    // (with the tool for it): the same task in a field while the tool is free, and the same
+    // resource gathered while the household holds the tool, even in another member's hands. A
+    // ripe crop cannot wait for the sickle; wood can wait for the axe.
+    let fastest = |way: Way| {
+        let waiting = busy
+            .iter()
+            .copied()
+            .filter(|_| matches!(way, Way::Gather(_)));
         out.iter()
-            .map(|c| &defs[usize::from(c.scored.def)])
-            .filter(|d| d.behavior == Behavior::Farm && d.task == Some(task))
+            .map(|c| c.scored.def)
+            .chain(waiting)
+            .map(|d| &defs[usize::from(d)])
+            .filter(|d| Way::of(d) == Some(way))
             .filter(|d| d.technique.is_none_or(|t| (shop.knows)(t)))
             .map(|d| d.rate)
             .fold(0.0, f64::max)
@@ -1106,7 +1147,7 @@ pub fn candidates(
         .iter()
         .filter(|c| {
             let d = &defs[usize::from(c.scored.def)];
-            d.behavior == Behavior::Farm && d.task.is_some_and(|t| d.rate < fastest(t))
+            Way::of(d).is_some_and(|way| d.rate < fastest(way))
         })
         .map(|c| c.scored.def)
         .collect();
@@ -1305,6 +1346,7 @@ mod tests {
     ) -> (Vec<Candidate>, Vec<(u16, Reason)>) {
         let shop = Workshop {
             free_tools: free,
+            held_tools: free,
             best_make: make,
             makes_tool,
             knows: &|_| true,
@@ -1370,6 +1412,77 @@ mod tests {
                 .iter()
                 .any(|t| t.reason == Reason::Deadline)
         );
+    }
+
+    #[test]
+    fn wood_is_cut_by_hand_only_in_a_household_without_an_axe() {
+        // Good 0 is the axe. Cutting poles with it and cutting rods by hand gather the same wood
+        // (resource 0), the second at a fifth of the rate.
+        let gather = |id: &str, tools: Vec<usize>, rate: f64| ActivityDef {
+            resource: Some(0),
+            ..activity(id, Behavior::Gather, tools, rate)
+        };
+        let defs = vec![
+            gather("cut_poles", vec![0], 1.0),
+            gather("cut_rods", Vec::new(), 0.2),
+        ];
+        let wood = |_: usize| {
+            Some(PatchOption {
+                patch: 3,
+                walk_min: 10.0,
+                kg_per_hour: 20.0,
+                purpose: GoodUse::Material,
+                kcal_per_kg: 0.0,
+                stored_days: 0.0,
+                need_kg: 200.0,
+                urgency: 1.0,
+                tool_need_kg: 0.0,
+                tool_blocked: false,
+                at: (50.0, 0.0),
+                deposit: None,
+            })
+        };
+        let none = |_: usize| false;
+        let nothing = |_: usize, _: &[usize]| Err((Reason::NoMaterials, None));
+        let cut = |free: &[f64], held: &[f64]| {
+            let shop = Workshop {
+                free_tools: free,
+                held_tools: held,
+                best_make: &nothing,
+                makes_tool: &none,
+                knows: &|_| true,
+            };
+            candidates(
+                &defs,
+                &weights(),
+                &facts(),
+                &limits(),
+                &wood,
+                &|_| Ok(field()),
+                None,
+                &|| None,
+                &|| None,
+                &|| None,
+                Err(Reason::Built),
+                &shop,
+                &|| Err(Reason::NoProblem),
+            )
+        };
+        // With an axe free, wood is cut with it and not by hand.
+        let (cands, excluded) = cut(&[1.0], &[1.0]);
+        let chosen: Vec<u16> = cands.iter().map(|c| c.scored.def).collect();
+        assert!(chosen.contains(&0) && !chosen.contains(&1), "{chosen:?}");
+        assert!(excluded.contains(&(1, Reason::BetterWay)));
+        // With the household's axe in another member's hands, the wood waits for it.
+        let (cands, excluded) = cut(&[0.0], &[1.0]);
+        assert!(cands.is_empty(), "{cands:?}");
+        assert!(excluded.contains(&(0, Reason::NoTool)));
+        assert!(excluded.contains(&(1, Reason::BetterWay)));
+        // A household without one cuts rods by hand, and the axe is what the work waits on.
+        let (cands, excluded) = cut(&[0.0], &[0.0]);
+        let chosen: Vec<u16> = cands.iter().map(|c| c.scored.def).collect();
+        assert!(chosen.contains(&1) && !chosen.contains(&0), "{chosen:?}");
+        assert!(excluded.contains(&(0, Reason::NoTool)));
     }
 
     #[test]
@@ -1465,6 +1578,7 @@ mod tests {
         let cannot = |_: usize, _: &[usize]| Err((Reason::NoTool, None));
         let shop = Workshop {
             free_tools: &[],
+            held_tools: &[],
             best_make: &cannot,
             makes_tool: &|_| false,
             knows: &|_| true,

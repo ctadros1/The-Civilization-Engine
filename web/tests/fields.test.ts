@@ -27,6 +27,8 @@ function field(over: Partial<FieldInfo> = {}): FieldInfo {
     holderSettlement: 0,
     leaseUntilMinute: -1,
     leaseShare: 0,
+    waterHad: -1,
+    soilWater: 0,
     ...over,
   };
 }

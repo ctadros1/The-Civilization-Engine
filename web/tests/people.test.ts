@@ -100,6 +100,7 @@ describe("the clock estimate", () => {
     paused: false,
     speed: 960,
     mode: "detailed",
+    weather: null,
   };
   it("runs on at the clock's speed and stops while paused", () => {
     expect(estimateMinute(clock, 0, 500)).toBeCloseTo(1008);

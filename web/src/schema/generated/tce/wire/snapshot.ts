@@ -132,8 +132,13 @@ earthworksRev():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+weatherRev():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 40);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startSnapshot(builder:flatbuffers.Builder) {
-  builder.startObject(18);
+  builder.startObject(19);
 }
 
 static addWorld(builder:flatbuffers.Builder, worldOffset:flatbuffers.Offset) {
@@ -230,6 +235,10 @@ static addDepositsRev(builder:flatbuffers.Builder, depositsRev:bigint) {
 
 static addEarthworksRev(builder:flatbuffers.Builder, earthworksRev:bigint) {
   builder.addFieldInt64(17, earthworksRev, BigInt('0'));
+}
+
+static addWeatherRev(builder:flatbuffers.Builder, weatherRev:bigint) {
+  builder.addFieldInt64(18, weatherRev, BigInt('0'));
 }
 
 static endSnapshot(builder:flatbuffers.Builder):flatbuffers.Offset {

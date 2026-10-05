@@ -127,6 +127,8 @@ pub enum Request {
     GetDeposits,
     /// Read every earthwork and the tiles of ground they have changed.
     GetEarthworks,
+    /// Read every month's weather (wire 1.24).
+    GetWeather,
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -447,6 +449,7 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                 wire::QueryBody::GetKnowledge => Ok(Request::GetKnowledge),
                 wire::QueryBody::GetDeposits => Ok(Request::GetDeposits),
                 wire::QueryBody::GetEarthworks => Ok(Request::GetEarthworks),
+                wire::QueryBody::GetWeather => Ok(Request::GetWeather),
                 other => Err(format!("unknown query {}", other.0)),
             }
         }
@@ -679,6 +682,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
     let earthworks_rev = parts
         .sim
         .map_or(0, civ_sim::frames::earthworks::earthworks_rev);
+    let weather_rev = parts.sim.map_or(0, civ_sim::frames::weather::weather_rev);
     let task = parts.task.map(|t| {
         let name = fbb.create_string(&t.name);
         let stage = fbb.create_string(&t.stage);
@@ -730,6 +734,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
             knowledge_rev,
             deposits_rev,
             earthworks_rev,
+            weather_rev,
         },
     );
     finish(fbb, root)

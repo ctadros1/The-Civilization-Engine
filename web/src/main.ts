@@ -70,6 +70,7 @@ const client = new HostClient(socketUrl(), {
     void syncMarkets();
     void syncFirms();
     void syncWealth();
+    void syncWeather();
     void syncKnowledge();
     void syncDeposits();
     void syncEarthworks();
@@ -483,6 +484,60 @@ async function syncWealth(): Promise<void> {
   if (ok) void syncWealth();
 }
 
+/** `world:revision` of the weather shown, the world it belongs to, and when it was asked for. */
+let weatherKey = "";
+let weatherWorld = "";
+let weatherBusy = false;
+let weatherAskedAt = -Infinity;
+/** An ask held back by the rate limit, so the last change is always fetched. */
+let weatherTimer = 0;
+/** Least real time between fetches of the weather: the record changes every day lived. */
+const WEATHER_REFRESH_MS = 2000;
+
+/** Fetches every month's weather as days are lived (wire 1.24). */
+async function syncWeather(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const worldKey = world ? `${store.state.epoch}:${world.worldId}` : "";
+  if (worldKey !== weatherWorld) {
+    // Another world's weather is not shown while this one's is read.
+    weatherWorld = worldKey;
+    weatherKey = "";
+    weatherAskedAt = -Infinity;
+    store.update({ weather: null, weatherError: null });
+  }
+  if (!world || !s.weatherRev) return;
+  const key = `${worldKey}:${s.weatherRev}`;
+  if (key === weatherKey || weatherBusy) return;
+  const now = performance.now();
+  const waited = now - weatherAskedAt;
+  if (waited < WEATHER_REFRESH_MS) {
+    if (!weatherTimer) {
+      weatherTimer = window.setTimeout(() => {
+        weatherTimer = 0;
+        void syncWeather();
+      }, WEATHER_REFRESH_MS - waited);
+    }
+    return;
+  }
+  weatherBusy = true;
+  weatherAskedAt = now;
+  let ok = false;
+  try {
+    const weather = await client.weather();
+    if (weatherWorld === worldKey) {
+      weatherKey = key;
+      store.update({ weather, weatherError: null });
+      ok = true;
+    }
+  } catch (e) {
+    if (weatherWorld === worldKey) store.update({ weatherError: errorText(e) });
+  } finally {
+    weatherBusy = false;
+  }
+  if (ok) void syncWeather();
+}
+
 /** `world:revision` of the knowledge shown, the world it belongs to, and when it was asked for. */
 let knowledgeKey = "";
 let knowledgeWorld = "";
@@ -799,6 +854,14 @@ const hooks = {
       knowledgeRev: s.snapshot?.knowledgeRev ?? 0,
       depositsRev: s.snapshot?.depositsRev ?? 0,
       earthworksRev: s.snapshot?.earthworksRev ?? 0,
+      weatherRev: s.snapshot?.weatherRev ?? 0,
+      weather: s.weather
+        ? {
+            months: s.weather.months.length,
+            today: s.weather.today?.words ?? null,
+            annualMm: s.weather.annualMm,
+          }
+        : null,
       knowledge: s.knowledge
         ? s.knowledge.settlements.map((x) => ({
             name: x.name,

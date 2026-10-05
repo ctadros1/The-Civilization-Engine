@@ -493,6 +493,10 @@ impl Engine {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::earthworks::earthworks_response(&w.sim)),
             },
+            Request::GetWeather => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::weather::weather_response(&w.sim)),
+            },
             Request::ListSaves => {
                 match session::list_saves(&self.config.saves_root, &self.config.content) {
                     Ok(entries) => Reply::Response(protocol::save_list_response(&entries)),
@@ -1487,6 +1491,37 @@ mod tests {
                 .iter()
                 .all(|w| !w.words().unwrap_or_default().is_empty())
         );
+    }
+
+    #[test]
+    fn the_weather_is_read_month_by_month_and_told_on_the_clock() {
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::GetWeather)),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Weather");
+        let (rev, months) = {
+            let sim = &h.engine.world.as_ref().expect("a world").sim;
+            (
+                frames::weather::weather_rev(sim),
+                sim.land().weather.months.len(),
+            )
+        };
+        let Reply::Response(payload) = h.ask(Request::GetWeather) else {
+            panic!("the weather is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let report = response.body_as_weather_report().expect("a weather report");
+        assert_eq!(report.rev(), rev);
+        assert!(rev > 0);
+        let listed = report.months().expect("months");
+        // A new world has lived the year before its founding: twelve months or more.
+        assert_eq!(listed.len(), months);
+        assert!(months >= 12);
+        assert!(listed.iter().all(|m| m.usual_mm() > 0.0 && m.days() > 0));
+        let today = report.today().expect("today");
+        assert!(today.words().unwrap_or_default().contains("°C"));
     }
 
     #[test]

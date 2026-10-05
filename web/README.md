@@ -1,6 +1,6 @@
 # Web observer
 
-The web observer (the M0 shell, M1's people, families, fields, huts, trails and god tool, M3a's tools, skills, market panel, workshops panel, land tenure and wealth panel, and M3b's knowledge panel): TypeScript, Vite and PixiJS 8,
+The web observer (the M0 shell, M1's people, families, fields, huts, trails and god tool, M3a's tools, skills, market panel, workshops panel, land tenure and wealth panel, M3b's knowledge panel, and M3c's speeds and weather panel): TypeScript, Vite and PixiJS 8,
 without a UI framework. `civ-host serve` serves
 the built files from `web/dist` and the observer socket at `/ws` from the same origin.
 
@@ -29,6 +29,7 @@ another port. `?host=127.0.0.1:7421` in the page URL connects to a host directly
 | `src/firm.ts` | What the workshops panel says about a workshop's goods, holdings, monthly statements and hours: pure functions, unit tested. Records, wages and book lines come in words from the kernel. |
 | `src/wealth.ts` | What the wealth panel says about a settlement's measures, its households and its yearly history, and the Gini chart's lines: pure functions, unit tested. The measures are the kernel's. |
 | `src/knowledge.ts` | What the knowledge panel and the inspector say about who knows, is learning and has heard of each technique, and which techniques can be introduced to someone: pure functions, unit tested. States, sources and histories come in words from the kernel. |
+| `src/weather.ts` | What the weather panel says about the months and years lived against what each usually brings, and calendar years summed from their months: pure functions, unit tested. The weather and its words are the kernel's. |
 | `src/ui.ts`, `src/state.ts`, `src/main.ts` | Panels, dialogs, the store, and wiring. |
 | `src/schema/generated/` | FlatBuffers TypeScript from `kernel/crates/civ-schema/schema/tce_wire.fbs`. Never edit; run `tools/gen-schema.sh`. |
 | `e2e/` | Playwright specs; they start their own `civ-host` against a temporary saves folder. The workshops spec builds its world with `cargo run --release -p civ-sim --example workshop_world`, so it needs cargo. |
@@ -83,6 +84,18 @@ and its history there. The inspector's **Knows** lists what someone knows, is le
 hours) and has heard of, and how each came. For the living it holds the god tool: choose a
 technique they do not know, then **Teach** (they know it at once) or **Tell of it** (they only
 hear of it). The inspector holds its redraw while that list has the focus.
+
+## The weather panel
+
+The clock tells today's weather on the valley floor in the kernel's words ("9 °C, rain on dry
+ground", "-3 °C, snow; snow lying"; wire 1.24, ADR-0012). The weather panel (M3c slice U),
+fetched with `GetWeather` when the snapshot's `weather_rev` changes (each day lived, fetched at
+most every two seconds), lists the last twelve months, newest first, and each calendar year: rain
+and snow against what the months usually bring (in brackets; the month under way against its
+usual so far), a word when a month or year was dry or wet, the mean temperature against its
+normal, wet days, frost days, days with snow lying, and the soil water under the wild cover. A
+new world shows the year before its founding too: its weather began then. A growing field's
+readout says how much of the water it needed it has had ("has had 82% of the water it needed").
 
 ## Controls
 

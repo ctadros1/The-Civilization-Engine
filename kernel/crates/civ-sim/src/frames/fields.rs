@@ -138,6 +138,7 @@ pub fn fields_response(sim: &Sim) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let day = sim.now().day_index();
     let crops = &sim.rules.catalog.crops;
+    let soil_mm = sim.rules.land.weather.soil_water_mm.max(1e-9);
     let list: Vec<_> = sim
         .land
         .fields
@@ -180,6 +181,12 @@ pub fn fields_response(sim: &Sim) -> Vec<u8> {
                     },
                     lease_until_minute: f.lease.map_or(-1, |l| l.until.minutes()),
                     lease_share: f.lease.map_or(0.0, |l| l.holder_share),
+                    water_had: if f.stage == FieldStage::Sown && f.need_mm > 0.0 {
+                        (f.got_mm / f.need_mm).clamp(0.0, 1.0)
+                    } else {
+                        -1.0
+                    },
+                    soil_water: (f64::from(f.water_mm) / soil_mm) as f32,
                 },
             )
         })

@@ -187,6 +187,24 @@ table Clock {
   // Wire 1.23: how the kernel advances now. A change of speed that changes it takes effect at the
   // next midnight.
   mode: ClockMode (id: 9);
+  // Wire 1.24 (M3c slice U, ADR-0012): today's weather on the valley floor.
+  weather: DayWeather (id: 10);
+}
+
+// Wire 1.24 (M3c slice U, ADR-0012 §1): today's weather on the valley floor, at the height the
+// land profile's normals are for.
+table DayWeather {
+  // Rain and snow today, mm of water.
+  precip_mm: float (id: 0);
+  mean_c: float (id: 1);
+  min_c: float (id: 2);
+  max_c: float (id: 3);
+  // Snow lying, mm of water.
+  snow_mm: float (id: 4);
+  // The soil water under the wild cover, as a share of what the soil holds.
+  soil: float (id: 5);
+  // In words, rendered by the kernel: "6 °C, light rain; snow lying".
+  words: string (id: 6);
 }
 
 table WorldInfo {
@@ -309,6 +327,9 @@ table Snapshot {
   // Wire 1.20 (M3b slice Q): changes whenever an earthwork is begun or advanced (0 = none). Fetch
   // the earthworks with GetEarthworks when it differs from the revision last fetched.
   earthworks_rev: ulong (id: 17);
+  // Wire 1.24 (M3c slice U): changes each day lived (0 = no world). Fetch the weather's record
+  // with GetWeather when it differs from the revision last fetched.
+  weather_rev: ulong (id: 18);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -472,7 +493,11 @@ table GetDeposits {}
 // Every earthwork and the tiles of ground they have changed (wire 1.20, M3b slice Q).
 table GetEarthworks {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks }
+// Every month's weather on the valley floor, with what each usually brings (wire 1.24, M3c
+// slice U).
+table GetWeather {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather }
 
 table Query {
   body: QueryBody (id: 1);
@@ -749,6 +774,11 @@ table FieldInfo {
   // threshed from it.
   lease_until_minute: long = -1 (id: 18);
   lease_share: float (id: 19);
+  // Wire 1.24 (ADR-0012 §2): the share of the water its growing crop needed that it has had this
+  // season (-1 before it has needed any), and its root zone's water as a share of what the soil
+  // holds.
+  water_had: float = -1 (id: 20);
+  soil_water: float (id: 21);
 }
 
 table Fields {
@@ -1300,7 +1330,45 @@ table Earthworks {
   tiles: [GroundTileRev] (id: 4);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks }
+// One month's weather on the valley floor as it was, beside what the month usually brings (wire
+// 1.24, M3c slice U).
+table WeatherMonthInfo {
+  // Its year, the world's first being 1, and its month, 0 for January.
+  year: long (id: 0);
+  month: ubyte (id: 1);
+  // Days recorded: fewer than the month has for the month in progress.
+  days: ubyte (id: 2);
+  // Rain and snow, mm of water, and the long-run mean for the month.
+  precip_mm: float (id: 3);
+  usual_mm: float (id: 4);
+  wet_days: ubyte (id: 5);
+  // Its mean temperature and the month's normal, °C.
+  mean_c: float (id: 6);
+  usual_c: float (id: 7);
+  // Its lowest and highest temperature, °C.
+  min_c: float (id: 8);
+  max_c: float (id: 9);
+  frost_days: ubyte (id: 10);
+  // Days that ended with snow lying.
+  snow_days: ubyte (id: 11);
+  // The soil water under the wild cover, on average, as a share of what the soil holds.
+  soil: float (id: 12);
+}
+
+table WeatherReport {
+  // The snapshot revision this is at.
+  rev: ulong (id: 0);
+  // The height the weather is for, metres, and the landscape's mean annual precipitation, mm.
+  height_m: float (id: 1);
+  annual_mm: float (id: 2);
+  today: DayWeather (id: 3);
+  // Every month lived, oldest first; the last is the month in progress.
+  months: [WeatherMonthInfo] (id: 4);
+  // Today's month, 0 for January.
+  month: ubyte (id: 5);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport }
 
 table Response {
   body: ResponseBody (id: 1);

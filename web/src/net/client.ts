@@ -282,6 +282,13 @@ export class HostClient {
     return body.firm;
   }
 
+  /** Every month's weather on the valley floor, beside what each usually brings (wire 1.24). */
+  async weather(): Promise<M.WeatherReport> {
+    const body = await this.query(M.getWeather());
+    if (body.kind !== "weather") throw new HostError("internal", "expected the weather");
+    return body.weather;
+  }
+
   /** Every settlement's wealth measures: as they stand, each household's, and each year's. */
   async wealth(): Promise<M.WealthInfo> {
     const body = await this.query(M.getWealth());

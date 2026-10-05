@@ -104,19 +104,28 @@ describe("decoders", () => {
     W.WorldInfo.addRegimeName(b, regimeName);
     const world = W.WorldInfo.endWorldInfo(b);
     const season = b.createString("spring");
-    const clock = W.Clock.createClock(
-      b,
-      85_320n,
-      1n,
-      3,
-      1,
-      0,
-      0,
-      season,
-      true,
-      Infinity,
-      W.ClockMode.Accelerated,
-    );
+    // Wire 1.24: today's weather rides on the clock.
+    const words = b.createString("6 °C, light rain; snow lying");
+    W.DayWeather.startDayWeather(b);
+    W.DayWeather.addPrecipMm(b, 3.5);
+    W.DayWeather.addMeanC(b, 6);
+    W.DayWeather.addMinC(b, 2);
+    W.DayWeather.addMaxC(b, 9);
+    W.DayWeather.addSnowMm(b, 12);
+    W.DayWeather.addSoil(b, 0.75);
+    W.DayWeather.addWords(b, words);
+    const weather = W.DayWeather.endDayWeather(b);
+    W.Clock.startClock(b);
+    W.Clock.addMinute(b, 85_320n);
+    W.Clock.addYear(b, 1n);
+    W.Clock.addMonth(b, 3);
+    W.Clock.addDay(b, 1);
+    W.Clock.addSeason(b, season);
+    W.Clock.addPaused(b, true);
+    W.Clock.addSpeed(b, Infinity);
+    W.Clock.addMode(b, W.ClockMode.Accelerated);
+    W.Clock.addWeather(b, weather);
+    const clock = W.Clock.endClock(b);
     const taskName = b.createString("Loading");
     const stage = b.createString("Reading");
     const task = W.Task.createTask(b, taskName, stage, 0.5, false);
@@ -153,6 +162,15 @@ describe("decoders", () => {
       // Max, a day at a time (wire 1.23).
       speed: Infinity,
       mode: "accelerated",
+      weather: {
+        precipMm: 3.5,
+        meanC: 6,
+        minC: 2,
+        maxC: 9,
+        snowMm: 12,
+        soil: 0.75,
+        words: "6 °C, light rain; snow lying",
+      },
     });
     expect(snapshot.task).toEqual({
       name: "Loading",
@@ -188,6 +206,7 @@ describe("decoders", () => {
       knowledgeRev: 0,
       depositsRev: 0,
       earthworksRev: 0,
+      weatherRev: 0,
     });
   });
 
@@ -601,6 +620,8 @@ describe("decoders", () => {
     W.FieldInfo.addHolder(b, 8n);
     W.FieldInfo.addLeaseUntilMinute(b, 700_000n);
     W.FieldInfo.addLeaseShare(b, 0.25);
+    W.FieldInfo.addWaterHad(b, 0.75);
+    W.FieldInfo.addSoilWater(b, 0.5);
     const field = W.FieldInfo.endFieldInfo(b);
     const list = W.Fields.createFieldsVector(b, [field]);
     const fields = W.Fields.createFields(b, 99n, list);
@@ -633,6 +654,9 @@ describe("decoders", () => {
           holderSettlement: 0,
           leaseUntilMinute: 700_000,
           leaseShare: 0.25,
+          // Wire 1.24: the water its crop has had, and its root zone's.
+          waterHad: 0.75,
+          soilWater: 0.5,
         },
       ],
     });

@@ -50,6 +50,7 @@ import {
   spreadText,
   yearRows,
 } from "./wealth.js";
+import { monthRows, yearRows as weatherYearRows } from "./weather.js";
 import { HostError } from "./net/client.js";
 import type {
   ChronicleEntry,
@@ -1628,6 +1629,88 @@ export function bindUi(store: Store, actions: Actions): void {
     wealthBody.replaceChildren(...nodes);
   };
 
+  // ---- Weather -----------------------------------------------------------------------------
+  const weatherBody = $("weather-body");
+  let weatherKey: unknown[] = [];
+  const renderWeather = (state: AppState) => {
+    const world = state.snapshot?.world ?? null;
+    const key = [world?.worldId ?? null, state.weather, state.weatherError];
+    if (key.length === weatherKey.length && key.every((k, i) => k === weatherKey[i])) return;
+    weatherKey = key;
+    if (!world) {
+      weatherBody.replaceChildren(el("p", { className: "empty", text: "No world loaded." }));
+      return;
+    }
+    if (state.weather === null) {
+      weatherBody.replaceChildren(
+        state.weatherError
+          ? el("p", {
+              className: "form-error",
+              text: `The weather could not be read: ${state.weatherError}`,
+            })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      );
+      return;
+    }
+    const w = state.weather;
+    const nodes: Node[] = [];
+    if (w.today) {
+      nodes.push(el("p", { className: "weather-today", text: `Today: ${w.today.words}.` }));
+    }
+    nodes.push(
+      el("p", {
+        className: "aside",
+        text: `On the valley floor (${Math.round(w.heightM)} m), month by month and year by year, each against what it usually brings (in brackets): about ${Math.round(w.annualMm)} mm of rain and snow a year. Soil is the water in the ground under the wild cover, as a share of what it holds.`,
+      }),
+    );
+    const monthHead = el(
+      "tr",
+      {},
+      ...["Month", "Rain mm", "", "Mean °C", "Frost", "Snow", "Soil"].map((h) => el("th", { text: h })),
+    );
+    const months = monthRows(w).map((r) =>
+      el(
+        "tr",
+        { className: r.partial ? "partial" : "" },
+        ...[r.month, r.rain, r.rainWord, r.temp, String(r.frost), String(r.snow), r.soil].map((v) =>
+          el("td", { text: v }),
+        ),
+      ),
+    );
+    nodes.push(
+      el(
+        "div",
+        { className: "table-scroll" },
+        el("table", { className: "weather-months" }, el("thead", {}, monthHead), el("tbody", {}, ...months)),
+      ),
+    );
+    const yearHead = el(
+      "tr",
+      {},
+      ...["Year", "Rain mm", "", "Mean °C", "Wet", "Frost", "Snow"].map((h) => el("th", { text: h })),
+    );
+    const years = weatherYearRows(w).map((r) =>
+      el(
+        "tr",
+        { className: r.partial ? "partial" : "" },
+        ...[r.year, r.rain, r.rainWord, r.temp, String(r.wet), String(r.frost), String(r.snow)].map(
+          (v) => el("td", { text: v }),
+        ),
+      ),
+    );
+    nodes.push(
+      el(
+        "div",
+        { className: "table-scroll" },
+        el("table", { className: "weather-years" }, el("thead", {}, yearHead), el("tbody", {}, ...years)),
+      ),
+    );
+    if (state.weatherError) {
+      nodes.push(el("p", { className: "note", text: `Not up to date: ${state.weatherError}` }));
+    }
+    weatherBody.replaceChildren(...nodes);
+  };
+
   // ---- Knowledge ---------------------------------------------------------------------------
   const knowledgeBody = $("knowledge-body");
   let knowledgeKey: unknown[] = [];
@@ -1767,7 +1850,7 @@ export function bindUi(store: Store, actions: Actions): void {
             day: clock.day,
             hour: clock.hour,
             minute: clock.minuteOfHour,
-          })} · ${clock.season}`
+          })} · ${clock.season}${clock.weather ? ` · ${clock.weather.words}` : ""}`
         : "",
     );
     const run = $<HTMLButtonElement>("btn-run");
@@ -1819,6 +1902,7 @@ export function bindUi(store: Store, actions: Actions): void {
     renderMarkets(state);
     renderFirms(state);
     renderWealth(state);
+    renderWeather(state);
     renderKnowledge(state);
     renderWorld(state);
     renderEvents(state);

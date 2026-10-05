@@ -174,6 +174,58 @@ export interface Clock {
   /** How the kernel advances: by the minute, or a day at a time with frames only at midnight
    * (ADR-0011). Wire 1.23. */
   mode: "detailed" | "accelerated";
+  /** Today's weather on the valley floor (wire 1.24, ADR-0012); null from an older host. */
+  weather: DayWeather | null;
+}
+
+/** A day's weather on the valley floor (wire 1.24, M3c slice U). */
+export interface DayWeather {
+  /** Rain and snow, mm of water. */
+  precipMm: number;
+  meanC: number;
+  minC: number;
+  maxC: number;
+  /** Snow lying, mm of water. */
+  snowMm: number;
+  /** The soil water under the wild cover, as a share of what the soil holds. */
+  soil: number;
+  /** Rendered by the kernel: "6 °C, light rain; snow lying". */
+  words: string;
+}
+
+/** One month's weather on the valley floor, beside what the month usually brings (wire 1.24). */
+export interface WeatherMonth {
+  /** The world's first year is 1. */
+  year: number;
+  /** 0 for January. */
+  month: number;
+  /** Days recorded: fewer than the month has while it is under way. */
+  days: number;
+  precipMm: number;
+  usualMm: number;
+  wetDays: number;
+  meanC: number;
+  usualC: number;
+  minC: number;
+  maxC: number;
+  frostDays: number;
+  snowDays: number;
+  /** The soil water under the wild cover, on average, as a share of what the soil holds. */
+  soil: number;
+}
+
+/** Every month's weather (wire 1.24). */
+export interface WeatherReport {
+  rev: number;
+  /** The height the weather is for, metres. */
+  heightM: number;
+  /** The landscape's mean annual precipitation, mm. */
+  annualMm: number;
+  today: DayWeather | null;
+  /** Oldest first; the last is the month under way. */
+  months: WeatherMonth[];
+  /** Today's month, 0 for January. */
+  month: number;
 }
 
 export interface Task {
@@ -263,6 +315,8 @@ export interface Snapshot {
   depositsRev: number;
   /** Wire 1.20: changes whenever an earthwork is begun or advanced (0 = none). */
   earthworksRev: number;
+  /** Wire 1.24: changes each day lived (0 = no world). Fetch the weather with GetWeather. */
+  weatherRev: number;
 }
 
 export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
@@ -299,6 +353,10 @@ export interface FieldInfo {
   /** When it is let: when the lease's term ends (-1 = not let), and the holder's share of the grain. */
   leaseUntilMinute: number;
   leaseShare: number;
+  /** Wire 1.24: the share of the water its growing crop needed that it has had (-1 before it has
+   * needed any), and its root zone's water as a share of what the soil holds. */
+  waterHad: number;
+  soilWater: number;
 }
 
 /** Ground worn by walking in one tile of cells (M1 slice F), as last surveyed. */
@@ -1018,7 +1076,8 @@ export type ResponseBody =
   | { kind: "wealth"; wealth: WealthInfo }
   | { kind: "knowledge"; knowledge: KnowledgeInfo }
   | { kind: "deposits"; deposits: DepositsInfo }
-  | { kind: "earthworks"; earthworks: EarthworksInfo };
+  | { kind: "earthworks"; earthworks: EarthworksInfo }
+  | { kind: "weather"; weather: WeatherReport };
 
 export type ErrorCode =
   | "unknown"
@@ -1251,6 +1310,12 @@ export function getKnowledge(): Uint8Array {
   return query(b, W.QueryBody.GetKnowledge, W.GetKnowledge.endGetKnowledge(b));
 }
 
+export function getWeather(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetWeather.startGetWeather(b);
+  return query(b, W.QueryBody.GetWeather, W.GetWeather.endGetWeather(b));
+}
+
 export function getWealth(): Uint8Array {
   const b = new flatbuffers.Builder(16);
   W.GetWealth.startGetWealth(b);
@@ -1420,6 +1485,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
           paused: clock.paused(),
           speed: clock.speed(),
           mode: clock.mode() === W.ClockMode.Accelerated ? "accelerated" : "detailed",
+          weather: dayWeather(clock.weather()),
         }
       : null,
     task: task
@@ -1453,6 +1519,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     knowledgeRev: Number(s.knowledgeRev()),
     depositsRev: Number(s.depositsRev()),
     earthworksRev: Number(s.earthworksRev()),
+    weatherRev: Number(s.weatherRev()),
   };
 }
 
@@ -1771,9 +1838,56 @@ function fields(f: W.Fields): { rev: number; fields: FieldInfo[] } {
       holderSettlement: Number(x.holderSettlement()),
       leaseUntilMinute: Number(x.leaseUntilMinute()),
       leaseShare: x.leaseShare(),
+      waterHad: x.waterHad(),
+      soilWater: x.soilWater(),
     });
   }
   return { rev: Number(f.rev()), fields: out };
+}
+
+function dayWeather(w: W.DayWeather | null): DayWeather | null {
+  if (!w) return null;
+  return {
+    precipMm: w.precipMm(),
+    meanC: w.meanC(),
+    minC: w.minC(),
+    maxC: w.maxC(),
+    snowMm: w.snowMm(),
+    soil: w.soil(),
+    words: w.words() ?? "",
+  };
+}
+
+function weatherReport(r: W.WeatherReport): WeatherReport {
+  const months: WeatherMonth[] = [];
+  const m = new W.WeatherMonthInfo();
+  for (let i = 0; i < r.monthsLength(); i++) {
+    const x = r.months(i, m);
+    if (!x) continue;
+    months.push({
+      year: Number(x.year()),
+      month: x.month(),
+      days: x.days(),
+      precipMm: x.precipMm(),
+      usualMm: x.usualMm(),
+      wetDays: x.wetDays(),
+      meanC: x.meanC(),
+      usualC: x.usualC(),
+      minC: x.minC(),
+      maxC: x.maxC(),
+      frostDays: x.frostDays(),
+      snowDays: x.snowDays(),
+      soil: x.soil(),
+    });
+  }
+  return {
+    rev: Number(r.rev()),
+    heightM: r.heightM(),
+    annualMm: r.annualMm(),
+    today: dayWeather(r.today()),
+    months,
+    month: r.month(),
+  };
 }
 
 function vec2List(n: number, at: (i: number, v: W.Vec2) => W.Vec2 | null): [number, number][] {
@@ -2432,6 +2546,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Earthworks()) as W.Earthworks | null;
       if (!f) break;
       return { kind: "earthworks", earthworks: earthworks(f) };
+    }
+    case W.ResponseBody.WeatherReport: {
+      const f = r.body(new W.WeatherReport()) as W.WeatherReport | null;
+      if (!f) break;
+      return { kind: "weather", weather: weatherReport(f) };
     }
     default:
       break;

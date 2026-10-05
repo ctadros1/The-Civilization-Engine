@@ -13,6 +13,7 @@ import type {
   PersonInfo,
   Snapshot,
   WealthInfo,
+  WeatherReport,
   Welcome,
 } from "./net/messages.js";
 
@@ -82,6 +83,10 @@ export interface AppState {
   knowledge: KnowledgeInfo | null;
   /** Why the knowledge could not be read. */
   knowledgeError: string | null;
+  /** Every month's weather in the world on show (null = not read yet; wire 1.24). */
+  weather: WeatherReport | null;
+  /** Why the weather could not be read. */
+  weatherError: string | null;
 }
 
 export const MAX_EVENTS = 300;
@@ -113,6 +118,8 @@ export function initialState(): AppState {
     wealthError: null,
     knowledge: null,
     knowledgeError: null,
+    weather: null,
+    weatherError: null,
   };
 }
 

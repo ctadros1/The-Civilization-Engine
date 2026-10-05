@@ -36,6 +36,7 @@ pub mod markets;
 pub mod paths;
 pub mod people;
 pub mod wealth;
+pub mod weather;
 
 /// Largest region one raster query may ask for, in cells of its level.
 pub const MAX_QUERY_CELLS: u64 = 1024 * 1024;
@@ -132,6 +133,7 @@ pub fn world_info<'a>(
 pub fn clock<'a>(fbb: &mut FlatBufferBuilder<'a>, sim: &Sim) -> WIPOffset<wire::Clock<'a>> {
     let date = sim.date();
     let season = fbb.create_string(date.season().name());
+    let weather = weather::day_weather(fbb, sim);
     wire::Clock::create(
         fbb,
         &wire::ClockArgs {
@@ -148,6 +150,7 @@ pub fn clock<'a>(fbb: &mut FlatBufferBuilder<'a>, sim: &Sim) -> WIPOffset<wire::
                 crate::Mode::Detailed => wire::ClockMode::Detailed,
                 crate::Mode::Accelerated => wire::ClockMode::Accelerated,
             },
+            weather: Some(weather),
         },
     )
 }

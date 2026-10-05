@@ -149,7 +149,7 @@ fn check_round_trip(sim: &mut Sim, content: &ContentRegistry) -> Result<(), Stri
 }
 
 /// Lives the founding band's first month and checks what must always hold.
-fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<String> {
+pub(crate) fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<String> {
     let mut failures = Vec::new();
     if let Some(why) = sim.founding_problem() {
         return vec![format!("the founding band could not settle: {why}")];
@@ -287,17 +287,34 @@ fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<String> {
 
 /// Lives a world on for `years` after its first month, checking it at every year's end: one
 /// year, two years and so on from the founding.
-fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
-    let founders = sim.people().living().max(1);
-    let year = civ_core::time::MINUTES_PER_YEAR;
-    // The band has lived its first month (`check_people`).
-    let founded = sim.now().minutes() - DAYS * MINUTES_PER_DAY;
-    // The books at the start: every good held is accounted for from here on (ADR-0006 §3).
-    let books = (sim.people().goods_held(), sim.people().flows());
-    let mut economy = Economy::default();
-    for y in 1..=years {
-        let end = founded + i64::from(y) * year;
-        // Month by month, sampling the economy as each begins.
+/// What a long run carries from year to year and checks at each year's end, whatever its length:
+/// the smoke's years and the dashboard's fifty (plan §4.7).
+#[derive(Debug)]
+pub struct LongRun {
+    /// The people when the run began.
+    pub founders: usize,
+    /// The books when the run began: every good held is accounted for from here on (ADR-0006 §3).
+    books: (Vec<f64>, civ_agents::person::Flows),
+    /// What the run has seen of the economy, sampled as each month begins.
+    pub economy: Economy,
+    /// Months lived-in buildings have stood, counted as each month begins: their standing
+    /// buildings, finished, of households with someone living.
+    pub lived_building_months: u64,
+}
+
+impl LongRun {
+    /// Begins a long run of `sim` as it stands.
+    pub fn begin(sim: &Sim) -> LongRun {
+        LongRun {
+            founders: sim.people().living().max(1),
+            books: (sim.people().goods_held(), sim.people().flows()),
+            economy: Economy::default(),
+            lived_building_months: 0,
+        }
+    }
+
+    /// Lives `sim` to `end` month by month, sampling the economy as each month begins.
+    pub fn live_to(&mut self, sim: &mut Sim, end: i64) -> Result<(), String> {
         loop {
             let d = sim.now().date();
             let (ny, nm) = if d.month == 12 {
@@ -307,18 +324,34 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
             };
             let next = SimTime::from_date(ny, nm, 1, 0, 0).map_or(end, |t| t.minutes());
             let to = next.min(end);
-            if let Err(e) = sim.advance_minutes(to - sim.now().minutes()) {
-                result
-                    .failures
-                    .push(format!("the clock stopped in year {y}: {e}"));
-                return;
-            }
+            sim.advance_minutes(to - sim.now().minutes())
+                .map_err(|e| e.to_string())?;
             if to == end {
-                break;
+                return Ok(());
             }
-            economy.sample(sim);
+            self.economy.sample(sim);
+            let people = sim.people();
+            self.lived_building_months += sim
+                .land()
+                .buildings
+                .iter()
+                .filter(|b| {
+                    b.finished()
+                        && b.standing()
+                        && people
+                            .household(b.household)
+                            .is_some_and(|h| !h.members.is_empty())
+                })
+                .count() as u64;
         }
-        result.failures.extend(economy.year_end(sim, y));
+    }
+
+    /// The checks at the end of year `y` that fail a world: nobody stuck, no population or land
+    /// problems, every good accounted for, households under a roof from the second year, the
+    /// techniques every founder brings known, a first trail in the first year, and the economy's
+    /// claims, fields and wealth measures in order. Growth is the caller's to judge.
+    pub fn year_end(&mut self, sim: &Sim, y: u32) -> Vec<String> {
+        let mut failures = self.economy.year_end(sim, y);
         let now = sim.now();
         let living = sim.people().living();
         let stuck = sim
@@ -328,15 +361,13 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
             .filter(|(_, p)| p.act.step_ends < now)
             .count();
         if stuck > 0 {
-            result
-                .failures
-                .push(format!("{stuck} people stuck between events in year {y}"));
+            failures.push(format!("{stuck} people stuck between events in year {y}"));
         }
         let problems = sim
             .people()
             .problems(sim.ids().peek_next(), sim.rules().catalog.activities.len());
         if let Some(first) = problems.first() {
-            result.failures.push(format!(
+            failures.push(format!(
                 "{} population problems in year {y}, first: {first}",
                 problems.len()
             ));
@@ -348,7 +379,7 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
             sim.ids().peek_next(),
         );
         if let Some(first) = problems.first() {
-            result.failures.push(format!(
+            failures.push(format!(
                 "{} land problems in year {y}, first: {first}",
                 problems.len()
             ));
@@ -356,20 +387,15 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
         let goods = &sim.rules().catalog.goods;
         let gaps = civ_agents::population::unaccounted(
             goods.len(),
-            (&books.0, &books.1),
+            (&self.books.0, &self.books.1),
             (&sim.people().goods_held(), &sim.people().flows()),
         );
         if let Some(&(g, kg)) = gaps.first() {
-            result.failures.push(format!(
+            failures.push(format!(
                 "{} goods unaccounted for in year {y}, first: {} {kg:+.3}",
                 gaps.len(),
                 goods[g].name
             ));
-        }
-        if living as f64 > MAX_GROWTH * founders as f64 {
-            result
-                .failures
-                .push(format!("{living} people in year {y}: the band exploded"));
         }
         let households: Vec<_> = sim
             .people()
@@ -389,13 +415,13 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
             })
             .count();
         if y >= 2 && (roofed as f64) < MIN_ROOFED * households.len() as f64 {
-            result.failures.push(format!(
+            failures.push(format!(
                 "only {roofed} of {} households under a roof in year {y}",
                 households.len()
             ));
         }
         if let Some(failure) = check_knowledge(sim, y) {
-            result.failures.push(failure);
+            failures.push(failure);
         }
         if y == 1
             && living > 0
@@ -405,9 +431,31 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
                 .iter()
                 .any(|e| e.kind == civ_agents::ChronicleKind::FirstTrail)
         {
+            failures.push("no trail worn out of the settlement in its first year".to_owned());
+        }
+        failures
+    }
+}
+
+fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
+    let mut run = LongRun::begin(sim);
+    let year = civ_core::time::MINUTES_PER_YEAR;
+    // The band has lived its first month (`check_people`).
+    let founded = sim.now().minutes() - DAYS * MINUTES_PER_DAY;
+    for y in 1..=years {
+        let end = founded + i64::from(y) * year;
+        if let Err(e) = run.live_to(sim, end) {
             result
                 .failures
-                .push("no trail worn out of the settlement in its first year".to_owned());
+                .push(format!("the clock stopped in year {y}: {e}"));
+            return;
+        }
+        result.failures.extend(run.year_end(sim, y));
+        let living = sim.people().living();
+        if living as f64 > MAX_GROWTH * run.founders as f64 {
+            result
+                .failures
+                .push(format!("{living} people in year {y}: the band exploded"));
         }
         if living < MIN_ALIVE && !result.notes.iter().any(|n| n.starts_with("the band")) {
             result
@@ -416,7 +464,7 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
         }
         result.living = Some(living);
     }
-    result.economy = economy.grade(sim);
+    result.economy = run.economy.grade(sim);
     for c in result.economy.iter().filter(|c| c.grade == Grade::Red) {
         result.failures.push(format!("{}: {}", c.name, c.text));
     }

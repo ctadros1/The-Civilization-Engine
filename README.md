@@ -238,6 +238,7 @@ cargo run --release -p civ-host -- save verify ../saves/<world>/g0000000001-manu
 cargo run --release -p civ-host -- content validate
 cargo run --release -p civ-host -- smoke       # 2 landscapes × 5 seeds against fixed thresholds
 cargo run --release -p civ-host -- smoke --years 10   # and ten years of each, checked every year, its economy graded
+cargo run --release -p civ-host -- dashboard --json dashboard.json   # the §4.7 dashboard: five valleys, fifty years
 cargo run --release -p civ-host -- run --seed 2 --years 5   # one world for five years, reported each year
 cargo run --release -p civ-host -- run --seed 2 --years 3 --regime core:regime/village   # under village fields
 cargo run --release -p civ-host -- run --seed 2 --years 10 --band 125 --families 20   # a village of hundreds

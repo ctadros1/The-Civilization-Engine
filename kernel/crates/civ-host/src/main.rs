@@ -43,6 +43,8 @@ enum Command {
     Content(ContentCommand),
     /// Generate the smoke-seed worlds and check them against fixed thresholds.
     Smoke(SmokeArgs),
+    /// Live the sanity dashboard's five river-valley worlds fifty years and grade plan §4.7.
+    Dashboard(DashboardArgs),
     /// Live one world for some years and report how its people live at each year's end.
     Run(RunArgs),
 }
@@ -177,6 +179,25 @@ enum ContentCommand {
 }
 
 #[derive(Args)]
+struct DashboardArgs {
+    #[command(flatten)]
+    folders: Folders,
+    /// Cells per side of each world.
+    #[arg(long, default_value_t = 1024)]
+    size: u32,
+    /// Years each world lives after its first month. The dashboard is fifty; fewer only for a
+    /// quick look.
+    #[arg(long, default_value_t = civ_host::dashboard::YEARS)]
+    years: u32,
+    /// Also write the report as JSON to this file.
+    #[arg(long)]
+    json: Option<PathBuf>,
+    /// Keep each world's saves at every tenth year's end in this folder.
+    #[arg(long)]
+    keep_saves: Option<PathBuf>,
+}
+
+#[derive(Args)]
 struct SmokeArgs {
     #[command(flatten)]
     folders: Folders,
@@ -214,6 +235,7 @@ fn main() -> ExitCode {
                 .map(|layout| commands::content_validate(&layout.content, json))
         }
         Command::Smoke(args) => run_smoke(args),
+        Command::Dashboard(args) => run_dashboard(args),
         Command::Run(args) => run_world(args),
     };
     match result {
@@ -396,6 +418,54 @@ fn save_verify(args: SaveArgs) -> anyhow::Result<ExitCode> {
     let layout = paths::locate(args.folders.content, args.folders.saves, None)?;
     let content = commands::load_content(&layout.content)?;
     Ok(commands::save_verify(&args.file, &content))
+}
+
+fn run_dashboard(args: DashboardArgs) -> anyhow::Result<ExitCode> {
+    use civ_host::dashboard;
+    let layout = paths::locate(args.folders.content, None, None)?;
+    let content = commands::load_content(&layout.content)?;
+    println!(
+        "Sanity dashboard (plan §4.7): {} worlds of {} at {}² cells, each its first month by the \
+         minute and then {} years a day at a time at Max, checked at every year's end",
+        dashboard::WORLDS,
+        dashboard::PRESET,
+        args.size,
+        args.years
+    );
+    if args.years < dashboard::YEARS {
+        println!(
+            "only {} of the dashboard's {} years: a quick look, not the dashboard",
+            args.years,
+            dashboard::YEARS
+        );
+    }
+    println!("{}", dashboard::header());
+    let report = dashboard::run(
+        &content,
+        dashboard::DashboardOptions {
+            size: args.size,
+            years: args.years,
+        },
+        args.keep_saves.as_deref(),
+        &|world| println!("{}", dashboard::format_world(world)),
+    );
+    println!("{}", dashboard::format_rows(&report.rows));
+    if let Some(path) = &args.json {
+        let json = serde_json::to_string_pretty(&report)?;
+        std::fs::write(path, json)
+            .map_err(|e| anyhow::anyhow!("cannot write {}: {e}", path.display()))?;
+    }
+    let verdict = if report.passed() { "passed" } else { "FAILED" };
+    println!(
+        "{}; the dashboard {verdict} in {:.0} s",
+        report.summary(),
+        report.seconds
+    );
+    Ok(if report.passed() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    })
 }
 
 fn run_smoke(args: SmokeArgs) -> anyhow::Result<ExitCode> {

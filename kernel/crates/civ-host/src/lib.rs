@@ -10,6 +10,7 @@
 #![forbid(unsafe_code)]
 
 pub mod commands;
+pub mod dashboard;
 pub mod economy;
 pub mod engine;
 pub mod paths;

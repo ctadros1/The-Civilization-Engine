@@ -191,12 +191,21 @@ impl Population {
             .building_index(&b.spec.program)
             .and_then(|d| catalog.buildings.get(d))?;
         let e = self.expansion_of(b, def)?;
-        let z = ctx.map.elevation(ctx.land.buildings_at[i]);
+        let plot = ctx.land.plots.iter().find(|p| p.id == b.plot)?;
+        let cx = (plot.rect.x as f32 / 100.0 / ctx.map.cell_size_m).max(0.0) as usize;
+        let cy = (plot.rect.y as f32 / 100.0 / ctx.map.cell_size_m).max(0.0) as usize;
+        let cx = cx.min(ctx.map.width as usize - 1);
+        let cy = cy.min(ctx.map.height as usize - 1);
+        let z = ctx.map.elevation[cy * (ctx.map.width as usize) + cx];
         let snow_mm = ctx.land.weather.snow_at(z as f64);
-        let snow_pa = snow_mm * civ_core::physics::G;
+        let snow_pa = snow_mm * G;
         let loads = loads_on(b, &e, kept);
         let loads = Loads {
-            peak_pa: if loads.covering_pa > 0.0 { peak + snow_pa } else { 0.0 },
+            peak_pa: if loads.covering_pa > 0.0 {
+                peak + snow_pa
+            } else {
+                0.0
+            },
             ..loads
         };
         let timber = |g: &Group| {

@@ -447,20 +447,15 @@ impl Population {
         };
         let mut rows = Vec::new();
         for &(g, units) in offered {
-            let anchor = costs
-                .get(g)
-                .copied()
-                .flatten()
-                .map(|c| {
-                    let mut a = c * (1.0 + mp.margin);
-                    if let Some(held) = holding.stores.get(g).copied() {
-                        let keep = keeps(g);
-                        if held > 0.0 && keep > 0.0 {
-                            a *= (keep / held).max(0.25).min(4.0);
-                        }
-                    }
-                    a
-                });
+            let anchor = costs.get(g).copied().flatten().map(|c| {
+                let mut a = c * (1.0 + mp.margin);
+                let keep = holding.keep.get(g).copied().unwrap_or(0.0);
+                let held = units + keep;
+                if held > 0.0 && keep > 0.0 {
+                    a *= (keep / held).clamp(0.25, 4.0);
+                }
+                a
+            });
             let prev = old
                 .iter()
                 .find(|o| usize::from(o.good) == g)

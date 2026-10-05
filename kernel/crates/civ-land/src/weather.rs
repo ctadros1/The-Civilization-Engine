@@ -650,24 +650,24 @@ impl Weather {
 
     /// The rain and snow of the month just lived against what that month usually brings, if the
     /// record ends with a whole month: how wet it was for what stands out in it (ADR-0012 §5).
-    
+    ///
     /// A year's average temperature and a few words on its extremes, for the chronicle.
     pub fn year_summary(&self, year: i64, climatology: &Climatology) -> (f64, String) {
         let mut year_temp_sum = 0.0;
         let mut year_days = 0;
         let mut year_precip = 0.0;
-        
+
         let mut summer_precip = 0.0;
         let mut summer_normal_precip = 0.0;
         let mut winter_temp_sum = 0.0;
         let mut winter_days = 0;
-        
+
         for m in &self.months {
             if m.year == year {
                 year_temp_sum += m.temp_sum_c as f64;
                 year_days += m.days as i64;
                 year_precip += m.precip_mm as f64;
-                
+
                 if m.month >= 5 && m.month <= 7 {
                     summer_precip += m.precip_mm as f64;
                     summer_normal_precip += climatology.month_precip_mm[m.month as usize];
@@ -678,30 +678,34 @@ impl Weather {
                 }
             }
         }
-        
-        let mean_c = if year_days > 0 { year_temp_sum / year_days as f64 } else { 0.0 };
-        
+
+        let mean_c = if year_days > 0 {
+            year_temp_sum / year_days as f64
+        } else {
+            0.0
+        };
+
         let mut extremes = Vec::new();
         if year_precip > climatology.annual_mm * 1.25 {
             extremes.push("a wet year");
         } else if year_precip < climatology.annual_mm * 0.75 {
             extremes.push("a dry year");
         }
-        
+
         if summer_precip < summer_normal_precip * 0.5 {
             extremes.push("a dry summer");
         }
-        
+
         if winter_days > 0 && (winter_temp_sum / winter_days as f64) < 0.0 {
             extremes.push("a hard winter");
         }
-        
+
         let summary = if extremes.is_empty() {
             "a quiet year".to_string()
         } else {
             extremes.join(", ")
         };
-        
+
         (mean_c, summary)
     }
 

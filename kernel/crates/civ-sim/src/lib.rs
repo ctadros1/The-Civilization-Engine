@@ -1153,7 +1153,9 @@ impl Sim {
                             at,
                             at.date().year - 1,
                         );
-                        let (mean_c, extremes) = land.weather.year_summary(at.date().year - 1, &land.climatology);
+                        let (mean_c, extremes) = land
+                            .weather
+                            .year_summary(at.date().year - 1, &land.climatology);
                         people.chronicle_push(
                             at,
                             civ_agents::history::ChronicleKind::YearWeather,

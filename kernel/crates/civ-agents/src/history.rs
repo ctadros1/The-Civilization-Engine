@@ -810,7 +810,10 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         ],
         ChronicleKind::YearWeather => {
             let year = event.at.date().year - 1;
-            vec![Span::Text(format!("Year {year}: {} ({:.1} °C).", event.name, event.number))]
+            vec![Span::Text(format!(
+                "Year {year}: {} ({:.1} °C).",
+                event.name, event.number
+            ))]
         }
     }
 }

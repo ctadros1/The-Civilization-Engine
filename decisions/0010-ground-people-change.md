@@ -176,7 +176,8 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
 
 ## Revisit when
 
-- M3c's ditches and terraces change drainage: invalidate routing locally.
+- Ditches and terraces change drainage: invalidate routing locally. They moved from M3c to M6
+  (ADR-0012 §7).
 - Geology arrives: generate rock bodies before the final surface (03-05 §1.2), and add ores.
 - Unreal's terrain spike (S1) fixes its edit contract.
 - Claims and law govern who may dig where (ADR-0007; M4).

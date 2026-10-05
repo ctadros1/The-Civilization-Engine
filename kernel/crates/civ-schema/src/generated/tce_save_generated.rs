@@ -6653,6 +6653,7 @@ impl<'a> Land<'a> {
   pub const VT_CLIMATE_FACTOR: ::flatbuffers::VOffsetT = 28;
   pub const VT_RESOURCE_GOODS: ::flatbuffers::VOffsetT = 30;
   pub const VT_RESOURCE_UNIT_KG: ::flatbuffers::VOffsetT = 32;
+  pub const VT_WEATHER: ::flatbuffers::VOffsetT = 34;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6668,6 +6669,7 @@ impl<'a> Land<'a> {
     builder.add_climate_deviate(args.climate_deviate);
     builder.add_climate_year(args.climate_year);
     builder.add_stock_day(args.stock_day);
+    if let Some(x) = args.weather { builder.add_weather(x); }
     if let Some(x) = args.resource_unit_kg { builder.add_resource_unit_kg(x); }
     if let Some(x) = args.resource_goods { builder.add_resource_goods(x); }
     if let Some(x) = args.stocks { builder.add_stocks(x); }
@@ -6788,6 +6790,13 @@ impl<'a> Land<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(Land::VT_RESOURCE_UNIT_KG, None)}
   }
+  #[inline]
+  pub fn weather(&self) -> Option<Weather<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Weather>>(Land::VT_WEATHER, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Land<'_> {
@@ -6811,6 +6820,7 @@ impl ::flatbuffers::Verifiable for Land<'_> {
      .visit_field::<f64>("climate_factor", Self::VT_CLIMATE_FACTOR, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("resource_goods", Self::VT_RESOURCE_GOODS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("resource_unit_kg", Self::VT_RESOURCE_UNIT_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<Weather>>("weather", Self::VT_WEATHER, false)?
      .finish();
     Ok(())
   }
@@ -6831,6 +6841,7 @@ pub struct LandArgs<'a> {
     pub climate_factor: f64,
     pub resource_goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub resource_unit_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+    pub weather: Option<::flatbuffers::WIPOffset<Weather<'a>>>,
 }
 impl<'a> Default for LandArgs<'a> {
   #[inline]
@@ -6851,6 +6862,7 @@ impl<'a> Default for LandArgs<'a> {
       climate_factor: 0.0,
       resource_goods: None,
       resource_unit_kg: None,
+      weather: None,
     }
   }
 }
@@ -6921,6 +6933,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LandBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Land::VT_RESOURCE_UNIT_KG, resource_unit_kg);
   }
   #[inline]
+  pub fn add_weather(&mut self, weather: ::flatbuffers::WIPOffset<Weather<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Weather>>(Land::VT_WEATHER, weather);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LandBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LandBuilder {
@@ -6953,6 +6969,669 @@ impl ::core::fmt::Debug for Land<'_> {
       ds.field("climate_factor", &self.climate_factor());
       ds.field("resource_goods", &self.resource_goods());
       ds.field("resource_unit_kg", &self.resource_unit_kg());
+      ds.field("weather", &self.weather());
+      ds.finish()
+  }
+}
+pub enum WeatherDayOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WeatherDay<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WeatherDay<'a> {
+  type Inner = WeatherDay<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WeatherDay<'a> {
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_WET: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PRECIP_MM: ::flatbuffers::VOffsetT = 8;
+  pub const VT_MEAN_C: ::flatbuffers::VOffsetT = 10;
+  pub const VT_MIN_C: ::flatbuffers::VOffsetT = 12;
+  pub const VT_MAX_C: ::flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WeatherDay { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WeatherDayArgs
+  ) -> ::flatbuffers::WIPOffset<WeatherDay<'bldr>> {
+    let mut builder = WeatherDayBuilder::new(_fbb);
+    builder.add_day(args.day);
+    builder.add_max_c(args.max_c);
+    builder.add_min_c(args.min_c);
+    builder.add_mean_c(args.mean_c);
+    builder.add_precip_mm(args.precip_mm);
+    builder.add_wet(args.wet);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(WeatherDay::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn wet(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(WeatherDay::VT_WET, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn precip_mm(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WeatherDay::VT_PRECIP_MM, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn mean_c(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WeatherDay::VT_MEAN_C, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn min_c(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WeatherDay::VT_MIN_C, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn max_c(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WeatherDay::VT_MAX_C, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WeatherDay<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<bool>("wet", Self::VT_WET, false)?
+     .visit_field::<f32>("precip_mm", Self::VT_PRECIP_MM, false)?
+     .visit_field::<f32>("mean_c", Self::VT_MEAN_C, false)?
+     .visit_field::<f32>("min_c", Self::VT_MIN_C, false)?
+     .visit_field::<f32>("max_c", Self::VT_MAX_C, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WeatherDayArgs {
+    pub day: i64,
+    pub wet: bool,
+    pub precip_mm: f32,
+    pub mean_c: f32,
+    pub min_c: f32,
+    pub max_c: f32,
+}
+impl<'a> Default for WeatherDayArgs {
+  #[inline]
+  fn default() -> Self {
+    WeatherDayArgs {
+      day: 0,
+      wet: false,
+      precip_mm: 0.0,
+      mean_c: 0.0,
+      min_c: 0.0,
+      max_c: 0.0,
+    }
+  }
+}
+
+pub struct WeatherDayBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WeatherDayBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(WeatherDay::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_wet(&mut self, wet: bool) {
+    self.fbb_.push_slot::<bool>(WeatherDay::VT_WET, wet, false);
+  }
+  #[inline]
+  pub fn add_precip_mm(&mut self, precip_mm: f32) {
+    self.fbb_.push_slot::<f32>(WeatherDay::VT_PRECIP_MM, precip_mm, 0.0);
+  }
+  #[inline]
+  pub fn add_mean_c(&mut self, mean_c: f32) {
+    self.fbb_.push_slot::<f32>(WeatherDay::VT_MEAN_C, mean_c, 0.0);
+  }
+  #[inline]
+  pub fn add_min_c(&mut self, min_c: f32) {
+    self.fbb_.push_slot::<f32>(WeatherDay::VT_MIN_C, min_c, 0.0);
+  }
+  #[inline]
+  pub fn add_max_c(&mut self, max_c: f32) {
+    self.fbb_.push_slot::<f32>(WeatherDay::VT_MAX_C, max_c, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WeatherDayBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WeatherDayBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WeatherDay<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WeatherDay<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WeatherDay");
+      ds.field("day", &self.day());
+      ds.field("wet", &self.wet());
+      ds.field("precip_mm", &self.precip_mm());
+      ds.field("mean_c", &self.mean_c());
+      ds.field("min_c", &self.min_c());
+      ds.field("max_c", &self.max_c());
+      ds.finish()
+  }
+}
+pub enum WeatherMonthOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WeatherMonth<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WeatherMonth<'a> {
+  type Inner = WeatherMonth<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WeatherMonth<'a> {
+  pub const VT_YEAR: ::flatbuffers::VOffsetT = 4;
+  pub const VT_MONTH: ::flatbuffers::VOffsetT = 6;
+  pub const VT_DAYS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_PRECIP_MM: ::flatbuffers::VOffsetT = 10;
+  pub const VT_WET_DAYS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_TEMP_SUM_C: ::flatbuffers::VOffsetT = 14;
+  pub const VT_MIN_C: ::flatbuffers::VOffsetT = 16;
+  pub const VT_MAX_C: ::flatbuffers::VOffsetT = 18;
+  pub const VT_FROST_DAYS: ::flatbuffers::VOffsetT = 20;
+  pub const VT_SNOW_DAYS: ::flatbuffers::VOffsetT = 22;
+  pub const VT_SOIL_SUM: ::flatbuffers::VOffsetT = 24;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WeatherMonth { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WeatherMonthArgs
+  ) -> ::flatbuffers::WIPOffset<WeatherMonth<'bldr>> {
+    let mut builder = WeatherMonthBuilder::new(_fbb);
+    builder.add_year(args.year);
+    builder.add_soil_sum(args.soil_sum);
+    builder.add_max_c(args.max_c);
+    builder.add_min_c(args.min_c);
+    builder.add_temp_sum_c(args.temp_sum_c);
+    builder.add_precip_mm(args.precip_mm);
+    builder.add_snow_days(args.snow_days);
+    builder.add_frost_days(args.frost_days);
+    builder.add_wet_days(args.wet_days);
+    builder.add_days(args.days);
+    builder.add_month(args.month);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn year(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(WeatherMonth::VT_YEAR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn month(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(WeatherMonth::VT_MONTH, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn days(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(WeatherMonth::VT_DAYS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn precip_mm(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WeatherMonth::VT_PRECIP_MM, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn wet_days(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(WeatherMonth::VT_WET_DAYS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn temp_sum_c(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WeatherMonth::VT_TEMP_SUM_C, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn min_c(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WeatherMonth::VT_MIN_C, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn max_c(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WeatherMonth::VT_MAX_C, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn frost_days(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(WeatherMonth::VT_FROST_DAYS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn snow_days(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(WeatherMonth::VT_SNOW_DAYS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn soil_sum(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WeatherMonth::VT_SOIL_SUM, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WeatherMonth<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("year", Self::VT_YEAR, false)?
+     .visit_field::<u8>("month", Self::VT_MONTH, false)?
+     .visit_field::<u8>("days", Self::VT_DAYS, false)?
+     .visit_field::<f32>("precip_mm", Self::VT_PRECIP_MM, false)?
+     .visit_field::<u8>("wet_days", Self::VT_WET_DAYS, false)?
+     .visit_field::<f32>("temp_sum_c", Self::VT_TEMP_SUM_C, false)?
+     .visit_field::<f32>("min_c", Self::VT_MIN_C, false)?
+     .visit_field::<f32>("max_c", Self::VT_MAX_C, false)?
+     .visit_field::<u8>("frost_days", Self::VT_FROST_DAYS, false)?
+     .visit_field::<u8>("snow_days", Self::VT_SNOW_DAYS, false)?
+     .visit_field::<f32>("soil_sum", Self::VT_SOIL_SUM, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WeatherMonthArgs {
+    pub year: i64,
+    pub month: u8,
+    pub days: u8,
+    pub precip_mm: f32,
+    pub wet_days: u8,
+    pub temp_sum_c: f32,
+    pub min_c: f32,
+    pub max_c: f32,
+    pub frost_days: u8,
+    pub snow_days: u8,
+    pub soil_sum: f32,
+}
+impl<'a> Default for WeatherMonthArgs {
+  #[inline]
+  fn default() -> Self {
+    WeatherMonthArgs {
+      year: 0,
+      month: 0,
+      days: 0,
+      precip_mm: 0.0,
+      wet_days: 0,
+      temp_sum_c: 0.0,
+      min_c: 0.0,
+      max_c: 0.0,
+      frost_days: 0,
+      snow_days: 0,
+      soil_sum: 0.0,
+    }
+  }
+}
+
+pub struct WeatherMonthBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WeatherMonthBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_year(&mut self, year: i64) {
+    self.fbb_.push_slot::<i64>(WeatherMonth::VT_YEAR, year, 0);
+  }
+  #[inline]
+  pub fn add_month(&mut self, month: u8) {
+    self.fbb_.push_slot::<u8>(WeatherMonth::VT_MONTH, month, 0);
+  }
+  #[inline]
+  pub fn add_days(&mut self, days: u8) {
+    self.fbb_.push_slot::<u8>(WeatherMonth::VT_DAYS, days, 0);
+  }
+  #[inline]
+  pub fn add_precip_mm(&mut self, precip_mm: f32) {
+    self.fbb_.push_slot::<f32>(WeatherMonth::VT_PRECIP_MM, precip_mm, 0.0);
+  }
+  #[inline]
+  pub fn add_wet_days(&mut self, wet_days: u8) {
+    self.fbb_.push_slot::<u8>(WeatherMonth::VT_WET_DAYS, wet_days, 0);
+  }
+  #[inline]
+  pub fn add_temp_sum_c(&mut self, temp_sum_c: f32) {
+    self.fbb_.push_slot::<f32>(WeatherMonth::VT_TEMP_SUM_C, temp_sum_c, 0.0);
+  }
+  #[inline]
+  pub fn add_min_c(&mut self, min_c: f32) {
+    self.fbb_.push_slot::<f32>(WeatherMonth::VT_MIN_C, min_c, 0.0);
+  }
+  #[inline]
+  pub fn add_max_c(&mut self, max_c: f32) {
+    self.fbb_.push_slot::<f32>(WeatherMonth::VT_MAX_C, max_c, 0.0);
+  }
+  #[inline]
+  pub fn add_frost_days(&mut self, frost_days: u8) {
+    self.fbb_.push_slot::<u8>(WeatherMonth::VT_FROST_DAYS, frost_days, 0);
+  }
+  #[inline]
+  pub fn add_snow_days(&mut self, snow_days: u8) {
+    self.fbb_.push_slot::<u8>(WeatherMonth::VT_SNOW_DAYS, snow_days, 0);
+  }
+  #[inline]
+  pub fn add_soil_sum(&mut self, soil_sum: f32) {
+    self.fbb_.push_slot::<f32>(WeatherMonth::VT_SOIL_SUM, soil_sum, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WeatherMonthBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WeatherMonthBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WeatherMonth<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WeatherMonth<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WeatherMonth");
+      ds.field("year", &self.year());
+      ds.field("month", &self.month());
+      ds.field("days", &self.days());
+      ds.field("precip_mm", &self.precip_mm());
+      ds.field("wet_days", &self.wet_days());
+      ds.field("temp_sum_c", &self.temp_sum_c());
+      ds.field("min_c", &self.min_c());
+      ds.field("max_c", &self.max_c());
+      ds.field("frost_days", &self.frost_days());
+      ds.field("snow_days", &self.snow_days());
+      ds.field("soil_sum", &self.soil_sum());
+      ds.finish()
+  }
+}
+pub enum WeatherOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Weather<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Weather<'a> {
+  type Inner = Weather<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Weather<'a> {
+  pub const VT_TODAY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_ANOMALY: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SLOW: ::flatbuffers::VOffsetT = 8;
+  pub const VT_SNOW_BASE_M: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SNOW_MM: ::flatbuffers::VOffsetT = 12;
+  pub const VT_SOIL_MM: ::flatbuffers::VOffsetT = 14;
+  pub const VT_COVER_EASE: ::flatbuffers::VOffsetT = 16;
+  pub const VT_MONTHS: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Weather { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WeatherArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Weather<'bldr>> {
+    let mut builder = WeatherBuilder::new(_fbb);
+    builder.add_cover_ease(args.cover_ease);
+    builder.add_soil_mm(args.soil_mm);
+    builder.add_slow(args.slow);
+    builder.add_anomaly(args.anomaly);
+    if let Some(x) = args.months { builder.add_months(x); }
+    if let Some(x) = args.snow_mm { builder.add_snow_mm(x); }
+    builder.add_snow_base_m(args.snow_base_m);
+    if let Some(x) = args.today { builder.add_today(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn today(&self) -> Option<WeatherDay<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<WeatherDay>>(Weather::VT_TODAY, None)}
+  }
+  #[inline]
+  pub fn anomaly(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(Weather::VT_ANOMALY, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn slow(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(Weather::VT_SLOW, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn snow_base_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Weather::VT_SNOW_BASE_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn snow_mm(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(Weather::VT_SNOW_MM, None)}
+  }
+  #[inline]
+  pub fn soil_mm(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(Weather::VT_SOIL_MM, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn cover_ease(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(Weather::VT_COVER_EASE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn months(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WeatherMonth<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WeatherMonth>>>>(Weather::VT_MONTHS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Weather<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<WeatherDay>>("today", Self::VT_TODAY, false)?
+     .visit_field::<f64>("anomaly", Self::VT_ANOMALY, false)?
+     .visit_field::<f64>("slow", Self::VT_SLOW, false)?
+     .visit_field::<f32>("snow_base_m", Self::VT_SNOW_BASE_M, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("snow_mm", Self::VT_SNOW_MM, false)?
+     .visit_field::<f64>("soil_mm", Self::VT_SOIL_MM, false)?
+     .visit_field::<f64>("cover_ease", Self::VT_COVER_EASE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WeatherMonth>>>>("months", Self::VT_MONTHS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WeatherArgs<'a> {
+    pub today: Option<::flatbuffers::WIPOffset<WeatherDay<'a>>>,
+    pub anomaly: f64,
+    pub slow: f64,
+    pub snow_base_m: f32,
+    pub snow_mm: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub soil_mm: f64,
+    pub cover_ease: f64,
+    pub months: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WeatherMonth<'a>>>>>,
+}
+impl<'a> Default for WeatherArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WeatherArgs {
+      today: None,
+      anomaly: 0.0,
+      slow: 0.0,
+      snow_base_m: 0.0,
+      snow_mm: None,
+      soil_mm: 0.0,
+      cover_ease: 0.0,
+      months: None,
+    }
+  }
+}
+
+pub struct WeatherBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WeatherBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_today(&mut self, today: ::flatbuffers::WIPOffset<WeatherDay<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<WeatherDay>>(Weather::VT_TODAY, today);
+  }
+  #[inline]
+  pub fn add_anomaly(&mut self, anomaly: f64) {
+    self.fbb_.push_slot::<f64>(Weather::VT_ANOMALY, anomaly, 0.0);
+  }
+  #[inline]
+  pub fn add_slow(&mut self, slow: f64) {
+    self.fbb_.push_slot::<f64>(Weather::VT_SLOW, slow, 0.0);
+  }
+  #[inline]
+  pub fn add_snow_base_m(&mut self, snow_base_m: f32) {
+    self.fbb_.push_slot::<f32>(Weather::VT_SNOW_BASE_M, snow_base_m, 0.0);
+  }
+  #[inline]
+  pub fn add_snow_mm(&mut self, snow_mm: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Weather::VT_SNOW_MM, snow_mm);
+  }
+  #[inline]
+  pub fn add_soil_mm(&mut self, soil_mm: f64) {
+    self.fbb_.push_slot::<f64>(Weather::VT_SOIL_MM, soil_mm, 0.0);
+  }
+  #[inline]
+  pub fn add_cover_ease(&mut self, cover_ease: f64) {
+    self.fbb_.push_slot::<f64>(Weather::VT_COVER_EASE, cover_ease, 0.0);
+  }
+  #[inline]
+  pub fn add_months(&mut self, months: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WeatherMonth<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Weather::VT_MONTHS, months);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WeatherBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WeatherBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Weather<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Weather<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Weather");
+      ds.field("today", &self.today());
+      ds.field("anomaly", &self.anomaly());
+      ds.field("slow", &self.slow());
+      ds.field("snow_base_m", &self.snow_base_m());
+      ds.field("snow_mm", &self.snow_mm());
+      ds.field("soil_mm", &self.soil_mm());
+      ds.field("cover_ease", &self.cover_ease());
+      ds.field("months", &self.months());
       ds.finish()
   }
 }
@@ -10729,6 +11408,9 @@ impl<'a> Field<'a> {
   pub const VT_LEASE_SINCE: ::flatbuffers::VOffsetT = 44;
   pub const VT_LEASE_UNTIL: ::flatbuffers::VOffsetT = 46;
   pub const VT_LEASE_SHARE: ::flatbuffers::VOffsetT = 48;
+  pub const VT_WATER_MM: ::flatbuffers::VOffsetT = 50;
+  pub const VT_NEED_MM: ::flatbuffers::VOffsetT = 52;
+  pub const VT_GOT_MM: ::flatbuffers::VOffsetT = 54;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -10747,6 +11429,9 @@ impl<'a> Field<'a> {
     builder.add_stage_since(args.stage_since);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    builder.add_got_mm(args.got_mm);
+    builder.add_need_mm(args.need_mm);
+    builder.add_water_mm(args.water_mm);
     builder.add_lease_share(args.lease_share);
     builder.add_clear_h_per_ha(args.clear_h_per_ha);
     builder.add_sheaves_kg(args.sheaves_kg);
@@ -10928,6 +11613,27 @@ impl<'a> Field<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(Field::VT_LEASE_SHARE, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn water_mm(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Field::VT_WATER_MM, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn need_mm(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Field::VT_NEED_MM, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn got_mm(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Field::VT_GOT_MM, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Field<'_> {
@@ -10959,6 +11665,9 @@ impl ::flatbuffers::Verifiable for Field<'_> {
      .visit_field::<i64>("lease_since", Self::VT_LEASE_SINCE, false)?
      .visit_field::<i64>("lease_until", Self::VT_LEASE_UNTIL, false)?
      .visit_field::<f32>("lease_share", Self::VT_LEASE_SHARE, false)?
+     .visit_field::<f32>("water_mm", Self::VT_WATER_MM, false)?
+     .visit_field::<f32>("need_mm", Self::VT_NEED_MM, false)?
+     .visit_field::<f32>("got_mm", Self::VT_GOT_MM, false)?
      .finish();
     Ok(())
   }
@@ -10987,6 +11696,9 @@ pub struct FieldArgs {
     pub lease_since: i64,
     pub lease_until: i64,
     pub lease_share: f32,
+    pub water_mm: f32,
+    pub need_mm: f32,
+    pub got_mm: f32,
 }
 impl<'a> Default for FieldArgs {
   #[inline]
@@ -11015,6 +11727,9 @@ impl<'a> Default for FieldArgs {
       lease_since: 0,
       lease_until: 0,
       lease_share: 0.0,
+      water_mm: 0.0,
+      need_mm: 0.0,
+      got_mm: 0.0,
     }
   }
 }
@@ -11117,6 +11832,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FieldBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(Field::VT_LEASE_SHARE, lease_share, 0.0);
   }
   #[inline]
+  pub fn add_water_mm(&mut self, water_mm: f32) {
+    self.fbb_.push_slot::<f32>(Field::VT_WATER_MM, water_mm, 0.0);
+  }
+  #[inline]
+  pub fn add_need_mm(&mut self, need_mm: f32) {
+    self.fbb_.push_slot::<f32>(Field::VT_NEED_MM, need_mm, 0.0);
+  }
+  #[inline]
+  pub fn add_got_mm(&mut self, got_mm: f32) {
+    self.fbb_.push_slot::<f32>(Field::VT_GOT_MM, got_mm, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FieldBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FieldBuilder {
@@ -11157,6 +11884,9 @@ impl ::core::fmt::Debug for Field<'_> {
       ds.field("lease_since", &self.lease_since());
       ds.field("lease_until", &self.lease_until());
       ds.field("lease_share", &self.lease_share());
+      ds.field("water_mm", &self.water_mm());
+      ds.field("need_mm", &self.need_mm());
+      ds.field("got_mm", &self.got_mm());
       ds.finish()
   }
 }

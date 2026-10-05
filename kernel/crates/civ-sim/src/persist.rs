@@ -114,6 +114,8 @@ pub const SCHEMA_V21: u32 = 21;
 /// The schema version of M3b slice R: taste in building, before worn ground was kept exactly with
 /// its routing view (see [`agents`]).
 pub const SCHEMA_V22: u32 = 22;
+/// The schema version of M3c slice S: worn ground kept exactly, before weather (see [`agents`]).
+pub const SCHEMA_V23: u32 = 23;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");
@@ -409,9 +411,16 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
 
     let rules = Arc::new(Rules::of(content));
     let now = SimTime::from_minutes(clock_minute);
+    let climatology = crate::climatology(&rules, &map, &world_meta.preset_id, world_meta.seed);
     let (land, people, events, redecide, place_deposits) = if info.schema_version == SCHEMA_V1 {
         // An M0 world: land as a new world would have it, and nobody yet.
-        let land = Land::create(&map, &rules.land, world_meta.seed, now.day_index());
+        let land = Land::create(
+            &map,
+            &rules.land,
+            world_meta.seed,
+            now.day_index(),
+            climatology,
+        );
         (land, Population::new(), Vec::new(), Vec::new(), true)
     } else {
         let d = agents::decode(
@@ -422,6 +431,7 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
             info.schema_version,
             now,
             world_meta.seed,
+            climatology,
         )?;
         (d.land, d.people, d.events, d.redecide, d.place_deposits)
     };

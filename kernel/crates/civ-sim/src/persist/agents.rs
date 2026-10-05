@@ -3,7 +3,7 @@
 //!
 //! | Section | Holds |
 //! |---|---|
-//! | `land` | habitat patches, richness, wild stocks, the climate year |
+//! | `land` | habitat patches, richness, wild stocks, the weather (schema 24; before it, the climate year) |
 //! | `settle` | settlements |
 //! | `people` | living people and their activities and trips |
 //! | `houses` | households and their stores |
@@ -60,6 +60,12 @@
 //! section came later in the same slice and is read when present: a save without it (older, or
 //! made while the slice was under way) starts the yearly history afresh. The history is a measure,
 //! never an input to behaviour, so nothing a world does depends on it.
+//!
+//! **Schema 23 → 24.** Weather arrived with version 24 (M3c slice U, ADR-0012): the `land`
+//! section's weather (today's, what tomorrow depends on, snow lying by height, the soil under the
+//! wild cover, each month's record) and each field's water. An older save's weather starts with
+//! the old year's climate deviate as its slow anomaly, the soil at field capacity and no snow; a
+//! crop growing then is at field capacity and unstressed so far (ADR-0012 §6).
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{Read, Seek};
@@ -83,8 +89,9 @@ use civ_core::{PermanentId, SimTime};
 use civ_grammar::{BuildingSpec, Footprint, PARAMS};
 use civ_land::deposits::{Body, Deposit};
 use civ_land::{
-    Building, BuildingState, ClimateYear, Field, FieldStage, GroupCondition, GroupState, Land,
-    Lease, Party, Patches, Plot, PlotUse, RectCm, Repair, Settlement, ViewTile, Wear, WearTile,
+    Building, BuildingState, Climatology, Field, FieldStage, GroupCondition, GroupState, Land,
+    Lease, MonthRecord, Party, Patches, Plot, PlotUse, RectCm, Repair, Settlement, ViewTile, Wear,
+    WearTile, Weather, WeatherDay,
 };
 use civ_schema::SAVE_SCHEMA_VERSION;
 use civ_schema::flatbuffers::{self, FlatBufferBuilder, WIPOffset};
@@ -95,8 +102,8 @@ use commons_persist::{SectionData, SectionTag, SnapshotReader};
 use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
-    SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, finish, section,
-    single_chunk, unreadable,
+    SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, finish,
+    section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -259,6 +266,8 @@ enum Schema {
     V22,
     /// Worn ground kept exactly, each tile at its own day, with the routing view (ADR-0011 §5).
     V23,
+    /// Weather: a daily series with its record, and each growing field's water (ADR-0012).
+    V24,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -272,6 +281,7 @@ pub(super) fn decode<R: Read + Seek>(
     version: u32,
     now: SimTime,
     seed: u64,
+    climatology: Climatology,
 ) -> Result<Decoded, LoadError> {
     let schema = match version {
         SCHEMA_V2 => Schema::V2,
@@ -295,7 +305,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V20 => Schema::V20,
         SCHEMA_V21 => Schema::V21,
         SCHEMA_V22 => Schema::V22,
-        SAVE_SCHEMA_VERSION => Schema::V23,
+        SCHEMA_V23 => Schema::V23,
+        SAVE_SCHEMA_VERSION => Schema::V24,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -303,7 +314,7 @@ pub(super) fn decode<R: Read + Seek>(
         }
     };
     let bytes = single_chunk(reader, SECTION_LAND)?;
-    let mut land = decode_land(&bytes, rules, map)?;
+    let mut land = decode_land(&bytes, rules, map, climatology)?;
     let bytes = single_chunk(reader, SECTION_SETTLE)?;
     land.settlements = decode_settlements(&bytes)?;
 
@@ -349,7 +360,7 @@ pub(super) fn decode<R: Read + Seek>(
     let events = decode_events(&bytes)?;
     if schema >= Schema::V4 {
         let bytes = single_chunk(reader, SECTION_FIELDS)?;
-        land.fields = decode_fields(&bytes, rules)?;
+        land.fields = decode_fields(&bytes, rules, schema)?;
     }
     if schema >= Schema::V5 {
         let bytes = single_chunk(reader, SECTION_PLOTS)?;
@@ -873,6 +884,7 @@ fn encode_land(land: &Land, rules: &Rules) -> Vec<u8> {
     let resource_unit_kg = fbb.create_vector(&unit_kg);
     let flat: Vec<f32> = land.stocks.iter().flatten().copied().collect();
     let stocks = fbb.create_vector(&flat);
+    let weather = encode_weather(&mut fbb, &land.weather);
     let root = save::Land::create(
         &mut fbb,
         &save::LandArgs {
@@ -886,17 +898,116 @@ fn encode_land(land: &Land, rules: &Rules) -> Vec<u8> {
             resources: Some(resources),
             stocks: Some(stocks),
             stock_day: land.stock_day,
-            climate_year: land.climate.year,
-            climate_deviate: land.climate.deviate,
-            climate_factor: land.climate.factor,
             resource_goods: Some(resource_goods),
             resource_unit_kg: Some(resource_unit_kg),
+            weather: Some(weather),
+            ..Default::default()
         },
     );
     finish(fbb, root)
 }
 
-fn decode_land(bytes: &[u8], rules: &Rules, map: &WorldMap) -> Result<Land, LoadError> {
+/// The weather's state (schema 24, ADR-0012 §1).
+fn encode_weather<'a>(
+    fbb: &mut FlatBufferBuilder<'a>,
+    w: &Weather,
+) -> flatbuffers::WIPOffset<save::Weather<'a>> {
+    let t = &w.today;
+    let today = save::WeatherDay::create(
+        fbb,
+        &save::WeatherDayArgs {
+            day: t.day,
+            wet: t.wet,
+            precip_mm: t.precip_mm,
+            mean_c: t.mean_c,
+            min_c: t.min_c,
+            max_c: t.max_c,
+        },
+    );
+    let snow_mm = fbb.create_vector(&w.snow_mm);
+    let months: Vec<_> = w
+        .months
+        .iter()
+        .map(|m| {
+            save::WeatherMonth::create(
+                fbb,
+                &save::WeatherMonthArgs {
+                    year: m.year,
+                    month: m.month,
+                    days: m.days,
+                    precip_mm: m.precip_mm,
+                    wet_days: m.wet_days,
+                    temp_sum_c: m.temp_sum_c,
+                    min_c: m.min_c,
+                    max_c: m.max_c,
+                    frost_days: m.frost_days,
+                    snow_days: m.snow_days,
+                    soil_sum: m.soil_sum,
+                },
+            )
+        })
+        .collect();
+    let months = fbb.create_vector(&months);
+    save::Weather::create(
+        fbb,
+        &save::WeatherArgs {
+            today: Some(today),
+            anomaly: w.anomaly,
+            slow: w.slow,
+            snow_base_m: w.snow_base_m,
+            snow_mm: Some(snow_mm),
+            soil_mm: w.soil_mm,
+            cover_ease: w.cover_ease,
+            months: Some(months),
+        },
+    )
+}
+
+/// The weather saved in schema 24 on, or (`None`) none.
+fn decode_weather(w: save::Weather<'_>) -> Option<Weather> {
+    let t = w.today()?;
+    Some(Weather {
+        today: WeatherDay {
+            day: t.day(),
+            wet: t.wet(),
+            precip_mm: t.precip_mm(),
+            mean_c: t.mean_c(),
+            min_c: t.min_c(),
+            max_c: t.max_c(),
+        },
+        anomaly: w.anomaly(),
+        slow: w.slow(),
+        snow_base_m: w.snow_base_m(),
+        snow_mm: w.snow_mm().map(|v| v.iter().collect()).unwrap_or_default(),
+        soil_mm: w.soil_mm(),
+        cover_ease: w.cover_ease(),
+        months: w
+            .months()
+            .iter()
+            .flatten()
+            .map(|m| MonthRecord {
+                year: m.year(),
+                month: m.month(),
+                days: m.days(),
+                precip_mm: m.precip_mm(),
+                wet_days: m.wet_days(),
+                temp_sum_c: m.temp_sum_c(),
+                min_c: m.min_c(),
+                max_c: m.max_c(),
+                frost_days: m.frost_days(),
+                snow_days: m.snow_days(),
+                soil_sum: m.soil_sum(),
+            })
+            .collect(),
+    })
+}
+
+fn decode_land(
+    bytes: &[u8],
+    rules: &Rules,
+    map: &WorldMap,
+    climatology: Climatology,
+) -> Result<Land, LoadError> {
     let l = flatbuffers::root::<save::Land>(bytes).map_err(|e| unreadable(SECTION_LAND, &e))?;
     let n = l.cols() as usize * l.rows() as usize;
     let habitats = read_strings(l.habitats());
@@ -936,6 +1047,24 @@ fn decode_land(bytes: &[u8], rules: &Rules, map: &WorldMap) -> Result<Land, Load
             saved_resources.len()
         )));
     }
+    // Before schema 24 there was no weather: it starts from the old year's deviate as its slow
+    // anomaly, with the soil at field capacity and no snow (ADR-0012 §6).
+    let weather = match l.weather() {
+        Some(w) => decode_weather(w).ok_or_else(|| {
+            LoadError::Malformed("section `land` has weather without a day".to_owned())
+        })?,
+        None => {
+            let (low, high) = civ_land::height_range(map);
+            Weather::from_old(
+                &rules.land.weather,
+                &climatology,
+                low,
+                high,
+                l.stock_day() + 1,
+                l.climate_deviate(),
+            )
+        }
+    };
     let mut land = Land {
         patches: Patches {
             cols: l.cols(),
@@ -948,11 +1077,8 @@ fn decode_land(bytes: &[u8], rules: &Rules, map: &WorldMap) -> Result<Land, Load
         },
         stocks: Vec::new(),
         stock_day: l.stock_day(),
-        climate: ClimateYear {
-            year: l.climate_year(),
-            deviate: l.climate_deviate(),
-            factor: l.climate_factor(),
-        },
+        weather,
+        climatology,
         settlements: Vec::new(),
         // Read from their own section (schema 4 on).
         fields: Vec::new(),
@@ -1501,7 +1627,8 @@ fn carried(
         | Schema::V20
         | Schema::V21
         | Schema::V22
-        | Schema::V23 => {
+        | Schema::V23
+        | Schema::V24 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1632,7 +1759,8 @@ fn decode_households(
             | Schema::V20
             | Schema::V21
             | Schema::V22
-            | Schema::V23 => {
+            | Schema::V23
+            | Schema::V24 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -2204,6 +2332,9 @@ fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
                     lease_since: f.lease.map_or(0, |l| l.since.minutes()),
                     lease_until: f.lease.map_or(0, |l| l.until.minutes()),
                     lease_share: f.lease.map_or(0.0, |l| l.holder_share),
+                    water_mm: f.water_mm,
+                    need_mm: f.need_mm,
+                    got_mm: f.got_mm,
                 },
             )
         })
@@ -2219,7 +2350,7 @@ fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
     finish(fbb, root)
 }
 
-fn decode_fields(bytes: &[u8], rules: &Rules) -> Result<Vec<Field>, LoadError> {
+fn decode_fields(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<Vec<Field>, LoadError> {
     let root =
         flatbuffers::root::<save::Fields>(bytes).map_err(|e| unreadable(SECTION_FIELDS, &e))?;
     let crops: Vec<Option<u16>> = read_strings(root.crops())
@@ -2253,6 +2384,7 @@ fn decode_fields(bytes: &[u8], rules: &Rules) -> Result<Vec<Field>, LoadError> {
             until: time(f.lease_until()),
             holder_share: f.lease_share(),
         });
+        let stage = stage_of(f.stage())?;
         out.push(Field {
             id,
             household,
@@ -2265,7 +2397,7 @@ fn decode_fields(bytes: &[u8], rules: &Rules) -> Result<Vec<Field>, LoadError> {
                 h: f.h_cm(),
             },
             crop,
-            stage: stage_of(f.stage())?,
+            stage,
             stage_since: time(f.stage_since()),
             work_h: f.work_h(),
             tended_h: f.tended_h(),
@@ -2275,6 +2407,15 @@ fn decode_fields(bytes: &[u8], rules: &Rules) -> Result<Vec<Field>, LoadError> {
             sown_day: f.sown_day(),
             sheaves_kg: f.sheaves_kg(),
             harvests: f.harvests(),
+            // Before schema 24 no field kept its water: a crop growing then is at field capacity
+            // and unstressed so far (ADR-0012 §6).
+            water_mm: if schema < Schema::V24 && stage == FieldStage::Sown {
+                rules.land.weather.soil_water_mm as f32
+            } else {
+                f.water_mm()
+            },
+            need_mm: f.need_mm(),
+            got_mm: f.got_mm(),
         });
     }
     Ok(out)

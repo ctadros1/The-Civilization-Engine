@@ -315,6 +315,9 @@ impl FarmView<'_> {
                 sown_day: 0,
                 sheaves_kg: 0.0,
                 harvests: 0,
+                water_mm: 0.0,
+                need_mm: 0.0,
+                got_mm: 0.0,
             };
             let (per_hour, left) = self.worth(&ground, task);
             consider(
@@ -547,6 +550,9 @@ mod tests {
             reap_h_per_ha: 280.0,
             thresh_h_per_kg: 0.1,
             straw: None,
+            kc: [0.4, 1.15, 0.4],
+            kc_days: [30, 30, 40, 20],
+            ky: 1.15,
         }
     }
 
@@ -573,6 +579,9 @@ mod tests {
             sown_day: 0,
             sheaves_kg: 0.0,
             harvests: 1,
+            water_mm: 0.0,
+            need_mm: 0.0,
+            got_mm: 0.0,
         }
     }
 

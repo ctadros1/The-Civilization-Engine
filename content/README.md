@@ -183,13 +183,13 @@ How land is classified and what grows wild. Exactly one profile.
 | `patch_cells` | Patch side in terrain cells (16 = 128 m at 8 m cells). |
 | `channel_area_km2` | Drainage area that counts as a stream when measuring height above the nearest stream. |
 | `richness_min`, `richness_max`, `richness_feature_m` | Patch-to-patch variation of productivity and its spatial scale. |
-| `climate_cv`, `climate_autocorrelation` | Year-to-year variation of production. |
+| `[weather]` | How the weather is drawn (ADR-0012 §1; content API 23): one daily series for the whole map, from the world's seed and its landscape, the same at every speed. Monthly values are twelve figures, January first. Rain: `wet_days` (0 to 0.95), the share of days with at least `wet_day_mm` (0.1 to 10) of rain or snow water; `rain_share` (summing to 1), each month's share of the preset's `precipitation_mm_per_yr`; `persistence` (0 to 0.95), how much likelier rain is after a wet day than after a dry one; `gamma_shape` (0.2 to 5), the shape of a wet day's amount above the threshold. Temperature: `mean_c`, each month's mean at `normals_at_m` metres (interpolated between mid-months); `day_sd_c` and `day_persistence` (0 to 0.99), the day's anomaly about it and its lag-one correlation; `day_range_c`, the day's range from lowest to highest; `wet_day_range` (0.1 to 1), a wet day's range against the month's; `wet_day_cooling_c`, how much cooler a wet day is than a dry one, each month's mean kept; `lapse_c_per_km` (0 to 12), the fall with height. The slow anomaly, a monthly AR(1) that carries wet and dry spells across seasons: `slow_months` (1 to 600), its persistence; `slow_amount` (0 to 1) and `slow_wet_days` (0 to 0.5), how it scales wet days' amounts (mean kept) and their share; `slow_warmth_c`, its effect on each month's temperature. Snow: falls below `snow_below_c`, melts `melt_mm_per_c` mm of water a degree-day, and lies in bands of 100 m. Soil water (FAO-56): `soil_water_mm` (10 to 500) held between field capacity and wilting, `easy_water_share` (0.1 to 0.9) drawn unstressed, and `cover_kc` (0.1 to 2), the wild cover's use against the reference evapotranspiration (Hargreaves, from temperature and the people profile's latitude). |
 | `[paths]` | `wear_per_walk`, `wear_half_life_days`: a walk across an 8 m cell wears away this share of what is left unworn, and unused wear halves in this many days. `trail_at`, `trail_until`: a cell becomes trail at the first wear and stays trail until it fades below the second. |
 | `[[habitat]]` | `id`, `name`, `arable`, and optional `min_water_fraction`, `max_median_hand_m`, `max_mean_slope`. The first habitat whose conditions a patch meets is its habitat; the last must have none. Arable ground can carry fields; optional `clear_h_per_ha` is the work to clear it (woodland) before it is first broken. `wetness` (zero or more; 1 is average ground) scales how fast posts set in it rot at their foot (content API 15). |
 | `[peak_load]` | `median_kpa`, `spread`: the heaviest load wind and snow put on a roof in a month, kilopascals on its plan, drawn once a month for each settlement (log-normal: its median and the spread of its logarithm). A stand-in for weather until weather exists (content API 16, ADR-0009 §5). |
 | `[[deposit]]` | Where a kind of deposit lies and how large its bodies are, laid down once from the world's seed (ADR-0010 §1; content API 18; optional): `good` it yields; `slope` and `hand_m`, `[least, most]` mean slope (0 to 10) and height above the nearest channel in metres of the ground it lies under; `per_km2` (0 to 1000), bodies expected on each square kilometre of land that qualifies; `radius_m` (0.5 to 1000), `top_m` (0 to 100, the cover over it) and `thickness_m` (0.05 to 100), `[least, most]` metres; `quality` (0 to 1); `exposed_share` (0 to 1), the share of covered bodies that still show; `density_kg_m3` (100 to 10,000), kilograms of the good in a cubic metre of a body; optional `dig_h_per_m3` (0 to 1,000; content API 21), hours a capable adult takes to break a cubic metre of a body out of the ground, or 0 (the default) to dig it as earth at the people profile's `[digging]` rate, its cover always dug as earth; optional `working` (1 to 24 characters; content API 21), what a working of it is called, "pit" by default ("quarry"). |
 | `[[resource]]` | `id`, `name`; `good` (the good a harvest yields) and `unit_kg` (its kilograms per unit of stock: 1 for stocks in kilograms, a carcass's meat for stocks in animals); `discrete` (harvests are whole units drawn from the expected count); `in_water` (lives in a patch's water, not its land); `range_patches` (a trip works a block of `2·range + 1` patches a side); `max_rate_per_hour` and `half_rate_stock_per_ha` (gathering slows as the stock falls). Then exactly one growth table. |
-| `[resource.plant]` | `production_per_ha_yr` (one figure per habitat, in habitat order), `loss_per_day`, `season` (twelve monthly weights): a seasonal production each day, a share of the standing stock lost each day. A new world's stock, and what people expect of land they have not worked, is the yearly cycle this settles into: what stands lags what grows by about the time it lasts (last summer's reeds still stand in March). |
+| `[resource.plant]` | `production_per_ha_yr` (one figure per habitat, in habitat order), `loss_per_day`, `season` (twelve monthly weights): a seasonal production each day, a share of the standing stock lost each day. A new world's stock, and what people expect of land they have not worked, is the yearly cycle this settles into: what stands lags what grows by about the time it lasts (last summer's reeds still stand in March). Optional `follows_water` (content API 23; false by default): production follows the soil water under the wild cover, smoothed over about a month, against what the month usually has, so a dry summer gives less and a wet one more, and an average year what the figures say (ADR-0012 §5). |
 | `[resource.animal]` | `capacity_per_ha` (per habitat), `growth_per_year`, `spread_per_month`: logistic growth toward the habitat's capacity, and a monthly spread between neighbouring patches toward an even share of capacity. |
 | `[resource.deposit]` | `stock_per_ha` (per habitat): a stock laid down once, that never grows back (stone, flint; M3a). |
 
@@ -235,9 +235,13 @@ people at run time.
 | `break_h_per_ha`, `prepare_h_per_ha`, `sow_h_per_ha`, `tend_h_per_ha`, `reap_h_per_ha` | Person-hours of a capable adult per hectare: breaking new ground, preparing cropped ground again, sowing, tending over the season, reaping and carrying home. |
 | `thresh_h_per_kg` | Person-hours to thresh and clean a kilogram of grain. |
 | `straw_good`, `straw_kg_per_kg` | Optional, both or neither: the good threshing leaves as straw (thatch, for the shipped crop), and kilograms of it per kilogram of grain. |
+| `kc`, `kc_days`, `ky` | Its water (ADR-0012 §2; content API 23): crop coefficients at the start, in mid-season and at ripeness (0.05 to 2; its need is the reference evapotranspiration times the coefficient, flat, rising, flat and falling by FAO-56's curve); the days of its initial, development, mid-season and late stages, summing to `grow_days`; and the share of its yield lost for each share of its need unmet (0 to 3, FAO's `Ky`). |
 
-What a harvest brings depends on the field's ground (the richness of its patches), the year's
-weather, when sowing finished, how much of its tending was done, and how long it stood ripe.
+What a harvest brings depends on the field's ground (the richness of its patches), the water its
+crop had through the season, when sowing finished, how much of its tending was done, and how long
+it stood ripe. Each growing field keeps a root-zone water balance from the day it is sown to the
+day it ripens; its harvest scales by `1 − ky × (1 − water got ÷ water needed)`, divided by that
+figure's long-run mean for the landscape, so a season of average water gives `yield_kg_per_ha`.
 
 ### `building`
 
@@ -481,6 +485,15 @@ A `try` activity (`behavior = "try"`, slice N) spends spare hours at home trying
 technique whose problem would cost the household the most food, among those the person could
 find. It names no technique: what it works toward is chosen when it is done. The core pack's
 `core:activity/try` is an hour, from age 12.
+
+## Changes in M3c
+
+Content API 23 (slice U, ADR-0012) brings weather. The land profile's `climate_cv` and
+`climate_autocorrelation` are gone: the yearly climate factor they drew is replaced by the
+profile's `[weather]`, a daily series. A `[resource.plant]` may follow the soil water
+(`follows_water`). A crop states its water use (`kc`, `kc_days`, `ky`). The core pack's wild plant
+food follows the soil water, and fallen wood, poles and reeds keep their authored growth whatever
+the weather.
 
 ## Planned kinds
 

@@ -137,6 +137,8 @@ table Land {
   resources: [string] (id: 7);
   stocks: [float] (id: 8);
   stock_day: long (id: 9);
+  // Before schema 24: the yearly climate factor, its year and its standard-normal deviate. Not
+  // written since; an older save's weather starts with the deviate as its slow anomaly.
   climate_year: long (id: 10);
   climate_deviate: double (id: 11);
   climate_factor: double (id: 12);
@@ -145,6 +147,57 @@ table Land {
   // may mean something else, and it starts at equilibrium.
   resource_goods: [string] (id: 13);
   resource_unit_kg: [double] (id: 14);
+  // Schema 24 (M3c slice U, ADR-0012 §1): the weather. Absent in older saves, whose weather
+  // starts from `climate_deviate` with the soil at field capacity and no snow.
+  weather: Weather (id: 15);
+}
+
+// Schema 24 (ADR-0012 §1): one day's weather at the height the normals are for.
+table WeatherDay {
+  day: long (id: 0);
+  // The day is wet (the chain's state).
+  wet: bool (id: 1);
+  // Rain and snow, mm of water.
+  precip_mm: float (id: 2);
+  mean_c: float (id: 3);
+  min_c: float (id: 4);
+  max_c: float (id: 5);
+}
+
+// Schema 24: one month's weather as it was, at the height the normals are for.
+table WeatherMonth {
+  year: long (id: 0);
+  // 0 for January.
+  month: ubyte (id: 1);
+  // Days recorded; the last month of the list is the month in progress.
+  days: ubyte (id: 2);
+  precip_mm: float (id: 3);
+  wet_days: ubyte (id: 4);
+  // The days' mean temperatures summed, °C.
+  temp_sum_c: float (id: 5);
+  min_c: float (id: 6);
+  max_c: float (id: 7);
+  frost_days: ubyte (id: 8);
+  snow_days: ubyte (id: 9);
+  // The reference soil's water as a share of what it holds, summed over the days.
+  soil_sum: float (id: 10);
+}
+
+// Schema 24: the weather's state. Today's weather (the day after the land's last), what
+// tomorrow depends on, snow lying in bands of 100 m, the soil under the wild cover, and each
+// month's record.
+table Weather {
+  today: WeatherDay (id: 0);
+  // Today's temperature anomaly and this month's slow anomaly, in standard deviations.
+  anomaly: double (id: 1);
+  slow: double (id: 2);
+  // Bottom of the lowest snow band, metres, and the snow lying in each band, mm of water.
+  snow_base_m: float (id: 3);
+  snow_mm: [float] (id: 4);
+  // Water in the reference soil, mm, and the wild cover's ease of drawing it, smoothed.
+  soil_mm: double (id: 5);
+  cover_ease: double (id: 6);
+  months: [WeatherMonth] (id: 7);
 }
 
 // Section "settle": settlements.
@@ -494,6 +547,11 @@ table Field {
   lease_since: long (id: 20);
   lease_until: long (id: 21);
   lease_share: float (id: 22);
+  // Schema 24 (ADR-0012 §2): its growing crop's root-zone water, and the water the crop has
+  // needed and had this season, mm. Absent in older saves: at field capacity, unstressed so far.
+  water_mm: float (id: 23);
+  need_mm: float (id: 24);
+  got_mm: float (id: 25);
 }
 
 table Fields {

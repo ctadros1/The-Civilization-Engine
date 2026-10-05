@@ -1,7 +1,8 @@
 //! Fields (ADR-0004 §3): ground a household works for a crop. A field is a rectangle in integer
 //! centimetres. Its crop goes through the year as people do the work, preparing, sowing,
 //! tending, reaping and threshing, and as the season turns. What a harvest brings depends on the
-//! field's ground, the year's weather, and whether the work was done in time (research 08-02
+//! field's ground, the water its crop had through the season (ADR-0012 §2: the land keeps each
+//! growing field's water balance), and whether the work was done in time (research 08-02
 //! §2.1–2.2: spare labour later cannot make up for a crop left unweeded or standing). Nothing
 //! here decides who works which field or when.
 //!
@@ -57,6 +58,13 @@ pub struct CropParams {
     /// The straw threshing leaves: the good it is kept as (by index in the content's goods) and
     /// kilograms of it per kilogram of grain.
     pub straw: Option<(usize, f64)>,
+    /// Its water use as a multiple of the reference evapotranspiration at the start, in
+    /// mid-season and at ripeness (FAO-56's crop coefficients; ADR-0012 §2).
+    pub kc: [f64; 3],
+    /// Days of its initial, development, mid-season and late stages; they sum to `grow_days`.
+    pub kc_days: [u16; 4],
+    /// The share of its yield lost per share of its water need unmet (FAO's `Ky`).
+    pub ky: f64,
 }
 
 impl CropParams {
@@ -253,6 +261,12 @@ pub struct Field {
     pub sheaves_kg: f32,
     /// Crops harvested from it in all.
     pub harvests: u16,
+    /// Water in the root zone of its growing crop, mm (ADR-0012 §2; meaningful once sown).
+    pub water_mm: f32,
+    /// The water its crop has needed so far this season (its evapotranspiration unstressed), mm.
+    pub need_mm: f32,
+    /// The water its crop has had of that, mm.
+    pub got_mm: f32,
 }
 
 /// What a piece of field work did.
@@ -314,16 +328,16 @@ impl Field {
         1.0 - crop.untended_loss * (1.0 - done)
     }
 
-    /// The grain the field would give if reaped on `day`, kilograms, in a year of weather
-    /// `climate` (1 = average): its area and ground, the timeliness of its sowing, its tending,
-    /// and what the ripe crop has lost standing.
-    pub fn yield_kg(&self, crop: &CropParams, day: i64, climate: f64) -> f64 {
+    /// The grain the field would give if reaped on `day`, kilograms, when its season's water
+    /// allows a share `water` of the yield (1 in a year of average water): its area and ground,
+    /// the timeliness of its sowing, its tending, and what the ripe crop has lost standing.
+    pub fn yield_kg(&self, crop: &CropParams, day: i64, water: f64) -> f64 {
         let standing = (day - self.ripe_day(crop)).max(0) as f64;
         let kept = (1.0 - crop.standing_loss_per_day * standing).clamp(0.0, 1.0);
         self.area_ha()
             * crop.yield_kg_per_ha
             * f64::from(self.ground)
-            * climate.max(0.0)
+            * water.max(0.0)
             * crop.timeliness(self.sown_day)
             * self.tending(crop)
             * kept
@@ -376,9 +390,9 @@ impl Field {
         }
     }
 
-    /// Does `hours` of a capable adult's `task` on `day`, in a year of weather `climate`, with
-    /// `seed_kg` of seed at hand for sowing. Work beyond what the stage needs is not counted;
-    /// sowing stops when the seed runs out.
+    /// Does `hours` of a capable adult's `task` on `day`, its season's water allowing a share
+    /// `water` of the yield, with `seed_kg` of seed at hand for sowing. Work beyond what the
+    /// stage needs is not counted; sowing stops when the seed runs out.
     #[allow(clippy::too_many_arguments)]
     pub fn work(
         &mut self,
@@ -386,7 +400,7 @@ impl Field {
         task: FieldTask,
         hours: f64,
         day: i64,
-        climate: f64,
+        water: f64,
         seed_kg: f64,
         now: SimTime,
     ) -> WorkDone {
@@ -407,7 +421,7 @@ impl Field {
             self.sheaves_kg = left.max(0.0) as f32;
             if left <= 1e-6 {
                 done.finished = true;
-                self.finish_stage(crop, day, climate, now);
+                self.finish_stage(crop, day, water, now);
             }
             return done;
         }
@@ -424,12 +438,12 @@ impl Field {
         self.work_h = after as f32;
         if after + 1e-6 >= needed {
             done.finished = true;
-            self.finish_stage(crop, day, climate, now);
+            self.finish_stage(crop, day, water, now);
         }
         done
     }
 
-    fn finish_stage(&mut self, crop: &CropParams, day: i64, climate: f64, now: SimTime) {
+    fn finish_stage(&mut self, crop: &CropParams, day: i64, water: f64, now: SimTime) {
         self.work_h = 0.0;
         self.stage_since = now;
         self.stage = match self.stage {
@@ -440,10 +454,11 @@ impl Field {
             FieldStage::Prepared => {
                 self.sown_day = day;
                 self.tended_h = 0.0;
+                (self.need_mm, self.got_mm) = (0.0, 0.0);
                 FieldStage::Sown
             }
             FieldStage::Sown => {
-                self.sheaves_kg = self.yield_kg(crop, day, climate) as f32;
+                self.sheaves_kg = self.yield_kg(crop, day, water) as f32;
                 self.harvests = self.harvests.saturating_add(1);
                 FieldStage::Reaped
             }
@@ -502,10 +517,13 @@ pub(crate) mod tests {
             reap_h_per_ha: 250.0,
             thresh_h_per_kg: 0.5,
             straw: None,
+            kc: [0.4, 1.15, 0.4],
+            kc_days: [30, 30, 40, 20],
+            ky: 1.15,
         }
     }
 
-    fn field() -> Field {
+    pub(crate) fn field() -> Field {
         Field {
             id: PermanentId::from_raw(7).expect("non-zero"),
             household: PermanentId::from_raw(3).expect("non-zero"),
@@ -529,6 +547,9 @@ pub(crate) mod tests {
             sown_day: 0,
             sheaves_kg: 0.0,
             harvests: 0,
+            water_mm: 0.0,
+            need_mm: 0.0,
+            got_mm: 0.0,
         }
     }
 
@@ -602,7 +623,7 @@ pub(crate) mod tests {
         // Ten days standing: 20 % more.
         let late = f.yield_kg(&c, ripe + 10, 1.0);
         assert!((late - y * 0.8).abs() < 1e-6);
-        // A bad year halves it.
+        // A season with half the water an average one allows halves it.
         assert!((f.yield_kg(&c, ripe, 0.5) - y / 2.0).abs() < 1e-6);
         // Poorer ground gives less.
         let mut poor = f.clone();

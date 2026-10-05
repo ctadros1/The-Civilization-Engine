@@ -79,6 +79,7 @@ cargo run --release -p civ-host -- dashboard           # plan §4.7: five valley
 cargo run --release -p civ-host -- run --seed 2 --years 5   # one world, reported each year (calibration)
 cargo run --release -p civ-host -- run --seed 2 --years 3 --regime core:regime/village   # the same under village fields
 cargo run --release -p civ-host -- run --seed 2 --years 10 --band 125 --families 20   # a village of hundreds (the M3a demo's)
+cargo run --release -p civ-host -- weather --seed 2 --years 50   # the weather a world of the seed lives (ADR-0012)
 cargo run --release -p civ-host -- new --seed 7 --size 1024
 cargo run --release -p civ-host -- save info|verify <file>
 

@@ -39,6 +39,13 @@ pub(crate) struct CropFile {
     /// both or neither.
     pub straw_good: Option<String>,
     pub straw_kg_per_kg: Option<f64>,
+    /// Crop coefficients at the start, in mid-season and at ripeness (ADR-0012 §2; content
+    /// API 23).
+    pub kc: [f64; 3],
+    /// Days of the initial, development, mid-season and late stages: they sum to `grow_days`.
+    pub kc_days: [u16; 4],
+    /// Yield lost per share of the water need unmet.
+    pub ky: f64,
 }
 
 impl CropFile {
@@ -70,6 +77,9 @@ impl CropFile {
             reap_h_per_ha: self.reap_h_per_ha,
             thresh_h_per_kg: self.thresh_h_per_kg,
             straw,
+            kc: self.kc,
+            kc_days: self.kc_days,
+            ky: self.ky,
         })
     }
 
@@ -127,6 +137,22 @@ impl CropFile {
                 "days must satisfy prepare_from_day <= sow_from_day <= sow_until_day < 365"
                     .to_owned(),
             );
+        }
+        if let Some(bad) = self
+            .kc
+            .iter()
+            .find(|v| !(v.is_finite() && (0.05..=2.0).contains(*v)))
+        {
+            p.push(format!("every `kc` must be between 0.05 and 2 (got {bad})"));
+        }
+        if self.kc_days.iter().map(|&d| u32::from(d)).sum::<u32>() != u32::from(self.grow_days) {
+            p.push(format!(
+                "the stages of `kc_days` must sum to `grow_days` ({})",
+                self.grow_days
+            ));
+        }
+        if !(self.ky.is_finite() && (0.0..=3.0).contains(&self.ky)) {
+            p.push(format!("`ky` must be between 0 and 3 (got {})", self.ky));
         }
         if self.grow_days == 0 || u32::from(self.sow_until_day) + u32::from(self.grow_days) >= 365 {
             p.push(

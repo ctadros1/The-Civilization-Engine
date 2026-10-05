@@ -47,6 +47,23 @@ enum Command {
     Dashboard(DashboardArgs),
     /// Live one world for some years and report how its people live at each year's end.
     Run(RunArgs),
+    /// Report a world's weather on the valley floor, year by year, as its seed draws it.
+    Weather(WeatherArgs),
+}
+
+#[derive(Args, Clone)]
+struct WeatherArgs {
+    #[command(flatten)]
+    folders: Folders,
+    /// World seed.
+    #[arg(long, default_value_t = 1)]
+    seed: u64,
+    /// World-generation preset id [default: the content's default].
+    #[arg(long)]
+    preset: Option<String>,
+    /// Years to report, from the world's first.
+    #[arg(long, default_value_t = 50)]
+    years: u32,
 }
 
 #[derive(Args, Clone)]
@@ -237,6 +254,7 @@ fn main() -> ExitCode {
         Command::Smoke(args) => run_smoke(args),
         Command::Dashboard(args) => run_dashboard(args),
         Command::Run(args) => run_world(args),
+        Command::Weather(args) => weather(args),
     };
     match result {
         Ok(code) => code,
@@ -261,6 +279,18 @@ fn run_world(args: RunArgs) -> anyhow::Result<ExitCode> {
         introduce: args.introduce,
     };
     civ_host::report::run(&content, &options, &mut std::io::stdout().lock())?;
+    Ok(ExitCode::SUCCESS)
+}
+
+fn weather(args: WeatherArgs) -> anyhow::Result<ExitCode> {
+    let layout = paths::locate(args.folders.content, args.folders.saves, None)?;
+    let content = commands::load_content(&layout.content)?;
+    let options = civ_host::weather::WeatherOptions {
+        preset: args.preset,
+        seed: args.seed,
+        years: args.years,
+    };
+    civ_host::weather::run(&content, &options, &mut std::io::stdout().lock())?;
     Ok(ExitCode::SUCCESS)
 }
 

@@ -193,6 +193,44 @@ impl Rules {
     }
 }
 
+/// The climatology of a world's landscape (ADR-0012 §2): drawn from the content's weather and
+/// crops, the map's annual precipitation, the people's latitude and the preset. Derived when a
+/// world is made or loaded, never saved.
+pub(crate) fn climatology(
+    rules: &Rules,
+    map: &WorldMap,
+    preset_id: &str,
+    seed: u64,
+) -> civ_land::Climatology {
+    civ_land::Climatology::new(
+        &rules.land.weather,
+        &rules.catalog.crops,
+        f64::from(map.climate.precipitation_mm_per_yr),
+        rules.people.latitude_deg,
+        civ_land::weather::landscape_key(preset_id),
+        seed,
+    )
+}
+
+/// The climatology of preset `preset`'s landscape for a world of `seed`, as a world made from it
+/// would have (see [`climatology`]), without making the map: its annual precipitation is the
+/// preset's own.
+pub fn climatology_of(
+    content: &ContentRegistry,
+    preset: &civ_content::WorldgenPreset,
+    seed: u64,
+) -> civ_land::Climatology {
+    let rules = Rules::of(content);
+    civ_land::Climatology::new(
+        &rules.land.weather,
+        &rules.catalog.crops,
+        f64::from(preset.params.precipitation_mm_per_yr as f32),
+        rules.people.latitude_deg,
+        civ_land::weather::landscape_key(&preset.id),
+        seed,
+    )
+}
+
 /// What one advance of the clock did.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Advance {
@@ -423,11 +461,13 @@ impl Sim {
             stage: "Growing wild plants",
             fraction: 1.0,
         });
+        let climatology = climatology(&rules, &map, &meta.preset_id, meta.seed);
         let land = Land::create(
             &map,
             &rules.land,
             request.seed,
             DEFAULT_WORLD_START.day_index(),
+            climatology,
         );
         let mut sim = Sim::assemble(
             meta,
@@ -1071,7 +1111,7 @@ impl Sim {
                     Cadence::Day => {
                         advance.days += 1;
                         // The day that just ended is complete.
-                        land.advance_to_day(&rules.land, meta.seed, at.day_index() - 1);
+                        land.advance_to_day(&rules.land, map, at.day_index() - 1);
                         let mut ctx = Ctx {
                             now: at,
                             seed: meta.seed,

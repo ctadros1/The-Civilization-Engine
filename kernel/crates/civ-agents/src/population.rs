@@ -2669,6 +2669,9 @@ impl Population {
                         sown_day: 0,
                         sheaves_kg: 0.0,
                         harvests: 0,
+                        water_mm: 0.0,
+                        need_mm: 0.0,
+                        got_mm: 0.0,
                     });
                     self.sites.remove(&hh_id);
                     target = Target::Field(id);
@@ -3391,8 +3394,9 @@ impl Population {
             .copied()
             .unwrap_or(0.0)
             .max(0.0);
-        let climate = ctx.land.climate.factor;
-        let done = ctx.land.fields[fi].work(crop, task, hours, now.day_index(), climate, seed, now);
+        // What its season's water allows, fixed once the crop is ripe (ADR-0012 §2).
+        let water = ctx.land.water_factor(&ctx.land.fields[fi]);
+        let done = ctx.land.fields[fi].work(crop, task, hours, now.day_index(), water, seed, now);
         if let Some(s) = x.stores.get_mut(crop.seed_good) {
             *s = (seed - done.seed_kg).max(0.0);
             x.flows

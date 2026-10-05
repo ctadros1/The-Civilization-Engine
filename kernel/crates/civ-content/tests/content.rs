@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 22
+kernel_content_api = 23
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -1094,7 +1094,7 @@ fn the_fingerprint_covers_every_kind() {
             "half_life_days = 3.0",
             "half_life_days = 4.0",
         ),
-        ("crop/emmer.toml", "grow_days = 120", "grow_days = 125"),
+        ("crop/emmer.toml", "ky = 1.15", "ky = 1.2"),
         ("building/hut.toml", "post_kg = 34.0", "post_kg = 35.0"),
         (
             "technique/quern_grinding.toml",

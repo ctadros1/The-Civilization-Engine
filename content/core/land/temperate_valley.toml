@@ -15,8 +15,51 @@ channel_area_km2 = 1.0           # drainage that counts as a stream when measuri
 richness_min = 0.6
 richness_max = 1.4
 richness_feature_m = 1500.0
-climate_cv = 0.25                # research 08-01 §2.3: crop CV 0.25-0.35
-climate_autocorrelation = 0.3    # 0.2-0.4
+
+# The weather (ADR-0012 §1; content API 23): one daily series for the whole map, temperature by
+# height. Rain: whether a day is wet follows a two-state chain, a wet day's amount the threshold
+# plus a gamma draw, each month's mean its share of the landscape's annual precipitation (the
+# preset's `precipitation_mm_per_yr`). Temperature: each date's normal plus an AR(1) anomaly. A
+# slow monthly anomaly carries wet and dry spells across seasons (research 03-03 §1.3, §1.6).
+# Monthly values are for January first. The research gives starting ranges, not a calibration
+# for this valley (03-03 §2.2, its confidence low until calibrated); every monthly figure below
+# is a tuning value for a temperate inland basin at 48 degrees north (Cfb/Dfb), checked by the
+# generator's own statistics: about 800 mm and 140 wet days a year, a hundred frost days, a month
+# or so of snow lying on the valley floor, and harvests whose spread from the water alone falls
+# within rainfed farming's (08-02 §7.3).
+[weather]
+# Share of days with at least `wet_day_mm` of rain or snow water (03-03 §2.2: Cfb/Dfb wet season
+# 0.25-0.60, dry season 0.08-0.45).
+wet_days = [0.38, 0.36, 0.37, 0.38, 0.42, 0.43, 0.41, 0.39, 0.36, 0.37, 0.40, 0.40]
+# Share of the year's precipitation in each month: a summer maximum, as inland (tuning).
+rain_share = [0.066, 0.061, 0.066, 0.071, 0.101, 0.117, 0.112, 0.101, 0.081, 0.076, 0.071, 0.077]
+persistence = 0.3                # 03-03 §2.2: 0.1-0.5; p11 - p01
+gamma_shape = 0.8                # 03-03 §2.2: 0.5-2.0
+wet_day_mm = 1.0                 # 03-03 §2.2 counts wet days from 1 mm
+# Mean daily temperature at `normals_at_m`, °C (tuning: January about freezing, July 19).
+mean_c = [-1.0, 0.5, 4.5, 9.0, 13.5, 17.0, 19.0, 18.5, 14.5, 9.5, 4.0, 0.5]
+# Spread of the day's mean about its normal, °C (03-03 §2.2: Cfb 2-4, Dfb 3-6; wider in winter).
+day_sd_c = [4.0, 4.0, 3.5, 3.0, 2.8, 2.5, 2.5, 2.5, 2.8, 3.0, 3.5, 4.0]
+day_persistence = 0.7            # 03-03 §2.2: 0.4-0.8
+# The day's range from lowest to highest, °C (tuning).
+day_range_c = [6.0, 7.0, 9.0, 11.0, 11.5, 11.5, 12.0, 12.0, 11.0, 9.0, 6.5, 5.5]
+wet_day_range = 0.75             # a wet day's range against the month's (tuning)
+# How much cooler a wet summer day is than a dry one, °C (tuning; the month's mean is kept).
+wet_day_cooling_c = [0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
+normals_at_m = 150.0             # the valley floor (tuning)
+lapse_c_per_km = 6.5             # 03-03 §2.1: the standard atmosphere's lapse rate
+slow_months = 12.0               # 03-03 §2.2: explore 6-36 months
+slow_amount = 0.1                # wet-day amounts x exp(0.1 s - 0.005): mean kept (03-03 §1.6)
+slow_wet_days = 0.1              # the share of wet days x (1 + 0.1 s) (tuning)
+# A wetter slow anomaly brings cooler summers, °C per unit (tuning).
+slow_warmth_c = [0.0, 0.0, 0.0, 0.0, -0.8, -0.8, -0.8, -0.8, -0.8, 0.0, 0.0, 0.0]
+snow_below_c = 0.5               # precipitation falls as snow below this daily mean (tuning)
+melt_mm_per_c = 3.0              # degree-day melt, mm of water per °C a day (tuning)
+# The root zone (FAO-56): water held between field capacity and wilting, and the share plants
+# draw unstressed (p = 0.55 for small grains). Soils (slice V) will set these by ground.
+soil_water_mm = 100.0
+easy_water_share = 0.55
+cover_kc = 0.9                   # the wild cover's water use against the reference (grass, tuning)
 
 # Walking wears the ground of each 8 m cell it crosses; unused wear fades as plants grow back
 # (research 10-03 §1.1: dw/dt = aq(1 - w) - bw). Starting values from the research's sensitivity
@@ -98,6 +141,8 @@ production_per_ha_yr = [0.0, 9.0, 6.0, 5.0, 2.5]
 loss_per_day = 0.03              # rot and wildlife: food left standing lasts about a month
 # Monthly weights, January first: greens in spring, berries in summer, nuts in autumn, little in winter.
 season = [0.2, 0.2, 0.5, 1.0, 1.4, 1.5, 1.6, 1.7, 1.8, 1.4, 0.5, 0.2]
+# A dry month gives less, a wet one more, around what the month usually gives (ADR-0012 §5).
+follows_water = true
 
 [[resource]]
 id = "game"

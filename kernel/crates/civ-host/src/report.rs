@@ -608,6 +608,66 @@ fn or_none(s: String) -> String {
     }
 }
 
+/// The past twelve whole months' weather on the valley floor, against what those months usually
+/// bring, and the water this season's crops had (ADR-0012): what lies behind the harvest.
+fn report_weather(sim: &Sim, held: &[&civ_land::Field], out: &mut dyn Write) -> anyhow::Result<()> {
+    let land = sim.land();
+    let whole: Vec<&civ_land::MonthRecord> = land
+        .weather
+        .months
+        .iter()
+        .rev()
+        .filter(|m| {
+            i64::from(m.days) == civ_core::time::MONTH_LENGTHS[usize::from(m.month.min(11))]
+        })
+        .take(12)
+        .collect();
+    if whole.is_empty() {
+        return Ok(());
+    }
+    let rain: f64 = whole.iter().map(|m| f64::from(m.precip_mm)).sum();
+    let usual: f64 = whole
+        .iter()
+        .map(|m| land.climatology.month_precip_mm[usize::from(m.month.min(11))])
+        .sum();
+    let days: f64 = whole.iter().map(|m| f64::from(m.days)).sum();
+    let mean = whole.iter().map(|m| f64::from(m.temp_sum_c)).sum::<f64>() / days.max(1.0);
+    let count = |f: &dyn Fn(&civ_land::MonthRecord) -> u8| -> u32 {
+        whole.iter().map(|m| u32::from(f(m))).sum()
+    };
+    // This season's crops, weighted by area: the share of their water need they had, and the
+    // share of an average year's harvest that allows.
+    let sown: Vec<_> = held.iter().filter(|f| f.need_mm > 0.0).collect();
+    let area: f64 = sown.iter().map(|f| f.area_ha()).sum();
+    let water = if area > 0.0 {
+        let need: f64 = sown
+            .iter()
+            .map(|f| f64::from(f.need_mm) * f.area_ha())
+            .sum();
+        let got: f64 = sown.iter().map(|f| f64::from(f.got_mm) * f.area_ha()).sum();
+        let factor: f64 = sown
+            .iter()
+            .map(|f| land.water_factor(f) * f.area_ha())
+            .sum::<f64>()
+            / area;
+        format!(
+            "; the crops had {:.0}% of the water they needed (harvest {factor:.2} of an average              year's)",
+            100.0 * got / need.max(1e-9)
+        )
+    } else {
+        String::new()
+    };
+    writeln!(
+        out,
+        "  weather over {} months: {rain:.0} mm ({usual:.0} usual) in {} wet days, mean {mean:.1} °C,          {} frost days, {} with snow lying{water}",
+        whole.len(),
+        count(&|m| m.wet_days),
+        count(&|m| m.frost_days),
+        count(&|m| m.snow_days)
+    )?;
+    Ok(())
+}
+
 fn report_year(
     sim: &Sim,
     year: u32,
@@ -673,6 +733,7 @@ fn report_year(
         held.len(),
         short.len()
     )?;
+    report_weather(sim, &held, out)?;
     // Stores, summed over households.
     let mut totals = vec![0.0; goods.len()];
     for h in &households {

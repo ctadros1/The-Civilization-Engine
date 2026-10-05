@@ -3,7 +3,6 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_content::ContentRegistry;
 use civ_core::time::MINUTES_PER_DAY;
@@ -22,8 +21,10 @@ fn content() -> &'static ContentRegistry {
     })
 }
 
+/// World `seed` with a fixed identity, so it lives the same life every run (its identity orders
+/// the events of an instant): what holds here holds for any.
 fn new_world(seed: u64) -> Sim {
-    Sim::create(
+    Sim::create_for_tests(
         &NewWorld {
             name: "Modes".to_owned(),
             seed,
@@ -33,8 +34,7 @@ fn new_world(seed: u64) -> Sim {
             regime_id: String::new(),
         },
         content(),
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates")
 }

@@ -291,6 +291,33 @@ impl Sim {
         progress: &mut dyn FnMut(Progress),
         cancel: &AtomicBool,
     ) -> Result<Sim, SimError> {
+        Sim::create_as(request, content, progress, cancel, None)
+    }
+
+    /// Generates a new world with the identity `world_id` rather than a fresh one: a test's world
+    /// then lives the same life every run (an identity orders the events of an instant).
+    #[doc(hidden)]
+    pub fn create_for_tests(
+        request: &NewWorld,
+        content: &ContentRegistry,
+        world_id: [u8; 16],
+    ) -> Result<Sim, SimError> {
+        Sim::create_as(
+            request,
+            content,
+            &mut |_| {},
+            &AtomicBool::new(false),
+            Some(world_id),
+        )
+    }
+
+    fn create_as(
+        request: &NewWorld,
+        content: &ContentRegistry,
+        progress: &mut dyn FnMut(Progress),
+        cancel: &AtomicBool,
+        identity: Option<[u8; 16]>,
+    ) -> Result<Sim, SimError> {
         let preset = content
             .preset(&request.preset_id)
             .ok_or_else(|| SimError::UnknownPreset(request.preset_id.clone()))?;
@@ -324,17 +351,19 @@ impl Sim {
             None if request.regime_id.is_empty() => String::new(),
             None => return Err(SimError::UnknownRegime(request.regime_id.clone())),
         };
-        let world_id = commons_persist::random_id().unwrap_or_else(|_| {
-            // No OS randomness: fall back to time and seed. Identity only needs to be unique
-            // among this player's worlds.
-            let t = commons_persist::now_unix_ms() as u64;
-            let a = civ_core::rng::key(&[t, request.seed]);
-            let b = civ_core::rng::key(&[a, t]);
-            let mut id = [0u8; 16];
-            id[..8].copy_from_slice(&a.to_le_bytes());
-            id[8..].copy_from_slice(&b.to_le_bytes());
-            id
-        });
+        let world_id = identity
+            .map_or_else(commons_persist::random_id, Ok)
+            .unwrap_or_else(|_| {
+                // No OS randomness: fall back to time and seed. Identity only needs to be unique
+                // among this player's worlds.
+                let t = commons_persist::now_unix_ms() as u64;
+                let a = civ_core::rng::key(&[t, request.seed]);
+                let b = civ_core::rng::key(&[a, t]);
+                let mut id = [0u8; 16];
+                id[..8].copy_from_slice(&a.to_le_bytes());
+                id[8..].copy_from_slice(&b.to_le_bytes());
+                id
+            });
         let meta = WorldMeta {
             world_id,
             name: normalize_name(&request.name),

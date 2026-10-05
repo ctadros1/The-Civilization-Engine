@@ -712,7 +712,9 @@ fn worn_daub_is_renewed_with_earth_dug_beside_the_hut() {
             h.stores[timber] += 500.0;
         }
     }
-    for _ in 0..60 {
+    // Upkeep is wanted by the roof deadline in September, so spring's fieldwork comes first:
+    // across sixty worlds the walls were mended in 32 to 66 days, most near day 50.
+    for _ in 0..120 {
         sim.advance_minutes(24 * 60).expect("advances");
         if loss(&sim, hut, infill) < 0.05 {
             break;

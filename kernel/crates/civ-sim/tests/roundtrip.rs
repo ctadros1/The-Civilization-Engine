@@ -65,11 +65,35 @@ fn families(sim: &Sim) -> Vec<Family> {
     out
 }
 
-/// One world, generated once, run for a while and saved.
+/// Removes the folders named `prefix…` in `tmp` that earlier runs left, an hour old or more.
+fn clear_stale(tmp: &Path, prefix: &str) {
+    let Ok(entries) = std::fs::read_dir(tmp) else {
+        return;
+    };
+    for e in entries.flatten() {
+        let old = e
+            .metadata()
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| t.elapsed().ok())
+            .is_some_and(|age| age.as_secs() >= 3600);
+        if old && e.file_name().to_string_lossy().starts_with(prefix) {
+            let _ = std::fs::remove_dir_all(e.path());
+        }
+    }
+}
+
+/// One world, generated once, run for a while and saved. A static is never dropped, so its folder
+/// outlives the tests; each run first clears those earlier runs left.
 fn fixture() -> &'static Fixture {
     static FIXTURE: OnceLock<Fixture> = OnceLock::new();
     FIXTURE.get_or_init(|| {
-        let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+        let tmp = Path::new(env!("CARGO_TARGET_TMPDIR"));
+        clear_stale(tmp, "roundtrip-");
+        let dir = tempfile::Builder::new()
+            .prefix("roundtrip-")
+            .tempdir_in(tmp)
+            .expect("temp dir");
         let mut sim = Sim::create(
             &NewWorld {
                 name: "Test Valley".to_owned(),
@@ -158,9 +182,9 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 15 land, field, plot, building,
-    // wear, market, firm, wealth, knowledge and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 15);
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 17 land, field, plot, building,
+    // wear, market, firm, wealth, knowledge, deposits, earth and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 17);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -1218,9 +1242,16 @@ fn slice_c_saves_load_without_buildings_and_build_again() {
     assert!(migrated.is_dirty(), "the migration is new state");
     assert!(migrated.land().buildings.is_empty() && migrated.land().plots.is_empty());
     assert_eq!(migrated.land().fields, fixture().first_fields);
-    migrated
-        .advance_minutes(24 * 60)
-        .expect("a migrated world runs");
+    // Households begin their homes again within days: the fixture's world has a fresh identity
+    // each run, and on some its first day goes to other work.
+    for _ in 0..30 {
+        migrated
+            .advance_minutes(24 * 60)
+            .expect("a migrated world runs");
+        if !migrated.land().buildings.is_empty() {
+            break;
+        }
+    }
     assert!(
         !migrated.land().buildings.is_empty(),
         "households begin their homes again"
@@ -1247,9 +1278,16 @@ fn slice_b_saves_load_without_fields_and_farm_again() {
     let mut migrated = persist::load(&path, content()).expect("a schema-3 save loads");
     assert!(migrated.is_dirty(), "the migration is new state");
     assert!(migrated.land().fields.is_empty());
-    migrated
-        .advance_minutes(24 * 60)
-        .expect("a migrated world runs");
+    // In March they mark out fields again, on the first days the ground can be worked: rain,
+    // snow lying or frost keep them off it (ADR-0012 §5).
+    for _ in 0..30 {
+        migrated
+            .advance_minutes(24 * 60)
+            .expect("a migrated world runs");
+        if !migrated.land().fields.is_empty() {
+            break;
+        }
+    }
     assert!(
         !migrated.land().fields.is_empty(),
         "in March they mark out fields again"
@@ -1317,7 +1355,7 @@ fn decode_tile(bytes: &[u8]) -> wire::RasterTile<'_> {
 #[test]
 fn raster_tiles_match_the_map() {
     let sim = load_first();
-    let (map, stats) = (sim.map(), sim.stats());
+    let (map, stats, ground) = (sim.map(), sim.stats(), &sim.land().ground);
     let query = |layer, level, x0, y0, width, height| RasterQuery {
         layer,
         level,
@@ -1327,9 +1365,10 @@ fn raster_tiles_match_the_map() {
         height,
     };
 
-    // Full resolution: dequantised elevation is within half a quantum of the map.
+    // Full resolution: dequantised elevation is within half a quantum of the ground in use.
     let bytes = frames::raster_response(
         map,
+        ground,
         stats,
         &query(wire::RasterLayer::Elevation, 0, 10, 20, 100, 50),
     )
@@ -1346,7 +1385,8 @@ fn raster_tiles_match_the_map() {
             let i = 2 * (y * 100 + x);
             let raw = f32::from(u16::from_le_bytes([data[i], data[i + 1]]));
             let value = raw * tile.scale() + tile.offset();
-            let truth = map.elevation[(20 + y) * SIDE as usize + 10 + x];
+            let cell = (20 + y) * SIDE as usize + 10 + x;
+            let truth = map.elevation[cell] + ground.at(cell);
             assert!((value - truth).abs() <= half_quantum, "{value} vs {truth}");
         }
     }
@@ -1354,6 +1394,7 @@ fn raster_tiles_match_the_map() {
     // A coarse level covers the map in fewer cells and is clipped at its edge.
     let bytes = frames::raster_response(
         map,
+        ground,
         stats,
         &query(wire::RasterLayer::Water, 3, 0, 0, 1000, 1000),
     )
@@ -1365,17 +1406,17 @@ fn raster_tiles_match_the_map() {
     assert!(data.iter().all(|&c| c <= 3));
 
     for layer in [wire::RasterLayer::DrainageArea, wire::RasterLayer::LakeId] {
-        let bytes =
-            frames::raster_response(map, stats, &query(layer, 1, 0, 0, 64, 64)).expect("answers");
+        let bytes = frames::raster_response(map, ground, stats, &query(layer, 1, 0, 0, 64, 64))
+            .expect("answers");
         let tile = decode_tile(&bytes);
         assert_eq!(tile.data().expect("data").len(), 64 * 64 * 4);
     }
 
     // Out of range and oversized regions are refused.
     let off_map = query(wire::RasterLayer::Elevation, 0, SIDE, 0, 1, 1);
-    assert!(frames::raster_response(map, stats, &off_map).is_err());
+    assert!(frames::raster_response(map, ground, stats, &off_map).is_err());
     let empty = query(wire::RasterLayer::Elevation, 0, 0, 0, 0, 10);
-    assert!(frames::raster_response(map, stats, &empty).is_err());
+    assert!(frames::raster_response(map, ground, stats, &empty).is_err());
     let too_coarse = query(
         wire::RasterLayer::Elevation,
         frames::MAX_LEVEL + 1,
@@ -1384,7 +1425,38 @@ fn raster_tiles_match_the_map() {
         1,
         1,
     );
-    assert!(frames::raster_response(map, stats, &too_coarse).is_err());
+    assert!(frames::raster_response(map, ground, stats, &too_coarse).is_err());
+
+    // Elevation is the ground in use: a metre of earth taken from one cell lowers it there, at
+    // full resolution and in the mean of a coarser level, and nowhere else.
+    let mut dug = civ_land::earth::GroundDelta::new(map.width, map.height, map.cell_size_m);
+    let cell_m = f64::from(map.cell_size_m);
+    dug.add((30.5 * cell_m, 40.5 * cell_m), -cell_m * cell_m);
+    let read = |ground: &civ_land::earth::GroundDelta, level: u8, x: u32, y: u32| {
+        let bytes = frames::raster_response(
+            map,
+            ground,
+            stats,
+            &query(wire::RasterLayer::Elevation, level, x, y, 1, 1),
+        )
+        .expect("answers");
+        let tile = decode_tile(&bytes);
+        let data = tile.data().expect("data").bytes();
+        f32::from(u16::from_le_bytes([data[0], data[1]])) * tile.scale() + tile.offset()
+    };
+    let quantum = decode_tile(
+        &frames::raster_response(
+            map,
+            ground,
+            stats,
+            &query(wire::RasterLayer::Elevation, 0, 0, 0, 1, 1),
+        )
+        .expect("answers"),
+    )
+    .scale();
+    assert!((read(ground, 0, 30, 40) - read(&dug, 0, 30, 40) - 1.0).abs() <= quantum + 1e-3);
+    assert!((read(ground, 1, 15, 20) - read(&dug, 1, 15, 20) - 0.25).abs() <= quantum + 1e-3);
+    assert!((read(ground, 0, 31, 40) - read(&dug, 0, 31, 40)).abs() <= 1e-6);
 }
 
 #[test]
@@ -1445,7 +1517,14 @@ fn snapshot_tables_decode() {
 
 #[test]
 fn the_worn_ground_and_trails_are_described_as_surveyed() {
-    let sim = load_first();
+    let mut sim = load_first();
+    // A save keeps the routing view people plan on: the fixture's three days of walking wore
+    // the ground, but its paths were last surveyed when the world was made, before anyone walked.
+    assert!(!sim.land().wear.tiles().is_empty());
+    assert_eq!(sim.land().wear.surveyed_tiles().count(), 0);
+    // Surveyed now, as the month's turn would.
+    let (day, params) = (sim.now().day_index(), sim.rules().land.paths);
+    sim.land_mut_for_tests().wear.survey(day, &params);
     let payload = frames::paths::paths_response(&sim);
     let response = flatbuffers::root::<wire::Response>(&payload).expect("a response");
     let paths = response.body_as_paths().expect("paths");
@@ -1455,7 +1534,8 @@ fn the_worn_ground_and_trails_are_described_as_surveyed() {
     assert_eq!(paths.tile_cells(), 64);
     let worn = paths.worn().expect("worn tiles");
     let wear = &sim.land().wear;
-    assert_eq!(worn.len(), wear.tiles().len());
+    // What was surveyed, not what has been walked since: the routing view as saved.
+    assert_eq!(worn.len(), wear.surveyed_tiles().count());
     assert!(!worn.is_empty(), "three days of walking wore the ground");
     for (tile, (index, cells, trail)) in worn.iter().zip(wear.surveyed_tiles()) {
         assert_eq!(tile.index(), index);
@@ -1519,6 +1599,13 @@ fn every_building_is_described_with_its_expanded_shape() {
         assert!(info.sleeps() as usize >= members);
         assert!(info.floor_m2() > 0.0);
         assert!(!info.status().unwrap_or_default().is_empty());
+        // How it was built, in words (M3b slice R): a founder's hut follows no other.
+        let style = info.style().unwrap_or_default();
+        assert!(
+            style.starts_with("roof pitched ") && style.contains(" m to the eaves"),
+            "{style}"
+        );
+        assert_eq!(info.style_from(), 0);
         // Wire 1.14: a hut is a one-storey dwelling of the hut grammar, its cone seen as a
         // circle, all its floor for living.
         assert_eq!(info.grammar(), Some("hut"));
@@ -1646,7 +1733,14 @@ fn the_clock_runs_only_when_unpaused() {
 
     assert!(sim.set_speed(0.0).is_err());
     assert!(sim.set_speed(f32::NAN).is_err());
-    assert!(sim.set_speed(civ_sim::MAX_SPEED * 2.0).is_err());
+    assert!(sim.set_speed(f32::NEG_INFINITY).is_err());
+    assert!(sim.set_speed(civ_sim::MAX_PACED_SPEED * 2.0).is_err());
+    // 60x, 600x and Max are Accelerated speeds (ADR-0011).
+    for m in civ_sim::ACCELERATED_MULTIPLIERS {
+        sim.set_speed(m * civ_sim::SPEED_1X)
+            .expect("an Accelerated speed");
+    }
+    assert_eq!(sim.speed(), civ_sim::SPEED_MAX);
 }
 
 #[test]
@@ -1890,4 +1984,85 @@ fn what_settlements_have_seen_of_their_buildings_survives_a_save_and_load() {
         here.trust(),
         Some("built 1.9 times as strong: failures weigh 1.0 against 12 building-years")
     );
+    // A hut has nothing to size, so roundhouses are built as usual whatever was seen.
+    let roundhouse = loaded
+        .rules()
+        .catalog
+        .technique_index("core:technique/roundhouse")
+        .expect("roundhouses");
+    let mut sim = loaded;
+    sim.people_mut_for_tests()
+        .trust
+        .push(civ_agents::caution::Trust {
+            technique: roundhouse as u16,
+            ..seen
+        });
+    let (caution, words) = frames::knowledge::trust_words(&sim, settlement, roundhouse);
+    assert_eq!(caution, 1.0);
+    assert_eq!(
+        words,
+        "built as usual, as a hut has nothing to size: failures weigh 1.0 against 12 building-years"
+    );
+}
+
+#[test]
+fn a_new_world_has_deposits_and_an_older_save_gains_the_same_on_loading() {
+    let sim = load_first();
+    let bodies = |s: &Sim| -> Vec<civ_land::deposits::Body> {
+        s.land().deposits.iter().map(|d| d.body).collect()
+    };
+    // The core land profile lays down clay, stone and flint (ADR-0010 §1).
+    let catalog = &sim.rules().catalog;
+    let kinds: std::collections::BTreeSet<u16> = bodies(&sim).iter().map(|b| b.good).collect();
+    assert!(!kinds.is_empty(), "the world has deposits");
+    for id in ["core:good/clay", "core:good/stone", "core:good/toolstone"] {
+        let g = catalog.good_index(id).expect("the good") as u16;
+        assert!(kinds.contains(&g), "{id} lies somewhere");
+    }
+    // A schema-18 save, from before deposits were bodies, gains the bodies a new world of its
+    // seed has, with ids of its own, and is changed by it.
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_DEPOSITS)
+        .collect();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V18;
+    let path = republish("slice-p", &info, &sections);
+    let loaded = persist::load(&path, content()).expect("a schema-18 save loads");
+    assert!(loaded.is_dirty(), "the migration is new state");
+    assert_eq!(bodies(&loaded), bodies(&sim));
+    // What has been taken survives a save and load.
+    let mut sim = sim;
+    sim.land_mut_for_tests().deposits[0].taken_kg = 125.0;
+    let dir = scratch_dir("deposits");
+    let saved = persist::save(&mut sim, &dir, SaveKind::Manual, "deposits").expect("saves");
+    let again = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(again.land().deposits, sim.land().deposits);
+}
+
+#[test]
+fn slice_q_saves_load_with_each_household_s_taste_drawn_as_its_band_s() {
+    let mut sim = load_first();
+    // Tastes no band would bring, which the migration replaces.
+    for (_, h) in sim.people_mut_for_tests().households.iter_mut() {
+        h.taste = civ_agents::params::Taste::default();
+    }
+    // A schema-21 save, from before taste in building, gives each household the taste its band
+    // would have brought (M3b slice R): one band to a settlement.
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V21;
+    let path = republish("slice-q", &info, &persist::encode_sections(&sim));
+    let loaded = persist::load(&path, content()).expect("a schema-21 save loads");
+    assert!(loaded.is_dirty(), "the migration is new state");
+    let (style, seed) = (&loaded.rules().people.style, loaded.meta().seed);
+    assert!(!loaded.people().households.is_empty());
+    for (_, h) in loaded.people().households.iter() {
+        let band = h.settlement.unwrap_or(h.id);
+        assert_eq!(
+            h.taste,
+            civ_agents::style::founding_taste(style, seed, band, h.id),
+            "{}",
+            h.id
+        );
+    }
 }

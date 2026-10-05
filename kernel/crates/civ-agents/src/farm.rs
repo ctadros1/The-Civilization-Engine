@@ -45,6 +45,15 @@ pub struct FarmView<'a> {
     pub room: f64,
     /// The area it plans to crop for its needs, hectares.
     pub need_ha: f64,
+    /// The share of the days of the sowing window the ground can usually be worked (ADR-0012
+    /// §5): how pressing the work left is, of the days left.
+    pub workable_share: f64,
+    /// Field work a capable adult gives on a day at a peak, against an ordinary day's: what makes
+    /// up the days the weather takes when it plans spring work.
+    pub peak_ratio: f64,
+    /// What it knows of the weather's years, to judge a growing crop by the water its season so
+    /// far has brought (ADR-0012 §4); `None` judges every crop by an average year.
+    pub climatology: Option<&'a civ_land::Climatology>,
 }
 
 /// The area a household of `members` plans to crop for its needs, hectares: the share of a
@@ -82,10 +91,28 @@ pub fn protected_seed<'a>(
 /// The area a household plans to sow in the coming season, hectares: what it needs, as far as
 /// its labour can prepare and sow in one sowing season, and never less than the fields it already
 /// crops (research 08-20 §1.1: the area sown is the least of the land, the seed and the labour).
-pub fn plan_area_ha(need_ha: f64, held_ha: f64, labour_per_day: f64, crop: &CropParams) -> f64 {
+/// `plan_share` is the share of the season's days of ordinary work it counts on ([`plan_share`]).
+pub fn plan_area_ha(
+    need_ha: f64,
+    held_ha: f64,
+    labour_per_day: f64,
+    plan_share: f64,
+    crop: &CropParams,
+) -> f64 {
     let season = f64::from(crop.sow_until_day.saturating_sub(crop.prepare_from_day)) + 1.0;
     let per_ha = (crop.prepare_h_per_ha + crop.sow_h_per_ha).max(1e-6);
-    need_ha.min(labour_per_day * season / per_ha).max(held_ha)
+    need_ha
+        .min(labour_per_day * season * plan_share.clamp(0.0, 1.0) / per_ha)
+        .max(held_ha)
+}
+
+/// The share of a sowing season's days of ordinary field work a household counts on when it
+/// plans: the days the ground can usually be worked (`workable_share`), each worked at a peak's
+/// longer hours (`peak_ratio` of an ordinary day's), and never more than every day's ordinary
+/// work (ADR-0012 §5; research 04-02 §2.4: 6 hours ordinary, 10 at a peak; 08-02: the area is
+/// what can be done within workable windows).
+pub fn plan_share(workable_share: f64, peak_ratio: f64) -> f64 {
+    (workable_share.clamp(0.0, 1.0) * peak_ratio.max(1.0)).min(1.0)
 }
 
 /// Days from `day` until a household's next harvest begins to come in: its first sown field
@@ -173,7 +200,14 @@ impl FarmView<'_> {
         }
         let left: f64 = self.fields.iter().map(|f| to_sow_h(f, crop)).sum();
         let new = ha * (crop.break_h_per_ha + clear_h_per_ha + crop.sow_h_per_ha);
-        left + new <= self.labour_per_day * sowing_days_left(crop, self.day)
+        let days =
+            sowing_days_left(crop, self.day) * plan_share(self.workable_share, self.peak_ratio);
+        left + new <= self.labour_per_day * days
+    }
+
+    /// Of `days` of the sowing window, those the ground can usually be worked.
+    fn workable_days(&self, days: f64) -> f64 {
+        days * self.workable_share.clamp(0.0, 1.0)
     }
 
     /// Field work left for `task` over the work the household can still give it before its
@@ -190,7 +224,7 @@ impl FarmView<'_> {
                     .filter(|f| f.task(crop, day).is_some())
                     .map(|f| to_sow_h(f, crop))
                     .sum();
-                (work, sowing_days_left(crop, day))
+                (work, self.workable_days(sowing_days_left(crop, day)))
             }
             FieldTask::Tend => {
                 let mut work = 0.0;
@@ -230,7 +264,15 @@ impl FarmView<'_> {
     /// work it still needs, and the hours this task still needs.
     fn worth(&self, f: &Field, task: FieldTask) -> (f64, f64) {
         let crop = self.crop;
-        let expected = f.expected_kg(crop, self.day);
+        let water = match (self.climatology, f.stage) {
+            (Some(c), FieldStage::Sown) => c.expected_crop_factor(
+                usize::from(f.crop),
+                f64::from(f.need_mm),
+                f64::from(f.got_mm),
+            ),
+            _ => 1.0,
+        };
+        let expected = f.expected_kg(crop, self.day, water);
         let remaining = f.remaining_work_h(crop, expected);
         let per_hour = expected * self.kcal_per_kg / remaining.max(1e-6);
         let left = match task {
@@ -242,16 +284,20 @@ impl FarmView<'_> {
 
     /// The best field for `task` today, among the household's fields and, for preparing, new
     /// ground at `site`: the most food per hour once the walk there and back is counted for a
-    /// session of `session_h` hours. `walk_min` gives the walk to a field from home.
+    /// session of `session_h` hours. `walk_min` gives the walk to a field from home, and
+    /// `weather` why the ground at a place cannot be worked today, if it cannot (ADR-0012 §5):
+    /// only work that turns the soil waits for it ([`FieldTask::turns_soil`]).
     pub fn best(
         &self,
         task: FieldTask,
         session_h: f64,
         site: Option<&Site>,
         walk_min: &dyn Fn(&Field) -> Option<f64>,
+        weather: &dyn Fn(&RectCm) -> Option<Reason>,
     ) -> Result<FieldOption, Reason> {
         let crop = self.crop;
         let mut any = false;
+        let mut held_back: Option<Reason> = None;
         let mut best: Option<(f64, FieldOption)> = None;
         let consider = |option: FieldOption, best: &mut Option<(f64, FieldOption)>| {
             let walk_h = if option.at_home {
@@ -273,6 +319,12 @@ impl FarmView<'_> {
                 continue;
             }
             let at_home = task == FieldTask::Thresh;
+            if task.turns_soil()
+                && let Some(why) = weather(&f.rect)
+            {
+                held_back.get_or_insert(why);
+                continue;
+            }
             let walk = if at_home { Some(0.0) } else { walk_min(f) };
             let Some(walk) = walk else {
                 continue;
@@ -293,6 +345,13 @@ impl FarmView<'_> {
                 &mut best,
             );
         }
+        let site = site.filter(|s| match weather(&s.rect) {
+            Some(why) if task == FieldTask::Prepare => {
+                held_back.get_or_insert(why);
+                false
+            }
+            _ => true,
+        });
         if task == FieldTask::Prepare
             && let Some(site) = site
             && self.wants_new_field(site.rect.area_ha(), site.clear_h_per_ha)
@@ -315,6 +374,9 @@ impl FarmView<'_> {
                 sown_day: 0,
                 sheaves_kg: 0.0,
                 harvests: 0,
+                water_mm: 0.0,
+                need_mm: 0.0,
+                got_mm: 0.0,
             };
             let (per_hour, left) = self.worth(&ground, task);
             consider(
@@ -334,6 +396,7 @@ impl FarmView<'_> {
         }
         match best {
             Some((_, option)) => Ok(option),
+            None if let Some(why) = held_back => Err(why),
             None if task == FieldTask::Sow && any => Err(Reason::NoSeed),
             None if task == FieldTask::Prepare && self.fields.is_empty() => Err(Reason::NoPlace),
             None => Err(Reason::NoFieldWork),
@@ -461,6 +524,7 @@ pub fn find_site(
         }
         if land.fields.iter().any(|f| f.rect.near(&rect, FIELD_GAP_CM))
             || land.plots.iter().any(|p| p.rect.near(&rect, FIELD_GAP_CM))
+            || civ_land::earth::dug_near(&land.earthworks, &rect, FIELD_GAP_CM)
         {
             continue;
         }
@@ -546,6 +610,9 @@ mod tests {
             reap_h_per_ha: 280.0,
             thresh_h_per_kg: 0.1,
             straw: None,
+            kc: [0.4, 1.15, 0.4],
+            kc_days: [30, 30, 40, 20],
+            ky: 1.15,
         }
     }
 
@@ -572,6 +639,9 @@ mod tests {
             sown_day: 0,
             sheaves_kg: 0.0,
             harvests: 1,
+            water_mm: 0.0,
+            need_mm: 0.0,
+            got_mm: 0.0,
         }
     }
 
@@ -585,6 +655,9 @@ mod tests {
             seed_kg: 100.0,
             room: 1.0,
             need_ha: 1.0,
+            workable_share: 1.0,
+            peak_ratio: 1.0,
+            climatology: None,
         }
     }
 
@@ -636,9 +709,20 @@ mod tests {
         let c = crop();
         // Labour for 20 h a day over the 67-day season prepares and sows 1340 / 720 ha.
         let workable = 20.0 * 67.0 / 720.0;
-        assert!((plan_area_ha(5.0, 0.5, 20.0, &c) - workable).abs() < 1e-9);
-        assert_eq!(plan_area_ha(1.0, 0.5, 20.0, &c), 1.0, "what it needs");
-        assert_eq!(plan_area_ha(0.25, 0.5, 20.0, &c), 0.5, "the fields it has");
+        assert!((plan_area_ha(5.0, 0.5, 20.0, 1.0, &c) - workable).abs() < 1e-9);
+        // When a fifth of the days are usually too wet or cold, a fifth less, unless longer
+        // hours on the others make them up (ADR-0012 §5).
+        assert!(
+            (plan_area_ha(5.0, 0.5, 20.0, plan_share(0.8, 1.0), &c) - 0.8 * workable).abs() < 1e-9
+        );
+        assert_eq!(plan_share(0.8, 10.0 / 6.0), 1.0);
+        assert!((plan_share(0.5, 10.0 / 6.0) - 0.5 * 10.0 / 6.0).abs() < 1e-12);
+        assert_eq!(plan_area_ha(1.0, 0.5, 20.0, 1.0, &c), 1.0, "what it needs");
+        assert_eq!(
+            plan_area_ha(0.25, 0.5, 20.0, 1.0, &c),
+            0.5,
+            "the fields it has"
+        );
         // Threshed on day 236, sowing starts on day 80 of the next year: 209 days in store.
         let kept = seed_to_keep(1.0, &c, 1560.0, 236);
         assert!((kept - 90.0 * (209.0f64 / 1560.0).exp2()).abs() < 1e-9);
@@ -709,9 +793,10 @@ mod tests {
         let mut far = field(3, FieldStage::Prepared);
         far.rect.x = 100_000;
         let walk = |f: &Field| Some(if f.id.get() == 2 { 5.0 } else { 40.0 });
+        let fair = |_: &RectCm| None;
         let v = view(&c, vec![&near, &far], 85);
         let best = v
-            .best(FieldTask::Sow, 4.0, None, &walk)
+            .best(FieldTask::Sow, 4.0, None, &walk, &fair)
             .expect("a field to sow");
         assert_eq!(best.field, Some(near.id));
         assert!(best.kcal_per_hour > 0.0 && best.hours_left > 0.0);
@@ -719,13 +804,39 @@ mod tests {
         no_seed.seed_kg = 0.0;
         assert_eq!(
             no_seed
-                .best(FieldTask::Sow, 4.0, None, &walk)
+                .best(FieldTask::Sow, 4.0, None, &walk, &fair)
                 .map(|o| o.field),
             Err(Reason::NoSeed)
         );
         assert_eq!(
-            v.best(FieldTask::Reap, 4.0, None, &walk).map(|o| o.field),
+            v.best(FieldTask::Reap, 4.0, None, &walk, &fair)
+                .map(|o| o.field),
             Err(Reason::NoFieldWork)
         );
+        // Where snow still lies on the near field, higher up, and not on the far one, the far
+        // one is worked (ADR-0012 §5). Where neither can be, the weather is the reason.
+        let near_rect = near.rect;
+        let snow_near = |r: &RectCm| (*r == near_rect).then_some(Reason::SnowCover);
+        let best = v
+            .best(FieldTask::Sow, 4.0, None, &walk, &snow_near)
+            .expect("the far field");
+        assert_eq!(best.field, Some(far.id));
+        let rain = |_: &RectCm| Some(Reason::WetGround);
+        assert_eq!(
+            v.best(FieldTask::Sow, 4.0, None, &walk, &rain)
+                .map(|o| o.field),
+            Err(Reason::WetGround)
+        );
+        // Only work that turns the soil waits for the weather: a growing crop is weeded in it.
+        let mut growing = field(4, FieldStage::Sown);
+        growing.sown_day = 85;
+        let v = view(&c, vec![&growing], 100);
+        assert_eq!(
+            v.best(FieldTask::Tend, 4.0, None, &walk, &rain)
+                .map(|o| o.field),
+            Ok(Some(growing.id))
+        );
+        assert!(FieldTask::Prepare.turns_soil() && FieldTask::Sow.turns_soil());
+        assert!(!FieldTask::Tend.turns_soil() && !FieldTask::Reap.turns_soil());
     }
 }

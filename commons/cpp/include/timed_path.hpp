@@ -6,6 +6,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 
 namespace engine_bridge {
@@ -39,10 +40,12 @@ inline Point position_on_path(const float* xy, const float* minutes, std::size_t
 
 /// The simulation minute now, estimated from the latest clock: its minute plus the real time
 /// since it arrived at its speed (simulated minutes per real minute), never more than a real
-/// second's worth ahead, since the next snapshot corrects it. A paused clock stands still.
-inline double estimate_minute(double clock_minute, bool paused, double speed, double received_ms,
+/// second's worth ahead, since the next snapshot corrects it. A clock that is `still` stands
+/// still: one paused, or one in Accelerated mode (wire 1.23), whose frames come a day apart, each
+/// at midnight; so does one at Max, an infinite speed.
+inline double estimate_minute(double clock_minute, bool still, double speed, double received_ms,
                               double now_ms) {
-    if (paused) return clock_minute;
+    if (still || !std::isfinite(speed)) return clock_minute;
     const double per_second = speed / 60.0;
     const double ahead = (now_ms - received_ms) / 1000.0 * per_second;
     return clock_minute + std::min(std::max(0.0, ahead), std::max(1.0, per_second));

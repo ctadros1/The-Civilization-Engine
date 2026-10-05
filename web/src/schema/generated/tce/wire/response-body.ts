@@ -5,6 +5,8 @@
 import { Ack } from '../../tce/wire/ack.js';
 import { Buildings } from '../../tce/wire/buildings.js';
 import { Chronicle } from '../../tce/wire/chronicle.js';
+import { Deposits } from '../../tce/wire/deposits.js';
+import { Earthworks } from '../../tce/wire/earthworks.js';
 import { Fields } from '../../tce/wire/fields.js';
 import { FirmInfo } from '../../tce/wire/firm-info.js';
 import { Firms } from '../../tce/wire/firms.js';
@@ -17,6 +19,7 @@ import { RasterTile } from '../../tce/wire/raster-tile.js';
 import { SaveList } from '../../tce/wire/save-list.js';
 import { Trips } from '../../tce/wire/trips.js';
 import { Wealth } from '../../tce/wire/wealth.js';
+import { WeatherReport } from '../../tce/wire/weather-report.js';
 
 
 export enum ResponseBody {
@@ -35,13 +38,16 @@ export enum ResponseBody {
   Firms = 12,
   FirmInfo = 13,
   Wealth = 14,
-  Knowledge = 15
+  Knowledge = 15,
+  Deposits = 16,
+  Earthworks = 17,
+  WeatherReport = 18
 }
 
 export function unionToResponseBody(
   type: ResponseBody,
-  accessor: (obj:Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Knowledge|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth) => Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Knowledge|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth|null
-): Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Knowledge|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth|null {
+  accessor: (obj:Ack|Buildings|Chronicle|Deposits|Earthworks|Fields|FirmInfo|Firms|Hydrography|Knowledge|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth|WeatherReport) => Ack|Buildings|Chronicle|Deposits|Earthworks|Fields|FirmInfo|Firms|Hydrography|Knowledge|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth|WeatherReport|null
+): Ack|Buildings|Chronicle|Deposits|Earthworks|Fields|FirmInfo|Firms|Hydrography|Knowledge|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth|WeatherReport|null {
   switch(ResponseBody[type]) {
     case 'NONE': return null; 
     case 'Ack': return accessor(new Ack())! as Ack;
@@ -59,15 +65,18 @@ export function unionToResponseBody(
     case 'FirmInfo': return accessor(new FirmInfo())! as FirmInfo;
     case 'Wealth': return accessor(new Wealth())! as Wealth;
     case 'Knowledge': return accessor(new Knowledge())! as Knowledge;
+    case 'Deposits': return accessor(new Deposits())! as Deposits;
+    case 'Earthworks': return accessor(new Earthworks())! as Earthworks;
+    case 'WeatherReport': return accessor(new WeatherReport())! as WeatherReport;
     default: return null;
   }
 }
 
 export function unionListToResponseBody(
   type: ResponseBody, 
-  accessor: (index: number, obj:Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Knowledge|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth) => Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Knowledge|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth|null, 
+  accessor: (index: number, obj:Ack|Buildings|Chronicle|Deposits|Earthworks|Fields|FirmInfo|Firms|Hydrography|Knowledge|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth|WeatherReport) => Ack|Buildings|Chronicle|Deposits|Earthworks|Fields|FirmInfo|Firms|Hydrography|Knowledge|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth|WeatherReport|null, 
   index: number
-): Ack|Buildings|Chronicle|Fields|FirmInfo|Firms|Hydrography|Knowledge|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth|null {
+): Ack|Buildings|Chronicle|Deposits|Earthworks|Fields|FirmInfo|Firms|Hydrography|Knowledge|Markets|Paths|PersonInfo|RasterTile|SaveList|Trips|Wealth|WeatherReport|null {
   switch(ResponseBody[type]) {
     case 'NONE': return null; 
     case 'Ack': return accessor(index, new Ack())! as Ack;
@@ -85,6 +94,9 @@ export function unionListToResponseBody(
     case 'FirmInfo': return accessor(index, new FirmInfo())! as FirmInfo;
     case 'Wealth': return accessor(index, new Wealth())! as Wealth;
     case 'Knowledge': return accessor(index, new Knowledge())! as Knowledge;
+    case 'Deposits': return accessor(index, new Deposits())! as Deposits;
+    case 'Earthworks': return accessor(index, new Earthworks())! as Earthworks;
+    case 'WeatherReport': return accessor(index, new WeatherReport())! as WeatherReport;
     default: return null;
   }
 }

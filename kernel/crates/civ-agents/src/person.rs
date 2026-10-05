@@ -45,6 +45,8 @@ pub enum Target {
     /// A technique, by index in the catalog's techniques: the one a session of trying works
     /// toward (ADR-0008 §3).
     Technique(u16),
+    /// A deposit in the ground, by permanent id: the one dug at (M3b slice Q).
+    Deposit(PermanentId),
 }
 
 /// One step of an activity.
@@ -668,6 +670,11 @@ pub struct Household {
     pub flows: Flows,
     /// What they offer for sale, and on what terms (slice I).
     pub offers: Vec<crate::market::Offer>,
+    /// The way they would build: roof pitch, eaves and overhang (M3b slice R).
+    pub taste: crate::params::Taste,
+    /// The building that moved their taste most at its last review, which their next building
+    /// follows (M3b slice R).
+    pub admired: Option<PermanentId>,
 }
 
 /// Room for a household's goods under its roofs (ADR-0009 §5), from its roofed buildings: on
@@ -692,6 +699,23 @@ impl Keeping {
         roofed_kg: f64::INFINITY,
         raised_factor: 1.0,
     };
+
+    /// This keeping with `stores`' own pots (M3b slice Q): each store good held keeps its
+    /// `keeps_kg` of what lies in lofts and on floors under a roof as a raised floor does. Pots
+    /// stand in the room they keep, so they add none: what lies in the open stays there.
+    pub fn with_stores(&self, stores: &[f64], goods: &[GoodDef]) -> Keeping {
+        let pots: f64 = goods
+            .iter()
+            .zip(stores)
+            .filter_map(|(g, &n)| g.store.as_ref().map(|s| n.max(0.0) * s.keeps_kg))
+            .sum();
+        let kept = pots.min(self.roofed_kg.max(0.0));
+        Keeping {
+            raised_kg: self.raised_kg + kept,
+            roofed_kg: self.roofed_kg - kept,
+            ..*self
+        }
+    }
 
     /// For each good, the shares of `stores` kept on raised floors and elsewhere under a roof;
     /// the rest lies in the open. Only goods with a sheltered half-life take room.
@@ -807,9 +831,10 @@ impl Household {
         }
         let days = (t1 - t0) as f64 / MINUTES_PER_DAY as f64;
         let mut burned = burned_kg(t0, t1, fuel_kg_per_day);
-        // Shares of each good under the roof, when the roof cannot hold them all.
-        let shares = (self.sheltered && !self.keeping.holds_all(&self.stores, goods))
-            .then(|| self.keeping.shares(&self.stores, goods));
+        // Shares of each good under the roof, when the roof and its pots cannot hold them all.
+        let keeping = self.keeping.with_stores(&self.stores, goods);
+        let shares = (self.sheltered && !keeping.holds_all(&self.stores, goods))
+            .then(|| keeping.shares(&self.stores, goods));
         let left = |half_life: f64| {
             if half_life > 0.0 {
                 0.5f64.powf(days / half_life)
@@ -822,7 +847,7 @@ impl Household {
             match shares.as_ref().and_then(|s| s.get(i)) {
                 Some(&(raised, under)) if roofed => {
                     let open = (1.0 - raised - under).max(0.0);
-                    *kg *= raised * left(g.sheltered_half_life_days * self.keeping.raised_factor)
+                    *kg *= raised * left(g.sheltered_half_life_days * keeping.raised_factor)
                         + under * left(g.sheltered_half_life_days)
                         + open * left(g.half_life_days);
                 }
@@ -978,6 +1003,8 @@ mod tests {
             keeping: Keeping::default(),
             flows: Flows::default(),
             offers: Vec::new(),
+            taste: Default::default(),
+            admired: None,
         }
     }
 
@@ -994,6 +1021,7 @@ mod tests {
             tool: None,
             sheltered_half_life_days: 0.0,
             timber: None,
+            store: None,
         };
         vec![
             good("meat", GoodUse::Food, 1500.0, 3.0, Eaten::Cooked),

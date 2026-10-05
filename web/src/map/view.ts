@@ -19,6 +19,8 @@
 import { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 
 import { buildingAt, buildingMarks, type Mark } from "../buildings.js";
+import { depositAt, depositLook } from "../deposits.js";
+import { changedTiles, detailTilesOver, earthworkAt, earthworkLook } from "../earthworks.js";
 import { fieldAt, fieldLook } from "../fields.js";
 import type { HostClient } from "../net/client.js";
 import { TRAIL_COLOUR, pathAt, smoothed, trailLook, wornPixels } from "../paths.js";
@@ -27,7 +29,11 @@ import {
   type ActivityInfo,
   type BuildingInfo,
   type Clock,
+  type DepositInfo,
+  type EarthworkInfo,
+  type EarthworksInfo,
   type FieldInfo,
+  type GoodInfo,
   type Hydrography,
   type PathsInfo,
   type PersonBrief,
@@ -74,6 +80,10 @@ export interface PointerInfo {
   field: FieldInfo | null;
   /** The building under the pointer, if any. */
   building: BuildingInfo | null;
+  /** The deposit under the pointer, if any (M3b slice Q). */
+  deposit: DepositInfo | null;
+  /** The earthwork under the pointer, if any (M3b slice Q). */
+  earthwork: EarthworkInfo | null;
   /** The worn ground under the pointer, if any. */
   path: { wear: number; trail: boolean } | null;
 }
@@ -170,6 +180,12 @@ export class MapView {
   private fields: FieldInfo[] = [];
   private readonly buildingsLayer = new Graphics();
   private buildings: BuildingInfo[] = [];
+  private readonly depositsLayer = new Graphics();
+  private deposits: DepositInfo[] = [];
+  private readonly earthworksLayer = new Graphics();
+  private earthworks: EarthworkInfo[] = [];
+  /** Each changed ground tile's revision as last drawn, by index. */
+  private groundSeen = new Map<number, number>();
   private readonly wornLayer = new Container();
   private readonly trailsLayer = new Graphics();
   private paths: PathsInfo | null = null;
@@ -215,6 +231,8 @@ export class MapView {
       this.trailsLayer,
       this.rivers,
       this.fieldsLayer,
+      this.depositsLayer,
+      this.earthworksLayer,
       this.buildingsLayer,
       this.settlementLayer,
       this.peopleLayer,
@@ -262,6 +280,9 @@ export class MapView {
     this.fieldsLayer.clear();
     this.buildings = [];
     this.buildingsLayer.clear();
+    this.earthworks = [];
+    this.earthworksLayer.clear();
+    this.groundSeen.clear();
     this.setPaths(null);
     this.peopleLayer.clear();
     this.trips.clear();
@@ -297,6 +318,47 @@ export class MapView {
     for (const f of fields) {
       const look = fieldLook(f);
       g.rect(f.x, f.y, f.w, f.h).fill({ color: look.fill, alpha: look.alpha });
+    }
+    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** The deposits, as the host last listed them: known ones solid, unfound ones faint. */
+  setDeposits(deposits: DepositInfo[], goods: GoodInfo[]): void {
+    this.deposits = deposits;
+    const g = this.depositsLayer;
+    g.clear();
+    for (const d of deposits) {
+      const look = depositLook(d, goods);
+      g.circle(d.x, d.y, d.radiusM).fill({ color: look.colour, alpha: look.alpha });
+      if (look.outline) g.circle(d.x, d.y, d.radiusM).stroke({ width: 1, color: look.colour, alpha: 0.6 });
+    }
+    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** The earthworks, as the host last listed them (null for none): each platform drawn as bare
+   * earth over its plot, and the map read again where the ground under it has changed. */
+  setEarthworks(info: EarthworksInfo | null): void {
+    this.earthworks = info?.works ?? [];
+    const g = this.earthworksLayer;
+    g.clear();
+    for (const w of this.earthworks) {
+      const look = earthworkLook(w);
+      g.rect(w.x, w.y, w.w, w.h).fill({ color: look.colour, alpha: look.alpha });
+      g.rect(w.x, w.y, w.w, w.h).stroke({ width: 0.3, color: look.colour, alpha: look.outlineAlpha });
+    }
+    if (info) {
+      for (const index of changedTiles(this.groundSeen, info)) {
+        for (const key of detailTilesOver(index, info.tileCells, info.tilesX, DETAIL_TILE)) {
+          const slot = this.tiles.get(key);
+          if (!slot) continue;
+          slot.patch?.sprite.destroy({ texture: true, textureSource: true });
+          this.tiles.delete(key);
+          this.cameraChanged = true;
+        }
+      }
+      this.groundSeen = new Map(info.tiles.map((t) => [t.index, t.rev]));
+    } else {
+      this.groundSeen.clear();
     }
     if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
   }
@@ -706,6 +768,8 @@ export class MapView {
       water: WATER_NAMES[patch.water[i] ?? -1] ?? null,
       field: fieldAt(this.fields, xM, yM),
       building: buildingAt(this.buildings, xM, yM),
+      deposit: depositAt(this.deposits, xM, yM),
+      earthwork: earthworkAt(this.earthworks, xM, yM),
       path: pathAt(this.paths, cellX, cellY),
     };
   }
@@ -787,8 +851,9 @@ export class MapView {
         if (slot) {
           slot.used = now;
         } else if (this.inFlight < MAX_IN_FLIGHT) {
-          this.tiles.set(key, { patch: null, used: now });
-          void this.fetchTile(tx, ty, key);
+          const fresh: TileSlot = { patch: null, used: now };
+          this.tiles.set(key, fresh);
+          void this.fetchTile(tx, ty, key, fresh);
         } else {
           this.cameraChanged = true; // try again next frame
         }
@@ -808,7 +873,9 @@ export class MapView {
     }
   }
 
-  private async fetchTile(tx: number, ty: number, key: string): Promise<void> {
+  /** Reads detail tile `key` for `slot`, filling it only while it is still that key's slot: one
+   * dropped (evicted, or read again since the ground changed) meanwhile gets nothing stale. */
+  private async fetchTile(tx: number, ty: number, key: string, slot: TileSlot): Promise<void> {
     const info = this.info;
     const client = this.client;
     const opts = this.shadeOptions;
@@ -846,8 +913,7 @@ export class MapView {
       sprite.width = w * info.cellSizeM;
       sprite.height = h * info.cellSizeM;
       this.detail.addChild(sprite);
-      const slot = this.tiles.get(key);
-      if (slot) {
+      if (this.tiles.get(key) === slot) {
         slot.patch = {
           cellX0: mx0,
           cellY0: my0,
@@ -862,7 +928,7 @@ export class MapView {
         sprite.destroy({ texture: true, textureSource: true });
       }
     } catch (e) {
-      if (generation === this.generation) {
+      if (generation === this.generation && this.tiles.get(key) === slot) {
         this.tiles.delete(key);
         console.warn(`tce: a map tile could not be loaded: ${String(e)}`);
       }
@@ -890,6 +956,17 @@ export class MapView {
       fields: this.fields.length,
       buildings: this.buildings.length,
       roofed: this.buildings.filter((b) => b.roofed).length,
+      // M3b slice R: buildings that followed an admired one, and frame buildings, where they stand.
+      followed: this.buildings
+        .filter((b) => b.styleFrom !== 0)
+        .map((b) => ({ x: b.x, y: b.y, style: b.style })),
+      frames: this.buildings
+        .filter((b) => b.grammar === "frame")
+        .map((b) => ({ x: b.x, y: b.y, program: b.program })),
+      deposits: this.deposits.length,
+      earthworks: this.earthworks.length,
+      platforms: this.earthworks.map((w) => ({ x: w.x + w.w / 2, y: w.y + w.h / 2, done: w.done })),
+      groundTiles: this.groundSeen.size,
       wornTiles: this.paths?.worn.length ?? 0,
       trails: this.paths?.trails.length ?? 0,
       selected: this.selected,

@@ -408,9 +408,20 @@ impl Engine {
                 technique,
                 aware_only,
             } => self.introduce_technique(person, technique, aware_only),
+            Request::PlaceDeposit {
+                at,
+                good,
+                radius_m,
+                exposed,
+            } => self.place_deposit(at, &good, radius_m, exposed),
             Request::GetRaster(query) => match &self.world {
                 None => no_world(),
-                Some(w) => match frames::raster_response(w.sim.map(), w.sim.stats(), &query) {
+                Some(w) => match frames::raster_response(
+                    w.sim.map(),
+                    &w.sim.land().ground,
+                    w.sim.stats(),
+                    &query,
+                ) {
                     Ok(payload) => Reply::Response(payload),
                     Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e.to_string()),
                 },
@@ -473,6 +484,18 @@ impl Engine {
             Request::GetKnowledge => match &self.world {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::knowledge::knowledge_response(&w.sim)),
+            },
+            Request::GetDeposits => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::deposits::deposits_response(&w.sim)),
+            },
+            Request::GetEarthworks => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::earthworks::earthworks_response(&w.sim)),
+            },
+            Request::GetWeather => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::weather::weather_response(&w.sim)),
             },
             Request::ListSaves => {
                 match session::list_saves(&self.config.saves_root, &self.config.content) {
@@ -868,24 +891,40 @@ impl Engine {
         self.urgent = true;
     }
 
-    /// Advances the clock by real time and autosaves when due.
+    /// Advances the clock by real time and autosaves when due. At Max the world lives day after
+    /// day for most of the tick (at least one), stopping at a midnight; at other Accelerated
+    /// speeds a day at a time when its time has come (ADR-0011 §2).
     pub fn tick(&mut self, real: Duration) {
         if self.run_ahead.is_some() {
             self.tick_run_ahead();
             return;
         }
+        let budget = self.config.tick.mul_f64(RUN_AHEAD_SHARE);
+        let started = Instant::now();
         let Some(world) = self.world.as_mut() else {
             return;
         };
         let step = real.min(MAX_STEP).as_secs_f64();
-        let advance = match world.sim.advance_real(step) {
-            Ok(advance) => advance,
-            Err(e) => {
-                world.sim.set_paused(true);
-                self.fail(format!("The clock stopped: {e}"));
-                return;
+        let mut advance = civ_sim::Advance::default();
+        loop {
+            match world.sim.advance_real(step) {
+                Ok(a) => {
+                    advance.minutes += a.minutes;
+                    advance.days += a.days;
+                    advance.months += a.months;
+                    advance.years += a.years;
+                }
+                Err(e) => {
+                    world.sim.set_paused(true);
+                    self.fail(format!("The clock stopped: {e}"));
+                    return;
+                }
             }
-        };
+            let max = world.sim.speed() == civ_sim::SPEED_MAX && !world.sim.paused();
+            if !max || started.elapsed() >= budget {
+                break;
+            }
+        }
         if advance.minutes > 0 {
             self.changed = true;
         }
@@ -959,6 +998,33 @@ impl Engine {
                     format!("{name} heard of {what}")
                 } else {
                     format!("{name} learnt {what} from the observer")
+                };
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
+    fn place_deposit(&mut self, at: (f32, f32), good: &str, radius_m: f32, exposed: bool) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        match world.sim.place_deposit(at, good, radius_m, exposed) {
+            Ok(_) => {
+                let what = world.sim.rules().catalog.good_index(good).map_or_else(
+                    || good.to_owned(),
+                    |g| world.sim.rules().catalog.goods[g].name.to_lowercase(),
+                );
+                let text = if exposed {
+                    format!("The observer laid down {what} showing at the surface")
+                } else {
+                    format!("The observer laid down {what} under the ground")
                 };
                 self.changed = true;
                 self.urgent = true;
@@ -1395,6 +1461,124 @@ mod tests {
     }
 
     #[test]
+    fn the_earthworks_are_read_with_the_tiles_they_changed() {
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::GetEarthworks)),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Earthworks");
+        let (rev, tiles_x, works) = {
+            let sim = &h.engine.world.as_ref().expect("a world").sim;
+            (
+                frames::earthworks::earthworks_rev(sim),
+                sim.map().width.div_ceil(civ_land::earth::DELTA_TILE),
+                sim.land().earthworks.len(),
+            )
+        };
+        let Reply::Response(payload) = h.ask(Request::GetEarthworks) else {
+            panic!("the earthworks are read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let list = response.body_as_earthworks().expect("earthworks");
+        assert_eq!(list.rev(), rev);
+        assert_eq!(list.tile_cells(), civ_land::earth::DELTA_TILE);
+        assert_eq!(list.tiles_x(), tiles_x);
+        let listed = list.works().expect("a list");
+        assert_eq!(listed.len(), works);
+        assert!(
+            listed
+                .iter()
+                .all(|w| !w.words().unwrap_or_default().is_empty())
+        );
+    }
+
+    #[test]
+    fn the_weather_is_read_month_by_month_and_told_on_the_clock() {
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::GetWeather)),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Weather");
+        let (rev, months) = {
+            let sim = &h.engine.world.as_ref().expect("a world").sim;
+            (
+                frames::weather::weather_rev(sim),
+                sim.land().weather.months.len(),
+            )
+        };
+        let Reply::Response(payload) = h.ask(Request::GetWeather) else {
+            panic!("the weather is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let report = response.body_as_weather_report().expect("a weather report");
+        assert_eq!(report.rev(), rev);
+        assert!(rev > 0);
+        let listed = report.months().expect("months");
+        // A new world has lived the year before its founding: twelve months or more.
+        assert_eq!(listed.len(), months);
+        assert!(months >= 12);
+        assert!(listed.iter().all(|m| m.usual_mm() > 0.0 && m.days() > 0));
+        let today = report.today().expect("today");
+        assert!(today.words().unwrap_or_default().contains("°C"));
+    }
+
+    #[test]
+    fn the_observer_can_lay_down_a_deposit_and_read_them_all() {
+        let mut h = Harness::new(None, None);
+        h.create("Deposits");
+        let (hearth, before) = {
+            let sim = &h.engine.world.as_ref().expect("a world").sim;
+            (
+                sim.land().settlements[0].hearth_m,
+                sim.land().deposits.len(),
+            )
+        };
+        let reply = h.ask(Request::PlaceDeposit {
+            at: hearth,
+            good: "core:good/clay".to_owned(),
+            radius_m: 8.0,
+            exposed: true,
+        });
+        let Reply::Response(ack) = reply else {
+            panic!("clay is laid down: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert_eq!(
+            message,
+            "The observer laid down clay showing at the surface"
+        );
+        assert_eq!(
+            error_code(&h.ask(Request::PlaceDeposit {
+                at: hearth,
+                good: "core:good/nothing".to_owned(),
+                radius_m: 8.0,
+                exposed: true,
+            })),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        let Reply::Response(payload) = h.ask(Request::GetDeposits) else {
+            panic!("the deposits are read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let deposits = response.body_as_deposits().expect("deposits");
+        let list = deposits.deposits().expect("a list");
+        assert_eq!(list.len(), before + 1);
+        let laid = list.get(list.len() - 1);
+        assert!(laid.exposed());
+        assert!((laid.radius_m() - 8.0).abs() < 1e-6);
+        assert!((laid.x() - hearth.0).abs() < 0.01 && (laid.y() - hearth.1).abs() < 0.01);
+        assert!(laid.left_kg() > 0.0);
+        assert_ne!(deposits.rev(), 0);
+    }
+
+    #[test]
     fn create_save_list_and_load() {
         let mut h = Harness::new(None, None);
         h.create("River Test");
@@ -1585,7 +1769,7 @@ mod tests {
         assert!(matches!(
             h.ask(Request::SetClock {
                 paused: false,
-                speed: civ_sim::MAX_SPEED
+                speed: civ_sim::MAX_DETAILED_SPEED
             }),
             Reply::Response(_)
         ));

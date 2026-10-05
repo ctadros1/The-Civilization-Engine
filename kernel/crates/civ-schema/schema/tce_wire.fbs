@@ -11,6 +11,8 @@
 
 namespace tce.wire;
 
+// Elevation is the ground in use: since wire 1.20 (M3b slice Q, ADR-0010 §3), the generated bed
+// plus what earthworks have done to it. Water, drainage and lakes stay as generated.
 enum RasterLayer : ubyte { Elevation = 0, Water = 1, DrainageArea = 2, LakeId = 3 }
 
 enum RasterFormat : ubyte { U8 = 0, U16 = 1, U32 = 2, F32 = 3 }
@@ -20,6 +22,11 @@ enum EventKind : ubyte { Info = 0, WorldCreated = 1, Saved = 2, Loaded = 3, Auto
 enum ErrorCode : ushort { Unknown = 0, BadRequest = 1, Busy = 2, NoWorld = 3, NotFound = 4, Incompatible = 5, Internal = 6 }
 
 enum Sex : ubyte { Female = 0, Male = 1 }
+
+// Wire 1.23 (M3c slice S, ADR-0011): how the kernel advances. Detailed (1x-10x) lives every event
+// as it falls; Accelerated (60x, 600x, Max) a day at a time, its frames standing at midnight with
+// nobody on a trip, so observers must not carry walkers along between frames.
+enum ClockMode : ubyte { Detailed = 0, Accelerated = 1 }
 
 // Where a field is in its year (M1 slice C).
 enum FieldStage : ubyte { Fallow = 0, Prepared = 1, Sown = 2, Reaped = 3 }
@@ -158,6 +165,9 @@ table Welcome {
   regimes: [RegimeInfo] (id: 17);
   // The techniques (M3b slice M).
   techniques: [TechniqueInfo] (id: 18);
+  // Wire 1.23 (M3c slice S): the Accelerated speeds as multiples of 1x, after the Detailed ones in
+  // speed_multipliers: 60, 600 and Max, which is infinite.
+  accelerated_multipliers: [float] (id: 19);
 }
 
 // ---- Snapshot: replaceable host and world state --------------------------------------------
@@ -172,8 +182,29 @@ table Clock {
   minute_of_hour: ubyte (id: 5);
   season: string (id: 6);
   paused: bool (id: 7);
-  // Simulated seconds per real second while running.
+  // Simulated seconds per real second while running; infinite for Max (wire 1.23).
   speed: float (id: 8);
+  // Wire 1.23: how the kernel advances now. A change of speed that changes it takes effect at the
+  // next midnight.
+  mode: ClockMode (id: 9);
+  // Wire 1.24 (M3c slice U, ADR-0012): today's weather on the valley floor.
+  weather: DayWeather (id: 10);
+}
+
+// Wire 1.24 (M3c slice U, ADR-0012 §1): today's weather on the valley floor, at the height the
+// land profile's normals are for.
+table DayWeather {
+  // Rain and snow today, mm of water.
+  precip_mm: float (id: 0);
+  mean_c: float (id: 1);
+  min_c: float (id: 2);
+  max_c: float (id: 3);
+  // Snow lying, mm of water.
+  snow_mm: float (id: 4);
+  // The soil water under the wild cover, as a share of what the soil holds.
+  soil: float (id: 5);
+  // In words, rendered by the kernel: "6 °C, light rain; snow lying".
+  words: string (id: 6);
 }
 
 table WorldInfo {
@@ -290,6 +321,15 @@ table Snapshot {
   // technique, and when people arrive, leave or die (0 = no people). Fetch the settlements'
   // knowledge with GetKnowledge when it differs from the revision last fetched.
   knowledge_rev: ulong (id: 15);
+  // Wire 1.19 (M3b slice Q): changes whenever a deposit is laid down, found or dug from (0 = no
+  // deposits). Fetch the deposits with GetDeposits when it differs from the revision last fetched.
+  deposits_rev: ulong (id: 16);
+  // Wire 1.20 (M3b slice Q): changes whenever an earthwork is begun or advanced (0 = none). Fetch
+  // the earthworks with GetEarthworks when it differs from the revision last fetched.
+  earthworks_rev: ulong (id: 17);
+  // Wire 1.24 (M3c slice U): changes each day lived (0 = no world). Fetch the weather's record
+  // with GetWeather when it differs from the revision last fetched.
+  weather_rev: ulong (id: 18);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -330,6 +370,7 @@ table LoadWorld {
 
 table SetClock {
   paused: bool (id: 0);
+  // Simulated seconds per real second: 1x to 600x, or infinite for Max (wire 1.23).
   speed: float (id: 1);
 }
 
@@ -364,7 +405,17 @@ table IntroduceTechnique {
   aware_only: bool (id: 2);
 }
 
-union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique }
+// Wire 1.19 (M3b slice Q): the observer lays down a deposit (god tool, ADR-0010 §1): a disc of
+// `radius_m` of `good` (a good's content id) at `at`, showing at the surface or under the cover the
+// land profile gives it. Refused off dry land, for an unknown good or a radius outside 1-200 m.
+table PlaceDeposit {
+  at: Vec2 (id: 0);
+  good: string (id: 1);
+  radius_m: float (id: 2);
+  exposed: bool (id: 3);
+}
+
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit }
 
 table Command {
   body: CommandBody (id: 1);
@@ -436,7 +487,17 @@ table GetWealth {}
 // What each settlement knows: each technique's knowers, learners and history (M3b slice M).
 table GetKnowledge {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge }
+// Every deposit in the ground and who knows it (wire 1.19, M3b slice Q).
+table GetDeposits {}
+
+// Every earthwork and the tiles of ground they have changed (wire 1.20, M3b slice Q).
+table GetEarthworks {}
+
+// Every month's weather on the valley floor, with what each usually brings (wire 1.24, M3c
+// slice U).
+table GetWeather {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather }
 
 table Query {
   body: QueryBody (id: 1);
@@ -653,6 +714,11 @@ table PersonInfo {
   household_ready_days: float (id: 36);
   // M3b slice M: what they know, are learning or have heard of.
   knows: [KnowLine] (id: 37);
+  // Wire 1.22 (M3b slice R): the living only: how their household would build, in words, and
+  // the building that moved its taste most ("roofs pitched 48°, walls 1.9 m to the eaves, eaves
+  // 0.5 m out; admiring Bo's hut"); and that building (0 for none).
+  household_taste: string (id: 38);
+  household_admired: ulong (id: 39);
 }
 
 // What a person knows of a technique (M3b slice M).
@@ -708,6 +774,11 @@ table FieldInfo {
   // threshed from it.
   lease_until_minute: long = -1 (id: 18);
   lease_share: float (id: 19);
+  // Wire 1.24 (ADR-0012 §2): the share of the water its growing crop needed that it has had this
+  // season (-1 before it has needed any), and its root zone's water as a share of what the soil
+  // holds.
+  water_had: float = -1 (id: 20);
+  soil_water: float (id: 21);
 }
 
 table Fields {
@@ -815,6 +886,11 @@ table BuildingInfo {
   leak: float (id: 40);
   groups: [GroupInfo] (id: 41);
   upkeep: string (id: 42);
+  // Wire 1.22 (M3b slice R, ADR-0009 §7): how it was built, in words, and the building its
+  // household's taste followed when it was begun ("roof pitched 49°, walls 1.9 m to the eaves,
+  // after Bo's hut"); and that building (0 for none; it may since be gone).
+  style: string (id: 43);
+  style_from: ulong (id: 44);
 }
 
 table Buildings {
@@ -1177,7 +1253,122 @@ table Knowledge {
   settlements: [SettlementKnowledge] (id: 1);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge }
+// A deposit in the ground (wire 1.19, M3b slice Q; ADR-0010 §1). The observer sees them all; the
+// people of a settlement know only those in `known_by`.
+table DepositInfo {
+  id: ulong (id: 0);
+  // Index into Welcome.goods.
+  good: uint (id: 1);
+  // Its centre, metres from the map's north-west corner, and its radius.
+  x: float (id: 2);
+  y: float (id: 3);
+  radius_m: float (id: 4);
+  // It shows at the surface; otherwise it lies under `cover_m` of ground.
+  exposed: bool (id: 5);
+  cover_m: float (id: 6);
+  thickness_m: float (id: 7);
+  // How much of what is dug is fit for use, 0 to 1.
+  quality: float (id: 8);
+  left_kg: double (id: 9);
+  taken_kg: double (id: 10);
+  // The settlements that know it, and how each came to, in words, in the same order: "found by Ash
+  // of Alderford in year 3".
+  known_by: [ulong] (id: 11);
+  finds: [string] (id: 12);
+}
+
+table Deposits {
+  // The snapshot revision this is at.
+  rev: ulong (id: 0);
+  deposits: [DepositInfo] (id: 1);
+}
+
+// An earthwork (wire 1.20, M3b slice Q; ADR-0010 §2): a platform levelling a plot, a pit dug for a
+// deposit's goods, or the spoil heap beside a pit.
+table EarthworkInfo {
+  id: ulong (id: 0);
+  // What it is: 0 a platform; wire 1.21: 1 a pit, 2 a spoil heap. Append only.
+  kind: ubyte (id: 1);
+  // The rectangle it levels, metres from the map's north-west corner.
+  x: float (id: 2);
+  y: float (id: 3);
+  w: float (id: 4);
+  h: float (id: 5);
+  // The level it is cut and filled to, metres of height, and how far its sides run across for
+  // each metre up or down.
+  level_m: float (id: 6);
+  side_run: float (id: 7);
+  // Earth it cuts when done, cubic metres as it lay in the ground, and the share done, 0 to 1.
+  cut_m3: float (id: 8);
+  done: float (id: 9);
+  household: ulong (id: 10);
+  // The plot it levels and the building on it (0 for none).
+  plot: ulong (id: 11);
+  building: ulong (id: 12);
+  // In words: "the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled".
+  words: string (id: 13);
+  // Wire 1.21: for a pit or its heap, the deposit the pit is dug for (0 for none).
+  deposit: ulong (id: 14);
+}
+
+// A tile of what earthworks have done to the ground, numbered row by row across the map. Its
+// revision changes whenever one of its cells does: read the elevation under a tile again when its
+// revision differs from the one last seen (the elevation raster serves the ground as changed).
+struct GroundTileRev {
+  index: uint;
+  rev: uint;
+}
+
+table Earthworks {
+  // The snapshot revision this is at.
+  rev: ulong (id: 0);
+  works: [EarthworkInfo] (id: 1);
+  // Cells a side of a tile of the ground's changes, and tiles across the map.
+  tile_cells: uint (id: 2);
+  tiles_x: uint (id: 3);
+  // Every tile earthworks have changed, by index.
+  tiles: [GroundTileRev] (id: 4);
+}
+
+// One month's weather on the valley floor as it was, beside what the month usually brings (wire
+// 1.24, M3c slice U).
+table WeatherMonthInfo {
+  // Its year, the world's first being 1, and its month, 0 for January.
+  year: long (id: 0);
+  month: ubyte (id: 1);
+  // Days recorded: fewer than the month has for the month in progress.
+  days: ubyte (id: 2);
+  // Rain and snow, mm of water, and the long-run mean for the month.
+  precip_mm: float (id: 3);
+  usual_mm: float (id: 4);
+  wet_days: ubyte (id: 5);
+  // Its mean temperature and the month's normal, °C.
+  mean_c: float (id: 6);
+  usual_c: float (id: 7);
+  // Its lowest and highest temperature, °C.
+  min_c: float (id: 8);
+  max_c: float (id: 9);
+  frost_days: ubyte (id: 10);
+  // Days that ended with snow lying.
+  snow_days: ubyte (id: 11);
+  // The soil water under the wild cover, on average, as a share of what the soil holds.
+  soil: float (id: 12);
+}
+
+table WeatherReport {
+  // The snapshot revision this is at.
+  rev: ulong (id: 0);
+  // The height the weather is for, metres, and the landscape's mean annual precipitation, mm.
+  height_m: float (id: 1);
+  annual_mm: float (id: 2);
+  today: DayWeather (id: 3);
+  // Every month lived, oldest first; the last is the month in progress.
+  months: [WeatherMonthInfo] (id: 4);
+  // Today's month, 0 for January.
+  month: ubyte (id: 5);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport }
 
 table Response {
   body: ResponseBody (id: 1);

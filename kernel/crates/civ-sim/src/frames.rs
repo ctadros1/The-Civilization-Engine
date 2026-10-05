@@ -10,12 +10,16 @@
 //! | Layer | Format | Summary of a block |
 //! |---|---|---|
 //! | Elevation | U16; `value = raw · scale + offset` over the map's elevation range | mean |
+//!
+//! Elevation is the ground in use: the generated bed plus what earthworks have done to it (wire
+//! 1.20; ADR-0010 §3). The other layers stay as generated.
 //! | Water | U8 water class | most common class (ties go to the wetter class) |
 //! | DrainageArea | F32, m² | maximum |
 //! | LakeId | U32 | most common id (ties go to the higher id) |
 
 use std::fmt;
 
+use civ_land::earth::GroundDelta;
 use civ_schema::flatbuffers::{FlatBufferBuilder, WIPOffset};
 use civ_schema::wire;
 use civ_world::{MapStats, WorldMap};
@@ -23,6 +27,8 @@ use civ_world::{MapStats, WorldMap};
 use crate::Sim;
 
 pub mod buildings;
+pub mod deposits;
+pub mod earthworks;
 pub mod fields;
 pub mod firms;
 pub mod knowledge;
@@ -30,6 +36,7 @@ pub mod markets;
 pub mod paths;
 pub mod people;
 pub mod wealth;
+pub mod weather;
 
 /// Largest region one raster query may ask for, in cells of its level.
 pub const MAX_QUERY_CELLS: u64 = 1024 * 1024;
@@ -126,6 +133,7 @@ pub fn world_info<'a>(
 pub fn clock<'a>(fbb: &mut FlatBufferBuilder<'a>, sim: &Sim) -> WIPOffset<wire::Clock<'a>> {
     let date = sim.date();
     let season = fbb.create_string(date.season().name());
+    let weather = weather::day_weather(fbb, sim);
     wire::Clock::create(
         fbb,
         &wire::ClockArgs {
@@ -138,6 +146,11 @@ pub fn clock<'a>(fbb: &mut FlatBufferBuilder<'a>, sim: &Sim) -> WIPOffset<wire::
             season: Some(season),
             paused: sim.paused(),
             speed: sim.speed(),
+            mode: match sim.mode() {
+                crate::Mode::Detailed => wire::ClockMode::Detailed,
+                crate::Mode::Accelerated => wire::ClockMode::Accelerated,
+            },
+            weather: Some(weather),
         },
     )
 }
@@ -149,9 +162,11 @@ pub fn level_size(map: &WorldMap, level: u8) -> (u32, u32) {
 }
 
 /// A `Response` holding a raster region, clipped to the map. `stats` gives the elevation range
-/// that elevation is quantised over, so tiles of one map share a scale.
+/// that elevation is quantised over, so tiles of one map share a scale; elevation adds `ground`,
+/// what earthworks have done to the generated bed.
 pub fn raster_response(
     map: &WorldMap,
+    ground: &GroundDelta,
     stats: &MapStats,
     query: &RasterQuery,
 ) -> Result<Vec<u8>, QueryError> {
@@ -193,6 +208,13 @@ pub fn raster_response(
             let range = stats.max_elevation_m - stats.min_elevation_m;
             let scale = if range > 0.0 { range / 65535.0 } else { 1.0 };
             data.reserve(w as usize * h as usize * 2);
+            // The changes under the region, in map cells, if earthworks have touched it.
+            let (cx0, cy0) = (query.x0 as usize * block, query.y0 as usize * block);
+            let (cw, ch) = (
+                ((query.x0 + w) as usize * block).min(mw) - cx0,
+                ((query.y0 + h) as usize * block).min(mh) - cy0,
+            );
+            let changes = ground.region((cx0 as u32, cy0 as u32), (cw as u32, ch as u32));
             for y in 0..h {
                 for x in 0..w {
                     let (xs, ys) = cells(x, y);
@@ -201,6 +223,12 @@ pub fn raster_response(
                     for yy in ys {
                         for &z in &map.elevation[yy * mw + xs.start..yy * mw + xs.end] {
                             sum += f64::from(z);
+                        }
+                        if let Some(dz) = &changes {
+                            let row = (yy - cy0) * cw;
+                            for &d in &dz[row + xs.start - cx0..row + xs.end - cx0] {
+                                sum += f64::from(d);
+                            }
                         }
                     }
                     let mean = (sum / count) as f32;

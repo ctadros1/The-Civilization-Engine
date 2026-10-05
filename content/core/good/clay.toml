@@ -1,0 +1,13 @@
+# Clay dug from a pit: for daub, pots and ovens once anyone makes them of it (research 03-05 §1.1:
+# clay-rich ground in floodplains and old channels; whether a clay suits a use needs testing on
+# site, 11-08 §6). It keeps.
+kind = "good"
+id = "core:good/clay"
+name = "Clay"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

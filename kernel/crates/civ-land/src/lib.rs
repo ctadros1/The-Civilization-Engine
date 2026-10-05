@@ -9,8 +9,9 @@
 //!   wildlife); animal stocks (game, fish) grow logistically toward their habitat's capacity and
 //!   spread to neighbouring patches each month. Harvesting takes from the stock at a rate that
 //!   falls as it empties. Nothing respawns (research 03-06 §1.1–1.3).
-//! - **Climate**: one yearly factor shared by the whole map, an AR(1) series around 1, scales
-//!   production (03-06 §5.2, 08-01 §2.3).
+//! - **Weather**: one daily series for the whole map, with temperature by height ([`weather`],
+//!   ADR-0012). Each growing field keeps a root-zone water balance that sets its harvest; wild
+//!   plant food follows the soil water under the wild cover.
 //! - **Settlements**: the places people found.
 //! - **Fields, plots and buildings**: ground people crop, ground they claim for their homes, and
 //!   what they build there ([`fields`], [`buildings`]).
@@ -21,23 +22,24 @@
 
 pub mod buildings;
 pub mod deposits;
+pub mod earth;
 pub mod fields;
 pub mod paths;
+pub mod weather;
 
 pub use buildings::{
     BuildWork, Building, BuildingState, GroupCondition, GroupState, MATERIAL_SLACK_KG, MendWork,
     Plot, PlotUse, Repair, STAGE_DONE_SLACK_H, workable_h,
 };
 pub use fields::{CropParams, Field, FieldStage, FieldTask, Lease, Party, RectCm, WorkDone};
-pub use paths::{PathParams, Trail, Wear, WearTile};
+pub use paths::{PathParams, Trail, ViewTile, Wear, WearTile};
+pub use weather::{Climatology, MonthRecord, Unworkable, Weather, WeatherDay, WeatherParams};
 
 use civ_core::time::{DAYS_PER_YEAR, MONTH_STARTS};
-use civ_core::{PermanentId, Rng64, SimTime};
+use civ_core::{PermanentId, SimTime};
 use civ_world::noise::Noise;
 use civ_world::{WATER_LAND, WorldMap, terrain};
 
-/// Purpose tag for the yearly climate draw.
-const PURPOSE_CLIMATE: u64 = 0x636c_696d_6174_6531; // "climate1"
 /// Purpose tag for patch richness noise.
 const PURPOSE_RICHNESS: u64 = 0x7269_6368_6e65_7373; // "richness"
 
@@ -78,6 +80,9 @@ pub enum Growth {
         loss_per_day: f64,
         /// Production weight by month, January first; the mean over the year should be 1.
         season: [f64; 12],
+        /// Its production follows the soil water under the wild cover, month by month, around
+        /// what the month usually has (ADR-0012 §5); otherwise the weather leaves it as it is.
+        follows_water: bool,
     },
     /// Stone, flint, clay: a stock laid down once that never grows back (M3a; geology arrives
     /// with M3b).
@@ -142,14 +147,14 @@ pub struct LandParams {
     pub richness_feature_m: f64,
     /// Wild resources.
     pub resources: Vec<ResourceParams>,
-    /// Coefficient of variation of the yearly climate factor.
-    pub climate_cv: f64,
-    /// Year-to-year autocorrelation of the climate factor.
-    pub climate_autocorrelation: f64,
+    /// How the weather is drawn (ADR-0012 §1).
+    pub weather: WeatherParams,
     /// How walking wears the ground.
     pub paths: PathParams,
     /// The heaviest load weather puts on a roof in a month (ADR-0009 §5).
     pub peak_load: PeakLoad,
+    /// Where deposits of clay, stone and flint lie, by kind (ADR-0010 §1).
+    pub deposits: Vec<deposits::DepositRule>,
 }
 
 /// The heaviest load wind and snow put on a roof in a month, on its plan, drawn once a month for
@@ -282,17 +287,6 @@ impl Patches {
     }
 }
 
-/// The yearly climate factor.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ClimateYear {
-    /// The year it applies to.
-    pub year: i64,
-    /// The standard-normal deviate behind it (carried for the next year's autocorrelation).
-    pub deviate: f64,
-    /// Production multiplier, around 1.
-    pub factor: f64,
-}
-
 /// A place people founded.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Settlement {
@@ -319,8 +313,12 @@ pub struct Land {
     pub stocks: Vec<Vec<f32>>,
     /// The last day whose growth has been applied. Saved.
     pub stock_day: i64,
-    /// This year's climate. Saved.
-    pub climate: ClimateYear,
+    /// The weather: today's, what tomorrow depends on, and each month's record. Saved.
+    pub weather: Weather,
+    /// What many years of the landscape's weather say about it (the long-run means harvests and
+    /// wild plants are measured against). Derived: computed when the world is made or loaded,
+    /// never saved.
+    pub climatology: Climatology,
     /// Settlements, oldest first. Saved.
     pub settlements: Vec<Settlement>,
     /// Fields, in the order they were marked out. Saved.
@@ -331,6 +329,12 @@ pub struct Land {
     pub buildings: Vec<Building>,
     /// Ground worn by walking. Saved.
     pub wear: Wear,
+    /// Deposits in the ground, in the order they were placed (ADR-0010 §1). Saved.
+    pub deposits: Vec<deposits::Deposit>,
+    /// Earthworks, in the order they were begun (ADR-0010 §2). Saved.
+    pub earthworks: Vec<earth::Earthwork>,
+    /// What earthworks have done to the ground (ADR-0010 §3). Saved.
+    pub ground: earth::GroundDelta,
 }
 
 /// Summary of a patch's terrain, for classification.
@@ -419,16 +423,41 @@ fn classify(params: &LandParams, t: &PatchTerrain) -> u8 {
     params.habitats.len().saturating_sub(1) as u8
 }
 
-fn normal(rng: &mut Rng64) -> f64 {
-    // Box–Muller from two uniforms in (0, 1].
-    let u1 = 1.0 - rng.next_f64();
-    let u2 = rng.next_f64();
-    (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos()
+/// The lowest and highest ground of `map`, metres: the heights its weather's snow bands cover.
+pub fn height_range(map: &WorldMap) -> (f64, f64) {
+    let (lo, hi) = map
+        .elevation
+        .iter()
+        .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), &z| {
+            (lo.min(z), hi.max(z))
+        });
+    if lo.is_finite() && hi.is_finite() {
+        (f64::from(lo), f64::from(hi))
+    } else {
+        (0.0, 0.0)
+    }
+}
+
+/// The ground's height under the point `(x, y)`, metres from the map's north-west corner.
+pub fn height_at(map: &WorldMap, x: f32, y: f32) -> f64 {
+    let size = map.cell_size_m.max(1e-6);
+    let cx = ((x / size).floor().max(0.0) as u32).min(map.width.saturating_sub(1));
+    let cy = ((y / size).floor().max(0.0) as u32).min(map.height.saturating_sub(1));
+    map.elevation
+        .get(cy as usize * map.width as usize + cx as usize)
+        .map_or(0.0, |&z| f64::from(z))
 }
 
 impl Land {
-    /// Classifies a map's patches and grows a year of stocks so a new world starts in season.
-    pub fn create(map: &WorldMap, params: &LandParams, seed: u64, today: i64) -> Land {
+    /// Classifies a map's patches and lives a year of weather and stocks so a new world starts
+    /// in season. `climatology` is the landscape's ([`Climatology::new`]).
+    pub fn create(
+        map: &WorldMap,
+        params: &LandParams,
+        seed: u64,
+        today: i64,
+        climatology: Climatology,
+    ) -> Land {
         let pc = params.patch_cells.max(1);
         let cols = map.width.div_ceil(pc);
         let rows = map.height.div_ceil(pc);
@@ -489,32 +518,61 @@ impl Land {
             water: Vec::new(),
         };
         patches.measure_water(map);
-        let year = today.div_euclid(DAYS_PER_YEAR) + 1;
+        let (low, high) = height_range(map);
+        let stock_day = today - DAYS_PER_YEAR - 1;
+        let weather = Weather::new(&params.weather, &climatology, low, high, stock_day + 1);
         let mut land = Land {
             stocks: vec![vec![0.0; patches.len()]; params.resources.len()],
             patches,
-            stock_day: today - DAYS_PER_YEAR - 1,
-            climate: ClimateYear {
-                year: year - 1,
-                deviate: 0.0,
-                factor: 1.0,
-            },
+            stock_day,
+            weather,
+            climatology,
             settlements: Vec::new(),
             fields: Vec::new(),
             plots: Vec::new(),
             buildings: Vec::new(),
             wear: Wear::new(map.width, map.height, map.cell_size_m),
+            deposits: Vec::new(),
+            earthworks: Vec::new(),
+            ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
         };
         // Start each stock at its equilibrium for the season a year ago, then grow a year.
         for r in 0..params.resources.len() {
             land.fill_equilibrium(params, r, land.stock_day);
         }
-        land.advance_to_day(params, seed, today - 1);
+        land.advance_to_day(params, map, today - 1);
         land
     }
 
     /// What is wrong with saved land state for a map, if anything. A save holding any of these
     /// is refused (ADR-0002).
+    /// Places the deposits `params` rules lay down on `map` for world `seed`
+    /// ([`deposits::place`]), each with a new permanent id from `ids`, after any it has; returns
+    /// how many it placed. A world places them once: a new world as it is made, an older save on
+    /// loading, so both have the bodies a new world of the seed would have.
+    pub fn place_deposits(
+        &mut self,
+        map: &WorldMap,
+        params: &LandParams,
+        seed: u64,
+        ids: &mut civ_core::IdAllocator,
+    ) -> usize {
+        let bodies = deposits::place(
+            map,
+            &params.deposits,
+            (params.channel_area_km2 * 1e6) as f32,
+            seed,
+        );
+        let n = bodies.len();
+        self.deposits
+            .extend(bodies.into_iter().map(|body| deposits::Deposit {
+                id: ids.allocate(),
+                body,
+                taken_kg: 0.0,
+            }));
+        n
+    }
+
     pub fn problems(&self, map: &WorldMap, habitats: usize, next_id: u64) -> Vec<String> {
         let mut out = Vec::new();
         let p = &self.patches;
@@ -542,9 +600,7 @@ impl Land {
                 break;
             }
         }
-        if !(self.climate.factor.is_finite() && self.climate.deviate.is_finite()) {
-            out.push("the climate year is not a number".to_owned());
-        }
+        out.extend(self.weather.problems(self.stock_day));
         let (w, h) = (
             map.width as f32 * map.cell_size_m,
             map.height as f32 * map.cell_size_m,
@@ -562,6 +618,41 @@ impl Land {
             }
         }
         let (w_cm, h_cm) = (f64::from(w) * 100.0, f64::from(h) * 100.0);
+        let mut seen = std::collections::HashSet::new();
+        for d in &self.deposits {
+            let b = &d.body;
+            let (x, y) = (b.at_cm.0 as f64, b.at_cm.1 as f64);
+            if d.id.get() >= next_id || !seen.insert(d.id) {
+                out.push(format!("deposit {} is unallocated or repeated", d.id));
+            }
+            if !((0.0..=w_cm).contains(&x) && (0.0..=h_cm).contains(&y)) {
+                out.push(format!("deposit {} is outside the map", d.id));
+            }
+            let sized = b.radius_cm > 0 && b.top_cm >= 0 && b.thickness_cm > 0;
+            let held = b.initial_kg.is_finite()
+                && b.initial_kg >= 0.0
+                && d.taken_kg.is_finite()
+                && (0.0..=b.initial_kg * (1.0 + 1e-9)).contains(&d.taken_kg);
+            if !sized || !held || !(0.0..=1.0).contains(&b.quality) {
+                out.push(format!("deposit {} has an invalid body or inventory", d.id));
+            }
+        }
+        for e in &self.earthworks {
+            let sized = e.rect.w > 0 && e.rect.h > 0 && e.side_run_cm > 0;
+            let done = (0.0..=1.0).contains(&e.done) && e.cut_m3.is_finite() && e.cut_m3 >= 0.0;
+            if e.id.get() >= next_id || !seen.insert(e.id) || !sized || !done {
+                out.push(format!(
+                    "earthwork {} is unallocated, repeated or malformed",
+                    e.id
+                ));
+            }
+            if e.version != earth::EARTH_VERSION {
+                out.push(format!(
+                    "earthwork {} is of version {}, which this build does not know",
+                    e.id, e.version
+                ));
+            }
+        }
         let mut ids = std::collections::HashSet::new();
         for f in &self.fields {
             let r = f.rect;
@@ -577,6 +668,9 @@ impl Land {
                 f.ground,
                 f.clear_h_per_ha,
                 f.sheaves_kg,
+                f.water_mm,
+                f.need_mm,
+                f.got_mm,
             ]
             .iter()
             .all(|v| v.is_finite() && *v >= 0.0);
@@ -689,11 +783,62 @@ impl Land {
         };
         let res = &params.resources[r];
         let class = self.patches.class[p] as usize;
+        let month = weather::month_of(self.weather.today.day);
         production_per_ha_yr.get(class).copied().unwrap_or(0.0)
             * self.patches.resource_ha(res, p)
             * f64::from(self.patches.richness[p])
-            * self.climate.factor
+            * self.water_effect(params, r, month)
             / DAYS_PER_YEAR as f64
+    }
+
+    /// What the soil water does to plant-like resource `r`'s production in month `month`: the
+    /// wild cover's ease of drawing water now over what the month usually has, for a resource that
+    /// follows it; 1 for the rest (ADR-0012 §5).
+    pub fn water_effect(&self, params: &LandParams, r: usize, month: usize) -> f64 {
+        match &params.resources[r].growth {
+            Growth::Plant {
+                follows_water: true,
+                ..
+            } => self
+                .climatology
+                .cover_factor(self.weather.cover_ease, month),
+            _ => 1.0,
+        }
+    }
+
+    /// Why field work cannot be done at `at` (metres) today, if it cannot (ADR-0012 §5): its
+    /// ground too wet, under snow or frozen, at its own height.
+    pub fn unworkable_at(
+        &self,
+        params: &LandParams,
+        map: &WorldMap,
+        at: (f32, f32),
+    ) -> Option<Unworkable> {
+        self.weather
+            .unworkable(&params.weather, height_at(map, at.0, at.1))
+    }
+
+    /// The share of its yield field `f` is expected to give, from what its season so far shows:
+    /// an average year's until it is sown (ADR-0012 §4).
+    pub fn expected_water(&self, f: &Field) -> f64 {
+        if f.stage != FieldStage::Sown {
+            return 1.0;
+        }
+        self.climatology.expected_crop_factor(
+            usize::from(f.crop),
+            f64::from(f.need_mm),
+            f64::from(f.got_mm),
+        )
+    }
+
+    /// The share of its yield field `f`'s season's water allows: 1 in a season of average water
+    /// (ADR-0012 §2).
+    pub fn water_factor(&self, f: &Field) -> f64 {
+        self.climatology.crop_factor(
+            usize::from(f.crop),
+            f64::from(f.need_mm),
+            f64::from(f.got_mm),
+        )
     }
 
     /// Production of plant-like resource `r` in patch `p` on day `day`, units (0 for animals).
@@ -713,7 +858,7 @@ impl Land {
             * self.patches.resource_ha(res, p)
             * f64::from(self.patches.richness[p])
             * season_weight(season, day)
-            * self.climate.factor
+            * self.water_effect(params, r, weather::month_of(day))
             / DAYS_PER_YEAR as f64
     }
 
@@ -788,27 +933,15 @@ impl Land {
             .collect()
     }
 
-    fn climate_for(&self, params: &LandParams, seed: u64, year: i64) -> ClimateYear {
-        let mut rng = Rng64::from_key(&[seed, PURPOSE_CLIMATE, year as u64]);
-        let rho = params.climate_autocorrelation.clamp(-0.99, 0.99);
-        let z = rho * self.climate.deviate + (1.0 - rho * rho).sqrt() * normal(&mut rng);
-        ClimateYear {
-            year,
-            deviate: z,
-            factor: (1.0 + params.climate_cv * z).max(0.05),
-        }
-    }
-
-    /// Applies growth and loss for every day up to and including `day`. Each day's step is exact
-    /// for constant rates over the day, so splitting an advance changes nothing. Animals spread
-    /// on the first day of each month.
-    pub fn advance_to_day(&mut self, params: &LandParams, seed: u64, day: i64) {
+    /// Lives every day up to and including `day`: each day's weather (snow, the soil under the
+    /// wild cover, the growing fields' water), then growth and loss of the stocks. Each day's step
+    /// is exact for constant rates over the day, so splitting an advance changes nothing. Animals
+    /// spread on the first day of each month.
+    pub fn advance_to_day(&mut self, params: &LandParams, map: &WorldMap, day: i64) {
         while self.stock_day < day {
             let d = self.stock_day + 1;
-            let year = d.div_euclid(DAYS_PER_YEAR) + 1;
-            if year != self.climate.year {
-                self.climate = self.climate_for(params, seed, year);
-            }
+            let water = self.weather.live(&params.weather, &self.climatology);
+            self.water_fields(&params.weather, map, &water, d);
             let month_start = MONTH_STARTS[..12].contains(&day_of_year(d));
             for (r, res) in params.resources.iter().enumerate() {
                 match &res.growth {
@@ -851,6 +984,43 @@ impl Land {
                 }
             }
             self.stock_day = d;
+        }
+    }
+
+    /// Lives day `day`'s water for each growing field (ADR-0012 §2): from the day it was sown to
+    /// the day before it ripens, its root zone gains what reached the ground of its height's band
+    /// and its crop uses what its stage needs, as far as the zone's water lets it. A crop starts
+    /// with the water the ground under the wild cover had that morning.
+    fn water_fields(
+        &mut self,
+        params: &WeatherParams,
+        map: &WorldMap,
+        water: &weather::DayWater,
+        day: i64,
+    ) {
+        for f in &mut self.fields {
+            if f.stage != FieldStage::Sown {
+                continue;
+            }
+            let Some(cw) = self.climatology.crops.get(usize::from(f.crop)) else {
+                continue;
+            };
+            let t = day - f.sown_day;
+            if t < 0 || t >= i64::from(cw.grow_days) {
+                continue;
+            }
+            if t == 0 {
+                f.water_mm = water.soil_before_mm as f32;
+                (f.need_mm, f.got_mm) = (0.0, 0.0);
+            }
+            let (x, y) = f.rect.centre_m();
+            let band = self.weather.band_of(height_at(map, x, y));
+            let need = cw.kc_on(t) * water.et0_mm[band];
+            let mut zone = f64::from(f.water_mm);
+            let got = weather::root_zone_day(&mut zone, water.input_mm[band], need, params);
+            f.water_mm = zone as f32;
+            f.need_mm = (f64::from(f.need_mm) + need) as f32;
+            f.got_mm = (f64::from(f.got_mm) + got) as f32;
         }
     }
 
@@ -1083,6 +1253,7 @@ mod tests {
                         production_per_ha_yr: vec![0.0, 36_500.0, 3_650.0],
                         loss_per_day: 0.05,
                         season: flat,
+                        follows_water: false,
                     },
                     max_rate_per_hour: 1000.0,
                     half_rate_stock_per_ha: 100.0,
@@ -1120,8 +1291,7 @@ mod tests {
                     half_rate_stock_per_ha: 100.0,
                 },
             ],
-            climate_cv: 0.0,
-            climate_autocorrelation: 0.3,
+            weather: weather::tests::params(),
             paths: PathParams {
                 wear_per_walk: 0.01,
                 half_life_days: 120.0,
@@ -1132,7 +1302,18 @@ mod tests {
                 median_pa: 250.0,
                 spread: 0.6,
             },
+            deposits: Vec::new(),
         }
+    }
+
+    /// A test landscape's climatology, with the test crop.
+    pub(crate) fn climatology(p: &LandParams, seed: u64) -> Climatology {
+        Climatology::new(&p.weather, &[fields::tests::crop()], 800.0, 48.0, 1, seed)
+    }
+
+    /// Land on the test map, made on `today`.
+    fn create(p: &LandParams, seed: u64, today: i64) -> Land {
+        Land::create(&map(), p, seed, today, climatology(p, seed))
     }
 
     pub(crate) fn map() -> WorldMap {
@@ -1179,7 +1360,7 @@ mod tests {
     #[test]
     fn expected_yields_pool_the_block_and_never_promise_more_than_is_there() {
         let p = params();
-        let land = Land::create(&map(), &p, 1, 400);
+        let land = create(&p, 1, 400);
         // Fish live in the west patches' river water only; a block of range 1 covers the whole
         // 2 x 2 grid, so every patch's block holds the same fish.
         let stock: f64 = (0..4).map(|q| land.equilibrium(&p, 2, q, 400)).sum();
@@ -1214,7 +1395,7 @@ mod tests {
 
     #[test]
     fn patches_are_classified_by_the_first_matching_rule() {
-        let land = Land::create(&map(), &params(), 1, 400);
+        let land = create(&params(), 1, 400);
         assert_eq!((land.patches.cols, land.patches.rows), (2, 2));
         // West patches are half river: water. The north-east is flat and low: arable "flat".
         // The south-east is steep: "rest".
@@ -1224,8 +1405,8 @@ mod tests {
     #[test]
     fn stocks_settle_at_production_over_loss() {
         let p = params();
-        let mut land = Land::create(&map(), &p, 1, 400);
-        land.advance_to_day(&p, 1, 2000);
+        let mut land = create(&p, 1, 400);
+        land.advance_to_day(&p, &map(), 2000);
         let area = land.patches.area_ha();
         let daily = 36_500.0 * area / 365.0;
         let eq = daily / 0.05;
@@ -1236,20 +1417,20 @@ mod tests {
     #[test]
     fn splitting_an_advance_changes_nothing() {
         let p = params();
-        let mut a = Land::create(&map(), &p, 9, 400);
+        let mut a = create(&p, 9, 400);
         let mut b = a.clone();
-        a.advance_to_day(&p, 9, 900);
+        a.advance_to_day(&p, &map(), 900);
         for d in (401..=900).step_by(37) {
-            b.advance_to_day(&p, 9, d);
+            b.advance_to_day(&p, &map(), d);
         }
-        b.advance_to_day(&p, 9, 900);
+        b.advance_to_day(&p, &map(), 900);
         assert_eq!(a, b);
     }
 
     #[test]
     fn gathering_slows_as_a_patch_empties_and_never_overdraws() {
         let p = params();
-        let mut land = Land::create(&map(), &p, 1, 400);
+        let mut land = create(&p, 1, 400);
         let before = f64::from(land.stocks[0][1]);
         let first = land.gather(&p, 0, 1, 1.0, 1.0);
         let second = land.gather(&p, 0, 1, 1.0, 1.0);
@@ -1264,7 +1445,7 @@ mod tests {
     #[test]
     fn gathering_around_works_the_richest_neighbour() {
         let p = params();
-        let mut land = Land::create(&map(), &p, 1, 400);
+        let mut land = create(&p, 1, 400);
         assert_eq!(
             land.block(0, 1).count(),
             4,
@@ -1283,7 +1464,7 @@ mod tests {
     #[test]
     fn animals_approach_their_capacity_and_fish_live_only_in_water() {
         let p = params();
-        let mut land = Land::create(&map(), &p, 1, 400);
+        let mut land = create(&p, 1, 400);
         let deer = 1;
         let k = land.capacity(&p, deer, 1);
         assert!(k > 0.0);
@@ -1295,7 +1476,7 @@ mod tests {
         land.stocks[deer][1] = (k / 10.0) as f32;
         let mut last = k / 10.0;
         for year in 1..=20 {
-            land.advance_to_day(&p, 1, 400 + year * 365);
+            land.advance_to_day(&p, &map(), 400 + year * 365);
             let now = f64::from(land.stocks[deer][1]);
             assert!(
                 now >= last * 0.98 && now <= k * 1.0001,
@@ -1314,7 +1495,7 @@ mod tests {
     #[test]
     fn spreading_moves_animals_toward_capacity_and_keeps_the_total() {
         let p = params();
-        let mut land = Land::create(&map(), &p, 1, 400);
+        let mut land = create(&p, 1, 400);
         let deer = 1;
         land.stocks[deer] = vec![0.0, 4.0, 0.0, 0.0];
         let total: f32 = land.stocks[deer].iter().sum();
@@ -1336,7 +1517,7 @@ mod tests {
     #[test]
     fn hunting_takes_whole_animals_and_never_more_than_are_there() {
         let p = params();
-        let mut land = Land::create(&map(), &p, 1, 400);
+        let mut land = create(&p, 1, 400);
         let deer = 1;
         let mut whole = 0;
         for i in 0..200 {
@@ -1364,32 +1545,79 @@ mod tests {
     #[test]
     fn splitting_an_advance_across_month_starts_changes_nothing_for_animals() {
         let p = params();
-        let mut a = Land::create(&map(), &p, 3, 400);
+        let mut a = create(&p, 3, 400);
         a.stocks[1] = vec![0.0, 1.0, 0.0, 9.0];
         let mut b = a.clone();
-        a.advance_to_day(&p, 3, 1000);
+        a.advance_to_day(&p, &map(), 1000);
         for d in (401..=1000).step_by(13) {
-            b.advance_to_day(&p, 3, d);
+            b.advance_to_day(&p, &map(), d);
         }
-        b.advance_to_day(&p, 3, 1000);
+        b.advance_to_day(&p, &map(), 1000);
         assert_eq!(a, b);
     }
 
     #[test]
-    fn the_climate_factor_varies_by_year_and_repeats_per_seed() {
+    fn a_growing_field_keeps_its_water_and_its_harvest_answers_it() {
+        let p = params();
+        let mut land = create(&p, 5, 400);
+        // A field on the flat north-east patch, sown on day 460 (5 April of the second year).
+        let mut f = fields::tests::field();
+        f.rect = RectCm {
+            x: 4000,
+            y: 0,
+            w: 2400,
+            h: 2400,
+        };
+        f.stage = FieldStage::Sown;
+        f.sown_day = 460;
+        land.fields.push(f);
+        land.advance_to_day(&p, &map(), 459);
+        assert_eq!(land.fields[0].need_mm, 0.0, "nothing before it is sown");
+        land.advance_to_day(&p, &map(), 460);
+        let first = &land.fields[0];
+        assert!(first.need_mm > 0.0 && first.got_mm > 0.0);
+        land.advance_to_day(&p, &map(), 460 + 119);
+        let ripe = land.fields[0].clone();
+        assert!(
+            (150.0..700.0).contains(&ripe.need_mm),
+            "a season's need: {} mm",
+            ripe.need_mm
+        );
+        assert!(ripe.got_mm <= ripe.need_mm && ripe.got_mm > 0.3 * ripe.need_mm);
+        // Once ripe it uses no more water.
+        land.advance_to_day(&p, &map(), 460 + 140);
+        assert_eq!(land.fields[0].need_mm, ripe.need_mm);
+        let factor = land.water_factor(&ripe);
+        let raw =
+            land.climatology.crops[0].raw_factor(f64::from(ripe.need_mm), f64::from(ripe.got_mm));
+        assert!((factor - raw / land.climatology.crop_mean[0]).abs() < 1e-12);
+        // The same days give the same weather and the same water.
+        let mut again = create(&p, 5, 400);
+        again.fields.push(land.fields[0].clone());
+        again.fields[0].need_mm = 0.0;
+        again.advance_to_day(&p, &map(), 460 + 140);
+        assert_eq!(again.weather, land.weather);
+        assert_eq!(again.fields[0].got_mm, land.fields[0].got_mm);
+    }
+
+    #[test]
+    fn wild_plants_that_follow_the_soil_water_grow_with_it() {
         let mut p = params();
-        p.climate_cv = 0.3;
-        let mut a = Land::create(&map(), &p, 5, 400);
-        let mut seen = Vec::new();
-        for y in 2..8 {
-            a.advance_to_day(&p, 5, y * 365);
-            seen.push(a.climate.factor);
+        let land = create(&p, 5, 400);
+        // The test plants ignore the weather.
+        assert_eq!(land.water_effect(&p, 0, 6), 1.0);
+        if let Growth::Plant { follows_water, .. } = &mut p.resources[0].growth {
+            *follows_water = true;
         }
-        assert!(seen.windows(2).any(|w| w[0] != w[1]));
-        assert!(seen.iter().all(|&f| f >= 0.05));
-        let mut b = Land::create(&map(), &p, 5, 400);
-        b.advance_to_day(&p, 5, 7 * 365);
-        assert_eq!(a.climate, b.climate);
+        let mut dry = land.clone();
+        dry.weather.cover_ease = 0.2;
+        let mut wet = land.clone();
+        wet.weather.cover_ease = 1.0;
+        let (d, w) = (dry.water_effect(&p, 0, 6), wet.water_effect(&p, 0, 6));
+        assert!(d < 1.0 && w > d, "a dry July {d:.2}, a wet one {w:.2}");
+        assert!((w - 1.0 / land.climatology.cover_mean[6]).abs() < 1e-12);
+        // Animals never follow it.
+        assert_eq!(dry.water_effect(&p, 1, 6), 1.0);
     }
 
     #[test]

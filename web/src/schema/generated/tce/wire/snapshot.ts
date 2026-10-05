@@ -122,8 +122,23 @@ knowledgeRev():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+depositsRev():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 36);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
+earthworksRev():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 38);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
+weatherRev():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 40);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startSnapshot(builder:flatbuffers.Builder) {
-  builder.startObject(16);
+  builder.startObject(19);
 }
 
 static addWorld(builder:flatbuffers.Builder, worldOffset:flatbuffers.Offset) {
@@ -212,6 +227,18 @@ static addWealthRev(builder:flatbuffers.Builder, wealthRev:bigint) {
 
 static addKnowledgeRev(builder:flatbuffers.Builder, knowledgeRev:bigint) {
   builder.addFieldInt64(15, knowledgeRev, BigInt('0'));
+}
+
+static addDepositsRev(builder:flatbuffers.Builder, depositsRev:bigint) {
+  builder.addFieldInt64(16, depositsRev, BigInt('0'));
+}
+
+static addEarthworksRev(builder:flatbuffers.Builder, earthworksRev:bigint) {
+  builder.addFieldInt64(17, earthworksRev, BigInt('0'));
+}
+
+static addWeatherRev(builder:flatbuffers.Builder, weatherRev:bigint) {
+  builder.addFieldInt64(18, weatherRev, BigInt('0'));
 }
 
 static endSnapshot(builder:flatbuffers.Builder):flatbuffers.Offset {

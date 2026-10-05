@@ -13,7 +13,7 @@
 //! step is the seconds it takes.
 
 use std::cell::RefCell;
-use std::cmp::Ordering;
+use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 
 use civ_core::FastMap;
@@ -211,29 +211,24 @@ thread_local! {
     static DENSE_SCORES: RefCell<DenseScores> = RefCell::new(DenseScores::default());
 }
 
-#[derive(Clone, Copy, PartialEq)]
-struct Open {
-    f: f32,
-    g: f32,
-    cell: u32,
-}
+/// A cell on the open list with its scores, packed into one integer that orders as the list
+/// pops: least `f` first, then the greatest `g` (deeper nodes), then the least cell index, a total
+/// order. Scores are never negative, so their bits order as they do.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct Open(Reverse<u128>);
 
-impl Eq for Open {}
-
-impl Ord for Open {
-    fn cmp(&self, other: &Self) -> Ordering {
-        // Min-heap on f, then on g (prefer deeper nodes), then cell index for a total order.
-        other
-            .f
-            .total_cmp(&self.f)
-            .then_with(|| self.g.total_cmp(&other.g))
-            .then_with(|| other.cell.cmp(&self.cell))
+impl Open {
+    fn new(f: f32, g: f32, cell: u32) -> Open {
+        let (f, g) = (u128::from(f.to_bits()), u128::from(u32::MAX - g.to_bits()));
+        Open(Reverse((f << 64) | (g << 32) | u128::from(cell)))
     }
-}
 
-impl PartialOrd for Open {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
+    fn g(self) -> f32 {
+        f32::from_bits(u32::MAX - (self.0.0 >> 32) as u32)
+    }
+
+    fn cell(self) -> u32 {
+        self.0.0 as u32
     }
 }
 
@@ -401,13 +396,14 @@ impl NavGrid {
     ) -> RouteResult {
         let mut open = BinaryHeap::new();
         best.set(from as u32, 0.0, u32::MAX);
-        open.push(Open {
-            f: self.heuristic(from, to, fastest),
-            g: 0.0,
-            cell: from as u32,
-        });
+        open.push(Open::new(
+            self.heuristic(from, to, fastest),
+            0.0,
+            from as u32,
+        ));
         let mut expanded = 0usize;
-        while let Some(Open { g, cell, .. }) = open.pop() {
+        while let Some(next) = open.pop() {
+            let (g, cell) = (next.g(), next.cell());
             let i = cell as usize;
             if best.get(cell).is_some_and(|(bg, _)| g > bg) {
                 continue;
@@ -427,11 +423,7 @@ impl NavGrid {
                 let better = best.get(j as u32).is_none_or(|(bg, _)| ng < bg);
                 if better {
                     best.set(j as u32, ng, cell);
-                    open.push(Open {
-                        f: ng + self.heuristic(j, to, fastest),
-                        g: ng,
-                        cell: j as u32,
-                    });
+                    open.push(Open::new(ng + self.heuristic(j, to, fastest), ng, j as u32));
                 }
             }
         }
@@ -472,19 +464,23 @@ impl NavGrid {
         field.seconds = vec![f32::INFINITY; bw * field.h];
         // Each cell's trail factor, asked once.
         let mut trails = vec![f32::NAN; bw * field.h];
+        // Cells whose time is final: none is reached sooner from a cell reached later.
+        let mut done = vec![false; bw * field.h];
+        // Cells to visit, nearest first and then by index, packed into one integer: times are
+        // never negative, so their bits order as the times do.
+        let key = |g: f32, cell: u32| Reverse((u64::from(g.to_bits()) << 32) | u64::from(cell));
         let mut open = BinaryHeap::new();
         field.seconds[(fy - y0) * bw + (fx - x0)] = 0.0;
-        open.push(Open {
-            f: 0.0,
-            g: 0.0,
-            cell: from as u32,
-        });
-        while let Some(Open { g, cell, .. }) = open.pop() {
+        open.push(key(0.0, from as u32));
+        while let Some(Reverse(k)) = open.pop() {
+            let (g, cell) = (f32::from_bits((k >> 32) as u32), k as u32);
             let i = cell as usize;
             let (x, y) = (i % self.width, i / self.width);
-            if g > field.seconds[(y - y0) * bw + (x - x0)] {
+            let si = (y - y0) * bw + (x - x0);
+            if g > field.seconds[si] {
                 continue;
             }
+            done[si] = true;
             field.reached.push(cell);
             for (&(dx, dy), dist) in D8.iter().zip(D8_DIST) {
                 let (nx, ny) = (x as i64 + i64::from(dx), y as i64 + i64::from(dy));
@@ -494,6 +490,10 @@ impl NavGrid {
                 let (nx, ny) = (nx as usize, ny as usize);
                 let j = ny * self.width + nx;
                 let sj = (ny - y0) * bw + (nx - x0);
+                // Every step takes some time, so a cell already final is no sooner from here.
+                if done[sj] {
+                    continue;
+                }
                 if trails[sj].is_nan() {
                     trails[sj] = trail(j);
                 }
@@ -505,11 +505,7 @@ impl NavGrid {
                     continue;
                 }
                 field.seconds[sj] = ng;
-                open.push(Open {
-                    f: ng,
-                    g: ng,
-                    cell: j as u32,
-                });
+                open.push(key(ng, j as u32));
             }
         }
         field

@@ -1,0 +1,16 @@
+# Building a domed clay oven: a floor and a dome of about 0.2 m³ of clay worked with straw, raised
+# in courses, then dried and cured with a slow fire. 300 kg of clay, 25 hours of work and 30 kg
+# of firewood for the curing fire (tuning values: the research gives no figure for building an
+# oven). Clay working is pottery's craft.
+kind = "recipe"
+id = "core:recipe/build_oven"
+name = "Build an oven"
+skill = "core:skill/pottery"
+technique = "core:technique/oven_baking"
+unit_h = 25.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [{ good = "core:good/clay", amount = 300.0 }, { good = "core:good/firewood", amount = 30.0 }]
+outputs = [{ good = "core:good/oven", amount = 1.0 }]
+session_inputs = []

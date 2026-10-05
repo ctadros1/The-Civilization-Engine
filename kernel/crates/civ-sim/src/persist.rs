@@ -48,7 +48,9 @@ use commons_persist::{
     SectionTag, SnapshotInfo, SnapshotReader,
 };
 
-use crate::{ContentStamp, MAX_SPEED, PHASE_AGENT, Rules, Sim, SimEvent, WorldMeta};
+use crate::{
+    ContentStamp, MAX_PACED_SPEED, PHASE_AGENT, Rules, SPEED_MAX, Sim, SimEvent, WorldMeta,
+};
 
 pub mod agents;
 
@@ -99,6 +101,21 @@ pub const SCHEMA_V16: u32 = 16;
 /// The schema version of M3b slice P's first two steps: buildings with a condition, before
 /// settlements remembered what they had seen of each technique's buildings (see [`agents`]).
 pub const SCHEMA_V17: u32 = 17;
+/// The schema version of M3b slice P's third step: settlements' trust in their buildings, before
+/// deposits were bodies in the ground (see [`agents`]).
+pub const SCHEMA_V18: u32 = 18;
+/// The schema version of M3b slice Q's first step: deposits, before earthworks (see [`agents`]).
+pub const SCHEMA_V19: u32 = 19;
+/// The schema version of M3b slice Q's second step: levelled plots, before pits (see [`agents`]).
+pub const SCHEMA_V20: u32 = 20;
+/// The schema version of M3b slice Q's third step: pits and spoil heaps, before taste in
+/// building (see [`agents`]).
+pub const SCHEMA_V21: u32 = 21;
+/// The schema version of M3b slice R: taste in building, before worn ground was kept exactly with
+/// its routing view (see [`agents`]).
+pub const SCHEMA_V22: u32 = 22;
+/// The schema version of M3c slice S: worn ground kept exactly, before weather (see [`agents`]).
+pub const SCHEMA_V23: u32 = 23;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");
@@ -329,13 +346,17 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
         (clock.minute(), clock.scheduler_seq(), clock.paused());
     let next_permanent_id = clock.next_permanent_id();
     let speed = clock.speed();
-    if !(speed.is_finite() && speed > 0.0) {
+    if speed.is_nan() || speed <= 0.0 {
         return Err(LoadError::Malformed(format!(
             "the clock speed {speed} is invalid"
         )));
     }
-    // A speed is a setting, not world state: a save from a build with faster speeds still loads.
-    let speed = speed.clamp(1.0, MAX_SPEED);
+    // A speed is a setting, not world state: a save from a build with other speeds still loads.
+    let speed = if speed == SPEED_MAX {
+        speed
+    } else {
+        speed.clamp(1.0, MAX_PACED_SPEED)
+    };
 
     let content_bytes = single_chunk(&mut reader, SECTION_CONTENT)?;
     let saved_content = flatbuffers::root::<save::Content>(&content_bytes)
@@ -390,10 +411,17 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
 
     let rules = Arc::new(Rules::of(content));
     let now = SimTime::from_minutes(clock_minute);
-    let (land, people, events, redecide) = if info.schema_version == SCHEMA_V1 {
+    let climatology = crate::climatology(&rules, &map, &world_meta.preset_id, world_meta.seed);
+    let (land, people, events, redecide, place_deposits) = if info.schema_version == SCHEMA_V1 {
         // An M0 world: land as a new world would have it, and nobody yet.
-        let land = Land::create(&map, &rules.land, world_meta.seed, now.day_index());
-        (land, Population::new(), Vec::new(), Vec::new())
+        let land = Land::create(
+            &map,
+            &rules.land,
+            world_meta.seed,
+            now.day_index(),
+            climatology,
+        );
+        (land, Population::new(), Vec::new(), Vec::new(), true)
     } else {
         let d = agents::decode(
             &mut reader,
@@ -403,8 +431,9 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
             info.schema_version,
             now,
             world_meta.seed,
+            climatology,
         )?;
-        (d.land, d.people, d.events, d.redecide)
+        (d.land, d.people, d.events, d.redecide, d.place_deposits)
     };
     let mut scheduler = Scheduler::restore(now, scheduler_seq, tiebreak, events)
         .ok_or_else(|| LoadError::Malformed("the scheduler state is invalid".to_owned()))?;
@@ -437,7 +466,14 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
         people,
     );
     sim.paused = paused;
-    sim.speed = speed;
+    sim.set_speed(speed)
+        .map_err(|e| LoadError::Malformed(e.to_string()))?;
+    // A save from before deposits were bodies gains the ones a new world of its seed would have.
+    if place_deposits {
+        let seed = sim.meta.seed;
+        sim.land
+            .place_deposits(&sim.map, &sim.rules.land, seed, &mut sim.ids);
+    }
     sim.content_changed = saved_fingerprint != content.fingerprint;
     sim.last_snapshot = Some(info.snapshot_id);
     sim.generation = info.generation;

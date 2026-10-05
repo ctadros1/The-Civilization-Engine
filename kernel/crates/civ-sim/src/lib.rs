@@ -37,10 +37,39 @@ pub const MAP_SIZES: [u32; 4] = [256, 512, 1024, 2048];
 pub const DEFAULT_MAP_SIZE: u32 = 2048;
 /// Simulated seconds per real second at 1x: one in-game day per 15 real minutes (plan §4.4).
 pub const SPEED_1X: f32 = 96.0;
-/// The Detailed-mode speeds as multiples of 1x (plan §4.4). Accelerated mode arrives with agents.
+/// The Detailed-mode speeds as multiples of 1x (plan §4.4).
 pub const SPEED_MULTIPLIERS: [f32; 3] = [1.0, 3.0, 10.0];
-/// The fastest speed, in simulated seconds per real second.
-pub const MAX_SPEED: f32 = SPEED_1X * 10.0;
+/// The Accelerated-mode speeds as multiples of 1x (ADR-0011): 60x, 600x and Max, which is as fast
+/// as the kernel lives, an infinite speed.
+pub const ACCELERATED_MULTIPLIERS: [f32; 3] = [60.0, 600.0, f32::INFINITY];
+/// The fastest Detailed speed, in simulated seconds per real second: faster ones are Accelerated.
+pub const MAX_DETAILED_SPEED: f32 = SPEED_1X * 10.0;
+/// The fastest paced speed, in simulated seconds per real second; beyond it there is only Max.
+pub const MAX_PACED_SPEED: f32 = SPEED_1X * 600.0;
+/// Max: as fast as the kernel lives, a day at a time.
+pub const SPEED_MAX: f32 = f32::INFINITY;
+
+/// How the kernel advances (ADR-0011 §1), as its speed implies: a setting, never world state.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Mode {
+    /// Up to 10x: every event as it falls, the clock stopping at any minute.
+    #[default]
+    Detailed,
+    /// 60x, 600x and Max: a day at a time, the clock stopping, publishing and saving only at
+    /// midnight (ADR-0011 §2). As yet it lives each day exactly as Detailed mode does.
+    Accelerated,
+}
+
+impl Mode {
+    /// The mode a speed implies.
+    pub fn of_speed(speed: f32) -> Mode {
+        if speed > MAX_DETAILED_SPEED {
+            Mode::Accelerated
+        } else {
+            Mode::Detailed
+        }
+    }
+}
 /// Longest world name kept, in bytes.
 pub const MAX_NAME_LEN: usize = 64;
 /// Name given to a world created without one.
@@ -164,6 +193,44 @@ impl Rules {
     }
 }
 
+/// The climatology of a world's landscape (ADR-0012 §2): drawn from the content's weather and
+/// crops, the map's annual precipitation, the people's latitude and the preset. Derived when a
+/// world is made or loaded, never saved.
+pub(crate) fn climatology(
+    rules: &Rules,
+    map: &WorldMap,
+    preset_id: &str,
+    seed: u64,
+) -> civ_land::Climatology {
+    civ_land::Climatology::new(
+        &rules.land.weather,
+        &rules.catalog.crops,
+        f64::from(map.climate.precipitation_mm_per_yr),
+        rules.people.latitude_deg,
+        civ_land::weather::landscape_key(preset_id),
+        seed,
+    )
+}
+
+/// The climatology of preset `preset`'s landscape for a world of `seed`, as a world made from it
+/// would have (see [`climatology`]), without making the map: its annual precipitation is the
+/// preset's own.
+pub fn climatology_of(
+    content: &ContentRegistry,
+    preset: &civ_content::WorldgenPreset,
+    seed: u64,
+) -> civ_land::Climatology {
+    let rules = Rules::of(content);
+    civ_land::Climatology::new(
+        &rules.land.weather,
+        &rules.catalog.crops,
+        f64::from(preset.params.precipitation_mm_per_yr as f32),
+        rules.people.latitude_deg,
+        civ_land::weather::landscape_key(&preset.id),
+        seed,
+    )
+}
+
 /// What one advance of the clock did.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Advance {
@@ -193,7 +260,7 @@ pub enum SimError {
         /// The largest band allowed.
         max: u32,
     },
-    /// Speeds must be finite, positive and at most [`MAX_SPEED`].
+    /// Speeds must be from 1 to [`MAX_PACED_SPEED`], or [`SPEED_MAX`].
     InvalidSpeed(f32),
     /// World generation failed or was cancelled.
     Generation(GenError),
@@ -212,7 +279,8 @@ impl fmt::Display for SimError {
             ),
             SimError::InvalidSpeed(speed) => write!(
                 f,
-                "speed {speed} is out of range (1 to {MAX_SPEED} simulated seconds per second)"
+                "speed {speed} is out of range (1 to {MAX_PACED_SPEED} simulated seconds per second, \
+                 or Max)"
             ),
             SimError::Generation(e) => e.fmt(f),
             SimError::Schedule(e) => write!(f, "the scheduler stopped: {e}"),
@@ -232,7 +300,11 @@ pub struct Sim {
     ids: IdAllocator,
     paused: bool,
     speed: f32,
-    /// Simulated seconds owed but not yet a whole minute.
+    /// How the kernel advances now, and a change of mode held for the next midnight.
+    mode: Mode,
+    mode_next: Option<Mode>,
+    /// Simulated seconds owed: not yet a whole minute in Detailed mode, not yet a whole day in
+    /// Accelerated mode.
     carry_seconds: f64,
     content: ContentStamp,
     content_changed: bool,
@@ -291,6 +363,33 @@ impl Sim {
         progress: &mut dyn FnMut(Progress),
         cancel: &AtomicBool,
     ) -> Result<Sim, SimError> {
+        Sim::create_as(request, content, progress, cancel, None)
+    }
+
+    /// Generates a new world with the identity `world_id` rather than a fresh one: a test's world
+    /// then lives the same life every run (an identity orders the events of an instant).
+    #[doc(hidden)]
+    pub fn create_for_tests(
+        request: &NewWorld,
+        content: &ContentRegistry,
+        world_id: [u8; 16],
+    ) -> Result<Sim, SimError> {
+        Sim::create_as(
+            request,
+            content,
+            &mut |_| {},
+            &AtomicBool::new(false),
+            Some(world_id),
+        )
+    }
+
+    fn create_as(
+        request: &NewWorld,
+        content: &ContentRegistry,
+        progress: &mut dyn FnMut(Progress),
+        cancel: &AtomicBool,
+        identity: Option<[u8; 16]>,
+    ) -> Result<Sim, SimError> {
         let preset = content
             .preset(&request.preset_id)
             .ok_or_else(|| SimError::UnknownPreset(request.preset_id.clone()))?;
@@ -324,17 +423,19 @@ impl Sim {
             None if request.regime_id.is_empty() => String::new(),
             None => return Err(SimError::UnknownRegime(request.regime_id.clone())),
         };
-        let world_id = commons_persist::random_id().unwrap_or_else(|_| {
-            // No OS randomness: fall back to time and seed. Identity only needs to be unique
-            // among this player's worlds.
-            let t = commons_persist::now_unix_ms() as u64;
-            let a = civ_core::rng::key(&[t, request.seed]);
-            let b = civ_core::rng::key(&[a, t]);
-            let mut id = [0u8; 16];
-            id[..8].copy_from_slice(&a.to_le_bytes());
-            id[8..].copy_from_slice(&b.to_le_bytes());
-            id
-        });
+        let world_id = identity
+            .map_or_else(commons_persist::random_id, Ok)
+            .unwrap_or_else(|_| {
+                // No OS randomness: fall back to time and seed. Identity only needs to be unique
+                // among this player's worlds.
+                let t = commons_persist::now_unix_ms() as u64;
+                let a = civ_core::rng::key(&[t, request.seed]);
+                let b = civ_core::rng::key(&[a, t]);
+                let mut id = [0u8; 16];
+                id[..8].copy_from_slice(&a.to_le_bytes());
+                id[8..].copy_from_slice(&b.to_le_bytes());
+                id
+            });
         let meta = WorldMeta {
             world_id,
             name: normalize_name(&request.name),
@@ -360,11 +461,13 @@ impl Sim {
             stage: "Growing wild plants",
             fraction: 1.0,
         });
+        let climatology = climatology(&rules, &map, &meta.preset_id, meta.seed);
         let land = Land::create(
             &map,
             &rules.land,
             request.seed,
             DEFAULT_WORLD_START.day_index(),
+            climatology,
         );
         let mut sim = Sim::assemble(
             meta,
@@ -383,6 +486,10 @@ impl Sim {
         if let Err(why) = sim.found_band(band_size) {
             sim.founding_problem = Some(why);
         }
+        // Deposits are laid down once, after the band arrives so its founding draws are as they
+        // were before deposits existed (ADR-0010 §1).
+        sim.land
+            .place_deposits(&sim.map, &sim.rules.land, sim.meta.seed, &mut sim.ids);
         Ok(sim)
     }
 
@@ -420,6 +527,96 @@ impl Sim {
     /// camp (see [`civ_agents::spawn_family`]).
     pub fn spawn_family(&mut self, at: (f32, f32)) -> Result<Spawned, String> {
         self.spawn_families(at, 1).map(|mut all| all.remove(0))
+    }
+
+    /// The observer lays down a deposit of good `good` (a content id) at `at` (metres), a disc of
+    /// `radius_m` showing at the surface or under the cover the land profile's rule for the good
+    /// gives (god tool, ADR-0010 §1). Its thickness, quality and density are the middle of that
+    /// rule's ranges, or a metre, 0.6 and 1,800 kg/m³ for a good the profile lays down none of.
+    /// Refused off the map, on water, for an unknown good or a radius outside 1 to 200 m.
+    pub fn place_deposit(
+        &mut self,
+        at: (f32, f32),
+        good: &str,
+        radius_m: f32,
+        exposed: bool,
+    ) -> Result<civ_core::PermanentId, String> {
+        let g = self
+            .rules
+            .catalog
+            .good_index(good)
+            .ok_or_else(|| format!("there is no good `{good}`"))?;
+        if !(1.0..=200.0).contains(&radius_m) {
+            return Err(format!(
+                "a deposit's radius must be 1 to 200 m (got {radius_m})"
+            ));
+        }
+        let cell_m = self.map.cell_size_m;
+        let (cx, cy) = (at.0 / cell_m, at.1 / cell_m);
+        if !(cx >= 0.0 && cy >= 0.0 && cx < self.map.width as f32 && cy < self.map.height as f32) {
+            return Err("that is off the map".to_owned());
+        }
+        let cell = cy as usize * self.map.width as usize + cx as usize;
+        if self.map.water[cell] != civ_world::WATER_LAND {
+            return Err("a deposit must lie under dry land".to_owned());
+        }
+        let rule = self.rules.land.deposits.iter().find(|r| r.good == g);
+        let mid = |(lo, hi): (f64, f64)| (lo + hi) / 2.0;
+        let thickness = rule.map_or(1.0, |r| mid(r.thickness_m)).max(0.05);
+        let quality = rule.map_or(0.6, |r| mid(r.quality)).clamp(0.0, 1.0);
+        let density = rule.map_or(1_800.0, |r| r.density_kg_m3).max(0.0);
+        let top = if exposed {
+            0.0
+        } else {
+            rule.map_or(1.0, |r| r.top_m.1).max(0.1)
+        };
+        let r = f64::from(radius_m);
+        let body = civ_land::deposits::Body {
+            good: g as u16,
+            at_cm: (
+                (f64::from(at.0) * 100.0) as i64,
+                (f64::from(at.1) * 100.0) as i64,
+            ),
+            radius_cm: (r * 100.0).round() as i32,
+            top_cm: (top * 100.0).round() as i32,
+            thickness_cm: (thickness * 100.0).round() as i32,
+            quality: quality as f32,
+            exposed,
+            initial_kg: std::f64::consts::PI * r * r * thickness * density,
+        };
+        let id = self.ids.allocate();
+        self.land.deposits.push(civ_land::deposits::Deposit {
+            id,
+            body,
+            taken_kg: 0.0,
+        });
+        let nearest = self
+            .land
+            .settlements
+            .iter()
+            .min_by(|a, b| {
+                let d = |s: &civ_land::Settlement| (s.hearth_m.0 - at.0).hypot(s.hearth_m.1 - at.1);
+                d(a).total_cmp(&d(b))
+            })
+            .map(|s| s.id);
+        let what = self.rules.catalog.goods[g].name.to_lowercase();
+        let words = if exposed {
+            format!("{what} showing at the surface")
+        } else {
+            format!("{what} under the ground")
+        };
+        let now = self.now();
+        self.people.chronicle_push(
+            now,
+            civ_agents::history::ChronicleKind::DepositPlaced,
+            Vec::new(),
+            nearest,
+            Some(at),
+            0.0,
+            words,
+        );
+        self.dirty = true;
+        Ok(id)
     }
 
     /// The observer sends `families` families to the world's first settlement, for runs of
@@ -540,9 +737,12 @@ impl Sim {
         for cadence in [Cadence::Day, Cadence::Month, Cadence::Year] {
             scheduler.subscribe(cadence);
         }
-        // The routing view and the trails are derived from the worn ground.
-        land.wear
-            .survey(scheduler.now().day_index(), &rules.land.paths);
+        // The routing view and the trails are drawn from the worn ground, unless the save kept
+        // the view people planned on (schema 23): then routes are planned as they were.
+        if !land.wear.has_view() {
+            land.wear
+                .survey(scheduler.now().day_index(), &rules.land.paths);
+        }
         let stats = map.stats();
         let nav = Arc::new(NavGrid::new(&map, rules.people.nav));
         people.rebuild_indexes();
@@ -563,6 +763,8 @@ impl Sim {
             ids,
             paused: true,
             speed: SPEED_1X,
+            mode: Mode::Detailed,
+            mode_next: None,
             carry_seconds: 0.0,
             content,
             content_changed: false,
@@ -613,9 +815,15 @@ impl Sim {
         self.paused
     }
 
-    /// Simulated seconds per real second while running.
+    /// Simulated seconds per real second while running ([`SPEED_MAX`] for Max).
     pub fn speed(&self) -> f32 {
         self.speed
+    }
+
+    /// How the kernel advances now. A change of speed that changes the mode takes effect at the
+    /// next midnight (ADR-0011 §2).
+    pub fn mode(&self) -> Mode {
+        self.mode
     }
 
     /// The permanent-id counter.
@@ -700,6 +908,22 @@ impl Sim {
             use_,
             since: now,
         });
+        // Its plot is levelled as one begun would be; past its first stage, it is done.
+        let levelling = civ_agents::build::level_plot(
+            &mut self.land,
+            &self.map,
+            &mut self.ids,
+            &self.rules.people.build.levelling,
+            (plot, rect),
+            household,
+            now,
+        );
+        if levelling > 0.0 && stage > 0 {
+            let land = &mut self.land;
+            for work in land.earthworks.iter_mut().filter(|w| w.plot == Some(plot)) {
+                civ_land::earth::advance(work, &self.map, &mut land.ground, 1.0);
+            }
+        }
         let mut b = civ_land::Building {
             stage,
             ..civ_land::Building::new(id, household, plot, spec, now)
@@ -790,20 +1014,52 @@ impl Sim {
         }
     }
 
-    /// Changes the speed, in simulated seconds per real second.
+    /// Changes the speed, in simulated seconds per real second: from 1 to [`MAX_PACED_SPEED`], or
+    /// [`SPEED_MAX`]. Beyond [`MAX_DETAILED_SPEED`] the kernel advances in Accelerated mode. A
+    /// change of mode takes effect now if the clock stands at a midnight, else at the next one,
+    /// after the day's work there and before the new day's first event (ADR-0011 §2).
     pub fn set_speed(&mut self, speed: f32) -> Result<(), SimError> {
-        if !(speed.is_finite() && (1.0..=MAX_SPEED).contains(&speed)) {
+        let paced = speed.is_finite() && (1.0..=MAX_PACED_SPEED).contains(&speed);
+        if !(paced || speed == SPEED_MAX) {
             return Err(SimError::InvalidSpeed(speed));
         }
+        let mode = Mode::of_speed(speed);
+        if mode != Mode::of_speed(self.speed) {
+            // Time owed at one pace is not owed at the other.
+            self.carry_seconds = 0.0;
+        }
         self.speed = speed;
+        if self.now().minute_of_day() == 0 {
+            self.mode = mode;
+            self.mode_next = None;
+        } else {
+            self.mode_next = (mode != self.mode).then_some(mode);
+        }
         Ok(())
     }
 
     /// Advances by `real_seconds` of wall-clock time at the current speed. Does nothing while
-    /// paused. Fractions of a simulated minute carry over to the next call.
+    /// paused. At a Detailed speed, by whole minutes, fractions carried over to the next call. At
+    /// an Accelerated speed, a whole day once a day's time has come, never more than one a call
+    /// (a host that falls behind stays behind); and when the clock stands between midnights, as
+    /// after a change from a Detailed speed, the rest of the day at once.
     pub fn advance_real(&mut self, real_seconds: f64) -> Result<Advance, SimError> {
         if self.paused || !(real_seconds.is_finite() && real_seconds > 0.0) {
             return Ok(Advance::default());
+        }
+        if Mode::of_speed(self.speed) == Mode::Accelerated {
+            if self.now().minute_of_day() != 0 {
+                self.carry_seconds = 0.0;
+                return self.advance_to_midnight();
+            }
+            let day = (civ_core::time::MINUTES_PER_DAY * 60) as f64;
+            self.carry_seconds =
+                (self.carry_seconds + real_seconds * f64::from(self.speed)).min(day);
+            if self.carry_seconds < day {
+                return Ok(Advance::default());
+            }
+            self.carry_seconds = 0.0;
+            return self.advance_to_midnight();
         }
         let seconds = self.carry_seconds + real_seconds * f64::from(self.speed);
         let minutes = (seconds / 60.0).floor();
@@ -811,7 +1067,20 @@ impl Sim {
         self.advance_minutes(minutes as i64)
     }
 
-    /// Advances by whole simulated minutes, whether or not the clock is paused.
+    /// Advances to the next midnight: through the rest of the day, then the land's and the
+    /// people's day there and any change of mode held for it, stopping before the new day's first
+    /// event (ADR-0011 §2). Accelerated mode advances only so.
+    pub fn advance_to_midnight(&mut self) -> Result<Advance, SimError> {
+        let now = self.now().minutes();
+        let day = civ_core::time::MINUTES_PER_DAY;
+        let next = (now.div_euclid(day) + 1) * day;
+        self.advance_minutes(next - now)
+    }
+
+    /// Advances by whole simulated minutes, whether or not the clock is paused. The clock stops
+    /// after the boundaries of the minute it stops at (a midnight's day of work, say) and before
+    /// that minute's events, which come first in the next advance: cut anywhere, the world lives
+    /// the same.
     pub fn advance_minutes(&mut self, minutes: i64) -> Result<Advance, SimError> {
         if minutes <= 0 {
             return Ok(Advance::default());
@@ -831,16 +1100,18 @@ impl Sim {
             nav,
             land,
             people,
+            mode,
+            mode_next,
             ..
         } = self;
         let mut pending = Vec::new();
         scheduler
-            .advance_to(target, |due, followups| match due {
+            .advance_before_events(target, |due, followups| match due {
                 Due::Cadence { cadence, at } => match cadence {
                     Cadence::Day => {
                         advance.days += 1;
                         // The day that just ended is complete.
-                        land.advance_to_day(&rules.land, meta.seed, at.day_index() - 1);
+                        land.advance_to_day(&rules.land, map, at.day_index() - 1);
                         let mut ctx = Ctx {
                             now: at,
                             seed: meta.seed,
@@ -858,6 +1129,11 @@ impl Sim {
                         // Newborns decide what to do first.
                         for (t, e) in pending.drain(..) {
                             let _ = followups.schedule(t, PHASE_AGENT, SimEvent::Agent(e));
+                        }
+                        // A change of mode held for midnight: after the day's work, before the
+                        // new day's first event (ADR-0011 §2).
+                        if let Some(next) = mode_next.take() {
+                            *mode = next;
                         }
                     }
                     Cadence::Month => {
@@ -877,6 +1153,8 @@ impl Sim {
                             at,
                             at.date().year - 1,
                         );
+                        // Taste moves toward the year's admired buildings (M3b slice R).
+                        people.review_tastes(&rules.catalog, &rules.people, &rules.land, land, at);
                     }
                     _ => {}
                 },

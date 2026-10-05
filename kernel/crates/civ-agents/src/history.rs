@@ -110,11 +110,17 @@ pub enum Reason {
     NoProblem = 123,
     /// Excluded: they tried something new lately.
     TriedLately = 124,
+    /// Excluded: the ground is too wet to work today (ADR-0012 §5).
+    WetGround = 125,
+    /// Excluded: snow lies on the ground.
+    SnowCover = 126,
+    /// Excluded: the ground is frozen.
+    FrozenGround = 127,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 48] = [
+    pub const ALL: [Reason; 51] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -163,6 +169,9 @@ impl Reason {
         Reason::Spoiling,
         Reason::NoProblem,
         Reason::TriedLately,
+        Reason::WetGround,
+        Reason::SnowCover,
+        Reason::FrozenGround,
     ];
 
     /// The reason with this code.
@@ -221,6 +230,9 @@ impl Reason {
             Reason::Spoiling => "before it spoils",
             Reason::NoProblem => "nothing at home calls for it",
             Reason::TriedLately => "tried something new lately",
+            Reason::WetGround => "the ground too wet to work",
+            Reason::SnowCover => "snow on the ground",
+            Reason::FrozenGround => "the ground frozen",
         }
     }
 }
@@ -413,6 +425,12 @@ pub enum ChronicleKind {
     /// `name` what gave way, under what and why, in words ("longhouse lost its loft: the joists
     /// broke under 1.9 t of grain; they were poorly made").
     BuildingFailed,
+    /// A settlement found a deposit (ADR-0010 §1): `people` is who found it, `place` the body,
+    /// and `name` what was found in words ("clay showing at the surface").
+    DepositFound,
+    /// The observer laid down a deposit (the god tool, ADR-0010 §1): `place` the body, `settlement`
+    /// the nearest settlement if any, and `name` what it is in words ("clay under the ground").
+    DepositPlaced,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -769,6 +787,16 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 spans.push(Span::Text(".".to_owned()));
             }
             spans
+        }
+        ChronicleKind::DepositFound => match person(0) {
+            Some(finder) => vec![finder, Span::Text(format!(" found {}.", event.name))],
+            None => vec![Span::Text(format!("Found {}.", event.name))],
+        },
+        ChronicleKind::DepositPlaced => {
+            vec![Span::Text(format!(
+                "The observer laid down {}.",
+                event.name
+            ))]
         }
         ChronicleKind::FirstTrail => vec![
             Span::Text("The first trail out of ".to_owned()),

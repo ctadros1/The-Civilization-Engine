@@ -1,0 +1,20 @@
+# Bread baked in the household's clay oven. A fire heats the oven: three quarters of an hour of
+# tending and 3 kg of wood a firing. Then a batch bakes in the heat its clay holds, up to 12 kg of
+# flour a firing for an oven about a metre across (tuning values). Its fire's heat goes into the
+# bread two or three times as well as the hearth's (research 07-06 §2.3: 5-15 % useful heat for
+# an open fire, 15-30 % for an improved stove), so a full firing takes half the hearth's wood a
+# kilogram: 0.25 kg against 0.5. Bread is shaped and set in at 0.2 hours a kilogram of flour, 0.15
+# a kilogram of bread, within 08-03 §2.2's 0.08-0.20 hours a kilogram for a bakery's batch against
+# 0.20-0.60 for a household's at the hearth. A small batch costs more wood than the hearth would.
+kind = "recipe"
+id = "core:recipe/bake_bread_oven"
+name = "Bake bread in the oven"
+skill = "core:skill/baking"
+technique = "core:technique/oven_baking"
+unit_h = 0.2
+session_h = 0.75
+max_units = 12.0
+tools = ["core:good/oven"]
+inputs = [{ good = "core:good/flour", amount = 1.0 }]
+outputs = [{ good = "core:good/bread", amount = 1.3 }]
+session_inputs = [{ good = "core:good/firewood", amount = 3.0 }]

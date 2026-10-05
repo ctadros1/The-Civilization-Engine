@@ -17,6 +17,8 @@ the milestone is too big and gets split.
 | [0008](0008-knowledge-carried-by-people.md) | Knowledge carried by people | Accepted | M3b |
 | [0009](0009-building-components.md) | Building components: grammar v2, condition and trust | Accepted | M3b |
 | [0010](0010-ground-people-change.md) | The ground people change: deposits and earthworks | Accepted | M3b |
+| [0011](0011-execution-modes.md) | Execution modes: Detailed and Accelerated | Accepted | M3c |
+| [0012](0012-weather-and-soil.md) | Weather and the soil | Accepted | M3c |
 
 ## Template
 

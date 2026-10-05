@@ -1,0 +1,18 @@
+# Forming clay into vessels and firing them in an open fire, without a kiln (research 07-05 §3.1:
+# fired pottery among foragers from 20,000 years ago, so it needs no farming before it; §1.3: open
+# firing makes pottery without a permanent kiln). Founders bring it (06-08 §3), and in slice M it
+# passes to children at home. 300 hours to learn (07-02 §2.3, a tuning value).
+kind = "technique"
+id = "core:technique/pottery"
+name = "Making pottery"
+can = "form clay into pots and fire them in an open fire"
+domain = "core:skill/pottery"
+requires = []
+tried_in = []
+needs = []
+e50_h = 100000.0                 # unused while no work tries toward it
+learn_h = 300.0
+upbringing = true
+
+[answers]
+spoilage = []

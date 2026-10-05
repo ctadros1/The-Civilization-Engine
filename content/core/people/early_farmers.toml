@@ -169,6 +169,9 @@ plan_yield_share = 0.8           # plan on a cautious harvest: the 10th-30th per
 loss_share = 0.1
 grain_target_days = 400.0        # grain held at which a harvest is worth half as much: a year plus a margin (10-01 §2.3)
 work_hours_per_day = 6.0         # field work a capable adult gives a day: 6 h ordinary, 10 h at a peak (04-02 §2.4)
+# At a peak, on the days the ground can be worked: what makes up the days rain, snow or frost take
+# from the sowing window (ADR-0012 §5; content API 24).
+peak_work_hours_per_day = 10.0
 field_m = 50.0                   # a new field is 50 m square, 0.25 ha (03-04 §5.1: soil patches 0.25-1 ha)
 max_walk_minutes = 30.0          # the farthest walk to a field (10-01 §2.3: 15-60 minutes one way)
 site_candidates = 24             # places looked at when marking out a new field
@@ -187,6 +190,23 @@ home_work_places = 2             # two at a craft beside living (tuning; the res
 # one dispersion figure the research gives, a building-to-building log-dispersion (11-06 §2.2);
 # a master's is a tuning value.
 quality_spread = [0.3, 0.1]
+
+[build.levelling]
+# How a household levels the plot of a building on sloping ground (ADR-0010 §2): ground that
+# drops more than `from_m` across the plot is cut and filled to one level before the building
+# goes up, its sides sloping back to the ground; ground that drops more than `most_m` is not
+# built on. The research gives no threshold for either (tuning values). Households seek level
+# ground first.
+from_m = 0.4
+most_m = 2.0
+# Hours a cubic metre of earth cut (as it lay in the ground) takes, dug, carried across the plot
+# and spread and tamped as fill, with wooden, antler and stone tools: 8 to dig it (11-12 §2.4's
+# prior for a non-metal kit, 1.0 m³ an 8-hour day, 0.5-2.0, low confidence), 2.4 to spread and
+# tamp it (3 m³ compacted a day at 0.9 of the volume it had in the ground, the same table) and
+# about half an hour to carry it a few metres in 20 kg baskets (a tuning value). FAO's 3-4 m³ a
+# day for bench terraces (11-12 §2.2) is for steel tools.
+h_per_m3 = 11.0
+side_run = 1.5                   # 11-12 §2.3: 1.5 across to 1 up in ordinary earth (given for canals; tuning)
 
 [build.caution]
 # How builders answer what their settlement has seen of a technique's buildings (ADR-0009 §6):
@@ -322,6 +342,33 @@ wage_max_change = 0.05
 # hours a day (a tuning value).
 max_hire_hours = 21.0
 
+[digging]
+# How people dig at a deposit the settlement knows (ADR-0010 §2). With wooden, antler and stone
+# tools a cubic metre of workable earth, as it lay in the ground, takes 8 hours to dig and lift out
+# (research 11-12 §2.4: 1.0 m³ an 8-hour day, 0.5-2.0, a low-confidence prior for a non-metal kit).
+# A pit is 3 m square, its spoil heaped on a square beside it (tuning values).
+h_per_m3 = 8.0
+pit_side_m = 3.0
+
+[style]
+# Taste in building and how it moves (M3b slice R; research 11-02 §1.1, §2.2). A household's taste
+# is the roof pitch, height to the eaves and overhang it would build to, held to what each program
+# allows (every roof 45-55°: 11-01 §3.2, grass thatch sheds rain from 45°). Each founding band shares
+# a way of building drawn around `tradition`, and each household strays a little from its band's.
+# Once a year a household's taste moves toward each building its settlement finished that year:
+# `alpha` of the way for the most admired, less for others. A building is admired from 1 to
+# `prestige_most` times, for its owner's standing in goods among the settlement's households and
+# how well it was built among the year's new buildings, equally (11-02 §1.1: prestige is not
+# wealth alone), and one that gave way is not admired. A building has one trait new to its
+# builders at `innovation`'s chance. alpha, prestige_most and innovation are 11-02 §2.2's test priors (0.02-0.20, 1-3 and
+# 0.1-3 %, low confidence); the tradition and its spreads are tuning values.
+alpha = 0.1
+prestige_most = 3.0
+innovation = 0.01
+tradition = { pitch_deg = 48.0, eave_m = 1.9, overhang_m = 0.5 }
+tradition_spread = { pitch_deg = 2.5, eave_m = 0.1, overhang_m = 0.1 }
+personal_spread = { pitch_deg = 1.0, eave_m = 0.03, overhang_m = 0.03 }
+
 [knowledge]                      # what founders know and how people learn (ADR-0008); tuning values
 # The share of founders old enough for each technique's work who know it. Founders arrive with
 # substantial practical knowledge (research 06-08 §3): every technique of today's work.
@@ -334,6 +381,8 @@ founders = [
   { technique = "core:technique/stone_shaping", share = 1.0 },
   { technique = "core:technique/wood_shaping", share = 1.0 },
   { technique = "core:technique/roundhouse", share = 1.0 },
+  { technique = "core:technique/pottery", share = 1.0 },
+  { technique = "core:technique/oven_baking", share = 1.0 },
 ]
 # Learners one person teaches at once (research 07-02 §2.3: 1-3 a teacher).
 max_learners = 2

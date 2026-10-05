@@ -221,6 +221,7 @@ mod tests {
                 fixed: false,
             }),
             timber: None,
+            store: None,
         }
     }
 
@@ -305,6 +306,9 @@ mod tests {
             reap_h_per_ha: 280.0,
             thresh_h_per_kg: 0.1,
             straw: None,
+            kc: [0.4, 1.15, 0.4],
+            kc_days: [30, 30, 40, 20],
+            ky: 1.15,
         };
         let ripe = i64::from(crop.sow_from_day) + i64::from(crop.grow_days);
         let costs = grown_costs(std::slice::from_ref(&crop), 3, 0.8, ripe, &|_| 0.0);

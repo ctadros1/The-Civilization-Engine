@@ -53,6 +53,9 @@ struct WelcomeBuilder;
 struct Clock;
 struct ClockBuilder;
 
+struct DayWeather;
+struct DayWeatherBuilder;
+
 struct WorldInfo;
 struct WorldInfoBuilder;
 
@@ -104,6 +107,9 @@ struct RunUntilBuilder;
 struct IntroduceTechnique;
 struct IntroduceTechniqueBuilder;
 
+struct PlaceDeposit;
+struct PlaceDepositBuilder;
+
 struct Command;
 struct CommandBuilder;
 
@@ -148,6 +154,15 @@ struct GetWealthBuilder;
 
 struct GetKnowledge;
 struct GetKnowledgeBuilder;
+
+struct GetDeposits;
+struct GetDepositsBuilder;
+
+struct GetEarthworks;
+struct GetEarthworksBuilder;
+
+struct GetWeather;
+struct GetWeatherBuilder;
 
 struct Query;
 struct QueryBuilder;
@@ -293,6 +308,26 @@ struct SettlementKnowledgeBuilder;
 
 struct Knowledge;
 struct KnowledgeBuilder;
+
+struct DepositInfo;
+struct DepositInfoBuilder;
+
+struct Deposits;
+struct DepositsBuilder;
+
+struct EarthworkInfo;
+struct EarthworkInfoBuilder;
+
+struct GroundTileRev;
+
+struct Earthworks;
+struct EarthworksBuilder;
+
+struct WeatherMonthInfo;
+struct WeatherMonthInfoBuilder;
+
+struct WeatherReport;
+struct WeatherReportBuilder;
 
 struct Response;
 struct ResponseBuilder;
@@ -492,6 +527,36 @@ inline const char *EnumNameSex(Sex e) {
   return EnumNamesSex()[index];
 }
 
+enum class ClockMode : uint8_t {
+  Detailed = 0,
+  Accelerated = 1,
+  MIN = Detailed,
+  MAX = Accelerated
+};
+
+inline const ClockMode (&EnumValuesClockMode())[2] {
+  static const ClockMode values[] = {
+    ClockMode::Detailed,
+    ClockMode::Accelerated
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesClockMode() {
+  static const char * const names[3] = {
+    "Detailed",
+    "Accelerated",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameClockMode(ClockMode e) {
+  if (::flatbuffers::IsOutRange(e, ClockMode::Detailed, ClockMode::Accelerated)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesClockMode()[index];
+}
+
 enum class FieldStage : uint8_t {
   Fallow = 0,
   Prepared = 1,
@@ -539,11 +604,12 @@ enum class CommandBody : uint8_t {
   SpawnFamily = 7,
   RunUntil = 8,
   IntroduceTechnique = 9,
+  PlaceDeposit = 10,
   MIN = NONE,
-  MAX = IntroduceTechnique
+  MAX = PlaceDeposit
 };
 
-inline const CommandBody (&EnumValuesCommandBody())[10] {
+inline const CommandBody (&EnumValuesCommandBody())[11] {
   static const CommandBody values[] = {
     CommandBody::NONE,
     CommandBody::NewWorld,
@@ -554,13 +620,14 @@ inline const CommandBody (&EnumValuesCommandBody())[10] {
     CommandBody::RecoverWorld,
     CommandBody::SpawnFamily,
     CommandBody::RunUntil,
-    CommandBody::IntroduceTechnique
+    CommandBody::IntroduceTechnique,
+    CommandBody::PlaceDeposit
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandBody() {
-  static const char * const names[11] = {
+  static const char * const names[12] = {
     "NONE",
     "NewWorld",
     "SaveWorld",
@@ -571,13 +638,14 @@ inline const char * const *EnumNamesCommandBody() {
     "SpawnFamily",
     "RunUntil",
     "IntroduceTechnique",
+    "PlaceDeposit",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandBody(CommandBody e) {
-  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::IntroduceTechnique)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::PlaceDeposit)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandBody()[index];
 }
@@ -622,6 +690,10 @@ template<> struct CommandBodyTraits<tce::wire::IntroduceTechnique> {
   static const CommandBody enum_value = CommandBody::IntroduceTechnique;
 };
 
+template<> struct CommandBodyTraits<tce::wire::PlaceDeposit> {
+  static const CommandBody enum_value = CommandBody::PlaceDeposit;
+};
+
 template <bool B = false>
 bool VerifyCommandBody(::flatbuffers::VerifierTemplate<B> &verifier, const void *obj, CommandBody type);
 template <bool B = false>
@@ -643,11 +715,14 @@ enum class QueryBody : uint8_t {
   GetFirm = 12,
   GetWealth = 13,
   GetKnowledge = 14,
+  GetDeposits = 15,
+  GetEarthworks = 16,
+  GetWeather = 17,
   MIN = NONE,
-  MAX = GetKnowledge
+  MAX = GetWeather
 };
 
-inline const QueryBody (&EnumValuesQueryBody())[15] {
+inline const QueryBody (&EnumValuesQueryBody())[18] {
   static const QueryBody values[] = {
     QueryBody::NONE,
     QueryBody::GetRaster,
@@ -663,13 +738,16 @@ inline const QueryBody (&EnumValuesQueryBody())[15] {
     QueryBody::GetFirms,
     QueryBody::GetFirm,
     QueryBody::GetWealth,
-    QueryBody::GetKnowledge
+    QueryBody::GetKnowledge,
+    QueryBody::GetDeposits,
+    QueryBody::GetEarthworks,
+    QueryBody::GetWeather
   };
   return values;
 }
 
 inline const char * const *EnumNamesQueryBody() {
-  static const char * const names[16] = {
+  static const char * const names[19] = {
     "NONE",
     "GetRaster",
     "GetHydrography",
@@ -685,13 +763,16 @@ inline const char * const *EnumNamesQueryBody() {
     "GetFirm",
     "GetWealth",
     "GetKnowledge",
+    "GetDeposits",
+    "GetEarthworks",
+    "GetWeather",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameQueryBody(QueryBody e) {
-  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetKnowledge)) return "";
+  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetWeather)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesQueryBody()[index];
 }
@@ -754,6 +835,18 @@ template<> struct QueryBodyTraits<tce::wire::GetWealth> {
 
 template<> struct QueryBodyTraits<tce::wire::GetKnowledge> {
   static const QueryBody enum_value = QueryBody::GetKnowledge;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetDeposits> {
+  static const QueryBody enum_value = QueryBody::GetDeposits;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetEarthworks> {
+  static const QueryBody enum_value = QueryBody::GetEarthworks;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetWeather> {
+  static const QueryBody enum_value = QueryBody::GetWeather;
 };
 
 template <bool B = false>
@@ -931,11 +1024,14 @@ enum class ResponseBody : uint8_t {
   FirmInfo = 13,
   Wealth = 14,
   Knowledge = 15,
+  Deposits = 16,
+  Earthworks = 17,
+  WeatherReport = 18,
   MIN = NONE,
-  MAX = Knowledge
+  MAX = WeatherReport
 };
 
-inline const ResponseBody (&EnumValuesResponseBody())[16] {
+inline const ResponseBody (&EnumValuesResponseBody())[19] {
   static const ResponseBody values[] = {
     ResponseBody::NONE,
     ResponseBody::Ack,
@@ -952,13 +1048,16 @@ inline const ResponseBody (&EnumValuesResponseBody())[16] {
     ResponseBody::Firms,
     ResponseBody::FirmInfo,
     ResponseBody::Wealth,
-    ResponseBody::Knowledge
+    ResponseBody::Knowledge,
+    ResponseBody::Deposits,
+    ResponseBody::Earthworks,
+    ResponseBody::WeatherReport
   };
   return values;
 }
 
 inline const char * const *EnumNamesResponseBody() {
-  static const char * const names[17] = {
+  static const char * const names[20] = {
     "NONE",
     "Ack",
     "RasterTile",
@@ -975,13 +1074,16 @@ inline const char * const *EnumNamesResponseBody() {
     "FirmInfo",
     "Wealth",
     "Knowledge",
+    "Deposits",
+    "Earthworks",
+    "WeatherReport",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameResponseBody(ResponseBody e) {
-  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Knowledge)) return "";
+  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::WeatherReport)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesResponseBody()[index];
 }
@@ -1048,6 +1150,18 @@ template<> struct ResponseBodyTraits<tce::wire::Wealth> {
 
 template<> struct ResponseBodyTraits<tce::wire::Knowledge> {
   static const ResponseBody enum_value = ResponseBody::Knowledge;
+};
+
+template<> struct ResponseBodyTraits<tce::wire::Deposits> {
+  static const ResponseBody enum_value = ResponseBody::Deposits;
+};
+
+template<> struct ResponseBodyTraits<tce::wire::Earthworks> {
+  static const ResponseBody enum_value = ResponseBody::Earthworks;
+};
+
+template<> struct ResponseBodyTraits<tce::wire::WeatherReport> {
+  static const ResponseBody enum_value = ResponseBody::WeatherReport;
 };
 
 template <bool B = false>
@@ -1298,6 +1412,34 @@ FLATBUFFERS_STRUCT_END(BookLine, 8);
 
 struct BookLine::Traits {
   using type = BookLine;
+};
+
+FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) GroundTileRev FLATBUFFERS_FINAL_CLASS {
+ private:
+  uint32_t index_;
+  uint32_t rev_;
+
+ public:
+  struct Traits;
+  GroundTileRev()
+      : index_(0),
+        rev_(0) {
+  }
+  GroundTileRev(uint32_t _index, uint32_t _rev)
+      : index_(::flatbuffers::EndianScalar(_index)),
+        rev_(::flatbuffers::EndianScalar(_rev)) {
+  }
+  uint32_t index() const {
+    return ::flatbuffers::EndianScalar(index_);
+  }
+  uint32_t rev() const {
+    return ::flatbuffers::EndianScalar(rev_);
+  }
+};
+FLATBUFFERS_STRUCT_END(GroundTileRev, 8);
+
+struct GroundTileRev::Traits {
+  using type = GroundTileRev;
 };
 
 struct Hello FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -2175,7 +2317,8 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_CROPS = 34,
     VT_SKILLS = 36,
     VT_REGIMES = 38,
-    VT_TECHNIQUES = 40
+    VT_TECHNIQUES = 40,
+    VT_ACCELERATED_MULTIPLIERS = 42
   };
   const ::flatbuffers::String *host() const {
     return GetPointer<const ::flatbuffers::String *>(VT_HOST);
@@ -2234,6 +2377,9 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>> *techniques() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>> *>(VT_TECHNIQUES);
   }
+  const ::flatbuffers::Vector<float> *accelerated_multipliers() const {
+    return GetPointer<const ::flatbuffers::Vector<float> *>(VT_ACCELERATED_MULTIPLIERS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -2277,6 +2423,8 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_TECHNIQUES) &&
            verifier.VerifyVector(techniques()) &&
            verifier.VerifyVectorOfTables(techniques()) &&
+           VerifyOffset(verifier, VT_ACCELERATED_MULTIPLIERS) &&
+           verifier.VerifyVector(accelerated_multipliers()) &&
            verifier.EndTable();
   }
 };
@@ -2342,6 +2490,9 @@ struct WelcomeBuilder {
   void add_techniques(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>>> techniques) {
     fbb_.AddOffset(Welcome::VT_TECHNIQUES, techniques);
   }
+  void add_accelerated_multipliers(::flatbuffers::Offset<::flatbuffers::Vector<float>> accelerated_multipliers) {
+    fbb_.AddOffset(Welcome::VT_ACCELERATED_MULTIPLIERS, accelerated_multipliers);
+  }
   explicit WelcomeBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -2373,8 +2524,10 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcome(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CropInfo>>> crops = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SkillInfo>>> skills = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RegimeInfo>>> regimes = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>>> techniques = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>>> techniques = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<float>> accelerated_multipliers = 0) {
   WelcomeBuilder builder_(_fbb);
+  builder_.add_accelerated_multipliers(accelerated_multipliers);
   builder_.add_techniques(techniques);
   builder_.add_regimes(regimes);
   builder_.add_skills(skills);
@@ -2422,7 +2575,8 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::CropInfo>> *crops = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::SkillInfo>> *skills = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::RegimeInfo>> *regimes = nullptr,
-    const std::vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>> *techniques = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>> *techniques = nullptr,
+    const std::vector<float> *accelerated_multipliers = nullptr) {
   auto host__ = host ? _fbb.CreateString(host) : 0;
   auto version__ = version ? _fbb.CreateString(version) : 0;
   auto presets__ = presets ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PresetInfo>>(*presets) : 0;
@@ -2436,6 +2590,7 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
   auto skills__ = skills ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SkillInfo>>(*skills) : 0;
   auto regimes__ = regimes ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::RegimeInfo>>(*regimes) : 0;
   auto techniques__ = techniques ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::TechniqueInfo>>(*techniques) : 0;
+  auto accelerated_multipliers__ = accelerated_multipliers ? _fbb.CreateVector<float>(*accelerated_multipliers) : 0;
   return tce::wire::CreateWelcome(
       _fbb,
       host__,
@@ -2456,7 +2611,8 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
       crops__,
       skills__,
       regimes__,
-      techniques__);
+      techniques__,
+      accelerated_multipliers__);
 }
 
 struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -2471,7 +2627,9 @@ struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_MINUTE_OF_HOUR = 14,
     VT_SEASON = 16,
     VT_PAUSED = 18,
-    VT_SPEED = 20
+    VT_SPEED = 20,
+    VT_MODE = 22,
+    VT_WEATHER = 24
   };
   int64_t minute() const {
     return GetField<int64_t>(VT_MINUTE, 0);
@@ -2500,6 +2658,12 @@ struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   float speed() const {
     return GetField<float>(VT_SPEED, 0.0f);
   }
+  tce::wire::ClockMode mode() const {
+    return static_cast<tce::wire::ClockMode>(GetField<uint8_t>(VT_MODE, 0));
+  }
+  const tce::wire::DayWeather *weather() const {
+    return GetPointer<const tce::wire::DayWeather *>(VT_WEATHER);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -2513,6 +2677,9 @@ struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyString(season()) &&
            VerifyField<uint8_t>(verifier, VT_PAUSED, 1) &&
            VerifyField<float>(verifier, VT_SPEED, 4) &&
+           VerifyField<uint8_t>(verifier, VT_MODE, 1) &&
+           VerifyOffset(verifier, VT_WEATHER) &&
+           verifier.VerifyTable(weather()) &&
            verifier.EndTable();
   }
 };
@@ -2548,6 +2715,12 @@ struct ClockBuilder {
   void add_speed(float speed) {
     fbb_.AddElement<float>(Clock::VT_SPEED, speed, 0.0f);
   }
+  void add_mode(tce::wire::ClockMode mode) {
+    fbb_.AddElement<uint8_t>(Clock::VT_MODE, static_cast<uint8_t>(mode), 0);
+  }
+  void add_weather(::flatbuffers::Offset<tce::wire::DayWeather> weather) {
+    fbb_.AddOffset(Clock::VT_WEATHER, weather);
+  }
   explicit ClockBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -2569,12 +2742,16 @@ inline ::flatbuffers::Offset<Clock> CreateClock(
     uint8_t minute_of_hour = 0,
     ::flatbuffers::Offset<::flatbuffers::String> season = 0,
     bool paused = false,
-    float speed = 0.0f) {
+    float speed = 0.0f,
+    tce::wire::ClockMode mode = tce::wire::ClockMode::Detailed,
+    ::flatbuffers::Offset<tce::wire::DayWeather> weather = 0) {
   ClockBuilder builder_(_fbb);
   builder_.add_year(year);
   builder_.add_minute(minute);
+  builder_.add_weather(weather);
   builder_.add_speed(speed);
   builder_.add_season(season);
+  builder_.add_mode(mode);
   builder_.add_paused(paused);
   builder_.add_minute_of_hour(minute_of_hour);
   builder_.add_hour(hour);
@@ -2598,7 +2775,9 @@ inline ::flatbuffers::Offset<Clock> CreateClockDirect(
     uint8_t minute_of_hour = 0,
     const char *season = nullptr,
     bool paused = false,
-    float speed = 0.0f) {
+    float speed = 0.0f,
+    tce::wire::ClockMode mode = tce::wire::ClockMode::Detailed,
+    ::flatbuffers::Offset<tce::wire::DayWeather> weather = 0) {
   auto season__ = season ? _fbb.CreateString(season) : 0;
   return tce::wire::CreateClock(
       _fbb,
@@ -2610,7 +2789,139 @@ inline ::flatbuffers::Offset<Clock> CreateClockDirect(
       minute_of_hour,
       season__,
       paused,
-      speed);
+      speed,
+      mode,
+      weather);
+}
+
+struct DayWeather FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef DayWeatherBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_PRECIP_MM = 4,
+    VT_MEAN_C = 6,
+    VT_MIN_C = 8,
+    VT_MAX_C = 10,
+    VT_SNOW_MM = 12,
+    VT_SOIL = 14,
+    VT_WORDS = 16
+  };
+  float precip_mm() const {
+    return GetField<float>(VT_PRECIP_MM, 0.0f);
+  }
+  float mean_c() const {
+    return GetField<float>(VT_MEAN_C, 0.0f);
+  }
+  float min_c() const {
+    return GetField<float>(VT_MIN_C, 0.0f);
+  }
+  float max_c() const {
+    return GetField<float>(VT_MAX_C, 0.0f);
+  }
+  float snow_mm() const {
+    return GetField<float>(VT_SNOW_MM, 0.0f);
+  }
+  float soil() const {
+    return GetField<float>(VT_SOIL, 0.0f);
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<float>(verifier, VT_PRECIP_MM, 4) &&
+           VerifyField<float>(verifier, VT_MEAN_C, 4) &&
+           VerifyField<float>(verifier, VT_MIN_C, 4) &&
+           VerifyField<float>(verifier, VT_MAX_C, 4) &&
+           VerifyField<float>(verifier, VT_SNOW_MM, 4) &&
+           VerifyField<float>(verifier, VT_SOIL, 4) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           verifier.EndTable();
+  }
+};
+
+struct DayWeatherBuilder {
+  typedef DayWeather Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_precip_mm(float precip_mm) {
+    fbb_.AddElement<float>(DayWeather::VT_PRECIP_MM, precip_mm, 0.0f);
+  }
+  void add_mean_c(float mean_c) {
+    fbb_.AddElement<float>(DayWeather::VT_MEAN_C, mean_c, 0.0f);
+  }
+  void add_min_c(float min_c) {
+    fbb_.AddElement<float>(DayWeather::VT_MIN_C, min_c, 0.0f);
+  }
+  void add_max_c(float max_c) {
+    fbb_.AddElement<float>(DayWeather::VT_MAX_C, max_c, 0.0f);
+  }
+  void add_snow_mm(float snow_mm) {
+    fbb_.AddElement<float>(DayWeather::VT_SNOW_MM, snow_mm, 0.0f);
+  }
+  void add_soil(float soil) {
+    fbb_.AddElement<float>(DayWeather::VT_SOIL, soil, 0.0f);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(DayWeather::VT_WORDS, words);
+  }
+  explicit DayWeatherBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<DayWeather> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<DayWeather>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<DayWeather> CreateDayWeather(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    float precip_mm = 0.0f,
+    float mean_c = 0.0f,
+    float min_c = 0.0f,
+    float max_c = 0.0f,
+    float snow_mm = 0.0f,
+    float soil = 0.0f,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+  DayWeatherBuilder builder_(_fbb);
+  builder_.add_words(words);
+  builder_.add_soil(soil);
+  builder_.add_snow_mm(snow_mm);
+  builder_.add_max_c(max_c);
+  builder_.add_min_c(min_c);
+  builder_.add_mean_c(mean_c);
+  builder_.add_precip_mm(precip_mm);
+  return builder_.Finish();
+}
+
+struct DayWeather::Traits {
+  using type = DayWeather;
+  static auto constexpr Create = CreateDayWeather;
+};
+
+inline ::flatbuffers::Offset<DayWeather> CreateDayWeatherDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    float precip_mm = 0.0f,
+    float mean_c = 0.0f,
+    float min_c = 0.0f,
+    float max_c = 0.0f,
+    float snow_mm = 0.0f,
+    float soil = 0.0f,
+    const char *words = nullptr) {
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  return tce::wire::CreateDayWeather(
+      _fbb,
+      precip_mm,
+      mean_c,
+      min_c,
+      max_c,
+      snow_mm,
+      soil,
+      words__);
 }
 
 struct WorldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -3440,7 +3751,10 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_MARKETS_REV = 28,
     VT_FIRMS_REV = 30,
     VT_WEALTH_REV = 32,
-    VT_KNOWLEDGE_REV = 34
+    VT_KNOWLEDGE_REV = 34,
+    VT_DEPOSITS_REV = 36,
+    VT_EARTHWORKS_REV = 38,
+    VT_WEATHER_REV = 40
   };
   const tce::wire::WorldInfo *world() const {
     return GetPointer<const tce::wire::WorldInfo *>(VT_WORLD);
@@ -3490,6 +3804,15 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint64_t knowledge_rev() const {
     return GetField<uint64_t>(VT_KNOWLEDGE_REV, 0);
   }
+  uint64_t deposits_rev() const {
+    return GetField<uint64_t>(VT_DEPOSITS_REV, 0);
+  }
+  uint64_t earthworks_rev() const {
+    return GetField<uint64_t>(VT_EARTHWORKS_REV, 0);
+  }
+  uint64_t weather_rev() const {
+    return GetField<uint64_t>(VT_WEATHER_REV, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -3518,6 +3841,9 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_FIRMS_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_WEALTH_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_KNOWLEDGE_REV, 8) &&
+           VerifyField<uint64_t>(verifier, VT_DEPOSITS_REV, 8) &&
+           VerifyField<uint64_t>(verifier, VT_EARTHWORKS_REV, 8) &&
+           VerifyField<uint64_t>(verifier, VT_WEATHER_REV, 8) &&
            verifier.EndTable();
   }
 };
@@ -3574,6 +3900,15 @@ struct SnapshotBuilder {
   void add_knowledge_rev(uint64_t knowledge_rev) {
     fbb_.AddElement<uint64_t>(Snapshot::VT_KNOWLEDGE_REV, knowledge_rev, 0);
   }
+  void add_deposits_rev(uint64_t deposits_rev) {
+    fbb_.AddElement<uint64_t>(Snapshot::VT_DEPOSITS_REV, deposits_rev, 0);
+  }
+  void add_earthworks_rev(uint64_t earthworks_rev) {
+    fbb_.AddElement<uint64_t>(Snapshot::VT_EARTHWORKS_REV, earthworks_rev, 0);
+  }
+  void add_weather_rev(uint64_t weather_rev) {
+    fbb_.AddElement<uint64_t>(Snapshot::VT_WEATHER_REV, weather_rev, 0);
+  }
   explicit SnapshotBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -3602,8 +3937,14 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshot(
     uint64_t markets_rev = 0,
     uint64_t firms_rev = 0,
     uint64_t wealth_rev = 0,
-    uint64_t knowledge_rev = 0) {
+    uint64_t knowledge_rev = 0,
+    uint64_t deposits_rev = 0,
+    uint64_t earthworks_rev = 0,
+    uint64_t weather_rev = 0) {
   SnapshotBuilder builder_(_fbb);
+  builder_.add_weather_rev(weather_rev);
+  builder_.add_earthworks_rev(earthworks_rev);
+  builder_.add_deposits_rev(deposits_rev);
   builder_.add_knowledge_rev(knowledge_rev);
   builder_.add_wealth_rev(wealth_rev);
   builder_.add_firms_rev(firms_rev);
@@ -3645,7 +3986,10 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
     uint64_t markets_rev = 0,
     uint64_t firms_rev = 0,
     uint64_t wealth_rev = 0,
-    uint64_t knowledge_rev = 0) {
+    uint64_t knowledge_rev = 0,
+    uint64_t deposits_rev = 0,
+    uint64_t earthworks_rev = 0,
+    uint64_t weather_rev = 0) {
   auto last_error__ = last_error ? _fbb.CreateString(last_error) : 0;
   auto people__ = people ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PersonBrief>>(*people) : 0;
   auto settlements__ = settlements ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SettlementBrief>>(*settlements) : 0;
@@ -3666,7 +4010,10 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
       markets_rev,
       firms_rev,
       wealth_rev,
-      knowledge_rev);
+      knowledge_rev,
+      deposits_rev,
+      earthworks_rev,
+      weather_rev);
 }
 
 struct Event FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -4388,6 +4735,100 @@ struct IntroduceTechnique::Traits {
   static auto constexpr Create = CreateIntroduceTechnique;
 };
 
+struct PlaceDeposit FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef PlaceDepositBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_AT = 4,
+    VT_GOOD = 6,
+    VT_RADIUS_M = 8,
+    VT_EXPOSED = 10
+  };
+  const tce::wire::Vec2 *at() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_AT);
+  }
+  const ::flatbuffers::String *good() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_GOOD);
+  }
+  float radius_m() const {
+    return GetField<float>(VT_RADIUS_M, 0.0f);
+  }
+  bool exposed() const {
+    return GetField<uint8_t>(VT_EXPOSED, 0) != 0;
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_AT, 4) &&
+           VerifyOffset(verifier, VT_GOOD) &&
+           verifier.VerifyString(good()) &&
+           VerifyField<float>(verifier, VT_RADIUS_M, 4) &&
+           VerifyField<uint8_t>(verifier, VT_EXPOSED, 1) &&
+           verifier.EndTable();
+  }
+};
+
+struct PlaceDepositBuilder {
+  typedef PlaceDeposit Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_at(const tce::wire::Vec2 *at) {
+    fbb_.AddStruct(PlaceDeposit::VT_AT, at);
+  }
+  void add_good(::flatbuffers::Offset<::flatbuffers::String> good) {
+    fbb_.AddOffset(PlaceDeposit::VT_GOOD, good);
+  }
+  void add_radius_m(float radius_m) {
+    fbb_.AddElement<float>(PlaceDeposit::VT_RADIUS_M, radius_m, 0.0f);
+  }
+  void add_exposed(bool exposed) {
+    fbb_.AddElement<uint8_t>(PlaceDeposit::VT_EXPOSED, static_cast<uint8_t>(exposed), 0);
+  }
+  explicit PlaceDepositBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<PlaceDeposit> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<PlaceDeposit>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<PlaceDeposit> CreatePlaceDeposit(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const tce::wire::Vec2 *at = nullptr,
+    ::flatbuffers::Offset<::flatbuffers::String> good = 0,
+    float radius_m = 0.0f,
+    bool exposed = false) {
+  PlaceDepositBuilder builder_(_fbb);
+  builder_.add_radius_m(radius_m);
+  builder_.add_good(good);
+  builder_.add_at(at);
+  builder_.add_exposed(exposed);
+  return builder_.Finish();
+}
+
+struct PlaceDeposit::Traits {
+  using type = PlaceDeposit;
+  static auto constexpr Create = CreatePlaceDeposit;
+};
+
+inline ::flatbuffers::Offset<PlaceDeposit> CreatePlaceDepositDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const tce::wire::Vec2 *at = nullptr,
+    const char *good = nullptr,
+    float radius_m = 0.0f,
+    bool exposed = false) {
+  auto good__ = good ? _fbb.CreateString(good) : 0;
+  return tce::wire::CreatePlaceDeposit(
+      _fbb,
+      at,
+      good__,
+      radius_m,
+      exposed);
+}
+
 struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef CommandBuilder Builder;
   struct Traits;
@@ -4428,6 +4869,9 @@ struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::IntroduceTechnique *body_as_IntroduceTechnique() const {
     return body_type() == tce::wire::CommandBody::IntroduceTechnique ? static_cast<const tce::wire::IntroduceTechnique *>(body()) : nullptr;
+  }
+  const tce::wire::PlaceDeposit *body_as_PlaceDeposit() const {
+    return body_type() == tce::wire::CommandBody::PlaceDeposit ? static_cast<const tce::wire::PlaceDeposit *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -4473,6 +4917,10 @@ template<> inline const tce::wire::RunUntil *Command::body_as<tce::wire::RunUnti
 
 template<> inline const tce::wire::IntroduceTechnique *Command::body_as<tce::wire::IntroduceTechnique>() const {
   return body_as_IntroduceTechnique();
+}
+
+template<> inline const tce::wire::PlaceDeposit *Command::body_as<tce::wire::PlaceDeposit>() const {
+  return body_as_PlaceDeposit();
 }
 
 struct CommandBuilder {
@@ -5167,6 +5615,114 @@ struct GetKnowledge::Traits {
   static auto constexpr Create = CreateGetKnowledge;
 };
 
+struct GetDeposits FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetDepositsBuilder Builder;
+  struct Traits;
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetDepositsBuilder {
+  typedef GetDeposits Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  explicit GetDepositsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetDeposits> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetDeposits>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetDeposits> CreateGetDeposits(
+    ::flatbuffers::FlatBufferBuilder &_fbb) {
+  GetDepositsBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct GetDeposits::Traits {
+  using type = GetDeposits;
+  static auto constexpr Create = CreateGetDeposits;
+};
+
+struct GetEarthworks FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetEarthworksBuilder Builder;
+  struct Traits;
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetEarthworksBuilder {
+  typedef GetEarthworks Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  explicit GetEarthworksBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetEarthworks> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetEarthworks>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetEarthworks> CreateGetEarthworks(
+    ::flatbuffers::FlatBufferBuilder &_fbb) {
+  GetEarthworksBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct GetEarthworks::Traits {
+  using type = GetEarthworks;
+  static auto constexpr Create = CreateGetEarthworks;
+};
+
+struct GetWeather FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetWeatherBuilder Builder;
+  struct Traits;
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetWeatherBuilder {
+  typedef GetWeather Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  explicit GetWeatherBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetWeather> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetWeather>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetWeather> CreateGetWeather(
+    ::flatbuffers::FlatBufferBuilder &_fbb) {
+  GetWeatherBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct GetWeather::Traits {
+  using type = GetWeather;
+  static auto constexpr Create = CreateGetWeather;
+};
+
 struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef QueryBuilder Builder;
   struct Traits;
@@ -5222,6 +5778,15 @@ struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::GetKnowledge *body_as_GetKnowledge() const {
     return body_type() == tce::wire::QueryBody::GetKnowledge ? static_cast<const tce::wire::GetKnowledge *>(body()) : nullptr;
+  }
+  const tce::wire::GetDeposits *body_as_GetDeposits() const {
+    return body_type() == tce::wire::QueryBody::GetDeposits ? static_cast<const tce::wire::GetDeposits *>(body()) : nullptr;
+  }
+  const tce::wire::GetEarthworks *body_as_GetEarthworks() const {
+    return body_type() == tce::wire::QueryBody::GetEarthworks ? static_cast<const tce::wire::GetEarthworks *>(body()) : nullptr;
+  }
+  const tce::wire::GetWeather *body_as_GetWeather() const {
+    return body_type() == tce::wire::QueryBody::GetWeather ? static_cast<const tce::wire::GetWeather *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -5287,6 +5852,18 @@ template<> inline const tce::wire::GetWealth *Query::body_as<tce::wire::GetWealt
 
 template<> inline const tce::wire::GetKnowledge *Query::body_as<tce::wire::GetKnowledge>() const {
   return body_as_GetKnowledge();
+}
+
+template<> inline const tce::wire::GetDeposits *Query::body_as<tce::wire::GetDeposits>() const {
+  return body_as_GetDeposits();
+}
+
+template<> inline const tce::wire::GetEarthworks *Query::body_as<tce::wire::GetEarthworks>() const {
+  return body_as_GetEarthworks();
+}
+
+template<> inline const tce::wire::GetWeather *Query::body_as<tce::wire::GetWeather>() const {
+  return body_as_GetWeather();
 }
 
 struct QueryBuilder {
@@ -6921,7 +7498,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_LEFT_MINUTE = 72,
     VT_SKILLS = 74,
     VT_HOUSEHOLD_READY_DAYS = 76,
-    VT_KNOWS = 78
+    VT_KNOWS = 78,
+    VT_HOUSEHOLD_TASTE = 80,
+    VT_HOUSEHOLD_ADMIRED = 82
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -7037,6 +7616,12 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::KnowLine>> *knows() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::KnowLine>> *>(VT_KNOWS);
   }
+  const ::flatbuffers::String *household_taste() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_HOUSEHOLD_TASTE);
+  }
+  uint64_t household_admired() const {
+    return GetField<uint64_t>(VT_HOUSEHOLD_ADMIRED, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -7094,6 +7679,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_KNOWS) &&
            verifier.VerifyVector(knows()) &&
            verifier.VerifyVectorOfTables(knows()) &&
+           VerifyOffset(verifier, VT_HOUSEHOLD_TASTE) &&
+           verifier.VerifyString(household_taste()) &&
+           VerifyField<uint64_t>(verifier, VT_HOUSEHOLD_ADMIRED, 8) &&
            verifier.EndTable();
   }
 };
@@ -7216,6 +7804,12 @@ struct PersonInfoBuilder {
   void add_knows(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::KnowLine>>> knows) {
     fbb_.AddOffset(PersonInfo::VT_KNOWS, knows);
   }
+  void add_household_taste(::flatbuffers::Offset<::flatbuffers::String> household_taste) {
+    fbb_.AddOffset(PersonInfo::VT_HOUSEHOLD_TASTE, household_taste);
+  }
+  void add_household_admired(uint64_t household_admired) {
+    fbb_.AddElement<uint64_t>(PersonInfo::VT_HOUSEHOLD_ADMIRED, household_admired, 0);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -7266,8 +7860,11 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     int64_t left_minute = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::SkillLine *>> skills = 0,
     float household_ready_days = 0.0f,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::KnowLine>>> knows = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::KnowLine>>> knows = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> household_taste = 0,
+    uint64_t household_admired = 0) {
   PersonInfoBuilder builder_(_fbb);
+  builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
   builder_.add_partner(partner);
   builder_.add_until_minute(until_minute);
@@ -7277,6 +7874,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_household_taste(household_taste);
   builder_.add_knows(knows);
   builder_.add_household_ready_days(household_ready_days);
   builder_.add_skills(skills);
@@ -7353,7 +7951,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     int64_t left_minute = 0,
     const std::vector<tce::wire::SkillLine> *skills = nullptr,
     float household_ready_days = 0.0f,
-    const std::vector<::flatbuffers::Offset<tce::wire::KnowLine>> *knows = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::KnowLine>> *knows = nullptr,
+    const char *household_taste = nullptr,
+    uint64_t household_admired = 0) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -7366,6 +7966,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto family__ = family ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*family) : 0;
   auto skills__ = skills ? _fbb.CreateVectorOfStructs<tce::wire::SkillLine>(*skills) : 0;
   auto knows__ = knows ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::KnowLine>>(*knows) : 0;
+  auto household_taste__ = household_taste ? _fbb.CreateString(household_taste) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -7405,7 +8006,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       left_minute,
       skills__,
       household_ready_days,
-      knows__);
+      knows__,
+      household_taste__,
+      household_admired);
 }
 
 struct KnowLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -7573,7 +8176,9 @@ struct FieldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_HOLDER = 36,
     VT_HOLDER_SETTLEMENT = 38,
     VT_LEASE_UNTIL_MINUTE = 40,
-    VT_LEASE_SHARE = 42
+    VT_LEASE_SHARE = 42,
+    VT_WATER_HAD = 44,
+    VT_SOIL_WATER = 46
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -7635,6 +8240,12 @@ struct FieldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   float lease_share() const {
     return GetField<float>(VT_LEASE_SHARE, 0.0f);
   }
+  float water_had() const {
+    return GetField<float>(VT_WATER_HAD, -1.0f);
+  }
+  float soil_water() const {
+    return GetField<float>(VT_SOIL_WATER, 0.0f);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -7659,6 +8270,8 @@ struct FieldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_HOLDER_SETTLEMENT, 8) &&
            VerifyField<int64_t>(verifier, VT_LEASE_UNTIL_MINUTE, 8) &&
            VerifyField<float>(verifier, VT_LEASE_SHARE, 4) &&
+           VerifyField<float>(verifier, VT_WATER_HAD, 4) &&
+           VerifyField<float>(verifier, VT_SOIL_WATER, 4) &&
            verifier.EndTable();
   }
 };
@@ -7727,6 +8340,12 @@ struct FieldInfoBuilder {
   void add_lease_share(float lease_share) {
     fbb_.AddElement<float>(FieldInfo::VT_LEASE_SHARE, lease_share, 0.0f);
   }
+  void add_water_had(float water_had) {
+    fbb_.AddElement<float>(FieldInfo::VT_WATER_HAD, water_had, -1.0f);
+  }
+  void add_soil_water(float soil_water) {
+    fbb_.AddElement<float>(FieldInfo::VT_SOIL_WATER, soil_water, 0.0f);
+  }
   explicit FieldInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -7759,7 +8378,9 @@ inline ::flatbuffers::Offset<FieldInfo> CreateFieldInfo(
     uint64_t holder = 0,
     uint64_t holder_settlement = 0,
     int64_t lease_until_minute = -1LL,
-    float lease_share = 0.0f) {
+    float lease_share = 0.0f,
+    float water_had = -1.0f,
+    float soil_water = 0.0f) {
   FieldInfoBuilder builder_(_fbb);
   builder_.add_lease_until_minute(lease_until_minute);
   builder_.add_holder_settlement(holder_settlement);
@@ -7768,6 +8389,8 @@ inline ::flatbuffers::Offset<FieldInfo> CreateFieldInfo(
   builder_.add_settlement(settlement);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_soil_water(soil_water);
+  builder_.add_water_had(water_had);
   builder_.add_lease_share(lease_share);
   builder_.add_status(status);
   builder_.add_harvests(harvests);
@@ -7810,7 +8433,9 @@ inline ::flatbuffers::Offset<FieldInfo> CreateFieldInfoDirect(
     uint64_t holder = 0,
     uint64_t holder_settlement = 0,
     int64_t lease_until_minute = -1LL,
-    float lease_share = 0.0f) {
+    float lease_share = 0.0f,
+    float water_had = -1.0f,
+    float soil_water = 0.0f) {
   auto status__ = status ? _fbb.CreateString(status) : 0;
   return tce::wire::CreateFieldInfo(
       _fbb,
@@ -7833,7 +8458,9 @@ inline ::flatbuffers::Offset<FieldInfo> CreateFieldInfoDirect(
       holder,
       holder_settlement,
       lease_until_minute,
-      lease_share);
+      lease_share,
+      water_had,
+      soil_water);
 }
 
 struct Fields FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -8083,7 +8710,9 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_SYMPTOMS = 82,
     VT_LEAK = 84,
     VT_GROUPS = 86,
-    VT_UPKEEP = 88
+    VT_UPKEEP = 88,
+    VT_STYLE = 90,
+    VT_STYLE_FROM = 92
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -8214,6 +8843,12 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *upkeep() const {
     return GetPointer<const ::flatbuffers::String *>(VT_UPKEEP);
   }
+  const ::flatbuffers::String *style() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_STYLE);
+  }
+  uint64_t style_from() const {
+    return GetField<uint64_t>(VT_STYLE_FROM, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -8278,6 +8913,9 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVectorOfTables(groups()) &&
            VerifyOffset(verifier, VT_UPKEEP) &&
            verifier.VerifyString(upkeep()) &&
+           VerifyOffset(verifier, VT_STYLE) &&
+           verifier.VerifyString(style()) &&
+           VerifyField<uint64_t>(verifier, VT_STYLE_FROM, 8) &&
            verifier.EndTable();
   }
 };
@@ -8415,6 +9053,12 @@ struct BuildingInfoBuilder {
   void add_upkeep(::flatbuffers::Offset<::flatbuffers::String> upkeep) {
     fbb_.AddOffset(BuildingInfo::VT_UPKEEP, upkeep);
   }
+  void add_style(::flatbuffers::Offset<::flatbuffers::String> style) {
+    fbb_.AddOffset(BuildingInfo::VT_STYLE, style);
+  }
+  void add_style_from(uint64_t style_from) {
+    fbb_.AddElement<uint64_t>(BuildingInfo::VT_STYLE_FROM, style_from, 0);
+  }
   explicit BuildingInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8470,13 +9114,17 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
     ::flatbuffers::Offset<::flatbuffers::String> symptoms = 0,
     float leak = 0.0f,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GroupInfo>>> groups = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> upkeep = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> upkeep = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> style = 0,
+    uint64_t style_from = 0) {
   BuildingInfoBuilder builder_(_fbb);
+  builder_.add_style_from(style_from);
   builder_.add_firm(firm);
   builder_.add_started_minute(started_minute);
   builder_.add_settlement(settlement);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_style(style);
   builder_.add_upkeep(upkeep);
   builder_.add_groups(groups);
   builder_.add_leak(leak);
@@ -8567,7 +9215,9 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
     const char *symptoms = nullptr,
     float leak = 0.0f,
     const std::vector<::flatbuffers::Offset<tce::wire::GroupInfo>> *groups = nullptr,
-    const char *upkeep = nullptr) {
+    const char *upkeep = nullptr,
+    const char *style = nullptr,
+    uint64_t style_from = 0) {
   auto program__ = program ? _fbb.CreateString(program) : 0;
   auto stage_name__ = stage_name ? _fbb.CreateString(stage_name) : 0;
   auto outline__ = outline ? _fbb.CreateVectorOfStructs<tce::wire::Vec2>(*outline) : 0;
@@ -8585,6 +9235,7 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
   auto symptoms__ = symptoms ? _fbb.CreateString(symptoms) : 0;
   auto groups__ = groups ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::GroupInfo>>(*groups) : 0;
   auto upkeep__ = upkeep ? _fbb.CreateString(upkeep) : 0;
+  auto style__ = style ? _fbb.CreateString(style) : 0;
   return tce::wire::CreateBuildingInfo(
       _fbb,
       id,
@@ -8629,7 +9280,9 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
       symptoms__,
       leak,
       groups__,
-      upkeep__);
+      upkeep__,
+      style__,
+      style_from);
 }
 
 struct Buildings FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -11495,6 +12148,905 @@ inline ::flatbuffers::Offset<Knowledge> CreateKnowledgeDirect(
       settlements__);
 }
 
+struct DepositInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef DepositInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_GOOD = 6,
+    VT_X = 8,
+    VT_Y = 10,
+    VT_RADIUS_M = 12,
+    VT_EXPOSED = 14,
+    VT_COVER_M = 16,
+    VT_THICKNESS_M = 18,
+    VT_QUALITY = 20,
+    VT_LEFT_KG = 22,
+    VT_TAKEN_KG = 24,
+    VT_KNOWN_BY = 26,
+    VT_FINDS = 28
+  };
+  uint64_t id() const {
+    return GetField<uint64_t>(VT_ID, 0);
+  }
+  uint32_t good() const {
+    return GetField<uint32_t>(VT_GOOD, 0);
+  }
+  float x() const {
+    return GetField<float>(VT_X, 0.0f);
+  }
+  float y() const {
+    return GetField<float>(VT_Y, 0.0f);
+  }
+  float radius_m() const {
+    return GetField<float>(VT_RADIUS_M, 0.0f);
+  }
+  bool exposed() const {
+    return GetField<uint8_t>(VT_EXPOSED, 0) != 0;
+  }
+  float cover_m() const {
+    return GetField<float>(VT_COVER_M, 0.0f);
+  }
+  float thickness_m() const {
+    return GetField<float>(VT_THICKNESS_M, 0.0f);
+  }
+  float quality() const {
+    return GetField<float>(VT_QUALITY, 0.0f);
+  }
+  double left_kg() const {
+    return GetField<double>(VT_LEFT_KG, 0.0);
+  }
+  double taken_kg() const {
+    return GetField<double>(VT_TAKEN_KG, 0.0);
+  }
+  const ::flatbuffers::Vector<uint64_t> *known_by() const {
+    return GetPointer<const ::flatbuffers::Vector<uint64_t> *>(VT_KNOWN_BY);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *finds() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_FINDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_ID, 8) &&
+           VerifyField<uint32_t>(verifier, VT_GOOD, 4) &&
+           VerifyField<float>(verifier, VT_X, 4) &&
+           VerifyField<float>(verifier, VT_Y, 4) &&
+           VerifyField<float>(verifier, VT_RADIUS_M, 4) &&
+           VerifyField<uint8_t>(verifier, VT_EXPOSED, 1) &&
+           VerifyField<float>(verifier, VT_COVER_M, 4) &&
+           VerifyField<float>(verifier, VT_THICKNESS_M, 4) &&
+           VerifyField<float>(verifier, VT_QUALITY, 4) &&
+           VerifyField<double>(verifier, VT_LEFT_KG, 8) &&
+           VerifyField<double>(verifier, VT_TAKEN_KG, 8) &&
+           VerifyOffset(verifier, VT_KNOWN_BY) &&
+           verifier.VerifyVector(known_by()) &&
+           VerifyOffset(verifier, VT_FINDS) &&
+           verifier.VerifyVector(finds()) &&
+           verifier.VerifyVectorOfStrings(finds()) &&
+           verifier.EndTable();
+  }
+};
+
+struct DepositInfoBuilder {
+  typedef DepositInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint64_t id) {
+    fbb_.AddElement<uint64_t>(DepositInfo::VT_ID, id, 0);
+  }
+  void add_good(uint32_t good) {
+    fbb_.AddElement<uint32_t>(DepositInfo::VT_GOOD, good, 0);
+  }
+  void add_x(float x) {
+    fbb_.AddElement<float>(DepositInfo::VT_X, x, 0.0f);
+  }
+  void add_y(float y) {
+    fbb_.AddElement<float>(DepositInfo::VT_Y, y, 0.0f);
+  }
+  void add_radius_m(float radius_m) {
+    fbb_.AddElement<float>(DepositInfo::VT_RADIUS_M, radius_m, 0.0f);
+  }
+  void add_exposed(bool exposed) {
+    fbb_.AddElement<uint8_t>(DepositInfo::VT_EXPOSED, static_cast<uint8_t>(exposed), 0);
+  }
+  void add_cover_m(float cover_m) {
+    fbb_.AddElement<float>(DepositInfo::VT_COVER_M, cover_m, 0.0f);
+  }
+  void add_thickness_m(float thickness_m) {
+    fbb_.AddElement<float>(DepositInfo::VT_THICKNESS_M, thickness_m, 0.0f);
+  }
+  void add_quality(float quality) {
+    fbb_.AddElement<float>(DepositInfo::VT_QUALITY, quality, 0.0f);
+  }
+  void add_left_kg(double left_kg) {
+    fbb_.AddElement<double>(DepositInfo::VT_LEFT_KG, left_kg, 0.0);
+  }
+  void add_taken_kg(double taken_kg) {
+    fbb_.AddElement<double>(DepositInfo::VT_TAKEN_KG, taken_kg, 0.0);
+  }
+  void add_known_by(::flatbuffers::Offset<::flatbuffers::Vector<uint64_t>> known_by) {
+    fbb_.AddOffset(DepositInfo::VT_KNOWN_BY, known_by);
+  }
+  void add_finds(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> finds) {
+    fbb_.AddOffset(DepositInfo::VT_FINDS, finds);
+  }
+  explicit DepositInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<DepositInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<DepositInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<DepositInfo> CreateDepositInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    uint32_t good = 0,
+    float x = 0.0f,
+    float y = 0.0f,
+    float radius_m = 0.0f,
+    bool exposed = false,
+    float cover_m = 0.0f,
+    float thickness_m = 0.0f,
+    float quality = 0.0f,
+    double left_kg = 0.0,
+    double taken_kg = 0.0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<uint64_t>> known_by = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> finds = 0) {
+  DepositInfoBuilder builder_(_fbb);
+  builder_.add_taken_kg(taken_kg);
+  builder_.add_left_kg(left_kg);
+  builder_.add_id(id);
+  builder_.add_finds(finds);
+  builder_.add_known_by(known_by);
+  builder_.add_quality(quality);
+  builder_.add_thickness_m(thickness_m);
+  builder_.add_cover_m(cover_m);
+  builder_.add_radius_m(radius_m);
+  builder_.add_y(y);
+  builder_.add_x(x);
+  builder_.add_good(good);
+  builder_.add_exposed(exposed);
+  return builder_.Finish();
+}
+
+struct DepositInfo::Traits {
+  using type = DepositInfo;
+  static auto constexpr Create = CreateDepositInfo;
+};
+
+inline ::flatbuffers::Offset<DepositInfo> CreateDepositInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    uint32_t good = 0,
+    float x = 0.0f,
+    float y = 0.0f,
+    float radius_m = 0.0f,
+    bool exposed = false,
+    float cover_m = 0.0f,
+    float thickness_m = 0.0f,
+    float quality = 0.0f,
+    double left_kg = 0.0,
+    double taken_kg = 0.0,
+    const std::vector<uint64_t> *known_by = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *finds = nullptr) {
+  auto known_by__ = known_by ? _fbb.CreateVector<uint64_t>(*known_by) : 0;
+  auto finds__ = finds ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*finds) : 0;
+  return tce::wire::CreateDepositInfo(
+      _fbb,
+      id,
+      good,
+      x,
+      y,
+      radius_m,
+      exposed,
+      cover_m,
+      thickness_m,
+      quality,
+      left_kg,
+      taken_kg,
+      known_by__,
+      finds__);
+}
+
+struct Deposits FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef DepositsBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_REV = 4,
+    VT_DEPOSITS = 6
+  };
+  uint64_t rev() const {
+    return GetField<uint64_t>(VT_REV, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::DepositInfo>> *deposits() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::DepositInfo>> *>(VT_DEPOSITS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_REV, 8) &&
+           VerifyOffset(verifier, VT_DEPOSITS) &&
+           verifier.VerifyVector(deposits()) &&
+           verifier.VerifyVectorOfTables(deposits()) &&
+           verifier.EndTable();
+  }
+};
+
+struct DepositsBuilder {
+  typedef Deposits Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_rev(uint64_t rev) {
+    fbb_.AddElement<uint64_t>(Deposits::VT_REV, rev, 0);
+  }
+  void add_deposits(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::DepositInfo>>> deposits) {
+    fbb_.AddOffset(Deposits::VT_DEPOSITS, deposits);
+  }
+  explicit DepositsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Deposits> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Deposits>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Deposits> CreateDeposits(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::DepositInfo>>> deposits = 0) {
+  DepositsBuilder builder_(_fbb);
+  builder_.add_rev(rev);
+  builder_.add_deposits(deposits);
+  return builder_.Finish();
+}
+
+struct Deposits::Traits {
+  using type = Deposits;
+  static auto constexpr Create = CreateDeposits;
+};
+
+inline ::flatbuffers::Offset<Deposits> CreateDepositsDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::DepositInfo>> *deposits = nullptr) {
+  auto deposits__ = deposits ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::DepositInfo>>(*deposits) : 0;
+  return tce::wire::CreateDeposits(
+      _fbb,
+      rev,
+      deposits__);
+}
+
+struct EarthworkInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef EarthworkInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_KIND = 6,
+    VT_X = 8,
+    VT_Y = 10,
+    VT_W = 12,
+    VT_H = 14,
+    VT_LEVEL_M = 16,
+    VT_SIDE_RUN = 18,
+    VT_CUT_M3 = 20,
+    VT_DONE = 22,
+    VT_HOUSEHOLD = 24,
+    VT_PLOT = 26,
+    VT_BUILDING = 28,
+    VT_WORDS = 30,
+    VT_DEPOSIT = 32
+  };
+  uint64_t id() const {
+    return GetField<uint64_t>(VT_ID, 0);
+  }
+  uint8_t kind() const {
+    return GetField<uint8_t>(VT_KIND, 0);
+  }
+  float x() const {
+    return GetField<float>(VT_X, 0.0f);
+  }
+  float y() const {
+    return GetField<float>(VT_Y, 0.0f);
+  }
+  float w() const {
+    return GetField<float>(VT_W, 0.0f);
+  }
+  float h() const {
+    return GetField<float>(VT_H, 0.0f);
+  }
+  float level_m() const {
+    return GetField<float>(VT_LEVEL_M, 0.0f);
+  }
+  float side_run() const {
+    return GetField<float>(VT_SIDE_RUN, 0.0f);
+  }
+  float cut_m3() const {
+    return GetField<float>(VT_CUT_M3, 0.0f);
+  }
+  float done() const {
+    return GetField<float>(VT_DONE, 0.0f);
+  }
+  uint64_t household() const {
+    return GetField<uint64_t>(VT_HOUSEHOLD, 0);
+  }
+  uint64_t plot() const {
+    return GetField<uint64_t>(VT_PLOT, 0);
+  }
+  uint64_t building() const {
+    return GetField<uint64_t>(VT_BUILDING, 0);
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  uint64_t deposit() const {
+    return GetField<uint64_t>(VT_DEPOSIT, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_ID, 8) &&
+           VerifyField<uint8_t>(verifier, VT_KIND, 1) &&
+           VerifyField<float>(verifier, VT_X, 4) &&
+           VerifyField<float>(verifier, VT_Y, 4) &&
+           VerifyField<float>(verifier, VT_W, 4) &&
+           VerifyField<float>(verifier, VT_H, 4) &&
+           VerifyField<float>(verifier, VT_LEVEL_M, 4) &&
+           VerifyField<float>(verifier, VT_SIDE_RUN, 4) &&
+           VerifyField<float>(verifier, VT_CUT_M3, 4) &&
+           VerifyField<float>(verifier, VT_DONE, 4) &&
+           VerifyField<uint64_t>(verifier, VT_HOUSEHOLD, 8) &&
+           VerifyField<uint64_t>(verifier, VT_PLOT, 8) &&
+           VerifyField<uint64_t>(verifier, VT_BUILDING, 8) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           VerifyField<uint64_t>(verifier, VT_DEPOSIT, 8) &&
+           verifier.EndTable();
+  }
+};
+
+struct EarthworkInfoBuilder {
+  typedef EarthworkInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint64_t id) {
+    fbb_.AddElement<uint64_t>(EarthworkInfo::VT_ID, id, 0);
+  }
+  void add_kind(uint8_t kind) {
+    fbb_.AddElement<uint8_t>(EarthworkInfo::VT_KIND, kind, 0);
+  }
+  void add_x(float x) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_X, x, 0.0f);
+  }
+  void add_y(float y) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_Y, y, 0.0f);
+  }
+  void add_w(float w) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_W, w, 0.0f);
+  }
+  void add_h(float h) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_H, h, 0.0f);
+  }
+  void add_level_m(float level_m) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_LEVEL_M, level_m, 0.0f);
+  }
+  void add_side_run(float side_run) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_SIDE_RUN, side_run, 0.0f);
+  }
+  void add_cut_m3(float cut_m3) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_CUT_M3, cut_m3, 0.0f);
+  }
+  void add_done(float done) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_DONE, done, 0.0f);
+  }
+  void add_household(uint64_t household) {
+    fbb_.AddElement<uint64_t>(EarthworkInfo::VT_HOUSEHOLD, household, 0);
+  }
+  void add_plot(uint64_t plot) {
+    fbb_.AddElement<uint64_t>(EarthworkInfo::VT_PLOT, plot, 0);
+  }
+  void add_building(uint64_t building) {
+    fbb_.AddElement<uint64_t>(EarthworkInfo::VT_BUILDING, building, 0);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(EarthworkInfo::VT_WORDS, words);
+  }
+  void add_deposit(uint64_t deposit) {
+    fbb_.AddElement<uint64_t>(EarthworkInfo::VT_DEPOSIT, deposit, 0);
+  }
+  explicit EarthworkInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<EarthworkInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<EarthworkInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    uint8_t kind = 0,
+    float x = 0.0f,
+    float y = 0.0f,
+    float w = 0.0f,
+    float h = 0.0f,
+    float level_m = 0.0f,
+    float side_run = 0.0f,
+    float cut_m3 = 0.0f,
+    float done = 0.0f,
+    uint64_t household = 0,
+    uint64_t plot = 0,
+    uint64_t building = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0,
+    uint64_t deposit = 0) {
+  EarthworkInfoBuilder builder_(_fbb);
+  builder_.add_deposit(deposit);
+  builder_.add_building(building);
+  builder_.add_plot(plot);
+  builder_.add_household(household);
+  builder_.add_id(id);
+  builder_.add_words(words);
+  builder_.add_done(done);
+  builder_.add_cut_m3(cut_m3);
+  builder_.add_side_run(side_run);
+  builder_.add_level_m(level_m);
+  builder_.add_h(h);
+  builder_.add_w(w);
+  builder_.add_y(y);
+  builder_.add_x(x);
+  builder_.add_kind(kind);
+  return builder_.Finish();
+}
+
+struct EarthworkInfo::Traits {
+  using type = EarthworkInfo;
+  static auto constexpr Create = CreateEarthworkInfo;
+};
+
+inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    uint8_t kind = 0,
+    float x = 0.0f,
+    float y = 0.0f,
+    float w = 0.0f,
+    float h = 0.0f,
+    float level_m = 0.0f,
+    float side_run = 0.0f,
+    float cut_m3 = 0.0f,
+    float done = 0.0f,
+    uint64_t household = 0,
+    uint64_t plot = 0,
+    uint64_t building = 0,
+    const char *words = nullptr,
+    uint64_t deposit = 0) {
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  return tce::wire::CreateEarthworkInfo(
+      _fbb,
+      id,
+      kind,
+      x,
+      y,
+      w,
+      h,
+      level_m,
+      side_run,
+      cut_m3,
+      done,
+      household,
+      plot,
+      building,
+      words__,
+      deposit);
+}
+
+struct Earthworks FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef EarthworksBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_REV = 4,
+    VT_WORKS = 6,
+    VT_TILE_CELLS = 8,
+    VT_TILES_X = 10,
+    VT_TILES = 12
+  };
+  uint64_t rev() const {
+    return GetField<uint64_t>(VT_REV, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::EarthworkInfo>> *works() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::EarthworkInfo>> *>(VT_WORKS);
+  }
+  uint32_t tile_cells() const {
+    return GetField<uint32_t>(VT_TILE_CELLS, 0);
+  }
+  uint32_t tiles_x() const {
+    return GetField<uint32_t>(VT_TILES_X, 0);
+  }
+  const ::flatbuffers::Vector<const tce::wire::GroundTileRev *> *tiles() const {
+    return GetPointer<const ::flatbuffers::Vector<const tce::wire::GroundTileRev *> *>(VT_TILES);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_REV, 8) &&
+           VerifyOffset(verifier, VT_WORKS) &&
+           verifier.VerifyVector(works()) &&
+           verifier.VerifyVectorOfTables(works()) &&
+           VerifyField<uint32_t>(verifier, VT_TILE_CELLS, 4) &&
+           VerifyField<uint32_t>(verifier, VT_TILES_X, 4) &&
+           VerifyOffset(verifier, VT_TILES) &&
+           verifier.VerifyVector(tiles()) &&
+           verifier.EndTable();
+  }
+};
+
+struct EarthworksBuilder {
+  typedef Earthworks Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_rev(uint64_t rev) {
+    fbb_.AddElement<uint64_t>(Earthworks::VT_REV, rev, 0);
+  }
+  void add_works(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::EarthworkInfo>>> works) {
+    fbb_.AddOffset(Earthworks::VT_WORKS, works);
+  }
+  void add_tile_cells(uint32_t tile_cells) {
+    fbb_.AddElement<uint32_t>(Earthworks::VT_TILE_CELLS, tile_cells, 0);
+  }
+  void add_tiles_x(uint32_t tiles_x) {
+    fbb_.AddElement<uint32_t>(Earthworks::VT_TILES_X, tiles_x, 0);
+  }
+  void add_tiles(::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::GroundTileRev *>> tiles) {
+    fbb_.AddOffset(Earthworks::VT_TILES, tiles);
+  }
+  explicit EarthworksBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Earthworks> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Earthworks>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Earthworks> CreateEarthworks(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::EarthworkInfo>>> works = 0,
+    uint32_t tile_cells = 0,
+    uint32_t tiles_x = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::GroundTileRev *>> tiles = 0) {
+  EarthworksBuilder builder_(_fbb);
+  builder_.add_rev(rev);
+  builder_.add_tiles(tiles);
+  builder_.add_tiles_x(tiles_x);
+  builder_.add_tile_cells(tile_cells);
+  builder_.add_works(works);
+  return builder_.Finish();
+}
+
+struct Earthworks::Traits {
+  using type = Earthworks;
+  static auto constexpr Create = CreateEarthworks;
+};
+
+inline ::flatbuffers::Offset<Earthworks> CreateEarthworksDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::EarthworkInfo>> *works = nullptr,
+    uint32_t tile_cells = 0,
+    uint32_t tiles_x = 0,
+    const std::vector<tce::wire::GroundTileRev> *tiles = nullptr) {
+  auto works__ = works ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::EarthworkInfo>>(*works) : 0;
+  auto tiles__ = tiles ? _fbb.CreateVectorOfStructs<tce::wire::GroundTileRev>(*tiles) : 0;
+  return tce::wire::CreateEarthworks(
+      _fbb,
+      rev,
+      works__,
+      tile_cells,
+      tiles_x,
+      tiles__);
+}
+
+struct WeatherMonthInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef WeatherMonthInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_YEAR = 4,
+    VT_MONTH = 6,
+    VT_DAYS = 8,
+    VT_PRECIP_MM = 10,
+    VT_USUAL_MM = 12,
+    VT_WET_DAYS = 14,
+    VT_MEAN_C = 16,
+    VT_USUAL_C = 18,
+    VT_MIN_C = 20,
+    VT_MAX_C = 22,
+    VT_FROST_DAYS = 24,
+    VT_SNOW_DAYS = 26,
+    VT_SOIL = 28
+  };
+  int64_t year() const {
+    return GetField<int64_t>(VT_YEAR, 0);
+  }
+  uint8_t month() const {
+    return GetField<uint8_t>(VT_MONTH, 0);
+  }
+  uint8_t days() const {
+    return GetField<uint8_t>(VT_DAYS, 0);
+  }
+  float precip_mm() const {
+    return GetField<float>(VT_PRECIP_MM, 0.0f);
+  }
+  float usual_mm() const {
+    return GetField<float>(VT_USUAL_MM, 0.0f);
+  }
+  uint8_t wet_days() const {
+    return GetField<uint8_t>(VT_WET_DAYS, 0);
+  }
+  float mean_c() const {
+    return GetField<float>(VT_MEAN_C, 0.0f);
+  }
+  float usual_c() const {
+    return GetField<float>(VT_USUAL_C, 0.0f);
+  }
+  float min_c() const {
+    return GetField<float>(VT_MIN_C, 0.0f);
+  }
+  float max_c() const {
+    return GetField<float>(VT_MAX_C, 0.0f);
+  }
+  uint8_t frost_days() const {
+    return GetField<uint8_t>(VT_FROST_DAYS, 0);
+  }
+  uint8_t snow_days() const {
+    return GetField<uint8_t>(VT_SNOW_DAYS, 0);
+  }
+  float soil() const {
+    return GetField<float>(VT_SOIL, 0.0f);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int64_t>(verifier, VT_YEAR, 8) &&
+           VerifyField<uint8_t>(verifier, VT_MONTH, 1) &&
+           VerifyField<uint8_t>(verifier, VT_DAYS, 1) &&
+           VerifyField<float>(verifier, VT_PRECIP_MM, 4) &&
+           VerifyField<float>(verifier, VT_USUAL_MM, 4) &&
+           VerifyField<uint8_t>(verifier, VT_WET_DAYS, 1) &&
+           VerifyField<float>(verifier, VT_MEAN_C, 4) &&
+           VerifyField<float>(verifier, VT_USUAL_C, 4) &&
+           VerifyField<float>(verifier, VT_MIN_C, 4) &&
+           VerifyField<float>(verifier, VT_MAX_C, 4) &&
+           VerifyField<uint8_t>(verifier, VT_FROST_DAYS, 1) &&
+           VerifyField<uint8_t>(verifier, VT_SNOW_DAYS, 1) &&
+           VerifyField<float>(verifier, VT_SOIL, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct WeatherMonthInfoBuilder {
+  typedef WeatherMonthInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_year(int64_t year) {
+    fbb_.AddElement<int64_t>(WeatherMonthInfo::VT_YEAR, year, 0);
+  }
+  void add_month(uint8_t month) {
+    fbb_.AddElement<uint8_t>(WeatherMonthInfo::VT_MONTH, month, 0);
+  }
+  void add_days(uint8_t days) {
+    fbb_.AddElement<uint8_t>(WeatherMonthInfo::VT_DAYS, days, 0);
+  }
+  void add_precip_mm(float precip_mm) {
+    fbb_.AddElement<float>(WeatherMonthInfo::VT_PRECIP_MM, precip_mm, 0.0f);
+  }
+  void add_usual_mm(float usual_mm) {
+    fbb_.AddElement<float>(WeatherMonthInfo::VT_USUAL_MM, usual_mm, 0.0f);
+  }
+  void add_wet_days(uint8_t wet_days) {
+    fbb_.AddElement<uint8_t>(WeatherMonthInfo::VT_WET_DAYS, wet_days, 0);
+  }
+  void add_mean_c(float mean_c) {
+    fbb_.AddElement<float>(WeatherMonthInfo::VT_MEAN_C, mean_c, 0.0f);
+  }
+  void add_usual_c(float usual_c) {
+    fbb_.AddElement<float>(WeatherMonthInfo::VT_USUAL_C, usual_c, 0.0f);
+  }
+  void add_min_c(float min_c) {
+    fbb_.AddElement<float>(WeatherMonthInfo::VT_MIN_C, min_c, 0.0f);
+  }
+  void add_max_c(float max_c) {
+    fbb_.AddElement<float>(WeatherMonthInfo::VT_MAX_C, max_c, 0.0f);
+  }
+  void add_frost_days(uint8_t frost_days) {
+    fbb_.AddElement<uint8_t>(WeatherMonthInfo::VT_FROST_DAYS, frost_days, 0);
+  }
+  void add_snow_days(uint8_t snow_days) {
+    fbb_.AddElement<uint8_t>(WeatherMonthInfo::VT_SNOW_DAYS, snow_days, 0);
+  }
+  void add_soil(float soil) {
+    fbb_.AddElement<float>(WeatherMonthInfo::VT_SOIL, soil, 0.0f);
+  }
+  explicit WeatherMonthInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<WeatherMonthInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<WeatherMonthInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<WeatherMonthInfo> CreateWeatherMonthInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t year = 0,
+    uint8_t month = 0,
+    uint8_t days = 0,
+    float precip_mm = 0.0f,
+    float usual_mm = 0.0f,
+    uint8_t wet_days = 0,
+    float mean_c = 0.0f,
+    float usual_c = 0.0f,
+    float min_c = 0.0f,
+    float max_c = 0.0f,
+    uint8_t frost_days = 0,
+    uint8_t snow_days = 0,
+    float soil = 0.0f) {
+  WeatherMonthInfoBuilder builder_(_fbb);
+  builder_.add_year(year);
+  builder_.add_soil(soil);
+  builder_.add_max_c(max_c);
+  builder_.add_min_c(min_c);
+  builder_.add_usual_c(usual_c);
+  builder_.add_mean_c(mean_c);
+  builder_.add_usual_mm(usual_mm);
+  builder_.add_precip_mm(precip_mm);
+  builder_.add_snow_days(snow_days);
+  builder_.add_frost_days(frost_days);
+  builder_.add_wet_days(wet_days);
+  builder_.add_days(days);
+  builder_.add_month(month);
+  return builder_.Finish();
+}
+
+struct WeatherMonthInfo::Traits {
+  using type = WeatherMonthInfo;
+  static auto constexpr Create = CreateWeatherMonthInfo;
+};
+
+struct WeatherReport FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef WeatherReportBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_REV = 4,
+    VT_HEIGHT_M = 6,
+    VT_ANNUAL_MM = 8,
+    VT_TODAY = 10,
+    VT_MONTHS = 12,
+    VT_MONTH = 14
+  };
+  uint64_t rev() const {
+    return GetField<uint64_t>(VT_REV, 0);
+  }
+  float height_m() const {
+    return GetField<float>(VT_HEIGHT_M, 0.0f);
+  }
+  float annual_mm() const {
+    return GetField<float>(VT_ANNUAL_MM, 0.0f);
+  }
+  const tce::wire::DayWeather *today() const {
+    return GetPointer<const tce::wire::DayWeather *>(VT_TODAY);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WeatherMonthInfo>> *months() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WeatherMonthInfo>> *>(VT_MONTHS);
+  }
+  uint8_t month() const {
+    return GetField<uint8_t>(VT_MONTH, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_REV, 8) &&
+           VerifyField<float>(verifier, VT_HEIGHT_M, 4) &&
+           VerifyField<float>(verifier, VT_ANNUAL_MM, 4) &&
+           VerifyOffset(verifier, VT_TODAY) &&
+           verifier.VerifyTable(today()) &&
+           VerifyOffset(verifier, VT_MONTHS) &&
+           verifier.VerifyVector(months()) &&
+           verifier.VerifyVectorOfTables(months()) &&
+           VerifyField<uint8_t>(verifier, VT_MONTH, 1) &&
+           verifier.EndTable();
+  }
+};
+
+struct WeatherReportBuilder {
+  typedef WeatherReport Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_rev(uint64_t rev) {
+    fbb_.AddElement<uint64_t>(WeatherReport::VT_REV, rev, 0);
+  }
+  void add_height_m(float height_m) {
+    fbb_.AddElement<float>(WeatherReport::VT_HEIGHT_M, height_m, 0.0f);
+  }
+  void add_annual_mm(float annual_mm) {
+    fbb_.AddElement<float>(WeatherReport::VT_ANNUAL_MM, annual_mm, 0.0f);
+  }
+  void add_today(::flatbuffers::Offset<tce::wire::DayWeather> today) {
+    fbb_.AddOffset(WeatherReport::VT_TODAY, today);
+  }
+  void add_months(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WeatherMonthInfo>>> months) {
+    fbb_.AddOffset(WeatherReport::VT_MONTHS, months);
+  }
+  void add_month(uint8_t month) {
+    fbb_.AddElement<uint8_t>(WeatherReport::VT_MONTH, month, 0);
+  }
+  explicit WeatherReportBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<WeatherReport> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<WeatherReport>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<WeatherReport> CreateWeatherReport(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    float height_m = 0.0f,
+    float annual_mm = 0.0f,
+    ::flatbuffers::Offset<tce::wire::DayWeather> today = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WeatherMonthInfo>>> months = 0,
+    uint8_t month = 0) {
+  WeatherReportBuilder builder_(_fbb);
+  builder_.add_rev(rev);
+  builder_.add_months(months);
+  builder_.add_today(today);
+  builder_.add_annual_mm(annual_mm);
+  builder_.add_height_m(height_m);
+  builder_.add_month(month);
+  return builder_.Finish();
+}
+
+struct WeatherReport::Traits {
+  using type = WeatherReport;
+  static auto constexpr Create = CreateWeatherReport;
+};
+
+inline ::flatbuffers::Offset<WeatherReport> CreateWeatherReportDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    float height_m = 0.0f,
+    float annual_mm = 0.0f,
+    ::flatbuffers::Offset<tce::wire::DayWeather> today = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::WeatherMonthInfo>> *months = nullptr,
+    uint8_t month = 0) {
+  auto months__ = months ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::WeatherMonthInfo>>(*months) : 0;
+  return tce::wire::CreateWeatherReport(
+      _fbb,
+      rev,
+      height_m,
+      annual_mm,
+      today,
+      months__,
+      month);
+}
+
 struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef ResponseBuilder Builder;
   struct Traits;
@@ -11553,6 +13105,15 @@ struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::Knowledge *body_as_Knowledge() const {
     return body_type() == tce::wire::ResponseBody::Knowledge ? static_cast<const tce::wire::Knowledge *>(body()) : nullptr;
+  }
+  const tce::wire::Deposits *body_as_Deposits() const {
+    return body_type() == tce::wire::ResponseBody::Deposits ? static_cast<const tce::wire::Deposits *>(body()) : nullptr;
+  }
+  const tce::wire::Earthworks *body_as_Earthworks() const {
+    return body_type() == tce::wire::ResponseBody::Earthworks ? static_cast<const tce::wire::Earthworks *>(body()) : nullptr;
+  }
+  const tce::wire::WeatherReport *body_as_WeatherReport() const {
+    return body_type() == tce::wire::ResponseBody::WeatherReport ? static_cast<const tce::wire::WeatherReport *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -11622,6 +13183,18 @@ template<> inline const tce::wire::Wealth *Response::body_as<tce::wire::Wealth>(
 
 template<> inline const tce::wire::Knowledge *Response::body_as<tce::wire::Knowledge>() const {
   return body_as_Knowledge();
+}
+
+template<> inline const tce::wire::Deposits *Response::body_as<tce::wire::Deposits>() const {
+  return body_as_Deposits();
+}
+
+template<> inline const tce::wire::Earthworks *Response::body_as<tce::wire::Earthworks>() const {
+  return body_as_Earthworks();
+}
+
+template<> inline const tce::wire::WeatherReport *Response::body_as<tce::wire::WeatherReport>() const {
+  return body_as_WeatherReport();
 }
 
 struct ResponseBuilder {
@@ -11772,6 +13345,10 @@ inline bool VerifyCommandBody(::flatbuffers::VerifierTemplate<B> &verifier, cons
       auto ptr = reinterpret_cast<const tce::wire::IntroduceTechnique *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case CommandBody::PlaceDeposit: {
+      auto ptr = reinterpret_cast<const tce::wire::PlaceDeposit *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -11849,6 +13426,18 @@ inline bool VerifyQueryBody(::flatbuffers::VerifierTemplate<B> &verifier, const 
     }
     case QueryBody::GetKnowledge: {
       auto ptr = reinterpret_cast<const tce::wire::GetKnowledge *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case QueryBody::GetDeposits: {
+      auto ptr = reinterpret_cast<const tce::wire::GetDeposits *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case QueryBody::GetEarthworks: {
+      auto ptr = reinterpret_cast<const tce::wire::GetEarthworks *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case QueryBody::GetWeather: {
+      auto ptr = reinterpret_cast<const tce::wire::GetWeather *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;
@@ -11932,6 +13521,18 @@ inline bool VerifyResponseBody(::flatbuffers::VerifierTemplate<B> &verifier, con
     }
     case ResponseBody::Knowledge: {
       auto ptr = reinterpret_cast<const tce::wire::Knowledge *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::Deposits: {
+      auto ptr = reinterpret_cast<const tce::wire::Deposits *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::Earthworks: {
+      auto ptr = reinterpret_cast<const tce::wire::Earthworks *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::WeatherReport: {
+      auto ptr = reinterpret_cast<const tce::wire::WeatherReport *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

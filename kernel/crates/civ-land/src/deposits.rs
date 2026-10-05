@@ -40,6 +40,11 @@ pub struct DepositRule {
     pub exposed_share: f64,
     /// Kilograms of the good in a cubic metre of the body.
     pub density_kg_m3: f64,
+    /// Hours a capable adult takes to break a cubic metre of the body out of the ground; 0 to dig
+    /// it as earth, at the people profile's rate.
+    pub dig_h_per_m3: f64,
+    /// What a working of it is called: "pit", "quarry".
+    pub working: String,
 }
 
 /// A body as placed, before it is given a permanent id.
@@ -162,6 +167,8 @@ mod tests {
             quality: (0.4, 0.9),
             exposed_share: 0.3,
             density_kg_m3: 1_800.0,
+            dig_h_per_m3: 0.0,
+            working: "pit".to_owned(),
         }
     }
 

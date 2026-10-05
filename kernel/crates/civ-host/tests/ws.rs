@@ -419,7 +419,7 @@ async fn an_observer_creates_saves_and_loads_a_world() {
                 fbb,
                 &wire::SetClockArgs {
                     paused: false,
-                    speed: civ_sim::MAX_SPEED,
+                    speed: civ_sim::MAX_DETAILED_SPEED,
                 },
             )
             .as_union_value()

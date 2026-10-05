@@ -15,6 +15,7 @@ use civ_agents::params::BuildingDef;
 use civ_agents::person::Flow;
 use civ_content::ContentRegistry;
 use civ_core::PermanentId;
+use civ_core::time::MONTH_LENGTHS;
 use civ_grammar::{Expansion, GroupKind, Stage};
 use civ_land::{Building, BuildingState, GroupState};
 use civ_sim::{NewWorld, Sim};
@@ -212,16 +213,28 @@ fn thatch_wears_by_the_month_and_posts_by_the_ground_they_stand_in() {
         "on the first of the month: {}",
         sim.now().date()
     );
+    // As wet as the month just lived was against its usual (ADR-0012 §5).
     let u = &hut_def().upkeep;
-    let month = u.covering.per_year / 12.0;
+    let land = sim.land();
+    let lived = land
+        .weather
+        .months
+        .iter()
+        .rev()
+        .find(|m| i64::from(m.days) == MONTH_LENGTHS[usize::from(m.month)])
+        .expect("a whole month lived");
+    let rain = (f64::from(lived.precip_mm)
+        / land.climatology.month_precip_mm[usize::from(lived.month)])
+    .clamp(condition::WET_WEAR.0, condition::WET_WEAR.1);
+    let month = u.covering.per_year / 12.0 * rain;
     assert!((f64::from(loss(&sim, hut, covering)) - month).abs() < 1e-6);
-    // Posts by the wetness of the habitat the hut stands in.
+    // Posts by the wetness of the habitat the hut stands in, too.
     let rules = sim.rules().clone();
     let (map, land) = (sim.map(), sim.land());
     let cell = civ_agents::population::cell_of(map, build::centre_m(&b.spec));
     let class = land.patches.class[land.patches.of_cell(cell, map.width)];
     let wetness = rules.land.habitats[usize::from(class)].wetness;
-    let expected = u.posts.per_year / 12.0 * wetness;
+    let expected = u.posts.per_year / 12.0 * wetness * rain;
     assert!(
         (f64::from(loss(&sim, hut, posts)) - expected).abs() < 1e-6,
         "{} against {expected}",
@@ -328,7 +341,7 @@ fn a_ruin_shelters_nothing_and_its_household_builds_anew() {
             .expect("in place");
         c.loss = 0.999;
         // A month in sodden ground finishes them.
-        condition::wear_month(b, &hut_def().upkeep, 10.0);
+        condition::wear_month(b, &hut_def().upkeep, 10.0, 1.0);
         assert_eq!(b.state, BuildingState::Ruin);
         assert!(!b.roofed());
     }
@@ -597,8 +610,9 @@ fn a_loft_that_gives_way_makes_its_settlement_build_frames_stronger_for_a_while(
         lofts: 2,
     };
     let sized = |caution: f64| {
-        let spec = build::design_cautious(def, &catalog.goods, shape, (0.0, 0.0), None, caution)
-            .expect("a longhouse");
+        let spec =
+            build::design_cautious(def, &catalog.goods, shape, (0.0, 0.0), None, caution, None)
+                .expect("a longhouse");
         (spec.params[fp::JOIST_CM], spec.params[fp::POST_CM])
     };
     // Builders who have seen nothing fail build as usual; twice as cautious, joists of 19 cm
@@ -609,7 +623,7 @@ fn a_loft_that_gives_way_makes_its_settlement_build_frames_stronger_for_a_while(
     assert_eq!(sized(100.0), (25, 30));
     assert_eq!(
         build::design_shape(def, &catalog.goods, shape, (0.0, 0.0), None),
-        build::design_cautious(def, &catalog.goods, shape, (0.0, 0.0), None, 1.0)
+        build::design_cautious(def, &catalog.goods, shape, (0.0, 0.0), None, 1.0, None)
     );
 
     // A loft on poles a novice chose badly gives way under a full load...
@@ -669,4 +683,63 @@ fn a_loft_that_gives_way_makes_its_settlement_build_frames_stronger_for_a_while(
         &p,
     );
     assert!(years_on < after, "{years_on} after {after}");
+}
+
+#[test]
+fn worn_daub_is_renewed_with_earth_dug_beside_the_hut() {
+    use civ_land::earth::EarthKind;
+    let (mut sim, household, hut) = housed(3);
+    let b = building(&sim, hut).clone();
+    let infill = group_of(&b, GroupKind::Infill);
+    let daub = expansion(&b)
+        .groups
+        .iter()
+        .find(|g| g.id == infill)
+        .expect("the walls")
+        .daub_m3();
+    assert!(daub > 1.0, "{daub}");
+    // Placed whole, as by a test: it has no daub pit yet.
+    let pit_of = |sim: &Sim| {
+        sim.land()
+            .earthworks
+            .iter()
+            .find(|w| w.kind == EarthKind::Pit && w.plot == Some(b.plot))
+            .copied()
+    };
+    assert!(pit_of(&sim).is_none());
+    // Its walls have lost more than half their daub; with wattle rods at hand they are mended.
+    let lost = 0.6;
+    {
+        let b = building_mut(&mut sim, hut);
+        let c = b
+            .condition
+            .iter_mut()
+            .find(|c| c.group == infill)
+            .expect("in place");
+        c.loss = lost;
+        c.state = GroupState::Symptom;
+    }
+    let timber = good("core:good/timber");
+    for (_, h) in sim.people_mut_for_tests().households.iter_mut() {
+        if h.id == household {
+            h.stores[timber] += 500.0;
+        }
+    }
+    // Upkeep is wanted by the roof deadline in September, so spring's fieldwork comes first:
+    // across sixty worlds the walls were mended in 32 to 66 days, most near day 50.
+    for _ in 0..120 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        if loss(&sim, hut, infill) < 0.05 {
+            break;
+        }
+    }
+    assert!(loss(&sim, hut, infill) < 0.05, "mended");
+    // The daub renewed was dug from a pit begun beside it: what was lost of the walls' earth.
+    let pit = pit_of(&sim).expect("a daub pit");
+    assert_eq!(pit.deposit, None);
+    let dug = f64::from(pit.cut_m3);
+    assert!(
+        dug >= daub * f64::from(lost) * 0.99 && dug <= daub * 0.7,
+        "{dug} m³ of the walls' {daub}"
+    );
 }

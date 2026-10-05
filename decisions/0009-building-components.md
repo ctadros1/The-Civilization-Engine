@@ -204,7 +204,9 @@ their meanings), an expansion yields:
     first it weighed every day of its month, which the step's smoke showed wrong). There is no
     separate check when loads change.
   - Deflection is serviceability: a sag past L/180 (11-05 §2.4) only shows, and a failure
-    needs a strength margin below 1. A sag or a lean is not mended by upkeep, which rebuilds
+    needs a strength margin below 1. The sag is checked on lofts, floors and beams only; a
+    roof frame shows only its strain, as thatched rafters bow under their covering without
+    harm (at first every hut's roof showed a sag). A sag or a lean is not mended by upkeep, which rebuilds
     a failed part whole.
   - Posts carry their share, by tributary area, of the whole building's weight, and fail by
     buckling (Euler's load halved for imperfection) or crushing. Mass walls and footings wait
@@ -224,7 +226,10 @@ their meanings), an expansion yields:
   - As built (slice P's first step): `q = 1 − σ·|z|`, z a normal draw keyed by the world, the
     building and the group, never below 0.1, with σ from the people profile's
     `quality_spread`, a novice's 0.30 (11-06 §2.2's dispersion) to a master's 0.10 (tuning).
-    Mending trains the skill too, and skill does not change how fast anyone builds.
+    Mending trains the skill too, and skill does not change how fast anyone builds. A worn
+    group mended keeps its quality; a group rebuilt whole after it gave way is drawn anew from
+    its mender's skill (at first it kept its old quality, and a part too poor for its load gave
+    way again and again).
 - **Trust:** each settlement keeps, for each building technique, two recency-weighted sums.
   Until cultures exist, the settlement stands in for its culture. The sums are:
   - failures seen, weighted by severity and deaths;
@@ -268,6 +273,14 @@ their meanings), an expansion yields:
 - Heirs take all of a household's buildings (ADR-0007 §1, widened from the home).
 - Style traits are realised decisions kept in the spec's parameters. A household's taste and the
   provenance of each trait are behaviour state, saved but cheap to change.
+  - As built (slice R's first step): the traits are the roof's pitch, the storey height to the
+    eaves and the roof's overhang, parameters the grammars already expand, each held to its
+    program's range; the four parameters frame v1 keeps for style stay 0 until a grammar expands
+    ornament. Each household keeps its taste in the three and the building that last moved it
+    most, and each building keeps the one building its household's taste followed when it was
+    begun (one link for the building, not one a trait). Saves schema 22. Wire 1.22 (its
+    second step) appends each building's traits in words and the building it followed, and
+    each household's taste and the building it admires.
 
 ### 8. Saves and boundary
 

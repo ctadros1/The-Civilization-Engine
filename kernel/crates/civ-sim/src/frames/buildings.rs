@@ -8,10 +8,13 @@ use std::f64::consts::TAU;
 
 use civ_agents::build::{self, HomeWork};
 use civ_agents::condition;
+use civ_agents::params::BuildingDef;
 use civ_agents::person::Keeping;
 use civ_agents::population;
 use civ_core::PermanentId;
-use civ_grammar::{Expansion, Footprint, GroupKind, PartKind, Stage, TURN, expand, frame_params};
+use civ_grammar::{
+    Expansion, Footprint, GroupKind, PartKind, ProgramRules, Stage, TURN, expand, frame_params,
+};
 use civ_land::{Building, BuildingState, GroupState};
 use civ_schema::flatbuffers::FlatBufferBuilder;
 use civ_schema::wire;
@@ -72,6 +75,31 @@ fn upkeep(b: &Building, e: Option<&Expansion>) -> String {
         }
     });
     format!("mending the {kind}, {} done", percent(done))
+}
+
+/// How building `b` of program `def` was built, in words, and the building its household's taste
+/// followed (M3b slice R): "roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut"; for a
+/// frame building its storeys and how far its eaves reach: "roof pitched 50°, storeys 2.1 m to
+/// the eaves, eaves 0.6 m out". Empty when the content lacks its program.
+pub fn style_words(sim: &Sim, b: &Building, def: Option<&BuildingDef>) -> String {
+    let Some(def) = def else {
+        return String::new();
+    };
+    let t = civ_agents::style::traits_of(&b.spec, def);
+    let mut words = vec![format!("roof pitched {:.0}°", t.pitch_centideg / 100.0)];
+    let walls = if b.spec.storeys > 1 {
+        "storeys"
+    } else {
+        "walls"
+    };
+    words.push(format!("{walls} {:.1} m to the eaves", t.eave_cm / 100.0));
+    if matches!(def.rules, ProgramRules::Frame(_)) {
+        words.push(format!("eaves {:.1} m out", t.overhang_cm / 100.0));
+    }
+    if let Some(from) = b.style_from {
+        words.push(format!("after {}", super::people::building_name(sim, from)));
+    }
+    words.join(", ")
 }
 
 fn percent(x: f64) -> String {
@@ -318,6 +346,7 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                 .unwrap_or_default();
             let firm_name = fbb.create_string(&firm_name);
             let upkeep_words = fbb.create_string(&upkeep(b, expansion.as_ref()));
+            let style = fbb.create_string(&style_words(sim, b, def));
             let symptoms = fbb.create_string(
                 &def.map_or_else(String::new, |d| condition::symptoms(b, &d.upkeep)),
             );
@@ -400,6 +429,8 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                     leak,
                     groups: Some(groups),
                     upkeep: Some(upkeep_words),
+                    style: Some(style),
+                    style_from: b.style_from.map_or(0, |f| f.get()),
                 },
             )
         })

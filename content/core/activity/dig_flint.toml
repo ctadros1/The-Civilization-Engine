@@ -1,0 +1,19 @@
+# Digging flint nodules out of their bed at a deposit the settlement knows, and carrying them home
+# (tuning starting points). Only done while the household needs flint for something it makes, and
+# when it brings more for the walk than gathering loose nodules. Digging is heavy work.
+kind = "activity"
+id = "core:activity/dig_flint"
+name = "Dig flint"
+doing = "digging flint"
+behavior = "dig"
+digs = "core:good/toolstone"
+par = 5.0
+min_age_years = 14.0
+max_age_years = 65.0
+min_minutes = 30
+max_minutes = 180
+daylight_only = true
+max_walk_minutes = 60
+technique = ""
+tools = []
+rate = 1.0

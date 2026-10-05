@@ -48,6 +48,32 @@ pub fn draw_quality(
     ((1.0 - sigma * z) as f32).clamp(MIN_QUALITY, 1.0)
 }
 
+/// The quality of group `group` of building `building` rebuilt whole at `at` after it gave way,
+/// by a builder of building skill `skill`: new members, so a new draw ([`draw_quality`]), keyed
+/// also by when, so each rebuilding is its own draw and the first build's draw is untouched.
+pub fn draw_rebuilt_quality(
+    seed: u64,
+    building: PermanentId,
+    group: u32,
+    at: SimTime,
+    skill: f64,
+    spread: [f64; 2],
+) -> f32 {
+    let s = skill.clamp(0.0, 1.0);
+    let sigma = spread[0] + (spread[1] - spread[0]) * s;
+    let mut rng = Rng64::from_key(&[
+        seed,
+        PURPOSE_QUALITY,
+        building.get(),
+        u64::from(group),
+        at.minutes() as u64,
+    ]);
+    let u1 = rng.next_f64().max(f64::MIN_POSITIVE);
+    let u2 = rng.next_f64();
+    let z = ((-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos()).abs();
+    ((1.0 - sigma * z) as f32).clamp(MIN_QUALITY, 1.0)
+}
+
 /// Puts in place the groups of `e` that stage `stage` builds, on building `b`, made at average
 /// building skill `skill`, at `now` (ADR-0009 §4). A group already in place is left as it is.
 pub fn install(
@@ -217,14 +243,22 @@ pub fn leak(b: &Building, upkeep: &Upkeep) -> f64 {
     if n == 0 { 0.0 } else { sum / n as f64 }
 }
 
-/// A month of wear on building `b` by `upkeep`, its posts set in ground of wetness `wetness`
-/// (ADR-0009 §4): posts lose at their foot, coverings in the weather, infill at the wall's foot,
-/// and roofed timber only as much as the roof over it leaks. Its groups' states and its own
-/// follow. Whether any group's state, the building's or how far its roof leaks changed.
-pub fn wear_month(b: &mut Building, upkeep: &Upkeep, wetness: f64) -> bool {
+/// How much a month's rain and snow against its usual can speed or slow wear in the weather:
+/// three times the usual wears three times as fast, and no faster; even a month without rain
+/// wears a quarter as much, in sun and wind (tuning values; ADR-0012 §5).
+pub const WET_WEAR: (f64, f64) = (0.25, 3.0);
+
+/// A month of wear on building `b` by `upkeep`, its posts set in ground of wetness `wetness`, in
+/// a month that brought `rain` times its usual rain and snow (ADR-0009 §4, ADR-0012 §5): posts
+/// lose at their foot, coverings in the weather and infill at the wall's foot, each as wet as the
+/// month was ([`WET_WEAR`]), and roofed timber only as much as the roof over it leaks. Its
+/// groups' states and its own follow. Whether any group's state, the building's or how far its
+/// roof leaks changed.
+pub fn wear_month(b: &mut Building, upkeep: &Upkeep, wetness: f64, rain: f64) -> bool {
     if b.condition.is_empty() || b.state == BuildingState::Ruin {
         return false;
     }
+    let rain = rain.clamp(WET_WEAR.0, WET_WEAR.1);
     let before = (leak(b, upkeep), b.state, states(b));
     let leaking = before.0;
     for c in &mut b.condition {
@@ -238,8 +272,8 @@ pub fn wear_month(b: &mut Building, upkeep: &Upkeep, wetness: f64) -> bool {
             continue;
         }
         let factor = match kind {
-            GroupKind::Posts => wetness.max(0.0),
-            GroupKind::Covering | GroupKind::Infill => 1.0,
+            GroupKind::Posts => wetness.max(0.0) * rain,
+            GroupKind::Covering | GroupKind::Infill => rain,
             _ => leaking,
         };
         let lost = w.per_year / 12.0 * factor;
@@ -377,13 +411,24 @@ pub fn mend_needs(e: &Expansion, group: u32, share: f64) -> Option<StageNeeds> {
 }
 
 /// Group `group` of building `b` is mended at `now`: `share` of its section or covering is
-/// renewed, its state and the building's follow, and the repair under way is done. Its quality
-/// stays: the new members are fitted among the old.
-pub fn mend(b: &mut Building, group: u32, share: f32, upkeep: &Upkeep, now: SimTime) {
+/// renewed, its state and the building's follow, and the repair under way is done. A worn group
+/// keeps its quality, the new members fitted among the old; a group rebuilt whole after it gave
+/// way takes `rebuilt`, the quality of its new members ([`draw_rebuilt_quality`]).
+pub fn mend(
+    b: &mut Building,
+    group: u32,
+    share: f32,
+    upkeep: &Upkeep,
+    now: SimTime,
+    rebuilt: Option<f32>,
+) {
     b.repair = None;
     let Some(c) = b.condition.iter_mut().find(|c| c.group == group) else {
         return;
     };
+    if let Some(q) = rebuilt {
+        c.quality = q;
+    }
     c.loss = (c.loss - share).max(0.0);
     c.repaired = now;
     // Renewed, it stands by its wear until its load is next weighed.
@@ -603,6 +648,52 @@ mod tests {
     }
 
     #[test]
+    fn a_part_rebuilt_after_it_gave_way_is_a_new_draw_and_a_worn_one_keeps_its_quality() {
+        let spread = [0.3, 0.1];
+        let first = draw_quality(7, id(9), 3, 0.2, spread);
+        let at = SimTime::from_minutes(1_000);
+        let again = draw_rebuilt_quality(7, id(9), 3, at, 0.2, spread);
+        assert_eq!(again, draw_rebuilt_quality(7, id(9), 3, at, 0.2, spread));
+        assert_ne!(again, first, "a new draw");
+        let later = SimTime::from_minutes(2_000);
+        assert_ne!(again, draw_rebuilt_quality(7, id(9), 3, later, 0.2, spread));
+        // Over many rebuildings a novice's parts are as uneven as their first ones.
+        let mean = (0..2_000)
+            .map(|t| {
+                f64::from(draw_rebuilt_quality(
+                    7,
+                    id(9),
+                    3,
+                    SimTime::from_minutes(t),
+                    0.0,
+                    spread,
+                ))
+            })
+            .sum::<f64>()
+            / 2_000.0;
+        assert!(
+            (mean - (1.0 - 0.3 * (2.0 / std::f64::consts::PI).sqrt())).abs() < 0.02,
+            "{mean}"
+        );
+        // Mending sets a rebuilt part's quality and leaves a worn one's.
+        let (mut b, e) = hut();
+        let u = upkeep();
+        let covering = group_of(&e, GroupKind::Covering);
+        let q = b.group(covering).expect("in place").quality;
+        mend(&mut b, covering, 0.1, &u, SimTime::from_minutes(1), None);
+        assert_eq!(b.group(covering).expect("in place").quality, q);
+        mend(
+            &mut b,
+            covering,
+            1.0,
+            &u,
+            SimTime::from_minutes(2),
+            Some(0.42),
+        );
+        assert_eq!(b.group(covering).expect("in place").quality, 0.42);
+    }
+
+    #[test]
     fn a_finished_hut_has_its_five_groups_in_place_and_sound() {
         let (b, e) = hut();
         assert_eq!(e.groups.len(), 5);
@@ -624,7 +715,7 @@ mod tests {
         let covering = group_of(&e, GroupKind::Covering);
         let mut months = 0;
         while b.group(covering).expect("in place").state == GroupState::Sound {
-            wear_month(&mut b, &u, 1.0);
+            wear_month(&mut b, &u, 1.0, 1.0);
             months += 1;
         }
         // 0.15 at 0.06 a year: 30 months (11-08 §2.4: significant mending every 2–3 years).
@@ -634,7 +725,7 @@ mod tests {
         assert!(symptoms(&b, &u).contains("the thatch leaks"));
         // Untended for years more, the leak grows and the rafters beneath it begin to rot.
         for _ in 0..60 {
-            wear_month(&mut b, &u, 1.0);
+            wear_month(&mut b, &u, 1.0, 1.0);
         }
         let l = leak(&b, &u);
         assert!(l > 0.2 && l < 0.6, "{l}");
@@ -645,7 +736,7 @@ mod tests {
         assert!((room[2] - 3000.0 * (1.0 - l)).abs() < 1e-6);
         // Mending renews the thatch: dry again, and the rafters keep what they lost.
         let lost = b.group(covering).expect("in place").loss;
-        mend(&mut b, covering, lost, &u, SimTime::from_minutes(1));
+        mend(&mut b, covering, lost, &u, SimTime::from_minutes(1), None);
         assert_eq!(leak(&b, &u), 0.0);
         assert!(
             b.group(rafters).expect("in place").loss > 0.0,
@@ -660,8 +751,8 @@ mod tests {
         let u = upkeep();
         let posts = group_of(&e, GroupKind::Posts);
         for _ in 0..12 * 10 {
-            wear_month(&mut wet, &u, 2.0);
-            wear_month(&mut dry, &u, 0.7);
+            wear_month(&mut wet, &u, 2.0, 1.0);
+            wear_month(&mut dry, &u, 0.7, 1.0);
         }
         let (w, d) = (
             wet.group(posts).expect("posts").loss,
@@ -672,11 +763,40 @@ mod tests {
         assert!(symptoms(&wet, &u).contains("rot at the posts' foot"));
         // Untended, wet posts give way in their twenty-fifth year: a ruin.
         for _ in 0..12 * 15 {
-            wear_month(&mut wet, &u, 2.0);
+            wear_month(&mut wet, &u, 2.0, 1.0);
         }
         assert_eq!(wet.state, BuildingState::Ruin);
         assert_eq!(room_left(&wet, &u, &e, [0.0, 0.0, 3000.0]), [0.0; 3]);
         assert_eq!(worst(&wet, &u), None, "a ruin is not mended");
+    }
+
+    #[test]
+    fn thatch_daub_and_posts_wear_as_wet_as_the_month_was() {
+        let (mut wet, e) = hut();
+        let (mut dry, _) = hut();
+        let (mut usual, _) = hut();
+        let u = upkeep();
+        let covering = group_of(&e, GroupKind::Covering);
+        let posts = group_of(&e, GroupKind::Posts);
+        // A year of months with twice their usual rain, half of it, and the usual.
+        for _ in 0..12 {
+            wear_month(&mut wet, &u, 1.0, 2.0);
+            wear_month(&mut dry, &u, 1.0, 0.5);
+            wear_month(&mut usual, &u, 1.0, 1.0);
+        }
+        let loss = |b: &Building, g: u32| f64::from(b.group(g).expect("in place").loss);
+        let base = loss(&usual, covering);
+        assert!((loss(&wet, covering) - 2.0 * base).abs() < 1e-5);
+        assert!((loss(&dry, covering) - 0.5 * base).abs() < 1e-5);
+        assert!((loss(&wet, posts) - 2.0 * loss(&usual, posts)).abs() < 1e-5);
+        // A deluge wears no more than three months' worth; a month without rain still wears.
+        let (mut deluge, _) = hut();
+        let (mut drought, _) = hut();
+        wear_month(&mut deluge, &u, 1.0, 10.0);
+        wear_month(&mut drought, &u, 1.0, 0.0);
+        let month = base / 12.0;
+        assert!((loss(&deluge, covering) - WET_WEAR.1 * month).abs() < 1e-5);
+        assert!((loss(&drought, covering) - WET_WEAR.0 * month).abs() < 1e-5);
     }
 
     #[test]

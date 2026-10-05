@@ -385,6 +385,7 @@ mod tests {
                 fixed: false,
             }),
             timber: None,
+            store: None,
         }
     }
 

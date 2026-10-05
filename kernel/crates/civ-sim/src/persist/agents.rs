@@ -3,7 +3,7 @@
 //!
 //! | Section | Holds |
 //! |---|---|
-//! | `land` | habitat patches, richness, wild stocks, the climate year |
+//! | `land` | habitat patches, richness, wild stocks, the weather (schema 24; before it, the climate year) |
 //! | `settle` | settlements |
 //! | `people` | living people and their activities and trips |
 //! | `houses` | households and their stores |
@@ -60,6 +60,12 @@
 //! section came later in the same slice and is read when present: a save without it (older, or
 //! made while the slice was under way) starts the yearly history afresh. The history is a measure,
 //! never an input to behaviour, so nothing a world does depends on it.
+//!
+//! **Schema 23 → 24.** Weather arrived with version 24 (M3c slice U, ADR-0012): the `land`
+//! section's weather (today's, what tomorrow depends on, snow lying by height, the soil under the
+//! wild cover, each month's record) and each field's water. An older save's weather starts with
+//! the old year's climate deviate as its slow anomaly, the soil at field capacity and no snow; a
+//! crop growing then is at field capacity and unstressed so far (ADR-0012 §6).
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{Read, Seek};
@@ -72,6 +78,7 @@ use civ_agents::knowledge::{KnowledgeEvent, KnowledgeEventKind};
 use civ_agents::ledger::{Channel, Trade};
 use civ_agents::market::{Market, MonthOfTrade, Offer};
 use civ_agents::person::{Know, KnowSource};
+use civ_agents::population::DepositKnown;
 use civ_agents::wealth::{Spread, WealthYear};
 use civ_agents::{
     Activity, AgentEvent, Cause, Household, KnownPatch, Load, Person, Population, Reason, Receipt,
@@ -80,9 +87,11 @@ use civ_agents::{
 use civ_core::scheduler::PendingEvent;
 use civ_core::{PermanentId, SimTime};
 use civ_grammar::{BuildingSpec, Footprint, PARAMS};
+use civ_land::deposits::{Body, Deposit};
 use civ_land::{
-    Building, BuildingState, ClimateYear, Field, FieldStage, GroupCondition, GroupState, Land,
-    Lease, Party, Patches, PathParams, Plot, PlotUse, RectCm, Repair, Settlement, Wear, WearTile,
+    Building, BuildingState, Climatology, Field, FieldStage, GroupCondition, GroupState, Land,
+    Lease, MonthRecord, Party, Patches, Plot, PlotUse, RectCm, Repair, Settlement, ViewTile, Wear,
+    WearTile, Weather, WeatherDay,
 };
 use civ_schema::SAVE_SCHEMA_VERSION;
 use civ_schema::flatbuffers::{self, FlatBufferBuilder, WIPOffset};
@@ -93,7 +102,8 @@ use commons_persist::{SectionData, SectionTag, SnapshotReader};
 use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
-    SCHEMA_V17, finish, section, single_chunk, unreadable,
+    SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, finish,
+    section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -128,6 +138,10 @@ pub const SECTION_WEALTH: SectionTag = SectionTag::new("wealth");
 /// Section "know" (schema 13): each settlement's record of the techniques it came to know and
 /// lost.
 pub const SECTION_KNOW: SectionTag = SectionTag::new("know");
+/// Section "deposits" (schema 19): bodies in the ground and what has been taken from each.
+pub const SECTION_DEPOSITS: SectionTag = SectionTag::new("deposits");
+/// Section "earth" (schema 20): earthworks and what they have done to the ground.
+pub const SECTION_EARTH: SectionTag = SectionTag::new("earth");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -173,11 +187,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         section(SECTION_FIELDS, 0, encode_fields(&sim.land.fields, rules)),
         section(SECTION_PLOTS, 0, encode_plots(&sim.land.plots)),
         section(SECTION_BUILDS, 0, encode_buildings(&sim.land.buildings)),
-        section(
-            SECTION_WEAR,
-            0,
-            encode_wear(&sim.land.wear, sim.now().day_index(), &rules.land.paths),
-        ),
+        section(SECTION_WEAR, 0, encode_wear(&sim.land.wear)),
         section(SECTION_MARKET, 0, encode_markets(&sim.people, &goods)),
         section(
             SECTION_FIRMS,
@@ -186,6 +196,12 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         ),
         section(SECTION_WEALTH, 0, encode_wealth(&sim.people)),
         section(SECTION_KNOW, 0, encode_knowledge(&sim.people, &techniques)),
+        section(
+            SECTION_DEPOSITS,
+            0,
+            encode_deposits(&sim.land, &sim.people, &goods),
+        ),
+        section(SECTION_EARTH, 0, encode_earth(&sim.land)),
     ]
 }
 
@@ -196,6 +212,8 @@ pub(super) struct Decoded {
     pub events: Vec<PendingEvent<SimEvent>>,
     /// People whose activity the loaded content no longer has: they decide again on load.
     pub redecide: Vec<PermanentId>,
+    /// The save is from before deposits were bodies: they are placed from the seed on load.
+    pub place_deposits: bool,
 }
 
 /// What a schema version stores, for the decoders.
@@ -238,6 +256,18 @@ enum Schema {
     V17,
     /// What each settlement has seen of each technique's buildings (ADR-0009 §6).
     V18,
+    /// Deposits as bodies in the ground (ADR-0010 §1).
+    V19,
+    /// Earthworks and the ground they changed (ADR-0010 §2-3).
+    V20,
+    /// Pits and spoil heaps linked to their deposits (ADR-0010 §2).
+    V21,
+    /// Households' taste in building and the building each followed (M3b slice R).
+    V22,
+    /// Worn ground kept exactly, each tile at its own day, with the routing view (ADR-0011 §5).
+    V23,
+    /// Weather: a daily series with its record, and each growing field's water (ADR-0012).
+    V24,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -251,6 +281,7 @@ pub(super) fn decode<R: Read + Seek>(
     version: u32,
     now: SimTime,
     seed: u64,
+    climatology: Climatology,
 ) -> Result<Decoded, LoadError> {
     let schema = match version {
         SCHEMA_V2 => Schema::V2,
@@ -269,7 +300,13 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V15 => Schema::V15,
         SCHEMA_V16 => Schema::V16,
         SCHEMA_V17 => Schema::V17,
-        SAVE_SCHEMA_VERSION => Schema::V18,
+        SCHEMA_V18 => Schema::V18,
+        SCHEMA_V19 => Schema::V19,
+        SCHEMA_V20 => Schema::V20,
+        SCHEMA_V21 => Schema::V21,
+        SCHEMA_V22 => Schema::V22,
+        SCHEMA_V23 => Schema::V23,
+        SAVE_SCHEMA_VERSION => Schema::V24,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -277,17 +314,28 @@ pub(super) fn decode<R: Read + Seek>(
         }
     };
     let bytes = single_chunk(reader, SECTION_LAND)?;
-    let mut land = decode_land(&bytes, rules, map)?;
+    let mut land = decode_land(&bytes, rules, map, climatology)?;
     let bytes = single_chunk(reader, SECTION_SETTLE)?;
     land.settlements = decode_settlements(&bytes)?;
 
     let mut people = Population::new();
     let bytes = single_chunk(reader, SECTION_HOUSES)?;
-    for h in decode_households(&bytes, rules, schema, now)? {
+    for mut h in decode_households(&bytes, rules, schema, now)? {
+        // Before schema 22 nobody had a taste in building: each household gets the one its band
+        // would have brought (M3b slice R).
+        if schema < Schema::V22 {
+            h.taste = civ_agents::style::founding_taste(
+                &rules.people.style,
+                seed,
+                h.settlement.unwrap_or(h.id),
+                h.id,
+            );
+        }
         people.insert_household(h);
     }
     let bytes = single_chunk(reader, SECTION_PEOPLE)?;
-    let (persons, next_trip, redecide, new_skills) = decode_people(&bytes, rules, schema)?;
+    let (persons, next_trip, redecide, new_skills, new_techniques) =
+        decode_people(&bytes, rules, schema)?;
     people.next_trip = next_trip;
     for p in persons {
         people.insert_person(p);
@@ -312,7 +360,7 @@ pub(super) fn decode<R: Read + Seek>(
     let events = decode_events(&bytes)?;
     if schema >= Schema::V4 {
         let bytes = single_chunk(reader, SECTION_FIELDS)?;
-        land.fields = decode_fields(&bytes, rules)?;
+        land.fields = decode_fields(&bytes, rules, schema)?;
     }
     if schema >= Schema::V5 {
         let bytes = single_chunk(reader, SECTION_PLOTS)?;
@@ -358,8 +406,27 @@ pub(super) fn decode<R: Read + Seek>(
         if schema >= Schema::V18 {
             people.trust = decode_trust(&bytes, rules)?;
         }
+        // A technique founders bring that the content has added since the save was made is
+        // given as a founder of their age would bring it, like a new skill.
+        people.give_new_founder_knowledge(
+            &rules.catalog,
+            &rules.people,
+            seed,
+            now,
+            &new_techniques,
+        );
     } else {
         people.give_founders_knowledge(&rules.catalog, &rules.people, seed, now);
+    }
+    // Deposits (schema 19); an older save places them from the seed once it is loaded.
+    if schema >= Schema::V19 {
+        let bytes = single_chunk(reader, SECTION_DEPOSITS)?;
+        (land.deposits, people.deposits_known) = decode_deposits(&bytes, rules)?;
+    }
+    // Earthworks (schema 20); before them nobody had changed the ground.
+    if schema >= Schema::V20 {
+        let bytes = single_chunk(reader, SECTION_EARTH)?;
+        decode_earth(&bytes, &mut land)?;
     }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
 
@@ -406,7 +473,241 @@ pub(super) fn decode<R: Read + Seek>(
         people,
         events,
         redecide,
+        place_deposits: schema < Schema::V19,
     })
+}
+
+// ---- earth -------------------------------------------------------------------------------------
+
+fn encode_earth(land: &Land) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let works: Vec<save::EarthworkRecord> = land
+        .earthworks
+        .iter()
+        .map(|w| {
+            save::EarthworkRecord::new(
+                w.id.get(),
+                w.household.get(),
+                raw(w.plot),
+                w.begun.minutes(),
+                w.cut_m3,
+                w.done,
+                w.level_cm,
+                w.rect.x,
+                w.rect.y,
+                w.rect.w,
+                w.rect.h,
+                w.side_run_cm,
+                w.version,
+                match w.kind {
+                    civ_land::earth::EarthKind::Platform => 0,
+                    civ_land::earth::EarthKind::Pit => 1,
+                    civ_land::earth::EarthKind::Spoil => 2,
+                },
+            )
+        })
+        .collect();
+    let works = fbb.create_vector(&works);
+    let tiles: Vec<_> = land
+        .ground
+        .tiles()
+        .map(|(index, t)| {
+            let cells = fbb.create_vector(&t.cells);
+            save::GroundTile::create(
+                &mut fbb,
+                &save::GroundTileArgs {
+                    index,
+                    rev: t.rev,
+                    cells: Some(cells),
+                },
+            )
+        })
+        .collect();
+    let tiles = fbb.create_vector(&tiles);
+    let links: Vec<save::EarthLink> = land
+        .earthworks
+        .iter()
+        .filter(|w| w.deposit.is_some() || w.heap.is_some())
+        .map(|w| save::EarthLink::new(w.id.get(), raw(w.deposit), raw(w.heap)))
+        .collect();
+    let links = fbb.create_vector(&links);
+    let root = save::Earth::create(
+        &mut fbb,
+        &save::EarthArgs {
+            works: Some(works),
+            tiles: Some(tiles),
+            links: Some(links),
+        },
+    );
+    finish(fbb, root)
+}
+
+fn decode_earth(bytes: &[u8], land: &mut Land) -> Result<(), LoadError> {
+    let root =
+        flatbuffers::root::<save::Earth>(bytes).map_err(|e| unreadable(SECTION_EARTH, &e))?;
+    for w in root.works().iter().flatten() {
+        let kind = match w.kind() {
+            0 => civ_land::earth::EarthKind::Platform,
+            1 => civ_land::earth::EarthKind::Pit,
+            2 => civ_land::earth::EarthKind::Spoil,
+            other => {
+                return Err(LoadError::Malformed(format!(
+                    "an earthwork has kind {other}"
+                )));
+            }
+        };
+        land.earthworks.push(civ_land::earth::Earthwork {
+            id: required(w.id(), "an earthwork")?,
+            kind,
+            rect: civ_land::RectCm {
+                x: w.x_cm(),
+                y: w.y_cm(),
+                w: w.w_cm(),
+                h: w.h_cm(),
+            },
+            level_cm: w.level_cm(),
+            side_run_cm: w.side_run_cm(),
+            plot: id(w.plot()),
+            deposit: None,
+            heap: None,
+            household: required(w.household(), "an earthwork")?,
+            cut_m3: w.cut_m3(),
+            done: w.done(),
+            version: w.version(),
+            begun: time(w.begun()),
+        });
+    }
+    // Schema 21: what each pit and heap is linked to.
+    for l in root.links().iter().flatten() {
+        let work = land
+            .earthworks
+            .iter_mut()
+            .find(|w| w.id.get() == l.work())
+            .ok_or_else(|| {
+                LoadError::Malformed(format!("a link names earthwork {}, not saved", l.work()))
+            })?;
+        work.deposit = id(l.deposit());
+        work.heap = id(l.heap());
+    }
+    for t in root.tiles().iter().flatten() {
+        let tile = civ_land::earth::DeltaTile {
+            rev: t.rev(),
+            cells: t.cells().map(|c| c.iter().collect()).unwrap_or_default(),
+        };
+        if !land.ground.set_tile(t.index(), tile) {
+            return Err(LoadError::Malformed(format!(
+                "ground tile {} is off the map or the wrong size",
+                t.index()
+            )));
+        }
+    }
+    Ok(())
+}
+
+// ---- deposits ----------------------------------------------------------------------------------
+
+fn encode_deposits(land: &Land, pop: &Population, goods: &[&str]) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let dictionary = strings(&mut fbb, goods);
+    let bodies: Vec<save::DepositBody> = land
+        .deposits
+        .iter()
+        .map(|d| {
+            let b = &d.body;
+            save::DepositBody::new(
+                b.at_cm.0,
+                b.at_cm.1,
+                d.id.get(),
+                b.initial_kg,
+                d.taken_kg,
+                b.radius_cm,
+                b.top_cm,
+                b.thickness_cm,
+                b.quality,
+                b.good,
+                b.exposed,
+            )
+        })
+        .collect();
+    let bodies = fbb.create_vector(&bodies);
+    let known: Vec<save::DepositKnownEntry> = pop
+        .deposits_known
+        .iter()
+        .map(|k| {
+            save::DepositKnownEntry::new(
+                k.at.minutes(),
+                k.settlement.get(),
+                k.deposit.get(),
+                k.finder.get(),
+            )
+        })
+        .collect();
+    let known = fbb.create_vector(&known);
+    let root = save::Deposits::create(
+        &mut fbb,
+        &save::DepositsArgs {
+            goods: Some(dictionary),
+            bodies: Some(bodies),
+            known: Some(known),
+        },
+    );
+    finish(fbb, root)
+}
+
+/// The bodies and what each settlement knows of them. Knowledge of a body that was dropped goes
+/// with it.
+fn decode_deposits(
+    bytes: &[u8],
+    rules: &Rules,
+) -> Result<(Vec<Deposit>, Vec<DepositKnown>), LoadError> {
+    let root =
+        flatbuffers::root::<save::Deposits>(bytes).map_err(|e| unreadable(SECTION_DEPOSITS, &e))?;
+    let goods: Vec<Option<usize>> = read_strings(root.goods())
+        .iter()
+        .map(|id| rules.catalog.good_index(id))
+        .collect();
+    let mut out = Vec::new();
+    for b in root.bodies().iter().flatten() {
+        let good = goods.get(usize::from(b.good())).ok_or_else(|| {
+            LoadError::Malformed(format!(
+                "a deposit names good {} of {}",
+                b.good(),
+                goods.len()
+            ))
+        })?;
+        // A good the loaded content no longer has: the body is dropped.
+        let Some(good) = good else {
+            continue;
+        };
+        out.push(Deposit {
+            id: required(b.id(), "a deposit")?,
+            body: Body {
+                good: *good as u16,
+                at_cm: (b.x_cm(), b.y_cm()),
+                radius_cm: b.radius_cm(),
+                top_cm: b.top_cm(),
+                thickness_cm: b.thickness_cm(),
+                quality: b.quality(),
+                exposed: b.exposed(),
+                initial_kg: b.initial_kg(),
+            },
+            taken_kg: b.taken_kg(),
+        });
+    }
+    let mut known = Vec::new();
+    for k in root.known().iter().flatten() {
+        let deposit = required(k.deposit(), "a known deposit")?;
+        if !out.iter().any(|d| d.id == deposit) {
+            continue;
+        }
+        known.push(DepositKnown {
+            settlement: required(k.settlement(), "a known deposit")?,
+            deposit,
+            finder: required(k.finder(), "a known deposit")?,
+            at: time(k.at()),
+        });
+    }
+    Ok((out, known))
 }
 
 // ---- Helpers -----------------------------------------------------------------------------------
@@ -505,6 +806,7 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
         Target::Firm(f) => (save::TargetKind::Firm, 0, f.get()),
         Target::NewFirm => (save::TargetKind::NewFirm, 0, 0),
         Target::Technique(t) => (save::TargetKind::Technique, u32::from(t), 0),
+        Target::Deposit(d) => (save::TargetKind::Deposit, 0, d.get()),
     }
 }
 
@@ -526,6 +828,7 @@ fn target_of(kind: save::TargetKind, index: u32, id: u64) -> Result<Target, Load
             u16::try_from(index)
                 .map_err(|_| LoadError::Malformed(format!("a target names technique {index}")))?,
         ),
+        save::TargetKind::Deposit => Target::Deposit(required(id, "a deposit target")?),
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",
@@ -581,6 +884,7 @@ fn encode_land(land: &Land, rules: &Rules) -> Vec<u8> {
     let resource_unit_kg = fbb.create_vector(&unit_kg);
     let flat: Vec<f32> = land.stocks.iter().flatten().copied().collect();
     let stocks = fbb.create_vector(&flat);
+    let weather = encode_weather(&mut fbb, &land.weather);
     let root = save::Land::create(
         &mut fbb,
         &save::LandArgs {
@@ -594,17 +898,116 @@ fn encode_land(land: &Land, rules: &Rules) -> Vec<u8> {
             resources: Some(resources),
             stocks: Some(stocks),
             stock_day: land.stock_day,
-            climate_year: land.climate.year,
-            climate_deviate: land.climate.deviate,
-            climate_factor: land.climate.factor,
             resource_goods: Some(resource_goods),
             resource_unit_kg: Some(resource_unit_kg),
+            weather: Some(weather),
+            ..Default::default()
         },
     );
     finish(fbb, root)
 }
 
-fn decode_land(bytes: &[u8], rules: &Rules, map: &WorldMap) -> Result<Land, LoadError> {
+/// The weather's state (schema 24, ADR-0012 §1).
+fn encode_weather<'a>(
+    fbb: &mut FlatBufferBuilder<'a>,
+    w: &Weather,
+) -> flatbuffers::WIPOffset<save::Weather<'a>> {
+    let t = &w.today;
+    let today = save::WeatherDay::create(
+        fbb,
+        &save::WeatherDayArgs {
+            day: t.day,
+            wet: t.wet,
+            precip_mm: t.precip_mm,
+            mean_c: t.mean_c,
+            min_c: t.min_c,
+            max_c: t.max_c,
+        },
+    );
+    let snow_mm = fbb.create_vector(&w.snow_mm);
+    let months: Vec<_> = w
+        .months
+        .iter()
+        .map(|m| {
+            save::WeatherMonth::create(
+                fbb,
+                &save::WeatherMonthArgs {
+                    year: m.year,
+                    month: m.month,
+                    days: m.days,
+                    precip_mm: m.precip_mm,
+                    wet_days: m.wet_days,
+                    temp_sum_c: m.temp_sum_c,
+                    min_c: m.min_c,
+                    max_c: m.max_c,
+                    frost_days: m.frost_days,
+                    snow_days: m.snow_days,
+                    soil_sum: m.soil_sum,
+                },
+            )
+        })
+        .collect();
+    let months = fbb.create_vector(&months);
+    save::Weather::create(
+        fbb,
+        &save::WeatherArgs {
+            today: Some(today),
+            anomaly: w.anomaly,
+            slow: w.slow,
+            snow_base_m: w.snow_base_m,
+            snow_mm: Some(snow_mm),
+            soil_mm: w.soil_mm,
+            cover_ease: w.cover_ease,
+            months: Some(months),
+        },
+    )
+}
+
+/// The weather saved in schema 24 on, or (`None`) none.
+fn decode_weather(w: save::Weather<'_>) -> Option<Weather> {
+    let t = w.today()?;
+    Some(Weather {
+        today: WeatherDay {
+            day: t.day(),
+            wet: t.wet(),
+            precip_mm: t.precip_mm(),
+            mean_c: t.mean_c(),
+            min_c: t.min_c(),
+            max_c: t.max_c(),
+        },
+        anomaly: w.anomaly(),
+        slow: w.slow(),
+        snow_base_m: w.snow_base_m(),
+        snow_mm: w.snow_mm().map(|v| v.iter().collect()).unwrap_or_default(),
+        soil_mm: w.soil_mm(),
+        cover_ease: w.cover_ease(),
+        months: w
+            .months()
+            .iter()
+            .flatten()
+            .map(|m| MonthRecord {
+                year: m.year(),
+                month: m.month(),
+                days: m.days(),
+                precip_mm: m.precip_mm(),
+                wet_days: m.wet_days(),
+                temp_sum_c: m.temp_sum_c(),
+                min_c: m.min_c(),
+                max_c: m.max_c(),
+                frost_days: m.frost_days(),
+                snow_days: m.snow_days(),
+                soil_sum: m.soil_sum(),
+            })
+            .collect(),
+    })
+}
+
+fn decode_land(
+    bytes: &[u8],
+    rules: &Rules,
+    map: &WorldMap,
+    climatology: Climatology,
+) -> Result<Land, LoadError> {
     let l = flatbuffers::root::<save::Land>(bytes).map_err(|e| unreadable(SECTION_LAND, &e))?;
     let n = l.cols() as usize * l.rows() as usize;
     let habitats = read_strings(l.habitats());
@@ -644,6 +1047,24 @@ fn decode_land(bytes: &[u8], rules: &Rules, map: &WorldMap) -> Result<Land, Load
             saved_resources.len()
         )));
     }
+    // Before schema 24 there was no weather: it starts from the old year's deviate as its slow
+    // anomaly, with the soil at field capacity and no snow (ADR-0012 §6).
+    let weather = match l.weather() {
+        Some(w) => decode_weather(w).ok_or_else(|| {
+            LoadError::Malformed("section `land` has weather without a day".to_owned())
+        })?,
+        None => {
+            let (low, high) = civ_land::height_range(map);
+            Weather::from_old(
+                &rules.land.weather,
+                &climatology,
+                low,
+                high,
+                l.stock_day() + 1,
+                l.climate_deviate(),
+            )
+        }
+    };
     let mut land = Land {
         patches: Patches {
             cols: l.cols(),
@@ -656,11 +1077,8 @@ fn decode_land(bytes: &[u8], rules: &Rules, map: &WorldMap) -> Result<Land, Load
         },
         stocks: Vec::new(),
         stock_day: l.stock_day(),
-        climate: ClimateYear {
-            year: l.climate_year(),
-            deviate: l.climate_deviate(),
-            factor: l.climate_factor(),
-        },
+        weather,
+        climatology,
         settlements: Vec::new(),
         // Read from their own section (schema 4 on).
         fields: Vec::new(),
@@ -668,6 +1086,11 @@ fn decode_land(bytes: &[u8], rules: &Rules, map: &WorldMap) -> Result<Land, Load
         buildings: Vec::new(),
         // Read from its own section (schema 7 on).
         wear: Wear::new(map.width, map.height, map.cell_size_m),
+        // Read from its own section (schema 19 on), or placed from the seed on loading.
+        deposits: Vec::new(),
+        // Read from its own section (schema 20 on).
+        earthworks: Vec::new(),
+        ground: civ_land::earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
     };
     // A grid of the wrong size is reported by `Land::problems`; only fill stocks on a sound one.
     if land.patches.class.len() == n
@@ -928,7 +1351,7 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
 
 /// The people, the next trip number, who decides again, and the skills of the content the save
 /// knew nothing of.
-type DecodedPeople = (Vec<Person>, u64, Vec<PermanentId>, Vec<usize>);
+type DecodedPeople = (Vec<Person>, u64, Vec<PermanentId>, Vec<usize>, Vec<usize>);
 
 fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedPeople, LoadError> {
     let root =
@@ -954,6 +1377,15 @@ fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedP
         .iter()
         .map(|id| rules.catalog.technique_index(id))
         .collect();
+    // Techniques the content has and the save never named (none before schema 13, when nobody's
+    // knowledge was kept).
+    let new_techniques: Vec<usize> = if schema >= Schema::V13 {
+        (0..rules.catalog.techniques.len())
+            .filter(|t| !technique_ids.contains(&Some(*t)))
+            .collect()
+    } else {
+        Vec::new()
+    };
     let mut people = Vec::new();
     let mut redecide = Vec::new();
     for p in root.people().iter().flatten() {
@@ -1152,7 +1584,13 @@ fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedP
             tried: (p.tried() >= 0).then(|| time(p.tried())),
         });
     }
-    Ok((people, root.next_trip(), redecide, new_skills))
+    Ok((
+        people,
+        root.next_trip(),
+        redecide,
+        new_skills,
+        new_techniques,
+    ))
 }
 
 /// What a saved person carries, in the loaded content's goods.
@@ -1184,7 +1622,13 @@ fn carried(
         | Schema::V15
         | Schema::V16
         | Schema::V17
-        | Schema::V18 => {
+        | Schema::V18
+        | Schema::V19
+        | Schema::V20
+        | Schema::V21
+        | Schema::V22
+        | Schema::V23
+        | Schema::V24 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1232,6 +1676,7 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
             let stores = fbb.create_vector(&stores);
             let offers: Vec<_> = h.offers.iter().map(|o| encode_offer(&mut fbb, o)).collect();
             let offers = fbb.create_vector(&offers);
+            let taste = fbb.create_vector(&h.taste.traits());
             save::Household::create(
                 &mut fbb,
                 &save::HouseholdArgs {
@@ -1247,6 +1692,8 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                     stores_at: h.stores_at.minutes(),
                     known_resources: Some(known),
                     offers: Some(offers),
+                    taste: Some(taste),
+                    admired: raw(h.admired),
                 },
             )
         })
@@ -1307,7 +1754,13 @@ fn decode_households(
             | Schema::V15
             | Schema::V16
             | Schema::V17
-            | Schema::V18 => {
+            | Schema::V18
+            | Schema::V19
+            | Schema::V20
+            | Schema::V21
+            | Schema::V22
+            | Schema::V23
+            | Schema::V24 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -1371,6 +1824,25 @@ fn decode_households(
             // Counters start again on load.
             flows: Default::default(),
             offers,
+            // Before schema 22 nobody had a taste: it is drawn on loading, as a band's would be.
+            taste: match h.taste() {
+                Some(t) if schema >= Schema::V22 && t.len() == 3 => {
+                    let t: Vec<f32> = t.iter().collect();
+                    if t.iter().any(|v| !v.is_finite()) {
+                        return Err(LoadError::Malformed(format!(
+                            "household {hh_id} has a taste that is not a number"
+                        )));
+                    }
+                    civ_agents::params::Taste::from_traits([t[0], t[1], t[2]])
+                }
+                Some(_) if schema >= Schema::V22 => {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} has a taste of other than three traits"
+                    )));
+                }
+                _ => civ_agents::params::Taste::default(),
+            },
+            admired: id(h.admired()),
         });
     }
     Ok(out)
@@ -1401,6 +1873,8 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::TechniqueLost => 19,
         ChronicleKind::TechniqueIntroduced => 20,
         ChronicleKind::BuildingFailed => 21,
+        ChronicleKind::DepositFound => 22,
+        ChronicleKind::DepositPlaced => 23,
     }
 }
 
@@ -1427,6 +1901,8 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         19 => Some(ChronicleKind::TechniqueLost),
         20 => Some(ChronicleKind::TechniqueIntroduced),
         21 => Some(ChronicleKind::BuildingFailed),
+        22 => Some(ChronicleKind::DepositFound),
+        23 => Some(ChronicleKind::DepositPlaced),
         _ => None,
     }
 }
@@ -1856,6 +2332,9 @@ fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
                     lease_since: f.lease.map_or(0, |l| l.since.minutes()),
                     lease_until: f.lease.map_or(0, |l| l.until.minutes()),
                     lease_share: f.lease.map_or(0.0, |l| l.holder_share),
+                    water_mm: f.water_mm,
+                    need_mm: f.need_mm,
+                    got_mm: f.got_mm,
                 },
             )
         })
@@ -1871,7 +2350,7 @@ fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
     finish(fbb, root)
 }
 
-fn decode_fields(bytes: &[u8], rules: &Rules) -> Result<Vec<Field>, LoadError> {
+fn decode_fields(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<Vec<Field>, LoadError> {
     let root =
         flatbuffers::root::<save::Fields>(bytes).map_err(|e| unreadable(SECTION_FIELDS, &e))?;
     let crops: Vec<Option<u16>> = read_strings(root.crops())
@@ -1905,6 +2384,7 @@ fn decode_fields(bytes: &[u8], rules: &Rules) -> Result<Vec<Field>, LoadError> {
             until: time(f.lease_until()),
             holder_share: f.lease_share(),
         });
+        let stage = stage_of(f.stage())?;
         out.push(Field {
             id,
             household,
@@ -1917,7 +2397,7 @@ fn decode_fields(bytes: &[u8], rules: &Rules) -> Result<Vec<Field>, LoadError> {
                 h: f.h_cm(),
             },
             crop,
-            stage: stage_of(f.stage())?,
+            stage,
             stage_since: time(f.stage_since()),
             work_h: f.work_h(),
             tended_h: f.tended_h(),
@@ -1927,6 +2407,15 @@ fn decode_fields(bytes: &[u8], rules: &Rules) -> Result<Vec<Field>, LoadError> {
             sown_day: f.sown_day(),
             sheaves_kg: f.sheaves_kg(),
             harvests: f.harvests(),
+            // Before schema 24 no field kept its water: a crop growing then is at field capacity
+            // and unstressed so far (ADR-0012 §6).
+            water_mm: if schema < Schema::V24 && stage == FieldStage::Sown {
+                rules.land.weather.soil_water_mm as f32
+            } else {
+                f.water_mm()
+            },
+            need_mm: f.need_mm(),
+            got_mm: f.got_mm(),
         });
     }
     Ok(out)
@@ -2083,6 +2572,7 @@ fn encode_buildings(buildings: &[Building]) -> Vec<u8> {
                     },
                     skill_h: b.skill_h,
                     repair,
+                    style_from: b.style_from.map_or(0, |s| s.get()),
                 },
             )
         })
@@ -2220,6 +2710,8 @@ fn decode_buildings(bytes: &[u8], schema: Schema) -> Result<Vec<Building>, LoadE
                 }),
                 _ => None,
             },
+            // Before schema 22 no building followed another's style.
+            style_from: PermanentId::from_raw(b.style_from()),
         });
     }
     Ok(out)
@@ -2227,53 +2719,119 @@ fn decode_buildings(bytes: &[u8], schema: Schema) -> Result<Vec<Building>, LoadE
 
 // ---- wear --------------------------------------------------------------------------------------
 
-fn encode_wear(wear: &Wear, day: i64, params: &PathParams) -> Vec<u8> {
+/// Each tile exactly as it stands, at its own day, in tile order, with the routing view people
+/// plan on (schema 23, ADR-0011 §5): a world lived on from the save matches one never saved.
+fn encode_wear(wear: &Wear) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
-    let tiles: Vec<_> = wear
-        .current(day, params)
-        .iter()
+    let mut tiles: Vec<&WearTile> = wear.tiles().iter().collect();
+    tiles.sort_by_key(|t| t.index);
+    let tiles: Vec<_> = tiles
+        .into_iter()
         .map(|t| {
-            let quantized: Vec<u16> = t
-                .wear
-                .iter()
-                .map(|&w| (w.clamp(0.0, 1.0) * 65535.0).round() as u16)
-                .collect();
-            let wear = fbb.create_vector(&quantized);
+            let wear_exact = fbb.create_vector(&t.wear);
             let trail = fbb.create_vector(&t.trail);
             save::WearTile::create(
                 &mut fbb,
                 &save::WearTileArgs {
                     index: t.index,
-                    wear: Some(wear),
+                    wear: None,
                     trail: Some(trail),
+                    day: t.day,
+                    wear_exact: Some(wear_exact),
                 },
             )
         })
         .collect();
     let tiles = fbb.create_vector(&tiles);
-    let root = save::Wear::create(&mut fbb, &save::WearArgs { tiles: Some(tiles) });
+    let view: Vec<_> = wear
+        .surveyed_tiles()
+        .map(|(index, cells, trail)| {
+            let cells = fbb.create_vector(cells);
+            let trail = fbb.create_vector(trail);
+            save::WearViewTile::create(
+                &mut fbb,
+                &save::WearViewTileArgs {
+                    index,
+                    cells: Some(cells),
+                    trail: Some(trail),
+                },
+            )
+        })
+        .collect();
+    let view = fbb.create_vector(&view);
+    let root = save::Wear::create(
+        &mut fbb,
+        &save::WearArgs {
+            tiles: Some(tiles),
+            surveyed: wear.surveyed(),
+            view: Some(view),
+        },
+    );
     finish(fbb, root)
 }
 
+/// The worn ground of a save on `day`. A save from before schema 23 kept each tile faded to the
+/// day saved and rounded, and no routing view: that is drawn again when the world is put together.
 fn decode_wear(bytes: &[u8], map: &WorldMap, day: i64) -> Result<Wear, LoadError> {
     let w = flatbuffers::root::<save::Wear>(bytes).map_err(|e| unreadable(SECTION_WEAR, &e))?;
-    let tiles = w
-        .tiles()
-        .map(|v| {
-            v.iter()
-                .map(|t| WearTile {
-                    index: t.index(),
-                    day,
-                    wear: t
-                        .wear()
-                        .map(|v| v.iter().map(|q| f32::from(q) / 65535.0).collect())
-                        .unwrap_or_default(),
-                    trail: t.trail().map(|v| v.iter().collect()).unwrap_or_default(),
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    Ok(Wear::new(map.width, map.height, map.cell_size_m).with_tiles(tiles))
+    let (cells, words) = (
+        civ_land::paths::TILE_CELLS,
+        civ_land::paths::TILE_CELLS / 64,
+    );
+    let tile_count =
+        map.width.div_ceil(civ_land::paths::TILE) * map.height.div_ceil(civ_land::paths::TILE);
+    let malformed = |what: &str, index: u32| {
+        LoadError::Malformed(format!("worn ground: {what} of tile {index}"))
+    };
+    let mut tiles = Vec::new();
+    for t in w.tiles().iter().flatten() {
+        let index = t.index();
+        let trail: Vec<u64> = t.trail().map(|v| v.iter().collect()).unwrap_or_default();
+        let tile = match t.wear_exact() {
+            Some(exact) => WearTile {
+                index,
+                day: t.day(),
+                wear: exact.iter().collect(),
+                trail,
+            },
+            None => WearTile {
+                index,
+                day,
+                wear: t
+                    .wear()
+                    .map(|v| v.iter().map(|q| f32::from(q) / 65535.0).collect())
+                    .unwrap_or_default(),
+                trail,
+            },
+        };
+        if index >= tile_count {
+            return Err(malformed("the index", index));
+        }
+        if tile.wear.len() != cells || tile.trail.len() != words {
+            return Err(malformed("the size", index));
+        }
+        tiles.push(tile);
+    }
+    let mut wear = Wear::new(map.width, map.height, map.cell_size_m).with_tiles(tiles);
+    if let Some(view) = w.view() {
+        let mut out = Vec::with_capacity(view.len());
+        for v in view {
+            let tile = ViewTile {
+                index: v.index(),
+                cells: v.cells().map(|c| c.bytes().to_vec()).unwrap_or_default(),
+                trail: v.trail().map(|c| c.iter().collect()).unwrap_or_default(),
+            };
+            if tile.index >= tile_count {
+                return Err(malformed("the routing view's index", tile.index));
+            }
+            if tile.cells.len() != cells || tile.trail.len() != words {
+                return Err(malformed("the routing view's size", tile.index));
+            }
+            out.push(tile);
+        }
+        wear = wear.with_view(w.surveyed(), out);
+    }
+    Ok(wear)
 }
 
 // ---- market ------------------------------------------------------------------------------------

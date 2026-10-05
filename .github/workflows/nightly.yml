@@ -4,6 +4,10 @@
 # (determinism is not a goal), so this is a nightly signal and a gate on pull requests into main,
 # not a check on every push; per-push CI keeps the 30-day smoke (ci.yml).
 #
+# The sanity dashboard (plan §4.7, M3c slice T) lives five river-valley worlds fifty years and
+# grades the rows of §4.7 that apply. It takes too long for pull requests until Accelerated mode is
+# faster than Detailed (ADR-0011), so it runs nightly and on demand only; its JSON report is kept.
+#
 # The run checks the model, not the platform, so it uses Linux. Actions are pinned as in ci.yml.
 name: Ten-year smoke
 
@@ -58,3 +62,46 @@ jobs:
           if [ -f "$RUNNER_TEMP/smoke.txt" ]; then
             { echo '```'; cat "$RUNNER_TEMP/smoke.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           fi
+
+  dashboard:
+    name: Sanity dashboard (five worlds, fifty years)
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Toolchain (from rust-toolchain.toml)
+        run: rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: kernel -> target
+
+      - name: Build civ-host
+        working-directory: kernel
+        run: cargo build --locked --release -p civ-host
+
+      - name: Fifty years of five worlds
+        working-directory: kernel
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo run --locked --release -p civ-host -- dashboard \
+            --json "$RUNNER_TEMP/dashboard.json" | tee "$RUNNER_TEMP/dashboard.txt"
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/dashboard.txt" ]; then
+            { echo '```'; cat "$RUNNER_TEMP/dashboard.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dashboard
+          path: ${{ runner.temp }}/dashboard.json
+          if-no-files-found: ignore

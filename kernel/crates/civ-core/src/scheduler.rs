@@ -321,6 +321,34 @@ impl<E> Scheduler<E> {
     pub fn advance_to<F>(
         &mut self,
         target: SimTime,
+        handle: F,
+    ) -> Result<AdvanceStats, ScheduleError>
+    where
+        F: FnMut(Due<E>, &mut Followups<E>),
+    {
+        self.advance(target, true, handle)
+    }
+
+    /// Delivers everything due before `target` and the cadence boundaries at `target`, in order,
+    /// then sets the clock to `target`. The events due at `target` stay queued, delivered first by
+    /// the next advance, in the order they would have been: cut so, an advance gives the same as
+    /// one uncut, and a clock stopped at a boundary stands after its cadences and before its
+    /// events.
+    pub fn advance_before_events<F>(
+        &mut self,
+        target: SimTime,
+        handle: F,
+    ) -> Result<AdvanceStats, ScheduleError>
+    where
+        F: FnMut(Due<E>, &mut Followups<E>),
+    {
+        self.advance(target, false, handle)
+    }
+
+    fn advance<F>(
+        &mut self,
+        target: SimTime,
+        events_at_target: bool,
         mut handle: F,
     ) -> Result<AdvanceStats, ScheduleError>
     where
@@ -346,6 +374,9 @@ impl<E> Scheduler<E> {
                 }
             }
             self.enqueue(&mut followups);
+            if at == target && !events_at_target {
+                break;
+            }
 
             let mut at_this_instant = 0usize;
             while self.queue.peek().is_some_and(|Reverse(e)| e.0.at == at) {
@@ -527,6 +558,41 @@ mod tests {
         let mut two = build();
         let mut split = collect(&mut two, SimTime::from_minutes(40));
         split.extend(collect(&mut two, SimTime::from_minutes(100)));
+        assert_eq!(all, split);
+    }
+
+    #[test]
+    fn stopping_before_a_boundarys_events_delivers_them_next_in_the_same_order() {
+        // A stop at 60 delivers the hour's boundary and leaves the two events of minute 60 for
+        // the next advance, which delivers them first: the whole is as one uncut advance.
+        let build = || {
+            let mut s = Scheduler::new(SimTime::ZERO, 7);
+            s.subscribe(Cadence::Hour);
+            for (i, t) in [30, 60, 60, 61, 90].into_iter().enumerate() {
+                s.schedule(SimTime::from_minutes(t), (i % 2) as u8, i as u32)
+                    .expect("ok");
+            }
+            s
+        };
+        let mut one = build();
+        let all = collect(&mut one, SimTime::from_minutes(120));
+        let mut two = build();
+        let mut split = Vec::new();
+        two.advance_before_events(SimTime::from_minutes(60), |due, _| match due {
+            Due::Cadence { cadence, at } => split.push((at.minutes(), format!("{cadence:?}"))),
+            Due::Event { at, phase, event } => {
+                split.push((at.minutes(), format!("e{event}p{phase}")));
+            }
+        })
+        .expect("no loop");
+        assert_eq!(two.now(), SimTime::from_minutes(60));
+        assert_eq!(
+            split.last().map(|(t, n)| (*t, n.as_str())),
+            Some((60, "Hour")),
+            "the boundary, not its events: {split:?}"
+        );
+        assert_eq!(two.next_due(), Some(SimTime::from_minutes(60)));
+        split.extend(collect(&mut two, SimTime::from_minutes(120)));
         assert_eq!(all, split);
     }
 

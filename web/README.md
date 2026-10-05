@@ -1,6 +1,6 @@
 # Web observer
 
-The web observer (the M0 shell, M1's people, families, fields, huts, trails and god tool, M3a's tools, skills, market panel, workshops panel, land tenure and wealth panel, and M3b's knowledge panel): TypeScript, Vite and PixiJS 8,
+The web observer (the M0 shell, M1's people, families, fields, huts, trails and god tool, M3a's tools, skills, market panel, workshops panel, land tenure and wealth panel, M3b's knowledge panel, and M3c's speeds and weather panel): TypeScript, Vite and PixiJS 8,
 without a UI framework. `civ-host serve` serves
 the built files from `web/dist` and the observer socket at `/ws` from the same origin.
 
@@ -29,6 +29,7 @@ another port. `?host=127.0.0.1:7421` in the page URL connects to a host directly
 | `src/firm.ts` | What the workshops panel says about a workshop's goods, holdings, monthly statements and hours: pure functions, unit tested. Records, wages and book lines come in words from the kernel. |
 | `src/wealth.ts` | What the wealth panel says about a settlement's measures, its households and its yearly history, and the Gini chart's lines: pure functions, unit tested. The measures are the kernel's. |
 | `src/knowledge.ts` | What the knowledge panel and the inspector say about who knows, is learning and has heard of each technique, and which techniques can be introduced to someone: pure functions, unit tested. States, sources and histories come in words from the kernel. |
+| `src/weather.ts` | What the weather panel says about the months and years lived against what each usually brings, and calendar years summed from their months: pure functions, unit tested. The weather and its words are the kernel's. |
 | `src/ui.ts`, `src/state.ts`, `src/main.ts` | Panels, dialogs, the store, and wiring. |
 | `src/schema/generated/` | FlatBuffers TypeScript from `kernel/crates/civ-schema/schema/tce_wire.fbs`. Never edit; run `tools/gen-schema.sh`. |
 | `e2e/` | Playwright specs; they start their own `civ-host` against a temporary saves folder. The workshops spec builds its world with `cargo run --release -p civ-sim --example workshop_world`, so it needs cargo. |
@@ -84,8 +85,22 @@ hours) and has heard of, and how each came. For the living it holds the god tool
 technique they do not know, then **Teach** (they know it at once) or **Tell of it** (they only
 hear of it). The inspector holds its redraw while that list has the focus.
 
+## The weather panel
+
+The clock tells today's weather on the valley floor in the kernel's words ("9 °C, rain on dry
+ground", "-3 °C, snow; snow lying"; wire 1.24, ADR-0012). The weather panel (M3c slice U),
+fetched with `GetWeather` when the snapshot's `weather_rev` changes (each day lived, fetched at
+most every two seconds), lists the last twelve months, newest first, and each calendar year: rain
+and snow against what the months usually bring (in brackets; the month under way against its
+usual so far), a word when a month or year was dry or wet, the mean temperature against its
+normal, wet days, frost days, days with snow lying, and the soil water under the wild cover. A
+new world shows the year before its founding too: its weather began then. A growing field's
+readout says how much of the water it needed it has had ("has had 82% of the water it needed").
+
 ## Controls
 
+The speeds are 1×, 3× and 10×, then 60×, 600× and Max, the Accelerated speeds: the world lives a
+day at a time, and the map is shown at each midnight, the clock standing until the next (ADR-0011).
 Besides Run and the speeds, **Run ahead…** lives a day, a month, a year, 5 or 10 years at full
 detail as fast as the machine allows, shown as a task you can cancel; the world pauses when it
 gets there and is autosaved. **Add a family** (on the map) sends a family where you next click:
@@ -129,7 +144,11 @@ The M3a demo's pictures (`e2e/m3a-demo.spec.ts`: one seed under both property re
 of hundreds lived five years from the command line, then each world's wealth and market panels
 and its village) run only when asked: `TCE_DEMO=1 TCE_SHOTS_DIR=<dir> npx playwright test
 m3a-demo` (about 15 minutes; `TCE_DEMO_SEED`, `TCE_DEMO_BAND`, `TCE_DEMO_FAMILIES` and
-`TCE_DEMO_DAYS` change the world).
+`TCE_DEMO_DAYS` change the world). The M3b demo's (`e2e/m3b-demo.spec.ts`: a valley lived ten
+years after the observer brought jointed timber framing to one founder; its knowledge panel, its
+chronicle and a home built after an admired one) likewise: `TCE_DEMO=1 TCE_SHOTS_DIR=<dir> npx
+playwright test m3b-demo` (`TCE_DEMO_SEED`, `TCE_DEMO_BAND` and `TCE_DEMO_DAYS` change the
+world).
 
 The M1 demo (`e2e/demo.spec.ts`: ten years of a band, then save and reload) runs only when asked,
 since it takes about four minutes: `TCE_DEMO=1 TCE_DEMO_VIDEO=1 npx playwright test demo`. It

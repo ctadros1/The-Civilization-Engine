@@ -150,12 +150,17 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `loss_share` | The share of the grain grown that is lost before it is eaten (in store, at the quern, as bread and flour go off): a household grows its food over one less this. |
 | | `grain_target_days` | Grain held at which another harvest is worth half as much. |
 | | `work_hours_per_day` | Field work a capable adult gives a day, for planning what the household can prepare and sow in a season. |
+| | `peak_work_hours_per_day` | Content API 24: field work a capable adult gives at a peak on a day the ground can be worked (from `work_hours_per_day` to 16). A household plans its spring work on the days the ground can usually be worked at these hours, never on more than every day's ordinary work: the days the weather takes are made up while enough are left (ADR-0012 §5). |
 | | `field_m`, `max_walk_minutes`, `site_candidates` | New fields are squares of `field_m`, within this walk of the settlement; how many places are looked at when marking one out. |
 | `build` | `programs` | What a household may build (building ids), among what someone in it knows how to build: its home, the dwelling that covers its members and goods for the fewest hours, and stores beside it. At least one must be a dwelling its founders know how to build (content API 12; stores since API 13). |
 | | `store_horizon_days` | The days over which a household reckons what a store would save: a store is worth building when what the goods its roofs have no room for would lose in the open over these days, less what they would lose in it, is worth more hours of its work than the store takes (content API 13). |
 | | `home_work_places` | People who can work at a craft at once in a home, beside living there: a firm that has had more working for it at once lately builds a workshop with places for them all (content API 14). |
 | | `quality_spread` | `[novice, master]`: how unevenly the parts of a building are made. Each part's quality is one less the spread at its builders' average building skill times the size of a normal draw (ADR-0009 §6; content API 15). `0 ≤ master ≤ novice < 1`. |
 | | `[build.caution]` | How builders answer what their settlement has seen of a technique's buildings (ADR-0009 §6; content API 17): `half_life_years` (0.5 to 100), over which failures and the building-years they stood fade by half; `most` (1 to 10), the most times its usual strength a frame building's joists and posts are made; `half_rate` (above 0), the failures a building-year at which caution is half way to its most; `death_weight` (0 to 100), how many failures more each death in one counts as. |
+| | `[build.levelling]` | How a household levels the plot of a building on sloping ground (ADR-0010 §2; content API 19): `from_m` and `most_m` (0 < from_m ≤ most_m ≤ 20), metres the ground may drop across a plot before it is cut and filled to one level, and beyond which it is not built on; `h_per_m3` (above 0), hours to dig a cubic metre of earth as it lay in the ground, carry it across the plot and spread and tamp it as fill; `side_run` (0.5 to 10), metres across a platform's sides run for each metre up or down. |
+| `digging` | `h_per_m3`, `pit_side_m` | How people dig at a deposit (ADR-0010 §2; content API 20): hours a capable adult takes to dig a cubic metre of earth as it lay in the ground and lift it out (above 0), and the side of the square pit, metres (1 to 20), whose spoil is heaped on a square of the same side beside it. |
+| `style` | `alpha`, `prestige_most`, `innovation` | How households' taste in building moves (ADR-0009 §7; content API 22): the share of the way a household's taste moves toward the most admired building its settlement finished in the year past (0 to 1); how many times the least admired the most admired weighs (1 to 10), for its owner's standing in goods and how well it was built, equally; and the chance a building has one trait new to its builders, within what its program allows (0 to 1). |
+| | `tradition`, `tradition_spread`, `personal_spread` | Each a table of `pitch_deg`, `eave_m` and `overhang_m`: the way of building founding bands' are drawn around (pitch 0 to 80°, eaves 0.5 to 6 m, overhang 0 to 3 m), the standard deviation of a band's from it, and of each household's from its band's (each from 0 to 20°, 1 m and 1 m). A building is built to its household's taste held to what its program allows. |
 | `mortality` | `a`, `b`, `c`, `d`, `e` | Siler hazard `A·e^(−Bx) + C + D·e^(Ex)` per year: the founders' ages, and everyone's daily risk of dying. |
 | | `hunger_ratio_at_half`, `hunger_ratio_max` | Hunger multiplies that hazard: by the first at half the reserve drawn, as `ratio^(4d²)` of the share `d` drawn, up to the second. |
 | | `exhaustion_per_day`, `exhaustion_power` | A body at the end of its reserve dies with this chance a day, scaled by the share drawn to this power. |
@@ -179,12 +184,13 @@ How land is classified and what grows wild. Exactly one profile.
 | `patch_cells` | Patch side in terrain cells (16 = 128 m at 8 m cells). |
 | `channel_area_km2` | Drainage area that counts as a stream when measuring height above the nearest stream. |
 | `richness_min`, `richness_max`, `richness_feature_m` | Patch-to-patch variation of productivity and its spatial scale. |
-| `climate_cv`, `climate_autocorrelation` | Year-to-year variation of production. |
+| `[weather]` | How the weather is drawn (ADR-0012 §1; content API 23): one daily series for the whole map, from the world's seed and its landscape, the same at every speed. Monthly values are twelve figures, January first. Rain: `wet_days` (0 to 0.95), the share of days with at least `wet_day_mm` (0.1 to 10) of rain or snow water; `rain_share` (summing to 1), each month's share of the preset's `precipitation_mm_per_yr`; `persistence` (0 to 0.95), how much likelier rain is after a wet day than after a dry one; `gamma_shape` (0.2 to 5), the shape of a wet day's amount above the threshold. Temperature: `mean_c`, each month's mean at `normals_at_m` metres (interpolated between mid-months); `day_sd_c` and `day_persistence` (0 to 0.99), the day's anomaly about it and its lag-one correlation; `day_range_c`, the day's range from lowest to highest; `wet_day_range` (0.1 to 1), a wet day's range against the month's; `wet_day_cooling_c`, how much cooler a wet day is than a dry one, each month's mean kept; `lapse_c_per_km` (0 to 12), the fall with height. The slow anomaly, a monthly AR(1) that carries wet and dry spells across seasons: `slow_months` (1 to 600), its persistence; `slow_amount` (0 to 1) and `slow_wet_days` (0 to 0.5), how it scales wet days' amounts (mean kept) and their share; `slow_warmth_c`, its effect on each month's temperature. Snow: falls below `snow_below_c`, melts `melt_mm_per_c` mm of water a degree-day, and lies in bands of 100 m. Soil water (FAO-56): `soil_water_mm` (10 to 500) held between field capacity and wilting, `easy_water_share` (0.1 to 0.9) drawn unstressed, and `cover_kc` (0.1 to 2), the wild cover's use against the reference evapotranspiration (Hargreaves, from temperature and the people profile's latitude). Workable days (ADR-0012 §5; content API 24): `wet_ground_mm` (0.5 to 100), a day's rain or snow, mm of water, that makes the ground too wet to work that day, and `frozen_below_c` (−10 to 5), the day's mean below which it is frozen; snow lying keeps people off it too. Breaking, preparing and sowing ground wait for a day it can be worked (weeding, reaping and threshing go on), and households plan their spring work on the share of the sowing window's days the landscape usually allows, worked at the people profile's `peak_work_hours_per_day`. |
 | `[paths]` | `wear_per_walk`, `wear_half_life_days`: a walk across an 8 m cell wears away this share of what is left unworn, and unused wear halves in this many days. `trail_at`, `trail_until`: a cell becomes trail at the first wear and stays trail until it fades below the second. |
 | `[[habitat]]` | `id`, `name`, `arable`, and optional `min_water_fraction`, `max_median_hand_m`, `max_mean_slope`. The first habitat whose conditions a patch meets is its habitat; the last must have none. Arable ground can carry fields; optional `clear_h_per_ha` is the work to clear it (woodland) before it is first broken. `wetness` (zero or more; 1 is average ground) scales how fast posts set in it rot at their foot (content API 15). |
 | `[peak_load]` | `median_kpa`, `spread`: the heaviest load wind and snow put on a roof in a month, kilopascals on its plan, drawn once a month for each settlement (log-normal: its median and the spread of its logarithm). A stand-in for weather until weather exists (content API 16, ADR-0009 §5). |
+| `[[deposit]]` | Where a kind of deposit lies and how large its bodies are, laid down once from the world's seed (ADR-0010 §1; content API 18; optional): `good` it yields; `slope` and `hand_m`, `[least, most]` mean slope (0 to 10) and height above the nearest channel in metres of the ground it lies under; `per_km2` (0 to 1000), bodies expected on each square kilometre of land that qualifies; `radius_m` (0.5 to 1000), `top_m` (0 to 100, the cover over it) and `thickness_m` (0.05 to 100), `[least, most]` metres; `quality` (0 to 1); `exposed_share` (0 to 1), the share of covered bodies that still show; `density_kg_m3` (100 to 10,000), kilograms of the good in a cubic metre of a body; optional `dig_h_per_m3` (0 to 1,000; content API 21), hours a capable adult takes to break a cubic metre of a body out of the ground, or 0 (the default) to dig it as earth at the people profile's `[digging]` rate, its cover always dug as earth; optional `working` (1 to 24 characters; content API 21), what a working of it is called, "pit" by default ("quarry"). |
 | `[[resource]]` | `id`, `name`; `good` (the good a harvest yields) and `unit_kg` (its kilograms per unit of stock: 1 for stocks in kilograms, a carcass's meat for stocks in animals); `discrete` (harvests are whole units drawn from the expected count); `in_water` (lives in a patch's water, not its land); `range_patches` (a trip works a block of `2·range + 1` patches a side); `max_rate_per_hour` and `half_rate_stock_per_ha` (gathering slows as the stock falls). Then exactly one growth table. |
-| `[resource.plant]` | `production_per_ha_yr` (one figure per habitat, in habitat order), `loss_per_day`, `season` (twelve monthly weights): a seasonal production each day, a share of the standing stock lost each day. A new world's stock, and what people expect of land they have not worked, is the yearly cycle this settles into: what stands lags what grows by about the time it lasts (last summer's reeds still stand in March). |
+| `[resource.plant]` | `production_per_ha_yr` (one figure per habitat, in habitat order), `loss_per_day`, `season` (twelve monthly weights): a seasonal production each day, a share of the standing stock lost each day. A new world's stock, and what people expect of land they have not worked, is the yearly cycle this settles into: what stands lags what grows by about the time it lasts (last summer's reeds still stand in March). Optional `follows_water` (content API 23; false by default): production follows the soil water under the wild cover, smoothed over about a month, against what the month usually has, so a dry summer gives less and a wet one more, and an average year what the figures say (ADR-0012 §5). |
 | `[resource.animal]` | `capacity_per_ha` (per habitat), `growth_per_year`, `spread_per_month`: logistic growth toward the habitat's capacity, and a monthly spread between neighbouring patches toward an even share of capacity. |
 | `[resource.deposit]` | `stock_per_ha` (per habitat): a stock laid down once, that never grows back (stone, flint; M3a). |
 
@@ -198,15 +204,16 @@ Something people carry home and keep.
 
 | Field | Meaning |
 |---|---|
-| `purpose` | `food`, `fuel`, `material` (built with, or made into something) or `tool` (M3a). |
+| `purpose` | `food`, `fuel`, `material` (built with, or made into something), `tool` (M3a) or `store` (a vessel food is kept in; M3b, content API 20). |
 | `kcal_per_kg` | Food energy; 0 for anything else. |
 | `half_life_days` | Days for half a stored amount to spoil; 0 keeps. Fuel must keep. |
 | `sheltered_half_life_days` | The same in a household's store under its own roof; 0 when a roof makes no difference. Never shorter than `half_life_days`; a good that keeps needs none. |
 | `eaten` | `raw` (as it is), `cooked` (needs a fire: not eaten while the household has no firewood; cooking adds no energy, research 05-02 §1.1) or `never` (a recipe must make it food first, as grain is ground or pounded). Anything but food is `never`. |
 | `shared` | When brought home it is shared among every household of the settlement, by members. |
 | `reserve_for` | The food it is kept back from, like seed from grain, or `""`: a recipe that needs that food takes this one only in real hunger, and never the seed to sow the ground already cropped. |
-| `[tool]` | For a tool only: `life_h`, the hours of use a standard tool lasts (stores count tools in standard tools, so 2.4 sickles are two and what is left of a third, ADR-0006); `per_adult`, how many a household wants for each member of working age (rounded up; 0 for none); `fixed`, it stays where it was made and is never carried off. |
+| `[tool]` | For a tool only: `life_h`, the hours of use a standard tool lasts (stores count tools in standard tools, so 2.4 sickles are two and what is left of a third, ADR-0006); `per_adult`, how many a household wants for each member of working age (rounded up; 0 for none); `fixed`, it stays where it was made and is never carried off: founders and families the observer sends bring none of it (an oven). |
 | `[timber]` | For a material built with as timber only (content API 16, ADR-0009 §5): `bending_mpa`, `compression_mpa` and `stiffness_gpa`, its strength in bending and in compression along the grain and its stiffness; `creep`, how much further it bends under load carried for years than at first (φ); `sustained`, the share of its strength it keeps under such load (above 0, at most 1). Members of a material without it carry nothing in the checks. |
+| `[store]` | For a store only (content API 20, ADR-0010 §2): `keeps_kg` (above 0, at most 1000), the kilograms of food one keeps as a raised floor keeps them. A store stands under a roof in the room it keeps: a household counts each as turning that many kilograms of the room in its lofts and on its floors into raised room, and makes more while food lies in its lofts and on its floors that would keep better in one. Stores add no room, and food in the open gains nothing from them. |
 
 People eat the most perishable food that can be eaten first. A material or tool is never eaten,
 kept back or shared: a household brings it for what it builds and makes, and only as much as it
@@ -229,9 +236,13 @@ people at run time.
 | `break_h_per_ha`, `prepare_h_per_ha`, `sow_h_per_ha`, `tend_h_per_ha`, `reap_h_per_ha` | Person-hours of a capable adult per hectare: breaking new ground, preparing cropped ground again, sowing, tending over the season, reaping and carrying home. |
 | `thresh_h_per_kg` | Person-hours to thresh and clean a kilogram of grain. |
 | `straw_good`, `straw_kg_per_kg` | Optional, both or neither: the good threshing leaves as straw (thatch, for the shipped crop), and kilograms of it per kilogram of grain. |
+| `kc`, `kc_days`, `ky` | Its water (ADR-0012 §2; content API 23): crop coefficients at the start, in mid-season and at ripeness (0.05 to 2; its need is the reference evapotranspiration times the coefficient, flat, rising, flat and falling by FAO-56's curve); the days of its initial, development, mid-season and late stages, summing to `grow_days`; and the share of its yield lost for each share of its need unmet (0 to 3, FAO's `Ky`). |
 
-What a harvest brings depends on the field's ground (the richness of its patches), the year's
-weather, when sowing finished, how much of its tending was done, and how long it stood ripe.
+What a harvest brings depends on the field's ground (the richness of its patches), the water its
+crop had through the season, when sowing finished, how much of its tending was done, and how long
+it stood ripe. Each growing field keeps a root-zone water balance from the day it is sown to the
+day it ripens; its harvest scales by `1 − ky × (1 − water got ÷ water needed)`, divided by that
+figure's long-run mean for the landscape, so a season of average water gives `yield_kg_per_ha`.
 
 ### `building`
 
@@ -309,12 +320,13 @@ decided by people at run time.
 
 | Field | Meaning |
 |---|---|
-| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a). |
+| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b). |
 | `resource` | For `gather` only: the land resource gathered (hunting, fishing, collecting firewood and cutting building materials are gathering too). A trip works until its load is full or its time runs out. |
 | `task` | For `farm` only: the field work, one of `prepare`, `sow`, `tend`, `reap`, `thresh`. |
 | `recipe` | For `make` only: the recipe worked, at home. |
+| `digs` | For `dig` only: the good dug (a good id; content API 20). People dig it at a pit on a deposit of it that their settlement knows, while their household needs it, and carry it home; the land profile must lay down deposits of it. |
 | `tools` | Tools the work needs and wears (good ids; `[]` for none). Without a free one in the household the work is left out, and the tool counts as one work waits on. A `make` activity's tools are its recipe's, so it lists none. |
-| `rate` | Work done in an hour against the task's authored rates: 1 with the tools they assume, less by hand (reaping without a sickle). Field work at a lower rate is left out while the same task can be done at a higher one. |
+| `rate` | Work done in an hour against the task's authored rates: 1 with the tools they assume, less by hand (reaping without a sickle, cutting rods without an axe). Field work at a lower rate is left out while the same task can be done at a higher one, and gathering at a lower rate while the household holds the tool for a higher one. |
 | `name`, `doing` | "Gather plants"; "gathering wild plants" (what the inspector says). |
 | `par` | Physical activity ratio of the work (1–10). |
 | `min_age_years`, `max_age_years` | Who does it. |
@@ -458,10 +470,12 @@ The people profile's `[knowledge]` table (every value a tuning value):
 | `w_try` | Utility points for trying at a problem at home, times the share of the household's food the problem would cost. |
 | `try_gap_days` | Least days between one person's sessions of trying. |
 
-The core pack has eleven techniques. Eight are the founders' repertoire of today's work, known by
+The core pack has thirteen techniques. Ten are the founders' repertoire of today's work, known by
 every founder and learnt in upbringing (research 06-08 §1.1, §3): growing emmer, grinding at a
-quern, pounding grain, baking flatbread, knapping sickle blades, shaping stone, shaping wood and
-building roundhouses. Three are not known at first. **Drying and smoking** (slice N) answers meat
+quern, pounding grain, baking flatbread, knapping sickle blades, shaping stone, shaping wood,
+building roundhouses, making pottery (slice Q: forming clay into storage pots and firing them in
+an open fire, research 07-05 §3.1) and baking in an oven (slice Q: a domed clay oven built beside
+the home, 11-13 §1.2). Three are not known at first. **Drying and smoking** (slice N) answers meat
 and fish spoiling and is found from hunting, fishing and trying. **Grinding at a rotary quern**
 (slice N) needs shaping stone and wood, and its E50 of 100,000 hours makes it, in practice, the
 observer's introduction. **Jointed timber framing** (slice O) builds the frame programs; no work
@@ -472,6 +486,26 @@ A `try` activity (`behavior = "try"`, slice N) spends spare hours at home trying
 technique whose problem would cost the household the most food, among those the person could
 find. It names no technique: what it works toward is chosen when it is done. The core pack's
 `core:activity/try` is an hour, from age 12.
+
+## Changes in M3c
+
+Content API 23 (slice U, ADR-0012) brings weather. The land profile's `climate_cv` and
+`climate_autocorrelation` are gone: the yearly climate factor they drew is replaced by the
+profile's `[weather]`, a daily series. A `[resource.plant]` may follow the soil water
+(`follows_water`). A crop states its water use (`kc`, `kc_days`, `ky`). The core pack's wild plant
+food follows the soil water, and fallen wood, poles and reeds keep their authored growth whatever
+the weather.
+
+Content API 24 (slice U) adds the days the ground cannot be worked: the weather profile's
+`wet_ground_mm` and `frozen_below_c`, and the people profile's `peak_work_hours_per_day`, the
+longer hours that make up lost days. The core pack's valley keeps people from turning the soil
+on days with 5 mm of rain or more, with snow lying, or with a mean below freezing, and its early
+farmers work 10 hours at a peak against 6 ordinarily (research 04-02 §2.4).
+
+The core pack's `core:activity/cut_rods` (no API change) cuts thin rods by hand or with a flint
+flake at a fifth of an axe's rate. It is left out while the household holds an axe, even one in
+another member's hands: it is how a household whose axe has worn out gets the wood for a new
+haft.
 
 ## Planned kinds
 

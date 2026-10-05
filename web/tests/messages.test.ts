@@ -104,7 +104,28 @@ describe("decoders", () => {
     W.WorldInfo.addRegimeName(b, regimeName);
     const world = W.WorldInfo.endWorldInfo(b);
     const season = b.createString("spring");
-    const clock = W.Clock.createClock(b, 85_320n, 1n, 3, 1, 6, 0, season, true, 96);
+    // Wire 1.24: today's weather rides on the clock.
+    const words = b.createString("6 °C, light rain; snow lying");
+    W.DayWeather.startDayWeather(b);
+    W.DayWeather.addPrecipMm(b, 3.5);
+    W.DayWeather.addMeanC(b, 6);
+    W.DayWeather.addMinC(b, 2);
+    W.DayWeather.addMaxC(b, 9);
+    W.DayWeather.addSnowMm(b, 12);
+    W.DayWeather.addSoil(b, 0.75);
+    W.DayWeather.addWords(b, words);
+    const weather = W.DayWeather.endDayWeather(b);
+    W.Clock.startClock(b);
+    W.Clock.addMinute(b, 85_320n);
+    W.Clock.addYear(b, 1n);
+    W.Clock.addMonth(b, 3);
+    W.Clock.addDay(b, 1);
+    W.Clock.addSeason(b, season);
+    W.Clock.addPaused(b, true);
+    W.Clock.addSpeed(b, Infinity);
+    W.Clock.addMode(b, W.ClockMode.Accelerated);
+    W.Clock.addWeather(b, weather);
+    const clock = W.Clock.endClock(b);
     const taskName = b.createString("Loading");
     const stage = b.createString("Reading");
     const task = W.Task.createTask(b, taskName, stage, 0.5, false);
@@ -138,6 +159,18 @@ describe("decoders", () => {
       month: 3,
       paused: true,
       season: "spring",
+      // Max, a day at a time (wire 1.23).
+      speed: Infinity,
+      mode: "accelerated",
+      weather: {
+        precipMm: 3.5,
+        meanC: 6,
+        minC: 2,
+        maxC: 9,
+        snowMm: 12,
+        soil: 0.75,
+        words: "6 °C, light rain; snow lying",
+      },
     });
     expect(snapshot.task).toEqual({
       name: "Loading",
@@ -171,6 +204,9 @@ describe("decoders", () => {
       firmsRev: 0,
       wealthRev: 0,
       knowledgeRev: 0,
+      depositsRev: 0,
+      earthworksRev: 0,
+      weatherRev: 0,
     });
   });
 
@@ -441,6 +477,7 @@ describe("decoders", () => {
     const firmName = b.createString("Wren's sickle workshop");
     const symptoms = b.createString("the thatch leaks");
     const upkeep = b.createString("mending the covering, 40% done");
+    const style = b.createString("roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut");
     const group = W.GroupInfo.createGroupInfo(
       b,
       0x0700,
@@ -487,6 +524,8 @@ describe("decoders", () => {
     W.BuildingInfo.addLeak(b, 0.25);
     W.BuildingInfo.addGroups(b, groups);
     W.BuildingInfo.addUpkeep(b, upkeep);
+    W.BuildingInfo.addStyle(b, style);
+    W.BuildingInfo.addStyleFrom(b, 12n);
     const info = W.BuildingInfo.endBuildingInfo(b);
     const list = W.Buildings.createBuildingsVector(b, [info]);
     const buildings = W.Buildings.createBuildings(b, 77n, list);
@@ -553,6 +592,8 @@ describe("decoders", () => {
             },
           ],
           upkeep: "mending the covering, 40% done",
+          style: "roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut",
+          styleFrom: 12,
         },
       ],
     });
@@ -579,6 +620,8 @@ describe("decoders", () => {
     W.FieldInfo.addHolder(b, 8n);
     W.FieldInfo.addLeaseUntilMinute(b, 700_000n);
     W.FieldInfo.addLeaseShare(b, 0.25);
+    W.FieldInfo.addWaterHad(b, 0.75);
+    W.FieldInfo.addSoilWater(b, 0.5);
     const field = W.FieldInfo.endFieldInfo(b);
     const list = W.Fields.createFieldsVector(b, [field]);
     const fields = W.Fields.createFields(b, 99n, list);
@@ -611,6 +654,9 @@ describe("decoders", () => {
           holderSettlement: 0,
           leaseUntilMinute: 700_000,
           leaseShare: 0.25,
+          // Wire 1.24: the water its crop has had, and its root zone's.
+          waterHad: 0.75,
+          soilWater: 0.5,
         },
       ],
     });
@@ -733,6 +779,93 @@ describe("decoders", () => {
     expect(t.caution).toBeCloseTo(1.9, 5);
     expect(t.knowers).toEqual([{ id: 7, name: "Wren", ageYears: 61.5 }]);
     expect(t.learners.map((p) => p.name)).toEqual(["Ash"]);
+  });
+
+  it("decodes the deposits and builds the command that lays one down", () => {
+    const b = new flatbuffers.Builder(256);
+    const knownBy = W.DepositInfo.createKnownByVector(b, [12n]);
+    const finds = W.DepositInfo.createFindsVector(b, [b.createString("found by Ash of Alderford in year 3")]);
+    const info = W.DepositInfo.createDepositInfo(b, 431n, 1, 2366.5, 3355.25, 12, true, 0, 1.2, 0.6, 975000, 125, knownBy, finds);
+    const list = W.Deposits.createDepositsVector(b, [info]);
+    const deposits = W.Deposits.createDeposits(b, 77n, list);
+    const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Deposits, deposits)));
+    expect(body.kind).toBe("deposits");
+    if (body.kind !== "deposits") return;
+    expect(body.deposits.rev).toBe(77);
+    expect(body.deposits.deposits).toEqual([
+      {
+        id: 431,
+        good: 1,
+        x: 2366.5,
+        y: 3355.25,
+        radiusM: 12,
+        exposed: true,
+        coverM: 0,
+        thicknessM: expect.closeTo(1.2, 5) as number,
+        quality: expect.closeTo(0.6, 5) as number,
+        leftKg: 975000,
+        takenKg: 125,
+        knownBy: [12],
+        finds: ["found by Ash of Alderford in year 3"],
+      },
+    ]);
+    const bytes = M.placeDeposit(10, 20, "core:good/clay", 10, false);
+    const command = W.Command.getRootAsCommand(new flatbuffers.ByteBuffer(bytes));
+    expect(command.bodyType()).toBe(W.CommandBody.PlaceDeposit);
+    const place = command.body(new W.PlaceDeposit()) as W.PlaceDeposit;
+    expect([place.at()?.x(), place.at()?.y(), place.good(), place.radiusM(), place.exposed()]).toEqual([
+      10,
+      20,
+      "core:good/clay",
+      10,
+      false,
+    ]);
+  });
+
+  it("decodes the earthworks with the ground tiles they changed, and builds their query", () => {
+    const b = new flatbuffers.Builder(256);
+    const words = b.createString("the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled");
+    const info = W.EarthworkInfo.createEarthworkInfo(b, 51n, 0, 100, 200, 6, 6, 42.25, 1.5, 6.5, 0.5, 7n, 9n, 11n, words, 0n);
+    const works = W.Earthworks.createWorksVector(b, [info]);
+    // Structs in a vector go in last first.
+    W.Earthworks.startTilesVector(b, 2);
+    W.GroundTileRev.createGroundTileRev(b, 17, 2);
+    W.GroundTileRev.createGroundTileRev(b, 16, 5);
+    const tiles = b.endVector();
+    const earthworks = W.Earthworks.createEarthworks(b, 88n, works, 64, 16, tiles);
+    const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Earthworks, earthworks)));
+    expect(body.kind).toBe("earthworks");
+    if (body.kind !== "earthworks") return;
+    expect(body.earthworks).toEqual({
+      rev: 88,
+      works: [
+        {
+          id: 51,
+          kind: 0,
+          x: 100,
+          y: 200,
+          w: 6,
+          h: 6,
+          levelM: 42.25,
+          sideRun: 1.5,
+          cutM3: 6.5,
+          done: 0.5,
+          household: 7,
+          plot: 9,
+          building: 11,
+          words: "the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled",
+          deposit: 0,
+        },
+      ],
+      tileCells: 64,
+      tilesX: 16,
+      tiles: [
+        { index: 16, rev: 5 },
+        { index: 17, rev: 2 },
+      ],
+    });
+    const query = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getEarthworks()));
+    expect(query.bodyType()).toBe(W.QueryBody.GetEarthworks);
   });
 
   it("decodes a raster tile response", () => {

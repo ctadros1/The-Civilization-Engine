@@ -78,12 +78,12 @@ fn reviewed_ask(prev: f64, anchor: f64, unmet: bool, unsold: bool, max_change: f
 }
 
 /// Whether a household offers what it holds of good `d` beyond what it keeps: a tool that can be
-/// carried away, food not kept back for sowing, and materials; never firewood.
+/// carried away, food not kept back for sowing, materials and stores (pots); never firewood.
 pub(crate) fn can_offer(d: &GoodDef) -> bool {
     match d.purpose {
         GoodUse::Tool => !d.tool.as_ref().is_some_and(|t| t.fixed),
         GoodUse::Food => !d.kept_back(),
-        GoodUse::Material => true,
+        GoodUse::Material | GoodUse::Store => true,
         GoodUse::Fuel => false,
     }
 }

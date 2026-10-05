@@ -56,6 +56,19 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
   - a buried one is found when an earthwork cuts into it.
 - **The god tool** `PlaceDeposit { at, kind, size, exposed }` creates a body on dry land and
   records it in the chronicle.
+- As built (slice Q's first step): each `[[deposit]]` rule gives a slope range and a height-above-
+  drainage range (distance to a channel waits), a count per qualifying square kilometre, and
+  ranges for radius, cover, thickness and quality, a share of covered bodies that still show, and
+  a density. Bodies are discs in plan with a centre and radius in centimetres. A new world places
+  them after its founding band arrives, so the founding draws do not move; a save from before
+  them gains, on loading, the bodies a new world of its seed has, with ids of its own.
+- As built: "passes near" is within 50 m of a body's edge along the route of a walk, checked when
+  the walk ends (a tuning value). The god tool takes a radius and whether the body shows, and
+  takes the rest of the body from the land profile's rule for its good. Both are chronicled.
+- As built (slice Q's third step): a platform finds a buried body when the deepest cut on its
+  plot, times the share done, reaches the body's cover, and some of its plot lies over the body.
+  This is a simplification: the deepest cut need not lie over the body. A pit is dug only on a
+  body the settlement already knows, so it finds nothing new.
 
 ### 2. Earthworks are records
 
@@ -72,6 +85,28 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
 - A **platform** levels a plot by cut and fill.
 - A **pit** deepens as material is taken; overburden and rejects go to a spoil heap beside it.
 - Earth balances: what is cut equals what is filled, heaped and taken as goods, in kilograms.
+- As built (slice Q's second step): platforms only, for plots whose ground drops more than the
+  people profile's threshold. Households seek level ground first, so the weighing is that rule,
+  not hours against hours. A platform's level balances its cut and fill by volume as the earth
+  lay in the ground; bulking and compaction (11-12 §2.4) wait for spoil heaps and goods. Its
+  earth costs hours on the building's first stage and is done with its first hours. The
+  expansion samples every half metre; a golden hash pins version 1. Pits and spoil heaps follow.
+- As built (slice Q's third step): clay pits. People dig at a body of the good their settlement
+  knows, while their household needs it. A pit is a square of the people profile's
+  `pit_side_m` (3 m) on the body, at the free spot nearest the settlement's hearth. Its heap is a
+  square of the same size beside it, toward the hearth first. Each links to its deposit, and the
+  pit links to its heap. A pit deepens by what each session digs, at `h_per_m3` (8 h a cubic
+  metre: 11-12 §2.4's non-metal prior, dig and lift only). The cover and the share of the body
+  unfit for use (one less its quality) go on the heap, and the rest is carried home, a load at a
+  time. A pit dug through its body is done, and the next is begun on the body. Volumes balance as
+  the earth lay in the ground, so bulking is still not kept: what is dug equals what is heaped
+  plus what is carried, and the body's density turns volume into kilograms. Both change the
+  ground evenly over their squares, which are smaller than a cell, as cell-mean deltas.
+- As built (slice Q's fourth step): quarries and flint pits are the same workings with their
+  rule's `dig_h_per_m3` for the body (stone 12 h, a flint bed 12 h; the cover is dug as earth) and
+  its `working` name. A daub pit is a pit with a plot and no deposit, beside a building's plot:
+  its walls' daub is dug from it as they go up and as they are mended, and none of its earth is
+  heaped, as all of it goes into the walls.
 
 ### 3. The bed is the generated bed plus a delta layer
 
@@ -84,6 +119,16 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
   not the bed's slope.
 - In M3b, routing and water stay as generated (03-01 §3.1): earthworks are refused on or beside
   water. M3c brings drainage invalidation with its ditches.
+- As built (slice Q's second step): cell-mean deltas in metres, in 64 × 64-cell tiles whose
+  revision changes with each change. A platform advanced from one share to the next adds only the
+  difference, and a test expands the records afresh and compares them with the tiles. Where two
+  platforms' sides overlap, their changes add, each designed on the generated bed. A plot is
+  levelled only where every cell its platform's sides could reach is dry land; otherwise it is
+  passed over. Only the tests read the bed plus its deltas so far; the elevation raster gains
+  them with the boundary's next step.
+- As built (slice Q's third step): a pit or heap needs dry land and no other earthwork, plot or
+  field on its square, and plots and fields keep their usual gaps from pits and heaps. Every earthwork's change to the ground is reproduced from its record alone:
+  a platform as far as it is done, and a pit or heap as the earth it holds or lacks.
 
 ### 4. Saves and boundary
 
@@ -96,6 +141,13 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
   - the deposits a settlement knows;
   - the `PlaceDeposit` command.
 - The elevation raster serves base plus delta. All of it is appended.
+- As built (slice Q's second step): wire 1.20 adds the earthworks revision, a query that lists
+  each earthwork in words with every changed tile and its revision, and elevation served as the
+  bed plus its deltas. The deposits and `PlaceDeposit` came with 1.19. The query of a
+  settlement's deposits is the deposits query's `known_by`.
+- As built (slice Q's third step): saves schema 21 add each earthwork's links to its deposit and
+  heap. Wire 1.21 appends each earthwork's deposit, and kinds 1 (pit) and 2 (spoil heap), which
+  the observer draws dark and pale.
 
 ## Consequences
 
@@ -124,7 +176,8 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
 
 ## Revisit when
 
-- M3c's ditches and terraces change drainage: invalidate routing locally.
+- Ditches and terraces change drainage: invalidate routing locally. They moved from M3c to M6
+  (ADR-0012 §7).
 - Geology arrives: generate rock bodies before the final surface (03-05 §1.2), and add ores.
 - Unreal's terrain spike (S1) fixes its edit contract.
 - Claims and law govern who may dig where (ADR-0007; M4).

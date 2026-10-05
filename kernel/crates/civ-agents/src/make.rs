@@ -59,8 +59,14 @@ pub enum ToolAge {
 /// whose technique is `known` or that need none.
 pub fn tool_ages(catalog: &crate::params::Catalog, known: &dyn Fn(usize) -> bool) -> Vec<ToolAge> {
     let mut ages = vec![ToolAge::NoWork; catalog.goods.len()];
+    // Each technique is asked about once: many activities share one.
+    let mut asked: Vec<Option<bool>> = vec![None; catalog.techniques.len()];
+    let mut knows = |t: usize| match asked.get_mut(t) {
+        Some(slot) => *slot.get_or_insert_with(|| known(t)),
+        None => known(t),
+    };
     for a in &catalog.activities {
-        let usable = catalog.technique_of(a).is_none_or(known);
+        let usable = catalog.technique_of(a).is_none_or(&mut knows);
         for t in catalog.tools_of(a) {
             if let Some(age) = ages.get_mut(t) {
                 *age = match (*age, usable) {
@@ -112,6 +118,21 @@ pub fn tool_need(wanted: f64, held: f64) -> f64 {
         0.0
     } else {
         (wanted + SPARE_TOOL - held.max(0.0)).clamp(0.0, 1.0)
+    }
+}
+
+/// How much of tool `good`, of which `held` standard tools are at hand, does its work: all of it,
+/// but none of a tool that stays where it is made (an oven) unless a whole one stands. One partly
+/// built does nothing, and one worn below whole is out of use until it is mended.
+pub fn in_use(goods: &[GoodDef], good: usize, held: f64) -> f64 {
+    let fixed = goods
+        .get(good)
+        .and_then(|g| g.tool.as_ref())
+        .is_some_and(|t| t.fixed);
+    if fixed && held < 1.0 - 1e-9 {
+        0.0
+    } else {
+        held.max(0.0)
     }
 }
 
@@ -284,6 +305,7 @@ mod tests {
             reserve_for: None,
             tool: None,
             timber: None,
+            store: None,
         }
     }
 
@@ -312,6 +334,25 @@ mod tests {
             quern,
             oven,
         ]
+    }
+
+    #[test]
+    fn a_tool_that_stays_where_it_is_made_works_only_whole() {
+        let goods = goods();
+        let (quern, oven) = (5, 6);
+        assert_eq!(
+            in_use(&goods, oven, 0.5),
+            0.0,
+            "a half-built oven bakes nothing"
+        );
+        assert_eq!(in_use(&goods, oven, 0.999), 0.0, "nor one worn below whole");
+        assert_eq!(in_use(&goods, oven, 1.2), 1.2);
+        assert_eq!(
+            in_use(&goods, quern, 0.05),
+            0.05,
+            "the last of a worn quern grinds"
+        );
+        assert_eq!(in_use(&goods, 0, 3.0), 3.0, "nor are other goods held back");
     }
 
     fn grind() -> RecipeDef {

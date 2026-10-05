@@ -3,7 +3,8 @@
 //!
 //! The checks cover terrain and water, the save round trip, and a month of the founding band's
 //! life: they settle, keep water and firewood at home, still have food, break ground and sow
-//! their first field, and nobody is ever stuck between events.
+//! their first field (unless the weather kept them off the ground), and nobody is ever stuck
+//! between events.
 //!
 //! With `years`, each world then lives on for years (the M1 sanity run, plan §4.7), checked at
 //! every year's end: nobody stuck, no population or land problems, every good held accounted for
@@ -45,6 +46,10 @@ pub const MIN_GENTLE: f32 = 0.05;
 pub const MIN_RIVER_KM: f32 = 0.5;
 /// In-game days the founding band lives.
 pub const DAYS: i64 = 30;
+/// Days of its first month, and of the sowing window within it, the ground must have been
+/// workable on the valley floor for the band to be held to a sown field (ADR-0012 §5: ground
+/// frozen, under snow or sodden most of a spring is weather, not a failure).
+pub const WORKABLE_DAYS: (usize, usize) = (15, 3);
 /// Most people a band may grow to, as a multiple of the founding band, in the long run.
 pub const MAX_GROWTH: f64 = 3.0;
 /// People a band must keep to count as still living where it settled, in the long run.
@@ -148,8 +153,38 @@ fn check_round_trip(sim: &mut Sim, content: &ContentRegistry) -> Result<(), Stri
     Ok(())
 }
 
+/// Days from the world's founding to now on which the ground could be worked on the valley floor,
+/// and those of them in its crop's sowing window: the world's weather lived again from its seed.
+fn workable_days(sim: &Sim, content: &ContentRegistry) -> (usize, usize) {
+    let rules = sim.rules();
+    let (Some(preset), Some(crop)) = (
+        content.preset(&sim.meta().preset_id),
+        rules.catalog.crops.get(rules.people.farm.crop),
+    ) else {
+        return (0, 0);
+    };
+    let founded = civ_core::time::DEFAULT_WORLD_START.day_index();
+    let window = i64::from(crop.sow_from_day)..=i64::from(crop.sow_until_day);
+    let (mut month, mut sowing) = (0, 0);
+    crate::weather::replay(
+        content,
+        preset,
+        sim.meta().seed,
+        sim.now().day_index() - 1,
+        |day, _, why| {
+            if day >= founded && why.is_none() {
+                month += 1;
+                if window.contains(&civ_land::day_of_year(day)) {
+                    sowing += 1;
+                }
+            }
+        },
+    );
+    (month, sowing)
+}
+
 /// Lives the founding band's first month and checks what must always hold.
-fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<String> {
+pub(crate) fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<String> {
     let mut failures = Vec::new();
     if let Some(why) = sim.founding_problem() {
         return vec![format!("the founding band could not settle: {why}")];
@@ -233,7 +268,8 @@ fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<String> {
             failures.push(format!("{} ran short of food within {DAYS} days", s.name));
         }
     }
-    // Arriving on the first of March, they break ground and sow once the window opens.
+    // Arriving on the first of March, they break ground and sow once the window opens and the
+    // ground can be worked.
     let sown = sim
         .land()
         .fields
@@ -241,10 +277,14 @@ fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<String> {
         .filter(|f| f.stage == civ_land::FieldStage::Sown)
         .count();
     if sown == 0 {
-        failures.push(format!(
-            "no field sown within {DAYS} days ({} marked out)",
-            sim.land().fields.len()
-        ));
+        let (month, window) = workable_days(sim, content);
+        if month >= WORKABLE_DAYS.0 && window >= WORKABLE_DAYS.1 {
+            failures.push(format!(
+                "no field sown within {DAYS} days ({} marked out), though the ground could be \
+                 worked on {month} of them, {window} in the sowing window",
+                sim.land().fields.len()
+            ));
+        }
     }
     // In their first weeks most households claim ground for their homes and begin their huts,
     // on ground nobody else has claimed. A household short of hands may put its fields first and
@@ -287,17 +327,34 @@ fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<String> {
 
 /// Lives a world on for `years` after its first month, checking it at every year's end: one
 /// year, two years and so on from the founding.
-fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
-    let founders = sim.people().living().max(1);
-    let year = civ_core::time::MINUTES_PER_YEAR;
-    // The band has lived its first month (`check_people`).
-    let founded = sim.now().minutes() - DAYS * MINUTES_PER_DAY;
-    // The books at the start: every good held is accounted for from here on (ADR-0006 §3).
-    let books = (sim.people().goods_held(), sim.people().flows());
-    let mut economy = Economy::default();
-    for y in 1..=years {
-        let end = founded + i64::from(y) * year;
-        // Month by month, sampling the economy as each begins.
+/// What a long run carries from year to year and checks at each year's end, whatever its length:
+/// the smoke's years and the dashboard's fifty (plan §4.7).
+#[derive(Debug)]
+pub struct LongRun {
+    /// The people when the run began.
+    pub founders: usize,
+    /// The books when the run began: every good held is accounted for from here on (ADR-0006 §3).
+    books: (Vec<f64>, civ_agents::person::Flows),
+    /// What the run has seen of the economy, sampled as each month begins.
+    pub economy: Economy,
+    /// Months lived-in buildings have stood, counted as each month begins: their standing
+    /// buildings, finished, of households with someone living.
+    pub lived_building_months: u64,
+}
+
+impl LongRun {
+    /// Begins a long run of `sim` as it stands.
+    pub fn begin(sim: &Sim) -> LongRun {
+        LongRun {
+            founders: sim.people().living().max(1),
+            books: (sim.people().goods_held(), sim.people().flows()),
+            economy: Economy::default(),
+            lived_building_months: 0,
+        }
+    }
+
+    /// Lives `sim` to `end` month by month, sampling the economy as each month begins.
+    pub fn live_to(&mut self, sim: &mut Sim, end: i64) -> Result<(), String> {
         loop {
             let d = sim.now().date();
             let (ny, nm) = if d.month == 12 {
@@ -307,18 +364,34 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
             };
             let next = SimTime::from_date(ny, nm, 1, 0, 0).map_or(end, |t| t.minutes());
             let to = next.min(end);
-            if let Err(e) = sim.advance_minutes(to - sim.now().minutes()) {
-                result
-                    .failures
-                    .push(format!("the clock stopped in year {y}: {e}"));
-                return;
-            }
+            sim.advance_minutes(to - sim.now().minutes())
+                .map_err(|e| e.to_string())?;
             if to == end {
-                break;
+                return Ok(());
             }
-            economy.sample(sim);
+            self.economy.sample(sim);
+            let people = sim.people();
+            self.lived_building_months += sim
+                .land()
+                .buildings
+                .iter()
+                .filter(|b| {
+                    b.finished()
+                        && b.standing()
+                        && people
+                            .household(b.household)
+                            .is_some_and(|h| !h.members.is_empty())
+                })
+                .count() as u64;
         }
-        result.failures.extend(economy.year_end(sim, y));
+    }
+
+    /// The checks at the end of year `y` that fail a world: nobody stuck, no population or land
+    /// problems, every good accounted for, households under a roof from the second year, the
+    /// techniques every founder brings known, a first trail in the first year, and the economy's
+    /// claims, fields and wealth measures in order. Growth is the caller's to judge.
+    pub fn year_end(&mut self, sim: &Sim, y: u32) -> Vec<String> {
+        let mut failures = self.economy.year_end(sim, y);
         let now = sim.now();
         let living = sim.people().living();
         let stuck = sim
@@ -328,15 +401,13 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
             .filter(|(_, p)| p.act.step_ends < now)
             .count();
         if stuck > 0 {
-            result
-                .failures
-                .push(format!("{stuck} people stuck between events in year {y}"));
+            failures.push(format!("{stuck} people stuck between events in year {y}"));
         }
         let problems = sim
             .people()
             .problems(sim.ids().peek_next(), sim.rules().catalog.activities.len());
         if let Some(first) = problems.first() {
-            result.failures.push(format!(
+            failures.push(format!(
                 "{} population problems in year {y}, first: {first}",
                 problems.len()
             ));
@@ -348,7 +419,7 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
             sim.ids().peek_next(),
         );
         if let Some(first) = problems.first() {
-            result.failures.push(format!(
+            failures.push(format!(
                 "{} land problems in year {y}, first: {first}",
                 problems.len()
             ));
@@ -356,20 +427,15 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
         let goods = &sim.rules().catalog.goods;
         let gaps = civ_agents::population::unaccounted(
             goods.len(),
-            (&books.0, &books.1),
+            (&self.books.0, &self.books.1),
             (&sim.people().goods_held(), &sim.people().flows()),
         );
         if let Some(&(g, kg)) = gaps.first() {
-            result.failures.push(format!(
+            failures.push(format!(
                 "{} goods unaccounted for in year {y}, first: {} {kg:+.3}",
                 gaps.len(),
                 goods[g].name
             ));
-        }
-        if living as f64 > MAX_GROWTH * founders as f64 {
-            result
-                .failures
-                .push(format!("{living} people in year {y}: the band exploded"));
         }
         let households: Vec<_> = sim
             .people()
@@ -389,13 +455,13 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
             })
             .count();
         if y >= 2 && (roofed as f64) < MIN_ROOFED * households.len() as f64 {
-            result.failures.push(format!(
+            failures.push(format!(
                 "only {roofed} of {} households under a roof in year {y}",
                 households.len()
             ));
         }
         if let Some(failure) = check_knowledge(sim, y) {
-            result.failures.push(failure);
+            failures.push(failure);
         }
         if y == 1
             && living > 0
@@ -405,9 +471,31 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
                 .iter()
                 .any(|e| e.kind == civ_agents::ChronicleKind::FirstTrail)
         {
+            failures.push("no trail worn out of the settlement in its first year".to_owned());
+        }
+        failures
+    }
+}
+
+fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
+    let mut run = LongRun::begin(sim);
+    let year = civ_core::time::MINUTES_PER_YEAR;
+    // The band has lived its first month (`check_people`).
+    let founded = sim.now().minutes() - DAYS * MINUTES_PER_DAY;
+    for y in 1..=years {
+        let end = founded + i64::from(y) * year;
+        if let Err(e) = run.live_to(sim, end) {
             result
                 .failures
-                .push("no trail worn out of the settlement in its first year".to_owned());
+                .push(format!("the clock stopped in year {y}: {e}"));
+            return;
+        }
+        result.failures.extend(run.year_end(sim, y));
+        let living = sim.people().living();
+        if living as f64 > MAX_GROWTH * run.founders as f64 {
+            result
+                .failures
+                .push(format!("{living} people in year {y}: the band exploded"));
         }
         if living < MIN_ALIVE && !result.notes.iter().any(|n| n.starts_with("the band")) {
             result
@@ -416,13 +504,131 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
         }
         result.living = Some(living);
     }
-    result.economy = economy.grade(sim);
+    result.economy = run.economy.grade(sim);
     for c in result.economy.iter().filter(|c| c.grade == Grade::Red) {
         result.failures.push(format!("{}: {}", c.name, c.text));
     }
     result.notes.extend(lost_where_people_live(sim));
     result.notes.extend(finds(sim));
     result.notes.extend(condition(sim));
+    result.notes.extend(deposits(sim));
+    result.notes.extend(earthworks(sim));
+    result.notes.extend(kept_and_fixed(sim));
+    result.notes.extend(style(sim));
+}
+
+/// What households hold of goods that keep others or stay where they are made (M3b slice Q), in
+/// words: "held: 41 × Pot, 2 × Oven". `None` when they hold none.
+fn kept_and_fixed(sim: &Sim) -> Option<String> {
+    let goods = &sim.rules().catalog.goods;
+    let parts: Vec<String> = goods
+        .iter()
+        .enumerate()
+        .filter(|(_, g)| g.store.is_some() || g.tool.as_ref().is_some_and(|t| t.fixed))
+        .filter_map(|(i, g)| {
+            let held: f64 = sim
+                .people()
+                .households
+                .iter()
+                .map(|(_, h)| h.stores.get(i).copied().unwrap_or(0.0))
+                .sum();
+            (held >= 0.5).then(|| format!("{held:.0} × {}", g.name))
+        })
+        .collect();
+    (!parts.is_empty()).then(|| format!("held: {}", parts.join(", ")))
+}
+
+/// The ways the world's buildings were built at the end (M3b slice R), in words: "roofs pitched
+/// 46-51°, eaves 182-207 cm; 3 of 12 buildings built after an admired one". `None` without
+/// buildings.
+fn style(sim: &Sim) -> Option<String> {
+    let catalog = &sim.rules().catalog;
+    let buildings = &sim.land().buildings;
+    let traits: Vec<[f32; 3]> = buildings
+        .iter()
+        .filter_map(|b| {
+            let def = catalog
+                .buildings
+                .get(catalog.building_index(&b.spec.program)?)?;
+            Some(civ_agents::style::traits_of(&b.spec, def).traits())
+        })
+        .collect();
+    if traits.is_empty() {
+        return None;
+    }
+    let range = |k: usize| {
+        traits.iter().fold((f32::MAX, f32::MIN), |(lo, hi), t| {
+            (lo.min(t[k]), hi.max(t[k]))
+        })
+    };
+    let ((p0, p1), (e0, e1)) = (range(0), range(1));
+    let followed = buildings.iter().filter(|b| b.style_from.is_some()).count();
+    Some(format!(
+        "roofs pitched {:.0}-{:.0}°, eaves {e0:.0}-{e1:.0} cm; {followed} of {} buildings built \
+         after an admired one",
+        p0 / 100.0,
+        p1 / 100.0,
+        buildings.len()
+    ))
+}
+
+/// The earthworks by the end (ADR-0010 §2), in words: "3 plots levelled, 19 m³ cut; 2 pits and
+/// quarries at deposits, 4.5 m³; 14 daub pits, 61 m³". `None` without earthworks.
+fn earthworks(sim: &Sim) -> Option<String> {
+    use civ_land::earth::{EarthKind, Earthwork};
+    let works = &sim.land().earthworks;
+    let count = |of: &dyn Fn(&Earthwork) -> bool| -> (usize, f64) {
+        works.iter().filter(|w| of(w)).fold((0, 0.0), |(n, m3), w| {
+            (n + 1, m3 + f64::from(w.cut_m3) * f64::from(w.done))
+        })
+    };
+    let plural = |n: usize, one: &str, many: &str| if n == 1 { one } else { many }.to_owned();
+    let mut parts = Vec::new();
+    let (plots, cut) = count(&|w| w.kind == EarthKind::Platform);
+    if plots > 0 {
+        let noun = plural(plots, "plot", "plots");
+        parts.push(format!("{plots} {noun} levelled, {cut:.0} m³ cut"));
+    }
+    let (workings, dug) = count(&|w| w.kind == EarthKind::Pit && w.deposit.is_some());
+    if workings > 0 {
+        let noun = plural(workings, "pit or quarry", "pits and quarries");
+        parts.push(format!("{workings} {noun} at deposits, {dug:.1} m³"));
+    }
+    let (daub, daubed) = count(&|w| w.kind == EarthKind::Pit && w.deposit.is_none());
+    if daub > 0 {
+        let noun = plural(daub, "daub pit", "daub pits");
+        parts.push(format!("{daub} {noun}, {daubed:.0} m³"));
+    }
+    (!parts.is_empty()).then(|| parts.join("; "))
+}
+
+/// The world's deposits at the end (ADR-0010 §1), in words: "96 deposits, 31 showing, 4 found",
+/// and what has been dug from them: "; 1240 kg taken". `None` without deposits.
+fn deposits(sim: &Sim) -> Option<String> {
+    let all = &sim.land().deposits;
+    if all.is_empty() {
+        return None;
+    }
+    let showing = all.iter().filter(|d| d.body.exposed).count();
+    let found = all
+        .iter()
+        .filter(|d| {
+            sim.people()
+                .deposits_known
+                .iter()
+                .any(|k| k.deposit == d.id)
+        })
+        .count();
+    let taken: f64 = all.iter().map(|d| d.taken_kg).sum();
+    let dug = if taken > 0.0 {
+        format!("; {taken:.0} kg taken")
+    } else {
+        String::new()
+    };
+    Some(format!(
+        "{} deposits, {showing} showing, {found} found{dug}",
+        all.len()
+    ))
 }
 
 /// How the world's buildings stand at the end (ADR-0009 §4, §5), in words: "14 buildings, 3

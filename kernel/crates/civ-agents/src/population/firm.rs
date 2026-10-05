@@ -583,11 +583,10 @@ impl Population {
             else {
                 continue;
             };
-            if recipe
-                .tools
-                .iter()
-                .any(|&t| owner.stores.get(t).copied().unwrap_or(0.0) < crate::decide::MIN_TOOL)
-            {
+            if recipe.tools.iter().any(|&t| {
+                let held = owner.stores.get(t).copied().unwrap_or(0.0);
+                make::in_use(&catalog.goods, t, held) < crate::decide::MIN_TOOL
+            }) {
                 continue;
             }
             // At its workshop once it has one, else at its owners' home.

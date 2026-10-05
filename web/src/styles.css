@@ -141,6 +141,14 @@ select {
   color: #fff;
 }
 
+/* Between the Detailed speeds and the Accelerated ones, which live a day at a time. */
+.speed-gap {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 2px;
+  background: var(--line);
+}
+
 .run {
   min-width: 5.5em;
 }
@@ -1324,4 +1332,39 @@ button.link:hover {
   padding-left: 18px;
   font-size: 12px;
   color: var(--muted);
+}
+
+/* Weather (wire 1.24, M3c slice U): today's in words, then months and years against the usual. */
+.weather-today {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.weather-months,
+.weather-years {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 6px 0 10px;
+}
+
+.weather-months th,
+.weather-months td,
+.weather-years th,
+.weather-years td {
+  padding: 2px 4px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.weather-months th,
+.weather-years th {
+  color: var(--muted);
+  font-weight: 600;
+  border-bottom: 1px solid var(--line);
+}
+
+.weather-months tr.partial td,
+.weather-years tr.partial td {
+  font-style: italic;
 }

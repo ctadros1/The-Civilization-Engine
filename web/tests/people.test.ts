@@ -99,10 +99,17 @@ describe("the clock estimate", () => {
     season: "spring",
     paused: false,
     speed: 960,
+    mode: "detailed",
+    weather: null,
   };
   it("runs on at the clock's speed and stops while paused", () => {
     expect(estimateMinute(clock, 0, 500)).toBeCloseTo(1008);
     expect(estimateMinute({ ...clock, paused: true }, 0, 500)).toBe(1000);
+  });
+  it("stands at midnight in Accelerated mode, until the next day's frame", () => {
+    const daily = { ...clock, speed: Infinity, mode: "accelerated" as const };
+    expect(estimateMinute(daily, 0, 500)).toBe(1000);
+    expect(estimateMinute({ ...daily, speed: 5760 }, 0, 60_000)).toBe(1000);
   });
   it("never runs more than a real second ahead", () => {
     expect(estimateMinute(clock, 0, 60_000)).toBe(1016);
@@ -253,6 +260,7 @@ describe("people payloads", () => {
       [],
     ]);
     expect([nobody.person.partner, nobody.person.family]).toEqual([0, []]);
+    expect([nobody.person.householdTaste, nobody.person.householdAdmired]).toEqual(["", 0]);
   });
 
   it("decode a person's partner and the kernel's sentences about their family", () => {
@@ -262,15 +270,25 @@ describe("people payloads", () => {
       b.createString("Expecting a child, due in about 3 months."),
     ];
     const family = W.PersonInfo.createFamilyVector(b, lines);
+    const taste = b.createString(
+      "roofs pitched 48°, walls 1.9 m to the eaves, eaves 0.5 m out; admiring Bo's hut",
+    );
     W.PersonInfo.startPersonInfo(b);
     W.PersonInfo.addId(b, 21n);
     W.PersonInfo.addPartner(b, 22n);
     W.PersonInfo.addFamily(b, family);
+    W.PersonInfo.addHouseholdTaste(b, taste);
+    W.PersonInfo.addHouseholdAdmired(b, 12n);
     const body = W.PersonInfo.endPersonInfo(b);
     b.finish(W.Response.createResponse(b, W.ResponseBody.PersonInfo, body));
     const r = M.decodeResponse(b.asUint8Array());
     if (r.kind !== "person") throw new Error(r.kind);
     expect(r.person.partner).toBe(22);
+    // Their household's taste in building, and the building it admires (M3b slice R).
+    expect(r.person.householdTaste).toBe(
+      "roofs pitched 48°, walls 1.9 m to the eaves, eaves 0.5 m out; admiring Bo's hut",
+    );
+    expect(r.person.householdAdmired).toBe(12);
     expect(r.person.family).toEqual([
       "Partner of Bram for 12 years.",
       "Expecting a child, due in about 3 months.",

@@ -72,8 +72,24 @@ fn days(n: i64) -> String {
     }
 }
 
-/// A field's state in words on `day`: "growing; ripe in about 20 days, weeded 60%".
+/// A field's state in words on `day`: "growing; ripe in about 20 days, weeded 60%; has had 82% of
+/// the water it needed".
 pub fn status(f: &Field, crop: &CropParams, day: i64) -> String {
+    let mut s = stage_words(f, crop, day);
+    // The water its crop has had so far this season (ADR-0012 §2), once it has needed some.
+    if f.stage == FieldStage::Sown && f.need_mm > 0.0 {
+        let had = percent(f64::from(f.got_mm) / f64::from(f.need_mm));
+        if day < f.ripe_day(crop) {
+            s.push_str(&format!("; has had {had} of the water it needed"));
+        } else {
+            s.push_str(&format!("; had {had} of the water it needed"));
+        }
+    }
+    s
+}
+
+/// Where a field is in its year, in words.
+fn stage_words(f: &Field, crop: &CropParams, day: i64) -> String {
     let done = progress(f, crop, day);
     let doy = day.rem_euclid(civ_core::time::DAYS_PER_YEAR);
     match f.stage {
@@ -122,6 +138,7 @@ pub fn fields_response(sim: &Sim) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let day = sim.now().day_index();
     let crops = &sim.rules.catalog.crops;
+    let soil_mm = sim.rules.land.weather.soil_water_mm.max(1e-9);
     let list: Vec<_> = sim
         .land
         .fields
@@ -152,7 +169,9 @@ pub fn fields_response(sim: &Sim) -> Vec<u8> {
                     progress: crop.map_or(0.0, |c| progress(f, c, day)) as f32,
                     new_ground: !f.broken,
                     woodland: !f.broken && f.clear_h_per_ha > 0.0,
-                    expected_kg: crop.map_or(0.0, |c| f.expected_kg(c, day)) as f32,
+                    expected_kg: crop
+                        .map_or(0.0, |c| f.expected_kg(c, day, sim.land.expected_water(f)))
+                        as f32,
                     sheaves_kg: f.sheaves_kg,
                     harvests: u32::from(f.harvests),
                     status: Some(text),
@@ -164,6 +183,12 @@ pub fn fields_response(sim: &Sim) -> Vec<u8> {
                     },
                     lease_until_minute: f.lease.map_or(-1, |l| l.until.minutes()),
                     lease_share: f.lease.map_or(0.0, |l| l.holder_share),
+                    water_had: if f.stage == FieldStage::Sown && f.need_mm > 0.0 {
+                        (f.got_mm / f.need_mm).clamp(0.0, 1.0)
+                    } else {
+                        -1.0
+                    },
+                    soil_water: (f64::from(f.water_mm) / soil_mm) as f32,
                 },
             )
         })
@@ -207,6 +232,9 @@ mod tests {
             reap_h_per_ha: 280.0,
             thresh_h_per_kg: 0.1,
             straw: None,
+            kc: [0.4, 1.15, 0.4],
+            kc_days: [30, 30, 40, 20],
+            ky: 1.15,
         }
     }
 
@@ -233,6 +261,9 @@ mod tests {
             sown_day: 90,
             sheaves_kg: 0.0,
             harvests: 1,
+            water_mm: 0.0,
+            need_mm: 0.0,
+            got_mm: 0.0,
         }
     }
 
@@ -260,5 +291,16 @@ mod tests {
         let mut reaped = field(FieldStage::Reaped);
         reaped.sheaves_kg = 180.4;
         assert_eq!(status(&reaped, &c, 220), "180 kg of sheaves to thresh");
+        // A growing crop says how much of the water it needed it has had.
+        sown.need_mm = 200.0;
+        sown.got_mm = 164.0;
+        assert_eq!(
+            status(&sown, &c, 150),
+            "growing; ripe in about 60 days, weeded 50%; has had 82% of the water it needed"
+        );
+        assert_eq!(
+            status(&sown, &c, 215),
+            "ripe, standing 5 days; had 82% of the water it needed"
+        );
     }
 }

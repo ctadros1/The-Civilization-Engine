@@ -13,6 +13,7 @@ import type {
   PersonInfo,
   Snapshot,
   WealthInfo,
+  WeatherReport,
   Welcome,
 } from "./net/messages.js";
 
@@ -56,6 +57,12 @@ export interface AppState {
   placing: boolean;
   /** How many families the map tool sends together (1 to 20). */
   placeFamilies: number;
+  /** The map tool that lays down a deposit where the map is clicked is armed (M3b slice Q). */
+  placingDeposit: boolean;
+  /** What that tool lays down: a good's content id ("" for the first material), and whether it
+   * shows at the surface. */
+  depositGood: string;
+  depositExposed: boolean;
   /** The chronicle of the world on show, oldest first. */
   chronicle: ChronicleEntry[];
   /** The markets of the world on show (null = not read yet). */
@@ -76,6 +83,10 @@ export interface AppState {
   knowledge: KnowledgeInfo | null;
   /** Why the knowledge could not be read. */
   knowledgeError: string | null;
+  /** Every month's weather in the world on show (null = not read yet; wire 1.24). */
+  weather: WeatherReport | null;
+  /** Why the weather could not be read. */
+  weatherError: string | null;
 }
 
 export const MAX_EVENTS = 300;
@@ -94,6 +105,9 @@ export function initialState(): AppState {
     selected: null,
     placing: false,
     placeFamilies: 1,
+    placingDeposit: false,
+    depositGood: "",
+    depositExposed: true,
     chronicle: [],
     markets: null,
     marketsError: null,
@@ -104,6 +118,8 @@ export function initialState(): AppState {
     wealthError: null,
     knowledge: null,
     knowledgeError: null,
+    weather: null,
+    weatherError: null,
   };
 }
 

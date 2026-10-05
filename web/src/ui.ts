@@ -39,6 +39,7 @@ import {
   linesText,
   statementRows,
 } from "./firm.js";
+import { materialGoods } from "./deposits.js";
 import { introducible, knowRows, summaryText, techniqueRows } from "./knowledge.js";
 import { PATH_LEGEND } from "./paths.js";
 import {
@@ -49,6 +50,7 @@ import {
   spreadText,
   yearRows,
 } from "./wealth.js";
+import { monthRows, yearRows as weatherYearRows } from "./weather.js";
 import { HostError } from "./net/client.js";
 import type {
   ChronicleEntry,
@@ -100,6 +102,8 @@ export interface Actions {
    * come together.
    */
   setPlacing(on: boolean, families: number): void;
+  /** Arms or disarms the tool that lays down a deposit of a good where the map is clicked. */
+  setPlacingDeposit(on: boolean, good: string, exposed: boolean): void;
   /**
    * Introduce a technique to a living person (god tool): they come to know it, or with
    * `awareOnly` only hear of it. `technique` is an index into Welcome.techniques.
@@ -445,6 +449,13 @@ export function bindUi(store: Store, actions: Actions): void {
   familyCount.addEventListener("change", () => {
     actions.setPlacing(addFamily.getAttribute("aria-pressed") === "true", families());
   });
+  const addDeposit = $<HTMLButtonElement>("add-deposit");
+  const depositGood = $<HTMLSelectElement>("deposit-good");
+  const depositExposed = $<HTMLInputElement>("deposit-exposed");
+  const armDeposit = (on: boolean): void => actions.setPlacingDeposit(on, depositGood.value, depositExposed.checked);
+  addDeposit.addEventListener("click", () => armDeposit(addDeposit.getAttribute("aria-pressed") !== "true"));
+  depositGood.addEventListener("change", () => armDeposit(addDeposit.getAttribute("aria-pressed") === "true"));
+  depositExposed.addEventListener("change", () => armDeposit(addDeposit.getAttribute("aria-pressed") === "true"));
   document.addEventListener("keydown", (event) => {
     if (event.key !== " " || isTyping(event.target)) return;
     if (document.querySelector("dialog[open]")) return;
@@ -471,25 +482,38 @@ export function bindUi(store: Store, actions: Actions): void {
     const welcome = state.welcome;
     if (welcome && speedsFor !== welcome) {
       speedsFor = welcome;
-      speeds.replaceChildren(
-        ...welcome.speedMultipliers.map((m) => {
-          const button = el("button", { text: `${m}×` });
-          button.type = "button";
-          button.setAttribute("role", "radio");
-          button.dataset.speed = String(m * welcome.speed1x);
-          button.title = m === 1 ? "1× — one in-game day per 15 minutes" : `${m}× speed`;
-          button.addEventListener("click", () => {
-            void attempt(() => actions.setClock(false, m * welcome.speed1x));
-          });
-          return button;
-        }),
+      const button = (m: number, title: string) => {
+        const b = el("button", { text: formatSpeed(m * welcome.speed1x, welcome.speed1x) });
+        b.type = "button";
+        b.setAttribute("role", "radio");
+        b.dataset.speed = String(m * welcome.speed1x);
+        b.title = title;
+        b.addEventListener("click", () => {
+          void attempt(() => actions.setClock(false, m * welcome.speed1x));
+        });
+        return b;
+      };
+      // Detailed speeds, then the Accelerated ones, which live a day at a time (ADR-0011).
+      const detailed = welcome.speedMultipliers.map((m) =>
+        button(m, m === 1 ? "1× — one in-game day per 15 minutes" : `${m}× speed`),
       );
+      const accelerated = welcome.acceleratedMultipliers.map((m) =>
+        button(
+          m,
+          m === Infinity
+            ? "Max — as fast as the world lives, a day at a time"
+            : `${m}× — a day at a time, the map shown at each midnight`,
+        ),
+      );
+      const gap = accelerated.length > 0 ? [el("span", { className: "speed-gap" })] : [];
+      speeds.replaceChildren(...detailed, ...gap, ...accelerated);
     }
     const clock = state.snapshot?.clock;
     const usable =
       state.connection.state === "open" && !!state.snapshot?.world && !state.snapshot.task;
     for (const button of speeds.querySelectorAll<HTMLButtonElement>("button")) {
-      const checked = !!clock && Math.abs(Number(button.dataset.speed) - clock.speed) < 1e-3;
+      const speed = Number(button.dataset.speed);
+      const checked = !!clock && (speed === clock.speed || Math.abs(speed - clock.speed) < 1e-3);
       button.setAttribute("aria-checked", String(checked));
       button.disabled = !usable;
     }
@@ -890,6 +914,9 @@ export function bindUi(store: Store, actions: Actions): void {
         .map((k) => `${welcome?.skills[k.skill]?.name ?? "?"} ${formatPercent(k.level)}`);
       if (skills.length > 0) {
         needs.append(el("dt", { text: "Skills" }), el("dd", { text: skills.join(" · ") }));
+      }
+      if (p.householdTaste) {
+        needs.append(el("dt", { text: "Builds" }), el("dd", { text: p.householdTaste }));
       }
       const load = goods[p.carryGood];
       const carrying = [
@@ -1602,6 +1629,88 @@ export function bindUi(store: Store, actions: Actions): void {
     wealthBody.replaceChildren(...nodes);
   };
 
+  // ---- Weather -----------------------------------------------------------------------------
+  const weatherBody = $("weather-body");
+  let weatherKey: unknown[] = [];
+  const renderWeather = (state: AppState) => {
+    const world = state.snapshot?.world ?? null;
+    const key = [world?.worldId ?? null, state.weather, state.weatherError];
+    if (key.length === weatherKey.length && key.every((k, i) => k === weatherKey[i])) return;
+    weatherKey = key;
+    if (!world) {
+      weatherBody.replaceChildren(el("p", { className: "empty", text: "No world loaded." }));
+      return;
+    }
+    if (state.weather === null) {
+      weatherBody.replaceChildren(
+        state.weatherError
+          ? el("p", {
+              className: "form-error",
+              text: `The weather could not be read: ${state.weatherError}`,
+            })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      );
+      return;
+    }
+    const w = state.weather;
+    const nodes: Node[] = [];
+    if (w.today) {
+      nodes.push(el("p", { className: "weather-today", text: `Today: ${w.today.words}.` }));
+    }
+    nodes.push(
+      el("p", {
+        className: "aside",
+        text: `On the valley floor (${Math.round(w.heightM)} m), month by month and year by year, each against what it usually brings (in brackets): about ${Math.round(w.annualMm)} mm of rain and snow a year. Soil is the water in the ground under the wild cover, as a share of what it holds.`,
+      }),
+    );
+    const monthHead = el(
+      "tr",
+      {},
+      ...["Month", "Rain mm", "", "Mean °C", "Frost", "Snow", "Soil"].map((h) => el("th", { text: h })),
+    );
+    const months = monthRows(w).map((r) =>
+      el(
+        "tr",
+        { className: r.partial ? "partial" : "" },
+        ...[r.month, r.rain, r.rainWord, r.temp, String(r.frost), String(r.snow), r.soil].map((v) =>
+          el("td", { text: v }),
+        ),
+      ),
+    );
+    nodes.push(
+      el(
+        "div",
+        { className: "table-scroll" },
+        el("table", { className: "weather-months" }, el("thead", {}, monthHead), el("tbody", {}, ...months)),
+      ),
+    );
+    const yearHead = el(
+      "tr",
+      {},
+      ...["Year", "Rain mm", "", "Mean °C", "Wet", "Frost", "Snow"].map((h) => el("th", { text: h })),
+    );
+    const years = weatherYearRows(w).map((r) =>
+      el(
+        "tr",
+        { className: r.partial ? "partial" : "" },
+        ...[r.year, r.rain, r.rainWord, r.temp, String(r.wet), String(r.frost), String(r.snow)].map(
+          (v) => el("td", { text: v }),
+        ),
+      ),
+    );
+    nodes.push(
+      el(
+        "div",
+        { className: "table-scroll" },
+        el("table", { className: "weather-years" }, el("thead", {}, yearHead), el("tbody", {}, ...years)),
+      ),
+    );
+    if (state.weatherError) {
+      nodes.push(el("p", { className: "note", text: `Not up to date: ${state.weatherError}` }));
+    }
+    weatherBody.replaceChildren(...nodes);
+  };
+
   // ---- Knowledge ---------------------------------------------------------------------------
   const knowledgeBody = $("knowledge-body");
   let knowledgeKey: unknown[] = [];
@@ -1741,7 +1850,7 @@ export function bindUi(store: Store, actions: Actions): void {
             day: clock.day,
             hour: clock.hour,
             minute: clock.minuteOfHour,
-          })} · ${clock.season}`
+          })} · ${clock.season}${clock.weather ? ` · ${clock.weather.words}` : ""}`
         : "",
     );
     const run = $<HTMLButtonElement>("btn-run");
@@ -1749,7 +1858,8 @@ export function bindUi(store: Store, actions: Actions): void {
     setText(run, clock && !clock.paused ? "Pause" : "Run");
     run.setAttribute("aria-pressed", String(!!clock && !clock.paused));
     if (clock && state.welcome) {
-      run.title = `Speed ${formatSpeed(clock.speed, state.welcome.speed1x)} (Space toggles)`;
+      const daily = clock.mode === "accelerated" ? ", a day at a time" : "";
+      run.title = `Speed ${formatSpeed(clock.speed, state.welcome.speed1x)}${daily} (Space toggles)`;
     }
     $<HTMLButtonElement>("btn-new").disabled = !open || !!task || !state.welcome;
     $<HTMLButtonElement>("btn-save").disabled = !open || !world;
@@ -1763,6 +1873,26 @@ export function bindUi(store: Store, actions: Actions): void {
     setText(placing, families === 1 ? "Add a family" : `Add ${families} families`);
     placing.title = `Send ${families === 1 ? "a family" : `${families} families together`}: click where they should settle (Esc cancels)`;
     $<HTMLSelectElement>("family-count").disabled = !open || !world;
+    const deposit = $<HTMLButtonElement>("add-deposit");
+    const goodSelect = $<HTMLSelectElement>("deposit-good");
+    const materials = materialGoods(state.welcome?.goods ?? []);
+    const optionsKey = materials.map((g) => g.id).join(",");
+    if (goodSelect.dataset.goods !== optionsKey) {
+      goodSelect.dataset.goods = optionsKey;
+      goodSelect.replaceChildren(
+        ...materials.map((g) => {
+          const option = el("option", { text: g.name });
+          option.value = g.id;
+          return option;
+        }),
+      );
+    }
+    if (state.depositGood && goodSelect.value !== state.depositGood) goodSelect.value = state.depositGood;
+    deposit.disabled = !open || !world || materials.length === 0;
+    goodSelect.disabled = deposit.disabled;
+    $<HTMLInputElement>("deposit-exposed").disabled = deposit.disabled;
+    deposit.setAttribute("aria-pressed", String(state.placingDeposit));
+    deposit.classList.toggle("active", state.placingDeposit);
     renderSpeeds(state);
     renderConnection(state);
     renderBanner(state);
@@ -1772,6 +1902,7 @@ export function bindUi(store: Store, actions: Actions): void {
     renderMarkets(state);
     renderFirms(state);
     renderWealth(state);
+    renderWeather(state);
     renderKnowledge(state);
     renderWorld(state);
     renderEvents(state);

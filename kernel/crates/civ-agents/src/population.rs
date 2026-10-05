@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use civ_core::time::{DAYS_PER_YEAR, MINUTES_PER_DAY};
-use civ_core::{GenTable, Handle, IdAllocator, PermanentId, Rng64, SimTime};
+use civ_core::{FastMap, GenTable, Handle, IdAllocator, PermanentId, Rng64, SimTime};
 use civ_grammar::{BuildingSpec, Expansion, Stage, StageNeeds};
 use civ_land::paths::cells_along;
 use civ_land::{Building, CropParams, Field, FieldStage, FieldTask, Land, LandParams, Party, Plot};
@@ -36,6 +36,8 @@ use crate::person::{
     fuel_kg, reserve_food_kcal, stock_kcal,
 };
 
+mod deposits;
+mod digging;
 mod firm;
 mod knowledge;
 mod land;
@@ -43,9 +45,11 @@ mod life;
 mod loads;
 mod market;
 
+pub use deposits::{DepositKnown, FIND_M};
 pub use loads::{
     DIES_IN_RUIN, DIES_UNDER_FLOOR, DIES_UNDER_ROOF, LIVE_PA, SPILLED, month_peak, peak_pa,
 };
+mod taste;
 mod transfer;
 mod trust;
 
@@ -164,6 +168,8 @@ struct HomeField {
 struct Prior {
     day: i64,
     per_patch: Vec<f32>,
+    /// The most of `per_patch`: no patch is expected to bring more.
+    most: f32,
 }
 
 /// Every person and household of a world.
@@ -181,27 +187,27 @@ pub struct Population {
     pub unions: Vec<Union>,
     /// The last trip id handed out.
     pub next_trip: u64,
-    index: HashMap<PermanentId, Handle<Person>>,
-    hh_index: HashMap<PermanentId, Handle<Household>>,
-    homes: HashMap<PermanentId, HomeField>,
+    index: FastMap<PermanentId, Handle<Person>>,
+    hh_index: FastMap<PermanentId, Handle<Household>>,
+    homes: FastMap<PermanentId, HomeField>,
     /// The kinds of place gathering trips go to.
     places: Vec<Places>,
     /// Routes by (from cell, to cell); `None` when there is none. Derived: kept until the paths
     /// are next surveyed, when walking costs change.
-    routes: HashMap<(u32, u32), Option<CachedRoute>>,
+    routes: FastMap<(u32, u32), Option<CachedRoute>>,
     /// The paths survey the routes were planned on ([`civ_land::Wear::rev`]).
     routes_rev: u32,
     /// Per activity, what a trip is expected to bring from each patch today.
     priors: Vec<Prior>,
     /// Per household, the new ground it would mark out for a field, as found on a day.
-    sites: HashMap<PermanentId, (i64, Option<Site>)>,
+    sites: FastMap<PermanentId, (i64, Option<Site>)>,
     /// Per household with nothing under way, the building it would begin and where (a home, or a
     /// store or a workshop beside it), as found on a day.
-    home_sites: HashMap<PermanentId, (i64, Option<NewHome>)>,
+    home_sites: FastMap<PermanentId, (i64, Option<NewHome>)>,
     /// Per building, what each of its stages needs (its design never changes). Derived.
-    stage_needs: HashMap<PermanentId, Vec<StageNeeds>>,
+    stage_needs: FastMap<PermanentId, Vec<StageNeeds>>,
     /// Per building, its expansion (its design never changes). Derived.
-    expansions: HashMap<PermanentId, Arc<Expansion>>,
+    expansions: FastMap<PermanentId, Arc<Expansion>>,
     /// Households whose last member died today, with that member (within a day's step only).
     emptied: Vec<(PermanentId, PermanentId)>,
     /// What became of the goods of households that are no more (counters, not saved).
@@ -220,6 +226,8 @@ pub struct Population {
     /// What each settlement has seen of each technique's buildings, in the order first seen
     /// (ADR-0009 §6).
     pub trust: Vec<crate::caution::Trust>,
+    /// The deposits each settlement knows, in the order they were found (ADR-0010 §1).
+    pub deposits_known: Vec<DepositKnown>,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -240,6 +248,40 @@ struct HomePlan {
     work: HomeWork,
     def: usize,
     deadline: i64,
+}
+
+/// The share of the days of crop `crop`'s window for preparing and sowing the ground can usually
+/// be worked, from the landscape's climatology (ADR-0012 §5).
+fn workable_share(land: &civ_land::Land, crop: usize) -> f64 {
+    land.climatology
+        .workable_share
+        .get(crop)
+        .copied()
+        .unwrap_or(1.0)
+}
+
+/// Field work a capable adult gives on a day at a peak, against an ordinary day's.
+fn peak_ratio(params: &PeopleParams) -> f64 {
+    params.farm.peak_work_hours_per_day / params.farm.work_hours_per_day.max(1e-9)
+}
+
+/// Why the weather keeps people off the ground today, as a reason.
+fn unworkable_reason(why: civ_land::Unworkable) -> Reason {
+    match why {
+        civ_land::Unworkable::Wet => Reason::WetGround,
+        civ_land::Unworkable::Snow => Reason::SnowCover,
+        civ_land::Unworkable::Frozen => Reason::FrozenGround,
+    }
+}
+
+/// Hours of levelling plot `plot` needs, all told: its platforms' earth at the profile's rate
+/// (ADR-0010 §2). 0 for a plot on level ground.
+fn levelling_h(land: &civ_land::Land, plot: PermanentId, params: &PeopleParams) -> f64 {
+    land.earthworks
+        .iter()
+        .filter(|w| w.plot == Some(plot))
+        .map(|w| f64::from(w.cut_m3) * params.build.levelling.h_per_m3)
+        .sum()
 }
 
 /// Takes what building work used, `used_kg` of each of `def`'s material slots, from household
@@ -535,7 +577,8 @@ impl Population {
                 .filter_map(|m| ages.get(m).copied())
                 .collect();
             h.stores.resize(catalog.goods.len(), 0.0);
-            // The tools for the work founders know (ADR-0008 §1).
+            // The tools for the work founders know (ADR-0008 §1), but for those that stay where
+            // they are made (an oven).
             let founders_know = |t: usize| {
                 params
                     .knowledge
@@ -550,6 +593,9 @@ impl Population {
                 &founders_know,
             );
             for (g, want) in wants.into_iter().enumerate() {
+                if catalog.goods[g].tool.as_ref().is_some_and(|t| t.fixed) {
+                    continue;
+                }
                 h.stores[g] += want;
                 h.flows.add(Flow::Brought, g, want);
             }
@@ -987,6 +1033,7 @@ impl Population {
             }
             let hours = f64::from(a.max_minutes) / 60.0;
             prior.per_patch = ctx.land.typical_yields(ctx.land_params, r, hours, day);
+            prior.most = prior.per_patch.iter().copied().fold(0.0, f32::max);
             prior.day = day;
         }
     }
@@ -1106,16 +1153,21 @@ impl Population {
         site
     }
 
-    /// What each stage of `building` needs (expanded once per building).
+    /// What each stage of `building` needs (expanded once per building), its first stage also
+    /// `levelling_h` of levelling its plot (ADR-0010 §2).
     fn needs_of(
         &mut self,
         building: &Building,
         def: &crate::params::BuildingDef,
+        levelling_h: f64,
     ) -> Option<Vec<StageNeeds>> {
         if let Some(n) = self.stage_needs.get(&building.id) {
             return Some(n.clone());
         }
-        let needs = build::stage_needs(&building.spec, def)?;
+        let mut needs = build::stage_needs(&building.spec, def)?;
+        if let Some(first) = needs.first_mut() {
+            first.labour_h += levelling_h;
+        }
         self.stage_needs.insert(building.id, needs.clone());
         Some(needs)
     }
@@ -1231,8 +1283,9 @@ impl Population {
             let def = catalog
                 .building_index(&b.spec.program)
                 .ok_or(Reason::NoPlace)?;
+            let levelling = levelling_h(ctx.land, b.plot, ctx.params);
             let needs = self
-                .needs_of(b, &catalog.buildings[def])
+                .needs_of(b, &catalog.buildings[def], levelling)
                 .ok_or(Reason::NoPlace)?;
             return Ok(HomePlan {
                 building: Some(b.id),
@@ -1331,11 +1384,50 @@ impl Population {
                 ctx.now,
                 &ctx.params.build.caution,
             );
+            // Built to the household's taste, held to what the program allows, and now and then
+            // with something new to it (M3b slice R).
+            let style = crate::style::commission(
+                &ctx.params.style,
+                &hh.taste,
+                program,
+                &[
+                    ctx.seed,
+                    crate::style::PURPOSE_STYLE,
+                    hh.id.get(),
+                    day as u64,
+                    p as u64,
+                ],
+            );
             let design_at = |at: (f32, f32)| {
                 let reachable = reach.is_none_or(|r| r.seconds_to(cell_of(ctx.map, at)).is_some());
                 reachable
-                    .then(|| build::design_cautious(program, goods, shape, at, toward, caution))
+                    .then(|| {
+                        build::design_cautious(
+                            program,
+                            goods,
+                            shape,
+                            at,
+                            toward,
+                            caution,
+                            Some(style),
+                        )
+                    })
                     .flatten()
+            };
+            // Ground that drops too far across a plot is levelled, and ground too steep to level
+            // by hand, or that would be levelled beside water, is not built on; level ground is
+            // sought first (ADR-0010 §2-3).
+            let lev = &ctx.params.build.levelling;
+            let bed = |x: f64, y: f64| civ_land::earth::bed_height(ctx.map, (x, y));
+            let levelling = |rect: &civ_land::RectCm| {
+                let drop = civ_land::earth::drop_across(rect, &bed);
+                if drop <= lev.from_m {
+                    Some(0.0)
+                } else {
+                    (drop <= lev.most_m
+                        && civ_land::earth::clear_of_water(ctx.map, rect, drop, lev.side_run))
+                    .then_some(drop)
+                }
             };
             let spec = build::home_site(
                 ctx.land,
@@ -1346,6 +1438,7 @@ impl Population {
                 hh.home,
                 hearth,
                 HOME_SHIFT_M,
+                &levelling,
             )?;
             let stages = build::stage_needs(&spec, program)?;
             Some(NewHome { spec, stages, firm })
@@ -1438,7 +1531,8 @@ impl Population {
         let first = programs.first().and_then(|&p| catalog.buildings.get(p))?;
         let goods = &catalog.goods;
         let stores = stores_now(hh, ctx.now, ctx.params, goods);
-        let room = [hh.keeping.raised_kg, hh.keeping.roofed_kg, 0.0];
+        let keeping = hh.keeping.with_stores(&stores, goods);
+        let room = [keeping.raised_kg, keeping.roofed_kg, 0.0];
         let placed = crate::person::Keeping::fill(&stores, goods, room);
         let overflow: Vec<f64> = stores
             .iter()
@@ -1637,11 +1731,28 @@ impl Population {
             use_: def.use_,
             since: ctx.now,
         });
+        // Its builders' taste followed the building that moved it most (M3b slice R).
+        let style_from = self.household(household).and_then(|h| h.admired);
         ctx.land.buildings.push(Building {
             firm: site.firm,
+            style_from,
             ..Building::new(id, household, plot, site.spec.clone(), ctx.now)
         });
-        self.stage_needs.insert(id, site.stages);
+        // Ground that drops too far across the plot is levelled first (ADR-0010 §2).
+        let mut stages = site.stages;
+        let levelling = build::level_plot(
+            ctx.land,
+            ctx.map,
+            ctx.ids,
+            &ctx.params.build.levelling,
+            (plot, rect),
+            household,
+            ctx.now,
+        );
+        if let Some(first) = stages.first_mut() {
+            first.labour_h += levelling;
+        }
+        self.stage_needs.insert(id, stages);
         let at = build::centre_m(&site.spec);
         if !housed
             && let Some(&hd) = self.hh_index.get(&household)
@@ -1851,6 +1962,9 @@ impl Population {
             seed_kg,
             room: target_days / (target_days + grain_days),
             need_ha: farm::need_area_ha(member_count, params, c, grain_kcal),
+            workable_share: workable_share(ctx.land, params.farm.crop),
+            peak_ratio: peak_ratio(params),
+            climatology: Some(&ctx.land.climatology),
         });
         let field_ha = params.farm.field_m * params.farm.field_m / 10_000.0;
         let wants_land = farm_view
@@ -1892,8 +2006,16 @@ impl Population {
         let mut free_tools: Vec<f64> = stores
             .iter()
             .zip(goods)
-            .map(|(s, g)| if g.tool.is_some() { s.max(0.0) } else { 0.0 })
+            .enumerate()
+            .map(|(i, (s, g))| {
+                if g.tool.is_some() {
+                    make::in_use(goods, i, *s)
+                } else {
+                    0.0
+                }
+            })
             .collect();
+        let held_tools = free_tools.clone();
         for m in &hh.members {
             let Some(q) = self.person(*m).filter(|q| Some(q.id) != me) else {
                 continue;
@@ -1913,6 +2035,24 @@ impl Population {
         let held_of = |g: usize| stores.get(g).copied().unwrap_or(0.0).max(0.0);
         let tool_need: Vec<f64> = (0..goods.len())
             .map(|g| make::tool_need(wants[g], held_of(g)))
+            .collect();
+        // Pots: as many more as would keep the food that lies anywhere but a raised floor or a
+        // pot, and the food the next would keep over the store horizon (M3b slice Q).
+        let keeping_now = hh.keeping.with_stores(&stores, goods);
+        let pots: Vec<(f64, f64)> = goods
+            .iter()
+            .map(|d| {
+                d.store.as_ref().map_or((0.0, 0.0), |s| {
+                    build::pots_wanted(
+                        &stores,
+                        goods,
+                        &keeping_now,
+                        hh.sheltered,
+                        s.keeps_kg,
+                        params.build.store_horizon_days,
+                    )
+                })
+            })
             .collect();
         // Tools others want and nobody offers, which the household makes for fewer hours than
         // they would give: worth making to sell (slice I).
@@ -1934,10 +2074,30 @@ impl Population {
                 if let Some(m) = tool_material.get_mut(g) {
                     *m += (amount - held_of(g)).max(0.0);
                 }
-                if held_of(t) < decide::MIN_TOOL
+                if make::in_use(goods, t, held_of(t)) < decide::MIN_TOOL
                     && let Some(b) = tool_material_blocked.get_mut(g)
                 {
                     *b = true;
+                }
+            }
+        }
+        // And what the pots it would gain from are made of, a session's worth at most.
+        for (t, &(want, _)) in pots.iter().enumerate() {
+            let Some((r, per_unit)) = catalog.recipes.iter().find_map(|r| {
+                r.outputs
+                    .iter()
+                    .find(|&&(g, _)| g == t)
+                    .map(|&(_, amount)| (r, amount))
+            }) else {
+                continue;
+            };
+            if want <= 0.0 || per_unit <= 0.0 {
+                continue;
+            }
+            let units = (want / per_unit).min(r.max_units.max(1.0));
+            for &(g, amount) in &r.inputs {
+                if let Some(m) = tool_material.get_mut(g) {
+                    *m += (amount * units - held_of(g)).max(0.0);
                 }
             }
         }
@@ -1957,31 +2117,123 @@ impl Population {
             .iter()
             .map(|a| a.resource.and_then(|r| self.places_for(land_params, r)))
             .collect();
-        // What the settlement knows of each resource, by place (the last of any repeats wins).
+        // What the settlement knows of each resource, by place (the last of any repeats wins),
+        // and the best return it has seen of each anywhere.
+        let mut seen_most = vec![0.0f64; land_params.resources.len()];
         let memory: civ_core::FastMap<(u16, u32), &KnownPatch> = hh
             .known
             .iter()
-            .map(|k| ((k.resource, k.patch), k))
+            .map(|k| {
+                if let Some(m) = seen_most.get_mut(usize::from(k.resource)) {
+                    *m = m.max(f64::from(k.rate));
+                }
+                ((k.resource, k.patch), k)
+            })
+            .collect();
+        // Where each dig activity would dig (M3b slice Q): the deposit of its good the settlement
+        // knows that brings most for the walk, while the household needs the good; otherwise the
+        // nearest it knows, to be weighed and found not needed.
+        let toward = hearth.unwrap_or(hh.home);
+        let toward = (f64::from(toward.0), f64::from(toward.1));
+        let digs: Vec<Option<PatchOption>> = catalog
+            .activities
+            .iter()
+            .map(|a| {
+                let g = a.digs?;
+                let settlement = hh.settlement?;
+                let reach = &home?.reach;
+                let good = catalog.goods.get(g)?;
+                let need_kg = build_need.get(g).copied().unwrap_or(0.0);
+                let tool_need_kg = tool_material.get(g).copied().unwrap_or(0.0);
+                let needed = need_kg > 0.0 || tool_need_kg > 0.0;
+                let hours = f64::from(a.max_minutes) / 60.0;
+                let mut best: Option<(f64, PatchOption)> = None;
+                for d in ctx.land.deposits.iter().filter(|d| {
+                    usize::from(d.body.good) == g
+                        && d.left_kg() > 0.0
+                        && self.knows_deposit(settlement, d.id)
+                }) {
+                    let centre = (
+                        (d.body.at_cm.0 as f64 / 100.0) as f32,
+                        (d.body.at_cm.1 as f64 / 100.0) as f32,
+                    );
+                    let at = if needed {
+                        let side = params.digging.pit_side_m;
+                        match digging::dig_place(ctx.land, map, d, toward, side) {
+                            Some(at) => at,
+                            None => continue,
+                        }
+                    } else {
+                        centre
+                    };
+                    let Some(secs) = reach.seconds_to(cell_of(map, at)) else {
+                        continue;
+                    };
+                    let walk = f64::from(secs) / 60.0;
+                    let rates = digging::rates(ctx.land_params, &d.body, params.digging.h_per_m3);
+                    let kg_per_hour = digging::dig_kg_per_hour(&d.body, rates);
+                    if walk > f64::from(a.max_walk_minutes) || kg_per_hour <= 0.0 {
+                        continue;
+                    }
+                    let value = kg_per_hour * hours / (hours + 2.0 * walk / 60.0);
+                    if best.is_none_or(|(v, _)| value > v) {
+                        best = Some((
+                            value,
+                            PatchOption {
+                                patch: 0,
+                                walk_min: walk,
+                                kg_per_hour,
+                                purpose: good.purpose,
+                                kcal_per_kg: good.kcal_per_kg,
+                                stored_days: 0.0,
+                                need_kg,
+                                urgency: build_urgency,
+                                tool_need_kg,
+                                tool_blocked: tool_material_blocked
+                                    .get(g)
+                                    .copied()
+                                    .unwrap_or(false),
+                                at,
+                                deposit: Some(d.id),
+                            },
+                        ));
+                    }
+                }
+                best.map(|(_, o)| o)
+            })
             .collect();
         let best_patch = |def: usize| -> Option<PatchOption> {
             let a = &catalog.activities[def];
+            if a.digs.is_some() {
+                return digs.get(def).copied().flatten();
+            }
             let r = a.resource?;
             let res = land_params.resources.get(r)?;
             let good = catalog.goods.get(res.good)?;
             let home = home?;
             let hours = f64::from(a.max_minutes) / 60.0;
-            let prior_yield = &priors.get(def)?.per_patch;
+            let prior = priors.get(def)?;
+            let prior_yield = &prior.per_patch;
+            // No place can be expected to give more than the best expected anywhere or the best
+            // seen anywhere, as a belief lies between the two (with a margin for rounding). The
+            // places come nearest first, so once even that, so far off, would not beat the best
+            // found, nothing further can, and the search stops: the same place is found sooner.
+            let most = (f64::from(prior.most) / hours.max(1e-6))
+                .max(seen_most.get(r).copied().unwrap_or(0.0))
+                .max(1e-6)
+                * (1.0 + 1e-9);
+            let most_kg_per_hour = most * res.unit_kg;
             // Days of the household's need it already holds of this good.
             let held = stores.get(res.good).copied().unwrap_or(0.0).max(0.0);
             let stored_days = match good.purpose {
                 GoodUse::Food => held * good.kcal_per_kg / kcal_day.max(1.0),
                 GoodUse::Fuel => held / household_fuel_day.max(1e-6),
-                GoodUse::Material | GoodUse::Tool => 0.0,
+                GoodUse::Material | GoodUse::Tool | GoodUse::Store => 0.0,
             };
             // A material is worth bringing only toward what the household is building, or the
             // tools it lacks.
             let (need_kg, urgency) = match good.purpose {
-                GoodUse::Material | GoodUse::Tool => (
+                GoodUse::Material | GoodUse::Tool | GoodUse::Store => (
                     build_need.get(res.good).copied().unwrap_or(0.0),
                     build_urgency,
                 ),
@@ -1997,6 +2249,11 @@ impl Population {
             for &(block, secs) in home.places.get(kind)? {
                 let walk = f64::from(secs) / 60.0;
                 if walk > f64::from(a.max_walk_minutes) {
+                    break;
+                }
+                if best.as_ref().is_some_and(|(bv, _)| {
+                    most_kg_per_hour * hours / (hours + 2.0 * walk / 60.0) <= *bv
+                }) {
                     break;
                 }
                 let Some((patch, cell)) =
@@ -2032,6 +2289,7 @@ impl Population {
                             tool_need_kg,
                             tool_blocked,
                             at: cell_centre(map, cell as usize),
+                            deposit: None,
                         },
                     ));
                 }
@@ -2048,7 +2306,19 @@ impl Population {
                 let cell = cell_of(map, f.rect.centre_m());
                 reach?.seconds_to(cell).map(|s| f64::from(s) / 60.0)
             };
-            view.best(task, f64::from(a.max_minutes) / 60.0, site.as_ref(), &walk)
+            // Rain, snow or frost keep people off the ground today (ADR-0012 §5).
+            let weather = |r: &civ_land::RectCm| {
+                ctx.land
+                    .unworkable_at(ctx.land_params, map, r.centre_m())
+                    .map(unworkable_reason)
+            };
+            view.best(
+                task,
+                f64::from(a.max_minutes) / 60.0,
+                site.as_ref(),
+                &walk,
+                &weather,
+            )
         };
         // Whom to ask, what to buy and where to work are each worked out only if an option
         // needs them (they cost a search of the settlement), and then once.
@@ -2163,6 +2433,22 @@ impl Population {
                     return Err((Reason::NotNeeded, None));
                 }
                 (MakeWorth::Preserve { kcal: per_unit }, spoil / per_unit)
+            } else if out_good.store.is_some() {
+                // Pots: the food the next would keep, as long as more would keep some (M3b
+                // slice Q).
+                let (want, kcal) = pots.get(out).copied().unwrap_or((0.0, 0.0));
+                let made = r
+                    .outputs
+                    .iter()
+                    .find(|&&(g, _)| g == out)
+                    .map_or(0.0, |&(_, amount)| amount);
+                if want <= 0.0
+                    || made <= 0.0
+                    || kcal < MIN_PRESERVE_DAYS * params.household.daily_kcal_per_person
+                {
+                    return Err((Reason::NotNeeded, None));
+                }
+                (MakeWorth::Preserve { kcal: kcal * made }, want / made)
             } else if out_good.purpose == GoodUse::Food {
                 let per_unit: f64 = r
                     .outputs
@@ -2274,6 +2560,7 @@ impl Population {
         };
         let shop = decide::Workshop {
             free_tools: &free_tools,
+            held_tools: &held_tools,
             best_make: &best_make,
             makes_tool: &makes_tool,
             knows: &|t| self.people.get(h).is_some_and(|p| p.knows(t)),
@@ -2423,6 +2710,9 @@ impl Population {
                         sown_day: 0,
                         sheaves_kg: 0.0,
                         harvests: 0,
+                        water_mm: 0.0,
+                        need_mm: 0.0,
+                        got_mm: 0.0,
                     });
                     self.sites.remove(&hh_id);
                     target = Target::Field(id);
@@ -2714,6 +3004,7 @@ impl Population {
             ) => (def_par, false, params.social.household_quality),
             Some(
                 Behavior::Gather
+                | Behavior::Dig
                 | Behavior::FetchWater
                 | Behavior::Farm
                 | Behavior::Ask
@@ -2768,6 +3059,7 @@ impl Population {
                     ctx.land
                         .wear
                         .walk(&cells, now.day_index(), &ctx.land_params.paths);
+                    self.look_for_deposits(ctx, who, household, &trip.points);
                 }
             }
             Some(Step::Work { minutes }) => match def.as_ref().map(|d| d.behavior) {
@@ -2799,6 +3091,30 @@ impl Population {
                         let hh_id = p.household;
                         let seen = (r as u16, patch, got, hours, now.day_index());
                         self.remember_patch(hh_id, seen, res.renewal_days());
+                    }
+                }
+                // Digging at a deposit's pit (M3b slice Q, ADR-0010 §2).
+                Some(Behavior::Dig) => {
+                    if let (Some(d), Target::Deposit(deposit)) = (def.as_ref(), p.act.target)
+                        && let Some(good) = d.digs
+                    {
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * d.rate;
+                        let effort_h = f64::from(minutes) / 60.0 * eff;
+                        let settlement = self
+                            .hh_index
+                            .get(&household)
+                            .and_then(|&x| self.households.get(x))
+                            .and_then(|x| x.settlement);
+                        let toward = settlement
+                            .and_then(|s| ctx.land.settlements.iter().find(|x| x.id == s))
+                            .map_or(p.pos, |x| x.hearth_m);
+                        let toward = (f64::from(toward.0), f64::from(toward.1));
+                        let carry = params.household.carry_kg;
+                        let kg = digging::dig_at(ctx, household, toward, deposit, effort_h, carry);
+                        if kg > 0.0 {
+                            p.carrying.good = Some(good as u16);
+                            p.carrying.kg = kg as f32;
+                        }
                     }
                 }
                 Some(Behavior::FetchWater) => {
@@ -3103,7 +3419,9 @@ impl Population {
             let kcal = goods.get(crop.good).map_or(0.0, |g| g.kcal_per_kg);
             let need = farm::need_area_ha(x.members.len(), params, crop, kcal);
             let labour = self.labour_per_day(&x.members, now, params);
-            let plan = farm::plan_area_ha(need, area, labour, crop);
+            let share = workable_share(ctx.land, usize::from(ctx.land.fields[fi].crop));
+            let share = farm::plan_share(share, peak_ratio(params));
+            let plan = farm::plan_area_ha(need, area, labour, share, crop);
             let half_life = goods.get(crop.seed_good).map_or(0.0, |g| g.half_life_days);
             farm::seed_to_keep(plan, crop, half_life, now.day_index())
         };
@@ -3119,8 +3437,9 @@ impl Population {
             .copied()
             .unwrap_or(0.0)
             .max(0.0);
-        let climate = ctx.land.climate.factor;
-        let done = ctx.land.fields[fi].work(crop, task, hours, now.day_index(), climate, seed, now);
+        // What its season's water allows, fixed once the crop is ripe (ADR-0012 §2).
+        let water = ctx.land.water_factor(&ctx.land.fields[fi]);
+        let done = ctx.land.fields[fi].work(crop, task, hours, now.day_index(), water, seed, now);
         if let Some(s) = x.stores.get_mut(crop.seed_good) {
             *s = (seed - done.seed_kg).max(0.0);
             x.flows
@@ -3235,6 +3554,7 @@ impl Population {
         let skill = def
             .skill
             .and_then(|k| catalog.skills.get(k).map(|s| (k, s)));
+        let toward = self.hearth_toward(ctx.land, household);
         let Some(&hd) = self.hh_index.get(&household) else {
             return;
         };
@@ -3249,13 +3569,40 @@ impl Population {
             return;
         };
         let held = work.held_by_slot(def, &x.stores);
+        let mender_skill = skill
+            .and_then(|(k, _)| self.people.get(h).map(|p| p.skill(k)))
+            .unwrap_or(condition::MIDDLING_SKILL);
         let b = &mut ctx.land.buildings[bi];
         b.repair = Some(repair);
         let done = b.mend_work(hours, stage.labour_h, &stage.materials_kg, &held);
         use_materials(x, def, &done.used_kg);
         if done.done {
-            condition::mend(b, repair.group, repair.share, &def.upkeep, now);
+            // A part that gave way is rebuilt whole of new members, as well as its mender can.
+            let failed = b
+                .group(repair.group)
+                .is_some_and(|c| c.state == civ_land::GroupState::Failed);
+            let rebuilt = failed.then(|| {
+                condition::draw_rebuilt_quality(
+                    ctx.seed,
+                    b.id,
+                    repair.group,
+                    now,
+                    mender_skill,
+                    params.build.quality_spread,
+                )
+            });
+            condition::mend(b, repair.group, repair.share, &def.upkeep, now, rebuilt);
+            let plot = b.plot;
             (x.sheltered, x.keeping) = shelter_of(ctx.land, catalog, params, household);
+            // Daub renewed is dug beside the building (ADR-0010 §2).
+            let mended = e
+                .groups
+                .iter()
+                .find(|g| g.id == repair.group)
+                .map_or(0.0, |g| g.daub_m3() * f64::from(repair.share));
+            if let Some(toward) = toward {
+                digging::dig_daub(ctx, plot, toward, e.daub_m3(None), mended);
+            }
         }
         if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
             p.set_skill(k, s.practised(p.skill(k), done.hours));
@@ -3297,9 +3644,12 @@ impl Population {
             self.mend_work(ctx, h, household, bi, def, hours);
             return;
         }
-        let Some(needs) = self.needs_of(&ctx.land.buildings[bi], def) else {
+        let levelling = levelling_h(ctx.land, ctx.land.buildings[bi].plot, params);
+        let Some(needs) = self.needs_of(&ctx.land.buildings[bi], def, levelling) else {
             return;
         };
+        let expansion = self.expansion_of(&ctx.land.buildings[bi], def);
+        let toward = self.hearth_toward(ctx.land, household);
         let skill = def
             .skill
             .and_then(|k| ctx.catalog.skills.get(k).map(|s| (k, s)));
@@ -3324,6 +3674,47 @@ impl Population {
         let b = &mut ctx.land.buildings[bi];
         let done = b.work(hours, stage.labour_h, &stage.materials_kg, &held, now);
         b.skill_h += (done.hours * level) as f32;
+        // The earth its walls are daubed with is dug beside it as they go up (ADR-0010 §2).
+        let daub = expansion.as_ref().map_or((0.0, 0.0), |e| {
+            let share = if stage.labour_h > 0.0 {
+                (done.hours / stage.labour_h).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            (e.daub_m3(None), e.daub_m3(Some(stage.stage)) * share)
+        });
+        // Its plot is levelled first, with the first stage's first hours; cutting into a buried
+        // deposit finds it (ADR-0010 §1).
+        if levelling > 0.0 {
+            let (plot, stage, work_h) = (b.plot, b.stage, f64::from(b.work_h));
+            let share = if stage == 0 {
+                (work_h / levelling).min(1.0)
+            } else {
+                1.0
+            };
+            let land = &mut *ctx.land;
+            for work in land.earthworks.iter_mut().filter(|w| w.plot == Some(plot)) {
+                civ_land::earth::advance(work, ctx.map, &mut land.ground, share as f32);
+            }
+            let cut: Vec<civ_land::earth::Earthwork> = ctx
+                .land
+                .earthworks
+                .iter()
+                .filter(|w| w.plot == Some(plot))
+                .copied()
+                .collect();
+            for work in &cut {
+                self.find_by_cutting(ctx, who, household, work);
+            }
+        }
+        if let (Some(toward), true) = (toward, daub.1 > 0.0) {
+            let plot = ctx.land.buildings[bi].plot;
+            digging::dig_daub(ctx, plot, toward, daub.0, daub.1);
+        }
+        let Some(x) = self.households.get_mut(hd) else {
+            return;
+        };
+        let b = &mut ctx.land.buildings[bi];
         if let Some(finished) = done.finished {
             // How skilled its builders were on average, over the stage's work.
             let skill = if stage.labour_h > 0.0 {
@@ -3605,11 +3996,17 @@ impl Population {
     /// near the line is not noted every day), and then a day of life: births, deaths, couples and
     /// the households they make (see `life`). Newborns' first decisions go to `ctx.schedule`.
     /// A month of wear on every building with groups in place (ADR-0009 §4), its posts set in
-    /// the ground of the habitat it stands in (its `wetness`). The households whose roofs leak
-    /// more, or whose buildings' state changed, have their stores settled under the roofs they
-    /// had and their shelter derived again.
+    /// the ground of the habitat it stands in (its `wetness`), as wet as the month just lived was
+    /// against its usual (ADR-0012 §5). The households whose roofs leak more, or whose
+    /// buildings' state changed, have their stores settled under the roofs they had and their
+    /// shelter derived again.
     fn wear_buildings(&mut self, ctx: &mut Ctx) {
         let (map, catalog, land_params) = (ctx.map, ctx.catalog, ctx.land_params);
+        let rain = ctx
+            .land
+            .weather
+            .last_month_wetness(&ctx.land.climatology)
+            .unwrap_or(1.0);
         let patches = &ctx.land.patches;
         let wetness: Vec<f64> = ctx
             .land
@@ -3632,7 +4029,7 @@ impl Population {
             else {
                 continue;
             };
-            if condition::wear_month(b, &def.upkeep, wet) && !changed.contains(&b.household) {
+            if condition::wear_month(b, &def.upkeep, wet, rain) && !changed.contains(&b.household) {
                 changed.push(b.household);
             }
         }
@@ -3905,6 +4302,7 @@ mod tests {
             tool: None,
             sheltered_half_life_days: 0.0,
             timber: None,
+            store: None,
         };
         vec![
             good("bread", GoodUse::Food, 2500.0, 1000.0, Eaten::Raw),

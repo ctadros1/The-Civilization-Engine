@@ -79,6 +79,8 @@ test("a founding band lives on the map and explains itself", async ({ page }) =>
     await expect(inspector).toContainText(/Stores.*Provisions [\d,.]+ kg/);
     // M3a: the household's tools in standard tools, and food ready to eat.
     await expect(inspector).toContainText(/Tools.*Sickle ×\d+\.\d/);
+    // M3b slice R: how their household would build.
+    await expect(inspector).toContainText(/Builds.*roofs pitched \d+°, walls \d\.\d m to the eaves/);
     await expect(inspector).toContainText(/ready to eat/);
     await snap(page, "m1-inspector");
 
@@ -101,17 +103,22 @@ test("a founding band lives on the map and explains itself", async ({ page }) =>
     await page.waitForFunction((m) => (window.__TCE__.state().clock?.minute ?? 0) > m + 240, start, {
       timeout: 120_000,
     });
-    const moved = await page.evaluate(async () => {
-      const before = new Map(window.__TCE__.peopleOnScreen().map((p) => [p.id, [p.sx, p.sy]]));
-      await new Promise((r) => setTimeout(r, 1500));
-      let count = 0;
-      for (const p of window.__TCE__.peopleOnScreen()) {
-        const b = before.get(p.id);
-        if (b && Math.hypot(p.sx - b[0]!, p.sy - b[1]!) > 0.5) count++;
-      }
-      return count;
-    });
-    expect(moved).toBeGreaterThan(0);
+    // Someone on screen moves between snapshots: wait for it, as everyone in view may be at work
+    // in one place for a while, and a busy machine sends snapshots less often.
+    const before = await page.evaluate(() =>
+      window.__TCE__.peopleOnScreen().map((p): [number, number, number] => [p.id, p.sx, p.sy]),
+    );
+    await page.waitForFunction(
+      (b) => {
+        const was = new Map(b.map(([id, x, y]) => [id, [x, y]]));
+        return window.__TCE__.peopleOnScreen().some((p) => {
+          const w = was.get(p.id);
+          return w != null && Math.hypot(p.sx - w[0]!, p.sy - w[1]!) > 0.5;
+        });
+      },
+      before,
+      { timeout: 30_000 },
+    );
     await expect(inspector).toContainText("Why");
     // Arriving in March, they mark out fields and start breaking ground; the map shows them.
     await page.waitForFunction(() => window.__TCE__.map().fields > 0, undefined, {

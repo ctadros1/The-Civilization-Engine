@@ -40,6 +40,55 @@ pub(crate) struct PeopleFile {
     pub market: Market,
     pub firm: Firm,
     pub knowledge: Knowledge,
+    pub digging: DiggingFile,
+    pub style: StyleFile,
+}
+
+/// Taste in building, as authored: roof pitch in degrees, eaves and overhang in metres.
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TasteFile {
+    pub pitch_deg: f64,
+    pub eave_m: f64,
+    pub overhang_m: f64,
+}
+
+impl TasteFile {
+    fn taste(self) -> civ_agents::params::Taste {
+        civ_agents::params::Taste {
+            pitch_centideg: (self.pitch_deg * 100.0) as f32,
+            eave_cm: (self.eave_m * 100.0) as f32,
+            overhang_cm: (self.overhang_m * 100.0) as f32,
+        }
+    }
+}
+
+/// How households' taste in building moves (M3b slice R; content API 22).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct StyleFile {
+    /// The share of the way a taste moves toward the most admired new building.
+    pub alpha: f64,
+    /// How many times the least admired the most admired building weighs.
+    pub prestige_most: f64,
+    /// The chance a building has one trait new to its builders.
+    pub innovation: f64,
+    /// The way of building founding bands' are drawn around.
+    pub tradition: TasteFile,
+    /// How far a band's lies from it.
+    pub tradition_spread: TasteFile,
+    /// How far a household's lies from its band's.
+    pub personal_spread: TasteFile,
+}
+
+/// How people dig at a deposit (M3b slice Q, ADR-0010 §2; content API 20).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DiggingFile {
+    /// Hours to dig a cubic metre of earth as it lay in the ground and lift it out.
+    pub h_per_m3: f64,
+    /// The side of a pit, and of the spoil heap beside it, metres.
+    pub pit_side_m: f64,
 }
 
 /// What founders know and how people learn (ADR-0008).
@@ -95,6 +144,21 @@ pub(crate) struct Build {
     pub quality_spread: [f64; 2],
     /// How builders answer the failures their settlement has seen.
     pub caution: Caution,
+    /// How households level a plot on sloping ground (content API 19).
+    pub levelling: Levelling,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Levelling {
+    /// Ground dropping more than this across a plot, metres, is levelled before building.
+    pub from_m: f64,
+    /// Ground dropping more than this across a plot, metres, is not built on.
+    pub most_m: f64,
+    /// Hours to cut a cubic metre of earth and place it where it is wanted.
+    pub h_per_m3: f64,
+    /// A platform's sides' run, metres across for each metre up or down.
+    pub side_run: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -120,6 +184,8 @@ pub(crate) struct Farm {
     pub loss_share: f64,
     pub grain_target_days: f64,
     pub work_hours_per_day: f64,
+    /// Content API 24: field work a capable adult gives on a workable day at a peak (ADR-0012 §5).
+    pub peak_work_hours_per_day: f64,
     pub field_m: f64,
     pub max_walk_minutes: f64,
     pub site_candidates: u32,
@@ -486,6 +552,7 @@ impl PeopleFile {
                 loss_share: self.farm.loss_share,
                 grain_target_days: self.farm.grain_target_days,
                 work_hours_per_day: self.farm.work_hours_per_day,
+                peak_work_hours_per_day: self.farm.peak_work_hours_per_day,
                 field_m: self.farm.field_m,
                 max_walk_minutes: self.farm.max_walk_minutes,
                 site_candidates: self.farm.site_candidates,
@@ -495,6 +562,12 @@ impl PeopleFile {
                 store_horizon_days: self.build.store_horizon_days,
                 home_work_places: self.build.home_work_places,
                 quality_spread: self.build.quality_spread,
+                levelling: civ_agents::params::Levelling {
+                    from_m: self.build.levelling.from_m,
+                    most_m: self.build.levelling.most_m,
+                    h_per_m3: self.build.levelling.h_per_m3,
+                    side_run: self.build.levelling.side_run,
+                },
                 caution: civ_agents::caution::CautionParams {
                     half_life_years: self.build.caution.half_life_years,
                     most: self.build.caution.most,
@@ -582,6 +655,18 @@ impl PeopleFile {
                 w_try: self.knowledge.w_try,
                 try_gap_days: self.knowledge.try_gap_days,
             },
+            digging: civ_agents::params::Digging {
+                h_per_m3: self.digging.h_per_m3,
+                pit_side_m: self.digging.pit_side_m,
+            },
+            style: civ_agents::params::StyleParams {
+                alpha: self.style.alpha,
+                prestige_most: self.style.prestige_most,
+                innovation: self.style.innovation,
+                tradition_mean: self.style.tradition.taste(),
+                tradition_spread: self.style.tradition_spread.taste(),
+                personal_spread: self.style.personal_spread.taste(),
+            },
             names,
         }
     }
@@ -589,6 +674,53 @@ impl PeopleFile {
     /// Range problems, as messages.
     pub fn problems(&self) -> Vec<String> {
         let mut p = Vec::new();
+        positive("digging.h_per_m3", self.digging.h_per_m3, &mut p);
+        let st = &self.style;
+        for (name, v, lo, hi) in [
+            ("style.alpha", st.alpha, 0.0, 1.0),
+            ("style.prestige_most", st.prestige_most, 1.0, 10.0),
+            ("style.innovation", st.innovation, 0.0, 1.0),
+            (
+                "style.tradition.pitch_deg",
+                st.tradition.pitch_deg,
+                0.0,
+                80.0,
+            ),
+            ("style.tradition.eave_m", st.tradition.eave_m, 0.5, 6.0),
+            (
+                "style.tradition.overhang_m",
+                st.tradition.overhang_m,
+                0.0,
+                3.0,
+            ),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        for (name, t) in [
+            ("style.tradition_spread", st.tradition_spread),
+            ("style.personal_spread", st.personal_spread),
+        ] {
+            for (field, v, most) in [
+                ("pitch_deg", t.pitch_deg, 20.0),
+                ("eave_m", t.eave_m, 1.0),
+                ("overhang_m", t.overhang_m, 1.0),
+            ] {
+                if !(v.is_finite() && (0.0..=most).contains(&v)) {
+                    p.push(format!(
+                        "`{name}.{field}` must be between 0 and {most} (got {v})"
+                    ));
+                }
+            }
+        }
+        if !(self.digging.pit_side_m.is_finite() && (1.0..=20.0).contains(&self.digging.pit_side_m))
+        {
+            p.push(format!(
+                "`digging.pit_side_m` must be between 1 and 20 (got {})",
+                self.digging.pit_side_m
+            ));
+        }
         for f in &self.knowledge.founders {
             if !(f.share.is_finite() && (0.0..=1.0).contains(&f.share)) {
                 p.push(format!(
@@ -757,6 +889,25 @@ impl PeopleFile {
                  (got [{novice}, {master}])"
             ));
         }
+        let l = &self.build.levelling;
+        if !(l.from_m.is_finite()
+            && l.most_m.is_finite()
+            && 0.0 < l.from_m
+            && l.from_m <= l.most_m
+            && l.most_m <= 20.0)
+        {
+            p.push(format!(
+                "`build.levelling` needs 0 < from_m <= most_m <= 20 (got {} and {})",
+                l.from_m, l.most_m
+            ));
+        }
+        positive("build.levelling.h_per_m3", l.h_per_m3, &mut p);
+        if !(l.side_run.is_finite() && (0.5..=10.0).contains(&l.side_run)) {
+            p.push(format!(
+                "`build.levelling.side_run` must be between 0.5 and 10 (got {})",
+                l.side_run
+            ));
+        }
         let c = &self.build.caution;
         if !(c.half_life_years.is_finite() && (0.5..=100.0).contains(&c.half_life_years)) {
             p.push(format!(
@@ -885,6 +1036,14 @@ impl PeopleFile {
         positive("farm.grain_target_days", f.grain_target_days, &mut p);
         if !(f.work_hours_per_day.is_finite() && (0.5..=16.0).contains(&f.work_hours_per_day)) {
             p.push("`farm.work_hours_per_day` must be between 0.5 and 16".to_owned());
+        }
+        if !(f.peak_work_hours_per_day.is_finite()
+            && (f.work_hours_per_day..=16.0).contains(&f.peak_work_hours_per_day))
+        {
+            p.push(
+                "`farm.peak_work_hours_per_day` must be between `work_hours_per_day` and 16"
+                    .to_owned(),
+            );
         }
         if !(f.field_m.is_finite() && (10.0..=500.0).contains(&f.field_m)) {
             p.push("`farm.field_m` must be between 10 and 500 metres".to_owned());

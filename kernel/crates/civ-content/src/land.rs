@@ -1,6 +1,9 @@
 //! Land profiles (`kind = "land"`): habitat rules and wild resources (ADR-0004).
 
-use civ_land::{Growth, HabitatRule, LandParams, PathParams, PeakLoad, ResourceParams};
+use civ_land::deposits::DepositRule;
+use civ_land::{
+    Growth, HabitatRule, LandParams, PathParams, PeakLoad, ResourceParams, WeatherParams,
+};
 use serde::Deserialize;
 
 /// The `kind` value of a land profile.
@@ -19,12 +22,55 @@ pub(crate) struct LandFile {
     pub richness_min: f64,
     pub richness_max: f64,
     pub richness_feature_m: f64,
-    pub climate_cv: f64,
-    pub climate_autocorrelation: f64,
+    /// How the weather is drawn (ADR-0012 §1; content API 23).
+    pub weather: WeatherFile,
     pub paths: Paths,
     pub peak_load: PeakLoadFile,
     pub habitat: Vec<Habitat>,
     pub resource: Vec<Resource>,
+    /// Where deposits lie (content API 18); a profile may have none.
+    #[serde(default)]
+    pub deposit: Vec<DepositFile>,
+}
+
+/// Where one kind of deposit lies and how large its bodies are (ADR-0010 §1; content API 18).
+/// Every figure is a tuning value: the research gives none (03-05 §1.1-1.2 is qualitative).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DepositFile {
+    /// The good it yields.
+    pub good: String,
+    /// `[least, most]` mean slope of the ground it lies under (rise over run).
+    pub slope: [f64; 2],
+    /// `[least, most]` height above the nearest channel, metres.
+    pub hand_m: [f64; 2],
+    /// Bodies expected on each square kilometre of land that qualifies.
+    pub per_km2: f64,
+    /// `[least, most]` radius of a body, metres.
+    pub radius_m: [f64; 2],
+    /// `[least, most]` depth of what covers it, metres.
+    pub top_m: [f64; 2],
+    /// `[least, most]` thickness of a body, metres.
+    pub thickness_m: [f64; 2],
+    /// `[least, most]` quality, 0 to 1.
+    pub quality: [f64; 2],
+    /// The share of covered bodies that still show (a stream cut, a slip).
+    pub exposed_share: f64,
+    /// Kilograms of the good in a cubic metre of a body.
+    pub density_kg_m3: f64,
+    /// Hours a capable adult takes to break a cubic metre of a body out of the ground with the
+    /// founders' tools (content API 21); 0, the default, to dig it as earth at the people
+    /// profile's `[digging]` rate.
+    #[serde(default)]
+    pub dig_h_per_m3: f64,
+    /// What a working of it is called (content API 21): "pit", the default, or "quarry".
+    #[serde(default = "pit")]
+    pub working: String,
+}
+
+/// A working's name when a deposit rule gives none.
+fn pit() -> String {
+    "pit".to_owned()
 }
 
 /// The heaviest load wind and snow put on a roof in a month (ADR-0009 §5), a stand-in for
@@ -36,6 +82,121 @@ pub(crate) struct PeakLoadFile {
     pub median_kpa: f64,
     /// The spread of its natural logarithm.
     pub spread: f64,
+}
+
+/// How a landscape's weather is drawn (ADR-0012 §1; content API 23). Monthly values are for
+/// January first. See [`WeatherParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct WeatherFile {
+    pub wet_days: [f64; 12],
+    pub rain_share: [f64; 12],
+    pub persistence: f64,
+    pub gamma_shape: f64,
+    pub wet_day_mm: f64,
+    pub mean_c: [f64; 12],
+    pub day_sd_c: [f64; 12],
+    pub day_persistence: f64,
+    pub day_range_c: [f64; 12],
+    pub wet_day_range: f64,
+    pub wet_day_cooling_c: [f64; 12],
+    pub normals_at_m: f64,
+    pub lapse_c_per_km: f64,
+    pub slow_months: f64,
+    pub slow_amount: f64,
+    pub slow_wet_days: f64,
+    pub slow_warmth_c: [f64; 12],
+    pub snow_below_c: f64,
+    pub melt_mm_per_c: f64,
+    pub soil_water_mm: f64,
+    pub easy_water_share: f64,
+    pub cover_kc: f64,
+    /// Content API 24: a day's rain or snow, mm, that keeps people off the ground, and the mean
+    /// below which it is frozen (ADR-0012 §5).
+    pub wet_ground_mm: f64,
+    pub frozen_below_c: f64,
+}
+
+impl WeatherFile {
+    fn params(&self) -> WeatherParams {
+        WeatherParams {
+            wet_days: self.wet_days,
+            rain_share: self.rain_share,
+            persistence: self.persistence,
+            gamma_shape: self.gamma_shape,
+            wet_day_mm: self.wet_day_mm,
+            mean_c: self.mean_c,
+            day_sd_c: self.day_sd_c,
+            day_persistence: self.day_persistence,
+            day_range_c: self.day_range_c,
+            wet_day_range: self.wet_day_range,
+            wet_day_cooling_c: self.wet_day_cooling_c,
+            normals_at_m: self.normals_at_m,
+            lapse_c_per_km: self.lapse_c_per_km,
+            slow_months: self.slow_months,
+            slow_amount: self.slow_amount,
+            slow_wet_days: self.slow_wet_days,
+            slow_warmth_c: self.slow_warmth_c,
+            snow_below_c: self.snow_below_c,
+            melt_mm_per_c: self.melt_mm_per_c,
+            soil_water_mm: self.soil_water_mm,
+            easy_water_share: self.easy_water_share,
+            cover_kc: self.cover_kc,
+            wet_ground_mm: self.wet_ground_mm,
+            frozen_below_c: self.frozen_below_c,
+        }
+    }
+
+    /// Range problems, as messages.
+    fn problems(&self, p: &mut Vec<String>) {
+        let one = |name: &str, v: f64, least: f64, most: f64, p: &mut Vec<String>| {
+            if !(v.is_finite() && (least..=most).contains(&v)) {
+                p.push(format!(
+                    "`weather.{name}` must be between {least} and {most} (got {v})"
+                ));
+            }
+        };
+        let months = |name: &str, v: &[f64; 12], least: f64, most: f64, p: &mut Vec<String>| {
+            if let Some(bad) = v
+                .iter()
+                .find(|x| !(x.is_finite() && (least..=most).contains(*x)))
+            {
+                p.push(format!(
+                    "every month of `weather.{name}` must be between {least} and {most} (got {bad})"
+                ));
+            }
+        };
+        months("wet_days", &self.wet_days, 0.0, 0.95, p);
+        months("rain_share", &self.rain_share, 0.0, 1.0, p);
+        let sum: f64 = self.rain_share.iter().sum();
+        if !(0.98..=1.02).contains(&sum) {
+            p.push(format!(
+                "the months of `weather.rain_share` must sum to 1 (got {sum:.3})"
+            ));
+        }
+        one("persistence", self.persistence, 0.0, 0.95, p);
+        one("gamma_shape", self.gamma_shape, 0.2, 5.0, p);
+        one("wet_day_mm", self.wet_day_mm, 0.1, 10.0, p);
+        months("mean_c", &self.mean_c, -60.0, 50.0, p);
+        months("day_sd_c", &self.day_sd_c, 0.0, 15.0, p);
+        one("day_persistence", self.day_persistence, 0.0, 0.99, p);
+        months("day_range_c", &self.day_range_c, 0.0, 40.0, p);
+        one("wet_day_range", self.wet_day_range, 0.1, 1.0, p);
+        months("wet_day_cooling_c", &self.wet_day_cooling_c, -10.0, 10.0, p);
+        one("normals_at_m", self.normals_at_m, -500.0, 9000.0, p);
+        one("lapse_c_per_km", self.lapse_c_per_km, 0.0, 12.0, p);
+        one("slow_months", self.slow_months, 1.0, 600.0, p);
+        one("slow_amount", self.slow_amount, 0.0, 1.0, p);
+        one("slow_wet_days", self.slow_wet_days, 0.0, 0.5, p);
+        months("slow_warmth_c", &self.slow_warmth_c, -5.0, 5.0, p);
+        one("snow_below_c", self.snow_below_c, -5.0, 5.0, p);
+        one("melt_mm_per_c", self.melt_mm_per_c, 0.0, 20.0, p);
+        one("soil_water_mm", self.soil_water_mm, 10.0, 500.0, p);
+        one("easy_water_share", self.easy_water_share, 0.1, 0.9, p);
+        one("cover_kc", self.cover_kc, 0.1, 2.0, p);
+        one("wet_ground_mm", self.wet_ground_mm, 0.5, 100.0, p);
+        one("frozen_below_c", self.frozen_below_c, -10.0, 5.0, p);
+    }
 }
 
 /// How walking wears the ground (research 10-03 §1.1, §2.2).
@@ -89,6 +250,9 @@ pub(crate) struct Plant {
     pub production_per_ha_yr: Vec<f64>,
     pub loss_per_day: f64,
     pub season: [f64; 12],
+    /// Its production follows the soil water month by month (ADR-0012 §5; content API 23).
+    #[serde(default)]
+    pub follows_water: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -112,6 +276,7 @@ impl Resource {
                 production_per_ha_yr: p.production_per_ha_yr.clone(),
                 loss_per_day: p.loss_per_day,
                 season: p.season,
+                follows_water: p.follows_water,
             }),
             (None, Some(a), None) => Some(Growth::Animal {
                 capacity_per_ha: a.capacity_per_ha.clone(),
@@ -167,8 +332,7 @@ impl LandFile {
             richness_max: self.richness_max,
             richness_feature_m: self.richness_feature_m,
             resources,
-            climate_cv: self.climate_cv,
-            climate_autocorrelation: self.climate_autocorrelation,
+            weather: self.weather.params(),
             paths: PathParams {
                 wear_per_walk: self.paths.wear_per_walk,
                 half_life_days: self.paths.wear_half_life_days,
@@ -179,12 +343,79 @@ impl LandFile {
                 median_pa: self.peak_load.median_kpa * 1000.0,
                 spread: self.peak_load.spread,
             },
+            deposits: self
+                .deposit
+                .iter()
+                .map(|d| {
+                    let pair = |[lo, hi]: [f64; 2]| (lo, hi);
+                    Some(DepositRule {
+                        good: good_index(&d.good)?,
+                        slope: pair(d.slope),
+                        hand_m: pair(d.hand_m),
+                        per_km2: d.per_km2,
+                        radius_m: pair(d.radius_m),
+                        top_m: pair(d.top_m),
+                        thickness_m: pair(d.thickness_m),
+                        quality: pair(d.quality),
+                        exposed_share: d.exposed_share,
+                        density_kg_m3: d.density_kg_m3,
+                        dig_h_per_m3: d.dig_h_per_m3,
+                        working: d.working.clone(),
+                    })
+                })
+                .collect::<Option<Vec<_>>>()?,
         })
     }
 
     /// Range problems, as messages.
     pub fn problems(&self) -> Vec<String> {
         let mut p = Vec::new();
+        for (n, d) in self.deposit.iter().enumerate() {
+            let n = n + 1;
+            let range =
+                |name: &str, [lo, hi]: [f64; 2], least: f64, most: f64, p: &mut Vec<String>| {
+                    if !(lo.is_finite() && hi.is_finite() && least <= lo && lo <= hi && hi <= most)
+                    {
+                        p.push(format!(
+                            "deposit {n}'s `{name}` must be [least, most] within {least} to {most} \
+                         (got [{lo}, {hi}])"
+                        ));
+                    }
+                };
+            range("slope", d.slope, 0.0, 10.0, &mut p);
+            range("hand_m", d.hand_m, 0.0, 10_000.0, &mut p);
+            range("radius_m", d.radius_m, 0.5, 1_000.0, &mut p);
+            range("top_m", d.top_m, 0.0, 100.0, &mut p);
+            range("thickness_m", d.thickness_m, 0.05, 100.0, &mut p);
+            range("quality", d.quality, 0.0, 1.0, &mut p);
+            if !(d.per_km2.is_finite() && (0.0..=1_000.0).contains(&d.per_km2)) {
+                p.push(format!(
+                    "deposit {n}'s `per_km2` must be between 0 and 1000"
+                ));
+            }
+            if !(d.exposed_share.is_finite() && (0.0..=1.0).contains(&d.exposed_share)) {
+                p.push(format!(
+                    "deposit {n}'s `exposed_share` must be between 0 and 1"
+                ));
+            }
+            if !(d.density_kg_m3.is_finite() && (100.0..=10_000.0).contains(&d.density_kg_m3)) {
+                p.push(format!(
+                    "deposit {n}'s `density_kg_m3` must be between 100 and 10000"
+                ));
+            }
+            if !(d.dig_h_per_m3.is_finite() && (0.0..=1_000.0).contains(&d.dig_h_per_m3)) {
+                p.push(format!(
+                    "deposit {n}'s `dig_h_per_m3` must be between 0 and 1000"
+                ));
+            }
+            let words = d.working.trim();
+            if words.is_empty() || words.len() > 24 || words != d.working {
+                p.push(format!(
+                    "deposit {n}'s `working` must be a name of 1 to 24 characters (got {:?})",
+                    d.working
+                ));
+            }
+        }
         if !(4..=64).contains(&self.patch_cells) {
             p.push(format!(
                 "`patch_cells` must be between 4 and 64 (got {})",
@@ -200,12 +431,7 @@ impl LandFile {
         if !(self.richness_feature_m.is_finite() && self.richness_feature_m > 0.0) {
             p.push("`richness_feature_m` must be positive".to_owned());
         }
-        if !(0.0..=2.0).contains(&self.climate_cv) {
-            p.push("`climate_cv` must be between 0 and 2".to_owned());
-        }
-        if !(-0.99..=0.99).contains(&self.climate_autocorrelation) {
-            p.push("`climate_autocorrelation` must be between -0.99 and 0.99".to_owned());
-        }
+        self.weather.problems(&mut p);
         let w = &self.paths;
         if !(w.wear_per_walk > 0.0 && w.wear_per_walk < 1.0) {
             p.push("`paths.wear_per_walk` must be above 0 and below 1".to_owned());

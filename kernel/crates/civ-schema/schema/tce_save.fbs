@@ -137,6 +137,8 @@ table Land {
   resources: [string] (id: 7);
   stocks: [float] (id: 8);
   stock_day: long (id: 9);
+  // Before schema 24: the yearly climate factor, its year and its standard-normal deviate. Not
+  // written since; an older save's weather starts with the deviate as its slow anomaly.
   climate_year: long (id: 10);
   climate_deviate: double (id: 11);
   climate_factor: double (id: 12);
@@ -145,6 +147,57 @@ table Land {
   // may mean something else, and it starts at equilibrium.
   resource_goods: [string] (id: 13);
   resource_unit_kg: [double] (id: 14);
+  // Schema 24 (M3c slice U, ADR-0012 §1): the weather. Absent in older saves, whose weather
+  // starts from `climate_deviate` with the soil at field capacity and no snow.
+  weather: Weather (id: 15);
+}
+
+// Schema 24 (ADR-0012 §1): one day's weather at the height the normals are for.
+table WeatherDay {
+  day: long (id: 0);
+  // The day is wet (the chain's state).
+  wet: bool (id: 1);
+  // Rain and snow, mm of water.
+  precip_mm: float (id: 2);
+  mean_c: float (id: 3);
+  min_c: float (id: 4);
+  max_c: float (id: 5);
+}
+
+// Schema 24: one month's weather as it was, at the height the normals are for.
+table WeatherMonth {
+  year: long (id: 0);
+  // 0 for January.
+  month: ubyte (id: 1);
+  // Days recorded; the last month of the list is the month in progress.
+  days: ubyte (id: 2);
+  precip_mm: float (id: 3);
+  wet_days: ubyte (id: 4);
+  // The days' mean temperatures summed, °C.
+  temp_sum_c: float (id: 5);
+  min_c: float (id: 6);
+  max_c: float (id: 7);
+  frost_days: ubyte (id: 8);
+  snow_days: ubyte (id: 9);
+  // The reference soil's water as a share of what it holds, summed over the days.
+  soil_sum: float (id: 10);
+}
+
+// Schema 24: the weather's state. Today's weather (the day after the land's last), what
+// tomorrow depends on, snow lying in bands of 100 m, the soil under the wild cover, and each
+// month's record.
+table Weather {
+  today: WeatherDay (id: 0);
+  // Today's temperature anomaly and this month's slow anomaly, in standard deviations.
+  anomaly: double (id: 1);
+  slow: double (id: 2);
+  // Bottom of the lowest snow band, metres, and the snow lying in each band, mm of water.
+  snow_base_m: float (id: 3);
+  snow_mm: [float] (id: 4);
+  // Water in the reference soil, mm, and the wild cover's ease of drawing it, smoothed.
+  soil_mm: double (id: 5);
+  cover_ease: double (id: 6);
+  months: [WeatherMonth] (id: 7);
 }
 
 // Section "settle": settlements.
@@ -169,7 +222,7 @@ table Settlements {
 // weighed in a decision.
 // Schema 14 adds Technique: the technique a session of trying works toward, by index into
 // People.techniques (in a decision receipt, into the content's techniques when it was saved).
-enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12 }
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13 }
 
 enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3 }
 
@@ -330,6 +383,10 @@ table Household {
   known_resources: [KnownResource] (id: 10);
   // Schema 10: what the household offers, and on what terms.
   offers: [Offer] (id: 11);
+  // Schema 22 (M3b slice R): its taste in building, roof pitch in hundredths of a degree and
+  // eaves and overhang in centimetres, and the building that moved it most (0 for none).
+  taste: [float] (id: 12);
+  admired: ulong (id: 13);
 }
 
 // Schema 10: one row of a household's posted terms (ADR-0006 §4). Goods are indexed like
@@ -490,6 +547,11 @@ table Field {
   lease_since: long (id: 20);
   lease_until: long (id: 21);
   lease_share: float (id: 22);
+  // Schema 24 (ADR-0012 §2): its growing crop's root-zone water, and the water the crop has
+  // needed and had this season, mm. Absent in older saves: at field capacity, unstressed so far.
+  water_mm: float (id: 23);
+  need_mm: float (id: 24);
+  got_mm: float (id: 25);
 }
 
 table Fields {
@@ -597,6 +659,8 @@ table Building {
   state: BuildingState (id: 10);
   skill_h: float (id: 11);
   repair: RepairState (id: 12);
+  // Schema 22 (M3b slice R): the building its builders' taste followed (0 for none).
+  style_from: ulong (id: 13);
 }
 
 table Builds {
@@ -604,18 +668,36 @@ table Builds {
 }
 
 // Section "wear" (schema 7): ground worn by walking (ADR-0004 §4), in 64 × 64-cell tiles where
-// people have walked, as it stood when saved. The routing view and the trails are derived.
+// people have walked. Before schema 23 each tile was faded to the day saved and rounded, and the
+// routing view and the trails were drawn again on load. From schema 23 (M3c slice S, ADR-0011
+// §5) each tile is kept exactly as it stood, at its own day, with the routing view people plan
+// on, so a world lived on from a save matches one never saved; the trails are traced from it.
 table WearTile {
   // Tile row × tiles per row + tile column.
   index: uint (id: 0);
-  // Wear of each cell, row by row, 0-65535 for 0-1.
+  // Before schema 23: wear of each cell, row by row, 0-65535 for 0-1, faded to the day saved.
   wear: [ushort] (id: 1);
   // Whether each cell is trail, one bit per cell, row by row (bit k of word k / 64).
+  trail: [ulong] (id: 2);
+  // Schema 23: the day the tile's wear stands at, and the wear of each cell, row by row.
+  day: long (id: 3);
+  wear_exact: [float] (id: 4);
+}
+
+// Schema 23: one tile of the routing view, as surveyed.
+table WearViewTile {
+  index: uint (id: 0);
+  // Wear of each cell, row by row, 0-255 for 0-1.
+  cells: [ubyte] (id: 1);
+  // Trail bits as surveyed, as in WearTile.
   trail: [ulong] (id: 2);
 }
 
 table Wear {
   tiles: [WearTile] (id: 0);
+  // Schema 23: the day of the last survey and the routing view it drew (absent before).
+  surveyed: long (id: 1);
+  view: [WearViewTile] (id: 2);
 }
 
 // Section "market" (schema 10): each settlement's market (ADR-0006 §4). Tallies are indexed like
@@ -808,6 +890,78 @@ table Knowledge {
   entries: [KnowledgeEntry] (id: 1);
   // Schema 18: each settlement's trust in each technique's buildings, in the order first seen.
   trust: [TrustEntry] (id: 2);
+}
+
+// Section "deposits" (schema 19): bodies in the ground (ADR-0010 §1), in the order they were
+// placed, with what has been taken from each. `good` indexes `goods`, the good content ids at save
+// time; a body whose good the loaded content no longer has is dropped.
+struct DepositBody {
+  x_cm: long;
+  y_cm: long;
+  id: ulong;
+  initial_kg: double;
+  taken_kg: double;
+  radius_cm: int;
+  top_cm: int;
+  thickness_cm: int;
+  quality: float;
+  good: ushort;
+  exposed: bool;
+}
+
+// Each settlement's knowledge of a deposit: who found it and when, in the order they were found.
+struct DepositKnownEntry {
+  at: long;
+  settlement: ulong;
+  deposit: ulong;
+  finder: ulong;
+}
+
+table Deposits {
+  goods: [string] (id: 0);
+  bodies: [DepositBody] (id: 1);
+  known: [DepositKnownEntry] (id: 2);
+}
+
+// Section "earth" (schema 20): earthworks and what they have done to the ground (ADR-0010 §2-3).
+// `kind` 0 a platform; `plot` 0 for none. Tiles are 64 by 64 cells, row by row across the map;
+// each cell is the change in its mean height, metres.
+struct EarthworkRecord {
+  id: ulong;
+  household: ulong;
+  plot: ulong;
+  begun: long;
+  cut_m3: float;
+  done: float;
+  level_cm: int;
+  x_cm: int;
+  y_cm: int;
+  w_cm: int;
+  h_cm: int;
+  side_run_cm: ushort;
+  version: ushort;
+  // 0 a platform; schema 21: 1 a pit, 2 its spoil heap. Append only.
+  kind: ubyte;
+}
+
+// Schema 21 (M3b slice Q): a pit's or heap's links, by earthwork id: the deposit the pit is dug
+// for, and the pit's heap (0 for none).
+struct EarthLink {
+  work: ulong;
+  deposit: ulong;
+  heap: ulong;
+}
+
+table GroundTile {
+  index: uint (id: 0);
+  rev: uint (id: 1);
+  cells: [float] (id: 2);
+}
+
+table Earth {
+  works: [EarthworkRecord] (id: 0);
+  tiles: [GroundTile] (id: 1);
+  links: [EarthLink] (id: 2);
 }
 
 // Section "events": the scheduler's pending events.

@@ -37,11 +37,14 @@ pub enum Behavior {
     /// Spend spare hours at home trying toward a technique that would answer a household problem
     /// (M3b, ADR-0008 §3): the activity's target names the technique.
     Try,
+    /// Walk to a deposit the settlement knows, dig its good from a pit there and carry it home
+    /// (M3b slice Q, ADR-0010 §2): the activity names the good.
+    Dig,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 14] = [
+    pub const ALL: [Behavior; 15] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -56,6 +59,7 @@ impl Behavior {
         Behavior::Trade,
         Behavior::Hire,
         Behavior::Try,
+        Behavior::Dig,
     ];
 
     /// The authored name of a behavior.
@@ -75,6 +79,7 @@ impl Behavior {
             Behavior::Trade => "trade",
             Behavior::Hire => "hire",
             Behavior::Try => "try",
+            Behavior::Dig => "dig",
         }
     }
 
@@ -101,6 +106,8 @@ pub struct ActivityDef {
     pub task: Option<FieldTask>,
     /// For making: the recipe, by index in the catalog's recipes.
     pub recipe: Option<usize>,
+    /// For digging: the good dug, by index in the catalog's goods (M3b slice Q).
+    pub digs: Option<usize>,
     /// Tools the work needs and wears, by index in the catalog's goods (a recipe's own tools are
     /// on the recipe).
     pub tools: Vec<usize>,
@@ -137,15 +144,18 @@ pub enum GoodUse {
     Material,
     /// Worked with: counted in standard tools' worth of use (ADR-0006 §1).
     Tool,
+    /// Keeps other goods in it (a pot): counted one by one, each giving room (M3b slice Q).
+    Store,
 }
 
 impl GoodUse {
     /// Every use, in a fixed order.
-    pub const ALL: [GoodUse; 4] = [
+    pub const ALL: [GoodUse; 5] = [
         GoodUse::Food,
         GoodUse::Fuel,
         GoodUse::Material,
         GoodUse::Tool,
+        GoodUse::Store,
     ];
 
     /// The authored name.
@@ -155,6 +165,7 @@ impl GoodUse {
             GoodUse::Fuel => "fuel",
             GoodUse::Material => "material",
             GoodUse::Tool => "tool",
+            GoodUse::Store => "store",
         }
     }
 
@@ -206,6 +217,13 @@ pub struct ToolDef {
     pub fixed: bool,
 }
 
+/// What a store good adds to being a good (M3b slice Q): the room each one gives.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StoreDef {
+    /// Kilograms of goods one holds, keeping them as a raised store's floor does.
+    pub keeps_kg: f64,
+}
+
 /// An authored good: something people carry home and keep.
 #[derive(Clone, Debug, PartialEq)]
 pub struct GoodDef {
@@ -232,6 +250,8 @@ pub struct GoodDef {
     pub tool: Option<ToolDef>,
     /// For a material built with as timber: what it carries (ADR-0009 §5).
     pub timber: Option<crate::structure::Timber>,
+    /// For a store (a pot): the room each one gives.
+    pub store: Option<StoreDef>,
 }
 
 impl GoodDef {
@@ -646,15 +666,21 @@ impl Catalog {
             .reduce(f64::min)
     }
 
-    /// The tools an activity needs: its own, or its recipe's.
-    pub fn tools_of(&self, def: &ActivityDef) -> Vec<usize> {
-        let mut tools = def.tools.clone();
-        if let Some(r) = def.recipe.and_then(|r| self.recipes.get(r)) {
-            tools.extend(r.tools.iter().copied());
-        }
-        tools.sort_unstable();
-        tools.dedup();
-        tools
+    /// The tools an activity needs: its own, or its recipe's, each once (its own first, in no
+    /// particular order). Asked for every decision, so it allocates nothing.
+    pub fn tools_of<'a>(&'a self, def: &'a ActivityDef) -> impl Iterator<Item = usize> + 'a {
+        let own = def.tools.as_slice();
+        let recipe = def
+            .recipe
+            .and_then(|r| self.recipes.get(r))
+            .map_or(&[][..], |r| r.tools.as_slice());
+        let first = |list: &'a [usize]| {
+            list.iter()
+                .enumerate()
+                .filter(move |&(i, t)| !list[..i].contains(t))
+                .map(|(_, &t)| t)
+        };
+        first(own).chain(first(recipe).filter(move |t| !own.contains(t)))
     }
 }
 
@@ -885,6 +911,9 @@ pub struct FarmParams {
     pub grain_target_days: f64,
     /// Hours of field work a capable adult gives a day, for planning what can be done in time.
     pub work_hours_per_day: f64,
+    /// Hours of field work a capable adult gives at a peak, on a day the ground can be worked:
+    /// what makes up the days the weather takes from a sowing window (ADR-0012 §5).
+    pub peak_work_hours_per_day: f64,
     /// Side of a new field, metres.
     pub field_m: f64,
     /// Longest walk to a field, minutes.
@@ -1159,6 +1188,82 @@ pub struct BuildParams {
     pub quality_spread: [f64; 2],
     /// How builders answer the failures their settlement has seen (ADR-0009 §6).
     pub caution: crate::caution::CautionParams,
+    /// How households level a plot on sloping ground (ADR-0010 §2).
+    pub levelling: Levelling,
+}
+
+/// How households level the plot of a building on sloping ground (ADR-0010 §2).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Levelling {
+    /// Ground that drops more than this across a plot, metres, is levelled before building.
+    pub from_m: f64,
+    /// Ground that drops more than this across a plot, metres, is not built on.
+    pub most_m: f64,
+    /// Hours of a capable adult to cut a cubic metre of earth and place it where it is wanted.
+    pub h_per_m3: f64,
+    /// A platform's sides' run, metres across for each metre up or down.
+    pub side_run: f64,
+}
+
+/// How people dig at a deposit (M3b slice Q, ADR-0010 §2).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Digging {
+    /// Hours of a capable adult to dig a cubic metre of earth as it lay in the ground and lift it
+    /// out.
+    pub h_per_m3: f64,
+    /// The side of a pit, and of the spoil heap beside it, metres.
+    pub pit_side_m: f64,
+}
+
+/// A taste in building, or the traits of a building (M3b slice R): the roof pitch, the height to
+/// the eaves and the roof's overhang beyond the walls a household would build to, each held to
+/// what a program allows when it builds.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Taste {
+    /// Roof pitch, hundredths of a degree.
+    pub pitch_centideg: f32,
+    /// Height of the walls to the eaves, centimetres.
+    pub eave_cm: f32,
+    /// How far the roof reaches beyond the walls, centimetres.
+    pub overhang_cm: f32,
+}
+
+impl Taste {
+    /// Its traits in order: pitch, eaves, overhang.
+    pub fn traits(&self) -> [f32; 3] {
+        [self.pitch_centideg, self.eave_cm, self.overhang_cm]
+    }
+
+    /// The taste with traits `t` in that order.
+    pub fn from_traits(t: [f32; 3]) -> Taste {
+        Taste {
+            pitch_centideg: t[0],
+            eave_cm: t[1],
+            overhang_cm: t[2],
+        }
+    }
+}
+
+/// How households' taste in building moves (M3b slice R; research 11-02 §1.1, §2.2): toward the
+/// buildings their settlement admires, a little at a time, with now and then something new.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StyleParams {
+    /// How far a household's taste moves toward a new building of its settlement's that it
+    /// admires most, as a share of the way (11-02 §2.2: 0.02-0.20 a meaningful encounter).
+    pub alpha: f64,
+    /// How many times more the most admired new building of a settlement's weighs than the least
+    /// admired (11-02 §2.2: 1-3 times a neutral exemplar).
+    pub prestige_most: f64,
+    /// The chance a building has one trait new to its builders, drawn within what its program
+    /// allows (11-02 §2.2: 0.1-3 % a commission).
+    pub innovation: f64,
+    /// The way of building a founding band's is drawn around: the content's.
+    pub tradition_mean: Taste,
+    /// How far a founding band's shared way of building lies from the content's, each trait's
+    /// standard deviation in its units.
+    pub tradition_spread: Taste,
+    /// How far each founding household's taste lies from its band's, likewise.
+    pub personal_spread: Taste,
 }
 
 /// Everything authored about people.
@@ -1200,6 +1305,10 @@ pub struct PeopleParams {
     pub firm: FirmParams,
     /// What founders know and how people learn.
     pub knowledge: KnowledgeParams,
+    /// How people dig at a deposit (M3b slice Q).
+    pub digging: Digging,
+    /// Taste in building and how it moves (M3b slice R).
+    pub style: StyleParams,
     /// Names.
     pub names: NameParams,
 }

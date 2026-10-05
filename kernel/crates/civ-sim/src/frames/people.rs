@@ -11,6 +11,7 @@ use civ_agents::params::GoodUse;
 use civ_agents::person::{food_kcal, fuel_kg, stock_kcal};
 use civ_agents::{Cause, Origin, Person, Receipt, Repro, Scored, Sex, Step, Target, population};
 use civ_core::PermanentId;
+use civ_land::Building;
 use civ_schema::flatbuffers::{FlatBufferBuilder, ForwardsUOffset, Vector, WIPOffset};
 use civ_schema::wire;
 
@@ -38,19 +39,25 @@ fn sex(s: Sex) -> wire::Sex {
 }
 
 /// The snapshot's entry for every living person, in permanent-id order, placed where they are at
-/// the current minute.
+/// the current minute. In Accelerated mode nobody is shown on a trip: the next frame is a day on,
+/// so a walker is not to be carried along (ADR-0011 §6).
 pub fn person_briefs<'a>(
     fbb: &mut FlatBufferBuilder<'a>,
     sim: &Sim,
 ) -> Offsets<'a, wire::PersonBrief<'a>> {
     let now = sim.now();
     let t = now.minutes() as f64;
+    let trips = sim.mode() == crate::Mode::Detailed;
     let mut people: Vec<&Person> = sim.people.people.iter().map(|(_, p)| p).collect();
     people.sort_by_key(|p| p.id);
     let briefs: Vec<_> = people
         .into_iter()
         .map(|p| {
-            let (trip, trip_rev) = p.trip.as_ref().map_or((0, 0), |t| (t.id, t.rev));
+            let (trip, trip_rev) = p
+                .trip
+                .as_ref()
+                .filter(|_| trips)
+                .map_or((0, 0), |t| (t.id, t.rev));
             wire::PersonBrief::create(
                 fbb,
                 &wire::PersonBriefArgs {
@@ -324,6 +331,25 @@ pub fn describe_target(
                 || "something new".to_owned(),
                 |d| format!("toward {}", d.name.to_lowercase()),
             ),
+        // The deposit dug at: "the clay pit north-east of home", "the stone quarry west of home".
+        Target::Deposit(id) => match sim.land.deposits.iter().find(|d| d.id == id) {
+            Some(d) => {
+                let g = usize::from(d.body.good);
+                let good = sim
+                    .rules
+                    .catalog
+                    .goods
+                    .get(g)
+                    .map_or_else(|| "a".to_owned(), |g| g.name.to_lowercase());
+                let working = super::earthworks::working(sim, Some(g));
+                let at = (
+                    (d.body.at_cm.0 as f64 / 100.0) as f32,
+                    (d.body.at_cm.1 as f64 / 100.0) as f32,
+                );
+                format!("the {good} {working} {} of home", bearing(home, at))
+            }
+            None => "a pit".to_owned(),
+        },
     }
 }
 
@@ -336,18 +362,50 @@ pub fn firm_name(sim: &Sim, id: PermanentId) -> String {
 }
 
 /// A building program's name in running text: "hut".
-fn program_name(sim: &Sim, program: &str) -> String {
+pub(crate) fn program_name(sim: &Sim, program: &str) -> String {
     sim.rules.catalog.building_index(program).map_or_else(
         || "building".to_owned(),
         |i| sim.rules.catalog.buildings[i].name.to_lowercase(),
     )
 }
 
-/// A household in words, by its eldest member: "Ada's household".
-pub fn household_name(sim: &Sim, id: PermanentId) -> String {
+/// Building `b` as its owners call it: "Ada's hut", "a hut".
+pub(crate) fn whose_building(sim: &Sim, b: &Building) -> String {
+    let program = program_name(sim, &b.spec.program);
+    match eldest_name(sim, b.household) {
+        Some(name) => format!("{name}'s {program}"),
+        None => format!("a {program}"),
+    }
+}
+
+/// Building `id` as its owners call it, or "a building since gone".
+pub(crate) fn building_name(sim: &Sim, id: PermanentId) -> String {
+    sim.land.buildings.iter().find(|b| b.id == id).map_or_else(
+        || "a building since gone".to_owned(),
+        |b| whose_building(sim, b),
+    )
+}
+
+/// How household `h` would build, in words, and the building that moved its taste most (M3b
+/// slice R): "roofs pitched 48°, walls 1.9 m to the eaves, eaves 0.5 m out; admiring Bo's hut".
+pub fn taste_words(sim: &Sim, h: &civ_agents::person::Household) -> String {
+    let t = h.taste;
+    let mut words = format!(
+        "roofs pitched {:.0}°, walls {:.1} m to the eaves, eaves {:.1} m out",
+        t.pitch_centideg / 100.0,
+        t.eave_cm / 100.0,
+        t.overhang_cm / 100.0
+    );
+    if let Some(b) = h.admired {
+        words.push_str(&format!("; admiring {}", building_name(sim, b)));
+    }
+    words
+}
+
+/// The given name of a household's eldest member; `None` when nobody lives in it.
+pub fn eldest_name(sim: &Sim, id: PermanentId) -> Option<String> {
     let now = sim.now();
-    let eldest = sim
-        .people
+    sim.people
         .household(id)
         .and_then(|h| {
             h.members
@@ -355,8 +413,12 @@ pub fn household_name(sim: &Sim, id: PermanentId) -> String {
                 .filter_map(|m| sim.people.person(*m))
                 .max_by(|a, b| a.age_years(now).total_cmp(&b.age_years(now)))
         })
-        .map(|p| p.given.clone());
-    match eldest {
+        .map(|p| p.given.clone())
+}
+
+/// A household in words, by its eldest member: "Ada's household".
+pub fn household_name(sim: &Sim, id: PermanentId) -> String {
+    match eldest_name(sim, id) {
         Some(name) => format!("{name}'s household"),
         None => "another household".to_owned(),
     }
@@ -394,7 +456,7 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
                 Target::Patch(_) | Target::Water(_) | Target::Field(_) => {
                     format!("{what}, {place}")
                 }
-                Target::Household(_) => format!("{what} at {place}"),
+                Target::Household(_) | Target::Deposit(_) => format!("{what} at {place}"),
                 Target::Building(id) => {
                     match sim
                         .land
@@ -739,6 +801,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
             .collect();
         let skills = fbb.create_vector(&skills);
         let knows = super::knowledge::know_lines(&mut fbb, sim, p);
+        let taste = household.map(|h| fbb.create_string(&taste_words(sim, h)));
         let lines: Vec<wire::StoreLine> = stores
             .iter()
             .flatten()
@@ -792,6 +855,10 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.household_ready_days = ready_days as f32;
         args.skills = Some(skills);
         args.knows = Some(knows);
+        args.household_taste = taste;
+        args.household_admired = household
+            .and_then(|h| h.admired)
+            .map_or(0, PermanentId::get);
         args.household_water_days = water_days as f32;
         args.household_fuel_days = fuel_days as f32;
         let notes: Vec<_> = family_notes(sim, p)

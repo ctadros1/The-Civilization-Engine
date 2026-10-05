@@ -1,0 +1,18 @@
+# Digging clay from a pit at a deposit the settlement knows, and carrying it home (tuning starting
+# points). Only done while the household needs clay for something it makes. Digging is heavy work.
+kind = "activity"
+id = "core:activity/dig_clay"
+name = "Dig clay"
+doing = "digging clay"
+behavior = "dig"
+digs = "core:good/clay"
+par = 5.0
+min_age_years = 14.0
+max_age_years = 65.0
+min_minutes = 30
+max_minutes = 180
+daylight_only = true
+max_walk_minutes = 60
+technique = ""
+tools = []
+rate = 1.0

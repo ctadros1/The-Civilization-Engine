@@ -24,7 +24,8 @@ use civ_land::RectCm;
 use civ_sim::Sim;
 
 /// How a check came out.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Grade {
     /// As expected.
     Green,

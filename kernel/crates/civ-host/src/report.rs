@@ -31,6 +31,9 @@ pub struct RunOptions {
     pub regime: Option<String>,
     /// Families the observer sends to the village as it is founded.
     pub families: u32,
+    /// Techniques the observer introduces to the band's eldest grown founder as the world begins,
+    /// by id.
+    pub introduce: Vec<String>,
 }
 
 /// Lives the world and writes a report to `out`.
@@ -67,6 +70,10 @@ pub fn run(
             "{} families sent: {people} people came",
             options.families
         )?;
+    }
+    for technique in &options.introduce {
+        let who = crate::commands::introduce(&mut sim, technique)?;
+        writeln!(out, "the observer introduced {technique} to {who}")?;
     }
     writeln!(
         out,
@@ -114,7 +121,103 @@ pub fn run(
         report_firms(&sim, civ_core::SimTime::from_minutes(start), out)?;
         report_land(&sim, &moved_before, &moved, out)?;
         report_wealth(&sim, &mut wealth_shown, out)?;
+        let year_began = civ_core::SimTime::from_minutes(end - MINUTES_PER_YEAR);
+        report_crafts(&sim, year_began, out)?;
         moved_before = moved;
+    }
+    Ok(())
+}
+
+/// What people came to know and lost, what gave way and how builders answered, and how they built,
+/// in the year since `since` (M3b): the chronicle's finds, crafts learnt beside a knower, crafts
+/// lost and introduced; crafts known by five people or fewer, and who; what each settlement's
+/// builders have seen of each technique that has failed there, and how they build for it; the
+/// buildings begun in the year and those built after an admired one; and the roof pitches of
+/// every building and every household's taste.
+fn report_crafts(sim: &Sim, since: civ_core::SimTime, out: &mut dyn Write) -> anyhow::Result<()> {
+    use civ_agents::ChronicleKind as K;
+    let people = sim.people();
+    let year: Vec<_> = people.chronicle.iter().filter(|e| e.at >= since).collect();
+    let named = |e: &civ_agents::history::ChronicleEvent| {
+        let who = e
+            .people
+            .first()
+            .map_or_else(|| "someone".to_owned(), |&p| people.name_of(p));
+        format!("{who}: {}", e.name)
+    };
+    for (kind, label) in [
+        (K::TechniqueIntroduced, "introduced"),
+        (K::TechniqueFound, "found"),
+        (K::TechniqueLearned, "learnt beside a knower"),
+        (K::TechniqueLost, "lost"),
+        (K::BuildingFailed, "gave way"),
+    ] {
+        let lines: Vec<String> = year
+            .iter()
+            .filter(|e| e.kind == kind)
+            .map(|e| named(e))
+            .collect();
+        if !lines.is_empty() {
+            writeln!(out, "  {label}: {}", lines.join("; "))?;
+        }
+    }
+    let catalog = &sim.rules().catalog;
+    // Crafts known by a few, and by whom.
+    let few: Vec<String> = catalog
+        .techniques
+        .iter()
+        .enumerate()
+        .filter_map(|(t, def)| {
+            let knowers: Vec<&str> = people
+                .people
+                .iter()
+                .filter(|(_, p)| p.knows(t))
+                .map(|(_, p)| p.given.as_str())
+                .collect();
+            (!knowers.is_empty() && knowers.len() <= 5)
+                .then(|| format!("{} ({})", def.name, knowers.join(", ")))
+        })
+        .collect();
+    if !few.is_empty() {
+        writeln!(out, "  known by few: {}", few.join("; "))?;
+    }
+    for t in people.trust.iter().filter(|t| t.failures > 0.0) {
+        let technique = catalog
+            .techniques
+            .get(usize::from(t.technique))
+            .map_or("?", |d| d.name.as_str());
+        let (_, words) =
+            civ_sim::frames::knowledge::trust_words(sim, t.settlement, usize::from(t.technique));
+        writeln!(out, "  caution: {technique} {words}")?;
+    }
+    let buildings = &sim.land().buildings;
+    let begun: Vec<_> = buildings.iter().filter(|b| b.started >= since).collect();
+    let followed = begun.iter().filter(|b| b.style_from.is_some()).count();
+    let pitch = |b: &civ_land::Building| {
+        catalog
+            .building_index(&b.spec.program)
+            .and_then(|i| catalog.buildings.get(i))
+            .map(|d| civ_agents::style::traits_of(&b.spec, d).pitch_centideg / 100.0)
+    };
+    let span = |v: &[f32]| {
+        v.iter()
+            .fold((f32::MAX, f32::MIN), |(lo, hi), &x| (lo.min(x), hi.max(x)))
+    };
+    let pitches: Vec<f32> = buildings.iter().filter_map(pitch).collect();
+    let tastes: Vec<f32> = people
+        .households
+        .iter()
+        .filter(|(_, h)| !h.members.is_empty())
+        .map(|(_, h)| h.taste.pitch_centideg / 100.0)
+        .collect();
+    if !pitches.is_empty() && !tastes.is_empty() {
+        let ((b0, b1), (t0, t1)) = (span(&pitches), span(&tastes));
+        writeln!(
+            out,
+            "  style: {} buildings begun, {followed} after an admired one; roofs pitched {b0:.1}-{b1:.1}°, \
+             households' tastes {t0:.1}-{t1:.1}°",
+            begun.len()
+        )?;
     }
     Ok(())
 }
@@ -505,6 +608,66 @@ fn or_none(s: String) -> String {
     }
 }
 
+/// The past twelve whole months' weather on the valley floor, against what those months usually
+/// bring, and the water this season's crops had (ADR-0012): what lies behind the harvest.
+fn report_weather(sim: &Sim, held: &[&civ_land::Field], out: &mut dyn Write) -> anyhow::Result<()> {
+    let land = sim.land();
+    let whole: Vec<&civ_land::MonthRecord> = land
+        .weather
+        .months
+        .iter()
+        .rev()
+        .filter(|m| {
+            i64::from(m.days) == civ_core::time::MONTH_LENGTHS[usize::from(m.month.min(11))]
+        })
+        .take(12)
+        .collect();
+    if whole.is_empty() {
+        return Ok(());
+    }
+    let rain: f64 = whole.iter().map(|m| f64::from(m.precip_mm)).sum();
+    let usual: f64 = whole
+        .iter()
+        .map(|m| land.climatology.month_precip_mm[usize::from(m.month.min(11))])
+        .sum();
+    let days: f64 = whole.iter().map(|m| f64::from(m.days)).sum();
+    let mean = whole.iter().map(|m| f64::from(m.temp_sum_c)).sum::<f64>() / days.max(1.0);
+    let count = |f: &dyn Fn(&civ_land::MonthRecord) -> u8| -> u32 {
+        whole.iter().map(|m| u32::from(f(m))).sum()
+    };
+    // This season's crops, weighted by area: the share of their water need they had, and the
+    // share of an average year's harvest that allows.
+    let sown: Vec<_> = held.iter().filter(|f| f.need_mm > 0.0).collect();
+    let area: f64 = sown.iter().map(|f| f.area_ha()).sum();
+    let water = if area > 0.0 {
+        let need: f64 = sown
+            .iter()
+            .map(|f| f64::from(f.need_mm) * f.area_ha())
+            .sum();
+        let got: f64 = sown.iter().map(|f| f64::from(f.got_mm) * f.area_ha()).sum();
+        let factor: f64 = sown
+            .iter()
+            .map(|f| land.water_factor(f) * f.area_ha())
+            .sum::<f64>()
+            / area;
+        format!(
+            "; the crops had {:.0}% of the water they needed (harvest {factor:.2} of an average              year's)",
+            100.0 * got / need.max(1e-9)
+        )
+    } else {
+        String::new()
+    };
+    writeln!(
+        out,
+        "  weather over {} months: {rain:.0} mm ({usual:.0} usual) in {} wet days, mean {mean:.1} °C,          {} frost days, {} with snow lying{water}",
+        whole.len(),
+        count(&|m| m.wet_days),
+        count(&|m| m.frost_days),
+        count(&|m| m.snow_days)
+    )?;
+    Ok(())
+}
+
 fn report_year(
     sim: &Sim,
     year: u32,
@@ -570,6 +733,7 @@ fn report_year(
         held.len(),
         short.len()
     )?;
+    report_weather(sim, &held, out)?;
     // Stores, summed over households.
     let mut totals = vec![0.0; goods.len()];
     for h in &households {

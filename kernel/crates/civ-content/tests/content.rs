@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 17
+kernel_content_api = 24
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -196,7 +196,8 @@ fn the_repository_content_is_clean() {
         .technique_index("core:technique/roundhouse")
         .expect("roundhouse");
     assert_eq!(c.work_age(roundhouse), Some(12.0), "building, from twelve");
-    // Founders bring today's work; drying and the rotary quern are found or brought in.
+    // Founders bring today's work, pottery and the oven among it; drying and the rotary quern are
+    // found or brought in.
     let founders: Vec<&str> = reg
         .people
         .params
@@ -205,7 +206,9 @@ fn the_repository_content_is_clean() {
         .iter()
         .map(|&(t, _)| c.techniques[t].id.as_str())
         .collect();
-    assert_eq!(founders.len(), 8);
+    assert_eq!(founders.len(), 10);
+    assert!(founders.contains(&"core:technique/pottery"));
+    assert!(founders.contains(&"core:technique/oven_baking"));
     for later in ["core:technique/drying", "core:technique/rotary_quern"] {
         assert!(!founders.contains(&later), "{later}");
     }
@@ -1091,7 +1094,7 @@ fn the_fingerprint_covers_every_kind() {
             "half_life_days = 3.0",
             "half_life_days = 4.0",
         ),
-        ("crop/emmer.toml", "grow_days = 120", "grow_days = 125"),
+        ("crop/emmer.toml", "ky = 1.15", "ky = 1.2"),
         ("building/hut.toml", "post_kg = 34.0", "post_kg = 35.0"),
         (
             "technique/quern_grinding.toml",
@@ -1417,6 +1420,139 @@ fn techniques_check_their_references_gates_and_routes() {
                 .iter()
                 .map(ToString::to_string)
                 .collect::<Vec<_>>()
+        );
+    }
+}
+
+#[test]
+fn pots_hold_goods_and_digging_needs_deposits_of_what_it_digs() {
+    let preset = real_preset();
+    // The real pot keeps 35 kg each, and clay is dug, not gathered.
+    let reg = registry(load_fixture(&[("worldgen/river_valley.toml", &preset)]));
+    let c = &reg.catalog;
+    let pot = &c.goods[c
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/pot")
+        .expect("pot")];
+    assert_eq!(pot.store.as_ref().map(|s| s.keeps_kg), Some(35.0));
+    let dig = c
+        .activities
+        .iter()
+        .find(|a| a.id == "core:activity/dig_clay")
+        .expect("digging clay");
+    assert_eq!(
+        dig.digs.map(|g| c.goods[g].id.as_str()),
+        Some("core:good/clay")
+    );
+
+    // A store needs its table, and only a store takes one.
+    let bare = real("good/pot.toml").replace("[store]\nkeeps_kg = 35.0\n", "");
+    assert_ne!(bare, real("good/pot.toml"), "the edit applies");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("good/pot.toml", &bare),
+    ]);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "E3001" && d.message.contains("`[store]`"))
+    );
+    let stored = format!("{}\n[store]\nkeeps_kg = 5.0\n", real("good/clay.toml"));
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("good/clay.toml", &stored),
+    ]);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("only a store"))
+    );
+
+    // Digging stone, which the land lays down, is allowed; digging grain, which it does not, is not.
+    let stone = real("activity/dig_clay.toml").replace("core:good/clay", "core:good/stone");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        (
+            "activity/dig_stone.toml",
+            &stone.replace("dig_clay", "dig_stone"),
+        ),
+    ]);
+    assert_eq!(codes(&report), Vec::<&str>::new());
+    let grain = real("activity/dig_clay.toml")
+        .replace("core:good/clay", "core:good/grain")
+        .replace("dig_clay", "dig_grain");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("activity/dig_grain.toml", &grain),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("lays no deposits of")
+    );
+}
+
+#[test]
+fn deposits_say_how_hard_their_bodies_are_to_dig_and_what_a_working_is_called() {
+    let preset = real_preset();
+    let reg = registry(load_fixture(&[("worldgen/river_valley.toml", &preset)]));
+    let (c, land) = (&reg.catalog, &reg.land.params);
+    let rule = |id: &str| {
+        let g = c.goods.iter().position(|g| g.id == id).expect(id);
+        land.deposits.iter().find(|r| r.good == g).expect("a rule")
+    };
+    // Clay is dug as earth; stone is quarried and a flint bed dug, both slower than earth.
+    assert_eq!(
+        (
+            rule("core:good/clay").dig_h_per_m3,
+            rule("core:good/clay").working.as_str()
+        ),
+        (0.0, "pit")
+    );
+    assert_eq!(
+        (
+            rule("core:good/stone").dig_h_per_m3,
+            rule("core:good/stone").working.as_str()
+        ),
+        (12.0, "quarry")
+    );
+    assert_eq!(rule("core:good/toolstone").dig_h_per_m3, 12.0);
+    for (activity, good) in [
+        ("core:activity/quarry_stone", "core:good/stone"),
+        ("core:activity/dig_flint", "core:good/toolstone"),
+    ] {
+        let a = c
+            .activities
+            .iter()
+            .find(|a| a.id == activity)
+            .expect(activity);
+        assert_eq!(a.digs.map(|g| c.goods[g].id.as_str()), Some(good));
+    }
+
+    // Out of range, or no name: refused.
+    let land_file = real("land/temperate_valley.toml");
+    for (from, to, field) in [
+        (
+            "dig_h_per_m3 = 12.0\nworking = \"quarry\"",
+            "dig_h_per_m3 = -1.0\nworking = \"quarry\"",
+            "`dig_h_per_m3`",
+        ),
+        ("working = \"quarry\"", "working = \"\"", "`working`"),
+    ] {
+        let broken = land_file.replacen(from, to, 1);
+        assert_ne!(broken, land_file, "the edit applies");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("land/temperate_valley.toml", &broken),
+        ]);
+        assert!(
+            report.diagnostics.iter().any(|d| d.message.contains(field)),
+            "{field}: {:?}",
+            report.diagnostics
         );
     }
 }

@@ -155,6 +155,7 @@ mod tests {
             tool: None,
             sheltered_half_life_days: 0.0,
             timber: None,
+            store: None,
         };
         vec![
             good("grain", GoodUse::Food),
@@ -183,6 +184,8 @@ mod tests {
                 keeping: crate::person::Keeping::default(),
                 flows: Flows::default(),
                 offers: Vec::new(),
+                taste: Default::default(),
+                admired: None,
             });
         }
         pop

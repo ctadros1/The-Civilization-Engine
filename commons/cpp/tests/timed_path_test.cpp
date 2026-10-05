@@ -41,6 +41,10 @@ int main() {
     CHECK(near(eb::estimate_minute(1000, true, 960, 0, 500), 1000));
     CHECK(near(eb::estimate_minute(1000, false, 960, 0, 60000), 1016));
     CHECK(near(eb::estimate_minute(1000, false, 96, 0, 60000), 1001.6));
+    // An Accelerated clock (60x here) stands at midnight until the next day's frame, and Max,
+    // an infinite speed, is never carried on.
+    CHECK(near(eb::estimate_minute(1440, true, 5760, 0, 500), 1440));
+    CHECK(near(eb::estimate_minute(1440, false, INFINITY, 0, 500), 1440));
 
     if (failures == 0) std::printf("timed_path_test: ok\n");
     return failures == 0 ? 0 : 1;

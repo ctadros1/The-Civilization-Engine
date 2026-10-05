@@ -24,6 +24,9 @@ pub(crate) struct ActivityFile {
     pub task: Option<String>,
     /// For making: the recipe id.
     pub recipe: Option<String>,
+    /// For digging: the good dug, from the deposits of it the land profile lays down (content API
+    /// 20).
+    pub digs: Option<String>,
     /// Tools the work needs and wears: good ids (a recipe's own tools are on the recipe).
     pub tools: Vec<String>,
     /// Work done in an hour against the task's authored rates (1 with the tools they assume).
@@ -56,6 +59,7 @@ impl ActivityFile {
         &self,
         resource: Option<usize>,
         recipe: Option<usize>,
+        digs: Option<usize>,
         tools: Vec<usize>,
         technique: Option<usize>,
     ) -> Option<ActivityDef> {
@@ -67,6 +71,7 @@ impl ActivityFile {
             resource,
             task: self.task.as_deref().and_then(FieldTask::from_name),
             recipe,
+            digs,
             tools,
             rate: self.rate,
             par: self.par,
@@ -110,6 +115,16 @@ impl ActivityFile {
             }
             (Some(b), Some(_)) if b != Behavior::Farm => p.push(format!(
                 "only `farm` activities take a `task` (this one is `{}`)",
+                b.name()
+            )),
+            _ => {}
+        }
+        match (Behavior::from_name(&self.behavior), &self.digs) {
+            (Some(Behavior::Dig), None) => {
+                p.push("a `dig` activity names the good it `digs`".to_owned());
+            }
+            (Some(b), Some(_)) if b != Behavior::Dig => p.push(format!(
+                "only `dig` activities take `digs` (this one is `{}`)",
                 b.name()
             )),
             _ => {}

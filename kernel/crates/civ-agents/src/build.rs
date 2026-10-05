@@ -14,7 +14,7 @@ use civ_land::{Building, Land, RectCm};
 use civ_world::nav::NavGrid;
 use civ_world::{WATER_LAND, WorldMap};
 
-use crate::params::{BuildingDef, GoodDef};
+use crate::params::{BuildingDef, GoodDef, GoodUse};
 use crate::person::Keeping;
 
 /// Least distance between a plot and another plot or a field, centimetres: room to walk between
@@ -158,7 +158,7 @@ pub fn plot_rect(spec: &BuildingSpec, def: &BuildingDef) -> RectCm {
 }
 
 /// Whether ground can be claimed as a plot: inside the map, every cell under it dry walkable
-/// land, and clear of every field and plot.
+/// land, and clear of every field, plot, pit and spoil heap.
 pub fn plot_clear(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectCm) -> bool {
     let cell_cm = cm(f64::from(map.cell_size_m)).max(1);
     let (map_w, map_h) = (map.width as i32 * cell_cm, map.height as i32 * cell_cm);
@@ -173,6 +173,7 @@ pub fn plot_clear(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectCm) -> 
     }
     if land.fields.iter().any(|f| f.rect.near(rect, PLOT_GAP_CM))
         || land.plots.iter().any(|p| p.rect.near(rect, PLOT_GAP_CM))
+        || civ_land::earth::dug_near(&land.earthworks, rect, PLOT_GAP_CM)
     {
         return false;
     }
@@ -191,8 +192,11 @@ pub fn plot_clear(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectCm) -> 
 }
 
 /// Where a household builds: the hut `design_at` designs at its home if the ground it needs there
-/// is clear, otherwise at the nearest point found stepping outward from home (away from the
-/// hearth first) no farther than `max_m`. Never on the hearth. `design_at` returns `None` for a
+/// is clear and level enough to build on as it is, otherwise at the nearest such point found
+/// stepping outward from home (away from the hearth first) no farther than `max_m`. When all the
+/// clear ground within that would have to be levelled, the plot that needs least, the nearest
+/// among equals: `levelling` says how much a plot's ground needs (0 for none; ADR-0010 §2), or
+/// `None` for ground too steep to build on. Never on the hearth. `design_at` returns `None` for a
 /// point the household would not build on (out of reach). `None` if no ground is clear.
 #[allow(clippy::too_many_arguments)]
 pub fn home_site(
@@ -204,6 +208,7 @@ pub fn home_site(
     home: (f32, f32),
     hearth: Option<(f32, f32)>,
     max_m: f64,
+    levelling: &dyn Fn(&RectCm) -> Option<f64>,
 ) -> Option<BuildingSpec> {
     let away = hearth.map_or(0.0, |h| {
         f64::from(home.1 - h.1).atan2(f64::from(home.0 - h.0))
@@ -226,11 +231,24 @@ pub fn home_site(
             (home.0 + (d * a.cos()) as f32, home.1 + (d * a.sin()) as f32)
         })
     });
-    std::iter::once(home).chain(around).find_map(|at| {
-        let spec = design_at(at)?;
+    let mut least: Option<(f64, BuildingSpec)> = None;
+    for at in std::iter::once(home).chain(around) {
+        let Some(spec) = design_at(at) else {
+            continue;
+        };
         let rect = plot_rect(&spec, def);
-        (clear_of_hearth(&rect) && plot_clear(land, map, nav, &rect)).then_some(spec)
-    })
+        if !(clear_of_hearth(&rect) && plot_clear(land, map, nav, &rect)) {
+            continue;
+        }
+        match levelling(&rect) {
+            Some(need) if need <= 0.0 => return Some(spec),
+            Some(need) if least.as_ref().is_none_or(|(l, _)| need < *l) => {
+                least = Some((need, spec));
+            }
+            _ => {}
+        }
+    }
+    least.map(|(_, spec)| spec)
 }
 
 /// What each construction stage of the building `spec` designs needs; `None` if the design does not
@@ -375,6 +393,55 @@ impl ShapeCost {
     }
 }
 
+/// Plot `plot` (its id and rectangle) of `household`, claimed at `now`: when its ground drops more
+/// than `lev`'s threshold across it, a platform is begun to level it, cut and filled to the level
+/// at which its earth balances (ADR-0010 §2). The hours its levelling takes, which the building's
+/// first stage takes on; 0 for ground level enough to build on as it is.
+pub fn level_plot(
+    land: &mut civ_land::Land,
+    map: &civ_world::WorldMap,
+    ids: &mut civ_core::IdAllocator,
+    lev: &crate::params::Levelling,
+    (plot, rect): (civ_core::PermanentId, civ_land::RectCm),
+    household: civ_core::PermanentId,
+    now: civ_core::SimTime,
+) -> f64 {
+    use civ_land::earth;
+    let bed = |x: f64, y: f64| earth::bed_height(map, (x, y));
+    if earth::drop_across(&rect, &bed) <= lev.from_m {
+        return 0.0;
+    }
+    let Some(level) = earth::platform_level(&rect, lev.side_run, &bed) else {
+        return 0.0;
+    };
+    let level_cm = (level * 100.0).round() as i32;
+    let shaped = earth::shape_platform(
+        &rect,
+        f64::from(level_cm) / 100.0,
+        lev.side_run,
+        1.0,
+        &bed,
+        &mut |_, _, _, _| {},
+    );
+    let work = earth::Earthwork {
+        id: ids.allocate(),
+        kind: earth::EarthKind::Platform,
+        rect,
+        level_cm,
+        side_run_cm: (lev.side_run * 100.0).round().clamp(1.0, 65_535.0) as u16,
+        plot: Some(plot),
+        deposit: None,
+        heap: None,
+        household,
+        cut_m3: shaped.cut_m3 as f32,
+        done: 0.0,
+        version: earth::EARTH_VERSION,
+        begun: now,
+    };
+    land.earthworks.push(work);
+    f64::from(work.cut_m3) * lev.h_per_m3
+}
+
 /// The design of a building of program `def` in shape `shape` standing at `at` (metres), its
 /// door toward `toward` (the settlement's hearth), or facing east when there is none. A hut is
 /// built to the program's usual wall height and pitch; a frame building to its usual sizes, its
@@ -387,14 +454,16 @@ pub fn design_shape(
     at: (f32, f32),
     toward: Option<(f32, f32)>,
 ) -> Option<BuildingSpec> {
-    design_cautious(def, goods, shape, at, toward, 1.0)
+    design_cautious(def, goods, shape, at, toward, 1.0, None)
 }
 
 /// [`design_shape`], by builders who make the members that carry a frame building's load
 /// `caution` times as strong as usual after failures they have seen (ADR-0009 §6): a joist's
 /// diameter by the cube root of it (bending strength goes as d³), a post's by its fourth root
 /// (buckling goes as d⁴), each to the nearest centimetre and no more than the program allows.
-/// A hut is built as usual: its rules leave nothing to size.
+/// A hut is built as usual: its rules leave nothing to size. `style`, when given, is the roof
+/// pitch, eaves and overhang it is built to ([`crate::style::commission`], within what the program
+/// allows; a hut's overhang is its rules'), else the program's usual ones.
 pub fn design_cautious(
     def: &BuildingDef,
     goods: &[GoodDef],
@@ -402,10 +471,16 @@ pub fn design_cautious(
     at: (f32, f32),
     toward: Option<(f32, f32)>,
     caution: f64,
+    style: Option<[i32; 3]>,
 ) -> Option<BuildingSpec> {
     match (shape, &def.rules) {
         (Shape::Round { radius }, ProgramRules::Hut(_)) => {
-            Some(design(def, goods, radius, at, toward))
+            let mut spec = design(def, goods, radius, at, toward);
+            if let Some([pitch, eave, _]) = style {
+                spec.params[hut_params::PITCH_CENTIDEG] = pitch;
+                spec.params[hut_params::EAVE_CM] = eave;
+            }
+            Some(spec)
         }
         (
             Shape::Bays {
@@ -437,6 +512,11 @@ pub fn design_cautious(
             }
             params[fp::FLOOR_RAISE_CM] = d.floor_raise_cm;
             params[fp::OVERHANG_CM] = d.overhang_cm;
+            if let Some([pitch, eave, overhang]) = style {
+                params[fp::PITCH_CENTIDEG] = pitch;
+                params[fp::EAVE_CM] = eave;
+                params[fp::OVERHANG_CM] = overhang;
+            }
             params[fp::POST_CM] = stronger(d.post_cm, 4.0, rules.post_cm.1);
             params[fp::WALL_CM] = d.wall_cm;
             // The door's wall faces `toward`: it faces a quarter turn on from the length.
@@ -712,6 +792,67 @@ pub fn store_saves_h(
             kept.max(0.0) * cost_h.get(g).copied().unwrap_or(0.0).max(0.0)
         })
         .sum()
+}
+
+/// Food, kcal, that `goods_kg` keep over `horizon_days` in `room` beyond what they would keep in
+/// the open: [`store_saves_h`]'s reckoning, each kilogram valued by the food in it.
+pub fn store_saves_kcal(
+    goods_kg: &[f64],
+    goods: &[GoodDef],
+    room: [f64; 3],
+    raised_factor: f64,
+    horizon_days: f64,
+) -> f64 {
+    let kcal: Vec<f64> = goods
+        .iter()
+        .map(|d| {
+            if d.purpose == GoodUse::Food {
+                d.kcal_per_kg
+            } else {
+                0.0
+            }
+        })
+        .collect();
+    store_saves_h(goods_kg, goods, &kcal, room, raised_factor, horizon_days)
+}
+
+/// The pots a household under a roof would gain from (M3b slice Q), each keeping `keeps_kg` of
+/// what lies under the roof as a raised floor does, and the food the next one would keep over
+/// `horizon_days`, kcal: as many as would hold the food lying in lofts and on floors (not on a
+/// raised floor or in a pot) that keeps better under a roof, the next one worth what moving its
+/// `keeps_kg` from the floor into a pot adds to what `keeping` (its pots counted) keeps
+/// ([`store_saves_kcal`]). Food in the open gains nothing: a pot takes room under the roof. None
+/// while there is no roof to keep pots under.
+pub fn pots_wanted(
+    stores: &[f64],
+    goods: &[GoodDef],
+    keeping: &Keeping,
+    sheltered: bool,
+    keeps_kg: f64,
+    horizon_days: f64,
+) -> (f64, f64) {
+    if !sheltered || keeps_kg <= 0.0 {
+        return (0.0, 0.0);
+    }
+    let room = [keeping.raised_kg, keeping.roofed_kg, 0.0];
+    let placed = Keeping::fill(stores, goods, room);
+    // Food in lofts and on floors (all of it in the loft's place here), which a pot would keep
+    // better.
+    let on_floors: f64 = goods
+        .iter()
+        .enumerate()
+        .filter(|(_, d)| d.purpose == GoodUse::Food)
+        .map(|(g, _)| placed[civ_grammar::storage::LOFT][g])
+        .sum();
+    if on_floors <= 0.0 {
+        return (0.0, 0.0);
+    }
+    let factor = keeping.raised_factor;
+    let now = store_saves_kcal(stores, goods, room, factor, horizon_days);
+    let moved = keeps_kg.min(room[1].max(0.0));
+    let more = [room[0] + moved, room[1] - moved, room[2]];
+    let next = store_saves_kcal(stores, goods, more, factor, horizon_days) - now;
+    ((on_floors / keeps_kg).ceil(), next.max(0.0))
 }
 
 /// What a household would keep in a storehouse (ADR-0009 §7): the goods its roofs have no room
@@ -1057,6 +1198,7 @@ pub(crate) mod tests {
             reserve_for: None,
             tool: None,
             timber: None,
+            store: None,
         };
         vec![good("core:good/timber"), good("core:good/thatch")]
     }
@@ -1312,5 +1454,69 @@ pub(crate) mod tests {
         assert!(march < 0.3 && october > 3.0, "{march} {october}");
         assert_eq!(urgency(400.0, 304, 15.0, 400), 400.0 / 7.5);
         assert_eq!(urgency(0.0, 304, 15.0, 100), 0.0);
+    }
+
+    #[test]
+    fn pots_are_wanted_for_food_on_floors_under_a_roof_and_add_no_room() {
+        use crate::params::{Eaten, StoreDef};
+        let good = |id: &str, purpose, kcal, half, sheltered| GoodDef {
+            id: id.to_owned(),
+            name: id.to_owned(),
+            purpose,
+            kcal_per_kg: kcal,
+            half_life_days: half,
+            sheltered_half_life_days: sheltered,
+            eaten: Eaten::Never,
+            shared: false,
+            reserve_for: None,
+            tool: None,
+            timber: None,
+            store: None,
+        };
+        let goods = vec![
+            good("grain", GoodUse::Food, 3340.0, 1560.0, 4932.0),
+            GoodDef {
+                store: Some(StoreDef { keeps_kg: 15.0 }),
+                ..good("pot", GoodUse::Store, 0.0, 1100.0, 0.0)
+            },
+        ];
+        let keeping = Keeping {
+            raised_kg: 0.0,
+            roofed_kg: 100.0,
+            raised_factor: 2.0,
+        };
+        // 160 kg of grain: the 100 kg on the floor under the roof would keep better in seven
+        // pots, and the next moves 15 kg of it from the floor into a pot; the 60 kg in the open
+        // gains nothing, as pots stand under the roof.
+        let (want, kcal) = pots_wanted(&[160.0, 0.0], &goods, &keeping, true, 15.0, 1095.0);
+        assert_eq!(want, 7.0);
+        let floor = 0.5f64.powf(1095.0 / 4932.0);
+        let raised = 0.5f64.powf(1095.0 / (4932.0 * 2.0));
+        assert!(
+            (kcal - 15.0 * (raised - floor) * 3340.0).abs() < 1.0,
+            "{kcal}"
+        );
+        // Pots already held keep part of the floor's room as a raised floor would: four of them
+        // leave three to make, and add no room.
+        let with_pots = keeping.with_stores(&[160.0, 4.0], &goods);
+        assert_eq!((with_pots.raised_kg, with_pots.roofed_kg), (60.0, 40.0));
+        let (fewer, _) = pots_wanted(&[160.0, 4.0], &goods, &with_pots, true, 15.0, 1095.0);
+        assert_eq!(fewer, 3.0);
+        // More pots than the roof has room for keep only what it has room for.
+        let crowded = keeping.with_stores(&[160.0, 20.0], &goods);
+        assert_eq!((crowded.raised_kg, crowded.roofed_kg), (100.0, 0.0));
+        // No roof to keep pots under, or nothing that keeps better in them: none.
+        assert_eq!(
+            pots_wanted(&[160.0, 0.0], &goods, &keeping, false, 15.0, 1095.0),
+            (0.0, 0.0)
+        );
+        let all_raised = Keeping {
+            raised_kg: 200.0,
+            ..keeping
+        };
+        assert_eq!(
+            pots_wanted(&[160.0, 0.0], &goods, &all_raised, true, 15.0, 1095.0),
+            (0.0, 0.0)
+        );
     }
 }

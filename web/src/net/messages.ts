@@ -112,6 +112,8 @@ export interface Welcome {
   defaultMapSize: number;
   speed1x: number;
   speedMultipliers: number[];
+  /** The Accelerated speeds as multiples of 1x: 60, 600 and Max (Infinity). Wire 1.23. */
+  acceleratedMultipliers: number[];
   /** The activity catalogue, in the order people's activity indices refer to. */
   activities: ActivityInfo[];
   /** Labels of decision-receipt reasons, by code. */
@@ -167,7 +169,63 @@ export interface Clock {
   minuteOfHour: number;
   season: string;
   paused: boolean;
+  /** Simulated seconds per real second; Infinity for Max. */
   speed: number;
+  /** How the kernel advances: by the minute, or a day at a time with frames only at midnight
+   * (ADR-0011). Wire 1.23. */
+  mode: "detailed" | "accelerated";
+  /** Today's weather on the valley floor (wire 1.24, ADR-0012); null from an older host. */
+  weather: DayWeather | null;
+}
+
+/** A day's weather on the valley floor (wire 1.24, M3c slice U). */
+export interface DayWeather {
+  /** Rain and snow, mm of water. */
+  precipMm: number;
+  meanC: number;
+  minC: number;
+  maxC: number;
+  /** Snow lying, mm of water. */
+  snowMm: number;
+  /** The soil water under the wild cover, as a share of what the soil holds. */
+  soil: number;
+  /** Rendered by the kernel: "6 °C, light rain; snow lying". */
+  words: string;
+}
+
+/** One month's weather on the valley floor, beside what the month usually brings (wire 1.24). */
+export interface WeatherMonth {
+  /** The world's first year is 1. */
+  year: number;
+  /** 0 for January. */
+  month: number;
+  /** Days recorded: fewer than the month has while it is under way. */
+  days: number;
+  precipMm: number;
+  usualMm: number;
+  wetDays: number;
+  meanC: number;
+  usualC: number;
+  minC: number;
+  maxC: number;
+  frostDays: number;
+  snowDays: number;
+  /** The soil water under the wild cover, on average, as a share of what the soil holds. */
+  soil: number;
+}
+
+/** Every month's weather (wire 1.24). */
+export interface WeatherReport {
+  rev: number;
+  /** The height the weather is for, metres. */
+  heightM: number;
+  /** The landscape's mean annual precipitation, mm. */
+  annualMm: number;
+  today: DayWeather | null;
+  /** Oldest first; the last is the month under way. */
+  months: WeatherMonth[];
+  /** Today's month, 0 for January. */
+  month: number;
 }
 
 export interface Task {
@@ -253,6 +311,12 @@ export interface Snapshot {
    * people arrive, leave or die (0 = no people).
    */
   knowledgeRev: number;
+  /** Wire 1.19: changes whenever a deposit is laid down, found or dug from (0 = no deposits). */
+  depositsRev: number;
+  /** Wire 1.20: changes whenever an earthwork is begun or advanced (0 = none). */
+  earthworksRev: number;
+  /** Wire 1.24: changes each day lived (0 = no world). Fetch the weather with GetWeather. */
+  weatherRev: number;
 }
 
 export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
@@ -289,6 +353,10 @@ export interface FieldInfo {
   /** When it is let: when the lease's term ends (-1 = not let), and the holder's share of the grain. */
   leaseUntilMinute: number;
   leaseShare: number;
+  /** Wire 1.24: the share of the water its growing crop needed that it has had (-1 before it has
+   * needed any), and its root zone's water as a share of what the soil holds. */
+  waterHad: number;
+  soilWater: number;
 }
 
 /** Ground worn by walking in one tile of cells (M1 slice F), as last surveyed. */
@@ -411,6 +479,11 @@ export interface BuildingInfo {
   leak: number;
   groups: GroupInfo[];
   upkeep: string;
+  /** Wire 1.22 (M3b slice R): how it was built, in words rendered by the kernel, with the
+   * building its household's taste followed ("roof pitched 49°, walls 1.9 m to the eaves, after
+   * Bo's hut"); and that building (0 for none; it may since be gone). */
+  style: string;
+  styleFrom: number;
 }
 
 export type EventKind =
@@ -619,6 +692,11 @@ export interface PersonInfo {
   family: string[];
   /** When they left the valley alive (0 = they did not). */
   leftMinute: number;
+  /** Wire 1.22 (M3b slice R): how their household would build, in words rendered by the kernel
+   * ("roofs pitched 48°, walls 1.9 m to the eaves, eaves 0.5 m out; admiring Bo's hut"; "" for
+   * the dead), and the building that moved its taste most (0 for none). */
+  householdTaste: string;
+  householdAdmired: number;
 }
 
 /** One good in a settlement's market (M3a slice I). Tallies fade by half every memory. */
@@ -917,6 +995,70 @@ export interface KnowledgeInfo {
   settlements: SettlementKnowledge[];
 }
 
+/** A deposit in the ground (wire 1.19, M3b slice Q; ADR-0010 §1). */
+export interface DepositInfo {
+  id: number;
+  /** An index into Welcome.goods. */
+  good: number;
+  /** Its centre, metres from the map's north-west corner, and its radius. */
+  x: number;
+  y: number;
+  radiusM: number;
+  /** It shows at the surface; otherwise it lies under `coverM` of ground. */
+  exposed: boolean;
+  coverM: number;
+  thicknessM: number;
+  /** How much of what is dug is fit for use, 0 to 1. */
+  quality: number;
+  leftKg: number;
+  takenKg: number;
+  /** The settlements that know it, and how each came to, in the kernel's words. */
+  knownBy: number[];
+  finds: string[];
+}
+
+export interface DepositsInfo {
+  rev: number;
+  deposits: DepositInfo[];
+}
+
+/** An earthwork (wire 1.20, M3b slice Q; ADR-0010 §2): a platform levelling a plot, a pit dug for
+ * a deposit's goods, or the spoil heap beside a pit. */
+export interface EarthworkInfo {
+  id: number;
+  /** What it is: 0 a platform; wire 1.21: 1 a pit, 2 a spoil heap. */
+  kind: number;
+  /** The rectangle it levels, metres from the map's north-west corner. */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** The level it is cut and filled to, metres of height, and its sides' run across per metre. */
+  levelM: number;
+  sideRun: number;
+  /** Earth it cuts when done, cubic metres as it lay in the ground, and the share done, 0 to 1. */
+  cutM3: number;
+  done: number;
+  household: number;
+  /** The plot it levels and the building on it (0 for none). */
+  plot: number;
+  building: number;
+  /** In the kernel's words: "the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled". */
+  words: string;
+  /** Wire 1.21: for a pit or its heap, the deposit the pit is dug for (0 for none). */
+  deposit: number;
+}
+
+export interface EarthworksInfo {
+  rev: number;
+  works: EarthworkInfo[];
+  /** Cells a side of a tile of the ground's changes, tiles across the map, and each changed tile's
+   * index (row by row) and revision. */
+  tileCells: number;
+  tilesX: number;
+  tiles: { index: number; rev: number }[];
+}
+
 export type ResponseBody =
   | { kind: "ack"; message: string }
   | { kind: "raster"; tile: RasterTile }
@@ -932,7 +1074,10 @@ export type ResponseBody =
   | { kind: "firms"; rev: number; firms: FirmBrief[] }
   | { kind: "firm"; firm: FirmInfo }
   | { kind: "wealth"; wealth: WealthInfo }
-  | { kind: "knowledge"; knowledge: KnowledgeInfo };
+  | { kind: "knowledge"; knowledge: KnowledgeInfo }
+  | { kind: "deposits"; deposits: DepositsInfo }
+  | { kind: "earthworks"; earthworks: EarthworksInfo }
+  | { kind: "weather"; weather: WeatherReport };
 
 export type ErrorCode =
   | "unknown"
@@ -1135,10 +1280,40 @@ export function getFirm(id: number): Uint8Array {
   return query(b, W.QueryBody.GetFirm, W.GetFirm.createGetFirm(b, BigInt(id)));
 }
 
+export function getDeposits(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetDeposits.startGetDeposits(b);
+  return query(b, W.QueryBody.GetDeposits, W.GetDeposits.endGetDeposits(b));
+}
+
+export function getEarthworks(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetEarthworks.startGetEarthworks(b);
+  return query(b, W.QueryBody.GetEarthworks, W.GetEarthworks.endGetEarthworks(b));
+}
+
+/** The observer lays down a deposit of `good` (a content id) at a point, metres (god tool). */
+export function placeDeposit(x: number, y: number, good: string, radiusM: number, exposed: boolean): Uint8Array {
+  const b = new flatbuffers.Builder(64);
+  const id = b.createString(good);
+  W.PlaceDeposit.startPlaceDeposit(b);
+  W.PlaceDeposit.addAt(b, W.Vec2.createVec2(b, x, y));
+  W.PlaceDeposit.addGood(b, id);
+  W.PlaceDeposit.addRadiusM(b, radiusM);
+  W.PlaceDeposit.addExposed(b, exposed);
+  return command(b, W.CommandBody.PlaceDeposit, W.PlaceDeposit.endPlaceDeposit(b));
+}
+
 export function getKnowledge(): Uint8Array {
   const b = new flatbuffers.Builder(16);
   W.GetKnowledge.startGetKnowledge(b);
   return query(b, W.QueryBody.GetKnowledge, W.GetKnowledge.endGetKnowledge(b));
+}
+
+export function getWeather(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetWeather.startGetWeather(b);
+  return query(b, W.QueryBody.GetWeather, W.GetWeather.endGetWeather(b));
 }
 
 export function getWealth(): Uint8Array {
@@ -1246,6 +1421,7 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
     defaultMapSize: w.defaultMapSize(),
     speed1x: w.speed1x(),
     speedMultipliers: Array.from(w.speedMultipliersArray() ?? []),
+    acceleratedMultipliers: Array.from(w.acceleratedMultipliersArray() ?? []),
     activities,
     reasons,
     bandSizeMin: w.bandSizeMin(),
@@ -1308,6 +1484,8 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
           season: clock.season() ?? "",
           paused: clock.paused(),
           speed: clock.speed(),
+          mode: clock.mode() === W.ClockMode.Accelerated ? "accelerated" : "detailed",
+          weather: dayWeather(clock.weather()),
         }
       : null,
     task: task
@@ -1339,7 +1517,66 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     firmsRev: Number(s.firmsRev()),
     wealthRev: Number(s.wealthRev()),
     knowledgeRev: Number(s.knowledgeRev()),
+    depositsRev: Number(s.depositsRev()),
+    earthworksRev: Number(s.earthworksRev()),
+    weatherRev: Number(s.weatherRev()),
   };
+}
+
+function deposits(w: W.Deposits): DepositsInfo {
+  const list: DepositInfo[] = [];
+  for (let i = 0; i < w.depositsLength(); i++) {
+    const d = w.deposits(i);
+    if (!d) continue;
+    list.push({
+      id: Number(d.id()),
+      good: d.good(),
+      x: d.x(),
+      y: d.y(),
+      radiusM: d.radiusM(),
+      exposed: d.exposed(),
+      coverM: d.coverM(),
+      thicknessM: d.thicknessM(),
+      quality: d.quality(),
+      leftKg: d.leftKg(),
+      takenKg: d.takenKg(),
+      knownBy: Array.from({ length: d.knownByLength() }, (_, j) => Number(d.knownBy(j) ?? 0n)),
+      finds: Array.from({ length: d.findsLength() }, (_, j) => d.finds(j) ?? ""),
+    });
+  }
+  return { rev: Number(w.rev()), deposits: list };
+}
+
+function earthworks(w: W.Earthworks): EarthworksInfo {
+  const works: EarthworkInfo[] = [];
+  for (let i = 0; i < w.worksLength(); i++) {
+    const e = w.works(i);
+    if (!e) continue;
+    works.push({
+      id: Number(e.id()),
+      kind: e.kind(),
+      x: e.x(),
+      y: e.y(),
+      w: e.w(),
+      h: e.h(),
+      levelM: e.levelM(),
+      sideRun: e.sideRun(),
+      cutM3: e.cutM3(),
+      done: e.done(),
+      household: Number(e.household()),
+      plot: Number(e.plot()),
+      building: Number(e.building()),
+      words: e.words() ?? "",
+      deposit: Number(e.deposit()),
+    });
+  }
+  const tiles: { index: number; rev: number }[] = [];
+  const t = new W.GroundTileRev();
+  for (let i = 0; i < w.tilesLength(); i++) {
+    const tile = w.tiles(i, t);
+    if (tile) tiles.push({ index: tile.index(), rev: tile.rev() });
+  }
+  return { rev: Number(w.rev()), works, tileCells: w.tileCells(), tilesX: w.tilesX(), tiles };
 }
 
 function personBriefs(s: W.Snapshot): PersonBrief[] {
@@ -1601,9 +1838,56 @@ function fields(f: W.Fields): { rev: number; fields: FieldInfo[] } {
       holderSettlement: Number(x.holderSettlement()),
       leaseUntilMinute: Number(x.leaseUntilMinute()),
       leaseShare: x.leaseShare(),
+      waterHad: x.waterHad(),
+      soilWater: x.soilWater(),
     });
   }
   return { rev: Number(f.rev()), fields: out };
+}
+
+function dayWeather(w: W.DayWeather | null): DayWeather | null {
+  if (!w) return null;
+  return {
+    precipMm: w.precipMm(),
+    meanC: w.meanC(),
+    minC: w.minC(),
+    maxC: w.maxC(),
+    snowMm: w.snowMm(),
+    soil: w.soil(),
+    words: w.words() ?? "",
+  };
+}
+
+function weatherReport(r: W.WeatherReport): WeatherReport {
+  const months: WeatherMonth[] = [];
+  const m = new W.WeatherMonthInfo();
+  for (let i = 0; i < r.monthsLength(); i++) {
+    const x = r.months(i, m);
+    if (!x) continue;
+    months.push({
+      year: Number(x.year()),
+      month: x.month(),
+      days: x.days(),
+      precipMm: x.precipMm(),
+      usualMm: x.usualMm(),
+      wetDays: x.wetDays(),
+      meanC: x.meanC(),
+      usualC: x.usualC(),
+      minC: x.minC(),
+      maxC: x.maxC(),
+      frostDays: x.frostDays(),
+      snowDays: x.snowDays(),
+      soil: x.soil(),
+    });
+  }
+  return {
+    rev: Number(r.rev()),
+    heightM: r.heightM(),
+    annualMm: r.annualMm(),
+    today: dayWeather(r.today()),
+    months,
+    month: r.month(),
+  };
 }
 
 function vec2List(n: number, at: (i: number, v: W.Vec2) => W.Vec2 | null): [number, number][] {
@@ -1707,6 +1991,8 @@ function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
       leak: x.leak(),
       groups: groups(x),
       upkeep: x.upkeep() ?? "",
+      style: x.style() ?? "",
+      styleFrom: Number(x.styleFrom()),
     });
   }
   return { rev: Number(f.rev()), buildings: out };
@@ -2171,6 +2457,8 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     partner: Number(p.partner()),
     family: Array.from({ length: p.familyLength() }, (_, k) => p.family(k) ?? ""),
     leftMinute: Number(p.leftMinute()),
+    householdTaste: p.householdTaste() ?? "",
+    householdAdmired: Number(p.householdAdmired()),
   };
 }
 
@@ -2248,6 +2536,21 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Knowledge()) as W.Knowledge | null;
       if (!f) break;
       return { kind: "knowledge", knowledge: knowledge(f) };
+    }
+    case W.ResponseBody.Deposits: {
+      const f = r.body(new W.Deposits()) as W.Deposits | null;
+      if (!f) break;
+      return { kind: "deposits", deposits: deposits(f) };
+    }
+    case W.ResponseBody.Earthworks: {
+      const f = r.body(new W.Earthworks()) as W.Earthworks | null;
+      if (!f) break;
+      return { kind: "earthworks", earthworks: earthworks(f) };
+    }
+    case W.ResponseBody.WeatherReport: {
+      const f = r.body(new W.WeatherReport()) as W.WeatherReport | null;
+      if (!f) break;
+      return { kind: "weather", weather: weatherReport(f) };
     }
     default:
       break;

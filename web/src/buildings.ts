@@ -43,14 +43,17 @@ function bays(n: number): string {
  * of 3 bays, a loft over 1 bay, 50 m², room for 6, 13 m² to store: finished", "granary of 2
  * bays, raised on posts, 15 m², 15 m² to store", then what it shows of its condition and the
  * upkeep under way ("the thatch leaks; mending the covering, 40% done"), then what its
- * household keeps in it ("loft over 1 bay: 1.2 t of 1.9 t, mostly grain"). Its size shows
- * whether its household built for more than live there (M3a slice L: house size by wealth).
+ * household keeps in it ("loft over 1 bay: 1.2 t of 1.9 t, mostly grain"), then how it was built
+ * and what its builders' taste followed ("roof pitched 49°, walls 1.9 m to the eaves, after Bo's
+ * hut"; M3b slice R). Its size shows whether its household built for more than live there (M3a
+ * slice L: house size by wealth).
  */
 export function buildingWords(b: BuildingInfo): string {
   const shows = b.symptoms && b.state !== "ruin" ? `; ${b.symptoms}` : "";
   const upkeep = b.upkeep ? `; ${b.upkeep}` : "";
   const kept = b.stored ? `; ${b.stored}` : "";
-  return `${shapeWords(b)}: ${b.status}${shows}${upkeep}${kept}`;
+  const style = b.style ? `; ${b.style}` : "";
+  return `${shapeWords(b)}: ${b.status}${shows}${upkeep}${kept}${style}`;
 }
 
 /** A building's program and shape: "hut of 30 m², room for 5", or a frame building's bays,

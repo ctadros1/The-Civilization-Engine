@@ -38,7 +38,7 @@ test("people carry what they know, and the observer can teach them", async ({ pa
     // The founders brought every technique of the core content, and each is recorded so.
     const state = await page.evaluate(() => window.__TCE__.state());
     const village = state.knowledge![0]!;
-    expect(village.techniques).toHaveLength(8);
+    expect(village.techniques).toHaveLength(10);
     for (const t of village.techniques) {
       expect(t.known).toBe(true);
       expect(t.knowers).toBeGreaterThan(0);
@@ -47,7 +47,7 @@ test("people carry what they know, and the observer can teach them", async ({ pa
     }
     expect(state.knowledgeRev).not.toBe(0);
     await expect(panel.locator("h3")).toHaveText(village.name);
-    await expect(panel.locator(".since")).toHaveText("Knows 8 techniques.");
+    await expect(panel.locator(".since")).toHaveText("Knows 10 techniques.");
     const emmer = panel.locator("details").filter({ hasText: "Growing emmer" });
     await expect(emmer.locator("summary .status")).toContainText("known by");
     await emmer.locator("summary").click();

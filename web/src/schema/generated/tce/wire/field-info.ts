@@ -128,8 +128,18 @@ leaseShare():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
+waterHad():number {
+  const offset = this.bb!.__offset(this.bb_pos, 44);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : -1.0;
+}
+
+soilWater():number {
+  const offset = this.bb!.__offset(this.bb_pos, 46);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
 static startFieldInfo(builder:flatbuffers.Builder) {
-  builder.startObject(20);
+  builder.startObject(22);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -210,6 +220,14 @@ static addLeaseUntilMinute(builder:flatbuffers.Builder, leaseUntilMinute:bigint)
 
 static addLeaseShare(builder:flatbuffers.Builder, leaseShare:number) {
   builder.addFieldFloat32(19, leaseShare, 0.0);
+}
+
+static addWaterHad(builder:flatbuffers.Builder, waterHad:number) {
+  builder.addFieldFloat32(20, waterHad, -1.0);
+}
+
+static addSoilWater(builder:flatbuffers.Builder, soilWater:number) {
+  builder.addFieldFloat32(21, soilWater, 0.0);
 }
 
 static endFieldInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

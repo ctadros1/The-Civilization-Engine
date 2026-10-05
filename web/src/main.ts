@@ -5,6 +5,7 @@
 import "./styles.css";
 
 import { buildingWords } from "./buildings.js";
+import { depositWords } from "./deposits.js";
 import { formatDistance } from "./format.js";
 import { MapView, type PointerInfo } from "./map/view.js";
 import { tenureText } from "./fields.js";
@@ -69,7 +70,10 @@ const client = new HostClient(socketUrl(), {
     void syncMarkets();
     void syncFirms();
     void syncWealth();
+    void syncWeather();
     void syncKnowledge();
+    void syncDeposits();
+    void syncEarthworks();
     void refreshPerson(false);
   },
   events: (items) => store.update({ events: mergeEvents(store.state.events, items) }),
@@ -190,6 +194,67 @@ async function syncBuildings(): Promise<void> {
     buildingsBusy = false;
   }
   if (ok) void syncBuildings();
+}
+
+/** `world:revision` of the deposits on the map. */
+let depositsKey = "";
+let depositsBusy = false;
+
+/** Fetches the deposits when one was laid down, found or dug from. */
+async function syncDeposits(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const goods = store.state.welcome?.goods ?? [];
+  const key = world && s.depositsRev !== 0 ? `${store.state.epoch}:${world.worldId}:${s.depositsRev}` : "";
+  if (key === depositsKey || depositsBusy) return;
+  if (!key) {
+    depositsKey = "";
+    map.setDeposits([], goods);
+    return;
+  }
+  depositsBusy = true;
+  let ok = false;
+  try {
+    const { deposits } = await client.deposits();
+    depositsKey = key;
+    map.setDeposits(deposits, goods);
+    ok = true;
+  } catch (e) {
+    console.warn(`tce: the deposits could not be read: ${String(e)}`);
+  } finally {
+    depositsBusy = false;
+  }
+  if (ok) void syncDeposits();
+}
+
+/** `world:revision` of the earthworks on the map. */
+let earthworksKey = "";
+let earthworksBusy = false;
+
+/** Fetches the earthworks when one was begun or advanced, and with them the ground they changed. */
+async function syncEarthworks(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const key = world && s.earthworksRev !== 0 ? `${store.state.epoch}:${world.worldId}:${s.earthworksRev}` : "";
+  if (key === earthworksKey || earthworksBusy) return;
+  if (!key) {
+    earthworksKey = "";
+    map.setEarthworks(null);
+    return;
+  }
+  earthworksBusy = true;
+  let ok = false;
+  try {
+    const info = await client.earthworks();
+    earthworksKey = key;
+    map.setEarthworks(info);
+    ok = true;
+  } catch (e) {
+    console.warn(`tce: the earthworks could not be read: ${String(e)}`);
+  } finally {
+    earthworksBusy = false;
+  }
+  if (ok) void syncEarthworks();
 }
 
 /** `world:revision` of the paths on the map. */
@@ -419,6 +484,60 @@ async function syncWealth(): Promise<void> {
   if (ok) void syncWealth();
 }
 
+/** `world:revision` of the weather shown, the world it belongs to, and when it was asked for. */
+let weatherKey = "";
+let weatherWorld = "";
+let weatherBusy = false;
+let weatherAskedAt = -Infinity;
+/** An ask held back by the rate limit, so the last change is always fetched. */
+let weatherTimer = 0;
+/** Least real time between fetches of the weather: the record changes every day lived. */
+const WEATHER_REFRESH_MS = 2000;
+
+/** Fetches every month's weather as days are lived (wire 1.24). */
+async function syncWeather(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const worldKey = world ? `${store.state.epoch}:${world.worldId}` : "";
+  if (worldKey !== weatherWorld) {
+    // Another world's weather is not shown while this one's is read.
+    weatherWorld = worldKey;
+    weatherKey = "";
+    weatherAskedAt = -Infinity;
+    store.update({ weather: null, weatherError: null });
+  }
+  if (!world || !s.weatherRev) return;
+  const key = `${worldKey}:${s.weatherRev}`;
+  if (key === weatherKey || weatherBusy) return;
+  const now = performance.now();
+  const waited = now - weatherAskedAt;
+  if (waited < WEATHER_REFRESH_MS) {
+    if (!weatherTimer) {
+      weatherTimer = window.setTimeout(() => {
+        weatherTimer = 0;
+        void syncWeather();
+      }, WEATHER_REFRESH_MS - waited);
+    }
+    return;
+  }
+  weatherBusy = true;
+  weatherAskedAt = now;
+  let ok = false;
+  try {
+    const weather = await client.weather();
+    if (weatherWorld === worldKey) {
+      weatherKey = key;
+      store.update({ weather, weatherError: null });
+      ok = true;
+    }
+  } catch (e) {
+    if (weatherWorld === worldKey) store.update({ weatherError: errorText(e) });
+  } finally {
+    weatherBusy = false;
+  }
+  if (ok) void syncWeather();
+}
+
 /** `world:revision` of the knowledge shown, the world it belongs to, and when it was asked for. */
 let knowledgeKey = "";
 let knowledgeWorld = "";
@@ -591,9 +710,11 @@ map.onPointer = (info: PointerInfo | null) => {
     : "";
   const path = info.path && !info.building ? ` · ${pathWords(info.path)}` : "";
   const building = info.building ? ` · ${buildingWords(info.building)}` : "";
+  const deposit = info.deposit ? ` · ${depositWords(info.deposit, store.state.welcome?.goods ?? [])}` : "";
+  const earthwork = info.earthwork ? ` · ${info.earthwork.words}` : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}${path}${field}${building}`;
+    `${height} · ${info.water ?? ""}${path}${field}${building}${earthwork}${deposit}`;
 };
 
 const scaleBar = byId("scalebar-bar");
@@ -645,6 +766,7 @@ bindUi(store, {
     if (clock) await command(M.runUntil(clock.minute + minutes));
   },
   setPlacing,
+  setPlacingDeposit,
   introduceTechnique,
 });
 
@@ -653,11 +775,40 @@ bindUi(store, {
  * come together.
  */
 function setPlacing(on: boolean, families = store.state.placeFamilies): void {
-  store.update({ placing: on, placeFamilies: families });
+  store.update({ placing: on, placeFamilies: families, placingDeposit: false });
   map.setPlacing(on);
 }
 
+/**
+ * Arms or disarms the map tool that lays down a deposit of `good` (a content id) where the map is
+ * clicked, showing at the surface or buried (M3b slice Q).
+ */
+function setPlacingDeposit(on: boolean, good: string, exposed: boolean): void {
+  store.update({ placingDeposit: on, depositGood: good, depositExposed: exposed, placing: false });
+  map.setPlacing(on);
+}
+
+/** The radius, metres, of a deposit the observer lays down. */
+const PLACED_DEPOSIT_RADIUS_M = 10;
+
 map.onPlace = (xM, yM) => {
+  if (store.state.placingDeposit) {
+    const { depositGood, depositExposed } = store.state;
+    setPlacingDeposit(false, depositGood, depositExposed);
+    void (async () => {
+      try {
+        const body = await client.command(
+          M.placeDeposit(xM, yM, depositGood, PLACED_DEPOSIT_RADIUS_M, depositExposed),
+        );
+        const text = body.kind === "ack" && body.message ? body.message : "A deposit was laid down";
+        store.update({ notice: { kind: "info", text } });
+      } catch (e) {
+        const text = e instanceof HostError ? e.message : String(e);
+        store.update({ notice: { kind: "error", text } });
+      }
+    })();
+    return;
+  }
   setPlacing(false);
   void (async () => {
     try {
@@ -673,6 +824,9 @@ map.onPlace = (xM, yM) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && store.state.placing) setPlacing(false);
+  if (event.key === "Escape" && store.state.placingDeposit) {
+    setPlacingDeposit(false, store.state.depositGood, store.state.depositExposed);
+  }
 });
 
 /** Test and debugging hooks (mirrors Genesis's window.__OBS__). Plain data only. */
@@ -698,6 +852,16 @@ const hooks = {
       firmsRev: s.snapshot?.firmsRev ?? 0,
       wealthRev: s.snapshot?.wealthRev ?? 0,
       knowledgeRev: s.snapshot?.knowledgeRev ?? 0,
+      depositsRev: s.snapshot?.depositsRev ?? 0,
+      earthworksRev: s.snapshot?.earthworksRev ?? 0,
+      weatherRev: s.snapshot?.weatherRev ?? 0,
+      weather: s.weather
+        ? {
+            months: s.weather.months.length,
+            today: s.weather.today?.words ?? null,
+            annualMm: s.weather.annualMm,
+          }
+        : null,
       knowledge: s.knowledge
         ? s.knowledge.settlements.map((x) => ({
             name: x.name,

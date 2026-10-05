@@ -28,3 +28,10 @@ reap_h_per_ha = 280.0            # 08-02 §3.2: harvest and field collection 35 
 thresh_h_per_kg = 0.1            # 08-02 §3.2: threshing, drying and sorting 10 days/ha at 800 kg/ha
 straw_good = "core:good/thatch"  # long straw for roofs
 straw_kg_per_kg = 1.0            # tuning: old wheats grow 1.5-2 kg of straw per kg of grain; sickles leave the rest as stubble
+# Water (ADR-0012 §2): the crop's need is the reference evapotranspiration times its coefficient,
+# by stage (FAO-56's curve; research 03-02 §2.1 gives wheat 450-650 mm a season and maize's 0.40
+# rising to 1.15). Its harvest falls by Ky for each share of the need unmet: 1.15 for spring wheat
+# (08-02 §7.2). The stage lengths are tuning values for a 120-day spring crop.
+kc = [0.4, 1.15, 0.4]
+kc_days = [30, 30, 40, 20]       # initial, development, mid-season, late
+ky = 1.15

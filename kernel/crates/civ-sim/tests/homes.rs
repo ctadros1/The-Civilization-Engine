@@ -770,3 +770,279 @@ fn a_building_nobody_can_work_on_holds_nothing_else_up() {
     }
     panic!("the household planned nothing else in thirty days");
 }
+
+#[test]
+fn a_household_seeks_level_ground_before_it_levels_and_never_builds_on_ground_too_steep() {
+    let sim = world(3);
+    let catalog = &content().catalog;
+    let hut = &catalog.buildings[program("core:building/hut")];
+    let home = sim
+        .people()
+        .households
+        .iter()
+        .min_by_key(|(_, h)| h.id)
+        .map(|(_, h)| h.home)
+        .expect("a household");
+    let shape = Shape::Round { radius: 250 };
+    let design_at = |at: (f32, f32)| build::design_shape(hut, &catalog.goods, shape, at, None);
+    let site = |levelling: &dyn Fn(&civ_land::RectCm) -> Option<f64>| {
+        build::home_site(
+            sim.land(),
+            sim.map(),
+            sim.nav(),
+            hut,
+            &design_at,
+            home,
+            None,
+            30.0,
+            levelling,
+        )
+        .map(|spec| build::plot_rect(&spec, hut))
+    };
+    // Level ground at home: it builds there.
+    let at_home = site(&|_| Some(0.0)).expect("a site");
+    // Home's ground would have to be levelled and there is level ground beside it: it builds
+    // beside it.
+    let beside = site(&|r| Some(if *r == at_home { 0.8 } else { 0.0 })).expect("a site");
+    assert_ne!(beside, at_home);
+    // All of it would have to be levelled: the plot that needs least, the nearest among equals.
+    assert_eq!(
+        site(&|r| Some(if *r == at_home { 1.5 } else { 0.6 })),
+        Some(beside)
+    );
+    assert_eq!(
+        site(&|r| Some(if *r == at_home { 0.6 } else { 1.5 })),
+        Some(at_home)
+    );
+    // Too steep at home and level beside it: beside it. Too steep everywhere: nowhere.
+    assert_eq!(site(&|r| (*r != at_home).then_some(0.0)), Some(beside));
+    assert_eq!(site(&|_| None), None);
+}
+
+#[test]
+fn a_hut_on_sloping_ground_has_its_plot_levelled_first_and_the_ground_keeps_it() {
+    use civ_land::earth;
+    let mut sim = world(3);
+    let catalog = &content().catalog;
+    let hut = &catalog.buildings[program("core:building/hut")];
+    let (household, home) = {
+        let (_, h) = sim
+            .people()
+            .households
+            .iter()
+            .min_by_key(|(_, h)| h.id)
+            .expect("a household");
+        (h.id, h.home)
+    };
+    let lev = sim.rules().people.build.levelling;
+    // Somewhere near home whose ground drops between levelling's threshold and the most built on.
+    let shape = Shape::Round { radius: 250 };
+    let mut found = None;
+    'search: for r in 1..60 {
+        for k in 0..16 {
+            let a = f64::from(k) * std::f64::consts::TAU / 16.0;
+            let at = (
+                home.0 + (f64::from(r) * 8.0 * a.cos()) as f32,
+                home.1 + (f64::from(r) * 8.0 * a.sin()) as f32,
+            );
+            let Some(spec) = build::design_shape(hut, &catalog.goods, shape, at, None) else {
+                continue;
+            };
+            let rect = build::plot_rect(&spec, hut);
+            let drop = earth::drop_across(&rect, &|x, y| earth::bed_height(sim.map(), (x, y)));
+            if drop > lev.from_m + 0.2 && drop < lev.most_m - 0.2 {
+                found = Some(spec);
+                break 'search;
+            }
+        }
+    }
+    let spec = found.expect("sloping ground near home");
+    let house = sim
+        .place_building_for_tests(household, spec, 0)
+        .expect("placed");
+    let plot = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == house)
+        .expect("the hut")
+        .plot;
+    let work = *sim
+        .land()
+        .earthworks
+        .iter()
+        .find(|w| w.plot == Some(plot))
+        .expect("a platform for its plot");
+    assert_eq!(work.done, 0.0);
+    assert!(work.cut_m3 > 0.0, "{work:?}");
+    // The household levels it with the first stage's first hours.
+    for _ in 0..30 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        let w = sim
+            .land()
+            .earthworks
+            .iter()
+            .find(|w| w.id == work.id)
+            .expect("there");
+        if w.done >= 1.0 {
+            break;
+        }
+    }
+    let done = sim
+        .land()
+        .earthworks
+        .iter()
+        .find(|w| w.id == work.id)
+        .expect("there")
+        .done;
+    assert!(done > 0.0, "levelling began");
+    // The boundary says what it is and which tiles of ground it changed (wire 1.20).
+    let bytes = civ_sim::frames::earthworks::earthworks_response(&sim);
+    let response =
+        civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("decodes");
+    let list = response.body_as_earthworks().expect("earthworks");
+    assert_ne!(list.rev(), 0);
+    assert_eq!(
+        list.rev(),
+        civ_sim::frames::earthworks::earthworks_rev(&sim)
+    );
+    let info = list
+        .works()
+        .expect("works")
+        .iter()
+        .find(|w| w.id() == work.id.get())
+        .expect("the platform");
+    assert_eq!((info.plot(), info.building()), (plot.get(), house.get()));
+    let words = info.words().unwrap_or_default();
+    assert!(
+        words.starts_with("the plot of ") && words.contains("'s hut") && words.contains("levelled"),
+        "{words}"
+    );
+    assert_eq!(list.tile_cells(), earth::DELTA_TILE);
+    let tiles = list.tiles().expect("tiles");
+    assert!(!tiles.is_empty());
+    for t in tiles.iter() {
+        assert!(
+            sim.land()
+                .ground
+                .tiles()
+                .any(|(i, g)| i == t.index() && g.rev == t.rev())
+        );
+    }
+    // Earth is moved, not made: what is cut is filled, give or take its sides at the map's edge.
+    let ground = &sim.land().ground;
+    assert!(
+        ground.net_m3().abs() < 0.05 * f64::from(work.cut_m3) + 0.5,
+        "{} of {}",
+        ground.net_m3(),
+        work.cut_m3
+    );
+    // The records reproduce the ground (ADR-0010 §3).
+    let map = sim.map();
+    let mut replayed = earth::GroundDelta::new(map.width, map.height, map.cell_size_m);
+    for w in &sim.land().earthworks {
+        earth::replay(w, map, &mut replayed);
+    }
+    for cell in 0..(map.width * map.height) as usize {
+        assert!(
+            (replayed.at(cell) - ground.at(cell)).abs() < 1e-3,
+            "cell {cell}"
+        );
+    }
+    // A save keeps the records and the ground.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION)
+            .expect("dir");
+    let saved =
+        civ_sim::persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "earth")
+            .expect("saves");
+    let loaded = civ_sim::persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.land().earthworks, sim.land().earthworks);
+    assert_eq!(loaded.land().ground, sim.land().ground);
+}
+
+#[test]
+fn a_hut_s_daub_is_dug_from_a_pit_beside_it_as_its_walls_go_up() {
+    use civ_grammar::Stage;
+    use civ_land::earth::{self, EarthKind};
+    let mut sim = world(3);
+    let catalog = &content().catalog;
+    // Until a hut has its walls.
+    let walled =
+        |b: &civ_land::Building| b.finished() || b.stage().is_some_and(|s| s > Stage::Walls);
+    let mut hut = None;
+    for _ in 0..60 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        hut = sim.land().buildings.iter().find(|b| walled(b)).cloned();
+        if hut.is_some() {
+            break;
+        }
+    }
+    let hut = hut.expect("a hut has its walls");
+    let def = &catalog.buildings[program(&hut.spec.program)];
+    let daub = civ_grammar::expand(&hut.spec, &def.rules)
+        .expect("expands")
+        .daub_m3(None);
+    assert!(daub > 1.0, "{daub}");
+    // Its daub pit holds what its walls do: no more, as nothing has been mended yet.
+    let pit = *sim
+        .land()
+        .earthworks
+        .iter()
+        .find(|w| w.kind == EarthKind::Pit && w.plot == Some(hut.plot))
+        .expect("a daub pit");
+    assert_eq!(pit.deposit, None);
+    assert!(
+        (f64::from(pit.cut_m3) - daub).abs() < 1e-3 * daub,
+        "{} of {daub}",
+        pit.cut_m3
+    );
+    // Beside the plot, clear of it, and sized to go about a metre down with it, at least a pit's
+    // side across.
+    let plot = sim
+        .land()
+        .plots
+        .iter()
+        .find(|p| p.id == hut.plot)
+        .expect("its plot")
+        .rect;
+    assert!(!pit.rect.near(&plot, 0), "{pit:?}");
+    assert!(pit.rect.near(&plot, 1_300), "{pit:?}");
+    let side = f64::from(pit.rect.w) / 100.0;
+    assert!(side >= sim.rules().people.digging.pit_side_m, "{side}");
+    assert!(pit.depth_m() <= 1.0 + 1e-6, "{}", pit.depth_m());
+    // The ground lost it, and the records reproduce the ground.
+    let map = sim.map();
+    let mut replayed = earth::GroundDelta::new(map.width, map.height, map.cell_size_m);
+    for w in &sim.land().earthworks {
+        earth::replay(w, map, &mut replayed);
+    }
+    for cell in 0..(map.width * map.height) as usize {
+        assert!(
+            (replayed.at(cell) - sim.land().ground.at(cell)).abs() < 1e-3,
+            "cell {cell}"
+        );
+    }
+    // Nobody builds on it, and the observer names it.
+    assert!(!build::plot_clear(sim.land(), map, sim.nav(), &pit.rect));
+    let bytes = civ_sim::frames::earthworks::earthworks_response(&sim);
+    let response =
+        civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("decodes");
+    let info = response
+        .body_as_earthworks()
+        .expect("earthworks")
+        .works()
+        .expect("works")
+        .iter()
+        .find(|w| w.id() == pit.id.get())
+        .expect("the daub pit");
+    assert_eq!((info.kind(), info.deposit()), (1, 0));
+    let words = info.words().unwrap_or_default();
+    assert!(
+        words.starts_with("the daub pit of ")
+            && words.contains("'s hut, ")
+            && words.ends_with(" m deep"),
+        "{words}"
+    );
+}

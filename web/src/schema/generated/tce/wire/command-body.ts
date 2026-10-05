@@ -6,6 +6,7 @@ import { CancelTask } from '../../tce/wire/cancel-task.js';
 import { IntroduceTechnique } from '../../tce/wire/introduce-technique.js';
 import { LoadWorld } from '../../tce/wire/load-world.js';
 import { NewWorld } from '../../tce/wire/new-world.js';
+import { PlaceDeposit } from '../../tce/wire/place-deposit.js';
 import { RecoverWorld } from '../../tce/wire/recover-world.js';
 import { RunUntil } from '../../tce/wire/run-until.js';
 import { SaveWorld } from '../../tce/wire/save-world.js';
@@ -23,13 +24,14 @@ export enum CommandBody {
   RecoverWorld = 6,
   SpawnFamily = 7,
   RunUntil = 8,
-  IntroduceTechnique = 9
+  IntroduceTechnique = 9,
+  PlaceDeposit = 10
 }
 
 export function unionToCommandBody(
   type: CommandBody,
-  accessor: (obj:CancelTask|IntroduceTechnique|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily) => CancelTask|IntroduceTechnique|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|null
-): CancelTask|IntroduceTechnique|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|null {
+  accessor: (obj:CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily) => CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|null
+): CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|null {
   switch(CommandBody[type]) {
     case 'NONE': return null; 
     case 'NewWorld': return accessor(new NewWorld())! as NewWorld;
@@ -41,15 +43,16 @@ export function unionToCommandBody(
     case 'SpawnFamily': return accessor(new SpawnFamily())! as SpawnFamily;
     case 'RunUntil': return accessor(new RunUntil())! as RunUntil;
     case 'IntroduceTechnique': return accessor(new IntroduceTechnique())! as IntroduceTechnique;
+    case 'PlaceDeposit': return accessor(new PlaceDeposit())! as PlaceDeposit;
     default: return null;
   }
 }
 
 export function unionListToCommandBody(
   type: CommandBody, 
-  accessor: (index: number, obj:CancelTask|IntroduceTechnique|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily) => CancelTask|IntroduceTechnique|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|null, 
+  accessor: (index: number, obj:CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily) => CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|null, 
   index: number
-): CancelTask|IntroduceTechnique|LoadWorld|NewWorld|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|null {
+): CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|null {
   switch(CommandBody[type]) {
     case 'NONE': return null; 
     case 'NewWorld': return accessor(index, new NewWorld())! as NewWorld;
@@ -61,6 +64,7 @@ export function unionListToCommandBody(
     case 'SpawnFamily': return accessor(index, new SpawnFamily())! as SpawnFamily;
     case 'RunUntil': return accessor(index, new RunUntil())! as RunUntil;
     case 'IntroduceTechnique': return accessor(index, new IntroduceTechnique())! as IntroduceTechnique;
+    case 'PlaceDeposit': return accessor(index, new PlaceDeposit())! as PlaceDeposit;
     default: return null;
   }
 }

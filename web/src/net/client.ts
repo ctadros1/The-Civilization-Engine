@@ -282,11 +282,32 @@ export class HostClient {
     return body.firm;
   }
 
+  /** Every month's weather on the valley floor, beside what each usually brings (wire 1.24). */
+  async weather(): Promise<M.WeatherReport> {
+    const body = await this.query(M.getWeather());
+    if (body.kind !== "weather") throw new HostError("internal", "expected the weather");
+    return body.weather;
+  }
+
   /** Every settlement's wealth measures: as they stand, each household's, and each year's. */
   async wealth(): Promise<M.WealthInfo> {
     const body = await this.query(M.getWealth());
     if (body.kind !== "wealth") throw new HostError("internal", "expected wealth measures");
     return body.wealth;
+  }
+
+  /** Every deposit in the ground and who knows it (M3b slice Q). */
+  async deposits(): Promise<M.DepositsInfo> {
+    const body = await this.query(M.getDeposits());
+    if (body.kind !== "deposits") throw new HostError("internal", "expected deposits");
+    return body.deposits;
+  }
+
+  /** Every earthwork and the tiles of ground they have changed (M3b slice Q). */
+  async earthworks(): Promise<M.EarthworksInfo> {
+    const body = await this.query(M.getEarthworks());
+    if (body.kind !== "earthworks") throw new HostError("internal", "expected earthworks");
+    return body.earthworks;
   }
 
   /** What each settlement knows, is learning and has lost (M3b slice M). */

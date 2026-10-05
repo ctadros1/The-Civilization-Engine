@@ -1,0 +1,19 @@
+# Breaking stone out of a quarry at a deposit the settlement knows, and carrying it home (tuning
+# starting points). Only done while the household needs stone for something it makes, and when it
+# brings more for the walk than gathering loose stone. Quarrying is heavy work.
+kind = "activity"
+id = "core:activity/quarry_stone"
+name = "Quarry stone"
+doing = "quarrying stone"
+behavior = "dig"
+digs = "core:good/stone"
+par = 5.5
+min_age_years = 14.0
+max_age_years = 60.0
+min_minutes = 30
+max_minutes = 180
+daylight_only = true
+max_walk_minutes = 60
+technique = ""
+tools = []
+rate = 1.0

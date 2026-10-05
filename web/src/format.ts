@@ -42,8 +42,9 @@ export function formatSimMinute(minutes: number): string {
   return formatSimDate(simDate(minutes));
 }
 
-/** "1×", "3×", "10×" for a speed in simulated seconds per real second. */
+/** "1×", "3×", "10×" for a speed in simulated seconds per real second; "Max" for Max. */
 export function formatSpeed(speed: number, speed1x: number): string {
+  if (speed === Infinity) return "Max";
   const multiple = speed / speed1x;
   const text = Number.isInteger(multiple) ? String(multiple) : multiple.toFixed(1);
   return `${text}×`;

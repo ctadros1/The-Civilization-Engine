@@ -34,6 +34,20 @@ pub fn founding_taste(
     }))
 }
 
+/// The taste of a couple's new household from those of the households they grew up in, hers and
+/// his, each with the building it admired: halfway between the two, admiring what hers admired,
+/// else what his did.
+pub fn couple_taste(
+    hers: (&Taste, Option<PermanentId>),
+    his: (&Taste, Option<PermanentId>),
+) -> (Taste, Option<PermanentId>) {
+    let (a, b) = (hers.0.traits(), his.0.traits());
+    (
+        Taste::from_traits(std::array::from_fn(|k| (a[k] + b[k]) / 2.0)),
+        hers.1.or(his.1),
+    )
+}
+
 /// What program `def` allows of each trait, least and most: pitch, eaves and overhang.
 pub fn allowed(def: &BuildingDef) -> [(f32, f32); 3] {
     let pair = |(lo, hi): (i32, i32)| (lo as f32, hi as f32);
@@ -153,6 +167,32 @@ mod tests {
             "{a:?} {b:?}"
         );
         assert_ne!(gap(&a, &other), 0.0);
+    }
+
+    #[test]
+    fn a_couple_builds_halfway_between_their_families_and_after_what_hers_admired() {
+        let p = params();
+        let hers = p.tradition_mean;
+        let his = Taste {
+            pitch_centideg: 5_100.0,
+            eave_cm: 200.0,
+            overhang_cm: 60.0,
+        };
+        let (taste, admired) = couple_taste((&hers, Some(id(4))), (&his, Some(id(5))));
+        assert_eq!(
+            taste,
+            Taste {
+                pitch_centideg: 4_800.0,
+                eave_cm: 190.0,
+                overhang_cm: 55.0,
+            }
+        );
+        assert_eq!(admired, Some(id(4)), "what her household admired");
+        assert_eq!(
+            couple_taste((&hers, None), (&his, Some(id(5)))).1,
+            Some(id(5))
+        );
+        assert_eq!(couple_taste((&hers, None), (&his, None)).1, None);
     }
 
     #[test]

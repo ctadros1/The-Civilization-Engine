@@ -184,6 +184,8 @@ pub(crate) struct Farm {
     pub loss_share: f64,
     pub grain_target_days: f64,
     pub work_hours_per_day: f64,
+    /// Content API 24: field work a capable adult gives on a workable day at a peak (ADR-0012 §5).
+    pub peak_work_hours_per_day: f64,
     pub field_m: f64,
     pub max_walk_minutes: f64,
     pub site_candidates: u32,
@@ -550,6 +552,7 @@ impl PeopleFile {
                 loss_share: self.farm.loss_share,
                 grain_target_days: self.farm.grain_target_days,
                 work_hours_per_day: self.farm.work_hours_per_day,
+                peak_work_hours_per_day: self.farm.peak_work_hours_per_day,
                 field_m: self.farm.field_m,
                 max_walk_minutes: self.farm.max_walk_minutes,
                 site_candidates: self.farm.site_candidates,
@@ -1033,6 +1036,14 @@ impl PeopleFile {
         positive("farm.grain_target_days", f.grain_target_days, &mut p);
         if !(f.work_hours_per_day.is_finite() && (0.5..=16.0).contains(&f.work_hours_per_day)) {
             p.push("`farm.work_hours_per_day` must be between 0.5 and 16".to_owned());
+        }
+        if !(f.peak_work_hours_per_day.is_finite()
+            && (f.work_hours_per_day..=16.0).contains(&f.peak_work_hours_per_day))
+        {
+            p.push(
+                "`farm.peak_work_hours_per_day` must be between `work_hours_per_day` and 16"
+                    .to_owned(),
+            );
         }
         if !(f.field_m.is_finite() && (10.0..=500.0).contains(&f.field_m)) {
             p.push("`farm.field_m` must be between 10 and 500 metres".to_owned());

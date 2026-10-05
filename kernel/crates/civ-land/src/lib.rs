@@ -33,7 +33,7 @@ pub use buildings::{
 };
 pub use fields::{CropParams, Field, FieldStage, FieldTask, Lease, Party, RectCm, WorkDone};
 pub use paths::{PathParams, Trail, ViewTile, Wear, WearTile};
-pub use weather::{Climatology, MonthRecord, Weather, WeatherDay, WeatherParams};
+pub use weather::{Climatology, MonthRecord, Unworkable, Weather, WeatherDay, WeatherParams};
 
 use civ_core::time::{DAYS_PER_YEAR, MONTH_STARTS};
 use civ_core::{PermanentId, SimTime};
@@ -804,6 +804,31 @@ impl Land {
                 .cover_factor(self.weather.cover_ease, month),
             _ => 1.0,
         }
+    }
+
+    /// Why field work cannot be done at `at` (metres) today, if it cannot (ADR-0012 §5): its
+    /// ground too wet, under snow or frozen, at its own height.
+    pub fn unworkable_at(
+        &self,
+        params: &LandParams,
+        map: &WorldMap,
+        at: (f32, f32),
+    ) -> Option<Unworkable> {
+        self.weather
+            .unworkable(&params.weather, height_at(map, at.0, at.1))
+    }
+
+    /// The share of its yield field `f` is expected to give, from what its season so far shows:
+    /// an average year's until it is sown (ADR-0012 §4).
+    pub fn expected_water(&self, f: &Field) -> f64 {
+        if f.stage != FieldStage::Sown {
+            return 1.0;
+        }
+        self.climatology.expected_crop_factor(
+            usize::from(f.crop),
+            f64::from(f.need_mm),
+            f64::from(f.got_mm),
+        )
     }
 
     /// The share of its yield field `f`'s season's water allows: 1 in a season of average water

@@ -344,9 +344,11 @@ impl Field {
     }
 
     /// What people expect the field to give in all if the remaining work is done in time,
-    /// kilograms of grain, from what they know on `day`: an average year, sowing finishing today
-    /// (or when the window opens), the tending still to do done, reaping at ripeness.
-    pub fn expected_kg(&self, crop: &CropParams, day: i64) -> f64 {
+    /// kilograms of grain, from what they know on `day`: sowing finishing today (or when the
+    /// window opens), the tending still to do done, reaping at ripeness, and a growing crop's
+    /// water expected to allow a share `water` of its yield (an average year's, 1, before it is
+    /// sown; ADR-0012 §4).
+    pub fn expected_kg(&self, crop: &CropParams, day: i64, water: f64) -> f64 {
         let ha = self.area_ha();
         let base = ha * crop.yield_kg_per_ha * f64::from(self.ground);
         match self.stage {
@@ -361,7 +363,7 @@ impl Field {
                 let reap_day = day.max(self.ripe_day(crop));
                 let mut f = self.clone();
                 f.tended_h = (crop.tend_h_per_ha * ha) as f32;
-                f.yield_kg(crop, reap_day, 1.0)
+                f.yield_kg(crop, reap_day, water)
             }
             FieldStage::Reaped => f64::from(self.sheaves_kg),
         }
@@ -597,7 +599,9 @@ pub(crate) mod tests {
         f.work(&c, FieldTask::Tend, 100.0, 100, 1.0, 0.0, t);
         assert_eq!(f.task(&c, 150), None, "tended; not ripe yet");
         assert_eq!(f.task(&c, 200), Some(FieldTask::Reap));
-        assert!((f.expected_kg(&c, 200) - 100.0).abs() < 1e-6);
+        assert!((f.expected_kg(&c, 200, 1.0) - 100.0).abs() < 1e-6);
+        // A season short of water is expected to give less.
+        assert!((f.expected_kg(&c, 200, 0.8) - 80.0).abs() < 1e-6);
         assert!(f.work(&c, FieldTask::Reap, 25.0, 200, 1.0, 0.0, t).finished);
         assert!((f64::from(f.sheaves_kg) - 100.0).abs() < 1e-4);
         // Threshing: half an hour a kilogram.

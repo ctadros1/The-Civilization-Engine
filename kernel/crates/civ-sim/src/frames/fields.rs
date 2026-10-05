@@ -169,7 +169,9 @@ pub fn fields_response(sim: &Sim) -> Vec<u8> {
                     progress: crop.map_or(0.0, |c| progress(f, c, day)) as f32,
                     new_ground: !f.broken,
                     woodland: !f.broken && f.clear_h_per_ha > 0.0,
-                    expected_kg: crop.map_or(0.0, |c| f.expected_kg(c, day)) as f32,
+                    expected_kg: crop
+                        .map_or(0.0, |c| f.expected_kg(c, day, sim.land.expected_water(f)))
+                        as f32,
                     sheaves_kg: f.sheaves_kg,
                     harvests: u32::from(f.harvests),
                     status: Some(text),

@@ -160,6 +160,8 @@ mod tests {
             soil_water_mm: 100.0,
             easy_water_share: 0.55,
             cover_kc: 0.9,
+            wet_ground_mm: 5.0,
+            frozen_below_c: 0.0,
         }
     }
 

@@ -1278,9 +1278,16 @@ fn slice_b_saves_load_without_fields_and_farm_again() {
     let mut migrated = persist::load(&path, content()).expect("a schema-3 save loads");
     assert!(migrated.is_dirty(), "the migration is new state");
     assert!(migrated.land().fields.is_empty());
-    migrated
-        .advance_minutes(24 * 60)
-        .expect("a migrated world runs");
+    // In March they mark out fields again, on the first days the ground can be worked: rain,
+    // snow lying or frost keep them off it (ADR-0012 §5).
+    for _ in 0..30 {
+        migrated
+            .advance_minutes(24 * 60)
+            .expect("a migrated world runs");
+        if !migrated.land().fields.is_empty() {
+            break;
+        }
+    }
     assert!(
         !migrated.land().fields.is_empty(),
         "in March they mark out fields again"

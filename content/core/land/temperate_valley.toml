@@ -60,6 +60,11 @@ melt_mm_per_c = 3.0              # degree-day melt, mm of water per °C a day (t
 soil_water_mm = 100.0
 easy_water_share = 0.55
 cover_kc = 0.9                   # the wild cover's water use against the reference (grass, tuning)
+# Days the ground cannot be worked (ADR-0012 §5; content API 24): rain or snow of this much in a
+# day makes it too wet (a tuning value), and below this daily mean it is frozen.
+# Snow lying keeps people off it too. Threshing at home goes on whatever the weather.
+wet_ground_mm = 5.0
+frozen_below_c = 0.0
 
 # Walking wears the ground of each 8 m cell it crosses; unused wear fades as plants grow back
 # (research 10-03 §1.1: dw/dt = aq(1 - w) - bw). Starting values from the research's sensitivity

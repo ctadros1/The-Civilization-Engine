@@ -111,6 +111,10 @@ pub(crate) struct WeatherFile {
     pub soil_water_mm: f64,
     pub easy_water_share: f64,
     pub cover_kc: f64,
+    /// Content API 24: a day's rain or snow, mm, that keeps people off the ground, and the mean
+    /// below which it is frozen (ADR-0012 §5).
+    pub wet_ground_mm: f64,
+    pub frozen_below_c: f64,
 }
 
 impl WeatherFile {
@@ -138,6 +142,8 @@ impl WeatherFile {
             soil_water_mm: self.soil_water_mm,
             easy_water_share: self.easy_water_share,
             cover_kc: self.cover_kc,
+            wet_ground_mm: self.wet_ground_mm,
+            frozen_below_c: self.frozen_below_c,
         }
     }
 
@@ -188,6 +194,8 @@ impl WeatherFile {
         one("soil_water_mm", self.soil_water_mm, 10.0, 500.0, p);
         one("easy_water_share", self.easy_water_share, 0.1, 0.9, p);
         one("cover_kc", self.cover_kc, 0.1, 2.0, p);
+        one("wet_ground_mm", self.wet_ground_mm, 0.5, 100.0, p);
+        one("frozen_below_c", self.frozen_below_c, -10.0, 5.0, p);
     }
 }
 

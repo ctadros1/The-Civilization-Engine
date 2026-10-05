@@ -911,6 +911,9 @@ pub struct FarmParams {
     pub grain_target_days: f64,
     /// Hours of field work a capable adult gives a day, for planning what can be done in time.
     pub work_hours_per_day: f64,
+    /// Hours of field work a capable adult gives at a peak, on a day the ground can be worked:
+    /// what makes up the days the weather takes from a sowing window (ADR-0012 §5).
+    pub peak_work_hours_per_day: f64,
     /// Side of a new field, metres.
     pub field_m: f64,
     /// Longest walk to a field, minutes.

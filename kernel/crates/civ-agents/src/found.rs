@@ -1186,6 +1186,7 @@ pub(crate) mod tests {
                 loss_share: 0.0,
                 grain_target_days: 400.0,
                 work_hours_per_day: 6.0,
+                peak_work_hours_per_day: 10.0,
                 field_m: 50.0,
                 max_walk_minutes: 30.0,
                 site_candidates: 24,

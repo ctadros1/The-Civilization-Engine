@@ -10,7 +10,7 @@ use std::io::Write;
 
 use civ_content::{ContentRegistry, WorldgenPreset};
 use civ_core::time::{DAYS_PER_YEAR, DEFAULT_WORLD_START};
-use civ_land::weather::{self, MonthRecord, Weather, root_zone_day};
+use civ_land::weather::{self, MonthRecord, Unworkable, Weather, root_zone_day};
 use civ_land::{Climatology, day_of_year};
 
 /// What to draw.
@@ -45,6 +45,10 @@ pub struct Year {
     pub crop_water: f64,
     /// That crop's harvest as a share of an average year's (ADR-0012 §2).
     pub crop_factor: f64,
+    /// Days of the crop's window for preparing and sowing in the year, and those of them the
+    /// ground could be worked (ADR-0012 §5).
+    pub window_days: u32,
+    pub workable_days: u32,
 }
 
 fn preset<'a>(
@@ -60,13 +64,14 @@ fn preset<'a>(
 }
 
 /// The weather a world of `seed` made from `preset` lives on the valley floor, from its first day
-/// through `until` (a day index), calling `each` with every day lived and what reached the ground.
+/// through `until` (a day index), calling `each` with every day lived, what reached the ground,
+/// and why the ground could not be worked that day, if it could not.
 pub fn replay(
     content: &ContentRegistry,
     preset: &WorldgenPreset,
     seed: u64,
     until: i64,
-    mut each: impl FnMut(i64, &weather::DayWater),
+    mut each: impl FnMut(i64, &weather::DayWater, Option<Unworkable>),
 ) -> (Climatology, Weather) {
     let climate = civ_sim::climatology_of(content, preset, seed);
     let params = &content.land.params.weather;
@@ -75,8 +80,9 @@ pub fn replay(
     let first = DEFAULT_WORLD_START.day_index() - DAYS_PER_YEAR;
     let mut w = Weather::new(params, &climate, at, at, first);
     for day in first..=until {
+        let why = w.unworkable(params, at);
         let lived = w.live(params, &climate);
-        each(day, &lived);
+        each(day, &lived, why);
     }
     (climate, w)
 }
@@ -104,7 +110,15 @@ pub fn years(content: &ContentRegistry, options: &WeatherOptions) -> anyhow::Res
             .first()
             .ok_or_else(|| anyhow::anyhow!("the content has no crop"))?,
     );
-    let (climate, w) = replay(content, preset, options.seed, last, |day, lived| {
+    let (climate, w) = replay(content, preset, options.seed, last, |day, lived, why| {
+        if (crop.window.0..=crop.window.1).contains(&day_of_year(day))
+            && let Some(y) = usize::try_from(weather::year_of(day) - 1)
+                .ok()
+                .and_then(|i| out.get_mut(i))
+        {
+            y.window_days += 1;
+            y.workable_days += u32::from(why.is_none());
+        }
         let t = day_of_year(day) - crop.typical_sowing;
         if t == 0 {
             (water, need, got) = (lived.soil_before_mm, 0.0, 0.0);
@@ -163,12 +177,12 @@ pub fn run(
     )?;
     writeln!(
         out,
-        "year  rain mm  wet days  mean °C  frost  snow  Apr-Jul mm  crop water  harvest"
+        "year  rain mm  wet days  mean °C  frost  snow  Apr-Jul mm  workable  crop water  harvest"
     )?;
     for y in &years {
         writeln!(
             out,
-            "{:>4}  {:>7.0}  {:>8}  {:>7.1}  {:>5}  {:>4}  {:>10.0}  {:>9.0}%  {:>7.2}",
+            "{:>4}  {:>7.0}  {:>8}  {:>7.1}  {:>5}  {:>4}  {:>10.0}  {:>8}  {:>9.0}%  {:>7.2}",
             y.year,
             y.precip_mm,
             y.wet_days,
@@ -176,6 +190,7 @@ pub fn run(
             y.frost_days,
             y.snow_days,
             y.growing_mm,
+            format!("{}/{}", y.workable_days, y.window_days),
             100.0 * y.crop_water,
             y.crop_factor
         )?;
@@ -216,6 +231,20 @@ pub fn run(
         lag_one(&|y| y.precip_mm),
         lag_one(&|y| y.crop_factor),
     )?;
+    // The days the ground could be worked in the window for preparing and sowing, against what
+    // people plan on: the landscape's share over its long run.
+    let climate = civ_sim::climatology_of(content, preset, options.seed);
+    let window: u32 = years.iter().map(|y| y.window_days).sum();
+    let workable: u32 = years.iter().map(|y| y.workable_days).sum();
+    writeln!(
+        out,
+        "the ground could be worked on {:.0}% of the days of the crop's window for preparing and \
+         sowing (people plan on {:.0}%, the landscape's long run); a season's crop usually needs \
+         {:.0} mm",
+        100.0 * f64::from(workable) / f64::from(window.max(1)),
+        100.0 * climate.workable_share.first().copied().unwrap_or(1.0),
+        climate.season_need_mm.first().copied().unwrap_or(0.0),
+    )?;
     Ok(())
 }
 
@@ -250,7 +279,7 @@ mod tests {
         .expect("world");
         // A new world has lived the year before its founding; the replay lives the same days.
         let lived = world.land().stock_day;
-        let (_, w) = replay(&content, preset, 2, lived, |_, _| {});
+        let (_, w) = replay(&content, preset, 2, lived, |_, _, _| {});
         assert_eq!(w.months, world.land().weather.months);
         assert_eq!(w.today, world.land().weather.today);
         assert_eq!(w.soil_mm, world.land().weather.soil_mm);
@@ -267,6 +296,17 @@ mod tests {
         assert!(
             a.iter()
                 .all(|y| y.crop_factor >= 0.0 && y.crop_water <= 1.0)
+        );
+        // Each year counts every day of the crop's window for preparing and sowing, and most of
+        // them, not all, as days the ground could be worked.
+        let crop = &content.catalog.crops[0];
+        let window = u32::from(crop.sow_until_day - crop.prepare_from_day) + 1;
+        assert!(a.iter().all(|y| y.window_days == window));
+        let workable: u32 = a.iter().map(|y| y.workable_days).sum();
+        assert!(
+            (window..3 * window).contains(&workable),
+            "{workable} of {}",
+            3 * window
         );
     }
 }

@@ -250,6 +250,30 @@ struct HomePlan {
     deadline: i64,
 }
 
+/// The share of the days of crop `crop`'s window for preparing and sowing the ground can usually
+/// be worked, from the landscape's climatology (ADR-0012 §5).
+fn workable_share(land: &civ_land::Land, crop: usize) -> f64 {
+    land.climatology
+        .workable_share
+        .get(crop)
+        .copied()
+        .unwrap_or(1.0)
+}
+
+/// Field work a capable adult gives on a day at a peak, against an ordinary day's.
+fn peak_ratio(params: &PeopleParams) -> f64 {
+    params.farm.peak_work_hours_per_day / params.farm.work_hours_per_day.max(1e-9)
+}
+
+/// Why the weather keeps people off the ground today, as a reason.
+fn unworkable_reason(why: civ_land::Unworkable) -> Reason {
+    match why {
+        civ_land::Unworkable::Wet => Reason::WetGround,
+        civ_land::Unworkable::Snow => Reason::SnowCover,
+        civ_land::Unworkable::Frozen => Reason::FrozenGround,
+    }
+}
+
 /// Hours of levelling plot `plot` needs, all told: its platforms' earth at the profile's rate
 /// (ADR-0010 §2). 0 for a plot on level ground.
 fn levelling_h(land: &civ_land::Land, plot: PermanentId, params: &PeopleParams) -> f64 {
@@ -1938,6 +1962,9 @@ impl Population {
             seed_kg,
             room: target_days / (target_days + grain_days),
             need_ha: farm::need_area_ha(member_count, params, c, grain_kcal),
+            workable_share: workable_share(ctx.land, params.farm.crop),
+            peak_ratio: peak_ratio(params),
+            climatology: Some(&ctx.land.climatology),
         });
         let field_ha = params.farm.field_m * params.farm.field_m / 10_000.0;
         let wants_land = farm_view
@@ -2279,7 +2306,19 @@ impl Population {
                 let cell = cell_of(map, f.rect.centre_m());
                 reach?.seconds_to(cell).map(|s| f64::from(s) / 60.0)
             };
-            view.best(task, f64::from(a.max_minutes) / 60.0, site.as_ref(), &walk)
+            // Rain, snow or frost keep people off the ground today (ADR-0012 §5).
+            let weather = |r: &civ_land::RectCm| {
+                ctx.land
+                    .unworkable_at(ctx.land_params, map, r.centre_m())
+                    .map(unworkable_reason)
+            };
+            view.best(
+                task,
+                f64::from(a.max_minutes) / 60.0,
+                site.as_ref(),
+                &walk,
+                &weather,
+            )
         };
         // Whom to ask, what to buy and where to work are each worked out only if an option
         // needs them (they cost a search of the settlement), and then once.
@@ -3380,7 +3419,9 @@ impl Population {
             let kcal = goods.get(crop.good).map_or(0.0, |g| g.kcal_per_kg);
             let need = farm::need_area_ha(x.members.len(), params, crop, kcal);
             let labour = self.labour_per_day(&x.members, now, params);
-            let plan = farm::plan_area_ha(need, area, labour, crop);
+            let share = workable_share(ctx.land, usize::from(ctx.land.fields[fi].crop));
+            let share = farm::plan_share(share, peak_ratio(params));
+            let plan = farm::plan_area_ha(need, area, labour, share, crop);
             let half_life = goods.get(crop.seed_good).map_or(0.0, |g| g.half_life_days);
             farm::seed_to_keep(plan, crop, half_life, now.day_index())
         };

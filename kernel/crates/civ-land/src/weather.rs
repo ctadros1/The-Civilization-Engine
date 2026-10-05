@@ -98,6 +98,21 @@ pub struct WeatherParams {
     pub easy_water_share: f64,
     /// The wild cover's water use as a multiple of the reference evapotranspiration.
     pub cover_kc: f64,
+    /// Rain or snow in a day, mm of water, that makes the ground too wet to work that day.
+    pub wet_ground_mm: f64,
+    /// The ground is frozen, and cannot be dug or sown, when the day's mean is below this, °C.
+    pub frozen_below_c: f64,
+}
+
+/// Why field work cannot be done somewhere today (ADR-0012 §5).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Unworkable {
+    /// Rain or snow enough to make the ground too wet to work.
+    Wet,
+    /// Snow lying.
+    Snow,
+    /// The ground frozen.
+    Frozen,
 }
 
 /// One day's weather at the height the normals are for.
@@ -169,6 +184,8 @@ pub struct CropWater {
     pub grow_days: u16,
     /// The day of the year it is typically sown: a third of the way into its window.
     pub typical_sowing: i64,
+    /// The first day of the year its ground can be prepared, and the last it can be sown.
+    pub window: (i64, i64),
 }
 
 impl CropWater {
@@ -181,6 +198,10 @@ impl CropWater {
             ky: crop.ky,
             grow_days: crop.grow_days,
             typical_sowing: i64::from(crop.sow_from_day) + window.max(0) / 3,
+            window: (
+                i64::from(crop.prepare_from_day),
+                i64::from(crop.sow_until_day),
+            ),
         }
     }
 
@@ -243,6 +264,11 @@ pub struct Climatology {
     pub crop_mean: Vec<f64>,
     /// The long-run mean of the wild cover's ease of drawing water, by month.
     pub cover_mean: [f64; 12],
+    /// The share of the days of each crop's window for preparing and sowing on which the ground
+    /// can usually be worked on the valley floor (what people plan their spring work on).
+    pub workable_share: Vec<f64>,
+    /// The water each crop usually needs in a season, mm.
+    pub season_need_mm: Vec<f64>,
     /// The long-run mean precipitation by month, mm.
     pub month_precip_mm: [f64; 12],
 }
@@ -394,6 +420,8 @@ impl Climatology {
             crops: crops.iter().map(CropWater::of).collect(),
             crop_mean: vec![1.0; crops.len()],
             cover_mean: [1.0; 12],
+            workable_share: vec![1.0; crops.len()],
+            season_need_mm: vec![0.0; crops.len()],
             month_precip_mm: [0.0; 12],
         };
         c.measure(params, landscape);
@@ -409,6 +437,8 @@ impl Climatology {
         let mut w = Weather::new(params, self, at, at, 0);
         let n = self.crops.len();
         let mut crop_sum = vec![0.0; n];
+        let mut need_sum = vec![0.0; n];
+        let (mut workable, mut window_days) = (vec![0.0; n], vec![0.0; n]);
         let (mut cover_sum, mut cover_days) = ([0.0; 12], [0.0f64; 12]);
         // Each crop's root-zone water, water needed and water got this season.
         let mut seasons = vec![(0.0, 0.0, 0.0); n];
@@ -416,6 +446,14 @@ impl Climatology {
         for day in 0..(years + 1) * DAYS_PER_YEAR {
             let counted = day >= DAYS_PER_YEAR;
             let doy = day_of_year(day);
+            // Whether the ground could be worked today, before the day is lived.
+            let ok = w.unworkable(params, at).is_none();
+            for (i, cw) in self.crops.iter().enumerate() {
+                if counted && (cw.window.0..=cw.window.1).contains(&doy) {
+                    window_days[i] += 1.0;
+                    workable[i] += f64::from(u8::from(ok));
+                }
+            }
             let water = w.live(params, self);
             for (i, cw) in self.crops.iter().enumerate() {
                 let t = doy - cw.typical_sowing;
@@ -432,6 +470,7 @@ impl Climatology {
                 s.2 += got;
                 if counted && t + 1 == i64::from(cw.grow_days) {
                     crop_sum[i] += cw.raw_factor(s.1, s.2);
+                    need_sum[i] += s.1;
                 }
             }
             if counted {
@@ -447,6 +486,16 @@ impl Climatology {
         for (mean, sum) in self.crop_mean.iter_mut().zip(&crop_sum) {
             *mean = (sum / years as f64).max(0.05);
         }
+        for (i, share) in self.workable_share.iter_mut().enumerate() {
+            *share = if window_days[i] > 0.0 {
+                (workable[i] / window_days[i]).clamp(0.05, 1.0)
+            } else {
+                1.0
+            };
+        }
+        for (need, sum) in self.season_need_mm.iter_mut().zip(&need_sum) {
+            *need = sum / years as f64;
+        }
         for m in 0..12 {
             if cover_days[m] > 0.0 {
                 self.cover_mean[m] = (cover_sum[m] / cover_days[m]).max(0.05);
@@ -461,6 +510,19 @@ impl Climatology {
             (Some(cw), Some(&mean)) => cw.raw_factor(need_mm, got_mm) / mean,
             _ => 1.0,
         }
+    }
+
+    /// The share of its yield a growing crop of kind `crop` is expected to give, from what its
+    /// season so far shows (ADR-0012 §4: people see the season so far, never future draws): the
+    /// share its water so far allows, weighed by how much of a season's usual need has passed,
+    /// and an average year's for the rest.
+    pub fn expected_crop_factor(&self, crop: usize, need_mm: f64, got_mm: f64) -> f64 {
+        let usual = self.season_need_mm.get(crop).copied().unwrap_or(0.0);
+        if usual <= 0.0 || need_mm <= 0.0 {
+            return 1.0;
+        }
+        let seen = (need_mm / usual).clamp(0.0, 1.0);
+        1.0 + seen * (self.crop_factor(crop, need_mm, got_mm) - 1.0)
     }
 
     /// The share of their usual growth wild plants make with the cover's ease `ease` in month
@@ -584,6 +646,20 @@ impl Weather {
     /// Snow lying at height `z_m`, mm of water.
     pub fn snow_at(&self, z_m: f64) -> f64 {
         f64::from(self.snow_mm.get(self.band_of(z_m)).copied().unwrap_or(0.0))
+    }
+
+    /// Why the ground at height `z_m` cannot be worked today, if it cannot (ADR-0012 §5): snow
+    /// lying, the day's rain or snow enough to make it too wet, or the day too cold.
+    pub fn unworkable(&self, params: &WeatherParams, z_m: f64) -> Option<Unworkable> {
+        if self.snow_at(z_m) >= SNOW_COVER_MM {
+            Some(Unworkable::Snow)
+        } else if f64::from(self.today.precip_mm) >= params.wet_ground_mm {
+            Some(Unworkable::Wet)
+        } else if self.mean_c_at(params, z_m) < params.frozen_below_c {
+            Some(Unworkable::Frozen)
+        } else {
+            None
+        }
     }
 
     /// Draws day `day` into `today` from yesterday's state.
@@ -789,6 +865,8 @@ pub(crate) mod tests {
             soil_water_mm: 100.0,
             easy_water_share: 0.55,
             cover_kc: 0.9,
+            wet_ground_mm: 5.0,
+            frozen_below_c: 0.0,
         }
     }
 
@@ -918,6 +996,39 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn the_ground_cannot_be_worked_in_heavy_rain_snow_or_frost_and_plans_count_on_it() {
+        let p = params();
+        let c = climate(7, landscape_key("core:worldgen/river_valley"));
+        let mut w = Weather::new(&p, &c, 100.0, 1100.0, 0);
+        w.today.mean_c = 8.0;
+        w.today.precip_mm = 2.0;
+        w.snow_mm.iter_mut().for_each(|s| *s = 0.0);
+        assert_eq!(w.unworkable(&p, 150.0), None);
+        w.today.precip_mm = 7.0;
+        assert_eq!(w.unworkable(&p, 150.0), Some(Unworkable::Wet));
+        w.today.precip_mm = 0.0;
+        w.today.mean_c = -2.0;
+        assert_eq!(w.unworkable(&p, 150.0), Some(Unworkable::Frozen));
+        let high = w.band_of(1050.0);
+        w.snow_mm[high] = 30.0;
+        assert_eq!(w.unworkable(&p, 1050.0), Some(Unworkable::Snow));
+        // The test crop's window, 50 to 125: most days can be worked, not all.
+        let share = c.workable_share[0];
+        assert!((0.6..0.95).contains(&share), "workable share {share:.2}");
+        // Early in a season the expected harvest is an average year's; at its end, what its water
+        // allows.
+        let usual = c.season_need_mm[0];
+        assert!(
+            (150.0..700.0).contains(&usual),
+            "a season's need {usual:.0} mm"
+        );
+        assert!((c.expected_crop_factor(0, 1.0, 0.5) - 1.0).abs() < 0.01);
+        let end = c.expected_crop_factor(0, usual, 0.6 * usual);
+        assert!((end - c.crop_factor(0, usual, 0.6 * usual)).abs() < 1e-9);
+        assert!(end < 1.0);
+    }
+
+    #[test]
     fn hargreaves_gives_summer_and_winter_demand_of_the_right_size() {
         // FAO-56: humid conditions at 15-25 °C, 3-4 mm a day (research 03-02 §2.1).
         let july = hargreaves_mm(19.0, 12.0, extraterrestrial_radiation(48.0, 196));
@@ -949,6 +1060,7 @@ pub(crate) mod tests {
             ky: 1.15,
             grow_days: 120,
             typical_sowing: 95,
+            window: (50, 125),
         };
         assert_eq!(cw.kc_on(0), 0.4);
         assert!((cw.kc_on(45) - 0.775).abs() < 1e-12);

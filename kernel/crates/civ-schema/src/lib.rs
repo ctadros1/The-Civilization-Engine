@@ -113,6 +113,6 @@ mod tests {
 
     #[test]
     fn schema_identity_is_tce() {
-        assert_eq!(WIRE_SCHEMA.to_string(), "TCE 1.23");
+        assert_eq!(WIRE_SCHEMA.to_string(), "TCE 1.24");
     }
 }

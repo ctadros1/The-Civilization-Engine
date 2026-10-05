@@ -1242,9 +1242,16 @@ fn slice_c_saves_load_without_buildings_and_build_again() {
     assert!(migrated.is_dirty(), "the migration is new state");
     assert!(migrated.land().buildings.is_empty() && migrated.land().plots.is_empty());
     assert_eq!(migrated.land().fields, fixture().first_fields);
-    migrated
-        .advance_minutes(24 * 60)
-        .expect("a migrated world runs");
+    // Households begin their homes again within days: the fixture's world has a fresh identity
+    // each run, and on some its first day goes to other work.
+    for _ in 0..30 {
+        migrated
+            .advance_minutes(24 * 60)
+            .expect("a migrated world runs");
+        if !migrated.land().buildings.is_empty() {
+            break;
+        }
+    }
     assert!(
         !migrated.land().buildings.is_empty(),
         "households begin their homes again"

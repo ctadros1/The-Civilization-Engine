@@ -56,6 +56,20 @@ export interface ShadeOptions {
   zFactor?: number;
   /** Contour interval, metres (0 = none). */
   contourM?: number;
+  season?: Season;
+  snowLineM?: number;
+}
+
+export type Season = "spring" | "summer" | "autumn" | "winter";
+
+export function seasonOf(name: string | undefined | null): Season {
+  if (name === "winter" || name === "autumn" || name === "spring") return name;
+  return "summer";
+}
+
+export function seasonKey(season: string | undefined | null, snowLineM: number | undefined | null): string {
+  const line = snowLineM === undefined || snowLineM === null || snowLineM < 0 ? -1 : Math.round(snowLineM);
+  return `${seasonOf(season)}:${line}`;
 }
 
 type Rgb = [number, number, number];
@@ -68,22 +82,49 @@ const LAND_STOPS: [number, Rgb][] = [
   [0.82, [146, 132, 120]],
   [1.0, [222, 218, 210]],
 ];
+const SPRING_STOPS: [number, Rgb][] = [
+  [0.0, [118, 148, 98]],
+  [0.18, [140, 164, 105]],
+  [0.4, [178, 175, 120]],
+  [0.62, [168, 145, 110]],
+  [0.82, [148, 135, 122]],
+  [1.0, [222, 218, 210]],
+];
+const AUTUMN_STOPS: [number, Rgb][] = [
+  [0.0, [130, 125, 80]],
+  [0.18, [150, 140, 85]],
+  [0.4, [180, 160, 100]],
+  [0.62, [170, 145, 110]],
+  [0.82, [150, 135, 122]],
+  [1.0, [222, 218, 210]],
+];
+const WINTER_STOPS: [number, Rgb][] = [
+  [0.0, [95, 110, 90]],
+  [0.18, [110, 120, 100]],
+  [0.4, [140, 140, 115]],
+  [0.62, [145, 135, 115]],
+  [0.82, [140, 130, 120]],
+  [1.0, [222, 218, 210]],
+];
 const RIVER: Rgb = [58, 112, 166];
 const LAKE: Rgb = [70, 120, 160];
 const OCEAN_SHALLOW: Rgb = [84, 138, 176];
 const OCEAN_DEEP: Rgb = [36, 78, 118];
 
-function landColour(t: number): Rgb {
+function landColour(t: number, season: Season): Rgb {
   const x = Math.min(1, Math.max(0, t));
-  for (let i = 1; i < LAND_STOPS.length; i++) {
-    const [t1, c1] = LAND_STOPS[i]!;
+  const stops = season === "spring" ? SPRING_STOPS :
+                season === "autumn" ? AUTUMN_STOPS :
+                season === "winter" ? WINTER_STOPS : LAND_STOPS;
+  for (let i = 1; i < stops.length; i++) {
+    const [t1, c1] = stops[i]!;
     if (x <= t1) {
-      const [t0, c0] = LAND_STOPS[i - 1]!;
+      const [t0, c0] = stops[i - 1]!;
       const f = (x - t0) / (t1 - t0);
       return [c0[0] + (c1[0] - c0[0]) * f, c0[1] + (c1[1] - c0[1]) * f, c0[2] + (c1[2] - c0[2]) * f];
     }
   }
-  return LAND_STOPS[LAND_STOPS.length - 1]![1];
+  return stops[stops.length - 1]![1];
 }
 
 /** A round contour interval giving about `lines` contours over `range` metres. */
@@ -147,7 +188,17 @@ export function shade(
         const dzdy = (gg + 2 * hh + ii - (a + 2 * bb + c)) * inv8c;
         const lit = ((dzdx + dzdy) * LIGHT_H + SIN_ALT) / Math.sqrt(dzdx * dzdx + dzdy * dzdy + 1);
         const light = Math.min(1.35, Math.max(0.3, lit / SIN_ALT));
-        const base = landColour((e - landMin) / span);
+        let base = landColour((e - landMin) / span, opts.season ?? "summer");
+        if (opts.snowLineM !== undefined && opts.snowLineM >= 0) {
+          const snow = Math.min(1, Math.max(0, (e - opts.snowLineM) / 50));
+          if (snow > 0) {
+            base = [
+              base[0] + (245 - base[0]) * snow,
+              base[1] + (248 - base[1]) * snow,
+              base[2] + (250 - base[2]) * snow,
+            ];
+          }
+        }
         let k = 0.35 + 0.65 * light;
         if (contour > 0) {
           const band = Math.floor(e / contour);

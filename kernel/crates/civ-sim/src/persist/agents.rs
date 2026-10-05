@@ -1875,6 +1875,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::BuildingFailed => 21,
         ChronicleKind::DepositFound => 22,
         ChronicleKind::DepositPlaced => 23,
+        ChronicleKind::YearWeather => 24,
     }
 }
 
@@ -1903,6 +1904,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         21 => Some(ChronicleKind::BuildingFailed),
         22 => Some(ChronicleKind::DepositFound),
         23 => Some(ChronicleKind::DepositPlaced),
+        24 => Some(ChronicleKind::YearWeather),
         _ => None,
     }
 }

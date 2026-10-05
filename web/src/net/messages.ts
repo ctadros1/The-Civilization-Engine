@@ -191,6 +191,8 @@ export interface DayWeather {
   soil: number;
   /** Rendered by the kernel: "6 °C, light rain; snow lying". */
   words: string;
+  /** The elevation above which snow lies (M3c slice U). */
+  snowLineM: number;
 }
 
 /** One month's weather on the valley floor, beside what the month usually brings (wire 1.24). */
@@ -1855,6 +1857,7 @@ function dayWeather(w: W.DayWeather | null): DayWeather | null {
     snowMm: w.snowMm(),
     soil: w.soil(),
     words: w.words() ?? "",
+    snowLineM: w.snowLineM(),
   };
 }
 

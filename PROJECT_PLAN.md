@@ -1227,7 +1227,7 @@ prices, buildings and wealth distribution), is M3a's.
   panel (saves 24, wire 1.24); then rain, snow and frost keeping people from turning the soil,
   spring plans counting on the days that can usually be worked, growing crops judged by their
   water so far (content API 24), and buildings wearing as wet as each month was. Next in U: the
-  season and snow on the map, the year's weather in the chronicle, storms and snow on roofs, and
+  the year's weather in the chronicle, storms and snow on roofs, and
   grain asks that answer stores.
 
 **M4: Councils, law & crime.**

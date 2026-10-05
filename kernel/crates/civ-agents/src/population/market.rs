@@ -451,7 +451,16 @@ impl Population {
                 .get(g)
                 .copied()
                 .flatten()
-                .map(|c| c * (1.0 + mp.margin));
+                .map(|c| {
+                    let mut a = c * (1.0 + mp.margin);
+                    if let Some(held) = holding.stores.get(g).copied() {
+                        let keep = keeps(g);
+                        if held > 0.0 && keep > 0.0 {
+                            a *= (keep / held).max(0.25).min(4.0);
+                        }
+                    }
+                    a
+                });
             let prev = old
                 .iter()
                 .find(|o| usize::from(o.good) == g)

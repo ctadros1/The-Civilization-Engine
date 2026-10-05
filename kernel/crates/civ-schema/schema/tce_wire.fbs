@@ -205,6 +205,8 @@ table DayWeather {
   soil: float (id: 5);
   // In words, rendered by the kernel: "6 °C, light rain; snow lying".
   words: string (id: 6);
+  // The elevation above which snow lies (M3c slice U).
+  snow_line_m: float = -1.0 (id: 7);
 }
 
 table WorldInfo {

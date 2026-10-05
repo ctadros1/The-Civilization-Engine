@@ -1153,6 +1153,16 @@ impl Sim {
                             at,
                             at.date().year - 1,
                         );
+                        let (mean_c, extremes) = land.weather.year_summary(at.date().year - 1, &land.climatology);
+                        people.chronicle_push(
+                            at,
+                            civ_agents::history::ChronicleKind::YearWeather,
+                            Vec::new(),
+                            None,
+                            None,
+                            mean_c,
+                            extremes,
+                        );
                         // Taste moves toward the year's admired buildings (M3b slice R).
                         people.review_tastes(&rules.catalog, &rules.people, &rules.land, land, at);
                     }

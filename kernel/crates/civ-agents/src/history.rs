@@ -366,6 +366,8 @@ pub struct PersonRecord {
 /// What happened, in the chronicle. Numeric in saves: append only.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ChronicleKind {
+    /// A year ended: `number` is its average temperature, `name` its extremes.
+    YearWeather,
     /// A founding band arrived: `people` lists them, `number` is their count.
     BandArrived,
     /// A settlement was founded: `settlement` and its `place`.
@@ -806,6 +808,10 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 thousands(event.number.round().max(0.0) as u64)
             )),
         ],
+        ChronicleKind::YearWeather => {
+            let year = event.at.date().year - 1;
+            vec![Span::Text(format!("Year {year}: {} ({:.1} °C).", event.name, event.number))]
+        }
     }
 }
 

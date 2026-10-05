@@ -2804,7 +2804,8 @@ struct DayWeather FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_MAX_C = 10,
     VT_SNOW_MM = 12,
     VT_SOIL = 14,
-    VT_WORDS = 16
+    VT_WORDS = 16,
+    VT_SNOW_LINE_M = 18
   };
   float precip_mm() const {
     return GetField<float>(VT_PRECIP_MM, 0.0f);
@@ -2827,6 +2828,9 @@ struct DayWeather FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *words() const {
     return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
   }
+  float snow_line_m() const {
+    return GetField<float>(VT_SNOW_LINE_M, -1.0f);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -2838,6 +2842,7 @@ struct DayWeather FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<float>(verifier, VT_SOIL, 4) &&
            VerifyOffset(verifier, VT_WORDS) &&
            verifier.VerifyString(words()) &&
+           VerifyField<float>(verifier, VT_SNOW_LINE_M, 4) &&
            verifier.EndTable();
   }
 };
@@ -2867,6 +2872,9 @@ struct DayWeatherBuilder {
   void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
     fbb_.AddOffset(DayWeather::VT_WORDS, words);
   }
+  void add_snow_line_m(float snow_line_m) {
+    fbb_.AddElement<float>(DayWeather::VT_SNOW_LINE_M, snow_line_m, -1.0f);
+  }
   explicit DayWeatherBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -2886,8 +2894,10 @@ inline ::flatbuffers::Offset<DayWeather> CreateDayWeather(
     float max_c = 0.0f,
     float snow_mm = 0.0f,
     float soil = 0.0f,
-    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0,
+    float snow_line_m = -1.0f) {
   DayWeatherBuilder builder_(_fbb);
+  builder_.add_snow_line_m(snow_line_m);
   builder_.add_words(words);
   builder_.add_soil(soil);
   builder_.add_snow_mm(snow_mm);
@@ -2911,7 +2921,8 @@ inline ::flatbuffers::Offset<DayWeather> CreateDayWeatherDirect(
     float max_c = 0.0f,
     float snow_mm = 0.0f,
     float soil = 0.0f,
-    const char *words = nullptr) {
+    const char *words = nullptr,
+    float snow_line_m = -1.0f) {
   auto words__ = words ? _fbb.CreateString(words) : 0;
   return tce::wire::CreateDayWeather(
       _fbb,
@@ -2921,7 +2932,8 @@ inline ::flatbuffers::Offset<DayWeather> CreateDayWeatherDirect(
       max_c,
       snow_mm,
       soil,
-      words__);
+      words__,
+      snow_line_m);
 }
 
 struct WorldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

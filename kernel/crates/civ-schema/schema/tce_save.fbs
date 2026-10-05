@@ -515,6 +515,16 @@ table Receipts {
 // Section "fields" (schema 4): ground households work for a crop (ADR-0004 §3).
 enum FieldStage : ubyte { Fallow = 0, Prepared = 1, Sown = 2, Reaped = 3 }
 
+// What limited a field's harvest (ADR-0012 §3).
+enum HarvestLimit : ubyte { None = 0, Water = 1, Nitrogen = 2 }
+
+// One past harvest of a field.
+struct HarvestRecord {
+  year: uint;
+  yield_kg_per_ha: float;
+  limit: HarvestLimit;
+}
+
 table Field {
   id: ulong (id: 0);
   household: ulong (id: 1);
@@ -552,6 +562,10 @@ table Field {
   water_mm: float (id: 23);
   need_mm: float (id: 24);
   got_mm: float (id: 25);
+  // Schema 25 (ADR-0012 §3): the fast and slow pools of organic nitrogen, kg.
+  fast_n_kg: float (id: 26);
+  slow_n_kg: float (id: 27);
+  harvest_records: [HarvestRecord] (id: 28);
 }
 
 table Fields {

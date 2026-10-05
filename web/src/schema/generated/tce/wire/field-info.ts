@@ -5,6 +5,7 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { FieldStage } from '../../tce/wire/field-stage.js';
+import { HarvestRecord } from '../../tce/wire/harvest-record.js';
 import { Vec2 } from '../../tce/wire/vec2.js';
 
 
@@ -138,8 +139,28 @@ soilWater():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
+fastNKg():number {
+  const offset = this.bb!.__offset(this.bb_pos, 48);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+slowNKg():number {
+  const offset = this.bb!.__offset(this.bb_pos, 50);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+harvestRecords(index: number, obj?:HarvestRecord):HarvestRecord|null {
+  const offset = this.bb!.__offset(this.bb_pos, 52);
+  return offset ? (obj || new HarvestRecord()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 12, this.bb!) : null;
+}
+
+harvestRecordsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 52);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startFieldInfo(builder:flatbuffers.Builder) {
-  builder.startObject(22);
+  builder.startObject(25);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -228,6 +249,22 @@ static addWaterHad(builder:flatbuffers.Builder, waterHad:number) {
 
 static addSoilWater(builder:flatbuffers.Builder, soilWater:number) {
   builder.addFieldFloat32(21, soilWater, 0.0);
+}
+
+static addFastNKg(builder:flatbuffers.Builder, fastNKg:number) {
+  builder.addFieldFloat32(22, fastNKg, 0.0);
+}
+
+static addSlowNKg(builder:flatbuffers.Builder, slowNKg:number) {
+  builder.addFieldFloat32(23, slowNKg, 0.0);
+}
+
+static addHarvestRecords(builder:flatbuffers.Builder, harvestRecordsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(24, harvestRecordsOffset, 0);
+}
+
+static startHarvestRecordsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(12, numElems, 4);
 }
 
 static endFieldInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

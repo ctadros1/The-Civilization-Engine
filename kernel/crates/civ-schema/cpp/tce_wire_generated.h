@@ -16,6 +16,8 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 25 &&
 namespace tce {
 namespace wire {
 
+struct HarvestRecord;
+
 struct Vec2;
 
 struct Hello;
@@ -593,6 +595,39 @@ inline const char *EnumNameFieldStage(FieldStage e) {
   return EnumNamesFieldStage()[index];
 }
 
+enum class HarvestLimit : uint8_t {
+  None = 0,
+  Water = 1,
+  Nitrogen = 2,
+  MIN = None,
+  MAX = Nitrogen
+};
+
+inline const HarvestLimit (&EnumValuesHarvestLimit())[3] {
+  static const HarvestLimit values[] = {
+    HarvestLimit::None,
+    HarvestLimit::Water,
+    HarvestLimit::Nitrogen
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesHarvestLimit() {
+  static const char * const names[4] = {
+    "None",
+    "Water",
+    "Nitrogen",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameHarvestLimit(HarvestLimit e) {
+  if (::flatbuffers::IsOutRange(e, HarvestLimit::None, HarvestLimit::Nitrogen)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesHarvestLimit()[index];
+}
+
 enum class CommandBody : uint8_t {
   NONE = 0,
   NewWorld = 1,
@@ -1168,6 +1203,49 @@ template <bool B = false>
 bool VerifyResponseBody(::flatbuffers::VerifierTemplate<B> &verifier, const void *obj, ResponseBody type);
 template <bool B = false>
 bool VerifyResponseBodyVector(::flatbuffers::VerifierTemplate<B> &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<ResponseBody> *types);
+
+FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) HarvestRecord FLATBUFFERS_FINAL_CLASS {
+ private:
+  uint32_t year_;
+  float yield_kg_per_ha_;
+  uint8_t limit_;
+  int8_t padding0__;  int16_t padding1__;
+
+ public:
+  struct Traits;
+  HarvestRecord()
+      : year_(0),
+        yield_kg_per_ha_(0),
+        limit_(0),
+        padding0__(0),
+        padding1__(0) {
+    (void)padding0__;
+    (void)padding1__;
+  }
+  HarvestRecord(uint32_t _year, float _yield_kg_per_ha, tce::wire::HarvestLimit _limit)
+      : year_(::flatbuffers::EndianScalar(_year)),
+        yield_kg_per_ha_(::flatbuffers::EndianScalar(_yield_kg_per_ha)),
+        limit_(::flatbuffers::EndianScalar(static_cast<uint8_t>(_limit))),
+        padding0__(0),
+        padding1__(0) {
+    (void)padding0__;
+    (void)padding1__;
+  }
+  uint32_t year() const {
+    return ::flatbuffers::EndianScalar(year_);
+  }
+  float yield_kg_per_ha() const {
+    return ::flatbuffers::EndianScalar(yield_kg_per_ha_);
+  }
+  tce::wire::HarvestLimit limit() const {
+    return static_cast<tce::wire::HarvestLimit>(::flatbuffers::EndianScalar(limit_));
+  }
+};
+FLATBUFFERS_STRUCT_END(HarvestRecord, 12);
+
+struct HarvestRecord::Traits {
+  using type = HarvestRecord;
+};
 
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) Vec2 FLATBUFFERS_FINAL_CLASS {
  private:
@@ -8190,7 +8268,10 @@ struct FieldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_LEASE_UNTIL_MINUTE = 40,
     VT_LEASE_SHARE = 42,
     VT_WATER_HAD = 44,
-    VT_SOIL_WATER = 46
+    VT_SOIL_WATER = 46,
+    VT_FAST_N_KG = 48,
+    VT_SLOW_N_KG = 50,
+    VT_HARVEST_RECORDS = 52
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -8258,6 +8339,15 @@ struct FieldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   float soil_water() const {
     return GetField<float>(VT_SOIL_WATER, 0.0f);
   }
+  float fast_n_kg() const {
+    return GetField<float>(VT_FAST_N_KG, 0.0f);
+  }
+  float slow_n_kg() const {
+    return GetField<float>(VT_SLOW_N_KG, 0.0f);
+  }
+  const ::flatbuffers::Vector<const tce::wire::HarvestRecord *> *harvest_records() const {
+    return GetPointer<const ::flatbuffers::Vector<const tce::wire::HarvestRecord *> *>(VT_HARVEST_RECORDS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -8284,6 +8374,10 @@ struct FieldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<float>(verifier, VT_LEASE_SHARE, 4) &&
            VerifyField<float>(verifier, VT_WATER_HAD, 4) &&
            VerifyField<float>(verifier, VT_SOIL_WATER, 4) &&
+           VerifyField<float>(verifier, VT_FAST_N_KG, 4) &&
+           VerifyField<float>(verifier, VT_SLOW_N_KG, 4) &&
+           VerifyOffset(verifier, VT_HARVEST_RECORDS) &&
+           verifier.VerifyVector(harvest_records()) &&
            verifier.EndTable();
   }
 };
@@ -8358,6 +8452,15 @@ struct FieldInfoBuilder {
   void add_soil_water(float soil_water) {
     fbb_.AddElement<float>(FieldInfo::VT_SOIL_WATER, soil_water, 0.0f);
   }
+  void add_fast_n_kg(float fast_n_kg) {
+    fbb_.AddElement<float>(FieldInfo::VT_FAST_N_KG, fast_n_kg, 0.0f);
+  }
+  void add_slow_n_kg(float slow_n_kg) {
+    fbb_.AddElement<float>(FieldInfo::VT_SLOW_N_KG, slow_n_kg, 0.0f);
+  }
+  void add_harvest_records(::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::HarvestRecord *>> harvest_records) {
+    fbb_.AddOffset(FieldInfo::VT_HARVEST_RECORDS, harvest_records);
+  }
   explicit FieldInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8392,7 +8495,10 @@ inline ::flatbuffers::Offset<FieldInfo> CreateFieldInfo(
     int64_t lease_until_minute = -1LL,
     float lease_share = 0.0f,
     float water_had = -1.0f,
-    float soil_water = 0.0f) {
+    float soil_water = 0.0f,
+    float fast_n_kg = 0.0f,
+    float slow_n_kg = 0.0f,
+    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::HarvestRecord *>> harvest_records = 0) {
   FieldInfoBuilder builder_(_fbb);
   builder_.add_lease_until_minute(lease_until_minute);
   builder_.add_holder_settlement(holder_settlement);
@@ -8401,6 +8507,9 @@ inline ::flatbuffers::Offset<FieldInfo> CreateFieldInfo(
   builder_.add_settlement(settlement);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_harvest_records(harvest_records);
+  builder_.add_slow_n_kg(slow_n_kg);
+  builder_.add_fast_n_kg(fast_n_kg);
   builder_.add_soil_water(soil_water);
   builder_.add_water_had(water_had);
   builder_.add_lease_share(lease_share);
@@ -8447,8 +8556,12 @@ inline ::flatbuffers::Offset<FieldInfo> CreateFieldInfoDirect(
     int64_t lease_until_minute = -1LL,
     float lease_share = 0.0f,
     float water_had = -1.0f,
-    float soil_water = 0.0f) {
+    float soil_water = 0.0f,
+    float fast_n_kg = 0.0f,
+    float slow_n_kg = 0.0f,
+    const std::vector<tce::wire::HarvestRecord> *harvest_records = nullptr) {
   auto status__ = status ? _fbb.CreateString(status) : 0;
+  auto harvest_records__ = harvest_records ? _fbb.CreateVectorOfStructs<tce::wire::HarvestRecord>(*harvest_records) : 0;
   return tce::wire::CreateFieldInfo(
       _fbb,
       id,
@@ -8472,7 +8585,10 @@ inline ::flatbuffers::Offset<FieldInfo> CreateFieldInfoDirect(
       lease_until_minute,
       lease_share,
       water_had,
-      soil_water);
+      soil_water,
+      fast_n_kg,
+      slow_n_kg,
+      harvest_records__);
 }
 
 struct Fields FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

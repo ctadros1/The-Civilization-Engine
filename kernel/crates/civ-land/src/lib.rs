@@ -46,6 +46,16 @@ const PURPOSE_RICHNESS: u64 = 0x7269_6368_6e65_7373; // "richness"
 /// A habitat class rule. A patch belongs to the first rule whose conditions it meets; a rule
 /// without conditions matches every patch.
 #[derive(Clone, Debug, PartialEq)]
+pub struct SoilParams {
+    pub soil_water_mm: f64,
+    pub easy_water_share: f64,
+    pub fast_n_kg_per_ha: f64,
+    pub slow_n_kg_per_ha: f64,
+    pub decay_fast: f64,
+    pub decay_slow: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct HabitatRule {
     /// Short id, for example `floodplain`.
     pub id: String,
@@ -149,6 +159,7 @@ pub struct LandParams {
     pub resources: Vec<ResourceParams>,
     /// How the weather is drawn (ADR-0012 §1).
     pub weather: WeatherParams,
+    pub soil: SoilParams,
     /// How walking wears the ground.
     pub paths: PathParams,
     /// The heaviest load weather puts on a roof in a month (ADR-0009 §5).
@@ -520,7 +531,7 @@ impl Land {
         patches.measure_water(map);
         let (low, high) = height_range(map);
         let stock_day = today - DAYS_PER_YEAR - 1;
-        let weather = Weather::new(&params.weather, &climatology, low, high, stock_day + 1);
+        let weather = Weather::new(&params.weather, &params.soil, &climatology, low, high, stock_day + 1);
         let mut land = Land {
             stocks: vec![vec![0.0; patches.len()]; params.resources.len()],
             patches,
@@ -940,8 +951,8 @@ impl Land {
     pub fn advance_to_day(&mut self, params: &LandParams, map: &WorldMap, day: i64) {
         while self.stock_day < day {
             let d = self.stock_day + 1;
-            let water = self.weather.live(&params.weather, &self.climatology);
-            self.water_fields(&params.weather, map, &water, d);
+            let water = self.weather.live(&params.weather, &params.soil, &self.climatology);
+            self.water_fields(&params.weather, &params.soil, map, &water, d);
             let month_start = MONTH_STARTS[..12].contains(&day_of_year(d));
             for (r, res) in params.resources.iter().enumerate() {
                 match &res.growth {
@@ -994,6 +1005,7 @@ impl Land {
     fn water_fields(
         &mut self,
         params: &WeatherParams,
+        soil_params: &SoilParams,
         map: &WorldMap,
         water: &weather::DayWater,
         day: i64,
@@ -1017,7 +1029,7 @@ impl Land {
             let band = self.weather.band_of(height_at(map, x, y));
             let need = cw.kc_on(t) * water.et0_mm[band];
             let mut zone = f64::from(f.water_mm);
-            let got = weather::root_zone_day(&mut zone, water.input_mm[band], need, params);
+            let got = weather::root_zone_day(&mut zone, water.input_mm[band], need, params, soil_params);
             f.water_mm = zone as f32;
             f.need_mm = (f64::from(f.need_mm) + need) as f32;
             f.got_mm = (f64::from(f.got_mm) + got) as f32;
@@ -1203,6 +1215,7 @@ mod tests {
     pub(crate) fn params() -> LandParams {
         let flat = [1.0; 12];
         LandParams {
+            soil: weather::tests::soil_params(),
             patch_cells: 4,
             channel_area_km2: 1e9,
             habitats: vec![
@@ -1308,7 +1321,7 @@ mod tests {
 
     /// A test landscape's climatology, with the test crop.
     pub(crate) fn climatology(p: &LandParams, seed: u64) -> Climatology {
-        Climatology::new(&p.weather, &[fields::tests::crop()], 800.0, 48.0, 1, seed)
+        Climatology::new(&p.weather, &p.soil, &[fields::tests::crop()], 800.0, 48.0, 1, seed)
     }
 
     /// Land on the test map, made on `today`.

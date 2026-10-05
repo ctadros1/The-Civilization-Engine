@@ -92,10 +92,6 @@ pub struct WeatherParams {
     pub snow_below_c: f64,
     /// Snow melted per degree of the day's mean above freezing, mm of water per °C.
     pub melt_mm_per_c: f64,
-    /// Water the soil holds for roots between field capacity and wilting, mm.
-    pub soil_water_mm: f64,
-    /// The share of that water plants draw without stress (FAO-56's `p`).
-    pub easy_water_share: f64,
     /// The wild cover's water use as a multiple of the reference evapotranspiration.
     pub cover_kc: f64,
     /// Rain or snow in a day, mm of water, that makes the ground too wet to work that day.
@@ -369,10 +365,11 @@ pub fn root_zone_day(
     water_mm: &mut f64,
     input_mm: f64,
     need_mm: f64,
-    params: &WeatherParams,
+    _params: &WeatherParams,
+    soil_params: &crate::SoilParams,
 ) -> f64 {
-    let total = params.soil_water_mm;
-    let used = (need_mm * ease(*water_mm, total, params.easy_water_share))
+    let total = soil_params.soil_water_mm;
+    let used = (need_mm * ease(*water_mm, total, soil_params.easy_water_share))
         .min(*water_mm + input_mm)
         .max(0.0);
     *water_mm = (*water_mm + input_mm - used).clamp(0.0, total);
@@ -383,14 +380,7 @@ impl Climatology {
     /// The climatology of a landscape: `annual_mm` its mean annual precipitation, at
     /// `latitude_deg`, for a world of `seed`. Draws [`CLIMATOLOGY_YEARS`] years of its weather,
     /// the same for every world of the landscape, with each crop sown on its typical day.
-    pub fn new(
-        params: &WeatherParams,
-        crops: &[CropParams],
-        annual_mm: f64,
-        latitude_deg: f64,
-        landscape: u64,
-        seed: u64,
-    ) -> Climatology {
+    pub fn new(params: &WeatherParams, soil_params: &crate::SoilParams, crops: &[CropParams], annual_mm: f64, latitude_deg: f64, landscape: u64, seed: u64) -> Climatology {
         let share_sum: f64 = params.rain_share.iter().sum();
         let mut wet_day_mean_mm = [0.0; 12];
         for (m, mean) in wet_day_mean_mm.iter_mut().enumerate() {
@@ -424,17 +414,17 @@ impl Climatology {
             season_need_mm: vec![0.0; crops.len()],
             month_precip_mm: [0.0; 12],
         };
-        c.measure(params, landscape);
+        c.measure(params, soil_params, landscape);
         c
     }
 
     /// Draws the climatology's years, after one to settle, and sets the long-run means. The years
     /// are the landscape's, from a stream of their own, the same for every world.
-    fn measure(&mut self, params: &WeatherParams, landscape: u64) {
+    fn measure(&mut self, params: &WeatherParams, soil_params: &crate::SoilParams, landscape: u64) {
         let world = self.stream;
         self.stream = civ_core::rng::key(&[PURPOSE_CLIMATOLOGY, landscape]);
         let at = params.normals_at_m;
-        let mut w = Weather::new(params, self, at, at, 0);
+        let mut w = Weather::new(params, soil_params, self, at, at, 0);
         let n = self.crops.len();
         let mut crop_sum = vec![0.0; n];
         let mut need_sum = vec![0.0; n];
@@ -454,7 +444,7 @@ impl Climatology {
                     workable[i] += f64::from(u8::from(ok));
                 }
             }
-            let water = w.live(params, self);
+            let water = w.live(params, soil_params, self);
             for (i, cw) in self.crops.iter().enumerate() {
                 let t = doy - cw.typical_sowing;
                 if t < 0 || t >= i64::from(cw.grow_days) {
@@ -465,7 +455,7 @@ impl Climatology {
                     *s = (water.soil_before_mm, 0.0, 0.0);
                 }
                 let need = cw.kc_on(t) * water.et0_mm[0];
-                let got = root_zone_day(&mut s.0, water.input_mm[0], need, params);
+                let got = root_zone_day(&mut s.0, water.input_mm[0], need, params, soil_params);
                 s.1 += need;
                 s.2 += got;
                 if counted && t + 1 == i64::from(cw.grow_days) {
@@ -572,13 +562,7 @@ impl Weather {
     /// A world's weather from day `first`: the slow and daily anomalies drawn from where they
     /// settle, the soil at field capacity and no snow, its bands covering heights `low_m` to
     /// `high_m`. Draws day `first`.
-    pub fn new(
-        params: &WeatherParams,
-        climate: &Climatology,
-        low_m: f64,
-        high_m: f64,
-        first: i64,
-    ) -> Weather {
+    pub fn new(params: &WeatherParams, soil_params: &crate::SoilParams, climate: &Climatology, low_m: f64, high_m: f64, first: i64) -> Weather {
         let mut rng = Rng64::from_key(&[climate.stream, PURPOSE_START, first as u64]);
         let slow = normal(&mut rng);
         let anomaly = normal(&mut rng);
@@ -596,7 +580,7 @@ impl Weather {
             slow,
             snow_base_m: base as f32,
             snow_mm: vec![0.0; bands],
-            soil_mm: params.soil_water_mm,
+            soil_mm: soil_params.soil_water_mm,
             cover_ease: 1.0,
             months: Vec::new(),
         };
@@ -608,13 +592,14 @@ impl Weather {
     /// the old year's deviate, the soil at field capacity and no snow. Draws day `today`.
     pub fn from_old(
         params: &WeatherParams,
+        soil_params: &crate::SoilParams,
         climate: &Climatology,
         low_m: f64,
         high_m: f64,
         today: i64,
         deviate: f64,
     ) -> Weather {
-        let mut w = Weather::new(params, climate, low_m, high_m, today);
+        let mut w = Weather::new(params, soil_params, climate, low_m, high_m, today);
         w.slow = if deviate.is_finite() { deviate } else { 0.0 };
         w.anomaly = 0.0;
         w.today.wet = false;
@@ -789,7 +774,7 @@ impl Weather {
     /// Lives today: snow falls, lies and melts in each band, the reference soil gains and loses
     /// water, and the month's record grows; then tomorrow is drawn. Returns what reached the
     /// ground in each band, for the fields.
-    pub fn live(&mut self, params: &WeatherParams, climate: &Climatology) -> DayWater {
+    pub fn live(&mut self, params: &WeatherParams, soil_params: &crate::SoilParams, climate: &Climatology) -> DayWater {
         let day = self.today.day;
         let ra = climate.normals(day).ra;
         let precip = f64::from(self.today.precip_mm);
@@ -818,16 +803,16 @@ impl Weather {
         }
         let r = self.reference_band(params);
         let need = params.cover_kc * water.et0_mm[r];
-        root_zone_day(&mut self.soil_mm, water.input_mm[r], need, params);
-        let now = ease(self.soil_mm, params.soil_water_mm, params.easy_water_share);
+        root_zone_day(&mut self.soil_mm, water.input_mm[r], need, params, soil_params);
+        let now = ease(self.soil_mm, soil_params.soil_water_mm, soil_params.easy_water_share);
         self.cover_ease += (now - self.cover_ease) / EASE_DAYS;
-        self.record(params, r);
+        self.record(params, soil_params, r);
         self.draw(params, climate, day + 1);
         water
     }
 
     /// Adds today to its month's record, beginning the month's record on its first day lived.
-    fn record(&mut self, params: &WeatherParams, band: usize) {
+    fn record(&mut self, params: &WeatherParams, soil_params: &crate::SoilParams, band: usize) {
         let t = self.today;
         let (year, month) = (year_of(t.day), month_of(t.day) as u8);
         if self
@@ -843,7 +828,7 @@ impl Weather {
                 ..MonthRecord::default()
             });
         }
-        let soil = (self.soil_mm / params.soil_water_mm.max(1e-9)) as f32;
+        let soil = (self.soil_mm / soil_params.soil_water_mm.max(1e-9)) as f32;
         let snow = f64::from(self.snow_mm[band]) >= SNOW_COVER_MM;
         if let Some(m) = self.months.last_mut() {
             m.days = m.days.saturating_add(1);
@@ -902,6 +887,17 @@ pub(crate) mod tests {
     use crate::fields::tests::crop;
 
     /// The temperate valley's `[weather]` (content/core/land/temperate_valley.toml).
+    pub(crate) fn soil_params() -> crate::SoilParams {
+        crate::SoilParams {
+            soil_water_mm: 100.0,
+            easy_water_share: 0.55,
+            fast_n_kg_per_ha: 150.0,
+            slow_n_kg_per_ha: 3000.0,
+            decay_fast: 0.2,
+            decay_slow: 0.02,
+        }
+    }
+
     pub(crate) fn params() -> WeatherParams {
         WeatherParams {
             wet_days: [
@@ -933,8 +929,6 @@ pub(crate) mod tests {
             ],
             snow_below_c: 0.5,
             melt_mm_per_c: 3.0,
-            soil_water_mm: 100.0,
-            easy_water_share: 0.55,
             cover_kc: 0.9,
             wet_ground_mm: 5.0,
             frozen_below_c: 0.0,
@@ -942,19 +936,19 @@ pub(crate) mod tests {
     }
 
     fn climate(seed: u64, landscape: u64) -> Climatology {
-        Climatology::new(&params(), &[crop()], 800.0, 48.0, landscape, seed)
+        Climatology::new(&params(), &soil_params(), &[crop()], 800.0, 48.0, landscape, seed)
     }
 
     /// Lives `years` years of a world's weather from day 0, with a crop of the test kind sown
     /// on its typical day each year; returns the weather and each year's crop factor.
     fn live(c: &Climatology, years: i64) -> (Weather, Vec<f64>) {
         let p = params();
-        let mut w = Weather::new(&p, c, 100.0, 1100.0, 0);
+        let mut w = Weather::new(&p, &soil_params(), c, 100.0, 1100.0, 0);
         let cw = &c.crops[0];
         let mut factors = Vec::new();
         let (mut water, mut need, mut got) = (0.0, 0.0, 0.0);
         for day in 0..years * DAYS_PER_YEAR {
-            let dw = w.live(&p, c);
+            let dw = w.live(&p, &soil_params(), c);
             let t = day_of_year(day) - cw.typical_sowing;
             if t == 0 {
                 (water, need, got) = (dw.soil_before_mm, 0.0, 0.0);
@@ -962,7 +956,7 @@ pub(crate) mod tests {
             if (0..i64::from(cw.grow_days)).contains(&t) {
                 let r = w.reference_band(&p);
                 let n = cw.kc_on(t) * dw.et0_mm[r];
-                got += root_zone_day(&mut water, dw.input_mm[r], n, &p);
+                got += root_zone_day(&mut water, dw.input_mm[r], n, &p, &soil_params());
                 need += n;
                 if t + 1 == i64::from(cw.grow_days) {
                     factors.push(c.crop_factor(0, need, got));
@@ -1046,7 +1040,7 @@ pub(crate) mod tests {
     fn snow_lies_longer_higher_up_and_melts_by_degree_days() {
         let p = params();
         let c = climate(3, landscape_key("core:worldgen/river_valley"));
-        let mut w = Weather::new(&p, &c, 100.0, 1100.0, 0);
+        let mut w = Weather::new(&p, &soil_params(), &c, 100.0, 1100.0, 0);
         let (low, high) = (w.band_of(150.0), w.band_of(1050.0));
         assert!(
             (w.band_mid_m(low) - 150.0).abs() < 1e-9,
@@ -1054,7 +1048,7 @@ pub(crate) mod tests {
         );
         let (mut low_days, mut high_days) = (0, 0);
         for _ in 0..20 * DAYS_PER_YEAR {
-            w.live(&p, &c);
+            w.live(&p, &soil_params(), &c);
             low_days += i32::from(f64::from(w.snow_mm[low]) >= SNOW_COVER_MM);
             high_days += i32::from(f64::from(w.snow_mm[high]) >= SNOW_COVER_MM);
         }
@@ -1070,7 +1064,7 @@ pub(crate) mod tests {
     fn the_ground_cannot_be_worked_in_heavy_rain_snow_or_frost_and_plans_count_on_it() {
         let p = params();
         let c = climate(7, landscape_key("core:worldgen/river_valley"));
-        let mut w = Weather::new(&p, &c, 100.0, 1100.0, 0);
+        let mut w = Weather::new(&p, &soil_params(), &c, 100.0, 1100.0, 0);
         w.today.mean_c = 8.0;
         w.today.precip_mm = 2.0;
         w.snow_mm.iter_mut().for_each(|s| *s = 0.0);
@@ -1103,10 +1097,10 @@ pub(crate) mod tests {
     fn a_month_is_as_wet_as_its_rain_against_the_usual_and_average_over_the_years() {
         let p = params();
         let c = climate(7, landscape_key("core:worldgen/river_valley"));
-        let mut w = Weather::new(&p, &c, 100.0, 1100.0, 0);
+        let mut w = Weather::new(&p, &soil_params(), &c, 100.0, 1100.0, 0);
         let mut ratios = Vec::new();
         for _ in 0..100 * DAYS_PER_YEAR {
-            w.live(&p, &c);
+            w.live(&p, &soil_params(), &c);
             let whole = w
                 .months
                 .last()
@@ -1146,15 +1140,15 @@ pub(crate) mod tests {
         let p = params();
         let mut water = 100.0;
         // Rain beyond what it holds drains away.
-        root_zone_day(&mut water, 30.0, 0.0, &p);
+        root_zone_day(&mut water, 30.0, 0.0, &p, &soil_params());
         assert_eq!(water, 100.0);
         // A crop draws freely until 55 mm are used, then less as it dries.
         assert_eq!(ease(50.0, 100.0, 0.55), 1.0);
         assert!((ease(30.0, 100.0, 0.55) - 30.0 / 45.0).abs() < 1e-12);
-        let used = root_zone_day(&mut water, 0.0, 5.0, &p);
+        let used = root_zone_day(&mut water, 0.0, 5.0, &p, &soil_params());
         assert_eq!(used, 5.0);
         let mut dry = 9.0;
-        assert!((root_zone_day(&mut dry, 0.0, 5.0, &p) - 1.0).abs() < 1e-12);
+        assert!((root_zone_day(&mut dry, 0.0, 5.0, &p, &soil_params()) - 1.0).abs() < 1e-12);
         // The crop curve: flat, rising, flat, falling.
         let cw = CropWater {
             kc: [0.4, 1.15, 0.4],

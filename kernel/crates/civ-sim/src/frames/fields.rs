@@ -138,7 +138,7 @@ pub fn fields_response(sim: &Sim) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let day = sim.now().day_index();
     let crops = &sim.rules.catalog.crops;
-    let soil_mm = sim.rules.land.weather.soil_water_mm.max(1e-9);
+    let soil_mm = sim.rules.land.soil.soil_water_mm.max(1e-9);
     let list: Vec<_> = sim
         .land
         .fields
@@ -189,6 +189,9 @@ pub fn fields_response(sim: &Sim) -> Vec<u8> {
                         -1.0
                     },
                     soil_water: (f64::from(f.water_mm) / soil_mm) as f32,
+                    fast_n_kg: 0.0,
+                    slow_n_kg: 0.0,
+                    harvest_records: None,
                 },
             )
         })

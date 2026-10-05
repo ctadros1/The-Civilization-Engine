@@ -663,6 +663,94 @@ impl<'a> ::flatbuffers::Verifiable for FieldStage {
 
 impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_HARVEST_LIMIT: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_HARVEST_LIMIT: u8 = 2;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_HARVEST_LIMIT: [HarvestLimit; 3] = [
+  HarvestLimit::None,
+  HarvestLimit::Water,
+  HarvestLimit::Nitrogen,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct HarvestLimit(pub u8);
+#[allow(non_upper_case_globals)]
+impl HarvestLimit {
+  pub const None: Self = Self(0);
+  pub const Water: Self = Self(1);
+  pub const Nitrogen: Self = Self(2);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 2;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::None,
+    Self::Water,
+    Self::Nitrogen,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::None => Some("None"),
+      Self::Water => Some("Water"),
+      Self::Nitrogen => Some("Nitrogen"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for HarvestLimit {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for HarvestLimit {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for HarvestLimit {
+    type Output = HarvestLimit;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for HarvestLimit {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for HarvestLimit {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for HarvestLimit {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_COMMAND_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MAX_COMMAND_BODY: u8 = 10;
@@ -1467,6 +1555,165 @@ impl<'a> ::flatbuffers::Verifiable for ResponseBody {
 
 impl ::flatbuffers::SimpleToVerifyInSlice for ResponseBody {}
 pub struct ResponseBodyUnionTableOffset {}
+
+// struct HarvestRecord, aligned to 4
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct HarvestRecord(pub [u8; 12]);
+impl Default for HarvestRecord { 
+  fn default() -> Self { 
+    Self([0; 12])
+  }
+}
+impl ::core::fmt::Debug for HarvestRecord {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("HarvestRecord")
+      .field("year", &self.year())
+      .field("yield_kg_per_ha", &self.yield_kg_per_ha())
+      .field("limit", &self.limit())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for HarvestRecord {}
+impl<'a> ::flatbuffers::Follow<'a> for HarvestRecord {
+  type Inner = &'a HarvestRecord;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a HarvestRecord>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a HarvestRecord {
+  type Inner = &'a HarvestRecord;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<HarvestRecord>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for HarvestRecord {
+    type Output = HarvestRecord;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const HarvestRecord as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(4)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for HarvestRecord {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> HarvestRecord {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    year: u32,
+    yield_kg_per_ha: f32,
+    limit: HarvestLimit,
+  ) -> Self {
+    let mut s = Self([0; 12]);
+    s.set_year(year);
+    s.set_yield_kg_per_ha(yield_kg_per_ha);
+    s.set_limit(limit);
+    s
+  }
+
+  pub fn year(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_year(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn yield_kg_per_ha(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_yield_kg_per_ha(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn limit(&self) -> HarvestLimit {
+    let mut mem = ::core::mem::MaybeUninit::<<HarvestLimit as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<HarvestLimit as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_limit(&mut self, x: HarvestLimit) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<HarvestLimit as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
 
 // struct Vec2, aligned to 4
 #[repr(transparent)]
@@ -13657,6 +13904,9 @@ impl<'a> FieldInfo<'a> {
   pub const VT_LEASE_SHARE: ::flatbuffers::VOffsetT = 42;
   pub const VT_WATER_HAD: ::flatbuffers::VOffsetT = 44;
   pub const VT_SOIL_WATER: ::flatbuffers::VOffsetT = 46;
+  pub const VT_FAST_N_KG: ::flatbuffers::VOffsetT = 48;
+  pub const VT_SLOW_N_KG: ::flatbuffers::VOffsetT = 50;
+  pub const VT_HARVEST_RECORDS: ::flatbuffers::VOffsetT = 52;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -13675,6 +13925,9 @@ impl<'a> FieldInfo<'a> {
     builder.add_settlement(args.settlement);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    if let Some(x) = args.harvest_records { builder.add_harvest_records(x); }
+    builder.add_slow_n_kg(args.slow_n_kg);
+    builder.add_fast_n_kg(args.fast_n_kg);
     builder.add_soil_water(args.soil_water);
     builder.add_water_had(args.water_had);
     builder.add_lease_share(args.lease_share);
@@ -13848,6 +14101,27 @@ impl<'a> FieldInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(FieldInfo::VT_SOIL_WATER, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn fast_n_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FieldInfo::VT_FAST_N_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn slow_n_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FieldInfo::VT_SLOW_N_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn harvest_records(&self) -> Option<::flatbuffers::Vector<'a, HarvestRecord>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, HarvestRecord>>>(FieldInfo::VT_HARVEST_RECORDS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FieldInfo<'_> {
@@ -13878,6 +14152,9 @@ impl ::flatbuffers::Verifiable for FieldInfo<'_> {
      .visit_field::<f32>("lease_share", Self::VT_LEASE_SHARE, false)?
      .visit_field::<f32>("water_had", Self::VT_WATER_HAD, false)?
      .visit_field::<f32>("soil_water", Self::VT_SOIL_WATER, false)?
+     .visit_field::<f32>("fast_n_kg", Self::VT_FAST_N_KG, false)?
+     .visit_field::<f32>("slow_n_kg", Self::VT_SLOW_N_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, HarvestRecord>>>("harvest_records", Self::VT_HARVEST_RECORDS, false)?
      .finish();
     Ok(())
   }
@@ -13905,6 +14182,9 @@ pub struct FieldInfoArgs<'a> {
     pub lease_share: f32,
     pub water_had: f32,
     pub soil_water: f32,
+    pub fast_n_kg: f32,
+    pub slow_n_kg: f32,
+    pub harvest_records: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, HarvestRecord>>>,
 }
 impl<'a> Default for FieldInfoArgs<'a> {
   #[inline]
@@ -13932,6 +14212,9 @@ impl<'a> Default for FieldInfoArgs<'a> {
       lease_share: 0.0,
       water_had: -1.0,
       soil_water: 0.0,
+      fast_n_kg: 0.0,
+      slow_n_kg: 0.0,
+      harvest_records: None,
     }
   }
 }
@@ -14030,6 +14313,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FieldInfoBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(FieldInfo::VT_SOIL_WATER, soil_water, 0.0);
   }
   #[inline]
+  pub fn add_fast_n_kg(&mut self, fast_n_kg: f32) {
+    self.fbb_.push_slot::<f32>(FieldInfo::VT_FAST_N_KG, fast_n_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_slow_n_kg(&mut self, slow_n_kg: f32) {
+    self.fbb_.push_slot::<f32>(FieldInfo::VT_SLOW_N_KG, slow_n_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_harvest_records(&mut self, harvest_records: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , HarvestRecord>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FieldInfo::VT_HARVEST_RECORDS, harvest_records);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FieldInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FieldInfoBuilder {
@@ -14069,6 +14364,9 @@ impl ::core::fmt::Debug for FieldInfo<'_> {
       ds.field("lease_share", &self.lease_share());
       ds.field("water_had", &self.water_had());
       ds.field("soil_water", &self.soil_water());
+      ds.field("fast_n_kg", &self.fast_n_kg());
+      ds.field("slow_n_kg", &self.slow_n_kg());
+      ds.field("harvest_records", &self.harvest_records());
       ds.finish()
   }
 }

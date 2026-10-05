@@ -254,6 +254,7 @@ enum Schema {
     /// The condition of buildings: each group's quality, loss and state, the building's state,
     /// its builders' skill and upkeep under way (ADR-0009 §4, §6).
     V17,
+
     /// What each settlement has seen of each technique's buildings (ADR-0009 §6).
     V18,
     /// Deposits as bodies in the ground (ADR-0010 §1).
@@ -268,6 +269,8 @@ enum Schema {
     V23,
     /// Weather: a daily series with its record, and each growing field's water (ADR-0012).
     V24,
+    /// ADR-0012 §3: Soil nitrogen and harvest records.
+    V25,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -306,7 +309,7 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V21 => Schema::V21,
         SCHEMA_V22 => Schema::V22,
         SCHEMA_V23 => Schema::V23,
-        SAVE_SCHEMA_VERSION => Schema::V24,
+        SAVE_SCHEMA_VERSION => Schema::V25,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1057,6 +1060,7 @@ fn decode_land(
             let (low, high) = civ_land::height_range(map);
             Weather::from_old(
                 &rules.land.weather,
+                &rules.land.soil,
                 &climatology,
                 low,
                 high,
@@ -1628,7 +1632,7 @@ fn carried(
         | Schema::V21
         | Schema::V22
         | Schema::V23
-        | Schema::V24 => {
+        | Schema::V24 | Schema::V25 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1760,7 +1764,7 @@ fn decode_households(
             | Schema::V21
             | Schema::V22
             | Schema::V23
-            | Schema::V24 => {
+            | Schema::V24 | Schema::V25 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -2337,6 +2341,9 @@ fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
                     water_mm: f.water_mm,
                     need_mm: f.need_mm,
                     got_mm: f.got_mm,
+                    fast_n_kg: 0.0,
+                    slow_n_kg: 0.0,
+                    harvest_records: None,
                 },
             )
         })
@@ -2412,7 +2419,7 @@ fn decode_fields(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<Vec<Fiel
             // Before schema 24 no field kept its water: a crop growing then is at field capacity
             // and unstressed so far (ADR-0012 §6).
             water_mm: if schema < Schema::V24 && stage == FieldStage::Sown {
-                rules.land.weather.soil_water_mm as f32
+                rules.land.soil.soil_water_mm as f32
             } else {
                 f.water_mm()
             },

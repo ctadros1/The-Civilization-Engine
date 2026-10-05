@@ -75,13 +75,14 @@ pub fn replay(
 ) -> (Climatology, Weather) {
     let climate = civ_sim::climatology_of(content, preset, seed);
     let params = &content.land.params.weather;
+    let soil_params = &content.land.params.soil;
     let at = params.normals_at_m;
     // A new world's weather begins a year before its founding (`Land::create`).
     let first = DEFAULT_WORLD_START.day_index() - DAYS_PER_YEAR;
-    let mut w = Weather::new(params, &climate, at, at, first);
+    let mut w = Weather::new(params, soil_params, &climate, at, at, first);
     for day in first..=until {
         let why = w.unworkable(params, at);
-        let lived = w.live(params, &climate);
+        let lived = w.live(params, soil_params, &climate);
         each(day, &lived, why);
     }
     (climate, w)
@@ -91,6 +92,7 @@ pub fn replay(
 pub fn years(content: &ContentRegistry, options: &WeatherOptions) -> anyhow::Result<Vec<Year>> {
     let preset = preset(content, options.preset.as_deref())?;
     let params = &content.land.params.weather;
+    let soil_params = &content.land.params.soil;
     let last = i64::from(options.years) * DAYS_PER_YEAR - 1;
     let mut out: Vec<Year> = (1..=i64::from(options.years))
         .map(|year| Year {
@@ -125,7 +127,7 @@ pub fn years(content: &ContentRegistry, options: &WeatherOptions) -> anyhow::Res
         }
         if (0..i64::from(crop.grow_days)).contains(&t) {
             let n = crop.kc_on(t) * lived.et0_mm[0];
-            got += root_zone_day(&mut water, lived.input_mm[0], n, params);
+            got += root_zone_day(&mut water, lived.input_mm[0], n, params, soil_params);
             need += n;
             if t + 1 == i64::from(crop.grow_days) {
                 seasons.push((weather::year_of(day), need, got));
@@ -169,6 +171,7 @@ pub fn run(
     let years = years(content, options)?;
     let preset = preset(content, options.preset.as_deref())?;
     let params = &content.land.params.weather;
+    let _soil_params = &content.land.params.soil;
     writeln!(
         out,
         "The weather of {} seed {} on the valley floor ({} m), from the world's first year \

@@ -26,6 +26,7 @@ pub(crate) struct LandFile {
     pub weather: WeatherFile,
     pub paths: Paths,
     pub peak_load: PeakLoadFile,
+    pub soil: SoilFile,
     pub habitat: Vec<Habitat>,
     pub resource: Vec<Resource>,
     /// Where deposits lie (content API 18); a profile may have none.
@@ -108,8 +109,6 @@ pub(crate) struct WeatherFile {
     pub slow_warmth_c: [f64; 12],
     pub snow_below_c: f64,
     pub melt_mm_per_c: f64,
-    pub soil_water_mm: f64,
-    pub easy_water_share: f64,
     pub cover_kc: f64,
     /// Content API 24: a day's rain or snow, mm, that keeps people off the ground, and the mean
     /// below which it is frozen (ADR-0012 §5).
@@ -120,7 +119,7 @@ pub(crate) struct WeatherFile {
 impl WeatherFile {
     fn params(&self) -> WeatherParams {
         WeatherParams {
-            wet_days: self.wet_days,
+              wet_days: self.wet_days,
             rain_share: self.rain_share,
             persistence: self.persistence,
             gamma_shape: self.gamma_shape,
@@ -139,8 +138,6 @@ impl WeatherFile {
             slow_warmth_c: self.slow_warmth_c,
             snow_below_c: self.snow_below_c,
             melt_mm_per_c: self.melt_mm_per_c,
-            soil_water_mm: self.soil_water_mm,
-            easy_water_share: self.easy_water_share,
             cover_kc: self.cover_kc,
             wet_ground_mm: self.wet_ground_mm,
             frozen_below_c: self.frozen_below_c,
@@ -191,8 +188,6 @@ impl WeatherFile {
         months("slow_warmth_c", &self.slow_warmth_c, -5.0, 5.0, p);
         one("snow_below_c", self.snow_below_c, -5.0, 5.0, p);
         one("melt_mm_per_c", self.melt_mm_per_c, 0.0, 20.0, p);
-        one("soil_water_mm", self.soil_water_mm, 10.0, 500.0, p);
-        one("easy_water_share", self.easy_water_share, 0.1, 0.9, p);
         one("cover_kc", self.cover_kc, 0.1, 2.0, p);
         one("wet_ground_mm", self.wet_ground_mm, 0.5, 100.0, p);
         one("frozen_below_c", self.frozen_below_c, -10.0, 5.0, p);
@@ -333,6 +328,7 @@ impl LandFile {
             richness_feature_m: self.richness_feature_m,
             resources,
             weather: self.weather.params(),
+            soil: self.soil.params(),
             paths: PathParams {
                 wear_per_walk: self.paths.wear_per_walk,
                 half_life_days: self.paths.wear_half_life_days,
@@ -432,6 +428,7 @@ impl LandFile {
             p.push("`richness_feature_m` must be positive".to_owned());
         }
         self.weather.problems(&mut p);
+        self.soil.problems(&mut p);
         let w = &self.paths;
         if !(w.wear_per_walk > 0.0 && w.wear_per_walk < 1.0) {
             p.push("`paths.wear_per_walk` must be above 0 and below 1".to_owned());
@@ -572,5 +569,42 @@ impl LandFile {
             }
         }
         p
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct SoilFile {
+    pub soil_water_mm: f64,
+    pub easy_water_share: f64,
+    pub fast_n_kg_per_ha: f64,
+    pub slow_n_kg_per_ha: f64,
+    pub decay_fast: f64,
+    pub decay_slow: f64,
+}
+
+impl SoilFile {
+    pub fn params(&self) -> civ_land::SoilParams {
+        civ_land::SoilParams {
+            soil_water_mm: self.soil_water_mm,
+            easy_water_share: self.easy_water_share,
+            fast_n_kg_per_ha: self.fast_n_kg_per_ha,
+            slow_n_kg_per_ha: self.slow_n_kg_per_ha,
+            decay_fast: self.decay_fast,
+            decay_slow: self.decay_slow,
+        }
+    }
+    pub fn problems(&self, p: &mut Vec<String>) {
+        let one = |name: &str, v: f64, least: f64, most: f64, p: &mut Vec<String>| {
+            if !(v.is_finite() && (least..=most).contains(&v)) {
+                p.push(format!("`soil.{}` must be between {} and {} (got {})", name, least, most, v));
+            }
+        };
+        one("soil_water_mm", self.soil_water_mm, 10.0, 500.0, p);
+        one("easy_water_share", self.easy_water_share, 0.1, 0.9, p);
+        one("fast_n_kg_per_ha", self.fast_n_kg_per_ha, 0.0, 1000.0, p);
+        one("slow_n_kg_per_ha", self.slow_n_kg_per_ha, 0.0, 10000.0, p);
+        one("decay_fast", self.decay_fast, 0.0, 1.0, p);
+        one("decay_slow", self.decay_slow, 0.0, 1.0, p);
     }
 }

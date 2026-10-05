@@ -31,6 +31,17 @@ enum ClockMode : ubyte { Detailed = 0, Accelerated = 1 }
 // Where a field is in its year (M1 slice C).
 enum FieldStage : ubyte { Fallow = 0, Prepared = 1, Sown = 2, Reaped = 3 }
 
+// What limited a field's harvest (ADR-0012 §3).
+enum HarvestLimit : ubyte { None = 0, Water = 1, Nitrogen = 2 }
+
+// One past harvest of a field.
+struct HarvestRecord {
+  year: uint;
+  yield_kg_per_ha: float;
+  limit: HarvestLimit;
+}
+
+
 struct Vec2 {
   x: float;
   y: float;
@@ -781,6 +792,10 @@ table FieldInfo {
   // holds.
   water_had: float = -1 (id: 20);
   soil_water: float (id: 21);
+  // Wire 1.25 (ADR-0012 §3): the fast and slow pools of organic nitrogen, kg.
+  fast_n_kg: float (id: 22);
+  slow_n_kg: float (id: 23);
+  harvest_records: [HarvestRecord] (id: 24);
 }
 
 table Fields {

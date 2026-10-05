@@ -33,14 +33,14 @@ fn fall(params: &WeatherParams, mean_c: f64, precip_mm: f64) -> &'static str {
 /// Today's weather on the valley floor in words, as people would say it: "6 °C, light rain",
 /// "−3 °C, snow; snow lying", "21 °C, dry; frost at night; dry ground", "14 °C, rain on dry
 /// ground".
-pub fn weather_words(params: &WeatherParams, w: &Weather) -> String {
+pub fn weather_words(params: &WeatherParams, soil_params: &civ_land::SoilParams, w: &Weather) -> String {
     let t = &w.today;
     let mean = f64::from(t.mean_c);
     let fell = fall(params, mean, f64::from(t.precip_mm));
-    let soil = w.soil_mm / params.soil_water_mm.max(1e-9);
+    let soil = w.soil_mm / soil_params.soil_water_mm.max(1e-9);
     let ground = if soil < 0.2 {
         Some("parched ground")
-    } else if soil < 1.0 - params.easy_water_share {
+    } else if soil < 1.0 - soil_params.easy_water_share {
         Some("dry ground")
     } else {
         None
@@ -68,7 +68,7 @@ pub fn day_weather<'a>(
 ) -> WIPOffset<wire::DayWeather<'a>> {
     let params = &sim.rules.land.weather;
     let w = &sim.land.weather;
-    let words = fbb.create_string(&weather_words(params, w));
+    let words = fbb.create_string(&weather_words(params, &sim.rules.land.soil, w));
     let t = &w.today;
     wire::DayWeather::create(
         fbb,
@@ -78,7 +78,7 @@ pub fn day_weather<'a>(
             min_c: t.min_c,
             max_c: t.max_c,
             snow_mm: w.snow_at(params.normals_at_m) as f32,
-            soil: (w.soil_mm / params.soil_water_mm.max(1e-9)) as f32,
+            soil: (w.soil_mm / sim.rules.land.soil.soil_water_mm.max(1e-9)) as f32,
             words: Some(words),
             snow_line_m: w.snow_base_m,
         },
@@ -158,8 +158,7 @@ mod tests {
             slow_warmth_c: [0.0; 12],
             snow_below_c: 0.5,
             melt_mm_per_c: 3.0,
-            soil_water_mm: 100.0,
-            easy_water_share: 0.55,
+            
             cover_kc: 0.9,
             wet_ground_mm: 5.0,
             frozen_below_c: 0.0,
@@ -188,21 +187,30 @@ mod tests {
 
     #[test]
     fn the_day_is_told_in_words() {
+        
+        let s = civ_land::SoilParams {
+            soil_water_mm: 100.0,
+            easy_water_share: 0.55,
+            fast_n_kg_per_ha: 150.0,
+            slow_n_kg_per_ha: 3000.0,
+            decay_fast: 0.2,
+            decay_slow: 0.02,
+        };
         let p = params();
         assert_eq!(
-            weather_words(&p, &weather(6.0, 3.0, 2.0, 80.0, 0.0)),
+            weather_words(&p, &s, &weather(6.0, 3.0, 2.0, 80.0, 0.0)),
             "6 °C, light rain"
         );
         assert_eq!(
-            weather_words(&p, &weather(14.0, 9.0, 8.0, 30.0, 0.0)),
+            weather_words(&p, &s, &weather(14.0, 9.0, 8.0, 30.0, 0.0)),
             "14 °C, rain on dry ground"
         );
         assert_eq!(
-            weather_words(&p, &weather(21.0, 0.0, -1.0, 10.0, 0.0)),
+            weather_words(&p, &s, &weather(21.0, 0.0, -1.0, 10.0, 0.0)),
             "21 °C, dry; frost at night; parched ground"
         );
         assert_eq!(
-            weather_words(&p, &weather(-3.0, 9.0, -6.0, 100.0, 20.0)),
+            weather_words(&p, &s, &weather(-3.0, 9.0, -6.0, 100.0, 20.0)),
             "-3 °C, snow; snow lying"
         );
         assert_eq!(fall(&p, 6.0, 0.0), "dry");

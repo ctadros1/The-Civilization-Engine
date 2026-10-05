@@ -204,6 +204,7 @@ pub(crate) fn climatology(
 ) -> civ_land::Climatology {
     civ_land::Climatology::new(
         &rules.land.weather,
+        &rules.land.soil,
         &rules.catalog.crops,
         f64::from(map.climate.precipitation_mm_per_yr),
         rules.people.latitude_deg,
@@ -223,6 +224,7 @@ pub fn climatology_of(
     let rules = Rules::of(content);
     civ_land::Climatology::new(
         &rules.land.weather,
+        &rules.land.soil,
         &rules.catalog.crops,
         f64::from(preset.params.precipitation_mm_per_yr as f32),
         rules.people.latitude_deg,

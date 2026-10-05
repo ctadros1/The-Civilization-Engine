@@ -56,6 +56,8 @@ export { GoodInfo } from './wire/good-info.js';
 export { GroundTileRev } from './wire/ground-tile-rev.js';
 export { GroupInfo } from './wire/group-info.js';
 export { GroupState } from './wire/group-state.js';
+export { HarvestLimit } from './wire/harvest-limit.js';
+export { HarvestRecord } from './wire/harvest-record.js';
 export { Hello } from './wire/hello.js';
 export { HouseholdWealth } from './wire/household-wealth.js';
 export { Hydrography } from './wire/hydrography.js';

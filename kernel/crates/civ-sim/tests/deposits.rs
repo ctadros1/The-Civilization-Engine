@@ -8,7 +8,7 @@ use std::sync::atomic::AtomicBool;
 
 use civ_agents::build::plot_clear;
 use civ_agents::history::ChronicleKind;
-use civ_agents::person::{Step, Target};
+use civ_agents::person::{Flow, Step, Target};
 use civ_content::ContentRegistry;
 use civ_sim::persist;
 use civ_sim::{NewWorld, Sim};
@@ -422,6 +422,24 @@ fn with_no_loose_stone_left_a_household_needing_stone_quarries_it() {
     );
 }
 
+/// Household `h` left with 30 kg of flour and nothing else to eat.
+fn flour_only(sim: &mut Sim, h: civ_core::PermanentId) {
+    let catalog = &content().catalog;
+    let flour = catalog.good_index("core:good/flour").expect("flour");
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == h {
+            for (g, d) in catalog.goods.iter().enumerate() {
+                if d.purpose == civ_agents::params::GoodUse::Food
+                    && d.eaten != civ_agents::params::Eaten::Never
+                {
+                    x.stores[g] = 0.0;
+                }
+            }
+            x.stores[flour] += 30.0;
+        }
+    }
+}
+
 #[test]
 fn a_household_builds_an_oven_of_clay_it_digs_and_bakes_in_it() {
     let mut sim = world(3);
@@ -442,23 +460,61 @@ fn a_household_builds_an_oven_of_clay_it_digs_and_bakes_in_it() {
         .iter()
         .position(|a| a.id == "core:activity/bake_bread_oven")
         .expect("baking in the oven") as u16;
+    // Households with a whole oven, and how much of one each holds.
     let ovens = |sim: &Sim| -> Vec<(civ_core::PermanentId, f64)> {
         sim.people()
             .households
             .iter()
             .map(|(_, h)| (h.id, h.stores.get(oven).copied().unwrap_or(0.0)))
-            .filter(|&(_, n)| n > 0.0)
+            .filter(|&(_, n)| n >= 1.0 - 1e-9)
             .collect()
     };
+    // How much of its ovens household `h` has worn away by baking in them.
+    let worn = |sim: &Sim, h: civ_core::PermanentId| {
+        sim.people()
+            .household(h)
+            .map_or(0.0, |h| h.flows.get(Flow::Worn, oven))
+    };
     // Founders know ovens but bring none, as an oven stays where it is built. They want one: its
-    // clay is dug and it is built.
-    assert!(ovens(&sim).is_empty(), "founders bring no oven");
-    for _ in 0..180 {
-        sim.advance_minutes(24 * 60).expect("advances");
+    // clay is dug and it is built, over days of work.
+    let held = |sim: &Sim| -> f64 {
+        sim.people()
+            .households
+            .iter()
+            .map(|(_, h)| h.stores.get(oven).copied().unwrap_or(0.0))
+            .sum()
+    };
+    assert_eq!(held(&sim), 0.0, "founders bring no oven");
+    // The first household with an oven begun is left nothing to eat but flour: it bakes at the
+    // hearth until its oven is whole, as one partly built bakes nothing (baking in it would wear
+    // it).
+    let mut hungry = None;
+    for _ in 0..180 * 24 {
+        sim.advance_minutes(60).expect("advances");
+        for (_, h) in sim.people().households.iter() {
+            assert_eq!(
+                worn(&sim, h.id),
+                0.0,
+                "{} baked in an oven not yet whole",
+                h.id
+            );
+        }
         if !ovens(&sim).is_empty() {
             break;
         }
+        if hungry.is_none() {
+            hungry = sim
+                .people()
+                .households
+                .iter()
+                .find(|(_, h)| h.stores.get(oven).copied().unwrap_or(0.0) > 0.0)
+                .map(|(_, h)| h.id);
+            if let Some(h) = hungry {
+                flour_only(&mut sim, h);
+            }
+        }
     }
+    assert!(hungry.is_some(), "an oven was begun");
     let built = ovens(&sim);
     assert!(!built.is_empty(), "an oven was built");
     assert!(
@@ -469,19 +525,16 @@ fn a_household_builds_an_oven_of_clay_it_digs_and_bakes_in_it() {
         "of clay dug from the pit"
     );
     // With flour and nothing ready to eat, its household bakes in it, hour by hour until someone
-    // is seen at it, and it wears with use.
-    let flour = catalog.good_index("core:good/flour").expect("flour");
+    // is seen at it, and it wears with use. It is made to know no other way to bake: a small
+    // household's batch costs less wood at the hearth.
     let (owner, _) = built[0];
-    for (_, h) in sim.people_mut_for_tests().households.iter_mut() {
-        if h.id == owner {
-            for (g, d) in catalog.goods.iter().enumerate() {
-                if d.purpose == civ_agents::params::GoodUse::Food
-                    && d.eaten != civ_agents::params::Eaten::Never
-                {
-                    h.stores[g] = 0.0;
-                }
-            }
-            h.stores[flour] += 30.0;
+    flour_only(&mut sim, owner);
+    let hearth_baking = catalog
+        .technique_index("core:technique/hearth_baking")
+        .expect("baking at the hearth") as u16;
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.household == owner {
+            p.knows.retain(|k| k.technique != hearth_baking);
         }
     }
     let mut seen = None;
@@ -506,11 +559,8 @@ fn a_household_builds_an_oven_of_clay_it_digs_and_bakes_in_it() {
     }
     assert_eq!(seen.as_deref(), Some("baking bread in the oven"));
     sim.advance_minutes(24 * 60).expect("advances");
-    let worn = ovens(&sim)
-        .iter()
-        .any(|&(h, n)| built.iter().any(|&(b, was)| b == h && n < was));
     assert!(
-        worn,
+        worn(&sim, owner) > 0.0,
         "an oven wears as it is used: {:?} then {:?}",
         built,
         ovens(&sim)

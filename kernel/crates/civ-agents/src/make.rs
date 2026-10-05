@@ -115,6 +115,21 @@ pub fn tool_need(wanted: f64, held: f64) -> f64 {
     }
 }
 
+/// How much of tool `good`, of which `held` standard tools are at hand, does its work: all of it,
+/// but none of a tool that stays where it is made (an oven) unless a whole one stands. One partly
+/// built does nothing, and one worn below whole is out of use until it is mended.
+pub fn in_use(goods: &[GoodDef], good: usize, held: f64) -> f64 {
+    let fixed = goods
+        .get(good)
+        .and_then(|g| g.tool.as_ref())
+        .is_some_and(|t| t.fixed);
+    if fixed && held < 1.0 - 1e-9 {
+        0.0
+    } else {
+        held.max(0.0)
+    }
+}
+
 /// What a household can put into a recipe of each good: what it holds, and in hunger the goods
 /// kept back for it beyond `protected` (`(good, kilograms)`: the seed for the ground already
 /// cropped).
@@ -313,6 +328,25 @@ mod tests {
             quern,
             oven,
         ]
+    }
+
+    #[test]
+    fn a_tool_that_stays_where_it_is_made_works_only_whole() {
+        let goods = goods();
+        let (quern, oven) = (5, 6);
+        assert_eq!(
+            in_use(&goods, oven, 0.5),
+            0.0,
+            "a half-built oven bakes nothing"
+        );
+        assert_eq!(in_use(&goods, oven, 0.999), 0.0, "nor one worn below whole");
+        assert_eq!(in_use(&goods, oven, 1.2), 1.2);
+        assert_eq!(
+            in_use(&goods, quern, 0.05),
+            0.05,
+            "the last of a worn quern grinds"
+        );
+        assert_eq!(in_use(&goods, 0, 3.0), 3.0, "nor are other goods held back");
     }
 
     fn grind() -> RecipeDef {

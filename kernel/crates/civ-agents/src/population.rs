@@ -1976,7 +1976,14 @@ impl Population {
         let mut free_tools: Vec<f64> = stores
             .iter()
             .zip(goods)
-            .map(|(s, g)| if g.tool.is_some() { s.max(0.0) } else { 0.0 })
+            .enumerate()
+            .map(|(i, (s, g))| {
+                if g.tool.is_some() {
+                    make::in_use(goods, i, *s)
+                } else {
+                    0.0
+                }
+            })
             .collect();
         for m in &hh.members {
             let Some(q) = self.person(*m).filter(|q| Some(q.id) != me) else {
@@ -2036,7 +2043,7 @@ impl Population {
                 if let Some(m) = tool_material.get_mut(g) {
                     *m += (amount - held_of(g)).max(0.0);
                 }
-                if held_of(t) < decide::MIN_TOOL
+                if make::in_use(goods, t, held_of(t)) < decide::MIN_TOOL
                     && let Some(b) = tool_material_blocked.get_mut(g)
                 {
                     *b = true;

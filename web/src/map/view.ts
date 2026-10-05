@@ -58,7 +58,10 @@ import {
   classes,
   contourInterval,
   elevations,
+  seasonKey,
+  seasonOf,
   shade,
+  type Season,
   type ShadeOptions,
 } from "./shade.js";
 
@@ -175,6 +178,7 @@ export class MapView {
   private riverScale = 0;
   private riversVisible = true;
   private lastPointer: { x: number; y: number } | null = null;
+  private currentSeasonKey = "";
   private shadeOptions: ShadeOptions | null = null;
   private readonly fieldsLayer = new Graphics();
   private fields: FieldInfo[] = [];
@@ -307,6 +311,15 @@ export class MapView {
       this.settlementsKey = key;
       this.settlements = settlements;
       this.drawSettlements();
+    }
+    const newSeasonKey = seasonKey(clock?.season, clock?.weather?.snowLineM);
+    if (newSeasonKey !== this.currentSeasonKey) {
+      this.currentSeasonKey = newSeasonKey;
+      if (this.shadeOptions) {
+        this.shadeOptions.season = seasonOf(clock?.season);
+        this.shadeOptions.snowLineM = clock?.weather?.snowLineM;
+      }
+      this.refreshTerrain();
     }
   }
 
@@ -545,6 +558,21 @@ export class MapView {
     this.world.scale.set(s);
     this.world.position.set(app.screen.width / 2 - x * s, app.screen.height / 2 - y * s);
     this.clampPosition();
+    this.cameraChanged = true;
+  }
+
+  private refreshTerrain(): void {
+    if (!this.base || !this.info || !this.shadeOptions) return;
+    const rgba = shade(this.base.elev, this.base.water, this.base.sw, this.base.sh, {
+      ...this.shadeOptions,
+      cellM: this.info.cellSizeM * 2 ** this.base.level,
+    });
+    this.base.sprite.texture.destroy(true);
+    this.base.sprite.texture = texture(rgba, this.base.sw, this.base.sh);
+    for (const slot of this.tiles.values()) {
+      slot.patch?.sprite.destroy({ texture: true, textureSource: true });
+    }
+    this.tiles.clear();
     this.cameraChanged = true;
   }
 

@@ -59,8 +59,14 @@ pub enum ToolAge {
 /// whose technique is `known` or that need none.
 pub fn tool_ages(catalog: &crate::params::Catalog, known: &dyn Fn(usize) -> bool) -> Vec<ToolAge> {
     let mut ages = vec![ToolAge::NoWork; catalog.goods.len()];
+    // Each technique is asked about once: many activities share one.
+    let mut asked: Vec<Option<bool>> = vec![None; catalog.techniques.len()];
+    let mut knows = |t: usize| match asked.get_mut(t) {
+        Some(slot) => *slot.get_or_insert_with(|| known(t)),
+        None => known(t),
+    };
     for a in &catalog.activities {
-        let usable = catalog.technique_of(a).is_none_or(known);
+        let usable = catalog.technique_of(a).is_none_or(&mut knows);
         for t in catalog.tools_of(a) {
             if let Some(age) = ages.get_mut(t) {
                 *age = match (*age, usable) {

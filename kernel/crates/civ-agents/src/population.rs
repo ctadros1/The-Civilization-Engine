@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use civ_core::time::{DAYS_PER_YEAR, MINUTES_PER_DAY};
-use civ_core::{GenTable, Handle, IdAllocator, PermanentId, Rng64, SimTime};
+use civ_core::{FastMap, GenTable, Handle, IdAllocator, PermanentId, Rng64, SimTime};
 use civ_grammar::{BuildingSpec, Expansion, Stage, StageNeeds};
 use civ_land::paths::cells_along;
 use civ_land::{Building, CropParams, Field, FieldStage, FieldTask, Land, LandParams, Party, Plot};
@@ -168,6 +168,8 @@ struct HomeField {
 struct Prior {
     day: i64,
     per_patch: Vec<f32>,
+    /// The most of `per_patch`: no patch is expected to bring more.
+    most: f32,
 }
 
 /// Every person and household of a world.
@@ -185,27 +187,27 @@ pub struct Population {
     pub unions: Vec<Union>,
     /// The last trip id handed out.
     pub next_trip: u64,
-    index: HashMap<PermanentId, Handle<Person>>,
-    hh_index: HashMap<PermanentId, Handle<Household>>,
-    homes: HashMap<PermanentId, HomeField>,
+    index: FastMap<PermanentId, Handle<Person>>,
+    hh_index: FastMap<PermanentId, Handle<Household>>,
+    homes: FastMap<PermanentId, HomeField>,
     /// The kinds of place gathering trips go to.
     places: Vec<Places>,
     /// Routes by (from cell, to cell); `None` when there is none. Derived: kept until the paths
     /// are next surveyed, when walking costs change.
-    routes: HashMap<(u32, u32), Option<CachedRoute>>,
+    routes: FastMap<(u32, u32), Option<CachedRoute>>,
     /// The paths survey the routes were planned on ([`civ_land::Wear::rev`]).
     routes_rev: u32,
     /// Per activity, what a trip is expected to bring from each patch today.
     priors: Vec<Prior>,
     /// Per household, the new ground it would mark out for a field, as found on a day.
-    sites: HashMap<PermanentId, (i64, Option<Site>)>,
+    sites: FastMap<PermanentId, (i64, Option<Site>)>,
     /// Per household with nothing under way, the building it would begin and where (a home, or a
     /// store or a workshop beside it), as found on a day.
-    home_sites: HashMap<PermanentId, (i64, Option<NewHome>)>,
+    home_sites: FastMap<PermanentId, (i64, Option<NewHome>)>,
     /// Per building, what each of its stages needs (its design never changes). Derived.
-    stage_needs: HashMap<PermanentId, Vec<StageNeeds>>,
+    stage_needs: FastMap<PermanentId, Vec<StageNeeds>>,
     /// Per building, its expansion (its design never changes). Derived.
-    expansions: HashMap<PermanentId, Arc<Expansion>>,
+    expansions: FastMap<PermanentId, Arc<Expansion>>,
     /// Households whose last member died today, with that member (within a day's step only).
     emptied: Vec<(PermanentId, PermanentId)>,
     /// What became of the goods of households that are no more (counters, not saved).
@@ -1007,6 +1009,7 @@ impl Population {
             }
             let hours = f64::from(a.max_minutes) / 60.0;
             prior.per_patch = ctx.land.typical_yields(ctx.land_params, r, hours, day);
+            prior.most = prior.per_patch.iter().copied().fold(0.0, f32::max);
             prior.day = day;
         }
     }
@@ -2086,11 +2089,18 @@ impl Population {
             .iter()
             .map(|a| a.resource.and_then(|r| self.places_for(land_params, r)))
             .collect();
-        // What the settlement knows of each resource, by place (the last of any repeats wins).
+        // What the settlement knows of each resource, by place (the last of any repeats wins),
+        // and the best return it has seen of each anywhere.
+        let mut seen_most = vec![0.0f64; land_params.resources.len()];
         let memory: civ_core::FastMap<(u16, u32), &KnownPatch> = hh
             .known
             .iter()
-            .map(|k| ((k.resource, k.patch), k))
+            .map(|k| {
+                if let Some(m) = seen_most.get_mut(usize::from(k.resource)) {
+                    *m = m.max(f64::from(k.rate));
+                }
+                ((k.resource, k.patch), k)
+            })
             .collect();
         // Where each dig activity would dig (M3b slice Q): the deposit of its good the settlement
         // knows that brings most for the walk, while the household needs the good; otherwise the
@@ -2174,7 +2184,17 @@ impl Population {
             let good = catalog.goods.get(res.good)?;
             let home = home?;
             let hours = f64::from(a.max_minutes) / 60.0;
-            let prior_yield = &priors.get(def)?.per_patch;
+            let prior = priors.get(def)?;
+            let prior_yield = &prior.per_patch;
+            // No place can be expected to give more than the best expected anywhere or the best
+            // seen anywhere, as a belief lies between the two (with a margin for rounding). The
+            // places come nearest first, so once even that, so far off, would not beat the best
+            // found, nothing further can, and the search stops: the same place is found sooner.
+            let most = (f64::from(prior.most) / hours.max(1e-6))
+                .max(seen_most.get(r).copied().unwrap_or(0.0))
+                .max(1e-6)
+                * (1.0 + 1e-9);
+            let most_kg_per_hour = most * res.unit_kg;
             // Days of the household's need it already holds of this good.
             let held = stores.get(res.good).copied().unwrap_or(0.0).max(0.0);
             let stored_days = match good.purpose {
@@ -2201,6 +2221,11 @@ impl Population {
             for &(block, secs) in home.places.get(kind)? {
                 let walk = f64::from(secs) / 60.0;
                 if walk > f64::from(a.max_walk_minutes) {
+                    break;
+                }
+                if best.as_ref().is_some_and(|(bv, _)| {
+                    most_kg_per_hour * hours / (hours + 2.0 * walk / 60.0) <= *bv
+                }) {
                     break;
                 }
                 let Some((patch, cell)) =

@@ -666,15 +666,21 @@ impl Catalog {
             .reduce(f64::min)
     }
 
-    /// The tools an activity needs: its own, or its recipe's.
-    pub fn tools_of(&self, def: &ActivityDef) -> Vec<usize> {
-        let mut tools = def.tools.clone();
-        if let Some(r) = def.recipe.and_then(|r| self.recipes.get(r)) {
-            tools.extend(r.tools.iter().copied());
-        }
-        tools.sort_unstable();
-        tools.dedup();
-        tools
+    /// The tools an activity needs: its own, or its recipe's, each once (its own first, in no
+    /// particular order). Asked for every decision, so it allocates nothing.
+    pub fn tools_of<'a>(&'a self, def: &'a ActivityDef) -> impl Iterator<Item = usize> + 'a {
+        let own = def.tools.as_slice();
+        let recipe = def
+            .recipe
+            .and_then(|r| self.recipes.get(r))
+            .map_or(&[][..], |r| r.tools.as_slice());
+        let first = |list: &'a [usize]| {
+            list.iter()
+                .enumerate()
+                .filter(move |&(i, t)| !list[..i].contains(t))
+                .map(|(_, &t)| t)
+        };
+        first(own).chain(first(recipe).filter(move |t| !own.contains(t)))
     }
 }
 

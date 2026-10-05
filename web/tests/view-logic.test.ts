@@ -48,6 +48,8 @@ describe("calendar", () => {
   it("formats speeds, distances and sizes", () => {
     expect(formatSpeed(96, 96)).toBe("1×");
     expect(formatSpeed(960, 96)).toBe("10×");
+    expect(formatSpeed(57_600, 96)).toBe("600×");
+    expect(formatSpeed(Infinity, 96)).toBe("Max");
     expect(formatDistance(850)).toBe("850 m");
     expect(formatDistance(16_384)).toBe("16.4 km");
     expect(formatBytes(15_121_098)).toBe("14.4 MB");

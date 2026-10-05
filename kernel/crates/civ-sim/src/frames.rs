@@ -144,6 +144,10 @@ pub fn clock<'a>(fbb: &mut FlatBufferBuilder<'a>, sim: &Sim) -> WIPOffset<wire::
             season: Some(season),
             paused: sim.paused(),
             speed: sim.speed(),
+            mode: match sim.mode() {
+                crate::Mode::Detailed => wire::ClockMode::Detailed,
+                crate::Mode::Accelerated => wire::ClockMode::Accelerated,
+            },
         },
     )
 }

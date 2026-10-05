@@ -887,24 +887,40 @@ impl Engine {
         self.urgent = true;
     }
 
-    /// Advances the clock by real time and autosaves when due.
+    /// Advances the clock by real time and autosaves when due. At Max the world lives day after
+    /// day for most of the tick (at least one), stopping at a midnight; at other Accelerated
+    /// speeds a day at a time when its time has come (ADR-0011 §2).
     pub fn tick(&mut self, real: Duration) {
         if self.run_ahead.is_some() {
             self.tick_run_ahead();
             return;
         }
+        let budget = self.config.tick.mul_f64(RUN_AHEAD_SHARE);
+        let started = Instant::now();
         let Some(world) = self.world.as_mut() else {
             return;
         };
         let step = real.min(MAX_STEP).as_secs_f64();
-        let advance = match world.sim.advance_real(step) {
-            Ok(advance) => advance,
-            Err(e) => {
-                world.sim.set_paused(true);
-                self.fail(format!("The clock stopped: {e}"));
-                return;
+        let mut advance = civ_sim::Advance::default();
+        loop {
+            match world.sim.advance_real(step) {
+                Ok(a) => {
+                    advance.minutes += a.minutes;
+                    advance.days += a.days;
+                    advance.months += a.months;
+                    advance.years += a.years;
+                }
+                Err(e) => {
+                    world.sim.set_paused(true);
+                    self.fail(format!("The clock stopped: {e}"));
+                    return;
+                }
             }
-        };
+            let max = world.sim.speed() == civ_sim::SPEED_MAX && !world.sim.paused();
+            if !max || started.elapsed() >= budget {
+                break;
+            }
+        }
         if advance.minutes > 0 {
             self.changed = true;
         }
@@ -1718,7 +1734,7 @@ mod tests {
         assert!(matches!(
             h.ask(Request::SetClock {
                 paused: false,
-                speed: civ_sim::MAX_SPEED
+                speed: civ_sim::MAX_DETAILED_SPEED
             }),
             Reply::Response(_)
         ));

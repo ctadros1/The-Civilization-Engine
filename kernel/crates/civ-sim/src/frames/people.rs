@@ -39,19 +39,25 @@ fn sex(s: Sex) -> wire::Sex {
 }
 
 /// The snapshot's entry for every living person, in permanent-id order, placed where they are at
-/// the current minute.
+/// the current minute. In Accelerated mode nobody is shown on a trip: the next frame is a day on,
+/// so a walker is not to be carried along (ADR-0011 §6).
 pub fn person_briefs<'a>(
     fbb: &mut FlatBufferBuilder<'a>,
     sim: &Sim,
 ) -> Offsets<'a, wire::PersonBrief<'a>> {
     let now = sim.now();
     let t = now.minutes() as f64;
+    let trips = sim.mode() == crate::Mode::Detailed;
     let mut people: Vec<&Person> = sim.people.people.iter().map(|(_, p)| p).collect();
     people.sort_by_key(|p| p.id);
     let briefs: Vec<_> = people
         .into_iter()
         .map(|p| {
-            let (trip, trip_rev) = p.trip.as_ref().map_or((0, 0), |t| (t.id, t.rev));
+            let (trip, trip_rev) = p
+                .trip
+                .as_ref()
+                .filter(|_| trips)
+                .map_or((0, 0), |t| (t.id, t.rev));
             wire::PersonBrief::create(
                 fbb,
                 &wire::PersonBriefArgs {

@@ -37,10 +37,39 @@ pub const MAP_SIZES: [u32; 4] = [256, 512, 1024, 2048];
 pub const DEFAULT_MAP_SIZE: u32 = 2048;
 /// Simulated seconds per real second at 1x: one in-game day per 15 real minutes (plan §4.4).
 pub const SPEED_1X: f32 = 96.0;
-/// The Detailed-mode speeds as multiples of 1x (plan §4.4). Accelerated mode arrives with agents.
+/// The Detailed-mode speeds as multiples of 1x (plan §4.4).
 pub const SPEED_MULTIPLIERS: [f32; 3] = [1.0, 3.0, 10.0];
-/// The fastest speed, in simulated seconds per real second.
-pub const MAX_SPEED: f32 = SPEED_1X * 10.0;
+/// The Accelerated-mode speeds as multiples of 1x (ADR-0011): 60x, 600x and Max, which is as fast
+/// as the kernel lives, an infinite speed.
+pub const ACCELERATED_MULTIPLIERS: [f32; 3] = [60.0, 600.0, f32::INFINITY];
+/// The fastest Detailed speed, in simulated seconds per real second: faster ones are Accelerated.
+pub const MAX_DETAILED_SPEED: f32 = SPEED_1X * 10.0;
+/// The fastest paced speed, in simulated seconds per real second; beyond it there is only Max.
+pub const MAX_PACED_SPEED: f32 = SPEED_1X * 600.0;
+/// Max: as fast as the kernel lives, a day at a time.
+pub const SPEED_MAX: f32 = f32::INFINITY;
+
+/// How the kernel advances (ADR-0011 §1), as its speed implies: a setting, never world state.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Mode {
+    /// Up to 10x: every event as it falls, the clock stopping at any minute.
+    #[default]
+    Detailed,
+    /// 60x, 600x and Max: a day at a time, the clock stopping, publishing and saving only at
+    /// midnight (ADR-0011 §2). As yet it lives each day exactly as Detailed mode does.
+    Accelerated,
+}
+
+impl Mode {
+    /// The mode a speed implies.
+    pub fn of_speed(speed: f32) -> Mode {
+        if speed > MAX_DETAILED_SPEED {
+            Mode::Accelerated
+        } else {
+            Mode::Detailed
+        }
+    }
+}
 /// Longest world name kept, in bytes.
 pub const MAX_NAME_LEN: usize = 64;
 /// Name given to a world created without one.
@@ -193,7 +222,7 @@ pub enum SimError {
         /// The largest band allowed.
         max: u32,
     },
-    /// Speeds must be finite, positive and at most [`MAX_SPEED`].
+    /// Speeds must be from 1 to [`MAX_PACED_SPEED`], or [`SPEED_MAX`].
     InvalidSpeed(f32),
     /// World generation failed or was cancelled.
     Generation(GenError),
@@ -212,7 +241,8 @@ impl fmt::Display for SimError {
             ),
             SimError::InvalidSpeed(speed) => write!(
                 f,
-                "speed {speed} is out of range (1 to {MAX_SPEED} simulated seconds per second)"
+                "speed {speed} is out of range (1 to {MAX_PACED_SPEED} simulated seconds per second, \
+                 or Max)"
             ),
             SimError::Generation(e) => e.fmt(f),
             SimError::Schedule(e) => write!(f, "the scheduler stopped: {e}"),
@@ -232,7 +262,11 @@ pub struct Sim {
     ids: IdAllocator,
     paused: bool,
     speed: f32,
-    /// Simulated seconds owed but not yet a whole minute.
+    /// How the kernel advances now, and a change of mode held for the next midnight.
+    mode: Mode,
+    mode_next: Option<Mode>,
+    /// Simulated seconds owed: not yet a whole minute in Detailed mode, not yet a whole day in
+    /// Accelerated mode.
     carry_seconds: f64,
     content: ContentStamp,
     content_changed: bool,
@@ -689,6 +723,8 @@ impl Sim {
             ids,
             paused: true,
             speed: SPEED_1X,
+            mode: Mode::Detailed,
+            mode_next: None,
             carry_seconds: 0.0,
             content,
             content_changed: false,
@@ -739,9 +775,15 @@ impl Sim {
         self.paused
     }
 
-    /// Simulated seconds per real second while running.
+    /// Simulated seconds per real second while running ([`SPEED_MAX`] for Max).
     pub fn speed(&self) -> f32 {
         self.speed
+    }
+
+    /// How the kernel advances now. A change of speed that changes the mode takes effect at the
+    /// next midnight (ADR-0011 §2).
+    pub fn mode(&self) -> Mode {
+        self.mode
     }
 
     /// The permanent-id counter.
@@ -932,20 +974,52 @@ impl Sim {
         }
     }
 
-    /// Changes the speed, in simulated seconds per real second.
+    /// Changes the speed, in simulated seconds per real second: from 1 to [`MAX_PACED_SPEED`], or
+    /// [`SPEED_MAX`]. Beyond [`MAX_DETAILED_SPEED`] the kernel advances in Accelerated mode. A
+    /// change of mode takes effect now if the clock stands at a midnight, else at the next one,
+    /// after the day's work there and before the new day's first event (ADR-0011 §2).
     pub fn set_speed(&mut self, speed: f32) -> Result<(), SimError> {
-        if !(speed.is_finite() && (1.0..=MAX_SPEED).contains(&speed)) {
+        let paced = speed.is_finite() && (1.0..=MAX_PACED_SPEED).contains(&speed);
+        if !(paced || speed == SPEED_MAX) {
             return Err(SimError::InvalidSpeed(speed));
         }
+        let mode = Mode::of_speed(speed);
+        if mode != Mode::of_speed(self.speed) {
+            // Time owed at one pace is not owed at the other.
+            self.carry_seconds = 0.0;
+        }
         self.speed = speed;
+        if self.now().minute_of_day() == 0 {
+            self.mode = mode;
+            self.mode_next = None;
+        } else {
+            self.mode_next = (mode != self.mode).then_some(mode);
+        }
         Ok(())
     }
 
     /// Advances by `real_seconds` of wall-clock time at the current speed. Does nothing while
-    /// paused. Fractions of a simulated minute carry over to the next call.
+    /// paused. At a Detailed speed, by whole minutes, fractions carried over to the next call. At
+    /// an Accelerated speed, a whole day once a day's time has come, never more than one a call
+    /// (a host that falls behind stays behind); and when the clock stands between midnights, as
+    /// after a change from a Detailed speed, the rest of the day at once.
     pub fn advance_real(&mut self, real_seconds: f64) -> Result<Advance, SimError> {
         if self.paused || !(real_seconds.is_finite() && real_seconds > 0.0) {
             return Ok(Advance::default());
+        }
+        if Mode::of_speed(self.speed) == Mode::Accelerated {
+            if self.now().minute_of_day() != 0 {
+                self.carry_seconds = 0.0;
+                return self.advance_to_midnight();
+            }
+            let day = (civ_core::time::MINUTES_PER_DAY * 60) as f64;
+            self.carry_seconds =
+                (self.carry_seconds + real_seconds * f64::from(self.speed)).min(day);
+            if self.carry_seconds < day {
+                return Ok(Advance::default());
+            }
+            self.carry_seconds = 0.0;
+            return self.advance_to_midnight();
         }
         let seconds = self.carry_seconds + real_seconds * f64::from(self.speed);
         let minutes = (seconds / 60.0).floor();
@@ -953,7 +1027,20 @@ impl Sim {
         self.advance_minutes(minutes as i64)
     }
 
-    /// Advances by whole simulated minutes, whether or not the clock is paused.
+    /// Advances to the next midnight: through the rest of the day, then the land's and the
+    /// people's day there and any change of mode held for it, stopping before the new day's first
+    /// event (ADR-0011 §2). Accelerated mode advances only so.
+    pub fn advance_to_midnight(&mut self) -> Result<Advance, SimError> {
+        let now = self.now().minutes();
+        let day = civ_core::time::MINUTES_PER_DAY;
+        let next = (now.div_euclid(day) + 1) * day;
+        self.advance_minutes(next - now)
+    }
+
+    /// Advances by whole simulated minutes, whether or not the clock is paused. The clock stops
+    /// after the boundaries of the minute it stops at (a midnight's day of work, say) and before
+    /// that minute's events, which come first in the next advance: cut anywhere, the world lives
+    /// the same.
     pub fn advance_minutes(&mut self, minutes: i64) -> Result<Advance, SimError> {
         if minutes <= 0 {
             return Ok(Advance::default());
@@ -973,11 +1060,13 @@ impl Sim {
             nav,
             land,
             people,
+            mode,
+            mode_next,
             ..
         } = self;
         let mut pending = Vec::new();
         scheduler
-            .advance_to(target, |due, followups| match due {
+            .advance_before_events(target, |due, followups| match due {
                 Due::Cadence { cadence, at } => match cadence {
                     Cadence::Day => {
                         advance.days += 1;
@@ -1000,6 +1089,11 @@ impl Sim {
                         // Newborns decide what to do first.
                         for (t, e) in pending.drain(..) {
                             let _ = followups.schedule(t, PHASE_AGENT, SimEvent::Agent(e));
+                        }
+                        // A change of mode held for midnight: after the day's work, before the
+                        // new day's first event (ADR-0011 §2).
+                        if let Some(next) = mode_next.take() {
+                            *mode = next;
                         }
                     }
                     Cadence::Month => {

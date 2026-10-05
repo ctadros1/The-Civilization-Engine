@@ -1719,7 +1719,14 @@ fn the_clock_runs_only_when_unpaused() {
 
     assert!(sim.set_speed(0.0).is_err());
     assert!(sim.set_speed(f32::NAN).is_err());
-    assert!(sim.set_speed(civ_sim::MAX_SPEED * 2.0).is_err());
+    assert!(sim.set_speed(f32::NEG_INFINITY).is_err());
+    assert!(sim.set_speed(civ_sim::MAX_PACED_SPEED * 2.0).is_err());
+    // 60x, 600x and Max are Accelerated speeds (ADR-0011).
+    for m in civ_sim::ACCELERATED_MULTIPLIERS {
+        sim.set_speed(m * civ_sim::SPEED_1X)
+            .expect("an Accelerated speed");
+    }
+    assert_eq!(sim.speed(), civ_sim::SPEED_MAX);
 }
 
 #[test]

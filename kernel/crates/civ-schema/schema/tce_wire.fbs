@@ -23,6 +23,11 @@ enum ErrorCode : ushort { Unknown = 0, BadRequest = 1, Busy = 2, NoWorld = 3, No
 
 enum Sex : ubyte { Female = 0, Male = 1 }
 
+// Wire 1.23 (M3c slice S, ADR-0011): how the kernel advances. Detailed (1x-10x) lives every event
+// as it falls; Accelerated (60x, 600x, Max) a day at a time, its frames standing at midnight with
+// nobody on a trip, so observers must not carry walkers along between frames.
+enum ClockMode : ubyte { Detailed = 0, Accelerated = 1 }
+
 // Where a field is in its year (M1 slice C).
 enum FieldStage : ubyte { Fallow = 0, Prepared = 1, Sown = 2, Reaped = 3 }
 
@@ -160,6 +165,9 @@ table Welcome {
   regimes: [RegimeInfo] (id: 17);
   // The techniques (M3b slice M).
   techniques: [TechniqueInfo] (id: 18);
+  // Wire 1.23 (M3c slice S): the Accelerated speeds as multiples of 1x, after the Detailed ones in
+  // speed_multipliers: 60, 600 and Max, which is infinite.
+  accelerated_multipliers: [float] (id: 19);
 }
 
 // ---- Snapshot: replaceable host and world state --------------------------------------------
@@ -174,8 +182,11 @@ table Clock {
   minute_of_hour: ubyte (id: 5);
   season: string (id: 6);
   paused: bool (id: 7);
-  // Simulated seconds per real second while running.
+  // Simulated seconds per real second while running; infinite for Max (wire 1.23).
   speed: float (id: 8);
+  // Wire 1.23: how the kernel advances now. A change of speed that changes it takes effect at the
+  // next midnight.
+  mode: ClockMode (id: 9);
 }
 
 table WorldInfo {
@@ -338,6 +349,7 @@ table LoadWorld {
 
 table SetClock {
   paused: bool (id: 0);
+  // Simulated seconds per real second: 1x to 600x, or infinite for Max (wire 1.23).
   speed: float (id: 1);
 }
 

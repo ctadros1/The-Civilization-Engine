@@ -112,6 +112,8 @@ export interface Welcome {
   defaultMapSize: number;
   speed1x: number;
   speedMultipliers: number[];
+  /** The Accelerated speeds as multiples of 1x: 60, 600 and Max (Infinity). Wire 1.23. */
+  acceleratedMultipliers: number[];
   /** The activity catalogue, in the order people's activity indices refer to. */
   activities: ActivityInfo[];
   /** Labels of decision-receipt reasons, by code. */
@@ -167,7 +169,11 @@ export interface Clock {
   minuteOfHour: number;
   season: string;
   paused: boolean;
+  /** Simulated seconds per real second; Infinity for Max. */
   speed: number;
+  /** How the kernel advances: by the minute, or a day at a time with frames only at midnight
+   * (ADR-0011). Wire 1.23. */
+  mode: "detailed" | "accelerated";
 }
 
 export interface Task {
@@ -1350,6 +1356,7 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
     defaultMapSize: w.defaultMapSize(),
     speed1x: w.speed1x(),
     speedMultipliers: Array.from(w.speedMultipliersArray() ?? []),
+    acceleratedMultipliers: Array.from(w.acceleratedMultipliersArray() ?? []),
     activities,
     reasons,
     bandSizeMin: w.bandSizeMin(),
@@ -1412,6 +1419,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
           season: clock.season() ?? "",
           paused: clock.paused(),
           speed: clock.speed(),
+          mode: clock.mode() === W.ClockMode.Accelerated ? "accelerated" : "detailed",
         }
       : null,
     task: task

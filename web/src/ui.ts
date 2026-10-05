@@ -481,25 +481,38 @@ export function bindUi(store: Store, actions: Actions): void {
     const welcome = state.welcome;
     if (welcome && speedsFor !== welcome) {
       speedsFor = welcome;
-      speeds.replaceChildren(
-        ...welcome.speedMultipliers.map((m) => {
-          const button = el("button", { text: `${m}×` });
-          button.type = "button";
-          button.setAttribute("role", "radio");
-          button.dataset.speed = String(m * welcome.speed1x);
-          button.title = m === 1 ? "1× — one in-game day per 15 minutes" : `${m}× speed`;
-          button.addEventListener("click", () => {
-            void attempt(() => actions.setClock(false, m * welcome.speed1x));
-          });
-          return button;
-        }),
+      const button = (m: number, title: string) => {
+        const b = el("button", { text: formatSpeed(m * welcome.speed1x, welcome.speed1x) });
+        b.type = "button";
+        b.setAttribute("role", "radio");
+        b.dataset.speed = String(m * welcome.speed1x);
+        b.title = title;
+        b.addEventListener("click", () => {
+          void attempt(() => actions.setClock(false, m * welcome.speed1x));
+        });
+        return b;
+      };
+      // Detailed speeds, then the Accelerated ones, which live a day at a time (ADR-0011).
+      const detailed = welcome.speedMultipliers.map((m) =>
+        button(m, m === 1 ? "1× — one in-game day per 15 minutes" : `${m}× speed`),
       );
+      const accelerated = welcome.acceleratedMultipliers.map((m) =>
+        button(
+          m,
+          m === Infinity
+            ? "Max — as fast as the world lives, a day at a time"
+            : `${m}× — a day at a time, the map shown at each midnight`,
+        ),
+      );
+      const gap = accelerated.length > 0 ? [el("span", { className: "speed-gap" })] : [];
+      speeds.replaceChildren(...detailed, ...gap, ...accelerated);
     }
     const clock = state.snapshot?.clock;
     const usable =
       state.connection.state === "open" && !!state.snapshot?.world && !state.snapshot.task;
     for (const button of speeds.querySelectorAll<HTMLButtonElement>("button")) {
-      const checked = !!clock && Math.abs(Number(button.dataset.speed) - clock.speed) < 1e-3;
+      const speed = Number(button.dataset.speed);
+      const checked = !!clock && (speed === clock.speed || Math.abs(speed - clock.speed) < 1e-3);
       button.setAttribute("aria-checked", String(checked));
       button.disabled = !usable;
     }
@@ -1762,7 +1775,8 @@ export function bindUi(store: Store, actions: Actions): void {
     setText(run, clock && !clock.paused ? "Pause" : "Run");
     run.setAttribute("aria-pressed", String(!!clock && !clock.paused));
     if (clock && state.welcome) {
-      run.title = `Speed ${formatSpeed(clock.speed, state.welcome.speed1x)} (Space toggles)`;
+      const daily = clock.mode === "accelerated" ? ", a day at a time" : "";
+      run.title = `Speed ${formatSpeed(clock.speed, state.welcome.speed1x)}${daily} (Space toggles)`;
     }
     $<HTMLButtonElement>("btn-new").disabled = !open || !!task || !state.welcome;
     $<HTMLButtonElement>("btn-save").disabled = !open || !world;

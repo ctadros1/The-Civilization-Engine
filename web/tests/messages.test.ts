@@ -104,7 +104,19 @@ describe("decoders", () => {
     W.WorldInfo.addRegimeName(b, regimeName);
     const world = W.WorldInfo.endWorldInfo(b);
     const season = b.createString("spring");
-    const clock = W.Clock.createClock(b, 85_320n, 1n, 3, 1, 6, 0, season, true, 96);
+    const clock = W.Clock.createClock(
+      b,
+      85_320n,
+      1n,
+      3,
+      1,
+      0,
+      0,
+      season,
+      true,
+      Infinity,
+      W.ClockMode.Accelerated,
+    );
     const taskName = b.createString("Loading");
     const stage = b.createString("Reading");
     const task = W.Task.createTask(b, taskName, stage, 0.5, false);
@@ -138,6 +150,9 @@ describe("decoders", () => {
       month: 3,
       paused: true,
       season: "spring",
+      // Max, a day at a time (wire 1.23).
+      speed: Infinity,
+      mode: "accelerated",
     });
     expect(snapshot.task).toEqual({
       name: "Loading",

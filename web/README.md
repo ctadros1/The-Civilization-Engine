@@ -86,6 +86,8 @@ hear of it). The inspector holds its redraw while that list has the focus.
 
 ## Controls
 
+The speeds are 1×, 3× and 10×, then 60×, 600× and Max, the Accelerated speeds: the world lives a
+day at a time, and the map is shown at each midnight, the clock standing until the next (ADR-0011).
 Besides Run and the speeds, **Run ahead…** lives a day, a month, a year, 5 or 10 years at full
 detail as fast as the machine allows, shown as a task you can cancel; the world pauses when it
 gets there and is autosaved. **Add a family** (on the map) sends a family where you next click:

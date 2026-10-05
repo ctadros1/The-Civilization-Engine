@@ -487,6 +487,90 @@ impl<'a> ::flatbuffers::Verifiable for Sex {
 
 impl ::flatbuffers::SimpleToVerifyInSlice for Sex {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_CLOCK_MODE: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_CLOCK_MODE: u8 = 1;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_CLOCK_MODE: [ClockMode; 2] = [
+  ClockMode::Detailed,
+  ClockMode::Accelerated,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct ClockMode(pub u8);
+#[allow(non_upper_case_globals)]
+impl ClockMode {
+  pub const Detailed: Self = Self(0);
+  pub const Accelerated: Self = Self(1);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 1;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Detailed,
+    Self::Accelerated,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Detailed => Some("Detailed"),
+      Self::Accelerated => Some("Accelerated"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for ClockMode {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for ClockMode {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for ClockMode {
+    type Output = ClockMode;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for ClockMode {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for ClockMode {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for ClockMode {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_FIELD_STAGE: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MAX_FIELD_STAGE: u8 = 3;
@@ -3844,6 +3928,7 @@ impl<'a> Welcome<'a> {
   pub const VT_SKILLS: ::flatbuffers::VOffsetT = 36;
   pub const VT_REGIMES: ::flatbuffers::VOffsetT = 38;
   pub const VT_TECHNIQUES: ::flatbuffers::VOffsetT = 40;
+  pub const VT_ACCELERATED_MULTIPLIERS: ::flatbuffers::VOffsetT = 42;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -3855,6 +3940,7 @@ impl<'a> Welcome<'a> {
     args: &'args WelcomeArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Welcome<'bldr>> {
     let mut builder = WelcomeBuilder::new(_fbb);
+    if let Some(x) = args.accelerated_multipliers { builder.add_accelerated_multipliers(x); }
     if let Some(x) = args.techniques { builder.add_techniques(x); }
     if let Some(x) = args.regimes { builder.add_regimes(x); }
     if let Some(x) = args.skills { builder.add_skills(x); }
@@ -4011,6 +4097,13 @@ impl<'a> Welcome<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TechniqueInfo>>>>(Welcome::VT_TECHNIQUES, None)}
   }
+  #[inline]
+  pub fn accelerated_multipliers(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(Welcome::VT_ACCELERATED_MULTIPLIERS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Welcome<'_> {
@@ -4038,6 +4131,7 @@ impl ::flatbuffers::Verifiable for Welcome<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<SkillInfo>>>>("skills", Self::VT_SKILLS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RegimeInfo>>>>("regimes", Self::VT_REGIMES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TechniqueInfo>>>>("techniques", Self::VT_TECHNIQUES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("accelerated_multipliers", Self::VT_ACCELERATED_MULTIPLIERS, false)?
      .finish();
     Ok(())
   }
@@ -4062,6 +4156,7 @@ pub struct WelcomeArgs<'a> {
     pub skills: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SkillInfo<'a>>>>>,
     pub regimes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RegimeInfo<'a>>>>>,
     pub techniques: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TechniqueInfo<'a>>>>>,
+    pub accelerated_multipliers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
 }
 impl<'a> Default for WelcomeArgs<'a> {
   #[inline]
@@ -4086,6 +4181,7 @@ impl<'a> Default for WelcomeArgs<'a> {
       skills: None,
       regimes: None,
       techniques: None,
+      accelerated_multipliers: None,
     }
   }
 }
@@ -4172,6 +4268,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WelcomeBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Welcome::VT_TECHNIQUES, techniques);
   }
   #[inline]
+  pub fn add_accelerated_multipliers(&mut self, accelerated_multipliers: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Welcome::VT_ACCELERATED_MULTIPLIERS, accelerated_multipliers);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WelcomeBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WelcomeBuilder {
@@ -4208,6 +4308,7 @@ impl ::core::fmt::Debug for Welcome<'_> {
       ds.field("skills", &self.skills());
       ds.field("regimes", &self.regimes());
       ds.field("techniques", &self.techniques());
+      ds.field("accelerated_multipliers", &self.accelerated_multipliers());
       ds.finish()
   }
 }
@@ -4236,6 +4337,7 @@ impl<'a> Clock<'a> {
   pub const VT_SEASON: ::flatbuffers::VOffsetT = 16;
   pub const VT_PAUSED: ::flatbuffers::VOffsetT = 18;
   pub const VT_SPEED: ::flatbuffers::VOffsetT = 20;
+  pub const VT_MODE: ::flatbuffers::VOffsetT = 22;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4251,6 +4353,7 @@ impl<'a> Clock<'a> {
     builder.add_minute(args.minute);
     builder.add_speed(args.speed);
     if let Some(x) = args.season { builder.add_season(x); }
+    builder.add_mode(args.mode);
     builder.add_paused(args.paused);
     builder.add_minute_of_hour(args.minute_of_hour);
     builder.add_hour(args.hour);
@@ -4323,6 +4426,13 @@ impl<'a> Clock<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(Clock::VT_SPEED, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn mode(&self) -> ClockMode {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<ClockMode>(Clock::VT_MODE, Some(ClockMode::Detailed)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Clock<'_> {
@@ -4340,6 +4450,7 @@ impl ::flatbuffers::Verifiable for Clock<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("season", Self::VT_SEASON, false)?
      .visit_field::<bool>("paused", Self::VT_PAUSED, false)?
      .visit_field::<f32>("speed", Self::VT_SPEED, false)?
+     .visit_field::<ClockMode>("mode", Self::VT_MODE, false)?
      .finish();
     Ok(())
   }
@@ -4354,6 +4465,7 @@ pub struct ClockArgs<'a> {
     pub season: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub paused: bool,
     pub speed: f32,
+    pub mode: ClockMode,
 }
 impl<'a> Default for ClockArgs<'a> {
   #[inline]
@@ -4368,6 +4480,7 @@ impl<'a> Default for ClockArgs<'a> {
       season: None,
       paused: false,
       speed: 0.0,
+      mode: ClockMode::Detailed,
     }
   }
 }
@@ -4414,6 +4527,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ClockBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(Clock::VT_SPEED, speed, 0.0);
   }
   #[inline]
+  pub fn add_mode(&mut self, mode: ClockMode) {
+    self.fbb_.push_slot::<ClockMode>(Clock::VT_MODE, mode, ClockMode::Detailed);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ClockBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ClockBuilder {
@@ -4440,6 +4557,7 @@ impl ::core::fmt::Debug for Clock<'_> {
       ds.field("season", &self.season());
       ds.field("paused", &self.paused());
       ds.field("speed", &self.speed());
+      ds.field("mode", &self.mode());
       ds.finish()
   }
 }

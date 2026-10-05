@@ -515,6 +515,36 @@ inline const char *EnumNameSex(Sex e) {
   return EnumNamesSex()[index];
 }
 
+enum class ClockMode : uint8_t {
+  Detailed = 0,
+  Accelerated = 1,
+  MIN = Detailed,
+  MAX = Accelerated
+};
+
+inline const ClockMode (&EnumValuesClockMode())[2] {
+  static const ClockMode values[] = {
+    ClockMode::Detailed,
+    ClockMode::Accelerated
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesClockMode() {
+  static const char * const names[3] = {
+    "Detailed",
+    "Accelerated",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameClockMode(ClockMode e) {
+  if (::flatbuffers::IsOutRange(e, ClockMode::Detailed, ClockMode::Accelerated)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesClockMode()[index];
+}
+
 enum class FieldStage : uint8_t {
   Fallow = 0,
   Prepared = 1,
@@ -2261,7 +2291,8 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_CROPS = 34,
     VT_SKILLS = 36,
     VT_REGIMES = 38,
-    VT_TECHNIQUES = 40
+    VT_TECHNIQUES = 40,
+    VT_ACCELERATED_MULTIPLIERS = 42
   };
   const ::flatbuffers::String *host() const {
     return GetPointer<const ::flatbuffers::String *>(VT_HOST);
@@ -2320,6 +2351,9 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>> *techniques() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>> *>(VT_TECHNIQUES);
   }
+  const ::flatbuffers::Vector<float> *accelerated_multipliers() const {
+    return GetPointer<const ::flatbuffers::Vector<float> *>(VT_ACCELERATED_MULTIPLIERS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -2363,6 +2397,8 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_TECHNIQUES) &&
            verifier.VerifyVector(techniques()) &&
            verifier.VerifyVectorOfTables(techniques()) &&
+           VerifyOffset(verifier, VT_ACCELERATED_MULTIPLIERS) &&
+           verifier.VerifyVector(accelerated_multipliers()) &&
            verifier.EndTable();
   }
 };
@@ -2428,6 +2464,9 @@ struct WelcomeBuilder {
   void add_techniques(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>>> techniques) {
     fbb_.AddOffset(Welcome::VT_TECHNIQUES, techniques);
   }
+  void add_accelerated_multipliers(::flatbuffers::Offset<::flatbuffers::Vector<float>> accelerated_multipliers) {
+    fbb_.AddOffset(Welcome::VT_ACCELERATED_MULTIPLIERS, accelerated_multipliers);
+  }
   explicit WelcomeBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -2459,8 +2498,10 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcome(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CropInfo>>> crops = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SkillInfo>>> skills = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RegimeInfo>>> regimes = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>>> techniques = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>>> techniques = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<float>> accelerated_multipliers = 0) {
   WelcomeBuilder builder_(_fbb);
+  builder_.add_accelerated_multipliers(accelerated_multipliers);
   builder_.add_techniques(techniques);
   builder_.add_regimes(regimes);
   builder_.add_skills(skills);
@@ -2508,7 +2549,8 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::CropInfo>> *crops = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::SkillInfo>> *skills = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::RegimeInfo>> *regimes = nullptr,
-    const std::vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>> *techniques = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>> *techniques = nullptr,
+    const std::vector<float> *accelerated_multipliers = nullptr) {
   auto host__ = host ? _fbb.CreateString(host) : 0;
   auto version__ = version ? _fbb.CreateString(version) : 0;
   auto presets__ = presets ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PresetInfo>>(*presets) : 0;
@@ -2522,6 +2564,7 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
   auto skills__ = skills ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SkillInfo>>(*skills) : 0;
   auto regimes__ = regimes ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::RegimeInfo>>(*regimes) : 0;
   auto techniques__ = techniques ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::TechniqueInfo>>(*techniques) : 0;
+  auto accelerated_multipliers__ = accelerated_multipliers ? _fbb.CreateVector<float>(*accelerated_multipliers) : 0;
   return tce::wire::CreateWelcome(
       _fbb,
       host__,
@@ -2542,7 +2585,8 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
       crops__,
       skills__,
       regimes__,
-      techniques__);
+      techniques__,
+      accelerated_multipliers__);
 }
 
 struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -2557,7 +2601,8 @@ struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_MINUTE_OF_HOUR = 14,
     VT_SEASON = 16,
     VT_PAUSED = 18,
-    VT_SPEED = 20
+    VT_SPEED = 20,
+    VT_MODE = 22
   };
   int64_t minute() const {
     return GetField<int64_t>(VT_MINUTE, 0);
@@ -2586,6 +2631,9 @@ struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   float speed() const {
     return GetField<float>(VT_SPEED, 0.0f);
   }
+  tce::wire::ClockMode mode() const {
+    return static_cast<tce::wire::ClockMode>(GetField<uint8_t>(VT_MODE, 0));
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -2599,6 +2647,7 @@ struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyString(season()) &&
            VerifyField<uint8_t>(verifier, VT_PAUSED, 1) &&
            VerifyField<float>(verifier, VT_SPEED, 4) &&
+           VerifyField<uint8_t>(verifier, VT_MODE, 1) &&
            verifier.EndTable();
   }
 };
@@ -2634,6 +2683,9 @@ struct ClockBuilder {
   void add_speed(float speed) {
     fbb_.AddElement<float>(Clock::VT_SPEED, speed, 0.0f);
   }
+  void add_mode(tce::wire::ClockMode mode) {
+    fbb_.AddElement<uint8_t>(Clock::VT_MODE, static_cast<uint8_t>(mode), 0);
+  }
   explicit ClockBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -2655,12 +2707,14 @@ inline ::flatbuffers::Offset<Clock> CreateClock(
     uint8_t minute_of_hour = 0,
     ::flatbuffers::Offset<::flatbuffers::String> season = 0,
     bool paused = false,
-    float speed = 0.0f) {
+    float speed = 0.0f,
+    tce::wire::ClockMode mode = tce::wire::ClockMode::Detailed) {
   ClockBuilder builder_(_fbb);
   builder_.add_year(year);
   builder_.add_minute(minute);
   builder_.add_speed(speed);
   builder_.add_season(season);
+  builder_.add_mode(mode);
   builder_.add_paused(paused);
   builder_.add_minute_of_hour(minute_of_hour);
   builder_.add_hour(hour);
@@ -2684,7 +2738,8 @@ inline ::flatbuffers::Offset<Clock> CreateClockDirect(
     uint8_t minute_of_hour = 0,
     const char *season = nullptr,
     bool paused = false,
-    float speed = 0.0f) {
+    float speed = 0.0f,
+    tce::wire::ClockMode mode = tce::wire::ClockMode::Detailed) {
   auto season__ = season ? _fbb.CreateString(season) : 0;
   return tce::wire::CreateClock(
       _fbb,
@@ -2696,7 +2751,8 @@ inline ::flatbuffers::Offset<Clock> CreateClockDirect(
       minute_of_hour,
       season__,
       paused,
-      speed);
+      speed,
+      mode);
 }
 
 struct WorldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

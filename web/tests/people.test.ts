@@ -99,10 +99,16 @@ describe("the clock estimate", () => {
     season: "spring",
     paused: false,
     speed: 960,
+    mode: "detailed",
   };
   it("runs on at the clock's speed and stops while paused", () => {
     expect(estimateMinute(clock, 0, 500)).toBeCloseTo(1008);
     expect(estimateMinute({ ...clock, paused: true }, 0, 500)).toBe(1000);
+  });
+  it("stands at midnight in Accelerated mode, until the next day's frame", () => {
+    const daily = { ...clock, speed: Infinity, mode: "accelerated" as const };
+    expect(estimateMinute(daily, 0, 500)).toBe(1000);
+    expect(estimateMinute({ ...daily, speed: 5760 }, 0, 60_000)).toBe(1000);
   });
   it("never runs more than a real second ahead", () => {
     expect(estimateMinute(clock, 0, 60_000)).toBe(1016);

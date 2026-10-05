@@ -141,6 +141,14 @@ select {
   color: #fff;
 }
 
+/* Between the Detailed speeds and the Accelerated ones, which live a day at a time. */
+.speed-gap {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 2px;
+  background: var(--line);
+}
+
 .run {
   min-width: 5.5em;
 }

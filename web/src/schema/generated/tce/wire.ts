@@ -14,6 +14,7 @@ export { CancelTask } from './wire/cancel-task.js';
 export { Chronicle } from './wire/chronicle.js';
 export { ChronicleEntry } from './wire/chronicle-entry.js';
 export { Clock } from './wire/clock.js';
+export { ClockMode } from './wire/clock-mode.js';
 export { Command } from './wire/command.js';
 export { CommandBody } from './wire/command-body.js';
 export { CropInfo } from './wire/crop-info.js';

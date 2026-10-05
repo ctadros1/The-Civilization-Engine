@@ -4,6 +4,9 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { ClockMode } from '../../tce/wire/clock-mode.js';
+
+
 export class Clock {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
@@ -69,8 +72,13 @@ speed():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
+mode():ClockMode {
+  const offset = this.bb!.__offset(this.bb_pos, 22);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : ClockMode.Detailed;
+}
+
 static startClock(builder:flatbuffers.Builder) {
-  builder.startObject(9);
+  builder.startObject(10);
 }
 
 static addMinute(builder:flatbuffers.Builder, minute:bigint) {
@@ -109,12 +117,16 @@ static addSpeed(builder:flatbuffers.Builder, speed:number) {
   builder.addFieldFloat32(8, speed, 0.0);
 }
 
+static addMode(builder:flatbuffers.Builder, mode:ClockMode) {
+  builder.addFieldInt8(9, mode, ClockMode.Detailed);
+}
+
 static endClock(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createClock(builder:flatbuffers.Builder, minute:bigint, year:bigint, month:number, day:number, hour:number, minuteOfHour:number, seasonOffset:flatbuffers.Offset, paused:boolean, speed:number):flatbuffers.Offset {
+static createClock(builder:flatbuffers.Builder, minute:bigint, year:bigint, month:number, day:number, hour:number, minuteOfHour:number, seasonOffset:flatbuffers.Offset, paused:boolean, speed:number, mode:ClockMode):flatbuffers.Offset {
   Clock.startClock(builder);
   Clock.addMinute(builder, minute);
   Clock.addYear(builder, year);
@@ -125,6 +137,7 @@ static createClock(builder:flatbuffers.Builder, minute:bigint, year:bigint, mont
   Clock.addSeason(builder, seasonOffset);
   Clock.addPaused(builder, paused);
   Clock.addSpeed(builder, speed);
+  Clock.addMode(builder, mode);
   return Clock.endClock(builder);
 }
 }

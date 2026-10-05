@@ -28,10 +28,11 @@ export function positionOnTrip(trip: TripInfo, t: number): [number, number] {
 /**
  * The simulation minute now, estimated from the latest clock: its minute plus the real time since
  * it arrived at its speed, never more than a real second's worth ahead (the next snapshot
- * corrects it).
+ * corrects it). An Accelerated clock stands at midnight until the next day's frame, so it is not
+ * carried on.
  */
 export function estimateMinute(clock: Clock, receivedAtMs: number, nowMs: number): number {
-  if (clock.paused) return clock.minute;
+  if (clock.paused || clock.mode === "accelerated") return clock.minute;
   const perSecond = clock.speed / 60;
   const ahead = ((nowMs - receivedAtMs) / 1000) * perSecond;
   return clock.minute + Math.min(Math.max(0, ahead), Math.max(1, perSecond));

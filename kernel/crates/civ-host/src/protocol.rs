@@ -603,6 +603,7 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
     let band = &content.people.params.band;
     let map_sizes = fbb.create_vector(&civ_sim::MAP_SIZES);
     let multipliers = fbb.create_vector(&civ_sim::SPEED_MULTIPLIERS);
+    let accelerated = fbb.create_vector(&civ_sim::ACCELERATED_MULTIPLIERS);
     let host = fbb.create_string("civ-host");
     let version = fbb.create_string(env!("CARGO_PKG_VERSION"));
     let fingerprint = fbb.create_string(&content.fingerprint_hex());
@@ -628,6 +629,7 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
             skills: Some(skills),
             regimes: Some(regimes),
             techniques: Some(techniques),
+            accelerated_multipliers: Some(accelerated),
         },
     );
     finish(fbb, root)

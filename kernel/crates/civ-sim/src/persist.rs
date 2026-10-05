@@ -48,7 +48,9 @@ use commons_persist::{
     SectionTag, SnapshotInfo, SnapshotReader,
 };
 
-use crate::{ContentStamp, MAX_SPEED, PHASE_AGENT, Rules, Sim, SimEvent, WorldMeta};
+use crate::{
+    ContentStamp, MAX_PACED_SPEED, PHASE_AGENT, Rules, SPEED_MAX, Sim, SimEvent, WorldMeta,
+};
 
 pub mod agents;
 
@@ -342,13 +344,17 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
         (clock.minute(), clock.scheduler_seq(), clock.paused());
     let next_permanent_id = clock.next_permanent_id();
     let speed = clock.speed();
-    if !(speed.is_finite() && speed > 0.0) {
+    if speed.is_nan() || speed <= 0.0 {
         return Err(LoadError::Malformed(format!(
             "the clock speed {speed} is invalid"
         )));
     }
-    // A speed is a setting, not world state: a save from a build with faster speeds still loads.
-    let speed = speed.clamp(1.0, MAX_SPEED);
+    // A speed is a setting, not world state: a save from a build with other speeds still loads.
+    let speed = if speed == SPEED_MAX {
+        speed
+    } else {
+        speed.clamp(1.0, MAX_PACED_SPEED)
+    };
 
     let content_bytes = single_chunk(&mut reader, SECTION_CONTENT)?;
     let saved_content = flatbuffers::root::<save::Content>(&content_bytes)
@@ -450,7 +456,8 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
         people,
     );
     sim.paused = paused;
-    sim.speed = speed;
+    sim.set_speed(speed)
+        .map_err(|e| LoadError::Malformed(e.to_string()))?;
     // A save from before deposits were bodies gains the ones a new world of its seed would have.
     if place_deposits {
         let seed = sim.meta.seed;

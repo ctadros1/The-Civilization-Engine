@@ -193,8 +193,23 @@ techniquesLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+acceleratedMultipliers(index: number):number|null {
+  const offset = this.bb!.__offset(this.bb_pos, 42);
+  return offset ? this.bb!.readFloat32(this.bb!.__vector(this.bb_pos + offset) + index * 4) : 0;
+}
+
+acceleratedMultipliersLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 42);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+acceleratedMultipliersArray():Float32Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 42);
+  return offset ? new Float32Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
+}
+
 static startWelcome(builder:flatbuffers.Builder) {
-  builder.startObject(19);
+  builder.startObject(20);
 }
 
 static addHost(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset) {
@@ -403,12 +418,33 @@ static startTechniquesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addAcceleratedMultipliers(builder:flatbuffers.Builder, acceleratedMultipliersOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(19, acceleratedMultipliersOffset, 0);
+}
+
+static createAcceleratedMultipliersVector(builder:flatbuffers.Builder, data:number[]|Float32Array):flatbuffers.Offset;
+/**
+ * @deprecated This Uint8Array overload will be removed in the future.
+ */
+static createAcceleratedMultipliersVector(builder:flatbuffers.Builder, data:number[]|Uint8Array):flatbuffers.Offset;
+static createAcceleratedMultipliersVector(builder:flatbuffers.Builder, data:number[]|Float32Array|Uint8Array):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addFloat32(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startAcceleratedMultipliersVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endWelcome(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset, versionOffset:flatbuffers.Offset, presetsOffset:flatbuffers.Offset, mapSizesOffset:flatbuffers.Offset, cellSizeM:number, contentFingerprintOffset:flatbuffers.Offset, defaultMapSize:number, speed1x:number, speedMultipliersOffset:flatbuffers.Offset, activitiesOffset:flatbuffers.Offset, reasonsOffset:flatbuffers.Offset, bandSizeMin:number, bandSizeMax:number, bandSizeDefault:number, goodsOffset:flatbuffers.Offset, cropsOffset:flatbuffers.Offset, skillsOffset:flatbuffers.Offset, regimesOffset:flatbuffers.Offset, techniquesOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset, versionOffset:flatbuffers.Offset, presetsOffset:flatbuffers.Offset, mapSizesOffset:flatbuffers.Offset, cellSizeM:number, contentFingerprintOffset:flatbuffers.Offset, defaultMapSize:number, speed1x:number, speedMultipliersOffset:flatbuffers.Offset, activitiesOffset:flatbuffers.Offset, reasonsOffset:flatbuffers.Offset, bandSizeMin:number, bandSizeMax:number, bandSizeDefault:number, goodsOffset:flatbuffers.Offset, cropsOffset:flatbuffers.Offset, skillsOffset:flatbuffers.Offset, regimesOffset:flatbuffers.Offset, techniquesOffset:flatbuffers.Offset, acceleratedMultipliersOffset:flatbuffers.Offset):flatbuffers.Offset {
   Welcome.startWelcome(builder);
   Welcome.addHost(builder, hostOffset);
   Welcome.addVersion(builder, versionOffset);
@@ -429,6 +465,7 @@ static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset,
   Welcome.addSkills(builder, skillsOffset);
   Welcome.addRegimes(builder, regimesOffset);
   Welcome.addTechniques(builder, techniquesOffset);
+  Welcome.addAcceleratedMultipliers(builder, acceleratedMultipliersOffset);
   return Welcome.endWelcome(builder);
 }
 }

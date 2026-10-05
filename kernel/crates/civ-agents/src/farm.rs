@@ -286,7 +286,7 @@ impl FarmView<'_> {
     /// ground at `site`: the most food per hour once the walk there and back is counted for a
     /// session of `session_h` hours. `walk_min` gives the walk to a field from home, and
     /// `weather` why the ground at a place cannot be worked today, if it cannot (ADR-0012 §5):
-    /// threshing at home goes on whatever the weather.
+    /// only work that turns the soil waits for it ([`FieldTask::turns_soil`]).
     pub fn best(
         &self,
         task: FieldTask,
@@ -319,7 +319,9 @@ impl FarmView<'_> {
                 continue;
             }
             let at_home = task == FieldTask::Thresh;
-            if !at_home && let Some(why) = weather(&f.rect) {
+            if task.turns_soil()
+                && let Some(why) = weather(&f.rect)
+            {
                 held_back.get_or_insert(why);
                 continue;
             }
@@ -825,5 +827,16 @@ mod tests {
                 .map(|o| o.field),
             Err(Reason::WetGround)
         );
+        // Only work that turns the soil waits for the weather: a growing crop is weeded in it.
+        let mut growing = field(4, FieldStage::Sown);
+        growing.sown_day = 85;
+        let v = view(&c, vec![&growing], 100);
+        assert_eq!(
+            v.best(FieldTask::Tend, 4.0, None, &walk, &rain)
+                .map(|o| o.field),
+            Ok(Some(growing.id))
+        );
+        assert!(FieldTask::Prepare.turns_soil() && FieldTask::Sow.turns_soil());
+        assert!(!FieldTask::Tend.turns_soil() && !FieldTask::Reap.turns_soil());
     }
 }

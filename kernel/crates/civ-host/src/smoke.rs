@@ -3,7 +3,8 @@
 //!
 //! The checks cover terrain and water, the save round trip, and a month of the founding band's
 //! life: they settle, keep water and firewood at home, still have food, break ground and sow
-//! their first field, and nobody is ever stuck between events.
+//! their first field (unless the weather kept them off the ground), and nobody is ever stuck
+//! between events.
 //!
 //! With `years`, each world then lives on for years (the M1 sanity run, plan §4.7), checked at
 //! every year's end: nobody stuck, no population or land problems, every good held accounted for
@@ -45,6 +46,10 @@ pub const MIN_GENTLE: f32 = 0.05;
 pub const MIN_RIVER_KM: f32 = 0.5;
 /// In-game days the founding band lives.
 pub const DAYS: i64 = 30;
+/// Days of its first month, and of the sowing window within it, the ground must have been
+/// workable on the valley floor for the band to be held to a sown field (ADR-0012 §5: ground
+/// frozen, under snow or sodden most of a spring is weather, not a failure).
+pub const WORKABLE_DAYS: (usize, usize) = (15, 3);
 /// Most people a band may grow to, as a multiple of the founding band, in the long run.
 pub const MAX_GROWTH: f64 = 3.0;
 /// People a band must keep to count as still living where it settled, in the long run.
@@ -148,6 +153,36 @@ fn check_round_trip(sim: &mut Sim, content: &ContentRegistry) -> Result<(), Stri
     Ok(())
 }
 
+/// Days from the world's founding to now on which the ground could be worked on the valley floor,
+/// and those of them in its crop's sowing window: the world's weather lived again from its seed.
+fn workable_days(sim: &Sim, content: &ContentRegistry) -> (usize, usize) {
+    let rules = sim.rules();
+    let (Some(preset), Some(crop)) = (
+        content.preset(&sim.meta().preset_id),
+        rules.catalog.crops.get(rules.people.farm.crop),
+    ) else {
+        return (0, 0);
+    };
+    let founded = civ_core::time::DEFAULT_WORLD_START.day_index();
+    let window = i64::from(crop.sow_from_day)..=i64::from(crop.sow_until_day);
+    let (mut month, mut sowing) = (0, 0);
+    crate::weather::replay(
+        content,
+        preset,
+        sim.meta().seed,
+        sim.now().day_index() - 1,
+        |day, _, why| {
+            if day >= founded && why.is_none() {
+                month += 1;
+                if window.contains(&civ_land::day_of_year(day)) {
+                    sowing += 1;
+                }
+            }
+        },
+    );
+    (month, sowing)
+}
+
 /// Lives the founding band's first month and checks what must always hold.
 pub(crate) fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<String> {
     let mut failures = Vec::new();
@@ -233,7 +268,8 @@ pub(crate) fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<Stri
             failures.push(format!("{} ran short of food within {DAYS} days", s.name));
         }
     }
-    // Arriving on the first of March, they break ground and sow once the window opens.
+    // Arriving on the first of March, they break ground and sow once the window opens and the
+    // ground can be worked.
     let sown = sim
         .land()
         .fields
@@ -241,10 +277,14 @@ pub(crate) fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<Stri
         .filter(|f| f.stage == civ_land::FieldStage::Sown)
         .count();
     if sown == 0 {
-        failures.push(format!(
-            "no field sown within {DAYS} days ({} marked out)",
-            sim.land().fields.len()
-        ));
+        let (month, window) = workable_days(sim, content);
+        if month >= WORKABLE_DAYS.0 && window >= WORKABLE_DAYS.1 {
+            failures.push(format!(
+                "no field sown within {DAYS} days ({} marked out), though the ground could be \
+                 worked on {month} of them, {window} in the sowing window",
+                sim.land().fields.len()
+            ));
+        }
     }
     // In their first weeks most households claim ground for their homes and begin their huts,
     // on ground nobody else has claimed. A household short of hands may put its fields first and

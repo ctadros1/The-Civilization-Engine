@@ -62,7 +62,8 @@ easy_water_share = 0.55
 cover_kc = 0.9                   # the wild cover's water use against the reference (grass, tuning)
 # Days the ground cannot be worked (ADR-0012 §5; content API 24): rain or snow of this much in a
 # day makes it too wet (a tuning value), and below this daily mean it is frozen.
-# Snow lying keeps people off it too. Threshing at home goes on whatever the weather.
+# Snow lying keeps people off it too. Only work that turns the soil waits: preparing ground and
+# sowing. Weeding, reaping and threshing go on whatever the weather.
 wet_ground_mm = 5.0
 frozen_below_c = 0.0
 

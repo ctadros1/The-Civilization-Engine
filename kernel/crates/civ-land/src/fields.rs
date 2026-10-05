@@ -109,6 +109,13 @@ pub enum FieldTask {
 }
 
 impl FieldTask {
+    /// Whether the task turns the soil, and so waits for a day the ground can be worked
+    /// (ADR-0012 §5): breaking or preparing ground, and sowing. Weeding, reaping and threshing go
+    /// on whatever the ground is like.
+    pub fn turns_soil(self) -> bool {
+        matches!(self, FieldTask::Prepare | FieldTask::Sow)
+    }
+
     /// Every task, in order (part of the boundary: never reorder).
     pub const ALL: [FieldTask; 5] = [
         FieldTask::Prepare,

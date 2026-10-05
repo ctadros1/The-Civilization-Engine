@@ -443,6 +443,7 @@ describe("decoders", () => {
     const firmName = b.createString("Wren's sickle workshop");
     const symptoms = b.createString("the thatch leaks");
     const upkeep = b.createString("mending the covering, 40% done");
+    const style = b.createString("roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut");
     const group = W.GroupInfo.createGroupInfo(
       b,
       0x0700,
@@ -489,6 +490,8 @@ describe("decoders", () => {
     W.BuildingInfo.addLeak(b, 0.25);
     W.BuildingInfo.addGroups(b, groups);
     W.BuildingInfo.addUpkeep(b, upkeep);
+    W.BuildingInfo.addStyle(b, style);
+    W.BuildingInfo.addStyleFrom(b, 12n);
     const info = W.BuildingInfo.endBuildingInfo(b);
     const list = W.Buildings.createBuildingsVector(b, [info]);
     const buildings = W.Buildings.createBuildings(b, 77n, list);
@@ -555,6 +558,8 @@ describe("decoders", () => {
             },
           ],
           upkeep: "mending the covering, 40% done",
+          style: "roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut",
+          styleFrom: 12,
         },
       ],
     });

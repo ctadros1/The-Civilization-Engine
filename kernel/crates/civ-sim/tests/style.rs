@@ -264,6 +264,20 @@ fn taste_moves_toward_an_admired_new_building_and_the_next_home_follows_it() {
     }
     let new_home = new_home.expect("a new home is begun");
     assert_eq!(new_home.style_from, Some(admired));
+    // The observer reads how it was built and what it followed, and what its household admires.
+    let owner = civ_sim::frames::people::eldest_name(&sim, rich).expect("its eldest");
+    let words =
+        civ_sim::frames::buildings::style_words(&sim, &new_home, Some(def(&sim, &new_home)));
+    assert!(words.starts_with("roof pitched "), "{words}");
+    assert!(words.contains(&format!("after {owner}'s ")), "{words}");
+    let taste_words = civ_sim::frames::people::taste_words(
+        &sim,
+        sim.people().household(other).expect("the household"),
+    );
+    assert!(
+        taste_words.contains(&format!("; admiring {owner}'s ")),
+        "{taste_words}"
+    );
     let held = style::held_to(&taste(&sim, other), def(&sim, &new_home));
     assert_eq!(traits(&sim, &new_home), held);
     // A save keeps every taste, what each household admired and what each building followed.

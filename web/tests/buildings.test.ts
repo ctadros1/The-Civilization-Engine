@@ -61,6 +61,8 @@ function hut(over: Partial<BuildingInfo> = {}): BuildingInfo {
     leak: 0,
     groups: [],
     upkeep: "",
+    style: "",
+    styleFrom: 0,
     ...over,
   };
 }
@@ -173,6 +175,19 @@ describe("buildings on the map", () => {
     );
     expect(buildingWords(hut({ status: "finished", stored: "floor: 1.8 t of 3.0 t, mostly provisions" }))).toBe(
       "hut of 30 m², room for 5: finished; floor: 1.8 t of 3.0 t, mostly provisions",
+    );
+  });
+
+  it("say how they were built and what their builders' taste followed", () => {
+    const followed = hut({
+      stage: 5,
+      roofed: true,
+      status: "finished",
+      style: "roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut",
+      styleFrom: 12,
+    });
+    expect(buildingWords(followed)).toBe(
+      "hut of 30 m², room for 5: finished; roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut",
     );
   });
 

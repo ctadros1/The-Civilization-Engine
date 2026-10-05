@@ -677,6 +677,11 @@ table PersonInfo {
   household_ready_days: float (id: 36);
   // M3b slice M: what they know, are learning or have heard of.
   knows: [KnowLine] (id: 37);
+  // Wire 1.22 (M3b slice R): the living only: how their household would build, in words, and
+  // the building that moved its taste most ("roofs pitched 48°, walls 1.9 m to the eaves, eaves
+  // 0.5 m out; admiring Bo's hut"); and that building (0 for none).
+  household_taste: string (id: 38);
+  household_admired: ulong (id: 39);
 }
 
 // What a person knows of a technique (M3b slice M).
@@ -839,6 +844,11 @@ table BuildingInfo {
   leak: float (id: 40);
   groups: [GroupInfo] (id: 41);
   upkeep: string (id: 42);
+  // Wire 1.22 (M3b slice R, ADR-0009 §7): how it was built, in words, and the building its
+  // household's taste followed when it was begun ("roof pitched 49°, walls 1.9 m to the eaves,
+  // after Bo's hut"); and that building (0 for none; it may since be gone).
+  style: string (id: 43);
+  style_from: ulong (id: 44);
 }
 
 table Buildings {

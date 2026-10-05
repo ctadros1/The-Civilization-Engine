@@ -53,6 +53,13 @@ test("the map draws levelled plots and the readout describes them", async ({ pag
     await expect(page.locator("#readout")).toContainText(/the plot of .*, (to be levelled|being levelled|levelled)/, {
       timeout: 15_000,
     });
+    // The building on it is built to its household's taste (M3b slice R), and the readout says so.
+    const style = await page.evaluate(
+      ([x, y]) => window.__TCE__.pointerAt(x!, y!)?.building?.style,
+      [cam.x + platform.x * cam.scale, cam.y + platform.y * cam.scale],
+    );
+    expect(style).toMatch(/^roof pitched \d+°/);
+    await expect(page.locator("#readout")).toContainText(/roof pitched \d+°/);
   } finally {
     await host.stop();
   }

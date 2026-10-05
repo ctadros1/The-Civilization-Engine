@@ -315,8 +315,20 @@ upkeep(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+style():string|null
+style(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+style(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 90);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+styleFrom():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 92);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startBuildingInfo(builder:flatbuffers.Builder) {
-  builder.startObject(43);
+  builder.startObject(45);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -568,6 +580,14 @@ static startGroupsVector(builder:flatbuffers.Builder, numElems:number) {
 
 static addUpkeep(builder:flatbuffers.Builder, upkeepOffset:flatbuffers.Offset) {
   builder.addFieldOffset(42, upkeepOffset, 0);
+}
+
+static addStyle(builder:flatbuffers.Builder, styleOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(43, styleOffset, 0);
+}
+
+static addStyleFrom(builder:flatbuffers.Builder, styleFrom:bigint) {
+  builder.addFieldInt64(44, styleFrom, BigInt('0'));
 }
 
 static endBuildingInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

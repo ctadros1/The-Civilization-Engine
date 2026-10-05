@@ -278,7 +278,9 @@ their meanings), an expansion yields:
     program's range; the four parameters frame v1 keeps for style stay 0 until a grammar expands
     ornament. Each household keeps its taste in the three and the building that last moved it
     most, and each building keeps the one building its household's taste followed when it was
-    begun (one link for the building, not one a trait). Saves schema 22.
+    begun (one link for the building, not one a trait). Saves schema 22. Wire 1.22 (its
+    second step) appends each building's traits in words and the building it followed, and
+    each household's taste and the building it admires.
 
 ### 8. Saves and boundary
 

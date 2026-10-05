@@ -1553,6 +1553,13 @@ fn every_building_is_described_with_its_expanded_shape() {
         assert!(info.sleeps() as usize >= members);
         assert!(info.floor_m2() > 0.0);
         assert!(!info.status().unwrap_or_default().is_empty());
+        // How it was built, in words (M3b slice R): a founder's hut follows no other.
+        let style = info.style().unwrap_or_default();
+        assert!(
+            style.starts_with("roof pitched ") && style.contains(" m to the eaves"),
+            "{style}"
+        );
+        assert_eq!(info.style_from(), 0);
         // Wire 1.14: a hut is a one-storey dwelling of the hut grammar, its cone seen as a
         // circle, all its floor for living.
         assert_eq!(info.grammar(), Some("hut"));

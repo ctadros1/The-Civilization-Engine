@@ -7218,7 +7218,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_LEFT_MINUTE = 72,
     VT_SKILLS = 74,
     VT_HOUSEHOLD_READY_DAYS = 76,
-    VT_KNOWS = 78
+    VT_KNOWS = 78,
+    VT_HOUSEHOLD_TASTE = 80,
+    VT_HOUSEHOLD_ADMIRED = 82
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -7334,6 +7336,12 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::KnowLine>> *knows() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::KnowLine>> *>(VT_KNOWS);
   }
+  const ::flatbuffers::String *household_taste() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_HOUSEHOLD_TASTE);
+  }
+  uint64_t household_admired() const {
+    return GetField<uint64_t>(VT_HOUSEHOLD_ADMIRED, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -7391,6 +7399,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_KNOWS) &&
            verifier.VerifyVector(knows()) &&
            verifier.VerifyVectorOfTables(knows()) &&
+           VerifyOffset(verifier, VT_HOUSEHOLD_TASTE) &&
+           verifier.VerifyString(household_taste()) &&
+           VerifyField<uint64_t>(verifier, VT_HOUSEHOLD_ADMIRED, 8) &&
            verifier.EndTable();
   }
 };
@@ -7513,6 +7524,12 @@ struct PersonInfoBuilder {
   void add_knows(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::KnowLine>>> knows) {
     fbb_.AddOffset(PersonInfo::VT_KNOWS, knows);
   }
+  void add_household_taste(::flatbuffers::Offset<::flatbuffers::String> household_taste) {
+    fbb_.AddOffset(PersonInfo::VT_HOUSEHOLD_TASTE, household_taste);
+  }
+  void add_household_admired(uint64_t household_admired) {
+    fbb_.AddElement<uint64_t>(PersonInfo::VT_HOUSEHOLD_ADMIRED, household_admired, 0);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -7563,8 +7580,11 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     int64_t left_minute = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::SkillLine *>> skills = 0,
     float household_ready_days = 0.0f,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::KnowLine>>> knows = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::KnowLine>>> knows = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> household_taste = 0,
+    uint64_t household_admired = 0) {
   PersonInfoBuilder builder_(_fbb);
+  builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
   builder_.add_partner(partner);
   builder_.add_until_minute(until_minute);
@@ -7574,6 +7594,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_household_taste(household_taste);
   builder_.add_knows(knows);
   builder_.add_household_ready_days(household_ready_days);
   builder_.add_skills(skills);
@@ -7650,7 +7671,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     int64_t left_minute = 0,
     const std::vector<tce::wire::SkillLine> *skills = nullptr,
     float household_ready_days = 0.0f,
-    const std::vector<::flatbuffers::Offset<tce::wire::KnowLine>> *knows = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::KnowLine>> *knows = nullptr,
+    const char *household_taste = nullptr,
+    uint64_t household_admired = 0) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -7663,6 +7686,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto family__ = family ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*family) : 0;
   auto skills__ = skills ? _fbb.CreateVectorOfStructs<tce::wire::SkillLine>(*skills) : 0;
   auto knows__ = knows ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::KnowLine>>(*knows) : 0;
+  auto household_taste__ = household_taste ? _fbb.CreateString(household_taste) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -7702,7 +7726,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       left_minute,
       skills__,
       household_ready_days,
-      knows__);
+      knows__,
+      household_taste__,
+      household_admired);
 }
 
 struct KnowLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -8380,7 +8406,9 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_SYMPTOMS = 82,
     VT_LEAK = 84,
     VT_GROUPS = 86,
-    VT_UPKEEP = 88
+    VT_UPKEEP = 88,
+    VT_STYLE = 90,
+    VT_STYLE_FROM = 92
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -8511,6 +8539,12 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *upkeep() const {
     return GetPointer<const ::flatbuffers::String *>(VT_UPKEEP);
   }
+  const ::flatbuffers::String *style() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_STYLE);
+  }
+  uint64_t style_from() const {
+    return GetField<uint64_t>(VT_STYLE_FROM, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -8575,6 +8609,9 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVectorOfTables(groups()) &&
            VerifyOffset(verifier, VT_UPKEEP) &&
            verifier.VerifyString(upkeep()) &&
+           VerifyOffset(verifier, VT_STYLE) &&
+           verifier.VerifyString(style()) &&
+           VerifyField<uint64_t>(verifier, VT_STYLE_FROM, 8) &&
            verifier.EndTable();
   }
 };
@@ -8712,6 +8749,12 @@ struct BuildingInfoBuilder {
   void add_upkeep(::flatbuffers::Offset<::flatbuffers::String> upkeep) {
     fbb_.AddOffset(BuildingInfo::VT_UPKEEP, upkeep);
   }
+  void add_style(::flatbuffers::Offset<::flatbuffers::String> style) {
+    fbb_.AddOffset(BuildingInfo::VT_STYLE, style);
+  }
+  void add_style_from(uint64_t style_from) {
+    fbb_.AddElement<uint64_t>(BuildingInfo::VT_STYLE_FROM, style_from, 0);
+  }
   explicit BuildingInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8767,13 +8810,17 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
     ::flatbuffers::Offset<::flatbuffers::String> symptoms = 0,
     float leak = 0.0f,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GroupInfo>>> groups = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> upkeep = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> upkeep = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> style = 0,
+    uint64_t style_from = 0) {
   BuildingInfoBuilder builder_(_fbb);
+  builder_.add_style_from(style_from);
   builder_.add_firm(firm);
   builder_.add_started_minute(started_minute);
   builder_.add_settlement(settlement);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_style(style);
   builder_.add_upkeep(upkeep);
   builder_.add_groups(groups);
   builder_.add_leak(leak);
@@ -8864,7 +8911,9 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
     const char *symptoms = nullptr,
     float leak = 0.0f,
     const std::vector<::flatbuffers::Offset<tce::wire::GroupInfo>> *groups = nullptr,
-    const char *upkeep = nullptr) {
+    const char *upkeep = nullptr,
+    const char *style = nullptr,
+    uint64_t style_from = 0) {
   auto program__ = program ? _fbb.CreateString(program) : 0;
   auto stage_name__ = stage_name ? _fbb.CreateString(stage_name) : 0;
   auto outline__ = outline ? _fbb.CreateVectorOfStructs<tce::wire::Vec2>(*outline) : 0;
@@ -8882,6 +8931,7 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
   auto symptoms__ = symptoms ? _fbb.CreateString(symptoms) : 0;
   auto groups__ = groups ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::GroupInfo>>(*groups) : 0;
   auto upkeep__ = upkeep ? _fbb.CreateString(upkeep) : 0;
+  auto style__ = style ? _fbb.CreateString(style) : 0;
   return tce::wire::CreateBuildingInfo(
       _fbb,
       id,
@@ -8926,7 +8976,9 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
       symptoms__,
       leak,
       groups__,
-      upkeep__);
+      upkeep__,
+      style__,
+      style_from);
 }
 
 struct Buildings FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

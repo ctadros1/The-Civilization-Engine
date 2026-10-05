@@ -415,6 +415,11 @@ export interface BuildingInfo {
   leak: number;
   groups: GroupInfo[];
   upkeep: string;
+  /** Wire 1.22 (M3b slice R): how it was built, in words rendered by the kernel, with the
+   * building its household's taste followed ("roof pitched 49°, walls 1.9 m to the eaves, after
+   * Bo's hut"); and that building (0 for none; it may since be gone). */
+  style: string;
+  styleFrom: number;
 }
 
 export type EventKind =
@@ -623,6 +628,11 @@ export interface PersonInfo {
   family: string[];
   /** When they left the valley alive (0 = they did not). */
   leftMinute: number;
+  /** Wire 1.22 (M3b slice R): how their household would build, in words rendered by the kernel
+   * ("roofs pitched 48°, walls 1.9 m to the eaves, eaves 0.5 m out; admiring Bo's hut"; "" for
+   * the dead), and the building that moved its taste most (0 for none). */
+  householdTaste: string;
+  householdAdmired: number;
 }
 
 /** One good in a settlement's market (M3a slice I). Tallies fade by half every memory. */
@@ -1859,6 +1869,8 @@ function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
       leak: x.leak(),
       groups: groups(x),
       upkeep: x.upkeep() ?? "",
+      style: x.style() ?? "",
+      styleFrom: Number(x.styleFrom()),
     });
   }
   return { rev: Number(f.rev()), buildings: out };
@@ -2323,6 +2335,8 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     partner: Number(p.partner()),
     family: Array.from({ length: p.familyLength() }, (_, k) => p.family(k) ?? ""),
     leftMinute: Number(p.leftMinute()),
+    householdTaste: p.householdTaste() ?? "",
+    householdAdmired: Number(p.householdAdmired()),
   };
 }
 

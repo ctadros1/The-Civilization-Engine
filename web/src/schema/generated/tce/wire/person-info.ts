@@ -273,8 +273,20 @@ knowsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+householdTaste():string|null
+householdTaste(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+householdTaste(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 80);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+householdAdmired():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 82);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(38);
+  builder.startObject(40);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -500,6 +512,14 @@ static createKnowsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[])
 
 static startKnowsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
+}
+
+static addHouseholdTaste(builder:flatbuffers.Builder, householdTasteOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(38, householdTasteOffset, 0);
+}
+
+static addHouseholdAdmired(builder:flatbuffers.Builder, householdAdmired:bigint) {
+  builder.addFieldInt64(39, householdAdmired, BigInt('0'));
 }
 
 static endPersonInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

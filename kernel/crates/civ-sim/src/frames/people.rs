@@ -11,6 +11,7 @@ use civ_agents::params::GoodUse;
 use civ_agents::person::{food_kcal, fuel_kg, stock_kcal};
 use civ_agents::{Cause, Origin, Person, Receipt, Repro, Scored, Sex, Step, Target, population};
 use civ_core::PermanentId;
+use civ_land::Building;
 use civ_schema::flatbuffers::{FlatBufferBuilder, ForwardsUOffset, Vector, WIPOffset};
 use civ_schema::wire;
 
@@ -360,6 +361,39 @@ pub(crate) fn program_name(sim: &Sim, program: &str) -> String {
         || "building".to_owned(),
         |i| sim.rules.catalog.buildings[i].name.to_lowercase(),
     )
+}
+
+/// Building `b` as its owners call it: "Ada's hut", "a hut".
+pub(crate) fn whose_building(sim: &Sim, b: &Building) -> String {
+    let program = program_name(sim, &b.spec.program);
+    match eldest_name(sim, b.household) {
+        Some(name) => format!("{name}'s {program}"),
+        None => format!("a {program}"),
+    }
+}
+
+/// Building `id` as its owners call it, or "a building since gone".
+pub(crate) fn building_name(sim: &Sim, id: PermanentId) -> String {
+    sim.land.buildings.iter().find(|b| b.id == id).map_or_else(
+        || "a building since gone".to_owned(),
+        |b| whose_building(sim, b),
+    )
+}
+
+/// How household `h` would build, in words, and the building that moved its taste most (M3b
+/// slice R): "roofs pitched 48°, walls 1.9 m to the eaves, eaves 0.5 m out; admiring Bo's hut".
+pub fn taste_words(sim: &Sim, h: &civ_agents::person::Household) -> String {
+    let t = h.taste;
+    let mut words = format!(
+        "roofs pitched {:.0}°, walls {:.1} m to the eaves, eaves {:.1} m out",
+        t.pitch_centideg / 100.0,
+        t.eave_cm / 100.0,
+        t.overhang_cm / 100.0
+    );
+    if let Some(b) = h.admired {
+        words.push_str(&format!("; admiring {}", building_name(sim, b)));
+    }
+    words
 }
 
 /// The given name of a household's eldest member; `None` when nobody lives in it.
@@ -761,6 +795,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
             .collect();
         let skills = fbb.create_vector(&skills);
         let knows = super::knowledge::know_lines(&mut fbb, sim, p);
+        let taste = household.map(|h| fbb.create_string(&taste_words(sim, h)));
         let lines: Vec<wire::StoreLine> = stores
             .iter()
             .flatten()
@@ -814,6 +849,10 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.household_ready_days = ready_days as f32;
         args.skills = Some(skills);
         args.knows = Some(knows);
+        args.household_taste = taste;
+        args.household_admired = household
+            .and_then(|h| h.admired)
+            .map_or(0, PermanentId::get);
         args.household_water_days = water_days as f32;
         args.household_fuel_days = fuel_days as f32;
         let notes: Vec<_> = family_notes(sim, p)

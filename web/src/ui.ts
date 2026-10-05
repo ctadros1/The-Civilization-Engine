@@ -901,6 +901,9 @@ export function bindUi(store: Store, actions: Actions): void {
       if (skills.length > 0) {
         needs.append(el("dt", { text: "Skills" }), el("dd", { text: skills.join(" · ") }));
       }
+      if (p.householdTaste) {
+        needs.append(el("dt", { text: "Builds" }), el("dd", { text: p.householdTaste }));
+      }
       const load = goods[p.carryGood];
       const carrying = [
         load && p.carryKg > 0

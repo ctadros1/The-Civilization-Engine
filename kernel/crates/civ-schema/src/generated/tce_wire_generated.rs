@@ -12223,6 +12223,8 @@ impl<'a> PersonInfo<'a> {
   pub const VT_SKILLS: ::flatbuffers::VOffsetT = 74;
   pub const VT_HOUSEHOLD_READY_DAYS: ::flatbuffers::VOffsetT = 76;
   pub const VT_KNOWS: ::flatbuffers::VOffsetT = 78;
+  pub const VT_HOUSEHOLD_TASTE: ::flatbuffers::VOffsetT = 80;
+  pub const VT_HOUSEHOLD_ADMIRED: ::flatbuffers::VOffsetT = 82;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -12234,6 +12236,7 @@ impl<'a> PersonInfo<'a> {
     args: &'args PersonInfoArgs<'args>
   ) -> ::flatbuffers::WIPOffset<PersonInfo<'bldr>> {
     let mut builder = PersonInfoBuilder::new(_fbb);
+    builder.add_household_admired(args.household_admired);
     builder.add_left_minute(args.left_minute);
     builder.add_partner(args.partner);
     builder.add_until_minute(args.until_minute);
@@ -12243,6 +12246,7 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.household_taste { builder.add_household_taste(x); }
     if let Some(x) = args.knows { builder.add_knows(x); }
     builder.add_household_ready_days(args.household_ready_days);
     if let Some(x) = args.skills { builder.add_skills(x); }
@@ -12542,6 +12546,20 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KnowLine>>>>(PersonInfo::VT_KNOWS, None)}
   }
+  #[inline]
+  pub fn household_taste(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PersonInfo::VT_HOUSEHOLD_TASTE, None)}
+  }
+  #[inline]
+  pub fn household_admired(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PersonInfo::VT_HOUSEHOLD_ADMIRED, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -12588,6 +12606,8 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, SkillLine>>>("skills", Self::VT_SKILLS, false)?
      .visit_field::<f32>("household_ready_days", Self::VT_HOUSEHOLD_READY_DAYS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<KnowLine>>>>("knows", Self::VT_KNOWS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("household_taste", Self::VT_HOUSEHOLD_TASTE, false)?
+     .visit_field::<u64>("household_admired", Self::VT_HOUSEHOLD_ADMIRED, false)?
      .finish();
     Ok(())
   }
@@ -12631,6 +12651,8 @@ pub struct PersonInfoArgs<'a> {
     pub skills: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, SkillLine>>>,
     pub household_ready_days: f32,
     pub knows: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KnowLine<'a>>>>>,
+    pub household_taste: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub household_admired: u64,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -12674,6 +12696,8 @@ impl<'a> Default for PersonInfoArgs<'a> {
       skills: None,
       household_ready_days: 0.0,
       knows: None,
+      household_taste: None,
+      household_admired: 0,
     }
   }
 }
@@ -12836,6 +12860,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_KNOWS, knows);
   }
   #[inline]
+  pub fn add_household_taste(&mut self, household_taste: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_HOUSEHOLD_TASTE, household_taste);
+  }
+  #[inline]
+  pub fn add_household_admired(&mut self, household_admired: u64) {
+    self.fbb_.push_slot::<u64>(PersonInfo::VT_HOUSEHOLD_ADMIRED, household_admired, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -12891,6 +12923,8 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("skills", &self.skills());
       ds.field("household_ready_days", &self.household_ready_days());
       ds.field("knows", &self.knows());
+      ds.field("household_taste", &self.household_taste());
+      ds.field("household_admired", &self.household_admired());
       ds.finish()
   }
 }
@@ -13898,6 +13932,8 @@ impl<'a> BuildingInfo<'a> {
   pub const VT_LEAK: ::flatbuffers::VOffsetT = 84;
   pub const VT_GROUPS: ::flatbuffers::VOffsetT = 86;
   pub const VT_UPKEEP: ::flatbuffers::VOffsetT = 88;
+  pub const VT_STYLE: ::flatbuffers::VOffsetT = 90;
+  pub const VT_STYLE_FROM: ::flatbuffers::VOffsetT = 92;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -13909,11 +13945,13 @@ impl<'a> BuildingInfo<'a> {
     args: &'args BuildingInfoArgs<'args>
   ) -> ::flatbuffers::WIPOffset<BuildingInfo<'bldr>> {
     let mut builder = BuildingInfoBuilder::new(_fbb);
+    builder.add_style_from(args.style_from);
     builder.add_firm(args.firm);
     builder.add_started_minute(args.started_minute);
     builder.add_settlement(args.settlement);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    if let Some(x) = args.style { builder.add_style(x); }
     if let Some(x) = args.upkeep { builder.add_upkeep(x); }
     if let Some(x) = args.groups { builder.add_groups(x); }
     builder.add_leak(args.leak);
@@ -14257,6 +14295,20 @@ impl<'a> BuildingInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_UPKEEP, None)}
   }
+  #[inline]
+  pub fn style(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_STYLE, None)}
+  }
+  #[inline]
+  pub fn style_from(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(BuildingInfo::VT_STYLE_FROM, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
@@ -14308,6 +14360,8 @@ impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
      .visit_field::<f32>("leak", Self::VT_LEAK, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GroupInfo>>>>("groups", Self::VT_GROUPS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("upkeep", Self::VT_UPKEEP, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("style", Self::VT_STYLE, false)?
+     .visit_field::<u64>("style_from", Self::VT_STYLE_FROM, false)?
      .finish();
     Ok(())
   }
@@ -14356,6 +14410,8 @@ pub struct BuildingInfoArgs<'a> {
     pub leak: f32,
     pub groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GroupInfo<'a>>>>>,
     pub upkeep: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub style: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub style_from: u64,
 }
 impl<'a> Default for BuildingInfoArgs<'a> {
   #[inline]
@@ -14404,6 +14460,8 @@ impl<'a> Default for BuildingInfoArgs<'a> {
       leak: 0.0,
       groups: None,
       upkeep: None,
+      style: None,
+      style_from: 0,
     }
   }
 }
@@ -14586,6 +14644,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingInfoBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_UPKEEP, upkeep);
   }
   #[inline]
+  pub fn add_style(&mut self, style: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_STYLE, style);
+  }
+  #[inline]
+  pub fn add_style_from(&mut self, style_from: u64) {
+    self.fbb_.push_slot::<u64>(BuildingInfo::VT_STYLE_FROM, style_from, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingInfoBuilder {
@@ -14646,6 +14712,8 @@ impl ::core::fmt::Debug for BuildingInfo<'_> {
       ds.field("leak", &self.leak());
       ds.field("groups", &self.groups());
       ds.field("upkeep", &self.upkeep());
+      ds.field("style", &self.style());
+      ds.field("style_from", &self.style_from());
       ds.finish()
   }
 }

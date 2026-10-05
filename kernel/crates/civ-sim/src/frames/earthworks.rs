@@ -9,7 +9,7 @@ use civ_land::earth::{DELTA_TILE, EarthKind, Earthwork};
 use civ_schema::flatbuffers::FlatBufferBuilder;
 use civ_schema::wire;
 
-use super::people::{eldest_name, program_name};
+use super::people::{eldest_name, whose_building};
 use super::response;
 use crate::Sim;
 
@@ -62,15 +62,6 @@ fn dug_for(sim: &Sim, w: &Earthwork) -> (String, String) {
 pub(crate) fn working(sim: &Sim, good: Option<usize>) -> String {
     good.and_then(|g| sim.rules.land.deposits.iter().find(|r| r.good == g))
         .map_or_else(|| "pit".to_owned(), |r| r.working.clone())
-}
-
-/// Building `b` as its owners call it: "Ada's hut", "a hut".
-fn whose_building(sim: &Sim, b: &Building) -> String {
-    let program = program_name(sim, &b.spec.program);
-    match eldest_name(sim, b.household) {
-        Some(name) => format!("{name}'s {program}"),
-        None => format!("a {program}"),
-    }
 }
 
 /// An earthwork in words: "the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled",

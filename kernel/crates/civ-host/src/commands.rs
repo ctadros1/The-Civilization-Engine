@@ -80,6 +80,33 @@ pub struct NewOptions {
     pub band: u32,
     /// Families the observer sends to the village as it is founded.
     pub families: u32,
+    /// Techniques the observer introduces to the band's eldest grown founder as the world
+    /// begins (the god tool, ADR-0008 §6), by id.
+    pub introduce: Vec<String>,
+}
+
+/// The observer introduces technique `technique` (an id) to the eldest grown founder of the
+/// world's first household, as from elsewhere (the god tool, ADR-0008 §6); returns their name.
+pub fn introduce(sim: &mut Sim, technique: &str) -> anyhow::Result<String> {
+    let now = sim.now();
+    let people = sim.people();
+    let first = people
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .min_by_key(|h| h.id)
+        .ok_or_else(|| anyhow!("nobody lives in the world"))?;
+    let eldest = first
+        .members
+        .iter()
+        .filter_map(|m| people.person(*m))
+        .filter(|p| p.age_years(now) >= 15.0)
+        .max_by(|a, b| a.age_years(now).total_cmp(&b.age_years(now)))
+        .ok_or_else(|| anyhow!("the first household has nobody grown"))?;
+    let (id, name) = (eldest.id, people.name_of(eldest.id));
+    sim.introduce_technique(id, technique, false)
+        .map_err(|e| anyhow!(e))?;
+    Ok(name)
 }
 
 /// `civ-host new`: generates a world, lets it live `days` days, saves it and prints a summary.
@@ -116,6 +143,10 @@ pub fn new_world(
     if options.families > 0 {
         let people = sim.send_families_to_hearth(options.families);
         println!("{} families sent: {people} people came", options.families);
+    }
+    for technique in &options.introduce {
+        let who = introduce(&mut sim, technique)?;
+        println!("the observer introduced {technique} to {who}");
     }
     if options.days > 0 {
         let lived = Instant::now();

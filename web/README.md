@@ -129,7 +129,11 @@ The M3a demo's pictures (`e2e/m3a-demo.spec.ts`: one seed under both property re
 of hundreds lived five years from the command line, then each world's wealth and market panels
 and its village) run only when asked: `TCE_DEMO=1 TCE_SHOTS_DIR=<dir> npx playwright test
 m3a-demo` (about 15 minutes; `TCE_DEMO_SEED`, `TCE_DEMO_BAND`, `TCE_DEMO_FAMILIES` and
-`TCE_DEMO_DAYS` change the world).
+`TCE_DEMO_DAYS` change the world). The M3b demo's (`e2e/m3b-demo.spec.ts`: a valley lived ten
+years after the observer brought jointed timber framing to one founder; its knowledge panel, its
+chronicle and a home built after an admired one) likewise: `TCE_DEMO=1 TCE_SHOTS_DIR=<dir> npx
+playwright test m3b-demo` (`TCE_DEMO_SEED`, `TCE_DEMO_BAND` and `TCE_DEMO_DAYS` change the
+world).
 
 The M1 demo (`e2e/demo.spec.ts`: ten years of a band, then save and reload) runs only when asked,
 since it takes about four minutes: `TCE_DEMO=1 TCE_DEMO_VIDEO=1 npx playwright test demo`. It

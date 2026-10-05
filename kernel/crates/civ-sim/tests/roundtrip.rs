@@ -1931,6 +1931,25 @@ fn what_settlements_have_seen_of_their_buildings_survives_a_save_and_load() {
         here.trust(),
         Some("built 1.9 times as strong: failures weigh 1.0 against 12 building-years")
     );
+    // A hut has nothing to size, so roundhouses are built as usual whatever was seen.
+    let roundhouse = loaded
+        .rules()
+        .catalog
+        .technique_index("core:technique/roundhouse")
+        .expect("roundhouses");
+    let mut sim = loaded;
+    sim.people_mut_for_tests()
+        .trust
+        .push(civ_agents::caution::Trust {
+            technique: roundhouse as u16,
+            ..seen
+        });
+    let (caution, words) = frames::knowledge::trust_words(&sim, settlement, roundhouse);
+    assert_eq!(caution, 1.0);
+    assert_eq!(
+        words,
+        "built as usual, as a hut has nothing to size: failures weigh 1.0 against 12 building-years"
+    );
 }
 
 #[test]

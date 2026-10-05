@@ -1,7 +1,7 @@
 # The Civilization Engine: Project Plan
 
 Status: plan of record, written 2026-09-27 from the planning interview.
-Implementation (2026-10-04): **M0 Foundations and M1 A band settles are implemented** (people,
+Implementation (2026-10-05): **M0 Foundations and M1 A band settles are implemented** (people,
 foraging, farming, huts, births, deaths and families, worn trails, the first god tool and running
 ahead). **M2 is in progress:** its kernel side (the kernel as a library with a C interface, the
 panels alone) is implemented; its Unreal work needs the Windows PC. **M3a Village economy is
@@ -10,7 +10,11 @@ tools that wear, skills, the bread chain), I (one ledger, exchange at posted ter
 inferred money, the market panel), J (household workshops with books, hired labour at posted
 wages, the workshops panel), K (property regimes, claims, leases, wealth measures, the wealth
 panel) and L (villages of hundreds, house size by wealth, the smoke checks of the economy, the
-demo). The README lists what exists, what is planned and the known limitations.
+demo). **M3b Knowledge and building is implemented** in six slices: M (knowledge carried by
+people), N (discovery and the first new crafts), O (the frame grammar, storehouses and
+workshops), P (wear, upkeep, loads, failures and caution), Q (deposits, levelled plots, pits and
+quarries, pots and ovens) and R (style copied from admired buildings, and the demo). M3c is next.
+The README lists what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
 (i9 13th gen, RTX 4070 Ti with 12 GB VRAM, 64 GB DDR5).
 
@@ -1146,28 +1150,30 @@ prices, buildings and wealth distribution), is M3a's.
   knowledge; [ADR-0009](decisions/0009-building-components.md) governs grammar v2, condition
   and trust; [ADR-0010](decisions/0010-ground-people-change.md) governs deposits and
   earthworks.
-- *Status (2026-10-04):* slices M, N and O are implemented (the README describes them): the
-  frame grammar and its programs, homes chosen among them, storage as room under a roof, and
-  storehouses and workshops as second buildings. Slice P is implemented: each part of a
-  building has a quality drawn from its builders' skill, wears by the month by what it is and
-  where it stands, and is mended by its household; a leaking roof keeps less dry; each day
-  every building is weighed against what it carries, so a weak loft sags or gives way and
-  spills its goods, a roof falls in, or rotted posts bring a building down, killing some of
-  those inside; and each village remembers what gave way and builds its next frame buildings
-  stronger for a while. Slice Q is implemented: every world lays down deposits of clay, stone and
-  flint as bodies in the ground, villages find those that show where their people walk, and the
-  observer can lay one down; households seek level ground and level a sloping plot by cut and
-  fill before they build, which the world keeps beside its generated ground, and the observer
-  sees the platforms and the ground as levelled. Households dig clay from pits at the
-  deposits their village knows, heap the spoil beside them, and make storage pots of the clay
-  that keep their grain and flour as a raised floor does. Every building's daub is dug from a
-  pit beside it, and once the loose stone and flint near a village run short, its people quarry
-  stone and dig flint at deposits they know. Households build clay ovens and bake in them; cob
-  walls are deferred to a mass-wall grammar. Slice R has begun: each band builds in its own
-  way and each household to its own taste in roof pitch, eaves and overhang, and once a year
-  households' taste moves toward the new buildings their village admires, for their owners'
-  standing and their builders' craft; the observer reads how each building was built and what it
-  followed, and how each household would build.
+- *Outcome (2026-10-05):* implemented, in six slices (M–R; the README describes each). People
+  carry what they know: they learn at home and beside a knower, find drying and smoking by
+  practice and by trying, and lose a craft with its last knower; the observer can introduce any
+  technique. Homes, storehouses and workshops are built in the hut grammar or the frame grammar
+  of bays, lofts, raised floors and two storeys, with storage as room under a roof. Each part of
+  a building is made as well as its builders' skill allows, wears by the month, is mended,
+  carries its loads and can give way, and each village remembers what failed and builds its
+  frames stronger for a while. Every world lays down deposits of clay, stone and flint;
+  households level their plots, dig pits and quarries, make pots and ovens, and the ground keeps
+  what they moved. Each band builds its own way, and taste moves toward the new buildings a
+  village admires. The usable bar holds (one command, new world, save, load, recovery, the
+  panels, the smoke seeds; saves 22, wire 1.22, content API 22). The demo lived three
+  river-valley seeds 25 years each, the observer bringing jointed timber framing to one founder
+  (§9, *The M3b demo*). Deviations:
+  - The graph has 13 techniques, not about 30: nodes come with the work behind them (§5.6).
+  - A craft found by one person, drying and smoking, was found once in 75 village-years and lost
+    the same year as households left. Framing, brought by the observer, passed only to children
+    at home and died with its last knower. Learning beside a knower happens in tests, not in the
+    demo's villages.
+  - No village built a frame building, so no loft was loaded and none failed; huts lost their
+    roofs in storms and villages remembered it, but a hut has nothing to build stronger. Loft
+    failure and over-building are shown by a test (§9 NUDGE).
+  - Grown villages of about 55 empty within a year as households leave together (§9 NUDGE).
+  - Cob walls are deferred to a mass-wall grammar.
 
 **M3c: Seasons and time.**
 - *Contents:*
@@ -1650,4 +1656,12 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Wire 1.22 (2026-10-05, slice R's second step):** `BuildingInfo` appends how the building was built, in the kernel's words ("roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut"; a frame building's also "eaves 0.6 m out"), and the building its household's taste followed, which may since be gone ("after a building since gone"). `PersonInfo` appends, for the living, how their household would build and the building that moved its taste most ("roofs pitched 48°, walls 1.9 m to the eaves, eaves 0.5 m out; admiring Bo's hut"). The map's readout and the inspector show them.
 - **Slice R's first step, ten-year smoke (2026-10-05, at the whole-oven commit):** all ten worlds pass. Each village builds its own way: roofs pitched 46-49° in one, 49-52° in another, two or three degrees apart within a village, with eaves of 1.8 to 2.1 m. Only 9 of the 109 buildings standing at the end were built after an admired one (coast 3: 4 of 9; river valley 3: 4 of 10; river valley 5: 1 of 13; none elsewhere). After the first year, most villages build almost nothing new: river valley 2 holds 58 people in 13 buildings. The few homes begun later are mostly young couples' first homes, and a new household admired nothing until its first review; the next entry changes that. Seven villages keep ten or more people (coast 2: 15, 3: 22, 5: 25; river valley 2: 58, 3: 13, 4: 47, 5: 53), against six in the last smoke. Coast 1 ends at 4 (down to 6 in year 8) and coast 4 at 8, and river valley 1 dies out in year 6 again. The ten worlds hold 245 people against 237. Six villages dug at deposits, 14 to 34 m³ each, taking 9 to 42 t, and five hold ovens (1 to 13). Pots follow the food lying under roofs: coast 3's 22 people keep 508, river valley 3's 13 keep 237, and river valley 4's 47 keep 354. One building gave way, killing two (coast 2). The economy checks: stocks and asks green in all ten, inequality amber in all ten, workshops green in six and grey in four.
 - **A new household admires what its families did (2026-10-05, slice R):** a couple's new household took the mean of its families' tastes but admired nothing, so its first home, nearly all a village builds after its first year, followed nothing until the household's first review a year on. It now also takes the building the woman's household admired, else the man's, so a young couple builds after what their families admired (11-02 §5.2: people carry a few salient exemplars with them). A unit test covers the rule.
+- **Caution words for huts (2026-10-05, found in the M3b demo runs):** a village whose hut lost its roof in a storm remembered the failure, and the knowledge panel said its roundhouses were "built 1.8 times as strong". Slice P sizes only frame buildings' members, so huts were built as they always had been. A hut's grammar has nothing to size. For a technique with no frame programs the panel now says "built as usual, as a hut has nothing to size: failures weigh 0.9 against 28 building-years".
+- **The M3b demo (2026-10-05):** three river-valley worlds (seeds 2, 4 and 5, bands of 40 on 768-cell maps) lived 25 years each with `civ-host run --introduce core:technique/jointed_frame`: as each world began, the observer brought jointed timber framing to the eldest grown founder of its first household, as from elsewhere. The plan's three outcomes:
+  - *A craft found by one person spreads or dies with its last practitioner.* In seed 4, Vela found drying and smoking in the tenth year, the only find in the 75 village-years. It was lost that same year with Kira, the last who knew it there, as 45 people left the village. Framing passed to children growing up in its knower's household (to four knowers in seed 2 by year 15, three in seed 4, two in seed 5), but nobody practised it, so it reached nobody beyond. It died with its last knower in all three: in seed 2 in year 19, when Isla, the last of four, died; in seed 4 with the households that left in year 10; in seed 5, where its first knower had died in year 11, when the whole village left in year 14.
+  - *A loaded loft sags and fails, and builders over-build for a while.* No village built a frame building, so there was no loft to load (next entry). In seed 2 a hut lost its roof in a storm in year 3, its rafters poorly made. The village remembered it, and the memory faded over the years (failures weighing 0.9 against 28 building-years, then 0.1 against 78 by year 25). A hut has nothing to size, so nobody built stronger. After villages emptied, their abandoned huts lost their roofs and fell as they rotted. Loft failure and over-building are shown by slice P's test: a loft on badly made joists gives way under a full load, and the village builds its next longhouses' joists and posts stronger for years.
+  - *New houses copy an admired one.* Every one of the 16 buildings begun after the first year was built after an admired building (6 in seed 2, 8 in seed 4, 2 in seed 5), each a young couple's first home following what their families admired. The two-to-five-degree spread of roof pitches within a village stayed as it was: a village builds little after its first year, and its founders' homes stand for decades.
+  - The demo's pictures come from `web/e2e/m3b-demo.spec.ts` (`TCE_DEMO=1`), one ten-year world of seed 4 with its own identity. In the run pictured it holds 49 people, and framing is known by Gorran (45) and three young people of his household, practised by none. Five of its eleven buildings were built after an admired one, two each after Gorran's and Arrel's huts and one after Tam's, and the map's readout says so: "roof pitched 50°, walls 2.0 m to the eaves, after Gorran's hut". Two earlier runs of the same command had 50 and 53 people, with five and four such buildings.
+- **NUDGE: no village builds a frame (2026-10-05, the M3b demo):** a household builds the cheapest home that covers its members and goods among those it knows how to build (slice O). In the demo's villages that was always a hut, and framing was never practised: the ten-year world's knowledge panel shows it known by four and practised by none, and nobody learnt it beside a knower in 75 village-years. So framing brought to a village spreads only to children at home, and no loft is loaded or fails. Whether pots, which keep grain under a roof as a raised floor does, took away the granary's use is not established. The structural rules are tested, but a frame building appears only where a household knows framing and needs more room than a hut gives. Not nudged here: the fix belongs with what makes frame buildings worth their cost (larger households, livestock and fodder, crafts that need room), not with a push toward them.
+- **NUDGE: villages of about 55 leave together (2026-10-05, the M3b demo):** all three demo villages grew from 40 to 52-59 people and then emptied within a year: 45 of 57 people left seed 2 in year 17, 45 of 59 left seed 4 in year 10, and all 54 left seed 5 in year 14. This is the pattern of *founding risk over ten years* above (asking for food evens out stores, so households run out and leave together), now in grown villages. Its cause in these runs is not established. Revisit with M3c's soils and the dashboard's fifty-year runs.
 - **Saves 16, wire 1.16 (2026-10-04, slice O's third step):** saves schema 16 adds the firm a building is the workshop of, a firm's most at work at once and the day it was seen, and each settlement's yearly roofed floor and room for goods a household; schema-15 saves load with no building naming a firm, nobody counted at work and those measures 0, and a building naming a firm the save does not have is refused. Wire 1.16 appends to `BuildingInfo` its firm and the firm's name, and to the wealth measures each household's floor under all its roofs and room for goods, and those a household in each settlement's spread. House floor area stays homes only (ADR-0007 §4).

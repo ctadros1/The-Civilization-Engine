@@ -451,7 +451,7 @@ fn kept_and_fixed(sim: &Sim) -> Option<String> {
 }
 
 /// The ways the world's buildings were built at the end (M3b slice R), in words: "roofs pitched
-/// 46-51°, eaves 1.8-2.1 m; 3 of 12 buildings built after an admired one". `None` without
+/// 46-51°, eaves 182-207 cm; 3 of 12 buildings built after an admired one". `None` without
 /// buildings.
 fn style(sim: &Sim) -> Option<String> {
     let catalog = &sim.rules().catalog;
@@ -476,12 +476,10 @@ fn style(sim: &Sim) -> Option<String> {
     let ((p0, p1), (e0, e1)) = (range(0), range(1));
     let followed = buildings.iter().filter(|b| b.style_from.is_some()).count();
     Some(format!(
-        "roofs pitched {:.0}-{:.0}°, eaves {:.1}-{:.1} m; {followed} of {} buildings built after an \
-         admired one",
+        "roofs pitched {:.0}-{:.0}°, eaves {e0:.0}-{e1:.0} cm; {followed} of {} buildings built \
+         after an admired one",
         p0 / 100.0,
         p1 / 100.0,
-        e0 / 100.0,
-        e1 / 100.0,
         buildings.len()
     ))
 }

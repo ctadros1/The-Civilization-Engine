@@ -31,6 +31,9 @@ pub struct RunOptions {
     pub regime: Option<String>,
     /// Families the observer sends to the village as it is founded.
     pub families: u32,
+    /// Techniques the observer introduces to the band's eldest grown founder as the world begins,
+    /// by id.
+    pub introduce: Vec<String>,
 }
 
 /// Lives the world and writes a report to `out`.
@@ -67,6 +70,10 @@ pub fn run(
             "{} families sent: {people} people came",
             options.families
         )?;
+    }
+    for technique in &options.introduce {
+        let who = crate::commands::introduce(&mut sim, technique)?;
+        writeln!(out, "the observer introduced {technique} to {who}")?;
     }
     writeln!(
         out,
@@ -114,7 +121,103 @@ pub fn run(
         report_firms(&sim, civ_core::SimTime::from_minutes(start), out)?;
         report_land(&sim, &moved_before, &moved, out)?;
         report_wealth(&sim, &mut wealth_shown, out)?;
+        let year_began = civ_core::SimTime::from_minutes(end - MINUTES_PER_YEAR);
+        report_crafts(&sim, year_began, out)?;
         moved_before = moved;
+    }
+    Ok(())
+}
+
+/// What people came to know and lost, what gave way and how builders answered, and how they built,
+/// in the year since `since` (M3b): the chronicle's finds, crafts learnt beside a knower, crafts
+/// lost and introduced; crafts known by five people or fewer, and who; what each settlement's
+/// builders have seen of each technique that has failed there, and how they build for it; the
+/// buildings begun in the year and those built after an admired one; and the roof pitches of
+/// every building and every household's taste.
+fn report_crafts(sim: &Sim, since: civ_core::SimTime, out: &mut dyn Write) -> anyhow::Result<()> {
+    use civ_agents::ChronicleKind as K;
+    let people = sim.people();
+    let year: Vec<_> = people.chronicle.iter().filter(|e| e.at >= since).collect();
+    let named = |e: &civ_agents::history::ChronicleEvent| {
+        let who = e
+            .people
+            .first()
+            .map_or_else(|| "someone".to_owned(), |&p| people.name_of(p));
+        format!("{who}: {}", e.name)
+    };
+    for (kind, label) in [
+        (K::TechniqueIntroduced, "introduced"),
+        (K::TechniqueFound, "found"),
+        (K::TechniqueLearned, "learnt beside a knower"),
+        (K::TechniqueLost, "lost"),
+        (K::BuildingFailed, "gave way"),
+    ] {
+        let lines: Vec<String> = year
+            .iter()
+            .filter(|e| e.kind == kind)
+            .map(|e| named(e))
+            .collect();
+        if !lines.is_empty() {
+            writeln!(out, "  {label}: {}", lines.join("; "))?;
+        }
+    }
+    let catalog = &sim.rules().catalog;
+    // Crafts known by a few, and by whom.
+    let few: Vec<String> = catalog
+        .techniques
+        .iter()
+        .enumerate()
+        .filter_map(|(t, def)| {
+            let knowers: Vec<&str> = people
+                .people
+                .iter()
+                .filter(|(_, p)| p.knows(t))
+                .map(|(_, p)| p.given.as_str())
+                .collect();
+            (!knowers.is_empty() && knowers.len() <= 5)
+                .then(|| format!("{} ({})", def.name, knowers.join(", ")))
+        })
+        .collect();
+    if !few.is_empty() {
+        writeln!(out, "  known by few: {}", few.join("; "))?;
+    }
+    for t in people.trust.iter().filter(|t| t.failures > 0.0) {
+        let technique = catalog
+            .techniques
+            .get(usize::from(t.technique))
+            .map_or("?", |d| d.name.as_str());
+        let (_, words) =
+            civ_sim::frames::knowledge::trust_words(sim, t.settlement, usize::from(t.technique));
+        writeln!(out, "  caution: {technique} {words}")?;
+    }
+    let buildings = &sim.land().buildings;
+    let begun: Vec<_> = buildings.iter().filter(|b| b.started >= since).collect();
+    let followed = begun.iter().filter(|b| b.style_from.is_some()).count();
+    let pitch = |b: &civ_land::Building| {
+        catalog
+            .building_index(&b.spec.program)
+            .and_then(|i| catalog.buildings.get(i))
+            .map(|d| civ_agents::style::traits_of(&b.spec, d).pitch_centideg / 100.0)
+    };
+    let span = |v: &[f32]| {
+        v.iter()
+            .fold((f32::MAX, f32::MIN), |(lo, hi), &x| (lo.min(x), hi.max(x)))
+    };
+    let pitches: Vec<f32> = buildings.iter().filter_map(pitch).collect();
+    let tastes: Vec<f32> = people
+        .households
+        .iter()
+        .filter(|(_, h)| !h.members.is_empty())
+        .map(|(_, h)| h.taste.pitch_centideg / 100.0)
+        .collect();
+    if !pitches.is_empty() && !tastes.is_empty() {
+        let ((b0, b1), (t0, t1)) = (span(&pitches), span(&tastes));
+        writeln!(
+            out,
+            "  style: {} buildings begun, {followed} after an admired one; roofs pitched {b0:.1}-{b1:.1}°, \
+             households' tastes {t0:.1}-{t1:.1}°",
+            begun.len()
+        )?;
     }
     Ok(())
 }

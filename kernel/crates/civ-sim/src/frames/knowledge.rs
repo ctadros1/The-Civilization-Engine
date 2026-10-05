@@ -11,6 +11,7 @@ use civ_agents::knowledge::KnowledgeEventKind;
 use civ_agents::params::Catalog;
 use civ_agents::person::{KnowSource, Person};
 use civ_core::{PermanentId, SimTime};
+use civ_grammar::ProgramRules;
 use civ_schema::flatbuffers::{FlatBufferBuilder, ForwardsUOffset, Vector, WIPOffset};
 use civ_schema::wire;
 
@@ -173,8 +174,11 @@ pub fn knowledge_rev(sim: &Sim) -> u64 {
 /// How many times their usual strength builders of settlement `s` make the members of
 /// technique `t`'s frame buildings now, and what they have seen in words: "built as usual; 31
 /// building-years without a failure", "built 1.4 times as strong: failures weigh 2.0 against 31
-/// building-years". `(1, "")` when nothing has been built by it there.
-fn trust_words(sim: &Sim, s: PermanentId, t: usize) -> (f64, String) {
+/// building-years". A technique with no frame programs has no members to size (ADR-0009 §6), so
+/// its buildings are built as usual whatever its builders have seen: "built as usual, as a hut
+/// has nothing to size: failures weigh 0.9 against 28 building-years". `(1, "")` when nothing has
+/// been built by it there.
+pub fn trust_words(sim: &Sim, s: PermanentId, t: usize) -> (f64, String) {
     let Some(trust) = sim
         .people
         .trust
@@ -192,8 +196,22 @@ fn trust_words(sim: &Sim, s: PermanentId, t: usize) -> (f64, String) {
         1 => "one building-year".to_owned(),
         n => format!("{n} building-years"),
     };
+    let sized = sim
+        .rules
+        .catalog
+        .buildings
+        .iter()
+        .any(|b| b.technique == Some(t) && matches!(b.rules, ProgramRules::Frame(_)));
     let words = if failures < 0.05 {
         format!("built as usual; {stood} without a failure")
+    } else if !sized {
+        return (
+            1.0,
+            format!(
+                "built as usual, as a hut has nothing to size: failures weigh {failures:.1} \
+                 against {stood}"
+            ),
+        );
     } else if caution < 1.05 {
         format!("built as usual: failures weigh {failures:.1} against {stood}")
     } else {

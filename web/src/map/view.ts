@@ -956,6 +956,13 @@ export class MapView {
       fields: this.fields.length,
       buildings: this.buildings.length,
       roofed: this.buildings.filter((b) => b.roofed).length,
+      // M3b slice R: buildings that followed an admired one, and frame buildings, where they stand.
+      followed: this.buildings
+        .filter((b) => b.styleFrom !== 0)
+        .map((b) => ({ x: b.x, y: b.y, style: b.style })),
+      frames: this.buildings
+        .filter((b) => b.grammar === "frame")
+        .map((b) => ({ x: b.x, y: b.y, program: b.program })),
       deposits: this.deposits.length,
       earthworks: this.earthworks.length,
       platforms: this.earthworks.map((w) => ({ x: w.x + w.w / 2, y: w.y + w.h / 2, done: w.done })),

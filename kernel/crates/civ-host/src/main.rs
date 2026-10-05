@@ -72,6 +72,10 @@ struct RunArgs {
     /// Families the observer sends to the village as it is founded, in groups of up to 20.
     #[arg(long, default_value_t = 0)]
     families: u32,
+    /// A technique (by id) the observer introduces to the band's eldest grown founder as the
+    /// world begins; repeat for more.
+    #[arg(long)]
+    introduce: Vec<String>,
 }
 
 #[derive(Args, Clone, Default)]
@@ -138,6 +142,10 @@ struct NewArgs {
     /// Families the observer sends to the village as it is founded, in groups of up to 20.
     #[arg(long, default_value_t = 0)]
     families: u32,
+    /// A technique (by id) the observer introduces to the band's eldest grown founder as the
+    /// world begins; repeat for more.
+    #[arg(long)]
+    introduce: Vec<String>,
 }
 
 #[derive(Subcommand)]
@@ -228,6 +236,7 @@ fn run_world(args: RunArgs) -> anyhow::Result<ExitCode> {
         years: args.years,
         regime: args.regime,
         families: args.families,
+        introduce: args.introduce,
     };
     civ_host::report::run(&content, &options, &mut std::io::stdout().lock())?;
     Ok(ExitCode::SUCCESS)
@@ -370,6 +379,7 @@ fn new(args: NewArgs) -> anyhow::Result<ExitCode> {
             regime: args.regime,
             band: args.band,
             families: args.families,
+            introduce: args.introduce,
         },
     )?;
     Ok(ExitCode::SUCCESS)

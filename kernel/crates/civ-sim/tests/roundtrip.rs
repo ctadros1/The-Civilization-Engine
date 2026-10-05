@@ -65,11 +65,35 @@ fn families(sim: &Sim) -> Vec<Family> {
     out
 }
 
-/// One world, generated once, run for a while and saved.
+/// Removes the folders named `prefix…` in `tmp` that earlier runs left, an hour old or more.
+fn clear_stale(tmp: &Path, prefix: &str) {
+    let Ok(entries) = std::fs::read_dir(tmp) else {
+        return;
+    };
+    for e in entries.flatten() {
+        let old = e
+            .metadata()
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| t.elapsed().ok())
+            .is_some_and(|age| age.as_secs() >= 3600);
+        if old && e.file_name().to_string_lossy().starts_with(prefix) {
+            let _ = std::fs::remove_dir_all(e.path());
+        }
+    }
+}
+
+/// One world, generated once, run for a while and saved. A static is never dropped, so its folder
+/// outlives the tests; each run first clears those earlier runs left.
 fn fixture() -> &'static Fixture {
     static FIXTURE: OnceLock<Fixture> = OnceLock::new();
     FIXTURE.get_or_init(|| {
-        let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+        let tmp = Path::new(env!("CARGO_TARGET_TMPDIR"));
+        clear_stale(tmp, "roundtrip-");
+        let dir = tempfile::Builder::new()
+            .prefix("roundtrip-")
+            .tempdir_in(tmp)
+            .expect("temp dir");
         let mut sim = Sim::create(
             &NewWorld {
                 name: "Test Valley".to_owned(),

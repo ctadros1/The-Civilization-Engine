@@ -15,6 +15,7 @@ use civ_agents::params::BuildingDef;
 use civ_agents::person::Flow;
 use civ_content::ContentRegistry;
 use civ_core::PermanentId;
+use civ_core::time::MONTH_LENGTHS;
 use civ_grammar::{Expansion, GroupKind, Stage};
 use civ_land::{Building, BuildingState, GroupState};
 use civ_sim::{NewWorld, Sim};
@@ -212,16 +213,28 @@ fn thatch_wears_by_the_month_and_posts_by_the_ground_they_stand_in() {
         "on the first of the month: {}",
         sim.now().date()
     );
+    // As wet as the month just lived was against its usual (ADR-0012 §5).
     let u = &hut_def().upkeep;
-    let month = u.covering.per_year / 12.0;
+    let land = sim.land();
+    let lived = land
+        .weather
+        .months
+        .iter()
+        .rev()
+        .find(|m| i64::from(m.days) == MONTH_LENGTHS[usize::from(m.month)])
+        .expect("a whole month lived");
+    let rain = (f64::from(lived.precip_mm)
+        / land.climatology.month_precip_mm[usize::from(lived.month)])
+    .clamp(condition::WET_WEAR.0, condition::WET_WEAR.1);
+    let month = u.covering.per_year / 12.0 * rain;
     assert!((f64::from(loss(&sim, hut, covering)) - month).abs() < 1e-6);
-    // Posts by the wetness of the habitat the hut stands in.
+    // Posts by the wetness of the habitat the hut stands in, too.
     let rules = sim.rules().clone();
     let (map, land) = (sim.map(), sim.land());
     let cell = civ_agents::population::cell_of(map, build::centre_m(&b.spec));
     let class = land.patches.class[land.patches.of_cell(cell, map.width)];
     let wetness = rules.land.habitats[usize::from(class)].wetness;
-    let expected = u.posts.per_year / 12.0 * wetness;
+    let expected = u.posts.per_year / 12.0 * wetness * rain;
     assert!(
         (f64::from(loss(&sim, hut, posts)) - expected).abs() < 1e-6,
         "{} against {expected}",
@@ -328,7 +341,7 @@ fn a_ruin_shelters_nothing_and_its_household_builds_anew() {
             .expect("in place");
         c.loss = 0.999;
         // A month in sodden ground finishes them.
-        condition::wear_month(b, &hut_def().upkeep, 10.0);
+        condition::wear_month(b, &hut_def().upkeep, 10.0, 1.0);
         assert_eq!(b.state, BuildingState::Ruin);
         assert!(!b.roofed());
     }

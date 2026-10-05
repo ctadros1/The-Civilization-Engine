@@ -3996,11 +3996,17 @@ impl Population {
     /// near the line is not noted every day), and then a day of life: births, deaths, couples and
     /// the households they make (see `life`). Newborns' first decisions go to `ctx.schedule`.
     /// A month of wear on every building with groups in place (ADR-0009 §4), its posts set in
-    /// the ground of the habitat it stands in (its `wetness`). The households whose roofs leak
-    /// more, or whose buildings' state changed, have their stores settled under the roofs they
-    /// had and their shelter derived again.
+    /// the ground of the habitat it stands in (its `wetness`), as wet as the month just lived was
+    /// against its usual (ADR-0012 §5). The households whose roofs leak more, or whose
+    /// buildings' state changed, have their stores settled under the roofs they had and their
+    /// shelter derived again.
     fn wear_buildings(&mut self, ctx: &mut Ctx) {
         let (map, catalog, land_params) = (ctx.map, ctx.catalog, ctx.land_params);
+        let rain = ctx
+            .land
+            .weather
+            .last_month_wetness(&ctx.land.climatology)
+            .unwrap_or(1.0);
         let patches = &ctx.land.patches;
         let wetness: Vec<f64> = ctx
             .land
@@ -4023,7 +4029,7 @@ impl Population {
             else {
                 continue;
             };
-            if condition::wear_month(b, &def.upkeep, wet) && !changed.contains(&b.household) {
+            if condition::wear_month(b, &def.upkeep, wet, rain) && !changed.contains(&b.household) {
                 changed.push(b.household);
             }
         }

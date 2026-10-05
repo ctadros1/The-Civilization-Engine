@@ -243,14 +243,22 @@ pub fn leak(b: &Building, upkeep: &Upkeep) -> f64 {
     if n == 0 { 0.0 } else { sum / n as f64 }
 }
 
-/// A month of wear on building `b` by `upkeep`, its posts set in ground of wetness `wetness`
-/// (ADR-0009 §4): posts lose at their foot, coverings in the weather, infill at the wall's foot,
-/// and roofed timber only as much as the roof over it leaks. Its groups' states and its own
-/// follow. Whether any group's state, the building's or how far its roof leaks changed.
-pub fn wear_month(b: &mut Building, upkeep: &Upkeep, wetness: f64) -> bool {
+/// How much a month's rain and snow against its usual can speed or slow wear in the weather:
+/// three times the usual wears three times as fast, and no faster; even a month without rain
+/// wears a quarter as much, in sun and wind (tuning values; ADR-0012 §5).
+pub const WET_WEAR: (f64, f64) = (0.25, 3.0);
+
+/// A month of wear on building `b` by `upkeep`, its posts set in ground of wetness `wetness`, in
+/// a month that brought `rain` times its usual rain and snow (ADR-0009 §4, ADR-0012 §5): posts
+/// lose at their foot, coverings in the weather and infill at the wall's foot, each as wet as the
+/// month was ([`WET_WEAR`]), and roofed timber only as much as the roof over it leaks. Its
+/// groups' states and its own follow. Whether any group's state, the building's or how far its
+/// roof leaks changed.
+pub fn wear_month(b: &mut Building, upkeep: &Upkeep, wetness: f64, rain: f64) -> bool {
     if b.condition.is_empty() || b.state == BuildingState::Ruin {
         return false;
     }
+    let rain = rain.clamp(WET_WEAR.0, WET_WEAR.1);
     let before = (leak(b, upkeep), b.state, states(b));
     let leaking = before.0;
     for c in &mut b.condition {
@@ -264,8 +272,8 @@ pub fn wear_month(b: &mut Building, upkeep: &Upkeep, wetness: f64) -> bool {
             continue;
         }
         let factor = match kind {
-            GroupKind::Posts => wetness.max(0.0),
-            GroupKind::Covering | GroupKind::Infill => 1.0,
+            GroupKind::Posts => wetness.max(0.0) * rain,
+            GroupKind::Covering | GroupKind::Infill => rain,
             _ => leaking,
         };
         let lost = w.per_year / 12.0 * factor;
@@ -707,7 +715,7 @@ mod tests {
         let covering = group_of(&e, GroupKind::Covering);
         let mut months = 0;
         while b.group(covering).expect("in place").state == GroupState::Sound {
-            wear_month(&mut b, &u, 1.0);
+            wear_month(&mut b, &u, 1.0, 1.0);
             months += 1;
         }
         // 0.15 at 0.06 a year: 30 months (11-08 §2.4: significant mending every 2–3 years).
@@ -717,7 +725,7 @@ mod tests {
         assert!(symptoms(&b, &u).contains("the thatch leaks"));
         // Untended for years more, the leak grows and the rafters beneath it begin to rot.
         for _ in 0..60 {
-            wear_month(&mut b, &u, 1.0);
+            wear_month(&mut b, &u, 1.0, 1.0);
         }
         let l = leak(&b, &u);
         assert!(l > 0.2 && l < 0.6, "{l}");
@@ -743,8 +751,8 @@ mod tests {
         let u = upkeep();
         let posts = group_of(&e, GroupKind::Posts);
         for _ in 0..12 * 10 {
-            wear_month(&mut wet, &u, 2.0);
-            wear_month(&mut dry, &u, 0.7);
+            wear_month(&mut wet, &u, 2.0, 1.0);
+            wear_month(&mut dry, &u, 0.7, 1.0);
         }
         let (w, d) = (
             wet.group(posts).expect("posts").loss,
@@ -755,11 +763,40 @@ mod tests {
         assert!(symptoms(&wet, &u).contains("rot at the posts' foot"));
         // Untended, wet posts give way in their twenty-fifth year: a ruin.
         for _ in 0..12 * 15 {
-            wear_month(&mut wet, &u, 2.0);
+            wear_month(&mut wet, &u, 2.0, 1.0);
         }
         assert_eq!(wet.state, BuildingState::Ruin);
         assert_eq!(room_left(&wet, &u, &e, [0.0, 0.0, 3000.0]), [0.0; 3]);
         assert_eq!(worst(&wet, &u), None, "a ruin is not mended");
+    }
+
+    #[test]
+    fn thatch_daub_and_posts_wear_as_wet_as_the_month_was() {
+        let (mut wet, e) = hut();
+        let (mut dry, _) = hut();
+        let (mut usual, _) = hut();
+        let u = upkeep();
+        let covering = group_of(&e, GroupKind::Covering);
+        let posts = group_of(&e, GroupKind::Posts);
+        // A year of months with twice their usual rain, half of it, and the usual.
+        for _ in 0..12 {
+            wear_month(&mut wet, &u, 1.0, 2.0);
+            wear_month(&mut dry, &u, 1.0, 0.5);
+            wear_month(&mut usual, &u, 1.0, 1.0);
+        }
+        let loss = |b: &Building, g: u32| f64::from(b.group(g).expect("in place").loss);
+        let base = loss(&usual, covering);
+        assert!((loss(&wet, covering) - 2.0 * base).abs() < 1e-5);
+        assert!((loss(&dry, covering) - 0.5 * base).abs() < 1e-5);
+        assert!((loss(&wet, posts) - 2.0 * loss(&usual, posts)).abs() < 1e-5);
+        // A deluge wears no more than three months' worth; a month without rain still wears.
+        let (mut deluge, _) = hut();
+        let (mut drought, _) = hut();
+        wear_month(&mut deluge, &u, 1.0, 10.0);
+        wear_month(&mut drought, &u, 1.0, 0.0);
+        let month = base / 12.0;
+        assert!((loss(&deluge, covering) - WET_WEAR.1 * month).abs() < 1e-5);
+        assert!((loss(&drought, covering) - WET_WEAR.0 * month).abs() < 1e-5);
     }
 
     #[test]

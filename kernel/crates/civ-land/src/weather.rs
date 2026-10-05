@@ -648,6 +648,18 @@ impl Weather {
         f64::from(self.snow_mm.get(self.band_of(z_m)).copied().unwrap_or(0.0))
     }
 
+    /// The rain and snow of the month just lived against what that month usually brings, if the
+    /// record ends with a whole month: how wet it was for what stands out in it (ADR-0012 §5).
+    pub fn last_month_wetness(&self, climate: &Climatology) -> Option<f64> {
+        let m = self.months.last()?;
+        let month = usize::from(m.month.min(11));
+        if i64::from(m.days) < MONTH_LENGTHS[month] {
+            return None;
+        }
+        let usual = climate.month_precip_mm[month];
+        (usual > 0.0).then(|| f64::from(m.precip_mm) / usual)
+    }
+
     /// Why the ground at height `z_m` cannot be worked today, if it cannot (ADR-0012 §5): snow
     /// lying, the day's rain or snow enough to make it too wet, or the day too cold.
     pub fn unworkable(&self, params: &WeatherParams, z_m: f64) -> Option<Unworkable> {
@@ -1026,6 +1038,37 @@ pub(crate) mod tests {
         let end = c.expected_crop_factor(0, usual, 0.6 * usual);
         assert!((end - c.crop_factor(0, usual, 0.6 * usual)).abs() < 1e-9);
         assert!(end < 1.0);
+    }
+
+    #[test]
+    fn a_month_is_as_wet_as_its_rain_against_the_usual_and_average_over_the_years() {
+        let p = params();
+        let c = climate(7, landscape_key("core:worldgen/river_valley"));
+        let mut w = Weather::new(&p, &c, 100.0, 1100.0, 0);
+        let mut ratios = Vec::new();
+        for _ in 0..100 * DAYS_PER_YEAR {
+            w.live(&p, &c);
+            let whole = w
+                .months
+                .last()
+                .is_some_and(|m| i64::from(m.days) == MONTH_LENGTHS[usize::from(m.month)]);
+            match w.last_month_wetness(&c) {
+                Some(r) => {
+                    assert!(whole);
+                    ratios.push(r);
+                }
+                None => assert!(!whole),
+            }
+        }
+        assert_eq!(ratios.len(), 1200);
+        let mean = ratios.iter().sum::<f64>() / ratios.len() as f64;
+        assert!((mean - 1.0).abs() < 0.05, "mean {mean:.3}");
+        let wet = ratios.iter().filter(|&&r| r > 2.0).count();
+        let dry = ratios.iter().filter(|&&r| r < 0.25).count();
+        assert!(
+            wet > 0 && dry > 0 && wet + dry < 240,
+            "{wet} months above twice the usual, {dry} below a quarter"
+        );
     }
 
     #[test]

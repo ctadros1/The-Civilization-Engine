@@ -109,14 +109,16 @@ screen). Their main points:
 
 ### 6. Saves and boundary
 
-- **Saves schema 23** holds the weather's state and records, each field's water, soil pools
+(Renumbered on 2026-10-05: slice S took saves schema 23 and wire 1.23, plan §9.)
+
+- **Saves schema 24** holds the weather's state and records, each field's water, soil pools
   and record of harvests, and resting fields.
 - **Older saves** load as follows:
   - the weather starts with the old year's deviate as its slow anomaly, soils at field
     capacity and no snow;
   - each field's pools are rebuilt by replaying its harvests from native ground;
   - fields growing at the time are unstressed so far.
-- **Wire 1.23** appends:
+- **Wire 1.24** appends:
   - the day's weather and the season on the clock and snapshot;
   - each field's water and soil in words;
   - a weather query for a panel of months and years.

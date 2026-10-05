@@ -109,6 +109,9 @@ pub const SCHEMA_V20: u32 = 20;
 /// The schema version of M3b slice Q's third step: pits and spoil heaps, before taste in
 /// building (see [`agents`]).
 pub const SCHEMA_V21: u32 = 21;
+/// The schema version of M3b slice R: taste in building, before worn ground was kept exactly with
+/// its routing view (see [`agents`]).
+pub const SCHEMA_V22: u32 = 22;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

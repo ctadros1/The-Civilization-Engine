@@ -30,7 +30,7 @@ pub use buildings::{
     Plot, PlotUse, Repair, STAGE_DONE_SLACK_H, workable_h,
 };
 pub use fields::{CropParams, Field, FieldStage, FieldTask, Lease, Party, RectCm, WorkDone};
-pub use paths::{PathParams, Trail, Wear, WearTile};
+pub use paths::{PathParams, Trail, ViewTile, Wear, WearTile};
 
 use civ_core::time::{DAYS_PER_YEAR, MONTH_STARTS};
 use civ_core::{PermanentId, Rng64, SimTime};

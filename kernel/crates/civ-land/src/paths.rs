@@ -135,6 +135,18 @@ impl WearTile {
     }
 }
 
+/// One tile of the routing view as surveyed: what a save keeps so that routes are planned on the
+/// same paths after loading (ADR-0011 §5).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ViewTile {
+    /// Tile index, as [`WearTile::index`].
+    pub index: u32,
+    /// Wear of each cell as surveyed, row by row, 0–255 for 0–1.
+    pub cells: Vec<u8>,
+    /// Trail state of each cell as surveyed, as [`WearTile::trail`].
+    pub trail: Vec<u64>,
+}
+
 /// A trail traced through trail cells: a polyline in metres from the map's north-west corner.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Trail {
@@ -154,8 +166,8 @@ impl Trail {
     }
 }
 
-/// The worn ground of a world. The tiles are saved; the routing view and the trails are derived
-/// at each survey and on load.
+/// The worn ground of a world. The tiles and the routing view are saved; the trails are traced
+/// from the view at each survey and on load.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Wear {
     width: u32,
@@ -193,7 +205,7 @@ impl Wear {
     }
 
     /// Restores saved tiles. Their trail states are kept as saved; the routing view and trails
-    /// wait for [`Wear::survey`].
+    /// wait for [`Wear::with_view`] or [`Wear::survey`].
     pub fn with_tiles(mut self, mut tiles: Vec<WearTile>) -> Self {
         tiles.sort_by_key(|t| t.index);
         self.slot = tiles
@@ -218,6 +230,40 @@ impl Wear {
     /// The routing view's revision.
     pub fn rev(&self) -> u32 {
         self.rev
+    }
+
+    /// Whether the routing view has been drawn, by a survey or from a save.
+    pub fn has_view(&self) -> bool {
+        self.rev != 0
+    }
+
+    /// Restores the routing view surveyed on `surveyed`, as [`Wear::surveyed_tiles`] gave it, and
+    /// traces its trails: what [`Wear::survey`] drew then, without surveying again.
+    pub fn with_view(mut self, surveyed: i64, mut tiles: Vec<ViewTile>) -> Self {
+        tiles.sort_by_key(|t| t.index);
+        let words = TILE_CELLS / 64;
+        self.view_slot = vec![u32::MAX; self.tile_count() as usize];
+        self.view = Vec::with_capacity(tiles.len() * TILE_CELLS);
+        self.view_trail = Vec::with_capacity(tiles.len() * words);
+        self.view_index = Vec::with_capacity(tiles.len());
+        self.view_max = 0;
+        for (k, t) in tiles.into_iter().enumerate() {
+            if let Some(s) = self.view_slot.get_mut(t.index as usize) {
+                *s = k as u32;
+            }
+            self.view_index.push(t.index);
+            let mut cells = t.cells;
+            cells.resize(TILE_CELLS, 0);
+            self.view_max = self.view_max.max(cells.iter().copied().max().unwrap_or(0));
+            self.view.extend_from_slice(&cells);
+            let mut trail = t.trail;
+            trail.resize(words, 0);
+            self.view_trail.extend_from_slice(&trail);
+        }
+        self.trails = self.trace();
+        self.surveyed = surveyed;
+        self.rev = self.rev.wrapping_add(1);
+        self
     }
 
     /// The day of the last survey.
@@ -331,10 +377,11 @@ impl Wear {
         self.view = Vec::with_capacity(self.tiles.len() * TILE_CELLS);
         self.view_max = 0;
         self.view_index = self.tiles.iter().map(|t| t.index).collect();
+        let words = TILE_CELLS / 64;
         self.view_trail = self
             .tiles
             .iter()
-            .flat_map(|t| t.trail.iter().copied())
+            .flat_map(|t| (0..words).map(|j| t.trail.get(j).copied().unwrap_or(0)))
             .collect();
         for (k, t) in self.tiles.iter().enumerate() {
             if let Some(s) = self.view_slot.get_mut(t.index as usize) {
@@ -404,16 +451,18 @@ impl Wear {
 
     /// Traces trail cells into polylines: thinned to single cells, then followed from end to end
     /// and junction to junction.
+    /// The trails of the routing view: its trail cells, traced.
     fn trace(&self) -> Vec<Trail> {
         let mut cells: HashSet<(i32, i32)> = HashSet::new();
         let tx = self.tiles_x as i32;
-        for t in &self.tiles {
+        let words = TILE_CELLS / 64;
+        for (t, &index) in self.view_index.iter().enumerate() {
             let (ox, oy) = (
-                (t.index as i32 % tx) * TILE as i32,
-                (t.index as i32 / tx) * TILE as i32,
+                (index as i32 % tx) * TILE as i32,
+                (index as i32 / tx) * TILE as i32,
             );
-            for k in 0..t.trail.len() {
-                let mut bits = t.trail[k];
+            for k in 0..words {
+                let mut bits = self.view_trail[t * words + k];
                 while bits != 0 {
                     let b = bits.trailing_zeros() as usize;
                     bits &= bits - 1;
@@ -879,5 +928,43 @@ mod tests {
         let expected = (59.0 + 59.0) * 8.0;
         assert!((t.length_m() - expected).abs() < 24.0, "{}", t.length_m());
         assert!(t.wear > 0.4);
+    }
+
+    #[test]
+    fn a_restored_view_routes_and_traces_as_the_survey_drew_it() {
+        // Surveyed, then walked on: the tiles move on and the view stays as surveyed. Tiles and
+        // view restored as they were route and trace as before, with no survey (ADR-0011 §5).
+        let p = params();
+        let mut wear = Wear::new(256, 256, 8.0);
+        let path: Vec<u32> = (20..120).map(|x| 40 * 256 + x).collect();
+        for day in 0..40 {
+            wear.walk(&path, day, &p);
+        }
+        wear.survey(40, &p);
+        let other: Vec<u32> = (50..100).map(|y| y * 256 + 30).collect();
+        for day in 41..50 {
+            wear.walk(&other, day, &p);
+        }
+        let view = wear
+            .surveyed_tiles()
+            .map(|(index, cells, trail)| ViewTile {
+                index,
+                cells: cells.to_vec(),
+                trail: trail.to_vec(),
+            })
+            .collect();
+        let restored = Wear::new(256, 256, 8.0)
+            .with_tiles(wear.tiles().to_vec())
+            .with_view(wear.surveyed(), view);
+        assert!(restored.has_view());
+        assert_eq!(restored.surveyed(), 40);
+        assert_eq!(restored.trails(), wear.trails());
+        assert_eq!(restored.max_factor(), wear.max_factor());
+        for c in path.iter().chain(&other) {
+            assert_eq!(restored.factor(*c as usize), wear.factor(*c as usize));
+        }
+        // The cells walked after the survey are not yet on it.
+        assert_eq!(restored.factor(other[10] as usize), 0.0);
+        assert_eq!(restored.tiles(), wear.tiles());
     }
 }

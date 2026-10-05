@@ -634,9 +634,12 @@ impl Sim {
         for cadence in [Cadence::Day, Cadence::Month, Cadence::Year] {
             scheduler.subscribe(cadence);
         }
-        // The routing view and the trails are derived from the worn ground.
-        land.wear
-            .survey(scheduler.now().day_index(), &rules.land.paths);
+        // The routing view and the trails are drawn from the worn ground, unless the save kept
+        // the view people planned on (schema 23): then routes are planned as they were.
+        if !land.wear.has_view() {
+            land.wear
+                .survey(scheduler.now().day_index(), &rules.land.paths);
+        }
         let stats = map.stats();
         let nav = Arc::new(NavGrid::new(&map, rules.people.nav));
         people.rebuild_indexes();

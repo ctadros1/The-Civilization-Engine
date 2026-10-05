@@ -12627,6 +12627,8 @@ impl<'a> WearTile<'a> {
   pub const VT_INDEX: ::flatbuffers::VOffsetT = 4;
   pub const VT_WEAR: ::flatbuffers::VOffsetT = 6;
   pub const VT_TRAIL: ::flatbuffers::VOffsetT = 8;
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 10;
+  pub const VT_WEAR_EXACT: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -12638,6 +12640,8 @@ impl<'a> WearTile<'a> {
     args: &'args WearTileArgs<'args>
   ) -> ::flatbuffers::WIPOffset<WearTile<'bldr>> {
     let mut builder = WearTileBuilder::new(_fbb);
+    builder.add_day(args.day);
+    if let Some(x) = args.wear_exact { builder.add_wear_exact(x); }
     if let Some(x) = args.trail { builder.add_trail(x); }
     if let Some(x) = args.wear { builder.add_wear(x); }
     builder.add_index(args.index);
@@ -12666,6 +12670,20 @@ impl<'a> WearTile<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(WearTile::VT_TRAIL, None)}
   }
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(WearTile::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn wear_exact(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(WearTile::VT_WEAR_EXACT, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WearTile<'_> {
@@ -12677,6 +12695,8 @@ impl ::flatbuffers::Verifiable for WearTile<'_> {
      .visit_field::<u32>("index", Self::VT_INDEX, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u16>>>("wear", Self::VT_WEAR, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("trail", Self::VT_TRAIL, false)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("wear_exact", Self::VT_WEAR_EXACT, false)?
      .finish();
     Ok(())
   }
@@ -12685,6 +12705,8 @@ pub struct WearTileArgs<'a> {
     pub index: u32,
     pub wear: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u16>>>,
     pub trail: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub day: i64,
+    pub wear_exact: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
 }
 impl<'a> Default for WearTileArgs<'a> {
   #[inline]
@@ -12693,6 +12715,8 @@ impl<'a> Default for WearTileArgs<'a> {
       index: 0,
       wear: None,
       trail: None,
+      day: 0,
+      wear_exact: None,
     }
   }
 }
@@ -12715,6 +12739,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WearTileBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WearTile::VT_TRAIL, trail);
   }
   #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(WearTile::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_wear_exact(&mut self, wear_exact: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WearTile::VT_WEAR_EXACT, wear_exact);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WearTileBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WearTileBuilder {
@@ -12734,6 +12766,138 @@ impl ::core::fmt::Debug for WearTile<'_> {
     let mut ds = f.debug_struct("WearTile");
       ds.field("index", &self.index());
       ds.field("wear", &self.wear());
+      ds.field("trail", &self.trail());
+      ds.field("day", &self.day());
+      ds.field("wear_exact", &self.wear_exact());
+      ds.finish()
+  }
+}
+pub enum WearViewTileOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WearViewTile<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WearViewTile<'a> {
+  type Inner = WearViewTile<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WearViewTile<'a> {
+  pub const VT_INDEX: ::flatbuffers::VOffsetT = 4;
+  pub const VT_CELLS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_TRAIL: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WearViewTile { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WearViewTileArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<WearViewTile<'bldr>> {
+    let mut builder = WearViewTileBuilder::new(_fbb);
+    if let Some(x) = args.trail { builder.add_trail(x); }
+    if let Some(x) = args.cells { builder.add_cells(x); }
+    builder.add_index(args.index);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn index(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WearViewTile::VT_INDEX, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn cells(&self) -> Option<::flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u8>>>(WearViewTile::VT_CELLS, None)}
+  }
+  #[inline]
+  pub fn trail(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(WearViewTile::VT_TRAIL, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WearViewTile<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("index", Self::VT_INDEX, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u8>>>("cells", Self::VT_CELLS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("trail", Self::VT_TRAIL, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WearViewTileArgs<'a> {
+    pub index: u32,
+    pub cells: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u8>>>,
+    pub trail: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+}
+impl<'a> Default for WearViewTileArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WearViewTileArgs {
+      index: 0,
+      cells: None,
+      trail: None,
+    }
+  }
+}
+
+pub struct WearViewTileBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WearViewTileBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_index(&mut self, index: u32) {
+    self.fbb_.push_slot::<u32>(WearViewTile::VT_INDEX, index, 0);
+  }
+  #[inline]
+  pub fn add_cells(&mut self, cells: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WearViewTile::VT_CELLS, cells);
+  }
+  #[inline]
+  pub fn add_trail(&mut self, trail: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WearViewTile::VT_TRAIL, trail);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WearViewTileBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WearViewTileBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WearViewTile<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WearViewTile<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WearViewTile");
+      ds.field("index", &self.index());
+      ds.field("cells", &self.cells());
       ds.field("trail", &self.trail());
       ds.finish()
   }
@@ -12755,6 +12919,8 @@ impl<'a> ::flatbuffers::Follow<'a> for Wear<'a> {
 
 impl<'a> Wear<'a> {
   pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SURVEYED: ::flatbuffers::VOffsetT = 6;
+  pub const VT_VIEW: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -12766,6 +12932,8 @@ impl<'a> Wear<'a> {
     args: &'args WearArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Wear<'bldr>> {
     let mut builder = WearBuilder::new(_fbb);
+    builder.add_surveyed(args.surveyed);
+    if let Some(x) = args.view { builder.add_view(x); }
     if let Some(x) = args.tiles { builder.add_tiles(x); }
     builder.finish()
   }
@@ -12778,6 +12946,20 @@ impl<'a> Wear<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WearTile>>>>(Wear::VT_TILES, None)}
   }
+  #[inline]
+  pub fn surveyed(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Wear::VT_SURVEYED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn view(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WearViewTile<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WearViewTile>>>>(Wear::VT_VIEW, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Wear<'_> {
@@ -12787,18 +12969,24 @@ impl ::flatbuffers::Verifiable for Wear<'_> {
   ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WearTile>>>>("tiles", Self::VT_TILES, false)?
+     .visit_field::<i64>("surveyed", Self::VT_SURVEYED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WearViewTile>>>>("view", Self::VT_VIEW, false)?
      .finish();
     Ok(())
   }
 }
 pub struct WearArgs<'a> {
     pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WearTile<'a>>>>>,
+    pub surveyed: i64,
+    pub view: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WearViewTile<'a>>>>>,
 }
 impl<'a> Default for WearArgs<'a> {
   #[inline]
   fn default() -> Self {
     WearArgs {
       tiles: None,
+      surveyed: 0,
+      view: None,
     }
   }
 }
@@ -12811,6 +12999,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WearBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WearTile<'b >>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Wear::VT_TILES, tiles);
+  }
+  #[inline]
+  pub fn add_surveyed(&mut self, surveyed: i64) {
+    self.fbb_.push_slot::<i64>(Wear::VT_SURVEYED, surveyed, 0);
+  }
+  #[inline]
+  pub fn add_view(&mut self, view: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WearViewTile<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Wear::VT_VIEW, view);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WearBuilder<'a, 'b, A> {
@@ -12831,6 +13027,8 @@ impl ::core::fmt::Debug for Wear<'_> {
   fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
     let mut ds = f.debug_struct("Wear");
       ds.field("tiles", &self.tiles());
+      ds.field("surveyed", &self.surveyed());
+      ds.field("view", &self.view());
       ds.finish()
   }
 }

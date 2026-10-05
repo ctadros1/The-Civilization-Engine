@@ -84,7 +84,7 @@ use civ_grammar::{BuildingSpec, Footprint, PARAMS};
 use civ_land::deposits::{Body, Deposit};
 use civ_land::{
     Building, BuildingState, ClimateYear, Field, FieldStage, GroupCondition, GroupState, Land,
-    Lease, Party, Patches, PathParams, Plot, PlotUse, RectCm, Repair, Settlement, Wear, WearTile,
+    Lease, Party, Patches, Plot, PlotUse, RectCm, Repair, Settlement, ViewTile, Wear, WearTile,
 };
 use civ_schema::SAVE_SCHEMA_VERSION;
 use civ_schema::flatbuffers::{self, FlatBufferBuilder, WIPOffset};
@@ -95,8 +95,8 @@ use commons_persist::{SectionData, SectionTag, SnapshotReader};
 use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
-    SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, finish, section, single_chunk,
-    unreadable,
+    SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -180,11 +180,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         section(SECTION_FIELDS, 0, encode_fields(&sim.land.fields, rules)),
         section(SECTION_PLOTS, 0, encode_plots(&sim.land.plots)),
         section(SECTION_BUILDS, 0, encode_buildings(&sim.land.buildings)),
-        section(
-            SECTION_WEAR,
-            0,
-            encode_wear(&sim.land.wear, sim.now().day_index(), &rules.land.paths),
-        ),
+        section(SECTION_WEAR, 0, encode_wear(&sim.land.wear)),
         section(SECTION_MARKET, 0, encode_markets(&sim.people, &goods)),
         section(
             SECTION_FIRMS,
@@ -261,6 +257,8 @@ enum Schema {
     V21,
     /// Households' taste in building and the building each followed (M3b slice R).
     V22,
+    /// Worn ground kept exactly, each tile at its own day, with the routing view (ADR-0011 §5).
+    V23,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -296,7 +294,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V19 => Schema::V19,
         SCHEMA_V20 => Schema::V20,
         SCHEMA_V21 => Schema::V21,
-        SAVE_SCHEMA_VERSION => Schema::V22,
+        SCHEMA_V22 => Schema::V22,
+        SAVE_SCHEMA_VERSION => Schema::V23,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1501,7 +1500,8 @@ fn carried(
         | Schema::V19
         | Schema::V20
         | Schema::V21
-        | Schema::V22 => {
+        | Schema::V22
+        | Schema::V23 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1631,7 +1631,8 @@ fn decode_households(
             | Schema::V19
             | Schema::V20
             | Schema::V21
-            | Schema::V22 => {
+            | Schema::V22
+            | Schema::V23 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -2577,53 +2578,119 @@ fn decode_buildings(bytes: &[u8], schema: Schema) -> Result<Vec<Building>, LoadE
 
 // ---- wear --------------------------------------------------------------------------------------
 
-fn encode_wear(wear: &Wear, day: i64, params: &PathParams) -> Vec<u8> {
+/// Each tile exactly as it stands, at its own day, in tile order, with the routing view people
+/// plan on (schema 23, ADR-0011 §5): a world lived on from the save matches one never saved.
+fn encode_wear(wear: &Wear) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
-    let tiles: Vec<_> = wear
-        .current(day, params)
-        .iter()
+    let mut tiles: Vec<&WearTile> = wear.tiles().iter().collect();
+    tiles.sort_by_key(|t| t.index);
+    let tiles: Vec<_> = tiles
+        .into_iter()
         .map(|t| {
-            let quantized: Vec<u16> = t
-                .wear
-                .iter()
-                .map(|&w| (w.clamp(0.0, 1.0) * 65535.0).round() as u16)
-                .collect();
-            let wear = fbb.create_vector(&quantized);
+            let wear_exact = fbb.create_vector(&t.wear);
             let trail = fbb.create_vector(&t.trail);
             save::WearTile::create(
                 &mut fbb,
                 &save::WearTileArgs {
                     index: t.index,
-                    wear: Some(wear),
+                    wear: None,
                     trail: Some(trail),
+                    day: t.day,
+                    wear_exact: Some(wear_exact),
                 },
             )
         })
         .collect();
     let tiles = fbb.create_vector(&tiles);
-    let root = save::Wear::create(&mut fbb, &save::WearArgs { tiles: Some(tiles) });
+    let view: Vec<_> = wear
+        .surveyed_tiles()
+        .map(|(index, cells, trail)| {
+            let cells = fbb.create_vector(cells);
+            let trail = fbb.create_vector(trail);
+            save::WearViewTile::create(
+                &mut fbb,
+                &save::WearViewTileArgs {
+                    index,
+                    cells: Some(cells),
+                    trail: Some(trail),
+                },
+            )
+        })
+        .collect();
+    let view = fbb.create_vector(&view);
+    let root = save::Wear::create(
+        &mut fbb,
+        &save::WearArgs {
+            tiles: Some(tiles),
+            surveyed: wear.surveyed(),
+            view: Some(view),
+        },
+    );
     finish(fbb, root)
 }
 
+/// The worn ground of a save on `day`. A save from before schema 23 kept each tile faded to the
+/// day saved and rounded, and no routing view: that is drawn again when the world is put together.
 fn decode_wear(bytes: &[u8], map: &WorldMap, day: i64) -> Result<Wear, LoadError> {
     let w = flatbuffers::root::<save::Wear>(bytes).map_err(|e| unreadable(SECTION_WEAR, &e))?;
-    let tiles = w
-        .tiles()
-        .map(|v| {
-            v.iter()
-                .map(|t| WearTile {
-                    index: t.index(),
-                    day,
-                    wear: t
-                        .wear()
-                        .map(|v| v.iter().map(|q| f32::from(q) / 65535.0).collect())
-                        .unwrap_or_default(),
-                    trail: t.trail().map(|v| v.iter().collect()).unwrap_or_default(),
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    Ok(Wear::new(map.width, map.height, map.cell_size_m).with_tiles(tiles))
+    let (cells, words) = (
+        civ_land::paths::TILE_CELLS,
+        civ_land::paths::TILE_CELLS / 64,
+    );
+    let tile_count =
+        map.width.div_ceil(civ_land::paths::TILE) * map.height.div_ceil(civ_land::paths::TILE);
+    let malformed = |what: &str, index: u32| {
+        LoadError::Malformed(format!("worn ground: {what} of tile {index}"))
+    };
+    let mut tiles = Vec::new();
+    for t in w.tiles().iter().flatten() {
+        let index = t.index();
+        let trail: Vec<u64> = t.trail().map(|v| v.iter().collect()).unwrap_or_default();
+        let tile = match t.wear_exact() {
+            Some(exact) => WearTile {
+                index,
+                day: t.day(),
+                wear: exact.iter().collect(),
+                trail,
+            },
+            None => WearTile {
+                index,
+                day,
+                wear: t
+                    .wear()
+                    .map(|v| v.iter().map(|q| f32::from(q) / 65535.0).collect())
+                    .unwrap_or_default(),
+                trail,
+            },
+        };
+        if index >= tile_count {
+            return Err(malformed("the index", index));
+        }
+        if tile.wear.len() != cells || tile.trail.len() != words {
+            return Err(malformed("the size", index));
+        }
+        tiles.push(tile);
+    }
+    let mut wear = Wear::new(map.width, map.height, map.cell_size_m).with_tiles(tiles);
+    if let Some(view) = w.view() {
+        let mut out = Vec::with_capacity(view.len());
+        for v in view {
+            let tile = ViewTile {
+                index: v.index(),
+                cells: v.cells().map(|c| c.bytes().to_vec()).unwrap_or_default(),
+                trail: v.trail().map(|c| c.iter().collect()).unwrap_or_default(),
+            };
+            if tile.index >= tile_count {
+                return Err(malformed("the routing view's index", tile.index));
+            }
+            if tile.cells.len() != cells || tile.trail.len() != words {
+                return Err(malformed("the routing view's size", tile.index));
+            }
+            out.push(tile);
+        }
+        wear = wear.with_view(w.surveyed(), out);
+    }
+    Ok(wear)
 }
 
 // ---- market ------------------------------------------------------------------------------------

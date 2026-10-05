@@ -1503,7 +1503,14 @@ fn snapshot_tables_decode() {
 
 #[test]
 fn the_worn_ground_and_trails_are_described_as_surveyed() {
-    let sim = load_first();
+    let mut sim = load_first();
+    // A save keeps the routing view people plan on: the fixture's three days of walking wore
+    // the ground, but its paths were last surveyed when the world was made, before anyone walked.
+    assert!(!sim.land().wear.tiles().is_empty());
+    assert_eq!(sim.land().wear.surveyed_tiles().count(), 0);
+    // Surveyed now, as the month's turn would.
+    let (day, params) = (sim.now().day_index(), sim.rules().land.paths);
+    sim.land_mut_for_tests().wear.survey(day, &params);
     let payload = frames::paths::paths_response(&sim);
     let response = flatbuffers::root::<wire::Response>(&payload).expect("a response");
     let paths = response.body_as_paths().expect("paths");
@@ -1513,7 +1520,8 @@ fn the_worn_ground_and_trails_are_described_as_surveyed() {
     assert_eq!(paths.tile_cells(), 64);
     let worn = paths.worn().expect("worn tiles");
     let wear = &sim.land().wear;
-    assert_eq!(worn.len(), wear.tiles().len());
+    // What was surveyed, not what has been walked since: the routing view as saved.
+    assert_eq!(worn.len(), wear.surveyed_tiles().count());
     assert!(!worn.is_empty(), "three days of walking wore the ground");
     for (tile, (index, cells, trail)) in worn.iter().zip(wear.surveyed_tiles()) {
         assert_eq!(tile.index(), index);

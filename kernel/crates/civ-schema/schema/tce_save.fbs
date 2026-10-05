@@ -610,18 +610,36 @@ table Builds {
 }
 
 // Section "wear" (schema 7): ground worn by walking (ADR-0004 §4), in 64 × 64-cell tiles where
-// people have walked, as it stood when saved. The routing view and the trails are derived.
+// people have walked. Before schema 23 each tile was faded to the day saved and rounded, and the
+// routing view and the trails were drawn again on load. From schema 23 (M3c slice S, ADR-0011
+// §5) each tile is kept exactly as it stood, at its own day, with the routing view people plan
+// on, so a world lived on from a save matches one never saved; the trails are traced from it.
 table WearTile {
   // Tile row × tiles per row + tile column.
   index: uint (id: 0);
-  // Wear of each cell, row by row, 0-65535 for 0-1.
+  // Before schema 23: wear of each cell, row by row, 0-65535 for 0-1, faded to the day saved.
   wear: [ushort] (id: 1);
   // Whether each cell is trail, one bit per cell, row by row (bit k of word k / 64).
+  trail: [ulong] (id: 2);
+  // Schema 23: the day the tile's wear stands at, and the wear of each cell, row by row.
+  day: long (id: 3);
+  wear_exact: [float] (id: 4);
+}
+
+// Schema 23: one tile of the routing view, as surveyed.
+table WearViewTile {
+  index: uint (id: 0);
+  // Wear of each cell, row by row, 0-255 for 0-1.
+  cells: [ubyte] (id: 1);
+  // Trail bits as surveyed, as in WearTile.
   trail: [ulong] (id: 2);
 }
 
 table Wear {
   tiles: [WearTile] (id: 0);
+  // Schema 23: the day of the last survey and the routing view it drew (absent before).
+  surveyed: long (id: 1);
+  view: [WearViewTile] (id: 2);
 }
 
 // Section "market" (schema 10): each settlement's market (ADR-0006 §4). Tallies are indexed like

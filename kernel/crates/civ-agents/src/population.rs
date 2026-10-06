@@ -1961,7 +1961,7 @@ impl Population {
             labour_per_day,
             seed_kg,
             room: target_days / (target_days + grain_days),
-            need_ha: farm::need_area_ha(member_count, params, c, grain_kcal),
+            need_grain_kg: farm::need_grain_kg(member_count, params, grain_kcal),
             workable_share: workable_share(ctx.land, params.farm.crop),
             peak_ratio: peak_ratio(params),
             climatology: Some(&ctx.land.climatology),
@@ -1969,7 +1969,7 @@ impl Population {
         let field_ha = params.farm.field_m * params.farm.field_m / 10_000.0;
         let wants_land = farm_view
             .as_ref()
-            .is_some_and(|v| v.wants_new_field(field_ha, 0.0));
+            .is_some_and(|v| v.wants_new_field(field_ha, 0.0, params));
         let site = match crop {
             Some(c) if wants_land => self.site_for(ctx, &hh, field_key, c),
             _ => None,
@@ -2318,6 +2318,7 @@ impl Population {
                 site.as_ref(),
                 &walk,
                 &weather,
+                params,
             )
         };
         // Whom to ask, what to buy and where to work are each worked out only if an option
@@ -2713,8 +2714,10 @@ impl Population {
                         water_mm: 0.0,
                         need_mm: 0.0,
                         got_mm: 0.0,
-                        fast_n_kg: ctx.land_params.soil.fast_n_kg_per_ha as f32 * site.rect.area_ha() as f32,
-                        slow_n_kg: ctx.land_params.soil.slow_n_kg_per_ha as f32 * site.rect.area_ha() as f32,
+                        fast_n_kg: ctx.land_params.soil.fast_n_kg_per_ha as f32
+                            * site.rect.area_ha() as f32,
+                        slow_n_kg: ctx.land_params.soil.slow_n_kg_per_ha as f32
+                            * site.rect.area_ha() as f32,
                         harvest_records: Vec::new(),
                     });
                     self.sites.remove(&hh_id);
@@ -3442,7 +3445,16 @@ impl Population {
             .max(0.0);
         // What its season's water allows, fixed once the crop is ripe (ADR-0012 §2).
         let water = ctx.land.water_factor(&ctx.land.fields[fi]);
-        let done = ctx.land.fields[fi].work(&ctx.land_params.soil, crop, task, hours, now.day_index(), water, seed, now);
+        let done = ctx.land.fields[fi].work(
+            &ctx.land_params.soil,
+            crop,
+            task,
+            hours,
+            now.day_index(),
+            water,
+            seed,
+            now,
+        );
         if let Some(s) = x.stores.get_mut(crop.seed_good) {
             *s = (seed - done.seed_kg).max(0.0);
             x.flows

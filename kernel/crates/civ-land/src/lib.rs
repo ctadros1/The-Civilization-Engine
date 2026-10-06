@@ -31,7 +31,10 @@ pub use buildings::{
     BuildWork, Building, BuildingState, GroupCondition, GroupState, MATERIAL_SLACK_KG, MendWork,
     Plot, PlotUse, Repair, STAGE_DONE_SLACK_H, workable_h,
 };
-pub use fields::{CropParams, Field, FieldStage, FieldTask, Lease, Party, RectCm, WorkDone};
+pub use fields::{
+    CropParams, Field, FieldStage, FieldTask, HarvestLimit, HarvestRecord, Lease, Party, RectCm,
+    WorkDone,
+};
 pub use paths::{PathParams, Trail, ViewTile, Wear, WearTile};
 pub use weather::{Climatology, MonthRecord, Unworkable, Weather, WeatherDay, WeatherParams};
 
@@ -531,7 +534,14 @@ impl Land {
         patches.measure_water(map);
         let (low, high) = height_range(map);
         let stock_day = today - DAYS_PER_YEAR - 1;
-        let weather = Weather::new(&params.weather, &params.soil, &climatology, low, high, stock_day + 1);
+        let weather = Weather::new(
+            &params.weather,
+            &params.soil,
+            &climatology,
+            low,
+            high,
+            stock_day + 1,
+        );
         let mut land = Land {
             stocks: vec![vec![0.0; patches.len()]; params.resources.len()],
             patches,
@@ -951,7 +961,7 @@ impl Land {
     pub fn advance_to_day(&mut self, params: &LandParams, map: &WorldMap, day: i64) {
         while self.stock_day < day {
             let d = self.stock_day + 1;
-            
+
             let year_start = crate::day_of_year(d) == 0;
             if year_start {
                 for f in &mut self.fields {
@@ -959,7 +969,9 @@ impl Land {
                 }
             }
 
-            let water = self.weather.live(&params.weather, &params.soil, &self.climatology);
+            let water = self
+                .weather
+                .live(&params.weather, &params.soil, &self.climatology);
             self.water_fields(&params.weather, &params.soil, map, &water, d);
             let month_start = MONTH_STARTS[..12].contains(&day_of_year(d));
             for (r, res) in params.resources.iter().enumerate() {
@@ -1037,7 +1049,8 @@ impl Land {
             let band = self.weather.band_of(height_at(map, x, y));
             let need = cw.kc_on(t) * water.et0_mm[band];
             let mut zone = f64::from(f.water_mm);
-            let got = weather::root_zone_day(&mut zone, water.input_mm[band], need, params, soil_params);
+            let got =
+                weather::root_zone_day(&mut zone, water.input_mm[band], need, params, soil_params);
             f.water_mm = zone as f32;
             f.need_mm = (f64::from(f.need_mm) + need) as f32;
             f.got_mm = (f64::from(f.got_mm) + got) as f32;
@@ -1329,7 +1342,15 @@ mod tests {
 
     /// A test landscape's climatology, with the test crop.
     pub(crate) fn climatology(p: &LandParams, seed: u64) -> Climatology {
-        Climatology::new(&p.weather, &p.soil, &[fields::tests::crop()], 800.0, 48.0, 1, seed)
+        Climatology::new(
+            &p.weather,
+            &p.soil,
+            &[fields::tests::crop()],
+            800.0,
+            48.0,
+            1,
+            seed,
+        )
     }
 
     /// Land on the test map, made on `today`.

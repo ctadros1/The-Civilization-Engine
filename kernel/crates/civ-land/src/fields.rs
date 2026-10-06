@@ -10,8 +10,8 @@
 //! (research 03-04 warns against exactly that shortcut; unmanured continuous wheat holds about
 //! 1 t/ha): a field keeps the quality of its ground. A nutrient budget arrives with soils.
 
-use civ_core::time::DAYS_PER_YEAR;
 use crate::SoilParams;
+use civ_core::time::DAYS_PER_YEAR;
 use civ_core::{PermanentId, SimTime};
 
 /// A crop and how it is grown by hand (content kind `crop`).
@@ -319,21 +319,33 @@ impl Field {
         self.rect.area_ha()
     }
 
+    /// The yield expected from this field, kilograms per hectare.
+    pub fn expected_yield_kg_per_ha(&self, crop: &CropParams, current_year: u32) -> f64 {
+        if let Some(last) = self.harvest_records.last() {
+            if current_year.saturating_sub(last.year) <= 5 {
+                return f64::from(last.yield_kg_per_ha);
+            }
+        }
+        crop.yield_kg_per_ha * f64::from(self.ground)
+    }
+
     /// The day the crop is ripe (a day index), once sown.
     pub fn turn_nitrogen(&mut self, soil: &SoilParams) {
         if self.stage == FieldStage::Fallow {
             let native_fast = (soil.fast_n_kg_per_ha * self.area_ha()) as f32;
             let native_slow = (soil.slow_n_kg_per_ha * self.area_ha()) as f32;
-            self.fast_n_kg += (native_fast - self.fast_n_kg).max(0.0_f32) * (soil.decay_fast as f32);
-            self.slow_n_kg += (native_slow - self.slow_n_kg).max(0.0_f32) * (soil.decay_slow as f32);
+            self.fast_n_kg +=
+                (native_fast - self.fast_n_kg).max(0.0_f32) * (soil.decay_fast as f32);
+            self.slow_n_kg +=
+                (native_slow - self.slow_n_kg).max(0.0_f32) * (soil.decay_slow as f32);
         }
-        
+
         let decay_f = self.fast_n_kg * (soil.decay_fast as f32);
         let decay_s = self.slow_n_kg * (soil.decay_slow as f32);
-        
+
         self.fast_n_kg = (self.fast_n_kg - decay_f).max(0.0_f32);
         self.slow_n_kg = (self.slow_n_kg - decay_s).max(0.0_f32);
-        
+
         // Return some decayed slow N back into fast pool
         self.fast_n_kg += decay_s;
     }
@@ -497,7 +509,14 @@ impl Field {
         done
     }
 
-    fn finish_stage(&mut self, soil: &SoilParams, crop: &CropParams, day: i64, water: f64, now: SimTime) {
+    fn finish_stage(
+        &mut self,
+        soil: &SoilParams,
+        crop: &CropParams,
+        day: i64,
+        water: f64,
+        now: SimTime,
+    ) {
         self.work_h = 0.0;
         self.stage_since = now;
         self.stage = match self.stage {
@@ -513,16 +532,18 @@ impl Field {
             }
             FieldStage::Sown => {
                 let water_yield = self.yield_kg(crop, day, water);
-                
-                let n_supply = (self.fast_n_kg * soil.decay_fast as f32 + self.slow_n_kg * soil.decay_slow as f32) as f64;
+
+                let n_supply = (self.fast_n_kg * soil.decay_fast as f32
+                    + self.slow_n_kg * soil.decay_slow as f32)
+                    as f64;
                 let n_yield = if crop.n_kg_per_kg_grain > 0.0 {
                     n_supply / crop.n_kg_per_kg_grain
                 } else {
                     f64::INFINITY
                 };
-                
+
                 let actual_yield = water_yield.min(n_yield);
-                
+
                 let limit = if actual_yield == 0.0 {
                     HarvestLimit::None
                 } else if actual_yield < water_yield {
@@ -532,23 +553,24 @@ impl Field {
                 } else {
                     HarvestLimit::None
                 };
-                
+
                 self.sheaves_kg = actual_yield as f32;
                 self.harvests = self.harvests.saturating_add(1);
-                
+
                 self.harvest_records.push(HarvestRecord {
                     year: (day / 365) as u32,
                     yield_kg_per_ha: (actual_yield / self.area_ha()) as f32,
                     limit,
                 });
-                
+
                 // take away nitrogen
-                let n_taken = (actual_yield * crop.n_kg_per_kg_grain + actual_yield * crop.n_kg_per_kg_straw) as f32;
+                let n_taken = (actual_yield * crop.n_kg_per_kg_grain
+                    + actual_yield * crop.n_kg_per_kg_straw) as f32;
                 self.fast_n_kg = (self.fast_n_kg - n_taken).max(0.0_f32);
-                
+
                 // roots and stubble return some
                 self.slow_n_kg += crop.roots_n_kg_per_ha as f32 * self.area_ha() as f32;
-                
+
                 FieldStage::Reaped
             }
             FieldStage::Reaped => {
@@ -561,7 +583,13 @@ impl Field {
     /// The turn of the day: a prepared field whose sowing window has passed, or a ripe crop
     /// left standing until it is all lost, falls back to fallow, its work lost. Returns whether
     /// the field changed stage.
-    pub fn new_day(&mut self, _soil: &SoilParams, crop: &CropParams, day: i64, now: SimTime) -> bool {
+    pub fn new_day(
+        &mut self,
+        _soil: &SoilParams,
+        crop: &CropParams,
+        day: i64,
+        now: SimTime,
+    ) -> bool {
         let lapsed = match self.stage {
             FieldStage::Prepared => !crop.can_prepare(day),
             FieldStage::Sown => {
@@ -583,7 +611,6 @@ impl Field {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-
 
     pub(crate) fn soil() -> SoilParams {
         SoilParams {
@@ -668,8 +695,17 @@ pub(crate) mod tests {
         // 0.1 ha: 80 h to break and 120 h to clear.
         assert!((f.stage_work_h(&c) - 200.0).abs() < 1e-9);
         assert!(
-            f.work(&soil(), &c, FieldTask::Prepare, 200.0, 60, 1.0, 0.0, SimTime::ZERO)
-                .finished
+            f.work(
+                &soil(),
+                &c,
+                FieldTask::Prepare,
+                200.0,
+                60,
+                1.0,
+                0.0,
+                SimTime::ZERO
+            )
+            .finished
         );
         assert!(f.broken);
         // Prepared but never sown, it lies fallow again: still broken ground.
@@ -707,7 +743,10 @@ pub(crate) mod tests {
         assert!((f.expected_kg(&c, 200, 1.0) - 100.0).abs() < 1e-6);
         // A season short of water is expected to give less.
         assert!((f.expected_kg(&c, 200, 0.8) - 80.0).abs() < 1e-6);
-        assert!(f.work(&soil(), &c, FieldTask::Reap, 25.0, 200, 1.0, 0.0, t).finished);
+        assert!(
+            f.work(&soil(), &c, FieldTask::Reap, 25.0, 200, 1.0, 0.0, t)
+                .finished
+        );
         assert!((f64::from(f.sheaves_kg) - 100.0).abs() < 1e-4);
         // Threshing: half an hour a kilogram.
         let done = f.work(&soil(), &c, FieldTask::Thresh, 20.0, 205, 1.0, 0.0, t);

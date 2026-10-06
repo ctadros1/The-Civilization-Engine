@@ -1632,7 +1632,8 @@ fn carried(
         | Schema::V21
         | Schema::V22
         | Schema::V23
-        | Schema::V24 | Schema::V25 => {
+        | Schema::V24
+        | Schema::V25 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1764,7 +1765,8 @@ fn decode_households(
             | Schema::V21
             | Schema::V22
             | Schema::V23
-            | Schema::V24 | Schema::V25 => {
+            | Schema::V24
+            | Schema::V25 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -2310,6 +2312,30 @@ fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
     let list: Vec<_> = fields
         .iter()
         .map(|f| {
+            let harvest_records = Some(
+                fbb.create_vector(
+                    &f.harvest_records
+                        .iter()
+                        .map(|hr| {
+                            civ_schema::save::HarvestRecord::new(
+                                hr.year,
+                                hr.yield_kg_per_ha,
+                                match hr.limit {
+                                    civ_land::HarvestLimit::None => {
+                                        civ_schema::save::HarvestLimit::None
+                                    }
+                                    civ_land::HarvestLimit::Water => {
+                                        civ_schema::save::HarvestLimit::Water
+                                    }
+                                    civ_land::HarvestLimit::Nitrogen => {
+                                        civ_schema::save::HarvestLimit::Nitrogen
+                                    }
+                                },
+                            )
+                        })
+                        .collect::<Vec<_>>(),
+                ),
+            );
             save::Field::create(
                 &mut fbb,
                 &save::FieldArgs {
@@ -2343,17 +2369,7 @@ fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
                     got_mm: f.got_mm,
                     fast_n_kg: f.fast_n_kg,
                     slow_n_kg: f.slow_n_kg,
-                    harvest_records: Some(fbb.create_vector(&f.harvest_records.iter().map(|hr| {
-                        civ_schema::save::HarvestRecord::new(
-                            hr.year,
-                            hr.yield_kg_per_ha,
-                            match hr.limit {
-                                civ_land::HarvestLimit::None => civ_schema::save::HarvestLimit::None,
-                                civ_land::HarvestLimit::Water => civ_schema::save::HarvestLimit::Water,
-                                civ_land::HarvestLimit::Nitrogen => civ_schema::save::HarvestLimit::Nitrogen,
-                            }
-                        )
-                    }).collect::<Vec<_>>())),
+                    harvest_records,
                 },
             )
         })
@@ -2438,17 +2454,20 @@ fn decode_fields(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<Vec<Fiel
             fast_n_kg: f.fast_n_kg(),
             slow_n_kg: f.slow_n_kg(),
             harvest_records: f.harvest_records().map_or(Vec::new(), |records| {
-                records.iter().map(|hr| {
-                    civ_land::HarvestRecord {
+                records
+                    .iter()
+                    .map(|hr| civ_land::HarvestRecord {
                         year: hr.year(),
                         yield_kg_per_ha: hr.yield_kg_per_ha(),
                         limit: match hr.limit() {
                             civ_schema::save::HarvestLimit::Water => civ_land::HarvestLimit::Water,
-                            civ_schema::save::HarvestLimit::Nitrogen => civ_land::HarvestLimit::Nitrogen,
+                            civ_schema::save::HarvestLimit::Nitrogen => {
+                                civ_land::HarvestLimit::Nitrogen
+                            }
                             _ => civ_land::HarvestLimit::None,
-                        }
-                    }
-                }).collect()
+                        },
+                    })
+                    .collect()
             }),
         });
     }

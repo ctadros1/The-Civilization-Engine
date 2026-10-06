@@ -33,7 +33,11 @@ fn fall(params: &WeatherParams, mean_c: f64, precip_mm: f64) -> &'static str {
 /// Today's weather on the valley floor in words, as people would say it: "6 °C, light rain",
 /// "−3 °C, snow; snow lying", "21 °C, dry; frost at night; dry ground", "14 °C, rain on dry
 /// ground".
-pub fn weather_words(params: &WeatherParams, soil_params: &civ_land::SoilParams, w: &Weather) -> String {
+pub fn weather_words(
+    params: &WeatherParams,
+    soil_params: &civ_land::SoilParams,
+    w: &Weather,
+) -> String {
     let t = &w.today;
     let mean = f64::from(t.mean_c);
     let fell = fall(params, mean, f64::from(t.precip_mm));
@@ -158,7 +162,7 @@ mod tests {
             slow_warmth_c: [0.0; 12],
             snow_below_c: 0.5,
             melt_mm_per_c: 3.0,
-            
+
             cover_kc: 0.9,
             wet_ground_mm: 5.0,
             frozen_below_c: 0.0,
@@ -187,7 +191,6 @@ mod tests {
 
     #[test]
     fn the_day_is_told_in_words() {
-        
         let s = civ_land::SoilParams {
             soil_water_mm: 100.0,
             easy_water_share: 0.55,

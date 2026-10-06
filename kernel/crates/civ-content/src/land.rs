@@ -119,7 +119,7 @@ pub(crate) struct WeatherFile {
 impl WeatherFile {
     fn params(&self) -> WeatherParams {
         WeatherParams {
-              wet_days: self.wet_days,
+            wet_days: self.wet_days,
             rain_share: self.rain_share,
             persistence: self.persistence,
             gamma_shape: self.gamma_shape,
@@ -597,7 +597,10 @@ impl SoilFile {
     pub fn problems(&self, p: &mut Vec<String>) {
         let one = |name: &str, v: f64, least: f64, most: f64, p: &mut Vec<String>| {
             if !(v.is_finite() && (least..=most).contains(&v)) {
-                p.push(format!("`soil.{}` must be between {} and {} (got {})", name, least, most, v));
+                p.push(format!(
+                    "`soil.{}` must be between {} and {} (got {})",
+                    name, least, most, v
+                ));
             }
         };
         one("soil_water_mm", self.soil_water_mm, 10.0, 500.0, p);

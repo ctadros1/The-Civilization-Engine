@@ -43,8 +43,8 @@ pub struct FarmView<'a> {
     pub seed_kg: f64,
     /// How much more grain is worth to it, 0–1.
     pub room: f64,
-    /// The area it plans to crop for its needs, hectares.
-    pub need_ha: f64,
+    /// The grain it plans to grow for its needs, kilograms.
+    pub need_grain_kg: f64,
     /// The share of the days of the sowing window the ground can usually be worked (ADR-0012
     /// §5): how pressing the work left is, of the days left.
     pub workable_share: f64,
@@ -56,14 +56,75 @@ pub struct FarmView<'a> {
     pub climatology: Option<&'a civ_land::Climatology>,
 }
 
-/// The area a household of `members` plans to crop for its needs, hectares: the share of a
-/// year's food it means to grow, with what is lost before it is eaten, at a cautious yield less
-/// the seed (research 10-01 §2.3: plan on a poor harvest, keep seed apart).
-pub fn need_area_ha(members: usize, params: &PeopleParams, crop: &CropParams, kcal: f64) -> f64 {
+impl<'a> FarmView<'a> {
+    /// The fields the household intends to crop this year. It includes any fields already
+    /// prepared or sown, and the best of its fallow fields until its needs are met.
+    pub fn fields_to_crop(&self, params: &PeopleParams) -> Vec<&'a Field> {
+        let mut keeping = Vec::new();
+        let mut fallow = Vec::new();
+        for &f in &self.fields {
+            if matches!(f.stage, FieldStage::Fallow) {
+                fallow.push(f);
+            } else {
+                keeping.push(f);
+            }
+        }
+
+        let net = |f: &Field| -> f64 {
+            let expected = f.expected_yield_kg_per_ha(self.crop, (self.day / 365) as u32);
+            (expected * params.farm.plan_yield_share - self.crop.seed_kg_per_ha).max(1.0)
+        };
+
+        let mut total_kg: f64 = keeping.iter().map(|&f| net(f) * f.area_ha()).sum();
+
+        fallow.sort_unstable_by(|a, b| {
+            net(b)
+                .partial_cmp(&net(a))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        for f in fallow {
+            if total_kg < self.need_grain_kg {
+                total_kg += net(f) * f.area_ha();
+                keeping.push(f);
+            }
+        }
+        keeping
+    }
+
+    /// The area it still needs to crop to meet its needs, hectares.
+    pub fn missing_ha(&self, params: &PeopleParams) -> f64 {
+        let keeping = self.fields_to_crop(params);
+        let net = |f: &Field| -> f64 {
+            let expected = f.expected_yield_kg_per_ha(self.crop, (self.day / 365) as u32);
+            (expected * params.farm.plan_yield_share - self.crop.seed_kg_per_ha).max(1.0)
+        };
+        let total_kg: f64 = keeping.iter().map(|&f| net(f) * f.area_ha()).sum();
+        if total_kg >= self.need_grain_kg {
+            0.0
+        } else {
+            let new_net = (self.crop.yield_kg_per_ha * params.farm.plan_yield_share
+                - self.crop.seed_kg_per_ha)
+                .max(1.0);
+            (self.need_grain_kg - total_kg) / new_net
+        }
+    }
+}
+
+/// The grain a household of `members` plans to grow for its needs, kilograms: the share of a
+/// year's food it means to grow, with what is lost before it is eaten. It does NOT subtract
+/// the seed yet, because seed needed depends on the area sown.
+pub fn need_grain_kg(members: usize, params: &PeopleParams, kcal: f64) -> f64 {
     let year = members as f64 * params.household.daily_kcal_per_person * 365.0;
     let grown = year * params.farm.grain_share / (1.0 - params.farm.loss_share).max(0.05);
+    grown / kcal.max(1.0)
+}
+
+/// The area a household plans to crop for its needs from new ground, hectares.
+pub fn need_area_ha(members: usize, params: &PeopleParams, crop: &CropParams, kcal: f64) -> f64 {
+    let kg = need_grain_kg(members, params, kcal);
     let net = crop.yield_kg_per_ha * params.farm.plan_yield_share - crop.seed_kg_per_ha;
-    grown / (net.max(1.0) * kcal.max(1.0))
+    kg / net.max(1.0)
 }
 
 /// Seed a household never eats, `(good, kg)`: what it takes to sow again the ground it already
@@ -180,17 +241,15 @@ impl FarmView<'_> {
     /// `clear_h_per_ha` of clearing, today: it needs more land, has the seed for it and every
     /// field not yet sown, and can still clear, prepare and sow them all before the sowing
     /// window closes.
-    pub fn wants_new_field(&self, ha: f64, clear_h_per_ha: f64) -> bool {
+    pub fn wants_new_field(&self, ha: f64, clear_h_per_ha: f64, params: &PeopleParams) -> bool {
         let crop = self.crop;
-        if !crop.can_prepare(self.day) {
+        let missing = self.missing_ha(params);
+        if missing <= 1e-9 {
             return false;
         }
-        let total: f64 = self.fields.iter().map(|f| f.area_ha()).sum();
-        if total + 1e-9 >= self.need_ha {
-            return false;
-        }
-        let unsown: f64 = self
-            .fields
+
+        let to_crop = self.fields_to_crop(params);
+        let unsown: f64 = to_crop
             .iter()
             .filter(|f| matches!(f.stage, FieldStage::Fallow | FieldStage::Prepared))
             .map(|f| f.area_ha())
@@ -198,11 +257,25 @@ impl FarmView<'_> {
         if self.seed_kg + 1e-9 < (unsown + ha) * crop.seed_kg_per_ha {
             return false;
         }
-        let left: f64 = self.fields.iter().map(|f| to_sow_h(f, crop)).sum();
-        let new = ha * (crop.break_h_per_ha + clear_h_per_ha + crop.sow_h_per_ha);
-        let days =
-            sowing_days_left(crop, self.day) * plan_share(self.workable_share, self.peak_ratio);
-        left + new <= self.labour_per_day * days
+
+        let left: f64 = to_crop.iter().map(|f| to_sow_h(f, crop)).sum();
+
+        if crop.can_prepare(self.day) {
+            // Sowing season: check if we can finish breaking, clearing, and sowing this year.
+            let new = ha * (crop.break_h_per_ha + clear_h_per_ha + crop.sow_h_per_ha);
+            let days =
+                sowing_days_left(crop, self.day) * plan_share(self.workable_share, self.peak_ratio);
+            left + new <= self.labour_per_day * days
+        } else {
+            // Outside sowing season: check if we have enough spare time this year just to break and clear it.
+            let days_left_in_year = (365 - self.day.rem_euclid(365)) as f64;
+            // Just a rough guess of time we can spare.
+            // If they are not preparing, they might be resting or building.
+            let new = ha * (crop.break_h_per_ha + clear_h_per_ha);
+            new <= self.labour_per_day
+                * days_left_in_year
+                * plan_share(self.workable_share, self.peak_ratio)
+        }
     }
 
     /// Of `days` of the sowing window, those the ground can usually be worked.
@@ -213,13 +286,20 @@ impl FarmView<'_> {
     /// Field work left for `task` over the work the household can still give it before its
     /// season closes (research 04-02 §1.3: remaining person-hours over available hours before
     /// the deadline). Threshing has no deadline.
-    pub fn urgency(&self, task: FieldTask) -> f64 {
+    pub fn urgency(&self, task: FieldTask, params: &PeopleParams) -> f64 {
         let crop = self.crop;
         let day = self.day;
+
+        let fields = match task {
+            // For preparing and sowing, we only work on the fields we intend to crop this year
+            FieldTask::Prepare | FieldTask::Sow => self.fields_to_crop(params),
+            // For tending, reaping, and threshing, we must finish whatever we started
+            _ => self.fields.clone(),
+        };
+
         let (work, days): (f64, f64) = match task {
             FieldTask::Prepare | FieldTask::Sow => {
-                let work = self
-                    .fields
+                let work = fields
                     .iter()
                     .filter(|f| f.task(crop, day).is_some())
                     .map(|f| to_sow_h(f, crop))
@@ -229,7 +309,7 @@ impl FarmView<'_> {
             FieldTask::Tend => {
                 let mut work = 0.0;
                 let mut days = f64::INFINITY;
-                for f in &self.fields {
+                for f in fields {
                     if f.task(crop, day) == Some(FieldTask::Tend) {
                         let needed = crop.tend_h_per_ha * f.area_ha();
                         work += (needed - f64::from(f.tended_h)).max(0.0);
@@ -294,6 +374,7 @@ impl FarmView<'_> {
         site: Option<&Site>,
         walk_min: &dyn Fn(&Field) -> Option<f64>,
         weather: &dyn Fn(&RectCm) -> Option<Reason>,
+        params: &PeopleParams,
     ) -> Result<FieldOption, Reason> {
         let crop = self.crop;
         let mut any = false;
@@ -338,7 +419,7 @@ impl FarmView<'_> {
                     kcal_per_hour: per_hour,
                     hours_left: left,
                     room: self.room,
-                    urgency: self.urgency(task),
+                    urgency: self.urgency(task, params),
                     at_home,
                     soon: matches!(task, FieldTask::Reap | FieldTask::Thresh),
                 },
@@ -354,7 +435,7 @@ impl FarmView<'_> {
         });
         if task == FieldTask::Prepare
             && let Some(site) = site
-            && self.wants_new_field(site.rect.area_ha(), site.clear_h_per_ha)
+            && self.wants_new_field(site.rect.area_ha(), site.clear_h_per_ha, params)
         {
             any = true;
             let ground = Field {
@@ -390,7 +471,7 @@ impl FarmView<'_> {
                     kcal_per_hour: per_hour,
                     hours_left: left,
                     room: self.room,
-                    urgency: self.urgency(task),
+                    urgency: self.urgency(task, params),
                     at_home: false,
                     soon: false,
                 },
@@ -663,7 +744,7 @@ mod tests {
             labour_per_day: 20.0,
             seed_kg: 100.0,
             room: 1.0,
-            need_ha: 1.0,
+            need_grain_kg: 1000.0,
             workable_share: 1.0,
             peak_ratio: 1.0,
             climatology: None,
@@ -676,29 +757,43 @@ mod tests {
         let f = field(2, FieldStage::Fallow);
         // 0.25 ha held, 1 ha needed, 100 kg of seed: enough for 0.25 + 0.25 ha.
         let v = view(&c, vec![&f], 60);
-        assert!(v.wants_new_field(0.25, 0.0));
-        assert!(!v.wants_new_field(1.0, 0.0), "not enough seed for 1.25 ha");
+        assert!(v.wants_new_field(0.25, 0.0, &crate::found::tests::params()));
+        assert!(
+            !v.wants_new_field(1.0, 0.0, &crate::found::tests::params()),
+            "not enough seed for 1.25 ha"
+        );
         let mut late = v.clone();
         late.day = 120;
         assert!(
-            !late.wants_new_field(0.25, 0.0),
+            !late.wants_new_field(0.25, 0.0, &crate::found::tests::params()),
             "no time left to break new ground"
         );
         // 0.25 ha of woodland on day 100: 180 h on the field held, 530 h to clear, break and
         // sow; 26 days at 20 h.
         let mut wood = v.clone();
         wood.day = 100;
-        assert!(wood.wants_new_field(0.25, 0.0));
+        assert!(wood.wants_new_field(0.25, 0.0, &crate::found::tests::params()));
         assert!(
-            !wood.wants_new_field(0.25, 1000.0),
+            !wood.wants_new_field(0.25, 1000.0, &crate::found::tests::params()),
             "no time left to clear woodland"
         );
         let mut fed = v.clone();
-        fed.need_ha = 0.25;
-        assert!(!fed.wants_new_field(0.25, 0.0), "enough land already");
+        fed.need_grain_kg = 100.0;
+        assert!(
+            !fed.wants_new_field(0.25, 0.0, &crate::found::tests::params()),
+            "enough land already"
+        );
         let mut winter = v.clone();
         winter.day = 200;
-        assert!(!winter.wants_new_field(0.25, 0.0), "not the season");
+        assert!(
+            winter.wants_new_field(0.25, 0.0, &crate::found::tests::params()),
+            "can break ground out of season if time permits"
+        );
+        winter.day = 360; // 5 days left
+        assert!(
+            !winter.wants_new_field(0.25, 0.0, &crate::found::tests::params()),
+            "cannot break ground out of season if too late in the year"
+        );
     }
 
     #[test]
@@ -788,11 +883,22 @@ mod tests {
         let f = field(2, FieldStage::Fallow);
         // 0.25 ha: 150 h to prepare cropped ground, 30 h to sow; 20 h a day.
         let v = view(&c, vec![&f], 116); // 10 days left in the window
-        assert!((v.urgency(FieldTask::Prepare) - 180.0 / 200.0).abs() < 1e-9);
-        assert_eq!(v.urgency(FieldTask::Thresh), 0.0);
+        assert!(
+            (v.urgency(FieldTask::Prepare, &crate::found::tests::params())
+                - 180.0 / 200.0)
+                .abs()
+                < 1e-9
+        );
+        assert_eq!(
+            v.urgency(FieldTask::Thresh, &crate::found::tests::params()),
+            0.0
+        );
         // Out of season there is nothing to do, so nothing presses.
         let v = view(&c, vec![&f], 200);
-        assert_eq!(v.urgency(FieldTask::Prepare), 0.0);
+        assert_eq!(
+            v.urgency(FieldTask::Prepare, &crate::found::tests::params()),
+            0.0
+        );
     }
 
     #[test]
@@ -805,7 +911,14 @@ mod tests {
         let fair = |_: &RectCm| None;
         let v = view(&c, vec![&near, &far], 85);
         let best = v
-            .best(FieldTask::Sow, 4.0, None, &walk, &fair)
+            .best(
+                FieldTask::Sow,
+                4.0,
+                None,
+                &walk,
+                &fair,
+                &crate::found::tests::params(),
+            )
             .expect("a field to sow");
         assert_eq!(best.field, Some(near.id));
         assert!(best.kcal_per_hour > 0.0 && best.hours_left > 0.0);
@@ -813,13 +926,27 @@ mod tests {
         no_seed.seed_kg = 0.0;
         assert_eq!(
             no_seed
-                .best(FieldTask::Sow, 4.0, None, &walk, &fair)
+                .best(
+                    FieldTask::Sow,
+                    4.0,
+                    None,
+                    &walk,
+                    &fair,
+                    &crate::found::tests::params()
+                )
                 .map(|o| o.field),
             Err(Reason::NoSeed)
         );
         assert_eq!(
-            v.best(FieldTask::Reap, 4.0, None, &walk, &fair)
-                .map(|o| o.field),
+            v.best(
+                FieldTask::Reap,
+                4.0,
+                None,
+                &walk,
+                &fair,
+                &crate::found::tests::params()
+            )
+            .map(|o| o.field),
             Err(Reason::NoFieldWork)
         );
         // Where snow still lies on the near field, higher up, and not on the far one, the far
@@ -827,13 +954,27 @@ mod tests {
         let near_rect = near.rect;
         let snow_near = |r: &RectCm| (*r == near_rect).then_some(Reason::SnowCover);
         let best = v
-            .best(FieldTask::Sow, 4.0, None, &walk, &snow_near)
+            .best(
+                FieldTask::Sow,
+                4.0,
+                None,
+                &walk,
+                &snow_near,
+                &crate::found::tests::params(),
+            )
             .expect("the far field");
         assert_eq!(best.field, Some(far.id));
         let rain = |_: &RectCm| Some(Reason::WetGround);
         assert_eq!(
-            v.best(FieldTask::Sow, 4.0, None, &walk, &rain)
-                .map(|o| o.field),
+            v.best(
+                FieldTask::Sow,
+                4.0,
+                None,
+                &walk,
+                &rain,
+                &crate::found::tests::params()
+            )
+            .map(|o| o.field),
             Err(Reason::WetGround)
         );
         // Only work that turns the soil waits for the weather: a growing crop is weeded in it.
@@ -841,8 +982,15 @@ mod tests {
         growing.sown_day = 85;
         let v = view(&c, vec![&growing], 100);
         assert_eq!(
-            v.best(FieldTask::Tend, 4.0, None, &walk, &rain)
-                .map(|o| o.field),
+            v.best(
+                FieldTask::Tend,
+                4.0,
+                None,
+                &walk,
+                &rain,
+                &crate::found::tests::params()
+            )
+            .map(|o| o.field),
             Ok(Some(growing.id))
         );
         assert!(FieldTask::Prepare.turns_soil() && FieldTask::Sow.turns_soil());

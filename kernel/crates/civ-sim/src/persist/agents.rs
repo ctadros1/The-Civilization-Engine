@@ -2343,7 +2343,17 @@ fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
                     got_mm: f.got_mm,
                     fast_n_kg: f.fast_n_kg,
                     slow_n_kg: f.slow_n_kg,
-                    harvest_records: None,
+                    harvest_records: Some(fbb.create_vector(&f.harvest_records.iter().map(|hr| {
+                        civ_schema::save::HarvestRecord::new(
+                            hr.year,
+                            hr.yield_kg_per_ha,
+                            match hr.limit {
+                                civ_land::HarvestLimit::None => civ_schema::save::HarvestLimit::None,
+                                civ_land::HarvestLimit::Water => civ_schema::save::HarvestLimit::Water,
+                                civ_land::HarvestLimit::Nitrogen => civ_schema::save::HarvestLimit::Nitrogen,
+                            }
+                        )
+                    }).collect::<Vec<_>>())),
                 },
             )
         })
@@ -2427,7 +2437,19 @@ fn decode_fields(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<Vec<Fiel
             got_mm: f.got_mm(),
             fast_n_kg: f.fast_n_kg(),
             slow_n_kg: f.slow_n_kg(),
-            harvest_records: Vec::new(), // TODO parse harvest records
+            harvest_records: f.harvest_records().map_or(Vec::new(), |records| {
+                records.iter().map(|hr| {
+                    civ_land::HarvestRecord {
+                        year: hr.year(),
+                        yield_kg_per_ha: hr.yield_kg_per_ha(),
+                        limit: match hr.limit() {
+                            civ_schema::save::HarvestLimit::Water => civ_land::HarvestLimit::Water,
+                            civ_schema::save::HarvestLimit::Nitrogen => civ_land::HarvestLimit::Nitrogen,
+                            _ => civ_land::HarvestLimit::None,
+                        }
+                    }
+                }).collect()
+            }),
         });
     }
     Ok(out)

@@ -2713,6 +2713,9 @@ impl Population {
                         water_mm: 0.0,
                         need_mm: 0.0,
                         got_mm: 0.0,
+                        fast_n_kg: ctx.land_params.soil.fast_n_kg_per_ha as f32 * site.rect.area_ha() as f32,
+                        slow_n_kg: ctx.land_params.soil.slow_n_kg_per_ha as f32 * site.rect.area_ha() as f32,
+                        harvest_records: Vec::new(),
                     });
                     self.sites.remove(&hh_id);
                     target = Target::Field(id);
@@ -3439,7 +3442,7 @@ impl Population {
             .max(0.0);
         // What its season's water allows, fixed once the crop is ripe (ADR-0012 §2).
         let water = ctx.land.water_factor(&ctx.land.fields[fi]);
-        let done = ctx.land.fields[fi].work(crop, task, hours, now.day_index(), water, seed, now);
+        let done = ctx.land.fields[fi].work(&ctx.land_params.soil, crop, task, hours, now.day_index(), water, seed, now);
         if let Some(s) = x.stores.get_mut(crop.seed_good) {
             *s = (seed - done.seed_kg).max(0.0);
             x.flows
@@ -4045,7 +4048,7 @@ impl Population {
         let day = now.day_index();
         for f in &mut ctx.land.fields {
             if let Some(crop) = ctx.catalog.crops.get(usize::from(f.crop)) {
-                f.new_day(crop, day, now);
+                f.new_day(&ctx.land_params.soil, crop, day, now);
             }
         }
         // A settlement's harvest is in once none of its fields has a crop growing or unthreshed.

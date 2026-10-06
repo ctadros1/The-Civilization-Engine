@@ -2341,8 +2341,8 @@ fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
                     water_mm: f.water_mm,
                     need_mm: f.need_mm,
                     got_mm: f.got_mm,
-                    fast_n_kg: 0.0,
-                    slow_n_kg: 0.0,
+                    fast_n_kg: f.fast_n_kg,
+                    slow_n_kg: f.slow_n_kg,
                     harvest_records: None,
                 },
             )
@@ -2425,6 +2425,9 @@ fn decode_fields(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<Vec<Fiel
             },
             need_mm: f.need_mm(),
             got_mm: f.got_mm(),
+            fast_n_kg: f.fast_n_kg(),
+            slow_n_kg: f.slow_n_kg(),
+            harvest_records: Vec::new(), // TODO parse harvest records
         });
     }
     Ok(out)

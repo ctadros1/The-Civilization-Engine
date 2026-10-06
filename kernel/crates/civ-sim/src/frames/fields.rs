@@ -238,6 +238,9 @@ mod tests {
             kc: [0.4, 1.15, 0.4],
             kc_days: [30, 30, 40, 20],
             ky: 1.15,
+            n_kg_per_kg_grain: 0.02,
+            n_kg_per_kg_straw: 0.005,
+            roots_n_kg_per_ha: 15.0,
         }
     }
 
@@ -267,6 +270,9 @@ mod tests {
             water_mm: 0.0,
             need_mm: 0.0,
             got_mm: 0.0,
+            fast_n_kg: 0.0,
+            slow_n_kg: 0.0,
+            harvest_records: Vec::new(),
         }
     }
 

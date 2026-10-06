@@ -951,6 +951,14 @@ impl Land {
     pub fn advance_to_day(&mut self, params: &LandParams, map: &WorldMap, day: i64) {
         while self.stock_day < day {
             let d = self.stock_day + 1;
+            
+            let year_start = crate::day_of_year(d) == 0;
+            if year_start {
+                for f in &mut self.fields {
+                    f.turn_nitrogen(&params.soil);
+                }
+            }
+
             let water = self.weather.live(&params.weather, &params.soil, &self.climatology);
             self.water_fields(&params.weather, &params.soil, map, &water, d);
             let month_start = MONTH_STARTS[..12].contains(&day_of_year(d));

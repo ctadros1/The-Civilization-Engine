@@ -46,6 +46,9 @@ pub(crate) struct CropFile {
     pub kc_days: [u16; 4],
     /// Yield lost per share of the water need unmet.
     pub ky: f64,
+    pub n_kg_per_kg_grain: f64,
+    pub n_kg_per_kg_straw: f64,
+    pub roots_n_kg_per_ha: f64,
 }
 
 impl CropFile {
@@ -80,6 +83,9 @@ impl CropFile {
             kc: self.kc,
             kc_days: self.kc_days,
             ky: self.ky,
+            n_kg_per_kg_grain: self.n_kg_per_kg_grain,
+            n_kg_per_kg_straw: self.n_kg_per_kg_straw,
+            roots_n_kg_per_ha: self.roots_n_kg_per_ha,
         })
     }
 

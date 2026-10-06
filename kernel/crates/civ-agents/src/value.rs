@@ -309,6 +309,9 @@ mod tests {
             kc: [0.4, 1.15, 0.4],
             kc_days: [30, 30, 40, 20],
             ky: 1.15,
+            n_kg_per_kg_grain: 0.02,
+            n_kg_per_kg_straw: 0.005,
+            roots_n_kg_per_ha: 15.0,
         };
         let ripe = i64::from(crop.sow_from_day) + i64::from(crop.grow_days);
         let costs = grown_costs(std::slice::from_ref(&crop), 3, 0.8, ripe, &|_| 0.0);

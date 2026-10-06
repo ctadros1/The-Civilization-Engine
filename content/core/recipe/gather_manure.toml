@@ -1,0 +1,12 @@
+kind = "recipe"
+id = "core:recipe/gather_manure"
+name = "Gather manure"
+skill = ""
+technique = ""
+unit_h = 1.0
+session_h = 0.0
+max_units = 0.0
+tools = []
+inputs = []
+outputs = [{ good = "core:good/manure", amount = 10.0 }]
+session_inputs = []

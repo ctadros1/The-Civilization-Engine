@@ -1945,6 +1945,8 @@ impl Population {
                 .max(0.0)
         };
         let seed_kg = held(crop.map(|c| c.seed_good));
+        let manure_good = ctx.catalog.goods.iter().position(|g| g.id == "core:good/manure");
+        let manure_kg = held(manure_good);
         let grain_days = held(crop.map(|c| c.good)) * grain_kcal / kcal_day.max(1.0);
         let target_days = params.farm.grain_target_days.max(1e-6);
         let labour_per_day = self.labour_per_day(&hh.members, now, params);
@@ -1960,6 +1962,7 @@ impl Population {
             day: today,
             labour_per_day,
             seed_kg,
+            manure_kg,
             room: target_days / (target_days + grain_days),
             need_grain_kg: farm::need_grain_kg(member_count, params, grain_kcal),
             workable_share: workable_share(ctx.land, params.farm.crop),
@@ -3445,6 +3448,10 @@ impl Population {
             .max(0.0);
         // What its season's water allows, fixed once the crop is ripe (ADR-0012 §2).
         let water = ctx.land.water_factor(&ctx.land.fields[fi]);
+        let manure_good = ctx.catalog.goods.iter().position(|g| g.id == "core:good/manure");
+        let manure_held = manure_good.and_then(|wg| x.stores.get(wg).copied()).unwrap_or(0.0);
+        let supplied_kg = if task == FieldTask::Manure { manure_held } else { 0.0 };
+
         let done = ctx.land.fields[fi].work(
             &ctx.land_params.soil,
             crop,
@@ -3453,8 +3460,18 @@ impl Population {
             now.day_index(),
             water,
             seed,
+            supplied_kg,
             now,
         );
+
+        if task == FieldTask::Manure && done.used_kg > 0.0 {
+            if let Some(mg) = manure_good {
+                if let Some(s) = x.stores.get_mut(mg) {
+                    *s = (*s - done.used_kg).max(0.0);
+                }
+            }
+        }
+
         if let Some(s) = x.stores.get_mut(crop.seed_good) {
             *s = (seed - done.seed_kg).max(0.0);
             x.flows

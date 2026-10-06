@@ -1,0 +1,16 @@
+kind = "activity"
+id = "core:activity/gather_manure"
+name = "Gather manure"
+doing = "gathering manure from middens"
+behavior = "make"
+recipe = "core:recipe/gather_manure"
+par = 1.0
+min_age_years = 10.0
+max_age_years = 65.0
+min_minutes = 30
+max_minutes = 120
+daylight_only = true
+max_walk_minutes = 10
+technique = ""
+tools = []
+rate = 1.0

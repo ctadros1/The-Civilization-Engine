@@ -1,0 +1,14 @@
+kind = "technique"
+id = "core:technique/manuring"
+name = "Manuring"
+can = "apply waste to fields to return nitrogen"
+domain = ""
+requires = []
+tried_in = []
+needs = []
+e50_h = 2000.0
+learn_h = 20.0
+upbringing = true
+
+[answers]
+spoilage = []

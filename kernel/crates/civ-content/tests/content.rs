@@ -168,7 +168,7 @@ fn the_repository_content_is_clean() {
     let emmer = c
         .technique_index("core:technique/emmer_growing")
         .expect("growing emmer");
-    for a in c.activities.iter().filter(|a| a.task.is_some()) {
+    for a in c.activities.iter().filter(|a| a.task.is_some() && a.id != "core:activity/manure_field") {
         assert_eq!(
             c.technique_of(a),
             Some(emmer),

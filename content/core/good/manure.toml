@@ -1,0 +1,10 @@
+kind = "good"
+id = "core:good/manure"
+name = "Manure"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 365.0
+sheltered_half_life_days = 365.0
+eaten = "never"
+shared = false
+reserve_for = ""

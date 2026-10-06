@@ -41,6 +41,8 @@ pub struct FarmView<'a> {
     pub labour_per_day: f64,
     /// Seed in store, kilograms.
     pub seed_kg: f64,
+    /// Manure in store, kilograms.
+    pub manure_kg: f64,
     /// How much more grain is worth to it, 0–1.
     pub room: f64,
     /// The grain it plans to grow for its needs, kilograms.
@@ -306,6 +308,13 @@ impl FarmView<'_> {
                     .sum();
                 (work, self.workable_days(sowing_days_left(crop, day)))
             }
+            FieldTask::Manure => {
+                if self.manure_kg > 0.0 && self.fields.iter().any(|f| f.stage == FieldStage::Fallow) {
+                    (1.0, 2.0) // tuning value: positive work / small days = 0.5 urgency
+                } else {
+                    (0.0, f64::INFINITY)
+                }
+            }
             FieldTask::Tend => {
                 let mut work = 0.0;
                 let mut days = f64::INFINITY;
@@ -352,11 +361,24 @@ impl FarmView<'_> {
             ),
             _ => 1.0,
         };
-        let expected = f.expected_kg(crop, self.day, water);
-        let remaining = f.remaining_work_h(crop, expected);
-        let per_hour = expected * self.kcal_per_kg / remaining.max(1e-6);
+        let expected = if task == FieldTask::Manure {
+            1.0 // arbitrary positive value so it gets picked
+        } else {
+            f.expected_kg(crop, self.day, water)
+        };
+        let remaining = if task == FieldTask::Manure {
+            1.0
+        } else {
+            f.remaining_work_h(crop, expected)
+        };
+        let per_hour = if task == FieldTask::Manure {
+            self.kcal_per_kg // giving it a positive worth
+        } else {
+            expected * self.kcal_per_kg / remaining.max(1e-6)
+        };
         let left = match task {
             FieldTask::Tend => (crop.tend_h_per_ha * f.area_ha() - f64::from(f.tended_h)).max(0.0),
+            FieldTask::Manure => 1.0, // arbitrary
             _ => (f.stage_work_h(crop) - f64::from(f.work_h)).max(0.0),
         };
         (per_hour, left)
@@ -392,7 +414,11 @@ impl FarmView<'_> {
             }
         };
         for f in &self.fields {
-            if f.task(crop, self.day) != Some(task) {
+            if task == FieldTask::Manure {
+                if f.stage != FieldStage::Fallow || self.manure_kg <= 1e-6 {
+                    continue;
+                }
+            } else if f.task(crop, self.day) != Some(task) {
                 continue;
             }
             any = true;
@@ -743,6 +769,7 @@ mod tests {
             day,
             labour_per_day: 20.0,
             seed_kg: 100.0,
+            manure_kg: 0.0,
             room: 1.0,
             need_grain_kg: 1000.0,
             workable_share: 1.0,

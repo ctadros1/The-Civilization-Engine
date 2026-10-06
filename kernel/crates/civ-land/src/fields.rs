@@ -110,6 +110,8 @@ pub enum FieldTask {
     Reap,
     /// Thresh and clean the grain at home.
     Thresh,
+    /// Manure the field.
+    Manure,
 }
 
 impl FieldTask {
@@ -117,16 +119,17 @@ impl FieldTask {
     /// (ADR-0012 §5): breaking or preparing ground, and sowing. Weeding, reaping and threshing go
     /// on whatever the ground is like.
     pub fn turns_soil(self) -> bool {
-        matches!(self, FieldTask::Prepare | FieldTask::Sow)
+        matches!(self, FieldTask::Prepare | FieldTask::Sow | FieldTask::Manure)
     }
 
     /// Every task, in order (part of the boundary: never reorder).
-    pub const ALL: [FieldTask; 5] = [
+    pub const ALL: [FieldTask; 6] = [
         FieldTask::Prepare,
         FieldTask::Sow,
         FieldTask::Tend,
         FieldTask::Reap,
         FieldTask::Thresh,
+        FieldTask::Manure,
     ];
 
     /// The authored name.
@@ -137,6 +140,7 @@ impl FieldTask {
             FieldTask::Tend => "tend",
             FieldTask::Reap => "reap",
             FieldTask::Thresh => "thresh",
+            FieldTask::Manure => "manure",
         }
     }
 
@@ -307,6 +311,8 @@ pub struct Field {
 pub struct WorkDone {
     /// Seed sown, kilograms (taken from the household's seed).
     pub seed_kg: f64,
+    /// Manure applied or other materials used, kilograms.
+    pub used_kg: f64,
     /// Grain threshed, kilograms (into the household's store).
     pub grain_kg: f64,
     /// The stage was finished.
@@ -468,9 +474,15 @@ impl Field {
         day: i64,
         water: f64,
         seed_kg: f64,
+        supplied_kg: f64,
         now: SimTime,
     ) -> WorkDone {
         let mut done = WorkDone::default();
+        if task == FieldTask::Manure {
+            self.fast_n_kg += supplied_kg as f32;
+            done.used_kg = supplied_kg;
+            return done;
+        }
         if self.task(crop, day) != Some(task) || hours <= 0.0 {
             return done;
         }
@@ -703,6 +715,7 @@ pub(crate) mod tests {
                 60,
                 1.0,
                 0.0,
+                0.0,
                 SimTime::ZERO
             )
             .finished
@@ -721,37 +734,37 @@ pub(crate) mod tests {
         assert_eq!(f.task(&c, 40), None, "too early to prepare");
         assert_eq!(f.task(&c, 60), Some(FieldTask::Prepare));
         // Breaking new ground: 80 h for 0.1 ha.
-        let done = f.work(&soil(), &c, FieldTask::Prepare, 50.0, 60, 1.0, 0.0, t);
+        let done = f.work(&soil(), &c, FieldTask::Prepare, 50.0, 60, 1.0, 0.0, 0.0, t);
         assert!(!done.finished && f.stage == FieldStage::Fallow);
         assert!(
-            f.work(&soil(), &c, FieldTask::Prepare, 50.0, 61, 1.0, 0.0, t)
+            f.work(&soil(), &c, FieldTask::Prepare, 50.0, 61, 1.0, 0.0, 0.0, t)
                 .finished
         );
         assert_eq!(f.stage, FieldStage::Prepared);
         assert_eq!(f.task(&c, 70), None, "not yet time to sow");
         // Sowing needs 10 kg of seed; with 4 kg at hand it goes 40 % of the way.
-        let done = f.work(&soil(), &c, FieldTask::Sow, 10.0, 80, 1.0, 4.0, t);
+        let done = f.work(&soil(), &c, FieldTask::Sow, 10.0, 80, 1.0, 4.0, 0.0, t);
         assert!((done.seed_kg - 4.0).abs() < 1e-9 && !done.finished);
-        let done = f.work(&soil(), &c, FieldTask::Sow, 10.0, 80, 1.0, 50.0, t);
+        let done = f.work(&soil(), &c, FieldTask::Sow, 10.0, 80, 1.0, 50.0, 0.0, t);
         assert!((done.seed_kg - 6.0).abs() < 1e-9 && done.finished);
         assert_eq!((f.stage, f.sown_day), (FieldStage::Sown, 80));
         // Tend fully, then reap at ripeness: the full yield of 100 kg.
         assert_eq!(f.task(&c, 100), Some(FieldTask::Tend));
-        f.work(&soil(), &c, FieldTask::Tend, 100.0, 100, 1.0, 0.0, t);
+        f.work(&soil(), &c, FieldTask::Tend, 100.0, 100, 1.0, 0.0, 0.0, t);
         assert_eq!(f.task(&c, 150), None, "tended; not ripe yet");
         assert_eq!(f.task(&c, 200), Some(FieldTask::Reap));
         assert!((f.expected_kg(&c, 200, 1.0) - 100.0).abs() < 1e-6);
         // A season short of water is expected to give less.
         assert!((f.expected_kg(&c, 200, 0.8) - 80.0).abs() < 1e-6);
         assert!(
-            f.work(&soil(), &c, FieldTask::Reap, 25.0, 200, 1.0, 0.0, t)
+            f.work(&soil(), &c, FieldTask::Reap, 25.0, 200, 1.0, 0.0, 0.0, t)
                 .finished
         );
         assert!((f64::from(f.sheaves_kg) - 100.0).abs() < 1e-4);
         // Threshing: half an hour a kilogram.
-        let done = f.work(&soil(), &c, FieldTask::Thresh, 20.0, 205, 1.0, 0.0, t);
+        let done = f.work(&soil(), &c, FieldTask::Thresh, 20.0, 205, 1.0, 0.0, 0.0, t);
         assert!((done.grain_kg - 40.0).abs() < 1e-4);
-        let done = f.work(&soil(), &c, FieldTask::Thresh, 100.0, 206, 1.0, 0.0, t);
+        let done = f.work(&soil(), &c, FieldTask::Thresh, 100.0, 206, 1.0, 0.0, 0.0, t);
         assert!((done.grain_kg - 60.0).abs() < 1e-3 && done.finished);
         assert_eq!(f.stage, FieldStage::Fallow);
         // Next year it is prepared again, at the lighter work of cropped ground.

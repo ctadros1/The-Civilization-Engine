@@ -1,55 +1,22 @@
-<p align="center"><img src="assets/previews/civilization-engine-mark.svg" width="96" height="96" alt="Civilization Engine mark"></p>
+<p align="center"><img src="assets/previews/civilization-engine-mark.svg" width="88" height="88" alt="The Civilization Engine mark"></p>
 <h1 align="center">The Civilization Engine</h1>
-<p align="center"><strong>An endless, emergent simulation of human civilization.</strong></p>
-<p align="center">People build settlements, cities, institutions, economies, technologies, and ways of life across history, from the earliest communities through modern civilization.</p>
+<p align="center"><strong>A bottom-up simulation of how people build a civilization.</strong></p>
+<p align="center">Individuals make a living, form families, trade, learn, build and adapt. Their choices can grow settlements into cities and shape the societies around them.</p>
 
 <p align="center">
-  <a href="#vision">Vision</a> · <a href="#project-status">Status</a> · <a href="#getting-started">Getting started</a> · <a href="#what-the-build-looks-like">Screenshots</a> · <a href="#simulation-design">Simulation design</a> · <a href="#explore-the-repository">Explore</a>
+  <a href="#the-project">Project</a> · <a href="#current-build">Current build</a> · <a href="#technical-overview">Technical overview</a> · <a href="#run-it">Run it</a> · <a href="#documentation">Documentation</a>
 </p>
-
 <p align="center">
   <img src="https://img.shields.io/badge/milestone-M3b%20implemented%2C%20M3c%20in%20progress-9a6a36?style=flat-square" alt="Milestone: M3b knowledge and building implemented; M3c seasons and time in progress">
   <img src="https://img.shields.io/badge/kernel-Rust-315f55?style=flat-square" alt="Kernel: Rust">
   <img src="https://img.shields.io/badge/observer-web%20(Unreal%20from%20M2)-526c83?style=flat-square" alt="Observer: web, Unreal from M2">
 </p>
 
-## Vision
+## The project
 
-The Civilization Engine is a personal project to build a deep, plausible simulation of people and the societies they create. Individuals make decisions, form households and communities, work, trade, invent, govern, build, migrate, and adapt. Settlements can grow into cities, while institutions and technologies emerge from the actions of their people.
+The Civilization Engine (TCE) is a single-player simulation project about societies that grow from the everyday decisions of their people. Its long-term scope runs from early settlements to modern civilization. The guiding rule is **the engine authors the vocabulary, never the plot**: people act within a world of authored rules and possibilities; the simulation does not force a historical storyline or predetermined outcomes.
 
-The guiding principle is **the engine authors the vocabulary, never the plot**. The simulation supplies people, needs, resources, institutions, materials, and rules. It does not dictate a storyline or require a society to pass through fixed historical eras. Political and cultural labels are interpretations of what people have built, not switches that set the world into a predetermined state.
-
-## Project status
-
-**Milestone M0, Foundations, is implemented.** You can launch the engine with one command and create a world from a seed in the browser. You can pan and zoom its terrain and rivers, and run the clock. Saving, loading, autosave and crash recovery all work, along with a small command line for worlds, saves and content.
-
-**Milestone M1, First settlers, is implemented** ([plan §7](PROJECT_PLAN.md#7-milestones)). A founding band settles a valley, farms, builds huts, raises families and wears trails, and you can watch it for ten years and then save and reload it ([the demo](assets/m1/m1-demo.webm)). It came in seven slices:
-
-- **Slice A:** a new world begins with a founding band of 30–50 people (up to 125 since slice L) in at least six families, who choose where to camp. They sleep, eat, fetch water, play and sit at the hearth, each choice scored from their needs and sampled, and they walk routed paths over the terrain. The map shows them moving. Click anyone to see what they are doing, their needs, their family and **why** they chose it, with every consideration's weight. The chronicle records the band's arrival.
-- **Slice B:** people gather wild plants, hunt, fish and collect firewood, and bring home goods that keep or spoil at their own rates. A kill is shared across the camp. Meat and fish need a fire, so firewood matters. Game, fish and plants grow back on their own clocks. Hunting a valley out takes a season and its recovery takes years. Households share what they learn about places and weigh it against what they would expect. The chronicle notes when a settlement's food runs short and when it recovers.
-- **Slice C:** households farm. They mark out fields near the settlement on floodplain, or on woodland they must clear first. They break the ground, sow emmer from the seed they brought, weed, reap and thresh by hand. Each task is chosen for the food it brings for the year ahead and for how close its season is to closing. A harvest depends on the field's ground, the year's weather, when sowing finished, the weeding done and how long the ripe crop stood. Before anything is eaten, seed for next season is set aside by the area planned. The seed to sow the ground already cropped is never eaten; seed beyond that is eaten only in real hunger. A household short of food asks one that can spare some. The map shows each field through its year, the readout names the field under the pointer, and the chronicle notes the first sowing and each harvest.
-
-- **Slice D:** households build homes. Each designs a round post-built hut with wattle-and-daub walls and a thatched roof, sized for its members and with its door toward the hearth, and claims the ground its roof covers. People cut poles, rods and reeds and carry them home; threshing leaves straw for thatch. The hut goes up stage by stage (postholes, frame, walls, roof, floor), each stage using its materials as the work goes and waiting when they run out. Building is a choice like any other, and it presses harder as the first winter nears. Under its own roof, a household's grain keeps about three times as long. The map draws each hut as it goes up, from the shape the kernel expands from the saved design; the readout names the hut under the pointer and what it is waiting for; the chronicle notes the settlement's first roof.
-- **Slice E:** people are born, pair up and die. A woman living with her partner conceives month by month, with a chance that depends on her age, on a fecundity of her own and on hunger. A pregnancy lasts about nine months or is lost, and after a birth a mother cannot conceive again for about twenty months, or for two if her child dies. Everyone faces a risk of dying that depends on age, from the life table of a foraging people, and hunger multiplies it. A body at the end of its reserve starves, and some mothers die in childbirth. Unpartnered adults look for a partner in the settlement within an age gap and outside close kin. A new couple sets up a household of its own, each bringing a share of their family's food and seed. Orphans go to their nearest kin, and a household that dies out leaves its fields and hut to its heirs. A household out of food and worn down by hunger, with no crop about to ripen, may give up and leave the valley. The founding band arrives as couples, some of the women pregnant and some nursing. The inspector names a person's partner and how long they have been together, a widowing, a pregnancy and a nursing child. The chronicle notes every birth, death and new couple, every child taken in and every household that leaves.
-
-- **Slice F:** walking wears the ground. Every walk wears the 8 m cells it crosses a little, and unused ground grows back over months, so the ground people cross most becomes trail, and a trail outlives a season out of use. Worn ground is quicker to walk, so routes drift onto it and use makes more use. Across open ground people walk straight to where they are going rather than along the grid's eight directions. Once a month the paths are surveyed: routes are planned on them and the trails are traced into lines. The map shows worn ground as trodden earth with the trails through it, the readout names a trail under the pointer, and the chronicle notes each settlement's first trail out.
-- **Slice G:** the observer can send a family and run ahead. With **Add a family**, a click on the map sends a family there, drawn like a founding family and carrying the same provisions. It joins the nearest settlement within 600 m, or camps on the spot and founds one, and the chronicle says the observer sent it. **Run ahead** lives a day, a month, a year, 5 or 10 years at full detail as fast as the machine allows, as a task you can cancel; the world pauses where it arrives and is saved. The smoke seeds can live ten years (`smoke --years 10`), checked at every year's end, and a nightly workflow runs them.
-
-**Milestone M2, First light in Unreal, is in progress.** It puts the M1 village in Unreal Engine 5. Its kernel side is implemented: the kernel builds as a library, `tce_kernel` (a DLL on Windows), with a small, versioned C interface for Unreal to load ([ADR-0005](decisions/0005-kernel-c-interface.md)). The library runs the same engine and speaks the same frames as the web observer, and it can serve the panels alone, for Unreal's web view. CI builds the Windows DLL and drives it from C. The observer socket now refuses pages from other sites.
-
-**Not yet:** everything inside Unreal: the plugin that loads the library, terrain built at run time, the building assembler and its kit, crowds, day and night, the HUD and a packaged build. That work needs Unreal Engine on the Windows PC.
-
-**Milestone M3a, Village economy, is implemented**, ahead of M2's Unreal work, with the web observer ([plan §7, §9](PROJECT_PLAN.md#7-milestones)). M3 is split in three: M3a the economy (goods, tools, skills, exchange and money, firms, property regimes), M3b knowledge and building, M3c seasons and time. Goods, the ledger, prices and firms follow [ADR-0006](decisions/0006-goods-ledger-firms.md).
-
-- **Slice H (implemented):** goods, tools, recipes and skills. Grain is no longer eaten as it is. It is ground at a quern and baked into flatbread on the hearth, or pounded in a mortar for porridge. Households grind and bake as their ready food runs down, and only as much as they need, because bread and flour go off. Work needs its tools: reaping a sickle, preparing ground a hoe, cutting poles and building an axe, grinding a quern. Tools wear with the hours they are used, and households make new ones from flint, stone and wood they go out and gather. Without a sickle, people reap by hand, more slowly. Everyone has skills in milling, baking, knapping, stoneworking and woodworking. They rise with practice, and they set how fast the work goes and how long the tools made last. Households plan their stores to the next harvest and go out for wild food when they will not last, and they grow their fields for what is lost on the way to the mouth. Every good is accounted for: what households hold changes only by what is gathered, harvested, made, eaten, spoiled, burned, worn, built, sown or carried away, checked in the tests and each year of the ten-year smoke. The inspector shows a household's tools and food ready to eat, and a person's skills. `civ-host run` lives one world for some years and reports how it lives, with a yearly food balance. The bread chain makes villages more fragile than M1's: see the decision log's NUDGE on its cost.
-
-- **Slice I (implemented):** exchange. One ledger moves every good that passes between households and names why: a gift of food, a kill shared out, a new couple's share, an inheritance, barter or a sale, and the books still balance. Each household values goods in hours of its own work, what it would take to grow, gather or make one more. Once a week it looks over what it can spare (tools beyond its needs, grain beyond what sees it to the harvest, materials once its hut stands) and posts terms: its cost and a margin, asked in the goods it is short of, moving slowly with what sells and what nobody offers. Someone whose household needs a tool, or food before the harvest, walks to the neighbour whose terms save it the most work, the walk included, and pays in goods. Tools that nobody offers go on record as wanted, and a household that does not need one makes it to sell when others would give more than it costs. A settlement trades by barter until one good settles most of what is paid; that good is its money, and nothing in the engine chooses it. In the first spring of one test village it was firewood. The Market panel shows each settlement's market: barter or money, what is offered and on what terms, what sold, what was wanted with none on offer, the latest trades in words and a monthly price history.
-
-- **Slice J (implemented):** household workshops and hired labour. When a household makes a tool to sell, it sets up a workshop for it: an account with stores of its own, named for whoever set it up ("Wren's sickle workshop"). Its owners put in what the work uses and work for it unpaid, and what they make is the workshop's. It posts terms for its stock as households do, sells from its own stores, and its owners draw out what it was paid. Each workshop keeps books: its latest entries and a statement for every month of its life (what it made, sold and used, the hours worked for it, what it was paid and what it cost, and its stock), all worth in hours of its owners' own work. When buyers want more than it holds, it posts a wage for the work and raises it while nobody takes it. People weigh the work like anything else they could do, and are paid through the ledger for the time they worked. A workshop is given up when it sells nothing for months, closes when its household is gone, and fails when it cannot pay a wage it owes. Workshops arise only where a tool is wanted that nobody offers, and in test runs they hired little: see the decision log's NUDGE. The Workshops panel lists them, open and closed, with their records. A workshop's page shows what it holds, its terms and wage, its monthly statements and the latest lines of its books, and the chronicle and the market link to it.
-
-- **Slice K (implemented):** property regimes and wealth ([ADR-0007](decisions/0007-claims-property-regimes.md)). Every field now has a holder besides the household that works it. A world is made under a property regime, chosen in the new-world dialog, and keeps it. Regimes are content: the core pack has **household fields** (the default) and **village fields**. Under household fields a household holds the ground it breaks and works it. A couple setting up its own household takes its share of its family's fields, as it takes a share of the stores. When a household is no more, its fields are divided among its heirs' households, and ground whose holder is gone is taken up by a household short of land. A household with more ground than it needs may let a field for a crop year, for a quarter of the grain threshed from it, paid through the ledger as rent. Under village fields the village holds the ground its households break and gives each household fields to work by how many it feeds, at a review each February and whenever a household forms or ends; fields go back to it when a household is no more. Holding a field changes nothing about how it yields. The kernel measures each household's land held and worked, its goods valued in hours of work at its settlement's prices, and the floor area under its roofs, and how each spreads: person-weighted Ginis, the richest tenth's share of goods, and the shares of households that hold or work no land, recorded at each year's end. The Wealth panel shows these for each settlement, with its households and the yearly history; the world panel names the regime and its rules; and the map's readout says who holds a field and on what terms. In three-year runs of one seed under both regimes the measures barely differ yet (see the decision log).
-
-- **Slice L (implemented):** villages of hundreds. A village of 200 lives its first year at full detail in about 39 s (see the speed note below), and each change that made it faster left every run exactly as it was. A new world's founding band can now have up to 125 people. The observer can send 5, 10 or 20 families at once, as a group follows those who went before: they settle side by side where the map is clicked and all join the settlement the first one joins or founds. A founding of 125 joined by two groups of 20 families made a village of 302 people in 67 households, which held its numbers through its first four months. **House size by wealth:** a household designs its hut for the floor its members need and puts into it a share of the goods it could spare, valued in hours of its own work, for a larger one; a household that already has a home builds a new, markedly larger one beside it when its means pay for all of it, moves in when the roof is on, and takes the old one down. The map's readout gives each hut's floor area and how many it sleeps. In six-year runs of 40-person villages nobody could yet afford a larger home: households hold goods worth 700–2,900 hours of work, but a hut costs 450 hours (for two) to 1,050 (the largest) to build, its materials' cutting and carrying included, and what new couples bring has little to spare. House sizes still follow household size (see the decision log's NUDGE). **Smoke checks of the village economy:** the smoke worlds take the content's property regimes in turn, and the ten-year run checks at each year's end that land is held and worked as each regime says, that no field is lost, and that the wealth measures are numbers that fit the regime. At its end it grades each world's economy: whether food stocks rise after the harvest, whether grain is asked for more before the harvest than after, how unequal goods are from the fifth year, and how workshop sizes spread. Red fails a world; amber, gray and green are reported. Grain now costs a household what storage took of it since the harvest (research 08-05 §1.6), so asks rise toward the next harvest. In the ten-year run all ten worlds passed: stocks and asks were green in all (asks about 4 log points higher before the harvest than after, against 17–61 in the research's markets, which carry credit and risk the model lacks), inequality amber in all (Gini of goods 0.04–0.26), and workshop sizes green in 4, amber in 2 and too few to judge in 4.
+The project is actively developed. The working build is a Rust simulation viewed through a local web observer. It currently models an early farming village; modern civilization is a long-term goal, not an implemented feature. Unreal Engine support is planned, with the kernel's C interface in place and the Unreal client still to be built.
 
 **The M3a demo** lived one seed (2, the river valley) under each property regime, three runs each, since runs differ. A band of 40 lived ten years under both, and the regimes did not part: at the tenth year's end 47–51 people in 12 households, Ginis of goods 0.15–0.19 against 0.16–0.18 and of floor area 0.21–0.22 in both, 27–28 m² a house, the same prices (a sickle 3.6–4.4 hours of work), and no money. Only what tenure itself writes differed: under village fields the village held all 18 ha and no household held any, and under household fields a field was now and then let. With land plentiful, every household works what it needs under either rule. A village of hundreds (a band of 125 joined by 20 families, about 250 people by its fifth year) parted only in a famine. In its sixth year a harvest some 40% short brought hunger under both regimes. Under village fields 82–105 people died and few households left, so 154–175 were still there at the year's end, with goods more unequal (Gini 0.27–0.32). Under household fields 25–73 died but households left sooner (up to 229 people), leaving 12–189, with Ginis of 0.11–0.24, and up to 38 fields let for a share of the grain. In the seventh year every household of every run left the valley. The decision log has the numbers and two NUDGEs: the regimes part only under scarcity, and a village of hundreds made at once does not survive its first bad harvest.
 
@@ -148,7 +115,7 @@ The guiding principle is **the engine authors the vocabulary, never the plot**. 
 
 **The M3b demo** lived three river-valley worlds 25 years each, the observer bringing jointed timber framing to the eldest founder of each as it began (`civ-host run --introduce`). Two of the plan's three outcomes emerged, and the third is shown by a test. A craft found by one person, drying and smoking, was found once in the 75 village-years and lost the same year as households left. Framing passed only to children growing up with its knower, was never practised, and died with its last knower in all three. Every building begun after the first year was built after an admired one, a young couple's first home following what their families admired. No village built a frame, so no loft was loaded or failed. Huts lost their roofs in storms and villages remembered it, but a hut has nothing to build stronger; the test of slice P shows a loft giving way and a village building stronger for years. All three villages, grown to 52–59 people, emptied within a year as households left together. The decision log has the numbers and two NUDGEs, and `web/e2e/m3b-demo.spec.ts` takes the pictures.
 
-### Implemented and planned
+This is a screenshot from the running web observer: an early farming village with fields, people, trails and market data.
 
 | Area | Status | What exists |
 | --- | --- | --- |
@@ -185,7 +152,7 @@ The guiding principle is **the engine authors the vocabulary, never the plot**. 
 | Kernel library (`civ-ffi`) | Implemented: ABI 1.0 | `tce_kernel`, the kernel as a library: one export hands back a versioned table of C functions to create a kernel, submit frames, poll ordered frames, copy the latest snapshot and serve the panels. A generated header, Rust tests through the table, a C harness that loads the library at run time, and a C++ host that reads its frames with the generated C++ readers and asks it for a world, as the plugin will ([ADR-0005](decisions/0005-kernel-c-interface.md)) |
 | Unreal client (`EngineBridge`, runtime terrain, building assembler) | Planned (M2, on the Windows PC) | |
 
-### Known limitations
+[Watch the M1 ten-year simulation demo](assets/m1/m1-demo.webm) · [See the M3a village and economy screenshots](assets/m3a/)
 
 - **Terrain.** Erosion routes water along the grid's eight directions, which leaves occasional straight valleys and creases, visible in the hillshade up close. Valley-floor edges can look jagged at the 8 m cell scale.
 - **Lakes.** Lakes are rare in the humid presets, and closed basins use a single-lake approximation.
@@ -213,23 +180,24 @@ The guiding principle is **the engine authors the vocabulary, never the plot**. 
 - **Stone and flint are a stand-in.** People still gather them from fixed amounts per hectare by habitat. Every world now also has deposits of clay, stone and flint as bodies in the ground (M3b slice Q), and villages find those that show or that levelling cuts into. Clay is dug from them, and stone and flint once the loose stone and flint near a village are used up. Where they lie and how large they are are tuning values: the research describes them only in words.
 - **Simulation speed.** On the 4-core cloud CPU, a village of 40–50 people lives a good year in about 10 s (three years and three months in 30–33 s from the command line, seeds 1, 2, 11 and 19). Hungry years take about twice as long: long hunting trips to new places each need a route planned. Running ahead in the observer, with the map following, the demo's village of 50–60 lived nine years in about 140 s, some 15 s a year. Larger villages cost about in proportion to their people: a founding of 200 lives its first year in about 39 s, and one of 400 its first three months at about 215 ms a day (`civ-sim`'s `bench_village` example measures this). A village of 302, a founding of 125 joined by 40 families, lived its first four months at 235 ms a day, about 86 s a year. M3c's first speed work, which leaves every run exactly as it was, made a band of 40 about 26 % faster and one of 125 about 18 % faster (11.1 s and 30.9 s a simulated year, from 14.9 s and 37.6 s, each lived on from the same save). The Accelerated speeds (60×, 600×, Max) live a day at a time, exactly as Detailed mode would, so Max is only as fast as the machine: about 11 s a simulated year for a band of 40 here. The declared approximations that make Accelerated mode faster ([ADR-0011](decisions/0011-execution-modes.md) §4) come in M3c's slice W.
 
-## Getting started
+<p align="center"><img src="assets/previews/civilization-engine-modern.png" alt="Illustrative concept art of a modern river metropolis" width="760"></p>
 
-You need [Rust](https://rustup.rs) through rustup, which installs the pinned toolchain from `rust-toolchain.toml` by itself. You also need Node.js 22 with npm, and a browser with WebGL.
+## Technical overview
 
-```powershell
-tools\run.ps1        # Windows (PowerShell)
-```
+| Area | Implementation |
+| --- | --- |
+| Simulation | Rust workspace; event-scheduled people plus minute-to-year system cadences |
+| World | Seeded terrain, drainage, lakes and rivers; 8 m simulation cells |
+| Content | Strict TOML packs compiled and cross-validated before a world starts |
+| Observer | TypeScript, Vite and PixiJS; map and panels read kernel state and submit commands |
+| Boundaries | Versioned FlatBuffers payloads in a shared frame envelope; localhost WebSocket today, C ABI for future Unreal integration |
+| Saves | Checksummed, versioned snapshot generations with explicit schema migrations |
 
-If PowerShell says running scripts is disabled on this system, run `powershell -ExecutionPolicy Bypass -File tools\run.ps1` instead, or allow local scripts once with `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+The kernel owns simulation state. The observer renders it and forwards user commands. See the [technical docs](docs/development-journal/) for the data flow, simulation model, save format, interfaces, and design history.
 
-```sh
-tools/run.sh         # Linux and macOS
-```
+## Run it
 
-The script builds the web shell if needed, builds and starts `civ-host`, and opens <http://127.0.0.1:7420/>. Choose **Create a world**, pick a landscape, size, seed and the size of the founding band, and the map appears when generation finishes. Use **Fit** and zoom in on the settlement's name to see the people; press **Run** (or Space) and click anyone to inspect them. Saves go to `saves/<world>/` in the repository, one folder per world, and every save is a new file. **Ctrl+C** stops the host and saves the world if it changed. If the host stops unexpectedly, the next start offers to recover the newest intact save.
-
-The command line, run from `kernel/`:
+Install the pinned Rust toolchain and Node.js 22, then run from the repository root:
 
 ```sh
 cargo run --release -p civ-host -- new --seed 7 --size 2048 --name "Old River Valley"
@@ -340,25 +308,17 @@ civ-core (ids, time, scheduler) ─► civ-world ───┼─► civ-sim (wor
 commons-wire, commons-persist (shared with other engines) ┘                                (CLI, WebSocket)   (PixiJS)
 ```
 
-## Explore the repository
+On Windows, run `tools\run.ps1` in PowerShell. The host opens the local observer at <http://127.0.0.1:7420/>. For development commands, tests and troubleshooting, see [AGENTS.md](AGENTS.md).
 
-| Start here | For |
-| --- | --- |
-| [Project plan](PROJECT_PLAN.md) | Vision, scope, architecture, milestones, risks, and decisions |
-| [AGENTS.md](AGENTS.md) | How to work in the repository: layout, commands, rules for changes |
-| [`decisions/`](decisions/) | Architecture decision records (boundary schema, saves) |
-| [`kernel/`](kernel/) | The Rust kernel and the `civ-host` command line and server |
-| [`commons/`](commons/) | `engine-commons`, staged here: the frame envelope and the save container |
-| [`content/`](content/) | Authored content packs and their format |
-| [`web/`](web/) | The web observer |
-| [Research index](research/README.md) | Research topics, domains, and milestone priorities |
+## Documentation
 
-The research covers simulation engineering, reference games, world generation, people, demography, culture, technology, economics, government, cities, architecture, infrastructure, diplomacy, rendering, observer experience, and validation.
-
-## Project boundaries
-
-This is a personal simulation project rather than an academic research instrument. Realism means plausible behavior checked against selected historical patterns, not proof that the simulation reproduces history. The plan records open questions and decisions as development progresses.
+- [Development journal and technical guide](docs/development-journal/README.md)
+- [Project plan and milestone decisions](PROJECT_PLAN.md)
+- [Architecture decision records](decisions/README.md)
+- [Research index: 170 topics across 16 domains](research/README.md)
+- [Content authoring guide](content/README.md)
+- [Web observer guide](web/README.md)
 
 ## License
 
-No license has been added yet. Until a license is chosen, reuse and redistribution are not granted by this repository.
+No license has been added. Until one is chosen, the repository does not grant reuse or redistribution rights.

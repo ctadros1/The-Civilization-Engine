@@ -4097,9 +4097,25 @@ impl Population {
             }
         }
         // A month of weather on every building, on the first of the month (ADR-0009 §4), and
-        // each day every building weighed against what it carries (§5).
+        // each day every building weighed against what it carries (§5). What stood out in the
+        // weather just lived goes into the chronicle (ADR-0012).
         if now.date().day == 1 {
             self.wear_buildings(ctx);
+            let notes = ctx
+                .land
+                .weather
+                .notes(&ctx.land_params.weather, &ctx.land.climatology);
+            for note in notes {
+                self.chronicle_push(
+                    now,
+                    ChronicleKind::Weather,
+                    Vec::new(),
+                    None,
+                    None,
+                    f64::from(note.flags),
+                    note.words,
+                );
+            }
         }
         self.check_buildings(ctx);
         // Households whose day it is review what they offer and on what terms.

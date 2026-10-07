@@ -105,6 +105,11 @@ the lowest height at which the kernel has snow lying. The tints are the observer
 shaded again only when the month, the soil water by tenths or the snow line by 50 m changes
 (`seasonKey`), at most every two seconds.
 
+The chronicle notes each month, winter and year whose weather on the valley floor stood out
+against what it usually brings, in the kernel's words ("October was wet and cold on the valley
+floor: 168 mm fell, 2.1 times what October usually brings; a mean of 3.5 °C, 6.0 °C below its
+usual."); the observer shows them as it shows every entry.
+
 ## Controls
 
 The speeds are 1×, 3× and 10×, then 60×, 600× and Max, the Accelerated speeds: the world lives a

@@ -102,8 +102,8 @@ use commons_persist::{SectionData, SectionTag, SnapshotReader};
 use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
-    SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, finish,
-    section, single_chunk, unreadable,
+    SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
+    finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -268,6 +268,8 @@ enum Schema {
     V23,
     /// Weather: a daily series with its record, and each growing field's water (ADR-0012).
     V24,
+    /// What stood out in the weather, in the chronicle (ADR-0012).
+    V25,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -306,7 +308,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V21 => Schema::V21,
         SCHEMA_V22 => Schema::V22,
         SCHEMA_V23 => Schema::V23,
-        SAVE_SCHEMA_VERSION => Schema::V24,
+        SCHEMA_V24 => Schema::V24,
+        SAVE_SCHEMA_VERSION => Schema::V25,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1628,7 +1631,8 @@ fn carried(
         | Schema::V21
         | Schema::V22
         | Schema::V23
-        | Schema::V24 => {
+        | Schema::V24
+        | Schema::V25 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1760,7 +1764,8 @@ fn decode_households(
             | Schema::V21
             | Schema::V22
             | Schema::V23
-            | Schema::V24 => {
+            | Schema::V24
+            | Schema::V25 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -1875,6 +1880,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::BuildingFailed => 21,
         ChronicleKind::DepositFound => 22,
         ChronicleKind::DepositPlaced => 23,
+        ChronicleKind::Weather => 24,
     }
 }
 
@@ -1903,6 +1909,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         21 => Some(ChronicleKind::BuildingFailed),
         22 => Some(ChronicleKind::DepositFound),
         23 => Some(ChronicleKind::DepositPlaced),
+        24 => Some(ChronicleKind::Weather),
         _ => None,
     }
 }

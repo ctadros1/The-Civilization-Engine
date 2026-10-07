@@ -116,6 +116,9 @@ pub const SCHEMA_V21: u32 = 21;
 pub const SCHEMA_V22: u32 = 22;
 /// The schema version of M3c slice S: worn ground kept exactly, before weather (see [`agents`]).
 pub const SCHEMA_V23: u32 = 23;
+/// The schema version of M3c slice U's first steps: weather, before the chronicle noted what
+/// stood out in it (see [`agents`]).
+pub const SCHEMA_V24: u32 = 24;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

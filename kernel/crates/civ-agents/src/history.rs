@@ -431,6 +431,11 @@ pub enum ChronicleKind {
     /// The observer laid down a deposit (the god tool, ADR-0010 §1): `place` the body, `settlement`
     /// the nearest settlement if any, and `name` what it is in words ("clay under the ground").
     DepositPlaced,
+    /// A month, a winter or a year of weather on the valley floor stood out against what it
+    /// usually brings (ADR-0012): `number` says what stood out ([`civ_land::weather::stood_out`]
+    /// flags) and `name` says it in words ("October was wet and cold on the valley floor: 168 mm
+    /// fell, 2.1 times what October usually brings; a mean of 3.5 °C, 6.0 °C below its usual.").
+    Weather,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -798,6 +803,7 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 event.name
             ))]
         }
+        ChronicleKind::Weather => vec![Span::Text(event.name.clone())],
         ChronicleKind::FirstTrail => vec![
             Span::Text("The first trail out of ".to_owned()),
             settlement(event),

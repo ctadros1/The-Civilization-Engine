@@ -49,6 +49,9 @@ pub struct Year {
     /// ground could be worked (ADR-0012 §5).
     pub window_days: u32,
     pub workable_days: u32,
+    /// What stood out in the year's weather, as a world's chronicle notes it: its months from
+    /// the founding, the winter ending in it and the year itself.
+    pub notes: Vec<String>,
 }
 
 fn preset<'a>(
@@ -141,6 +144,25 @@ pub fn years(content: &ContentRegistry, options: &WeatherOptions) -> anyhow::Res
     for m in &w.months {
         if let Some(y) = out.iter_mut().find(|y| y.year == m.year) {
             add_month(y, m);
+        }
+    }
+    // What a world's chronicle notes on the first of each month from its founding: the record
+    // as it ended with each month (ADR-0012).
+    let start = DEFAULT_WORLD_START.day_index();
+    let from = (weather::year_of(start), weather::month_of(start));
+    let mut then = w.clone();
+    let mut notes = Vec::new();
+    for k in (1..=w.months.len()).rev() {
+        then.months.truncate(k);
+        let m = &w.months[k - 1];
+        if (m.year, usize::from(m.month)) >= from {
+            let found = then.notes(params, &climate);
+            notes.extend(found.into_iter().rev().map(|n| (m.year, n.words)));
+        }
+    }
+    for (year, words) in notes.into_iter().rev() {
+        if let Some(y) = out.iter_mut().find(|y| y.year == year) {
+            y.notes.push(words);
         }
     }
     for y in &mut out {
@@ -245,6 +267,17 @@ pub fn run(
         100.0 * climate.workable_share.first().copied().unwrap_or(1.0),
         climate.season_need_mm.first().copied().unwrap_or(0.0),
     )?;
+    writeln!(out, "what stood out, as a world's chronicle notes it:")?;
+    let mut any = false;
+    for y in &years {
+        for note in &y.notes {
+            writeln!(out, "{:>4}  {note}", y.year)?;
+            any = true;
+        }
+    }
+    if !any {
+        writeln!(out, "      nothing")?;
+    }
     Ok(())
 }
 
@@ -308,5 +341,14 @@ mod tests {
             "{workable} of {}",
             3 * window
         );
+        // What stood out, in the kernel's words, as a world's chronicle notes it: a year's own
+        // note last, after its December's.
+        for y in &a {
+            assert!(y.notes.iter().all(|n| n.contains("the valley floor")));
+            if let Some(i) = y.notes.iter().position(|n| n.starts_with("Year ")) {
+                assert_eq!(i + 1, y.notes.len(), "{:?}", y.notes);
+                assert!(y.notes[i].starts_with(&format!("Year {} was", y.year)));
+            }
+        }
     }
 }

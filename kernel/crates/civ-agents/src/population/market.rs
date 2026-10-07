@@ -572,7 +572,9 @@ impl Population {
         if sellers.is_empty() {
             return None;
         }
-        let costs = self.own_costs_of(ctx, hh);
+        // Its own costs, worked out only once an offer is worth pricing (most are not).
+        let own_costs = std::cell::OnceCell::new();
+        let costs = || own_costs.get_or_init(|| self.own_costs_of(ctx, hh));
         let holding = self.holding_of(ctx, hh, stores);
         // Food it is short of: what it keeps less what it has, by energy.
         let food = stock_kcal(stores, goods);
@@ -608,7 +610,7 @@ impl Population {
                     if need <= 0.0 || units < MIN_OFFER_TOOL - 1e-6 {
                         continue;
                     }
-                    let own = costs[g].unwrap_or(f64::INFINITY) * units;
+                    let own = costs()[g].unwrap_or(f64::INFINITY) * units;
                     (units, TradeWorth::Tool { need }, own)
                 } else if d.purpose == GoodUse::Food && d.kcal_per_kg > 0.0 {
                     if short_kcal <= 0.0 {
@@ -622,7 +624,7 @@ impl Population {
                     }
                     // Short of food before the harvest, growing more is no help now: food is
                     // worth more the shorter the household is.
-                    let own = costs[g].unwrap_or(f64::INFINITY) * (1.0 + lean) * units;
+                    let own = costs()[g].unwrap_or(f64::INFINITY) * (1.0 + lean) * units;
                     let kcal = units * d.kcal_per_kg;
                     (units, TradeWorth::Food { kcal }, own)
                 } else {
@@ -643,7 +645,7 @@ impl Population {
                 {
                     continue;
                 }
-                let Some(pay_cost) = costs.get(p).copied().flatten() else {
+                let Some(pay_cost) = costs().get(p).copied().flatten() else {
                     continue;
                 };
                 let pay_h = paid * pay_cost * holding.want.get(p).copied().unwrap_or(0.0);

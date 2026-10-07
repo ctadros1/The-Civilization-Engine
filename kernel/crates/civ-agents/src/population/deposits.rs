@@ -9,6 +9,10 @@ use super::*;
 /// reveals indications, not a body's outline, 03-05 §1.3).
 pub const FIND_M: f64 = 50.0;
 
+/// Slack on the quick test that a body lies beyond a walk's reach, metres: far more than any
+/// rounding at a map's scale.
+const BOX_MARGIN_M: f64 = 1e-3;
+
 /// A settlement's knowledge of a deposit: who found it, and when.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DepositKnown {
@@ -59,10 +63,31 @@ impl Population {
             .iter()
             .map(|&(x, y)| (f64::from(x), f64::from(y)))
             .collect();
-        let near = |at: (f64, f64), reach: f64| match route.as_slice() {
-            [] => false,
-            [only] => (at.0 - only.0).hypot(at.1 - only.1) <= reach,
-            r => r.windows(2).any(|w| to_segment(at, w[0], w[1]) <= reach),
+        // A body farther than its reach from the box round a stretch of the way, along either
+        // axis, is out of reach of every point of it: the box is only a quick way to say no (the
+        // margin covers rounding in `to_segment`).
+        let span = |a: &[(f64, f64)]| {
+            a.iter().fold(
+                (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY),
+                |(x0, y0, x1, y1), &(x, y)| (x0.min(x), y0.min(y), x1.max(x), y1.max(y)),
+            )
+        };
+        let beyond = |at: (f64, f64), reach: f64, (x0, y0, x1, y1): (f64, f64, f64, f64)| {
+            let far = reach + BOX_MARGIN_M;
+            at.0 < x0 - far || at.0 > x1 + far || at.1 < y0 - far || at.1 > y1 + far
+        };
+        let whole = span(&route);
+        let near = |at: (f64, f64), reach: f64| {
+            if beyond(at, reach, whole) {
+                return false;
+            }
+            match route.as_slice() {
+                [] => false,
+                [only] => (at.0 - only.0).hypot(at.1 - only.1) <= reach,
+                r => r
+                    .windows(2)
+                    .any(|w| !beyond(at, reach, span(w)) && to_segment(at, w[0], w[1]) <= reach),
+            }
         };
         let found: Vec<(PermanentId, u16, (f64, f64))> = ctx
             .land

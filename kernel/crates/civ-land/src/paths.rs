@@ -182,6 +182,9 @@ pub struct Wear {
     surveyed: i64,
     view_slot: Vec<u32>,
     view: Vec<u8>,
+    /// The view again, a byte per cell of the map row by row, for [`Wear::factor`]: a route
+    /// search asks it for every cell it looks at.
+    view_cells: Vec<u8>,
     view_max: u8,
     /// Per tile of the view, in order: its index and trail bits as surveyed.
     view_index: Vec<u32>,
@@ -260,6 +263,7 @@ impl Wear {
             trail.resize(words, 0);
             self.view_trail.extend_from_slice(&trail);
         }
+        self.spread_view();
         self.trails = self.trace();
         self.surveyed = surveyed;
         self.rev = self.rev.wrapping_add(1);
@@ -393,6 +397,7 @@ impl Wear {
                 self.view.push(v);
             }
         }
+        self.spread_view();
         self.trails = self.trace();
         self.surveyed = day;
         self.rev = self.rev.wrapping_add(1);
@@ -400,12 +405,36 @@ impl Wear {
 
     /// How worn `cell` was at the last survey, 0–1: the trail factor routes are planned with.
     pub fn factor(&self, cell: usize) -> f32 {
-        let (t, local) = self.locate(cell);
-        match self.view_slot.get(t as usize) {
-            Some(&s) if s != u32::MAX => {
-                f32::from(self.view[s as usize * TILE_CELLS + local]) / 255.0
+        self.view_cells
+            .get(cell)
+            .map_or(0.0, |&v| f32::from(v) / 255.0)
+    }
+
+    /// Lays the view's tiles out a byte per cell of the map ([`Wear::factor`]).
+    fn spread_view(&mut self) {
+        let (w, h) = (self.width as usize, self.height as usize);
+        self.view_cells.clear();
+        self.view_cells.resize(w * h, 0);
+        let tile = TILE as usize;
+        for (k, &index) in self.view_index.iter().enumerate() {
+            let (tx, ty) = (
+                index as usize % self.tiles_x as usize,
+                index as usize / self.tiles_x as usize,
+            );
+            let cells = &self.view[k * TILE_CELLS..(k + 1) * TILE_CELLS];
+            for ly in 0..tile {
+                let y = ty * tile + ly;
+                if y >= h {
+                    break;
+                }
+                let x0 = tx * tile;
+                if x0 >= w {
+                    break;
+                }
+                let n = tile.min(w - x0);
+                self.view_cells[y * w + x0..y * w + x0 + n]
+                    .copy_from_slice(&cells[ly * tile..ly * tile + n]);
             }
-            _ => 0.0,
         }
     }
 

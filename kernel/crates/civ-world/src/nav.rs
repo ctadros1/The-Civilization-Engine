@@ -15,6 +15,7 @@
 use std::cell::RefCell;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use civ_core::FastMap;
 
@@ -57,6 +58,9 @@ impl NavParams {
 /// cells, 0 where people cannot walk. Rebuilt on load.
 #[derive(Clone, Debug)]
 pub struct NavGrid {
+    /// Unique to the grid (a copy shares it, as it shares the ground): what [`StepSpeeds`] are
+    /// kept for.
+    id: u64,
     width: usize,
     height: usize,
     cell_m: f64,
@@ -161,29 +165,34 @@ impl Scores for FastMap<u32, (f32, u32)> {
     }
 }
 
-/// [`Scores`] over the whole grid in flat arrays, kept on a thread between searches and cleared
-/// lazily by a generation stamp, so a search allocates nothing (research 01-08 §7: reusable
-/// search scratch).
+/// One cell's entry in [`DenseScores`]: the search that wrote it, its best time and the cell it
+/// came from, side by side so a look-up touches one place in memory.
+#[derive(Clone, Copy, Default)]
+struct Score {
+    stamp: u32,
+    g: f32,
+    parent: u32,
+}
+
+/// [`Scores`] over the whole grid in one flat array, kept on a thread between searches and
+/// cleared lazily by a generation stamp, so a search allocates nothing (research 01-08 §7:
+/// reusable search scratch).
 #[derive(Default)]
 struct DenseScores {
     generation: u32,
-    stamp: Vec<u32>,
-    g: Vec<f32>,
-    parent: Vec<u32>,
+    cells: Vec<Score>,
 }
 
 impl DenseScores {
-    /// Readies the arrays for a new search over `cells` cells.
+    /// Readies the array for a new search over `cells` cells.
     fn begin(&mut self, cells: usize) {
-        if self.stamp.len() != cells {
-            self.stamp = vec![0; cells];
-            self.g = vec![0.0; cells];
-            self.parent = vec![0; cells];
+        if self.cells.len() != cells {
+            self.cells = vec![Score::default(); cells];
             self.generation = 0;
         }
         self.generation = self.generation.wrapping_add(1);
         if self.generation == 0 {
-            self.stamp.fill(0);
+            self.cells.fill(Score::default());
             self.generation = 1;
         }
     }
@@ -191,17 +200,48 @@ impl DenseScores {
 
 impl Scores for DenseScores {
     fn get(&self, cell: u32) -> Option<(f32, u32)> {
-        let i = cell as usize;
-        (self.stamp[i] == self.generation).then(|| (self.g[i], self.parent[i]))
+        let s = self.cells[cell as usize];
+        (s.stamp == self.generation).then_some((s.g, s.parent))
     }
 
     fn set(&mut self, cell: u32, g: f32, parent: u32) {
-        let i = cell as usize;
-        self.stamp[i] = self.generation;
-        self.g[i] = g;
-        self.parent[i] = parent;
+        self.cells[cell as usize] = Score {
+            stamp: self.generation,
+            g,
+            parent,
+        };
     }
 }
+
+/// Tobler's speed on each step from a cell to its eight neighbours, m/s on a trail, worked out
+/// the first time a search or travel field takes the step and kept: the ground under a grid does
+/// not change, and the value is the same arithmetic [`NavGrid::step_seconds`] does, so routes and
+/// travel times come out bit for bit as without it. 0 marks a step not yet worked out (no
+/// walkable step is that slow) and a negative value one that cannot be walked. Kept per thread
+/// for the grid and the elevation it was filled from; its pages are only committed where
+/// searches go.
+#[derive(Default)]
+struct StepSpeeds {
+    grid: u64,
+    elevation: usize,
+    cells: usize,
+    speed: Vec<f64>,
+}
+
+impl StepSpeeds {
+    /// Readies the table for `grid` over `elevation`, emptying it if it was another's.
+    fn ready(&mut self, grid: &NavGrid, elevation: &[f32]) {
+        let cells = grid.width * grid.height;
+        let key = (grid.id, elevation.as_ptr() as usize, cells);
+        if (self.grid, self.elevation, self.cells) != key || self.speed.len() != cells * 8 {
+            (self.grid, self.elevation, self.cells) = key;
+            self.speed = vec![0.0; cells * 8];
+        }
+    }
+}
+
+/// Each grid's id, for [`StepSpeeds`].
+static NEXT_GRID_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Grids up to this many cells (a 2048² map) search with [`DenseScores`], about 12 bytes a cell;
 /// larger ones with a map of the cells reached.
@@ -209,6 +249,7 @@ const DENSE_SCORES_MAX_CELLS: usize = 1 << 22;
 
 thread_local! {
     static DENSE_SCORES: RefCell<DenseScores> = RefCell::new(DenseScores::default());
+    static STEP_SPEEDS: RefCell<StepSpeeds> = RefCell::new(StepSpeeds::default());
 }
 
 /// A cell on the open list with its scores, packed into one integer that orders as the list
@@ -256,6 +297,7 @@ impl NavGrid {
             }
         }
         NavGrid {
+            id: NEXT_GRID_ID.fetch_add(1, Ordering::Relaxed),
             width: map.width as usize,
             height: map.height as usize,
             cell_m: f64::from(map.cell_size_m),
@@ -284,8 +326,14 @@ impl NavGrid {
         dist_cells: f64,
         trail: f32,
     ) -> Option<f32> {
-        let ground = f64::from(self.ground[to]);
-        if ground <= 0.0 {
+        let tobler = self.step_speed(elevation, from, to, dist_cells)?;
+        Some(self.seconds_at(tobler, to, dist_cells, trail))
+    }
+
+    /// Tobler's speed on the step from `from` to its neighbour `to`, m/s on a trail; `None` if
+    /// the step cannot be walked.
+    fn step_speed(&self, elevation: &[f32], from: usize, to: usize, dist_cells: f64) -> Option<f64> {
+        if f64::from(self.ground[to]) <= 0.0 {
             return None;
         }
         let run = dist_cells * self.cell_m;
@@ -294,10 +342,59 @@ impl NavGrid {
         if slope.abs() > self.params.max_slope {
             return None;
         }
+        Some(self.params.tobler_ms(slope))
+    }
+
+    /// Seconds for a walkable step into `to` at Tobler's speed `tobler` (from
+    /// [`NavGrid::step_speed`]), given the trail factor of `to`.
+    fn seconds_at(&self, tobler: f64, to: usize, dist_cells: f64, trail: f32) -> f32 {
+        let run = dist_cells * self.cell_m;
         let surface = self.params.offtrail_factor
             + (1.0 - self.params.offtrail_factor) * f64::from(trail.clamp(0.0, 1.0));
-        let speed = self.params.tobler_ms(slope) * surface * ground;
-        Some((run / speed) as f32)
+        let speed = tobler * surface * f64::from(self.ground[to]);
+        (run / speed) as f32
+    }
+
+    /// [`NavGrid::step_speed`] for the step from `from` in direction `k` of [`D8`] to `to`, kept
+    /// in `speeds` (a [`StepSpeeds`] table, or empty to work it out each time).
+    fn kept_speed(
+        &self,
+        speeds: &mut [f64],
+        elevation: &[f32],
+        (from, k, to): (usize, usize, usize),
+        dist_cells: f64,
+    ) -> Option<f64> {
+        match speeds.get_mut(from * 8 + k) {
+            Some(kept) => {
+                if *kept == 0.0 {
+                    *kept = self
+                        .step_speed(elevation, from, to, dist_cells)
+                        .unwrap_or(-1.0);
+                }
+                (*kept > 0.0).then_some(*kept)
+            }
+            None => self.step_speed(elevation, from, to, dist_cells),
+        }
+    }
+
+    /// Runs `f` with the thread's [`StepSpeeds`] for this grid over `elevation`, or with no
+    /// table on a grid too large for one or from inside another search.
+    fn with_speeds<R>(&self, elevation: &[f32], f: impl FnOnce(&mut [f64]) -> R) -> R {
+        let n = self.width * self.height;
+        if n > DENSE_SCORES_MAX_CELLS || elevation.len() < n {
+            return f(&mut []);
+        }
+        let mut f = Some(f);
+        let kept = STEP_SPEEDS.with(|t| {
+            t.try_borrow_mut().ok().map(|mut t| {
+                t.ready(self, elevation);
+                (f.take().expect("not yet run"))(&mut t.speed)
+            })
+        });
+        match kept {
+            Some(r) => r,
+            None => (f.take().expect("not yet run"))(&mut []),
+        }
     }
 
     /// Seconds to walk straight from `from` to `to` at `speed`, an underestimate of any route
@@ -307,19 +404,6 @@ impl NavGrid {
         let (tx, ty) = ((to % self.width) as f64, (to / self.width) as f64);
         let dist = ((fx - tx).powi(2) + (fy - ty).powi(2)).sqrt() * self.cell_m;
         (dist / speed) as f32
-    }
-
-    fn neighbours(&self, i: usize) -> impl Iterator<Item = (usize, f64)> + '_ {
-        let (w, h) = (self.width as i64, self.height as i64);
-        let (x, y) = ((i % self.width) as i64, (i / self.width) as i64);
-        D8.iter().zip(D8_DIST).filter_map(move |(&(dx, dy), dist)| {
-            let (nx, ny) = (x + i64::from(dx), y + i64::from(dy));
-            if nx < 0 || ny < 0 || nx >= w || ny >= h {
-                None
-            } else {
-                Some(((ny * w + nx) as usize, dist))
-            }
-        })
     }
 
     /// The fastest route from `from` to `to` (A*). `trail` gives the trail factor (0–1) of a
@@ -361,28 +445,32 @@ impl NavGrid {
                 seconds: vec![0.0],
             });
         }
-        let search =
-            |best: &mut dyn Scores| self.search(elevation, from, to, trail, fastest, budget, best);
-        if n <= DENSE_SCORES_MAX_CELLS {
-            // A search started from inside another on this thread (none does today) gets its
-            // own arrays.
-            let shared = DENSE_SCORES.with(|d| {
-                d.try_borrow_mut().ok().map(|mut d| {
-                    d.begin(n);
-                    search(&mut *d)
-                })
-            });
-            if let Some(found) = shared {
-                return found;
+        self.with_speeds(elevation, |speeds| {
+            let mut search = |best: &mut dyn Scores| {
+                self.search(elevation, from, to, trail, fastest, budget, best, speeds)
+            };
+            if n <= DENSE_SCORES_MAX_CELLS {
+                // A search started from inside another on this thread (none does today) gets
+                // its own arrays.
+                let shared = DENSE_SCORES.with(|d| {
+                    d.try_borrow_mut().ok().map(|mut d| {
+                        d.begin(n);
+                        search(&mut *d)
+                    })
+                });
+                if let Some(found) = shared {
+                    return found;
+                }
+                let mut own = DenseScores::default();
+                own.begin(n);
+                return search(&mut own);
             }
-            let mut own = DenseScores::default();
-            own.begin(n);
-            return search(&mut own);
-        }
-        search(&mut FastMap::default())
+            search(&mut FastMap::default())
+        })
     }
 
-    /// The A* search of [`NavGrid::route_bounded`], keeping its scores in `best`.
+    /// The A* search of [`NavGrid::route_bounded`], keeping its scores in `best` and Tobler's
+    /// speeds in `speeds` ([`NavGrid::kept_speed`]).
     #[allow(clippy::too_many_arguments)]
     fn search(
         &self,
@@ -393,7 +481,9 @@ impl NavGrid {
         fastest: f64,
         budget: usize,
         best: &mut dyn Scores,
+        speeds: &mut [f64],
     ) -> RouteResult {
+        let (w, h) = (self.width as i64, self.height as i64);
         let mut open = BinaryHeap::new();
         best.set(from as u32, 0.0, u32::MAX);
         open.push(Open::new(
@@ -415,11 +505,17 @@ impl NavGrid {
             if expanded > budget {
                 return RouteResult::BudgetExhausted;
             }
-            for (j, dist) in self.neighbours(i) {
-                let Some(step) = self.step_seconds(elevation, i, j, dist, trail(j)) else {
+            let (x, y) = ((i % self.width) as i64, (i / self.width) as i64);
+            for (k, (&(dx, dy), dist)) in D8.iter().zip(D8_DIST).enumerate() {
+                let (nx, ny) = (x + i64::from(dx), y + i64::from(dy));
+                if nx < 0 || ny < 0 || nx >= w || ny >= h {
+                    continue;
+                }
+                let j = (ny * w + nx) as usize;
+                let Some(tobler) = self.kept_speed(speeds, elevation, (i, k, j), dist) else {
                     continue;
                 };
-                let ng = g + step;
+                let ng = g + self.seconds_at(tobler, j, dist, trail(j));
                 let better = best.get(j as u32).is_none_or(|(bg, _)| ng < bg);
                 if better {
                     best.set(j as u32, ng, cell);
@@ -460,8 +556,27 @@ impl NavGrid {
             seconds: Vec::new(),
             reached: Vec::new(),
         };
-        let bw = field.w;
-        field.seconds = vec![f32::INFINITY; bw * field.h];
+        field.seconds = vec![f32::INFINITY; field.w * field.h];
+        self.with_speeds(elevation, |speeds| {
+            self.fill_field(elevation, from, max_seconds, trail, &mut field, speeds);
+        });
+        field
+    }
+
+    /// The Dijkstra search of [`NavGrid::travel_field`] over `field`'s box, keeping Tobler's
+    /// speeds in `speeds` ([`NavGrid::kept_speed`]).
+    fn fill_field(
+        &self,
+        elevation: &[f32],
+        from: usize,
+        max_seconds: f32,
+        trail: &dyn Fn(usize) -> f32,
+        field: &mut TravelField,
+        speeds: &mut [f64],
+    ) {
+        let (x0, y0, bw) = (field.x0, field.y0, field.w);
+        let (x1, y1) = (x0 + field.w - 1, y0 + field.h - 1);
+        let (fx, fy) = (from % self.width, from / self.width);
         // Each cell's trail factor, asked once.
         let mut trails = vec![f32::NAN; bw * field.h];
         // Cells whose time is final: none is reached sooner from a cell reached later.
@@ -482,7 +597,7 @@ impl NavGrid {
             }
             done[si] = true;
             field.reached.push(cell);
-            for (&(dx, dy), dist) in D8.iter().zip(D8_DIST) {
+            for (d, (&(dx, dy), dist)) in D8.iter().zip(D8_DIST).enumerate() {
                 let (nx, ny) = (x as i64 + i64::from(dx), y as i64 + i64::from(dy));
                 if nx < x0 as i64 || ny < y0 as i64 || nx > x1 as i64 || ny > y1 as i64 {
                     continue;
@@ -494,13 +609,13 @@ impl NavGrid {
                 if done[sj] {
                     continue;
                 }
+                let Some(tobler) = self.kept_speed(speeds, elevation, (i, d, j), dist) else {
+                    continue;
+                };
                 if trails[sj].is_nan() {
                     trails[sj] = trail(j);
                 }
-                let Some(step) = self.step_seconds(elevation, i, j, dist, trails[sj]) else {
-                    continue;
-                };
-                let ng = g + step;
+                let ng = g + self.seconds_at(tobler, j, dist, trails[sj]);
                 if ng > max_seconds || ng >= field.seconds[sj] {
                     continue;
                 }
@@ -508,7 +623,6 @@ impl NavGrid {
                 open.push(key(ng, j as u32));
             }
         }
-        field
     }
 
     /// Ground height at a point, metres: bilinear between cell centres.
@@ -914,6 +1028,41 @@ mod tests {
             }
         }
         assert!(checked > 20);
+    }
+
+    #[test]
+    fn kept_step_speeds_give_the_times_each_step_takes() {
+        let mut map = flat(48, 48);
+        let mut rng = civ_core::Rng64::seed_from_u64(5);
+        for (i, z) in map.elevation.iter_mut().enumerate() {
+            *z = (i % 48) as f32 * 0.9 + (rng.next_f64() as f32) * 4.0;
+        }
+        let trail = |c: usize| ((c * 7) % 11) as f32 / 10.0;
+        let (a, b) = (3 * 48 + 2, 44 * 48 + 45);
+        // A fresh grid fills its table; the second search reads it; a second grid starts anew.
+        let nav = NavGrid::new(&map, params());
+        let first = nav.route(&map.elevation, a, b, &trail, 1_000_000);
+        let again = nav.route(&map.elevation, a, b, &trail, 1_000_000);
+        let other = NavGrid::new(&map, params()).route(&map.elevation, a, b, &trail, 1_000_000);
+        assert_eq!(first, again);
+        assert_eq!(first, other);
+        let RouteResult::Found(r) = first else {
+            panic!("a route across open ground");
+        };
+        // Each time is the one before plus the step as `step_seconds` works it out, exactly.
+        for k in 1..r.cells.len() {
+            let (i, j) = (r.cells[k - 1] as usize, r.cells[k] as usize);
+            let diagonal = i % 48 != j % 48 && i / 48 != j / 48;
+            let dist = if diagonal { std::f64::consts::SQRT_2 } else { 1.0 };
+            let step = nav
+                .step_seconds(&map.elevation, i, j, dist, trail(j))
+                .expect("a walked step can be walked");
+            assert_eq!(r.seconds[k].to_bits(), (r.seconds[k - 1] + step).to_bits());
+        }
+        // A travel field gives the same time to the goal.
+        let field = nav.travel_field(&map.elevation, a, f32::MAX, &trail);
+        let exact = field.seconds_to(b).expect("reached");
+        assert!((r.total_seconds() - exact).abs() <= 1e-3 * exact);
     }
 
     #[test]

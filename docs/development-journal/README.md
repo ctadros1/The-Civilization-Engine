@@ -4,7 +4,7 @@ This folder explains how TCE has been built, how its current simulation works, a
 
 ## Source baseline
 
-These pages describe the public `main` tree at commit [`fad23fa`](https://github.com/ctadros1/The-Civilization-Engine/commit/fad23fa), merged on 2026-10-04. Its current development point is M3b, with the first deposit-placement primitive started in slice Q. Treat claims about implementation as belonging to that source baseline. Later commits may change the code or milestone status; check the current source and plan before relying on a detail.
+These pages describe the development branch `claude/adoring-turing-w10ius` at commit [`8f4ac31`](https://github.com/ctadros1/The-Civilization-Engine/commit/8f4ac31), 2026-10-07. At that commit M3b (knowledge and building) is implemented, M3c slices S (the speeds and the day step) and T (the fifty-year dashboard) are implemented, and slice U (weather) is under way. The journal was first written against the public `main` tree at [`fad23fa`](https://github.com/ctadros1/The-Civilization-Engine/commit/fad23fa) (2026-10-04), when slice Q had only its deposit-placement primitive; the [development history](development-history.md) records what has landed since. Treat claims about implementation as belonging to this source baseline. Later commits may change the code or milestone status; check the current source and plan before relying on a detail.
 
 ## Read by question
 
@@ -12,9 +12,9 @@ These pages describe the public `main` tree at commit [`fad23fa`](https://github
 | --- | --- |
 | [Development history](development-history.md) | How the project moved from plan to a working village simulation, milestone by milestone |
 | [Architecture and data flow](architecture-and-data-flow.md) | Processes, crates, authority boundaries, content loading, commands, queries and observers |
-| [Simulation model](simulation-model.md) | Time, terrain, people, decisions, households, economy, buildings and knowledge |
+| [Simulation model](simulation-model.md) | Time and speeds, terrain, weather, people, decisions, households, economy, buildings and knowledge |
 | [Persistence and interfaces](persistence-and-interfaces.md) | Content fingerprints, saves, wire frames, generated schemas and the C ABI |
-| [Development and evidence practice](development-and-evidence.md) | Milestone workflow, CI, smoke worlds, results, limitations and how to extend this journal |
+| [Development and evidence practice](development-and-evidence.md) | Milestone workflow, CI, smoke worlds and the fifty-year dashboard, results, limitations and how to extend this journal |
 
 ## Keeping it current
 

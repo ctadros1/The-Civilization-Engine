@@ -10,7 +10,7 @@ content/core/*.toml ──► civ-content ──► ContentRegistry
 NewWorld command ──► civ-host ──► civ-sim::Sim
                                      │       ├─ civ-core: ids, time, scheduler, RNG
                                      │       ├─ civ-world: seeded terrain and water
-                                     │       ├─ civ-land: mutable land and buildings
+                                     │       ├─ civ-land: mutable land, weather and buildings
                                      │       └─ civ-agents: people, decisions, work, economy
                                      │
                                      ├─ save sections ──► commons-persist ──► saves/<world>/
@@ -28,12 +28,12 @@ The web and future Unreal surfaces are clients. They can ask questions and submi
 | `civ-core` | Simulation time, calendar, entity handles, permanent IDs, keyed RNG and event/cadence scheduler |
 | `civ-world` | Pure seeded terrain, hydrology, lakes, rivers, terrain metrics and navigation grids |
 | `civ-grammar` | Pure expansion from a saved building design to geometry marks, components, spaces and staged material/labor needs |
-| `civ-land` | Mutable land: habitat stocks, settlements, fields, plots, buildings, worn ground and the started deposit placement primitive |
+| `civ-land` | Mutable land: habitat stocks, the daily weather and soil water, settlements, fields and their water, plots, buildings, worn ground, deposits, and earthworks with their changes to the ground |
 | `civ-agents` | People, households, needs, choices, activities, trips, births, deaths, work, goods, markets, firms, knowledge and building behavior |
 | `civ-content` | Strict TOML parsing, cross-reference and range validation, diagnostics, and immutable compiled registry |
 | `civ-schema` | FlatBuffers boundary/save definitions and generated Rust types |
 | `civ-sim` | World composition, operations, boundary payload construction and save/load migrations |
-| `civ-host` | Command line, worker thread, localhost WebSocket server, autosave/recovery and smoke checks |
+| `civ-host` | Command line, worker thread, localhost WebSocket server, autosave/recovery, smoke checks, the fifty-year dashboard (`civ-host dashboard`) and weather replay (`civ-host weather`) |
 | `civ-ffi` | One exported entry point returning the versioned C function table for an external host |
 | `web/` | Browser observer: map, panels, dialogs, state and network client |
 | `commons/` | Engine-neutral frame envelope, checksummed snapshot container, and header-only C++ readers |
@@ -46,19 +46,19 @@ The dependency structure is layered rather than one strict chain. `civ-core`, `c
 2. The observer sends `NewWorld` with a seed, preset, size, name and optional founding-band/regime choices.
 3. The host loads and validates the TOML content pack into a `ContentRegistry`. Invalid content yields diagnostics and cannot produce a registry.
 4. `civ-sim` invokes `civ-world` to create terrain and hydrology from the seed and preset. World generation is pure for a given build and input. The resulting map is retained; ongoing simulation does not regenerate it.
-5. `civ-land` and `civ-agents` initialize mutable stocks, the settlement and its people. The kernel publishes initial metadata, snapshot and event frames for observers.
+5. `civ-land` and `civ-agents` initialize mutable stocks, the settlement and its people. Once the founding band has arrived, the world lays down its deposits from the seed. The weather's long-run harvest mean for the landscape is computed when a world is made or loaded; it is derived, never saved. The kernel publishes initial metadata, snapshot and event frames for observers.
 
 New worlds use 8 m simulation cells. The default is 2,048 cells per side (16 km); smaller sizes support rapid iteration. The clock begins on 1 March, year 1, at 06:00. Generation parameters and content fingerprints are kept with world metadata; the generated terrain itself is saved.
 
 ## Running and exchanging data
 
-The host owns the simulation worker. While running, `civ-host::Engine` receives commands and queries, advances `Sim`, schedules autosaves, and publishes updates. A user command changes kernel state only after validation and execution in the host/kernel path.
+The host owns the simulation worker. While running, `civ-host::Engine` receives commands and queries, advances `Sim`, schedules autosaves, and publishes updates. At Detailed speeds (1×, 3×, 10×) the clock may stop at any minute; at Accelerated speeds (60×, 600×, Max) the host lives whole days, and the clock stops, publishes and saves only at midnight ([ADR-0011](../../decisions/0011-execution-modes.md)). A user command changes kernel state only after validation and execution in the host/kernel path.
 
 The observer uses one TypeScript network module to encode commands and queries, decode responses, and maintain a client state store. The map and panels display received facts. They do not invent prices, household decisions, field states or building dimensions. Pure display helpers turn kernel facts into labels and shapes.
 
 Frame delivery has two paths:
 
-- **Web:** `civ-host` accepts a local WebSocket connection from the same origin. A handshake establishes schema identity and a world epoch. Snapshot frames are replaceable; ordered events, replies and errors use the frame stream.
+- **Web:** `civ-host` accepts a local WebSocket connection from the same origin. A handshake establishes schema identity and a world epoch. Snapshot frames are replaceable; ordered events, replies and errors use the frame stream. Accelerated frames come at midnights and show nobody on a trip, so observers hold the clock and walkers still between them rather than carry them on.
 - **C ABI:** `civ-ffi` exposes `tce_get_api`, which returns a versioned table. Callers submit byte frames, poll ordered frames, and copy the newest snapshot into their own buffers. The interface does not lend Rust memory or call back into the host.
 
 The C ABI lets a future Unreal plugin load and drive the kernel. It does not mean the plugin, terrain renderer, building assembler, HUD or packaged Unreal build exists yet. See [ADR-0005](../../decisions/0005-kernel-c-interface.md).

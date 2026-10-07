@@ -15,6 +15,7 @@ import { GetMarkets } from '../../tce/wire/get-markets.js';
 import { GetPaths } from '../../tce/wire/get-paths.js';
 import { GetPerson } from '../../tce/wire/get-person.js';
 import { GetRaster } from '../../tce/wire/get-raster.js';
+import { GetStanding } from '../../tce/wire/get-standing.js';
 import { GetTrips } from '../../tce/wire/get-trips.js';
 import { GetWealth } from '../../tce/wire/get-wealth.js';
 import { GetWeather } from '../../tce/wire/get-weather.js';
@@ -39,13 +40,14 @@ export enum QueryBody {
   GetKnowledge = 14,
   GetDeposits = 15,
   GetEarthworks = 16,
-  GetWeather = 17
+  GetWeather = 17,
+  GetStanding = 18
 }
 
 export function unionToQueryBody(
   type: QueryBody,
-  accessor: (obj:GetBuildings|GetChronicle|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|GetWeather|ListSaves) => GetBuildings|GetChronicle|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|GetWeather|ListSaves|null
-): GetBuildings|GetChronicle|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|GetWeather|ListSaves|null {
+  accessor: (obj:GetBuildings|GetChronicle|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetStanding|GetTrips|GetWealth|GetWeather|ListSaves) => GetBuildings|GetChronicle|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetStanding|GetTrips|GetWealth|GetWeather|ListSaves|null
+): GetBuildings|GetChronicle|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetStanding|GetTrips|GetWealth|GetWeather|ListSaves|null {
   switch(QueryBody[type]) {
     case 'NONE': return null; 
     case 'GetRaster': return accessor(new GetRaster())! as GetRaster;
@@ -65,15 +67,16 @@ export function unionToQueryBody(
     case 'GetDeposits': return accessor(new GetDeposits())! as GetDeposits;
     case 'GetEarthworks': return accessor(new GetEarthworks())! as GetEarthworks;
     case 'GetWeather': return accessor(new GetWeather())! as GetWeather;
+    case 'GetStanding': return accessor(new GetStanding())! as GetStanding;
     default: return null;
   }
 }
 
 export function unionListToQueryBody(
   type: QueryBody, 
-  accessor: (index: number, obj:GetBuildings|GetChronicle|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|GetWeather|ListSaves) => GetBuildings|GetChronicle|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|GetWeather|ListSaves|null, 
+  accessor: (index: number, obj:GetBuildings|GetChronicle|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetStanding|GetTrips|GetWealth|GetWeather|ListSaves) => GetBuildings|GetChronicle|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetStanding|GetTrips|GetWealth|GetWeather|ListSaves|null, 
   index: number
-): GetBuildings|GetChronicle|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetTrips|GetWealth|GetWeather|ListSaves|null {
+): GetBuildings|GetChronicle|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetHydrography|GetKnowledge|GetMarkets|GetPaths|GetPerson|GetRaster|GetStanding|GetTrips|GetWealth|GetWeather|ListSaves|null {
   switch(QueryBody[type]) {
     case 'NONE': return null; 
     case 'GetRaster': return accessor(index, new GetRaster())! as GetRaster;
@@ -93,6 +96,7 @@ export function unionListToQueryBody(
     case 'GetDeposits': return accessor(index, new GetDeposits())! as GetDeposits;
     case 'GetEarthworks': return accessor(index, new GetEarthworks())! as GetEarthworks;
     case 'GetWeather': return accessor(index, new GetWeather())! as GetWeather;
+    case 'GetStanding': return accessor(index, new GetStanding())! as GetStanding;
     default: return null;
   }
 }

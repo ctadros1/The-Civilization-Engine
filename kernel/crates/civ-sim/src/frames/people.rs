@@ -872,6 +872,11 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.pos = Some(&pos);
         args.partner = p.partner.map_or(0, PermanentId::get);
         args.family = Some(notes);
+        args.ties = Some(super::standing::tie_lines(&mut fbb, sim, p));
+        args.standing = pop
+            .standing
+            .of(p.id)
+            .map(|r| super::standing::standing_line(&mut fbb, sim, r));
     }
     let body = wire::PersonInfo::create(&mut fbb, &args);
     Ok(response(fbb, wire::ResponseBody::PersonInfo, body))

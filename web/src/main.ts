@@ -6,7 +6,7 @@ import "./styles.css";
 
 import { buildingWords } from "./buildings.js";
 import { depositWords } from "./deposits.js";
-import { formatDistance } from "./format.js";
+import { formatDistance, simDate } from "./format.js";
 import { MapView, type PointerInfo } from "./map/view.js";
 import { tenureText } from "./fields.js";
 import { pathWords } from "./paths.js";
@@ -74,6 +74,7 @@ const client = new HostClient(socketUrl(), {
     void syncWealth();
     void syncWeather();
     void syncKnowledge();
+    void syncStanding();
     void syncDeposits();
     void syncEarthworks();
     void refreshPerson(false);
@@ -540,6 +541,43 @@ async function syncWeather(): Promise<void> {
   if (ok) void syncWeather();
 }
 
+/** `world:year-month` of the standing shown, and the world it belongs to. */
+let standingKey = "";
+let standingWorld = "";
+let standingBusy = false;
+
+/**
+ * Fetches each settlement's standing once a month: the kernel works it out on the first of each
+ * month (ADR-0014 §3), so a new month is when it can have changed.
+ */
+async function syncStanding(): Promise<void> {
+  const s = store.state;
+  const world = s.snapshot?.world;
+  const clock = s.snapshot?.clock;
+  if (!world || !clock) return;
+  const worldKey = world.worldId;
+  if (worldKey !== standingWorld) {
+    standingWorld = worldKey;
+    standingKey = "";
+    store.update({ standing: null, standingError: null });
+  }
+  const d = simDate(clock.minute);
+  const key = `${worldKey}:${d.year}-${d.month}`;
+  if (key === standingKey || standingBusy) return;
+  standingBusy = true;
+  try {
+    const standing = await client.standing();
+    if (standingWorld === worldKey) {
+      standingKey = key;
+      store.update({ standing, standingError: null });
+    }
+  } catch (e) {
+    if (standingWorld === worldKey) store.update({ standingError: errorText(e) });
+  } finally {
+    standingBusy = false;
+  }
+}
+
 /** `world:revision` of the knowledge shown, the world it belongs to, and when it was asked for. */
 let knowledgeKey = "";
 let knowledgeWorld = "";
@@ -863,6 +901,19 @@ const hooks = {
             today: s.weather.today?.words ?? null,
             snowLineM: s.weather.today?.snowLineM ?? null,
             annualMm: s.weather.annualMm,
+          }
+        : null,
+      standing: s.standing
+        ? {
+            minute: s.standing.minute,
+            ties: s.standing.ties,
+            letGo: s.standing.letGo,
+            settlements: s.standing.settlements.map((x) => ({
+              name: x.name,
+              adults: x.adults,
+              notables: x.rows.filter((r) => r.notable).map((r) => r.name),
+              rows: x.rows.length,
+            })),
           }
         : null,
       knowledge: s.knowledge

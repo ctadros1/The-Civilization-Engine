@@ -1317,6 +1317,8 @@ pub struct PeopleParams {
     pub midden: MiddenParams,
     /// Ties between people (M4a slice Y, ADR-0014).
     pub ties: crate::ties::TieParams,
+    /// Standing and notables (M4a slice Y, ADR-0014 §3-4).
+    pub standing: crate::standing::StandingParams,
     /// Names.
     pub names: NameParams,
 }

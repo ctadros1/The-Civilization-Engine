@@ -451,6 +451,10 @@ salience_per_evidence = 0.1
 # from those one knows, the better known the likelier (04-04 §1.5: people keep up the ties that
 # matter; §2.2 proposes 5-20 % of new encounters come by introduction).
 new_share = 0.15
+# Minutes further a household short of food walks to ask someone its members regard (esteem and
+# warmth together, up to 1) than a stranger, among those who could give it as much (04-06 §1.6:
+# kin, community and strangers start from different priors; the figure is a tuning value).
+ask_known_min = 30.0
 # What each act writes into its holder's tie, for each act or, at the hearth and in learning, each
 # hour. `familiarity` and `warmth` close that share of the gap to 1; `good` and `bad` add evidence
 # in `domain` (04-04 §1.6: help gives trust and obligation, skilled work respect, repeated
@@ -466,3 +470,13 @@ acts = [
   { act = "learned_from", familiarity = 0.02, warmth = 0.005, domain = "craft", good = 0.1, bad = 0.0 },
   { act = "hearth", familiarity = 0.1, warmth = 0.01, domain = "none", good = 0.0, bad = 0.0 },
 ]
+
+[standing]                       # standing and notables (ADR-0014 §3-4); tuning values
+# How many people each adult counts among those they esteem most (04-11 §2.4: 4-12 candidates).
+candidates = 8
+# Notables: the share of a settlement's adults who deliberate weekly (plan §4.2: about 1 %), at
+# least `notable_floor` of them, each keeping the place while ranked within `notable_keep` times
+# their number (04-11 §5.7: display hysteresis). A compute tier only: being one grants nothing.
+notable_share = 0.01
+notable_floor = 3
+notable_keep = 1.5

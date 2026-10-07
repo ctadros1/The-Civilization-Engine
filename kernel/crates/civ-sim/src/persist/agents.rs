@@ -444,12 +444,18 @@ pub(super) fn decode<R: Read + Seek>(
         let bytes = single_chunk(reader, SECTION_EARTH)?;
         decode_earth(&bytes, &mut land)?;
     }
-    // Ties (schema 28); before them nobody remembered anybody.
+    // Ties (schema 28); before them nobody remembered anybody. Standing is kept beside them; a
+    // save without it works it out afresh (ADR-0014 §3).
+    let mut standing = None;
     if schema >= Schema::V28 {
         let bytes = single_chunk(reader, SECTION_TIES)?;
-        people.ties = decode_ties(&bytes)?;
+        (people.ties, standing) = decode_ties(&bytes)?;
     }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
+    match standing {
+        Some(table) => people.standing = table,
+        None => people.derive_standing(now, &rules.people),
+    }
 
     let mut problems = land.problems(map, rules.land.habitats.len(), next_id);
     problems.extend(land.wear.problems());
@@ -658,11 +664,45 @@ fn encode_ties(pop: &Population) -> Vec<u8> {
         }
     }
     let ties = fbb.create_vector(&records);
-    let root = save::Ties::create(&mut fbb, &save::TiesArgs { ties: Some(ties) });
+    let standing: Vec<save::StandingRecord> = pop
+        .standing
+        .rows
+        .iter()
+        .map(|r| {
+            save::StandingRecord::new(
+                r.person.get(),
+                r.settlement.get(),
+                r.esteem[0],
+                r.esteem[1],
+                r.esteem[2],
+                r.esteem[3],
+                r.influence,
+                r.notable,
+            )
+        })
+        .collect();
+    let standing = fbb.create_vector(&standing);
+    let root = save::Ties::create(
+        &mut fbb,
+        &save::TiesArgs {
+            ties: Some(ties),
+            standing: Some(standing),
+            standing_day: pop.standing.day,
+        },
+    );
     finish(fbb, root)
 }
 
-fn decode_ties(bytes: &[u8]) -> Result<civ_agents::ties::Ties, LoadError> {
+/// The ties of a save, and its standing if it kept one.
+fn decode_ties(
+    bytes: &[u8],
+) -> Result<
+    (
+        civ_agents::ties::Ties,
+        Option<civ_agents::standing::StandingTable>,
+    ),
+    LoadError,
+> {
     use civ_agents::ties::{Act, Reason, Tie, Ties};
     let root = flatbuffers::root::<save::Ties>(bytes).map_err(|e| unreadable(SECTION_TIES, &e))?;
     let mut by_holder: std::collections::BTreeMap<PermanentId, Vec<Tie>> = Default::default();
@@ -707,7 +747,38 @@ fn decode_ties(bytes: &[u8]) -> Result<civ_agents::ties::Ties, LoadError> {
     for (holder, held) in by_holder {
         ties.restore(holder, held);
     }
-    Ok(ties)
+    let standing = match root.standing() {
+        None => None,
+        Some(rows) => {
+            let mut table = civ_agents::standing::StandingTable {
+                day: root.standing_day(),
+                rows: Vec::with_capacity(rows.len()),
+            };
+            for r in rows.iter() {
+                let (Some(person), Some(settlement)) = (
+                    PermanentId::from_raw(r.person()),
+                    PermanentId::from_raw(r.settlement()),
+                ) else {
+                    return Err(LoadError::Malformed("a standing names nobody".to_owned()));
+                };
+                table.rows.push(civ_agents::standing::Standing {
+                    person,
+                    settlement,
+                    esteem: [
+                        r.esteem_provision(),
+                        r.esteem_craft(),
+                        r.esteem_word(),
+                        r.esteem_counsel(),
+                    ],
+                    influence: r.influence(),
+                    notable: r.notable(),
+                });
+            }
+            table.rows.sort_by_key(|r| (r.settlement, r.person));
+            Some(table)
+        }
+    };
+    Ok((ties, standing))
 }
 
 fn encode_deposits(land: &Land, pop: &Population, goods: &[&str]) -> Vec<u8> {

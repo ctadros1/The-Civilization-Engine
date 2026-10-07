@@ -369,6 +369,8 @@ pub struct Population {
     pub deposits_known: Vec<DepositKnown>,
     /// What each person remembers of others (ADR-0014).
     pub ties: crate::ties::Ties,
+    /// Each settlement's standing as worked out on the first of the month (ADR-0014 §3).
+    pub standing: crate::standing::StandingTable,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -2004,7 +2006,7 @@ impl Population {
             return None;
         }
         let reach = &self.homes.get(&field_key)?.reach;
-        let mut best: Option<GiverOption> = None;
+        let mut found: Vec<GiverOption> = Vec::new();
         for (_, x) in self.households.iter() {
             if x.id == hh.id || x.settlement != Some(settlement) {
                 continue;
@@ -2016,20 +2018,36 @@ impl Population {
             let Some(secs) = reach.seconds_to(cell_of(ctx.map, x.home)) else {
                 continue;
             };
-            let walk_min = f64::from(secs) / 60.0;
-            let better = best.is_none_or(|b| {
-                kcal > b.kcal + 1e-6 || ((kcal - b.kcal).abs() <= 1e-6 && walk_min < b.walk_min)
+            found.push(GiverOption {
+                household: x.id,
+                walk_min: f64::from(secs) / 60.0,
+                at: x.home,
+                kcal,
             });
-            if better {
-                best = Some(GiverOption {
-                    household: x.id,
-                    walk_min,
-                    at: x.home,
-                    kcal,
-                });
-            }
         }
-        best
+        // Those who could give the most; among them, the nearest once a walk is weighed against
+        // how well the household's members regard the one who stands for each (ADR-0014 §3):
+        // they would walk `ask_known_min` further to ask someone they regard fully than a
+        // stranger.
+        let most = found.iter().map(|g| g.kcal).fold(0.0, f64::max);
+        let tp = &params.ties;
+        let day = now.day_index();
+        let cost = |g: &GiverOption| {
+            let elder = self.elder_of(g.household, now, params);
+            let regard = elder.map_or(0.0, |e| {
+                hh.members
+                    .iter()
+                    .map(|&m| self.ties.regard(m, e, day, tp))
+                    .fold(0.0, f64::max)
+            });
+            g.walk_min - tp.ask_known_min * regard.clamp(0.0, 1.0)
+        };
+        found
+            .into_iter()
+            .filter(|g| g.kcal >= most - 1e-6)
+            .map(|g| (cost(&g), g))
+            .min_by(|a, b| a.0.total_cmp(&b.0))
+            .map(|(_, g)| g)
     }
 
     fn decide(&mut self, ctx: &mut Ctx, h: Handle<Person>, depth: u32) {
@@ -4499,9 +4517,11 @@ impl Population {
         // day of work and the day's first event, so a save there loses nothing.
         self.views.clear();
         self.switched.clear();
-        // On the first of each month, ties to those no longer here are let go (ADR-0014 §1).
+        // On the first of each month, ties to those no longer here are let go and standing is
+        // worked out afresh (ADR-0014 §1, §3).
         if now.date().day == 1 {
             self.prune_ties();
+            self.derive_standing(now, params);
         }
         // The season turns for every field: a sowing window passes, a crop left standing is lost.
         let day = now.day_index();

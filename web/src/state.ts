@@ -12,6 +12,7 @@ import type {
   MarketInfo,
   PersonInfo,
   Snapshot,
+  StandingInfo,
   WealthInfo,
   WeatherReport,
   Welcome,
@@ -87,6 +88,10 @@ export interface AppState {
   weather: WeatherReport | null;
   /** Why the weather could not be read. */
   weatherError: string | null;
+  /** Every settlement's standing in the world on show (null = not read yet; wire 1.26). */
+  standing: StandingInfo | null;
+  /** Why the standing could not be read. */
+  standingError: string | null;
 }
 
 export const MAX_EVENTS = 300;
@@ -120,6 +125,8 @@ export function initialState(): AppState {
     knowledgeError: null,
     weather: null,
     weatherError: null,
+    standing: null,
+    standingError: null,
   };
 }
 

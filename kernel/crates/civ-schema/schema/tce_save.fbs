@@ -1010,8 +1010,25 @@ struct TieRecord {
   reason: ubyte;
 }
 
+// Each adult's standing in their settlement as worked out on `standing_day` (ADR-0014 §3-4): the
+// esteem their settlement's other adults hold for them by domain, how many count them among those
+// they esteem most, and whether they are a notable. Saved so a load continues exactly; a save
+// without it works it out afresh.
+struct StandingRecord {
+  person: ulong;
+  settlement: ulong;
+  esteem_provision: float;
+  esteem_craft: float;
+  esteem_word: float;
+  esteem_counsel: float;
+  influence: uint;
+  notable: bool;
+}
+
 table Ties {
   ties: [TieRecord] (id: 0);
+  standing: [StandingRecord] (id: 1);
+  standing_day: long (id: 2);
 }
 
 // Section "events": the scheduler's pending events.

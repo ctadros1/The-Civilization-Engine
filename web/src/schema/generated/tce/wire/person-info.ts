@@ -9,7 +9,9 @@ import { KinLink } from '../../tce/wire/kin-link.js';
 import { KnowLine } from '../../tce/wire/know-line.js';
 import { Sex } from '../../tce/wire/sex.js';
 import { SkillLine } from '../../tce/wire/skill-line.js';
+import { StandingLine } from '../../tce/wire/standing-line.js';
 import { StoreLine } from '../../tce/wire/store-line.js';
+import { TieLine } from '../../tce/wire/tie-line.js';
 import { Vec2 } from '../../tce/wire/vec2.js';
 
 
@@ -285,8 +287,23 @@ householdAdmired():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+ties(index: number, obj?:TieLine):TieLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 84);
+  return offset ? (obj || new TieLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+tiesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 84);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+standing(obj?:StandingLine):StandingLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 86);
+  return offset ? (obj || new StandingLine()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(40);
+  builder.startObject(42);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -520,6 +537,26 @@ static addHouseholdTaste(builder:flatbuffers.Builder, householdTasteOffset:flatb
 
 static addHouseholdAdmired(builder:flatbuffers.Builder, householdAdmired:bigint) {
   builder.addFieldInt64(39, householdAdmired, BigInt('0'));
+}
+
+static addTies(builder:flatbuffers.Builder, tiesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(40, tiesOffset, 0);
+}
+
+static createTiesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startTiesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addStanding(builder:flatbuffers.Builder, standingOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(41, standingOffset, 0);
 }
 
 static endPersonInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

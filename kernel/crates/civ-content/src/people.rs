@@ -46,6 +46,19 @@ pub(crate) struct PeopleFile {
     pub midden: MiddenFile,
     /// Ties between people (M4a slice Y; content API 30).
     pub ties: TiesFile,
+    /// Standing and notables (M4a slice Y; content API 30).
+    pub standing: StandingFile,
+}
+
+/// Standing and notables (M4a slice Y, ADR-0014 §3-4; content API 30). See
+/// [`civ_agents::standing::StandingParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct StandingFile {
+    pub candidates: u32,
+    pub notable_share: f64,
+    pub notable_floor: u32,
+    pub notable_keep: f64,
 }
 
 /// Ties between people (M4a slice Y, ADR-0014; content API 30). See
@@ -64,6 +77,7 @@ pub(crate) struct TiesFile {
     pub hold_help_h: f64,
     pub salience_per_evidence: f64,
     pub new_share: f64,
+    pub ask_known_min: f64,
     /// What each act the engine records writes into its holder's tie.
     pub acts: Vec<TieActFile>,
 }
@@ -108,6 +122,7 @@ impl TiesFile {
             hold_help_h: self.hold_help_h,
             salience_per_evidence: self.salience_per_evidence,
             new_share: self.new_share,
+            ask_known_min: self.ask_known_min,
             acts,
         }
     }
@@ -163,6 +178,7 @@ impl TiesFile {
                 10.0,
             ),
             ("ties.new_share", self.new_share, 0.0, 1.0),
+            ("ties.ask_known_min", self.ask_known_min, 0.0, 1440.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
@@ -854,6 +870,12 @@ impl PeopleFile {
                 spread_h_per_t: self.midden.spread_h_per_t,
             },
             ties: self.ties.params(),
+            standing: civ_agents::standing::StandingParams {
+                candidates: self.standing.candidates as usize,
+                notable_share: self.standing.notable_share,
+                notable_floor: self.standing.notable_floor as usize,
+                notable_keep: self.standing.notable_keep,
+            },
             names,
         }
     }
@@ -863,6 +885,27 @@ impl PeopleFile {
         let mut p = Vec::new();
         positive("digging.h_per_m3", self.digging.h_per_m3, &mut p);
         self.ties.problems(&mut p);
+        let st = &self.standing;
+        if !(1..=100).contains(&st.candidates) {
+            p.push(format!(
+                "`standing.candidates` must be between 1 and 100 (got {})",
+                st.candidates
+            ));
+        }
+        if st.notable_floor > 1000 {
+            p.push(format!(
+                "`standing.notable_floor` must be at most 1000 (got {})",
+                st.notable_floor
+            ));
+        }
+        for (name, v, lo, hi) in [
+            ("standing.notable_share", st.notable_share, 0.0, 1.0),
+            ("standing.notable_keep", st.notable_keep, 1.0, 10.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
         let m = &self.midden;
         for (name, v, lo, hi) in [
             ("midden.kg_per_person_day", m.kg_per_person_day, 0.0, 10.0),

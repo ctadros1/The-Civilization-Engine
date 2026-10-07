@@ -35,6 +35,7 @@ pub mod knowledge;
 pub mod markets;
 pub mod paths;
 pub mod people;
+pub mod standing;
 pub mod wealth;
 pub mod weather;
 

@@ -17,6 +17,7 @@
 //! - [`demography`]: births, deaths and couples as pure rules, applied by the population daily.
 //! - [`wealth`]: what households have, measured several ways, and how it spreads (ADR-0007 §4).
 //! - [`ties`]: what people remember of one another, written by the acts they see (ADR-0014).
+//! - [`standing`]: what a settlement's adults think of one another, summed monthly, and notables.
 //!
 //! The engine authors the vocabulary, never the plot (plan §1): activities, needs and their
 //! weights are content; what people do, and where, follows from their circumstances.
@@ -40,6 +41,7 @@ pub mod needs;
 pub mod params;
 pub mod person;
 pub mod population;
+pub mod standing;
 pub mod structure;
 pub mod style;
 pub mod ties;

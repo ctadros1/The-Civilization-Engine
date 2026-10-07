@@ -1,5 +1,5 @@
 //! Writing ties (ADR-0014 §2): the acts people see each other do, recorded where they happen.
-//! Nothing here reads a tie to choose anything; that is standing's (M4a slice Y's second step).
+//! Standing is worked out here from the ties once a month.
 
 use super::*;
 use crate::ties::Act;
@@ -167,6 +167,25 @@ impl Population {
             };
             self.note_tie(ctx, me, q, Act::Hearth, hours, 0.0);
         }
+    }
+
+    /// Works out every settlement's standing as of `now` from its adults' ties (ADR-0014 §3),
+    /// the notables before keeping their place within the keep factor (§4).
+    pub fn derive_standing(&mut self, now: SimTime, params: &PeopleParams) {
+        let adults: Vec<(PermanentId, PermanentId)> = self
+            .people
+            .iter()
+            .filter(|(_, p)| p.age_years(now) >= params.family.independent_age)
+            .filter_map(|(_, p)| Some((self.household(p.household)?.settlement?, p.id)))
+            .collect();
+        self.standing = crate::standing::derive(
+            &self.ties,
+            &adults,
+            now.day_index(),
+            &params.ties,
+            &params.standing,
+            &self.standing,
+        );
     }
 
     /// Lets go of every tie to someone no longer here (dead or gone), and of the ties those

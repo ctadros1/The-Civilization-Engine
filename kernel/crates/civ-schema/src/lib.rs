@@ -55,7 +55,7 @@ use commons_wire::SchemaId;
 /// Major version of the wire schema. Peers with a different major cannot talk.
 pub const WIRE_SCHEMA_MAJOR: u16 = 1;
 /// Minor version of the wire schema: bumped by additive changes.
-pub const WIRE_SCHEMA_MINOR: u16 = 25;
+pub const WIRE_SCHEMA_MINOR: u16 = 26;
 /// The identity carried in every frame header.
 pub const WIRE_SCHEMA: SchemaId = SchemaId::new(*b"TCE\0", WIRE_SCHEMA_MAJOR, WIRE_SCHEMA_MINOR);
 
@@ -113,6 +113,6 @@ mod tests {
 
     #[test]
     fn schema_identity_is_tce() {
-        assert_eq!(WIRE_SCHEMA.to_string(), "TCE 1.25");
+        assert_eq!(WIRE_SCHEMA.to_string(), "TCE 1.26");
     }
 }

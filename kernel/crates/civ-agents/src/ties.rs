@@ -172,6 +172,9 @@ pub struct TieParams {
     /// The share of a session's company drawn from those present the person does not yet know;
     /// the rest is drawn from those they know, the better known the likelier.
     pub new_share: f64,
+    /// Minutes further a household short of food walks to ask someone its members regard (by
+    /// [`Tie::regard_at`], up to 1) than a stranger, among those who could give it as much.
+    pub ask_known_min: f64,
     /// What each act writes, by [`Act`] index.
     pub acts: [ActWeights; ACTS],
 }
@@ -190,6 +193,7 @@ impl Default for TieParams {
             hold_help_h: 4.0,
             salience_per_evidence: 0.1,
             new_share: 0.15,
+            ask_known_min: 30.0,
             acts: [ActWeights::default(); ACTS],
         }
     }
@@ -230,6 +234,32 @@ pub struct Reason {
     pub day: i64,
     /// How many times it has happened since it became the reason.
     pub times: u16,
+}
+
+impl Reason {
+    /// The reason in words, of the other as the holder's inspector tells it ("gave their
+    /// household food 3 times, last in May of year 4").
+    pub fn words(&self) -> String {
+        let what = match self.act {
+            Act::GiftReceived => "gave their household food",
+            Act::GiftGiven => "had food from their household",
+            Act::WagesPaid => "paid their wages",
+            Act::WorkSeen => "worked for their household",
+            Act::RentPaid => "paid their household rent",
+            Act::LandLent => "let their household a field",
+            Act::Traded => "traded with their household",
+            Act::LearnedFrom => "taught them",
+            Act::Hearth => "kept them company at the hearth",
+        };
+        let date = civ_core::time::SimTime::from_minutes(self.day * 1440).date();
+        let month = civ_land::weather::MONTH_NAMES[usize::from(date.month.clamp(1, 12)) - 1];
+        let times = match self.times {
+            0 | 1 => String::new(),
+            2 => " twice".to_owned(),
+            n => format!(" {n} times"),
+        };
+        format!("{what}{times}, last in {month} of year {}", date.year)
+    }
 }
 
 /// One person's view of another (ADR-0014 §1).
@@ -398,6 +428,16 @@ impl Tie {
         ) + faded(f64::from(self.warmth), days, params.warmth_half_life_days)
     }
 
+    /// How much the holder regards the other on `day`: their esteem in every domain together,
+    /// with warmth to tell apart those esteemed alike (ADR-0014 §3).
+    pub fn regard_at(&self, day: i64, params: &TieParams) -> f64 {
+        let days = (day - self.day).max(0) as f64;
+        // Good and bad evidence fade toward the prior at one rate, so their difference does too.
+        let esteem: f64 = Domain::ALL.iter().map(|&d| self.esteem(d, params)).sum();
+        faded(esteem, days, params.evidence_half_life_days)
+            + faded(f64::from(self.warmth), days, params.warmth_half_life_days)
+    }
+
     /// Hours of help owed or owing on `day`.
     pub fn help_at(&self, day: i64, params: &TieParams) -> f64 {
         let days = (day - self.day).max(0) as f64;
@@ -445,6 +485,17 @@ impl Ties {
             .and_then(|ties| {
                 let i = ties.binary_search_by_key(&to, |t| t.to).ok()?;
                 Some(ties[i].known_at(day, params))
+            })
+            .unwrap_or(0.0)
+    }
+
+    /// How much `holder` regards `to` on `day` ([`Tie::regard_at`]), 0 for a stranger.
+    pub fn regard(&self, holder: PermanentId, to: PermanentId, day: i64, params: &TieParams) -> f64 {
+        self.held
+            .get(&holder)
+            .and_then(|ties| {
+                let i = ties.binary_search_by_key(&to, |t| t.to).ok()?;
+                Some(ties[i].regard_at(day, params))
             })
             .unwrap_or(0.0)
     }
@@ -638,6 +689,18 @@ mod tests {
         ties.prune(|x| x != id(3));
         assert_eq!(ties.holders(), vec![id(1)]);
         assert_eq!(ties.of(id(1)).len(), 1);
+    }
+
+    #[test]
+    fn a_reason_says_what_was_done_how_often_and_when() {
+        let r = Reason {
+            act: Act::GiftReceived,
+            day: 365 * 3 + 130,
+            times: 3,
+        };
+        assert_eq!(r.words(), "gave their household food 3 times, last in May of year 4");
+        let once = Reason { times: 1, ..r };
+        assert_eq!(once.words(), "gave their household food, last in May of year 4");
     }
 
     #[test]

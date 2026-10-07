@@ -700,6 +700,60 @@ export interface PersonInfo {
    * the dead), and the building that moved its taste most (0 for none). */
   householdTaste: string;
   householdAdmired: number;
+  /** Wire 1.26 (M4a slice Y): their strongest ties, the most salient first (the living only). */
+  ties: TieLine[];
+  /** Their standing in their settlement as last worked out (null before the first time). */
+  standing: StandingLine | null;
+}
+
+/** One person's view of another (wire 1.26, ADR-0014). */
+export interface TieLine {
+  person: number;
+  name: string;
+  /** 0-1 each. */
+  familiarity: number;
+  warmth: number;
+  /** Esteem by domain, in StandingInfo.domains' order: good acts remembered less bad ones. */
+  esteem: number[];
+  /** Hours of help received from them less help given to them. */
+  helpH: number;
+  /** Why, in words rendered by the kernel ("gave their household food 3 times, last in May of
+   * year 4"). */
+  reason: string;
+  /** Whether they hold a tie back. */
+  mutual: boolean;
+}
+
+/** An adult's standing in their settlement (wire 1.26). */
+export interface StandingLine {
+  person: number;
+  name: string;
+  household: number;
+  /** The esteem the settlement's other adults hold for them, summed, by domain. */
+  esteem: number[];
+  /** How many of the settlement's adults count them among those they esteem most. */
+  influence: number;
+  /** Considers the settlement's affairs weekly; it grants nothing. */
+  notable: boolean;
+}
+
+/** A settlement's standing: its notables first, then those most esteemed. */
+export interface SettlementStanding {
+  settlement: number;
+  name: string;
+  adults: number;
+  rows: StandingLine[];
+}
+
+/** Every settlement's standing as worked out on `minute` (0 before the first time). */
+export interface StandingInfo {
+  minute: number;
+  /** The domains' names, in the order of every `esteem`. */
+  domains: string[];
+  settlements: SettlementStanding[];
+  /** Ties kept across the world, and how many were let go for want of room. */
+  ties: number;
+  letGo: number;
 }
 
 /** One good in a settlement's market (M3a slice I). Tallies fade by half every memory. */
@@ -1080,7 +1134,8 @@ export type ResponseBody =
   | { kind: "knowledge"; knowledge: KnowledgeInfo }
   | { kind: "deposits"; deposits: DepositsInfo }
   | { kind: "earthworks"; earthworks: EarthworksInfo }
-  | { kind: "weather"; weather: WeatherReport };
+  | { kind: "weather"; weather: WeatherReport }
+  | { kind: "standing"; standing: StandingInfo };
 
 export type ErrorCode =
   | "unknown"
@@ -1311,6 +1366,12 @@ export function getKnowledge(): Uint8Array {
   const b = new flatbuffers.Builder(16);
   W.GetKnowledge.startGetKnowledge(b);
   return query(b, W.QueryBody.GetKnowledge, W.GetKnowledge.endGetKnowledge(b));
+}
+
+export function getStanding(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetStanding.startGetStanding(b);
+  return query(b, W.QueryBody.GetStanding, W.GetStanding.endGetStanding(b));
 }
 
 export function getWeather(): Uint8Array {
@@ -2420,6 +2481,22 @@ function personInfo(p: W.PersonInfo): PersonInfo {
       usedMinute: Number(line.usedMinute()),
     });
   }
+  const ties: TieLine[] = [];
+  for (let k = 0; k < p.tiesLength(); k++) {
+    const t = p.ties(k);
+    if (!t) continue;
+    ties.push({
+      person: Number(t.person()),
+      name: t.name() ?? "",
+      familiarity: t.familiarity(),
+      warmth: t.warmth(),
+      esteem: Array.from(t.esteemArray() ?? []),
+      helpH: t.helpH(),
+      reason: t.reason() ?? "",
+      mutual: t.mutual(),
+    });
+  }
+  const standing = p.standing();
   const pos = p.pos();
   return {
     id: Number(p.id()),
@@ -2463,6 +2540,45 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     leftMinute: Number(p.leftMinute()),
     householdTaste: p.householdTaste() ?? "",
     householdAdmired: Number(p.householdAdmired()),
+    ties,
+    standing: standing ? standingLine(standing) : null,
+  };
+}
+
+function standingLine(l: W.StandingLine): StandingLine {
+  return {
+    person: Number(l.person()),
+    name: l.name() ?? "",
+    household: Number(l.household()),
+    esteem: Array.from(l.esteemArray() ?? []),
+    influence: l.influence(),
+    notable: l.notable(),
+  };
+}
+
+function standingInfo(w: W.Standing): StandingInfo {
+  const settlements: SettlementStanding[] = [];
+  for (let k = 0; k < w.settlementsLength(); k++) {
+    const s = w.settlements(k);
+    if (!s) continue;
+    const rows: StandingLine[] = [];
+    for (let j = 0; j < s.rowsLength(); j++) {
+      const l = s.rows(j);
+      if (l) rows.push(standingLine(l));
+    }
+    settlements.push({
+      settlement: Number(s.settlement()),
+      name: s.name() ?? "",
+      adults: s.adults(),
+      rows,
+    });
+  }
+  return {
+    minute: Number(w.minute()),
+    domains: Array.from({ length: w.domainsLength() }, (_, k) => w.domains(k) ?? ""),
+    settlements,
+    ties: w.ties(),
+    letGo: Number(w.letGo()),
   };
 }
 
@@ -2555,6 +2671,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.WeatherReport()) as W.WeatherReport | null;
       if (!f) break;
       return { kind: "weather", weather: weatherReport(f) };
+    }
+    case W.ResponseBody.Standing: {
+      const f = r.body(new W.Standing()) as W.Standing | null;
+      if (!f) break;
+      return { kind: "standing", standing: standingInfo(f) };
     }
     default:
       break;

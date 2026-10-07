@@ -311,6 +311,13 @@ export class HostClient {
   }
 
   /** What each settlement knows, is learning and has lost (M3b slice M). */
+  /** Every settlement's standing as last worked out (wire 1.26). */
+  async standing(): Promise<M.StandingInfo> {
+    const body = await this.query(M.getStanding());
+    if (body.kind !== "standing") throw new HostError("internal", "expected standing");
+    return body.standing;
+  }
+
   async knowledge(): Promise<M.KnowledgeInfo> {
     const body = await this.query(M.getKnowledge());
     if (body.kind !== "knowledge") throw new HostError("internal", "expected knowledge");

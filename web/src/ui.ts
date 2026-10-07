@@ -41,6 +41,7 @@ import {
 } from "./firm.js";
 import { materialGoods } from "./deposits.js";
 import { introducible, knowRows, summaryText, techniqueRows } from "./knowledge.js";
+import { standingText, tieText } from "./standing.js";
 import { PATH_LEGEND } from "./paths.js";
 import {
   HOUSEHOLDS_SHOWN,
@@ -764,6 +765,37 @@ export function bindUi(store: Store, actions: Actions): void {
     }
     return box;
   };
+  /** The domains standing is kept in, as the host names them (wire 1.26). */
+  const domainsOf = (state: AppState): string[] =>
+    state.standing?.domains ?? ["provision", "craft", "word", "counsel"];
+  /** Whom a person knows best, and why; and their standing in their settlement (ADR-0014). */
+  const tiesBlock = (state: AppState, p: PersonInfo): Node => {
+    const domains = domainsOf(state);
+    const box = el("div", { className: "ties" }, el("h4", { text: "Knows people" }));
+    if (p.standing) {
+      box.append(el("p", { className: "standing-line", text: `Standing: ${standingText(p.standing, domains)}.` }));
+    }
+    if (p.ties.length === 0) {
+      box.append(el("p", { className: "empty", text: "Nobody yet beyond their household." }));
+      return box;
+    }
+    box.append(
+      el(
+        "ul",
+        {},
+        ...p.ties.map((t) =>
+          el(
+            "li",
+            {},
+            link(t.name, () => actions.focusPerson(t.person)),
+            el("span", { className: "aside", text: ` ${t.reason}` }),
+            el("span", { className: "tie-facts", text: ` (${tieText(t, domains)})` }),
+          ),
+        ),
+      ),
+    );
+    return box;
+  };
   /** The technique chosen in the inspector's introduce form, kept while the inspector is redrawn. */
   let introChoice: { person: number; technique: number } | null = null;
   let introSelect: HTMLSelectElement | null = null;
@@ -951,6 +983,7 @@ export function bindUi(store: Store, actions: Actions): void {
       }
     }
     nodes.push(knowsBlock(welcome, p));
+    if (p.alive) nodes.push(tiesBlock(state, p));
     if (p.kin.length > 0 || p.family.length > 0) {
       nodes.push(
         el(
@@ -1711,6 +1744,76 @@ export function bindUi(store: Store, actions: Actions): void {
     weatherBody.replaceChildren(...nodes);
   };
 
+  // ---- Standing ----------------------------------------------------------------------------
+  const standingBody = $("standing-body");
+  let standingRenderKey: unknown[] = [];
+  const renderStanding = (state: AppState) => {
+    const world = state.snapshot?.world ?? null;
+    const key = [world?.worldId ?? null, state.standing, state.standingError];
+    if (key.length === standingRenderKey.length && key.every((k, i) => k === standingRenderKey[i]))
+      return;
+    standingRenderKey = key;
+    if (!world) {
+      standingBody.replaceChildren(el("p", { className: "empty", text: "No world loaded." }));
+      return;
+    }
+    const st = state.standing;
+    if (st === null) {
+      standingBody.replaceChildren(
+        state.standingError
+          ? el("p", {
+              className: "form-error",
+              text: `Standing could not be read: ${state.standingError}`,
+            })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      );
+      return;
+    }
+    const nodes: Node[] = [
+      el("p", {
+        className: "aside",
+        text: "What a settlement's adults think of one another, summed from what each saw the others do: gifts, wages, rent, trades, teaching. Notables, the few counted most often among those esteemed most, consider the settlement's affairs weekly; being one grants nothing. Worked out on the first of each month.",
+      }),
+    ];
+    if (st.minute === 0) {
+      nodes.push(el("p", { className: "empty", text: "Not worked out yet: it is, on the first of the month." }));
+    }
+    for (const s of st.settlements) {
+      const block = el("div", { className: "standing-settlement" });
+      const notables = s.rows.filter((r) => r.notable);
+      block.append(
+        el("h3", { text: s.name || "A settlement" }),
+        el("p", {
+          className: "since",
+          text: `${s.adults} adults; notables: ${notables.length === 0 ? "none" : notables.map((r) => r.name).join(", ")}.`,
+        }),
+        el(
+          "ol",
+          { className: "standing-rows" },
+          ...s.rows.map((r) =>
+            el(
+              "li",
+              { className: r.notable ? "notable" : "" },
+              link(r.name, () => actions.focusPerson(r.person)),
+              el("span", { className: "aside", text: ` ${standingText(r, st.domains)}` }),
+            ),
+          ),
+        ),
+      );
+      nodes.push(block);
+    }
+    nodes.push(
+      el("p", {
+        className: "note",
+        text: `${st.ties} ties kept across the world; ${st.letGo} let go for want of room.`,
+      }),
+    );
+    if (state.standingError) {
+      nodes.push(el("p", { className: "note", text: `Not up to date: ${state.standingError}` }));
+    }
+    standingBody.replaceChildren(...nodes);
+  };
+
   // ---- Knowledge ---------------------------------------------------------------------------
   const knowledgeBody = $("knowledge-body");
   let knowledgeKey: unknown[] = [];
@@ -1904,6 +2007,7 @@ export function bindUi(store: Store, actions: Actions): void {
     renderWealth(state);
     renderWeather(state);
     renderKnowledge(state);
+    renderStanding(state);
     renderWorld(state);
     renderEvents(state);
     renderTask(state);

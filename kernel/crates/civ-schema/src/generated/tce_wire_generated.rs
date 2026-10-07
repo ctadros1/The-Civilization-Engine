@@ -787,10 +787,10 @@ pub struct CommandBodyUnionTableOffset {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_QUERY_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_QUERY_BODY: u8 = 17;
+pub const ENUM_MAX_QUERY_BODY: u8 = 18;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 18] = [
+pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 19] = [
   QueryBody::NONE,
   QueryBody::GetRaster,
   QueryBody::GetHydrography,
@@ -809,6 +809,7 @@ pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 18] = [
   QueryBody::GetDeposits,
   QueryBody::GetEarthworks,
   QueryBody::GetWeather,
+  QueryBody::GetStanding,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -834,9 +835,10 @@ impl QueryBody {
   pub const GetDeposits: Self = Self(15);
   pub const GetEarthworks: Self = Self(16);
   pub const GetWeather: Self = Self(17);
+  pub const GetStanding: Self = Self(18);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 17;
+  pub const ENUM_MAX: u8 = 18;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::GetRaster,
@@ -856,6 +858,7 @@ impl QueryBody {
     Self::GetDeposits,
     Self::GetEarthworks,
     Self::GetWeather,
+    Self::GetStanding,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -878,6 +881,7 @@ impl QueryBody {
       Self::GetDeposits => Some("GetDeposits"),
       Self::GetEarthworks => Some("GetEarthworks"),
       Self::GetWeather => Some("GetWeather"),
+      Self::GetStanding => Some("GetStanding"),
       _ => None,
     }
   }
@@ -1317,10 +1321,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for BookKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_RESPONSE_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_RESPONSE_BODY: u8 = 18;
+pub const ENUM_MAX_RESPONSE_BODY: u8 = 19;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 19] = [
+pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 20] = [
   ResponseBody::NONE,
   ResponseBody::Ack,
   ResponseBody::RasterTile,
@@ -1340,6 +1344,7 @@ pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 19] = [
   ResponseBody::Deposits,
   ResponseBody::Earthworks,
   ResponseBody::WeatherReport,
+  ResponseBody::Standing,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1366,9 +1371,10 @@ impl ResponseBody {
   pub const Deposits: Self = Self(16);
   pub const Earthworks: Self = Self(17);
   pub const WeatherReport: Self = Self(18);
+  pub const Standing: Self = Self(19);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 18;
+  pub const ENUM_MAX: u8 = 19;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::Ack,
@@ -1389,6 +1395,7 @@ impl ResponseBody {
     Self::Deposits,
     Self::Earthworks,
     Self::WeatherReport,
+    Self::Standing,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1412,6 +1419,7 @@ impl ResponseBody {
       Self::Deposits => Some("Deposits"),
       Self::Earthworks => Some("Earthworks"),
       Self::WeatherReport => Some("WeatherReport"),
+      Self::Standing => Some("Standing"),
       _ => None,
     }
   }
@@ -9741,6 +9749,84 @@ impl ::core::fmt::Debug for GetWeather<'_> {
       ds.finish()
   }
 }
+pub enum GetStandingOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetStanding<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GetStanding<'a> {
+  type Inner = GetStanding<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GetStanding<'a> {
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GetStanding { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    _args: &'args GetStandingArgs
+  ) -> ::flatbuffers::WIPOffset<GetStanding<'bldr>> {
+    let mut builder = GetStandingBuilder::new(_fbb);
+    builder.finish()
+  }
+
+}
+
+impl ::flatbuffers::Verifiable for GetStanding<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetStandingArgs {
+}
+impl<'a> Default for GetStandingArgs {
+  #[inline]
+  fn default() -> Self {
+    GetStandingArgs {
+    }
+  }
+}
+
+pub struct GetStandingBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GetStandingBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GetStandingBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetStandingBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GetStanding<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GetStanding<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GetStanding");
+      ds.finish()
+  }
+}
 pub enum QueryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -10045,6 +10131,21 @@ impl<'a> Query<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_get_standing(&self) -> Option<GetStanding<'a>> {
+    if self.body_type() == QueryBody::GetStanding {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { GetStanding::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Query<'_> {
@@ -10072,6 +10173,7 @@ impl ::flatbuffers::Verifiable for Query<'_> {
           QueryBody::GetDeposits => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetDeposits>>("QueryBody::GetDeposits", pos),
           QueryBody::GetEarthworks => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetEarthworks>>("QueryBody::GetEarthworks", pos),
           QueryBody::GetWeather => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetWeather>>("QueryBody::GetWeather", pos),
+          QueryBody::GetStanding => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetStanding>>("QueryBody::GetStanding", pos),
           _ => Ok(()),
         }
      })?
@@ -10240,6 +10342,13 @@ impl ::core::fmt::Debug for Query<'_> {
         },
         QueryBody::GetWeather => {
           if let Some(x) = self.body_as_get_weather() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        QueryBody::GetStanding => {
+          if let Some(x) = self.body_as_get_standing() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -12701,6 +12810,8 @@ impl<'a> PersonInfo<'a> {
   pub const VT_KNOWS: ::flatbuffers::VOffsetT = 78;
   pub const VT_HOUSEHOLD_TASTE: ::flatbuffers::VOffsetT = 80;
   pub const VT_HOUSEHOLD_ADMIRED: ::flatbuffers::VOffsetT = 82;
+  pub const VT_TIES: ::flatbuffers::VOffsetT = 84;
+  pub const VT_STANDING: ::flatbuffers::VOffsetT = 86;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -12722,6 +12833,8 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.standing { builder.add_standing(x); }
+    if let Some(x) = args.ties { builder.add_ties(x); }
     if let Some(x) = args.household_taste { builder.add_household_taste(x); }
     if let Some(x) = args.knows { builder.add_knows(x); }
     builder.add_household_ready_days(args.household_ready_days);
@@ -13036,6 +13149,20 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(PersonInfo::VT_HOUSEHOLD_ADMIRED, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn ties(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TieLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TieLine>>>>(PersonInfo::VT_TIES, None)}
+  }
+  #[inline]
+  pub fn standing(&self) -> Option<StandingLine<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<StandingLine>>(PersonInfo::VT_STANDING, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -13084,6 +13211,8 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<KnowLine>>>>("knows", Self::VT_KNOWS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("household_taste", Self::VT_HOUSEHOLD_TASTE, false)?
      .visit_field::<u64>("household_admired", Self::VT_HOUSEHOLD_ADMIRED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TieLine>>>>("ties", Self::VT_TIES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<StandingLine>>("standing", Self::VT_STANDING, false)?
      .finish();
     Ok(())
   }
@@ -13129,6 +13258,8 @@ pub struct PersonInfoArgs<'a> {
     pub knows: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KnowLine<'a>>>>>,
     pub household_taste: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub household_admired: u64,
+    pub ties: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TieLine<'a>>>>>,
+    pub standing: Option<::flatbuffers::WIPOffset<StandingLine<'a>>>,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -13174,6 +13305,8 @@ impl<'a> Default for PersonInfoArgs<'a> {
       knows: None,
       household_taste: None,
       household_admired: 0,
+      ties: None,
+      standing: None,
     }
   }
 }
@@ -13344,6 +13477,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<u64>(PersonInfo::VT_HOUSEHOLD_ADMIRED, household_admired, 0);
   }
   #[inline]
+  pub fn add_ties(&mut self, ties: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<TieLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_TIES, ties);
+  }
+  #[inline]
+  pub fn add_standing(&mut self, standing: ::flatbuffers::WIPOffset<StandingLine<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<StandingLine>>(PersonInfo::VT_STANDING, standing);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -13401,6 +13542,404 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("knows", &self.knows());
       ds.field("household_taste", &self.household_taste());
       ds.field("household_admired", &self.household_admired());
+      ds.field("ties", &self.ties());
+      ds.field("standing", &self.standing());
+      ds.finish()
+  }
+}
+pub enum TieLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TieLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for TieLine<'a> {
+  type Inner = TieLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> TieLine<'a> {
+  pub const VT_PERSON: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_FAMILIARITY: ::flatbuffers::VOffsetT = 8;
+  pub const VT_WARMTH: ::flatbuffers::VOffsetT = 10;
+  pub const VT_ESTEEM: ::flatbuffers::VOffsetT = 12;
+  pub const VT_HELP_H: ::flatbuffers::VOffsetT = 14;
+  pub const VT_REASON: ::flatbuffers::VOffsetT = 16;
+  pub const VT_MUTUAL: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    TieLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args TieLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<TieLine<'bldr>> {
+    let mut builder = TieLineBuilder::new(_fbb);
+    builder.add_person(args.person);
+    if let Some(x) = args.reason { builder.add_reason(x); }
+    builder.add_help_h(args.help_h);
+    if let Some(x) = args.esteem { builder.add_esteem(x); }
+    builder.add_warmth(args.warmth);
+    builder.add_familiarity(args.familiarity);
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.add_mutual(args.mutual);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TieLine::VT_PERSON, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TieLine::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn familiarity(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TieLine::VT_FAMILIARITY, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn warmth(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TieLine::VT_WARMTH, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn esteem(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(TieLine::VT_ESTEEM, None)}
+  }
+  #[inline]
+  pub fn help_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TieLine::VT_HELP_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn reason(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TieLine::VT_REASON, None)}
+  }
+  #[inline]
+  pub fn mutual(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(TieLine::VT_MUTUAL, Some(false)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for TieLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("person", Self::VT_PERSON, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<f32>("familiarity", Self::VT_FAMILIARITY, false)?
+     .visit_field::<f32>("warmth", Self::VT_WARMTH, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("esteem", Self::VT_ESTEEM, false)?
+     .visit_field::<f32>("help_h", Self::VT_HELP_H, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("reason", Self::VT_REASON, false)?
+     .visit_field::<bool>("mutual", Self::VT_MUTUAL, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TieLineArgs<'a> {
+    pub person: u64,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub familiarity: f32,
+    pub warmth: f32,
+    pub esteem: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub help_h: f32,
+    pub reason: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub mutual: bool,
+}
+impl<'a> Default for TieLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TieLineArgs {
+      person: 0,
+      name: None,
+      familiarity: 0.0,
+      warmth: 0.0,
+      esteem: None,
+      help_h: 0.0,
+      reason: None,
+      mutual: false,
+    }
+  }
+}
+
+pub struct TieLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TieLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_person(&mut self, person: u64) {
+    self.fbb_.push_slot::<u64>(TieLine::VT_PERSON, person, 0);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TieLine::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_familiarity(&mut self, familiarity: f32) {
+    self.fbb_.push_slot::<f32>(TieLine::VT_FAMILIARITY, familiarity, 0.0);
+  }
+  #[inline]
+  pub fn add_warmth(&mut self, warmth: f32) {
+    self.fbb_.push_slot::<f32>(TieLine::VT_WARMTH, warmth, 0.0);
+  }
+  #[inline]
+  pub fn add_esteem(&mut self, esteem: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TieLine::VT_ESTEEM, esteem);
+  }
+  #[inline]
+  pub fn add_help_h(&mut self, help_h: f32) {
+    self.fbb_.push_slot::<f32>(TieLine::VT_HELP_H, help_h, 0.0);
+  }
+  #[inline]
+  pub fn add_reason(&mut self, reason: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TieLine::VT_REASON, reason);
+  }
+  #[inline]
+  pub fn add_mutual(&mut self, mutual: bool) {
+    self.fbb_.push_slot::<bool>(TieLine::VT_MUTUAL, mutual, false);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TieLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    TieLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<TieLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for TieLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("TieLine");
+      ds.field("person", &self.person());
+      ds.field("name", &self.name());
+      ds.field("familiarity", &self.familiarity());
+      ds.field("warmth", &self.warmth());
+      ds.field("esteem", &self.esteem());
+      ds.field("help_h", &self.help_h());
+      ds.field("reason", &self.reason());
+      ds.field("mutual", &self.mutual());
+      ds.finish()
+  }
+}
+pub enum StandingLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct StandingLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for StandingLine<'a> {
+  type Inner = StandingLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> StandingLine<'a> {
+  pub const VT_PERSON: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 8;
+  pub const VT_ESTEEM: ::flatbuffers::VOffsetT = 10;
+  pub const VT_INFLUENCE: ::flatbuffers::VOffsetT = 12;
+  pub const VT_NOTABLE: ::flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    StandingLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args StandingLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<StandingLine<'bldr>> {
+    let mut builder = StandingLineBuilder::new(_fbb);
+    builder.add_household(args.household);
+    builder.add_person(args.person);
+    builder.add_influence(args.influence);
+    if let Some(x) = args.esteem { builder.add_esteem(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.add_notable(args.notable);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(StandingLine::VT_PERSON, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(StandingLine::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(StandingLine::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn esteem(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(StandingLine::VT_ESTEEM, None)}
+  }
+  #[inline]
+  pub fn influence(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(StandingLine::VT_INFLUENCE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn notable(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(StandingLine::VT_NOTABLE, Some(false)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for StandingLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("person", Self::VT_PERSON, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("esteem", Self::VT_ESTEEM, false)?
+     .visit_field::<u32>("influence", Self::VT_INFLUENCE, false)?
+     .visit_field::<bool>("notable", Self::VT_NOTABLE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct StandingLineArgs<'a> {
+    pub person: u64,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub household: u64,
+    pub esteem: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub influence: u32,
+    pub notable: bool,
+}
+impl<'a> Default for StandingLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    StandingLineArgs {
+      person: 0,
+      name: None,
+      household: 0,
+      esteem: None,
+      influence: 0,
+      notable: false,
+    }
+  }
+}
+
+pub struct StandingLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> StandingLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_person(&mut self, person: u64) {
+    self.fbb_.push_slot::<u64>(StandingLine::VT_PERSON, person, 0);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StandingLine::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(StandingLine::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_esteem(&mut self, esteem: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StandingLine::VT_ESTEEM, esteem);
+  }
+  #[inline]
+  pub fn add_influence(&mut self, influence: u32) {
+    self.fbb_.push_slot::<u32>(StandingLine::VT_INFLUENCE, influence, 0);
+  }
+  #[inline]
+  pub fn add_notable(&mut self, notable: bool) {
+    self.fbb_.push_slot::<bool>(StandingLine::VT_NOTABLE, notable, false);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> StandingLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    StandingLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<StandingLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for StandingLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("StandingLine");
+      ds.field("person", &self.person());
+      ds.field("name", &self.name());
+      ds.field("household", &self.household());
+      ds.field("esteem", &self.esteem());
+      ds.field("influence", &self.influence());
+      ds.field("notable", &self.notable());
       ds.finish()
   }
 }
@@ -20986,6 +21525,317 @@ impl ::core::fmt::Debug for WeatherReport<'_> {
       ds.finish()
   }
 }
+pub enum SettlementStandingOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SettlementStanding<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for SettlementStanding<'a> {
+  type Inner = SettlementStanding<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> SettlementStanding<'a> {
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_ADULTS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_ROWS: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    SettlementStanding { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SettlementStandingArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<SettlementStanding<'bldr>> {
+    let mut builder = SettlementStandingBuilder::new(_fbb);
+    builder.add_settlement(args.settlement);
+    if let Some(x) = args.rows { builder.add_rows(x); }
+    builder.add_adults(args.adults);
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SettlementStanding::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(SettlementStanding::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn adults(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SettlementStanding::VT_ADULTS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn rows(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StandingLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StandingLine>>>>(SettlementStanding::VT_ROWS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for SettlementStanding<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<u32>("adults", Self::VT_ADULTS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<StandingLine>>>>("rows", Self::VT_ROWS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SettlementStandingArgs<'a> {
+    pub settlement: u64,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub adults: u32,
+    pub rows: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StandingLine<'a>>>>>,
+}
+impl<'a> Default for SettlementStandingArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SettlementStandingArgs {
+      settlement: 0,
+      name: None,
+      adults: 0,
+      rows: None,
+    }
+  }
+}
+
+pub struct SettlementStandingBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SettlementStandingBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(SettlementStanding::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SettlementStanding::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_adults(&mut self, adults: u32) {
+    self.fbb_.push_slot::<u32>(SettlementStanding::VT_ADULTS, adults, 0);
+  }
+  #[inline]
+  pub fn add_rows(&mut self, rows: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<StandingLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SettlementStanding::VT_ROWS, rows);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SettlementStandingBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SettlementStandingBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<SettlementStanding<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for SettlementStanding<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("SettlementStanding");
+      ds.field("settlement", &self.settlement());
+      ds.field("name", &self.name());
+      ds.field("adults", &self.adults());
+      ds.field("rows", &self.rows());
+      ds.finish()
+  }
+}
+pub enum StandingOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Standing<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Standing<'a> {
+  type Inner = Standing<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Standing<'a> {
+  pub const VT_MINUTE: ::flatbuffers::VOffsetT = 4;
+  pub const VT_DOMAINS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SETTLEMENTS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_TIES: ::flatbuffers::VOffsetT = 10;
+  pub const VT_LET_GO: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Standing { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args StandingArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Standing<'bldr>> {
+    let mut builder = StandingBuilder::new(_fbb);
+    builder.add_let_go(args.let_go);
+    builder.add_minute(args.minute);
+    builder.add_ties(args.ties);
+    if let Some(x) = args.settlements { builder.add_settlements(x); }
+    if let Some(x) = args.domains { builder.add_domains(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Standing::VT_MINUTE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn domains(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Standing::VT_DOMAINS, None)}
+  }
+  #[inline]
+  pub fn settlements(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SettlementStanding<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SettlementStanding>>>>(Standing::VT_SETTLEMENTS, None)}
+  }
+  #[inline]
+  pub fn ties(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Standing::VT_TIES, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn let_go(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Standing::VT_LET_GO, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Standing<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("minute", Self::VT_MINUTE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("domains", Self::VT_DOMAINS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<SettlementStanding>>>>("settlements", Self::VT_SETTLEMENTS, false)?
+     .visit_field::<u32>("ties", Self::VT_TIES, false)?
+     .visit_field::<u64>("let_go", Self::VT_LET_GO, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct StandingArgs<'a> {
+    pub minute: i64,
+    pub domains: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub settlements: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SettlementStanding<'a>>>>>,
+    pub ties: u32,
+    pub let_go: u64,
+}
+impl<'a> Default for StandingArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    StandingArgs {
+      minute: 0,
+      domains: None,
+      settlements: None,
+      ties: 0,
+      let_go: 0,
+    }
+  }
+}
+
+pub struct StandingBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> StandingBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_minute(&mut self, minute: i64) {
+    self.fbb_.push_slot::<i64>(Standing::VT_MINUTE, minute, 0);
+  }
+  #[inline]
+  pub fn add_domains(&mut self, domains: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Standing::VT_DOMAINS, domains);
+  }
+  #[inline]
+  pub fn add_settlements(&mut self, settlements: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<SettlementStanding<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Standing::VT_SETTLEMENTS, settlements);
+  }
+  #[inline]
+  pub fn add_ties(&mut self, ties: u32) {
+    self.fbb_.push_slot::<u32>(Standing::VT_TIES, ties, 0);
+  }
+  #[inline]
+  pub fn add_let_go(&mut self, let_go: u64) {
+    self.fbb_.push_slot::<u64>(Standing::VT_LET_GO, let_go, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> StandingBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    StandingBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Standing<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Standing<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Standing");
+      ds.field("minute", &self.minute());
+      ds.field("domains", &self.domains());
+      ds.field("settlements", &self.settlements());
+      ds.field("ties", &self.ties());
+      ds.field("let_go", &self.let_go());
+      ds.finish()
+  }
+}
 pub enum ResponseOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -21305,6 +22155,21 @@ impl<'a> Response<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_standing(&self) -> Option<Standing<'a>> {
+    if self.body_type() == ResponseBody::Standing {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Standing::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Response<'_> {
@@ -21333,6 +22198,7 @@ impl ::flatbuffers::Verifiable for Response<'_> {
           ResponseBody::Deposits => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Deposits>>("ResponseBody::Deposits", pos),
           ResponseBody::Earthworks => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Earthworks>>("ResponseBody::Earthworks", pos),
           ResponseBody::WeatherReport => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<WeatherReport>>("ResponseBody::WeatherReport", pos),
+          ResponseBody::Standing => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Standing>>("ResponseBody::Standing", pos),
           _ => Ok(()),
         }
      })?
@@ -21508,6 +22374,13 @@ impl ::core::fmt::Debug for Response<'_> {
         },
         ResponseBody::WeatherReport => {
           if let Some(x) = self.body_as_weather_report() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ResponseBody::Standing => {
+          if let Some(x) = self.body_as_standing() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

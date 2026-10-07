@@ -1189,6 +1189,7 @@ pub(crate) mod tests {
                 spread_h_per_t: 2.0,
             },
             ties: crate::ties::TieParams::core(),
+            standing: crate::standing::StandingParams::default(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

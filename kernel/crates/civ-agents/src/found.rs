@@ -1131,6 +1131,7 @@ pub(crate) mod tests {
                 review_days: 7,
                 margin: 0.25,
                 max_change: 0.05,
+                stock_response: 0.5,
                 memory_days: 30.0,
                 money_share: 0.5,
                 money_min_trades: 10.0,

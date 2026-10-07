@@ -1,6 +1,6 @@
 # Persistence and Interfaces
 
-TCE treats boundary messages and durable saves as long-lived contracts. Their versioning, ownership and error behavior are deliberate parts of the architecture, not implementation details to change casually. At the [source baseline](README.md#source-baseline) they stand at wire schema TCE 1.25, saves schema 25 and content API 25.
+TCE treats boundary messages and durable saves as long-lived contracts. Their versioning, ownership and error behavior are deliberate parts of the architecture, not implementation details to change casually. At the [source baseline](README.md#source-baseline) they stand at wire schema TCE 1.25, saves schema 25 and content API 26.
 
 ## Content loading
 

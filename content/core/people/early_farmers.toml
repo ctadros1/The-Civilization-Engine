@@ -313,6 +313,12 @@ review_days = 7
 margin = 0.25
 # The largest change of an ask in one review (08-04 §4.3: 1-5 %; 08-05 §3.2: 5-15 %).
 max_change = 0.05
+# A seller asks less for food the more of it it can spare (content API 26): its cost and margin
+# times exp(-this x s), s the years of its own need it holds beyond what it keeps, at most one
+# (08-04 §1.2: a cost anchor with modest inventory feedback, no figure given; 08-05 §1.5: a grain
+# holder's stock is judged against its way to the next harvest, measured here in years of need
+# so a store drawn down as planned does not move it). A year to spare asks 0.61 of the anchor.
+stock_response = 0.5
 # A market's tallies of sales, payments and demand halve in this many days (08-04 §4.3: demand
 # memory 14-56 days).
 memory_days = 30.0

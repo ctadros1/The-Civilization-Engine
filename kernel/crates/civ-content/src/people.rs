@@ -357,6 +357,9 @@ pub(crate) struct Market {
     pub review_days: u32,
     pub margin: f64,
     pub max_change: f64,
+    /// Content API 26: how strongly a seller's ask for food answers what it can spare (ADR-0006
+    /// §4's stock term).
+    pub stock_response: f64,
     pub memory_days: f64,
     pub money_share: f64,
     pub money_min_trades: f64,
@@ -631,6 +634,7 @@ impl PeopleFile {
                     review_days: k.review_days,
                     margin: k.margin,
                     max_change: k.max_change,
+                    stock_response: k.stock_response,
                     memory_days: k.memory_days,
                     money_share: k.money_share,
                     money_min_trades: k.money_min_trades,
@@ -1072,6 +1076,12 @@ impl PeopleFile {
         }
         non_negative("market.margin", k.margin, &mut p);
         unit("market.max_change", k.max_change, &mut p);
+        if !(k.stock_response.is_finite() && (0.0..=3.0).contains(&k.stock_response)) {
+            p.push(format!(
+                "`market.stock_response` must be between 0 and 3 (got {})",
+                k.stock_response
+            ));
+        }
         positive("market.memory_days", k.memory_days, &mut p);
         unit("market.money_share", k.money_share, &mut p);
         non_negative("market.money_min_trades", k.money_min_trades, &mut p);

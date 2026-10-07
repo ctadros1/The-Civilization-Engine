@@ -1140,6 +1140,10 @@ pub struct MarketParams {
     pub margin: f64,
     /// The largest change of an ask in one review, a share of it.
     pub max_change: f64,
+    /// How strongly a seller's ask for food answers what it holds beyond its needs: its anchor
+    /// is its cost and margin times `exp(-this × s)`, `s` the years of its own need it can spare,
+    /// at most one (research 08-04 §1.2: a cost anchor with modest inventory feedback).
+    pub stock_response: f64,
     /// Half-life of what a market remembers of sales, payments and demand, days.
     pub memory_days: f64,
     /// The share of the payments' worth one good must settle for it to be the settlement's

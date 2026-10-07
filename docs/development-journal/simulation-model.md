@@ -56,7 +56,7 @@ The current farming cycle centers on spring-sown emmer. Households select and pr
 
 Goods are held in kilograms with kind-specific spoilage and use. Firewood is burned by an authored seasonal rate; cooked food can require fuel; shared goods such as a kill are divided; tool durability is expressed as remaining useful work. Recipes consume inputs, people need the relevant tool and skill, and practice increases skills.
 
-M3a adds an accounting ledger for transfers: household allocation, gifts, shared food, new-couple contributions, inheritance, barter and sale. The ledger records source, destination, amount and channel so that goods cannot appear through repricing. Households estimate value in hours of their own labor and post terms; buyers choose among offers. A village's money is inferred from the good that settles the most payments. It may still barter.
+M3a adds an accounting ledger for transfers: household allocation, gifts, shared food, new-couple contributions, inheritance, barter and sale. The ledger records source, destination, amount and channel so that goods cannot appear through repricing. Households estimate value in hours of their own labor and post terms; buyers choose among offers. A seller asks less for food the more of it it can spare, so grain's asks answer the harvest. A village's money is inferred from the good that settles the most payments. It may still barter.
 
 Workshops belong to households and keep their own goods and books. They can post goods, hire work for wages and close. The model is small: firms make a narrow range of tools; they do not yet have modern contracts, credit or complex company organization.
 

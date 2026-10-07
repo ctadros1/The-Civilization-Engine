@@ -412,6 +412,7 @@ it). Content API 8 added the kind.
   | `review_days` | Days between a household's reviews of what it can spare and the terms it posts (each on its own day). |
   | `margin` | What a seller asks over its own cost of a good, a share of that cost. |
   | `max_change` | The largest change of an ask in one review, a share of it. |
+  | `stock_response` | Content API 26 (0 to 3): how strongly a seller's ask for food answers what it holds beyond its needs. Its anchor, its cost and `margin`, is multiplied by `exp(-stock_response × s)`, `s` the years of its own need it can spare, at most one (ADR-0006 §4's stock term; research 08-04 §1.2, 08-05 §1.5), so asks answer the harvest. |
   | `memory_days` | Half-life of what a settlement's market remembers: sales, payments, demand nobody met, trades. |
   | `money_share`, `money_min_trades` | A good is the settlement's money once it settles at least this share of the payments' worth over at least this many remembered trades. Nothing names a money good. |
   | `accept_want` | A seller takes a good in payment when it wants at least this much more of it (1 when short of it), or when the good is the settlement's money. |

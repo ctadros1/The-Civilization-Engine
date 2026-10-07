@@ -218,6 +218,27 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** walking times and routes, about a third of the time, are untouched; they are exact work to make cheaper. M4's 1,000–2,000 people need measuring before its design settles. M3c is complete.
 
+## 2026-10-07 — M4 design: three parts, the polity, ties and standing
+
+**Starting point:** M3c complete (`472b64d`). Settlements hold land but no goods; nobody holds an office or remembers anybody. A village under village fields left the valley together after a short harvest, at 95 people (plan §9 NUDGE). At Max, 1,000 people lived a simulated day in 653–811 ms, about four minutes a year, growing faster than the population.
+
+**Goal:** plan M4, Councils, law and crime: 1,000–2,000 agents, notables and deliberation, constitution primitives, the law pipeline, crime and justice without courts, factions and unrest, and the god tools that touch people's minds. Its demo is five seeds from the same start, their regimes after forty years, and one law's full history.
+
+**Implementation:** design only, from three research briefs (governance and law; crime and order; factions and unrest) drawn from about thirty reports. M4 is split into M4a (standing and the first council), M4b (crime and order) and M4c (factions and unrest). M4a has three slices in [plan §7](../../PROJECT_PLAN.md#7-milestones): X (scale), Y (ties and standing) and Z (the first council). Its two ADRs are [ADR-0013](../../decisions/0013-polity-offices-laws.md) (the polity, its offices and its laws) and [ADR-0014](../../decisions/0014-ties-standing-notables.md) (ties, standing and notables).
+
+**Decision:**
+
+- Every world starts from the same custom: a gathering of adults deciding by acclamation, where anyone may propose. Offices, laws and a common store arise only from proposals people back. No population threshold or timer creates an office, and no issue carries a weight toward a policy.
+- Deliberation is one level of scored moves behind a `Deliberator` trait, not HTN (amends plan §4.2).
+- Standing is the esteem other people's ties hold, by domain and audience. Ties are written only by recorded acts.
+- Notables are a compute tier that grants nothing, checked against every adult deliberating.
+- Labels are derived and never read.
+- Leaving becomes a household's scored choice.
+
+**Evidence:** a measurement, no code. At 1,000 people, a profile put 35 % of the time in route searches, partly because the route cache clears itself whole when full and monthly; 25 % in scoring candidates; 11 % in trade's search; and 5 % in checking every exposed deposit against every walk (plan §9, *Scale at 1,000 people*).
+
+**Open:** whether 2,000 people fit a usable speed at Max is slice X's to show. M4b and M4c get their slices when the part before them is complete.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

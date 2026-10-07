@@ -19,6 +19,8 @@ the milestone is too big and gets split.
 | [0010](0010-ground-people-change.md) | The ground people change: deposits and earthworks | Accepted | M3b |
 | [0011](0011-execution-modes.md) | Execution modes: Detailed and Accelerated | Accepted | M3c |
 | [0012](0012-weather-and-soil.md) | Weather and the soil | Accepted | M3c |
+| [0013](0013-polity-offices-laws.md) | The polity, its offices and its laws | Accepted | M4a |
+| [0014](0014-ties-standing-notables.md) | Ties, standing and notables | Accepted | M4a |
 
 ## Template
 

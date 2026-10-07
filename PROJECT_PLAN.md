@@ -17,7 +17,9 @@ quarries, pots and ovens) and R (style copied from admired buildings, and the de
 and time is implemented** in five slices: S (the speeds and the day step), T (the fifty-year
 dashboard and its baseline), U (weather and seasons), V (soils and fertility) and W
 (Accelerated mode's approximations, Gate B and the demo); the dashboard passes (§7, §9). **M4
-Councils, law and crime** is next: its design is in progress.
+Councils, law and crime** is designed and split in three (§7, §9): M4a (standing and the first
+council) is in progress, from slice X (scale); M4b (crime and order) and M4c (factions and
+unrest) are planned.
 The README lists what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
 (i9 13th gen, RTX 4070 Ti with 12 GB VRAM, 64 GB DDR5).
@@ -1264,24 +1266,90 @@ prices, buildings and wealth distribution), is M3a's.
   - The dashboard takes about half an hour, so it runs nightly, not on pull requests; Gate B
     runs on both. Statistical samplers wait for profiling at M4's scale.
 
-**M4: Councils, law & crime.**
+**M4: Councils, law & crime**, split (2026-10-07, §9) into three milestones, each meeting the
+usable bar with its own demo. M4's original contents were:
+- 1–2k agents.
+- **Notables and the rule-based `Deliberator`.**
+- Constitution primitives v0: offices, the selection methods except elections with parties,
+  bodies, powers; label inference.
+- Policy library v0: tribute/tax, land tenure, levy, curfew, prohibitions, punishments.
+- Law pipeline stages 1–7.
+- Factions, grievance → protest → riot → coup or revolt, with a constitution rebuilt by the
+  winners.
+- **Crime, policing & justice v1** (no courts).
+- Corruption v0.
+- God tools: whisper, bless/curse, ideology or agitator.
+
+Its demo (the same start, five seeds, at least two different regimes after 40 years, and one
+law's full history inspectable) is M4c's. It *proves* that composable institutions yield
+divergent, legible societies, and *defers* elections with parties, courts, lobbying and multiple
+polities.
+
+**M4a: Standing and the first council.**
 - *Contents:*
-  - 1–2k agents.
-  - **Notables and the rule-based `Deliberator`.**
-  - Constitution primitives v0: offices, the selection methods except
-    elections with parties, bodies, powers; label inference.
-  - Policy library v0: tribute/tax, land tenure, levy, curfew, prohibitions,
-    punishments.
-  - Law pipeline stages 1–7.
-  - Factions, grievance → protest → riot → coup or revolt, with a
-    constitution rebuilt by the winners.
-  - **Crime, policing & justice v1** (no courts).
-  - Corruption v0.
-  - God tools: whisper, bless/curse, ideology or agitator.
-- *Demo:* same start, five seeds, at least two different regimes after 40
-  years, and one law's full history is inspectable.
-- *Proves:* composable institutions yield divergent, legible societies.
-- *Defers:* elections with parties, courts, lobbying, multiple polities.
+  - 1–2k agents at Max, the speed work exact.
+  - Ties between people and standing by audience (ADR-0014); notables as a compute tier.
+  - The polity: a founding custom (a gathering of adults, deciding by acclamation), constitution
+    primitives v0 (bodies, offices, powers, selection without elections with parties), the
+    rule-based `Deliberator` (ADR-0013).
+  - Law pipeline stages 1–7, for M4a's policies: a levy into a common store, relief from it,
+    office pay, and land tenure (the property regime held as a law).
+  - Leaving the valley as a household's scored choice, weighed against what it expects.
+  - Succession when an officeholder dies or leaves; label inference.
+  - The government panel (the polity, its offices and holders, its laws and their histories,
+    its store, its label with reasons) and ties and standing in the inspector.
+- *Demo:* one village through a lean year: what its gathering heard, who proposed what, who
+  backed it and why, what was decided, what moved through its store; one law's full history; its
+  notables and what put them there. Whatever the village decides, or fails to, is what is
+  shown.
+- *Proves:* institutions held by people, from a custom every world shares, whose history can be
+  read.
+- *Design (2026-10-07):* three slices, from three briefs drawn from about thirty reports:
+  - **X**: scale. Exact speed work at 1,000 and 2,000 people, proven by digests: the route
+    cache stops clearing itself whole, deposits are looked for only within a walk's reach, and
+    trade's search costs less. Goal (a measure, not a gate): a year of 1,000 people at Max in
+    under two minutes here, against about four today (§9).
+  - **Y**: ties and standing. Ties written by the recorded acts of ADR-0014 §2, standing
+    derived monthly, notables, whom to ask for food weighing ties, the inspector's ties with
+    their reasons; saves and wire bumps.
+  - **Z**: the first council. The polity and its founding custom, the gathering, the
+    `Deliberator` and its moves, the law pipeline, the common store on the ledger, relief,
+    leaving as a choice, succession, labels, the government panel, the notables' gate (ADR-0014
+    §4) and the demo.
+
+  [ADR-0013](decisions/0013-polity-offices-laws.md) governs the polity, its offices and its
+  laws; [ADR-0014](decisions/0014-ties-standing-notables.md) governs ties, standing and
+  notables.
+- *Status (2026-10-07):* designed; slice X is next.
+
+**M4b: Crime and order.**
+- *Contents:*
+  - Theft as a person's choice, scored like any other; incidents, and what was seen.
+  - Cases: who is suspected, who tells, what is decided, by an office or the gathering (no
+    courts).
+  - The watch: an office whose hours are its enforcement capacity, with a backlog.
+  - Punishments as obligations: restitution, compensation, a fine, labour, exile. No corporal
+    punishment or execution in v0.
+  - Corruption v0: an officer's choice to take, or to look away, scored like theft.
+  - Curfew and prohibitions in the law pipeline.
+  - The dashboard's crime row, graded by its direction.
+- *Demo:* a theft from the act to its end: whether anyone saw it, who was told, the case, what
+  was decided, the obligation and whether it was met.
+- *Design:* one ADR (incidents, cases and obligations); slices to be set when M4a is complete.
+
+**M4c: Factions and unrest.**
+- *Contents:*
+  - Grievance (harm and blame) and information spreading through ties, hearsay as evidence.
+  - Opinion, ideology and norms.
+  - Factions with treasuries on the ledger.
+  - Episodes (protest, riot, coup, revolt) as each person's choices; the winners rebuilding the
+    constitution.
+  - God tools: whisper, bless or curse, ideology, agitator.
+  - The dashboard's regimes row.
+- *Demo:* M4's: the same start, five seeds lived forty years, their regimes shown side by side,
+  and one law's full history. If fewer than two regimes arise, that is reported, not forced.
+- *Design:* up to two ADRs (factions and episodes; interventions that touch beliefs); slices to
+  be set when M4b is complete.
 
 **M5: Neighbors.**
 - *Contents:*
@@ -1783,3 +1851,12 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **NUDGE: a village of 95 leaves together (2026-10-07, world 4 of the dashboard above):** under village fields, its harvests were 23.9 t in year 41 and 15.7 t in year 42, against about 22 t its 95 people eat in a year. On 14 May of year 43 food ran short with about two days' left, and within two weeks 17 households gave up and left; six people stayed, and ten lived there at year 50. The households-fields worlds of the same dashboard grew through such years. This is *villages of about 55 leave together* (§9, the M3b demo) at a larger size, and the regime may matter: whether the settlement's allocation by need keeps up with a village's growth has not been traced. Revisit with M4's councils, which give a village other answers to a short year than leaving. The chronicle now names the settlement a household leaves; before, it read "gave up and left ." in the observer and in `chronicle`.
 - **The M3c demo (2026-10-07, plan §7):** river valley seed 2, the seed of the M3a demo, 768 cells, a band of 40, lived eight years from the command line (`civ-host run`) three times. The seed's weather is the same in every run, and `civ-host weather --seed 2` shows that it holds a dry year 4 (616 mm against 797 usual; 188 mm from April to July, the crop's season) and a wet year 5 (1,058 mm). The seed was the earlier demos', and was not picked for how its village fared. A year in the report runs from 1 March, so each holds its calendar year's harvest. **The dry year:** the crops had 57 to 58 % of the water they needed (a harvest 0.69 to 0.71 of an average year's). The village reaped 8.9 to 9.3 t of grain (502 kg/ha in the first run), against 16.5 to 18.7 t the year before. Its grain stores fell from 13.4–15.3 t to 10.8–12.7 t, and grain was asked at 1.36 to 1.42 hours of work a kilogram, against 1.14 to 1.20 the year before. Nobody went short of food and nobody left: about a year's grain in store carried them. **The wet year:** 1,146 mm in the report's year, the crops had 90 to 91 % of their water, and the village reaped 19.4 to 20.0 t (962 kg/ha in the first run). Stores rose to 17.8–19.7 t, and grain was asked at 1.14 to 1.16 again. The next years were wet too, and stores reached about 30 t by year 8. `web/e2e/m3c-demo.spec.ts` (with `TCE_DEMO=1`) makes the village to 1 November of year 5 and shows it in the observer: the weather panel's years against what they usually bring (year 4 "dry", 616 against 797 mm), the market with 11.8 t of grain offered by 11 households, and the chronicle's months that stood out. It then lives on at Max, the clock standing at a midnight each time it shows. Run once, it lived to year 41 at Max before the run stopped, with 71 people. Then fifty years in Accelerated mode passing the dashboard: the entry above.
 - **The dashboard on M3c's last build (2026-10-07, `8093d51`, with nothing beside it):** passed in 31.7 minutes on four cores. Four rows green and the Gini of goods amber (0.26 to 0.33). All five worlds kept their bands, ending with 80 to 92 people (85 and 92 under village fields), the most growth 2.4 times the founders (world 4, year 48). Grain was asked 3 to 9 log points more before the harvest than after, and stocks rose after every harvest. **Structural failures:** 7 in 4,574 building-years, 1.53 per 1,000, every one a hut roof whose rafters broke in a storm, none killing anyone; no empty building gave way. No world fell as world 4 of the run before did. Worlds took 15 to 24 minutes each. Over the two runs of slice W's builds, 12 failures of lived-in buildings in 9,122 building-years, 1.32 per 1,000.
+- **M4 in three parts (2026-10-07):** M4's contents need about five decisions expensive to reverse: the polity with its offices and laws, ties and standing, incidents and cases with their obligations, factions and episodes, and interventions that touch beliefs. That is more than one milestone's three ADRs (§1 rule 7). M4 is split into M4a (standing and the first council), M4b (crime and order) and M4c (factions and unrest), each with the usable bar and a demo of its own; M4's demo is M4c's. The council comes first because crime needs offices to answer it and unrest needs institutions to contest.
+- **M4a design (2026-10-07, plan §7):** three research briefs (governance and law; crime and order; factions and unrest), with an observer summary, drawn from about thirty reports, their key citations checked against the reports. Three slices, X to Z (§7), and two ADRs: [ADR-0013](decisions/0013-polity-offices-laws.md) (the polity, its offices and its laws) and [ADR-0014](decisions/0014-ties-standing-notables.md) (ties, standing and notables). Choices that depart from the plan's first sketch:
+  - **Scored moves, not HTN (amends §4.2).** Deliberation is one level deep: moves that a person's powers and the present issues allow, scored by their forecast effect on that person's goals. HTN planning waits for multi-step plans (M7). Issues only make moves available; no issue carries a weight toward a policy, as "a levy follows a famine" would be plot.
+  - **One founding custom for every world.** A gathering of adults deciding by acclamation, where anyone may propose, and which may amend itself. Different regimes must come from history, not from a drawn starting form.
+  - **Influence from ties held by others (amends §4.2).** §4.2 ranks notables by office, wealth, followers, founder status and reputation. Here standing is the esteem others' ties hold, by domain and audience; office and wealth count only through acts people saw.
+  - **Notables are a compute tier.** They deliberate weekly and others when something reaches them. The flag grants nothing and is read only by the scheduler, and a gate checks it against every adult deliberating (ADR-0014 §4). §4.2's 1 % gets a floor, so a village of a hundred has several.
+  - **Leaving becomes a scored choice.** Today a household leaves when food runs short. In slice Z it weighs staying, with what it expects from its fields, its stores, those it can ask and any relief, against going.
+  - **Settled now for M4b and M4c:** no corporal punishment or execution in v0; the god tool's whispers are true claims only; an agitator is a newcomer sent with an ideology, not a person rewritten.
+- **Scale at 1,000 people (2026-10-07, measured before slice X):** a band founded by `bench_village` on seed 2 (1,024 cells) at Max. 300 people lived a day in 111 ms; 1,000 lived one in 653 ms over their first ten days and 811 ms by days 21 to 30, about four minutes a simulated year, growing faster than the population. A profile (callgrind, 1,000 people, the second week) put 35 % of the time in route searches (about 720 a day at 1.7 million instructions each): the route cache holds 50,000 routes and is cleared whole when full, as well as monthly. 25 % was in scoring candidates, 11 % in trade's search for a deal, 9 % in `exp`, and 5 % in looking for deposits along each walk, which tests every exposed deposit against every segment of the route. Slice X works on these, exactly.

@@ -88,10 +88,11 @@ use civ_core::scheduler::PendingEvent;
 use civ_core::{PermanentId, SimTime};
 use civ_grammar::{BuildingSpec, Footprint, PARAMS};
 use civ_land::deposits::{Body, Deposit};
+use civ_land::soil::RECORD_KEPT;
 use civ_land::{
-    Building, BuildingState, Climatology, Field, FieldStage, GroupCondition, GroupState, Land,
-    Lease, MonthRecord, Party, Patches, Plot, PlotUse, RectCm, Repair, Settlement, ViewTile, Wear,
-    WearTile, Weather, WeatherDay,
+    Building, BuildingState, Climatology, Field, FieldSoil, FieldStage, GroupCondition, GroupState,
+    HarvestRecord, Land, Lease, Limit, MonthRecord, Party, Patches, Plot, PlotUse, RectCm, Repair,
+    Settlement, ViewTile, Wear, WearTile, Weather, WeatherDay,
 };
 use civ_schema::SAVE_SCHEMA_VERSION;
 use civ_schema::flatbuffers::{self, FlatBufferBuilder, WIPOffset};
@@ -103,7 +104,7 @@ use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
-    finish, section, single_chunk, unreadable,
+    SCHEMA_V25, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -270,6 +271,8 @@ enum Schema {
     V24,
     /// What stood out in the weather, in the chronicle (ADR-0012).
     V25,
+    /// Each field's soil and the record of its harvests (ADR-0012 §3).
+    V26,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -309,7 +312,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V22 => Schema::V22,
         SCHEMA_V23 => Schema::V23,
         SCHEMA_V24 => Schema::V24,
-        SAVE_SCHEMA_VERSION => Schema::V25,
+        SCHEMA_V25 => Schema::V25,
+        SAVE_SCHEMA_VERSION => Schema::V26,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1632,7 +1636,8 @@ fn carried(
         | Schema::V22
         | Schema::V23
         | Schema::V24
-        | Schema::V25 => {
+        | Schema::V25
+        | Schema::V26 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1765,7 +1770,8 @@ fn decode_households(
             | Schema::V22
             | Schema::V23
             | Schema::V24
-            | Schema::V25 => {
+            | Schema::V25
+            | Schema::V26 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -2311,6 +2317,22 @@ fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
     let list: Vec<_> = fields
         .iter()
         .map(|f| {
+            let record: Vec<save::HarvestRecord> = f
+                .soil
+                .record
+                .iter()
+                .map(|r| {
+                    save::HarvestRecord::new(
+                        r.year,
+                        r.kg_per_ha,
+                        match r.limit {
+                            Limit::Season => save::HarvestLimit::Season,
+                            Limit::Soil => save::HarvestLimit::Soil,
+                        },
+                    )
+                })
+                .collect();
+            let record = fbb.create_vector(&record);
             save::Field::create(
                 &mut fbb,
                 &save::FieldArgs {
@@ -2342,6 +2364,10 @@ fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
                     water_mm: f.water_mm,
                     need_mm: f.need_mm,
                     got_mm: f.got_mm,
+                    fast_n: f.soil.fast_n,
+                    slow_n: f.soil.slow_n,
+                    supply_n: f.soil.supply_n,
+                    record: Some(record),
                 },
             )
         })
@@ -2392,6 +2418,58 @@ fn decode_fields(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<Vec<Fiel
             holder_share: f.lease_share(),
         });
         let stage = stage_of(f.stage())?;
+        let soil = if schema < Schema::V26 {
+            // Before schema 26 no field kept its soil: its harvests are replayed from native
+            // ground (ADR-0012 §6).
+            match rules.catalog.crops.get(usize::from(crop)) {
+                Some(c) => {
+                    FieldSoil::replayed(&rules.land.soil, c, f64::from(f.ground()), f.harvests())
+                }
+                None => FieldSoil::native(&rules.land.soil, f64::from(f.ground())),
+            }
+        } else {
+            let mut record = Vec::new();
+            for r in f.record().iter().flatten() {
+                let limit = match r.limit() {
+                    save::HarvestLimit::Season => Limit::Season,
+                    save::HarvestLimit::Soil => Limit::Soil,
+                    other => {
+                        return Err(LoadError::Malformed(format!(
+                            "field {id} has a harvest held back by {}",
+                            other.0
+                        )));
+                    }
+                };
+                record.push(HarvestRecord {
+                    year: r.year(),
+                    kg_per_ha: r.kg_per_ha(),
+                    limit,
+                });
+            }
+            if record.len() > RECORD_KEPT {
+                return Err(LoadError::Malformed(format!(
+                    "field {id} remembers {} harvests",
+                    record.len()
+                )));
+            }
+            FieldSoil {
+                fast_n: f.fast_n(),
+                slow_n: f.slow_n(),
+                supply_n: f.supply_n(),
+                record,
+            }
+        };
+        if !(soil.fast_n.is_finite()
+            && soil.slow_n.is_finite()
+            && soil.supply_n.is_finite()
+            && soil.fast_n >= 0.0
+            && soil.slow_n >= 0.0
+            && soil.supply_n >= 0.0)
+        {
+            return Err(LoadError::Malformed(format!(
+                "field {id} has an invalid soil"
+            )));
+        }
         out.push(Field {
             id,
             household,
@@ -2423,6 +2501,7 @@ fn decode_fields(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<Vec<Fiel
             },
             need_mm: f.need_mm(),
             got_mm: f.got_mm(),
+            soil,
         });
     }
     Ok(out)

@@ -56,7 +56,8 @@ slow_warmth_c = [0.0, 0.0, 0.0, 0.0, -0.8, -0.8, -0.8, -0.8, -0.8, 0.0, 0.0, 0.0
 snow_below_c = 0.5               # precipitation falls as snow below this daily mean (tuning)
 melt_mm_per_c = 3.0              # degree-day melt, mm of water per °C a day (tuning)
 # The root zone (FAO-56): water held between field capacity and wilting, and the share plants
-# draw unstressed (p = 0.55 for small grains). Soils (slice V) will set these by ground.
+# draw unstressed (p = 0.55 for small grains). The landscape's soils hold water alike: it has no
+# soil textures yet (research 03-04 §2.1: 100-175 mm a metre for loam).
 soil_water_mm = 100.0
 easy_water_share = 0.55
 cover_kc = 0.9                   # the wild cover's water use against the reference (grass, tuning)
@@ -82,6 +83,21 @@ storm_spread = 0.6
 roof_snow_share = 0.8
 roof_snow_full_deg = 30.0
 roof_snow_shed_deg = 60.0
+
+# The soil's nitrogen (ADR-0012 §3; content API 27), kilograms a hectare of native ground of
+# average richness (a field's ground scales its stocks). Two pools turn to mineral nitrogen once a
+# year: humus slowly, roots and fresh organic matter fast; what they release and what the air adds
+# is the year's supply, of which a crop takes up a share. Research 03-04 §2.1 works 0.2 m of soil
+# at 1.3 t/m3, 1 % organic carbon and a C:N of 10 to 2.6 t of organic nitrogen a hectare, and
+# gives 1.5-3.5 % of it turning over a year: 39-91 kg. RothC's base rates (§2.5) set the turns:
+# humified matter 0.02 a year, resistant plant material 0.3.
+[soil]
+slow_n_kg_ha = 2600.0
+fast_n_kg_ha = 100.0             # tuning: with the humus, native ground releases 82 kg a year
+slow_turnover = 0.02
+fast_turnover = 0.3
+free_n_kg_ha = 15.0              # tuning: the air and free-living microbes; the research gives no figure
+uptake_share = 0.6               # 03-04 §4.2: crops took up 51-68 % of nitrogen given with enough P and K
 
 # Walking wears the ground of each 8 m cell it crosses; unused wear fades as plants grow back
 # (research 10-03 §1.1: dw/dt = aq(1 - w) - bw). Starting values from the research's sensitivity

@@ -235,6 +235,9 @@ mod tests {
             kc: [0.4, 1.15, 0.4],
             kc_days: [30, 30, 40, 20],
             ky: 1.15,
+            grain_n: 0.020,
+            straw_n: 0.006,
+            crop_n: 0.035,
         }
     }
 
@@ -264,6 +267,7 @@ mod tests {
             water_mm: 0.0,
             need_mm: 0.0,
             got_mm: 0.0,
+            soil: civ_land::FieldSoil::default(),
         }
     }
 

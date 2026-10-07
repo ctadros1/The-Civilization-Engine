@@ -35,3 +35,10 @@ straw_kg_per_kg = 1.0            # tuning: old wheats grow 1.5-2 kg of straw per
 kc = [0.4, 1.15, 0.4]
 kc_days = [30, 30, 40, 20]       # initial, development, mid-season, late
 ky = 1.15
+# Nitrogen (ADR-0012 §3; content API 27): what the grain and the straw carried home take from the
+# field, and what the whole crop takes up for each kilogram of grain; the rest, its stubble and
+# roots, returns. Research 03-04 §2.2 gives wheat grain 19-21 kg a tonne and straw 4.4-9.6. The
+# whole crop's figure is a tuning value: grain, 1.5-2 kg of straw a kilogram and the roots.
+grain_n_kg_per_kg = 0.020
+straw_n_kg_per_kg = 0.006
+crop_n_kg_per_kg = 0.035

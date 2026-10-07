@@ -668,6 +668,46 @@ fn report_weather(sim: &Sim, held: &[&civ_land::Field], out: &mut dyn Write) -> 
     Ok(())
 }
 
+/// The soil under the fields held (ADR-0012 §3): the last calendar year's harvests per hectare
+/// and how many of them the soil held back, and the nitrogen the soil supplies this year against
+/// what native ground of the same richness would.
+fn report_soil(sim: &Sim, held: &[&civ_land::Field], out: &mut dyn Write) -> anyhow::Result<()> {
+    if held.is_empty() {
+        return Ok(());
+    }
+    let soil = &sim.rules().land.soil;
+    let last = i32::try_from(sim.now().date().year - 1).unwrap_or(i32::MIN);
+    let (mut reaped, mut kg, mut ha, mut by_soil) = (0usize, 0.0, 0.0, 0usize);
+    for f in held {
+        if let Some(r) = f.soil.record.iter().rev().find(|r| r.year == last) {
+            reaped += 1;
+            kg += f64::from(r.kg_per_ha) * f.area_ha();
+            ha += f.area_ha();
+            by_soil += usize::from(r.limit == civ_land::Limit::Soil);
+        }
+    }
+    let area: f64 = held.iter().map(|f| f.area_ha()).sum();
+    let supply: f64 = held
+        .iter()
+        .map(|f| f64::from(f.soil.supply_n) * f.area_ha())
+        .sum();
+    let native: f64 = held
+        .iter()
+        .map(|f| {
+            f64::from(civ_land::FieldSoil::native(soil, f64::from(f.ground)).supply_n) * f.area_ha()
+        })
+        .sum();
+    writeln!(
+        out,
+        "  soil: {reaped} fields reaped in year {last} gave {:.0} kg/ha, {by_soil} held back by \
+         the soil; it supplies {:.0} kg N/ha this year, {:.0}% of native ground's",
+        kg / ha.max(1e-9),
+        supply / area.max(1e-9),
+        100.0 * supply / native.max(1e-9)
+    )?;
+    Ok(())
+}
+
 fn report_year(
     sim: &Sim,
     year: u32,
@@ -734,6 +774,7 @@ fn report_year(
         short.len()
     )?;
     report_weather(sim, &held, out)?;
+    report_soil(sim, &held, out)?;
     // Stores, summed over households.
     let mut totals = vec![0.0; goods.len()];
     for h in &households {

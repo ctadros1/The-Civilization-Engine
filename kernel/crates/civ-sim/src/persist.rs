@@ -119,6 +119,9 @@ pub const SCHEMA_V23: u32 = 23;
 /// The schema version of M3c slice U's first steps: weather, before the chronicle noted what
 /// stood out in it (see [`agents`]).
 pub const SCHEMA_V24: u32 = 24;
+/// The schema version of M3c slice U complete: the weather in the chronicle, before soils (see
+/// [`agents`]).
+pub const SCHEMA_V25: u32 = 25;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

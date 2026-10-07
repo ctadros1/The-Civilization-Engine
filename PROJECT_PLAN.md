@@ -15,7 +15,8 @@ people), N (discovery and the first new crafts), O (the frame grammar, storehous
 workshops), P (wear, upkeep, loads, failures and caution), Q (deposits, levelled plots, pits and
 quarries, pots and ovens) and R (style copied from admired buildings, and the demo). **M3c Seasons
 and time is in progress**: slices S (the speeds and the day step) and T (the fifty-year
-dashboard and its baseline) and U (weather and seasons) are implemented (§7).
+dashboard and its baseline) and U (weather and seasons) are implemented, and slice V (soils and
+fertility) is in progress (§7).
 The README lists what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
 (i9 13th gen, RTX 4070 Ti with 12 GB VRAM, 64 GB DDR5).
@@ -1229,8 +1230,12 @@ prices, buildings and wealth distribution), is M3a's.
   water so far (content API 24), buildings wearing as wet as each month was, the season and the
   snow line on the map (wire 1.25), the months, winters and years whose weather stood out in
   the chronicle (saves 25), storms and snow on roofs from the weather (content API 25), and grain
-  asks that answer stores (content API 26). Slice U is complete; next is slice V, soils and
-  fertility.
+  asks that answer stores (content API 26). Slice U is complete. Slice V is in progress: each
+  field keeps its soil's nitrogen in two pools, turned each first of January into the year's
+  supply, and the record of its last eight harvests, and a harvest is the least of what its
+  season and its soil allow (saves 26, content API 27). Still to come in slice V: households
+  planning from their fields' records, resting fields they can spare, breaking ground outside the
+  sowing season, and middens and manuring.
 
 **M4: Councils, law & crime.**
 - *Contents:*

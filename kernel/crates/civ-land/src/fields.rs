@@ -6,12 +6,13 @@
 //! §2.1–2.2: spare labour later cannot make up for a crop left unweeded or standing). Nothing
 //! here decides who works which field or when.
 //!
-//! Soil fertility does not fall by a share per crop and return by a share per fallow year
-//! (research 03-04 warns against exactly that shortcut; unmanured continuous wheat holds about
-//! 1 t/ha): a field keeps the quality of its ground. A nutrient budget arrives with soils.
+//! A harvest is the least of what its season and its soil allow (ADR-0012 §3): each field keeps
+//! its soil's nitrogen and the record of its harvests ([`crate::soil`]).
 
 use civ_core::time::DAYS_PER_YEAR;
 use civ_core::{PermanentId, SimTime};
+
+use crate::soil::{FieldSoil, Limit};
 
 /// A crop and how it is grown by hand (content kind `crop`).
 #[derive(Clone, Debug, PartialEq)]
@@ -65,6 +66,13 @@ pub struct CropParams {
     pub kc_days: [u16; 4],
     /// The share of its yield lost per share of its water need unmet (FAO's `Ky`).
     pub ky: f64,
+    /// Nitrogen in its grain, kilograms per kilogram (ADR-0012 §3).
+    pub grain_n: f64,
+    /// Nitrogen in its straw, kilograms per kilogram.
+    pub straw_n: f64,
+    /// Nitrogen the whole crop takes up for each kilogram of grain it grows: grain, straw,
+    /// stubble and roots.
+    pub crop_n: f64,
 }
 
 impl CropParams {
@@ -274,6 +282,27 @@ pub struct Field {
     pub need_mm: f32,
     /// The water its crop has had of that, mm.
     pub got_mm: f32,
+    /// Its soil's nitrogen and the record of its harvests (ADR-0012 §3).
+    pub soil: FieldSoil,
+}
+
+/// What a field's season and soil allow its harvest (ADR-0012 §2-3).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Allowance {
+    /// The share of its yield its season's water allows: 1 in a season of average water.
+    pub water: f64,
+    /// The grain its soil's nitrogen allows this year, kilograms per hectare.
+    pub soil_kg_per_ha: f64,
+}
+
+impl Allowance {
+    /// A season whose water allows a share `water` of the yield, on soil that holds nothing back.
+    pub fn season(water: f64) -> Allowance {
+        Allowance {
+            water,
+            soil_kg_per_ha: f64::INFINITY,
+        }
+    }
 }
 
 /// What a piece of field work did.
@@ -335,19 +364,43 @@ impl Field {
         1.0 - crop.untended_loss * (1.0 - done)
     }
 
-    /// The grain the field would give if reaped on `day`, kilograms, when its season's water
-    /// allows a share `water` of the yield (1 in a year of average water): its area and ground,
-    /// the timeliness of its sowing, its tending, and what the ripe crop has lost standing.
-    pub fn yield_kg(&self, crop: &CropParams, day: i64, water: f64) -> f64 {
-        let standing = (day - self.ripe_day(crop)).max(0) as f64;
-        let kept = (1.0 - crop.standing_loss_per_day * standing).clamp(0.0, 1.0);
+    /// The grain the season lets the crop grow, kilograms, when its water allows a share `water`
+    /// of the yield (1 in a year of average water): its area and ground, the timeliness of its
+    /// sowing and its tending.
+    fn season_kg(&self, crop: &CropParams, water: f64) -> f64 {
         self.area_ha()
             * crop.yield_kg_per_ha
             * f64::from(self.ground)
             * water.max(0.0)
             * crop.timeliness(self.sown_day)
             * self.tending(crop)
-            * kept
+    }
+
+    /// The share of the ripe crop still standing on `day`.
+    fn kept(&self, crop: &CropParams, day: i64) -> f64 {
+        let standing = (day - self.ripe_day(crop)).max(0) as f64;
+        (1.0 - crop.standing_loss_per_day * standing).clamp(0.0, 1.0)
+    }
+
+    /// The grain the field would give if reaped on `day`, kilograms, when its season's water
+    /// allows a share `water` of the yield and the soil holds nothing back: what the season lets
+    /// it grow, less what the ripe crop has lost standing.
+    pub fn yield_kg(&self, crop: &CropParams, day: i64, water: f64) -> f64 {
+        self.season_kg(crop, water) * self.kept(crop, day)
+    }
+
+    /// The harvest if reaped on `day` under `allow`, kilograms: what the crop grew, the least of
+    /// what its season and its soil allow (research 03-04 §5.2); what is left of it after
+    /// standing ripe; and which of the two held it back.
+    pub fn harvest_kg(&self, crop: &CropParams, day: i64, allow: Allowance) -> (f64, f64, Limit) {
+        let season = self.season_kg(crop, allow.water);
+        let soil = allow.soil_kg_per_ha.max(0.0) * self.area_ha();
+        let (grown, limit) = if soil < season {
+            (soil, Limit::Soil)
+        } else {
+            (season, Limit::Season)
+        };
+        (grown, grown * self.kept(crop, day), limit)
     }
 
     /// What people expect the field to give in all if the remaining work is done in time,
@@ -399,9 +452,9 @@ impl Field {
         }
     }
 
-    /// Does `hours` of a capable adult's `task` on `day`, its season's water allowing a share
-    /// `water` of the yield, with `seed_kg` of seed at hand for sowing. Work beyond what the
-    /// stage needs is not counted; sowing stops when the seed runs out.
+    /// Does `hours` of a capable adult's `task` on `day`, its season and soil allowing `allow`,
+    /// with `seed_kg` of seed at hand for sowing. Work beyond what the stage needs is not
+    /// counted; sowing stops when the seed runs out.
     #[allow(clippy::too_many_arguments)]
     pub fn work(
         &mut self,
@@ -409,7 +462,7 @@ impl Field {
         task: FieldTask,
         hours: f64,
         day: i64,
-        water: f64,
+        allow: Allowance,
         seed_kg: f64,
         now: SimTime,
     ) -> WorkDone {
@@ -430,7 +483,7 @@ impl Field {
             self.sheaves_kg = left.max(0.0) as f32;
             if left <= 1e-6 {
                 done.finished = true;
-                self.finish_stage(crop, day, water, now);
+                self.finish_stage(crop, day, allow, now);
             }
             return done;
         }
@@ -447,12 +500,12 @@ impl Field {
         self.work_h = after as f32;
         if after + 1e-6 >= needed {
             done.finished = true;
-            self.finish_stage(crop, day, water, now);
+            self.finish_stage(crop, day, allow, now);
         }
         done
     }
 
-    fn finish_stage(&mut self, crop: &CropParams, day: i64, water: f64, now: SimTime) {
+    fn finish_stage(&mut self, crop: &CropParams, day: i64, allow: Allowance, now: SimTime) {
         self.work_h = 0.0;
         self.stage_since = now;
         self.stage = match self.stage {
@@ -467,8 +520,15 @@ impl Field {
                 FieldStage::Sown
             }
             FieldStage::Sown => {
-                self.sheaves_kg = self.yield_kg(crop, day, water) as f32;
+                let (grown, taken, limit) = self.harvest_kg(crop, day, allow);
+                self.sheaves_kg = taken as f32;
                 self.harvests = self.harvests.saturating_add(1);
+                let ha = self.area_ha();
+                if ha > 0.0 {
+                    let year = i32::try_from(now.date().year).unwrap_or(i32::MAX);
+                    self.soil
+                        .harvested(crop, grown / ha, taken / ha, limit, year);
+                }
                 FieldStage::Reaped
             }
             FieldStage::Reaped => {
@@ -503,6 +563,7 @@ impl Field {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use crate::soil::HarvestRecord;
 
     pub(crate) fn crop() -> CropParams {
         CropParams {
@@ -529,6 +590,9 @@ pub(crate) mod tests {
             kc: [0.4, 1.15, 0.4],
             kc_days: [30, 30, 40, 20],
             ky: 1.15,
+            grain_n: 0.020,
+            straw_n: 0.006,
+            crop_n: 0.035,
         }
     }
 
@@ -559,6 +623,7 @@ pub(crate) mod tests {
             water_mm: 0.0,
             need_mm: 0.0,
             got_mm: 0.0,
+            soil: FieldSoil::default(),
         }
     }
 
@@ -570,8 +635,16 @@ pub(crate) mod tests {
         // 0.1 ha: 80 h to break and 120 h to clear.
         assert!((f.stage_work_h(&c) - 200.0).abs() < 1e-9);
         assert!(
-            f.work(&c, FieldTask::Prepare, 200.0, 60, 1.0, 0.0, SimTime::ZERO)
-                .finished
+            f.work(
+                &c,
+                FieldTask::Prepare,
+                200.0,
+                60,
+                Allowance::season(1.0),
+                0.0,
+                SimTime::ZERO
+            )
+            .finished
         );
         assert!(f.broken);
         // Prepared but never sown, it lies fallow again: still broken ground.
@@ -587,34 +660,93 @@ pub(crate) mod tests {
         assert_eq!(f.task(&c, 40), None, "too early to prepare");
         assert_eq!(f.task(&c, 60), Some(FieldTask::Prepare));
         // Breaking new ground: 80 h for 0.1 ha.
-        let done = f.work(&c, FieldTask::Prepare, 50.0, 60, 1.0, 0.0, t);
+        let done = f.work(
+            &c,
+            FieldTask::Prepare,
+            50.0,
+            60,
+            Allowance::season(1.0),
+            0.0,
+            t,
+        );
         assert!(!done.finished && f.stage == FieldStage::Fallow);
         assert!(
-            f.work(&c, FieldTask::Prepare, 50.0, 61, 1.0, 0.0, t)
-                .finished
+            f.work(
+                &c,
+                FieldTask::Prepare,
+                50.0,
+                61,
+                Allowance::season(1.0),
+                0.0,
+                t
+            )
+            .finished
         );
         assert_eq!(f.stage, FieldStage::Prepared);
         assert_eq!(f.task(&c, 70), None, "not yet time to sow");
         // Sowing needs 10 kg of seed; with 4 kg at hand it goes 40 % of the way.
-        let done = f.work(&c, FieldTask::Sow, 10.0, 80, 1.0, 4.0, t);
+        let done = f.work(&c, FieldTask::Sow, 10.0, 80, Allowance::season(1.0), 4.0, t);
         assert!((done.seed_kg - 4.0).abs() < 1e-9 && !done.finished);
-        let done = f.work(&c, FieldTask::Sow, 10.0, 80, 1.0, 50.0, t);
+        let done = f.work(
+            &c,
+            FieldTask::Sow,
+            10.0,
+            80,
+            Allowance::season(1.0),
+            50.0,
+            t,
+        );
         assert!((done.seed_kg - 6.0).abs() < 1e-9 && done.finished);
         assert_eq!((f.stage, f.sown_day), (FieldStage::Sown, 80));
         // Tend fully, then reap at ripeness: the full yield of 100 kg.
         assert_eq!(f.task(&c, 100), Some(FieldTask::Tend));
-        f.work(&c, FieldTask::Tend, 100.0, 100, 1.0, 0.0, t);
+        f.work(
+            &c,
+            FieldTask::Tend,
+            100.0,
+            100,
+            Allowance::season(1.0),
+            0.0,
+            t,
+        );
         assert_eq!(f.task(&c, 150), None, "tended; not ripe yet");
         assert_eq!(f.task(&c, 200), Some(FieldTask::Reap));
         assert!((f.expected_kg(&c, 200, 1.0) - 100.0).abs() < 1e-6);
         // A season short of water is expected to give less.
         assert!((f.expected_kg(&c, 200, 0.8) - 80.0).abs() < 1e-6);
-        assert!(f.work(&c, FieldTask::Reap, 25.0, 200, 1.0, 0.0, t).finished);
+        assert!(
+            f.work(
+                &c,
+                FieldTask::Reap,
+                25.0,
+                200,
+                Allowance::season(1.0),
+                0.0,
+                t
+            )
+            .finished
+        );
         assert!((f64::from(f.sheaves_kg) - 100.0).abs() < 1e-4);
         // Threshing: half an hour a kilogram.
-        let done = f.work(&c, FieldTask::Thresh, 20.0, 205, 1.0, 0.0, t);
+        let done = f.work(
+            &c,
+            FieldTask::Thresh,
+            20.0,
+            205,
+            Allowance::season(1.0),
+            0.0,
+            t,
+        );
         assert!((done.grain_kg - 40.0).abs() < 1e-4);
-        let done = f.work(&c, FieldTask::Thresh, 100.0, 206, 1.0, 0.0, t);
+        let done = f.work(
+            &c,
+            FieldTask::Thresh,
+            100.0,
+            206,
+            Allowance::season(1.0),
+            0.0,
+            t,
+        );
         assert!((done.grain_kg - 60.0).abs() < 1e-3 && done.finished);
         assert_eq!(f.stage, FieldStage::Fallow);
         // Next year it is prepared again, at the lighter work of cropped ground.
@@ -644,6 +776,48 @@ pub(crate) mod tests {
         assert!(!f.new_day(&c, ripe + 10, SimTime::ZERO));
         assert!(f.new_day(&c, ripe + 50, SimTime::ZERO));
         assert_eq!(f.stage, FieldStage::Fallow);
+    }
+
+    #[test]
+    fn a_harvest_is_the_least_of_what_season_and_soil_allow_and_the_field_remembers_it() {
+        let c = crop();
+        let mut f = field();
+        f.stage = FieldStage::Sown;
+        f.sown_day = 80;
+        f.tended_h = 20.0; // 200 h/ha over 0.1 ha: fully tended
+        let ripe = f.ripe_day(&c);
+        // The season allows 100 kg; a soil that allows 600 kg/ha holds it to 60.
+        let poor = Allowance {
+            water: 1.0,
+            soil_kg_per_ha: 600.0,
+        };
+        let (grown, taken, limit) = f.harvest_kg(&c, ripe, poor);
+        assert!((grown - 60.0).abs() < 1e-9 && (taken - 60.0).abs() < 1e-9);
+        assert_eq!(limit, Limit::Soil);
+        let rich = Allowance {
+            water: 0.8,
+            soil_kg_per_ha: 2000.0,
+        };
+        assert_eq!(f.harvest_kg(&c, ripe, rich).2, Limit::Season);
+        // Reaped, the field remembers the harvest per hectare and what held it back, and the
+        // soil keeps what the crop took up and did not carry off.
+        let t = SimTime::from_date(3, 7, 30, 12, 0).expect("a date");
+        let fast = f.soil.fast_n;
+        assert!(
+            f.work(&c, FieldTask::Reap, 25.0, ripe, poor, 0.0, t)
+                .finished
+        );
+        assert_eq!(
+            f.soil.record,
+            vec![HarvestRecord {
+                year: 3,
+                kg_per_ha: 600.0,
+                limit: Limit::Soil,
+            }]
+        );
+        // 600 kg/ha took up 21 kg of nitrogen, 12 of it in the grain; no straw is carried home.
+        let back = f64::from(f.soil.fast_n - fast);
+        assert!((back - 600.0 * (0.035 - 0.020)).abs() < 1e-3, "{back}");
     }
 
     #[test]

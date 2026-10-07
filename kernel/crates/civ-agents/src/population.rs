@@ -12,7 +12,9 @@ use civ_core::time::{DAYS_PER_YEAR, MINUTES_PER_DAY};
 use civ_core::{FastMap, GenTable, Handle, IdAllocator, PermanentId, Rng64, SimTime};
 use civ_grammar::{BuildingSpec, Expansion, Stage, StageNeeds};
 use civ_land::paths::cells_along;
-use civ_land::{Building, CropParams, Field, FieldStage, FieldTask, Land, LandParams, Party, Plot};
+use civ_land::{
+    Building, CropParams, Field, FieldSoil, FieldStage, FieldTask, Land, LandParams, Party, Plot,
+};
 use civ_world::nav::{NavGrid, RouteResult, TravelField};
 use civ_world::{WATER_LAKE, WATER_LAND, WATER_RIVER, WorldMap};
 
@@ -2714,6 +2716,11 @@ impl Population {
                         water_mm: 0.0,
                         need_mm: 0.0,
                         got_mm: 0.0,
+                        // Native ground's soil (ADR-0012 §3), of the ground the field keeps.
+                        soil: FieldSoil::native(
+                            &ctx.land_params.soil,
+                            f64::from(site.ground as f32),
+                        ),
                     });
                     self.sites.remove(&hh_id);
                     target = Target::Field(id);
@@ -3438,9 +3445,12 @@ impl Population {
             .copied()
             .unwrap_or(0.0)
             .max(0.0);
-        // What its season's water allows, fixed once the crop is ripe (ADR-0012 §2).
-        let water = ctx.land.water_factor(&ctx.land.fields[fi]);
-        let done = ctx.land.fields[fi].work(crop, task, hours, now.day_index(), water, seed, now);
+        // What its season's water and its soil allow, fixed once the crop is ripe (ADR-0012
+        // §2-3).
+        let allow = ctx
+            .land
+            .allowance(ctx.land_params, &ctx.land.fields[fi], crop);
+        let done = ctx.land.fields[fi].work(crop, task, hours, now.day_index(), allow, seed, now);
         if let Some(s) = x.stores.get_mut(crop.seed_good) {
             *s = (seed - done.seed_kg).max(0.0);
             x.flows

@@ -1,7 +1,9 @@
 //! Land profiles (`kind = "land"`): habitat rules and wild resources (ADR-0004).
 
 use civ_land::deposits::DepositRule;
-use civ_land::{Growth, HabitatRule, LandParams, PathParams, ResourceParams, WeatherParams};
+use civ_land::{
+    Growth, HabitatRule, LandParams, PathParams, ResourceParams, SoilParams, WeatherParams,
+};
 use serde::Deserialize;
 
 /// The `kind` value of a land profile.
@@ -22,6 +24,8 @@ pub(crate) struct LandFile {
     pub richness_feature_m: f64,
     /// How the weather is drawn (ADR-0012 §1; content API 23).
     pub weather: WeatherFile,
+    /// How the soils hold nitrogen (ADR-0012 §3; content API 27).
+    pub soil: SoilFile,
     pub paths: Paths,
     pub habitat: Vec<Habitat>,
     pub resource: Vec<Resource>,
@@ -109,6 +113,52 @@ pub(crate) struct WeatherFile {
     pub roof_snow_share: f64,
     pub roof_snow_full_deg: f64,
     pub roof_snow_shed_deg: f64,
+}
+
+/// How a landscape's soils hold nitrogen (ADR-0012 §3; content API 27). See [`SoilParams`] for
+/// what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct SoilFile {
+    pub slow_n_kg_ha: f64,
+    pub fast_n_kg_ha: f64,
+    pub slow_turnover: f64,
+    pub fast_turnover: f64,
+    pub free_n_kg_ha: f64,
+    pub uptake_share: f64,
+}
+
+impl SoilFile {
+    fn params(&self) -> SoilParams {
+        SoilParams {
+            slow_n_kg_ha: self.slow_n_kg_ha,
+            fast_n_kg_ha: self.fast_n_kg_ha,
+            slow_turnover: self.slow_turnover,
+            fast_turnover: self.fast_turnover,
+            free_n_kg_ha: self.free_n_kg_ha,
+            uptake_share: self.uptake_share,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, least, most) in [
+            ("slow_n_kg_ha", self.slow_n_kg_ha, 0.0, 50_000.0),
+            ("fast_n_kg_ha", self.fast_n_kg_ha, 0.0, 5_000.0),
+            ("slow_turnover", self.slow_turnover, 0.0, 0.5),
+            ("fast_turnover", self.fast_turnover, 0.0, 1.0),
+            ("free_n_kg_ha", self.free_n_kg_ha, 0.0, 200.0),
+            ("uptake_share", self.uptake_share, 0.0, 1.0),
+        ] {
+            if !(v.is_finite() && (least..=most).contains(&v)) {
+                p.push(format!(
+                    "`soil.{name}` must be between {least} and {most} (got {v})"
+                ));
+            }
+        }
+        if self.fast_turnover < self.slow_turnover {
+            p.push("`soil.fast_turnover` must be at least `soil.slow_turnover`".to_owned());
+        }
+    }
 }
 
 impl WeatherFile {
@@ -344,6 +394,7 @@ impl LandFile {
             richness_feature_m: self.richness_feature_m,
             resources,
             weather: self.weather.params(),
+            soil: self.soil.params(),
             paths: PathParams {
                 wear_per_walk: self.paths.wear_per_walk,
                 half_life_days: self.paths.wear_half_life_days,
@@ -439,6 +490,7 @@ impl LandFile {
             p.push("`richness_feature_m` must be positive".to_owned());
         }
         self.weather.problems(&mut p);
+        self.soil.problems(&mut p);
         let w = &self.paths;
         if !(w.wear_per_walk > 0.0 && w.wear_per_walk < 1.0) {
             p.push("`paths.wear_per_walk` must be above 0 and below 1".to_owned());

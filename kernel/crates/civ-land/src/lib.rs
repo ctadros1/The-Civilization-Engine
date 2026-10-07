@@ -25,14 +25,18 @@ pub mod deposits;
 pub mod earth;
 pub mod fields;
 pub mod paths;
+pub mod soil;
 pub mod weather;
 
 pub use buildings::{
     BuildWork, Building, BuildingState, GroupCondition, GroupState, MATERIAL_SLACK_KG, MendWork,
     Plot, PlotUse, Repair, STAGE_DONE_SLACK_H, workable_h,
 };
-pub use fields::{CropParams, Field, FieldStage, FieldTask, Lease, Party, RectCm, WorkDone};
+pub use fields::{
+    Allowance, CropParams, Field, FieldStage, FieldTask, Lease, Party, RectCm, WorkDone,
+};
 pub use paths::{PathParams, Trail, ViewTile, Wear, WearTile};
+pub use soil::{FieldSoil, HarvestRecord, Limit, SoilParams};
 pub use weather::{Climatology, MonthRecord, Unworkable, Weather, WeatherDay, WeatherParams};
 
 use civ_core::time::{DAYS_PER_YEAR, MONTH_STARTS};
@@ -149,6 +153,8 @@ pub struct LandParams {
     pub resources: Vec<ResourceParams>,
     /// How the weather is drawn (ADR-0012 §1).
     pub weather: WeatherParams,
+    /// How the soils hold nitrogen (ADR-0012 §3).
+    pub soil: SoilParams,
     /// How walking wears the ground.
     pub paths: PathParams,
     /// Where deposits of clay, stone and flint lie, by kind (ADR-0010 §1).
@@ -818,6 +824,14 @@ impl Land {
         )
     }
 
+    /// What field `f`'s season and soil allow its harvest of `crop` this year (ADR-0012 §2-3).
+    pub fn allowance(&self, params: &LandParams, f: &Field, crop: &CropParams) -> Allowance {
+        Allowance {
+            water: self.water_factor(f),
+            soil_kg_per_ha: f.soil.allows_kg_ha(&params.soil, crop),
+        }
+    }
+
     /// The share of its yield field `f`'s season's water allows: 1 in a season of average water
     /// (ADR-0012 §2).
     pub fn water_factor(&self, f: &Field) -> f64 {
@@ -921,14 +935,21 @@ impl Land {
     }
 
     /// Lives every day up to and including `day`: each day's weather (snow, the soil under the
-    /// wild cover, the growing fields' water), then growth and loss of the stocks. Each day's step
-    /// is exact for constant rates over the day, so splitting an advance changes nothing. Animals
-    /// spread on the first day of each month.
+    /// wild cover, the growing fields' water), on the first of January the fields' soils (ADR-0012
+    /// §3), then growth and loss of the stocks. Each day's step is exact for constant rates over
+    /// the day, so splitting an advance changes nothing. Animals spread on the first day of each
+    /// month.
     pub fn advance_to_day(&mut self, params: &LandParams, map: &WorldMap, day: i64) {
         while self.stock_day < day {
             let d = self.stock_day + 1;
             let water = self.weather.live(&params.weather, &self.climatology);
             self.water_fields(&params.weather, map, &water, d);
+            if day_of_year(d) == soil::TURN_DAY {
+                let year = i32::try_from(d.div_euclid(DAYS_PER_YEAR) + 1).unwrap_or(i32::MAX);
+                for f in &mut self.fields {
+                    f.soil.turn(&params.soil, f64::from(f.ground), year);
+                }
+            }
             let month_start = MONTH_STARTS[..12].contains(&day_of_year(d));
             for (r, res) in params.resources.iter().enumerate() {
                 match &res.growth {
@@ -1279,6 +1300,7 @@ mod tests {
                 },
             ],
             weather: weather::tests::params(),
+            soil: soil::tests::params(),
             paths: PathParams {
                 wear_per_walk: 0.01,
                 half_life_days: 120.0,

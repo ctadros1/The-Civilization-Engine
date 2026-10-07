@@ -130,7 +130,10 @@ impl TiesFile {
     fn problems(&self, p: &mut Vec<String>) {
         use civ_agents::ties::{Act, Domain};
         if !(1..=1000).contains(&self.room) {
-            p.push(format!("`ties.room` must be between 1 and 1000 (got {})", self.room));
+            p.push(format!(
+                "`ties.room` must be between 1 and 1000 (got {})",
+                self.room
+            ));
         }
         if self.companions > 100 {
             p.push(format!(
@@ -187,7 +190,10 @@ impl TiesFile {
         let mut seen = std::collections::HashSet::new();
         for a in &self.acts {
             if Act::from_name(&a.act).is_none() {
-                p.push(format!("`ties.acts` names an act the engine does not record: `{}`", a.act));
+                p.push(format!(
+                    "`ties.acts` names an act the engine does not record: `{}`",
+                    a.act
+                ));
             } else if !seen.insert(a.act.as_str()) {
                 p.push(format!("`ties.acts` gives act `{}` twice", a.act));
             }
@@ -217,7 +223,10 @@ impl TiesFile {
         }
         for act in Act::ALL {
             if !seen.contains(act.name()) {
-                p.push(format!("`ties.acts` must say what act `{}` writes", act.name()));
+                p.push(format!(
+                    "`ties.acts` must say what act `{}` writes",
+                    act.name()
+                ));
             }
         }
     }

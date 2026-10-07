@@ -374,11 +374,7 @@ impl Tie {
                 ..r
             }),
             Some(r) if writes(&params.acts[r.act as usize]) && !writes(&w) => Some(r),
-            _ => Some(Reason {
-                act,
-                day,
-                times: 1,
-            }),
+            _ => Some(Reason { act, day, times: 1 }),
         };
         self.day = day;
     }
@@ -490,7 +486,13 @@ impl Ties {
     }
 
     /// How much `holder` regards `to` on `day` ([`Tie::regard_at`]), 0 for a stranger.
-    pub fn regard(&self, holder: PermanentId, to: PermanentId, day: i64, params: &TieParams) -> f64 {
+    pub fn regard(
+        &self,
+        holder: PermanentId,
+        to: PermanentId,
+        day: i64,
+        params: &TieParams,
+    ) -> f64 {
         self.held
             .get(&holder)
             .and_then(|ties| {
@@ -698,9 +700,15 @@ mod tests {
             day: 365 * 3 + 130,
             times: 3,
         };
-        assert_eq!(r.words(), "gave their household food 3 times, last in May of year 4");
+        assert_eq!(
+            r.words(),
+            "gave their household food 3 times, last in May of year 4"
+        );
         let once = Reason { times: 1, ..r };
-        assert_eq!(once.words(), "gave their household food, last in May of year 4");
+        assert_eq!(
+            once.words(),
+            "gave their household food, last in May of year 4"
+        );
     }
 
     #[test]

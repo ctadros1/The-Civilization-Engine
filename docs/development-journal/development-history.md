@@ -239,6 +239,30 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** whether 2,000 people fit a usable speed at Max is slice X's to show. M4b and M4c get their slices when the part before them is complete.
 
+## 2026-10-08 — M4a slices X and Y: scale, ties and standing
+
+**Starting point:** M4 designed (`705b7b0`). A year of 1,000 people at Max took about ten minutes; nobody remembered anybody.
+
+**Goal:** slice X, make 1,000–2,000 people usable with exact speed work only; slice Y, ties written by recorded acts, standing summed from them, notables, and the observer's view of both.
+
+**Implementation:**
+
+- **Slice X (`ce69c6f` and the commit after).** Route searches keep Tobler's speeds per step, keep their scores side by side and read trail factors from a dense copy of the routing view. Deposits along a walk are ruled out by its box. A deal's costs are worked out only when an offer is worth pricing. The route cache keeps two generations.
+- **Slice Y, first step (`b855172`).** `civ_agents::ties`: directed ties with familiarity, warmth, evidence by domain fading toward a prior, a balance of help and a reason. They are written at gifts, wages, rent, trades, learning and hearth company. Saves 28, content API 30.
+- **Slice Y, second and third steps.** `civ_agents::standing`, worked out monthly and saved. The giver choice weighs regard. Wire 1.26 adds ties in the inspector and a Standing panel.
+
+**Decision:** the hearth draws 15 % of its company from strangers and the rest from known faces. Weighting every face present let strangers fill every draw in a village of 1,000, and 227,070 ties were let go in 30 days. Influence ranks regard over all domains with warmth, not per domain.
+
+**Evidence:**
+
+- **Slice X:** every save section byte for byte as before over 30 days at 1,000 and 2,000 people. 1,674 to 1,354 ms a day, and 5,256 to 4,278.
+- **A year of 1,000 people:** 485 s, against a goal of 120 (route searches remain most of the cost).
+- **Ties without readers:** left every other section unchanged.
+- **Bands of 40 after three years:** 31–34 ties a person, every adult esteemed by someone, three notables each.
+- **Checks:** the smoke, Gate B and the end-to-end suite pass.
+
+**Open:** a tighter route search bound changes ties between equally fast routes and waits for towns. The notables' gate comes with deliberation in slice Z. Gate B does not yet compare ties.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

@@ -1605,7 +1605,10 @@ fn ties_name_the_acts_the_engine_records_and_say_what_each_writes() {
             ("people/early_farmers.toml", &people),
         ]);
         let found = codes(&report);
-        assert!(!found.is_empty() && found.iter().all(|&c| c == "E3001"), "{to}: {found:?}");
+        assert!(
+            !found.is_empty() && found.iter().all(|&c| c == "E3001"),
+            "{to}: {found:?}"
+        );
         assert!(
             report.diagnostics.iter().any(|d| d.message.contains(says)),
             "{to}: {:?}",
@@ -1613,9 +1616,21 @@ fn ties_name_the_acts_the_engine_records_and_say_what_each_writes() {
         );
     };
     // An act the engine does not record, which also leaves one unsaid.
-    check("act = \"traded\"", "act = \"bartered\"", "does not record: `bartered`");
-    check("act = \"traded\"", "act = \"bartered\"", "what act `traded` writes");
-    check("domain = \"provision\"", "domain = \"bounty\"", "unknown domain `bounty`");
+    check(
+        "act = \"traded\"",
+        "act = \"bartered\"",
+        "does not record: `bartered`",
+    );
+    check(
+        "act = \"traded\"",
+        "act = \"bartered\"",
+        "what act `traded` writes",
+    );
+    check(
+        "domain = \"provision\"",
+        "domain = \"bounty\"",
+        "unknown domain `bounty`",
+    );
     check("room = 48", "room = 0", "`ties.room`");
     check(
         "act = \"hearth\", familiarity = 0.1",

@@ -68,7 +68,12 @@ impl Population {
         // margin covers rounding in `to_segment`).
         let span = |a: &[(f64, f64)]| {
             a.iter().fold(
-                (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY),
+                (
+                    f64::INFINITY,
+                    f64::INFINITY,
+                    f64::NEG_INFINITY,
+                    f64::NEG_INFINITY,
+                ),
                 |(x0, y0, x1, y1), &(x, y)| (x0.min(x), y0.min(y), x1.max(x), y1.max(y)),
             )
         };

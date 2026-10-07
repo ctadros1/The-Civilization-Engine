@@ -332,7 +332,13 @@ impl NavGrid {
 
     /// Tobler's speed on the step from `from` to its neighbour `to`, m/s on a trail; `None` if
     /// the step cannot be walked.
-    fn step_speed(&self, elevation: &[f32], from: usize, to: usize, dist_cells: f64) -> Option<f64> {
+    fn step_speed(
+        &self,
+        elevation: &[f32],
+        from: usize,
+        to: usize,
+        dist_cells: f64,
+    ) -> Option<f64> {
         if f64::from(self.ground[to]) <= 0.0 {
             return None;
         }
@@ -1053,7 +1059,11 @@ mod tests {
         for k in 1..r.cells.len() {
             let (i, j) = (r.cells[k - 1] as usize, r.cells[k] as usize);
             let diagonal = i % 48 != j % 48 && i / 48 != j / 48;
-            let dist = if diagonal { std::f64::consts::SQRT_2 } else { 1.0 };
+            let dist = if diagonal {
+                std::f64::consts::SQRT_2
+            } else {
+                1.0
+            };
             let step = nav
                 .step_seconds(&map.elevation, i, j, dist, trail(j))
                 .expect("a walked step can be walked");

@@ -22,7 +22,12 @@ impl Population {
             self.person(m)
                 .is_some_and(|p| p.age_years(now) >= params.family.independent_age)
         });
-        grown.or_else(|| x.members.iter().copied().find(|&m| self.person(m).is_some()))
+        grown.or_else(|| {
+            x.members
+                .iter()
+                .copied()
+                .find(|&m| self.person(m).is_some())
+        })
     }
 
     /// Records `units` of `act` by `to`, seen by `holder` now, with `help_h` hours of help
@@ -133,12 +138,8 @@ impl Population {
         // otherwise someone known, the better known the likelier (research 04-04 §1.5: people
         // keep up the ties that matter to them). The draw is keyed by person and minute, so it
         // touches no other draw.
-        let mut rng = Rng64::from_key(&[
-            ctx.seed,
-            PURPOSE_HEARTH,
-            me.get(),
-            ctx.now.minutes() as u64,
-        ]);
+        let mut rng =
+            Rng64::from_key(&[ctx.seed, PURPOSE_HEARTH, me.get(), ctx.now.minutes() as u64]);
         let (mut known, mut new): (Vec<(f64, PermanentId)>, Vec<PermanentId>) =
             (Vec::new(), Vec::new());
         for &q in &others {

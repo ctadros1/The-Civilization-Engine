@@ -707,8 +707,10 @@ fn decode_ties(
     let root = flatbuffers::root::<save::Ties>(bytes).map_err(|e| unreadable(SECTION_TIES, &e))?;
     let mut by_holder: std::collections::BTreeMap<PermanentId, Vec<Tie>> = Default::default();
     for r in root.ties().iter().flatten() {
-        let (Some(holder), Some(to)) = (PermanentId::from_raw(r.holder()), PermanentId::from_raw(r.to()))
-        else {
+        let (Some(holder), Some(to)) = (
+            PermanentId::from_raw(r.holder()),
+            PermanentId::from_raw(r.to()),
+        ) else {
             return Err(LoadError::Malformed("a tie names nobody".to_owned()));
         };
         let reason = match r.reason() {

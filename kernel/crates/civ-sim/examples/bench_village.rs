@@ -251,6 +251,31 @@ fn main() {
             }
         }
         println!("{line}");
+        // Standing (ADR-0014 §3-4), as last worked out.
+        let table = &sim.people().standing;
+        for s in &sim.land().settlements {
+            let rows: Vec<_> = table.in_settlement(s.id).collect();
+            let esteemed = rows.iter().filter(|r| r.total() > 0.05).count();
+            let most = rows.iter().map(|r| r.influence).max().unwrap_or(0);
+            let notables: Vec<String> = rows
+                .iter()
+                .filter(|r| r.notable)
+                .map(|r| {
+                    format!(
+                        "{} (influence {}, esteem {:.1})",
+                        sim.people().name_of(r.person),
+                        r.influence,
+                        r.total()
+                    )
+                })
+                .collect();
+            println!(
+                "standing of {}: {} adults, {esteemed} esteemed by others, most influence {most}; notables: {}",
+                s.name,
+                rows.len(),
+                notables.join(", ")
+            );
+        }
     }
     if let Some(dir) = &a.save_to {
         let saves = SaveDir::create(Path::new(dir), civ_schema::SAVE_EXTENSION).expect("save dir");

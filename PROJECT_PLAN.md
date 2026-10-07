@@ -1320,7 +1320,11 @@ polities.
   [ADR-0013](decisions/0013-polity-offices-laws.md) governs the polity, its offices and its
   laws; [ADR-0014](decisions/0014-ties-standing-notables.md) governs ties, standing and
   notables.
-- *Status (2026-10-07):* designed; slice X is next.
+- *Status (2026-10-07):* slice X is done, time-boxed and short of its goal. Its exact speed work
+  leaves every save section byte for byte as it was, and makes 1,000 and 2,000 people about a
+  fifth faster. A year of 1,000 people at Max takes about eight minutes, not two (§9): route
+  searches remain most of the cost, and the step that would cut them changes which of two
+  equally fast routes is walked, so it is not exact. Slice Y is next.
 
 **M4b: Crime and order.**
 - *Contents:*
@@ -1860,3 +1864,12 @@ One line each. Don't re-litigate without a reason written next to the entry.
   - **Leaving becomes a scored choice.** Today a household leaves when food runs short. In slice Z it weighs staying, with what it expects from its fields, its stores, those it can ask and any relief, against going.
   - **Settled now for M4b and M4c:** no corporal punishment or execution in v0; the god tool's whispers are true claims only; an agitator is a newcomer sent with an ideology, not a person rewritten.
 - **Scale at 1,000 people (2026-10-07, measured before slice X):** a band founded by `bench_village` on seed 2 (1,024 cells) at Max. 300 people lived a day in 111 ms; 1,000 lived one in 653 ms over their first ten days and 811 ms by days 21 to 30, about four minutes a simulated year, growing faster than the population. A profile (callgrind, 1,000 people, the second week) put 35 % of the time in route searches (about 720 a day at 1.7 million instructions each): the route cache holds 50,000 routes and is cleared whole when full, as well as monthly. 25 % was in scoring candidates, 11 % in trade's search for a deal, 9 % in `exp`, and 5 % in looking for deposits along each walk, which tests every exposed deposit against every segment of the route. Slice X works on these, exactly.
+- **Slice X, scale (2026-10-07, M4a, `ce69c6f` and the commit after):** time-boxed exact speed work, each change proven by digests of every save section over 30 days at Max from a 1,000-person and a 2,000-person save (`bench_village --load … --max --digest`). **Changes:**
+  - Route searches and travel fields keep Tobler's speed of each step in a per-thread table for the grid; the ground under a grid never changes, so a step is worked out once.
+  - A search's scores sit side by side in one array.
+  - The routing view is also kept a byte per cell, so a trail factor is one look-up.
+  - Finding deposits along a walk first rules out bodies beyond the walk's box.
+  - A deal's own costs are worked out only once an offer is worth pricing.
+  - The route cache keeps two generations rather than emptying itself when full.
+
+  **Measured over thirty spring days:** 1,000 people went from 1,674 to 1,354 ms a day, 2,000 from 5,256 to 4,278. **A whole year** of 1,000 people founded at once lived in 485 s at Max (1.33 s a day): 0.58 s in the first month, 1.5 s in spring, 2.2–2.6 s in the harvest weeks and 0.8–1.0 s in winter. The goal was two minutes, so it is **not met**. **Why:** on the slowest days route searches are 86 % of the time (callgrind). There are few of them (250–800 misses a day, half of them the way back of a cached route, with no route unreachable), but each grows costly once trails are worn: the search's lower bound assumes a trail's speed everywhere while most ground is walked off-trail at 0.6 of it, so a search expands 12,000–16,000 cells. A tighter bound (landmarks, or a bound by region) would cut that several-fold, but it can change which of two equally fast routes is walked, so it is not exact. It waits until a demo needs towns of thousands (M5, M6), with a one-time change of digests checked for equal route times. **Decisions** cost the rest of the time, spread thin: the deal search 12 %, patches 4 %, jobs 3 %, and `own_costs` 56,000 times a day at 2,000 people. Time grows faster than the population: 2,000 people cost 3.2 times 1,000. M4's own demos found villages of tens to hundreds, which this does not limit.

@@ -126,6 +126,8 @@ pub(crate) struct SoilFile {
     pub fast_turnover: f64,
     pub free_n_kg_ha: f64,
     pub uptake_share: f64,
+    /// Content API 28: whole years broken ground can lie unsown before it must be broken again.
+    pub regrown_years: u32,
 }
 
 impl SoilFile {
@@ -137,6 +139,7 @@ impl SoilFile {
             fast_turnover: self.fast_turnover,
             free_n_kg_ha: self.free_n_kg_ha,
             uptake_share: self.uptake_share,
+            regrown_years: self.regrown_years,
         }
     }
 
@@ -154,6 +157,12 @@ impl SoilFile {
                     "`soil.{name}` must be between {least} and {most} (got {v})"
                 ));
             }
+        }
+        if self.regrown_years > 100 {
+            p.push(format!(
+                "`soil.regrown_years` must be between 0 and 100 (got {})",
+                self.regrown_years
+            ));
         }
         if self.fast_turnover < self.slow_turnover {
             p.push("`soil.fast_turnover` must be at least `soil.slow_turnover`".to_owned());

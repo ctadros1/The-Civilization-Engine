@@ -98,6 +98,9 @@ slow_turnover = 0.02
 fast_turnover = 0.3
 free_n_kg_ha = 15.0              # tuning: the air and free-living microbes; the research gives no figure
 uptake_share = 0.6               # 03-04 §4.2: crops took up 51-68 % of nitrogen given with enough P and K
+# Broken ground left unsown this many whole years has grown over with grass and scrub and is
+# broken again before it is cropped (content API 28; a tuning value: the research gives none).
+regrown_years = 3
 
 # Walking wears the ground of each 8 m cell it crosses; unused wear fades as plants grow back
 # (research 10-03 §1.1: dw/dt = aq(1 - w) - bw). Starting values from the research's sensitivity

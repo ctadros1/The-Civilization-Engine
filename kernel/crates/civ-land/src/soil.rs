@@ -39,6 +39,9 @@ pub struct SoilParams {
     pub free_n_kg_ha: f64,
     /// The share of a year's mineral nitrogen a crop can take up.
     pub uptake_share: f64,
+    /// Whole years broken ground can lie unsown before its wild cover has grown over it and it
+    /// must be broken again (content API 28; 0 never).
+    pub regrown_years: u32,
 }
 
 impl SoilParams {
@@ -216,6 +219,7 @@ pub(crate) mod tests {
             fast_turnover: 0.3,
             free_n_kg_ha: 15.0,
             uptake_share: 0.6,
+            regrown_years: 3,
         }
     }
 

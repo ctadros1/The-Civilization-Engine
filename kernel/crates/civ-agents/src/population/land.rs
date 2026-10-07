@@ -132,9 +132,10 @@ impl Population {
         out
     }
 
-    /// The area a household of `members` needs to crop, hectares, as households plan it
-    /// themselves ([`farm::need_area_ha`]); 0 without a crop.
-    pub(super) fn need_ha(&self, ctx: &Ctx, members: usize) -> f64 {
+    /// The area household `household` of `members` needs to crop, hectares, as households plan
+    /// it themselves ([`farm::need_area_ha`]), at the yield its fields have given; 0 without a
+    /// crop.
+    pub(super) fn need_ha(&self, ctx: &Ctx, household: PermanentId, members: usize) -> f64 {
         let Some(crop) = ctx.catalog.crops.get(ctx.params.farm.crop) else {
             return 0.0;
         };
@@ -143,7 +144,9 @@ impl Population {
             .goods
             .get(crop.good)
             .map_or(0.0, |g| g.kcal_per_kg);
-        farm::need_area_ha(members, ctx.params, crop, kcal)
+        let fields = ctx.land.fields.iter().filter(|f| f.household == household);
+        let expected = farm::expected_yield_kg_ha(fields, crop, ctx.now.day_index());
+        farm::need_area_ha(members, ctx.params, crop, kcal, expected)
     }
 
     /// Whether a field is vacant under the regime: nobody may work it until it changes hands.
@@ -195,7 +198,7 @@ impl Population {
             .iter()
             .map(|(_, x)| x)
             .filter(|x| x.settlement == Some(settlement) && !x.members.is_empty())
-            .map(|x| (x.id, x.home, self.need_ha(ctx, x.members.len()), 0.0))
+            .map(|x| (x.id, x.home, self.need_ha(ctx, x.id, x.members.len()), 0.0))
             .collect();
         if households.is_empty() {
             return 0;

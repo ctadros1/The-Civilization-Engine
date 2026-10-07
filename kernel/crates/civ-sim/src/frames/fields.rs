@@ -93,6 +93,14 @@ fn stage_words(f: &Field, crop: &CropParams, day: i64) -> String {
     let done = progress(f, crop, day);
     let doy = day.rem_euclid(civ_core::time::DAYS_PER_YEAR);
     match f.stage {
+        // Ground cropped before has grown over in a long rest (ADR-0012 §4).
+        FieldStage::Fallow if !f.broken && f.harvests > 0 => {
+            if f.work_h > 0.0 {
+                format!("grown over, being broken again, {} done", percent(done))
+            } else {
+                "grown over, to be broken again".to_owned()
+            }
+        }
         FieldStage::Fallow if !f.broken => {
             let woodland = f.clear_h_per_ha > 0.0;
             match (woodland, f.work_h > 0.0) {
@@ -276,8 +284,13 @@ mod tests {
         let c = crop();
         let mut wood = field(FieldStage::Fallow);
         wood.broken = false;
+        wood.harvests = 0;
         wood.clear_h_per_ha = 1000.0;
         assert_eq!(status(&wood, &c, 60), "woodland marked out to clear");
+        // Cropped ground left to grow over in a long rest (ADR-0012 §4).
+        let mut grown = field(FieldStage::Fallow);
+        grown.broken = false;
+        assert_eq!(status(&grown, &c, 200), "grown over, to be broken again");
         wood.work_h = 250.0; // of 500 h for 0.25 ha
         assert_eq!(status(&wood, &c, 60), "woodland being cleared, 50% done");
         assert_eq!(status(&field(FieldStage::Fallow), &c, 200), "fallow");

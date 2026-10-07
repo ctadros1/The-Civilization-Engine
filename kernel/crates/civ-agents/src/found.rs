@@ -392,7 +392,7 @@ fn choose_site(ctx: &Ctx, params: &PeopleParams, d: &mut Draws, size: u32) -> Op
     let crop = ctx.catalog.crops.get(params.farm.crop);
     let need_ha = crop.map_or(0.0, |c| {
         let kcal = ctx.catalog.goods.get(c.good).map_or(0.0, |g| g.kcal_per_kg);
-        farm::need_area_ha(size as usize, params, c, kcal)
+        farm::need_area_ha(size as usize, params, c, kcal, c.yield_kg_per_ha)
     });
     let break_h = crop.map_or(1.0, |c| c.break_h_per_ha);
     let field_reach_m = (params.nav.tobler_ms(0.0)

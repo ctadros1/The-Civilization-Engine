@@ -697,10 +697,14 @@ fn report_soil(sim: &Sim, held: &[&civ_land::Field], out: &mut dyn Write) -> any
             f64::from(civ_land::FieldSoil::native(soil, f64::from(f.ground)).supply_n) * f.area_ha()
         })
         .sum();
+    // Cropped ground grown over in a long rest, to be broken again (ADR-0012 §4).
+    let grown = held.iter().filter(|f| !f.broken && f.harvests > 0).count();
     writeln!(
         out,
-        "  soil: {reaped} fields reaped in year {last} gave {:.0} kg/ha, {by_soil} held back by \
-         the soil; it supplies {:.0} kg N/ha this year, {:.0}% of native ground's",
+        "  soil: {reaped} of {} fields reaped in year {last} gave {:.0} kg/ha, {by_soil} held \
+         back by the soil; {grown} grown over; it supplies {:.0} kg N/ha this year, {:.0}% of \
+         native ground's",
+        held.len(),
         kg / ha.max(1e-9),
         supply / area.max(1e-9),
         100.0 * supply / native.max(1e-9)

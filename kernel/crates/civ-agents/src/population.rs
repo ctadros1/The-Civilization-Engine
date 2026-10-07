@@ -1964,7 +1964,8 @@ impl Population {
             labour_per_day,
             seed_kg,
             room: target_days / (target_days + grain_days),
-            need_ha: farm::need_area_ha(member_count, params, c, grain_kcal),
+            need_kg: farm::need_grain_kg(member_count, params, grain_kcal),
+            plan_yield_share: params.farm.plan_yield_share,
             workable_share: workable_share(ctx.land, params.farm.crop),
             peak_ratio: peak_ratio(params),
             climatology: Some(&ctx.land.climatology),
@@ -3425,7 +3426,12 @@ impl Population {
                 return;
             };
             let kcal = goods.get(crop.good).map_or(0.0, |g| g.kcal_per_kg);
-            let need = farm::need_area_ha(x.members.len(), params, crop, kcal);
+            let expected = farm::expected_yield_kg_ha(
+                ctx.land.fields.iter().filter(|f| f.household == household),
+                crop,
+                now.day_index(),
+            );
+            let need = farm::need_area_ha(x.members.len(), params, crop, kcal, expected);
             let labour = self.labour_per_day(&x.members, now, params);
             let share = workable_share(ctx.land, usize::from(ctx.land.fields[fi].crop));
             let share = farm::plan_share(share, peak_ratio(params));

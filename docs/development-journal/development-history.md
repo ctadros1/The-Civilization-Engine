@@ -171,6 +171,26 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** slice U is complete. The dashboard has not been run since its baseline, so how the weather moves its rows (population, the failures of lived-in buildings, food prices) is not yet measured. Survival stays at the edge: in every ten-year smoke of the slice's later steps, 5 of 10 bands kept ten people. Workable days cost the most fragile worlds. Per [plan §9](../../PROJECT_PLAN.md#9-decisions-log), survival is the dashboard's to answer: households still plan their fields on the content's yield rather than on what their fields have given, which slice V's field records change, and slice W tunes. The log records no dashboard run since the baseline.
 
+## 2026-10-07 — M3c slice V: the soil remembers, and households plan from their fields
+
+**Starting point:** slice U complete (saves schema 25, wire 1.25, content API 26). Survival at the edge: in slice U's later ten-year smokes 5 of 10 bands kept ten people, the fewest the check allows, and `main`'s nightly fifty-year dashboard failed its population row.
+
+**Goal:** soils and fertility ([ADR-0012](../../decisions/0012-weather-and-soil.md) §3-4): each field keeps its soil and its record, a harvest is the least of what water and soil allow, and households plan from expected yields, rest fields they can spare, break ground outside the sowing season and break long-rested fields again. Middens and manuring follow.
+
+**Implementation:**
+
+- The soil (`f51f1d3`; saves schema 26, content API 27): two pools of organic nitrogen per field, humus at 0.02 a year and fresh organic matter at 0.3 (RothC's base rates; research 03-04 §2.5), turned each first of January into the year's supply with 15 kg/ha from the air ([`civ-land/src/soil.rs`](../../kernel/crates/civ-land/src/soil.rs)). A crop takes up 0.6 of it, emmer 0.035 kg for each kg of grain; a harvest is the least of the season's and the soil's allowance (03-04 §5.2); grain and straw carried home take their nitrogen off, the rest returns; a field unsown a year grows its wild cover, which brings each pool back toward native ground's. Each field keeps its last eight harvests and what held each back. `civ-host run` reports them.
+- Planning from the fields (content API 28): expected yields from each field's last harvests, need as grain, the best fields cropped and the rest rested, new ground broken out of season, and ground left unsown three whole years grown over and broken again ([`civ-agents/src/farm.rs`](../../kernel/crates/civ-agents/src/farm.rs), [`civ-land/src/fields.rs`](../../kernel/crates/civ-land/src/fields.rs)).
+
+**Decision:** the model is mass-balanced and its tests check it: nothing makes nitrogen, so continuous cropping falls over decades toward what the air keeps (about 260 kg/ha), never to nothing (03-04 §4.1). People see records, never stocks. Native ground allows about 1,660 kg/ha, so the soil holds nothing back in a new village's first years and matters over decades, as the research's long experiments do. Nothing about outcomes was tuned: the second step implements the plan's own households.
+
+**Evidence:**
+
+- The soil's step: a ten-year smoke FAILED by one band (4 of 9 bands kept ten people; river valley 1 failed its first month on firewood). Neither was the soil's: nothing in the first month touches it, river valley 1's first month passed in eight more runs, and ten years of coast 1 and river valley 5 gave no harvest held back by the soil. CI's month-long smoke passed.
+- Planning from the fields: the ten-year smoke passed all ten worlds and all ten bands kept ten people (468 people against 215 to 227 in slice U's smokes). Breaking in the autumn freed the spring: households held and cropped more ground (river valley 5: 115 fields in year 10, about 0.48 ha a person), grain about 20 to 35 % above need. The soil began to tell: supply at 77 % of native ground's by year 10, and 4 harvests held back by it in year 9. Three buildings gave way, each killing one, against one or two before.
+
+**Open:** middens and manuring. The fifty-year dashboard has not been run with soils: it will show whether the larger villages still meet the population row's growth bound and how the soil's drawdown and the failures of loaded buildings move over fifty years.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

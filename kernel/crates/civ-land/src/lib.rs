@@ -34,6 +34,7 @@ pub use buildings::{
 };
 pub use fields::{
     Allowance, CropParams, Field, FieldStage, FieldTask, Lease, Party, RectCm, WorkDone,
+    calendar_year,
 };
 pub use paths::{PathParams, Trail, ViewTile, Wear, WearTile};
 pub use soil::{FieldSoil, HarvestRecord, Limit, SoilParams};
@@ -948,6 +949,7 @@ impl Land {
                 let year = i32::try_from(d.div_euclid(DAYS_PER_YEAR) + 1).unwrap_or(i32::MAX);
                 for f in &mut self.fields {
                     f.soil.turn(&params.soil, f64::from(f.ground), year);
+                    f.regrow(params.soil.regrown_years, year);
                 }
             }
             let month_start = MONTH_STARTS[..12].contains(&day_of_year(d));

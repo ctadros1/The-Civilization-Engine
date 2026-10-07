@@ -73,12 +73,15 @@ fn households(sim: &Sim) -> Vec<(PermanentId, usize)> {
     out
 }
 
-/// The area a household of `members` plans to crop, hectares.
+/// The area a household of `members` working every field plans to crop, hectares: at the yield
+/// those fields are expected to give (ADR-0012 §4).
 fn need_ha(sim: &Sim, members: usize) -> f64 {
     let rules = sim.rules();
     let crop = &rules.catalog.crops[rules.people.farm.crop];
     let kcal = rules.catalog.goods[crop.good].kcal_per_kg;
-    civ_agents::farm::need_area_ha(members, &rules.people, crop, kcal)
+    let day = sim.now().day_index();
+    let expected = civ_agents::farm::expected_yield_kg_ha(sim.land().fields.iter(), crop, day);
+    civ_agents::farm::need_area_ha(members, &rules.people, crop, kcal, expected)
 }
 
 fn worked_ha(sim: &Sim, household: PermanentId) -> f64 {

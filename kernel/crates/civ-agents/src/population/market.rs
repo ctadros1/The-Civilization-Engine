@@ -718,7 +718,13 @@ impl Population {
     /// A buyer of household `buyer` at the door of `seller`: the best deal it can make there now
     /// settles through the ledger, as barter or, paid in the settlement's money, a sale; the
     /// seller's offer shrinks by what it sold, and the market remembers the trade.
-    pub(super) fn settle_trade(&mut self, ctx: &Ctx, buyer: PermanentId, seller: PermanentId) {
+    pub(super) fn settle_trade(
+        &mut self,
+        ctx: &Ctx,
+        buyer: PermanentId,
+        seller: PermanentId,
+        who: PermanentId,
+    ) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let Some(hh) = self.household(buyer) else {
             return;
@@ -751,6 +757,16 @@ impl Population {
         };
         if !self.transfer(now, params, goods, &legs, channel) {
             return;
+        }
+        // Buyer and seller each saw the other keep to the terms (ADR-0014 §2).
+        let seller_household = if d.firm {
+            self.firm(seller).map(|f| f.owner)
+        } else {
+            Some(seller)
+        };
+        if let Some(sh) = seller_household.filter(|&sh| sh != buyer) {
+            let traded = crate::ties::Act::Traded;
+            self.note_between(ctx, Some(who), buyer, sh, traded, traded, 0.0);
         }
         let shrink = |offers: &mut Vec<Offer>| {
             for o in offers.iter_mut().filter(|o| usize::from(o.good) == d.good) {

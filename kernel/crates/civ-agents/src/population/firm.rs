@@ -657,7 +657,7 @@ impl Population {
         let Some(def) = ctx.catalog.activities.get(usize::from(w.activity)).cloned() else {
             return;
         };
-        let Some(worker) = self.people.get(h).map(|p| p.household) else {
+        let Some((who, worker)) = self.people.get(h).map(|p| (p.id, p.household)) else {
             return;
         };
         self.firm_make(ctx, h, &def, minutes, id);
@@ -716,6 +716,11 @@ impl Population {
             amount: paid,
         }];
         if paid > 1e-9 && self.transfer(now, params, goods, &leg, Channel::Wage) {
+            // The worker saw the wages paid; the owners saw the work done (ADR-0014 §2).
+            if owner != worker {
+                let (wages, work) = (crate::ties::Act::WagesPaid, crate::ties::Act::WorkSeen);
+                self.note_between(ctx, Some(who), worker, owner, wages, work, 0.0);
+            }
             let worth = self.worth_to(ctx, owner).get(pay).copied().unwrap_or(0.0) * paid;
             if let Some(f) = self.firm_mut(id) {
                 f.books.record(

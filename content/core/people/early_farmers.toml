@@ -424,3 +424,45 @@ w_try = 2.0
 # Least days between one person's sessions of trying: an hour a week at most, about 2 % of
 # working time (07-01 §2.3 tests 0-5 %; 07-11 §2.2 finds 0-10 % protected time for craft workers).
 try_gap_days = 7.0
+
+[ties]                           # what people remember of one another (ADR-0014); tuning values
+# Ties a person keeps (research 04-06 §2.2: 32-128 directed records; 04-11 §2.4: 16-64). When a
+# new one needs room, the least salient without a debt over `hold_help_h` is let go.
+room = 48
+# People at the hearth a session's company touches: never everyone present (04-04 §1.5, §5.3).
+companions = 3
+# Good and bad evidence a stranger starts from, each in every domain (04-06 §5.2's prior counts).
+prior = 1.0
+# Routine evidence fades halfway back to the prior in half a year (04-06 §2.2: sweep 30-365 days).
+evidence_half_life_days = 180.0
+# Familiarity without meeting (04-04 §2.2: 90-365 days).
+familiarity_half_life_days = 180.0
+# Warmth without reinforcement (04-04 §2.2: 1-5 years).
+warmth_half_life_days = 730.0
+# Fear, written from M4b (04-06 §2.2: severe events 7-90 days of activation; durable memory is
+# longer, and no figure is settled).
+fear_half_life_days = 365.0
+# Help owed or owing (04-11 §2.4: personal obligations remembered 1-10 years).
+help_half_life_days = 1095.0
+hold_help_h = 4.0
+# Salience of a unit of evidence beyond the prior, beside familiarity and warmth (0-1 each).
+salience_per_evidence = 0.1
+# The share of a session's company drawn from those present one does not yet know; the rest comes
+# from those one knows, the better known the likelier (04-04 §1.5: people keep up the ties that
+# matter; §2.2 proposes 5-20 % of new encounters come by introduction).
+new_share = 0.15
+# What each act writes into its holder's tie, for each act or, at the hearth and in learning, each
+# hour. `familiarity` and `warmth` close that share of the gap to 1; `good` and `bad` add evidence
+# in `domain` (04-04 §1.6: help gives trust and obligation, skilled work respect, repeated
+# encounters familiarity; enjoyable company warmth at 0.005-0.02 an hour, 04-04 §2.2).
+acts = [
+  { act = "gift_received", familiarity = 0.2, warmth = 0.1, domain = "provision", good = 1.0, bad = 0.0 },
+  { act = "gift_given", familiarity = 0.1, warmth = 0.02, domain = "none", good = 0.0, bad = 0.0 },
+  { act = "wages_paid", familiarity = 0.05, warmth = 0.0, domain = "word", good = 1.0, bad = 0.0 },
+  { act = "work_seen", familiarity = 0.05, warmth = 0.0, domain = "craft", good = 0.5, bad = 0.0 },
+  { act = "rent_paid", familiarity = 0.05, warmth = 0.0, domain = "word", good = 1.0, bad = 0.0 },
+  { act = "land_lent", familiarity = 0.05, warmth = 0.0, domain = "word", good = 1.0, bad = 0.0 },
+  { act = "traded", familiarity = 0.1, warmth = 0.0, domain = "word", good = 0.5, bad = 0.0 },
+  { act = "learned_from", familiarity = 0.02, warmth = 0.005, domain = "craft", good = 0.1, bad = 0.0 },
+  { act = "hearth", familiarity = 0.1, warmth = 0.01, domain = "none", good = 0.0, bad = 0.0 },
+]

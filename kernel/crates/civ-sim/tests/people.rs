@@ -1032,3 +1032,39 @@ fn a_settlement_running_short_of_food_is_noted_in_the_chronicle() {
     assert_eq!(short[0].settlement, Some(settlement.id));
     assert!(short[0].number < scarce.people.params.household.short_food_days);
 }
+
+#[test]
+fn people_who_keep_company_at_the_hearth_come_to_know_one_another() {
+    let sim = first_season();
+    let people = sim.people();
+    let rules = sim.rules();
+    let tp = &rules.people.ties;
+    let day = sim.now().day_index();
+    let holders = people.ties.holders();
+    assert!(
+        holders.len() * 2 > people.living(),
+        "most people hold ties: {} of {}",
+        holders.len(),
+        people.living()
+    );
+    let mut from_hearth = 0;
+    for h in &holders {
+        let ties = people.ties.of(*h);
+        assert!(ties.len() <= tp.room, "no more than the room for ties");
+        assert!(ties.windows(2).all(|w| w[0].to < w[1].to), "kept in order");
+        for t in ties {
+            assert_ne!(t.to, *h, "nobody holds a tie to themselves");
+            let now = t.at(day, tp);
+            assert!((0.0..=1.0).contains(&now.familiarity));
+            assert!((0.0..=1.0).contains(&now.warmth));
+            if t.reason.map(|r| r.act) == Some(civ_agents::ties::Act::Hearth) {
+                from_hearth += 1;
+                // Company alone is evidence of nothing.
+                for d in civ_agents::ties::Domain::ALL {
+                    assert!(now.esteem(d, tp).abs() < 1e-6);
+                }
+            }
+        }
+    }
+    assert!(from_hearth > 0, "company at the hearth made ties");
+}

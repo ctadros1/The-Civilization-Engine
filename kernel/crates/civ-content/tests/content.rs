@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 29
+kernel_content_api = 30
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -1593,4 +1593,33 @@ fn deposits_say_how_hard_their_bodies_are_to_dig_and_what_a_working_is_called() 
             report.diagnostics
         );
     }
+}
+
+#[test]
+fn ties_name_the_acts_the_engine_records_and_say_what_each_writes() {
+    let preset = real_preset();
+    let check = |from: &str, to: &str, says: &str| {
+        let people = real("people/early_farmers.toml").replace(from, to);
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("people/early_farmers.toml", &people),
+        ]);
+        let found = codes(&report);
+        assert!(!found.is_empty() && found.iter().all(|&c| c == "E3001"), "{to}: {found:?}");
+        assert!(
+            report.diagnostics.iter().any(|d| d.message.contains(says)),
+            "{to}: {:?}",
+            report.diagnostics
+        );
+    };
+    // An act the engine does not record, which also leaves one unsaid.
+    check("act = \"traded\"", "act = \"bartered\"", "does not record: `bartered`");
+    check("act = \"traded\"", "act = \"bartered\"", "what act `traded` writes");
+    check("domain = \"provision\"", "domain = \"bounty\"", "unknown domain `bounty`");
+    check("room = 48", "room = 0", "`ties.room`");
+    check(
+        "act = \"hearth\", familiarity = 0.1",
+        "act = \"hearth\", familiarity = 1.5",
+        "`familiarity` must be between 0 and 1",
+    );
 }

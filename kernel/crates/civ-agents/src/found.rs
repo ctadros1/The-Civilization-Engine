@@ -1188,6 +1188,7 @@ pub(crate) mod tests {
                 load_kg: 25.0,
                 spread_h_per_t: 2.0,
             },
+            ties: crate::ties::TieParams::core(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

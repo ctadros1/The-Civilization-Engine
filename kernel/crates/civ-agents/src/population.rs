@@ -54,6 +54,7 @@ pub use loads::{
     snow_on_roof_pa, storm_pa,
 };
 mod taste;
+mod ties;
 mod transfer;
 mod trust;
 
@@ -366,6 +367,8 @@ pub struct Population {
     pub trust: Vec<crate::caution::Trust>,
     /// The deposits each settlement knows, in the order they were found (ADR-0010 §1).
     pub deposits_known: Vec<DepositKnown>,
+    /// What each person remembers of others (ADR-0014).
+    pub ties: crate::ties::Ties,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -3304,26 +3307,6 @@ impl Population {
         true
     }
 
-    fn companions_at_hearth(&self, ctx: &Ctx, me: PermanentId, hearth: Target) -> usize {
-        self.people
-            .iter()
-            .filter(|(_, q)| {
-                q.id != me
-                    && q.act.target == hearth
-                    && q.trip.is_none()
-                    && matches!(
-                        q.act.steps.get(q.act.step as usize),
-                        Some(Step::Work { .. })
-                    )
-                    && ctx
-                        .catalog
-                        .activities
-                        .get(q.act.def as usize)
-                        .is_some_and(|a| a.behavior == Behavior::Socialize)
-            })
-            .count()
-    }
-
     fn start_work(
         &mut self,
         ctx: &mut Ctx,
@@ -3333,12 +3316,23 @@ impl Population {
     ) {
         let now = ctx.now;
         let params = ctx.params;
-        let companions = match (behavior, self.people.get(h)) {
-            (Some(Behavior::Socialize), Some(p)) => {
-                self.companions_at_hearth(ctx, p.id, p.act.target)
-            }
-            _ => 0,
+        let present = match (behavior, self.people.get(h)) {
+            (Some(Behavior::Socialize), Some(p)) => self.hearth_company(ctx, p.id, p.act.target),
+            _ => Vec::new(),
         };
+        let companions = present.len();
+        // Company at the hearth: a few of those there become ties (ADR-0014 §2), a session's
+        // worth each, a block's for each of its sessions.
+        if let (false, Some(p)) = (present.is_empty(), self.people.get(h)) {
+            let session = ctx
+                .catalog
+                .activities
+                .get(p.act.def as usize)
+                .map_or(minutes, |a| a.min_minutes.max(1));
+            let sessions = (minutes + session / 2) / session.max(1);
+            let me = p.id;
+            self.keep_company(ctx, me, &present, minutes, sessions.max(1));
+        }
         let Some(p) = self.people.get_mut(h) else {
             return;
         };
@@ -3489,14 +3483,14 @@ impl Population {
                 }
                 Some(Behavior::Ask) => {
                     if let Target::Household(giver) = p.act.target {
-                        let household = p.household;
-                        self.give_food(ctx, giver, household);
+                        let (asker, household) = (p.id, p.household);
+                        self.give_food(ctx, giver, household, asker);
                     }
                 }
                 Some(Behavior::Trade) => {
                     if let Target::Household(seller) | Target::Firm(seller) = p.act.target {
-                        let household = p.household;
-                        self.settle_trade(ctx, household, seller);
+                        let (who, household) = (p.id, p.household);
+                        self.settle_trade(ctx, household, seller, who);
                     }
                 }
                 Some(Behavior::Build) => {
@@ -3699,7 +3693,7 @@ impl Population {
     /// Household `giver` gives household `to`, which asked, food it can spare: up to what brings
     /// `to` to the days of food it tries to keep, and no more than one person carries home. The
     /// most perishable food goes first. No debt is kept (research 08-11 §5.4: need-based help).
-    fn give_food(&mut self, ctx: &Ctx, giver: PermanentId, to: PermanentId) {
+    fn give_food(&mut self, ctx: &Ctx, giver: PermanentId, to: PermanentId, asker: PermanentId) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let (Some(&gh), Some(&th)) = (self.hh_index.get(&giver), self.hh_index.get(&to)) else {
             return;
@@ -3751,7 +3745,27 @@ impl Population {
             carry -= kg;
             want -= kg * goods[i].kcal_per_kg;
         }
-        self.transfer(now, params, goods, &legs, Channel::Gift);
+        if legs.is_empty() {
+            return;
+        }
+        // The help, in hours of the receivers' own work (what getting it themselves would cost).
+        let help_h = self.household(to).map_or(0.0, |t| {
+            let costs = self.own_costs_of(ctx, t);
+            legs.iter()
+                .map(|l| costs.get(l.good).copied().flatten().unwrap_or(0.0) * l.amount)
+                .sum::<f64>()
+        });
+        if self.transfer(now, params, goods, &legs, Channel::Gift) {
+            self.note_between(
+                ctx,
+                Some(asker),
+                to,
+                giver,
+                crate::ties::Act::GiftReceived,
+                crate::ties::Act::GiftGiven,
+                help_h,
+            );
+        }
     }
 
     /// Hours of a capable adult's field work `members` can give a day.
@@ -3931,8 +3945,10 @@ impl Population {
                     amount,
                 })
                 .collect();
-            if !legs.is_empty() {
-                self.transfer(now, params, goods, &legs, Channel::Rent);
+            if !legs.is_empty() && self.transfer(now, params, goods, &legs, Channel::Rent) {
+                // The tenant saw the land lent; the holder saw its share paid (ADR-0014 §2).
+                let (lent, paid) = (crate::ties::Act::LandLent, crate::ties::Act::RentPaid);
+                self.note_between(ctx, Some(who), household, holder, lent, paid, 0.0);
             }
         }
         let Some(si) = settlement.and_then(|s| ctx.land.settlements.iter().position(|x| x.id == s))
@@ -4483,6 +4499,10 @@ impl Population {
         // day of work and the day's first event, so a save there loses nothing.
         self.views.clear();
         self.switched.clear();
+        // On the first of each month, ties to those no longer here are let go (ADR-0014 §1).
+        if now.date().day == 1 {
+            self.prune_ties();
+        }
         // The season turns for every field: a sowing window passes, a crop left standing is lost.
         let day = now.day_index();
         for f in &mut ctx.land.fields {

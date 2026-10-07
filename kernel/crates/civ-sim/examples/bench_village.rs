@@ -225,6 +225,32 @@ fn main() {
             h(t.walking),
             h(t.waiting)
         );
+        // Ties (ADR-0014): how many, and what last moved them.
+        let ties = &sim.people().ties;
+        let holders = ties.holders();
+        let most = holders.iter().map(|x| ties.of(*x).len()).max().unwrap_or(0);
+        let mut by_act = [0usize; civ_agents::ties::ACTS];
+        for x in &holders {
+            for t in ties.of(*x) {
+                if let Some(r) = t.reason {
+                    by_act[r.act as usize] += 1;
+                }
+            }
+        }
+        let mut line = format!(
+            "ties: {} held by {} of {} people ({:.1} each, most {most}), {} let go; reasons:",
+            ties.len(),
+            holders.len(),
+            sim.people().living(),
+            ties.len() as f64 / holders.len().max(1) as f64,
+            ties.let_go,
+        );
+        for (act, n) in civ_agents::ties::Act::ALL.iter().zip(by_act) {
+            if n > 0 {
+                line.push_str(&format!(" {} {n}", act.name()));
+            }
+        }
+        println!("{line}");
     }
     if let Some(dir) = &a.save_to {
         let saves = SaveDir::create(Path::new(dir), civ_schema::SAVE_EXTENSION).expect("save dir");

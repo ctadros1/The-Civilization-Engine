@@ -124,6 +124,8 @@ pub const SCHEMA_V24: u32 = 24;
 pub const SCHEMA_V25: u32 = 25;
 /// The schema version of M3c slice V's first steps: soils, before middens (see [`agents`]).
 pub const SCHEMA_V26: u32 = 26;
+/// The schema version of M3c complete: middens, before ties between people (see [`agents`]).
+pub const SCHEMA_V27: u32 = 27;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

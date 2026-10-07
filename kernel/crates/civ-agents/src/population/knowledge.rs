@@ -210,6 +210,8 @@ impl Population {
         let learnt = self
             .person_mut_by_id(who)
             .is_some_and(|p| p.learn(t, hours, teacher, learn_h, now));
+        // The learner saw the teacher's craft at work (ADR-0014 §2).
+        self.note_tie(ctx, who, teacher, crate::ties::Act::LearnedFrom, hours, 0.0);
         if learnt {
             self.on_known(ctx, who, t, KnowSource::Taught(teacher));
         }

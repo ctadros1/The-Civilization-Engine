@@ -1315,6 +1315,8 @@ pub struct PeopleParams {
     pub style: StyleParams,
     /// The midden and carrying it to the fields (M3c slice V).
     pub midden: MiddenParams,
+    /// Ties between people (M4a slice Y, ADR-0014).
+    pub ties: crate::ties::TieParams,
     /// Names.
     pub names: NameParams,
 }

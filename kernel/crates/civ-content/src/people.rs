@@ -44,6 +44,167 @@ pub(crate) struct PeopleFile {
     pub style: StyleFile,
     /// The midden and carrying it to the fields (M3c slice V; content API 29).
     pub midden: MiddenFile,
+    /// Ties between people (M4a slice Y; content API 30).
+    pub ties: TiesFile,
+}
+
+/// Ties between people (M4a slice Y, ADR-0014; content API 30). See
+/// [`civ_agents::ties::TieParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TiesFile {
+    pub room: u32,
+    pub companions: u32,
+    pub prior: f64,
+    pub evidence_half_life_days: f64,
+    pub familiarity_half_life_days: f64,
+    pub warmth_half_life_days: f64,
+    pub fear_half_life_days: f64,
+    pub help_half_life_days: f64,
+    pub hold_help_h: f64,
+    pub salience_per_evidence: f64,
+    pub new_share: f64,
+    /// What each act the engine records writes into its holder's tie.
+    pub acts: Vec<TieActFile>,
+}
+
+/// What one act writes, for each unit of it ([`civ_agents::ties::ActWeights`]). `domain` is
+/// `"none"` for an act that is evidence of nothing.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TieActFile {
+    pub act: String,
+    pub familiarity: f64,
+    pub warmth: f64,
+    pub domain: String,
+    pub good: f64,
+    pub bad: f64,
+}
+
+impl TiesFile {
+    fn params(&self) -> civ_agents::ties::TieParams {
+        use civ_agents::ties::{Act, ActWeights, Domain, TieParams};
+        let mut acts = [ActWeights::default(); civ_agents::ties::ACTS];
+        for a in &self.acts {
+            if let Some(act) = Act::from_name(&a.act) {
+                acts[act as usize] = ActWeights {
+                    familiarity: a.familiarity,
+                    warmth: a.warmth,
+                    domain: Domain::from_name(&a.domain),
+                    good: a.good,
+                    bad: a.bad,
+                };
+            }
+        }
+        TieParams {
+            room: self.room as usize,
+            companions: self.companions as usize,
+            prior: self.prior,
+            evidence_half_life_days: self.evidence_half_life_days,
+            familiarity_half_life_days: self.familiarity_half_life_days,
+            warmth_half_life_days: self.warmth_half_life_days,
+            fear_half_life_days: self.fear_half_life_days,
+            help_half_life_days: self.help_half_life_days,
+            hold_help_h: self.hold_help_h,
+            salience_per_evidence: self.salience_per_evidence,
+            new_share: self.new_share,
+            acts,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        use civ_agents::ties::{Act, Domain};
+        if !(1..=1000).contains(&self.room) {
+            p.push(format!("`ties.room` must be between 1 and 1000 (got {})", self.room));
+        }
+        if self.companions > 100 {
+            p.push(format!(
+                "`ties.companions` must be at most 100 (got {})",
+                self.companions
+            ));
+        }
+        for (name, v, lo, hi) in [
+            ("ties.prior", self.prior, 0.01, 100.0),
+            (
+                "ties.evidence_half_life_days",
+                self.evidence_half_life_days,
+                1.0,
+                36_500.0,
+            ),
+            (
+                "ties.familiarity_half_life_days",
+                self.familiarity_half_life_days,
+                1.0,
+                36_500.0,
+            ),
+            (
+                "ties.warmth_half_life_days",
+                self.warmth_half_life_days,
+                1.0,
+                36_500.0,
+            ),
+            (
+                "ties.fear_half_life_days",
+                self.fear_half_life_days,
+                1.0,
+                36_500.0,
+            ),
+            (
+                "ties.help_half_life_days",
+                self.help_half_life_days,
+                1.0,
+                36_500.0,
+            ),
+            ("ties.hold_help_h", self.hold_help_h, 0.0, 10_000.0),
+            (
+                "ties.salience_per_evidence",
+                self.salience_per_evidence,
+                0.0,
+                10.0,
+            ),
+            ("ties.new_share", self.new_share, 0.0, 1.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        let mut seen = std::collections::HashSet::new();
+        for a in &self.acts {
+            if Act::from_name(&a.act).is_none() {
+                p.push(format!("`ties.acts` names an act the engine does not record: `{}`", a.act));
+            } else if !seen.insert(a.act.as_str()) {
+                p.push(format!("`ties.acts` gives act `{}` twice", a.act));
+            }
+            if a.domain != "none" && Domain::from_name(&a.domain).is_none() {
+                p.push(format!(
+                    "`ties.acts` act `{}` names an unknown domain `{}` (provision, craft, word, \
+                     counsel or none)",
+                    a.act, a.domain
+                ));
+            }
+            for (what, v) in [("familiarity", a.familiarity), ("warmth", a.warmth)] {
+                if !(v.is_finite() && (0.0..=1.0).contains(&v)) {
+                    p.push(format!(
+                        "`ties.acts` act `{}`: `{what}` must be between 0 and 1 (got {v})",
+                        a.act
+                    ));
+                }
+            }
+            for (what, v) in [("good", a.good), ("bad", a.bad)] {
+                if !(v.is_finite() && (0.0..=100.0).contains(&v)) {
+                    p.push(format!(
+                        "`ties.acts` act `{}`: `{what}` must be between 0 and 100 (got {v})",
+                        a.act
+                    ));
+                }
+            }
+        }
+        for act in Act::ALL {
+            if !seen.contains(act.name()) {
+                p.push(format!("`ties.acts` must say what act `{}` writes", act.name()));
+            }
+        }
+    }
 }
 
 /// A household's midden and carrying it to the fields (M3c slice V; content API 29). See
@@ -692,6 +853,7 @@ impl PeopleFile {
                 load_kg: self.midden.load_kg,
                 spread_h_per_t: self.midden.spread_h_per_t,
             },
+            ties: self.ties.params(),
             names,
         }
     }
@@ -700,6 +862,7 @@ impl PeopleFile {
     pub fn problems(&self) -> Vec<String> {
         let mut p = Vec::new();
         positive("digging.h_per_m3", self.digging.h_per_m3, &mut p);
+        self.ties.problems(&mut p);
         let m = &self.midden;
         for (name, v, lo, hi) in [
             ("midden.kg_per_person_day", m.kg_per_person_day, 0.0, 10.0),

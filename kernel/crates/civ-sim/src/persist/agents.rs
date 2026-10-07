@@ -104,7 +104,7 @@ use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
-    SCHEMA_V25, SCHEMA_V26, finish, section, single_chunk, unreadable,
+    SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -143,6 +143,8 @@ pub const SECTION_KNOW: SectionTag = SectionTag::new("know");
 pub const SECTION_DEPOSITS: SectionTag = SectionTag::new("deposits");
 /// Section "earth" (schema 20): earthworks and what they have done to the ground.
 pub const SECTION_EARTH: SectionTag = SectionTag::new("earth");
+/// Section "ties" (schema 28): what each person remembers of others (ADR-0014).
+pub const SECTION_TIES: SectionTag = SectionTag::new("ties");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -203,6 +205,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             encode_deposits(&sim.land, &sim.people, &goods),
         ),
         section(SECTION_EARTH, 0, encode_earth(&sim.land)),
+        section(SECTION_TIES, 0, encode_ties(&sim.people)),
     ]
 }
 
@@ -275,6 +278,8 @@ enum Schema {
     V26,
     /// Each household's midden (M3c slice V).
     V27,
+    /// Ties between people (ADR-0014).
+    V28,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -316,7 +321,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V24 => Schema::V24,
         SCHEMA_V25 => Schema::V25,
         SCHEMA_V26 => Schema::V26,
-        SAVE_SCHEMA_VERSION => Schema::V27,
+        SCHEMA_V27 => Schema::V27,
+        SAVE_SCHEMA_VERSION => Schema::V28,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -437,6 +443,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V20 {
         let bytes = single_chunk(reader, SECTION_EARTH)?;
         decode_earth(&bytes, &mut land)?;
+    }
+    // Ties (schema 28); before them nobody remembered anybody.
+    if schema >= Schema::V28 {
+        let bytes = single_chunk(reader, SECTION_TIES)?;
+        people.ties = decode_ties(&bytes)?;
     }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
 
@@ -615,6 +626,89 @@ fn decode_earth(bytes: &[u8], land: &mut Land) -> Result<(), LoadError> {
 }
 
 // ---- deposits ----------------------------------------------------------------------------------
+
+fn encode_ties(pop: &Population) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let mut records = Vec::with_capacity(pop.ties.len());
+    for holder in pop.ties.holders() {
+        for t in pop.ties.of(holder) {
+            let (reason, reason_day, times) = t
+                .reason
+                .map_or((u8::MAX, 0, 0), |r| (r.act.code(), r.day, r.times));
+            records.push(save::TieRecord::new(
+                holder.get(),
+                t.to.get(),
+                t.day,
+                reason_day,
+                t.familiarity,
+                t.warmth,
+                t.good[0],
+                t.good[1],
+                t.good[2],
+                t.good[3],
+                t.bad[0],
+                t.bad[1],
+                t.bad[2],
+                t.bad[3],
+                t.fear,
+                t.help_h,
+                times,
+                reason,
+            ));
+        }
+    }
+    let ties = fbb.create_vector(&records);
+    let root = save::Ties::create(&mut fbb, &save::TiesArgs { ties: Some(ties) });
+    finish(fbb, root)
+}
+
+fn decode_ties(bytes: &[u8]) -> Result<civ_agents::ties::Ties, LoadError> {
+    use civ_agents::ties::{Act, Reason, Tie, Ties};
+    let root = flatbuffers::root::<save::Ties>(bytes).map_err(|e| unreadable(SECTION_TIES, &e))?;
+    let mut by_holder: std::collections::BTreeMap<PermanentId, Vec<Tie>> = Default::default();
+    for r in root.ties().iter().flatten() {
+        let (Some(holder), Some(to)) = (PermanentId::from_raw(r.holder()), PermanentId::from_raw(r.to()))
+        else {
+            return Err(LoadError::Malformed("a tie names nobody".to_owned()));
+        };
+        let reason = match r.reason() {
+            u8::MAX => None,
+            code => Some(Reason {
+                act: Act::from_code(code).ok_or_else(|| {
+                    LoadError::Malformed(format!("a tie's reason is act {code}, which is unknown"))
+                })?,
+                day: r.reason_day(),
+                times: r.reason_times(),
+            }),
+        };
+        by_holder.entry(holder).or_default().push(Tie {
+            to,
+            day: r.day(),
+            familiarity: r.familiarity(),
+            warmth: r.warmth(),
+            good: [
+                r.good_provision(),
+                r.good_craft(),
+                r.good_word(),
+                r.good_counsel(),
+            ],
+            bad: [
+                r.bad_provision(),
+                r.bad_craft(),
+                r.bad_word(),
+                r.bad_counsel(),
+            ],
+            fear: r.fear(),
+            help_h: r.help_h(),
+            reason,
+        });
+    }
+    let mut ties = Ties::new();
+    for (holder, held) in by_holder {
+        ties.restore(holder, held);
+    }
+    Ok(ties)
+}
 
 fn encode_deposits(land: &Land, pop: &Population, goods: &[&str]) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
@@ -1641,7 +1735,8 @@ fn carried(
         | Schema::V24
         | Schema::V25
         | Schema::V26
-        | Schema::V27 => {
+        | Schema::V27
+        | Schema::V28 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1778,7 +1873,8 @@ fn decode_households(
             | Schema::V24
             | Schema::V25
             | Schema::V26
-            | Schema::V27 => {
+            | Schema::V27
+            | Schema::V28 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

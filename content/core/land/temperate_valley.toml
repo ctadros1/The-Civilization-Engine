@@ -101,6 +101,10 @@ uptake_share = 0.6               # 03-04 §4.2: crops took up 51-68 % of nitroge
 # Broken ground left unsown this many whole years has grown over with grass and scrub and is
 # broken again before it is cropped (content API 28; a tuning value: the research gives none).
 regrown_years = 3
+# Dung enters the pools, mostly the slow one (content API 29): with this share in the fast pool,
+# 0.3 x 0.3 + 0.7 x 0.02 = 10 % of its nitrogen reaches the crop of the year it is spread
+# (research 03-04 §2.3: 5-15 % to the next crop); the rest feeds later years.
+manure_fast_share = 0.3
 
 # Walking wears the ground of each 8 m cell it crosses; unused wear fades as plants grow back
 # (research 10-03 §1.1: dw/dt = aq(1 - w) - bw). Starting values from the research's sensitivity

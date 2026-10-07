@@ -9583,6 +9583,8 @@ impl<'a> Household<'a> {
   pub const VT_OFFERS: ::flatbuffers::VOffsetT = 26;
   pub const VT_TASTE: ::flatbuffers::VOffsetT = 28;
   pub const VT_ADMIRED: ::flatbuffers::VOffsetT = 30;
+  pub const VT_MIDDEN_KG: ::flatbuffers::VOffsetT = 32;
+  pub const VT_MIDDEN_AT: ::flatbuffers::VOffsetT = 34;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -9594,6 +9596,8 @@ impl<'a> Household<'a> {
     args: &'args HouseholdArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Household<'bldr>> {
     let mut builder = HouseholdBuilder::new(_fbb);
+    builder.add_midden_at(args.midden_at);
+    builder.add_midden_kg(args.midden_kg);
     builder.add_admired(args.admired);
     builder.add_stores_at(args.stores_at);
     builder.add_water_at(args.water_at);
@@ -9710,6 +9714,20 @@ impl<'a> Household<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(Household::VT_ADMIRED, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn midden_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(Household::VT_MIDDEN_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn midden_at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Household::VT_MIDDEN_AT, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Household<'_> {
@@ -9732,6 +9750,8 @@ impl ::flatbuffers::Verifiable for Household<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Offer>>>>("offers", Self::VT_OFFERS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("taste", Self::VT_TASTE, false)?
      .visit_field::<u64>("admired", Self::VT_ADMIRED, false)?
+     .visit_field::<f64>("midden_kg", Self::VT_MIDDEN_KG, false)?
+     .visit_field::<i64>("midden_at", Self::VT_MIDDEN_AT, false)?
      .finish();
     Ok(())
   }
@@ -9751,6 +9771,8 @@ pub struct HouseholdArgs<'a> {
     pub offers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Offer<'a>>>>>,
     pub taste: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
     pub admired: u64,
+    pub midden_kg: f64,
+    pub midden_at: i64,
 }
 impl<'a> Default for HouseholdArgs<'a> {
   #[inline]
@@ -9770,6 +9792,8 @@ impl<'a> Default for HouseholdArgs<'a> {
       offers: None,
       taste: None,
       admired: 0,
+      midden_kg: 0.0,
+      midden_at: 0,
     }
   }
 }
@@ -9836,6 +9860,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(Household::VT_ADMIRED, admired, 0);
   }
   #[inline]
+  pub fn add_midden_kg(&mut self, midden_kg: f64) {
+    self.fbb_.push_slot::<f64>(Household::VT_MIDDEN_KG, midden_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_midden_at(&mut self, midden_at: i64) {
+    self.fbb_.push_slot::<i64>(Household::VT_MIDDEN_AT, midden_at, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HouseholdBuilder {
@@ -9867,6 +9899,8 @@ impl ::core::fmt::Debug for Household<'_> {
       ds.field("offers", &self.offers());
       ds.field("taste", &self.taste());
       ds.field("admired", &self.admired());
+      ds.field("midden_kg", &self.midden_kg());
+      ds.field("midden_at", &self.midden_at());
       ds.finish()
   }
 }

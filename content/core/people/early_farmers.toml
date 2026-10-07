@@ -375,6 +375,21 @@ tradition = { pitch_deg = 48.0, eave_m = 1.9, overhang_m = 0.5 }
 tradition_spread = { pitch_deg = 2.5, eave_m = 0.1, overhang_m = 0.1 }
 personal_spread = { pitch_deg = 1.0, eave_m = 0.03, overhang_m = 0.03 }
 
+# Each household's midden beside its home: ash, food waste, sweepings and dung (M3c slice V;
+# content API 29). Research 12-02 §2.3 gives 0.42 kg of nitrogen a year in a person's faeces and
+# 3.56 in their urine, most of which soaks away from a heap; with food waste and a little of the
+# urine a person's share of the heap holds about 1 kg a year (a tuning value), below the 4 to 5 kg
+# in the grain they eat, so a midden returns to the fields part of what their harvests took, never
+# more. Its material is a tuning value too (12-02 gives modern refuse 0.43-0.98 kg a person a day),
+# as is how fast the heap loses itself and its nitrogen to the air and the rain. Carrying it goes
+# a load at a time there and back (research 08-12: a porter carries 15-30 kg).
+[midden]
+kg_per_person_day = 0.5
+n_kg_per_person_year = 1.0
+half_life_days = 365.0
+load_kg = 25.0
+spread_h_per_t = 2.0             # digging a tonne out of the heap and spreading it (tuning)
+
 [knowledge]                      # what founders know and how people learn (ADR-0008); tuning values
 # The share of founders old enough for each technique's work who know it. Founders arrive with
 # substantial practical knowledge (research 06-08 §3): every technique of today's work.
@@ -389,6 +404,8 @@ founders = [
   { technique = "core:technique/roundhouse", share = 1.0 },
   { technique = "core:technique/pottery", share = 1.0 },
   { technique = "core:technique/oven_baking", share = 1.0 },
+  # Research 07-04 §4.4: manuring is documented in Neolithic Europe by the sixth millennium BCE.
+  { technique = "core:technique/manuring", share = 1.0 },
 ]
 # Learners one person teaches at once (research 07-02 §2.3: 1-3 a teacher).
 max_learners = 2

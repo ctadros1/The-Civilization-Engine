@@ -85,6 +85,16 @@ pub fn status(f: &Field, crop: &CropParams, day: i64) -> String {
             s.push_str(&format!("; had {had} of the water it needed"));
         }
     }
+    // Its last harvest, and whether its soil held it back (ADR-0012 §3).
+    if let Some(r) = f.soil.record.last() {
+        s.push_str(&format!(
+            "; last gave {:.0} kg/ha in year {}",
+            r.kg_per_ha, r.year
+        ));
+        if r.limit == civ_land::Limit::Soil {
+            s.push_str(", held back by its soil");
+        }
+    }
     s
 }
 
@@ -291,6 +301,17 @@ mod tests {
         let mut grown = field(FieldStage::Fallow);
         grown.broken = false;
         assert_eq!(status(&grown, &c, 200), "grown over, to be broken again");
+        // Its last harvest, and whether its soil held it back.
+        let mut worn = field(FieldStage::Fallow);
+        worn.soil.record = vec![civ_land::HarvestRecord {
+            year: 7,
+            kg_per_ha: 512.4,
+            limit: civ_land::Limit::Soil,
+        }];
+        assert_eq!(
+            status(&worn, &c, 200),
+            "fallow; last gave 512 kg/ha in year 7, held back by its soil"
+        );
         wood.work_h = 250.0; // of 500 h for 0.25 ha
         assert_eq!(status(&wood, &c, 60), "woodland being cleared, 50% done");
         assert_eq!(status(&field(FieldStage::Fallow), &c, 200), "fallow");

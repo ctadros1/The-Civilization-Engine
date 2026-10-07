@@ -128,6 +128,8 @@ pub(crate) struct SoilFile {
     pub uptake_share: f64,
     /// Content API 28: whole years broken ground can lie unsown before it must be broken again.
     pub regrown_years: u32,
+    /// Content API 29: the share of manure's nitrogen that enters the fast pool.
+    pub manure_fast_share: f64,
 }
 
 impl SoilFile {
@@ -140,6 +142,7 @@ impl SoilFile {
             free_n_kg_ha: self.free_n_kg_ha,
             uptake_share: self.uptake_share,
             regrown_years: self.regrown_years,
+            manure_fast_share: self.manure_fast_share,
         }
     }
 
@@ -151,6 +154,7 @@ impl SoilFile {
             ("fast_turnover", self.fast_turnover, 0.0, 1.0),
             ("free_n_kg_ha", self.free_n_kg_ha, 0.0, 200.0),
             ("uptake_share", self.uptake_share, 0.0, 1.0),
+            ("manure_fast_share", self.manure_fast_share, 0.0, 1.0),
         ] {
             if !(v.is_finite() && (least..=most).contains(&v)) {
                 p.push(format!(

@@ -104,7 +104,7 @@ use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
-    SCHEMA_V25, finish, section, single_chunk, unreadable,
+    SCHEMA_V25, SCHEMA_V26, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -273,6 +273,8 @@ enum Schema {
     V25,
     /// Each field's soil and the record of its harvests (ADR-0012 §3).
     V26,
+    /// Each household's midden (M3c slice V).
+    V27,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -313,7 +315,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V23 => Schema::V23,
         SCHEMA_V24 => Schema::V24,
         SCHEMA_V25 => Schema::V25,
-        SAVE_SCHEMA_VERSION => Schema::V26,
+        SCHEMA_V26 => Schema::V26,
+        SAVE_SCHEMA_VERSION => Schema::V27,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1637,7 +1640,8 @@ fn carried(
         | Schema::V23
         | Schema::V24
         | Schema::V25
-        | Schema::V26 => {
+        | Schema::V26
+        | Schema::V27 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1703,6 +1707,8 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                     offers: Some(offers),
                     taste: Some(taste),
                     admired: raw(h.admired),
+                    midden_kg: h.midden.kg,
+                    midden_at: h.midden.at.minutes(),
                 },
             )
         })
@@ -1771,7 +1777,8 @@ fn decode_households(
             | Schema::V23
             | Schema::V24
             | Schema::V25
-            | Schema::V26 => {
+            | Schema::V26
+            | Schema::V27 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -1854,6 +1861,21 @@ fn decode_households(
                 _ => civ_agents::params::Taste::default(),
             },
             admired: id(h.admired()),
+            // Before schema 27 no household kept a midden: one is begun as the save is loaded.
+            midden: if schema < Schema::V27 {
+                civ_agents::person::Midden::begun(now)
+            } else {
+                let kg = h.midden_kg();
+                if !(kg.is_finite() && kg >= 0.0) {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} has a midden of {kg} kg"
+                    )));
+                }
+                civ_agents::person::Midden {
+                    kg,
+                    at: time(h.midden_at()),
+                }
+            },
         });
     }
     Ok(out)

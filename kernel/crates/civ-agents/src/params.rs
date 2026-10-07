@@ -1313,8 +1313,59 @@ pub struct PeopleParams {
     pub digging: Digging,
     /// Taste in building and how it moves (M3b slice R).
     pub style: StyleParams,
+    /// The midden and carrying it to the fields (M3c slice V).
+    pub midden: MiddenParams,
     /// Names.
     pub names: NameParams,
+}
+
+/// A household's midden, the heap of ash, food waste, sweepings and dung beside its home, and
+/// carrying it to the fields (M3c slice V; the people profile's `[midden]`, content API 29).
+#[derive(Clone, Debug, PartialEq)]
+pub struct MiddenParams {
+    /// Kilograms a member adds to the heap a day.
+    pub kg_per_person_day: f64,
+    /// Kilograms of nitrogen a member's share of the heap holds a year.
+    pub n_kg_per_person_year: f64,
+    /// Days the heap takes to lose half of itself, and of its nitrogen, to the air and the rain.
+    pub half_life_days: f64,
+    /// Kilograms carried to a field in one load.
+    pub load_kg: f64,
+    /// Hours a capable adult takes to dig a tonne out of the heap and spread it, besides carrying
+    /// it.
+    pub spread_h_per_t: f64,
+}
+
+impl MiddenParams {
+    /// Kilograms of nitrogen in a kilogram of the heap.
+    pub fn n_per_kg(&self) -> f64 {
+        let kg_year = self.kg_per_person_day * 365.0;
+        if kg_year > 0.0 {
+            self.n_kg_per_person_year / kg_year
+        } else {
+            0.0
+        }
+    }
+
+    /// Hours of a capable adult's work to dig out, carry and spread a kilogram on a field
+    /// `walk_min` minutes' walk from home, a load at a time there and back.
+    pub fn h_per_kg(&self, walk_min: f64) -> f64 {
+        let trips = 1000.0 / self.load_kg.max(1.0);
+        (self.spread_h_per_t.max(0.0) + trips * 2.0 * walk_min.max(0.0) / 60.0) / 1000.0
+    }
+
+    /// The heap of `members` people `days` after it held `kg`: what they add, less what it loses
+    /// at its half-life (exact for a steady household).
+    pub fn after(&self, kg: f64, members: usize, days: f64) -> f64 {
+        let (kg, days) = (kg.max(0.0), days.max(0.0));
+        let added = members as f64 * self.kg_per_person_day.max(0.0);
+        if self.half_life_days <= 0.0 {
+            return kg + added * days;
+        }
+        let rate = std::f64::consts::LN_2 / self.half_life_days;
+        let keep = (-rate * days).exp();
+        kg * keep + added / rate * (1.0 - keep)
+    }
 }
 
 /// What founders know and how people learn from one another (ADR-0008).

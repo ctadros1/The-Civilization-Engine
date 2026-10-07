@@ -699,15 +699,27 @@ fn report_soil(sim: &Sim, held: &[&civ_land::Field], out: &mut dyn Write) -> any
         .sum();
     // Cropped ground grown over in a long rest, to be broken again (ADR-0012 §4).
     let grown = held.iter().filter(|f| !f.broken && f.harvests > 0).count();
+    // What the households' middens hold, against what they would hold if none were carried out:
+    // a steady household's heap settles where what it adds matches what wastes.
+    let midden = &sim.rules().people.midden;
+    let now = sim.now();
+    let (mut heaped, mut members) = (0.0, 0usize);
+    for (_, h) in sim.people().households.iter() {
+        heaped += h.midden.at_time(now, h.members.len(), midden);
+        members += h.members.len();
+    }
+    let steady = midden.after(0.0, members, 365.0 * 100.0);
     writeln!(
         out,
         "  soil: {reaped} of {} fields reaped in year {last} gave {:.0} kg/ha, {by_soil} held \
          back by the soil; {grown} grown over; it supplies {:.0} kg N/ha this year, {:.0}% of \
-         native ground's",
+         native ground's; middens hold {:.1} t ({:.1} t if none were carried out)",
         held.len(),
         kg / ha.max(1e-9),
         supply / area.max(1e-9),
-        100.0 * supply / native.max(1e-9)
+        100.0 * supply / native.max(1e-9),
+        heaped / 1000.0,
+        steady / 1000.0
     )?;
     Ok(())
 }

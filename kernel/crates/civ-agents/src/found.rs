@@ -561,6 +561,7 @@ fn add_family(
         // Its band's way of building, or its own when it comes alone (M3b slice R).
         taste: crate::style::founding_taste(&params.style, ctx.seed, band.unwrap_or(hh_id), hh_id),
         admired: None,
+        midden: crate::person::Midden::begun(now),
     });
     let couple = founding_couple(params, family, now, d);
     for (mi, m) in family.iter().enumerate() {
@@ -1180,6 +1181,13 @@ pub(crate) mod tests {
                 },
             },
             names: NameParams::default(),
+            midden: crate::params::MiddenParams {
+                kg_per_person_day: 0.5,
+                n_kg_per_person_year: 1.0,
+                half_life_days: 365.0,
+                load_kg: 25.0,
+                spread_h_per_t: 2.0,
+            },
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

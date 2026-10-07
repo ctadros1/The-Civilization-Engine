@@ -387,6 +387,10 @@ table Household {
   // eaves and overhang in centimetres, and the building that moved it most (0 for none).
   taste: [float] (id: 12);
   admired: ulong (id: 13);
+  // Schema 27 (M3c slice V): its midden, kilograms as it stood at `midden_at`. Absent in older
+  // saves: begun empty when the save is loaded.
+  midden_kg: double (id: 14);
+  midden_at: long (id: 15);
 }
 
 // Schema 10: one row of a household's posted terms (ADR-0006 §4). Goods are indexed like

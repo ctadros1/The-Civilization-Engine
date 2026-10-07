@@ -42,6 +42,20 @@ pub(crate) struct PeopleFile {
     pub knowledge: Knowledge,
     pub digging: DiggingFile,
     pub style: StyleFile,
+    /// The midden and carrying it to the fields (M3c slice V; content API 29).
+    pub midden: MiddenFile,
+}
+
+/// A household's midden and carrying it to the fields (M3c slice V; content API 29). See
+/// [`civ_agents::params::MiddenParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct MiddenFile {
+    pub kg_per_person_day: f64,
+    pub n_kg_per_person_year: f64,
+    pub half_life_days: f64,
+    pub load_kg: f64,
+    pub spread_h_per_t: f64,
 }
 
 /// Taste in building, as authored: roof pitch in degrees, eaves and overhang in metres.
@@ -671,6 +685,13 @@ impl PeopleFile {
                 tradition_spread: self.style.tradition_spread.taste(),
                 personal_spread: self.style.personal_spread.taste(),
             },
+            midden: civ_agents::params::MiddenParams {
+                kg_per_person_day: self.midden.kg_per_person_day,
+                n_kg_per_person_year: self.midden.n_kg_per_person_year,
+                half_life_days: self.midden.half_life_days,
+                load_kg: self.midden.load_kg,
+                spread_h_per_t: self.midden.spread_h_per_t,
+            },
             names,
         }
     }
@@ -679,6 +700,23 @@ impl PeopleFile {
     pub fn problems(&self) -> Vec<String> {
         let mut p = Vec::new();
         positive("digging.h_per_m3", self.digging.h_per_m3, &mut p);
+        let m = &self.midden;
+        for (name, v, lo, hi) in [
+            ("midden.kg_per_person_day", m.kg_per_person_day, 0.0, 10.0),
+            (
+                "midden.n_kg_per_person_year",
+                m.n_kg_per_person_year,
+                0.0,
+                20.0,
+            ),
+            ("midden.half_life_days", m.half_life_days, 0.0, 36_500.0),
+            ("midden.load_kg", m.load_kg, 1.0, 200.0),
+            ("midden.spread_h_per_t", m.spread_h_per_t, 0.0, 100.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
         let st = &self.style;
         for (name, v, lo, hi) in [
             ("style.alpha", st.alpha, 0.0, 1.0),

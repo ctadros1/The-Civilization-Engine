@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 28
+kernel_content_api = 29
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -168,14 +168,35 @@ fn the_repository_content_is_clean() {
     let emmer = c
         .technique_index("core:technique/emmer_growing")
         .expect("growing emmer");
+    // Field work needs growing emmer, except dunging, which needs manuring (M3c slice V).
+    let manuring = c
+        .technique_index("core:technique/manuring")
+        .expect("manuring");
     for a in c.activities.iter().filter(|a| a.task.is_some()) {
+        let needs = if a.id == "core:activity/manure_field" {
+            manuring
+        } else {
+            emmer
+        };
         assert_eq!(
             c.technique_of(a),
-            Some(emmer),
-            "{} needs emmer growing",
+            Some(needs),
+            "{} needs its technique",
             a.id
         );
     }
+    // A midden returns to the fields part of the nitrogen its people's grain took off them,
+    // never more (research 03-04 §5.5: no nutrient-creating manure loops): a person's share of
+    // the heap holds less than the grain they would eat in a year if it were all their food.
+    let people = &reg.people.params;
+    let crop = &c.crops[people.farm.crop];
+    let grain_kg = people.household.daily_kcal_per_person * 365.0 / c.goods[crop.good].kcal_per_kg;
+    assert!(
+        people.midden.n_kg_per_person_year < grain_kg * crop.grain_n,
+        "a midden's {} kg of nitrogen a person against {} kg in a year's grain",
+        people.midden.n_kg_per_person_year,
+        grain_kg * crop.grain_n
+    );
     let grind = &c.activities[c.index_of("core:activity/grind_grain").expect("grinding")];
     assert_eq!(
         c.technique_of(grind).map(|t| c.techniques[t].id.as_str()),
@@ -206,9 +227,10 @@ fn the_repository_content_is_clean() {
         .iter()
         .map(|&(t, _)| c.techniques[t].id.as_str())
         .collect();
-    assert_eq!(founders.len(), 10);
+    assert_eq!(founders.len(), 11);
     assert!(founders.contains(&"core:technique/pottery"));
     assert!(founders.contains(&"core:technique/oven_baking"));
+    assert!(founders.contains(&"core:technique/manuring"));
     for later in ["core:technique/drying", "core:technique/rotary_quern"] {
         assert!(!founders.contains(&later), "{later}");
     }

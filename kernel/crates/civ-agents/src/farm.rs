@@ -57,6 +57,22 @@ pub struct FarmView<'a> {
     /// What it knows of the weather's years, to judge a growing crop by the water its season so
     /// far has brought (ADR-0012 §4); `None` judges every crop by an average year.
     pub climatology: Option<&'a civ_land::Climatology>,
+    /// Its midden and what dung is known to bring; `None` when it has none.
+    pub manuring: Option<Manuring<'a>>,
+}
+
+/// What a household knows of dunging its fields from its midden (M3c slice V).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Manuring<'a> {
+    /// Kilograms in its midden.
+    pub midden_kg: f64,
+    /// Grain a kilogram of dung is known to add to the next harvest of ground that gives less
+    /// than new ground of its kind, kilograms: the nitrogen in it the year's crop can draw on,
+    /// over what the crop takes up for a kilogram of grain. What people know of manuring, not of
+    /// any field's soil (ADR-0012 §4).
+    pub grain_per_kg: f64,
+    /// How the midden is carried.
+    pub midden: &'a crate::params::MiddenParams,
 }
 
 /// The grain a household of `members` means to grow in a year for its needs, kilograms: the
@@ -360,7 +376,7 @@ impl<'a> FarmView<'a> {
                 }
                 (work, days)
             }
-            FieldTask::Thresh => (0.0, f64::INFINITY),
+            FieldTask::Thresh | FieldTask::Manure => (0.0, f64::INFINITY),
         };
         if work <= 0.0 || !days.is_finite() {
             return 0.0;
@@ -390,6 +406,62 @@ impl<'a> FarmView<'a> {
         (per_hour, left)
     }
 
+    /// The best field to dung from the midden today (M3c slice V): among the fields it means to
+    /// crop that lie broken or dug for sowing and have given less than new ground of their kind
+    /// ([`Field::expected_kg_per_ha`]), the most grain an hour of the work brings, the walk there
+    /// and back with each load counted. Dung is carried while it can make up the shortfall, and
+    /// once the heap holds an hour's carrying at least.
+    fn best_to_manure(
+        &self,
+        walk_min: &dyn Fn(&Field) -> Option<f64>,
+    ) -> Result<FieldOption, Reason> {
+        let crop = self.crop;
+        let Some(m) = self.manuring else {
+            return Err(Reason::NoFieldWork);
+        };
+        if m.grain_per_kg <= 0.0 || m.midden_kg < m.midden.load_kg {
+            return Err(Reason::NoFieldWork);
+        }
+        let year = civ_land::calendar_year(self.day);
+        let mut best: Option<FieldOption> = None;
+        for f in self.cropping() {
+            let ready =
+                (f.stage == FieldStage::Fallow && f.broken) || f.stage == FieldStage::Prepared;
+            if !ready {
+                continue;
+            }
+            let new_ground = crop.yield_kg_per_ha * f64::from(f.ground);
+            let short_kg = (new_ground - f.expected_kg_per_ha(crop, year)).max(0.0) * f.area_ha();
+            let usable = m.midden_kg.min(short_kg / m.grain_per_kg);
+            let Some(walk) = walk_min(f) else {
+                continue;
+            };
+            let h_per_kg = m.midden.h_per_kg(walk).max(1e-9);
+            // A session's work is an hour at least: the heap waits until it holds that much.
+            if usable < m.midden.load_kg.max(1.0 / h_per_kg) {
+                continue;
+            }
+            let option = FieldOption {
+                field: Some(f.id),
+                walk_min: walk,
+                at: f.rect.centre_m(),
+                kcal_per_hour: m.grain_per_kg * self.kcal_per_kg / h_per_kg,
+                hours_left: usable * h_per_kg,
+                room: self.room,
+                urgency: 0.0,
+                at_home: false,
+                soon: false,
+            };
+            if best
+                .as_ref()
+                .is_none_or(|b| option.kcal_per_hour > b.kcal_per_hour)
+            {
+                best = Some(option);
+            }
+        }
+        best.ok_or(Reason::NoFieldWork)
+    }
+
     /// The best field for `task` today, among the household's fields and, for preparing, new
     /// ground at `site`: the most food per hour once the walk there and back is counted for a
     /// session of `session_h` hours. `walk_min` gives the walk to a field from home, and
@@ -407,6 +479,9 @@ impl<'a> FarmView<'a> {
         let mut any = false;
         let mut held_back: Option<Reason> = None;
         let mut best: Option<(f64, FieldOption)> = None;
+        if task == FieldTask::Manure {
+            return self.best_to_manure(walk_min);
+        }
         // Ground is prepared and sown only where the household means to crop; the rest rests.
         let cropping: Vec<PermanentId> = match task {
             FieldTask::Prepare | FieldTask::Sow => self.cropping().iter().map(|f| f.id).collect(),
@@ -781,6 +856,7 @@ mod tests {
             workable_share: 1.0,
             peak_ratio: 1.0,
             climatology: None,
+            manuring: None,
         }
     }
 
@@ -839,6 +915,82 @@ mod tests {
             kg_per_ha,
             limit: civ_land::Limit::Season,
         }
+    }
+
+    fn midden() -> crate::params::MiddenParams {
+        crate::params::MiddenParams {
+            kg_per_person_day: 0.5,
+            n_kg_per_person_year: 1.0,
+            half_life_days: 365.0,
+            load_kg: 25.0,
+            spread_h_per_t: 2.0,
+        }
+    }
+
+    #[test]
+    fn a_midden_grows_with_its_household_and_wastes() {
+        let m = midden();
+        // A person's year adds 182.5 kg, less what wastes on the heap meanwhile.
+        let year = m.after(0.0, 1, 365.0);
+        assert!(year > 0.6 * 182.5 && year < 182.5, "{year}");
+        // A steady household's heap settles where what it adds matches what wastes.
+        let steady = m.after(0.0, 4, 36_500.0);
+        assert!((steady - 4.0 * 0.5 * 365.0 / std::f64::consts::LN_2).abs() < 1e-6);
+        // However the time is split.
+        let split = m.after(m.after(100.0, 3, 40.0), 3, 60.0);
+        assert!((split - m.after(100.0, 3, 100.0)).abs() < 1e-9);
+        // A kilogram of nitrogen in each person's 182.5 kg a year.
+        assert!((m.n_per_kg() - 1.0 / 182.5).abs() < 1e-12);
+        // 2 h a tonne to dig out and spread, and 40 loads, each 6 minutes there and 6 back.
+        assert!((m.h_per_kg(6.0) - (2.0 + 40.0 * 2.0 * 0.1) / 1000.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn a_household_dungs_the_nearest_field_that_has_given_less_than_new_ground() {
+        let c = crop();
+        let m = midden();
+        // Two fields that gave 500 kg/ha against new ground's 800, one near and one far, and one
+        // that gave what new ground does.
+        let mut near = field(2, FieldStage::Fallow);
+        near.soil.record = vec![harvest(1, 500.0)];
+        let mut far = field(3, FieldStage::Fallow);
+        far.soil.record = vec![harvest(1, 500.0)];
+        let mut good = field(4, FieldStage::Fallow);
+        good.soil.record = vec![harvest(1, 800.0)];
+        let mut v = view(&c, vec![&near, &far, &good], 300);
+        v.need_kg = 10_000.0;
+        v.manuring = Some(Manuring {
+            midden_kg: 500.0,
+            grain_per_kg: 0.01,
+            midden: &m,
+        });
+        let walk = |f: &Field| Some(if f.id.get() == 3 { 20.0 } else { 3.0 });
+        let none = |_: &RectCm| None;
+        let dung = v
+            .best(FieldTask::Manure, 4.0, None, &walk, &none)
+            .expect("a field to dung");
+        assert_eq!(dung.field, Some(near.id));
+        // It may make up 300 kg/ha over 0.25 ha, 75 kg of grain: 7,500 kg of dung, more than
+        // the 500 kg in the heap, all of which goes.
+        assert!((dung.hours_left - 500.0 * m.h_per_kg(3.0)).abs() < 1e-9);
+        assert_eq!(dung.urgency, 0.0, "nothing presses on it");
+        // Not with less than a load in the heap...
+        let mut empty = v.clone();
+        empty.manuring = Some(Manuring {
+            midden_kg: 10.0,
+            grain_per_kg: 0.01,
+            midden: &m,
+        });
+        assert!(
+            empty
+                .best(FieldTask::Manure, 4.0, None, &walk, &none)
+                .is_err()
+        );
+        // ...nor on ground that gives what new ground does, nor on ground under a crop.
+        let mut sown = near.clone();
+        sown.stage = FieldStage::Sown;
+        v.fields = vec![&good, &sown];
+        assert!(v.best(FieldTask::Manure, 4.0, None, &walk, &none).is_err());
     }
 
     #[test]

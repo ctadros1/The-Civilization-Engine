@@ -263,6 +263,17 @@ fn workable_share(land: &civ_land::Land, crop: usize) -> f64 {
         .unwrap_or(1.0)
 }
 
+/// Grain a kilogram of midden is known to add to the next harvest of `crop` on ground that has
+/// lost heart, kilograms (M3c slice V): its nitrogen, the share of it the year's crop can draw on
+/// (research 03-04 §2.3: 5-15 %) and takes up, over what the crop takes up for a kilogram of
+/// grain.
+fn manure_grain_per_kg(params: &PeopleParams, land: &LandParams, crop: &CropParams) -> f64 {
+    if crop.crop_n <= 0.0 {
+        return 0.0;
+    }
+    params.midden.n_per_kg() * land.soil.manure_first_year() * land.soil.uptake_share / crop.crop_n
+}
+
 /// Field work a capable adult gives on a day at a peak, against an ordinary day's.
 fn peak_ratio(params: &PeopleParams) -> f64 {
     params.farm.peak_work_hours_per_day / params.farm.work_hours_per_day.max(1e-9)
@@ -1969,6 +1980,11 @@ impl Population {
             workable_share: workable_share(ctx.land, params.farm.crop),
             peak_ratio: peak_ratio(params),
             climatology: Some(&ctx.land.climatology),
+            manuring: Some(farm::Manuring {
+                midden_kg: hh.midden.at_time(now, member_count, &params.midden),
+                grain_per_kg: manure_grain_per_kg(params, ctx.land_params, c),
+                midden: &params.midden,
+            }),
         });
         let field_ha = params.farm.field_m * params.farm.field_m / 10_000.0;
         let wants_land = farm_view
@@ -3389,6 +3405,46 @@ impl Population {
             * params.farm.work_hours_per_day
     }
 
+    /// Carries `hours` of a capable adult's work of dung from household `hh`'s midden to field
+    /// `fi` and spreads it (M3c slice V): as much as the hours carry at the walk from home, a load
+    /// at a time, never more than the heap holds. Its nitrogen enters the field's soil.
+    fn manure_field(&mut self, ctx: &mut Ctx, hh: Handle<Household>, fi: usize, hours: f64) {
+        let params = ctx.params;
+        let Some(x) = self.households.get(hh) else {
+            return;
+        };
+        // Walking times are kept from the settlement's hearth, or a lone household's home.
+        let key = x
+            .settlement
+            .filter(|s| ctx.land.settlements.iter().any(|t| t.id == *s))
+            .unwrap_or(x.id);
+        let cell = cell_of(ctx.map, ctx.land.fields[fi].rect.centre_m());
+        let Some(walk) = self
+            .homes
+            .get(&key)
+            .and_then(|h| h.reach.seconds_to(cell))
+            .map(|s| f64::from(s) / 60.0)
+        else {
+            return;
+        };
+        let members = x.members.len();
+        let Some(x) = self.households.get_mut(hh) else {
+            return;
+        };
+        x.midden.settle(ctx.now, members, &params.midden);
+        let kg = (hours / params.midden.h_per_kg(walk).max(1e-9)).clamp(0.0, x.midden.kg);
+        if kg <= 0.0 {
+            return;
+        }
+        x.midden.kg -= kg;
+        let f = &mut ctx.land.fields[fi];
+        let ha = f.area_ha();
+        if ha > 0.0 {
+            f.soil
+                .manured(&ctx.land_params.soil, kg * params.midden.n_per_kg() / ha);
+        }
+    }
+
     /// Applies `hours` of a capable adult's `task` on `field` by person `who` of `household`:
     /// seed comes out of the household's store, and threshed grain goes in, next season's seed
     /// first (the area it plans to sow at the crop's seed rate, with what the seed loses in store
@@ -3413,6 +3469,10 @@ impl Population {
         let Some(&hh) = self.hh_index.get(&household) else {
             return;
         };
+        if task == FieldTask::Manure {
+            self.manure_field(ctx, hh, fi, hours);
+            return;
+        }
         let area: f64 = ctx
             .land
             .fields
@@ -4118,6 +4178,11 @@ impl Population {
         // weather just lived goes into the chronicle (ADR-0012).
         if now.date().day == 1 {
             self.wear_buildings(ctx);
+            // Each household's midden grows with its members and wastes (M3c slice V).
+            for (_, h) in self.households.iter_mut() {
+                let members = h.members.len();
+                h.midden.settle(now, members, &params.midden);
+            }
             let notes = ctx
                 .land
                 .weather

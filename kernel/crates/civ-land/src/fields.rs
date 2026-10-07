@@ -126,6 +126,9 @@ pub enum FieldTask {
     Reap,
     /// Thresh and clean the grain at home.
     Thresh,
+    /// Carry manure from the household's midden and spread it on the field (content API 29).
+    /// No stage of the field needs it: households choose it ([`crate::soil`]).
+    Manure,
 }
 
 impl FieldTask {
@@ -137,12 +140,13 @@ impl FieldTask {
     }
 
     /// Every task, in order (part of the boundary: never reorder).
-    pub const ALL: [FieldTask; 5] = [
+    pub const ALL: [FieldTask; 6] = [
         FieldTask::Prepare,
         FieldTask::Sow,
         FieldTask::Tend,
         FieldTask::Reap,
         FieldTask::Thresh,
+        FieldTask::Manure,
     ];
 
     /// The authored name.
@@ -153,6 +157,7 @@ impl FieldTask {
             FieldTask::Tend => "tend",
             FieldTask::Reap => "reap",
             FieldTask::Thresh => "thresh",
+            FieldTask::Manure => "manure",
         }
     }
 

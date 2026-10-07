@@ -675,6 +675,40 @@ pub struct Household {
     /// The building that moved their taste most at its last review, which their next building
     /// follows (M3b slice R).
     pub admired: Option<PermanentId>,
+    /// Their midden (M3c slice V).
+    pub midden: Midden,
+}
+
+/// A household's midden beside its home: the heap of ash, food waste, sweepings and dung (research
+/// 12-02 §3: early farming middens mixed domestic waste, ash and fecal material), kilograms as it
+/// stood at `at` ([`crate::params::MiddenParams::after`] brings it up to date).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Midden {
+    /// Kilograms in the heap.
+    pub kg: f64,
+    /// When it was last brought up to date.
+    pub at: SimTime,
+}
+
+impl Midden {
+    /// An empty heap begun at `t`.
+    pub fn begun(t: SimTime) -> Midden {
+        Midden { kg: 0.0, at: t }
+    }
+
+    /// The heap at `t` for `members` people.
+    pub fn at_time(&self, t: SimTime, members: usize, params: &crate::params::MiddenParams) -> f64 {
+        let days = (t.minutes() - self.at.minutes()).max(0) as f64 / MINUTES_PER_DAY as f64;
+        params.after(self.kg, members, days)
+    }
+
+    /// Brings the heap up to `t` for `members` people.
+    pub fn settle(&mut self, t: SimTime, members: usize, params: &crate::params::MiddenParams) {
+        if t > self.at {
+            self.kg = self.at_time(t, members, params);
+            self.at = t;
+        }
+    }
 }
 
 /// Room for a household's goods under its roofs (ADR-0009 §5), from its roofed buildings: on
@@ -1005,6 +1039,7 @@ mod tests {
             offers: Vec::new(),
             taste: Default::default(),
             admired: None,
+            midden: Midden::default(),
         }
     }
 

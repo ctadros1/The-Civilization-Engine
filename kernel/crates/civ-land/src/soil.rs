@@ -42,9 +42,20 @@ pub struct SoilParams {
     /// Whole years broken ground can lie unsown before its wild cover has grown over it and it
     /// must be broken again (content API 28; 0 never).
     pub regrown_years: u32,
+    /// The share of the nitrogen in manure that enters the fast pool; the rest enters the slow
+    /// one (content API 29).
+    pub manure_fast_share: f64,
 }
 
 impl SoilParams {
+    /// The share of the nitrogen in manure the crop of the year it is spread can draw on: what
+    /// its share in each pool releases at once (research 03-04 §2.3: 5-15 % to the next crop).
+    pub fn manure_first_year(&self) -> f64 {
+        let fast = self.manure_fast_share.clamp(0.0, 1.0);
+        fast * self.fast_turnover.clamp(0.0, 1.0)
+            + (1.0 - fast) * self.slow_turnover.clamp(0.0, 1.0)
+    }
+
     /// The native stocks of ground of richness `ground` (1 for average ground): the fast and
     /// slow pools, kg/ha.
     pub fn native(&self, ground: f64) -> (f64, f64) {
@@ -140,6 +151,22 @@ impl FieldSoil {
         self.supply_n = (from_fast + from_slow + params.free_n_kg_ha.max(0.0)) as f32;
     }
 
+    /// Manure holding `n_kg_ha` of nitrogen a hectare is spread on the field: it enters the
+    /// pools, mostly the slow one, and each pool's share of it turns at once, as if it had lain
+    /// since the year's turn, so the year's crop draws on its first year's share wherever in the
+    /// year it is spread (research 03-04 §2.3: material is not immediately available nitrogen).
+    pub fn manured(&mut self, params: &SoilParams, n_kg_ha: f64) {
+        let n = n_kg_ha.max(0.0);
+        let fast = params.manure_fast_share.clamp(0.0, 1.0);
+        let (kf, ks) = (
+            params.fast_turnover.clamp(0.0, 1.0),
+            params.slow_turnover.clamp(0.0, 1.0),
+        );
+        self.fast_n += (n * fast * (1.0 - kf)) as f32;
+        self.slow_n += (n * (1.0 - fast) * (1.0 - ks)) as f32;
+        self.supply_n += (n * params.manure_first_year()) as f32;
+    }
+
     /// The grain this year's supply lets `crop` give, kg/ha.
     pub fn allows_kg_ha(&self, params: &SoilParams, crop: &CropParams) -> f64 {
         params.allows_kg_ha(f64::from(self.supply_n), crop)
@@ -220,6 +247,7 @@ pub(crate) mod tests {
             free_n_kg_ha: 15.0,
             uptake_share: 0.6,
             regrown_years: 3,
+            manure_fast_share: 0.3,
         }
     }
 
@@ -319,6 +347,21 @@ pub(crate) mod tests {
         let again = FieldSoil::native(&p, 1.0);
         assert!((s.slow_n - again.slow_n).abs() / again.slow_n < 0.01);
         assert!((s.fast_n - again.fast_n).abs() / again.fast_n < 0.01);
+    }
+
+    #[test]
+    fn manure_goes_mostly_into_the_pools_and_a_tenth_of_it_to_the_years_crop() {
+        let p = params();
+        let mut s = FieldSoil::native(&p, 1.0);
+        let before = total(&s) + f64::from(s.supply_n);
+        let supply = f64::from(s.supply_n);
+        // 10 t of manure at 6 kg of nitrogen a tonne (research 03-04 §2.3).
+        s.manured(&p, 60.0);
+        assert!((total(&s) + f64::from(s.supply_n) - before - 60.0).abs() < 1e-3);
+        let now = f64::from(s.supply_n) - supply;
+        // 0.3 x 0.3 + 0.7 x 0.02: 10.4 % now (5-15 %), the rest in the pools for later years.
+        assert!((now / 60.0 - 0.104).abs() < 1e-6, "{now}");
+        assert!((p.manure_first_year() - 0.104).abs() < 1e-12);
     }
 
     #[test]

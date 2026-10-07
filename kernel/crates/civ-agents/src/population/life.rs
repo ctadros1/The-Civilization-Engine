@@ -1287,6 +1287,7 @@ impl Population {
             offers: Vec::new(),
             taste,
             admired,
+            midden: crate::person::Midden::begun(ctx.now),
         });
         for who in [woman, man] {
             let Some(from) = self.person(who).map(|p| p.household) else {

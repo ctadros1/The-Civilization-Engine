@@ -1,0 +1,19 @@
+# Carrying dung from the household's midden to a field and spreading it (M3c slice V; content
+# API 29). Effort (PAR), ages and session lengths are tuning values; the hours a field takes are
+# the people profile's `[midden]`, by the walk to it, a load at a time.
+kind = "activity"
+id = "core:activity/manure_field"
+name = "Manure a field"
+doing = "carrying dung to a field"
+behavior = "farm"
+task = "manure"
+par = 4.5
+min_age_years = 12.0
+max_age_years = 65.0
+min_minutes = 60
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 30
+technique = "core:technique/manuring"
+tools = []
+rate = 1.0

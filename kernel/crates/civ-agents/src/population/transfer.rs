@@ -186,6 +186,7 @@ mod tests {
                 offers: Vec::new(),
                 taste: Default::default(),
                 admired: None,
+                midden: Default::default(),
             });
         }
         pop

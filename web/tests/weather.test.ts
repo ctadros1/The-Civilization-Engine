@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import type { WeatherMonth, WeatherReport } from "../src/net/messages.js";
-import { monthRows, monthText, rainText, rainWord, tempText, yearRows, years } from "../src/weather.js";
+import type { Clock, WeatherMonth, WeatherReport } from "../src/net/messages.js";
+import {
+  monthRows,
+  monthText,
+  rainText,
+  rainWord,
+  seasonOf,
+  tempText,
+  yearRows,
+  years,
+} from "../src/weather.js";
 
 function month(over: Partial<WeatherMonth> = {}): WeatherMonth {
   return {
@@ -61,5 +70,26 @@ describe("the weather panel's words", () => {
     // Half the usual is dry; under half, very dry.
     expect(rows[0]).toMatchObject({ year: "1", rainWord: "dry", partial: false });
     expect(rows[1]).toMatchObject({ year: "0 (306 days)", rainWord: "", partial: true });
+  });
+});
+
+describe("the season on the map", () => {
+  it("comes from the clock's month and today's weather", () => {
+    const clock = {
+      month: 2,
+      weather: {
+        precipMm: 0,
+        meanC: -2,
+        minC: -6,
+        maxC: 1,
+        snowMm: 20,
+        soil: 0.95,
+        words: "-2 °C, dry; snow lying",
+        snowLineM: 150,
+      },
+    } as Clock;
+    expect(seasonOf(clock)).toEqual({ month: 1, soil: 0.95, snowLineM: 150 });
+    expect(seasonOf({ ...clock, weather: null })).toBeNull();
+    expect(seasonOf(null)).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 # Web observer
 
-The web observer (the M0 shell, M1's people, families, fields, huts, trails and god tool, M3a's tools, skills, market panel, workshops panel, land tenure and wealth panel, M3b's knowledge panel, and M3c's speeds and weather panel): TypeScript, Vite and PixiJS 8,
+The web observer (the M0 shell, M1's people, families, fields, huts, trails and god tool, M3a's tools, skills, market panel, workshops panel, land tenure and wealth panel, M3b's knowledge panel, and M3c's speeds, weather panel and the season on the map): TypeScript, Vite and PixiJS 8,
 without a UI framework. `civ-host serve` serves
 the built files from `web/dist` and the observer socket at `/ws` from the same origin.
 
@@ -22,7 +22,7 @@ another port. `?host=127.0.0.1:7421` in the page URL connects to a host directly
 | `src/wire/envelope.ts` | The commons-wire envelope, hand-written; must match `commons/crates/commons-wire/tests/golden.json`. |
 | `src/net/messages.ts` | Builds commands and queries, decodes the host's payloads. The only module that touches generated code. |
 | `src/net/client.ts` | The WebSocket: handshake, correlation ids, reconnect with backoff. |
-| `src/map/` | Terrain shading (`shade.ts`) and the PixiJS map with detail tiles, people, fields, huts, worn ground and trails (`view.ts`). |
+| `src/map/` | Terrain shading with the season (`shade.ts`) and the PixiJS map with detail tiles, people, fields, huts, worn ground and trails (`view.ts`). |
 | `src/people.ts`, `src/fields.ts`, `src/buildings.ts`, `src/paths.ts` | How people, fields, buildings and paths look on the map and what lies under a point: pure functions, unit tested. Buildings are drawn from the shape the kernel expands, as marks (`buildingMarks`) the map only renders, and trails from the lines it traces; neither is designed here. |
 | `src/format.ts` | Numbers, distances and simulated times in words. |
 | `src/market.ts` | What the market panel says about amounts, terms, payments and the price history: pure functions, unit tested. Terms, trades and money come from the kernel; the panel only words and draws them. |
@@ -97,6 +97,14 @@ normal, wet days, frost days, days with snow lying, and the soil water under the
 new world shows the year before its founding too: its weather began then. A growing field's
 readout says how much of the water it needed it has had ("has had 82% of the water it needed").
 
+The map shows the season the clock tells (wire 1.25): its land dulls toward grey-brown from
+September to April, most in December and January, yellows from April to October as the soil water
+under the wild cover falls below 60 % of what the soil holds, and is white above the snow line,
+the lowest height at which the kernel has snow lying. The tints are the observer's (`seasonal` in
+`src/map/shade.ts`); the month, the soil water and the snow line are the kernel's. The terrain is
+shaded again only when the month, the soil water by tenths or the snow line by 50 m changes
+(`seasonKey`), at most every two seconds.
+
 ## Controls
 
 The speeds are 1×, 3× and 10×, then 60×, 600× and Max, the Accelerated speeds: the world lives a
@@ -131,7 +139,7 @@ from this machine.
 ## Test hooks
 
 `window.__TCE__` (mirroring Genesis's `window.__OBS__`) exposes plain-data state for tests and
-debugging: `state()` (with a summary of each market, workshop, settlement's wealth and knowledge, the workshop page open, and what the inspected person knows), `map()`, `pointerAt(x, y)`, `panBy(dx, dy)`, `zoomBy(f)`, `fit()`,
+debugging: `state()` (with a summary of each market, workshop, settlement's wealth and knowledge, the workshop page open, what the inspected person knows, and today's weather with its snow line), `map()` (with the season the terrain is shaded for), `pointerAt(x, y)`, `panBy(dx, dy)`, `zoomBy(f)`, `fit()`,
 `peopleOnScreen()`, `briefs()` (each person's id, sex and age), `select(id)`, `openFirm(id)` and
 `introduceTechnique(person, techniqueId, awareOnly)`.
 

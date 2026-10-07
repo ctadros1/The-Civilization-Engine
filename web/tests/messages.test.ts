@@ -114,6 +114,8 @@ describe("decoders", () => {
     W.DayWeather.addSnowMm(b, 12);
     W.DayWeather.addSoil(b, 0.75);
     W.DayWeather.addWords(b, words);
+    // Wire 1.25: the snow line.
+    W.DayWeather.addSnowLineM(b, 420);
     const weather = W.DayWeather.endDayWeather(b);
     W.Clock.startClock(b);
     W.Clock.addMinute(b, 85_320n);
@@ -170,6 +172,7 @@ describe("decoders", () => {
         snowMm: 12,
         soil: 0.75,
         words: "6 °C, light rain; snow lying",
+        snowLineM: 420,
       },
     });
     expect(snapshot.task).toEqual({

@@ -80,6 +80,7 @@ pub fn day_weather<'a>(
             snow_mm: w.snow_at(params.normals_at_m) as f32,
             soil: (w.soil_mm / params.soil_water_mm.max(1e-9)) as f32,
             words: Some(words),
+            snow_line_m: w.snow_line_m() as f32,
         },
     )
 }

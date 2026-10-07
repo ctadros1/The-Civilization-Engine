@@ -633,6 +633,17 @@ impl Weather {
         f64::from(self.snow_base_m) + (band as f64 + 0.5) * SNOW_BAND_M
     }
 
+    /// The lowest height at which snow lies, metres: the foot of the lowest band with
+    /// [`SNOW_COVER_MM`] of water or more lying, or infinity when it lies nowhere.
+    pub fn snow_line_m(&self) -> f64 {
+        self.snow_mm
+            .iter()
+            .position(|&s| f64::from(s) >= SNOW_COVER_MM)
+            .map_or(f64::INFINITY, |b| {
+                f64::from(self.snow_base_m) + b as f64 * SNOW_BAND_M
+            })
+    }
+
     /// The band the normals are for.
     pub fn reference_band(&self, params: &WeatherParams) -> usize {
         self.band_of(params.normals_at_m)
@@ -1005,6 +1016,15 @@ pub(crate) mod tests {
         );
         // A day 10 °C above freezing melts 30 mm of water.
         assert!((p.melt_mm_per_c * 10.0 - 30.0).abs() < 1e-9);
+        // The snow line is the foot of the lowest band with snow lying; none lies anywhere,
+        // and it is infinitely high.
+        w.snow_mm.iter_mut().for_each(|s| *s = 0.0);
+        assert_eq!(w.snow_line_m(), f64::INFINITY);
+        w.snow_mm[high] = 40.0;
+        w.snow_mm[high - 1] = 2.0;
+        assert!((w.snow_line_m() - (w.band_mid_m(high) - SNOW_BAND_M / 2.0)).abs() < 1e-9);
+        w.snow_mm[high - 1] = 8.0;
+        assert!((w.snow_line_m() - (w.band_mid_m(high - 1) - SNOW_BAND_M / 2.0)).abs() < 1e-9);
     }
 
     #[test]

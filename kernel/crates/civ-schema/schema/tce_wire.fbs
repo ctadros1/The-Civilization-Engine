@@ -205,6 +205,9 @@ table DayWeather {
   soil: float (id: 5);
   // In words, rendered by the kernel: "6 °C, light rain; snow lying".
   words: string (id: 6);
+  // Wire 1.25: the lowest height at which snow lies, metres (the foot of the lowest 100 m band
+  // with 5 mm of water or more lying); infinite when it lies nowhere.
+  snow_line_m: float = inf (id: 7);
 }
 
 table WorldInfo {

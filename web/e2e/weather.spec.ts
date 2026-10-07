@@ -36,6 +36,12 @@ test("the clock and the weather panel tell the weather the world lives", async (
     // A new world has lived the year before its founding: year 0 from March, and year 1 so far.
     await expect(panel.locator(".weather-years tbody tr").first()).toContainText("1 (");
     await expect(panel.locator(".weather-years")).toContainText("0 (306 days)");
+    // Wire 1.25: the map is shaded for the season the clock tells, mid-May: month 4 from January.
+    await page.waitForFunction(() => window.__TCE__.map().season.startsWith("4|"), undefined, {
+      timeout: 30_000,
+    });
+    const snowLine = await page.evaluate(() => window.__TCE__.state().weather?.snowLineM);
+    expect(typeof snowLine).toBe("number");
     if (shots) {
       await page.locator("#weather-panel").screenshot({ path: `${shots}/weather.png` });
       await page.locator(".topbar").screenshot({ path: `${shots}/weather-clock.png` });

@@ -4609,6 +4609,7 @@ impl<'a> DayWeather<'a> {
   pub const VT_SNOW_MM: ::flatbuffers::VOffsetT = 12;
   pub const VT_SOIL: ::flatbuffers::VOffsetT = 14;
   pub const VT_WORDS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_SNOW_LINE_M: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4620,6 +4621,7 @@ impl<'a> DayWeather<'a> {
     args: &'args DayWeatherArgs<'args>
   ) -> ::flatbuffers::WIPOffset<DayWeather<'bldr>> {
     let mut builder = DayWeatherBuilder::new(_fbb);
+    builder.add_snow_line_m(args.snow_line_m);
     if let Some(x) = args.words { builder.add_words(x); }
     builder.add_soil(args.soil);
     builder.add_snow_mm(args.snow_mm);
@@ -4680,6 +4682,13 @@ impl<'a> DayWeather<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(DayWeather::VT_WORDS, None)}
   }
+  #[inline]
+  pub fn snow_line_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(DayWeather::VT_SNOW_LINE_M, Some(f32::INFINITY)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for DayWeather<'_> {
@@ -4695,6 +4704,7 @@ impl ::flatbuffers::Verifiable for DayWeather<'_> {
      .visit_field::<f32>("snow_mm", Self::VT_SNOW_MM, false)?
      .visit_field::<f32>("soil", Self::VT_SOIL, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .visit_field::<f32>("snow_line_m", Self::VT_SNOW_LINE_M, false)?
      .finish();
     Ok(())
   }
@@ -4707,6 +4717,7 @@ pub struct DayWeatherArgs<'a> {
     pub snow_mm: f32,
     pub soil: f32,
     pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub snow_line_m: f32,
 }
 impl<'a> Default for DayWeatherArgs<'a> {
   #[inline]
@@ -4719,6 +4730,7 @@ impl<'a> Default for DayWeatherArgs<'a> {
       snow_mm: 0.0,
       soil: 0.0,
       words: None,
+      snow_line_m: f32::INFINITY,
     }
   }
 }
@@ -4757,6 +4769,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DayWeatherBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DayWeather::VT_WORDS, words);
   }
   #[inline]
+  pub fn add_snow_line_m(&mut self, snow_line_m: f32) {
+    self.fbb_.push_slot::<f32>(DayWeather::VT_SNOW_LINE_M, snow_line_m, f32::INFINITY);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> DayWeatherBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     DayWeatherBuilder {
@@ -4781,6 +4797,7 @@ impl ::core::fmt::Debug for DayWeather<'_> {
       ds.field("snow_mm", &self.snow_mm());
       ds.field("soil", &self.soil());
       ds.field("words", &self.words());
+      ds.field("snow_line_m", &self.snow_line_m());
       ds.finish()
   }
 }

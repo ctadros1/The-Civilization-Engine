@@ -14,6 +14,7 @@ import { HostClient, HostError } from "./net/client.js";
 import * as M from "./net/messages.js";
 import { Store, initialState, mergeEvents } from "./state.js";
 import { bindUi } from "./ui.js";
+import { seasonOf } from "./weather.js";
 
 /**
  * The observer socket: this page's host, or `?host=` in its address. A `?token=` in the address
@@ -63,6 +64,7 @@ const client = new HostClient(socketUrl(), {
     store.update({ snapshot, epoch });
     syncMap();
     map.setPeople(snapshot.people, snapshot.settlements, snapshot.clock);
+    map.setSeason(seasonOf(snapshot.clock));
     void syncChronicle();
     void syncFields();
     void syncBuildings();
@@ -859,6 +861,7 @@ const hooks = {
         ? {
             months: s.weather.months.length,
             today: s.weather.today?.words ?? null,
+            snowLineM: s.weather.today?.snowLineM ?? null,
             annualMm: s.weather.annualMm,
           }
         : null,

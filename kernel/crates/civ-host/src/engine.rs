@@ -1522,6 +1522,17 @@ mod tests {
         assert!(listed.iter().all(|m| m.usual_mm() > 0.0 && m.days() > 0));
         let today = report.today().expect("today");
         assert!(today.words().unwrap_or_default().contains("°C"));
+        // Wire 1.25: the snow line, infinitely high when snow lies nowhere.
+        let line = h
+            .engine
+            .world
+            .as_ref()
+            .expect("a world")
+            .sim
+            .land()
+            .weather
+            .snow_line_m();
+        assert_eq!(f64::from(today.snow_line_m()), line as f32 as f64);
     }
 
     #[test]

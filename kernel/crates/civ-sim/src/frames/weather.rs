@@ -163,6 +163,11 @@ mod tests {
             cover_kc: 0.9,
             wet_ground_mm: 5.0,
             frozen_below_c: 0.0,
+            storm_median_pa: 250.0,
+            storm_spread: 0.6,
+            roof_snow_share: 0.8,
+            roof_snow_full_deg: 30.0,
+            roof_snow_shed_deg: 60.0,
         }
     }
 

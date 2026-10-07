@@ -151,21 +151,8 @@ pub struct LandParams {
     pub weather: WeatherParams,
     /// How walking wears the ground.
     pub paths: PathParams,
-    /// The heaviest load weather puts on a roof in a month (ADR-0009 §5).
-    pub peak_load: PeakLoad,
     /// Where deposits of clay, stone and flint lie, by kind (ADR-0010 §1).
     pub deposits: Vec<deposits::DepositRule>,
-}
-
-/// The heaviest load wind and snow put on a roof in a month, on its plan, drawn once a month for
-/// each settlement: log-normal, `median_pa` its median and `spread` the spread of its logarithm.
-/// It stands in for weather until weather exists (M3c), and is then replaced by it (ADR-0009 §5).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct PeakLoad {
-    /// Median, pascals.
-    pub median_pa: f64,
-    /// Standard deviation of its natural logarithm.
-    pub spread: f64,
 }
 
 impl ResourceParams {
@@ -1297,10 +1284,6 @@ mod tests {
                 half_life_days: 120.0,
                 trail_at: 0.3,
                 trail_until: 0.15,
-            },
-            peak_load: PeakLoad {
-                median_pa: 250.0,
-                spread: 0.6,
             },
             deposits: Vec::new(),
         }

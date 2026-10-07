@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 24
+kernel_content_api = 25
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -998,8 +998,9 @@ fn profiles_check_their_ranges_and_fields() {
     ]);
     assert_eq!(codes(&report), vec!["E3001"]);
 
-    // The month's peak load on roofs (ADR-0009 §5) stays in range.
-    let land = real("land/temperate_valley.toml").replace("median_kpa = 0.25", "median_kpa = -1.0");
+    // The month's storm on roofs (ADR-0012 §5) stays in range, and so does the snow they keep.
+    let land = real("land/temperate_valley.toml")
+        .replace("storm_median_kpa = 0.25", "storm_median_kpa = -1.0");
     assert_ne!(land, real("land/temperate_valley.toml"), "the edit applies");
     let report = load_fixture(&[
         ("worldgen/river_valley.toml", &preset),
@@ -1009,7 +1010,22 @@ fn profiles_check_their_ranges_and_fields() {
     assert!(
         report.diagnostics[0]
             .message
-            .contains("`peak_load.median_kpa`")
+            .contains("`weather.storm_median_kpa`")
+    );
+    let land = real("land/temperate_valley.toml")
+        .replace("roof_snow_shed_deg = 60.0", "roof_snow_shed_deg = 20.0");
+    assert_ne!(land, real("land/temperate_valley.toml"), "the edit applies");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("`weather.roof_snow_shed_deg` must be above"),
+        "{}",
+        report.diagnostics[0].message
     );
 
     // Builders never build weaker for what they have seen (ADR-0009 §6).

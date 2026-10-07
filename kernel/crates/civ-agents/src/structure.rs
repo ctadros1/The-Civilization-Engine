@@ -56,7 +56,8 @@ pub struct Timber {
 pub struct Loads {
     /// The roof covering's own weight, per square metre of roof slope (carried for years).
     pub covering_pa: f64,
-    /// The month's peak on the roof, per square metre of plan: wind and snow (passing).
+    /// The weather on the roof, per square metre of plan: the month's storm on its day and the
+    /// snow lying on it (passing; ADR-0012 §5).
     pub peak_pa: f64,
     /// Goods in its lofts, per square metre of loft (carried for years).
     pub loft_pa: f64,
@@ -143,7 +144,7 @@ fn roof_slope_m2(e: &Expansion) -> f64 {
 
 /// The cosine of the roof's pitch: its plan over its slopes' area (1 for a building without a
 /// covering).
-fn roof_cos(e: &Expansion) -> f64 {
+pub fn roof_cos(e: &Expansion) -> f64 {
     let slope = roof_slope_m2(e);
     if slope > 0.0 {
         (roof_plan_m2(e) / slope).clamp(0.0, 1.0)

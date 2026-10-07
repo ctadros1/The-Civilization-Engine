@@ -47,7 +47,8 @@ mod market;
 
 pub use deposits::{DepositKnown, FIND_M};
 pub use loads::{
-    DIES_IN_RUIN, DIES_UNDER_FLOOR, DIES_UNDER_ROOF, LIVE_PA, SPILLED, month_peak, peak_pa,
+    DIES_IN_RUIN, DIES_UNDER_FLOOR, DIES_UNDER_ROOF, LIVE_PA, SNOW_TOLD_PA, SPILLED,
+    snow_on_roof_pa, storm_pa,
 };
 mod taste;
 mod transfer;

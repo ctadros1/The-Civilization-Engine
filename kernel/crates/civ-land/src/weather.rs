@@ -37,6 +37,8 @@ const PURPOSE_WEATHER: u64 = 0x7765_6174_6865_7231; // "weather1"
 const PURPOSE_CLIMATOLOGY: u64 = 0x636c_696d_6174_6f6c; // "climatol"
 /// Purpose tag for the state a world's weather starts from.
 const PURPOSE_START: u64 = 0x7773_7461_7274_3031; // "wstart01"
+/// Purpose tag for a world's storms.
+const PURPOSE_STORM: u64 = 0x7374_6f72_6d73_3031; // "storms01"
 
 /// Height of a snow band, metres.
 pub const SNOW_BAND_M: f64 = 100.0;
@@ -172,6 +174,33 @@ pub struct WeatherParams {
     pub wet_ground_mm: f64,
     /// The ground is frozen, and cannot be dug or sown, when the day's mean is below this, °C.
     pub frozen_below_c: f64,
+    /// The median load the month's storm puts on a roof, pascals on its plan (ADR-0012 §5).
+    pub storm_median_pa: f64,
+    /// The spread of the natural logarithm of that load.
+    pub storm_spread: f64,
+    /// The share of the snow lying on the ground that a roof keeps when pitched at
+    /// `roof_snow_full_deg` or less (ADR-0012 §5).
+    pub roof_snow_share: f64,
+    /// The pitch up to which a roof keeps `roof_snow_share` of the snow, degrees.
+    pub roof_snow_full_deg: f64,
+    /// The pitch from which a roof keeps no snow, degrees: between the two, the share falls
+    /// in proportion.
+    pub roof_snow_shed_deg: f64,
+}
+
+impl WeatherParams {
+    /// The share of the snow lying on the ground that a roof pitched `pitch_deg` keeps.
+    pub fn roof_snow_share_at(&self, pitch_deg: f64) -> f64 {
+        let (full, shed) = (self.roof_snow_full_deg, self.roof_snow_shed_deg);
+        let kept = if pitch_deg <= full {
+            1.0
+        } else if pitch_deg >= shed {
+            0.0
+        } else {
+            (shed - pitch_deg) / (shed - full)
+        };
+        self.roof_snow_share.max(0.0) * kept
+    }
 }
 
 /// Why field work cannot be done somewhere today (ADR-0012 §5).
@@ -576,6 +605,21 @@ impl Climatology {
                 self.cover_mean[m] = (cover_sum[m] / cover_days[m]).max(0.05);
             }
         }
+    }
+
+    /// The storm of month `month` (0 for January) of year `year` over the world (ADR-0012 §5):
+    /// the day of the month it comes, 1 to 28, and the load its gusts put on a roof, pascals on
+    /// its plan, log-normal about `storm_median_pa`. One draw for each month of a world's
+    /// landscape, from its weather's key, the same for every roof under it.
+    pub fn storm(&self, params: &WeatherParams, year: i64, month: usize) -> (u8, f64) {
+        let index = year.wrapping_mul(12).wrapping_add(month.min(11) as i64) as u64;
+        let mut rng = Rng64::from_key(&[self.stream, PURPOSE_STORM, index]);
+        let z = normal(&mut rng);
+        let day = 1 + (rng.next_f64() * 28.0).floor().clamp(0.0, 27.0) as u8;
+        (
+            day,
+            params.storm_median_pa.max(0.0) * (params.storm_spread.max(0.0) * z).exp(),
+        )
     }
 
     /// The share of its yield a crop of kind `crop` gives for a season that needed `need_mm` of
@@ -1137,6 +1181,11 @@ pub(crate) mod tests {
             cover_kc: 0.9,
             wet_ground_mm: 5.0,
             frozen_below_c: 0.0,
+            storm_median_pa: 250.0,
+            storm_spread: 0.6,
+            roof_snow_share: 0.8,
+            roof_snow_full_deg: 30.0,
+            roof_snow_shed_deg: 60.0,
         }
     }
 
@@ -1516,5 +1565,42 @@ pub(crate) mod tests {
         w.months = lying([0, 10, 31, 31, 28, 20, 0]);
         w.months.remove(0);
         assert!(w.notes(&p, &c).is_empty());
+    }
+
+    #[test]
+    fn a_month_has_one_storm_for_the_whole_world_and_steep_roofs_shed_snow() {
+        let p = params();
+        let key = landscape_key("core:worldgen/river_valley");
+        let (c, other_seed, coast) = (
+            climate(7, key),
+            climate(8, key),
+            climate(7, landscape_key("core:worldgen/coast")),
+        );
+        let mut loads = Vec::new();
+        for year in 1..=100 {
+            for month in 0..12 {
+                let (day, pa) = c.storm(&p, year, month);
+                assert!((1..=28).contains(&day), "{day}");
+                assert!(pa > 0.0);
+                // The same storm whenever it is asked for, and a world's own.
+                assert_eq!(c.storm(&p, year, month), (day, pa));
+                assert_eq!(climate(7, key).storm(&p, year, month), (day, pa));
+                loads.push(pa);
+            }
+        }
+        assert_ne!(c.storm(&p, 3, 4), other_seed.storm(&p, 3, 4));
+        assert_ne!(c.storm(&p, 3, 4), coast.storm(&p, 3, 4));
+        loads.sort_by(f64::total_cmp);
+        let median = loads[loads.len() / 2];
+        assert!((median - 250.0).abs() < 25.0, "{median}");
+        // One month in twenty above about 0.7 kPa (the stand-in's figures).
+        let over = loads.iter().filter(|&&l| l > 700.0).count() as f64 / loads.len() as f64;
+        assert!((0.03..0.08).contains(&over), "{over}");
+        // A roof keeps less of the snow the steeper it is.
+        assert_eq!(p.roof_snow_share_at(20.0), 0.8);
+        assert_eq!(p.roof_snow_share_at(30.0), 0.8);
+        assert!((p.roof_snow_share_at(45.0) - 0.4).abs() < 1e-12);
+        assert_eq!(p.roof_snow_share_at(60.0), 0.0);
+        assert_eq!(p.roof_snow_share_at(75.0), 0.0);
     }
 }

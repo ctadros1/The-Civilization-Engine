@@ -1,9 +1,7 @@
 //! Land profiles (`kind = "land"`): habitat rules and wild resources (ADR-0004).
 
 use civ_land::deposits::DepositRule;
-use civ_land::{
-    Growth, HabitatRule, LandParams, PathParams, PeakLoad, ResourceParams, WeatherParams,
-};
+use civ_land::{Growth, HabitatRule, LandParams, PathParams, ResourceParams, WeatherParams};
 use serde::Deserialize;
 
 /// The `kind` value of a land profile.
@@ -25,7 +23,6 @@ pub(crate) struct LandFile {
     /// How the weather is drawn (ADR-0012 §1; content API 23).
     pub weather: WeatherFile,
     pub paths: Paths,
-    pub peak_load: PeakLoadFile,
     pub habitat: Vec<Habitat>,
     pub resource: Vec<Resource>,
     /// Where deposits lie (content API 18); a profile may have none.
@@ -73,17 +70,6 @@ fn pit() -> String {
     "pit".to_owned()
 }
 
-/// The heaviest load wind and snow put on a roof in a month (ADR-0009 §5), a stand-in for
-/// weather (content API 16).
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct PeakLoadFile {
-    /// Its median, kilopascals on a roof's plan.
-    pub median_kpa: f64,
-    /// The spread of its natural logarithm.
-    pub spread: f64,
-}
-
 /// How a landscape's weather is drawn (ADR-0012 §1; content API 23). Monthly values are for
 /// January first. See [`WeatherParams`] for what each means.
 #[derive(Debug, Deserialize)]
@@ -115,6 +101,14 @@ pub(crate) struct WeatherFile {
     /// below which it is frozen (ADR-0012 §5).
     pub wet_ground_mm: f64,
     pub frozen_below_c: f64,
+    /// Content API 25: the month's storm, its median in kilopascals on a roof's plan and the
+    /// spread of its logarithm, and how much of the snow lying a roof keeps by its pitch
+    /// (ADR-0012 §5). They replace `[peak_load]`, the stand-in for weather.
+    pub storm_median_kpa: f64,
+    pub storm_spread: f64,
+    pub roof_snow_share: f64,
+    pub roof_snow_full_deg: f64,
+    pub roof_snow_shed_deg: f64,
 }
 
 impl WeatherFile {
@@ -144,6 +138,11 @@ impl WeatherFile {
             cover_kc: self.cover_kc,
             wet_ground_mm: self.wet_ground_mm,
             frozen_below_c: self.frozen_below_c,
+            storm_median_pa: self.storm_median_kpa * 1000.0,
+            storm_spread: self.storm_spread,
+            roof_snow_share: self.roof_snow_share,
+            roof_snow_full_deg: self.roof_snow_full_deg,
+            roof_snow_shed_deg: self.roof_snow_shed_deg,
         }
     }
 
@@ -196,6 +195,18 @@ impl WeatherFile {
         one("cover_kc", self.cover_kc, 0.1, 2.0, p);
         one("wet_ground_mm", self.wet_ground_mm, 0.5, 100.0, p);
         one("frozen_below_c", self.frozen_below_c, -10.0, 5.0, p);
+        one("storm_median_kpa", self.storm_median_kpa, 0.0, 50.0, p);
+        one("storm_spread", self.storm_spread, 0.0, 3.0, p);
+        one("roof_snow_share", self.roof_snow_share, 0.0, 2.0, p);
+        one("roof_snow_full_deg", self.roof_snow_full_deg, 0.0, 90.0, p);
+        one("roof_snow_shed_deg", self.roof_snow_shed_deg, 0.0, 90.0, p);
+        if self.roof_snow_shed_deg <= self.roof_snow_full_deg {
+            p.push(format!(
+                "`weather.roof_snow_shed_deg` must be above `weather.roof_snow_full_deg` (got {} \
+                 and {})",
+                self.roof_snow_shed_deg, self.roof_snow_full_deg
+            ));
+        }
     }
 }
 
@@ -339,10 +350,6 @@ impl LandFile {
                 trail_at: self.paths.trail_at,
                 trail_until: self.paths.trail_until,
             },
-            peak_load: PeakLoad {
-                median_pa: self.peak_load.median_kpa * 1000.0,
-                spread: self.peak_load.spread,
-            },
             deposits: self
                 .deposit
                 .iter()
@@ -443,19 +450,6 @@ impl LandFile {
             p.push(
                 "trails must satisfy 0 < `paths.trail_until` <= `paths.trail_at` < 1".to_owned(),
             );
-        }
-        let peak = &self.peak_load;
-        if !(peak.median_kpa.is_finite() && peak.median_kpa >= 0.0 && peak.median_kpa <= 50.0) {
-            p.push(format!(
-                "`peak_load.median_kpa` must be between 0 and 50 (got {})",
-                peak.median_kpa
-            ));
-        }
-        if !(peak.spread.is_finite() && (0.0..=3.0).contains(&peak.spread)) {
-            p.push(format!(
-                "`peak_load.spread` must be between 0 and 3 (got {})",
-                peak.spread
-            ));
         }
         if self.habitat.is_empty() || self.habitat.len() > 32 {
             p.push("a land profile needs 1 to 32 habitats".to_owned());

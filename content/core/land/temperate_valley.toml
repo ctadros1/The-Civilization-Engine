@@ -66,6 +66,22 @@ cover_kc = 0.9                   # the wild cover's water use against the refere
 # sowing. Weeding, reaping and threshing go on whatever the weather.
 wet_ground_mm = 5.0
 frozen_below_c = 0.0
+# Roof loads (ADR-0012 §5; content API 25). Once a month a storm crosses the world's landscape:
+# one draw for every roof under it, on one day of the month, of the load its gusts put on a roof,
+# kilopascals on its plan, log-normal (its median and the spread of its logarithm). Wind at
+# 20 m/s presses about 0.25 kPa, at 40 m/s about 1 kPa (research 11-05 §2.4: q = rho v^2 / 2).
+# The figures are tuning values, the stand-in's before weather: a median month's gusts, one month
+# in twenty above about 0.7 kPa, one in a thousand above about 1.6. They are the same in every
+# month, as the research gives no season of storms.
+storm_median_kpa = 0.25
+storm_spread = 0.6
+# Snow lying on a roof presses its water's weight (11-05 §2.4: p = rho g d from the snow lying),
+# from the snow lying on the ground at the building's height. A roof keeps less of it the steeper
+# it is: this share on a roof up to the first pitch, falling to none at the second. Tuning values:
+# the research gives no share; steep thatch sheds most of it (a hut's 45-55°: 0.13-0.4).
+roof_snow_share = 0.8
+roof_snow_full_deg = 30.0
+roof_snow_shed_deg = 60.0
 
 # Walking wears the ground of each 8 m cell it crosses; unused wear fades as plants grow back
 # (research 10-03 §1.1: dw/dt = aq(1 - w) - bw). Starting values from the research's sensitivity
@@ -78,16 +94,6 @@ wear_half_life_days = 120.0
 # trail outlives a season out of use (tuning values).
 trail_at = 0.3
 trail_until = 0.15
-
-[peak_load]
-# The heaviest load wind and snow put on a roof in a month, kilopascals on its plan, drawn once a
-# month for each settlement: log-normal, its median and the spread of its logarithm. It stands in
-# for weather until weather exists (M3c), and is replaced by it then (ADR-0009 §5). Wind at
-# 20 m/s presses about 0.25 kPa, at 40 m/s about 1 kPa (research 11-05 §2.4); snow presses its
-# depth times its density. The figures are tuning values: a median month's gusts, one month in
-# twenty above about 0.7 kPa, one in a thousand above about 1.6.
-median_kpa = 0.25
-spread = 0.6
 
 # Habitats, first match wins (research 03-06 §5.1, 10-01 §5.5).
 [[habitat]]

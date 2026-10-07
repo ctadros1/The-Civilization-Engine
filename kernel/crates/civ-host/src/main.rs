@@ -45,6 +45,9 @@ enum Command {
     Smoke(SmokeArgs),
     /// Live the sanity dashboard's five river-valley worlds fifty years and grade plan §4.7.
     Dashboard(DashboardArgs),
+    /// Gate B (ADR-0011 §5): a year from two fixture worlds, several times in each mode, and
+    /// Accelerated mode's aggregates against Detailed mode's.
+    Consistency(ConsistencyArgs),
     /// Live one world for some years and report how its people live at each year's end.
     Run(RunArgs),
     /// Report a world's weather on the valley floor, year by year, as its seed draws it.
@@ -196,6 +199,29 @@ enum ContentCommand {
 }
 
 #[derive(Args)]
+struct ConsistencyArgs {
+    #[command(flatten)]
+    folders: Folders,
+    /// Only Detailed runs, to see the spread the tolerances are set from (PROJECT_PLAN §9).
+    #[arg(long)]
+    calibrate: bool,
+    /// Runs at a time [default: the cores, at most four].
+    #[arg(long)]
+    threads: Option<usize>,
+    /// Accelerated runs without leisure blocks: to see what the approximation changes, not the
+    /// gate.
+    #[arg(long)]
+    without_leisure_blocks: bool,
+    /// Accelerated runs without the household view: to see what the approximation changes, not
+    /// the gate.
+    #[arg(long)]
+    without_household_view: bool,
+    /// Also write the report as JSON to this file.
+    #[arg(long)]
+    json: Option<PathBuf>,
+}
+
+#[derive(Args)]
 struct DashboardArgs {
     #[command(flatten)]
     folders: Folders,
@@ -253,6 +279,7 @@ fn main() -> ExitCode {
         }
         Command::Smoke(args) => run_smoke(args),
         Command::Dashboard(args) => run_dashboard(args),
+        Command::Consistency(args) => run_consistency(args),
         Command::Run(args) => run_world(args),
         Command::Weather(args) => weather(args),
     };
@@ -448,6 +475,60 @@ fn save_verify(args: SaveArgs) -> anyhow::Result<ExitCode> {
     let layout = paths::locate(args.folders.content, args.folders.saves, None)?;
     let content = commands::load_content(&layout.content)?;
     Ok(commands::save_verify(&args.file, &content))
+}
+
+fn run_consistency(args: ConsistencyArgs) -> anyhow::Result<ExitCode> {
+    use civ_host::consistency;
+    let layout = paths::locate(args.folders.content, None, None)?;
+    let content = commands::load_content(&layout.content)?;
+    let threads = args.threads.unwrap_or_else(|| {
+        std::thread::available_parallelism()
+            .map_or(1, std::num::NonZero::get)
+            .min(4)
+    });
+    let runs = if args.calibrate {
+        consistency::CALIBRATION_RUNS
+    } else {
+        consistency::RUNS
+    };
+    println!(
+        "Gate B (ADR-0011 §5): {} fixture worlds at {}² cells, each lived by the minute to 1 \
+         January of year {} and saved; from each, {runs} runs {} of that year, each with its own \
+         tie-break stream, on {threads} threads",
+        consistency::FIXTURES.len(),
+        consistency::SIZE,
+        consistency::RUN_YEAR,
+        if args.calibrate {
+            "in Detailed mode only (calibration)"
+        } else {
+            "in each mode"
+        },
+    );
+    let dir = tempfile::tempdir().map_err(|e| anyhow::anyhow!("no temporary folder: {e}"))?;
+    let report = consistency::run_gate(
+        &content,
+        consistency::ConsistencyOptions {
+            calibrate: args.calibrate,
+            approximations: civ_sim::Approximations {
+                leisure_blocks: !args.without_leisure_blocks,
+                household_view: !args.without_household_view,
+            },
+        },
+        dir.path(),
+        threads,
+    )
+    .map_err(|e| anyhow::anyhow!(e))?;
+    consistency::print(&report);
+    if let Some(path) = &args.json {
+        let json = serde_json::to_string_pretty(&report)?;
+        std::fs::write(path, json)
+            .map_err(|e| anyhow::anyhow!("cannot write {}: {e}", path.display()))?;
+    }
+    Ok(if report.passed() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    })
 }
 
 fn run_dashboard(args: DashboardArgs) -> anyhow::Result<ExitCode> {

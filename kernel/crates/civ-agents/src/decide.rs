@@ -312,7 +312,7 @@ pub struct Limits {
 
 /// Daylight left, minutes, below which a household whose water will not last until morning
 /// fetches water before anything else of ordinary weight (a tuning value).
-const LAST_WATER_BEFORE_DARK_MIN: f64 = 180.0;
+pub(crate) const LAST_WATER_BEFORE_DARK_MIN: f64 = 180.0;
 
 fn term(terms: &mut Vec<Term>, reason: Reason, points: f64) {
     if points != 0.0 && points.is_finite() {
@@ -344,6 +344,33 @@ pub fn add_term(c: &mut Candidate, reason: Reason, points: f64) {
     term(&mut terms, reason, points);
     let steps = std::mem::take(&mut c.steps);
     *c = finish(c.scored.def, c.scored.target, terms, steps);
+}
+
+/// A leisure block (Accelerated mode, ADR-0011 §4): the minutes leisure chosen with probability
+/// `p` lasts, sessions of `session` minutes, and whether it ends by the person choosing something
+/// else, when their next decision passes it over. Detailed mode would decide again after each
+/// session and choose the same again with probability about `p` while nothing consequential
+/// changes: the block is that run of sessions, its length a geometric draw from `u` (0–1). It is
+/// cut at `until`, the minutes to the next consequential boundary, or at `longest`, where the
+/// next decision is made afresh: as the draw is memoryless, the run is the same in distribution.
+/// Never shorter than a session.
+pub fn leisure_block(session: u32, longest: u32, until: f64, p: f64, u: f64) -> (u32, bool) {
+    let session = session.max(1);
+    // Sessions more after the first, before something else is chosen.
+    let more = if p.is_nan() || p <= 0.0 {
+        0.0
+    } else if p >= 1.0 {
+        f64::INFINITY
+    } else {
+        (u.clamp(f64::MIN_POSITIVE, 1.0).ln() / p.ln()).floor()
+    };
+    let drawn = f64::from(session) * (1.0 + more);
+    let cut = until.min(f64::from(longest.max(session)));
+    if drawn < cut {
+        (drawn as u32, true)
+    } else {
+        ((cut.floor().max(0.0) as u32).max(session), false)
+    }
 }
 
 fn walk_home_first(f: &Facts) -> Vec<Step> {
@@ -1637,5 +1664,34 @@ mod tests {
         let w = weights();
         let (_, p, _) = choose(&[3.0, 3.0, 3.0, 3.0], &w, 0.3);
         assert!((p - 0.25).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_leisure_block_is_the_run_of_sessions_detailed_mode_would_live() {
+        // 30-minute sessions, at most 180 minutes, the next turn of the day 400 minutes away.
+        let block = |p: f64, u: f64| leisure_block(30, 180, 400.0, p, u);
+        // Chosen with probability one half: another session with chance one half each time.
+        assert_eq!(block(0.5, 0.9), (30, true), "the first draw ends it");
+        assert_eq!(block(0.5, 0.4), (60, true), "one more");
+        assert_eq!(block(0.5, 0.2), (90, true), "two more");
+        // Cut at the longest, or at the next turn: then the next decision is made afresh.
+        assert_eq!(block(0.5, 1e-6), (180, false));
+        assert_eq!(leisure_block(30, 180, 75.0, 0.5, 1e-6), (75, false));
+        // Never shorter than a session; never chosen again, never more than one.
+        assert_eq!(leisure_block(30, 180, 10.0, 0.9, 0.01), (30, false));
+        assert_eq!(block(0.0, 0.01), (30, true));
+        assert_eq!(block(1.0, 0.99), (180, false));
+        // The mean run is a session over the chance of choosing something else, as in Detailed
+        // mode: 1 / (1 - 0.75) = 4 sessions.
+        let n = 10_000;
+        let mean = (0..n)
+            .map(|k| {
+                f64::from(
+                    leisure_block(30, 100_000, 1e9, 0.75, (f64::from(k) + 0.5) / f64::from(n)).0,
+                )
+            })
+            .sum::<f64>()
+            / f64::from(n);
+        assert!((mean / 30.0 - 4.0).abs() < 0.05, "{mean}");
     }
 }

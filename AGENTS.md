@@ -76,6 +76,7 @@ cargo run --release -p civ-host -- content validate [--json]
 cargo run --release -p civ-host -- smoke               # the smoke seeds; must pass
 cargo run --release -p civ-host -- smoke --years 10    # and ten years of each, its economy graded (nightly; ~11 min on 4 cores)
 cargo run --release -p civ-host -- dashboard           # plan §4.7: five valleys × fifty years, graded (nightly)
+cargo run --release -p civ-host -- consistency         # Gate B (ADR-0011 §5): Accelerated against Detailed (nightly; ~1.5 min on 4 cores)
 cargo run --release -p civ-host -- run --seed 2 --years 5   # one world, reported each year (calibration)
 cargo run --release -p civ-host -- run --seed 2 --years 3 --regime core:regime/village   # the same under village fields
 cargo run --release -p civ-host -- run --seed 2 --years 10 --band 125 --families 20   # a village of hundreds (the M3a demo's)

@@ -15,13 +15,16 @@
 //! `--digest` prints a digest of every section a save would hold, to check that a change meant
 //! to make the engine faster leaves what happens exactly as it was. `--families N` sends N
 //! families to the village once it is founded, in groups as the observer's god tool sends them.
+//! `--max` lives the days at Max, in Accelerated mode from the first midnight with the
+//! approximations it declares (ADR-0011 §4); `--exact` with it switches them off, and `--only
+//! leisure` or `--only view` keeps one. `--digest` also prints how people spent their time.
 
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
 use civ_core::time::MINUTES_PER_DAY;
-use civ_sim::{NewWorld, Sim, persist};
+use civ_sim::{NewWorld, SPEED_MAX, Sim, persist};
 use commons_persist::{SaveDir, SaveKind};
 
 struct Args {
@@ -36,6 +39,9 @@ struct Args {
     profile_after: u32,
     digest: bool,
     families: u32,
+    max: bool,
+    exact: bool,
+    only: String,
 }
 
 fn args() -> Args {
@@ -51,11 +57,22 @@ fn args() -> Args {
         profile_after: 0,
         digest: false,
         families: 0,
+        max: false,
+        exact: false,
+        only: String::new(),
     };
     let mut it = std::env::args().skip(1);
     while let Some(flag) = it.next() {
         if flag == "--digest" {
             a.digest = true;
+            continue;
+        }
+        if flag == "--max" {
+            a.max = true;
+            continue;
+        }
+        if flag == "--exact" {
+            a.exact = true;
             continue;
         }
         let value = it.next().unwrap_or_default();
@@ -70,6 +87,7 @@ fn args() -> Args {
             "--load" => a.load = Some(value),
             "--profile-after" => a.profile_after = value.parse().expect("--profile-after DAYS"),
             "--families" => a.families = value.parse().expect("--families N"),
+            "--only" => a.only = value,
             other => panic!("unknown flag {other}"),
         }
     }
@@ -113,6 +131,24 @@ fn main() {
     };
     if let Some(problem) = sim.founding_problem() {
         panic!("the band could not settle: {problem}");
+    }
+    if a.max {
+        sim.set_speed(SPEED_MAX).expect("Max is a speed");
+    }
+    if a.exact {
+        sim.set_approximations(civ_sim::Approximations::NONE);
+    }
+    match a.only.as_str() {
+        "" => {}
+        "leisure" => sim.set_approximations(civ_sim::Approximations {
+            leisure_blocks: true,
+            household_view: false,
+        }),
+        "view" => sim.set_approximations(civ_sim::Approximations {
+            leisure_blocks: false,
+            household_view: true,
+        }),
+        other => panic!("--only leisure or view, not {other}"),
     }
     if a.families > 0 {
         let people = sim.send_families_to_hearth(a.families);
@@ -172,6 +208,23 @@ fn main() {
                 h.finish()
             );
         }
+    }
+    if a.digest {
+        // Hours a person-day by what people did (every finished step's minutes).
+        let t = &sim.people().time_use;
+        let total: f64 = t.work.iter().sum::<f64>() + t.walking + t.waiting;
+        let h = |m: f64| 24.0 * m / total.max(1.0);
+        let mut line = String::from("time use, hours a person-day:");
+        for (b, m) in civ_agents::Behavior::ALL.iter().zip(&t.work) {
+            if *m > 0.0 {
+                line.push_str(&format!(" {} {:.3}", b.name(), h(*m)));
+            }
+        }
+        println!(
+            "{line} walking {:.3} waiting {:.3}",
+            h(t.walking),
+            h(t.waiting)
+        );
     }
     if let Some(dir) = &a.save_to {
         let saves = SaveDir::create(Path::new(dir), civ_schema::SAVE_EXTENSION).expect("save dir");

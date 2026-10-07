@@ -5,6 +5,7 @@
 //! the step's effects are applied and the next step starts, or, after the last, the person
 //! decides what to do next. Needs are brought up to date only at step boundaries.
 
+use std::cell::OnceCell;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
@@ -99,6 +100,34 @@ pub enum AgentEvent {
     },
 }
 
+/// The approximations the kernel makes as it advances (ADR-0011 §4), each on or off on its own.
+/// Accelerated mode makes them; Detailed mode makes none, and a test can switch them off to show
+/// that Accelerated mode is otherwise Detailed mode a day at a time. Never world state.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Approximations {
+    /// Rest, the hearth and play last until the next consequential boundary (a meal, the sleep
+    /// threshold, sunrise or sunset, the evening, the last light for water), as long as the
+    /// activity's longest session, instead of a session at a time.
+    pub leisure_blocks: bool,
+    /// A household's view of its options (what it would buy, whom it would ask, where it would
+    /// work, gather, dig and farm) is kept from its first decision after midnight until midnight
+    /// or its next consequential step, instead of being worked out at every decision.
+    pub household_view: bool,
+}
+
+impl Approximations {
+    /// None: every event as Detailed mode lives it.
+    pub const NONE: Approximations = Approximations {
+        leisure_blocks: false,
+        household_view: false,
+    };
+    /// Every approximation Accelerated mode declares.
+    pub const ACCELERATED: Approximations = Approximations {
+        leisure_blocks: true,
+        household_view: true,
+    };
+}
+
 /// The world a person acts in, borrowed for one event.
 #[derive(Debug)]
 pub struct Ctx<'a> {
@@ -124,6 +153,8 @@ pub struct Ctx<'a> {
     pub ids: &'a mut IdAllocator,
     /// Events to schedule.
     pub schedule: &'a mut Vec<(SimTime, AgentEvent)>,
+    /// The approximations made now (none in Detailed mode).
+    pub approx: Approximations,
 }
 
 impl Ctx<'_> {
@@ -163,6 +194,85 @@ struct HomeField {
     reach: TravelField,
     /// The cells in reach where new ground could be broken, in cell order ([`farm::find_site`]).
     breakable: Vec<(u32, f32)>,
+}
+
+/// What a household's members weigh at a decision whatever the person: the purchase it would
+/// make, the household it would ask, the paid work it would take, and the best place for each
+/// gathering, digging and field activity, each worked out when first needed. In Accelerated mode
+/// (ADR-0011 §4) it is kept from the household's first decision after midnight until midnight or
+/// its next consequential step (see [`Population::changed`]); otherwise it serves one decision.
+/// Derived, never saved.
+#[derive(Debug, Default)]
+struct HouseholdView {
+    trade: Option<Option<decide::TradeOption>>,
+    giver: Option<Option<GiverOption>>,
+    job: Option<Option<decide::JobOption>>,
+    /// Per activity: the best place to gather or dig, or none.
+    patches: Vec<Option<Option<PatchOption>>>,
+    /// Per activity: the best field to work, or why there is none.
+    fields: Vec<Option<Result<FieldOption, Reason>>>,
+}
+
+/// A [`HouseholdView`] during one decision, filled as its options are first needed.
+struct ViewCells {
+    trade: OnceCell<Option<decide::TradeOption>>,
+    giver: OnceCell<Option<GiverOption>>,
+    job: OnceCell<Option<decide::JobOption>>,
+    patches: Vec<OnceCell<Option<PatchOption>>>,
+    fields: Vec<OnceCell<Result<FieldOption, Reason>>>,
+}
+
+impl HouseholdView {
+    /// The view to fill during a decision among `activities` activities.
+    fn cells(self, activities: usize) -> ViewCells {
+        fn cell<T>(v: Option<T>) -> OnceCell<T> {
+            v.map_or_else(OnceCell::new, OnceCell::from)
+        }
+        let (patches, fields) = if self.patches.len() == activities {
+            (
+                self.patches.into_iter().map(cell).collect(),
+                self.fields.into_iter().map(cell).collect(),
+            )
+        } else {
+            (
+                (0..activities).map(|_| OnceCell::new()).collect(),
+                (0..activities).map(|_| OnceCell::new()).collect(),
+            )
+        };
+        ViewCells {
+            trade: cell(self.trade),
+            giver: cell(self.giver),
+            job: cell(self.job),
+            patches,
+            fields,
+        }
+    }
+}
+
+impl ViewCells {
+    /// The view as filled, to keep.
+    fn kept(self) -> HouseholdView {
+        HouseholdView {
+            trade: self.trade.into_inner(),
+            giver: self.giver.into_inner(),
+            job: self.job.into_inner(),
+            patches: self.patches.into_iter().map(OnceCell::into_inner).collect(),
+            fields: self.fields.into_iter().map(OnceCell::into_inner).collect(),
+        }
+    }
+}
+
+/// Minutes people spent, by what they did: the length of each step as it finished (counters, not
+/// saved; for the consistency test, ADR-0011 §5). Every minute of a life falls in some step, so
+/// they add up to the person-minutes lived.
+#[derive(Clone, Debug, Default)]
+pub struct TimeUse {
+    /// Minutes of work, rest, sleep and the rest, by behaviour in [`Behavior::ALL`] order.
+    pub work: [f64; Behavior::ALL.len()],
+    /// Minutes walking.
+    pub walking: f64,
+    /// Minutes waiting, where a step could not begin.
+    pub waiting: f64,
 }
 
 /// What a gathering activity is expected to bring from each patch on one day, at equilibrium
@@ -213,10 +323,17 @@ pub struct Population {
     expansions: FastMap<PermanentId, Arc<Expansion>>,
     /// Households whose last member died today, with that member (within a day's step only).
     emptied: Vec<(PermanentId, PermanentId)>,
+    /// Per household, its view of its options while Accelerated mode keeps it (ADR-0011 §4).
+    views: FastMap<PermanentId, HouseholdView>,
+    /// People in a leisure block that ends by their choosing something else, with the version of
+    /// that activity and its activity (ADR-0011 §4). Kept only until the next midnight.
+    switched: FastMap<PermanentId, (u32, u16)>,
     /// What became of the goods of households that are no more (counters, not saved).
     pub flows_gone: Flows,
     /// What moved between households, by channel (counters, not saved).
     pub transfers: crate::ledger::Transfers,
+    /// How people spent their time (counters, not saved).
+    pub time_use: TimeUse,
     /// Each settlement's market (slice I).
     pub markets: Vec<crate::market::Market>,
     /// Every firm there has been, open and closed, in the order they were founded (slice J).
@@ -500,6 +617,45 @@ pub fn hunger(p: &Person, now: SimTime, params: &PeopleParams) -> f64 {
     let after = (now.minutes() - p.satiety_until.minutes()) as f64 / 60.0;
     let ramp = (after / params.energy.hunger_ramp_hours).clamp(0.0, 1.0);
     ramp + (-energy_now(p, now, params)).max(0.0) / params.energy.deficit_unit_kcal
+}
+
+/// Minutes of a leisure block between the times it looks at for the sleep threshold.
+const LEISURE_SLEEP_STEP_MIN: f64 = 10.0;
+
+/// Minutes from `now` until the next consequential boundary for someone at leisure (ADR-0011 §4):
+/// the next turn of the day (`next_turn_min` on), when hunger begins, or when the sleep drive
+/// reaches the threshold at which sleep becomes an option (found to the nearest
+/// [`LEISURE_SLEEP_STEP_MIN`], looking no further than `longest_min`). Zero when hunger or sleep is
+/// already upon them.
+pub fn leisure_until(
+    p: &Person,
+    now: SimTime,
+    params: &PeopleParams,
+    sun: (i64, i64),
+    next_turn_min: f64,
+    longest_min: f64,
+) -> f64 {
+    if hunger(p, now, params) > 0.0 {
+        return 0.0;
+    }
+    let minute = now.minute_of_day();
+    let wake = params.sleep.wake_pressure;
+    let p0 = f64::from(p.sleep_pressure);
+    if p0 * needs::circadian(&params.sleep, minute, sun) >= wake {
+        return 0.0;
+    }
+    let fed = (p.satiety_until.minutes() - now.minutes()).max(0) as f64;
+    let until = next_turn_min.min(fed).max(0.0);
+    let mut t = LEISURE_SLEEP_STEP_MIN;
+    while t < until.min(longest_min) {
+        let at = (minute + t as i64).rem_euclid(MINUTES_PER_DAY);
+        let pressure = needs::sleep_pressure(&params.sleep, p0, t, false);
+        if pressure * needs::circadian(&params.sleep, at, sun) >= wake {
+            return t;
+        }
+        t += LEISURE_SLEEP_STEP_MIN;
+    }
+    until
 }
 
 /// A person's energy balance at `now`, kcal: negative in deficit, no lower than their body's
@@ -990,6 +1146,19 @@ impl Population {
         Some(p.act.version)
     }
 
+    /// Household `household` has taken a consequential step (a deposit, work on a field or a
+    /// building, making): it sees its options afresh at its next decision (ADR-0011 §4).
+    fn changed(&mut self, household: PermanentId) {
+        self.views.remove(&household);
+    }
+
+    /// Every household sees its options afresh at its next decision: after the observer has
+    /// changed the world, or the approximations made have changed.
+    pub fn forget_views(&mut self) {
+        self.views.clear();
+        self.switched.clear();
+    }
+
     /// Starts a person's life in the simulation: they decide what to do first.
     pub fn begin(&mut self, ctx: &mut Ctx, id: PermanentId) {
         if let Some(&h) = self.index.get(&id) {
@@ -1075,6 +1244,24 @@ impl Population {
             return;
         }
         self.ensure_places(ctx);
+        // Walking times change only with the paths' survey, as the map's ground does not: a
+        // refresh on the same survey from the same cell finds again only the ground that could
+        // be broken, which the fields and buildings since have changed.
+        if let Some(f) = self.homes.get_mut(&key)
+            && f.cell == cell
+            && f.rev == rev
+        {
+            f.breakable = farm::breakable_in_reach(
+                ctx.map,
+                ctx.nav,
+                ctx.land,
+                ctx.land_params,
+                &f.reach,
+                ctx.params,
+            );
+            f.day = day;
+            return;
+        }
         let reach = Self::field_reach_seconds(ctx.catalog);
         let wear = &ctx.land.wear;
         let field = ctx
@@ -1834,6 +2021,14 @@ impl Population {
         let Some(hh) = self.household(hh_id).cloned() else {
             return;
         };
+        // The household's view of its options: kept in Accelerated mode, worked out afresh at
+        // each decision otherwise (ADR-0011 §4).
+        let hh_view = if ctx.approx.household_view {
+            self.views.remove(&hh_id).unwrap_or_default()
+        } else {
+            HouseholdView::default()
+        }
+        .cells(ctx.catalog.activities.len());
         let hearth = hh.settlement.and_then(|s| {
             ctx.land
                 .settlements
@@ -1892,7 +2087,8 @@ impl Population {
             MINUTES_PER_DAY - minute + needs::daylight(params.latitude_deg, doy + 1).0
         };
         let evening_end = (sun.1 + 240).min(MINUTES_PER_DAY);
-        let evening = if minute >= sun.1 - 60 && minute < evening_end {
+        let evening_start = sun.1 - 60;
+        let evening = if minute >= evening_start && minute < evening_end {
             1.0
         } else {
             0.0
@@ -1910,6 +2106,36 @@ impl Population {
             return;
         };
         let circ = needs::circadian(&params.sleep, minute, sun);
+        // In a leisure block (Accelerated mode, ADR-0011 §4), leisure lasts no further than the
+        // next turn of the person's day: when hunger begins, when sleep becomes an option, or the
+        // day's own turns.
+        let leisure_until_min = ctx.approx.leisure_blocks.then(|| {
+            let turns = [
+                sun.0,
+                sun.1 - decide::LAST_WATER_BEFORE_DARK_MIN as i64,
+                evening_start,
+                sun.1,
+                evening_end,
+            ];
+            let next_turn = turns
+                .iter()
+                .filter(|&&t| t > minute)
+                .min()
+                .map_or(until_sunrise, |&t| t - minute);
+            let longest = ctx
+                .catalog
+                .activities
+                .iter()
+                .filter(|a| {
+                    matches!(
+                        a.behavior,
+                        Behavior::Rest | Behavior::Play | Behavior::Socialize
+                    )
+                })
+                .map(|a| f64::from(a.max_minutes))
+                .fold(0.0, f64::max);
+            leisure_until(p, now, params, sun, next_turn as f64, longest)
+        });
         let facts = Facts {
             age,
             capacity: interpolate(&params.capacity_by_age, age),
@@ -2132,33 +2358,39 @@ impl Population {
         let land_params = ctx.land_params;
         let map = ctx.map;
         let (places, priors) = (&self.places, &self.priors);
-        let place_kinds: Vec<Option<usize>> = catalog
-            .activities
-            .iter()
-            .map(|a| a.resource.and_then(|r| self.places_for(land_params, r)))
-            .collect();
-        // What the settlement knows of each resource, by place (the last of any repeats wins),
-        // and the best return it has seen of each anywhere.
-        let mut seen_most = vec![0.0f64; land_params.resources.len()];
-        let memory: civ_core::FastMap<(u16, u32), &KnownPatch> = hh
-            .known
-            .iter()
-            .map(|k| {
-                if let Some(m) = seen_most.get_mut(usize::from(k.resource)) {
-                    *m = m.max(f64::from(k.rate));
-                }
-                ((k.resource, k.patch), k)
+        // Each activity's kind of place; what the settlement knows of each resource, by place
+        // (the last of any repeats wins), and the best return it has seen of each anywhere:
+        // worked out only if a place to gather is.
+        let gathering_once = OnceCell::new();
+        let gathering = || {
+            gathering_once.get_or_init(|| {
+                let place_kinds: Vec<Option<usize>> = catalog
+                    .activities
+                    .iter()
+                    .map(|a| a.resource.and_then(|r| self.places_for(land_params, r)))
+                    .collect();
+                let mut seen_most = vec![0.0f64; land_params.resources.len()];
+                let memory: civ_core::FastMap<(u16, u32), &KnownPatch> = hh
+                    .known
+                    .iter()
+                    .map(|k| {
+                        if let Some(m) = seen_most.get_mut(usize::from(k.resource)) {
+                            *m = m.max(f64::from(k.rate));
+                        }
+                        ((k.resource, k.patch), k)
+                    })
+                    .collect();
+                (place_kinds, seen_most, memory)
             })
-            .collect();
+        };
         // Where each dig activity would dig (M3b slice Q): the deposit of its good the settlement
         // knows that brings most for the walk, while the household needs the good; otherwise the
         // nearest it knows, to be weighed and found not needed.
         let toward = hearth.unwrap_or(hh.home);
         let toward = (f64::from(toward.0), f64::from(toward.1));
-        let digs: Vec<Option<PatchOption>> = catalog
-            .activities
-            .iter()
-            .map(|a| {
+        let dig = |def: usize| -> Option<PatchOption> {
+            {
+                let a = catalog.activities.get(def)?;
                 let g = a.digs?;
                 let settlement = hh.settlement?;
                 let reach = &home?.reach;
@@ -2220,12 +2452,12 @@ impl Population {
                     }
                 }
                 best.map(|(_, o)| o)
-            })
-            .collect();
-        let best_patch = |def: usize| -> Option<PatchOption> {
+            }
+        };
+        let find_patch = |def: usize| -> Option<PatchOption> {
             let a = &catalog.activities[def];
             if a.digs.is_some() {
-                return digs.get(def).copied().flatten();
+                return dig(def);
             }
             let r = a.resource?;
             let res = land_params.resources.get(r)?;
@@ -2234,6 +2466,7 @@ impl Population {
             let hours = f64::from(a.max_minutes) / 60.0;
             let prior = priors.get(def)?;
             let prior_yield = &prior.per_patch;
+            let (place_kinds, seen_most, memory) = gathering();
             // No place can be expected to give more than the best expected anywhere or the best
             // seen anywhere, as a belief lies between the two (with a margin for rounding). The
             // places come nearest first, so once even that, so far off, would not beat the best
@@ -2316,8 +2549,14 @@ impl Population {
             }
             best.map(|(_, o)| o)
         };
+        let best_patch = |def: usize| -> Option<PatchOption> {
+            match hh_view.patches.get(def) {
+                Some(cell) => *cell.get_or_init(|| find_patch(def)),
+                None => find_patch(def),
+            }
+        };
         let reach = home.map(|f| &f.reach);
-        let best_field = |def: usize| -> Result<FieldOption, Reason> {
+        let find_field = |def: usize| -> Result<FieldOption, Reason> {
             let a = &catalog.activities[def];
             let (Some(task), Some(view)) = (a.task, farm_view.as_ref()) else {
                 return Err(Reason::NoPlace);
@@ -2340,14 +2579,25 @@ impl Population {
                 &weather,
             )
         };
+        let best_field = |def: usize| -> Result<FieldOption, Reason> {
+            match hh_view.fields.get(def) {
+                Some(cell) => *cell.get_or_init(|| find_field(def)),
+                None => find_field(def),
+            }
+        };
         // Whom to ask, what to buy and where to work are each worked out only if an option
         // needs them (they cost a search of the settlement), and then once.
-        let giver_once = std::cell::OnceCell::new();
-        let giver =
-            || *giver_once.get_or_init(|| self.best_giver(ctx, &hh, field_key, kcal_day, stock));
+        let giver = || {
+            *hh_view
+                .giver
+                .get_or_init(|| self.best_giver(ctx, &hh, field_key, kcal_day, stock))
+        };
         // A purchase that costs the household fewer hours than getting the good itself.
-        let trade_once = std::cell::OnceCell::new();
-        let trade = || *trade_once.get_or_init(|| self.best_purchase(ctx, &hh, &stores, reach));
+        let trade = || {
+            *hh_view
+                .trade
+                .get_or_init(|| self.best_purchase(ctx, &hh, &stores, reach))
+        };
         // Paid work at a workshop of another household (slice J).
         let session_min = catalog
             .activities
@@ -2355,9 +2605,8 @@ impl Population {
             .filter(|a| a.behavior == Behavior::Hire)
             .map(|a| f64::from(a.max_minutes))
             .fold(0.0, f64::max);
-        let job_once = std::cell::OnceCell::new();
         let job = || {
-            *job_once.get_or_init(|| {
+            *hh_view.job.get_or_init(|| {
                 if session_min > 0.0 {
                     self.best_job(ctx, &hh, &stores, reach, session_min)
                 } else {
@@ -2641,6 +2890,9 @@ impl Population {
             &shop,
             &trying,
         );
+        if ctx.approx.household_view {
+            self.views.insert(hh_id, hh_view.kept());
+        }
         // Work that needs a technique the person does not know is left out, unless a member of
         // their household who knows it is at that work there now: then they may work beside them
         // and learn it (ADR-0008 §4).
@@ -2675,9 +2927,42 @@ impl Population {
             self.wait(ctx, h, WAIT_AFTER_FAILURE_MIN);
             return;
         }
+        // A leisure block that ended by the person choosing something else (ADR-0011 §4): what
+        // they choose now is something else, as in Detailed mode.
+        if let Some((version, def)) = self.switched.remove(&p.id)
+            && version == p.act.version
+            && cands.iter().any(|c| c.scored.def != def)
+        {
+            cands.retain(|c| c.scored.def != def);
+        }
         let totals: Vec<f32> = cands.iter().map(|c| c.scored.total).collect();
         let u = draw(ctx.seed, p);
         let (choice, probability, temperature) = decide::choose(&totals, &params.decision, u);
+        // Leisure chosen in Accelerated mode lasts the run of sessions Detailed mode would live
+        // before choosing something else, up to the next turn of the day (ADR-0011 §4).
+        let block = match (
+            leisure_until_min,
+            catalog
+                .activities
+                .get(usize::from(cands[choice].scored.def)),
+        ) {
+            (Some(until), Some(a))
+                if matches!(
+                    a.behavior,
+                    Behavior::Rest | Behavior::Play | Behavior::Socialize
+                ) =>
+            {
+                let u = draw(ctx.seed, p);
+                Some(decide::leisure_block(
+                    a.min_minutes,
+                    a.max_minutes,
+                    until,
+                    probability,
+                    u,
+                ))
+            }
+            _ => None,
+        };
         let mut order: Vec<usize> = (0..cands.len()).filter(|&i| i != choice).collect();
         order.sort_by(|&a, &b| cands[b].scored.total.total_cmp(&cands[a].scored.total));
         let mut receipt = Receipt {
@@ -2783,6 +3068,14 @@ impl Population {
             self.take_work(firm, f64::from(minutes));
         }
         let mut steps = chosen.steps.clone();
+        if let Some((minutes, _)) = block
+            && let Some(Step::Work { minutes: m }) = steps
+                .iter_mut()
+                .rev()
+                .find(|s| matches!(s, Step::Work { .. }))
+        {
+            *m = minutes;
+        }
         if target == Target::NewBuilding {
             // Ground for a home is claimed when someone sets to work on it; the household's home
             // moves there.
@@ -2814,6 +3107,10 @@ impl Population {
             version: p.act.version.wrapping_add(1),
         };
         p.push_receipt(receipt);
+        if let Some((_, true)) = block {
+            let (id, version, def) = (p.id, p.act.version, p.act.def);
+            self.switched.insert(id, (version, def));
+        }
         self.run_steps(ctx, h, depth + 1);
     }
 
@@ -3192,6 +3489,33 @@ impl Population {
                 _ => {}
             },
             Some(Step::Wait { .. } | Step::Deposit) | None => {}
+        }
+        // The time the step took.
+        let took = (now.minutes() - started.minutes()).max(0) as f64;
+        match step {
+            Some(Step::Walk { .. }) => self.time_use.walking += took,
+            Some(Step::Wait { .. }) => self.time_use.waiting += took,
+            Some(Step::Work { .. }) => {
+                let b = def.as_ref().map(|d| d.behavior);
+                if let Some(i) = b.and_then(|b| Behavior::ALL.iter().position(|&x| x == b))
+                    && let Some(m) = self.time_use.work.get_mut(i)
+                {
+                    *m += took;
+                }
+            }
+            Some(Step::Deposit) | None => {}
+        }
+        // A household's view of its options is out of date after its consequential steps
+        // (ADR-0011 §4): work on a field or a building, making, trying; and every household's
+        // after a gift, a trade or paid work, which move goods between households.
+        if let (Some(Step::Work { .. }), Some(d)) = (step, def.as_ref()) {
+            match d.behavior {
+                Behavior::Farm | Behavior::Build | Behavior::Make | Behavior::Try => {
+                    self.changed(household);
+                }
+                Behavior::Ask | Behavior::Trade | Behavior::Hire => self.views.clear(),
+                _ => {}
+            }
         }
         // A knower has practised the work's technique; a learner learns by it (ADR-0008 §4).
         if let (Some(Step::Work { minutes }), Some(t)) = (step, technique) {
@@ -3977,6 +4301,7 @@ impl Population {
         };
         let load: Load = std::mem::take(&mut p.carrying);
         let hh_id = p.household;
+        self.changed(hh_id);
         let Some(&own) = self.hh_index.get(&hh_id) else {
             return;
         };
@@ -4118,6 +4443,11 @@ impl Population {
 
     pub fn on_day(&mut self, ctx: &mut Ctx) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        // Households see their options afresh each day (ADR-0011 §4), and a leisure block that
+        // runs past midnight ends in a decision made afresh: nobody decides between midnight's
+        // day of work and the day's first event, so a save there loses nothing.
+        self.views.clear();
+        self.switched.clear();
         // The season turns for every field: a sowing window passes, a crop left standing is lost.
         let day = now.day_index();
         for f in &mut ctx.land.fields {

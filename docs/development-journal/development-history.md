@@ -192,6 +192,28 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** the fifty-year dashboard with soils: it shows whether the larger villages stay within the population row's growth bound, and how the soil's drawdown and the failures of loaded buildings move over fifty years.
 
+## 2026-10-07 — M3c slice W: Accelerated mode's approximations and Gate B
+
+**Starting point:** slice V complete (saves schema 27, content API 29). A day at Max was exactly a day by the minute, so the fifty-year dashboard took 33 to 76 minutes a world.
+
+**Goal:** Accelerated in earnest ([ADR-0011](../../decisions/0011-execution-modes.md) §4-5): the household view and leisure blocks, switchable, under the statistical consistency test (Gate B).
+
+**Implementation:**
+
+- A profile of a village lived twenty years (65 people, 1024 cells) found most of the time outside the household's own choices. Rebuilding a settlement's walking times, a Dijkstra over the whole map, took 24 %, planning routes 12 %, the day's expected yields 8.5 %, the best purchase 8 %. The exact part: the monthly refresh of walking times now reuses them when the paths' survey and the hearth are unchanged (6 % faster, every digest unchanged).
+- `Approximations` in `Ctx`, on in Accelerated mode, each switchable (`Sim::set_approximations`) ([`civ-agents/src/population.rs`](../../kernel/crates/civ-agents/src/population.rs)). The household view keeps its options' cells from a household's first decision after midnight until midnight or its own consequential step. Leisure blocks run a geometric number of sessions ([`decide::leisure_block`](../../kernel/crates/civ-agents/src/decide.rs)), cut at the next turn of the day; one that ends by a draw makes the next decision pass that leisure over.
+- Gate B as `civ-host consistency` ([`civ-host/src/consistency.rs`](../../kernel/crates/civ-host/src/consistency.rs)). Two fixtures with fixed identities are each lived to 1 January of year 3. Five runs in each mode follow, each with a redrawn tie-break stream (`Sim::redraw_tiebreak_for_tests`), checked exactly as every long run is. Ten aggregates come from new time-use counters (`Population::time_use`, not saved) and the year's end. The nightly workflow runs it.
+
+**Decision:** tolerances were fixed from a Detailed calibration before Accelerated mode was evaluated. Each is three standard errors of a difference of means at the larger fixture's spread, rounded up to a whole percent, with floors (PROJECT_PLAN §9).
+
+**Evidence:**
+
+- Gate B's first evaluation FAILED on walking (−12 % and −11.5 % against 9 %). Run one approximation at a time, it pointed at the first leisure blocks, which lasted until the next boundary: a choice made afresh after each block lengthened every run of the leisure first chosen, and people stayed home rather than at the hearth.
+- Redrawn as the run Detailed mode would live, the blocks brought time use within 4 %, and Gate B passed: the largest differences were walking −4.4 % and the Gini of goods −5 %. No tolerance was widened.
+- A twenty-year village lives about 23 % faster at Max than by the minute (44 against 57 ms a day); the household view gives about 20 % on its own, the blocks 15 %.
+
+**Open:** the time-boxed tuning toward the dashboard's structural-failure row, and the M3c demo (a dry and a wet year in one village, then fifty years in Accelerated mode passing the dashboard). Walking times and routes, about a third of the time, are untouched; they are exact work to make cheaper.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

@@ -336,7 +336,7 @@ decided by people at run time.
 | `name`, `doing` | "Gather plants"; "gathering wild plants" (what the inspector says). |
 | `par` | Physical activity ratio of the work (1–10). |
 | `min_age_years`, `max_age_years` | Who does it. |
-| `min_minutes`, `max_minutes` | How long the work lasts (sleep and meals take their length from the people profile). |
+| `min_minutes`, `max_minutes` | How long the work lasts (sleep and meals take their length from the people profile). Rest, play and the hearth last `min_minutes`, a session; in Accelerated mode's leisure blocks they last a run of sessions, at most `max_minutes` (ADR-0011 §4; Detailed mode never uses it). |
 | `daylight_only`, `max_walk_minutes` | Only in daylight; the longest one-way walk people make for it. |
 
 ## Kinds (M3a)

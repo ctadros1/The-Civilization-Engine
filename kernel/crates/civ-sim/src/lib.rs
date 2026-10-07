@@ -19,6 +19,7 @@ use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
+pub use civ_agents::Approximations;
 use civ_agents::params::{Catalog, PeopleParams, RegimeDef};
 use civ_agents::{AgentEvent, Ctx, Founded, Population, Spawned};
 use civ_content::ContentRegistry;
@@ -56,7 +57,7 @@ pub enum Mode {
     #[default]
     Detailed,
     /// 60x, 600x and Max: a day at a time, the clock stopping, publishing and saving only at
-    /// midnight (ADR-0011 §2). As yet it lives each day exactly as Detailed mode does.
+    /// midnight (ADR-0011 §2), with the approximations it declares (§4).
     Accelerated,
 }
 
@@ -68,6 +69,14 @@ impl Mode {
         } else {
             Mode::Detailed
         }
+    }
+}
+
+/// The approximations made in `mode`: those set, in Accelerated mode; none in Detailed mode.
+fn in_mode(set: Approximations, mode: Mode) -> Approximations {
+    match mode {
+        Mode::Accelerated => set,
+        Mode::Detailed => Approximations::NONE,
     }
 }
 /// Longest world name kept, in bytes.
@@ -303,6 +312,9 @@ pub struct Sim {
     /// How the kernel advances now, and a change of mode held for the next midnight.
     mode: Mode,
     mode_next: Option<Mode>,
+    /// The approximations Accelerated mode makes (ADR-0011 §4): all it declares, unless a test
+    /// has switched some off. Detailed mode makes none. A setting, never saved.
+    approximations: Approximations,
     /// Simulated seconds owed: not yet a whole minute in Detailed mode, not yet a whole day in
     /// Accelerated mode.
     carry_seconds: f64,
@@ -496,6 +508,7 @@ impl Sim {
     /// Brings a founding band of `size` people to the world now. They choose where to camp.
     pub fn found_band(&mut self, size: u32) -> Result<Founded, String> {
         let now = self.now();
+        let approx = self.approximations_now();
         let mut pending = Vec::new();
         let founded = {
             let mut ctx = Ctx {
@@ -510,6 +523,7 @@ impl Sim {
                 regime: &self.regime,
                 ids: &mut self.ids,
                 schedule: &mut pending,
+                approx,
             };
             civ_agents::found_band(&mut self.people, &mut ctx, size)
         };
@@ -649,6 +663,7 @@ impl Sim {
     /// [`civ_agents::spawn_families`]).
     pub fn spawn_families(&mut self, at: (f32, f32), count: u32) -> Result<Vec<Spawned>, String> {
         let now = self.now();
+        let approx = self.approximations_now();
         let mut pending = Vec::new();
         let spawned = {
             let mut ctx = Ctx {
@@ -663,6 +678,7 @@ impl Sim {
                 regime: &self.regime,
                 ids: &mut self.ids,
                 schedule: &mut pending,
+                approx,
             };
             civ_agents::spawn_families(&mut self.people, &mut ctx, at, count)
         };
@@ -672,6 +688,7 @@ impl Sim {
                 .schedule(when, PHASE_AGENT, SimEvent::Agent(event));
         }
         if spawned.is_ok() {
+            self.people.forget_views();
             self.dirty = true;
         }
         spawned
@@ -692,6 +709,7 @@ impl Sim {
             .technique_index(technique)
             .ok_or_else(|| format!("there is no technique `{technique}`"))?;
         let now = self.now();
+        let approx = self.approximations_now();
         let mut pending = Vec::new();
         let done = {
             let mut ctx = Ctx {
@@ -706,6 +724,7 @@ impl Sim {
                 regime: &self.regime,
                 ids: &mut self.ids,
                 schedule: &mut pending,
+                approx,
             };
             self.people
                 .introduce_technique(&mut ctx, person, t, aware_only)
@@ -716,6 +735,7 @@ impl Sim {
                 .schedule(when, PHASE_AGENT, SimEvent::Agent(event));
         }
         if done.is_ok() {
+            self.people.forget_views();
             self.dirty = true;
         }
         done
@@ -765,6 +785,7 @@ impl Sim {
             speed: SPEED_1X,
             mode: Mode::Detailed,
             mode_next: None,
+            approximations: Approximations::ACCELERATED,
             carry_seconds: 0.0,
             content,
             content_changed: false,
@@ -824,6 +845,35 @@ impl Sim {
     /// next midnight (ADR-0011 §2).
     pub fn mode(&self) -> Mode {
         self.mode
+    }
+
+    /// The approximations Accelerated mode makes (ADR-0011 §4).
+    pub fn approximations(&self) -> Approximations {
+        self.approximations
+    }
+
+    /// Switches Accelerated mode's approximations on or off, each on its own: for the tests that
+    /// show what each changes (ADR-0011 §5). A setting, never saved: a loaded world makes them all.
+    pub fn set_approximations(&mut self, approximations: Approximations) {
+        self.approximations = approximations;
+        self.people.forget_views();
+    }
+
+    /// Redraws the scheduler's tie-break stream from `seed` (with the world's seed), so that the
+    /// events of an instant from now on fall in another order: a test's hook for several lives of
+    /// one world from one save (ADR-0011 §5, Gate B). A world never does it.
+    #[doc(hidden)]
+    pub fn redraw_tiebreak_for_tests(&mut self, seed: u64) {
+        self.scheduler.redraw_tiebreak(civ_core::rng::key(&[
+            self.meta.seed,
+            seed,
+            0x6761_7465_6221,
+        ]));
+    }
+
+    /// The approximations made now, in the mode in force.
+    fn approximations_now(&self) -> Approximations {
+        in_mode(self.approximations, self.mode)
     }
 
     /// The permanent-id counter.
@@ -949,6 +999,7 @@ impl Sim {
     #[doc(hidden)]
     pub fn die_for_tests(&mut self, person: civ_core::PermanentId) {
         let now = self.now();
+        let approx = self.approximations_now();
         let mut pending = Vec::new();
         {
             let mut ctx = Ctx {
@@ -963,6 +1014,7 @@ impl Sim {
                 regime: &self.regime,
                 ids: &mut self.ids,
                 schedule: &mut pending,
+                approx,
             };
             self.people.die_for_tests(&mut ctx, person);
         }
@@ -1102,6 +1154,7 @@ impl Sim {
             people,
             mode,
             mode_next,
+            approximations,
             ..
         } = self;
         let mut pending = Vec::new();
@@ -1124,6 +1177,7 @@ impl Sim {
                             regime,
                             ids,
                             schedule: &mut pending,
+                            approx: in_mode(*approximations, *mode),
                         };
                         people.on_day(&mut ctx);
                         // Newborns decide what to do first.
@@ -1175,6 +1229,7 @@ impl Sim {
                         regime,
                         ids,
                         schedule: &mut pending,
+                        approx: in_mode(*approximations, *mode),
                     };
                     people.on_event(&mut ctx, event);
                     for (t, e) in pending.drain(..) {

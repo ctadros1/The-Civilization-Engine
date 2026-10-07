@@ -212,7 +212,11 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 - Redrawn as the run Detailed mode would live, the blocks brought time use within 4 %, and Gate B passed: the largest differences were walking −4.4 % and the Gini of goods −5 %. No tolerance was widened.
 - A twenty-year village lives about 23 % faster at Max than by the minute (44 against 57 ms a day); the household view gives about 20 % on its own, the blocks 15 %.
 
-**Open:** the time-boxed tuning toward the dashboard's structural-failure row, and the M3c demo (a dry and a wet year in one village, then fifty years in Accelerated mode passing the dashboard). Walking times and routes, about a third of the time, are untouched; they are exact work to make cheaper.
+- Choices that lay claim to something (new ground, a building or workshop begun, goods to buy or ask for, paid work) refresh the household's view, so no member acts on a stale option (`8093d51`); Gate B still passed.
+- The dashboard passed twice, in 50 and 32 minutes (76 at the slice before): four rows green and the Gini of goods amber. Failures of lived-in buildings came in at 1.10 and 1.53 per 1,000 building-years against 2, every one a hut roof in a storm, so the time-boxed tuning found nothing to tune. In the first run a village of 95 under village fields left together after a harvest 30 % short (a §9 NUDGE).
+- The M3c demo: river valley seed 2's dry year 4 and wet year 5, three runs. In the dry year the harvest halved, grain stores fell by about a sixth and grain was asked at 1.36–1.42 hours a kilogram against 1.14–1.20; nobody went short. `web/e2e/m3c-demo.spec.ts` shows the village in the observer.
+
+**Open:** walking times and routes, about a third of the time, are untouched; they are exact work to make cheaper. M4's 1,000–2,000 people need measuring before its design settles. M3c is complete.
 
 ## Development pattern that emerged
 

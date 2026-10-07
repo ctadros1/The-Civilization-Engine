@@ -14,10 +14,10 @@ demo). **M3b Knowledge and building is implemented** in six slices: M (knowledge
 people), N (discovery and the first new crafts), O (the frame grammar, storehouses and
 workshops), P (wear, upkeep, loads, failures and caution), Q (deposits, levelled plots, pits and
 quarries, pots and ovens) and R (style copied from admired buildings, and the demo). **M3c Seasons
-and time is in progress**: slices S (the speeds and the day step) and T (the fifty-year
-dashboard and its baseline), U (weather and seasons) and V (soils and fertility) are
-implemented, and slice W (Accelerated mode's approximations, Gate B, tuning and the demo) is in
-progress (§7).
+and time is implemented** in five slices: S (the speeds and the day step), T (the fifty-year
+dashboard and its baseline), U (weather and seasons), V (soils and fertility) and W
+(Accelerated mode's approximations, Gate B and the demo); the dashboard passes (§7, §9). **M4
+Councils, law and crime** is next: its design is in progress.
 The README lists what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
 (i9 13th gen, RTX 4070 Ti with 12 GB VRAM, 64 GB DDR5).
@@ -1246,7 +1246,23 @@ prices, buildings and wealth distribution), is M3a's.
   consistency`) runs nightly and on pull requests into main, with tolerances fixed from a
   Detailed calibration before evaluation. It passes, after its first evaluation sent the leisure
   blocks back to be redrawn (§9). Accelerated mode lives a twenty-year village about 23 % faster
-  than Detailed mode. Next are the time-boxed tuning toward the dashboard and the M3c demo.
+  than Detailed mode. The fifty-year dashboard now passes: four rows green and the Gini of goods
+  amber, in 32 minutes on four cores (76 before slice W). The slice's time-boxed tuning found
+  nothing to tune, as its red row, failures of lived-in buildings, came in at 1.10 and 1.53 per
+  1,000 building-years against 2 (all of them hut roofs in storms). The demo lived one village
+  through a dry year and a wet one, its stores, prices and fields answering the weather, and
+  then fifty years in Accelerated mode passing the dashboard (§9, *The M3c demo*). Slice W is
+  complete. **M3c is implemented.** It proves one model at two speeds (Gate A exactly, Gate B
+  within tolerances fixed beforehand) and land that remembers how it was used (each field's soil
+  and harvests). The usable bar holds (one command, new world, save, load, recovery, the panels,
+  the smoke seeds; saves 27, wire 1.25, content API 29). Deviations:
+  - Farming earthworks (ditches, terraces) move to M6 (§9).
+  - The Gini of goods is amber, 0.23 to 0.45 against 0.3 to 0.75: hoe farmers with land to spare
+    may be this equal (§9).
+  - A village under village fields left together after a harvest 30 % short, at 95 people (§9
+    NUDGE); councils are to give it other answers.
+  - The dashboard takes about half an hour, so it runs nightly, not on pull requests; Gate B
+    runs on both. Statistical samplers wait for profiling at M4's scale.
 
 **M4: Councils, law & crime.**
 - *Contents:*
@@ -1766,3 +1782,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **The dashboard with Accelerated mode's approximations (2026-10-07, slice W, `cd6bfeb`):** the fifty-year dashboard lived its five worlds in 50.0 minutes on four cores, beside other work (75.8 minutes at `269edf3`), and **passed** for the first time: four rows green and one amber. Worlds 1, 2 and 3 took 24 to 25 minutes, world 5 16, and world 4, a village under village fields, 50. **Population green:** all five keep ten or more after fifty years (93 to 104 people in four, 10 in world 4), the most growth 2.7 times the founders (world 1, year 49). Food prices green (grain asked 3 to 8 log points more before the harvest than after; stocks rose after every harvest), firm sizes green (108 to 204 workshops a world), the Gini of goods amber (0.23 to 0.45; four of five below 0.3, as hoe farmers with land to spare may be). **Structural failures green:** 5 failures of lived-in buildings in 4,548 building-years, 1.10 per 1,000, against at most 2. All five were hut roofs whose rafters broke in storms, three of them poorly made, and none killed anyone; 6 empty buildings gave way besides. At `269edf3` the count was 11 in 4,635 building-years (2.37). Counts of 11 and 5 are within chance of one rate of about 1.7, and the slice's time-boxed tuning found nothing in the row to tune: it was spent reading the failures (the dashboard's JSON report now keeps their words). World 4 grew to 95 people and fell to 6 in year 43 (*NUDGE* below).
 - **NUDGE: a village of 95 leaves together (2026-10-07, world 4 of the dashboard above):** under village fields, its harvests were 23.9 t in year 41 and 15.7 t in year 42, against about 22 t its 95 people eat in a year. On 14 May of year 43 food ran short with about two days' left, and within two weeks 17 households gave up and left; six people stayed, and ten lived there at year 50. The households-fields worlds of the same dashboard grew through such years. This is *villages of about 55 leave together* (§9, the M3b demo) at a larger size, and the regime may matter: whether the settlement's allocation by need keeps up with a village's growth has not been traced. Revisit with M4's councils, which give a village other answers to a short year than leaving. The chronicle now names the settlement a household leaves; before, it read "gave up and left ." in the observer and in `chronicle`.
 - **The M3c demo (2026-10-07, plan §7):** river valley seed 2, the seed of the M3a demo, 768 cells, a band of 40, lived eight years from the command line (`civ-host run`) three times. The seed's weather is the same in every run, and `civ-host weather --seed 2` shows that it holds a dry year 4 (616 mm against 797 usual; 188 mm from April to July, the crop's season) and a wet year 5 (1,058 mm). The seed was the earlier demos', and was not picked for how its village fared. A year in the report runs from 1 March, so each holds its calendar year's harvest. **The dry year:** the crops had 57 to 58 % of the water they needed (a harvest 0.69 to 0.71 of an average year's). The village reaped 8.9 to 9.3 t of grain (502 kg/ha in the first run), against 16.5 to 18.7 t the year before. Its grain stores fell from 13.4–15.3 t to 10.8–12.7 t, and grain was asked at 1.36 to 1.42 hours of work a kilogram, against 1.14 to 1.20 the year before. Nobody went short of food and nobody left: about a year's grain in store carried them. **The wet year:** 1,146 mm in the report's year, the crops had 90 to 91 % of their water, and the village reaped 19.4 to 20.0 t (962 kg/ha in the first run). Stores rose to 17.8–19.7 t, and grain was asked at 1.14 to 1.16 again. The next years were wet too, and stores reached about 30 t by year 8. `web/e2e/m3c-demo.spec.ts` (with `TCE_DEMO=1`) makes the village to 1 November of year 5 and shows it in the observer: the weather panel's years against what they usually bring (year 4 "dry", 616 against 797 mm), the market with 11.8 t of grain offered by 11 households, and the chronicle's months that stood out. It then lives on at Max, the clock standing at a midnight each time it shows. Run once, it lived to year 41 at Max before the run stopped, with 71 people. Then fifty years in Accelerated mode passing the dashboard: the entry above.
+- **The dashboard on M3c's last build (2026-10-07, `8093d51`, with nothing beside it):** passed in 31.7 minutes on four cores. Four rows green and the Gini of goods amber (0.26 to 0.33). All five worlds kept their bands, ending with 80 to 92 people (85 and 92 under village fields), the most growth 2.4 times the founders (world 4, year 48). Grain was asked 3 to 9 log points more before the harvest than after, and stocks rose after every harvest. **Structural failures:** 7 in 4,574 building-years, 1.53 per 1,000, every one a hut roof whose rafters broke in a storm, none killing anyone; no empty building gave way. No world fell as world 4 of the run before did. Worlds took 15 to 24 minutes each. Over the two runs of slice W's builds, 12 failures of lived-in buildings in 9,122 building-years, 1.32 per 1,000.

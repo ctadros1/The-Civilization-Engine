@@ -604,6 +604,11 @@ impl Population {
             self.review_land(ctx, s);
         }
         let count = members.len() as f64;
+        // The settlement they left, by name.
+        let left = settlement
+            .and_then(|s| ctx.land.settlements.iter().find(|x| x.id == s))
+            .map(|x| x.name.clone())
+            .unwrap_or_default();
         self.chronicle_push(
             now,
             ChronicleKind::Left,
@@ -611,7 +616,7 @@ impl Population {
             settlement,
             Some(home),
             count,
-            String::new(),
+            left,
         );
         // What only they knew there leaves with them (ADR-0008 §5); the buildings they leave
         // standing still count as made with it.

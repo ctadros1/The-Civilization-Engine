@@ -391,8 +391,9 @@ pub enum ChronicleKind {
     /// Children left without an older member of their household went to live with kin or
     /// neighbours: `people` is the eldest of the household that took them in, then the children.
     TakenIn,
-    /// A household gave up and left the valley: `people` is its members, eldest first, and
-    /// `number` how many they were.
+    /// A household gave up and left the valley: `people` is its members, eldest first,
+    /// `number` how many they were, and `name` the settlement they left (empty before
+    /// 2026-10-07, and when they had none).
     Left,
     /// The first trail out of a settlement was worn in: `number` is its length, metres, and
     /// `place` its middle.
@@ -599,7 +600,12 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             } else {
                 " gave up and left ".to_owned()
             }));
-            spans.push(settlement(event));
+            // Entries made before 2026-10-07 kept no name: they left the valley.
+            if event.name.is_empty() {
+                spans.push(Span::Text("the valley".to_owned()));
+            } else {
+                spans.push(settlement(event));
+            }
             spans.push(Span::Text(".".to_owned()));
             spans
         }
@@ -916,5 +922,36 @@ mod tests {
         let spans = render(&e, &|_| String::new());
         assert!(spans.contains(&Span::Settlement(id, "Alder Ford".to_owned())));
         assert_eq!(plain(&spans), "They made camp at Alder Ford.");
+    }
+
+    #[test]
+    fn a_household_that_left_names_where_it_left() {
+        let (village, eldest) = (
+            PermanentId::from_raw(7).expect("non-zero"),
+            PermanentId::from_raw(9).expect("non-zero"),
+        );
+        let left = |name: &str| ChronicleEvent {
+            seq: 3,
+            at: SimTime::ZERO,
+            kind: ChronicleKind::Left,
+            people: vec![eldest, PermanentId::from_raw(10).expect("non-zero")],
+            settlement: Some(village),
+            place: None,
+            number: 2.0,
+            name: name.to_owned(),
+            firm: None,
+        };
+        let name_of = |_| "Iver".to_owned();
+        let spans = render(&left("Hazelstead"), &name_of);
+        assert!(spans.contains(&Span::Settlement(village, "Hazelstead".to_owned())));
+        assert_eq!(
+            plain(&spans),
+            "The household of Iver (2 people) gave up and left Hazelstead."
+        );
+        // An entry saved before the name was kept.
+        assert_eq!(
+            plain(&render(&left(""), &name_of)),
+            "The household of Iver (2 people) gave up and left the valley."
+        );
     }
 }

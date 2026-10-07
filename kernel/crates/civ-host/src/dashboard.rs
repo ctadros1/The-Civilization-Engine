@@ -102,6 +102,8 @@ pub struct WorldRun {
     pub lived_building_months: u64,
     /// Failures of buildings lived in.
     pub lived_failures: u32,
+    /// What gave way in buildings lived in, in the chronicle's words, by calendar year.
+    pub lived_failed: Vec<(i64, String)>,
     /// Failures of buildings nobody lived in.
     pub empty_failures: u32,
     /// Food stocks after the harvest, as graded.
@@ -375,6 +377,9 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
                 world.empty_failures += 1;
             } else {
                 world.lived_failures += 1;
+                world
+                    .lived_failed
+                    .push((e.at.date().year, format!("{}, {} killed", e.name, e.number)));
             }
         }
     }

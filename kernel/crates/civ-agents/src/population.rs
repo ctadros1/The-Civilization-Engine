@@ -2963,6 +2963,21 @@ impl Population {
             }
             _ => None,
         };
+        // A choice that lays claim to something (new ground, a building or a workshop begun,
+        // goods to buy or ask for, paid work) is the household's consequential step: its other
+        // members see their options afresh (ADR-0011 §4).
+        let claims = matches!(
+            cands[choice].scored.target,
+            Target::NewField | Target::NewBuilding | Target::NewFirm
+        ) || catalog
+            .activities
+            .get(usize::from(cands[choice].scored.def))
+            .is_some_and(|a| {
+                matches!(a.behavior, Behavior::Trade | Behavior::Ask | Behavior::Hire)
+            });
+        if claims {
+            self.changed(hh_id);
+        }
         let mut order: Vec<usize> = (0..cands.len()).filter(|&i| i != choice).collect();
         order.sort_by(|&a, &b| cands[b].scored.total.total_cmp(&cands[a].scored.total));
         let mut receipt = Receipt {

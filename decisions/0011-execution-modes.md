@@ -82,8 +82,9 @@ A probe measured the kernel on 2026-10-05 (a band of 40, one simulated year in a
     household to ask, paid work, the best place for each gathering, digging and field activity),
     each worked out when a member first needs it after midnight and kept until midnight or the
     household's own consequential step: a deposit, work on a field or a building, making,
-    trying. A gift, a trade or paid work refreshes every household's view, as goods move between
-    them. Births and deaths come at midnight. Detailed mode works them out at every decision.
+    trying, or a choice that lays claim to something (new ground, a building or a workshop
+    begun, goods to buy or ask for, paid work). A gift, a trade or paid work done refreshes every
+    household's view, as goods move between them. Births and deaths come at midnight. Detailed mode works them out at every decision.
   - **Leisure blocks:** rest, the hearth and play last the run of sessions Detailed mode would
     live before choosing something else: a geometric number drawn from the chance with which the
     leisure was chosen. A block that ends so makes the next decision pass that leisure over, as

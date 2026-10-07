@@ -62,6 +62,21 @@ pub use knowledge::{LOST_AWARE, LOST_MADE_REMAIN};
 
 pub use life::{depleted, extra_kcal_day};
 
+/// Keeps a route (or that there is none) in the newer generation of the route cache, retiring
+/// that generation to the older when it is full. The cache is exact: a route kept is the one a
+/// search would find again.
+fn keep_route(
+    routes: &mut FastMap<(u32, u32), Option<CachedRoute>>,
+    old: &mut FastMap<(u32, u32), Option<CachedRoute>>,
+    key: (u32, u32),
+    route: Option<CachedRoute>,
+) {
+    if routes.len() >= ROUTE_CACHE_MAX {
+        *old = std::mem::take(routes);
+    }
+    routes.insert(key, route);
+}
+
 /// Purpose tag for decision draws (ADR-0003 keyed randomness).
 pub const PURPOSE_DECIDE: u64 = 0x6465_6369_6465_3031; // "decide01"
 /// Most cells one route search may expand.
@@ -71,7 +86,8 @@ const ROUTE_BUDGET: usize = 600_000;
 const FIELD_REFRESH_DAYS: i64 = 30;
 /// Minutes a person waits before deciding again when a walk cannot be routed.
 const WAIT_AFTER_FAILURE_MIN: u32 = 10;
-/// Most routes kept in the route cache before it is emptied.
+/// Most routes the route cache keeps in each of its two generations: when the newer is full it
+/// becomes the older, and the older is let go.
 const ROUTE_CACHE_MAX: usize = 50_000;
 /// Farthest a household moves its home from where it stands to find clear ground to build on,
 /// metres (a tuning value).
@@ -308,6 +324,8 @@ pub struct Population {
     /// Routes by (from cell, to cell); `None` when there is none. Derived: kept until the paths
     /// are next surveyed, when walking costs change.
     routes: FastMap<(u32, u32), Option<CachedRoute>>,
+    /// The generation of routes before `routes`; one walked again moves back into `routes`.
+    routes_old: FastMap<(u32, u32), Option<CachedRoute>>,
     /// The paths survey the routes were planned on ([`civ_land::Wear::rev`]).
     routes_rev: u32,
     /// Per activity, what a trip is expected to bring from each patch today.
@@ -717,6 +735,7 @@ impl Population {
         self.homes.clear();
         self.places.clear();
         self.routes.clear();
+        self.routes_old.clear();
         self.priors.clear();
         self.sites.clear();
         self.home_sites.clear();
@@ -3207,6 +3226,7 @@ impl Population {
         let wear = &ctx.land.wear;
         if wear.rev() != self.routes_rev {
             self.routes.clear();
+            self.routes_old.clear();
             self.routes_rev = wear.rev();
         }
         let (points, minutes): (Vec<(f32, f32)>, Vec<f32>) = if from_cell == to_cell {
@@ -3218,6 +3238,9 @@ impl Population {
             (vec![p.pos, to], vec![0.0, m])
         } else {
             let key = (from_cell as u32, to_cell as u32);
+            if let Some(known) = self.routes_old.remove(&key) {
+                keep_route(&mut self.routes, &mut self.routes_old, key, known);
+            }
             let cached = match self.routes.get(&key) {
                 Some(known) => known.clone(),
                 None => {
@@ -3239,10 +3262,7 @@ impl Population {
                         ))),
                         RouteResult::Unreachable | RouteResult::BudgetExhausted => None,
                     };
-                    if self.routes.len() >= ROUTE_CACHE_MAX {
-                        self.routes.clear();
-                    }
-                    self.routes.insert(key, found.clone());
+                    keep_route(&mut self.routes, &mut self.routes_old, key, found.clone());
                     found
                 }
             };

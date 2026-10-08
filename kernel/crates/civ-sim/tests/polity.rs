@@ -280,6 +280,7 @@ fn a_common_store_in_force_takes_its_levy_at_threshing_and_answers_asks() {
     pop.polities[0].laws.push(Law {
         id: civ_core::PermanentId::from_raw(id + 1_000_000).expect("non-zero"),
         policy,
+        kind: PolicyKind::CommonStore,
         levy_share: 0.2,
         holder: None,
         relief_days: 5.0,
@@ -295,6 +296,7 @@ fn a_common_store_in_force_takes_its_levy_at_threshing_and_answers_asks() {
         stances: Vec::new(),
         known,
         compliance: Default::default(),
+        watch: Default::default(),
     });
     let held_before = sim.people().goods_held();
     let flows_before = sim.people().flows();
@@ -359,6 +361,7 @@ fn a_keeper_keeps_the_store_under_a_roof_until_they_are_gone() {
     let law = |id: u64, policy: u16, holder: Option<civ_core::PermanentId>| Law {
         id: civ_core::PermanentId::from_raw(next + 1_000_000 + id).expect("non-zero"),
         policy,
+        kind: policies[usize::from(policy)].kind,
         levy_share: if holder.is_some() { 0.0 } else { 0.1 },
         holder,
         relief_days: 5.0,
@@ -374,6 +377,7 @@ fn a_keeper_keeps_the_store_under_a_roof_until_they_are_gone() {
         stances: Vec::new(),
         known: known.clone(),
         compliance: Default::default(),
+        watch: Default::default(),
     };
     let p = &mut pop.polities[0];
     p.laws.push(law(0, store, None));

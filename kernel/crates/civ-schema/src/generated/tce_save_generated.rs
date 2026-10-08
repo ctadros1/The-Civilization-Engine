@@ -8884,6 +8884,325 @@ impl<'a> CaseStanceSave {
 
 }
 
+// struct SightingSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct SightingSave(pub [u8; 40]);
+impl Default for SightingSave { 
+  fn default() -> Self { 
+    Self([0; 40])
+  }
+}
+impl ::core::fmt::Debug for SightingSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("SightingSave")
+      .field("officer", &self.officer())
+      .field("day", &self.day())
+      .field("incident", &self.incident())
+      .field("kcal", &self.kcal())
+      .field("report_points", &self.report_points())
+      .field("ask_points", &self.ask_points())
+      .field("kept", &self.kept())
+      .field("ask_open", &self.ask_open())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for SightingSave {}
+impl<'a> ::flatbuffers::Follow<'a> for SightingSave {
+  type Inner = &'a SightingSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a SightingSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a SightingSave {
+  type Inner = &'a SightingSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<SightingSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for SightingSave {
+    type Output = SightingSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const SightingSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for SightingSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> SightingSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    officer: u64,
+    day: i64,
+    incident: u32,
+    kcal: f32,
+    report_points: f32,
+    ask_points: f32,
+    kept: u8,
+    ask_open: bool,
+  ) -> Self {
+    let mut s = Self([0; 40]);
+    s.set_officer(officer);
+    s.set_day(day);
+    s.set_incident(incident);
+    s.set_kcal(kcal);
+    s.set_report_points(report_points);
+    s.set_ask_points(ask_points);
+    s.set_kept(kept);
+    s.set_ask_open(ask_open);
+    s
+  }
+
+  pub fn officer(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_officer(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn day(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_day(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn incident(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_incident(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn kcal(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[20..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_kcal(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[20..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn report_points(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[24..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_report_points(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[24..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn ask_points(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[28..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_ask_points(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[28..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn kept(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[32..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_kept(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[32..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn ask_open(&self) -> bool {
+    let mut mem = ::core::mem::MaybeUninit::<<bool as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[33..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<bool as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_ask_open(&mut self, x: bool) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[33..].as_mut_ptr(),
+        ::core::mem::size_of::<<bool as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 pub enum ParamOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -20944,6 +21263,12 @@ impl<'a> LawSave<'a> {
   pub const VT_COMPENSATION_DAYS: ::flatbuffers::VOffsetT = 54;
   pub const VT_FINE_DAYS: ::flatbuffers::VOffsetT = 56;
   pub const VT_EXILE: ::flatbuffers::VOffsetT = 58;
+  pub const VT_WATCH_ROUNDS: ::flatbuffers::VOffsetT = 60;
+  pub const VT_WATCH_MINUTES: ::flatbuffers::VOffsetT = 62;
+  pub const VT_WATCH_CASES: ::flatbuffers::VOffsetT = 64;
+  pub const VT_WATCH_NIGHT: ::flatbuffers::VOffsetT = 66;
+  pub const VT_WATCH_TONIGHT: ::flatbuffers::VOffsetT = 68;
+  pub const VT_WATCH_NEXT: ::flatbuffers::VOffsetT = 70;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -20955,6 +21280,8 @@ impl<'a> LawSave<'a> {
     args: &'args LawSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<LawSave<'bldr>> {
     let mut builder = LawSaveBuilder::new(_fbb);
+    builder.add_watch_night(args.watch_night);
+    builder.add_watch_minutes(args.watch_minutes);
     builder.add_holder(args.holder);
     builder.add_relief_kg(args.relief_kg);
     builder.add_withheld_kg(args.withheld_kg);
@@ -20964,6 +21291,9 @@ impl<'a> LawSave<'a> {
     builder.add_proposed(args.proposed);
     builder.add_sponsor(args.sponsor);
     builder.add_id(args.id);
+    builder.add_watch_next(args.watch_next);
+    builder.add_watch_cases(args.watch_cases);
+    builder.add_watch_rounds(args.watch_rounds);
     builder.add_fine_days(args.fine_days);
     builder.add_compensation_days(args.compensation_days);
     builder.add_unanswered(args.unanswered);
@@ -20978,6 +21308,7 @@ impl<'a> LawSave<'a> {
     builder.add_relief_days(args.relief_days);
     builder.add_levy_share(args.levy_share);
     builder.add_policy(args.policy);
+    builder.add_watch_tonight(args.watch_tonight);
     builder.add_exile(args.exile);
     builder.add_outcome(args.outcome);
     builder.add_decided(args.decided);
@@ -21183,6 +21514,48 @@ impl<'a> LawSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(LawSave::VT_EXILE, Some(false)).unwrap()}
   }
+  #[inline]
+  pub fn watch_rounds(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawSave::VT_WATCH_ROUNDS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn watch_minutes(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(LawSave::VT_WATCH_MINUTES, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn watch_cases(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawSave::VT_WATCH_CASES, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn watch_night(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(LawSave::VT_WATCH_NIGHT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn watch_tonight(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(LawSave::VT_WATCH_TONIGHT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn watch_next(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawSave::VT_WATCH_NEXT, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for LawSave<'_> {
@@ -21219,6 +21592,12 @@ impl ::flatbuffers::Verifiable for LawSave<'_> {
      .visit_field::<f32>("compensation_days", Self::VT_COMPENSATION_DAYS, false)?
      .visit_field::<f32>("fine_days", Self::VT_FINE_DAYS, false)?
      .visit_field::<bool>("exile", Self::VT_EXILE, false)?
+     .visit_field::<u32>("watch_rounds", Self::VT_WATCH_ROUNDS, false)?
+     .visit_field::<f64>("watch_minutes", Self::VT_WATCH_MINUTES, false)?
+     .visit_field::<u32>("watch_cases", Self::VT_WATCH_CASES, false)?
+     .visit_field::<i64>("watch_night", Self::VT_WATCH_NIGHT, false)?
+     .visit_field::<u8>("watch_tonight", Self::VT_WATCH_TONIGHT, false)?
+     .visit_field::<u32>("watch_next", Self::VT_WATCH_NEXT, false)?
      .finish();
     Ok(())
   }
@@ -21252,6 +21631,12 @@ pub struct LawSaveArgs<'a> {
     pub compensation_days: f32,
     pub fine_days: f32,
     pub exile: bool,
+    pub watch_rounds: u32,
+    pub watch_minutes: f64,
+    pub watch_cases: u32,
+    pub watch_night: i64,
+    pub watch_tonight: u8,
+    pub watch_next: u32,
 }
 impl<'a> Default for LawSaveArgs<'a> {
   #[inline]
@@ -21285,6 +21670,12 @@ impl<'a> Default for LawSaveArgs<'a> {
       compensation_days: 0.0,
       fine_days: 0.0,
       exile: false,
+      watch_rounds: 0,
+      watch_minutes: 0.0,
+      watch_cases: 0,
+      watch_night: 0,
+      watch_tonight: 0,
+      watch_next: 0,
     }
   }
 }
@@ -21407,6 +21798,30 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LawSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<bool>(LawSave::VT_EXILE, exile, false);
   }
   #[inline]
+  pub fn add_watch_rounds(&mut self, watch_rounds: u32) {
+    self.fbb_.push_slot::<u32>(LawSave::VT_WATCH_ROUNDS, watch_rounds, 0);
+  }
+  #[inline]
+  pub fn add_watch_minutes(&mut self, watch_minutes: f64) {
+    self.fbb_.push_slot::<f64>(LawSave::VT_WATCH_MINUTES, watch_minutes, 0.0);
+  }
+  #[inline]
+  pub fn add_watch_cases(&mut self, watch_cases: u32) {
+    self.fbb_.push_slot::<u32>(LawSave::VT_WATCH_CASES, watch_cases, 0);
+  }
+  #[inline]
+  pub fn add_watch_night(&mut self, watch_night: i64) {
+    self.fbb_.push_slot::<i64>(LawSave::VT_WATCH_NIGHT, watch_night, 0);
+  }
+  #[inline]
+  pub fn add_watch_tonight(&mut self, watch_tonight: u8) {
+    self.fbb_.push_slot::<u8>(LawSave::VT_WATCH_TONIGHT, watch_tonight, 0);
+  }
+  #[inline]
+  pub fn add_watch_next(&mut self, watch_next: u32) {
+    self.fbb_.push_slot::<u32>(LawSave::VT_WATCH_NEXT, watch_next, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LawSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LawSaveBuilder {
@@ -21452,6 +21867,12 @@ impl ::core::fmt::Debug for LawSave<'_> {
       ds.field("compensation_days", &self.compensation_days());
       ds.field("fine_days", &self.fine_days());
       ds.field("exile", &self.exile());
+      ds.field("watch_rounds", &self.watch_rounds());
+      ds.field("watch_minutes", &self.watch_minutes());
+      ds.field("watch_cases", &self.watch_cases());
+      ds.field("watch_night", &self.watch_night());
+      ds.field("watch_tonight", &self.watch_tonight());
+      ds.field("watch_next", &self.watch_next());
       ds.finish()
   }
 }
@@ -22674,6 +23095,7 @@ impl<'a> Order<'a> {
   pub const VT_RESPONSES2: ::flatbuffers::VOffsetT = 16;
   pub const VT_OBLIGATIONS2: ::flatbuffers::VOffsetT = 18;
   pub const VT_CASES: ::flatbuffers::VOffsetT = 20;
+  pub const VT_SIGHTINGS: ::flatbuffers::VOffsetT = 22;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -22685,6 +23107,7 @@ impl<'a> Order<'a> {
     args: &'args OrderArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Order<'bldr>> {
     let mut builder = OrderBuilder::new(_fbb);
+    if let Some(x) = args.sightings { builder.add_sightings(x); }
     if let Some(x) = args.cases { builder.add_cases(x); }
     if let Some(x) = args.obligations2 { builder.add_obligations2(x); }
     if let Some(x) = args.responses2 { builder.add_responses2(x); }
@@ -22761,6 +23184,13 @@ impl<'a> Order<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CaseSave>>>>(Order::VT_CASES, None)}
   }
+  #[inline]
+  pub fn sightings(&self) -> Option<::flatbuffers::Vector<'a, SightingSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, SightingSave>>>(Order::VT_SIGHTINGS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Order<'_> {
@@ -22778,6 +23208,7 @@ impl ::flatbuffers::Verifiable for Order<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ResponseSave2>>>("responses2", Self::VT_RESPONSES2, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ObligationSave2>>>("obligations2", Self::VT_OBLIGATIONS2, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CaseSave>>>>("cases", Self::VT_CASES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, SightingSave>>>("sightings", Self::VT_SIGHTINGS, false)?
      .finish();
     Ok(())
   }
@@ -22792,6 +23223,7 @@ pub struct OrderArgs<'a> {
     pub responses2: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ResponseSave2>>>,
     pub obligations2: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ObligationSave2>>>,
     pub cases: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CaseSave<'a>>>>>,
+    pub sightings: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, SightingSave>>>,
 }
 impl<'a> Default for OrderArgs<'a> {
   #[inline]
@@ -22806,6 +23238,7 @@ impl<'a> Default for OrderArgs<'a> {
       responses2: None,
       obligations2: None,
       cases: None,
+      sightings: None,
     }
   }
 }
@@ -22852,6 +23285,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> OrderBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Order::VT_CASES, cases);
   }
   #[inline]
+  pub fn add_sightings(&mut self, sightings: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , SightingSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Order::VT_SIGHTINGS, sightings);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> OrderBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     OrderBuilder {
@@ -22878,6 +23315,7 @@ impl ::core::fmt::Debug for Order<'_> {
       ds.field("responses2", &self.responses2());
       ds.field("obligations2", &self.obligations2());
       ds.field("cases", &self.cases());
+      ds.field("sightings", &self.sightings());
       ds.finish()
   }
 }

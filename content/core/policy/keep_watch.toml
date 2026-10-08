@@ -1,0 +1,13 @@
+# Keeping watch (M4b slice AC, ADR-0015 §6: a watch is an office named by a law, as the
+# storekeeper is): the one the gathering names walks rounds of the settlement's homes at night,
+# standing watch at each, and sees and guards only where they are (research 12-04 §1.4: a patrol
+# affects the places it visits; §1.3: a watch is a specialization households set up when they
+# expect it to protect their stores). The office is unpaid: office pay is not built. The law names
+# its holder and lapses when they die or leave. Whether anyone proposes a watch, whom, and whether
+# the gathering agrees, is people's choice.
+kind = "policy"
+id = "core:policy/keep_watch"
+name = "Watch"
+description = "The one the gathering names keeps watch over the households' stores at night, walking rounds of the homes."
+does = "keep_watch"
+answers = ["takings"]

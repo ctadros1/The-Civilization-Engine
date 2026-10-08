@@ -615,3 +615,27 @@ w_comply_found = 2.0
 # many days of its food for the grown member it would lose (a tuning value: about two months of
 # what a member brings in).
 exile_days = 60.0
+# The watch (M4b slice AC, ADR-0015 §6): a household weighs a law naming a watch by `watch_guard`
+# of all it found missing (whoever took it) back to it, and as much of what its own members took
+# from it (the share of takings it believes a watch would stop or see; a tuning value). The one
+# named walks rounds at night as a choice, worth `w_watch` points for the night's first and less
+# for each walked since, up to `rounds_per_night` (12-04 §2.1: one account of three a night, at
+# about 21:00, 00:00 and 03:00; medium-low confidence) of `round_stops` homes each, standing
+# watch at each for the activity's minutes (12-04 §2.3: 11-15 minute visits, a modern patrol
+# finding, here only a scale).
+watch_guard = 0.5
+w_watch = 6.0
+rounds_per_night = 3
+round_stops = 6
+# One who keeps the watch and sees a taking chooses once what to do with it (09-09 §1.3: ΔU = B +
+# K - C - M - p̂(F + V)): saying nothing is 0 points; bringing it before the gathering (or telling
+# those taken from, with no law against taking) `w_watch_report` points, and `w_forgive` for full
+# regard for the household taken from less as much for regard for the taker; and, under a law
+# against taking, asking the taker's household for `ask_days` of its food (at most what it can
+# spare) to say nothing, worth `w_demand_loss` a day of the watcher's own household's food, less
+# `w_objection` for their objection to taking what is not theirs (never weighed above its filter)
+# and `w_seen` for the chance they believe they run of being found out. The household asked pays
+# with `w_comply_known` points against `w_comply_cost` a day of its food; one that refuses is
+# brought before the gathering. All tuning values: 09-09 §2.3 gives no estimable figures.
+w_watch_report = 2.0
+ask_days = 3.0

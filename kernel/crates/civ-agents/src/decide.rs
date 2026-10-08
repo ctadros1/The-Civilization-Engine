@@ -67,6 +67,18 @@ pub struct Facts {
     pub hearth: Option<(f32, f32)>,
     /// The gathering sitting at the hearth that they may attend, if any (ADR-0013 §1).
     pub gathering: Option<GatheringFacts>,
+    /// The round of the watch they keep, if they keep one and may walk it now (M4b slice AC).
+    pub watch: Option<WatchFacts>,
+}
+
+/// A round of the watch someone keeps (M4b slice AC): the homes it passes, in order, and what
+/// walking it is worth to them.
+#[derive(Clone, Debug, PartialEq)]
+pub struct WatchFacts {
+    /// Where to stand watch, in order, metres.
+    pub stops: Vec<(f32, f32)>,
+    /// Points: the duty, less for each round already walked tonight.
+    pub points: f64,
 }
 
 /// A gathering a person may attend now (ADR-0013 §1): what having a say there is worth to them,
@@ -1129,6 +1141,23 @@ pub fn candidates(
                 ];
                 out.push(finish(id, Target::Hearth, terms, steps));
             }
+            Behavior::Watch => {
+                // A round of the watch (M4b slice AC, ADR-0015 §6): a stand at each home on it,
+                // the activity's least minutes each.
+                let Some(round) = f.watch.as_ref() else {
+                    excluded.push((id, Reason::NoWatch));
+                    continue;
+                };
+                term(&mut terms, Reason::Duty, round.points);
+                let stand = def.min_minutes.max(1);
+                let mut steps = Vec::with_capacity(round.stops.len() * 2 + 1);
+                for &at in &round.stops {
+                    steps.push(Step::Walk { to: at });
+                    steps.push(Step::Work { minutes: stand });
+                }
+                steps.push(Step::Walk { to: f.home });
+                out.push(finish(id, Target::None, terms, steps));
+            }
             Behavior::Rest => {
                 term(&mut terms, Reason::Rest, w.w_rest);
                 let mut steps = walk_home_first(f);
@@ -1416,6 +1445,7 @@ mod tests {
             home: (0.0, 0.0),
             hearth: None,
             gathering: None,
+            watch: None,
         }
     }
 

@@ -1,0 +1,20 @@
+# A round of the watch (M4b slice AC, ADR-0015 §6): only for the one a law names to keep watch,
+# only in the dark, and only for the night's rounds. The round passes the settlement's homes in a
+# set order, a stand of `min_minutes` at each (research 12-04 §2.3 gives 11-15 minute visits as a
+# modern patrol finding; here only a scale). Standing there, the watcher is someone about: a taker
+# who notices them turns back, and one who does not is seen.
+kind = "activity"
+id = "core:activity/keep_watch"
+name = "Keep watch"
+doing = "keeping watch"
+behavior = "watch"
+par = 2.0
+min_age_years = 15.0
+max_age_years = 130.0
+min_minutes = 15                 # each stand
+max_minutes = 15
+daylight_only = false
+max_walk_minutes = 30
+technique = ""
+tools = []
+rate = 1.0

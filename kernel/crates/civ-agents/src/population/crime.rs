@@ -37,7 +37,7 @@ pub(super) struct TakeTarget {
 
 /// What a taker would carry off a store `stores`: up to `carry_kg` and `want_kcal` of its food,
 /// the densest first so a load carries the most (seed kept back is left), as `(good, kg)`.
-fn take_goods(
+pub(super) fn take_goods(
     stores: &[f64],
     goods: &[GoodDef],
     carry_kg: f64,
@@ -444,7 +444,7 @@ impl Population {
                 .filter(|x| {
                     x.taker.is_some_and(|t| {
                         t != hearer && self.person(t).is_none_or(|p| p.household != own)
-                    })
+                    }) && !self.order.quiet(teller, x.incident)
                 })
                 .copied()
                 .collect();
@@ -567,6 +567,44 @@ impl Population {
             if own == target || Some(own) == taker_hh {
                 continue;
             }
+            // One who keeps the watch chooses, once, what to do with what they saw (M4b slice
+            // AC): one who looked away or was paid to tells nobody; one who reported or told
+            // tells those taken from, whatever their regard.
+            let watcher = self.keeps_watch_over(w.holder, target)
+                || self.order.sighting(w.holder, w.incident).is_some();
+            if watcher {
+                let kept = match self.order.sighting(w.holder, w.incident) {
+                    Some(s) => s.kept,
+                    None => self.officer_sees(ctx, w.holder, w.incident, target, taker),
+                };
+                if kept.quiet() {
+                    continue;
+                }
+                let members = self
+                    .household(target)
+                    .map(|x| x.members.clone())
+                    .unwrap_or_default();
+                for m in members {
+                    if self
+                        .order
+                        .belief(m, w.incident)
+                        .is_some_and(|b| b.taker.is_some())
+                    {
+                        continue;
+                    }
+                    self.come_to_believe(
+                        ctx,
+                        Belief {
+                            holder: m,
+                            source: Source::Told,
+                            from: Some(w.holder),
+                            day,
+                            ..w
+                        },
+                    );
+                }
+                continue;
+            }
             let Some(elder) = self.elder_of(target, now, params) else {
                 continue;
             };
@@ -612,7 +650,7 @@ impl Population {
             let known: Vec<Belief> = members
                 .iter()
                 .flat_map(|&m| self.order.held_by(m).iter().copied())
-                .filter(|b| b.taker.is_some())
+                .filter(|b| b.taker.is_some() && !self.order.quiet(b.holder, b.incident))
                 .collect();
             for b in known {
                 for &m in &members {
@@ -689,8 +727,10 @@ impl Population {
                 * params.household.daily_kcal_per_person;
             let regard = self.ties.regard(by, taker, day, &params.ties);
             let points = demand_points(kcal / need, regard, cp);
+            let brought = self.order.cases.iter().any(|c| c.incident == incident);
             let report = self
                 .law_against_taking(ctx, household, by)
+                .filter(|_| !brought)
                 .map(|(law, sanction)| {
                     let members = self
                         .household(household)
@@ -781,6 +821,9 @@ impl Population {
         let Some((law, sanction)) = self.law_against_taking(ctx, household, by) else {
             return;
         };
+        if self.order.cases.iter().any(|c| c.incident == incident) {
+            return;
+        }
         let Some(x) = self.household(household) else {
             return;
         };
@@ -1095,6 +1138,8 @@ impl Population {
                 if known {
                     out.lost_kcal += f64::from(a.kcal);
                     out.lost += 1;
+                } else {
+                    out.unknown_kcal += f64::from(a.kcal);
                 }
             } else {
                 out.took_kcal += f64::from(a.kcal);

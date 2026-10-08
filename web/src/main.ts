@@ -1019,6 +1019,7 @@ const hooks = {
               actor: i.actorName,
               target: i.targetName,
               seenBy: i.seenBy.length,
+              watch: i.watch,
             })),
             known: s.order.known.map((k) => ({
               incident: k.incident,

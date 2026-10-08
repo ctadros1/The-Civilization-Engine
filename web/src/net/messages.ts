@@ -878,6 +878,11 @@ export interface IncidentLine {
   kcal: number;
   /** Who saw the taker at it. */
   seenBy: string[];
+  /**
+   * Wire 1.32: what the one who keeps the watch did with it, if they saw it, in the kernel's
+   * words, or "". The truth: nobody in the world reads it.
+   */
+  watch: string;
 }
 
 /** What the living believe of one incident, and what was chosen (the knowledge layer). */
@@ -2844,6 +2849,7 @@ export function orderInfo(w: W.Order): OrderInfo {
       what: i.what() ?? "",
       kcal: i.kcal(),
       seenBy: Array.from({ length: i.seenByLength() }, (_, j) => i.seenBy(j) ?? ""),
+      watch: i.watch() ?? "",
     });
   }
   const known: KnownLine[] = [];

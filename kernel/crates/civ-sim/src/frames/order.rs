@@ -3,7 +3,9 @@
 //! brought for it, which is what the polity knows. The kernel renders the words; the observer
 //! only shows them.
 
-use civ_agents::crime::{CaseStage, Choice, Incident, Obligation, Outcome, Owed, Source, Standing};
+use civ_agents::crime::{
+    CaseStage, Choice, Incident, Kept, Obligation, Outcome, Owed, Source, Standing,
+};
 use civ_core::PermanentId;
 use civ_schema::flatbuffers::FlatBufferBuilder;
 use civ_schema::wire;
@@ -114,6 +116,41 @@ fn owed_words(sim: &Sim, incident: u32) -> String {
     }
 }
 
+/// What the one who keeps the watch did with a taking they saw, in words: the truth (M4b slice
+/// AC). "Bram, keeping watch, saw it and said nothing for 9 kg of grain."
+fn watch_words(sim: &Sim, i: &Incident) -> String {
+    let pop = &sim.people;
+    let Some(s) = pop.order.sightings.iter().find(|s| s.incident == i.id) else {
+        return String::new();
+    };
+    let did = match s.kept {
+        Kept::Reported => "brought it before the gathering".to_owned(),
+        Kept::Told => "told the household taken from".to_owned(),
+        Kept::LookedAway => "said nothing".to_owned(),
+        Kept::Paid => {
+            // In days of the watcher's household's food, the scale every sanction is weighed in.
+            let need = pop
+                .person(s.officer)
+                .and_then(|p| pop.household(p.household))
+                .map_or(1, |x| x.members.len().max(1)) as f64
+                * sim.rules.people.household.daily_kcal_per_person;
+            format!(
+                "said nothing, for {:.1} days of their household's food from the taker's",
+                f64::from(s.kcal) / need.max(1.0)
+            )
+        }
+        Kept::Refused => {
+            "asked the taker's household to pay to say nothing, was refused, and brought it before \
+             the gathering"
+                .to_owned()
+        }
+    };
+    format!(
+        "{}, keeping watch, saw it and {did}",
+        pop.name_of(s.officer)
+    )
+}
+
 /// The case brought for an incident and how the gathering decided, in words: what the polity
 /// knows.
 fn case_words(sim: &Sim, incident: u32) -> String {
@@ -173,6 +210,7 @@ pub fn order_response(sim: &Sim) -> Vec<u8> {
             .map(|&w| fbb.create_string(&pop.name_of(w)))
             .collect();
         let seen_by = fbb.create_vector(&seen);
+        let watch = fbb.create_string(&watch_words(sim, i));
         let settlement = pop
             .household(i.target)
             .and_then(|x| x.settlement)
@@ -191,6 +229,7 @@ pub fn order_response(sim: &Sim) -> Vec<u8> {
                 what: Some(what),
                 kcal: i.kcal,
                 seen_by: Some(seen_by),
+                watch: Some(watch),
             },
         ));
         // What the living believe of it: knowledge, kept in its own table. What the taker knows of

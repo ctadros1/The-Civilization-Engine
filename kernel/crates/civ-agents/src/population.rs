@@ -50,6 +50,7 @@ mod life;
 mod loads;
 mod market;
 mod polity;
+mod watch;
 
 pub use deposits::{DepositKnown, FIND_M};
 pub use loads::{
@@ -2228,6 +2229,7 @@ impl Population {
             home: hh.home,
             hearth,
             gathering: self.gathering_facts(ctx, p.id, age, &hh, minute, evening_start),
+            watch: self.watch_facts(ctx, p.id, &hh, dark),
         };
         let limits = Limits {
             sleep_needed_min: needs::minutes_to_rest(&params.sleep, f64::from(p.sleep_pressure)),
@@ -3212,6 +3214,15 @@ impl Population {
             let (id, version, def) = (p.id, p.act.version, p.act.def);
             self.switched.insert(id, (version, def));
         }
+        // A round of the watch is counted as it begins (M4b slice AC).
+        let (who, def) = (p.id, p.act.def);
+        if catalog
+            .activities
+            .get(usize::from(def))
+            .is_some_and(|a| a.behavior == Behavior::Watch)
+        {
+            self.start_round(ctx, who);
+        }
         self.run_steps(ctx, h, depth + 1);
     }
 
@@ -3433,7 +3444,8 @@ impl Population {
                 | Behavior::Trade
                 | Behavior::Hire
                 | Behavior::Build
-                | Behavior::Take,
+                | Behavior::Take
+                | Behavior::Watch,
             ) => (def_par, false, 0.0),
             None => (params.energy.idle_par, false, 0.0),
         };
@@ -3563,6 +3575,10 @@ impl Population {
                     if let Target::Household(victim) = p.act.target {
                         self.take_from(ctx, h, victim);
                     }
+                }
+                Some(Behavior::Watch) => {
+                    let who = p.id;
+                    self.stood_watch(who, minutes);
                 }
                 Some(Behavior::Trade) => {
                     if let Target::Household(seller) | Target::Firm(seller) = p.act.target {

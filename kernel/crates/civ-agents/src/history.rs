@@ -133,11 +133,15 @@ pub enum Reason {
     NothingToTake = 130,
     /// Excluded: they turned back or fled from a store lately, and wait to try again.
     TurnedBackLately = 131,
+    /// The watch a law names them to keep (M4b slice AC, ADR-0015 §6).
+    Duty = 28,
+    /// Excluded: they keep no watch, it is not dark, or they have walked tonight's rounds.
+    NoWatch = 132,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 59] = [
+    pub const ALL: [Reason; 61] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -197,6 +201,8 @@ impl Reason {
         Reason::WouldNotTake,
         Reason::NothingToTake,
         Reason::TurnedBackLately,
+        Reason::Duty,
+        Reason::NoWatch,
     ];
 
     /// The reason with this code.
@@ -266,6 +272,8 @@ impl Reason {
             Reason::WouldNotTake => "would not take what is not theirs",
             Reason::NothingToTake => "no store within reach to take from",
             Reason::TurnedBackLately => "turned back from a store lately",
+            Reason::Duty => "the watch they keep",
+            Reason::NoWatch => "no watch of theirs to keep now",
         }
     }
 }

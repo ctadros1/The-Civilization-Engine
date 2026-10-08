@@ -27,14 +27,19 @@ pub enum PolicyKind {
     /// ADR-0015 §4): whoever it finds took gives back what was taken, and the law's bundle
     /// besides (research 09-07 §6.2).
     AgainstTaking,
+    /// The one the gathering names keeps watch over the households' stores at night (M4b slice
+    /// AC, ADR-0015 §6: a watch is an office, as the storekeeper is): rounds they choose to walk,
+    /// guarding and seeing only where they are. The law lapses when they die or leave.
+    KeepWatch,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 3] = [
+    pub const ALL: [PolicyKind; 4] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
+        PolicyKind::KeepWatch,
     ];
 
     /// The authored name.
@@ -43,6 +48,7 @@ impl PolicyKind {
             PolicyKind::CommonStore => "common_store",
             PolicyKind::KeepStore => "keep_store",
             PolicyKind::AgainstTaking => "against_taking",
+            PolicyKind::KeepWatch => "keep_watch",
         }
     }
 
@@ -443,6 +449,25 @@ pub struct Compliance {
     pub unanswered: u32,
 }
 
+/// What a watch has done (M4b slice AC): what anyone could see of it, and where its next round
+/// begins. Its hours on rounds are the polity's capacity to guard, a reported measure that nothing
+/// reads (12-04 §2.4).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct WatchRecord {
+    /// Rounds walked.
+    pub rounds: u32,
+    /// Minutes on rounds, walking and standing watch.
+    pub minutes: f64,
+    /// Cases the watch brought before the gathering.
+    pub cases: u32,
+    /// The night (the day index of its evening) the latest round was walked.
+    pub night: i64,
+    /// Rounds walked that night.
+    pub tonight: u8,
+    /// Where the next round begins: an index into the settlement's households in id order.
+    pub next: u32,
+}
+
 /// A law and its whole history (ADR-0013 §3): kept for ever, never pruned.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Law {
@@ -450,6 +475,8 @@ pub struct Law {
     pub id: PermanentId,
     /// Its template, by index in the catalog's policies.
     pub policy: u16,
+    /// What its template does: set from the catalog when it is proposed or loaded, not saved.
+    pub kind: PolicyKind,
     /// The levy share proposed (0 for a law that levies nothing).
     pub levy_share: f32,
     /// The one it names, for a law that names someone (who keeps the store).
@@ -480,6 +507,8 @@ pub struct Law {
     pub known: Vec<(PermanentId, i64)>,
     /// Stages 6-7: what people did, and what moved.
     pub compliance: Compliance,
+    /// For a watch: what it has done (M4b slice AC).
+    pub watch: WatchRecord,
 }
 
 impl Law {
@@ -585,6 +614,12 @@ pub fn law_words(
             None => "someone as keeper of the common store".to_owned(),
         };
     }
+    if def.is_some_and(|d| d.kind == PolicyKind::KeepWatch) {
+        return match law.holder {
+            Some(h) => format!("{} to keep watch over the stores at night", name_of(h)),
+            None => "someone to keep watch over the stores at night".to_owned(),
+        };
+    }
     let name = def.map_or_else(
         || "a law".to_owned(),
         |d| {
@@ -610,8 +645,9 @@ pub fn day_words(t: SimTime) -> String {
 }
 
 /// A polity's offices, in words: "Storekeeper: Ada, since 3 May of year 2", or once its holder is
-/// gone and nobody named since, "Storekeeper: vacant since 9 June of year 5, when Ada died".
-/// `gone` says how someone left ("died", "left the valley").
+/// gone and nobody named since, "Storekeeper: vacant since 9 June of year 5, when Ada died". A
+/// watch adds what anyone could see of it: "Watch: Bram, since 3 May of year 2; 14 rounds, 30
+/// hours on them, 2 cases brought". `gone` says how someone left ("died", "left the valley").
 pub fn office_words(
     polity: &Polity,
     policies: &[PolicyDef],
@@ -620,7 +656,7 @@ pub fn office_words(
 ) -> Vec<String> {
     let mut out = Vec::new();
     for (k, def) in policies.iter().enumerate() {
-        if def.kind != PolicyKind::KeepStore {
+        if !matches!(def.kind, PolicyKind::KeepStore | PolicyKind::KeepWatch) {
             continue;
         }
         // The last one named, still holding it or since gone.
@@ -636,8 +672,25 @@ pub fn office_words(
             continue;
         };
         let since = law.decided.map(day_words).unwrap_or_default();
+        let w = &law.watch;
+        let record = if def.kind == PolicyKind::KeepWatch {
+            let cases = match w.cases {
+                1 => "1 case brought".to_owned(),
+                n => format!("{n} cases brought"),
+            };
+            format!(
+                "; {} round{}, {:.0} hours on them, {cases}",
+                w.rounds,
+                if w.rounds == 1 { "" } else { "s" },
+                w.minutes / 60.0
+            )
+        } else {
+            String::new()
+        };
         out.push(match law.status {
-            LawStatus::InForce => format!("{}: {}, since {since}", def.name, name_of(holder)),
+            LawStatus::InForce => {
+                format!("{}: {}, since {since}{record}", def.name, name_of(holder))
+            }
             _ => format!(
                 "{}: vacant, since {} {}",
                 def.name,
@@ -734,12 +787,21 @@ impl Polity {
         self.laws.iter().find(|l| l.status == LawStatus::Proposed)
     }
 
-    /// The one who keeps the store under their roof by a law in force, and that law: only a law
-    /// that keeps the store names anyone.
+    /// The one who keeps the store under their roof by a law in force, and that law.
     pub fn keeper(&self) -> Option<(PermanentId, &Law)> {
+        self.office(PolicyKind::KeepStore)
+    }
+
+    /// The one who keeps watch by a law in force, and that law (M4b slice AC).
+    pub fn watcher(&self) -> Option<(PermanentId, &Law)> {
+        self.office(PolicyKind::KeepWatch)
+    }
+
+    /// The holder of the office a law of kind `kind` in force names, and that law.
+    fn office(&self, kind: PolicyKind) -> Option<(PermanentId, &Law)> {
         self.laws
             .iter()
-            .filter(|l| l.status == LawStatus::InForce)
+            .filter(|l| l.status == LawStatus::InForce && l.kind == kind)
             .find_map(|l| Some((l.holder?, l)))
     }
 
@@ -1068,6 +1130,7 @@ pub(crate) mod tests {
         let mut law = Law {
             id: pid(1),
             policy: 0,
+            kind: PolicyKind::CommonStore,
             levy_share: 0.1,
             holder: None,
             relief_days: 5.0,
@@ -1083,6 +1146,7 @@ pub(crate) mod tests {
             stances: Vec::new(),
             known: Vec::new(),
             compliance: Compliance::default(),
+            watch: WatchRecord::default(),
         };
         assert!(law.learn(pid(9), 3));
         assert!(law.learn(pid(4), 5));
@@ -1107,10 +1171,12 @@ pub(crate) mod tests {
             def(PolicyKind::CommonStore, "Common store"),
             def(PolicyKind::KeepStore, "Storekeeper"),
             def(PolicyKind::AgainstTaking, "Against taking"),
+            def(PolicyKind::KeepWatch, "Watch"),
         ];
         let mut law = Law {
             id: pid(1),
             policy: 0,
+            kind: PolicyKind::CommonStore,
             levy_share: 0.1,
             holder: None,
             relief_days: 5.0,
@@ -1126,6 +1192,7 @@ pub(crate) mod tests {
             stances: Vec::new(),
             known: Vec::new(),
             compliance: Compliance::default(),
+            watch: WatchRecord::default(),
         };
         let name_of = |_: PermanentId| "Ada".to_owned();
         assert_eq!(
@@ -1165,6 +1232,65 @@ pub(crate) mod tests {
             law_words(&law, &policies, &name_of),
             "a law against taking: whoever is found to have taken from another household's store \
              gives back what was taken, and is sent from the valley"
+        );
+        law.policy = 3;
+        law.holder = Some(pid(9));
+        assert_eq!(
+            law_words(&law, &policies, &name_of),
+            "Ada to keep watch over the stores at night"
+        );
+    }
+
+    #[test]
+    fn a_watch_office_reads_with_what_anyone_could_see_of_it() {
+        let policies = [PolicyDef {
+            id: "core:policy/keep_watch".to_owned(),
+            name: "Watch".to_owned(),
+            description: String::new(),
+            kind: PolicyKind::KeepWatch,
+            answers: vec![IssueKind::Takings],
+            levy_shares: Vec::new(),
+            relief_days: 0.0,
+            bundles: Vec::new(),
+        }];
+        let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
+        polity.laws.push(Law {
+            id: pid(3),
+            policy: 0,
+            kind: PolicyKind::KeepWatch,
+            levy_share: 0.0,
+            holder: Some(pid(9)),
+            relief_days: 0.0,
+            sanction: Sanction::default(),
+            status: LawStatus::InForce,
+            sponsor: pid(9),
+            proposed: SimTime::ZERO,
+            issue: IssueKind::Takings,
+            meets_day: 0,
+            decided: Some(SimTime::ZERO),
+            outcome: Some(Outcome::Passed),
+            eligible: 0,
+            stances: Vec::new(),
+            known: Vec::new(),
+            compliance: Compliance::default(),
+            watch: WatchRecord {
+                rounds: 14,
+                minutes: 1800.0,
+                cases: 1,
+                ..Default::default()
+            },
+        });
+        assert_eq!(polity.watcher().map(|w| w.0), Some(pid(9)));
+        assert!(polity.keeper().is_none(), "a watch keeps no store");
+        let words = office_words(&polity, &policies, &|_| "Bram".to_owned(), &|_| {
+            String::new()
+        });
+        assert_eq!(words.len(), 1);
+        assert!(
+            words[0].starts_with("Watch: Bram, since ")
+                && words[0].ends_with("; 14 rounds, 30 hours on them, 1 case brought"),
+            "{}",
+            words[0]
         );
     }
 

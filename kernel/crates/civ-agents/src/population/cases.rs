@@ -81,10 +81,16 @@ impl Population {
         let Some(accused_household) = self.person(accused).map(|p| p.household) else {
             return;
         };
-        let members = self
+        // The witnesses behind it: what the household knows, and what the one who brings it saw
+        // (a watcher who brings what they saw, M4b slice AC).
+        let mut members = self
             .household(household)
             .map(|x| x.members.clone())
             .unwrap_or_default();
+        let member = members.contains(&by);
+        if !member {
+            members.push(by);
+        }
         let leads = self.order.leads(&members, incident, accused);
         let id = self.order.cases.last().map_or(1, |c| c.id + 1);
         self.order.cases.push(Case {
@@ -124,9 +130,14 @@ impl Population {
             (true, false) => format!("they saw it themselves, as did {}", names(&others)),
             (false, _) => format!("{} saw it", names(&others)),
         };
+        let whose = if member {
+            "their household".to_owned()
+        } else {
+            self.household_words(ctx, household)
+        };
         let words = format!(
-            "brought a case before the gathering at {name}: that {} took food from their \
-             household; {saw}.",
+            "brought a case before the gathering at {name}: that {} took food from {whose}; \
+             {saw}.",
             self.name_of(accused)
         );
         self.chronicle_push(

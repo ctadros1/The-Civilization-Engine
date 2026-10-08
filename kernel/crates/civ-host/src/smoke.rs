@@ -625,6 +625,37 @@ fn polity(sim: &Sim) -> Option<String> {
                 if p.keeper().is_some() { "one" } else { "none" }
             ));
         }
+        // The watch (M4b slice AC): what anyone could see of it, and what it did with takings it
+        // saw (the truth).
+        let watches: Vec<_> = p
+            .laws
+            .iter()
+            .filter(|l| kind(l) == Some(PolicyKind::KeepWatch))
+            .filter(|l| matches!(l.status, LawStatus::InForce | LawStatus::Lapsed))
+            .collect();
+        if !watches.is_empty() {
+            let rounds: u32 = watches.iter().map(|l| l.watch.rounds).sum();
+            let hours: f64 = watches.iter().map(|l| l.watch.minutes).sum::<f64>() / 60.0;
+            let cases: u32 = watches.iter().map(|l| l.watch.cases).sum();
+            let order = &pop.order;
+            let kept = |k: civ_agents::crime::Kept| {
+                order.sightings.iter().filter(|s| s.kept == k).count()
+            };
+            use civ_agents::crime::Kept;
+            parts.push(format!(
+                "{} watch{} named, {} keeping it now: {rounds} rounds, {hours:.0} hours, {cases} \
+                 case{} brought; of {} takings it saw, {} reported or told, {} let go, {} paid to \
+                 say nothing",
+                watches.len(),
+                if watches.len() == 1 { "" } else { "es" },
+                if p.watcher().is_some() { "one" } else { "none" },
+                if cases == 1 { "" } else { "s" },
+                order.sightings.len(),
+                kept(Kept::Reported) + kept(Kept::Told) + kept(Kept::Refused),
+                kept(Kept::LookedAway),
+                kept(Kept::Paid),
+            ));
+        }
         // Laws against taking (M4b slice AB): how many were put, and the one in force.
         let against: Vec<_> = p
             .laws

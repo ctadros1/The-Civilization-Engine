@@ -28,6 +28,7 @@ function incident(over: Partial<M.IncidentLine> = {}): M.IncidentLine {
     what: "12 kg of grain",
     kcal: 40_800,
     seenBy: [],
+    watch: "",
     ...over,
   };
 }
@@ -135,6 +136,7 @@ describe("takings in words", () => {
     const targetName = b.createString("the household of Rilla");
     const what = b.createString("12 kg of grain");
     const seen = W.IncidentLine.createSeenByVector(b, [b.createString("Bram")]);
+    const watch = b.createString("Bram, keeping watch, saw it and said nothing");
     const line = W.IncidentLine.createIncidentLine(
       b,
       3,
@@ -148,6 +150,7 @@ describe("takings in words", () => {
       what,
       40_800,
       seen,
+      watch,
     );
     const incidents = W.Order.createIncidentsVector(b, [line]);
     const response = b.createString("Rilla demanded the food back");
@@ -196,6 +199,7 @@ describe("takings in words", () => {
       outcome: "taken",
       what: "12 kg of grain",
       seenBy: ["Bram"],
+      watch: "Bram, keeping watch, saw it and said nothing",
     });
     expect(o.known[0]).toMatchObject({
       incident: 3,

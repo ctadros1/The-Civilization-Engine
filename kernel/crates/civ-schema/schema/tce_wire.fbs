@@ -1557,6 +1557,10 @@ table IncidentLine {
   kcal: float (id: 9);
   // Who saw the taker at it.
   seen_by: [string] (id: 10);
+  // Wire 1.32: what the one who keeps the watch did with it, if they saw it, in words ("Bram,
+  // keeping watch, saw it and said nothing for 9 kg of grain"), or empty. The truth: nobody in
+  // the world reads it.
+  watch: string (id: 11);
 }
 
 // What people believe of one incident, and what was chosen (the knowledge layer).

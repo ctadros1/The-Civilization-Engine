@@ -137,6 +137,9 @@ pub const SCHEMA_V30: u32 = 30;
 /// The schema version of M4b slice AA: takings and what was seen, before laws against them (see
 /// [`agents`]).
 pub const SCHEMA_V31: u32 = 31;
+/// The schema version of M4b slice AB: cases and their decision, before the watch (see
+/// [`agents`]).
+pub const SCHEMA_V32: u32 = 32;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

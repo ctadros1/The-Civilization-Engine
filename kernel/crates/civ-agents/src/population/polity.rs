@@ -73,23 +73,46 @@ impl Population {
     }
 
     /// A law that names someone lapses when they die or leave the settlement: the store they
-    /// kept lies unkept again, which is a vacancy the next review may answer (succession,
-    /// ADR-0013 §2). Nothing fills it by itself.
+    /// kept lies unkept again, or the watch they kept is unkept, which is a vacancy the next
+    /// review may answer (succession, ADR-0013 §2). Nothing fills it by itself.
     fn lapse_keepers(&mut self, ctx: &mut Ctx) {
         for pi in 0..self.polities.len() {
             let settlement = self.polities[pi].settlement;
-            let Some((holder, law)) = self.polities[pi].keeper().map(|(h, l)| (h, l.id)) else {
-                continue;
-            };
+            let offices: Vec<(PermanentId, PermanentId, PolicyKind)> = self.polities[pi]
+                .laws
+                .iter()
+                .filter(|l| l.status == LawStatus::InForce)
+                .filter_map(|l| Some((l.holder?, l.id, l.kind)))
+                .collect();
+            for (holder, law, kind) in offices {
+                self.lapse_office(ctx, pi, settlement, holder, law, kind);
+            }
+        }
+    }
+
+    /// Law `law` of polity `pi` names `holder` to an office of kind `kind`: it lapses if they no
+    /// longer live in the settlement.
+    fn lapse_office(
+        &mut self,
+        ctx: &mut Ctx,
+        pi: usize,
+        settlement: PermanentId,
+        holder: PermanentId,
+        law: PermanentId,
+        kind: PolicyKind,
+    ) {
+        {
             let here = self
                 .person(holder)
                 .and_then(|p| self.household(p.household))
                 .is_some_and(|x| x.settlement == Some(settlement));
             if here {
-                continue;
+                return;
             }
-            let sheltered = self.polity_sheltered(pi);
-            self.polities[pi].settle_stores(ctx.now, &ctx.catalog.goods, sheltered);
+            if kind == PolicyKind::KeepStore {
+                let sheltered = self.polity_sheltered(pi);
+                self.polities[pi].settle_stores(ctx.now, &ctx.catalog.goods, sheltered);
+            }
             if let Some(l) = self.polities[pi].law_mut(law) {
                 l.status = LawStatus::Lapsed;
             }
@@ -106,8 +129,13 @@ impl Population {
                 .map_or((None, String::new()), |s| {
                     (Some(s.hearth_m), s.name.clone())
                 });
+            let office = if kind == PolicyKind::KeepWatch {
+                "keeps watch"
+            } else {
+                "keeps the common store"
+            };
             let words = format!(
-                "{} no longer keeps the common store at {name}: {why}.",
+                "{} no longer {office} at {name}: {why}.",
                 self.name_of(holder)
             );
             self.chronicle_push(
@@ -433,6 +461,13 @@ impl Population {
                         known.under(&m.sanction, o.year_need / 365.0, params.crime.exile_days);
                     crate::polity::against_gain(o, recover, owe, pp)
                 }
+                Some(PolicyKind::KeepWatch) => {
+                    let known = takings
+                        .binary_search_by_key(&h, |t| t.0)
+                        .map_or_else(|_| Default::default(), |k| takings[k].1);
+                    let (recover, owe) = known.watched(params.crime.watch_guard);
+                    crate::polity::against_gain(o, recover, owe, pp)
+                }
                 _ => crate::polity::store_gain(o, &belief, m.levy_share, pp),
             }
         };
@@ -477,6 +512,27 @@ impl Population {
                         let pick = roofed
                             .iter()
                             .map(|&c| {
+                                let r = if c == d {
+                                    1.0
+                                } else {
+                                    self.ties.regard(d, c, day, tp).clamp(0.0, 1.0)
+                                };
+                                (r, c)
+                            })
+                            .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
+                        if let Some((_, c)) = pick {
+                            moves.push(MoveOption {
+                                nominee: Some(c),
+                                ..blank
+                            });
+                        }
+                    }
+                    // A watch: the adult they regard most, themselves at full regard (M4b slice
+                    // AC).
+                    PolicyKind::KeepWatch => {
+                        let pick = members
+                            .iter()
+                            .map(|&(c, _)| {
                                 let r = if c == d {
                                     1.0
                                 } else {
@@ -584,6 +640,7 @@ impl Population {
         let law = Law {
             id,
             policy: m.policy,
+            kind: def.kind,
             levy_share: m.levy_share as f32,
             holder: m.nominee,
             relief_days: def.relief_days as f32,
@@ -599,6 +656,7 @@ impl Population {
             stances: Vec::new(),
             known: vec![(sponsor, day)],
             compliance: Default::default(),
+            watch: Default::default(),
         };
         // "Mira proposed themselves as keeper of the common store", not "Mira as keeper".
         let words = format!(

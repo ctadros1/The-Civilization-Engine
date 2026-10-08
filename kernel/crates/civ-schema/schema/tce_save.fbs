@@ -1098,6 +1098,14 @@ table LawSave {
   compensation_days: float (id: 25);
   fine_days: float (id: 26);
   exile: bool (id: 27);
+  // A watch's record (saves 33): rounds walked, minutes on them, cases it brought, the night of
+  // its latest round and the rounds walked that night, and where its next round begins.
+  watch_rounds: uint (id: 28);
+  watch_minutes: double (id: 29);
+  watch_cases: uint (id: 30);
+  watch_night: long (id: 31);
+  watch_tonight: ubyte (id: 32);
+  watch_next: uint (id: 33);
 }
 
 // `law` 0: called on cases only (M4b slice AB).
@@ -1247,6 +1255,19 @@ struct CaseStanceSave {
   stance: ubyte;
 }
 
+// From saves 33 (M4b slice AC). `kept`: 0 reported, 1 told, 2 looked away, 3 paid, 4 refused and
+// reported; `ask_points` counts only when `ask_open`.
+struct SightingSave {
+  officer: ulong;
+  day: long;
+  incident: uint;
+  kcal: float;
+  report_points: float;
+  ask_points: float;
+  kept: ubyte;
+  ask_open: bool;
+}
+
 // `stage`: 0 open, 1 found, 2 not found, 3 unheard, 4 lapsed.
 table CaseSave {
   id: uint (id: 0);
@@ -1281,6 +1302,7 @@ table Order {
   responses2: [ResponseSave2] (id: 6);
   obligations2: [ObligationSave2] (id: 7);
   cases: [CaseSave] (id: 8);
+  sightings: [SightingSave] (id: 9);
 }
 
 // Section "events": the scheduler's pending events.

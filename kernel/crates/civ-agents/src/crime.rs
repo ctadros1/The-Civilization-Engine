@@ -110,6 +110,22 @@ pub struct CrimeParams {
     /// Days of its food a household reckons losing a grown member to exile costs it: what it
     /// weighs a law that exiles against, and what a hearing puts at stake for it.
     pub exile_days: f64,
+    /// The share of takings a household believes a watch would stop or see (M4b slice AC): what
+    /// it weighs a law naming a watch by.
+    pub watch_guard: f64,
+    /// Points for walking a round of the watch one keeps, the night's first; less for each round
+    /// walked since.
+    pub w_watch: f64,
+    /// Rounds a watch walks a night at most (research 12-04 §2.1: one account of three).
+    pub rounds_per_night: u32,
+    /// Homes a round stands watch at.
+    pub round_stops: u32,
+    /// Points toward bringing what a watcher saw before the gathering (or telling the household
+    /// taken from) over saying nothing: the duty of the office.
+    pub w_watch_report: f64,
+    /// Days of the taker's household's food a watcher asks to say nothing, at most what it can
+    /// spare.
+    pub ask_days: f64,
 }
 
 impl CrimeParams {
@@ -147,6 +163,12 @@ impl CrimeParams {
             w_case_belief: 1.0,
             w_comply_found: 2.0,
             exile_days: 60.0,
+            watch_guard: 0.5,
+            w_watch: 6.0,
+            rounds_per_night: 3,
+            round_stops: 6,
+            w_watch_report: 2.0,
+            ask_days: 3.0,
         }
     }
 }
@@ -334,6 +356,8 @@ pub struct TakingsKnown {
     pub lost_kcal: f64,
     /// How many such takings.
     pub lost: u32,
+    /// Food it found missing whose taker no member knows, kcal (M4b slice AC).
+    pub unknown_kcal: f64,
     /// Food its members took, kcal.
     pub took_kcal: f64,
     /// How many takings.
@@ -343,6 +367,14 @@ pub struct TakingsKnown {
 }
 
 impl TakingsKnown {
+    /// What a watch would bring the household a year, kcal (M4b slice AC): back to it, `guard` of
+    /// all it found missing, whoever took it; from it, as much of what its own members took.
+    /// `guard` is the share of takings the household believes a watch would stop or see.
+    pub fn watched(&self, guard: f64) -> (f64, f64) {
+        let g = guard.clamp(0.0, 1.0);
+        (g * (self.lost_kcal + self.unknown_kcal), g * self.took_kcal)
+    }
+
     /// What a law against taking with `sanction` would bring the household a year, kcal: back to
     /// it, what it lost to known takers with compensation; from it, what its own takers took with
     /// compensation and the fine (and, for exile, `exile_days` of its food for the member it would
@@ -561,8 +593,71 @@ pub struct Order {
     pub amounts: Vec<KnownAmount>,
     /// Cases brought before the gathering, in the order brought (M4b slice AB).
     pub cases: Vec<Case>,
+    /// What watchers chose to do with takings they saw, in the order they chose (M4b slice AC):
+    /// the truth, which nobody else learns.
+    pub sightings: Vec<Sighting>,
     /// Asks refused because the giver believed the asker took (a counter, not saved).
     pub refusals: u64,
+}
+
+/// What a watcher who saw a taking chose (M4b slice AC, ADR-0015 §6; research 09-09 §1.3). Codes
+/// are part of saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kept {
+    /// They brought it before the gathering.
+    Reported = 0,
+    /// They told the household taken from (no law against taking was in force).
+    Told = 1,
+    /// They said nothing.
+    LookedAway = 2,
+    /// They asked the taker's household for food to say nothing, and it paid.
+    Paid = 3,
+    /// They asked, it refused, and they brought it before the gathering.
+    Refused = 4,
+}
+
+impl Kept {
+    /// Every choice, in code order.
+    pub const ALL: [Kept; 5] = [
+        Kept::Reported,
+        Kept::Told,
+        Kept::LookedAway,
+        Kept::Paid,
+        Kept::Refused,
+    ];
+
+    /// Its number in saves.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The choice numbered `code`.
+    pub fn from_code(code: u8) -> Option<Kept> {
+        Kept::ALL.get(usize::from(code)).copied()
+    }
+
+    /// Whether the watcher keeps what they saw to themselves.
+    pub fn quiet(self) -> bool {
+        matches!(self, Kept::LookedAway | Kept::Paid)
+    }
+}
+
+/// What a watcher did with a taking they saw (M4b slice AC): the truth, with its receipt.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Sighting {
+    /// The incident.
+    pub incident: u32,
+    /// The watcher.
+    pub officer: PermanentId,
+    /// The day they chose.
+    pub day: i64,
+    /// What they chose.
+    pub kept: Kept,
+    /// Food paid to them on the `bribe` channel, kcal.
+    pub kcal: f32,
+    /// Points toward reporting and toward asking for food over saying nothing (the receipt; the
+    /// second is `None` when asking was not weighed).
+    pub points: (f32, Option<f32>),
 }
 
 /// Where a case stands. Codes are part of saves: append only.
@@ -762,6 +857,21 @@ impl Order {
         }
     }
 
+    /// Whether `holder` keeps what they know of incident `incident` to themselves: a watcher
+    /// who looked away or was paid to (M4b slice AC).
+    pub fn quiet(&self, holder: PermanentId, incident: u32) -> bool {
+        self.sightings
+            .iter()
+            .any(|s| s.officer == holder && s.incident == incident && s.kept.quiet())
+    }
+
+    /// What `officer` chose about incident `incident`, if they have.
+    pub fn sighting(&self, officer: PermanentId, incident: u32) -> Option<&Sighting> {
+        self.sightings
+            .iter()
+            .find(|s| s.officer == officer && s.incident == incident)
+    }
+
     /// The case numbered `id`.
     pub fn case(&self, id: u32) -> Option<&Case> {
         self.cases
@@ -918,6 +1028,22 @@ mod tests {
             ..told
         });
         assert_eq!(o.sources(1), 1);
+    }
+
+    #[test]
+    fn a_watch_would_guard_against_every_loss_and_cost_a_households_takers_as_much() {
+        let k = TakingsKnown {
+            lost_kcal: 100.0,
+            lost: 1,
+            unknown_kcal: 300.0,
+            took_kcal: 50.0,
+            took: 1,
+            risk: 0.5,
+        };
+        let (recover, owe) = k.watched(0.5);
+        assert!((recover - 200.0).abs() < 1e-9, "losses whoever took them");
+        assert!((owe - 25.0).abs() < 1e-9);
+        assert_eq!(k.watched(2.0), (400.0, 50.0), "a share, at most all");
     }
 
     #[test]

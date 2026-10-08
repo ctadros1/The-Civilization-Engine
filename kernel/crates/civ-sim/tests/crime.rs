@@ -325,17 +325,17 @@ fn a_debt_meant_to_be_paid_is_paid_from_what_can_be_spared(sim: &mut Sim) {
     );
 }
 
-/// Puts a law against taking in force at the first polity, as a gathering would have passed it,
-/// with the template's harshest bundle (it exiles), known to every adult there. Returns the
-/// polity's id.
-fn a_law_against_taking(sim: &mut Sim) -> PermanentId {
-    use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome as Decided, PolicyKind};
+/// Puts a law of kind `kind` in force at the first polity, as a gathering would have passed it,
+/// known to every adult there: for a law against taking, with the template's harshest bundle (it
+/// exiles); for an office, naming the first adult by id. Returns the polity's id and the law's.
+fn a_law(sim: &mut Sim, kind: civ_agents::polity::PolicyKind) -> (PermanentId, PermanentId) {
+    use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome as Decided};
     let policies = &sim.rules().catalog.policies;
     let policy = policies
         .iter()
-        .position(|d| d.kind == PolicyKind::AgainstTaking)
-        .expect("the core content has a law against taking");
-    let sanction = *policies[policy].bundles.last().expect("a bundle");
+        .position(|d| d.kind == kind)
+        .expect("the core content has the template");
+    let sanction = policies[policy].bundles.last().copied().unwrap_or_default();
     let id = sim.allocate_id_for_tests();
     let (now, grown) = (sim.now(), sim.rules().people.family.independent_age);
     let pop = sim.people_mut_for_tests();
@@ -348,11 +348,16 @@ fn a_law_against_taking(sim: &mut Sim) -> PermanentId {
         .filter(|&m| pop.person(m).is_some_and(|p| p.age_years(now) >= grown))
         .collect();
     adults.sort_unstable();
+    let office = matches!(
+        kind,
+        civ_agents::polity::PolicyKind::KeepStore | civ_agents::polity::PolicyKind::KeepWatch
+    );
     let mut law = Law {
         id,
         policy: policy as u16,
+        kind,
         levy_share: 0.0,
-        holder: None,
+        holder: office.then_some(adults[0]),
         relief_days: 0.0,
         sanction,
         status: LawStatus::InForce,
@@ -366,12 +371,48 @@ fn a_law_against_taking(sim: &mut Sim) -> PermanentId {
         stances: Vec::new(),
         known: Vec::new(),
         compliance: Default::default(),
+        watch: Default::default(),
     };
     for &a in &adults {
         law.learn(a, now.day_index());
     }
     pop.polities[0].laws.push(law);
-    pop.polities[0].id
+    (pop.polities[0].id, id)
+}
+
+#[test]
+fn a_watch_walks_its_rounds_at_night_within_the_nights_limit() {
+    use civ_agents::polity::PolicyKind;
+    let mut sim = world_with(content(), 7);
+    sim.advance_minutes(3 * DAY).expect("advances");
+    let (_, law) = a_law(&mut sim, PolicyKind::KeepWatch);
+    let nights = 6;
+    sim.advance_minutes(nights * DAY).expect("advances");
+    let p = &sim.people().polities[0];
+    let l = p.laws.iter().find(|l| l.id == law).expect("the law");
+    let w = &l.watch;
+    let rounds_per_night = sim.rules().people.crime.rounds_per_night;
+    assert!(
+        w.rounds > 0,
+        "the watch walked no round in {nights} nights: {w:?}"
+    );
+    assert!(
+        w.rounds <= rounds_per_night * (nights as u32 + 1),
+        "more rounds than nights allow: {w:?}"
+    );
+    assert!(u32::from(w.tonight) <= rounds_per_night);
+    // A round's stands take the activity's minutes each, and the watch counts them.
+    let stand = sim
+        .rules()
+        .catalog
+        .activities
+        .iter()
+        .find(|a| a.behavior == civ_agents::Behavior::Watch)
+        .expect("the activity")
+        .min_minutes;
+    assert!(w.minutes >= f64::from(stand), "{w:?}");
+    assert_eq!(p.watcher().map(|(h, _)| h), l.holder);
+    saves_and_goes_on_alike(&mut sim, content(), DAY);
 }
 
 #[test]
@@ -396,7 +437,7 @@ fn under_a_law_against_taking_cases_are_brought_heard_and_their_findings_owed() 
         crime.report_cost = -20.0;
         crime.demand_base = -20.0;
     }
-    let polity = a_law_against_taking(&mut sim);
+    let (polity, _) = a_law(&mut sim, civ_agents::polity::PolicyKind::AgainstTaking);
     let (may, _) = lean_spell(&mut sim);
     assert!(!may.is_empty());
     let held_before = sim.people().goods_held();
@@ -508,4 +549,250 @@ fn under_a_law_against_taking_cases_are_brought_heard_and_their_findings_owed() 
         .people
         .crime = content_crime;
     saves_and_goes_on_alike(&mut sim, content(), 2 * DAY);
+}
+
+#[test]
+fn a_watcher_chooses_once_what_to_do_with_a_taking_they_saw() {
+    use civ_agents::crime::Kept;
+    use civ_agents::polity::PolicyKind;
+    let mut sim = world_with(content(), 8);
+    sim.advance_minutes(3 * DAY).expect("advances");
+    // The situation under test: takings succeed and whoever is about sees them, and the watcher's
+    // rounds pass every home, so the watcher sees some.
+    let content_crime = sim.rules().people.crime.clone();
+    {
+        let crime = &mut sim
+            .rules_mut_for_tests()
+            .expect("rules not yet shared")
+            .people
+            .crime;
+        crime.guardian_age = 200.0;
+        crime.notice_chance = 0.0;
+        crime.round_stops = 1000;
+    }
+    let (_, watch) = a_law(&mut sim, PolicyKind::KeepWatch);
+    let (_, _) = a_law(&mut sim, PolicyKind::AgainstTaking);
+    let officer = sim.people().polities[0]
+        .watcher()
+        .map(|(h, _)| h)
+        .expect("the watcher");
+    lean_spell(&mut sim);
+    let held_before = sim.people().goods_held();
+    let flows_before = sim.people().flows();
+    for _ in 0..12 {
+        if !sim.people().order.sightings.is_empty() {
+            break;
+        }
+        sim.advance_minutes(5 * DAY).expect("advances");
+    }
+    sim.advance_minutes(2 * DAY).expect("advances");
+    let pop = sim.people();
+    let order = &pop.order;
+    assert!(
+        !order.sightings.is_empty(),
+        "the watcher saw no taking in 60 days"
+    );
+    let mut seen = BTreeSet::new();
+    for s in &order.sightings {
+        // Once each, by the one who keeps the watch, of a taking they did see.
+        assert!(seen.insert((s.officer, s.incident)), "{s:?} chosen twice");
+        assert_eq!(s.officer, officer);
+        let i = order.incident(s.incident).expect("its incident");
+        assert!(i.seen_by.contains(&officer));
+        match s.kept {
+            // Kept quiet: nobody learnt it from them.
+            Kept::LookedAway | Kept::Paid => assert!(
+                !order
+                    .beliefs
+                    .iter()
+                    .any(|b| b.incident == s.incident && b.from == Some(officer)),
+                "{s:?} was told"
+            ),
+            Kept::Reported | Kept::Refused => assert!(
+                order.cases.iter().any(|c| c.incident == s.incident),
+                "{s:?} brought no case"
+            ),
+            Kept::Told => panic!("a law against taking was in force: {s:?}"),
+        }
+        assert_eq!(s.kept == Kept::Paid, s.kcal > 0.0, "{s:?}");
+    }
+    // The watch counts the cases it brought.
+    let brought = order
+        .sightings
+        .iter()
+        .filter(|s| matches!(s.kept, Kept::Reported | Kept::Refused))
+        .filter(|s| {
+            order
+                .cases
+                .iter()
+                .any(|c| c.incident == s.incident && c.by == officer)
+        })
+        .count() as u32;
+    let law = pop.polities[0]
+        .laws
+        .iter()
+        .find(|l| l.id == watch)
+        .expect("the watch");
+    assert_eq!(law.watch.cases, brought);
+    let goods = &sim.rules().catalog.goods;
+    let gaps = population::unaccounted(
+        goods.len(),
+        (&held_before, &flows_before),
+        (&pop.goods_held(), &pop.flows()),
+    );
+    assert!(gaps.is_empty(), "unaccounted for: {gaps:?}");
+    sim.rules_mut_for_tests()
+        .expect("rules not yet shared")
+        .people
+        .crime = content_crime;
+    saves_and_goes_on_alike(&mut sim, content(), DAY);
+}
+
+#[test]
+fn a_watcher_without_objection_asks_to_be_paid_and_the_payment_moves_on_its_channel() {
+    use civ_agents::crime::Kept;
+    use civ_agents::polity::PolicyKind;
+    let mut sim = world_with(content(), 9);
+    sim.advance_minutes(3 * DAY).expect("advances");
+    // The situation under test: takings succeed and are seen, the watcher passes every home, the
+    // watcher is one who would ask (no objection to taking, no sense of being found out, no pull
+    // to report), and a taker's household can pay (test values).
+    let content_crime = sim.rules().people.crime.clone();
+    {
+        let crime = &mut sim
+            .rules_mut_for_tests()
+            .expect("rules not yet shared")
+            .people
+            .crime;
+        crime.guardian_age = 200.0;
+        crime.notice_chance = 0.0;
+        crime.round_stops = 1000;
+        crime.w_watch_report = -20.0;
+        // A household that took can pay from whatever it holds (a taker's household rarely has
+        // food to spare beyond three days' need).
+        crime.keep_days = 0.0;
+        // Hearing of takings raises anyone's sense that takers are seen; here being found out
+        // costs the watcher nothing. And they walk most of the night.
+        crime.w_seen = 0.0;
+        crime.w_watch = 30.0;
+        crime.rounds_per_night = 12;
+    }
+    let (_, _) = a_law(&mut sim, PolicyKind::KeepWatch);
+    let (_, against) = a_law(&mut sim, PolicyKind::AgainstTaking);
+    if let Some(l) = sim.people_mut_for_tests().polities[0]
+        .laws
+        .iter_mut()
+        .find(|l| l.id == against)
+    {
+        l.sanction.exile = false;
+    }
+    let officer = sim.people().polities[0]
+        .watcher()
+        .map(|(h, _)| h)
+        .expect("the watcher");
+    lean_spell(&mut sim);
+    // The watcher's household has food. With no objection the watcher may still take once it is
+    // given away to neighbours who ask; the law here does not exile, so a finding leaves them on
+    // watch.
+    let goods = sim.rules().catalog.goods.clone();
+    let need = sim.rules().people.household.daily_kcal_per_person;
+    let provisions = goods
+        .iter()
+        .position(|g| g.id == "core:good/provisions")
+        .expect("provisions");
+    let pop = sim.people_mut_for_tests();
+    let home = pop.person(officer).map(|p| p.household).expect("a home");
+    for (_, h) in pop.households.iter_mut() {
+        let days = if h.id == home {
+            60.0
+        } else if h.stores[provisions] <= 0.0 {
+            // Short, and so may take, but with something a watcher could be paid from.
+            4.0
+        } else {
+            0.0
+        };
+        h.stores[provisions] +=
+            days * need * h.members.len() as f64 / goods[provisions].kcal_per_kg;
+    }
+    for (_, p) in pop.people.iter_mut() {
+        if p.id == officer {
+            p.objection = 0.0;
+            p.risk_seen = 0.0;
+        }
+    }
+    let held_before = sim.people().goods_held();
+    let flows_before = sim.people().flows();
+    let bribes = |sim: &Sim| {
+        (0..goods.len())
+            .map(|g| sim.people().transfers.get(civ_agents::Channel::Bribe, g))
+            .sum::<f64>()
+    };
+    let asked = |sim: &Sim| {
+        sim.people()
+            .order
+            .sightings
+            .iter()
+            .any(|s| matches!(s.kept, Kept::Paid | Kept::Refused))
+    };
+    // Short households are kept at two days' food (the core keeps five): short enough to take,
+    // and with something to pay a watcher from. The food given in is counted as given.
+    let mut given = vec![0.0; goods.len()];
+    for _ in 0..30 {
+        if asked(&sim) {
+            break;
+        }
+        let pop = sim.people_mut_for_tests();
+        for (_, h) in pop.households.iter_mut() {
+            let want = 2.0 * need * h.members.len() as f64 / goods[provisions].kcal_per_kg;
+            if h.id != home && h.stores[provisions] < want {
+                given[provisions] += want - h.stores[provisions];
+                h.stores[provisions] = want;
+            }
+        }
+        sim.advance_minutes(2 * DAY).expect("advances");
+    }
+    let pop = sim.people();
+    let order = &pop.order;
+    assert!(
+        asked(&sim),
+        "the watcher never asked: {:?}",
+        order.sightings
+    );
+    let paid: f64 = order
+        .sightings
+        .iter()
+        .filter(|s| s.kept == Kept::Paid)
+        .map(|s| f64::from(s.kcal))
+        .sum();
+    // What was paid moved on the `bribe` channel, from the takers' households to the watcher's,
+    // and nothing was made.
+    let moved: f64 = (0..goods.len())
+        .map(|g| pop.transfers.get(civ_agents::Channel::Bribe, g) * goods[g].kcal_per_kg)
+        .sum();
+    assert!(
+        (moved - paid).abs() <= 1.0 + 1e-3 * paid,
+        "{moved} moved, {paid} paid"
+    );
+    assert_eq!(bribes(&sim) > 0.0, paid > 0.0);
+    for s in order.sightings.iter().filter(|s| s.kept == Kept::Refused) {
+        assert!(
+            order
+                .cases
+                .iter()
+                .any(|c| c.incident == s.incident && c.by == officer)
+        );
+    }
+    // Goods are conserved: what the test gave in is all that was made.
+    let held: Vec<f64> = held_before.iter().zip(&given).map(|(h, g)| h + g).collect();
+    let gaps = population::unaccounted(
+        goods.len(),
+        (&held, &flows_before),
+        (&pop.goods_held(), &pop.flows()),
+    );
+    assert!(gaps.is_empty(), "unaccounted for: {gaps:?}");
+    sim.rules_mut_for_tests()
+        .expect("rules not yet shared")
+        .people
+        .crime = content_crime;
+    saves_and_goes_on_alike(&mut sim, content(), DAY);
 }

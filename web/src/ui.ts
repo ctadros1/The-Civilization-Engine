@@ -2017,7 +2017,7 @@ export function bindUi(store: Store, actions: Actions): void {
               { className: "happened" },
               el("span", { className: "layer", text: "What happened: " }),
               link(i.actorName, () => actions.focusPerson(i.actor)),
-              ` ${happenedRest(i)} ${seenText(i)}.`,
+              ` ${happenedRest(i)} ${seenText(i)}.${i.watch ? ` ${i.watch}.` : ""}`,
             ),
             el(
               "div",

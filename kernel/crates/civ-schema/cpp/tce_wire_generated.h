@@ -14668,7 +14668,8 @@ struct IncidentLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_OUTCOME = 18,
     VT_WHAT = 20,
     VT_KCAL = 22,
-    VT_SEEN_BY = 24
+    VT_SEEN_BY = 24,
+    VT_WATCH = 26
   };
   uint32_t id() const {
     return GetField<uint32_t>(VT_ID, 0);
@@ -14703,6 +14704,9 @@ struct IncidentLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *seen_by() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_SEEN_BY);
   }
+  const ::flatbuffers::String *watch() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WATCH);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -14722,6 +14726,8 @@ struct IncidentLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_SEEN_BY) &&
            verifier.VerifyVector(seen_by()) &&
            verifier.VerifyVectorOfStrings(seen_by()) &&
+           VerifyOffset(verifier, VT_WATCH) &&
+           verifier.VerifyString(watch()) &&
            verifier.EndTable();
   }
 };
@@ -14763,6 +14769,9 @@ struct IncidentLineBuilder {
   void add_seen_by(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> seen_by) {
     fbb_.AddOffset(IncidentLine::VT_SEEN_BY, seen_by);
   }
+  void add_watch(::flatbuffers::Offset<::flatbuffers::String> watch) {
+    fbb_.AddOffset(IncidentLine::VT_WATCH, watch);
+  }
   explicit IncidentLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -14786,12 +14795,14 @@ inline ::flatbuffers::Offset<IncidentLine> CreateIncidentLine(
     uint8_t outcome = 0,
     ::flatbuffers::Offset<::flatbuffers::String> what = 0,
     float kcal = 0.0f,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> seen_by = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> seen_by = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> watch = 0) {
   IncidentLineBuilder builder_(_fbb);
   builder_.add_target(target);
   builder_.add_actor(actor);
   builder_.add_settlement(settlement);
   builder_.add_minute(minute);
+  builder_.add_watch(watch);
   builder_.add_seen_by(seen_by);
   builder_.add_kcal(kcal);
   builder_.add_what(what);
@@ -14819,11 +14830,13 @@ inline ::flatbuffers::Offset<IncidentLine> CreateIncidentLineDirect(
     uint8_t outcome = 0,
     const char *what = nullptr,
     float kcal = 0.0f,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *seen_by = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *seen_by = nullptr,
+    const char *watch = nullptr) {
   auto actor_name__ = actor_name ? _fbb.CreateString(actor_name) : 0;
   auto target_name__ = target_name ? _fbb.CreateString(target_name) : 0;
   auto what__ = what ? _fbb.CreateString(what) : 0;
   auto seen_by__ = seen_by ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*seen_by) : 0;
+  auto watch__ = watch ? _fbb.CreateString(watch) : 0;
   return tce::wire::CreateIncidentLine(
       _fbb,
       id,
@@ -14836,7 +14849,8 @@ inline ::flatbuffers::Offset<IncidentLine> CreateIncidentLineDirect(
       outcome,
       what__,
       kcal,
-      seen_by__);
+      seen_by__,
+      watch__);
 }
 
 struct KnownLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

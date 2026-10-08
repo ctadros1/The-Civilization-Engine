@@ -90,6 +90,12 @@ pub(crate) struct CrimeFile {
     pub w_case_belief: f64,
     pub w_comply_found: f64,
     pub exile_days: f64,
+    pub watch_guard: f64,
+    pub w_watch: f64,
+    pub rounds_per_night: u32,
+    pub round_stops: u32,
+    pub w_watch_report: f64,
+    pub ask_days: f64,
 }
 
 impl CrimeFile {
@@ -126,6 +132,12 @@ impl CrimeFile {
             w_case_belief: self.w_case_belief,
             w_comply_found: self.w_comply_found,
             exile_days: self.exile_days,
+            watch_guard: self.watch_guard,
+            w_watch: self.w_watch,
+            rounds_per_night: self.rounds_per_night,
+            round_stops: self.round_stops,
+            w_watch_report: self.w_watch_report,
+            ask_days: self.ask_days,
         }
     }
 
@@ -133,6 +145,8 @@ impl CrimeFile {
         for (name, v, lo, hi) in [
             ("crime.remember_days", self.remember_days, 0, 36_500),
             ("crime.due_days", self.due_days, 1, 3650),
+            ("crime.rounds_per_night", self.rounds_per_night, 1, 24),
+            ("crime.round_stops", self.round_stops, 1, 1000),
         ] {
             if !(lo..=hi).contains(&v) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
@@ -173,6 +187,10 @@ impl CrimeFile {
             ("crime.w_case_belief", self.w_case_belief, 0.0, 100.0),
             ("crime.w_comply_found", self.w_comply_found, -100.0, 100.0),
             ("crime.exile_days", self.exile_days, 0.0, 3650.0),
+            ("crime.watch_guard", self.watch_guard, 0.0, 1.0),
+            ("crime.w_watch", self.w_watch, 0.0, 100.0),
+            ("crime.w_watch_report", self.w_watch_report, -100.0, 100.0),
+            ("crime.ask_days", self.ask_days, 0.0, 365.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

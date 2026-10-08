@@ -104,8 +104,8 @@ use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
-    SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, finish,
-    section, single_chunk, unreadable,
+    SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
+    finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -299,6 +299,8 @@ enum Schema {
     V31,
     /// Laws against taking with their bundles; what households know of the food takings moved.
     V32,
+    /// The watch: its record on its law (M4b slice AC).
+    V33,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -345,7 +347,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V29 => Schema::V29,
         SCHEMA_V30 => Schema::V30,
         SCHEMA_V31 => Schema::V31,
-        SAVE_SCHEMA_VERSION => Schema::V32,
+        SCHEMA_V32 => Schema::V32,
+        SAVE_SCHEMA_VERSION => Schema::V33,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -609,6 +612,12 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             compensation_days: l.sanction.compensation_days,
                             fine_days: l.sanction.fine_days,
                             exile: l.sanction.exile,
+                            watch_rounds: l.watch.rounds,
+                            watch_minutes: l.watch.minutes,
+                            watch_cases: l.watch.cases,
+                            watch_night: l.watch.night,
+                            watch_tonight: l.watch.tonight,
+                            watch_next: l.watch.next,
                             status: law_status_code(l.status),
                             sponsor: l.sponsor.get(),
                             proposed: l.proposed.minutes(),
@@ -850,6 +859,7 @@ fn decode_polities(
             laws.push(Law {
                 id: law,
                 policy,
+                kind: rules.catalog.policies[usize::from(policy)].kind,
                 levy_share: l.levy_share(),
                 holder: PermanentId::from_raw(l.holder()),
                 relief_days: l.relief_days(),
@@ -878,6 +888,14 @@ fn decode_polities(
                     relieved: l.relieved(),
                     relief_kg: l.relief_kg(),
                     unanswered: l.unanswered(),
+                },
+                watch: civ_agents::polity::WatchRecord {
+                    rounds: l.watch_rounds(),
+                    minutes: l.watch_minutes(),
+                    cases: l.watch_cases(),
+                    night: l.watch_night(),
+                    tonight: l.watch_tonight(),
+                    next: l.watch_next(),
                 },
             });
         }
@@ -2266,7 +2284,8 @@ fn carried(
         | Schema::V29
         | Schema::V30
         | Schema::V31
-        | Schema::V32 => {
+        | Schema::V32
+        | Schema::V33 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2408,7 +2427,8 @@ fn decode_households(
             | Schema::V29
             | Schema::V30
             | Schema::V31
-            | Schema::V32 => {
+            | Schema::V32
+            | Schema::V33 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -2653,6 +2673,23 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let cases = fbb.create_vector(&cases);
+    let sightings: Vec<save::SightingSave> = order
+        .sightings
+        .iter()
+        .map(|s| {
+            save::SightingSave::new(
+                s.officer.get(),
+                s.day,
+                s.incident,
+                s.kcal,
+                s.points.0,
+                s.points.1.unwrap_or(0.0),
+                s.kept.code(),
+                s.points.1.is_some(),
+            )
+        })
+        .collect();
+    let sightings = fbb.create_vector(&sightings);
     let amounts: Vec<save::AmountSave> = order
         .amounts
         .iter()
@@ -2671,6 +2708,7 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
             responses2: Some(responses),
             obligations2: Some(obligations),
             cases: Some(cases),
+            sightings: Some(sightings),
         },
     );
     finish(fbb, root)
@@ -2849,6 +2887,17 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
             day: a.day(),
         });
     }
+    for s in root.sightings().iter().flatten() {
+        order.sightings.push(civ_agents::crime::Sighting {
+            incident: s.incident(),
+            officer: required(s.officer(), "a sighting's watcher")?,
+            day: s.day(),
+            kept: civ_agents::crime::Kept::from_code(s.kept())
+                .ok_or_else(|| bad(format!("a sighting has choice code {}", s.kept())))?,
+            kcal: s.kcal(),
+            points: (s.report_points(), s.ask_open().then_some(s.ask_points())),
+        });
+    }
     let problems = order_problems(&order);
     if !problems.is_empty() {
         return Err(LoadError::Invalid(problems));
@@ -2904,6 +2953,12 @@ fn order_problems(order: &civ_agents::crime::Order) -> Vec<String> {
     }
     if order.cases.windows(2).any(|w| w[0].id >= w[1].id) {
         out.push("cases are out of order".to_owned());
+    }
+    if let Some(s) = order.sightings.iter().find(|s| !known(s.incident)) {
+        out.push(format!(
+            "a sighting by {} names missing incident {}",
+            s.officer, s.incident
+        ));
     }
     if let Some(c) = order.cases.iter().find(|c| !known(c.incident)) {
         out.push(format!(

@@ -117,14 +117,13 @@ impl PolicyFile {
                     ));
                 }
             }
-            Some(PolicyKind::KeepStore)
+            Some(k @ (PolicyKind::KeepStore | PolicyKind::KeepWatch))
                 if !self.levy_shares.is_empty() || self.relief_days != 0.0 =>
             {
-                p.push(
-                    "a `keep_store` policy levies nothing: leave out `levy_shares` and \
-                     `relief_days`"
-                        .to_owned(),
-                );
+                p.push(format!(
+                    "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
+                    k.name()
+                ));
             }
             Some(PolicyKind::AgainstTaking) => {
                 if !self.levy_shares.is_empty() || self.relief_days != 0.0 {
@@ -154,7 +153,7 @@ impl PolicyFile {
                     }
                 }
             }
-            Some(PolicyKind::KeepStore) | None => {}
+            Some(PolicyKind::KeepStore | PolicyKind::KeepWatch) | None => {}
         }
         if PolicyKind::from_name(&self.does) != Some(PolicyKind::AgainstTaking)
             && !self.bundles.is_empty()
@@ -217,6 +216,16 @@ mod tests {
         f.relief_days = 0.0;
         assert!(f.problems().is_empty(), "{:?}", f.problems());
         assert_eq!(f.def().kind, PolicyKind::KeepStore);
+        // So does a watch.
+        f.does = "keep_watch".to_owned();
+        f.answers = vec!["takings".to_owned()];
+        assert!(f.problems().is_empty(), "{:?}", f.problems());
+        f.relief_days = 5.0;
+        assert!(
+            f.problems()
+                .iter()
+                .any(|m| m.contains("`keep_watch` policy levies nothing"))
+        );
     }
 
     #[test]

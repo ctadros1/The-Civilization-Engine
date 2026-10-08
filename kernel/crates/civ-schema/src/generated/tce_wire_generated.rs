@@ -23332,6 +23332,7 @@ impl<'a> IncidentLine<'a> {
   pub const VT_WHAT: ::flatbuffers::VOffsetT = 20;
   pub const VT_KCAL: ::flatbuffers::VOffsetT = 22;
   pub const VT_SEEN_BY: ::flatbuffers::VOffsetT = 24;
+  pub const VT_WATCH: ::flatbuffers::VOffsetT = 26;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -23347,6 +23348,7 @@ impl<'a> IncidentLine<'a> {
     builder.add_actor(args.actor);
     builder.add_settlement(args.settlement);
     builder.add_minute(args.minute);
+    if let Some(x) = args.watch { builder.add_watch(x); }
     if let Some(x) = args.seen_by { builder.add_seen_by(x); }
     builder.add_kcal(args.kcal);
     if let Some(x) = args.what { builder.add_what(x); }
@@ -23435,6 +23437,13 @@ impl<'a> IncidentLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(IncidentLine::VT_SEEN_BY, None)}
   }
+  #[inline]
+  pub fn watch(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(IncidentLine::VT_WATCH, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for IncidentLine<'_> {
@@ -23454,6 +23463,7 @@ impl ::flatbuffers::Verifiable for IncidentLine<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("what", Self::VT_WHAT, false)?
      .visit_field::<f32>("kcal", Self::VT_KCAL, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("seen_by", Self::VT_SEEN_BY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("watch", Self::VT_WATCH, false)?
      .finish();
     Ok(())
   }
@@ -23470,6 +23480,7 @@ pub struct IncidentLineArgs<'a> {
     pub what: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub kcal: f32,
     pub seen_by: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub watch: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for IncidentLineArgs<'a> {
   #[inline]
@@ -23486,6 +23497,7 @@ impl<'a> Default for IncidentLineArgs<'a> {
       what: None,
       kcal: 0.0,
       seen_by: None,
+      watch: None,
     }
   }
 }
@@ -23540,6 +23552,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> IncidentLineBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(IncidentLine::VT_SEEN_BY, seen_by);
   }
   #[inline]
+  pub fn add_watch(&mut self, watch: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(IncidentLine::VT_WATCH, watch);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> IncidentLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     IncidentLineBuilder {
@@ -23568,6 +23584,7 @@ impl ::core::fmt::Debug for IncidentLine<'_> {
       ds.field("what", &self.what());
       ds.field("kcal", &self.kcal());
       ds.field("seen_by", &self.seen_by());
+      ds.field("watch", &self.watch());
       ds.finish()
   }
 }

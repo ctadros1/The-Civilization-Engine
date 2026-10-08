@@ -90,8 +90,15 @@ seenByLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+watch():string|null
+watch(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+watch(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 26);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startIncidentLine(builder:flatbuffers.Builder) {
-  builder.startObject(11);
+  builder.startObject(12);
 }
 
 static addId(builder:flatbuffers.Builder, id:number) {
@@ -150,12 +157,16 @@ static startSeenByVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addWatch(builder:flatbuffers.Builder, watchOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(11, watchOffset, 0);
+}
+
 static endIncidentLine(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createIncidentLine(builder:flatbuffers.Builder, id:number, minute:bigint, settlement:bigint, actor:bigint, actorNameOffset:flatbuffers.Offset, target:bigint, targetNameOffset:flatbuffers.Offset, outcome:number, whatOffset:flatbuffers.Offset, kcal:number, seenByOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createIncidentLine(builder:flatbuffers.Builder, id:number, minute:bigint, settlement:bigint, actor:bigint, actorNameOffset:flatbuffers.Offset, target:bigint, targetNameOffset:flatbuffers.Offset, outcome:number, whatOffset:flatbuffers.Offset, kcal:number, seenByOffset:flatbuffers.Offset, watchOffset:flatbuffers.Offset):flatbuffers.Offset {
   IncidentLine.startIncidentLine(builder);
   IncidentLine.addId(builder, id);
   IncidentLine.addMinute(builder, minute);
@@ -168,6 +179,7 @@ static createIncidentLine(builder:flatbuffers.Builder, id:number, minute:bigint,
   IncidentLine.addWhat(builder, whatOffset);
   IncidentLine.addKcal(builder, kcal);
   IncidentLine.addSeenBy(builder, seenByOffset);
+  IncidentLine.addWatch(builder, watchOffset);
   return IncidentLine.endIncidentLine(builder);
 }
 }

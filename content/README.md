@@ -350,7 +350,7 @@ decided by people at run time.
 
 | Field | Meaning |
 |---|---|
-| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b), `attend` (M4a: going to the gathering called at the hearth, while it sits, for the settlement's adults), `take` (M4b: going to another household's home to take food from its store, when short; ADR-0015 §2). |
+| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b), `attend` (M4a: going to the gathering called at the hearth, while it sits, for the settlement's adults), `take` (M4b: going to another household's home to take food from its store, when short; ADR-0015 §2), `watch` (M4b: the watch's rounds at night, for whoever holds the office), `petition` (M4c: going to the hearth on the evening a faction's petition sits, for an adult who has heard of it; ADR-0017 §3). |
 | `resource` | For `gather` only: the land resource gathered (hunting, fishing, collecting firewood and cutting building materials are gathering too). A trip works until its load is full or its time runs out. |
 | `task` | For `farm` only: the field work, one of `prepare`, `sow`, `tend`, `reap`, `thresh`. |
 | `recipe` | For `make` only: the recipe worked, at home. |
@@ -693,6 +693,16 @@ whose faction ended waits before founding another, the dues share, the
 reserve past which a store asks no more dues and how much one ask of it may bring), all design
 priors (research 04-10 and 09-12 give
 no founding size or joining rate).
+
+Content API 46 (M4c slice AH, step two) brings petitions: the behaviour `petition`
+(`core:activity/petition`, adults who heard of one, the evening it sits) and the `[faction]` keys
+`petition_members` (the fewest members before an organizer weighs calling one), `petition_days`
+(days between one faction's petitions), `petition_cost` (what calling one costs the organizer,
+points), `w_member` and `w_expect` (the points belonging and the share of those one knows who
+belong add to coming), `free_ride_share` (the share of people for whom more others coming makes
+their own coming matter less) and `refused_days` (the wrong a petition turned down is to each who
+came, in days of a household's food), all design priors (research 04-10 §1.4, §5.3 give the terms
+and no values).
 
 Content API 44 (M4c slice AG) brings ideologies: the kind `ideology` (below) and the core pack's
 `core:ideology/common_provision`, `order_kept` and `own_say`.

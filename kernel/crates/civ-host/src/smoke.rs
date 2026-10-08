@@ -583,7 +583,7 @@ fn polity_problems(sim: &Sim) -> Vec<String> {
 
 /// What the polities did, in words: "3 laws proposed, 3 decided, 2 passed; a common store at a
 /// twentieth: 1114 kg levied, 80 kg kept back, 0 kg given in relief, 1278 kg held; 1 storekeeper
-/// named, 0 gone, one keeping it now". `None` when nothing was proposed.
+/// named, 0 gone, 0 replaced, one keeping it now". `None` when nothing was proposed.
 fn polity(sim: &Sim) -> Option<String> {
     use civ_agents::polity::{Law, LawStatus, Outcome, PolicyKind};
     let pop = sim.people();
@@ -645,17 +645,21 @@ fn polity(sim: &Sim) -> Option<String> {
             .laws
             .iter()
             .filter(|l| kind(l) == Some(PolicyKind::KeepStore))
-            .filter(|l| matches!(l.status, LawStatus::InForce | LawStatus::Lapsed))
+            .filter(|l| {
+                matches!(
+                    l.status,
+                    LawStatus::InForce | LawStatus::Lapsed | LawStatus::Superseded
+                )
+            })
             .collect();
         if !named.is_empty() {
-            let gone = named
-                .iter()
-                .filter(|l| l.status == LawStatus::Lapsed)
-                .count();
+            let count = |s: LawStatus| named.iter().filter(|l| l.status == s).count();
             parts.push(format!(
-                "{} storekeeper{} named, {gone} gone, {} keeping it now",
+                "{} storekeeper{} named, {} gone, {} replaced, {} keeping it now",
                 named.len(),
                 if named.len() == 1 { "" } else { "s" },
+                count(LawStatus::Lapsed),
+                count(LawStatus::Superseded),
                 if p.keeper().is_some() { "one" } else { "none" }
             ));
         }
@@ -903,6 +907,45 @@ fn polity(sim: &Sim) -> Option<String> {
         food_kg(civ_agents::person::Flow::Received).max(0.0),
         food_kg(civ_agents::person::Flow::Given).max(0.0),
     ));
+    // Petitions (M4c slice AH, step two): how many were called, how many came to each, and what
+    // the gathering made of those put to it.
+    if !fs.petitions.is_empty() {
+        let laws: Vec<&civ_agents::polity::Law> =
+            pop.polities.iter().flat_map(|p| &p.laws).collect();
+        let outcome = |p: &civ_agents::faction::Petition| {
+            p.law
+                .and_then(|id| laws.iter().find(|l| l.id == id))
+                .and_then(|l| l.outcome)
+        };
+        let count = |o: civ_agents::polity::Outcome| {
+            fs.petitions
+                .iter()
+                .filter(|p| outcome(p) == Some(o))
+                .count()
+        };
+        let came: Vec<String> = fs
+            .petitions
+            .iter()
+            .map(|p| p.came.len().to_string())
+            .collect();
+        let offices = fs.petitions.iter().filter(|p| p.nominee.is_some()).count();
+        parts.push(format!(
+            "petitions: {} called ({} came; {} for another officeholder, {} for a store's share); \
+             {} granted, {} turned down, {} split, {} without a quorum, {} never put",
+            fs.petitions.len(),
+            came.join(", "),
+            offices,
+            fs.petitions.len() - offices,
+            count(civ_agents::polity::Outcome::Passed),
+            count(civ_agents::polity::Outcome::Failed),
+            count(civ_agents::polity::Outcome::Tied),
+            count(civ_agents::polity::Outcome::NoQuorum),
+            fs.petitions
+                .iter()
+                .filter(|p| p.answered && p.law.is_none())
+                .count(),
+        ));
+    }
     // Norms (M4c slice AG): for each, how far it is held on average, what people believe of
     // others against what households did at their last levy, how many it moves, and how often an
     // account was told and taken in.

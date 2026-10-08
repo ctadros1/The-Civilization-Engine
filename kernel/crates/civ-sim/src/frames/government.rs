@@ -202,6 +202,64 @@ fn faction_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<String> {
         .collect()
 }
 
+/// The petitions of `settlement` in words (wire 1.41, ADR-0017 §3), newest first: "Mira's
+/// faction petitioned the gathering on 3 May of year 2 for an end to the common store's levy (the
+/// store gives what it holds): 9 came; the gathering turned it down".
+pub fn petition_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<String> {
+    let pop = &sim.people;
+    let today = sim.now().day_index();
+    let laws: Vec<&Law> = pop.polities.iter().flat_map(|p| &p.laws).collect();
+    let mut here: Vec<&civ_agents::faction::Petition> = pop
+        .factions
+        .petitions
+        .iter()
+        .filter(|p| p.settlement == settlement)
+        .collect();
+    here.sort_by(|a, b| b.day.cmp(&a.day).then(b.id.cmp(&a.id)));
+    here.into_iter()
+        .map(|p| {
+            let name = pop.factions.get(p.faction).map_or_else(
+                || "A faction".to_owned(),
+                |f| super::word::faction_name(sim, f),
+            );
+            let demand = super::word::petition_demand_words(sim, p);
+            let on = day_words(SimTime::from_minutes(p.day * 24 * 60));
+            if p.day >= today && p.law.is_none() && !p.answered {
+                let so_far = if p.day == today && !p.came.is_empty() {
+                    format!("; {} have come so far", p.came.len())
+                } else {
+                    String::new()
+                };
+                return format!(
+                    "{name} petitions the gathering on the evening of {on} for {demand}{so_far}"
+                );
+            }
+            let came = match p.came.len() {
+                0 => "nobody came".to_owned(),
+                n => format!("{n} came"),
+            };
+            let answer = match p.law.and_then(|id| laws.iter().find(|l| l.id == id)) {
+                Some(l) => match l.outcome {
+                    Some(Outcome::Passed) => "the gathering granted it".to_owned(),
+                    Some(Outcome::Failed) => "the gathering turned it down".to_owned(),
+                    Some(Outcome::Tied) => "the gathering was split on it".to_owned(),
+                    Some(Outcome::NoQuorum) => {
+                        "too few came to the gathering to decide it".to_owned()
+                    }
+                    None => format!(
+                        "it goes before the gathering on {}",
+                        day_words(SimTime::from_minutes(l.meets_day * 24 * 60))
+                    ),
+                },
+                None if p.came.is_empty() => "so it ended there".to_owned(),
+                None if p.answered => "it never came before the gathering".to_owned(),
+                None => "it waits for the gathering to be free".to_owned(),
+            };
+            format!("{name} petitioned the gathering on {on} for {demand}: {came}; {answer}")
+        })
+        .collect()
+}
+
 /// A `Response` with every settlement's polity.
 pub fn government_response(sim: &Sim) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
@@ -264,6 +322,12 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
             .map(|w| fbb.create_string(w))
             .collect();
         let factions = fbb.create_vector(&factions);
+        // Its petitions (wire 1.41, M4c slice AH).
+        let petitions: Vec<_> = petition_words(sim, polity.settlement)
+            .iter()
+            .map(|w| fbb.create_string(w))
+            .collect();
+        let petitions = fbb.create_vector(&petitions);
         let body_members = pop
             .body_members(&sim.land.fields, pi, now, &rules.people)
             .len() as u32;
@@ -329,6 +393,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                 label_confidence: label.confidence as f32,
                 custom_history: Some(custom_history),
                 factions: Some(factions),
+                petitions: Some(petitions),
                 body_members,
             },
         ));

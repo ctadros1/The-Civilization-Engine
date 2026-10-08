@@ -1123,6 +1123,9 @@ table LawSave {
   // What what they hold dear added to each stance, points, in `stances` order (schema 39, M4c
   // slice AG); absent before.
   stance_values: [float] (id: 42);
+  // The law in force it would replace when passed, 0 for none (schema 42, M4c slice AH: a
+  // petition's demand).
+  ends: ulong (id: 43);
 }
 
 // `law` 0: called on cases only (M4b slice AB).
@@ -1513,6 +1516,26 @@ table FactionSave {
   history: [FactionEventSave] (id: 11);
 }
 
+// A petition (schema 42, M4c slice AH, ADR-0017 §3): `policy` indexes `FactionsSave.policies`;
+// `called` is in minutes, `day` a day index; `law` is 0 until it was put to the gathering;
+// `nominee` is whom it would name to an office, 0 for a store's share.
+table PetitionSave {
+  id: ulong (id: 0);
+  faction: ulong (id: 1);
+  settlement: ulong (id: 2);
+  organizer: ulong (id: 3);
+  called: long (id: 4);
+  day: long (id: 5);
+  policy: ushort (id: 6);
+  levy_share: float (id: 7);
+  ends: ulong (id: 8);
+  // Those who came, in id order.
+  came: [ulong] (id: 9);
+  law: ulong (id: 10);
+  answered: bool (id: 11);
+  nominee: ulong (id: 12);
+}
+
 table FactionsSave {
   factions: [FactionSave] (id: 0);
   members: [MemberSave] (id: 1);
@@ -1520,6 +1543,10 @@ table FactionsSave {
   goods: [string] (id: 2);
   joined: ulong (id: 3);
   left: ulong (id: 4);
+  // Every petition called, oldest first, and policy content ids at save time (schema 42); absent
+  // before.
+  petitions: [PetitionSave] (id: 5);
+  policies: [string] (id: 6);
 }
 
 // Section "events": the scheduler's pending events.

@@ -529,6 +529,25 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** step two, petitions and assemblies with a demand the gathering decides; step three, refusals of a levy, damage and violence. A rare save-and-load test failure (about 1 run in 100) is narrowed to one unchosen option scoring differently after a reload, most likely a decision cache rebuilt on load; it stays open.
 
+## 2026-10-08 — M4c slice AH, step two: petitions
+
+**Goal:** give a faction a peaceful way to press its grievance, with coming a choice of each person's own and the answer the gathering's, never the engine's.
+
+**What changed:**
+
+- **Calling a petition:** at their monthly review a faction's organizer weighs calling one at the hearth once the faction has three members and nothing waits, by its members' grievance and how many of those the organizer knows belong, against a threshold of their own (ADR-0017 §3; research 09-04 §5.5, 09-05 §1.2).
+- **The demand answers the party blamed** (04-10 §1.1): against the gathering, the common store at another share or none in place of the one in force; against an office, another holder in place of the one in it. A law may now name the law it replaces, and passing it supersedes that law.
+- **Coming** is a scored activity for those who heard of it, on the evening it sits: their grievance, belonging or regard for the organizer, and how many of those they know belong, with free-riding for some (04-10 §1.4, §5.3).
+- **The answer:** the organizer puts the demand to the gathering, which decides it as any law; for a new officeholder, regard for the one in office weighs against it, lowered by a grievance against them. A petition turned down is a new grievance to each who came (04-10 §3).
+- **The Government panel** lists each polity's petitions in the kernel's words; the smoke reports them.
+- **Boundary:** saves schema 42 (41 still loads), wire 1.41, content API 46.
+
+**Two findings:** the first build let only factions against the gathering petition, and no petition was ever called, because every faction the smoke formed was against the storekeeper (an empty store is held against its keeper); the demand now follows the party blamed. Then petitioners came and abstained at the gathering (13 of one village's 15 petitions split one to one), because nothing in their stance held their grievance; a grievance against an office now lowers regard for its holder in that decision. Also fixed: a keeper no longer blames their own keeping.
+
+**Evidence:** unit tests for coming, the stance between a holder and a replacement, and the words of a replacing law; integration tests that a faction against the gathering petitions it (43 heard of it and 26 came; the gathering ended the store's levy, 26 for and none against) and that one against the keeper petitions for another (the keeper defending their place), each saving and loading exactly, and that a schema-41 save loads; the web tests. The kernel (602), web (142) and end-to-end (16, 6 demos skipped) suites pass, with clippy and the format and schema checks clean. The ten-year smoke passed all 10 worlds: petitions in two of the three coast villages with factions, all for another keeper (22 came to one, granted; 16 and 17 to two, one granted and one without a quorum). Gate B and the notables' gate passed.
+
+**Open:** step three, refusals of a levy, damage and violence. The save-and-load flake from step one stays open.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

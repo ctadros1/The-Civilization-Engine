@@ -23891,6 +23891,7 @@ impl<'a> LawSave<'a> {
   pub const VT_BODY_PASS: ::flatbuffers::VOffsetT = 84;
   pub const VT_STANCE_OPINIONS: ::flatbuffers::VOffsetT = 86;
   pub const VT_STANCE_VALUES: ::flatbuffers::VOffsetT = 88;
+  pub const VT_ENDS: ::flatbuffers::VOffsetT = 90;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -23902,6 +23903,7 @@ impl<'a> LawSave<'a> {
     args: &'args LawSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<LawSave<'bldr>> {
     let mut builder = LawSaveBuilder::new(_fbb);
+    builder.add_ends(args.ends);
     builder.add_watch_night(args.watch_night);
     builder.add_watch_minutes(args.watch_minutes);
     builder.add_holder(args.holder);
@@ -24250,6 +24252,13 @@ impl<'a> LawSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(LawSave::VT_STANCE_VALUES, None)}
   }
+  #[inline]
+  pub fn ends(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LawSave::VT_ENDS, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for LawSave<'_> {
@@ -24301,6 +24310,7 @@ impl ::flatbuffers::Verifiable for LawSave<'_> {
      .visit_field::<u8>("body_pass", Self::VT_BODY_PASS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("stance_opinions", Self::VT_STANCE_OPINIONS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("stance_values", Self::VT_STANCE_VALUES, false)?
+     .visit_field::<u64>("ends", Self::VT_ENDS, false)?
      .finish();
     Ok(())
   }
@@ -24349,6 +24359,7 @@ pub struct LawSaveArgs<'a> {
     pub body_pass: u8,
     pub stance_opinions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
     pub stance_values: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub ends: u64,
 }
 impl<'a> Default for LawSaveArgs<'a> {
   #[inline]
@@ -24397,6 +24408,7 @@ impl<'a> Default for LawSaveArgs<'a> {
       body_pass: 0,
       stance_opinions: None,
       stance_values: None,
+      ends: 0,
     }
   }
 }
@@ -24579,6 +24591,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LawSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(LawSave::VT_STANCE_VALUES, stance_values);
   }
   #[inline]
+  pub fn add_ends(&mut self, ends: u64) {
+    self.fbb_.push_slot::<u64>(LawSave::VT_ENDS, ends, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LawSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LawSaveBuilder {
@@ -24639,6 +24655,7 @@ impl ::core::fmt::Debug for LawSave<'_> {
       ds.field("body_pass", &self.body_pass());
       ds.field("stance_opinions", &self.stance_opinions());
       ds.field("stance_values", &self.stance_values());
+      ds.field("ends", &self.ends());
       ds.finish()
   }
 }
@@ -27386,6 +27403,306 @@ impl ::core::fmt::Debug for FactionSave<'_> {
       ds.finish()
   }
 }
+pub enum PetitionSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct PetitionSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for PetitionSave<'a> {
+  type Inner = PetitionSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> PetitionSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_FACTION: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_ORGANIZER: ::flatbuffers::VOffsetT = 10;
+  pub const VT_CALLED: ::flatbuffers::VOffsetT = 12;
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 14;
+  pub const VT_POLICY: ::flatbuffers::VOffsetT = 16;
+  pub const VT_LEVY_SHARE: ::flatbuffers::VOffsetT = 18;
+  pub const VT_ENDS: ::flatbuffers::VOffsetT = 20;
+  pub const VT_CAME: ::flatbuffers::VOffsetT = 22;
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 24;
+  pub const VT_ANSWERED: ::flatbuffers::VOffsetT = 26;
+  pub const VT_NOMINEE: ::flatbuffers::VOffsetT = 28;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    PetitionSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args PetitionSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<PetitionSave<'bldr>> {
+    let mut builder = PetitionSaveBuilder::new(_fbb);
+    builder.add_nominee(args.nominee);
+    builder.add_law(args.law);
+    builder.add_ends(args.ends);
+    builder.add_day(args.day);
+    builder.add_called(args.called);
+    builder.add_organizer(args.organizer);
+    builder.add_settlement(args.settlement);
+    builder.add_faction(args.faction);
+    builder.add_id(args.id);
+    if let Some(x) = args.came { builder.add_came(x); }
+    builder.add_levy_share(args.levy_share);
+    builder.add_policy(args.policy);
+    builder.add_answered(args.answered);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PetitionSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn faction(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PetitionSave::VT_FACTION, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PetitionSave::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn organizer(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PetitionSave::VT_ORGANIZER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn called(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(PetitionSave::VT_CALLED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(PetitionSave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn policy(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(PetitionSave::VT_POLICY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn levy_share(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(PetitionSave::VT_LEVY_SHARE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn ends(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PetitionSave::VT_ENDS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn came(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(PetitionSave::VT_CAME, None)}
+  }
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PetitionSave::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn answered(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(PetitionSave::VT_ANSWERED, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn nominee(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PetitionSave::VT_NOMINEE, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for PetitionSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("faction", Self::VT_FACTION, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<u64>("organizer", Self::VT_ORGANIZER, false)?
+     .visit_field::<i64>("called", Self::VT_CALLED, false)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<u16>("policy", Self::VT_POLICY, false)?
+     .visit_field::<f32>("levy_share", Self::VT_LEVY_SHARE, false)?
+     .visit_field::<u64>("ends", Self::VT_ENDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("came", Self::VT_CAME, false)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<bool>("answered", Self::VT_ANSWERED, false)?
+     .visit_field::<u64>("nominee", Self::VT_NOMINEE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct PetitionSaveArgs<'a> {
+    pub id: u64,
+    pub faction: u64,
+    pub settlement: u64,
+    pub organizer: u64,
+    pub called: i64,
+    pub day: i64,
+    pub policy: u16,
+    pub levy_share: f32,
+    pub ends: u64,
+    pub came: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub law: u64,
+    pub answered: bool,
+    pub nominee: u64,
+}
+impl<'a> Default for PetitionSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    PetitionSaveArgs {
+      id: 0,
+      faction: 0,
+      settlement: 0,
+      organizer: 0,
+      called: 0,
+      day: 0,
+      policy: 0,
+      levy_share: 0.0,
+      ends: 0,
+      came: None,
+      law: 0,
+      answered: false,
+      nominee: 0,
+    }
+  }
+}
+
+pub struct PetitionSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PetitionSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(PetitionSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_faction(&mut self, faction: u64) {
+    self.fbb_.push_slot::<u64>(PetitionSave::VT_FACTION, faction, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(PetitionSave::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_organizer(&mut self, organizer: u64) {
+    self.fbb_.push_slot::<u64>(PetitionSave::VT_ORGANIZER, organizer, 0);
+  }
+  #[inline]
+  pub fn add_called(&mut self, called: i64) {
+    self.fbb_.push_slot::<i64>(PetitionSave::VT_CALLED, called, 0);
+  }
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(PetitionSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_policy(&mut self, policy: u16) {
+    self.fbb_.push_slot::<u16>(PetitionSave::VT_POLICY, policy, 0);
+  }
+  #[inline]
+  pub fn add_levy_share(&mut self, levy_share: f32) {
+    self.fbb_.push_slot::<f32>(PetitionSave::VT_LEVY_SHARE, levy_share, 0.0);
+  }
+  #[inline]
+  pub fn add_ends(&mut self, ends: u64) {
+    self.fbb_.push_slot::<u64>(PetitionSave::VT_ENDS, ends, 0);
+  }
+  #[inline]
+  pub fn add_came(&mut self, came: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PetitionSave::VT_CAME, came);
+  }
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(PetitionSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_answered(&mut self, answered: bool) {
+    self.fbb_.push_slot::<bool>(PetitionSave::VT_ANSWERED, answered, false);
+  }
+  #[inline]
+  pub fn add_nominee(&mut self, nominee: u64) {
+    self.fbb_.push_slot::<u64>(PetitionSave::VT_NOMINEE, nominee, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PetitionSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    PetitionSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<PetitionSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for PetitionSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("PetitionSave");
+      ds.field("id", &self.id());
+      ds.field("faction", &self.faction());
+      ds.field("settlement", &self.settlement());
+      ds.field("organizer", &self.organizer());
+      ds.field("called", &self.called());
+      ds.field("day", &self.day());
+      ds.field("policy", &self.policy());
+      ds.field("levy_share", &self.levy_share());
+      ds.field("ends", &self.ends());
+      ds.field("came", &self.came());
+      ds.field("law", &self.law());
+      ds.field("answered", &self.answered());
+      ds.field("nominee", &self.nominee());
+      ds.finish()
+  }
+}
 pub enum FactionsSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -27407,6 +27724,8 @@ impl<'a> FactionsSave<'a> {
   pub const VT_GOODS: ::flatbuffers::VOffsetT = 8;
   pub const VT_JOINED: ::flatbuffers::VOffsetT = 10;
   pub const VT_LEFT: ::flatbuffers::VOffsetT = 12;
+  pub const VT_PETITIONS: ::flatbuffers::VOffsetT = 14;
+  pub const VT_POLICIES: ::flatbuffers::VOffsetT = 16;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -27420,6 +27739,8 @@ impl<'a> FactionsSave<'a> {
     let mut builder = FactionsSaveBuilder::new(_fbb);
     builder.add_left(args.left);
     builder.add_joined(args.joined);
+    if let Some(x) = args.policies { builder.add_policies(x); }
+    if let Some(x) = args.petitions { builder.add_petitions(x); }
     if let Some(x) = args.goods { builder.add_goods(x); }
     if let Some(x) = args.members { builder.add_members(x); }
     if let Some(x) = args.factions { builder.add_factions(x); }
@@ -27462,6 +27783,20 @@ impl<'a> FactionsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(FactionsSave::VT_LEFT, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn petitions(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PetitionSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PetitionSave>>>>(FactionsSave::VT_PETITIONS, None)}
+  }
+  #[inline]
+  pub fn policies(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(FactionsSave::VT_POLICIES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FactionsSave<'_> {
@@ -27475,6 +27810,8 @@ impl ::flatbuffers::Verifiable for FactionsSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("goods", Self::VT_GOODS, false)?
      .visit_field::<u64>("joined", Self::VT_JOINED, false)?
      .visit_field::<u64>("left", Self::VT_LEFT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PetitionSave>>>>("petitions", Self::VT_PETITIONS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("policies", Self::VT_POLICIES, false)?
      .finish();
     Ok(())
   }
@@ -27485,6 +27822,8 @@ pub struct FactionsSaveArgs<'a> {
     pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub joined: u64,
     pub left: u64,
+    pub petitions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PetitionSave<'a>>>>>,
+    pub policies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for FactionsSaveArgs<'a> {
   #[inline]
@@ -27495,6 +27834,8 @@ impl<'a> Default for FactionsSaveArgs<'a> {
       goods: None,
       joined: 0,
       left: 0,
+      petitions: None,
+      policies: None,
     }
   }
 }
@@ -27525,6 +27866,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FactionsSaveBuilder<'a, 'b, A
     self.fbb_.push_slot::<u64>(FactionsSave::VT_LEFT, left, 0);
   }
   #[inline]
+  pub fn add_petitions(&mut self, petitions: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<PetitionSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FactionsSave::VT_PETITIONS, petitions);
+  }
+  #[inline]
+  pub fn add_policies(&mut self, policies: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FactionsSave::VT_POLICIES, policies);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FactionsSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FactionsSaveBuilder {
@@ -27547,6 +27896,8 @@ impl ::core::fmt::Debug for FactionsSave<'_> {
       ds.field("goods", &self.goods());
       ds.field("joined", &self.joined());
       ds.field("left", &self.left());
+      ds.field("petitions", &self.petitions());
+      ds.field("policies", &self.policies());
       ds.finish()
   }
 }

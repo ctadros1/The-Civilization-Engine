@@ -24366,6 +24366,7 @@ impl<'a> PolityLine<'a> {
   pub const VT_CUSTOM_HISTORY: ::flatbuffers::VOffsetT = 40;
   pub const VT_BODY_MEMBERS: ::flatbuffers::VOffsetT = 42;
   pub const VT_FACTIONS: ::flatbuffers::VOffsetT = 44;
+  pub const VT_PETITIONS: ::flatbuffers::VOffsetT = 46;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -24382,6 +24383,7 @@ impl<'a> PolityLine<'a> {
     builder.add_founded_minute(args.founded_minute);
     builder.add_settlement(args.settlement);
     builder.add_polity(args.polity);
+    if let Some(x) = args.petitions { builder.add_petitions(x); }
     if let Some(x) = args.factions { builder.add_factions(x); }
     builder.add_body_members(args.body_members);
     if let Some(x) = args.custom_history { builder.add_custom_history(x); }
@@ -24549,6 +24551,13 @@ impl<'a> PolityLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PolityLine::VT_FACTIONS, None)}
   }
+  #[inline]
+  pub fn petitions(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PolityLine::VT_PETITIONS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolityLine<'_> {
@@ -24578,6 +24587,7 @@ impl ::flatbuffers::Verifiable for PolityLine<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("custom_history", Self::VT_CUSTOM_HISTORY, false)?
      .visit_field::<u32>("body_members", Self::VT_BODY_MEMBERS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("factions", Self::VT_FACTIONS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("petitions", Self::VT_PETITIONS, false)?
      .finish();
     Ok(())
   }
@@ -24604,6 +24614,7 @@ pub struct PolityLineArgs<'a> {
     pub custom_history: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub body_members: u32,
     pub factions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub petitions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for PolityLineArgs<'a> {
   #[inline]
@@ -24630,6 +24641,7 @@ impl<'a> Default for PolityLineArgs<'a> {
       custom_history: None,
       body_members: 0,
       factions: None,
+      petitions: None,
     }
   }
 }
@@ -24724,6 +24736,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolityLineBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_FACTIONS, factions);
   }
   #[inline]
+  pub fn add_petitions(&mut self, petitions: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_PETITIONS, petitions);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolityLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolityLineBuilder {
@@ -24762,6 +24778,7 @@ impl ::core::fmt::Debug for PolityLine<'_> {
       ds.field("custom_history", &self.custom_history());
       ds.field("body_members", &self.body_members());
       ds.field("factions", &self.factions());
+      ds.field("petitions", &self.petitions());
       ds.finish()
   }
 }

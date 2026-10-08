@@ -731,3 +731,21 @@ leave_margin = 0.5
 dues_share = 0.05
 reserve_days = 20.0
 aid_days = 5.0
+# A faction may petition the gathering (ADR-0017 §3; research 04-10 §3, 09-05 §1.2) for what
+# answers the party its members blame: a store at another share, or none, against the gathering;
+# another holder, against an office. Its organizer weighs calling one, once it has
+# `petition_members` members, none of its petitions is waiting and its last was `petition_days`
+# ago or more, at `w_grievance` times its members' mean grievance and `w_belong` times how many of
+# those they know belong, less `petition_cost`, against their threshold. Word goes out from the organizer; anyone who has heard weighs coming at
+# `w_grievance` for their grievance, `w_member` for belonging (else `w_organizer` times their
+# regard for the organizer) and `w_expect` for the share of those they know who belong: for the
+# `free_ride_share` of people a keyed draw makes free riders, more others coming adds less once
+# half do (04-10 §1.4, §5.3). A petition the gathering turns down is felt by each who came as a
+# wrong of `refused_days` of a household's food. Every value is a design prior.
+petition_members = 3
+petition_days = 180
+petition_cost = 0.5
+w_member = 1.0
+w_expect = 1.0
+free_ride_share = 0.2
+refused_days = 5.0

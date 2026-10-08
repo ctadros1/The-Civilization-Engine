@@ -184,6 +184,7 @@ fn what_a_law_does_to_what_they_hold_dear_weighs_in_their_stance() {
             known: vec![(sponsor, now.day_index())],
             compliance: Default::default(),
             watch: Default::default(),
+            ends: None,
             body: None,
         });
         p.gathering = Some(Gathering {

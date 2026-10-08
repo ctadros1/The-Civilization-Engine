@@ -49,11 +49,14 @@ pub enum Behavior {
     /// Walk a round of the settlement's homes at night and stand watch at each (M4b slice AC,
     /// ADR-0015 §6): only for the one a law names to keep watch.
     Watch,
+    /// Go to the hearth to join a petition a faction has called there (M4c slice AH, ADR-0017
+    /// §3): only for those who heard of it.
+    Petition,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 18] = [
+    pub const ALL: [Behavior; 19] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -72,6 +75,7 @@ impl Behavior {
         Behavior::Attend,
         Behavior::Take,
         Behavior::Watch,
+        Behavior::Petition,
     ];
 
     /// The authored name of a behavior.
@@ -95,6 +99,7 @@ impl Behavior {
             Behavior::Attend => "attend",
             Behavior::Take => "take",
             Behavior::Watch => "watch",
+            Behavior::Petition => "petition",
         }
     }
 

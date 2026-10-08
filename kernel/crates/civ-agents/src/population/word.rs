@@ -14,10 +14,15 @@ pub const PURPOSE_WORD_HOME: u64 = 0x776f_7264_686f_6d65; // "wordhome"
 /// Purpose tag for a companion at the hearth telling another.
 pub const PURPOSE_WORD_HEARTH: u64 = 0x776f_7264_6865_6172; // "wordhear"
 
-/// What a draw about word of gathering `c` is keyed by: its settlement and the day it meets, so
-/// that other claims made or let go never move it (ADR-0016 §6).
+/// What a draw about word of gathering or petition `c` is keyed by: its settlement, the day it
+/// meets and its kind, so that other claims made or let go never move it (ADR-0016 §6).
 fn gathering_key(c: &Claim) -> u64 {
-    c.settlement.get() ^ (c.day as u64).rotate_left(40)
+    c.settlement.get() ^ (c.day as u64).rotate_left(40) ^ (u64::from(c.kind.code()) << 56)
+}
+
+/// Whether claim `c` is a call to the hearth still ahead on `day`: a gathering or a petition.
+fn call_ahead(c: &Claim, day: i64) -> bool {
+    matches!(c.kind, ClaimKind::Gathering | ClaimKind::Petition) && c.day >= day
 }
 
 impl Population {
@@ -67,6 +72,46 @@ impl Population {
         }
     }
 
+    /// Word that a petition `petition` sits at `settlement` on `day`: the claim, made if it is
+    /// new, and each of `first` hears it on `today` from `from`, who began it.
+    pub(super) fn petition_word(
+        &mut self,
+        settlement: PermanentId,
+        day: i64,
+        petition: PermanentId,
+        from: PermanentId,
+        first: &[PermanentId],
+        today: i64,
+    ) {
+        let claim = match self.word.petition(settlement, day) {
+            Some(c) => c,
+            None => self.word.make(Claim {
+                id: 0,
+                kind: ClaimKind::Petition,
+                settlement,
+                day,
+                subject: Some(petition),
+                grievance: None,
+            }),
+        };
+        for &p in first {
+            let told = (p != from).then_some(from);
+            self.word.hear(p, claim, today, told, Some(from));
+        }
+    }
+
+    /// Whether `person` has heard that a petition sits at `settlement` on `day`.
+    pub(crate) fn heard_of_petition(
+        &self,
+        person: PermanentId,
+        settlement: PermanentId,
+        day: i64,
+    ) -> bool {
+        self.word
+            .petition(settlement, day)
+            .is_some_and(|c| self.word.has_heard(person, c))
+    }
+
     /// Whether `person` has heard that a gathering meets at `settlement` on `day`.
     pub(crate) fn heard_of_gathering(
         &self,
@@ -95,7 +140,7 @@ impl Population {
             .word
             .claims
             .iter()
-            .filter(|c| c.kind == ClaimKind::Gathering && c.day >= day)
+            .filter(|c| call_ahead(c, day))
             .map(|c| (c.id, gathering_key(c)))
             .collect();
         if ahead.is_empty() {
@@ -161,7 +206,7 @@ impl Population {
                 let Some(which) = self
                     .word
                     .claim(h.claim)
-                    .filter(|c| c.kind == ClaimKind::Gathering && c.day >= day)
+                    .filter(|c| call_ahead(c, day))
                     .map(gathering_key)
                 else {
                     continue;
@@ -287,8 +332,8 @@ impl Population {
     }
 
     /// Midnight (ADR-0016 §2): a household short of food that knows of a common store and finds it
-    /// empty holds it against the store's keeper, or with none against the gathering, under the
-    /// store's law (its terms promise relief to those short).
+    /// empty holds it against the store's keeper, or with none (or for the keeper themselves)
+    /// against the gathering, under the store's law (its terms promise relief to those short).
     pub(super) fn grieve_empty_stores(&mut self, ctx: &Ctx) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let short = params.household.short_food_days;
@@ -305,7 +350,8 @@ impl Population {
                 continue;
             }
             let (store_law, relief_days) = (store.id, f64::from(store.relief_days));
-            let blamed = polity
+            let body = Blamed::Body(polity.id);
+            let (blamed, keeper) = polity
                 .laws
                 .iter()
                 .find(|l| {
@@ -313,7 +359,7 @@ impl Population {
                         && l.kind == PolicyKind::KeepStore
                         && l.holder.is_some()
                 })
-                .map_or(Blamed::Body(polity.id), |l| Blamed::Office(l.id));
+                .map_or((body, None), |l| (Blamed::Office(l.id), l.holder));
             let settlement = polity.settlement;
             let mut homes: Vec<(PermanentId, f64)> = self
                 .households
@@ -340,6 +386,8 @@ impl Population {
                         .iter()
                         .any(|l| l.id == store_law && l.knows(m))
                     {
+                        // The keeper does not blame their own keeping (M4c slice AH).
+                        let blamed = if keeper == Some(m) { body } else { blamed };
                         self.grieve(
                             ctx,
                             m,

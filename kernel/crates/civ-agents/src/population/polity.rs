@@ -143,7 +143,9 @@ impl Population {
         // the common store empty hold it against it (M4c slice AE).
         self.word_day(ctx);
         self.grieve_empty_stores(ctx);
-        // Those whose day it is review where they belong (M4c slice AH).
+        // Petitions that have sat go before the gathering, and those decided are answered; then
+        // those whose day it is review where they belong (M4c slice AH).
+        self.petitions_day(ctx);
         self.factions_day(ctx);
         for pi in 0..self.polities.len() {
             let p = &self.polities[pi];
@@ -790,6 +792,7 @@ impl Population {
                     sanction: Default::default(),
                     hours: (0, 0),
                     body: None,
+                    ends: None,
                     own_gain: 0.0,
                     followers_gain: 0.0,
                     support: 0.5,
@@ -898,6 +901,7 @@ impl Population {
                                 sanction: Default::default(),
                                 hours: (0, 0),
                                 body: Some(b),
+                                ends: None,
                                 own_gain: 0.0,
                                 followers_gain: 0.0,
                                 support: 0.5,
@@ -1007,7 +1011,7 @@ impl Population {
 
     /// `sponsor` puts move `m` to the gathering (ADR-0013 §3, stage 1): the law is proposed, the
     /// sponsor knows it, and a gathering is called for `notice_days` on.
-    fn propose(
+    pub(super) fn propose(
         &mut self,
         ctx: &mut Ctx,
         pi: usize,
@@ -1043,6 +1047,7 @@ impl Population {
             compliance: Default::default(),
             watch: Default::default(),
             body: m.body,
+            ends: m.ends,
         };
         // "Mira proposed themselves as keeper of the common store", not "Mira as keeper"; and
         // the creed they proposed it under, if any (M4c slice AG).
@@ -1122,8 +1127,15 @@ impl Population {
         };
         let (sponsor, policy) = (law.sponsor, law.policy);
         let w_position = params.opinion.w_position;
-        // Those who came weigh their regard for the one the law names, or else for its sponsor.
+        // Those who came weigh their regard for the one the law names, or else for its sponsor;
+        // for one named in place of an office's holder, less their regard for that holder, which
+        // a grievance against the office lowers (M4c slice AH; research 04-10 §1.1: blame).
         let face = law.holder.unwrap_or(sponsor);
+        let replaced = law
+            .ends
+            .and_then(|e| self.polities[pi].laws.iter().find(|l| l.id == e))
+            .filter(|l| l.status == LawStatus::InForce)
+            .and_then(|l| Some((l.holder?, l.id)));
         let day = now.day_index();
         // The store spoils under the roof it had until a new keeper takes it.
         let sheltered = self.polity_sheltered(pi);
@@ -1145,10 +1157,18 @@ impl Population {
                 let talk = self.opinion_points(p, policy, w_position);
                 // And what it does to what they hold dear (M4c slice AG).
                 let values = self.value_points(ctx, p, policy);
+                let held = replaced.map_or(0.0, |(o, office)| {
+                    if p == o {
+                        1.0
+                    } else {
+                        self.ties.regard(p, o, day, &params.ties).clamp(0.0, 1.0)
+                            - self.keenness(ctx, p, Blamed::Office(office))
+                    }
+                });
                 let (stance, regard_points) = if p == sponsor {
                     (Stance::Support, 0.0)
                 } else {
-                    crate::polity::stance(gain + values + talk, regard, pp)
+                    crate::polity::stance_between(gain + values + talk, regard, held, pp)
                 };
                 Some(StanceRecord {
                     person: p,
@@ -1181,6 +1201,18 @@ impl Population {
         } else {
             LawStatus::Rejected
         };
+        // A law that replaces one in force supersedes it (M4c slice AH).
+        if outcome == Outcome::Passed
+            && let Some(old) = self.polities[pi]
+                .laws
+                .iter()
+                .find(|l| l.id == law_id)
+                .and_then(|l| l.ends)
+            && let Some(o) = self.polities[pi].law_mut(old)
+            && o.status == LawStatus::InForce
+        {
+            o.status = LawStatus::Superseded;
+        }
         let law = &self.polities[pi].laws[self.polities[pi]
             .laws
             .iter()

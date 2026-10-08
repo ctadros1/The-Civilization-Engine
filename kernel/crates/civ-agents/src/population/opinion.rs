@@ -45,6 +45,7 @@ fn level_of(def: &PolicyDef, k: u16, polity: &crate::polity::Polity) -> MoveOpti
         ),
         hours: live.map_or_else(|| def.hours.first().copied().unwrap_or((0, 0)), |l| l.hours),
         body: None,
+        ends: None,
         own_gain: 0.0,
         followers_gain: 0.0,
         support: 0.5,

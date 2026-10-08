@@ -1673,6 +1673,10 @@ table PolityLine {
   // kernel ("Mira's faction, against the gathering, since 3 May of year 2: 5 members, organized
   // by Mira; its store holds grain 40 kg").
   factions: [string] (id: 20);
+  // Wire 1.41 (M4c slice AH, ADR-0017 §3): its petitions, newest first, in words rendered by the
+  // kernel ("Mira's faction petitioned the gathering on 3 May of year 2 for an end to the common
+  // store's levy: 9 came; the gathering turned it down").
+  petitions: [string] (id: 21);
 }
 
 table Government {

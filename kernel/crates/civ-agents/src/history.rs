@@ -140,11 +140,16 @@ pub enum Reason {
     /// A curfew they know of forbids being away from home now (M4b slice AD): what keeping it
     /// weighs with them.
     Curfew = 29,
+    /// To join a petition a faction called at the hearth (M4c slice AH): their grievance, their
+    /// identification with it and those they expect to come (research 04-10 §5.3).
+    Petition = 30,
+    /// Excluded: no petition they heard of sits now.
+    NoPetition = 133,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 62] = [
+    pub const ALL: [Reason; 64] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -207,6 +212,8 @@ impl Reason {
         Reason::Duty,
         Reason::NoWatch,
         Reason::Curfew,
+        Reason::Petition,
+        Reason::NoPetition,
     ];
 
     /// The reason with this code.
@@ -279,6 +286,8 @@ impl Reason {
             Reason::Duty => "the watch they keep",
             Reason::NoWatch => "no watch of theirs to keep now",
             Reason::Curfew => "a curfew forbids being away from home now",
+            Reason::Petition => "the petition at the hearth",
+            Reason::NoPetition => "no petition they heard of sits now",
         }
     }
 }

@@ -161,6 +161,8 @@ pub const SCHEMA_V39: u32 = 39;
 /// The schema version of M4c slice AG's fourth step: ideologies, before factions (see
 /// [`agents`]).
 pub const SCHEMA_V40: u32 = 40;
+/// The schema version of M4c slice AH's first step: factions, before petitions (see [`agents`]).
+pub const SCHEMA_V41: u32 = 41;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

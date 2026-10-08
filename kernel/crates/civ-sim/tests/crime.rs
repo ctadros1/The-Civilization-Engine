@@ -395,6 +395,7 @@ fn a_law(sim: &mut Sim, kind: civ_agents::polity::PolicyKind) -> (PermanentId, P
         compliance: Default::default(),
         watch: Default::default(),
         body: None,
+        ends: None,
     };
     for &a in &adults {
         law.learn(a, now.day_index());

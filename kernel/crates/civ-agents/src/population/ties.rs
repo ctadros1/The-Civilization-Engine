@@ -100,7 +100,10 @@ impl Population {
                         .activities
                         .get(q.act.def as usize)
                         .is_some_and(|a| {
-                            matches!(a.behavior, Behavior::Socialize | Behavior::Attend)
+                            matches!(
+                                a.behavior,
+                                Behavior::Socialize | Behavior::Attend | Behavior::Petition
+                            )
                         })
             })
             .map(|(_, q)| q.id)

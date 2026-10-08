@@ -163,6 +163,11 @@ describe("the government on the wire", () => {
     const factions = W.PolityLine.createFactionsVector(b, [
       b.createString("Mira's faction, against the gathering, since 3 May of year 2: 5 members"),
     ]);
+    const petitions = W.PolityLine.createPetitionsVector(b, [
+      b.createString(
+        "Mira's faction petitioned the gathering on 3 May of year 2 for an end to the common store's levy (the store gives what it holds): 9 came; the gathering turned it down",
+      ),
+    ]);
     const name = b.createString("Stonewick");
     const custom = b.createString("The adults who come to the hearth decide by acclamation.");
     const store = b.createString("grain 26 kg");
@@ -189,6 +194,7 @@ describe("the government on the wire", () => {
       customHistory,
       3,
       factions,
+      petitions,
     );
     const polities = W.Government.createPolitiesVector(b, [polity]);
     const government = W.Government.createGovernment(b, BigInt(103 * DAY), polities);
@@ -214,6 +220,8 @@ describe("the government on the wire", () => {
     expect(p.factions).toEqual([
       "Mira's faction, against the gathering, since 3 May of year 2: 5 members",
     ]);
+    expect(p.petitions).toHaveLength(1);
+    expect(p.petitions[0]).toContain("the gathering turned it down");
     expect(p.customHistory).toHaveLength(2);
     expect(p.customHistory[1]).toContain("by the amendment Ada proposed");
     const l = p.laws[0]!;

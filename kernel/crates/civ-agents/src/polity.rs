@@ -86,15 +86,19 @@ pub enum IssueKind {
     /// grievance against the gathering (M4c slice AF): what one person has seen and holds, so
     /// it opens moves to them alone.
     Overruled,
+    /// A faction petitioned the gathering for it (M4c slice AH): its members held grievances
+    /// against the gathering. It answers no settlement's issue and opens no move to anyone.
+    Petition,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 4] = [
+    pub const ALL: [IssueKind; 5] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
         IssueKind::Overruled,
+        IssueKind::Petition,
     ];
 
     /// The authored name.
@@ -104,6 +108,7 @@ impl IssueKind {
             IssueKind::StoreUnkept => "store_unkept",
             IssueKind::Takings => "takings",
             IssueKind::Overruled => "overruled",
+            IssueKind::Petition => "petition",
         }
     }
 
@@ -119,6 +124,9 @@ impl IssueKind {
             IssueKind::StoreUnkept => "the common store lay in the open with nobody to keep it",
             IssueKind::Takings => "food was taken from households' stores",
             IssueKind::Overruled => "the gathering had decided against them",
+            IssueKind::Petition => {
+                "those who came to petition for it held it against the gathering"
+            }
         }
     }
 }
@@ -513,7 +521,8 @@ pub enum LawStatus {
     Rejected,
     /// In force until the one it named died or left.
     Lapsed,
-    /// An amendment of the custom that a later one replaced (M4c slice AF).
+    /// Replaced by a later law: an amendment of the custom by a later one (M4c slice AF), or a
+    /// law by one that ends or changes it (M4c slice AH).
     Superseded,
 }
 
@@ -675,6 +684,9 @@ pub struct Law {
     pub watch: WatchRecord,
     /// For an amendment of the custom: the body it would make (M4c slice AF).
     pub body: Option<Body>,
+    /// The law in force it would replace, if any (M4c slice AH): a common store at another
+    /// share, or at none, in place of the one in force.
+    pub ends: Option<PermanentId>,
 }
 
 impl Law {
@@ -770,6 +782,9 @@ pub fn stance_words(r: &StanceRecord, margin: f64, sponsor: PermanentId) -> Stri
         Stance::Oppose | Stance::Abstain if regard > 0.0 && gain < -margin => {
             format!("{household}, though they think well of the sponsor")
         }
+        Stance::Oppose | Stance::Abstain if regard < 0.0 => {
+            format!("{household}, and they think better of the one it would replace")
+        }
         _ => household.to_owned(),
     };
     format!("{why}{held}{talked}")
@@ -796,15 +811,24 @@ pub fn law_words(
             law.sanction.words()
         );
     }
+    // An office's holder named in place of the one in it (M4c slice AH).
+    let instead = if law.ends.is_some() {
+        " in place of the one holding it"
+    } else {
+        ""
+    };
     if def.is_some_and(|d| d.kind == PolicyKind::KeepStore) {
         return match law.holder {
-            Some(h) => format!("{} as keeper of the common store", name_of(h)),
+            Some(h) => format!("{} as keeper of the common store{instead}", name_of(h)),
             None => "someone as keeper of the common store".to_owned(),
         };
     }
     if def.is_some_and(|d| d.kind == PolicyKind::KeepWatch) {
         return match law.holder {
-            Some(h) => format!("{} to keep watch over the stores at night", name_of(h)),
+            Some(h) => format!(
+                "{} to keep watch over the stores at night{instead}",
+                name_of(h)
+            ),
             None => "someone to keep watch over the stores at night".to_owned(),
         };
     }
@@ -815,7 +839,19 @@ pub fn law_words(
             law.hours.0, law.hours.1
         );
     }
-    let name = def.map_or_else(
+    if law.ends.is_some() {
+        return replacing_words(def, law.levy_share);
+    }
+    format!(
+        "{}, taking {} of each harvest",
+        policy_name(def),
+        share_text(f64::from(law.levy_share))
+    )
+}
+
+/// A policy's name with its article: "a common store".
+fn policy_name(def: Option<&PolicyDef>) -> String {
+    def.map_or_else(
         || "a law".to_owned(),
         |d| {
             let name = d.name.to_lowercase();
@@ -825,10 +861,20 @@ pub fn law_words(
             };
             format!("{article} {name}")
         },
-    );
+    )
+}
+
+/// A store of template `def` that replaces the one in force (M4c slice AH: a petition's demand),
+/// at `levy_share`, or at none: "an end to the common store's levy (the store gives what it
+/// holds)"; "a common store, taking a twentieth of each harvest in place of the levy in force".
+pub fn replacing_words(def: Option<&PolicyDef>, levy_share: f32) -> String {
+    if levy_share <= 0.0 {
+        return "an end to the common store's levy (the store gives what it holds)".to_owned();
+    }
     format!(
-        "{name}, taking {} of each harvest",
-        share_text(f64::from(law.levy_share))
+        "{}, taking {} of each harvest in place of the levy in force",
+        policy_name(def),
+        share_text(f64::from(levy_share))
     )
 }
 
@@ -1176,7 +1222,20 @@ pub fn cannot_pay(held: f64, kcal: f64, year_need: f64, params: &PolityParams) -
 /// A member's stance: their household's forecast in points, and their regard for the sponsor
 /// (0-1), against the margin (research 09-05 §1.4; ADR-0013 §3, stage 2).
 pub fn stance(gain_points: f64, regard: f64, params: &PolityParams) -> (Stance, f64) {
-    let regard_points = params.w_regard * regard.clamp(0.0, 1.0);
+    stance_between(gain_points, regard, 0.0, params)
+}
+
+/// As [`stance`], for a law that would put someone in the place of an office's holder (M4c slice
+/// AH: a petition against an office): regard for the one it names, 0 to 1, less what holds them
+/// to the one it would replace, -1 to 1 (regard for them, less a grievance against them). Its
+/// regard points may be below nothing.
+pub fn stance_between(
+    gain_points: f64,
+    regard: f64,
+    replaced: f64,
+    params: &PolityParams,
+) -> (Stance, f64) {
+    let regard_points = params.w_regard * (regard.clamp(0.0, 1.0) - replaced.clamp(-1.0, 1.0));
     let s = gain_points + regard_points;
     let stance = if s > params.stance_margin {
         Stance::Support
@@ -1227,6 +1286,8 @@ pub struct MoveOption {
     pub hours: Hours,
     /// The body, for an amendment of the custom (M4c slice AF).
     pub body: Option<Body>,
+    /// The law in force it would replace, for one a faction petitions for (M4c slice AH).
+    pub ends: Option<PermanentId>,
     /// The forecast for the person's own household ([`store_gain`]).
     pub own_gain: f64,
     /// The forecast for the households of those who regard them, weighted by that regard.
@@ -1363,6 +1424,16 @@ pub(crate) mod tests {
         let (s, r) = stance(-0.5, 1.0, &p);
         assert_eq!((s, r), (Stance::Support, 1.0));
         assert_eq!(stance(-0.5, 5.0, &p).1, 1.0, "regard counts up to 1");
+        // Someone named in place of an office's holder (M4c slice AH): regard for the holder
+        // weighs against it, and a grievance against them lowers that regard below nothing.
+        assert_eq!(
+            stance_between(0.0, 0.5, 0.5, &p),
+            (Stance::Abstain, 0.0),
+            "liked alike"
+        );
+        assert_eq!(stance_between(0.0, 0.0, 1.0, &p).0, Stance::Oppose);
+        let (s, r) = stance_between(0.0, 0.5, 0.5 - 1.0, &p);
+        assert_eq!((s, r), (Stance::Support, p.w_regard));
     }
 
     #[test]
@@ -1401,6 +1472,7 @@ pub(crate) mod tests {
             compliance: Compliance::default(),
             watch: WatchRecord::default(),
             body: None,
+            ends: None,
         };
         assert!(law.learn(pid(9), 3));
         assert!(law.learn(pid(4), 5));
@@ -1453,12 +1525,25 @@ pub(crate) mod tests {
             compliance: Compliance::default(),
             watch: WatchRecord::default(),
             body: None,
+            ends: None,
         };
         let name_of = |_: PermanentId| "Ada".to_owned();
         assert_eq!(
             law_words(&law, &policies, &name_of),
             "a common store, taking a tenth of each harvest"
         );
+        // A petition's demand replaces the store in force (M4c slice AH).
+        law.ends = Some(pid(2));
+        assert_eq!(
+            law_words(&law, &policies, &name_of),
+            "a common store, taking a tenth of each harvest in place of the levy in force"
+        );
+        law.levy_share = 0.0;
+        assert_eq!(
+            law_words(&law, &policies, &name_of),
+            "an end to the common store's levy (the store gives what it holds)"
+        );
+        law.ends = None;
         law.policy = 1;
         law.holder = Some(pid(9));
         // "proposed …", "agreed to …" and "turned down …" all read.
@@ -1545,6 +1630,7 @@ pub(crate) mod tests {
                 ..Default::default()
             },
             body: None,
+            ends: None,
         });
         assert_eq!(polity.watcher().map(|w| w.0), Some(pid(9)));
         assert!(polity.keeper().is_none(), "a watch keeps no store");
@@ -1693,6 +1779,7 @@ pub(crate) mod tests {
             compliance: Compliance::default(),
             watch: WatchRecord::default(),
             body: Some(elders),
+            ends: None,
         };
         let policies = [PolicyDef {
             id: "core:policy/amend_custom".to_owned(),
@@ -1743,6 +1830,7 @@ pub(crate) mod tests {
             sanction: Sanction::default(),
             hours: (0, 0),
             body: None,
+            ends: None,
             own_gain: 0.3,
             followers_gain: 0.2,
             support: 0.8,

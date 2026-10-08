@@ -1396,7 +1396,8 @@ button.link:hover {
 }
 
 .polity .offices,
-.polity .factions {
+.polity .factions,
+.polity .petitions {
   margin: 2px 0;
   padding-left: 18px;
   font-size: 12px;

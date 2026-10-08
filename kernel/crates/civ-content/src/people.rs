@@ -60,7 +60,7 @@ pub(crate) struct PeopleFile {
     pub faction: FactionFile,
 }
 
-/// Factions (M4c slice AH, ADR-0017 §2; content API 45). See
+/// Factions and their petitions (M4c slice AH, ADR-0017 §2-3; content API 45, 46). See
 /// [`civ_agents::faction::FactionParams`] for what each means.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -81,6 +81,13 @@ pub(crate) struct FactionFile {
     pub dues_share: f64,
     pub reserve_days: f64,
     pub aid_days: f64,
+    pub petition_members: u32,
+    pub petition_days: u32,
+    pub petition_cost: f64,
+    pub w_member: f64,
+    pub w_expect: f64,
+    pub free_ride_share: f64,
+    pub refused_days: f64,
 }
 
 impl FactionFile {
@@ -102,6 +109,13 @@ impl FactionFile {
             dues_share: self.dues_share,
             reserve_days: self.reserve_days,
             aid_days: self.aid_days,
+            petition_members: self.petition_members,
+            petition_days: self.petition_days,
+            petition_cost: self.petition_cost,
+            w_member: self.w_member,
+            w_expect: self.w_expect,
+            free_ride_share: self.free_ride_share,
+            refused_days: self.refused_days,
         }
     }
 
@@ -116,6 +130,18 @@ impl FactionFile {
             p.push(format!(
                 "`faction.review_days` must be between 1 and 365 (got {})",
                 self.review_days
+            ));
+        }
+        if !(2..=1000).contains(&self.petition_members) {
+            p.push(format!(
+                "`faction.petition_members` must be between 2 and 1000 (got {})",
+                self.petition_members
+            ));
+        }
+        if self.petition_days > 36500 {
+            p.push(format!(
+                "`faction.petition_days` must be at most 36500 (got {})",
+                self.petition_days
             ));
         }
         for (name, v, lo, hi) in [
@@ -134,6 +160,11 @@ impl FactionFile {
             ("faction.dues_share", self.dues_share, 0.0, 1.0),
             ("faction.reserve_days", self.reserve_days, 0.0, 3650.0),
             ("faction.aid_days", self.aid_days, 0.0, 365.0),
+            ("faction.petition_cost", self.petition_cost, 0.0, 100.0),
+            ("faction.w_member", self.w_member, 0.0, 100.0),
+            ("faction.w_expect", self.w_expect, 0.0, 100.0),
+            ("faction.free_ride_share", self.free_ride_share, 0.0, 1.0),
+            ("faction.refused_days", self.refused_days, 0.0, 365.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

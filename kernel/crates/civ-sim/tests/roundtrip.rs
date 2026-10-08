@@ -2091,6 +2091,27 @@ fn a_schema_40_save_loads_with_no_factions() {
 }
 
 #[test]
+fn a_schema_41_save_loads_with_no_petitions_and_no_law_replacing_another() {
+    let sim = load_first();
+    // A schema-41 save, from before petitions (M4c slice AH, step two): its factions section
+    // carries none, and its laws name no law they replace.
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V41;
+    let path = republish("slice-ah1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-41 save loads");
+    assert!(loaded.people().factions.petitions.is_empty());
+    assert!(
+        loaded
+            .people()
+            .polities
+            .iter()
+            .flat_map(|p| &p.laws)
+            .all(|l| l.ends.is_none())
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn slice_q_saves_load_with_each_household_s_taste_drawn_as_its_band_s() {
     let mut sim = load_first();
     // Tastes no band would bring, which the migration replaces.

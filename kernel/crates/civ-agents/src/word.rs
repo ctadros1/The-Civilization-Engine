@@ -17,11 +17,17 @@ pub enum ClaimKind {
     Gathering = 0,
     /// Someone holds a grievance against a party.
     Grievance = 1,
+    /// A faction petitions the gathering at the settlement's hearth on a day (M4c slice AH).
+    Petition = 2,
 }
 
 impl ClaimKind {
     /// Every kind, in code order.
-    pub const ALL: [ClaimKind; 2] = [ClaimKind::Gathering, ClaimKind::Grievance];
+    pub const ALL: [ClaimKind; 3] = [
+        ClaimKind::Gathering,
+        ClaimKind::Grievance,
+        ClaimKind::Petition,
+    ];
 
     /// Its number in saves.
     pub fn code(self) -> u8 {
@@ -45,7 +51,8 @@ pub struct Claim {
     pub settlement: PermanentId,
     /// The day it concerns: the day a gathering meets; the day a grievance was first told.
     pub day: i64,
-    /// For a gathering called on a law, the law; for a grievance, the one who holds it.
+    /// For a gathering called on a law, the law; for a grievance, the one who holds it; for a
+    /// petition, the petition.
     pub subject: Option<PermanentId>,
     /// For a grievance: the party blamed and the issue.
     pub grievance: Option<(Blamed, Grieved)>,
@@ -107,6 +114,15 @@ impl Word {
             .map(|c| c.id)
     }
 
+    /// The claim that a petition sits at `settlement` on `day`, if one was made.
+    pub fn petition(&self, settlement: PermanentId, day: i64) -> Option<u32> {
+        self.claims
+            .iter()
+            .rev()
+            .find(|c| c.kind == ClaimKind::Petition && c.settlement == settlement && c.day == day)
+            .map(|c| c.id)
+    }
+
     /// Whether `holder` has heard claim `claim`.
     pub fn has_heard(&self, holder: PermanentId, claim: u32) -> bool {
         self.heard
@@ -160,7 +176,7 @@ impl Word {
     /// and a grievance told more than `news_days` ago and not since; and of claims nobody holds.
     pub fn prune(&mut self, today: i64, news_days: i64) {
         let stale = |c: &Claim, last: i64| match c.kind {
-            ClaimKind::Gathering => c.day < today,
+            ClaimKind::Gathering | ClaimKind::Petition => c.day < today,
             ClaimKind::Grievance => last + news_days < today,
         };
         let claims = &self.claims;
@@ -292,17 +308,21 @@ pub enum Wrong {
     Unpaid = 4,
     /// A levy was taken in a lean year that left the household short of a year's food.
     LeanLevy = 5,
+    /// The gathering turned down, or was too thin to decide, what they came to petition for
+    /// (M4c slice AH).
+    Refused = 6,
 }
 
 impl Wrong {
     /// Every event, in code order.
-    pub const ALL: [Wrong; 6] = [
+    pub const ALL: [Wrong; 7] = [
         Wrong::StoreEmpty,
         Wrong::FoundAgainst,
         Wrong::NotFound,
         Wrong::Unheard,
         Wrong::Unpaid,
         Wrong::LeanLevy,
+        Wrong::Refused,
     ];
 
     /// Its number in saves.
@@ -331,6 +351,7 @@ impl Wrong {
                 "the levy was taken in a lean year though it left their household short of a \
                  year's food"
             }
+            Wrong::Refused => "the gathering did not grant what they came to petition for",
         }
     }
 }

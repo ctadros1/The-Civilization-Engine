@@ -106,7 +106,7 @@ use super::{
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
-    finish, section, single_chunk, unreadable,
+    SCHEMA_V41, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -248,7 +248,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         section(
             SECTION_FACTIONS,
             0,
-            encode_factions(&sim.people.factions, &goods),
+            encode_factions(&sim.people.factions, &sim.rules, &goods),
         ),
     ]
 }
@@ -350,6 +350,8 @@ enum Schema {
     V40,
     /// Factions and who belongs to each (M4c slice AH).
     V41,
+    /// Petitions, and laws that replace another (M4c slice AH).
+    V42,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -405,7 +407,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V38 => Schema::V38,
         SCHEMA_V39 => Schema::V39,
         SCHEMA_V40 => Schema::V40,
-        SAVE_SCHEMA_VERSION => Schema::V41,
+        SCHEMA_V41 => Schema::V41,
+        SAVE_SCHEMA_VERSION => Schema::V42,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -719,6 +722,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             to_hour: l.hours.1,
                             broken: c.broken,
                             broken_unaware: c.broken_unaware,
+                            ends: l.ends.map_or(0, PermanentId::get),
                             status: law_status_code(l.status),
                             sponsor: l.sponsor.get(),
                             proposed: l.proposed.minutes(),
@@ -853,6 +857,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::StoreUnkept => 1,
         IssueKind::Takings => 2,
         IssueKind::Overruled => 3,
+        IssueKind::Petition => 4,
     }
 }
 
@@ -952,6 +957,7 @@ fn decode_polities(
                 1 => IssueKind::StoreUnkept,
                 2 => IssueKind::Takings,
                 3 => IssueKind::Overruled,
+                4 => IssueKind::Petition,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -1008,6 +1014,7 @@ fn decode_polities(
                 },
                 hours: (l.from_hour(), l.to_hour()),
                 status,
+                ends: PermanentId::from_raw(l.ends()),
                 sponsor: required(l.sponsor(), "a law's sponsor")?,
                 proposed: time(l.proposed()),
                 issue,
@@ -2464,7 +2471,8 @@ fn carried(
         | Schema::V38
         | Schema::V39
         | Schema::V40
-        | Schema::V41 => {
+        | Schema::V41
+        | Schema::V42 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2615,7 +2623,8 @@ fn decode_households(
             | Schema::V38
             | Schema::V39
             | Schema::V40
-            | Schema::V41 => {
+            | Schema::V41
+            | Schema::V42 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5495,9 +5504,47 @@ fn decode_ideologies(
 
 // ---- factions ----------------------------------------------------------------------------------
 
-fn encode_factions(factions: &civ_agents::faction::Factions, goods: &[&str]) -> Vec<u8> {
+fn encode_factions(
+    factions: &civ_agents::faction::Factions,
+    rules: &Rules,
+    goods: &[&str],
+) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let good_dictionary = strings(&mut fbb, goods);
+    let policies: Vec<&str> = rules
+        .catalog
+        .policies
+        .iter()
+        .map(|p| p.id.as_str())
+        .collect();
+    let policy_dictionary = strings(&mut fbb, &policies);
+    let petitions: Vec<_> = factions
+        .petitions
+        .iter()
+        .map(|p| {
+            let came: Vec<u64> = p.came.iter().map(|c| c.get()).collect();
+            let came = fbb.create_vector(&came);
+            save::PetitionSave::create(
+                &mut fbb,
+                &save::PetitionSaveArgs {
+                    id: p.id.get(),
+                    faction: p.faction.get(),
+                    settlement: p.settlement.get(),
+                    organizer: p.organizer.get(),
+                    called: p.called.minutes(),
+                    day: p.day,
+                    policy: p.policy,
+                    levy_share: p.levy_share,
+                    nominee: p.nominee.map_or(0, PermanentId::get),
+                    ends: p.ends.get(),
+                    came: Some(came),
+                    law: p.law.map_or(0, PermanentId::get),
+                    answered: p.answered,
+                },
+            )
+        })
+        .collect();
+    let petitions = fbb.create_vector(&petitions);
     let list: Vec<_> = factions
         .list
         .iter()
@@ -5564,6 +5611,8 @@ fn encode_factions(factions: &civ_agents::faction::Factions, goods: &[&str]) -> 
             goods: Some(good_dictionary),
             joined: factions.joined,
             left: factions.left,
+            petitions: Some(petitions),
+            policies: Some(policy_dictionary),
         },
     );
     finish(fbb, root)
@@ -5573,7 +5622,9 @@ fn decode_factions(
     bytes: &[u8],
     rules: &Rules,
 ) -> Result<civ_agents::faction::Factions, LoadError> {
-    use civ_agents::faction::{Faction, FactionEvent, FactionEventKind, Factions, Member, Why};
+    use civ_agents::faction::{
+        Faction, FactionEvent, FactionEventKind, Factions, Member, Petition, Why,
+    };
     let root = flatbuffers::root::<save::FactionsSave>(bytes)
         .map_err(|e| unreadable(SECTION_FACTIONS, &e))?;
     let goods = good_map(&read_strings(root.goods()), rules);
@@ -5650,8 +5701,62 @@ fn decode_factions(
     if members.windows(2).any(|w| w[0].person == w[1].person) {
         return Err(bad("a person belongs to two factions".to_owned()));
     }
+    // A petition naming a policy template the loaded content lacks refuses the save, as a law
+    // does (ADR-0013 §2).
+    let saved_policies = read_strings(root.policies());
+    let mut petitions = Vec::new();
+    for p in root.petitions().iter().flatten() {
+        let id = required(p.id(), "a petition")?;
+        let Some(saved) = saved_policies.get(usize::from(p.policy())) else {
+            return Err(bad(format!(
+                "petition {id} names policy {} of {}",
+                p.policy(),
+                saved_policies.len()
+            )));
+        };
+        let policy = rules
+            .catalog
+            .policies
+            .iter()
+            .position(|d| &d.id == saved)
+            .and_then(|i| u16::try_from(i).ok())
+            .ok_or_else(|| {
+                LoadError::Incompatible(format!(
+                    "petition {id} asks for a `{saved}`, which the loaded content does not define"
+                ))
+            })?;
+        let faction = required(p.faction(), "a petition's faction")?;
+        if !list.iter().any(|f: &Faction| f.id == faction) {
+            return Err(bad(format!(
+                "petition {id} was called by faction {faction}, which never was"
+            )));
+        }
+        let mut came = Vec::new();
+        for raw in p.came().iter().flatten() {
+            came.push(required(raw, "one who came to a petition")?);
+        }
+        if !came.windows(2).all(|w| w[0] < w[1]) {
+            return Err(bad(format!("petition {id} lists who came out of order")));
+        }
+        petitions.push(Petition {
+            id,
+            faction,
+            settlement: required(p.settlement(), "a petition's settlement")?,
+            organizer: required(p.organizer(), "a petition's organizer")?,
+            called: SimTime::from_minutes(p.called()),
+            day: p.day(),
+            policy,
+            levy_share: p.levy_share(),
+            nominee: PermanentId::from_raw(p.nominee()),
+            ends: required(p.ends(), "the law a petition would replace")?,
+            came,
+            law: PermanentId::from_raw(p.law()),
+            answered: p.answered(),
+        });
+    }
     Ok(Factions {
         list,
+        petitions,
         members,
         joined: root.joined(),
         left: root.left(),

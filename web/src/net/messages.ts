@@ -972,6 +972,8 @@ export interface PolityLine {
   bodyMembers: number;
   /** Wire 1.40 (M4c slice AH): its factions, those with members first, in the kernel's words. */
   factions: string[];
+  /** Wire 1.41 (M4c slice AH): its petitions, newest first, in the kernel's words. */
+  petitions: string[];
 }
 
 /** Every settlement's polity at `minute` (wire 1.27). */
@@ -3055,6 +3057,7 @@ function governmentInfo(w: W.Government): GovernmentInfo {
       ),
       bodyMembers: p.bodyMembers(),
       factions: Array.from({ length: p.factionsLength() }, (_, k) => p.factions(k) ?? ""),
+      petitions: Array.from({ length: p.petitionsLength() }, (_, k) => p.petitions(k) ?? ""),
     });
   }
   return { minute: Number(w.minute()), polities };

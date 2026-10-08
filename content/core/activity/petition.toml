@@ -1,0 +1,19 @@
+# Going to the hearth where a faction's petition sits, to stand with those who bring it (M4c slice
+# AH, ADR-0017 §3): only on the evening it sits, and only for one who has heard of it. Who comes is
+# a choice of their own (research 04-10 §5.3), weighed beside everything else they might do; it
+# lasts until the evening is out, and whoever else comes is company, as at the hearth any evening.
+kind = "activity"
+id = "core:activity/petition"
+name = "Come to the petition"
+doing = "at the petition"
+behavior = "petition"
+par = 1.5
+min_age_years = 15.0
+max_age_years = 130.0
+min_minutes = 15
+max_minutes = 600
+daylight_only = false
+max_walk_minutes = 20
+technique = ""
+tools = []
+rate = 1.0

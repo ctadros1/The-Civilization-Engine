@@ -58,6 +58,21 @@ pub struct FactionParams {
     pub reserve_days: f64,
     /// Days of a household's food one ask of the faction's store may bring.
     pub aid_days: f64,
+    /// Petitions (M4c slice AH, step two): an organizer weighs calling one when the faction has
+    /// at least `petition_members` members and none of its petitions is waiting, and not within
+    /// `petition_days` of its last; calling costs `petition_cost` points.
+    pub petition_members: u32,
+    pub petition_days: u32,
+    pub petition_cost: f64,
+    /// Attending one (research 04-10 §5.3): a member's identification with it, points; the
+    /// share of those one knows whom one expects to come, at full share, points; and the share of
+    /// people, by a keyed draw, for whom more others coming makes their own coming matter less
+    /// (04-10 §1.4: free-riding).
+    pub w_member: f64,
+    pub w_expect: f64,
+    pub free_ride_share: f64,
+    /// Days of a household's food a petition turned down is felt as, for those who came.
+    pub refused_days: f64,
 }
 
 impl FactionParams {
@@ -80,6 +95,13 @@ impl FactionParams {
             dues_share: 0.05,
             reserve_days: 20.0,
             aid_days: 5.0,
+            petition_members: 3,
+            petition_days: 180,
+            petition_cost: 0.5,
+            w_member: 1.0,
+            w_expect: 1.0,
+            free_ride_share: 0.2,
+            refused_days: 5.0,
         }
     }
 
@@ -254,11 +276,45 @@ pub struct Member {
     pub why: Why,
 }
 
+/// A petition (M4c slice AH, step two; ADR-0017 §3; research 09-05 §1.2: petitioning is a right
+/// apart from proposing): an organizer calls the faction to the hearth on an evening, and what it
+/// asks then goes before the gathering, which decides it as any law. Its demand answers the party
+/// its members blame: against the gathering, a common store at another share, or at none, in
+/// place of the one in force; against an office, another holder in place of the one in it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Petition {
+    /// Permanent id.
+    pub id: PermanentId,
+    /// The faction that called it, and its settlement.
+    pub faction: PermanentId,
+    pub settlement: PermanentId,
+    /// Who called it.
+    pub organizer: PermanentId,
+    /// When it was called, and the day it sits at the hearth, in the evening.
+    pub called: SimTime,
+    pub day: i64,
+    /// The demand: a law of template `policy` in place of law `ends`, taking `levy_share` (none
+    /// at 0) for a store, or naming `nominee` for an office.
+    pub policy: u16,
+    pub levy_share: f32,
+    pub nominee: Option<PermanentId>,
+    pub ends: PermanentId,
+    /// Those who came, in id order (04-10 §4.2: unique participants).
+    pub came: Vec<PermanentId>,
+    /// The proposal made of it, once it was put to the gathering.
+    pub law: Option<PermanentId>,
+    /// Whether its answer has been taken (those who came hold one turned down against the
+    /// gathering), or it ended unattended.
+    pub answered: bool,
+}
+
 /// Every faction and who belongs to each (ADR-0017 §2).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Factions {
     /// Every faction founded, oldest first; those that ended are kept for their history.
     pub list: Vec<Faction>,
+    /// Every petition called, oldest first (M4c slice AH, step two).
+    pub petitions: Vec<Petition>,
     /// Memberships, in person order: one each at most in v0.
     pub members: Vec<Member>,
     /// Joinings and leavings since the world began (a measure, for the smoke).
@@ -336,6 +392,30 @@ pub fn why_belong(
         dues: (p.w_dues * p.dues_share) as f32,
         threshold: threshold as f32,
     }
+}
+
+/// What coming to a petition is worth to someone (research 04-10 §5.3), points: `grievance` how
+/// keenly they feel theirs against the party it petitions (0-1); as a member, their
+/// identification with it, or else their regard for its organizer; and the share of those they
+/// know whom they expect to come (`expect`, 0-1), which draws most people but matters less to a
+/// free-rider the more come (04-10 §1.4). What else they could do, and its walk, weigh against it
+/// in their choice.
+pub fn attend_points(
+    grievance: f64,
+    member: bool,
+    regard: f64,
+    expect: f64,
+    free_rider: bool,
+    p: &FactionParams,
+) -> f64 {
+    let s = expect.clamp(0.0, 1.0);
+    let social = if free_rider { 4.0 * s * (1.0 - s) } else { s };
+    let identity = if member {
+        p.w_member
+    } else {
+        p.w_organizer * regard.clamp(0.0, 1.0)
+    };
+    p.w_grievance * grievance.clamp(0.0, 1.0) + identity + p.w_expect * social
 }
 
 /// What founding a faction is worth to one who feels their grievance at `grievance` (0-1) and
@@ -424,6 +504,19 @@ mod tests {
             why_words(&organizer, "the gathering", "Mira", true)
                 .starts_with("belong as its organizer, holding a grievance against the gathering:")
         );
+    }
+
+    #[test]
+    fn coming_to_a_petition_weighs_grievance_identity_and_who_else_comes() {
+        let p = FactionParams::core();
+        let member = attend_points(0.6, true, 0.0, 0.5, false, &p);
+        let stranger = attend_points(0.6, false, 0.0, 0.5, false, &p);
+        assert!(member > stranger);
+        // Most are drawn by more coming; a free-rider less so once nearly everyone comes.
+        let most = |s| attend_points(0.0, false, 0.0, s, false, &p);
+        let rider = |s| attend_points(0.0, false, 0.0, s, true, &p);
+        assert!(most(1.0) > most(0.5));
+        assert!(rider(1.0) < rider(0.5), "{} {}", rider(1.0), rider(0.5));
     }
 
     #[test]

@@ -67,6 +67,9 @@ pub struct Facts {
     pub hearth: Option<(f32, f32)>,
     /// The gathering sitting at the hearth that they may attend, if any (ADR-0013 §1).
     pub gathering: Option<GatheringFacts>,
+    /// A petition sitting at the hearth they heard of and may join (M4c slice AH): what joining
+    /// it is worth to them and the minutes it still sits.
+    pub petition: Option<GatheringFacts>,
     /// The round of the watch they keep, if they keep one and may walk it now (M4b slice AC).
     pub watch: Option<WatchFacts>,
 }
@@ -1141,6 +1144,26 @@ pub fn candidates(
                 ];
                 out.push(finish(id, Target::Hearth, terms, steps));
             }
+            Behavior::Petition => {
+                let (Some(hearth), Some(g)) = (f.hearth, f.petition) else {
+                    excluded.push((id, Reason::NoPetition));
+                    continue;
+                };
+                // What joining the petition is worth to them, and the company of those who come.
+                term(&mut terms, Reason::Petition, g.points);
+                term(
+                    &mut terms,
+                    Reason::Loneliness,
+                    w.w_social * f.loneliness * f.evening.max(0.25),
+                );
+                let steps = vec![
+                    Step::Walk { to: hearth },
+                    Step::Work {
+                        minutes: g.minutes.round().max(1.0) as u32,
+                    },
+                ];
+                out.push(finish(id, Target::Hearth, terms, steps));
+            }
             Behavior::Watch => {
                 // A round of the watch (M4b slice AC, ADR-0015 §6): a stand at each home on it,
                 // the activity's least minutes each.
@@ -1420,6 +1443,7 @@ mod tests {
 
     fn facts() -> Facts {
         Facts {
+            petition: None,
             age: 30.0,
             capacity: 1.0,
             hunger: 0.5,

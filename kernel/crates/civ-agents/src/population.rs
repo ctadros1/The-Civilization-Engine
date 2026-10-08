@@ -2294,6 +2294,7 @@ impl Population {
             home: hh.home,
             hearth,
             gathering: self.gathering_facts(ctx, p.id, age, &hh, minute, evening_start),
+            petition: self.petition_facts(ctx, p.id, age, &hh, minute, evening_start),
             watch: self.watch_facts(ctx, p.id, &hh, dark),
         };
         let limits = Limits {
@@ -3490,7 +3491,7 @@ impl Population {
         let now = ctx.now;
         let params = ctx.params;
         let present = match (behavior, self.people.get(h)) {
-            (Some(Behavior::Socialize | Behavior::Attend), Some(p)) => {
+            (Some(Behavior::Socialize | Behavior::Attend | Behavior::Petition), Some(p)) => {
                 self.hearth_company(ctx, p.id, p.act.target)
             }
             _ => Vec::new(),
@@ -3499,6 +3500,11 @@ impl Population {
         if let (Some(Behavior::Attend), Some(p)) = (behavior, self.people.get(h)) {
             let me = p.id;
             self.attend(ctx, me);
+        }
+        // Someone come to a petition is counted among those who came (M4c slice AH).
+        if let (Some(Behavior::Petition), Some(p)) = (behavior, self.people.get(h)) {
+            let me = p.id;
+            self.join_petition(ctx, me);
         }
         let companions = present.len();
         // Company at the hearth: a few of those there become ties (ADR-0014 §2), a session's
@@ -3524,7 +3530,7 @@ impl Population {
             .map_or(params.energy.idle_par, |a| a.par);
         let (par, asleep, company) = match behavior {
             Some(Behavior::Sleep) => (def_par, true, params.social.household_quality),
-            Some(Behavior::Socialize | Behavior::Attend) => (
+            Some(Behavior::Socialize | Behavior::Attend | Behavior::Petition) => (
                 def_par,
                 false,
                 (params.social.quality_per_companion * companions as f64).min(1.0),

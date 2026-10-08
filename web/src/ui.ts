@@ -2029,6 +2029,12 @@ export function bindUi(store: Store, actions: Actions): void {
           el("ul", { className: "factions" }, ...p.factions.map((v) => el("li", { text: v }))),
         );
       }
+      // Its petitions (wire 1.41, ADR-0017 §3).
+      if (p.petitions.length > 0) {
+        block.append(
+          el("ul", { className: "petitions" }, ...p.petitions.map((v) => el("li", { text: v }))),
+        );
+      }
       const label = labelText(p);
       if (label !== "") {
         block.append(

@@ -9,14 +9,19 @@
 //! household short of food may ask the store of a faction one of its members belongs to.
 
 use super::*;
+use crate::decide::GatheringFacts;
 use crate::faction::{
-    Faction, FactionEvent, FactionEventKind, Member, Why, found_worth, shared, why_belong,
+    Faction, FactionEvent, FactionEventKind, Member, Petition, Why, attend_points, found_worth,
+    shared, why_belong,
 };
-use crate::word::{Blamed, ClaimKind};
+use crate::polity::{IssueKind, LawStatus, MoveOption, Outcome, PolicyKind};
+use crate::word::{Blamed, ClaimKind, Grieved, Wrong};
 
 /// Purpose tags for a person's review day and their threshold for belonging.
 pub const PURPOSE_FACTION_DAY: u64 = 0x6661_6374_6461_7973; // "factdays"
 pub const PURPOSE_FACTION_THRESHOLD: u64 = 0x6661_6374_7468_7265; // "factthre"
+/// Purpose tag for whether someone is a free-rider at a petition (research 04-10 §1.4).
+pub const PURPOSE_FREE_RIDER: u64 = 0x6672_6565_7269_6465; // "freeride"
 
 impl Population {
     /// Midnight: memberships of those no longer here are let go, factions whose organizer is gone
@@ -160,7 +165,7 @@ impl Population {
     }
 
     /// How keenly `person` feels their keenest grievance against `party` today, 0 to 1.
-    fn keenness(&self, ctx: &Ctx, person: PermanentId, party: Blamed) -> f64 {
+    pub(super) fn keenness(&self, ctx: &Ctx, person: PermanentId, party: Blamed) -> f64 {
         let day = ctx.now.day_index();
         self.word
             .grievances_of(person)
@@ -219,6 +224,14 @@ impl Population {
                 self.factions.left += 1;
             } else {
                 self.factions.join(Member { why, ..m });
+                // An organizer weighs calling a petition (M4c slice AH, step two).
+                if self
+                    .factions
+                    .get(m.faction)
+                    .is_some_and(|f| f.organizer == person && f.is_live())
+                {
+                    self.consider_petition(ctx, person, m.faction, threshold);
+                }
             }
             return;
         }
@@ -503,6 +516,409 @@ impl Population {
         }
         if !legs.is_empty() {
             self.transfer(now, params, goods, &legs, Channel::Gift);
+        }
+    }
+
+    /// What faction `faction` of polity `pi`'s settlement would petition the gathering for, if
+    /// anything: its demand answers the party its members blame (research 04-10 §1.1; 09-05 §1.1:
+    /// a proposal is one actor's response to an issue). Against the gathering, of a common store
+    /// at another of its shares, or at none, in place of the one in force, the one its members'
+    /// households forecast most for, if they forecast it to bring them anything. Against an
+    /// office, another holder in place of the one in it: whom its organizer would name, as anyone
+    /// proposing a keeper does (themselves if their roof would do, or whoever under one they
+    /// regard most; for the watch, any adult), never the holder blamed. With it, what each
+    /// household of the settlement forecasts it would bring them, gain units. With `asked`, the
+    /// demand as that petition called it, whatever it is forecast to bring.
+    fn petition_demand(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        faction: PermanentId,
+        asked: Option<&Petition>,
+    ) -> Option<(MoveOption, Vec<(PermanentId, f32)>)> {
+        let (now, params) = (ctx.now, ctx.params);
+        let policies = &ctx.catalog.policies;
+        let polity = &self.polities[pi];
+        let f = self.factions.get(faction)?;
+        let law = match f.against {
+            Blamed::Body(id) if id == polity.id => polity
+                .laws
+                .iter()
+                .find(|l| l.status == LawStatus::InForce && l.kind == PolicyKind::CommonStore)?,
+            Blamed::Office(office) => polity.laws.iter().find(|l| {
+                l.id == office
+                    && l.status == LawStatus::InForce
+                    && matches!(l.kind, PolicyKind::KeepStore | PolicyKind::KeepWatch)
+                    && l.holder.is_some()
+            })?,
+            _ => return None,
+        };
+        let def = policies.get(usize::from(law.policy))?;
+        let settlement = polity.settlement;
+        let mut households: Vec<PermanentId> = self
+            .households
+            .iter()
+            .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+            .map(|(_, x)| x.id)
+            .collect();
+        households.sort_unstable();
+        let adults = self.members_of(settlement, now, params);
+        let fc = self.forecasts(ctx, pi, &households, &adults);
+        let mut theirs: Vec<PermanentId> = self
+            .factions
+            .members_of(faction)
+            .filter_map(|m| self.person(m.person).map(|p| p.household))
+            .collect();
+        theirs.sort_unstable();
+        theirs.dedup();
+        if theirs.is_empty() {
+            return None;
+        }
+        let blank = MoveOption {
+            policy: law.policy,
+            levy_share: f64::from(law.levy_share),
+            issue: IssueKind::Petition,
+            nominee: law.holder,
+            sanction: law.sanction,
+            hours: law.hours,
+            body: None,
+            ends: Some(law.id),
+            own_gain: 0.0,
+            followers_gain: 0.0,
+            support: 0.5,
+        };
+        let held = |h: PermanentId| fc.gain(&blank, h, policies, params);
+        let w = params.polity.w_gain;
+        // Another holder for the office (M4c slice AH).
+        if law.kind != PolicyKind::CommonStore {
+            let incumbent = law.holder?;
+            let nominee = match asked {
+                Some(p) => p.nominee?,
+                None => {
+                    let (day, tp) = (now.day_index(), &params.ties);
+                    let organizer = f.organizer;
+                    adults
+                        .iter()
+                        .filter(|&&(c, h)| {
+                            c != incumbent
+                                && (law.kind == PolicyKind::KeepWatch
+                                    || self.household(h).is_some_and(|x| x.sheltered))
+                        })
+                        .map(|&(c, _)| {
+                            let r = if c == organizer {
+                                1.0
+                            } else {
+                                self.ties.regard(organizer, c, day, tp).clamp(0.0, 1.0)
+                            };
+                            (r, c)
+                        })
+                        .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)))?
+                        .1
+                }
+            };
+            if nominee == incumbent || !adults.iter().any(|a| a.0 == nominee) {
+                return None;
+            }
+            let m = MoveOption {
+                nominee: Some(nominee),
+                ..blank
+            };
+            let stakes = households
+                .iter()
+                .map(|&h| {
+                    let gain = fc.gain(&m, h, policies, params) - held(h);
+                    (h, (w * gain) as f32)
+                })
+                .collect();
+            return Some((m, stakes));
+        }
+        let gain = |share: f64, h: PermanentId| {
+            let m = MoveOption {
+                levy_share: share,
+                ..blank
+            };
+            let new = if share > 0.0 {
+                fc.gain(&m, h, policies, params)
+            } else {
+                0.0
+            };
+            new - held(h)
+        };
+        let mut shares: Vec<f64> = match asked {
+            Some(p) => vec![f64::from(p.levy_share)],
+            None => std::iter::once(0.0)
+                .chain(def.levy_shares.iter().copied())
+                .filter(|s| (s - f64::from(law.levy_share)).abs() > 1e-6)
+                .collect(),
+        };
+        shares.sort_by(f64::total_cmp);
+        shares.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
+        let mean =
+            |share: f64| theirs.iter().map(|&h| gain(share, h)).sum::<f64>() / theirs.len() as f64;
+        let (share, best) = shares
+            .iter()
+            .map(|&s| (s, mean(s)))
+            .max_by(|a, b| a.1.total_cmp(&b.1).then(b.0.total_cmp(&a.0)))?;
+        if asked.is_none() && best <= 1e-9 {
+            return None;
+        }
+        let stakes: Vec<(PermanentId, f32)> = households
+            .iter()
+            .map(|&h| (h, (w * gain(share, h)) as f32))
+            .collect();
+        Some((
+            MoveOption {
+                levy_share: share,
+                nominee: None,
+                ..blank
+            },
+            stakes,
+        ))
+    }
+
+    /// `organizer` of faction `faction`, of threshold `threshold`, weighs calling a petition
+    /// (research 09-04 §5.5: petitioning beside complying, evading and leaving; 09-05 §1.2): when
+    /// it has enough members, none of its petitions waits, its last is not too recent, and there
+    /// is something to ask, it is worth their members' grievance, how many of those they know
+    /// belong, less what calling costs.
+    fn consider_petition(
+        &mut self,
+        ctx: &mut Ctx,
+        organizer: PermanentId,
+        faction: PermanentId,
+        threshold: f64,
+    ) {
+        let fp = &ctx.params.faction;
+        let (now, day) = (ctx.now, ctx.now.day_index());
+        let Some(f) = self.factions.get(faction) else {
+            return;
+        };
+        let (settlement, against) = (f.settlement, f.against);
+        let Some(pi) = self.polity_of(settlement) else {
+            return;
+        };
+        let members: Vec<PermanentId> = self
+            .factions
+            .members_of(faction)
+            .map(|m| m.person)
+            .collect();
+        if (members.len() as u32) < fp.petition_members.max(1) {
+            return;
+        }
+        let waiting = self
+            .factions
+            .petitions
+            .iter()
+            .any(|p| p.faction == faction && !p.answered);
+        let lately = self.factions.petitions.iter().any(|p| {
+            p.faction == faction && day - p.called.day_index() < i64::from(fp.petition_days)
+        });
+        if waiting || lately {
+            return;
+        }
+        let Some((demand, _)) = self.petition_demand(ctx, pi, faction, None) else {
+            return;
+        };
+        // What it is worth to them: their members' grievance against its party and how many of
+        // those they know belong.
+        let keen = members
+            .iter()
+            .map(|&m| self.keenness(ctx, m, against))
+            .sum::<f64>()
+            / members.len() as f64;
+        let why = self.why_for(ctx, organizer, faction, threshold);
+        let worth = fp.w_grievance * keen + f64::from(why.belong) - fp.petition_cost;
+        if worth <= threshold {
+            return;
+        }
+        let id = ctx.ids.allocate();
+        let sits = day + i64::from(ctx.params.polity.notice_days.max(1));
+        self.factions.petitions.push(Petition {
+            id,
+            faction,
+            settlement,
+            organizer,
+            called: now,
+            day: sits,
+            policy: demand.policy,
+            levy_share: demand.levy_share as f32,
+            nominee: demand.nominee,
+            ends: demand.ends.unwrap_or(id),
+            came: Vec::new(),
+            law: None,
+            answered: false,
+        });
+        // The organizer tells its members, who connect it (04-10 §1.5); others hear by word.
+        self.petition_word(settlement, sits, id, organizer, &members, day);
+    }
+
+    /// The petition sitting at the hearth of `hh`'s settlement now that `person` heard of and may
+    /// join (M4c slice AH): what joining it is worth to them and the minutes it still sits.
+    pub(crate) fn petition_facts(
+        &self,
+        ctx: &Ctx,
+        person: PermanentId,
+        age: f64,
+        hh: &Household,
+        minute: i64,
+        evening_start: i64,
+    ) -> Option<GatheringFacts> {
+        let params = ctx.params;
+        if age < params.family.independent_age {
+            return None;
+        }
+        let settlement = hh.settlement?;
+        let day = ctx.now.day_index();
+        let p = self
+            .factions
+            .petitions
+            .iter()
+            .find(|p| p.settlement == settlement && p.day == day && !p.answered)?;
+        let end = evening_start + i64::from(params.polity.gathering_minutes);
+        if minute < evening_start
+            || minute + 15 > end
+            || p.came.binary_search(&person).is_ok()
+            || !self.heard_of_petition(person, settlement, day)
+        {
+            return None;
+        }
+        let f = self.factions.get(p.faction)?;
+        let member = self
+            .factions
+            .membership(person)
+            .is_some_and(|m| m.faction == p.faction);
+        let tp = &params.ties;
+        let regard = self.ties.regard(person, f.organizer, day, tp);
+        // Those they know whom they expect to come: its members.
+        let (mut all, mut expect) = (0.0, 0.0);
+        for t in self.ties.of(person) {
+            let w = t.known_at(day, tp);
+            if w <= 0.0 {
+                continue;
+            }
+            all += w;
+            if self
+                .factions
+                .membership(t.to)
+                .is_some_and(|m| m.faction == p.faction)
+            {
+                expect += w;
+            }
+        }
+        let expect = if all > 0.0 { expect / all } else { 0.0 };
+        let fp = &params.faction;
+        let rider = Rng64::from_key(&[ctx.seed, PURPOSE_FREE_RIDER, person.get()]).next_f64()
+            < fp.free_ride_share;
+        let grievance = self.keenness(ctx, person, f.against);
+        Some(GatheringFacts {
+            points: attend_points(grievance, member, regard, expect, rider, fp),
+            minutes: (end - minute) as f64,
+        })
+    }
+
+    /// `person` came to the petition sitting at their settlement's hearth today.
+    pub(crate) fn join_petition(&mut self, ctx: &Ctx, person: PermanentId) {
+        let Some(settlement) = self
+            .person(person)
+            .and_then(|p| self.household(p.household))
+            .and_then(|x| x.settlement)
+        else {
+            return;
+        };
+        let day = ctx.now.day_index();
+        if let Some(p) = self
+            .factions
+            .petitions
+            .iter_mut()
+            .find(|p| p.settlement == settlement && p.day == day && !p.answered)
+            && let Err(at) = p.came.binary_search(&person)
+        {
+            p.came.insert(at, person);
+        }
+    }
+
+    /// Midnight: a petition that has sat goes before the gathering as a proposal its organizer
+    /// sponsors, once no gathering waits (one nobody came to ends there); and when the gathering
+    /// has decided one, those who came hold its turning down against it.
+    pub(super) fn petitions_day(&mut self, ctx: &mut Ctx) {
+        let day = ctx.now.day_index();
+        for i in 0..self.factions.petitions.len() {
+            let p = &self.factions.petitions[i];
+            if p.answered || p.day >= day {
+                continue;
+            }
+            let Some(pi) = self.polity_of(p.settlement) else {
+                self.factions.petitions[i].answered = true;
+                continue;
+            };
+            match p.law {
+                None => {
+                    if p.came.is_empty() {
+                        self.factions.petitions[i].answered = true;
+                        continue;
+                    }
+                    let polity = &self.polities[pi];
+                    if polity.gathering.is_some() || polity.agenda().is_some() {
+                        continue;
+                    }
+                    let asked = p.clone();
+                    let (faction, organizer, ends) = (p.faction, p.organizer, p.ends);
+                    // The demand as called, its stakes as they stand now; the law it would
+                    // replace must still be the one in force, and its organizer here.
+                    let demand = self
+                        .petition_demand(ctx, pi, faction, Some(&asked))
+                        .filter(|d| d.0.ends == Some(ends));
+                    let (Some((demand, stakes)), Some(_)) = (demand, self.person(organizer)) else {
+                        self.factions.petitions[i].answered = true;
+                        continue;
+                    };
+                    let before = self.polities[pi].laws.len();
+                    self.propose(ctx, pi, organizer, demand, stakes, None);
+                    if let Some(law) = self.polities[pi].laws.get(before) {
+                        let id = law.id;
+                        self.factions.petitions[i].law = Some(id);
+                        // Those who came know what they asked for.
+                        let came = self.factions.petitions[i].came.clone();
+                        if let Some(l) = self.polities[pi].law_mut(id) {
+                            for q in came {
+                                l.learn(q, day);
+                            }
+                        }
+                    }
+                }
+                Some(law) => {
+                    let Some(outcome) = self.polities[pi]
+                        .laws
+                        .iter()
+                        .find(|l| l.id == law)
+                        .and_then(|l| l.outcome)
+                    else {
+                        continue;
+                    };
+                    self.factions.petitions[i].answered = true;
+                    if outcome == Outcome::Passed {
+                        continue;
+                    }
+                    // A petition turned down, or too thinly heard to decide, is a new wrong to
+                    // those who came (04-10 §3: failed petitioning is a precursor).
+                    let polity = self.polities[pi].id;
+                    let came = self.factions.petitions[i].came.clone();
+                    let harm = ctx.params.faction.refused_days;
+                    for q in came {
+                        if self.person(q).is_some() {
+                            self.grieve(
+                                ctx,
+                                q,
+                                Grieved::Collective,
+                                Blamed::Body(polity),
+                                law,
+                                harm,
+                                Wrong::Refused,
+                            );
+                        }
+                    }
+                }
+            }
         }
     }
 }

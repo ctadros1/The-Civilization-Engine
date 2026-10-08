@@ -61,6 +61,22 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
                 None => format!("a gathering meets on {day} to hear a case"),
             }
         }
+        ClaimKind::Petition => {
+            let day = day_words(SimTime::from_minutes(c.day * DAY));
+            match c
+                .subject
+                .and_then(|id| pop.factions.petitions.iter().find(|p| p.id == id))
+            {
+                Some(p) => format!(
+                    "{} petitions the gathering at the hearth on the evening of {day} for {}",
+                    pop.factions
+                        .get(p.faction)
+                        .map_or_else(|| "a faction".to_owned(), |f| faction_name(sim, f)),
+                    petition_demand_words(sim, p)
+                ),
+                None => format!("a faction petitions the gathering on the evening of {day}"),
+            }
+        }
         ClaimKind::Grievance => {
             let who = c.subject.map_or_else(|| "someone".to_owned(), name_of);
             match c.grievance {
@@ -257,6 +273,28 @@ pub fn ideology_lines<'a>(
 /// A faction's name, after its founder: "Mira's faction".
 pub fn faction_name(sim: &Sim, f: &civ_agents::faction::Faction) -> String {
     format!("{}'s faction", sim.people.name_of(f.founder))
+}
+
+/// What petition `p` asks for, in words (M4c slice AH): "an end to the common store's levy (the
+/// store gives what it holds)"; "Ada as keeper of the common store in place of Bo".
+pub fn petition_demand_words(sim: &Sim, p: &civ_agents::faction::Petition) -> String {
+    let pop = &sim.people;
+    let def = sim.rules.catalog.policies.get(usize::from(p.policy));
+    let Some(nominee) = p.nominee else {
+        return civ_agents::polity::replacing_words(def, p.levy_share);
+    };
+    let held = pop
+        .polities
+        .iter()
+        .flat_map(|q| &q.laws)
+        .find(|l| l.id == p.ends)
+        .and_then(|l| l.holder)
+        .map_or_else(|| "the one holding it".to_owned(), |h| pop.name_of(h));
+    let office = match def.map(|d| d.kind) {
+        Some(civ_agents::polity::PolicyKind::KeepWatch) => "to keep watch over the stores at night",
+        _ => "as keeper of the common store",
+    };
+    format!("{} {office} in place of {held}", pop.name_of(nominee))
 }
 
 /// The faction `p` belongs to, if any, and why (wire 1.40, ADR-0017 §2, §6).

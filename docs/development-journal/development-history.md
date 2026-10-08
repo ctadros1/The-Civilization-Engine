@@ -289,7 +289,13 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 - **Tests:** an integration test proposes, gathers, decides and saves exactly. Another puts a law in force by hand, then sees the levy paid at threshing, every good accounted for, and asks answered from the store.
 - **Checks:** the workspace tests and clippy pass.
 
-**Open:** nobody asked the store for relief in these runs, because nobody ran short. The government panel (Z2), leaving as a choice (Z3), offices and succession (Z4), labels (Z5) and the notables' gate with the demo (Z6) are next.
+**Second step, the government panel:**
+
+- **What it shows:** `GetGovernment` (wire 1.27) carries each polity's custom, store and every law with its whole history, sentences rendered by the kernel. A Government panel shows it.
+- **Evidence:** the end-to-end suite passes with a new government test.
+- **Two findings:** in the one run whose stances were read in full, the law passed mostly on regard for its sponsor, and two worlds of one seed differ in their details because each draws its own identity.
+
+**Open:** nobody asked the store for relief in these runs, because nobody ran short. Leaving as a choice (Z3), offices and succession (Z4), labels (Z5) and the notables' gate with the demo (Z6) are next.
 
 ## Development pattern that emerged
 

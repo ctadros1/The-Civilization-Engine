@@ -205,6 +205,28 @@ impl Body {
         }
     }
 
+    /// The body in words: "The adults who come to the hearth decide by acclamation: a quarter of
+    /// them must come, more for than against carries it, and a tie fails."
+    pub fn words(&self) -> String {
+        let who = match self.members {
+            Membership::Adults => "The adults who come to the hearth",
+        };
+        let how = match self.pass {
+            PassRule::MoreForThanAgainst => {
+                "decide by acclamation: more for than against carries it, and a tie fails"
+            }
+        };
+        let share = f64::from(self.quorum_share);
+        let quorum = match (share * 100.0).round() as i64 {
+            0 => "anyone who comes may decide".to_owned(),
+            25 => "a quarter of them must come".to_owned(),
+            33 => "a third of them must come".to_owned(),
+            50 => "half of them must come".to_owned(),
+            pct => format!("{pct} in a hundred of them must come"),
+        };
+        format!("{who} {how}; {quorum}.")
+    }
+
     /// How many must come of `eligible` members: at least one.
     pub fn quorum(&self, eligible: u32) -> u32 {
         ((f64::from(self.quorum_share) * f64::from(eligible)).ceil() as u32).max(1)
@@ -405,6 +427,73 @@ impl Gathering {
             .binary_search_by_key(&household, |s| s.0)
             .map_or(0.0, |i| f64::from(self.stakes[i].1))
     }
+}
+
+/// Why a member stood where they did, in words: "their household stands to gain, and they think
+/// well of the sponsor"; for `sponsor`, "they proposed it". `margin` is the stance margin, points.
+pub fn stance_words(r: &StanceRecord, margin: f64, sponsor: PermanentId) -> String {
+    if r.person == sponsor {
+        return "they proposed it".to_owned();
+    }
+    let (gain, regard) = (f64::from(r.gain), f64::from(r.regard));
+    let household = if gain > margin {
+        "their household stands to gain"
+    } else if gain < -margin {
+        "their household stands to lose"
+    } else {
+        "it makes little difference to their household"
+    };
+    match r.stance {
+        Stance::Support if gain <= margin && regard > 0.0 => {
+            format!("{household}, but they think well of the sponsor")
+        }
+        Stance::Support if regard > 0.0 => {
+            format!("{household}, and they think well of the sponsor")
+        }
+        Stance::Oppose | Stance::Abstain if regard > 0.0 && gain < -margin => {
+            format!("{household}, though they think well of the sponsor")
+        }
+        _ => household.to_owned(),
+    }
+}
+
+/// What a law is, in words: "a common store, taking a tenth of each harvest".
+pub fn law_words(law: &Law, policies: &[PolicyDef]) -> String {
+    let name = policies.get(usize::from(law.policy)).map_or_else(
+        || "a law".to_owned(),
+        |d| {
+            let name = d.name.to_lowercase();
+            let article = match name.chars().next() {
+                Some('a' | 'e' | 'i' | 'o' | 'u') => "an",
+                _ => "a",
+            };
+            format!("{article} {name}")
+        },
+    );
+    format!(
+        "{name}, taking {} of each harvest",
+        share_text(f64::from(law.levy_share))
+    )
+}
+
+/// How the gathering decided a law, in words: "agreed: 20 for, 3 against; 23 of 24 adults came,
+/// 6 needed". `None` before it has.
+pub fn decision_words(law: &Law, body: &Body) -> Option<String> {
+    let outcome = law.outcome?;
+    let (present, support, oppose) = law.counts();
+    let came = format!(
+        "{present} of {} adults came, {} needed",
+        law.eligible,
+        body.quorum(law.eligible)
+    );
+    Some(match outcome {
+        Outcome::Passed => format!("agreed: {support} for, {oppose} against; {came}"),
+        Outcome::Failed => format!("turned down: {support} for, {oppose} against; {came}"),
+        Outcome::Tied => {
+            format!("evenly split, so it failed: {support} for, {oppose} against; {came}")
+        }
+        Outcome::NoQuorum => format!("too few came to decide: {came}"),
+    })
 }
 
 /// A levy share in words: "a tenth".

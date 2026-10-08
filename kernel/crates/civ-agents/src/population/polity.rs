@@ -336,14 +336,7 @@ impl Population {
         let def = &ctx.catalog.policies[usize::from(m.policy)];
         let id = ctx.ids.allocate();
         let meets = day + i64::from(pp.notice_days.max(1));
-        let words = format!(
-            "{}, taking {} of each harvest, because {}",
-            with_article(&def.name.to_lowercase()),
-            crate::polity::share_text(m.levy_share),
-            m.issue.words()
-        );
-        let polity = &mut self.polities[pi];
-        polity.laws.push(Law {
+        let law = Law {
             id,
             policy: m.policy,
             levy_share: m.levy_share as f32,
@@ -359,7 +352,14 @@ impl Population {
             stances: Vec::new(),
             known: vec![(sponsor, day)],
             compliance: Default::default(),
-        });
+        };
+        let words = format!(
+            "{}, because {}",
+            crate::polity::law_words(&law, &ctx.catalog.policies),
+            m.issue.words()
+        );
+        let polity = &mut self.polities[pi];
+        polity.laws.push(law);
         polity.gathering = Some(Gathering {
             law: id,
             day: meets,
@@ -443,18 +443,7 @@ impl Population {
         } else {
             LawStatus::Rejected
         };
-        let what = ctx
-            .catalog
-            .policies
-            .get(usize::from(law.policy))
-            .map_or_else(
-                || "a law".to_owned(),
-                |d| with_article(&d.name.to_lowercase()),
-            );
-        let what = format!(
-            "{what}, taking {} of each harvest",
-            crate::polity::share_text(f64::from(law.levy_share))
-        );
+        let what = crate::polity::law_words(law, &ctx.catalog.policies);
         let (place, name) = ctx
             .land
             .settlements
@@ -807,13 +796,4 @@ impl Population {
             c.unanswered += 1;
         }
     }
-}
-
-/// "a common store"; "an oath".
-fn with_article(name: &str) -> String {
-    let article = match name.chars().next() {
-        Some('a' | 'e' | 'i' | 'o' | 'u') => "an",
-        _ => "a",
-    };
-    format!("{article} {name}")
 }

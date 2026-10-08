@@ -75,6 +75,7 @@ const client = new HostClient(socketUrl(), {
     void syncWeather();
     void syncKnowledge();
     void syncStanding();
+    void syncGovernment();
     void syncDeposits();
     void syncEarthworks();
     void refreshPerson(false);
@@ -578,6 +579,43 @@ async function syncStanding(): Promise<void> {
   }
 }
 
+/** `world:year-month-day` of the government shown, and the world it belongs to. */
+let governmentKey = "";
+let governmentWorld = "";
+let governmentBusy = false;
+
+/**
+ * Fetches each settlement's polity once a day: proposals, gatherings and their decisions happen
+ * at midnight (ADR-0013), and levies and asks during the day are tallied in the next fetch.
+ */
+async function syncGovernment(): Promise<void> {
+  const s = store.state;
+  const world = s.snapshot?.world;
+  const clock = s.snapshot?.clock;
+  if (!world || !clock) return;
+  const worldKey = world.worldId;
+  if (worldKey !== governmentWorld) {
+    governmentWorld = worldKey;
+    governmentKey = "";
+    store.update({ government: null, governmentError: null });
+  }
+  const d = simDate(clock.minute);
+  const key = `${worldKey}:${d.year}-${d.month}-${d.day}`;
+  if (key === governmentKey || governmentBusy) return;
+  governmentBusy = true;
+  try {
+    const government = await client.government();
+    if (governmentWorld === worldKey) {
+      governmentKey = key;
+      store.update({ government, governmentError: null });
+    }
+  } catch (e) {
+    if (governmentWorld === worldKey) store.update({ governmentError: errorText(e) });
+  } finally {
+    governmentBusy = false;
+  }
+}
+
 /** `world:revision` of the knowledge shown, the world it belongs to, and when it was asked for. */
 let knowledgeKey = "";
 let knowledgeWorld = "";
@@ -901,6 +939,26 @@ const hooks = {
             today: s.weather.today?.words ?? null,
             snowLineM: s.weather.today?.snowLineM ?? null,
             annualMm: s.weather.annualMm,
+          }
+        : null,
+      government: s.government
+        ? {
+            minute: s.government.minute,
+            polities: s.government.polities.map((p) => ({
+              name: p.name,
+              members: p.members,
+              custom: p.custom,
+              store: p.store,
+              gatheringLaw: p.gatheringLaw,
+              laws: p.laws.map((l) => ({
+                what: l.what,
+                status: l.status,
+                outcome: l.outcome,
+                decision: l.decision,
+                stances: l.stances.length,
+                known: l.known,
+              })),
+            })),
           }
         : null,
       standing: s.standing

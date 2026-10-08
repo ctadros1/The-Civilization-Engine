@@ -787,10 +787,10 @@ pub struct CommandBodyUnionTableOffset {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_QUERY_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_QUERY_BODY: u8 = 18;
+pub const ENUM_MAX_QUERY_BODY: u8 = 19;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 19] = [
+pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 20] = [
   QueryBody::NONE,
   QueryBody::GetRaster,
   QueryBody::GetHydrography,
@@ -810,6 +810,7 @@ pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 19] = [
   QueryBody::GetEarthworks,
   QueryBody::GetWeather,
   QueryBody::GetStanding,
+  QueryBody::GetGovernment,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -836,9 +837,10 @@ impl QueryBody {
   pub const GetEarthworks: Self = Self(16);
   pub const GetWeather: Self = Self(17);
   pub const GetStanding: Self = Self(18);
+  pub const GetGovernment: Self = Self(19);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 18;
+  pub const ENUM_MAX: u8 = 19;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::GetRaster,
@@ -859,6 +861,7 @@ impl QueryBody {
     Self::GetEarthworks,
     Self::GetWeather,
     Self::GetStanding,
+    Self::GetGovernment,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -882,6 +885,7 @@ impl QueryBody {
       Self::GetEarthworks => Some("GetEarthworks"),
       Self::GetWeather => Some("GetWeather"),
       Self::GetStanding => Some("GetStanding"),
+      Self::GetGovernment => Some("GetGovernment"),
       _ => None,
     }
   }
@@ -1321,10 +1325,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for BookKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_RESPONSE_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_RESPONSE_BODY: u8 = 19;
+pub const ENUM_MAX_RESPONSE_BODY: u8 = 20;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 20] = [
+pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 21] = [
   ResponseBody::NONE,
   ResponseBody::Ack,
   ResponseBody::RasterTile,
@@ -1345,6 +1349,7 @@ pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 20] = [
   ResponseBody::Earthworks,
   ResponseBody::WeatherReport,
   ResponseBody::Standing,
+  ResponseBody::Government,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1372,9 +1377,10 @@ impl ResponseBody {
   pub const Earthworks: Self = Self(17);
   pub const WeatherReport: Self = Self(18);
   pub const Standing: Self = Self(19);
+  pub const Government: Self = Self(20);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 19;
+  pub const ENUM_MAX: u8 = 20;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::Ack,
@@ -1396,6 +1402,7 @@ impl ResponseBody {
     Self::Earthworks,
     Self::WeatherReport,
     Self::Standing,
+    Self::Government,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1420,6 +1427,7 @@ impl ResponseBody {
       Self::Earthworks => Some("Earthworks"),
       Self::WeatherReport => Some("WeatherReport"),
       Self::Standing => Some("Standing"),
+      Self::Government => Some("Government"),
       _ => None,
     }
   }
@@ -9827,6 +9835,84 @@ impl ::core::fmt::Debug for GetStanding<'_> {
       ds.finish()
   }
 }
+pub enum GetGovernmentOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetGovernment<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GetGovernment<'a> {
+  type Inner = GetGovernment<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GetGovernment<'a> {
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GetGovernment { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    _args: &'args GetGovernmentArgs
+  ) -> ::flatbuffers::WIPOffset<GetGovernment<'bldr>> {
+    let mut builder = GetGovernmentBuilder::new(_fbb);
+    builder.finish()
+  }
+
+}
+
+impl ::flatbuffers::Verifiable for GetGovernment<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetGovernmentArgs {
+}
+impl<'a> Default for GetGovernmentArgs {
+  #[inline]
+  fn default() -> Self {
+    GetGovernmentArgs {
+    }
+  }
+}
+
+pub struct GetGovernmentBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GetGovernmentBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GetGovernmentBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetGovernmentBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GetGovernment<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GetGovernment<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GetGovernment");
+      ds.finish()
+  }
+}
 pub enum QueryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -10146,6 +10232,21 @@ impl<'a> Query<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_get_government(&self) -> Option<GetGovernment<'a>> {
+    if self.body_type() == QueryBody::GetGovernment {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { GetGovernment::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Query<'_> {
@@ -10174,6 +10275,7 @@ impl ::flatbuffers::Verifiable for Query<'_> {
           QueryBody::GetEarthworks => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetEarthworks>>("QueryBody::GetEarthworks", pos),
           QueryBody::GetWeather => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetWeather>>("QueryBody::GetWeather", pos),
           QueryBody::GetStanding => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetStanding>>("QueryBody::GetStanding", pos),
+          QueryBody::GetGovernment => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetGovernment>>("QueryBody::GetGovernment", pos),
           _ => Ok(()),
         }
      })?
@@ -10349,6 +10451,13 @@ impl ::core::fmt::Debug for Query<'_> {
         },
         QueryBody::GetStanding => {
           if let Some(x) = self.body_as_get_standing() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        QueryBody::GetGovernment => {
+          if let Some(x) = self.body_as_get_government() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -21836,6 +21945,1121 @@ impl ::core::fmt::Debug for Standing<'_> {
       ds.finish()
   }
 }
+pub enum StanceLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct StanceLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for StanceLine<'a> {
+  type Inner = StanceLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> StanceLine<'a> {
+  pub const VT_PERSON: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_STANCE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_GAIN: ::flatbuffers::VOffsetT = 10;
+  pub const VT_REGARD: ::flatbuffers::VOffsetT = 12;
+  pub const VT_WHY: ::flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    StanceLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args StanceLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<StanceLine<'bldr>> {
+    let mut builder = StanceLineBuilder::new(_fbb);
+    builder.add_person(args.person);
+    if let Some(x) = args.why { builder.add_why(x); }
+    builder.add_regard(args.regard);
+    builder.add_gain(args.gain);
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.add_stance(args.stance);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(StanceLine::VT_PERSON, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(StanceLine::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn stance(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(StanceLine::VT_STANCE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn gain(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(StanceLine::VT_GAIN, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn regard(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(StanceLine::VT_REGARD, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn why(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(StanceLine::VT_WHY, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for StanceLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("person", Self::VT_PERSON, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<u8>("stance", Self::VT_STANCE, false)?
+     .visit_field::<f32>("gain", Self::VT_GAIN, false)?
+     .visit_field::<f32>("regard", Self::VT_REGARD, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("why", Self::VT_WHY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct StanceLineArgs<'a> {
+    pub person: u64,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub stance: u8,
+    pub gain: f32,
+    pub regard: f32,
+    pub why: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for StanceLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    StanceLineArgs {
+      person: 0,
+      name: None,
+      stance: 0,
+      gain: 0.0,
+      regard: 0.0,
+      why: None,
+    }
+  }
+}
+
+pub struct StanceLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> StanceLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_person(&mut self, person: u64) {
+    self.fbb_.push_slot::<u64>(StanceLine::VT_PERSON, person, 0);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StanceLine::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_stance(&mut self, stance: u8) {
+    self.fbb_.push_slot::<u8>(StanceLine::VT_STANCE, stance, 0);
+  }
+  #[inline]
+  pub fn add_gain(&mut self, gain: f32) {
+    self.fbb_.push_slot::<f32>(StanceLine::VT_GAIN, gain, 0.0);
+  }
+  #[inline]
+  pub fn add_regard(&mut self, regard: f32) {
+    self.fbb_.push_slot::<f32>(StanceLine::VT_REGARD, regard, 0.0);
+  }
+  #[inline]
+  pub fn add_why(&mut self, why: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StanceLine::VT_WHY, why);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> StanceLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    StanceLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<StanceLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for StanceLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("StanceLine");
+      ds.field("person", &self.person());
+      ds.field("name", &self.name());
+      ds.field("stance", &self.stance());
+      ds.field("gain", &self.gain());
+      ds.field("regard", &self.regard());
+      ds.field("why", &self.why());
+      ds.finish()
+  }
+}
+pub enum LawLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct LawLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for LawLine<'a> {
+  type Inner = LawLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> LawLine<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_WHAT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_POLICY: ::flatbuffers::VOffsetT = 8;
+  pub const VT_LEVY_SHARE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_RELIEF_DAYS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_STATUS: ::flatbuffers::VOffsetT = 14;
+  pub const VT_SPONSOR: ::flatbuffers::VOffsetT = 16;
+  pub const VT_SPONSOR_NAME: ::flatbuffers::VOffsetT = 18;
+  pub const VT_PROPOSED_MINUTE: ::flatbuffers::VOffsetT = 20;
+  pub const VT_ISSUE: ::flatbuffers::VOffsetT = 22;
+  pub const VT_MEETS_MINUTE: ::flatbuffers::VOffsetT = 24;
+  pub const VT_DECIDED_MINUTE: ::flatbuffers::VOffsetT = 26;
+  pub const VT_OUTCOME: ::flatbuffers::VOffsetT = 28;
+  pub const VT_DECISION: ::flatbuffers::VOffsetT = 30;
+  pub const VT_ELIGIBLE: ::flatbuffers::VOffsetT = 32;
+  pub const VT_QUORUM: ::flatbuffers::VOffsetT = 34;
+  pub const VT_STANCES: ::flatbuffers::VOffsetT = 36;
+  pub const VT_KNOWN: ::flatbuffers::VOffsetT = 38;
+  pub const VT_COMPLIED: ::flatbuffers::VOffsetT = 40;
+  pub const VT_COULD_NOT: ::flatbuffers::VOffsetT = 42;
+  pub const VT_EVADED: ::flatbuffers::VOffsetT = 44;
+  pub const VT_UNAWARE: ::flatbuffers::VOffsetT = 46;
+  pub const VT_LEVIED_KG: ::flatbuffers::VOffsetT = 48;
+  pub const VT_WITHHELD_KG: ::flatbuffers::VOffsetT = 50;
+  pub const VT_RELIEVED: ::flatbuffers::VOffsetT = 52;
+  pub const VT_RELIEF_KG: ::flatbuffers::VOffsetT = 54;
+  pub const VT_UNANSWERED: ::flatbuffers::VOffsetT = 56;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    LawLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args LawLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<LawLine<'bldr>> {
+    let mut builder = LawLineBuilder::new(_fbb);
+    builder.add_decided_minute(args.decided_minute);
+    builder.add_meets_minute(args.meets_minute);
+    builder.add_proposed_minute(args.proposed_minute);
+    builder.add_sponsor(args.sponsor);
+    builder.add_id(args.id);
+    builder.add_unanswered(args.unanswered);
+    builder.add_relief_kg(args.relief_kg);
+    builder.add_relieved(args.relieved);
+    builder.add_withheld_kg(args.withheld_kg);
+    builder.add_levied_kg(args.levied_kg);
+    builder.add_unaware(args.unaware);
+    builder.add_evaded(args.evaded);
+    builder.add_could_not(args.could_not);
+    builder.add_complied(args.complied);
+    builder.add_known(args.known);
+    if let Some(x) = args.stances { builder.add_stances(x); }
+    builder.add_quorum(args.quorum);
+    builder.add_eligible(args.eligible);
+    if let Some(x) = args.decision { builder.add_decision(x); }
+    if let Some(x) = args.issue { builder.add_issue(x); }
+    if let Some(x) = args.sponsor_name { builder.add_sponsor_name(x); }
+    builder.add_relief_days(args.relief_days);
+    builder.add_levy_share(args.levy_share);
+    if let Some(x) = args.policy { builder.add_policy(x); }
+    if let Some(x) = args.what { builder.add_what(x); }
+    builder.add_outcome(args.outcome);
+    builder.add_status(args.status);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LawLine::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn what(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(LawLine::VT_WHAT, None)}
+  }
+  #[inline]
+  pub fn policy(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(LawLine::VT_POLICY, None)}
+  }
+  #[inline]
+  pub fn levy_share(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(LawLine::VT_LEVY_SHARE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn relief_days(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(LawLine::VT_RELIEF_DAYS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn status(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(LawLine::VT_STATUS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn sponsor(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LawLine::VT_SPONSOR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn sponsor_name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(LawLine::VT_SPONSOR_NAME, None)}
+  }
+  #[inline]
+  pub fn proposed_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(LawLine::VT_PROPOSED_MINUTE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn issue(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(LawLine::VT_ISSUE, None)}
+  }
+  #[inline]
+  pub fn meets_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(LawLine::VT_MEETS_MINUTE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn decided_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(LawLine::VT_DECIDED_MINUTE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn outcome(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(LawLine::VT_OUTCOME, Some(255)).unwrap()}
+  }
+  #[inline]
+  pub fn decision(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(LawLine::VT_DECISION, None)}
+  }
+  #[inline]
+  pub fn eligible(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawLine::VT_ELIGIBLE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn quorum(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawLine::VT_QUORUM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn stances(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StanceLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StanceLine>>>>(LawLine::VT_STANCES, None)}
+  }
+  #[inline]
+  pub fn known(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawLine::VT_KNOWN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn complied(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawLine::VT_COMPLIED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn could_not(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawLine::VT_COULD_NOT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn evaded(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawLine::VT_EVADED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn unaware(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawLine::VT_UNAWARE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn levied_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(LawLine::VT_LEVIED_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn withheld_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(LawLine::VT_WITHHELD_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn relieved(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawLine::VT_RELIEVED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn relief_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(LawLine::VT_RELIEF_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn unanswered(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawLine::VT_UNANSWERED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for LawLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("what", Self::VT_WHAT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("policy", Self::VT_POLICY, false)?
+     .visit_field::<f32>("levy_share", Self::VT_LEVY_SHARE, false)?
+     .visit_field::<f32>("relief_days", Self::VT_RELIEF_DAYS, false)?
+     .visit_field::<u8>("status", Self::VT_STATUS, false)?
+     .visit_field::<u64>("sponsor", Self::VT_SPONSOR, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("sponsor_name", Self::VT_SPONSOR_NAME, false)?
+     .visit_field::<i64>("proposed_minute", Self::VT_PROPOSED_MINUTE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("issue", Self::VT_ISSUE, false)?
+     .visit_field::<i64>("meets_minute", Self::VT_MEETS_MINUTE, false)?
+     .visit_field::<i64>("decided_minute", Self::VT_DECIDED_MINUTE, false)?
+     .visit_field::<u8>("outcome", Self::VT_OUTCOME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("decision", Self::VT_DECISION, false)?
+     .visit_field::<u32>("eligible", Self::VT_ELIGIBLE, false)?
+     .visit_field::<u32>("quorum", Self::VT_QUORUM, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<StanceLine>>>>("stances", Self::VT_STANCES, false)?
+     .visit_field::<u32>("known", Self::VT_KNOWN, false)?
+     .visit_field::<u32>("complied", Self::VT_COMPLIED, false)?
+     .visit_field::<u32>("could_not", Self::VT_COULD_NOT, false)?
+     .visit_field::<u32>("evaded", Self::VT_EVADED, false)?
+     .visit_field::<u32>("unaware", Self::VT_UNAWARE, false)?
+     .visit_field::<f32>("levied_kg", Self::VT_LEVIED_KG, false)?
+     .visit_field::<f32>("withheld_kg", Self::VT_WITHHELD_KG, false)?
+     .visit_field::<u32>("relieved", Self::VT_RELIEVED, false)?
+     .visit_field::<f32>("relief_kg", Self::VT_RELIEF_KG, false)?
+     .visit_field::<u32>("unanswered", Self::VT_UNANSWERED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct LawLineArgs<'a> {
+    pub id: u64,
+    pub what: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub policy: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub levy_share: f32,
+    pub relief_days: f32,
+    pub status: u8,
+    pub sponsor: u64,
+    pub sponsor_name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub proposed_minute: i64,
+    pub issue: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub meets_minute: i64,
+    pub decided_minute: i64,
+    pub outcome: u8,
+    pub decision: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub eligible: u32,
+    pub quorum: u32,
+    pub stances: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StanceLine<'a>>>>>,
+    pub known: u32,
+    pub complied: u32,
+    pub could_not: u32,
+    pub evaded: u32,
+    pub unaware: u32,
+    pub levied_kg: f32,
+    pub withheld_kg: f32,
+    pub relieved: u32,
+    pub relief_kg: f32,
+    pub unanswered: u32,
+}
+impl<'a> Default for LawLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    LawLineArgs {
+      id: 0,
+      what: None,
+      policy: None,
+      levy_share: 0.0,
+      relief_days: 0.0,
+      status: 0,
+      sponsor: 0,
+      sponsor_name: None,
+      proposed_minute: 0,
+      issue: None,
+      meets_minute: 0,
+      decided_minute: 0,
+      outcome: 255,
+      decision: None,
+      eligible: 0,
+      quorum: 0,
+      stances: None,
+      known: 0,
+      complied: 0,
+      could_not: 0,
+      evaded: 0,
+      unaware: 0,
+      levied_kg: 0.0,
+      withheld_kg: 0.0,
+      relieved: 0,
+      relief_kg: 0.0,
+      unanswered: 0,
+    }
+  }
+}
+
+pub struct LawLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LawLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(LawLine::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_what(&mut self, what: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(LawLine::VT_WHAT, what);
+  }
+  #[inline]
+  pub fn add_policy(&mut self, policy: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(LawLine::VT_POLICY, policy);
+  }
+  #[inline]
+  pub fn add_levy_share(&mut self, levy_share: f32) {
+    self.fbb_.push_slot::<f32>(LawLine::VT_LEVY_SHARE, levy_share, 0.0);
+  }
+  #[inline]
+  pub fn add_relief_days(&mut self, relief_days: f32) {
+    self.fbb_.push_slot::<f32>(LawLine::VT_RELIEF_DAYS, relief_days, 0.0);
+  }
+  #[inline]
+  pub fn add_status(&mut self, status: u8) {
+    self.fbb_.push_slot::<u8>(LawLine::VT_STATUS, status, 0);
+  }
+  #[inline]
+  pub fn add_sponsor(&mut self, sponsor: u64) {
+    self.fbb_.push_slot::<u64>(LawLine::VT_SPONSOR, sponsor, 0);
+  }
+  #[inline]
+  pub fn add_sponsor_name(&mut self, sponsor_name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(LawLine::VT_SPONSOR_NAME, sponsor_name);
+  }
+  #[inline]
+  pub fn add_proposed_minute(&mut self, proposed_minute: i64) {
+    self.fbb_.push_slot::<i64>(LawLine::VT_PROPOSED_MINUTE, proposed_minute, 0);
+  }
+  #[inline]
+  pub fn add_issue(&mut self, issue: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(LawLine::VT_ISSUE, issue);
+  }
+  #[inline]
+  pub fn add_meets_minute(&mut self, meets_minute: i64) {
+    self.fbb_.push_slot::<i64>(LawLine::VT_MEETS_MINUTE, meets_minute, 0);
+  }
+  #[inline]
+  pub fn add_decided_minute(&mut self, decided_minute: i64) {
+    self.fbb_.push_slot::<i64>(LawLine::VT_DECIDED_MINUTE, decided_minute, 0);
+  }
+  #[inline]
+  pub fn add_outcome(&mut self, outcome: u8) {
+    self.fbb_.push_slot::<u8>(LawLine::VT_OUTCOME, outcome, 255);
+  }
+  #[inline]
+  pub fn add_decision(&mut self, decision: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(LawLine::VT_DECISION, decision);
+  }
+  #[inline]
+  pub fn add_eligible(&mut self, eligible: u32) {
+    self.fbb_.push_slot::<u32>(LawLine::VT_ELIGIBLE, eligible, 0);
+  }
+  #[inline]
+  pub fn add_quorum(&mut self, quorum: u32) {
+    self.fbb_.push_slot::<u32>(LawLine::VT_QUORUM, quorum, 0);
+  }
+  #[inline]
+  pub fn add_stances(&mut self, stances: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<StanceLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(LawLine::VT_STANCES, stances);
+  }
+  #[inline]
+  pub fn add_known(&mut self, known: u32) {
+    self.fbb_.push_slot::<u32>(LawLine::VT_KNOWN, known, 0);
+  }
+  #[inline]
+  pub fn add_complied(&mut self, complied: u32) {
+    self.fbb_.push_slot::<u32>(LawLine::VT_COMPLIED, complied, 0);
+  }
+  #[inline]
+  pub fn add_could_not(&mut self, could_not: u32) {
+    self.fbb_.push_slot::<u32>(LawLine::VT_COULD_NOT, could_not, 0);
+  }
+  #[inline]
+  pub fn add_evaded(&mut self, evaded: u32) {
+    self.fbb_.push_slot::<u32>(LawLine::VT_EVADED, evaded, 0);
+  }
+  #[inline]
+  pub fn add_unaware(&mut self, unaware: u32) {
+    self.fbb_.push_slot::<u32>(LawLine::VT_UNAWARE, unaware, 0);
+  }
+  #[inline]
+  pub fn add_levied_kg(&mut self, levied_kg: f32) {
+    self.fbb_.push_slot::<f32>(LawLine::VT_LEVIED_KG, levied_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_withheld_kg(&mut self, withheld_kg: f32) {
+    self.fbb_.push_slot::<f32>(LawLine::VT_WITHHELD_KG, withheld_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_relieved(&mut self, relieved: u32) {
+    self.fbb_.push_slot::<u32>(LawLine::VT_RELIEVED, relieved, 0);
+  }
+  #[inline]
+  pub fn add_relief_kg(&mut self, relief_kg: f32) {
+    self.fbb_.push_slot::<f32>(LawLine::VT_RELIEF_KG, relief_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_unanswered(&mut self, unanswered: u32) {
+    self.fbb_.push_slot::<u32>(LawLine::VT_UNANSWERED, unanswered, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LawLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    LawLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<LawLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for LawLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("LawLine");
+      ds.field("id", &self.id());
+      ds.field("what", &self.what());
+      ds.field("policy", &self.policy());
+      ds.field("levy_share", &self.levy_share());
+      ds.field("relief_days", &self.relief_days());
+      ds.field("status", &self.status());
+      ds.field("sponsor", &self.sponsor());
+      ds.field("sponsor_name", &self.sponsor_name());
+      ds.field("proposed_minute", &self.proposed_minute());
+      ds.field("issue", &self.issue());
+      ds.field("meets_minute", &self.meets_minute());
+      ds.field("decided_minute", &self.decided_minute());
+      ds.field("outcome", &self.outcome());
+      ds.field("decision", &self.decision());
+      ds.field("eligible", &self.eligible());
+      ds.field("quorum", &self.quorum());
+      ds.field("stances", &self.stances());
+      ds.field("known", &self.known());
+      ds.field("complied", &self.complied());
+      ds.field("could_not", &self.could_not());
+      ds.field("evaded", &self.evaded());
+      ds.field("unaware", &self.unaware());
+      ds.field("levied_kg", &self.levied_kg());
+      ds.field("withheld_kg", &self.withheld_kg());
+      ds.field("relieved", &self.relieved());
+      ds.field("relief_kg", &self.relief_kg());
+      ds.field("unanswered", &self.unanswered());
+      ds.finish()
+  }
+}
+pub enum PolityLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct PolityLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for PolityLine<'a> {
+  type Inner = PolityLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> PolityLine<'a> {
+  pub const VT_POLITY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 8;
+  pub const VT_FOUNDED_MINUTE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_CUSTOM: ::flatbuffers::VOffsetT = 12;
+  pub const VT_MEMBERS: ::flatbuffers::VOffsetT = 14;
+  pub const VT_STORE: ::flatbuffers::VOffsetT = 16;
+  pub const VT_STORE_KG: ::flatbuffers::VOffsetT = 18;
+  pub const VT_LAWS: ::flatbuffers::VOffsetT = 20;
+  pub const VT_GATHERING_LAW: ::flatbuffers::VOffsetT = 22;
+  pub const VT_GATHERING_MINUTE: ::flatbuffers::VOffsetT = 24;
+  pub const VT_GATHERING_PRESENT: ::flatbuffers::VOffsetT = 26;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    PolityLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args PolityLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<PolityLine<'bldr>> {
+    let mut builder = PolityLineBuilder::new(_fbb);
+    builder.add_gathering_minute(args.gathering_minute);
+    builder.add_gathering_law(args.gathering_law);
+    builder.add_founded_minute(args.founded_minute);
+    builder.add_settlement(args.settlement);
+    builder.add_polity(args.polity);
+    builder.add_gathering_present(args.gathering_present);
+    if let Some(x) = args.laws { builder.add_laws(x); }
+    builder.add_store_kg(args.store_kg);
+    if let Some(x) = args.store { builder.add_store(x); }
+    builder.add_members(args.members);
+    if let Some(x) = args.custom { builder.add_custom(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn polity(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PolityLine::VT_POLITY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PolityLine::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PolityLine::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn founded_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(PolityLine::VT_FOUNDED_MINUTE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn custom(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PolityLine::VT_CUSTOM, None)}
+  }
+  #[inline]
+  pub fn members(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(PolityLine::VT_MEMBERS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn store(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PolityLine::VT_STORE, None)}
+  }
+  #[inline]
+  pub fn store_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(PolityLine::VT_STORE_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn laws(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LawLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LawLine>>>>(PolityLine::VT_LAWS, None)}
+  }
+  #[inline]
+  pub fn gathering_law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PolityLine::VT_GATHERING_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn gathering_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(PolityLine::VT_GATHERING_MINUTE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn gathering_present(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(PolityLine::VT_GATHERING_PRESENT, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for PolityLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("polity", Self::VT_POLITY, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<i64>("founded_minute", Self::VT_FOUNDED_MINUTE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("custom", Self::VT_CUSTOM, false)?
+     .visit_field::<u32>("members", Self::VT_MEMBERS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("store", Self::VT_STORE, false)?
+     .visit_field::<f32>("store_kg", Self::VT_STORE_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<LawLine>>>>("laws", Self::VT_LAWS, false)?
+     .visit_field::<u64>("gathering_law", Self::VT_GATHERING_LAW, false)?
+     .visit_field::<i64>("gathering_minute", Self::VT_GATHERING_MINUTE, false)?
+     .visit_field::<u32>("gathering_present", Self::VT_GATHERING_PRESENT, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct PolityLineArgs<'a> {
+    pub polity: u64,
+    pub settlement: u64,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub founded_minute: i64,
+    pub custom: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub members: u32,
+    pub store: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub store_kg: f32,
+    pub laws: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LawLine<'a>>>>>,
+    pub gathering_law: u64,
+    pub gathering_minute: i64,
+    pub gathering_present: u32,
+}
+impl<'a> Default for PolityLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    PolityLineArgs {
+      polity: 0,
+      settlement: 0,
+      name: None,
+      founded_minute: 0,
+      custom: None,
+      members: 0,
+      store: None,
+      store_kg: 0.0,
+      laws: None,
+      gathering_law: 0,
+      gathering_minute: 0,
+      gathering_present: 0,
+    }
+  }
+}
+
+pub struct PolityLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolityLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_polity(&mut self, polity: u64) {
+    self.fbb_.push_slot::<u64>(PolityLine::VT_POLITY, polity, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(PolityLine::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_founded_minute(&mut self, founded_minute: i64) {
+    self.fbb_.push_slot::<i64>(PolityLine::VT_FOUNDED_MINUTE, founded_minute, 0);
+  }
+  #[inline]
+  pub fn add_custom(&mut self, custom: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_CUSTOM, custom);
+  }
+  #[inline]
+  pub fn add_members(&mut self, members: u32) {
+    self.fbb_.push_slot::<u32>(PolityLine::VT_MEMBERS, members, 0);
+  }
+  #[inline]
+  pub fn add_store(&mut self, store: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_STORE, store);
+  }
+  #[inline]
+  pub fn add_store_kg(&mut self, store_kg: f32) {
+    self.fbb_.push_slot::<f32>(PolityLine::VT_STORE_KG, store_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_laws(&mut self, laws: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<LawLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_LAWS, laws);
+  }
+  #[inline]
+  pub fn add_gathering_law(&mut self, gathering_law: u64) {
+    self.fbb_.push_slot::<u64>(PolityLine::VT_GATHERING_LAW, gathering_law, 0);
+  }
+  #[inline]
+  pub fn add_gathering_minute(&mut self, gathering_minute: i64) {
+    self.fbb_.push_slot::<i64>(PolityLine::VT_GATHERING_MINUTE, gathering_minute, 0);
+  }
+  #[inline]
+  pub fn add_gathering_present(&mut self, gathering_present: u32) {
+    self.fbb_.push_slot::<u32>(PolityLine::VT_GATHERING_PRESENT, gathering_present, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolityLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    PolityLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<PolityLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for PolityLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("PolityLine");
+      ds.field("polity", &self.polity());
+      ds.field("settlement", &self.settlement());
+      ds.field("name", &self.name());
+      ds.field("founded_minute", &self.founded_minute());
+      ds.field("custom", &self.custom());
+      ds.field("members", &self.members());
+      ds.field("store", &self.store());
+      ds.field("store_kg", &self.store_kg());
+      ds.field("laws", &self.laws());
+      ds.field("gathering_law", &self.gathering_law());
+      ds.field("gathering_minute", &self.gathering_minute());
+      ds.field("gathering_present", &self.gathering_present());
+      ds.finish()
+  }
+}
+pub enum GovernmentOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Government<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Government<'a> {
+  type Inner = Government<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Government<'a> {
+  pub const VT_MINUTE: ::flatbuffers::VOffsetT = 4;
+  pub const VT_POLITIES: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Government { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GovernmentArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Government<'bldr>> {
+    let mut builder = GovernmentBuilder::new(_fbb);
+    builder.add_minute(args.minute);
+    if let Some(x) = args.polities { builder.add_polities(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Government::VT_MINUTE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn polities(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PolityLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PolityLine>>>>(Government::VT_POLITIES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Government<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("minute", Self::VT_MINUTE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PolityLine>>>>("polities", Self::VT_POLITIES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GovernmentArgs<'a> {
+    pub minute: i64,
+    pub polities: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PolityLine<'a>>>>>,
+}
+impl<'a> Default for GovernmentArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    GovernmentArgs {
+      minute: 0,
+      polities: None,
+    }
+  }
+}
+
+pub struct GovernmentBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GovernmentBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_minute(&mut self, minute: i64) {
+    self.fbb_.push_slot::<i64>(Government::VT_MINUTE, minute, 0);
+  }
+  #[inline]
+  pub fn add_polities(&mut self, polities: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<PolityLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Government::VT_POLITIES, polities);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GovernmentBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GovernmentBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Government<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Government<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Government");
+      ds.field("minute", &self.minute());
+      ds.field("polities", &self.polities());
+      ds.finish()
+  }
+}
 pub enum ResponseOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -22170,6 +23394,21 @@ impl<'a> Response<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_government(&self) -> Option<Government<'a>> {
+    if self.body_type() == ResponseBody::Government {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Government::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Response<'_> {
@@ -22199,6 +23438,7 @@ impl ::flatbuffers::Verifiable for Response<'_> {
           ResponseBody::Earthworks => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Earthworks>>("ResponseBody::Earthworks", pos),
           ResponseBody::WeatherReport => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<WeatherReport>>("ResponseBody::WeatherReport", pos),
           ResponseBody::Standing => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Standing>>("ResponseBody::Standing", pos),
+          ResponseBody::Government => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Government>>("ResponseBody::Government", pos),
           _ => Ok(()),
         }
      })?
@@ -22381,6 +23621,13 @@ impl ::core::fmt::Debug for Response<'_> {
         },
         ResponseBody::Standing => {
           if let Some(x) = self.body_as_standing() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ResponseBody::Government => {
+          if let Some(x) = self.body_as_government() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

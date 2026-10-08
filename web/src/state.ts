@@ -8,6 +8,7 @@ import type {
   EventItem,
   FirmBrief,
   FirmInfo,
+  GovernmentInfo,
   KnowledgeInfo,
   MarketInfo,
   PersonInfo,
@@ -92,6 +93,10 @@ export interface AppState {
   standing: StandingInfo | null;
   /** Why the standing could not be read. */
   standingError: string | null;
+  /** Every settlement's polity in the world on show (null = not read yet; wire 1.27). */
+  government: GovernmentInfo | null;
+  /** Why the government could not be read. */
+  governmentError: string | null;
 }
 
 export const MAX_EVENTS = 300;
@@ -127,6 +132,8 @@ export function initialState(): AppState {
     weatherError: null,
     standing: null,
     standingError: null,
+    government: null,
+    governmentError: null,
   };
 }
 

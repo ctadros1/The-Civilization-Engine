@@ -1334,6 +1334,62 @@ button.link:hover {
   color: var(--muted);
 }
 
+/* Government (wire 1.27, M4a slice Z): each polity's custom, store and laws with their histories. */
+.polity {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.polity .custom,
+.polity .gathering {
+  font-size: 12px;
+  margin: 2px 0;
+}
+
+.polity .gathering {
+  font-weight: 600;
+}
+
+.polity details.law {
+  border-bottom: 1px solid var(--line);
+  padding: 3px 0;
+}
+
+.polity details.law summary {
+  cursor: pointer;
+}
+
+.polity details.law summary .status {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.polity details.rejected .law-what {
+  color: var(--muted);
+}
+
+.polity .law-history {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 2px 8px;
+  margin: 4px 0;
+  font-size: 12px;
+}
+
+.polity .law-history dt {
+  color: var(--muted);
+}
+
+.polity .law-history dd {
+  margin: 0;
+}
+
+.polity .stances {
+  margin: 4px 0 2px;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
 /* Weather (wire 1.24, M3c slice U): today's in words, then months and years against the usual. */
 .weather-today {
   margin: 0 0 6px;

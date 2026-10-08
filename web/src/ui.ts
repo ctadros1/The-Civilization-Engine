@@ -42,6 +42,7 @@ import {
 import { materialGoods } from "./deposits.js";
 import { introducible, knowRows, summaryText, techniqueRows } from "./knowledge.js";
 import { standingText, tieText } from "./standing.js";
+import { lawDayText, levyText, reliefText, stanceText, statusText } from "./government.js";
 import { PATH_LEGEND } from "./paths.js";
 import {
   HOUSEHOLDS_SHOWN,
@@ -1814,6 +1815,132 @@ export function bindUi(store: Store, actions: Actions): void {
     standingBody.replaceChildren(...nodes);
   };
 
+  // ---- Government --------------------------------------------------------------------------
+  const governmentBody = $("government-body");
+  let governmentRenderKey: unknown[] = [];
+  /** The laws opened to their histories, by id, kept across redraws. */
+  const lawsOpen = new Set<number>();
+  const renderGovernment = (state: AppState) => {
+    const world = state.snapshot?.world ?? null;
+    const key = [world?.worldId ?? null, state.government, state.governmentError];
+    if (
+      key.length === governmentRenderKey.length &&
+      key.every((k, i) => k === governmentRenderKey[i])
+    )
+      return;
+    governmentRenderKey = key;
+    if (!world) {
+      governmentBody.replaceChildren(el("p", { className: "empty", text: "No world loaded." }));
+      return;
+    }
+    const g = state.government;
+    if (g === null) {
+      governmentBody.replaceChildren(
+        state.governmentError
+          ? el("p", {
+              className: "form-error",
+              text: `The government could not be read: ${state.governmentError}`,
+            })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      );
+      return;
+    }
+    const nodes: Node[] = [
+      el("p", {
+        className: "aside",
+        text: "Each settlement decides by the custom every world starts from. A law exists only if someone proposed it and a gathering passed it; each is kept with its whole history: who proposed it and why, who came and where each stood, what was paid, kept back and given.",
+      }),
+    ];
+    if (g.polities.length === 0) {
+      nodes.push(el("p", { className: "empty", text: "No settlement has a polity yet: each is founded at the first midnight." }));
+    }
+    for (const p of g.polities) {
+      const block = el("div", { className: "polity" });
+      block.append(
+        el("h3", { text: p.name || "A settlement" }),
+        el("p", { className: "custom", text: p.custom }),
+        el("p", {
+          className: "since",
+          text: `${p.members} adults; the common store holds ${p.store}.`,
+        }),
+      );
+      if (p.gatheringLaw !== 0) {
+        block.append(
+          el("p", {
+            className: "gathering",
+            text: `A gathering is called for ${lawDayText(p.gatheringMinute)}${p.gatheringPresent > 0 ? `; ${p.gatheringPresent} have come so far` : ""}.`,
+          }),
+        );
+      }
+      if (p.laws.length === 0) {
+        block.append(el("p", { className: "empty", text: "Nothing has been proposed here." }));
+      }
+      for (const l of p.laws) {
+        const facts = el("dl", { className: "law-history" });
+        facts.append(
+          el("dt", { text: "Proposed" }),
+          el(
+            "dd",
+            {},
+            link(l.sponsorName, () => actions.focusPerson(l.sponsor)),
+            ` on ${lawDayText(l.proposedMinute)}, because ${l.issue}`,
+          ),
+        );
+        if (l.decision) {
+          facts.append(
+            el("dt", { text: "Decided" }),
+            el("dd", { text: `${lawDayText(l.decidedMinute)}: ${l.decision}` }),
+          );
+        }
+        if (l.status === "in force") {
+          facts.append(el("dt", { text: "Known by" }), el("dd", { text: `${l.known} living` }));
+          const levy = levyText(l);
+          if (levy) facts.append(el("dt", { text: "Levy" }), el("dd", { text: levy }));
+          const relief = reliefText(l);
+          if (relief) facts.append(el("dt", { text: "Relief" }), el("dd", { text: relief }));
+        }
+        const details = el(
+          "details",
+          { className: `law ${l.status.replace(" ", "-")}` },
+          el(
+            "summary",
+            {},
+            el("span", { className: "law-what", text: l.what }),
+            el("span", { className: "status", text: ` (${statusText(l)})` }),
+          ),
+          facts,
+        );
+        if (l.stances.length > 0) {
+          details.append(
+            el(
+              "ol",
+              { className: "stances" },
+              ...l.stances.map((st) =>
+                el(
+                  "li",
+                  { className: `stance-${st.stance}` },
+                  link(st.name, () => actions.focusPerson(st.person)),
+                  el("span", { className: "aside", text: ` ${stanceText(st)}` }),
+                ),
+              ),
+            ),
+          );
+        }
+        details.open = lawsOpen.has(l.id);
+        details.addEventListener("toggle", () => {
+          if (details.open) lawsOpen.add(l.id);
+          else lawsOpen.delete(l.id);
+        });
+        block.append(details);
+      }
+      nodes.push(block);
+    }
+    if (state.governmentError) {
+      nodes.push(el("p", { className: "note", text: `Not up to date: ${state.governmentError}` }));
+    }
+    governmentBody.replaceChildren(...nodes);
+  };
+
   // ---- Knowledge ---------------------------------------------------------------------------
   const knowledgeBody = $("knowledge-body");
   let knowledgeKey: unknown[] = [];
@@ -2008,6 +2135,7 @@ export function bindUi(store: Store, actions: Actions): void {
     renderWeather(state);
     renderKnowledge(state);
     renderStanding(state);
+    renderGovernment(state);
     renderWorld(state);
     renderEvents(state);
     renderTask(state);

@@ -167,6 +167,9 @@ struct GetWeatherBuilder;
 struct GetStanding;
 struct GetStandingBuilder;
 
+struct GetGovernment;
+struct GetGovernmentBuilder;
+
 struct Query;
 struct QueryBuilder;
 
@@ -343,6 +346,18 @@ struct SettlementStandingBuilder;
 
 struct Standing;
 struct StandingBuilder;
+
+struct StanceLine;
+struct StanceLineBuilder;
+
+struct LawLine;
+struct LawLineBuilder;
+
+struct PolityLine;
+struct PolityLineBuilder;
+
+struct Government;
+struct GovernmentBuilder;
 
 struct Response;
 struct ResponseBuilder;
@@ -734,11 +749,12 @@ enum class QueryBody : uint8_t {
   GetEarthworks = 16,
   GetWeather = 17,
   GetStanding = 18,
+  GetGovernment = 19,
   MIN = NONE,
-  MAX = GetStanding
+  MAX = GetGovernment
 };
 
-inline const QueryBody (&EnumValuesQueryBody())[19] {
+inline const QueryBody (&EnumValuesQueryBody())[20] {
   static const QueryBody values[] = {
     QueryBody::NONE,
     QueryBody::GetRaster,
@@ -758,13 +774,14 @@ inline const QueryBody (&EnumValuesQueryBody())[19] {
     QueryBody::GetDeposits,
     QueryBody::GetEarthworks,
     QueryBody::GetWeather,
-    QueryBody::GetStanding
+    QueryBody::GetStanding,
+    QueryBody::GetGovernment
   };
   return values;
 }
 
 inline const char * const *EnumNamesQueryBody() {
-  static const char * const names[20] = {
+  static const char * const names[21] = {
     "NONE",
     "GetRaster",
     "GetHydrography",
@@ -784,13 +801,14 @@ inline const char * const *EnumNamesQueryBody() {
     "GetEarthworks",
     "GetWeather",
     "GetStanding",
+    "GetGovernment",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameQueryBody(QueryBody e) {
-  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetStanding)) return "";
+  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetGovernment)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesQueryBody()[index];
 }
@@ -869,6 +887,10 @@ template<> struct QueryBodyTraits<tce::wire::GetWeather> {
 
 template<> struct QueryBodyTraits<tce::wire::GetStanding> {
   static const QueryBody enum_value = QueryBody::GetStanding;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetGovernment> {
+  static const QueryBody enum_value = QueryBody::GetGovernment;
 };
 
 template <bool B = false>
@@ -1050,11 +1072,12 @@ enum class ResponseBody : uint8_t {
   Earthworks = 17,
   WeatherReport = 18,
   Standing = 19,
+  Government = 20,
   MIN = NONE,
-  MAX = Standing
+  MAX = Government
 };
 
-inline const ResponseBody (&EnumValuesResponseBody())[20] {
+inline const ResponseBody (&EnumValuesResponseBody())[21] {
   static const ResponseBody values[] = {
     ResponseBody::NONE,
     ResponseBody::Ack,
@@ -1075,13 +1098,14 @@ inline const ResponseBody (&EnumValuesResponseBody())[20] {
     ResponseBody::Deposits,
     ResponseBody::Earthworks,
     ResponseBody::WeatherReport,
-    ResponseBody::Standing
+    ResponseBody::Standing,
+    ResponseBody::Government
   };
   return values;
 }
 
 inline const char * const *EnumNamesResponseBody() {
-  static const char * const names[21] = {
+  static const char * const names[22] = {
     "NONE",
     "Ack",
     "RasterTile",
@@ -1102,13 +1126,14 @@ inline const char * const *EnumNamesResponseBody() {
     "Earthworks",
     "WeatherReport",
     "Standing",
+    "Government",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameResponseBody(ResponseBody e) {
-  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Standing)) return "";
+  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Government)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesResponseBody()[index];
 }
@@ -1191,6 +1216,10 @@ template<> struct ResponseBodyTraits<tce::wire::WeatherReport> {
 
 template<> struct ResponseBodyTraits<tce::wire::Standing> {
   static const ResponseBody enum_value = ResponseBody::Standing;
+};
+
+template<> struct ResponseBodyTraits<tce::wire::Government> {
+  static const ResponseBody enum_value = ResponseBody::Government;
 };
 
 template <bool B = false>
@@ -5800,6 +5829,42 @@ struct GetStanding::Traits {
   static auto constexpr Create = CreateGetStanding;
 };
 
+struct GetGovernment FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetGovernmentBuilder Builder;
+  struct Traits;
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetGovernmentBuilder {
+  typedef GetGovernment Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  explicit GetGovernmentBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetGovernment> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetGovernment>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetGovernment> CreateGetGovernment(
+    ::flatbuffers::FlatBufferBuilder &_fbb) {
+  GetGovernmentBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct GetGovernment::Traits {
+  using type = GetGovernment;
+  static auto constexpr Create = CreateGetGovernment;
+};
+
 struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef QueryBuilder Builder;
   struct Traits;
@@ -5867,6 +5932,9 @@ struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::GetStanding *body_as_GetStanding() const {
     return body_type() == tce::wire::QueryBody::GetStanding ? static_cast<const tce::wire::GetStanding *>(body()) : nullptr;
+  }
+  const tce::wire::GetGovernment *body_as_GetGovernment() const {
+    return body_type() == tce::wire::QueryBody::GetGovernment ? static_cast<const tce::wire::GetGovernment *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -5948,6 +6016,10 @@ template<> inline const tce::wire::GetWeather *Query::body_as<tce::wire::GetWeat
 
 template<> inline const tce::wire::GetStanding *Query::body_as<tce::wire::GetStanding>() const {
   return body_as_GetStanding();
+}
+
+template<> inline const tce::wire::GetGovernment *Query::body_as<tce::wire::GetGovernment>() const {
+  return body_as_GetGovernment();
 }
 
 struct QueryBuilder {
@@ -13632,6 +13704,775 @@ inline ::flatbuffers::Offset<Standing> CreateStandingDirect(
       let_go);
 }
 
+struct StanceLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef StanceLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_PERSON = 4,
+    VT_NAME = 6,
+    VT_STANCE = 8,
+    VT_GAIN = 10,
+    VT_REGARD = 12,
+    VT_WHY = 14
+  };
+  uint64_t person() const {
+    return GetField<uint64_t>(VT_PERSON, 0);
+  }
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  uint8_t stance() const {
+    return GetField<uint8_t>(VT_STANCE, 0);
+  }
+  float gain() const {
+    return GetField<float>(VT_GAIN, 0.0f);
+  }
+  float regard() const {
+    return GetField<float>(VT_REGARD, 0.0f);
+  }
+  const ::flatbuffers::String *why() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WHY);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_PERSON, 8) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyField<uint8_t>(verifier, VT_STANCE, 1) &&
+           VerifyField<float>(verifier, VT_GAIN, 4) &&
+           VerifyField<float>(verifier, VT_REGARD, 4) &&
+           VerifyOffset(verifier, VT_WHY) &&
+           verifier.VerifyString(why()) &&
+           verifier.EndTable();
+  }
+};
+
+struct StanceLineBuilder {
+  typedef StanceLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_person(uint64_t person) {
+    fbb_.AddElement<uint64_t>(StanceLine::VT_PERSON, person, 0);
+  }
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(StanceLine::VT_NAME, name);
+  }
+  void add_stance(uint8_t stance) {
+    fbb_.AddElement<uint8_t>(StanceLine::VT_STANCE, stance, 0);
+  }
+  void add_gain(float gain) {
+    fbb_.AddElement<float>(StanceLine::VT_GAIN, gain, 0.0f);
+  }
+  void add_regard(float regard) {
+    fbb_.AddElement<float>(StanceLine::VT_REGARD, regard, 0.0f);
+  }
+  void add_why(::flatbuffers::Offset<::flatbuffers::String> why) {
+    fbb_.AddOffset(StanceLine::VT_WHY, why);
+  }
+  explicit StanceLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<StanceLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<StanceLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<StanceLine> CreateStanceLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t person = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    uint8_t stance = 0,
+    float gain = 0.0f,
+    float regard = 0.0f,
+    ::flatbuffers::Offset<::flatbuffers::String> why = 0) {
+  StanceLineBuilder builder_(_fbb);
+  builder_.add_person(person);
+  builder_.add_why(why);
+  builder_.add_regard(regard);
+  builder_.add_gain(gain);
+  builder_.add_name(name);
+  builder_.add_stance(stance);
+  return builder_.Finish();
+}
+
+struct StanceLine::Traits {
+  using type = StanceLine;
+  static auto constexpr Create = CreateStanceLine;
+};
+
+inline ::flatbuffers::Offset<StanceLine> CreateStanceLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t person = 0,
+    const char *name = nullptr,
+    uint8_t stance = 0,
+    float gain = 0.0f,
+    float regard = 0.0f,
+    const char *why = nullptr) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto why__ = why ? _fbb.CreateString(why) : 0;
+  return tce::wire::CreateStanceLine(
+      _fbb,
+      person,
+      name__,
+      stance,
+      gain,
+      regard,
+      why__);
+}
+
+struct LawLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef LawLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_WHAT = 6,
+    VT_POLICY = 8,
+    VT_LEVY_SHARE = 10,
+    VT_RELIEF_DAYS = 12,
+    VT_STATUS = 14,
+    VT_SPONSOR = 16,
+    VT_SPONSOR_NAME = 18,
+    VT_PROPOSED_MINUTE = 20,
+    VT_ISSUE = 22,
+    VT_MEETS_MINUTE = 24,
+    VT_DECIDED_MINUTE = 26,
+    VT_OUTCOME = 28,
+    VT_DECISION = 30,
+    VT_ELIGIBLE = 32,
+    VT_QUORUM = 34,
+    VT_STANCES = 36,
+    VT_KNOWN = 38,
+    VT_COMPLIED = 40,
+    VT_COULD_NOT = 42,
+    VT_EVADED = 44,
+    VT_UNAWARE = 46,
+    VT_LEVIED_KG = 48,
+    VT_WITHHELD_KG = 50,
+    VT_RELIEVED = 52,
+    VT_RELIEF_KG = 54,
+    VT_UNANSWERED = 56
+  };
+  uint64_t id() const {
+    return GetField<uint64_t>(VT_ID, 0);
+  }
+  const ::flatbuffers::String *what() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WHAT);
+  }
+  const ::flatbuffers::String *policy() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_POLICY);
+  }
+  float levy_share() const {
+    return GetField<float>(VT_LEVY_SHARE, 0.0f);
+  }
+  float relief_days() const {
+    return GetField<float>(VT_RELIEF_DAYS, 0.0f);
+  }
+  uint8_t status() const {
+    return GetField<uint8_t>(VT_STATUS, 0);
+  }
+  uint64_t sponsor() const {
+    return GetField<uint64_t>(VT_SPONSOR, 0);
+  }
+  const ::flatbuffers::String *sponsor_name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_SPONSOR_NAME);
+  }
+  int64_t proposed_minute() const {
+    return GetField<int64_t>(VT_PROPOSED_MINUTE, 0);
+  }
+  const ::flatbuffers::String *issue() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_ISSUE);
+  }
+  int64_t meets_minute() const {
+    return GetField<int64_t>(VT_MEETS_MINUTE, 0);
+  }
+  int64_t decided_minute() const {
+    return GetField<int64_t>(VT_DECIDED_MINUTE, 0);
+  }
+  uint8_t outcome() const {
+    return GetField<uint8_t>(VT_OUTCOME, 255);
+  }
+  const ::flatbuffers::String *decision() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_DECISION);
+  }
+  uint32_t eligible() const {
+    return GetField<uint32_t>(VT_ELIGIBLE, 0);
+  }
+  uint32_t quorum() const {
+    return GetField<uint32_t>(VT_QUORUM, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StanceLine>> *stances() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StanceLine>> *>(VT_STANCES);
+  }
+  uint32_t known() const {
+    return GetField<uint32_t>(VT_KNOWN, 0);
+  }
+  uint32_t complied() const {
+    return GetField<uint32_t>(VT_COMPLIED, 0);
+  }
+  uint32_t could_not() const {
+    return GetField<uint32_t>(VT_COULD_NOT, 0);
+  }
+  uint32_t evaded() const {
+    return GetField<uint32_t>(VT_EVADED, 0);
+  }
+  uint32_t unaware() const {
+    return GetField<uint32_t>(VT_UNAWARE, 0);
+  }
+  float levied_kg() const {
+    return GetField<float>(VT_LEVIED_KG, 0.0f);
+  }
+  float withheld_kg() const {
+    return GetField<float>(VT_WITHHELD_KG, 0.0f);
+  }
+  uint32_t relieved() const {
+    return GetField<uint32_t>(VT_RELIEVED, 0);
+  }
+  float relief_kg() const {
+    return GetField<float>(VT_RELIEF_KG, 0.0f);
+  }
+  uint32_t unanswered() const {
+    return GetField<uint32_t>(VT_UNANSWERED, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_ID, 8) &&
+           VerifyOffset(verifier, VT_WHAT) &&
+           verifier.VerifyString(what()) &&
+           VerifyOffset(verifier, VT_POLICY) &&
+           verifier.VerifyString(policy()) &&
+           VerifyField<float>(verifier, VT_LEVY_SHARE, 4) &&
+           VerifyField<float>(verifier, VT_RELIEF_DAYS, 4) &&
+           VerifyField<uint8_t>(verifier, VT_STATUS, 1) &&
+           VerifyField<uint64_t>(verifier, VT_SPONSOR, 8) &&
+           VerifyOffset(verifier, VT_SPONSOR_NAME) &&
+           verifier.VerifyString(sponsor_name()) &&
+           VerifyField<int64_t>(verifier, VT_PROPOSED_MINUTE, 8) &&
+           VerifyOffset(verifier, VT_ISSUE) &&
+           verifier.VerifyString(issue()) &&
+           VerifyField<int64_t>(verifier, VT_MEETS_MINUTE, 8) &&
+           VerifyField<int64_t>(verifier, VT_DECIDED_MINUTE, 8) &&
+           VerifyField<uint8_t>(verifier, VT_OUTCOME, 1) &&
+           VerifyOffset(verifier, VT_DECISION) &&
+           verifier.VerifyString(decision()) &&
+           VerifyField<uint32_t>(verifier, VT_ELIGIBLE, 4) &&
+           VerifyField<uint32_t>(verifier, VT_QUORUM, 4) &&
+           VerifyOffset(verifier, VT_STANCES) &&
+           verifier.VerifyVector(stances()) &&
+           verifier.VerifyVectorOfTables(stances()) &&
+           VerifyField<uint32_t>(verifier, VT_KNOWN, 4) &&
+           VerifyField<uint32_t>(verifier, VT_COMPLIED, 4) &&
+           VerifyField<uint32_t>(verifier, VT_COULD_NOT, 4) &&
+           VerifyField<uint32_t>(verifier, VT_EVADED, 4) &&
+           VerifyField<uint32_t>(verifier, VT_UNAWARE, 4) &&
+           VerifyField<float>(verifier, VT_LEVIED_KG, 4) &&
+           VerifyField<float>(verifier, VT_WITHHELD_KG, 4) &&
+           VerifyField<uint32_t>(verifier, VT_RELIEVED, 4) &&
+           VerifyField<float>(verifier, VT_RELIEF_KG, 4) &&
+           VerifyField<uint32_t>(verifier, VT_UNANSWERED, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct LawLineBuilder {
+  typedef LawLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint64_t id) {
+    fbb_.AddElement<uint64_t>(LawLine::VT_ID, id, 0);
+  }
+  void add_what(::flatbuffers::Offset<::flatbuffers::String> what) {
+    fbb_.AddOffset(LawLine::VT_WHAT, what);
+  }
+  void add_policy(::flatbuffers::Offset<::flatbuffers::String> policy) {
+    fbb_.AddOffset(LawLine::VT_POLICY, policy);
+  }
+  void add_levy_share(float levy_share) {
+    fbb_.AddElement<float>(LawLine::VT_LEVY_SHARE, levy_share, 0.0f);
+  }
+  void add_relief_days(float relief_days) {
+    fbb_.AddElement<float>(LawLine::VT_RELIEF_DAYS, relief_days, 0.0f);
+  }
+  void add_status(uint8_t status) {
+    fbb_.AddElement<uint8_t>(LawLine::VT_STATUS, status, 0);
+  }
+  void add_sponsor(uint64_t sponsor) {
+    fbb_.AddElement<uint64_t>(LawLine::VT_SPONSOR, sponsor, 0);
+  }
+  void add_sponsor_name(::flatbuffers::Offset<::flatbuffers::String> sponsor_name) {
+    fbb_.AddOffset(LawLine::VT_SPONSOR_NAME, sponsor_name);
+  }
+  void add_proposed_minute(int64_t proposed_minute) {
+    fbb_.AddElement<int64_t>(LawLine::VT_PROPOSED_MINUTE, proposed_minute, 0);
+  }
+  void add_issue(::flatbuffers::Offset<::flatbuffers::String> issue) {
+    fbb_.AddOffset(LawLine::VT_ISSUE, issue);
+  }
+  void add_meets_minute(int64_t meets_minute) {
+    fbb_.AddElement<int64_t>(LawLine::VT_MEETS_MINUTE, meets_minute, 0);
+  }
+  void add_decided_minute(int64_t decided_minute) {
+    fbb_.AddElement<int64_t>(LawLine::VT_DECIDED_MINUTE, decided_minute, 0);
+  }
+  void add_outcome(uint8_t outcome) {
+    fbb_.AddElement<uint8_t>(LawLine::VT_OUTCOME, outcome, 255);
+  }
+  void add_decision(::flatbuffers::Offset<::flatbuffers::String> decision) {
+    fbb_.AddOffset(LawLine::VT_DECISION, decision);
+  }
+  void add_eligible(uint32_t eligible) {
+    fbb_.AddElement<uint32_t>(LawLine::VT_ELIGIBLE, eligible, 0);
+  }
+  void add_quorum(uint32_t quorum) {
+    fbb_.AddElement<uint32_t>(LawLine::VT_QUORUM, quorum, 0);
+  }
+  void add_stances(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StanceLine>>> stances) {
+    fbb_.AddOffset(LawLine::VT_STANCES, stances);
+  }
+  void add_known(uint32_t known) {
+    fbb_.AddElement<uint32_t>(LawLine::VT_KNOWN, known, 0);
+  }
+  void add_complied(uint32_t complied) {
+    fbb_.AddElement<uint32_t>(LawLine::VT_COMPLIED, complied, 0);
+  }
+  void add_could_not(uint32_t could_not) {
+    fbb_.AddElement<uint32_t>(LawLine::VT_COULD_NOT, could_not, 0);
+  }
+  void add_evaded(uint32_t evaded) {
+    fbb_.AddElement<uint32_t>(LawLine::VT_EVADED, evaded, 0);
+  }
+  void add_unaware(uint32_t unaware) {
+    fbb_.AddElement<uint32_t>(LawLine::VT_UNAWARE, unaware, 0);
+  }
+  void add_levied_kg(float levied_kg) {
+    fbb_.AddElement<float>(LawLine::VT_LEVIED_KG, levied_kg, 0.0f);
+  }
+  void add_withheld_kg(float withheld_kg) {
+    fbb_.AddElement<float>(LawLine::VT_WITHHELD_KG, withheld_kg, 0.0f);
+  }
+  void add_relieved(uint32_t relieved) {
+    fbb_.AddElement<uint32_t>(LawLine::VT_RELIEVED, relieved, 0);
+  }
+  void add_relief_kg(float relief_kg) {
+    fbb_.AddElement<float>(LawLine::VT_RELIEF_KG, relief_kg, 0.0f);
+  }
+  void add_unanswered(uint32_t unanswered) {
+    fbb_.AddElement<uint32_t>(LawLine::VT_UNANSWERED, unanswered, 0);
+  }
+  explicit LawLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<LawLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<LawLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<LawLine> CreateLawLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> what = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> policy = 0,
+    float levy_share = 0.0f,
+    float relief_days = 0.0f,
+    uint8_t status = 0,
+    uint64_t sponsor = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> sponsor_name = 0,
+    int64_t proposed_minute = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> issue = 0,
+    int64_t meets_minute = 0,
+    int64_t decided_minute = 0,
+    uint8_t outcome = 255,
+    ::flatbuffers::Offset<::flatbuffers::String> decision = 0,
+    uint32_t eligible = 0,
+    uint32_t quorum = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StanceLine>>> stances = 0,
+    uint32_t known = 0,
+    uint32_t complied = 0,
+    uint32_t could_not = 0,
+    uint32_t evaded = 0,
+    uint32_t unaware = 0,
+    float levied_kg = 0.0f,
+    float withheld_kg = 0.0f,
+    uint32_t relieved = 0,
+    float relief_kg = 0.0f,
+    uint32_t unanswered = 0) {
+  LawLineBuilder builder_(_fbb);
+  builder_.add_decided_minute(decided_minute);
+  builder_.add_meets_minute(meets_minute);
+  builder_.add_proposed_minute(proposed_minute);
+  builder_.add_sponsor(sponsor);
+  builder_.add_id(id);
+  builder_.add_unanswered(unanswered);
+  builder_.add_relief_kg(relief_kg);
+  builder_.add_relieved(relieved);
+  builder_.add_withheld_kg(withheld_kg);
+  builder_.add_levied_kg(levied_kg);
+  builder_.add_unaware(unaware);
+  builder_.add_evaded(evaded);
+  builder_.add_could_not(could_not);
+  builder_.add_complied(complied);
+  builder_.add_known(known);
+  builder_.add_stances(stances);
+  builder_.add_quorum(quorum);
+  builder_.add_eligible(eligible);
+  builder_.add_decision(decision);
+  builder_.add_issue(issue);
+  builder_.add_sponsor_name(sponsor_name);
+  builder_.add_relief_days(relief_days);
+  builder_.add_levy_share(levy_share);
+  builder_.add_policy(policy);
+  builder_.add_what(what);
+  builder_.add_outcome(outcome);
+  builder_.add_status(status);
+  return builder_.Finish();
+}
+
+struct LawLine::Traits {
+  using type = LawLine;
+  static auto constexpr Create = CreateLawLine;
+};
+
+inline ::flatbuffers::Offset<LawLine> CreateLawLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    const char *what = nullptr,
+    const char *policy = nullptr,
+    float levy_share = 0.0f,
+    float relief_days = 0.0f,
+    uint8_t status = 0,
+    uint64_t sponsor = 0,
+    const char *sponsor_name = nullptr,
+    int64_t proposed_minute = 0,
+    const char *issue = nullptr,
+    int64_t meets_minute = 0,
+    int64_t decided_minute = 0,
+    uint8_t outcome = 255,
+    const char *decision = nullptr,
+    uint32_t eligible = 0,
+    uint32_t quorum = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::StanceLine>> *stances = nullptr,
+    uint32_t known = 0,
+    uint32_t complied = 0,
+    uint32_t could_not = 0,
+    uint32_t evaded = 0,
+    uint32_t unaware = 0,
+    float levied_kg = 0.0f,
+    float withheld_kg = 0.0f,
+    uint32_t relieved = 0,
+    float relief_kg = 0.0f,
+    uint32_t unanswered = 0) {
+  auto what__ = what ? _fbb.CreateString(what) : 0;
+  auto policy__ = policy ? _fbb.CreateString(policy) : 0;
+  auto sponsor_name__ = sponsor_name ? _fbb.CreateString(sponsor_name) : 0;
+  auto issue__ = issue ? _fbb.CreateString(issue) : 0;
+  auto decision__ = decision ? _fbb.CreateString(decision) : 0;
+  auto stances__ = stances ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::StanceLine>>(*stances) : 0;
+  return tce::wire::CreateLawLine(
+      _fbb,
+      id,
+      what__,
+      policy__,
+      levy_share,
+      relief_days,
+      status,
+      sponsor,
+      sponsor_name__,
+      proposed_minute,
+      issue__,
+      meets_minute,
+      decided_minute,
+      outcome,
+      decision__,
+      eligible,
+      quorum,
+      stances__,
+      known,
+      complied,
+      could_not,
+      evaded,
+      unaware,
+      levied_kg,
+      withheld_kg,
+      relieved,
+      relief_kg,
+      unanswered);
+}
+
+struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef PolityLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_POLITY = 4,
+    VT_SETTLEMENT = 6,
+    VT_NAME = 8,
+    VT_FOUNDED_MINUTE = 10,
+    VT_CUSTOM = 12,
+    VT_MEMBERS = 14,
+    VT_STORE = 16,
+    VT_STORE_KG = 18,
+    VT_LAWS = 20,
+    VT_GATHERING_LAW = 22,
+    VT_GATHERING_MINUTE = 24,
+    VT_GATHERING_PRESENT = 26
+  };
+  uint64_t polity() const {
+    return GetField<uint64_t>(VT_POLITY, 0);
+  }
+  uint64_t settlement() const {
+    return GetField<uint64_t>(VT_SETTLEMENT, 0);
+  }
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  int64_t founded_minute() const {
+    return GetField<int64_t>(VT_FOUNDED_MINUTE, 0);
+  }
+  const ::flatbuffers::String *custom() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_CUSTOM);
+  }
+  uint32_t members() const {
+    return GetField<uint32_t>(VT_MEMBERS, 0);
+  }
+  const ::flatbuffers::String *store() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_STORE);
+  }
+  float store_kg() const {
+    return GetField<float>(VT_STORE_KG, 0.0f);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::LawLine>> *laws() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::LawLine>> *>(VT_LAWS);
+  }
+  uint64_t gathering_law() const {
+    return GetField<uint64_t>(VT_GATHERING_LAW, 0);
+  }
+  int64_t gathering_minute() const {
+    return GetField<int64_t>(VT_GATHERING_MINUTE, 0);
+  }
+  uint32_t gathering_present() const {
+    return GetField<uint32_t>(VT_GATHERING_PRESENT, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_POLITY, 8) &&
+           VerifyField<uint64_t>(verifier, VT_SETTLEMENT, 8) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyField<int64_t>(verifier, VT_FOUNDED_MINUTE, 8) &&
+           VerifyOffset(verifier, VT_CUSTOM) &&
+           verifier.VerifyString(custom()) &&
+           VerifyField<uint32_t>(verifier, VT_MEMBERS, 4) &&
+           VerifyOffset(verifier, VT_STORE) &&
+           verifier.VerifyString(store()) &&
+           VerifyField<float>(verifier, VT_STORE_KG, 4) &&
+           VerifyOffset(verifier, VT_LAWS) &&
+           verifier.VerifyVector(laws()) &&
+           verifier.VerifyVectorOfTables(laws()) &&
+           VerifyField<uint64_t>(verifier, VT_GATHERING_LAW, 8) &&
+           VerifyField<int64_t>(verifier, VT_GATHERING_MINUTE, 8) &&
+           VerifyField<uint32_t>(verifier, VT_GATHERING_PRESENT, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct PolityLineBuilder {
+  typedef PolityLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_polity(uint64_t polity) {
+    fbb_.AddElement<uint64_t>(PolityLine::VT_POLITY, polity, 0);
+  }
+  void add_settlement(uint64_t settlement) {
+    fbb_.AddElement<uint64_t>(PolityLine::VT_SETTLEMENT, settlement, 0);
+  }
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(PolityLine::VT_NAME, name);
+  }
+  void add_founded_minute(int64_t founded_minute) {
+    fbb_.AddElement<int64_t>(PolityLine::VT_FOUNDED_MINUTE, founded_minute, 0);
+  }
+  void add_custom(::flatbuffers::Offset<::flatbuffers::String> custom) {
+    fbb_.AddOffset(PolityLine::VT_CUSTOM, custom);
+  }
+  void add_members(uint32_t members) {
+    fbb_.AddElement<uint32_t>(PolityLine::VT_MEMBERS, members, 0);
+  }
+  void add_store(::flatbuffers::Offset<::flatbuffers::String> store) {
+    fbb_.AddOffset(PolityLine::VT_STORE, store);
+  }
+  void add_store_kg(float store_kg) {
+    fbb_.AddElement<float>(PolityLine::VT_STORE_KG, store_kg, 0.0f);
+  }
+  void add_laws(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::LawLine>>> laws) {
+    fbb_.AddOffset(PolityLine::VT_LAWS, laws);
+  }
+  void add_gathering_law(uint64_t gathering_law) {
+    fbb_.AddElement<uint64_t>(PolityLine::VT_GATHERING_LAW, gathering_law, 0);
+  }
+  void add_gathering_minute(int64_t gathering_minute) {
+    fbb_.AddElement<int64_t>(PolityLine::VT_GATHERING_MINUTE, gathering_minute, 0);
+  }
+  void add_gathering_present(uint32_t gathering_present) {
+    fbb_.AddElement<uint32_t>(PolityLine::VT_GATHERING_PRESENT, gathering_present, 0);
+  }
+  explicit PolityLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<PolityLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<PolityLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<PolityLine> CreatePolityLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t polity = 0,
+    uint64_t settlement = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    int64_t founded_minute = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> custom = 0,
+    uint32_t members = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> store = 0,
+    float store_kg = 0.0f,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::LawLine>>> laws = 0,
+    uint64_t gathering_law = 0,
+    int64_t gathering_minute = 0,
+    uint32_t gathering_present = 0) {
+  PolityLineBuilder builder_(_fbb);
+  builder_.add_gathering_minute(gathering_minute);
+  builder_.add_gathering_law(gathering_law);
+  builder_.add_founded_minute(founded_minute);
+  builder_.add_settlement(settlement);
+  builder_.add_polity(polity);
+  builder_.add_gathering_present(gathering_present);
+  builder_.add_laws(laws);
+  builder_.add_store_kg(store_kg);
+  builder_.add_store(store);
+  builder_.add_members(members);
+  builder_.add_custom(custom);
+  builder_.add_name(name);
+  return builder_.Finish();
+}
+
+struct PolityLine::Traits {
+  using type = PolityLine;
+  static auto constexpr Create = CreatePolityLine;
+};
+
+inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t polity = 0,
+    uint64_t settlement = 0,
+    const char *name = nullptr,
+    int64_t founded_minute = 0,
+    const char *custom = nullptr,
+    uint32_t members = 0,
+    const char *store = nullptr,
+    float store_kg = 0.0f,
+    const std::vector<::flatbuffers::Offset<tce::wire::LawLine>> *laws = nullptr,
+    uint64_t gathering_law = 0,
+    int64_t gathering_minute = 0,
+    uint32_t gathering_present = 0) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto custom__ = custom ? _fbb.CreateString(custom) : 0;
+  auto store__ = store ? _fbb.CreateString(store) : 0;
+  auto laws__ = laws ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::LawLine>>(*laws) : 0;
+  return tce::wire::CreatePolityLine(
+      _fbb,
+      polity,
+      settlement,
+      name__,
+      founded_minute,
+      custom__,
+      members,
+      store__,
+      store_kg,
+      laws__,
+      gathering_law,
+      gathering_minute,
+      gathering_present);
+}
+
+struct Government FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GovernmentBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_MINUTE = 4,
+    VT_POLITIES = 6
+  };
+  int64_t minute() const {
+    return GetField<int64_t>(VT_MINUTE, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PolityLine>> *polities() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PolityLine>> *>(VT_POLITIES);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int64_t>(verifier, VT_MINUTE, 8) &&
+           VerifyOffset(verifier, VT_POLITIES) &&
+           verifier.VerifyVector(polities()) &&
+           verifier.VerifyVectorOfTables(polities()) &&
+           verifier.EndTable();
+  }
+};
+
+struct GovernmentBuilder {
+  typedef Government Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_minute(int64_t minute) {
+    fbb_.AddElement<int64_t>(Government::VT_MINUTE, minute, 0);
+  }
+  void add_polities(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PolityLine>>> polities) {
+    fbb_.AddOffset(Government::VT_POLITIES, polities);
+  }
+  explicit GovernmentBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Government> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Government>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Government> CreateGovernment(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t minute = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PolityLine>>> polities = 0) {
+  GovernmentBuilder builder_(_fbb);
+  builder_.add_minute(minute);
+  builder_.add_polities(polities);
+  return builder_.Finish();
+}
+
+struct Government::Traits {
+  using type = Government;
+  static auto constexpr Create = CreateGovernment;
+};
+
+inline ::flatbuffers::Offset<Government> CreateGovernmentDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t minute = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::PolityLine>> *polities = nullptr) {
+  auto polities__ = polities ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PolityLine>>(*polities) : 0;
+  return tce::wire::CreateGovernment(
+      _fbb,
+      minute,
+      polities__);
+}
+
 struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef ResponseBuilder Builder;
   struct Traits;
@@ -13702,6 +14543,9 @@ struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::Standing *body_as_Standing() const {
     return body_type() == tce::wire::ResponseBody::Standing ? static_cast<const tce::wire::Standing *>(body()) : nullptr;
+  }
+  const tce::wire::Government *body_as_Government() const {
+    return body_type() == tce::wire::ResponseBody::Government ? static_cast<const tce::wire::Government *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -13787,6 +14631,10 @@ template<> inline const tce::wire::WeatherReport *Response::body_as<tce::wire::W
 
 template<> inline const tce::wire::Standing *Response::body_as<tce::wire::Standing>() const {
   return body_as_Standing();
+}
+
+template<> inline const tce::wire::Government *Response::body_as<tce::wire::Government>() const {
+  return body_as_Government();
 }
 
 struct ResponseBuilder {
@@ -14036,6 +14884,10 @@ inline bool VerifyQueryBody(::flatbuffers::VerifierTemplate<B> &verifier, const 
       auto ptr = reinterpret_cast<const tce::wire::GetStanding *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case QueryBody::GetGovernment: {
+      auto ptr = reinterpret_cast<const tce::wire::GetGovernment *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -14133,6 +14985,10 @@ inline bool VerifyResponseBody(::flatbuffers::VerifierTemplate<B> &verifier, con
     }
     case ResponseBody::Standing: {
       auto ptr = reinterpret_cast<const tce::wire::Standing *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::Government: {
+      auto ptr = reinterpret_cast<const tce::wire::Government *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

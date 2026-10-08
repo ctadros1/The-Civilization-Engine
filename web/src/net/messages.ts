@@ -756,6 +756,89 @@ export interface StandingInfo {
   letGo: number;
 }
 
+/** Where a member stood at a gathering (wire 1.27, ADR-0013 §3). */
+export type StanceKind = "for" | "against" | "abstained";
+
+/** One member's stance at a gathering, with what moved it and why in the kernel's words. */
+export interface StanceLine {
+  person: number;
+  name: string;
+  stance: StanceKind;
+  /** Their household's forecast of the law, and what their regard for its sponsor added, points. */
+  gain: number;
+  regard: number;
+  why: string;
+}
+
+/** Where a law stands. */
+export type LawStatus = "proposed" | "in force" | "rejected";
+
+/** How a gathering decided. */
+export type LawOutcome = "passed" | "failed" | "tied" | "no quorum";
+
+/** A law and its whole history (wire 1.27, ADR-0013 §3). Sentences are the kernel's. */
+export interface LawLine {
+  id: number;
+  /** "a common store, taking a tenth of each harvest". */
+  what: string;
+  policy: string;
+  levyShare: number;
+  reliefDays: number;
+  status: LawStatus;
+  sponsor: number;
+  sponsorName: string;
+  proposedMinute: number;
+  /** The issue it answered: "food would not last until the harvest". */
+  issue: string;
+  /** The start of the day the gathering meets. */
+  meetsMinute: number;
+  /** 0 before it was decided. */
+  decidedMinute: number;
+  outcome: LawOutcome | null;
+  /** "agreed: 20 for, 3 against; 23 of 24 adults came, 6 needed" ("" before). */
+  decision: string;
+  eligible: number;
+  quorum: number;
+  stances: StanceLine[];
+  /** Living people who know it. */
+  known: number;
+  complied: number;
+  couldNot: number;
+  evaded: number;
+  unaware: number;
+  leviedKg: number;
+  withheldKg: number;
+  relieved: number;
+  reliefKg: number;
+  unanswered: number;
+}
+
+/** A settlement's polity (wire 1.27): its custom, members, store, gathering called and laws. */
+export interface PolityLine {
+  polity: number;
+  settlement: number;
+  name: string;
+  foundedMinute: number;
+  /** The body in the kernel's words. */
+  custom: string;
+  members: number;
+  /** What the store holds in words ("grain 322 kg", "nothing"), and its food in kilograms. */
+  store: string;
+  storeKg: number;
+  /** Every law proposed there, newest first. */
+  laws: LawLine[];
+  /** The gathering called: its law (0 for none), the day it meets and those come so far. */
+  gatheringLaw: number;
+  gatheringMinute: number;
+  gatheringPresent: number;
+}
+
+/** Every settlement's polity at `minute` (wire 1.27). */
+export interface GovernmentInfo {
+  minute: number;
+  polities: PolityLine[];
+}
+
 /** One good in a settlement's market (M3a slice I). Tallies fade by half every memory. */
 export interface MarketGood {
   /** An index into Welcome.goods. */
@@ -1135,7 +1218,8 @@ export type ResponseBody =
   | { kind: "deposits"; deposits: DepositsInfo }
   | { kind: "earthworks"; earthworks: EarthworksInfo }
   | { kind: "weather"; weather: WeatherReport }
-  | { kind: "standing"; standing: StandingInfo };
+  | { kind: "standing"; standing: StandingInfo }
+  | { kind: "government"; government: GovernmentInfo };
 
 export type ErrorCode =
   | "unknown"
@@ -1372,6 +1456,12 @@ export function getStanding(): Uint8Array {
   const b = new flatbuffers.Builder(16);
   W.GetStanding.startGetStanding(b);
   return query(b, W.QueryBody.GetStanding, W.GetStanding.endGetStanding(b));
+}
+
+export function getGovernment(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetGovernment.startGetGovernment(b);
+  return query(b, W.QueryBody.GetGovernment, W.GetGovernment.endGetGovernment(b));
 }
 
 export function getWeather(): Uint8Array {
@@ -2556,6 +2646,83 @@ function standingLine(l: W.StandingLine): StandingLine {
   };
 }
 
+const STANCES: StanceKind[] = ["for", "against", "abstained"];
+const LAW_STATUSES: LawStatus[] = ["proposed", "in force", "rejected"];
+const OUTCOMES: LawOutcome[] = ["passed", "failed", "tied", "no quorum"];
+
+function lawLine(l: W.LawLine): LawLine {
+  const stances: StanceLine[] = [];
+  for (let k = 0; k < l.stancesLength(); k++) {
+    const r = l.stances(k);
+    if (!r) continue;
+    stances.push({
+      person: Number(r.person()),
+      name: r.name() ?? "",
+      stance: STANCES[r.stance()] ?? "abstained",
+      gain: r.gain(),
+      regard: r.regard(),
+      why: r.why() ?? "",
+    });
+  }
+  return {
+    id: Number(l.id()),
+    what: l.what() ?? "",
+    policy: l.policy() ?? "",
+    levyShare: l.levyShare(),
+    reliefDays: l.reliefDays(),
+    status: LAW_STATUSES[l.status()] ?? "proposed",
+    sponsor: Number(l.sponsor()),
+    sponsorName: l.sponsorName() ?? "",
+    proposedMinute: Number(l.proposedMinute()),
+    issue: l.issue() ?? "",
+    meetsMinute: Number(l.meetsMinute()),
+    decidedMinute: Number(l.decidedMinute()),
+    outcome: OUTCOMES[l.outcome()] ?? null,
+    decision: l.decision() ?? "",
+    eligible: l.eligible(),
+    quorum: l.quorum(),
+    stances,
+    known: l.known(),
+    complied: l.complied(),
+    couldNot: l.couldNot(),
+    evaded: l.evaded(),
+    unaware: l.unaware(),
+    leviedKg: l.leviedKg(),
+    withheldKg: l.withheldKg(),
+    relieved: l.relieved(),
+    reliefKg: l.reliefKg(),
+    unanswered: l.unanswered(),
+  };
+}
+
+function governmentInfo(w: W.Government): GovernmentInfo {
+  const polities: PolityLine[] = [];
+  for (let k = 0; k < w.politiesLength(); k++) {
+    const p = w.polities(k);
+    if (!p) continue;
+    const laws: LawLine[] = [];
+    for (let j = 0; j < p.lawsLength(); j++) {
+      const l = p.laws(j);
+      if (l) laws.push(lawLine(l));
+    }
+    polities.push({
+      polity: Number(p.polity()),
+      settlement: Number(p.settlement()),
+      name: p.name() ?? "",
+      foundedMinute: Number(p.foundedMinute()),
+      custom: p.custom() ?? "",
+      members: p.members(),
+      store: p.store() ?? "",
+      storeKg: p.storeKg(),
+      laws,
+      gatheringLaw: Number(p.gatheringLaw()),
+      gatheringMinute: Number(p.gatheringMinute()),
+      gatheringPresent: p.gatheringPresent(),
+    });
+  }
+  return { minute: Number(w.minute()), polities };
+}
+
 function standingInfo(w: W.Standing): StandingInfo {
   const settlements: SettlementStanding[] = [];
   for (let k = 0; k < w.settlementsLength(); k++) {
@@ -2676,6 +2843,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Standing()) as W.Standing | null;
       if (!f) break;
       return { kind: "standing", standing: standingInfo(f) };
+    }
+    case W.ResponseBody.Government: {
+      const f = r.body(new W.Government()) as W.Government | null;
+      if (!f) break;
+      return { kind: "government", government: governmentInfo(f) };
     }
     default:
       break;

@@ -503,7 +503,10 @@ table GetWeather {}
 // Wire 1.26 (M4a slice Y): each settlement's standing as last worked out.
 table GetStanding {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding }
+// Every settlement's polity, its laws and their histories (wire 1.27, ADR-0013).
+table GetGovernment {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment }
 
 table Query {
   body: QueryBody (id: 1);
@@ -1431,7 +1434,90 @@ table Standing {
   let_go: ulong (id: 4);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing }
+// One member's stance at a gathering (wire 1.27, ADR-0013 §3, stage 2): where they stood, what
+// moved them in points, and why in the kernel's words.
+table StanceLine {
+  person: ulong (id: 0);
+  name: string (id: 1);
+  // 0 for, 1 against, 2 abstained.
+  stance: ubyte (id: 2);
+  // Their household's forecast of the law, points, and what their regard for its sponsor added.
+  gain: float (id: 3);
+  regard: float (id: 4);
+  // "their household stands to gain, and they think well of the sponsor".
+  why: string (id: 5);
+}
+
+// A law and its whole history (wire 1.27, ADR-0013 §3): proposal, stances, decision, who knows
+// it, and what it asked and gave. The kernel renders every sentence.
+table LawLine {
+  id: ulong (id: 0);
+  // What it is: "a common store, taking a tenth of each harvest".
+  what: string (id: 1);
+  // Its template's content id.
+  policy: string (id: 2);
+  levy_share: float (id: 3);
+  relief_days: float (id: 4);
+  // 0 before the gathering, 1 in force, 2 rejected.
+  status: ubyte (id: 5);
+  sponsor: ulong (id: 6);
+  sponsor_name: string (id: 7);
+  proposed_minute: long (id: 8);
+  // The issue it answered: "food would not last until the harvest".
+  issue: string (id: 9);
+  // The start of the day the gathering meets.
+  meets_minute: long (id: 10);
+  // When it was decided (0 before), how (0 passed, 1 failed, 2 tied, 3 too few came; 255 not
+  // yet), and that in words: "agreed: 20 for, 3 against; 23 of 24 adults came, 6 needed".
+  decided_minute: long (id: 11);
+  outcome: ubyte = 255 (id: 12);
+  decision: string (id: 13);
+  eligible: uint (id: 14);
+  quorum: uint (id: 15);
+  stances: [StanceLine] (id: 16);
+  // How many living people know it.
+  known: uint (id: 17);
+  // Levies paid, unpayable, kept back and owed by someone who did not know the law; kilograms
+  // paid and withheld; asks the store answered and could not, and kilograms given.
+  complied: uint (id: 18);
+  could_not: uint (id: 19);
+  evaded: uint (id: 20);
+  unaware: uint (id: 21);
+  levied_kg: float (id: 22);
+  withheld_kg: float (id: 23);
+  relieved: uint (id: 24);
+  relief_kg: float (id: 25);
+  unanswered: uint (id: 26);
+}
+
+// A settlement's polity (wire 1.27, ADR-0013): its custom in words, its members, its common
+// store, the gathering called if any, and every law proposed there, newest first.
+table PolityLine {
+  polity: ulong (id: 0);
+  settlement: ulong (id: 1);
+  name: string (id: 2);
+  founded_minute: long (id: 3);
+  // "The adults who come to the hearth decide by acclamation: …".
+  custom: string (id: 4);
+  // Adults living there now.
+  members: uint (id: 5);
+  // What the store holds in words ("grain 322 kg", "nothing"), and its food in kilograms.
+  store: string (id: 6);
+  store_kg: float (id: 7);
+  laws: [LawLine] (id: 8);
+  // The gathering called: its law (0 for none), the start of the day it meets and how many
+  // have come so far.
+  gathering_law: ulong (id: 9);
+  gathering_minute: long (id: 10);
+  gathering_present: uint (id: 11);
+}
+
+table Government {
+  minute: long (id: 0);
+  polities: [PolityLine] (id: 1);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government }
 
 table Response {
   body: ResponseBody (id: 1);

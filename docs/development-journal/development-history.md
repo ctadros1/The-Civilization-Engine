@@ -548,6 +548,24 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** step three, refusals of a levy, damage and violence. The save-and-load flake from step one stays open.
 
+## 2026-10-08 — M4c slice AH, step three: refusals of a levy
+
+**Goal:** give a faction a second way to press its grievance where it cannot petition, without the engine deciding who resists.
+
+**What changed:**
+
+- **Calling a refusal:** where no petition is called, an organizer whose members blame the gathering or the store's keeper may call on them to keep back the store's levy together, openly, for a year (ADR-0017 §3; research 09-04 §5.5, 04-10 §1.9). It is worth what a petition is, less what the norms the organizer holds weigh for abiding by what the gathering decided, so a petition is always preferred where one can be called.
+- **Joining** is each thresher's choice at their own threshing, for those who heard of it, with the same terms as coming to a petition; a law now counts levies kept back in a refusal apart from those kept back unannounced.
+- **Word** of a refusal travels as a petition's does; the Government panel lists refusals and the smoke reports them.
+- **Damage and violence move to slice AI.** Violence answers encounters (04-10 §1.8), and no one in these villages yet collects, disperses or represses; built now, it would never fire or would fire without cause.
+- **Boundary:** saves schema 43 (42 still loads), wire 1.42, content API 47.
+
+**Findings:** the first prior made a refusal cost twice what a petition does, and even with no norm held it could hardly ever be called; the cost is now a petition's, the norm being what sets them apart. One coast village ended between 16 and 49 people in the runs since keeper petitions began, against 46 to 53 before; lived from four fixed identities with petitions on and off, it ended alike (42 and 39, 45 and 45, 33 and 30, 17 and 17), so the spread is the identity's draw. One smoke run failed a coast world's first-month water check, the rare gap recorded before; nothing this step changed runs that early, and the rerun passed.
+
+**Evidence:** an integration test in which a faction that petitioned lately calls a refusal and, at the harvest, 29 people keep back 355 kg under it, saving and loading exactly; a test that a schema-42 save loads; the web tests. The kernel (604), web (142) and end-to-end (16, 6 demos skipped) suites pass, with clippy and the format and schema checks clean. The ten-year smoke passed all 10 worlds (on a second run; no refusal was called, five petitions were, all to replace a keeper). Gate B and the notables' gate passed.
+
+**Slice AH is complete** for what these villages can do: factions, petitions and refusals of a levy. **Open:** slice AI (seizure and founding, with the first office of force, and damage and violence); AJ (god tools, the regimes row, the M4 demo). The save-and-load flake from step one stays open.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

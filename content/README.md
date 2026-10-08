@@ -704,6 +704,10 @@ their own coming matter less) and `refused_days` (the wrong a petition turned do
 came, in days of a household's food), all design priors (research 04-10 §1.4, §5.3 give the terms
 and no values).
 
+Content API 47 (M4c slice AH, step three) brings refusals of a levy: the `[faction]` keys
+`refusal_cost` (what calling on members to keep back a levy costs an organizer, points, beside
+what the norms they hold weigh) and `refusal_days` (how long the call stands), design priors.
+
 Content API 44 (M4c slice AG) brings ideologies: the kind `ideology` (below) and the core pack's
 `core:ideology/common_provision`, `order_kept` and `own_say`.
 

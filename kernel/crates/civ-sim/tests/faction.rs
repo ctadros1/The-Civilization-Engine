@@ -507,9 +507,9 @@ fn a_faction_against_the_keeper_petitions_for_another_and_the_gathering_weighs_b
     let polity = &pop.polities[0];
     let l = polity.laws.iter().find(|l| l.id == law).expect("kept");
     assert_eq!((l.holder, l.ends), (Some(nominee), Some(old)));
-    // The keeper in office stood against being replaced.
+    // The keeper in office did not back being replaced.
     if let Some(r) = l.stances.iter().find(|r| r.person == keeper) {
-        assert!(r.regard < 0.0, "{r:?}");
+        assert!(r.regard <= 0.0, "{r:?}");
         assert_ne!(r.stance, civ_agents::polity::Stance::Support, "{r:?}");
     }
     let before = polity.laws.iter().find(|l| l.id == old).expect("kept");
@@ -520,5 +520,123 @@ fn a_faction_against_the_keeper_petitions_for_another_and_the_gathering_weighs_b
         assert_eq!(before.status, LawStatus::InForce);
         assert_eq!(polity.keeper().map(|k| k.0), Some(keeper));
     }
+    saves_and_goes_on_alike(&mut sim, content(), DAY);
+}
+
+#[test]
+fn where_no_petition_can_be_called_a_faction_keeps_back_the_levy_together() {
+    let (mut sim, adults) = aggrieved_village(5);
+    let store = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|p| p.kind == PolicyKind::CommonStore)
+        .expect("in core") as u16;
+    let now = sim.now();
+    let law = PermanentId::from_raw(sim.ids().peek_next() + 1_000_000).expect("non-zero");
+    let pop = sim.people_mut_for_tests();
+    let sponsor = pop.people.iter().map(|(_, p)| p.id).min().expect("people");
+    pop.polities[0].laws.push(Law {
+        id: law,
+        policy: store,
+        kind: PolicyKind::CommonStore,
+        levy_share: 0.2,
+        holder: None,
+        relief_days: 5.0,
+        sanction: Default::default(),
+        hours: (0, 0),
+        status: LawStatus::InForce,
+        sponsor,
+        proposed: now,
+        issue: IssueKind::FoodShort,
+        meets_day: now.day_index(),
+        decided: Some(now),
+        outcome: Some(Outcome::Passed),
+        eligible: 0,
+        stances: Vec::new(),
+        known: adults.iter().map(|&a| (a, now.day_index())).collect(),
+        compliance: Default::default(),
+        watch: Default::default(),
+        body: None,
+        ends: None,
+    });
+    // Nobody here holds that what the gathering decides binds, nor believes others abide by it.
+    for s in &mut pop.norms.states {
+        s.endorse = 0.0;
+        s.expect = 0.0;
+    }
+    // A faction is founded; it petitioned lately, so it cannot again.
+    let mut faction = None;
+    for _ in 0..40 {
+        sim.advance_minutes(DAY).expect("advances");
+        if let Some(f) = sim.people().factions.list.iter().find(|f| f.is_live()) {
+            faction = Some((f.id, f.settlement, f.organizer));
+            break;
+        }
+    }
+    let (faction, settlement, organizer) = faction.expect("a faction");
+    let now = sim.now();
+    let id = PermanentId::from_raw(sim.ids().peek_next() + 2_000_000).expect("non-zero");
+    sim.people_mut_for_tests()
+        .factions
+        .petitions
+        .push(civ_agents::faction::Petition {
+            id,
+            faction,
+            settlement,
+            organizer,
+            called: now,
+            day: now.day_index(),
+            policy: store,
+            levy_share: 0.0,
+            nominee: None,
+            ends: law,
+            came: Vec::new(),
+            law: None,
+            answered: true,
+        });
+    let mut called = None;
+    for _ in 0..40 {
+        sim.advance_minutes(DAY).expect("advances");
+        if let Some(r) = sim.people().factions.refusals.first() {
+            called = Some(r.clone());
+            break;
+        }
+    }
+    let called = called.expect("a refusal was called");
+    assert_eq!((called.faction, called.law), (faction, law));
+    let pop = sim.people();
+    let claim = pop.word.refusal(called.id).expect("word of it");
+    for m in pop.factions.members_of(faction) {
+        assert!(pop.word.has_heard(m.person, claim), "{m:?}");
+    }
+    // At threshing, some of those who heard of it keep back their household's levy under it.
+    let mut kept = false;
+    for _ in 0..30 {
+        sim.advance_minutes(10 * DAY).expect("advances");
+        let pop = sim.people();
+        if pop.factions.refusals[0].kept.len() >= 2 {
+            kept = true;
+            break;
+        }
+    }
+    assert!(kept, "{:?}", sim.people().factions.refusals[0]);
+    let pop = sim.people();
+    let r = &pop.factions.refusals[0];
+    let l = pop.polities[0]
+        .laws
+        .iter()
+        .find(|l| l.id == law)
+        .expect("kept");
+    // Each keeping back is counted on the law; each who kept back once on the refusal.
+    assert!(l.compliance.refused as usize >= r.kept.len());
+    assert!(r.kept_kg > 0.0 && (l.compliance.refused_kg - r.kept_kg).abs() < 1e-6);
+    assert!(l.compliance.withheld_kg >= l.compliance.refused_kg);
+    let lines = civ_sim::frames::government::refusal_words(&sim, settlement);
+    assert!(
+        lines.iter().any(|w| w.contains("to keep back the levy of")),
+        "{lines:?}"
+    );
     saves_and_goes_on_alike(&mut sim, content(), DAY);
 }

@@ -2029,10 +2029,15 @@ export function bindUi(store: Store, actions: Actions): void {
           el("ul", { className: "factions" }, ...p.factions.map((v) => el("li", { text: v }))),
         );
       }
-      // Its petitions (wire 1.41, ADR-0017 §3).
+      // Its petitions (wire 1.41, ADR-0017 §3) and refusals of a levy (1.42).
       if (p.petitions.length > 0) {
         block.append(
           el("ul", { className: "petitions" }, ...p.petitions.map((v) => el("li", { text: v }))),
+        );
+      }
+      if (p.refusals.length > 0) {
+        block.append(
+          el("ul", { className: "refusals" }, ...p.refusals.map((v) => el("li", { text: v }))),
         );
       }
       const label = labelText(p);

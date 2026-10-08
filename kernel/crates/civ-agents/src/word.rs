@@ -19,14 +19,17 @@ pub enum ClaimKind {
     Grievance = 1,
     /// A faction petitions the gathering at the settlement's hearth on a day (M4c slice AH).
     Petition = 2,
+    /// A faction keeps back a levy until a day (M4c slice AH, step three).
+    Refusal = 3,
 }
 
 impl ClaimKind {
     /// Every kind, in code order.
-    pub const ALL: [ClaimKind; 3] = [
+    pub const ALL: [ClaimKind; 4] = [
         ClaimKind::Gathering,
         ClaimKind::Grievance,
         ClaimKind::Petition,
+        ClaimKind::Refusal,
     ];
 
     /// Its number in saves.
@@ -52,7 +55,7 @@ pub struct Claim {
     /// The day it concerns: the day a gathering meets; the day a grievance was first told.
     pub day: i64,
     /// For a gathering called on a law, the law; for a grievance, the one who holds it; for a
-    /// petition, the petition.
+    /// petition, the petition; for a refusal, the refusal (its `day` the last it stands).
     pub subject: Option<PermanentId>,
     /// For a grievance: the party blamed and the issue.
     pub grievance: Option<(Blamed, Grieved)>,
@@ -123,6 +126,15 @@ impl Word {
             .map(|c| c.id)
     }
 
+    /// The claim that refusal `refusal` keeps back a levy, if one was made.
+    pub fn refusal(&self, refusal: PermanentId) -> Option<u32> {
+        self.claims
+            .iter()
+            .rev()
+            .find(|c| c.kind == ClaimKind::Refusal && c.subject == Some(refusal))
+            .map(|c| c.id)
+    }
+
     /// Whether `holder` has heard claim `claim`.
     pub fn has_heard(&self, holder: PermanentId, claim: u32) -> bool {
         self.heard
@@ -176,7 +188,7 @@ impl Word {
     /// and a grievance told more than `news_days` ago and not since; and of claims nobody holds.
     pub fn prune(&mut self, today: i64, news_days: i64) {
         let stale = |c: &Claim, last: i64| match c.kind {
-            ClaimKind::Gathering | ClaimKind::Petition => c.day < today,
+            ClaimKind::Gathering | ClaimKind::Petition | ClaimKind::Refusal => c.day < today,
             ClaimKind::Grievance => last + news_days < today,
         };
         let claims = &self.claims;

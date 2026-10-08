@@ -60,7 +60,7 @@ pub(crate) struct PeopleFile {
     pub faction: FactionFile,
 }
 
-/// Factions and their petitions (M4c slice AH, ADR-0017 §2-3; content API 45, 46). See
+/// Factions, their petitions and refusals (M4c slice AH, ADR-0017 §2-3; content API 45-47). See
 /// [`civ_agents::faction::FactionParams`] for what each means.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -88,6 +88,8 @@ pub(crate) struct FactionFile {
     pub w_expect: f64,
     pub free_ride_share: f64,
     pub refused_days: f64,
+    pub refusal_cost: f64,
+    pub refusal_days: u32,
 }
 
 impl FactionFile {
@@ -116,6 +118,8 @@ impl FactionFile {
             w_expect: self.w_expect,
             free_ride_share: self.free_ride_share,
             refused_days: self.refused_days,
+            refusal_cost: self.refusal_cost,
+            refusal_days: self.refusal_days,
         }
     }
 
@@ -136,6 +140,12 @@ impl FactionFile {
             p.push(format!(
                 "`faction.petition_members` must be between 2 and 1000 (got {})",
                 self.petition_members
+            ));
+        }
+        if !(1..=3650).contains(&self.refusal_days) {
+            p.push(format!(
+                "`faction.refusal_days` must be between 1 and 3650 (got {})",
+                self.refusal_days
             ));
         }
         if self.petition_days > 36500 {
@@ -165,6 +175,7 @@ impl FactionFile {
             ("faction.w_expect", self.w_expect, 0.0, 100.0),
             ("faction.free_ride_share", self.free_ride_share, 0.0, 1.0),
             ("faction.refused_days", self.refused_days, 0.0, 365.0),
+            ("faction.refusal_cost", self.refusal_cost, 0.0, 100.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

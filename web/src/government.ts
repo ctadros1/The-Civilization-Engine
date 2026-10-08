@@ -60,15 +60,20 @@ function times(n: number): string {
 
 /**
  * What the levy brought in and what people did, in a line: "paid 249 times (326 kg); kept back
- * 16 times, could not pay 2, did not know of it 1 (18 kg withheld)". "" before anyone owed it.
+ * 16 times, kept back in a refusal 4 times, could not pay 2, did not know of it 1 (18 kg
+ * withheld)". "" before anyone owed it.
  */
 export function levyText(
-  l: Pick<LawLine, "complied" | "couldNot" | "evaded" | "unaware" | "leviedKg" | "withheldKg">,
+  l: Pick<
+    LawLine,
+    "complied" | "couldNot" | "evaded" | "refused" | "unaware" | "leviedKg" | "withheldKg"
+  >,
 ): string {
-  if (l.complied + l.couldNot + l.evaded + l.unaware === 0) return "";
+  if (l.complied + l.couldNot + l.evaded + l.refused + l.unaware === 0) return "";
   const parts = [`paid ${times(l.complied)} (${formatKg(l.leviedKg)})`];
   const short: string[] = [];
   if (l.evaded > 0) short.push(`kept back ${times(l.evaded)}`);
+  if (l.refused > 0) short.push(`kept back in a refusal ${times(l.refused)}`);
   if (l.couldNot > 0) short.push(`could not pay ${l.couldNot}`);
   if (l.unaware > 0) short.push(`did not know of it ${l.unaware}`);
   if (short.length > 0) parts.push(`${short.join(", ")} (${formatKg(l.withheldKg)} withheld)`);

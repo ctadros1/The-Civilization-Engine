@@ -23770,6 +23770,7 @@ impl<'a> LawLine<'a> {
   pub const VT_HOLDER_NAME: ::flatbuffers::VOffsetT = 60;
   pub const VT_BROKEN: ::flatbuffers::VOffsetT = 62;
   pub const VT_BROKEN_UNAWARE: ::flatbuffers::VOffsetT = 64;
+  pub const VT_REFUSED: ::flatbuffers::VOffsetT = 66;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -23787,6 +23788,7 @@ impl<'a> LawLine<'a> {
     builder.add_proposed_minute(args.proposed_minute);
     builder.add_sponsor(args.sponsor);
     builder.add_id(args.id);
+    builder.add_refused(args.refused);
     builder.add_broken_unaware(args.broken_unaware);
     builder.add_broken(args.broken);
     if let Some(x) = args.holder_name { builder.add_holder_name(x); }
@@ -24033,6 +24035,13 @@ impl<'a> LawLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(LawLine::VT_BROKEN_UNAWARE, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn refused(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawLine::VT_REFUSED, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for LawLine<'_> {
@@ -24072,6 +24081,7 @@ impl ::flatbuffers::Verifiable for LawLine<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("holder_name", Self::VT_HOLDER_NAME, false)?
      .visit_field::<u32>("broken", Self::VT_BROKEN, false)?
      .visit_field::<u32>("broken_unaware", Self::VT_BROKEN_UNAWARE, false)?
+     .visit_field::<u32>("refused", Self::VT_REFUSED, false)?
      .finish();
     Ok(())
   }
@@ -24108,6 +24118,7 @@ pub struct LawLineArgs<'a> {
     pub holder_name: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub broken: u32,
     pub broken_unaware: u32,
+    pub refused: u32,
 }
 impl<'a> Default for LawLineArgs<'a> {
   #[inline]
@@ -24144,6 +24155,7 @@ impl<'a> Default for LawLineArgs<'a> {
       holder_name: None,
       broken: 0,
       broken_unaware: 0,
+      refused: 0,
     }
   }
 }
@@ -24278,6 +24290,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LawLineBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u32>(LawLine::VT_BROKEN_UNAWARE, broken_unaware, 0);
   }
   #[inline]
+  pub fn add_refused(&mut self, refused: u32) {
+    self.fbb_.push_slot::<u32>(LawLine::VT_REFUSED, refused, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LawLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LawLineBuilder {
@@ -24326,6 +24342,7 @@ impl ::core::fmt::Debug for LawLine<'_> {
       ds.field("holder_name", &self.holder_name());
       ds.field("broken", &self.broken());
       ds.field("broken_unaware", &self.broken_unaware());
+      ds.field("refused", &self.refused());
       ds.finish()
   }
 }
@@ -24367,6 +24384,7 @@ impl<'a> PolityLine<'a> {
   pub const VT_BODY_MEMBERS: ::flatbuffers::VOffsetT = 42;
   pub const VT_FACTIONS: ::flatbuffers::VOffsetT = 44;
   pub const VT_PETITIONS: ::flatbuffers::VOffsetT = 46;
+  pub const VT_REFUSALS: ::flatbuffers::VOffsetT = 48;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -24383,6 +24401,7 @@ impl<'a> PolityLine<'a> {
     builder.add_founded_minute(args.founded_minute);
     builder.add_settlement(args.settlement);
     builder.add_polity(args.polity);
+    if let Some(x) = args.refusals { builder.add_refusals(x); }
     if let Some(x) = args.petitions { builder.add_petitions(x); }
     if let Some(x) = args.factions { builder.add_factions(x); }
     builder.add_body_members(args.body_members);
@@ -24558,6 +24577,13 @@ impl<'a> PolityLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PolityLine::VT_PETITIONS, None)}
   }
+  #[inline]
+  pub fn refusals(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PolityLine::VT_REFUSALS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolityLine<'_> {
@@ -24588,6 +24614,7 @@ impl ::flatbuffers::Verifiable for PolityLine<'_> {
      .visit_field::<u32>("body_members", Self::VT_BODY_MEMBERS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("factions", Self::VT_FACTIONS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("petitions", Self::VT_PETITIONS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("refusals", Self::VT_REFUSALS, false)?
      .finish();
     Ok(())
   }
@@ -24615,6 +24642,7 @@ pub struct PolityLineArgs<'a> {
     pub body_members: u32,
     pub factions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub petitions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub refusals: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for PolityLineArgs<'a> {
   #[inline]
@@ -24642,6 +24670,7 @@ impl<'a> Default for PolityLineArgs<'a> {
       body_members: 0,
       factions: None,
       petitions: None,
+      refusals: None,
     }
   }
 }
@@ -24740,6 +24769,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolityLineBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_PETITIONS, petitions);
   }
   #[inline]
+  pub fn add_refusals(&mut self, refusals: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_REFUSALS, refusals);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolityLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolityLineBuilder {
@@ -24779,6 +24812,7 @@ impl ::core::fmt::Debug for PolityLine<'_> {
       ds.field("body_members", &self.body_members());
       ds.field("factions", &self.factions());
       ds.field("petitions", &self.petitions());
+      ds.field("refusals", &self.refusals());
       ds.finish()
   }
 }

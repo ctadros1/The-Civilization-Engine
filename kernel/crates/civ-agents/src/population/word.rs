@@ -20,9 +20,12 @@ fn gathering_key(c: &Claim) -> u64 {
     c.settlement.get() ^ (c.day as u64).rotate_left(40) ^ (u64::from(c.kind.code()) << 56)
 }
 
-/// Whether claim `c` is a call to the hearth still ahead on `day`: a gathering or a petition.
+/// Whether claim `c` is a call still ahead on `day`: a gathering, a petition or a refusal.
 fn call_ahead(c: &Claim, day: i64) -> bool {
-    matches!(c.kind, ClaimKind::Gathering | ClaimKind::Petition) && c.day >= day
+    matches!(
+        c.kind,
+        ClaimKind::Gathering | ClaimKind::Petition | ClaimKind::Refusal
+    ) && c.day >= day
 }
 
 impl Population {
@@ -98,6 +101,41 @@ impl Population {
             let told = (p != from).then_some(from);
             self.word.hear(p, claim, today, told, Some(from));
         }
+    }
+
+    /// Word that refusal `refusal` at `settlement` keeps back a levy until `until`: the claim,
+    /// made if it is new, and each of `first` hears it on `today` from `from`, who began it.
+    pub(super) fn refusal_word(
+        &mut self,
+        settlement: PermanentId,
+        until: i64,
+        refusal: PermanentId,
+        from: PermanentId,
+        first: &[PermanentId],
+        today: i64,
+    ) {
+        let claim = match self.word.refusal(refusal) {
+            Some(c) => c,
+            None => self.word.make(Claim {
+                id: 0,
+                kind: ClaimKind::Refusal,
+                settlement,
+                day: until,
+                subject: Some(refusal),
+                grievance: None,
+            }),
+        };
+        for &p in first {
+            let told = (p != from).then_some(from);
+            self.word.hear(p, claim, today, told, Some(from));
+        }
+    }
+
+    /// Whether `person` has heard of refusal `refusal`.
+    pub(crate) fn heard_of_refusal(&self, person: PermanentId, refusal: PermanentId) -> bool {
+        self.word
+            .refusal(refusal)
+            .is_some_and(|c| self.word.has_heard(person, c))
     }
 
     /// Whether `person` has heard that a petition sits at `settlement` on `day`.

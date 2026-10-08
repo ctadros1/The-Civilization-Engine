@@ -55,13 +55,32 @@ describe("a polity's laws in words", () => {
   });
 
   it("tell what the levy brought in and what people did", () => {
-    const none = { complied: 0, couldNot: 0, evaded: 0, unaware: 0, leviedKg: 0, withheldKg: 0 };
+    const none = {
+      complied: 0,
+      couldNot: 0,
+      evaded: 0,
+      refused: 0,
+      unaware: 0,
+      leviedKg: 0,
+      withheldKg: 0,
+    };
     expect(levyText(none)).toBe("");
     expect(levyText({ ...none, complied: 1, leviedKg: 3.4 })).toBe("paid 1 time (3.4 kg)");
     expect(
-      levyText({ complied: 249, couldNot: 2, evaded: 16, unaware: 1, leviedKg: 326, withheldKg: 18 }),
+      levyText({
+        complied: 249,
+        couldNot: 2,
+        evaded: 16,
+        refused: 0,
+        unaware: 1,
+        leviedKg: 326,
+        withheldKg: 18,
+      }),
     ).toBe(
       "paid 249 times (326 kg); kept back 16 times, could not pay 2, did not know of it 1 (18 kg withheld)",
+    );
+    expect(levyText({ ...none, complied: 2, refused: 4, leviedKg: 5, withheldKg: 9 })).toBe(
+      "paid 2 times (5.0 kg); kept back in a refusal 4 times (9.0 kg withheld)",
     );
   });
 
@@ -144,6 +163,7 @@ describe("the government on the wire", () => {
       0,
       7,
       2,
+      3,
     );
     const laws = W.PolityLine.createLawsVector(b, [law]);
     const office = b.createString("Storekeeper: Ada, since 3 May of year 2");
@@ -166,6 +186,11 @@ describe("the government on the wire", () => {
     const petitions = W.PolityLine.createPetitionsVector(b, [
       b.createString(
         "Mira's faction petitioned the gathering on 3 May of year 2 for an end to the common store's levy (the store gives what it holds): 9 came; the gathering turned it down",
+      ),
+    ]);
+    const refusals = W.PolityLine.createRefusalsVector(b, [
+      b.createString(
+        "Mira's faction called on its members on 3 May of year 2 to keep back the levy of a common store, taking a tenth of each harvest, until 3 May of year 3: 6 kept back 240 kg",
       ),
     ]);
     const name = b.createString("Stonewick");
@@ -195,6 +220,7 @@ describe("the government on the wire", () => {
       3,
       factions,
       petitions,
+      refusals,
     );
     const polities = W.Government.createPolitiesVector(b, [polity]);
     const government = W.Government.createGovernment(b, BigInt(103 * DAY), polities);
@@ -222,6 +248,8 @@ describe("the government on the wire", () => {
     ]);
     expect(p.petitions).toHaveLength(1);
     expect(p.petitions[0]).toContain("the gathering turned it down");
+    expect(p.refusals).toHaveLength(1);
+    expect(p.refusals[0]).toContain("6 kept back 240 kg");
     expect(p.customHistory).toHaveLength(2);
     expect(p.customHistory[1]).toContain("by the amendment Ada proposed");
     const l = p.laws[0]!;
@@ -234,6 +262,7 @@ describe("the government on the wire", () => {
       complied: 12,
       couldNot: 1,
       evaded: 2,
+      refused: 3,
       relieved: 3,
       broken: 7,
       brokenUnaware: 2,

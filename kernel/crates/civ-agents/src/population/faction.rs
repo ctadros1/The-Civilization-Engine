@@ -11,8 +11,8 @@
 use super::*;
 use crate::decide::GatheringFacts;
 use crate::faction::{
-    Faction, FactionEvent, FactionEventKind, Member, Petition, Why, attend_points, found_worth,
-    shared, why_belong,
+    Faction, FactionEvent, FactionEventKind, Member, Petition, Refusal, Why, attend_points,
+    found_worth, shared, why_belong,
 };
 use crate::polity::{IssueKind, LawStatus, MoveOption, Outcome, PolicyKind};
 use crate::word::{Blamed, ClaimKind, Grieved, Wrong};
@@ -224,13 +224,15 @@ impl Population {
                 self.factions.left += 1;
             } else {
                 self.factions.join(Member { why, ..m });
-                // An organizer weighs calling a petition (M4c slice AH, step two).
+                // An organizer weighs calling a petition (M4c slice AH, step two), or, where none
+                // can be called, a refusal of the levy (step three).
                 if self
                     .factions
                     .get(m.faction)
                     .is_some_and(|f| f.organizer == person && f.is_live())
+                    && !self.consider_petition(ctx, person, m.faction, threshold)
                 {
-                    self.consider_petition(ctx, person, m.faction, threshold);
+                    self.consider_refusal(ctx, person, m.faction, threshold);
                 }
             }
             return;
@@ -687,15 +689,15 @@ impl Population {
         organizer: PermanentId,
         faction: PermanentId,
         threshold: f64,
-    ) {
+    ) -> bool {
         let fp = &ctx.params.faction;
         let (now, day) = (ctx.now, ctx.now.day_index());
         let Some(f) = self.factions.get(faction) else {
-            return;
+            return false;
         };
         let (settlement, against) = (f.settlement, f.against);
         let Some(pi) = self.polity_of(settlement) else {
-            return;
+            return false;
         };
         let members: Vec<PermanentId> = self
             .factions
@@ -703,7 +705,7 @@ impl Population {
             .map(|m| m.person)
             .collect();
         if (members.len() as u32) < fp.petition_members.max(1) {
-            return;
+            return false;
         }
         let waiting = self
             .factions
@@ -714,10 +716,10 @@ impl Population {
             p.faction == faction && day - p.called.day_index() < i64::from(fp.petition_days)
         });
         if waiting || lately {
-            return;
+            return false;
         }
         let Some((demand, _)) = self.petition_demand(ctx, pi, faction, None) else {
-            return;
+            return false;
         };
         // What it is worth to them: their members' grievance against its party and how many of
         // those they know belong.
@@ -729,7 +731,7 @@ impl Population {
         let why = self.why_for(ctx, organizer, faction, threshold);
         let worth = fp.w_grievance * keen + f64::from(why.belong) - fp.petition_cost;
         if worth <= threshold {
-            return;
+            return false;
         }
         let id = ctx.ids.allocate();
         let sits = day + i64::from(ctx.params.polity.notice_days.max(1));
@@ -750,6 +752,170 @@ impl Population {
         });
         // The organizer tells its members, who connect it (04-10 §1.5); others hear by word.
         self.petition_word(settlement, sits, id, organizer, &members, day);
+        true
+    }
+
+    /// `organizer` of faction `faction`, of threshold `threshold`, weighs calling on its members
+    /// to keep back the levy of the store in force together (ADR-0017 §3; research 09-04 §5.5:
+    /// refusing beside petitioning and leaving): when its members blame the gathering or the
+    /// store's keeper, a store in force levies something, it has enough members, and none of its
+    /// petitions waits nor its refusals stands. It is worth what a petition is, less what refusing
+    /// costs and what the norms the organizer holds weigh for abiding by what the gathering
+    /// decided: a petition, where one can be called, is always worth more.
+    fn consider_refusal(
+        &mut self,
+        ctx: &mut Ctx,
+        organizer: PermanentId,
+        faction: PermanentId,
+        threshold: f64,
+    ) {
+        let fp = &ctx.params.faction;
+        let (now, day) = (ctx.now, ctx.now.day_index());
+        let Some(f) = self.factions.get(faction) else {
+            return;
+        };
+        let (settlement, against) = (f.settlement, f.against);
+        let Some(pi) = self.polity_of(settlement) else {
+            return;
+        };
+        let polity = &self.polities[pi];
+        let blames_store = match against {
+            Blamed::Body(id) => id == polity.id,
+            Blamed::Office(office) => polity.laws.iter().any(|l| {
+                l.id == office && l.status == LawStatus::InForce && l.kind == PolicyKind::KeepStore
+            }),
+            Blamed::Household(_) | Blamed::Person(_) => false,
+        };
+        let Some(law) = polity
+            .laws
+            .iter()
+            .find(|l| {
+                l.status == LawStatus::InForce
+                    && l.kind == PolicyKind::CommonStore
+                    && l.levy_share > 0.0
+            })
+            .map(|l| l.id)
+        else {
+            return;
+        };
+        let members: Vec<PermanentId> = self
+            .factions
+            .members_of(faction)
+            .map(|m| m.person)
+            .collect();
+        let busy = self
+            .factions
+            .petitions
+            .iter()
+            .any(|p| p.faction == faction && !p.answered)
+            || self
+                .factions
+                .refusals
+                .iter()
+                .any(|r| r.faction == faction && r.until >= day);
+        if !blames_store || busy || (members.len() as u32) < fp.petition_members.max(1) {
+            return;
+        }
+        let keen = members
+            .iter()
+            .map(|&m| self.keenness(ctx, m, against))
+            .sum::<f64>()
+            / members.len() as f64;
+        let why = self.why_for(ctx, organizer, faction, threshold);
+        self.ensure_norm_state(ctx, organizer);
+        let norm = self.norm_points(ctx, organizer);
+        let fp = &ctx.params.faction;
+        let worth = fp.w_grievance * keen + f64::from(why.belong) - fp.refusal_cost - norm.max(0.0);
+        if worth <= threshold {
+            return;
+        }
+        let id = ctx.ids.allocate();
+        let until = day + i64::from(fp.refusal_days.max(1));
+        self.factions.refusals.push(Refusal {
+            id,
+            faction,
+            settlement,
+            organizer,
+            called: now,
+            until,
+            law,
+            kept: Vec::new(),
+            kept_kg: 0.0,
+        });
+        self.refusal_word(settlement, until, id, organizer, &members, day);
+    }
+
+    /// The share of those `person` knows, by how well, who belong to faction `faction` today.
+    fn belonging_share(&self, ctx: &Ctx, person: PermanentId, faction: PermanentId) -> f64 {
+        let (day, tp) = (ctx.now.day_index(), &ctx.params.ties);
+        let (mut all, mut belong) = (0.0, 0.0);
+        for t in self.ties.of(person) {
+            let w = t.known_at(day, tp);
+            if w <= 0.0 {
+                continue;
+            }
+            all += w;
+            if self
+                .factions
+                .membership(t.to)
+                .is_some_and(|m| m.faction == faction)
+            {
+                belong += w;
+            }
+        }
+        if all > 0.0 { belong / all } else { 0.0 }
+    }
+
+    /// What joining a faction's call is worth to `person` (research 04-10 §5.3): their grievance
+    /// against its party, belonging to it or else their regard for its organizer, and the share
+    /// of those they know who belong, for some of whom more adds less (04-10 §1.4).
+    fn joining_points(&self, ctx: &Ctx, person: PermanentId, f: &Faction) -> f64 {
+        let (day, fp) = (ctx.now.day_index(), &ctx.params.faction);
+        let member = self
+            .factions
+            .membership(person)
+            .is_some_and(|m| m.faction == f.id);
+        let regard = self.ties.regard(person, f.organizer, day, &ctx.params.ties);
+        let expect = self.belonging_share(ctx, person, f.id);
+        let rider = Rng64::from_key(&[ctx.seed, PURPOSE_FREE_RIDER, person.get()]).next_f64()
+            < fp.free_ride_share;
+        let grievance = self.keenness(ctx, person, f.against);
+        attend_points(grievance, member, regard, expect, rider, fp)
+    }
+
+    /// The refusal of law `law`'s levy at `settlement` that `person`, threshing now, has heard of
+    /// (M4c slice AH, step three), by its index, with what keeping back their household's levy
+    /// under it is worth to them.
+    pub(super) fn refusal_points(
+        &self,
+        ctx: &Ctx,
+        person: PermanentId,
+        settlement: PermanentId,
+        law: PermanentId,
+    ) -> Option<(usize, f64)> {
+        let day = ctx.now.day_index();
+        let (ri, r) = self
+            .factions
+            .refusals
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, r)| r.settlement == settlement && r.law == law && r.until >= day)?;
+        if !self.heard_of_refusal(person, r.id) {
+            return None;
+        }
+        let f = self.factions.get(r.faction)?;
+        Some((ri, self.joining_points(ctx, person, f)))
+    }
+
+    /// `person` kept back `kg` of their household's levy under refusal `ri`.
+    pub(super) fn keep_back_in_refusal(&mut self, ri: usize, person: PermanentId, kg: f64) {
+        if let Some(r) = self.factions.refusals.get_mut(ri) {
+            if let Err(at) = r.kept.binary_search(&person) {
+                r.kept.insert(at, person);
+            }
+            r.kept_kg += kg;
+        }
     }
 
     /// The petition sitting at the hearth of `hh`'s settlement now that `person` heard of and may
@@ -782,36 +948,10 @@ impl Population {
         {
             return None;
         }
-        let f = self.factions.get(p.faction)?;
-        let member = self
-            .factions
-            .membership(person)
-            .is_some_and(|m| m.faction == p.faction);
-        let tp = &params.ties;
-        let regard = self.ties.regard(person, f.organizer, day, tp);
         // Those they know whom they expect to come: its members.
-        let (mut all, mut expect) = (0.0, 0.0);
-        for t in self.ties.of(person) {
-            let w = t.known_at(day, tp);
-            if w <= 0.0 {
-                continue;
-            }
-            all += w;
-            if self
-                .factions
-                .membership(t.to)
-                .is_some_and(|m| m.faction == p.faction)
-            {
-                expect += w;
-            }
-        }
-        let expect = if all > 0.0 { expect / all } else { 0.0 };
-        let fp = &params.faction;
-        let rider = Rng64::from_key(&[ctx.seed, PURPOSE_FREE_RIDER, person.get()]).next_f64()
-            < fp.free_ride_share;
-        let grievance = self.keenness(ctx, person, f.against);
+        let f = self.factions.get(p.faction)?;
         Some(GatheringFacts {
-            points: attend_points(grievance, member, regard, expect, rider, fp),
+            points: self.joining_points(ctx, person, f),
             minutes: (end - minute) as f64,
         })
     }

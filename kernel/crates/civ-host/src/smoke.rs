@@ -631,10 +631,17 @@ fn polity(sim: &Sim) -> Option<String> {
             .filter(|l| l.status == LawStatus::InForce && kind(l) == Some(PolicyKind::CommonStore));
         for l in stores {
             let c = &l.compliance;
+            let at = if l.levy_share > 0.0 {
+                format!(
+                    "at {}",
+                    civ_agents::polity::share_text(f64::from(l.levy_share))
+                )
+            } else {
+                "levying nothing".to_owned()
+            };
             parts.push(format!(
-                "a common store at {}: {:.0} kg levied, {:.0} kg kept back, {:.0} kg given in \
+                "a common store {at}: {:.0} kg levied, {:.0} kg kept back, {:.0} kg given in \
                  relief, {:.0} kg held",
-                civ_agents::polity::share_text(f64::from(l.levy_share)),
                 c.levied_kg,
                 c.withheld_kg,
                 c.relief_kg,
@@ -944,6 +951,20 @@ fn polity(sim: &Sim) -> Option<String> {
                 .iter()
                 .filter(|p| p.answered && p.law.is_none())
                 .count(),
+        ));
+    }
+    // Refusals of a levy (M4c slice AH, step three): how many were called, and how many kept
+    // back what under them.
+    if !fs.refusals.is_empty() {
+        let kept: Vec<String> = fs
+            .refusals
+            .iter()
+            .map(|r| format!("{} kept back {:.0} kg", r.kept.len(), r.kept_kg))
+            .collect();
+        parts.push(format!(
+            "refusals of a levy: {} called ({})",
+            fs.refusals.len(),
+            kept.join("; ")
         ));
     }
     // Norms (M4c slice AG): for each, how far it is held on average, what people believe of

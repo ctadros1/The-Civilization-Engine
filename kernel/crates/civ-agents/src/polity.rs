@@ -606,8 +606,12 @@ pub struct Compliance {
     pub unaware: u32,
     /// Grain paid in, kilograms.
     pub levied_kg: f64,
-    /// Grain owed and kept back (could not and evaded), kilograms.
+    /// Grain owed and kept back (could not, evaded and refused), kilograms.
     pub withheld_kg: f64,
+    /// Levies kept back openly in a faction's refusal (M4c slice AH), and the grain, kilograms
+    /// (counted in `withheld_kg` too).
+    pub refused: u32,
+    pub refused_kg: f64,
     /// Asks the store answered.
     pub relieved: u32,
     /// Food the store gave, kilograms.

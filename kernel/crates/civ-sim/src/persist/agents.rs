@@ -106,7 +106,7 @@ use super::{
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
-    SCHEMA_V41, finish, section, single_chunk, unreadable,
+    SCHEMA_V41, SCHEMA_V42, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -352,6 +352,8 @@ enum Schema {
     V41,
     /// Petitions, and laws that replace another (M4c slice AH).
     V42,
+    /// Refusals of a levy (M4c slice AH).
+    V43,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -408,7 +410,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V39 => Schema::V39,
         SCHEMA_V40 => Schema::V40,
         SCHEMA_V41 => Schema::V41,
-        SAVE_SCHEMA_VERSION => Schema::V42,
+        SCHEMA_V42 => Schema::V42,
+        SAVE_SCHEMA_VERSION => Schema::V43,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -743,6 +746,8 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             relieved: c.relieved,
                             relief_kg: c.relief_kg,
                             unanswered: c.unanswered,
+                            refused: c.refused,
+                            refused_kg: c.refused_kg,
                             holder: l.holder.map_or(0, PermanentId::get),
                             body_members: l.body.map_or(u8::MAX, |b| b.members.code()),
                             body_quorum: l.body.map_or(0.0, |b| b.quorum_share),
@@ -1036,6 +1041,8 @@ fn decode_polities(
                     unanswered: l.unanswered(),
                     broken: l.broken(),
                     broken_unaware: l.broken_unaware(),
+                    refused: l.refused(),
+                    refused_kg: l.refused_kg(),
                 },
                 watch: civ_agents::polity::WatchRecord {
                     rounds: l.watch_rounds(),
@@ -2472,7 +2479,8 @@ fn carried(
         | Schema::V39
         | Schema::V40
         | Schema::V41
-        | Schema::V42 => {
+        | Schema::V42
+        | Schema::V43 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2624,7 +2632,8 @@ fn decode_households(
             | Schema::V39
             | Schema::V40
             | Schema::V41
-            | Schema::V42 => {
+            | Schema::V42
+            | Schema::V43 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5545,6 +5554,29 @@ fn encode_factions(
         })
         .collect();
     let petitions = fbb.create_vector(&petitions);
+    let refusals: Vec<_> = factions
+        .refusals
+        .iter()
+        .map(|r| {
+            let kept: Vec<u64> = r.kept.iter().map(|k| k.get()).collect();
+            let kept = fbb.create_vector(&kept);
+            save::RefusalSave::create(
+                &mut fbb,
+                &save::RefusalSaveArgs {
+                    id: r.id.get(),
+                    faction: r.faction.get(),
+                    settlement: r.settlement.get(),
+                    organizer: r.organizer.get(),
+                    called: r.called.minutes(),
+                    until: r.until,
+                    law: r.law.get(),
+                    kept: Some(kept),
+                    kept_kg: r.kept_kg,
+                },
+            )
+        })
+        .collect();
+    let refusals = fbb.create_vector(&refusals);
     let list: Vec<_> = factions
         .list
         .iter()
@@ -5613,6 +5645,7 @@ fn encode_factions(
             left: factions.left,
             petitions: Some(petitions),
             policies: Some(policy_dictionary),
+            refusals: Some(refusals),
         },
     );
     finish(fbb, root)
@@ -5623,7 +5656,7 @@ fn decode_factions(
     rules: &Rules,
 ) -> Result<civ_agents::faction::Factions, LoadError> {
     use civ_agents::faction::{
-        Faction, FactionEvent, FactionEventKind, Factions, Member, Petition, Why,
+        Faction, FactionEvent, FactionEventKind, Factions, Member, Petition, Refusal, Why,
     };
     let root = flatbuffers::root::<save::FactionsSave>(bytes)
         .map_err(|e| unreadable(SECTION_FACTIONS, &e))?;
@@ -5754,9 +5787,40 @@ fn decode_factions(
             answered: p.answered(),
         });
     }
+    let mut refusals = Vec::new();
+    for r in root.refusals().iter().flatten() {
+        let id = required(r.id(), "a refusal")?;
+        let faction = required(r.faction(), "a refusal's faction")?;
+        if !list.iter().any(|f: &Faction| f.id == faction) {
+            return Err(bad(format!(
+                "refusal {id} was called by faction {faction}, which never was"
+            )));
+        }
+        let mut kept = Vec::new();
+        for raw in r.kept().iter().flatten() {
+            kept.push(required(raw, "one who kept back in a refusal")?);
+        }
+        if !kept.windows(2).all(|w| w[0] < w[1]) {
+            return Err(bad(format!(
+                "refusal {id} lists who kept back out of order"
+            )));
+        }
+        refusals.push(Refusal {
+            id,
+            faction,
+            settlement: required(r.settlement(), "a refusal's settlement")?,
+            organizer: required(r.organizer(), "a refusal's organizer")?,
+            called: SimTime::from_minutes(r.called()),
+            until: r.until(),
+            law: required(r.law(), "the law a refusal keeps back")?,
+            kept,
+            kept_kg: r.kept_kg(),
+        });
+    }
     Ok(Factions {
         list,
         petitions,
+        refusals,
         members,
         joined: root.joined(),
         left: root.left(),

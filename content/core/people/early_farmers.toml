@@ -749,3 +749,12 @@ w_member = 1.0
 w_expect = 1.0
 free_ride_share = 0.2
 refused_days = 5.0
+# Where no petition can be called (one waits, or the last was within `petition_days`, or nothing
+# answers), an organizer whose members blame the gathering or the store's keeper may instead call
+# on them to keep back the store's levy together, openly, for `refusal_days` (ADR-0017 §3; research
+# 09-04 §5.5, 04-10 §1.9): worth what a petition is less `refusal_cost` (as calling a petition
+# costs: what sets the two apart is the norm a refusal breaks) and less what the norms the
+# organizer holds weigh for abiding by what the gathering decided. Each who heard of it weighs
+# joining it at their threshing as they weigh coming to a petition. Design priors.
+refusal_cost = 0.5
+refusal_days = 365

@@ -920,7 +920,10 @@ export interface LawLine {
   known: number;
   complied: number;
   couldNot: number;
+  /** Levies kept back unannounced; `refused` (wire 1.42) counts those kept back openly in a
+   * faction's refusal. */
   evaded: number;
+  refused: number;
   unaware: number;
   leviedKg: number;
   withheldKg: number;
@@ -974,6 +977,8 @@ export interface PolityLine {
   factions: string[];
   /** Wire 1.41 (M4c slice AH): its petitions, newest first, in the kernel's words. */
   petitions: string[];
+  /** Wire 1.42 (M4c slice AH): its refusals of a levy, newest first, in the kernel's words. */
+  refusals: string[];
 }
 
 /** Every settlement's polity at `minute` (wire 1.27). */
@@ -3003,6 +3008,7 @@ function lawLine(l: W.LawLine): LawLine {
     complied: l.complied(),
     couldNot: l.couldNot(),
     evaded: l.evaded(),
+    refused: l.refused(),
     unaware: l.unaware(),
     leviedKg: l.leviedKg(),
     withheldKg: l.withheldKg(),
@@ -3058,6 +3064,7 @@ function governmentInfo(w: W.Government): GovernmentInfo {
       bodyMembers: p.bodyMembers(),
       factions: Array.from({ length: p.factionsLength() }, (_, k) => p.factions(k) ?? ""),
       petitions: Array.from({ length: p.petitionsLength() }, (_, k) => p.petitions(k) ?? ""),
+      refusals: Array.from({ length: p.refusalsLength() }, (_, k) => p.refusals(k) ?? ""),
     });
   }
   return { minute: Number(w.minute()), polities };

@@ -127,6 +127,7 @@ fn law_line<'a>(
             holder_name,
             broken: c.broken,
             broken_unaware: c.broken_unaware,
+            refused: c.refused,
         },
     )
 }
@@ -260,6 +261,49 @@ pub fn petition_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<Strin
         .collect()
 }
 
+/// The refusals of a levy at `settlement` in words (wire 1.42, ADR-0017 §3), newest first:
+/// "Mira's faction called on its members on 3 May of year 2 to keep back the levy of a common
+/// store, taking a tenth of each harvest, until 3 May of year 3: 6 kept back 240 kg".
+pub fn refusal_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<String> {
+    let pop = &sim.people;
+    let today = sim.now().day_index();
+    let mut here: Vec<&civ_agents::faction::Refusal> = pop
+        .factions
+        .refusals
+        .iter()
+        .filter(|r| r.settlement == settlement)
+        .collect();
+    here.sort_by(|a, b| b.called.cmp(&a.called).then(b.id.cmp(&a.id)));
+    here.into_iter()
+        .map(|r| {
+            let name = pop.factions.get(r.faction).map_or_else(
+                || "A faction".to_owned(),
+                |f| super::word::faction_name(sim, f),
+            );
+            let law = super::word::refusal_law_words(sim, r);
+            let (called, until) = (
+                day_words(r.called),
+                day_words(SimTime::from_minutes(r.until * 24 * 60)),
+            );
+            let kept = match r.kept.len() {
+                0 => "nobody has kept any back".to_owned(),
+                n => format!("{n} kept back {:.0} kg", r.kept_kg),
+            };
+            if r.until >= today {
+                format!(
+                    "{name} calls on its members, since {called}, to keep back the levy of {law}, \
+                     until {until}: {kept} so far"
+                )
+            } else {
+                format!(
+                    "{name} called on its members on {called} to keep back the levy of {law}, \
+                     until {until}: {kept}"
+                )
+            }
+        })
+        .collect()
+}
+
 /// A `Response` with every settlement's polity.
 pub fn government_response(sim: &Sim) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
@@ -328,6 +372,12 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
             .map(|w| fbb.create_string(w))
             .collect();
         let petitions = fbb.create_vector(&petitions);
+        // Its refusals of a levy (wire 1.42, M4c slice AH).
+        let refusals: Vec<_> = refusal_words(sim, polity.settlement)
+            .iter()
+            .map(|w| fbb.create_string(w))
+            .collect();
+        let refusals = fbb.create_vector(&refusals);
         let body_members = pop
             .body_members(&sim.land.fields, pi, now, &rules.people)
             .len() as u32;
@@ -394,6 +444,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                 custom_history: Some(custom_history),
                 factions: Some(factions),
                 petitions: Some(petitions),
+                refusals: Some(refusals),
                 body_members,
             },
         ));

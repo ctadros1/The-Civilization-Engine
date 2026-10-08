@@ -1556,13 +1556,27 @@ impl Population {
             // What the norms they hold add (M4c slice AG): someone new holds theirs now.
             self.ensure_norm_state(ctx, who);
             let norm = self.norm_points(ctx, who);
-            let points = crate::polity::comply_points(norm, stance, regard, cost, pp);
+            // A faction's refusal of this levy they heard of weighs toward keeping it back,
+            // openly (M4c slice AH, step three).
+            let (law, settlement) = (self.polities[pi].laws[li].id, self.polities[pi].settlement);
+            let refusal = self.refusal_points(ctx, who, settlement, law);
+            let points = crate::polity::comply_points(norm, stance, regard, cost, pp)
+                - refusal.map_or(0.0, |r| r.1);
             let chance = crate::polity::comply_chance(points);
             let key = [ctx.seed, PURPOSE_LEVY, who.get(), now.minutes() as u64];
             if Rng64::from_key(&key).next_f64() >= chance {
                 let c = &mut self.polities[pi].laws[li].compliance;
-                c.evaded += 1;
+                match refusal {
+                    Some(_) => {
+                        c.refused += 1;
+                        c.refused_kg += owed;
+                    }
+                    None => c.evaded += 1,
+                }
                 c.withheld_kg += owed;
+                if let Some((ri, _)) = refusal {
+                    self.keep_back_in_refusal(ri, who, owed);
+                }
                 // What the household did is theirs to tell (M4c slice AG).
                 self.norms.note_levy(household, day, false);
                 continue;

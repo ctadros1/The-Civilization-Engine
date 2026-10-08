@@ -77,6 +77,22 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
                 None => format!("a faction petitions the gathering on the evening of {day}"),
             }
         }
+        ClaimKind::Refusal => {
+            let until = day_words(SimTime::from_minutes(c.day * DAY));
+            match c
+                .subject
+                .and_then(|id| pop.factions.refusals.iter().find(|r| r.id == id))
+            {
+                Some(r) => format!(
+                    "{} keeps back the levy of {} until {until}",
+                    pop.factions
+                        .get(r.faction)
+                        .map_or_else(|| "a faction".to_owned(), |f| faction_name(sim, f)),
+                    refusal_law_words(sim, r)
+                ),
+                None => format!("a faction keeps back the levy until {until}"),
+            }
+        }
         ClaimKind::Grievance => {
             let who = c.subject.map_or_else(|| "someone".to_owned(), name_of);
             match c.grievance {
@@ -273,6 +289,20 @@ pub fn ideology_lines<'a>(
 /// A faction's name, after its founder: "Mira's faction".
 pub fn faction_name(sim: &Sim, f: &civ_agents::faction::Faction) -> String {
     format!("{}'s faction", sim.people.name_of(f.founder))
+}
+
+/// The law whose levy refusal `r` keeps back, in words (M4c slice AH): "a common store, taking a
+/// tenth of each harvest".
+pub fn refusal_law_words(sim: &Sim, r: &civ_agents::faction::Refusal) -> String {
+    let pop = &sim.people;
+    pop.polities
+        .iter()
+        .flat_map(|p| &p.laws)
+        .find(|l| l.id == r.law)
+        .map_or_else(
+            || "the common store".to_owned(),
+            |l| law_words(l, &sim.rules.catalog.policies, &|id| pop.name_of(id)),
+        )
 }
 
 /// What petition `p` asks for, in words (M4c slice AH): "an end to the common store's levy (the

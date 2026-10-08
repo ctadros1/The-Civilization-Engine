@@ -73,6 +73,12 @@ pub struct FactionParams {
     pub free_ride_share: f64,
     /// Days of a household's food a petition turned down is felt as, for those who came.
     pub refused_days: f64,
+    /// Refusing a levy together (M4c slice AH, step three): calling on its members to keep back
+    /// the levy costs an organizer `refusal_cost` points (as calling a petition does, by default:
+    /// what sets them apart is the norm a refusal breaks) beside what the norms they hold weigh
+    /// for abiding by what the gathering decided, and the call stands `refusal_days`.
+    pub refusal_cost: f64,
+    pub refusal_days: u32,
 }
 
 impl FactionParams {
@@ -102,6 +108,8 @@ impl FactionParams {
             w_expect: 1.0,
             free_ride_share: 0.2,
             refused_days: 5.0,
+            refusal_cost: 0.5,
+            refusal_days: 365,
         }
     }
 
@@ -308,6 +316,29 @@ pub struct Petition {
     pub answered: bool,
 }
 
+/// A refusal of a levy (M4c slice AH, step three; ADR-0017 §3): an organizer calls on the
+/// faction to keep back the levy of a store's law in force together until a day, openly, and
+/// each who heard of it chooses at their threshing whether to join it (research 04-10 §1.9: a
+/// withdrawal works through what it withholds).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Refusal {
+    /// Permanent id.
+    pub id: PermanentId,
+    /// The faction that called it, and its settlement.
+    pub faction: PermanentId,
+    pub settlement: PermanentId,
+    /// Who called it, when, and the last day it stands.
+    pub organizer: PermanentId,
+    pub called: SimTime,
+    pub until: i64,
+    /// The law whose levy it keeps back.
+    pub law: PermanentId,
+    /// Those who kept back their household's levy under it, in id order, and what they kept,
+    /// kilograms.
+    pub kept: Vec<PermanentId>,
+    pub kept_kg: f64,
+}
+
 /// Every faction and who belongs to each (ADR-0017 §2).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Factions {
@@ -315,6 +346,8 @@ pub struct Factions {
     pub list: Vec<Faction>,
     /// Every petition called, oldest first (M4c slice AH, step two).
     pub petitions: Vec<Petition>,
+    /// Every refusal of a levy called, oldest first (M4c slice AH, step three).
+    pub refusals: Vec<Refusal>,
     /// Memberships, in person order: one each at most in v0.
     pub members: Vec<Member>,
     /// Joinings and leavings since the world began (a measure, for the smoke).

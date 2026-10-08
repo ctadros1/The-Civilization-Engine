@@ -172,6 +172,7 @@ fn those_a_thin_gathering_overruled_propose_to_amend_the_custom_one_change_at_a_
             stance: Stance::Support,
             gain: 5.0,
             regard: 0.0,
+            opinion: 0.0,
         })
         .collect();
     let pop = sim.people_mut_for_tests();

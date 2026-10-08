@@ -230,6 +230,9 @@ struct StoreLine;
 struct PersonInfo;
 struct PersonInfoBuilder;
 
+struct PositionLine;
+struct PositionLineBuilder;
+
 struct GrievanceLine;
 struct GrievanceLineBuilder;
 
@@ -7735,7 +7738,8 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_TIES = 84,
     VT_STANDING = 86,
     VT_GRIEVANCES = 88,
-    VT_HEARD = 90
+    VT_HEARD = 90,
+    VT_POSITIONS = 92
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -7869,6 +7873,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::HeardLine>> *heard() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::HeardLine>> *>(VT_HEARD);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PositionLine>> *positions() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PositionLine>> *>(VT_POSITIONS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -7940,6 +7947,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_HEARD) &&
            verifier.VerifyVector(heard()) &&
            verifier.VerifyVectorOfTables(heard()) &&
+           VerifyOffset(verifier, VT_POSITIONS) &&
+           verifier.VerifyVector(positions()) &&
+           verifier.VerifyVectorOfTables(positions()) &&
            verifier.EndTable();
   }
 };
@@ -8080,6 +8090,9 @@ struct PersonInfoBuilder {
   void add_heard(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::HeardLine>>> heard) {
     fbb_.AddOffset(PersonInfo::VT_HEARD, heard);
   }
+  void add_positions(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PositionLine>>> positions) {
+    fbb_.AddOffset(PersonInfo::VT_POSITIONS, positions);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8136,7 +8149,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TieLine>>> ties = 0,
     ::flatbuffers::Offset<tce::wire::StandingLine> standing = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GrievanceLine>>> grievances = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::HeardLine>>> heard = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::HeardLine>>> heard = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PositionLine>>> positions = 0) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
@@ -8148,6 +8162,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_positions(positions);
   builder_.add_heard(heard);
   builder_.add_grievances(grievances);
   builder_.add_standing(standing);
@@ -8235,7 +8250,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::TieLine>> *ties = nullptr,
     ::flatbuffers::Offset<tce::wire::StandingLine> standing = 0,
     const std::vector<::flatbuffers::Offset<tce::wire::GrievanceLine>> *grievances = nullptr,
-    const std::vector<::flatbuffers::Offset<tce::wire::HeardLine>> *heard = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::HeardLine>> *heard = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::PositionLine>> *positions = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -8252,6 +8268,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto ties__ = ties ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::TieLine>>(*ties) : 0;
   auto grievances__ = grievances ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::GrievanceLine>>(*grievances) : 0;
   auto heard__ = heard ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::HeardLine>>(*heard) : 0;
+  auto positions__ = positions ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PositionLine>>(*positions) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -8297,7 +8314,128 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       ties__,
       standing,
       grievances__,
-      heard__);
+      heard__,
+      positions__);
+}
+
+struct PositionLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef PositionLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_QUESTION = 4,
+    VT_LEAN = 6,
+    VT_X = 8,
+    VT_ANCHOR = 10,
+    VT_SALIENCE = 12,
+    VT_HEARD = 14
+  };
+  const ::flatbuffers::String *question() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_QUESTION);
+  }
+  const ::flatbuffers::String *lean() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_LEAN);
+  }
+  float x() const {
+    return GetField<float>(VT_X, 0.0f);
+  }
+  float anchor() const {
+    return GetField<float>(VT_ANCHOR, 0.0f);
+  }
+  float salience() const {
+    return GetField<float>(VT_SALIENCE, 0.0f);
+  }
+  uint32_t heard() const {
+    return GetField<uint32_t>(VT_HEARD, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_QUESTION) &&
+           verifier.VerifyString(question()) &&
+           VerifyOffset(verifier, VT_LEAN) &&
+           verifier.VerifyString(lean()) &&
+           VerifyField<float>(verifier, VT_X, 4) &&
+           VerifyField<float>(verifier, VT_ANCHOR, 4) &&
+           VerifyField<float>(verifier, VT_SALIENCE, 4) &&
+           VerifyField<uint32_t>(verifier, VT_HEARD, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct PositionLineBuilder {
+  typedef PositionLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_question(::flatbuffers::Offset<::flatbuffers::String> question) {
+    fbb_.AddOffset(PositionLine::VT_QUESTION, question);
+  }
+  void add_lean(::flatbuffers::Offset<::flatbuffers::String> lean) {
+    fbb_.AddOffset(PositionLine::VT_LEAN, lean);
+  }
+  void add_x(float x) {
+    fbb_.AddElement<float>(PositionLine::VT_X, x, 0.0f);
+  }
+  void add_anchor(float anchor) {
+    fbb_.AddElement<float>(PositionLine::VT_ANCHOR, anchor, 0.0f);
+  }
+  void add_salience(float salience) {
+    fbb_.AddElement<float>(PositionLine::VT_SALIENCE, salience, 0.0f);
+  }
+  void add_heard(uint32_t heard) {
+    fbb_.AddElement<uint32_t>(PositionLine::VT_HEARD, heard, 0);
+  }
+  explicit PositionLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<PositionLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<PositionLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<PositionLine> CreatePositionLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::String> question = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> lean = 0,
+    float x = 0.0f,
+    float anchor = 0.0f,
+    float salience = 0.0f,
+    uint32_t heard = 0) {
+  PositionLineBuilder builder_(_fbb);
+  builder_.add_heard(heard);
+  builder_.add_salience(salience);
+  builder_.add_anchor(anchor);
+  builder_.add_x(x);
+  builder_.add_lean(lean);
+  builder_.add_question(question);
+  return builder_.Finish();
+}
+
+struct PositionLine::Traits {
+  using type = PositionLine;
+  static auto constexpr Create = CreatePositionLine;
+};
+
+inline ::flatbuffers::Offset<PositionLine> CreatePositionLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const char *question = nullptr,
+    const char *lean = nullptr,
+    float x = 0.0f,
+    float anchor = 0.0f,
+    float salience = 0.0f,
+    uint32_t heard = 0) {
+  auto question__ = question ? _fbb.CreateString(question) : 0;
+  auto lean__ = lean ? _fbb.CreateString(lean) : 0;
+  return tce::wire::CreatePositionLine(
+      _fbb,
+      question__,
+      lean__,
+      x,
+      anchor,
+      salience,
+      heard);
 }
 
 struct GrievanceLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -14120,7 +14258,8 @@ struct StanceLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_STANCE = 8,
     VT_GAIN = 10,
     VT_REGARD = 12,
-    VT_WHY = 14
+    VT_WHY = 14,
+    VT_OPINION = 16
   };
   uint64_t person() const {
     return GetField<uint64_t>(VT_PERSON, 0);
@@ -14140,6 +14279,9 @@ struct StanceLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *why() const {
     return GetPointer<const ::flatbuffers::String *>(VT_WHY);
   }
+  float opinion() const {
+    return GetField<float>(VT_OPINION, 0.0f);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -14151,6 +14293,7 @@ struct StanceLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<float>(verifier, VT_REGARD, 4) &&
            VerifyOffset(verifier, VT_WHY) &&
            verifier.VerifyString(why()) &&
+           VerifyField<float>(verifier, VT_OPINION, 4) &&
            verifier.EndTable();
   }
 };
@@ -14177,6 +14320,9 @@ struct StanceLineBuilder {
   void add_why(::flatbuffers::Offset<::flatbuffers::String> why) {
     fbb_.AddOffset(StanceLine::VT_WHY, why);
   }
+  void add_opinion(float opinion) {
+    fbb_.AddElement<float>(StanceLine::VT_OPINION, opinion, 0.0f);
+  }
   explicit StanceLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -14195,9 +14341,11 @@ inline ::flatbuffers::Offset<StanceLine> CreateStanceLine(
     uint8_t stance = 0,
     float gain = 0.0f,
     float regard = 0.0f,
-    ::flatbuffers::Offset<::flatbuffers::String> why = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> why = 0,
+    float opinion = 0.0f) {
   StanceLineBuilder builder_(_fbb);
   builder_.add_person(person);
+  builder_.add_opinion(opinion);
   builder_.add_why(why);
   builder_.add_regard(regard);
   builder_.add_gain(gain);
@@ -14218,7 +14366,8 @@ inline ::flatbuffers::Offset<StanceLine> CreateStanceLineDirect(
     uint8_t stance = 0,
     float gain = 0.0f,
     float regard = 0.0f,
-    const char *why = nullptr) {
+    const char *why = nullptr,
+    float opinion = 0.0f) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto why__ = why ? _fbb.CreateString(why) : 0;
   return tce::wire::CreateStanceLine(
@@ -14228,7 +14377,8 @@ inline ::flatbuffers::Offset<StanceLine> CreateStanceLineDirect(
       stance,
       gain,
       regard,
-      why__);
+      why__,
+      opinion);
 }
 
 struct LawLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

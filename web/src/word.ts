@@ -3,7 +3,7 @@
 // joins the pieces.
 
 import { lawDayText } from "./government.js";
-import type { GrievanceLine, HeardLine } from "./net/messages.js";
+import type { GrievanceLine, HeardLine, PositionLine } from "./net/messages.js";
 
 /** One number of days as the panels show it: "4", "1.5". */
 function days(x: number): string {
@@ -58,4 +58,22 @@ export function claimText(h: Pick<HeardLine, "what">): string {
   const w = h.what.trim();
   if (!w) return "";
   return `${w.charAt(0).toUpperCase()}${w.slice(1)}.`;
+}
+
+/** Where someone stands, with what moved them: "leaning for (0.66); their household's lot alone
+ * would make it 0.58; talk at the hearth, heard 4 times, drew them toward it". */
+export function positionText(p: PositionLine): string {
+  const at = (x: number) => (Math.round(x * 100) / 100).toFixed(2);
+  const parts = [`${p.lean} (${at(p.x)})`];
+  const moved = p.x - p.anchor;
+  if (Math.abs(moved) < 0.01) {
+    parts.push("as their household's lot makes it");
+  } else {
+    parts.push(`their household's lot alone would make it ${at(p.anchor)}`);
+    const times = p.heard === 1 ? "once" : `${p.heard} times`;
+    parts.push(
+      `talk at the hearth, taken in ${times}, ${moved > 0 ? "drew them toward it" : "turned them against it"}`,
+    );
+  }
+  return parts.join("; ");
 }

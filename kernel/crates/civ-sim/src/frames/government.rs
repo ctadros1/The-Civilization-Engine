@@ -59,6 +59,7 @@ fn law_line<'a>(
                     gain: r.gain,
                     regard: r.regard,
                     why: Some(why),
+                    opinion: r.opinion,
                 },
             )
         })

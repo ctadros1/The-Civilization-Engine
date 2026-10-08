@@ -214,6 +214,9 @@ pub struct PolicyDef {
     pub hours: Vec<Hours>,
     /// For an amendment of the custom: the bodies a sponsor may propose (M4c slice AF).
     pub bodies: Vec<Body>,
+    /// The question people take positions on, in words ("whether to keep a common store"), or
+    /// none (M4c slice AG, ADR-0016 §4).
+    pub question: Option<String>,
 }
 
 /// Hours of the day a curfew runs, `(from, to)`: from the start of hour `from` to the start of
@@ -570,6 +573,9 @@ pub struct StanceRecord {
     pub gain: f32,
     /// What their regard for the sponsor added, points.
     pub regard: f32,
+    /// What talk at the hearth had moved them from their household's own lot, points (M4c slice
+    /// AG; 0 before).
+    pub opinion: f32,
 }
 
 /// What became of what a law asks of people and gives them (ADR-0013 §3, stages 6-7).
@@ -726,6 +732,14 @@ pub fn stance_words(r: &StanceRecord, margin: f64, sponsor: PermanentId) -> Stri
         return "they proposed it".to_owned();
     }
     let (gain, regard) = (f64::from(r.gain), f64::from(r.regard));
+    let talk = f64::from(r.opinion);
+    let talked = if talk > margin {
+        "; talk at the hearth had drawn them toward it"
+    } else if talk < -margin {
+        "; talk at the hearth had turned them against it"
+    } else {
+        ""
+    };
     let household = if gain > margin {
         "their household stands to gain"
     } else if gain < -margin {
@@ -733,7 +747,7 @@ pub fn stance_words(r: &StanceRecord, margin: f64, sponsor: PermanentId) -> Stri
     } else {
         "it makes little difference to their household"
     };
-    match r.stance {
+    let why = match r.stance {
         Stance::Support if gain <= margin && regard > 0.0 => {
             format!("{household}, but they think well of the sponsor")
         }
@@ -744,7 +758,8 @@ pub fn stance_words(r: &StanceRecord, margin: f64, sponsor: PermanentId) -> Stri
             format!("{household}, though they think well of the sponsor")
         }
         _ => household.to_owned(),
-    }
+    };
+    format!("{why}{talked}")
 }
 
 /// What a law is, in words, to follow "proposed", "agreed to" or "turned down": "a common store,
@@ -1386,6 +1401,7 @@ pub(crate) mod tests {
             bundles: Vec::new(),
             hours: Vec::new(),
             bodies: Vec::new(),
+            question: None,
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -1476,6 +1492,7 @@ pub(crate) mod tests {
             bundles: Vec::new(),
             hours: Vec::new(),
             bodies: Vec::new(),
+            question: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -1665,6 +1682,7 @@ pub(crate) mod tests {
             bundles: Vec::new(),
             hours: Vec::new(),
             bodies: vec![elders],
+            question: None,
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())

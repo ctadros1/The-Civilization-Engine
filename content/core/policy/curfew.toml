@@ -13,4 +13,7 @@ name = "Curfew"
 description = "Nobody may be away from home in the hours it sets, but the watch at its rounds and those at a gathering."
 does = "curfew"
 answers = ["takings"]
+# The question people take positions on (content API 41, M4c slice AG): each adult's is
+# anchored in what their household's lot makes of it and moved by talk at the hearth.
+question = "whether to keep everyone at home at night"
 hours = [[21, 5], [23, 4]]

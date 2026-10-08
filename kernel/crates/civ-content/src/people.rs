@@ -54,6 +54,66 @@ pub(crate) struct PeopleFile {
     pub crime: CrimeFile,
     /// How word travels and grievances are held (M4c slice AE; content API 39).
     pub word: WordFile,
+    /// How opinion moves (M4c slice AG; content API 41).
+    pub opinion: OpinionFile,
+}
+
+/// Opinion (M4c slice AG, ADR-0016 §4; content API 41). See
+/// [`civ_agents::opinion::OpinionParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct OpinionFile {
+    pub share: f64,
+    pub eta: f64,
+    pub epsilon: f64,
+    pub anchor_half_life_days: f64,
+    pub anchor_points: f64,
+    pub w_position: f64,
+    pub salience_live: f64,
+    pub salience_idle: f64,
+    pub youth_until: f64,
+    pub youth_factor: f64,
+}
+
+impl OpinionFile {
+    fn params(&self) -> civ_agents::opinion::OpinionParams {
+        civ_agents::opinion::OpinionParams {
+            share: self.share,
+            eta: self.eta,
+            epsilon: self.epsilon,
+            anchor_half_life_days: self.anchor_half_life_days,
+            anchor_points: self.anchor_points,
+            w_position: self.w_position,
+            salience_live: self.salience_live,
+            salience_idle: self.salience_idle,
+            youth_until: self.youth_until,
+            youth_factor: self.youth_factor,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            ("opinion.share", self.share, 0.0, 1.0),
+            ("opinion.eta", self.eta, 0.0, 1.0),
+            ("opinion.epsilon", self.epsilon, 0.01, 10.0),
+            (
+                "opinion.anchor_half_life_days",
+                self.anchor_half_life_days,
+                1.0,
+                36500.0,
+            ),
+            ("opinion.anchor_points", self.anchor_points, 0.01, 100.0),
+            ("opinion.w_position", self.w_position, 0.0, 100.0),
+            ("opinion.salience_live", self.salience_live, 0.0, 1.0),
+            ("opinion.salience_idle", self.salience_idle, 0.0, 1.0),
+            ("opinion.youth_until", self.youth_until, 0.0, 120.0),
+            ("opinion.youth_factor", self.youth_factor, 0.0, 10.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+    }
 }
 
 /// Word of mouth and grievances (M4c slice AE, ADR-0016; content API 39). See
@@ -1218,6 +1278,7 @@ impl PeopleFile {
             polity: self.polity.params(),
             crime: self.crime.params(),
             word: self.word.params(),
+            opinion: self.opinion.params(),
             names,
         }
     }
@@ -1230,6 +1291,7 @@ impl PeopleFile {
         self.polity.problems(&mut p);
         self.crime.problems(&mut p);
         self.word.problems(&mut p);
+        self.opinion.problems(&mut p);
         let st = &self.standing;
         if !(1..=100).contains(&st.candidates) {
             p.push(format!(

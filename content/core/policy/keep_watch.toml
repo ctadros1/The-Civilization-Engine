@@ -11,3 +11,6 @@ name = "Watch"
 description = "The one the gathering names keeps watch over the households' stores at night, walking rounds of the homes."
 does = "keep_watch"
 answers = ["takings"]
+# The question people take positions on (content API 41, M4c slice AG): each adult's is
+# anchored in what their household's lot makes of it and moved by talk at the hearth.
+question = "whether to keep a watch over the stores at night"

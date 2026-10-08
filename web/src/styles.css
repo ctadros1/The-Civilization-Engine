@@ -1114,25 +1114,29 @@ ul.rules li {
   margin-top: 8px;
 }
 
-/* What a person holds against whom, and what they have heard (M4c slice AE) */
-.word {
+/* What a person holds against whom, what they have heard, and where they stand (M4c) */
+.word,
+.opinions {
   border-top: 1px solid var(--line);
   padding-top: 8px;
   margin-top: 8px;
 }
 
-.word ul {
+.word ul,
+.opinions ul {
   list-style: none;
   margin: 0 0 4px;
   padding: 0;
   font-size: 12px;
 }
 
-.word li {
+.word li,
+.opinions li {
   padding: 1px 0;
 }
 
-.word .aside {
+.word .aside,
+.opinions .aside {
   color: var(--muted);
 }
 

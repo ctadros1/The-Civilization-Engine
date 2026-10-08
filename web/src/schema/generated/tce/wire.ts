@@ -89,6 +89,7 @@ export { PersonInfo } from './wire/person-info.js';
 export { PersonRef } from './wire/person-ref.js';
 export { PlaceDeposit } from './wire/place-deposit.js';
 export { PolityLine } from './wire/polity-line.js';
+export { PositionLine } from './wire/position-line.js';
 export { PresetInfo } from './wire/preset-info.js';
 export { Query } from './wire/query.js';
 export { QueryBody } from './wire/query-body.js';

@@ -436,6 +436,24 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** whether larger villages, with thinner gatherings, amend their customs; opinion, ideology and norms (AG) are next.
 
+## 2026-10-08 — M4c slice AG, step one: opinion
+
+**Goal:** give each person a view of the questions of the day that is their own, rooted in their household's lot, moved a little by the company they keep, and heard in what they say at a gathering.
+
+**What changed:**
+
+- **Positions.** A policy template may ask a question ("whether to keep a common store"); every adult holds a position on each, 0 against to 1 for, with a salience that is higher while a law of it is in force or before the gathering.
+- **Anchors.** On the first of each month the forecast a sponsor would weigh is worked out for each household and question (now shared by the polity review and opinion), and each position is pulled toward what it makes of the policy with a two-year half-life.
+- **Talk.** Companions at the hearth say where they stand now and then; a listener moves a little toward someone they regard, less the further apart they are, more when young (research 06-04's Friedkin–Johnsen priors). No negative influence yet.
+- **Stances.** At a gathering, how far talk has moved someone from their household's lot weighs in their stance, and the law's record says when it did. The inspector shows where someone stands and what moved them.
+- **Boundary:** saves schema 37 (36 still loads), wire 1.36, content API 41.
+
+**Found on the way:** the first build told 14 to 36 positions a person a week, far above the report's 0.5; the chance was cut to 0.0015 and the smoke measured 0.46 to 1.85. With stances a little more spread, two worlds began amending the custom back and forth (51 and 8 amendments in ten years): slice AF's forecast had re-decided amendments, and decisions made under earlier customs, so each change gave the other side cause to undo it. It now counts only laws and cases decided under the present custom. The smoke's check of each law's body was also wrong about amended customs (it read today's body, and did not count a superseded amendment as passed); both fixed. The smoke also showed that grievances and hearing records of people who died or left are never let go: nothing acts on them, but they fill saves and the smoke's count. That is fixed separately, next.
+
+**Evidence:** unit tests for anchoring, the pull, taking talk in and the position store; integration tests that adults hold positions anchored in their household's lot (one household, one anchor) and moved a little by talk, with an exact save and load, and that talk weighs in a stance and the record says so. The kernel (573), web (138) and end-to-end (16, 6 demos skipped) suites pass, with clippy and the schema check clean. The ten-year smoke passed all 10 worlds: one village amended its custom once, to its elders, and none cycled; talk moved positions 0.003 to 0.007 from their anchors on average. Gate B and the notables' gate passed.
+
+**Open:** norms, values and ideologies, the rest of slice AG.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

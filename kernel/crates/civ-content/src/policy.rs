@@ -46,6 +46,10 @@ pub(crate) struct PolicyFile {
     pub quorum_shares: Vec<f64>,
     #[serde(default)]
     pub pass: Vec<String>,
+    /// The question people take positions on (content API 41, M4c slice AG): "whether to keep a
+    /// common store". Left out, nobody holds a position on it.
+    #[serde(default)]
+    pub question: Option<String>,
 }
 
 /// One sanction bundle of a law against taking: what it adds to giving back what was taken, in
@@ -88,6 +92,7 @@ impl PolicyFile {
                 .collect(),
             hours: self.hours.iter().map(|h| (h[0], h[1])).collect(),
             bodies: self.bodies(),
+            question: self.question.clone(),
         }
     }
 
@@ -299,6 +304,7 @@ mod tests {
             members: Vec::new(),
             quorum_shares: Vec::new(),
             pass: Vec::new(),
+            question: None,
         }
     }
 

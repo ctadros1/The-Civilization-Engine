@@ -1353,6 +1353,8 @@ pub struct PeopleParams {
     pub crime: crate::crime::CrimeParams,
     /// How word travels and grievances are held (M4c slice AE, ADR-0016).
     pub word: crate::word::WordParams,
+    /// How opinion moves (M4c slice AG, ADR-0016 §4).
+    pub opinion: crate::opinion::OpinionParams,
     /// Names.
     pub names: NameParams,
 }

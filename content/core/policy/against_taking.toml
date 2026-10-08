@@ -12,6 +12,9 @@ name = "Law against taking"
 description = "Whoever is found to have taken from another household's store gives it back, and may owe the household and the common store more besides."
 does = "against_taking"
 answers = ["takings"]
+# The question people take positions on (content API 41, M4c slice AG): each adult's is
+# anchored in what their household's lot makes of it and moved by talk at the hearth.
+question = "whether the gathering should hear takings"
 
 # Each bundle is one form the law can take; a sponsor weighs each (09-05 §2.3). Days are days of
 # the taker's household's food.

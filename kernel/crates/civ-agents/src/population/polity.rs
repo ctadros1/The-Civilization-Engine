@@ -19,6 +19,70 @@ struct Seen {
     passed: bool,
 }
 
+/// What a settlement's households expect (ADR-0013 §5), for forecasting what a move would bring
+/// each: built once per review or month.
+pub(super) struct Forecasts {
+    /// Each household's outlook, by household id.
+    pub(super) outlooks: Vec<(PermanentId, Outlook)>,
+    /// What the settlement's people believe of their years.
+    belief: Belief,
+    /// What a roof over the store would keep each household a year, kcal.
+    kept: f64,
+    /// What each household knows of takings in the last year, by household id.
+    takings: Vec<(PermanentId, crate::crime::TakingsKnown)>,
+    /// Grown members of each household, whom a curfew keeps at home.
+    grown: BTreeMap<PermanentId, u32>,
+}
+
+impl Forecasts {
+    /// What move `m` would bring household `h`, gain units: a store at a levy share, a store
+    /// kept, a law against taking with its bundle, a watch, or a curfew (an amendment is
+    /// forecast from what was seen, apart).
+    pub(super) fn gain(
+        &self,
+        m: &MoveOption,
+        h: PermanentId,
+        policies: &[crate::polity::PolicyDef],
+        params: &PeopleParams,
+    ) -> f64 {
+        let pp = &params.polity;
+        let Ok(i) = self.outlooks.binary_search_by_key(&h, |o| o.0) else {
+            return 0.0;
+        };
+        let o = &self.outlooks[i].1;
+        let known = || {
+            self.takings
+                .binary_search_by_key(&h, |t| t.0)
+                .map_or_else(|_| Default::default(), |k| self.takings[k].1)
+        };
+        match policies.get(usize::from(m.policy)).map(|d| d.kind) {
+            Some(PolicyKind::KeepStore) => crate::polity::kept_gain(o, self.kept, pp),
+            Some(PolicyKind::AgainstTaking) => {
+                let (recover, owe) =
+                    known().under(&m.sanction, o.year_need / 365.0, params.crime.exile_days);
+                crate::polity::against_gain(o, recover, owe, pp)
+            }
+            Some(PolicyKind::KeepWatch) => {
+                let (recover, owe) = known().watched(params.crime.watch_guard);
+                crate::polity::against_gain(o, recover, owe, pp)
+            }
+            // A curfew (M4b slice AD): as a watch, at its own share, less what keeping its grown
+            // members at home in its hours costs it.
+            Some(PolicyKind::Curfew) => {
+                let (recover, owe) = known().watched(params.crime.curfew_guard);
+                let home = params.crime.curfew_cost_days
+                    * f64::from(crate::polity::hours_long(m.hours))
+                    * f64::from(self.grown.get(&h).copied().unwrap_or(0))
+                    * o.year_need
+                    / 365.0;
+                crate::polity::against_gain(o, recover, owe + home, pp)
+            }
+            Some(PolicyKind::AmendBody) => 0.0,
+            _ => crate::polity::store_gain(o, &self.belief, m.levy_share, pp),
+        }
+    }
+}
+
 /// Purpose tag for a deliberator's draw among moves.
 pub const PURPOSE_DELIBERATE: u64 = 0x6465_6c69_6265_7231; // "deliber1"
 /// Purpose tag for the draw of whether someone pays a levy.
@@ -396,6 +460,41 @@ impl Population {
             .is_some_and(|x| x.sheltered)
     }
 
+    /// What the households `households` of polity `pi`'s settlement expect, to forecast what a
+    /// move would bring each (ADR-0013 §5): their outlooks, the settlement's belief about its
+    /// years, what a roof over the store would keep each, what each knows of takings in the last
+    /// year (M4b slice AB), and how many grown members each has among `adults`.
+    pub(super) fn forecasts(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        households: &[PermanentId],
+        adults: &[(PermanentId, PermanentId)],
+    ) -> Forecasts {
+        let outlooks: Vec<(PermanentId, Outlook)> = households
+            .iter()
+            .filter_map(|&h| Some((h, self.outlook(ctx, h)?)))
+            .collect();
+        let just: Vec<Outlook> = outlooks.iter().map(|o| o.1).collect();
+        let belief = self.belief(ctx, self.polities[pi].settlement, &just);
+        let kept = self.roof_saves(ctx, pi) / outlooks.len().max(1) as f64;
+        let takings = households
+            .iter()
+            .map(|&h| (h, self.takings_known(h, ctx.now, ctx.params)))
+            .collect();
+        let mut grown: BTreeMap<PermanentId, u32> = BTreeMap::new();
+        for &(_, h) in adults {
+            *grown.entry(h).or_default() += 1;
+        }
+        Forecasts {
+            outlooks,
+            belief,
+            kept,
+            takings,
+            grown,
+        }
+    }
+
     /// A polity's routine review (ADR-0013 §5): with nothing before the gathering and an issue
     /// present, its notables and the elders of households whose food will not last to their
     /// next harvest each weigh proposing what answers it, at each level the template allows,
@@ -485,14 +584,9 @@ impl Population {
             now,
             params,
         );
-        let outlooks: Vec<(PermanentId, Outlook)> = households
-            .iter()
-            .filter_map(|&h| Some((h, self.outlook(ctx, h)?)))
-            .collect();
-        let just: Vec<Outlook> = outlooks.iter().map(|o| o.1).collect();
-        let belief = self.belief(ctx, settlement, &just);
-        // What a roof over the store would keep for each household a year.
-        let kept = self.roof_saves(ctx, pi) / outlooks.len().max(1) as f64;
+        // What each household expects, to forecast what a move would bring it.
+        let fc = self.forecasts(ctx, pi, &households, &adults);
+        let outlooks = &fc.outlooks;
         // Who could keep the store: adults whose household is under a roof.
         let roofed: Vec<PermanentId> = adults
             .iter()
@@ -536,13 +630,22 @@ impl Population {
         // What its gatherings decided within memory (M4c slice AF): each law and case, with the
         // stances taken there (open acclamation: those who came saw them), and who each kind of
         // body would admit now.
+        // Only decisions the present custom made count: a change of custom is judged by how the
+        // custom it would replace has decided, so a newly amended custom is not undone on the
+        // strength of what an older one did (that let two camps toggle the custom week by week).
         let memory = i64::from(pp.vote_memory_days);
-        let recent = |t: Option<SimTime>| t.is_some_and(|t| day - t.day_index() <= memory);
         let polity = &self.polities[pi];
+        let custom_since = polity.versions.last().map_or(polity.founded, |v| v.since);
+        let recent = |t: Option<SimTime>| {
+            t.is_some_and(|t| day - t.day_index() <= memory && t >= custom_since)
+        };
+        // Amendments themselves are not among them: a rule is judged by the laws and cases it
+        // decides, not by other changes of rule (which would let the custom feed on itself).
         let mut decisions: Vec<Seen> = polity
             .laws
             .iter()
             .filter(|l| recent(l.decided) && !l.stances.is_empty())
+            .filter(|l| l.kind != PolicyKind::AmendBody)
             .map(|l| Seen {
                 stances: l
                     .stances
@@ -622,59 +725,8 @@ impl Population {
                 .collect()
         };
         let deliberator = RuleDeliberator { params: pp };
-        // What each household knows of takings in the last year: what it lost to takers it knows
-        // of, and what its own members took (M4b slice AB).
-        let takings: Vec<(PermanentId, crate::crime::TakingsKnown)> = households
-            .iter()
-            .map(|&h| (h, self.takings_known(h, now, params)))
-            .collect();
-        // Grown members of each household, whom a curfew keeps at home.
-        let mut grown: BTreeMap<PermanentId, u32> = BTreeMap::new();
-        for &(_, h) in &adults {
-            *grown.entry(h).or_default() += 1;
-        }
-        // What a move would bring household `h`: a store at a levy share, a store kept, a law
-        // against taking with its bundle, a watch, or a curfew.
         let policies = &ctx.catalog.policies;
-        let gain_of = |m: &MoveOption, h: PermanentId| {
-            let Ok(i) = outlooks.binary_search_by_key(&h, |o| o.0) else {
-                return 0.0;
-            };
-            let o = &outlooks[i].1;
-            match policies.get(usize::from(m.policy)).map(|d| d.kind) {
-                Some(PolicyKind::KeepStore) => crate::polity::kept_gain(o, kept, pp),
-                Some(PolicyKind::AgainstTaking) => {
-                    let known = takings
-                        .binary_search_by_key(&h, |t| t.0)
-                        .map_or_else(|_| Default::default(), |k| takings[k].1);
-                    let (recover, owe) =
-                        known.under(&m.sanction, o.year_need / 365.0, params.crime.exile_days);
-                    crate::polity::against_gain(o, recover, owe, pp)
-                }
-                Some(PolicyKind::KeepWatch) => {
-                    let known = takings
-                        .binary_search_by_key(&h, |t| t.0)
-                        .map_or_else(|_| Default::default(), |k| takings[k].1);
-                    let (recover, owe) = known.watched(params.crime.watch_guard);
-                    crate::polity::against_gain(o, recover, owe, pp)
-                }
-                // A curfew (M4b slice AD): as a watch, at its own share, less what keeping its
-                // grown members at home in its hours costs it.
-                Some(PolicyKind::Curfew) => {
-                    let known = takings
-                        .binary_search_by_key(&h, |t| t.0)
-                        .map_or_else(|_| Default::default(), |k| takings[k].1);
-                    let (recover, owe) = known.watched(params.crime.curfew_guard);
-                    let home = params.crime.curfew_cost_days
-                        * f64::from(crate::polity::hours_long(m.hours))
-                        * f64::from(grown.get(&h).copied().unwrap_or(0))
-                        * o.year_need
-                        / 365.0;
-                    crate::polity::against_gain(o, recover, owe + home, pp)
-                }
-                _ => crate::polity::store_gain(o, &belief, m.levy_share, pp),
-            }
-        };
+        let gain_of = |m: &MoveOption, h: PermanentId| fc.gain(m, h, policies, params);
         for d in deliberators {
             let Some(own) = members
                 .binary_search_by_key(&d, |m| m.0)
@@ -1010,7 +1062,8 @@ impl Population {
         let Some(law) = self.polities[pi].laws.iter().find(|l| l.id == law_id) else {
             return;
         };
-        let sponsor = law.sponsor;
+        let (sponsor, policy) = (law.sponsor, law.policy);
+        let w_position = params.opinion.w_position;
         // Those who came weigh their regard for the one the law names, or else for its sponsor.
         let face = law.holder.unwrap_or(sponsor);
         let day = now.day_index();
@@ -1029,10 +1082,13 @@ impl Population {
                 } else {
                     self.ties.regard(p, face, day, &params.ties)
                 };
+                // How far talk at the hearth has moved them from their household's lot (M4c
+                // slice AG).
+                let talk = self.opinion_points(p, policy, w_position);
                 let (stance, regard_points) = if p == sponsor {
                     (Stance::Support, 0.0)
                 } else {
-                    crate::polity::stance(gain, regard, pp)
+                    crate::polity::stance(gain + talk, regard, pp)
                 };
                 Some(StanceRecord {
                     person: p,
@@ -1040,6 +1096,7 @@ impl Population {
                     stance,
                     gain: gain as f32,
                     regard: regard_points as f32,
+                    opinion: talk as f32,
                 })
             })
             .collect();

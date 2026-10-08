@@ -708,6 +708,21 @@ export interface PersonInfo {
    * and what they have heard that is still news, the latest first (the living only). */
   grievances: GrievanceLine[];
   heard: HeardLine[];
+  /** Wire 1.36 (M4c slice AG): where they stand on each question content names. */
+  positions: PositionLine[];
+}
+
+/** Where someone stands on a question (wire 1.36, ADR-0016 §4). */
+export interface PositionLine {
+  /** The question and where they stand, in the kernel's words. */
+  question: string;
+  lean: string;
+  /** 0 against to 1 for; what their household's own lot makes of it; how much it matters now. */
+  x: number;
+  anchor: number;
+  salience: number;
+  /** What they have heard said of it at the hearth and taken in. */
+  heard: number;
 }
 
 /** A grievance someone holds (wire 1.34, ADR-0016 §2). */
@@ -807,6 +822,8 @@ export interface StanceLine {
   gain: number;
   regard: number;
   why: string;
+  /** Wire 1.36: what talk at the hearth had moved them from their household's lot, points. */
+  opinion: number;
 }
 
 /** Where a law stands ("lapsed", wire 1.28: the one it named died or left). */
@@ -2755,6 +2772,19 @@ function personInfo(p: W.PersonInfo): PersonInfo {
       lastMinute: Number(h.lastMinute()),
     });
   }
+  const positions: PositionLine[] = [];
+  for (let k = 0; k < p.positionsLength(); k++) {
+    const q = p.positions(k);
+    if (!q) continue;
+    positions.push({
+      question: q.question() ?? "",
+      lean: q.lean() ?? "",
+      x: q.x(),
+      anchor: q.anchor(),
+      salience: q.salience(),
+      heard: q.heard(),
+    });
+  }
   const standing = p.standing();
   const pos = p.pos();
   return {
@@ -2803,6 +2833,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     standing: standing ? standingLine(standing) : null,
     grievances,
     heard,
+    positions,
   };
 }
 
@@ -2833,6 +2864,7 @@ function lawLine(l: W.LawLine): LawLine {
       gain: r.gain(),
       regard: r.regard(),
       why: r.why() ?? "",
+      opinion: r.opinion(),
     });
   }
   return {

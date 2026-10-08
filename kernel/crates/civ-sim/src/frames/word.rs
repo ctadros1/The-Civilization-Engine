@@ -114,6 +114,41 @@ pub fn grievance_lines<'a>(
     fbb.create_vector(&lines)
 }
 
+/// Where `p` stands on each question content names (wire 1.36, ADR-0016 §4).
+pub fn position_lines<'a>(
+    fbb: &mut FlatBufferBuilder<'a>,
+    sim: &Sim,
+    p: &Person,
+) -> WIPOffset<Vector<'a, ForwardsUOffset<wire::PositionLine<'a>>>> {
+    let policies = &sim.rules.catalog.policies;
+    let lines: Vec<_> = sim
+        .people
+        .opinion
+        .held_by(p.id)
+        .iter()
+        .filter_map(|pos| {
+            let q = policies.get(usize::from(pos.policy))?.question.as_deref()?;
+            Some((pos, q))
+        })
+        .map(|(pos, q)| {
+            let question = fbb.create_string(q);
+            let lean = fbb.create_string(civ_agents::opinion::lean_words(f64::from(pos.x)));
+            wire::PositionLine::create(
+                fbb,
+                &wire::PositionLineArgs {
+                    question: Some(question),
+                    lean: Some(lean),
+                    x: pos.x,
+                    anchor: pos.anchor,
+                    salience: pos.salience,
+                    heard: pos.heard,
+                },
+            )
+        })
+        .collect();
+    fbb.create_vector(&lines)
+}
+
 /// What `p` has heard that is still news, the latest first, at most [`MAX_HEARD_SHOWN`].
 pub fn heard_lines<'a>(
     fbb: &mut FlatBufferBuilder<'a>,

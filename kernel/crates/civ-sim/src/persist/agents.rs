@@ -105,7 +105,7 @@ use super::{
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
-    SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, finish, section, single_chunk, unreadable,
+    SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -152,6 +152,8 @@ pub const SECTION_POLITY: SectionTag = SectionTag::new("polity");
 pub const SECTION_ORDER: SectionTag = SectionTag::new("order");
 /// Section: what people have heard and the grievances they hold (M4c slice AE, ADR-0016).
 pub const SECTION_WORD: SectionTag = SectionTag::new("word");
+/// Section: where people stand on the questions content names (schema 37, M4c slice AG).
+pub const SECTION_OPINION: SectionTag = SectionTag::new("opinion");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -220,6 +222,11 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         ),
         section(SECTION_ORDER, 0, encode_order(&sim.people.order, &goods)),
         section(SECTION_WORD, 0, encode_word(&sim.people.word)),
+        section(
+            SECTION_OPINION,
+            0,
+            encode_opinion(&sim.people.opinion, rules),
+        ),
     ]
 }
 
@@ -310,6 +317,8 @@ enum Schema {
     V35,
     /// Amendments of the custom: a law's proposed body, the custom's versions (M4c slice AF).
     V36,
+    /// Where people stand on questions; what talk added to stances (M4c slice AG).
+    V37,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -360,7 +369,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V33 => Schema::V33,
         SCHEMA_V34 => Schema::V34,
         SCHEMA_V35 => Schema::V35,
-        SAVE_SCHEMA_VERSION => Schema::V36,
+        SCHEMA_V36 => Schema::V36,
+        SAVE_SCHEMA_VERSION => Schema::V37,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -511,6 +521,12 @@ pub(super) fn decode<R: Read + Seek>(
     } else {
         people.hear_of_gatherings_called(now, &rules.people);
     }
+    // Opinion (schema 37); before it nobody held a position, and each is anchored at the next
+    // first of the month.
+    if schema >= Schema::V37 {
+        let bytes = single_chunk(reader, SECTION_OPINION)?;
+        people.opinion = decode_opinion(&bytes, rules)?;
+    }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
     match standing {
         Some(table) => people.standing = table,
@@ -615,6 +631,8 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                         })
                         .collect();
                     let stances = fbb.create_vector(&stances);
+                    let opinions: Vec<f32> = l.stances.iter().map(|r| r.opinion).collect();
+                    let stance_opinions = fbb.create_vector(&opinions);
                     let known: Vec<save::KnownSave> = l
                         .known
                         .iter()
@@ -666,6 +684,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             body_members: l.body.map_or(u8::MAX, |b| b.members.code()),
                             body_quorum: l.body.map_or(0.0, |b| b.quorum_share),
                             body_pass: l.body.map_or(0, |b| b.pass.code()),
+                            stance_opinions: Some(stance_opinions),
                         },
                     )
                 })
@@ -884,7 +903,11 @@ fn decode_polities(
                 c => return Err(bad(format!("law {law} has outcome code {c}"))),
             };
             let mut stances = Vec::new();
-            for r in l.stances().iter().flatten() {
+            let opinions: Vec<f32> = l
+                .stance_opinions()
+                .map(|v| v.iter().collect())
+                .unwrap_or_default();
+            for (k, r) in l.stances().iter().flatten().enumerate() {
                 stances.push(StanceRecord {
                     person: required(r.person(), "a stance")?,
                     household: required(r.household(), "a stance's household")?,
@@ -896,6 +919,7 @@ fn decode_polities(
                     },
                     gain: r.gain(),
                     regard: r.regard(),
+                    opinion: opinions.get(k).copied().unwrap_or(0.0),
                 });
             }
             let mut known = Vec::new();
@@ -2370,7 +2394,8 @@ fn carried(
         | Schema::V33
         | Schema::V34
         | Schema::V35
-        | Schema::V36 => {
+        | Schema::V36
+        | Schema::V37 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2516,7 +2541,8 @@ fn decode_households(
             | Schema::V33
             | Schema::V34
             | Schema::V35
-            | Schema::V36 => {
+            | Schema::V36
+            | Schema::V37 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -4877,6 +4903,93 @@ fn decode_events(bytes: &[u8]) -> Result<Vec<PendingEvent<SimEvent>>, LoadError>
         });
     }
     Ok(out)
+}
+
+// ---- opinion (M4c slice AG, ADR-0016 §4) ------------------------------------------------------
+
+fn encode_opinion(opinion: &civ_agents::opinion::Opinion, rules: &Rules) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let positions: Vec<save::PositionSave> = opinion
+        .positions
+        .iter()
+        .map(|p| {
+            save::PositionSave::new(
+                p.holder.get(),
+                p.since,
+                p.x,
+                p.anchor,
+                p.salience,
+                p.heard,
+                p.policy,
+            )
+        })
+        .collect();
+    let positions = fbb.create_vector(&positions);
+    let ids: Vec<_> = rules
+        .catalog
+        .policies
+        .iter()
+        .map(|d| fbb.create_string(&d.id))
+        .collect();
+    let policies = fbb.create_vector(&ids);
+    let root = save::OpinionSave::create(
+        &mut fbb,
+        &save::OpinionSaveArgs {
+            positions: Some(positions),
+            policies: Some(policies),
+            told: opinion.told,
+            taken: opinion.taken,
+        },
+    );
+    finish(fbb, root)
+}
+
+/// Positions on a question the loaded content no longer asks are let go: they are re-anchored
+/// from scratch if it asks one again.
+fn decode_opinion(bytes: &[u8], rules: &Rules) -> Result<civ_agents::opinion::Opinion, LoadError> {
+    use civ_agents::opinion::{Opinion, Position};
+    let root = flatbuffers::root::<save::OpinionSave>(bytes)
+        .map_err(|e| unreadable(SECTION_OPINION, &e))?;
+    let map: Vec<Option<u16>> = read_strings(root.policies())
+        .iter()
+        .map(|id| {
+            rules
+                .catalog
+                .policies
+                .iter()
+                .position(|p| &p.id == id && p.question.is_some())
+                .and_then(|i| u16::try_from(i).ok())
+        })
+        .collect();
+    let mut positions = Vec::new();
+    for p in root.positions().iter().flatten() {
+        let Some(Some(policy)) = map.get(usize::from(p.policy())) else {
+            continue;
+        };
+        positions.push(Position {
+            holder: required(p.holder(), "a position")?,
+            policy: *policy,
+            x: p.x(),
+            anchor: p.anchor(),
+            salience: p.salience(),
+            since: p.since(),
+            heard: p.heard(),
+        });
+    }
+    positions.sort_by_key(|p| (p.holder, p.policy));
+    if positions
+        .windows(2)
+        .any(|w| (w[0].holder, w[0].policy) == (w[1].holder, w[1].policy))
+    {
+        return Err(LoadError::Malformed(
+            "a person holds two positions on one question".to_owned(),
+        ));
+    }
+    Ok(Opinion {
+        positions,
+        told: root.told(),
+        taken: root.taken(),
+    })
 }
 
 // ---- word of mouth and grievances (M4c slice AE, ADR-0016) -------------------------------------

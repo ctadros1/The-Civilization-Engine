@@ -149,6 +149,9 @@ pub const SCHEMA_V34: u32 = 34;
 /// The schema version of M4c slice AE: word of mouth and grievances, before the custom could be
 /// amended (see [`agents`]).
 pub const SCHEMA_V35: u32 = 35;
+/// The schema version of M4c slice AF: amendments of the custom, before opinion (see
+/// [`agents`]).
+pub const SCHEMA_V36: u32 = 36;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

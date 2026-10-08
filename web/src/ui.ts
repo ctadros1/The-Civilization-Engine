@@ -42,7 +42,7 @@ import {
 import { materialGoods } from "./deposits.js";
 import { introducible, knowRows, summaryText, techniqueRows } from "./knowledge.js";
 import { standingText, tieText } from "./standing.js";
-import { claimText, grievanceFacts, grievanceHead, heardHow, heardWhen } from "./word.js";
+import { claimText, grievanceFacts, grievanceHead, heardHow, heardWhen, positionText } from "./word.js";
 import {
   brokenText,
   labelText,
@@ -858,6 +858,29 @@ export function bindUi(store: Store, actions: Actions): void {
     }
     return box;
   };
+  /** Where a person stands on the questions of the day, and what moved them (wire 1.36). */
+  const opinionBlock = (p: PersonInfo): Node => {
+    const box = el("div", { className: "opinions" }, el("h4", { text: "Where they stand" }));
+    if (p.positions.length === 0) {
+      box.append(el("p", { className: "empty", text: "Holds no position yet: one is first held on the first of a month." }));
+      return box;
+    }
+    box.append(
+      el(
+        "ul",
+        {},
+        ...p.positions.map((q) =>
+          el(
+            "li",
+            {},
+            el("span", { text: `On ${q.question}: ` }),
+            el("span", { className: "aside", text: positionText(q) }),
+          ),
+        ),
+      ),
+    );
+    return box;
+  };
   /** The technique chosen in the inspector's introduce form, kept while the inspector is redrawn. */
   let introChoice: { person: number; technique: number } | null = null;
   let introSelect: HTMLSelectElement | null = null;
@@ -1045,7 +1068,7 @@ export function bindUi(store: Store, actions: Actions): void {
       }
     }
     nodes.push(knowsBlock(welcome, p));
-    if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p));
+    if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p), opinionBlock(p));
     if (p.kin.length > 0 || p.family.length > 0) {
       nodes.push(
         el(

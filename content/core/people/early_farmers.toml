@@ -672,3 +672,28 @@ tell_floor = 0.2
 # A harm that goes on (a store still empty while the household is short) raises its grievance
 # again only after `remind_days`: a reminder, never re-added each day (04-06 §5.3).
 remind_days = 7
+
+[opinion]                        # where people stand on the questions content names (M4c slice AG, ADR-0016 §4)
+# Each adult holds a position, 0 against to 1 for, on each question a policy template asks. Its
+# anchor is what their household's own lot makes of the policy, worked out on the first of each
+# month from the forecast a sponsor would weigh (`anchor_points` of gain lean it to 0.73), and the
+# position is pulled toward it with a half-life of `anchor_half_life_days` (research 06-04 §3.2:
+# 2 years, 0.25-10). At the hearth a companion says where they stand with `share` times its
+# salience (06-04 §3.2: 0.5 exposures a person a week, 0.05-5); a listener moves `eta` of the way
+# at full salience and trust (η 0.03, 0.005-0.15), less the further apart (`epsilon`, 0.25,
+# 0.10-0.60), twice as far below `youth_until` (doubled between 12 and 30). How far talk has moved
+# someone from their household's lot adds `w_position` points to their stance at a gathering.
+# Salience is `salience_live` while a law on the question is in force or before the gathering.
+# Every value is a design prior, not a historical estimate; there is no negative influence.
+# `share` was set once from the ten-year smoke (M4c slice AG): at 0.05 people told 14-36 positions
+# a week, as company at the hearth is frequent; 0.0015 brings it near the prior's 0.5.
+share = 0.0015
+eta = 0.03
+epsilon = 0.25
+anchor_half_life_days = 730.0
+anchor_points = 1.0
+w_position = 2.0
+salience_live = 1.0
+salience_idle = 0.3
+youth_until = 30.0
+youth_factor = 2.0

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { GrievanceLine, HeardLine } from "../src/net/messages.js";
+import type { GrievanceLine, HeardLine, PositionLine } from "../src/net/messages.js";
 import {
   claimText,
   grievanceFacts,
@@ -8,6 +8,7 @@ import {
   heardHow,
   heardWhen,
   keennessText,
+  positionText,
 } from "../src/word.js";
 
 const DAY = 24 * 60;
@@ -74,5 +75,24 @@ describe("grievances and news in words", () => {
   it("read a claim as a sentence", () => {
     expect(claimText(heard())).toBe("A gathering meets on 9 May of year 1 to hear a case.");
     expect(claimText(heard({ what: "" }))).toBe("");
+  });
+
+  it("say where someone stands and what moved them", () => {
+    const p = (over: Partial<PositionLine> = {}): PositionLine => ({
+      question: "whether to keep a common store",
+      lean: "leaning for",
+      x: 0.66,
+      anchor: 0.58,
+      salience: 1,
+      heard: 4,
+      ...over,
+    });
+    expect(positionText(p())).toBe(
+      "leaning for (0.66); their household's lot alone would make it 0.58; talk at the hearth, taken in 4 times, drew them toward it",
+    );
+    expect(positionText(p({ x: 0.5, anchor: 0.6, lean: "undecided", heard: 1 }))).toContain(
+      "taken in once, turned them against it",
+    );
+    expect(positionText(p({ x: 0.58 }))).toBe("leaning for (0.58); as their household's lot makes it");
   });
 });

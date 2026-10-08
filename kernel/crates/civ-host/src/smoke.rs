@@ -521,8 +521,9 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
 }
 
 /// What a polity's history must hold to (ADR-0013): one polity a settlement; every law decided by
-/// its body's rule over the stances recorded, no more present than eligible; a law in force
-/// passed; at most one law before the gathering, and a gathering only for it.
+/// the rule of the custom's version in force when it was decided (M4c slice AF), over the stances
+/// recorded, no more present than eligible; a law in force passed (an amendment later replaced
+/// stands superseded); at most one law before the gathering, and a gathering only for it.
 fn polity_problems(sim: &Sim) -> Vec<String> {
     use civ_agents::polity::{LawStatus, Outcome};
     let mut out = Vec::new();
@@ -536,15 +537,26 @@ fn polity_problems(sim: &Sim) -> Vec<String> {
     for p in &pop.polities {
         for l in &p.laws {
             let (present, support, oppose) = l.counts();
+            // The custom as it stood when the law was decided: the last version begun before then
+            // (an amendment is decided by the custom it replaces).
+            let body_then = l.decided.map_or(p.body, |t| {
+                p.versions
+                    .iter()
+                    .rfind(|v| v.since < t || (v.since == t && v.law != Some(l.id)))
+                    .map_or(p.body, |v| v.body)
+            });
             match l.outcome {
                 Some(o) => {
-                    if o != p.body.decide(l.eligible, present, support, oppose)
+                    if o != body_then.decide(l.eligible, present, support, oppose)
                         || present > l.eligible
                     {
                         out.push(format!("law {} was not decided by its body's rule", l.id));
                     }
                     let passed = o == Outcome::Passed;
-                    let held = matches!(l.status, LawStatus::InForce | LawStatus::Lapsed);
+                    let held = matches!(
+                        l.status,
+                        LawStatus::InForce | LawStatus::Lapsed | LawStatus::Superseded
+                    );
                     if passed != held {
                         out.push(format!("law {} stands {:?} after {o:?}", l.id, l.status));
                     }
@@ -745,6 +757,31 @@ fn polity(sim: &Sim) -> Option<String> {
                 if n == 1 { "" } else { "s" }
             ));
         }
+    }
+    // Opinion (M4c slice AG): positions held, how often a person took in what a companion said
+    // (research 06-04 §3.2 gives 0.5 exposures a person a week as a prior), and how far talk
+    // has moved positions from each household's lot on average.
+    let op = &pop.opinion;
+    if !op.positions.is_empty() {
+        let weeks = (sim.now().minutes() as f64 / (7.0 * 1440.0)).max(1.0);
+        let adults = {
+            let mut h: Vec<_> = op.positions.iter().map(|p| p.holder).collect();
+            h.dedup();
+            h.len().max(1) as f64
+        };
+        let drift = op
+            .positions
+            .iter()
+            .map(|p| f64::from((p.x - p.anchor).abs()))
+            .sum::<f64>()
+            / op.positions.len() as f64;
+        parts.push(format!(
+            "{} positions held; {:.2} told and {:.2} taken in a person a week; talk had moved \
+             them {drift:.3} from their household's lot on average",
+            op.positions.len(),
+            op.told as f64 / adults / weeks,
+            op.taken as f64 / adults / weeks,
+        ));
     }
     // Grievances (M4c slice AE): what is held now, by issue, and how many are told and still news.
     let word = &pop.word;

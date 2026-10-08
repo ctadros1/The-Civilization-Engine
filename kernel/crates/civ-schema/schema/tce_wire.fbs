@@ -741,6 +741,23 @@ table PersonInfo {
   // most keenly felt first, and what they have heard that is still news, the latest first.
   grievances: [GrievanceLine] (id: 42);
   heard: [HeardLine] (id: 43);
+  // Wire 1.36 (M4c slice AG, ADR-0016 §4): where they stand on each question content names.
+  positions: [PositionLine] (id: 44);
+}
+
+// Where someone stands on a question (wire 1.36, ADR-0016 §4).
+table PositionLine {
+  // The question and where they stand, in words rendered by the kernel ("whether to keep a
+  // common store"; "leaning for").
+  question: string (id: 0);
+  lean: string (id: 1);
+  // 0 against to 1 for; what their household's own lot makes of it; and how much it matters to
+  // them now, 0-1.
+  x: float (id: 2);
+  anchor: float (id: 3);
+  salience: float (id: 4);
+  // What they have heard said of it at the hearth and taken in.
+  heard: uint (id: 5);
 }
 
 // A grievance a person holds (wire 1.34, ADR-0016 §2).
@@ -1493,6 +1510,9 @@ table StanceLine {
   regard: float (id: 4);
   // "their household stands to gain, and they think well of the sponsor".
   why: string (id: 5);
+  // Wire 1.36 (M4c slice AG): what talk at the hearth had moved them from their household's
+  // lot, points.
+  opinion: float (id: 6);
 }
 
 // A law and its whole history (wire 1.27, ADR-0013 §3): proposal, stances, decision, who knows

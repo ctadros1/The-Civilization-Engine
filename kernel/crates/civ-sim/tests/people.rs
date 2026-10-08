@@ -382,24 +382,32 @@ fn a_band_sows_reaps_and_threshes_its_first_harvest() {
         kg > 0.3 * crop.yield_kg_per_ha * ha && kg < 1.6 * crop.yield_kg_per_ha * ha,
         "{kg:.0} kg from {ha:.2} ha"
     );
-    // Every household keeps the seed to sow its fields again, and has grain.
+    // The village keeps the seed to sow again the ground it cropped (research 08-02 §10: seed is
+    // set aside before anything is eaten), and has grain. Seed moves with those who leave a
+    // household for another, and ground broken after the harvest for next year is planned against
+    // the seed a household means to crop with (it may rest some), so the claim is the village's,
+    // not each household's.
     let now = sim.now();
-    for (_, h) in sim.people().households.iter() {
-        let stores = population::stores_now(h, now, &rules.people, &rules.catalog.goods);
-        let own: f64 = sim
-            .land()
-            .fields
-            .iter()
-            .filter(|f| f.household == h.id)
-            .map(|f| f.area_ha())
-            .sum();
-        assert!(
-            stores[crop.seed_good] + 1e-6 >= own * crop.seed_kg_per_ha,
-            "household {} keeps {:.0} kg of seed for {own:.2} ha",
-            h.id,
-            stores[crop.seed_good]
-        );
-    }
+    let seed: f64 = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| {
+            population::stores_now(h, now, &rules.people, &rules.catalog.goods)[crop.seed_good]
+        })
+        .sum();
+    let cropped: f64 = sim
+        .land()
+        .fields
+        .iter()
+        .filter(|f| f.harvests > 0)
+        .map(|f| f.area_ha())
+        .sum();
+    assert!(cropped > 0.0, "some ground was cropped");
+    assert!(
+        seed + 1e-6 >= cropped * crop.seed_kg_per_ha,
+        "the village keeps {seed:.0} kg of seed for the {cropped:.2} ha it cropped"
+    );
     let grain: f64 = sim
         .people()
         .households

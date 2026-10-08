@@ -69,6 +69,7 @@ pub(crate) struct PolityFile {
     pub w_followers: f64,
     pub propose_cost: f64,
     pub temperature: f64,
+    pub vote_memory_days: u32,
     pub prior_lean: f64,
     pub prior_years: f64,
     pub lean_harvest: f64,
@@ -92,6 +93,7 @@ impl PolityFile {
             w_followers: self.w_followers,
             propose_cost: self.propose_cost,
             temperature: self.temperature,
+            vote_memory_days: self.vote_memory_days,
             prior_lean: self.prior_lean,
             prior_years: self.prior_years,
             lean_harvest: self.lean_harvest,
@@ -106,6 +108,7 @@ impl PolityFile {
             ("polity.review_days", self.review_days, 1, 365),
             ("polity.notice_days", self.notice_days, 1, 30),
             ("polity.gathering_minutes", self.gathering_minutes, 15, 600),
+            ("polity.vote_memory_days", self.vote_memory_days, 0, 3650),
         ] {
             if !(lo..=hi).contains(&v) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

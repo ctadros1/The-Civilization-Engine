@@ -12,6 +12,11 @@
 # and compares Accelerated mode's aggregates with Detailed mode's against tolerances fixed in
 # PROJECT_PLAN §9. It takes a few minutes, so it runs nightly and on pull requests into main.
 #
+# The notables' gate (ADR-0014 §4, M4a slice Z) lives two fixture worlds three years five times
+# with the notables' tier and five times with every adult deliberating, and compares their polities'
+# aggregates against tolerances fixed in PROJECT_PLAN §9. It takes about two minutes, so it runs
+# beside Gate B.
+#
 # The run checks the model, not the platform, so it uses Linux. Actions are pinned as in ci.yml.
 name: Ten-year smoke
 
@@ -93,20 +98,33 @@ jobs:
           cargo run --locked --release -p civ-host -- consistency \
             --json "$RUNNER_TEMP/consistency.json" | tee "$RUNNER_TEMP/consistency.txt"
 
+      - name: The notables' tier against every adult deliberating
+        if: always()
+        working-directory: kernel
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo run --locked --release -p civ-host -- notables \
+            --json "$RUNNER_TEMP/notables.json" | tee "$RUNNER_TEMP/notables.txt"
+
       - name: Summary
         if: always()
         shell: bash
         run: |
-          if [ -f "$RUNNER_TEMP/consistency.txt" ]; then
-            { echo '```'; cat "$RUNNER_TEMP/consistency.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          fi
+          for f in consistency notables; do
+            if [ -f "$RUNNER_TEMP/$f.txt" ]; then
+              { echo '```'; cat "$RUNNER_TEMP/$f.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
 
-      - name: Keep the report
+      - name: Keep the reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: consistency
-          path: ${{ runner.temp }}/consistency.json
+          path: |
+            ${{ runner.temp }}/consistency.json
+            ${{ runner.temp }}/notables.json
           if-no-files-found: ignore
 
   dashboard:

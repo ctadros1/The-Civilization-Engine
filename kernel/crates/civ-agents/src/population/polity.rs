@@ -340,19 +340,35 @@ impl Population {
             .filter(|(_, h)| self.household(*h).is_some_and(|x| x.sheltered))
             .map(|(p, _)| *p)
             .collect();
-        // Who weighs moves: the notables (a compute tier, ADR-0014 §4), and the elders of
-        // households whose food will not last, whom the issue reaches.
-        let mut deliberators: Vec<PermanentId> = self
-            .standing
-            .in_settlement(settlement)
-            .filter(|r| r.notable)
-            .map(|r| r.person)
-            .collect();
-        deliberators.extend(
-            pressed
-                .iter()
-                .filter_map(|&h| self.elder_of(h, now, params)),
-        );
+        // Who weighs moves (ADR-0014 §4): the notables, a compute tier; and those something
+        // reached since the last review: the elders of households whose food will not last, and
+        // whoever came to a gathering or learnt a law. With the tier off, every adult.
+        let mut deliberators: Vec<PermanentId> = if self.every_adult_deliberates {
+            members.iter().map(|m| m.0).collect()
+        } else {
+            let since = now.day_index() - i64::from(pp.review_days.max(1));
+            let reached = self.polities[pi].laws.iter().flat_map(|l| {
+                let came = l
+                    .decided
+                    .filter(|t| t.day_index() > since)
+                    .map(|_| l.stances.iter().map(|r| r.person))
+                    .into_iter()
+                    .flatten();
+                let learnt = l.known.iter().filter(move |k| k.1 > since).map(|k| k.0);
+                came.chain(learnt)
+            });
+            self.standing
+                .in_settlement(settlement)
+                .filter(|r| r.notable)
+                .map(|r| r.person)
+                .chain(
+                    pressed
+                        .iter()
+                        .filter_map(|&h| self.elder_of(h, now, params)),
+                )
+                .chain(reached)
+                .collect()
+        };
         deliberators.sort_unstable();
         deliberators.dedup();
         deliberators.retain(|d| members.binary_search_by_key(d, |m| m.0).is_ok());
@@ -455,6 +471,26 @@ impl Population {
                 } else {
                     0.5
                 };
+                // What they saw (research 09-05 §1.2: a sponsor weighs expected success): one who
+                // came to a gathering that decided the same proposal, within memory, expects no
+                // more support for it than it got there.
+                let seen = self.polities[pi]
+                    .laws
+                    .iter()
+                    .rev()
+                    .filter(|l| l.policy == m.policy && l.holder == m.nominee)
+                    .filter(|l| (f64::from(l.levy_share) - m.levy_share).abs() < 1e-4)
+                    .filter(|l| {
+                        l.decided
+                            .is_some_and(|t| day - t.day_index() <= i64::from(pp.vote_memory_days))
+                    })
+                    .find(|l| l.stances.iter().any(|r| r.person == d));
+                if let Some(l) = seen {
+                    let (_, s, o) = l.counts();
+                    if s + o > 0 {
+                        m.support = m.support.min(f64::from(s) / f64::from(s + o));
+                    }
+                }
             }
             let u =
                 Rng64::from_key(&[ctx.seed, PURPOSE_DELIBERATE, d.get(), day as u64]).next_f64();
@@ -503,9 +539,16 @@ impl Population {
             known: vec![(sponsor, day)],
             compliance: Default::default(),
         };
+        // "Mira proposed themselves as keeper of the common store", not "Mira as keeper".
         let words = format!(
             "{}, because {}",
-            crate::polity::law_words(&law, &ctx.catalog.policies, &|id| self.name_of(id)),
+            crate::polity::law_words(&law, &ctx.catalog.policies, &|id| {
+                if id == sponsor {
+                    "themselves".to_owned()
+                } else {
+                    self.name_of(id)
+                }
+            }),
             m.issue.words()
         );
         let polity = &mut self.polities[pi];

@@ -102,6 +102,25 @@ fn every_settlement_has_one_polity_under_the_founding_custom() {
     }
 }
 
+#[test]
+fn the_notables_tier_is_a_setting_a_loaded_world_has_on() {
+    let mut sim = world_with(content(), 3);
+    assert!(sim.notable_tier(), "a new world has the tier");
+    sim.set_notable_tier(false);
+    assert!(!sim.notable_tier());
+    sim.advance_minutes(2 * DAY).expect("advances");
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "tier").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert!(
+        loaded.notable_tier(),
+        "never saved: a loaded world has it on"
+    );
+}
+
 /// A village whose food will not last, from early June, with the deliberators' choice made all
 /// but certain (a low temperature) so the test sees a proposal: what it does with it is its
 /// own. Lived until a gathering has decided, at most three weeks.

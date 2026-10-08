@@ -133,6 +133,10 @@ pub struct PolityParams {
     pub propose_cost: f64,
     /// Temperature of the choice among moves, points.
     pub temperature: f64,
+    /// Days a member remembers how a gathering they came to stood on a proposal: while they do,
+    /// they expect no more support for the same proposal than they saw it get (research 09-05
+    /// §1.2: a sponsor weighs expected success).
+    pub vote_memory_days: u32,
     /// The lean years a settlement is believed to have before it has seen any, out of
     /// `prior_years`.
     pub prior_lean: f64,
@@ -167,6 +171,7 @@ impl PolityParams {
             w_followers: 0.5,
             propose_cost: 0.5,
             temperature: 0.5,
+            vote_memory_days: 365,
             prior_lean: 1.0,
             prior_years: 4.0,
             lean_harvest: 0.5,

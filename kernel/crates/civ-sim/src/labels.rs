@@ -265,9 +265,9 @@ fn of(a: u32, b: u32) -> String {
     format!("{a} of {b}")
 }
 
-/// A share in whole percent: "92 %".
+/// A share in whole percent, the sign kept with its number: "92 %".
 fn percent(x: f64) -> String {
-    format!("{:.0} %", 100.0 * x)
+    format!("{:.0}\u{a0}%", 100.0 * x)
 }
 
 /// The label for evidence `e`. `name_of` names people and `day` renders a day, for the reasons.
@@ -592,7 +592,7 @@ mod tests {
                 |e| e.body_share = 0.7,
                 "Council community",
                 &[
-                    "70 % of adults may decide",
+                    "70\u{a0}% of adults may decide",
                     "a storekeeper's office",
                     "its levy mostly paid",
                 ],

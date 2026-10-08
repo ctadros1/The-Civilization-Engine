@@ -860,6 +860,19 @@ impl Sim {
         self.people.forget_views();
     }
 
+    /// Whether the notables' tier is on (ADR-0014 §4): only the notables and those an issue
+    /// reaches weigh institutional moves at the weekly review.
+    pub fn notable_tier(&self) -> bool {
+        !self.people.every_adult_deliberates
+    }
+
+    /// Switches the notables' tier on or off; off, every adult weighs institutional moves at the
+    /// weekly review: for the gate that checks the tier (ADR-0014 §4). A setting, never saved: a
+    /// loaded world has the tier on.
+    pub fn set_notable_tier(&mut self, on: bool) {
+        self.people.every_adult_deliberates = !on;
+    }
+
     /// Redraws the scheduler's tie-break stream from `seed` (with the world's seed), so that the
     /// events of an instant from now on fall in another order: a test's hook for several lives of
     /// one world from one save (ADR-0011 §5, Gate B). A world never does it.

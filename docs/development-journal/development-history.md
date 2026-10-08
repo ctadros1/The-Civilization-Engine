@@ -314,7 +314,17 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 - **Evidence:** table-driven tests over the classifier, including cases from the research (twice the people under the same institutions changes nothing; a body admitting a third of the adults is an oligarchy). An integration test labels a village every day on one copy of a save and not on another, and both end byte for byte the same. The end-to-end suite opens a label to its reasons.
 - **Found on the way:** the first ten-year smoke labelled every village at the lowest confidence, because nothing had been decided in the last two years, and the classifier would have called a custom exercised years before "not yet exercised". Laws still in force now count as evidence that the procedure binds.
 
-**Open:** the notables' gate with the demo (Z6) is next. Whether a larger store would keep a village through a poor year is untested; villages chose a twentieth or a tenth.
+**Sixth step, the notables' gate:**
+
+- **What changed:** the notables' tier became a run setting. With it, the notables and those something reached since the last review (a household running short, a gathering they came to, a law they learnt) weigh institutional moves; without it, every adult does. `civ-host notables` lives two fixture worlds three years, five times each way, and compares laws proposed, laws passed, offices filled and the share of food the polity moved, against tolerances fixed from a calibration with the tier. It runs nightly beside Gate B.
+- **A failure, and its cause:** the first gate failed on offices filled (1.6 without the tier against 1.0 with it). The runs showed the tier changing who was named keeper, and with it whether the office had to pass to a successor. The tier had been built with only one of ADR-0014 §4's three ways a non-notable is reached. Built as the ADR specifies, recalibrated by the same rule, the gate passes. The cost of every adult deliberating at a village's size was nil.
+
+**The M4a demo, and what it found:**
+
+- **The demo:** river valley seed 2 lived five years twice from the command line and once in the observer (`web/e2e/m4a-demo.spec.ts`). In each run a gathering passed a common store at a twentieth in the lean weeks before the first harvest and named a keeper within a year; the levy was mostly paid; and in the dry year 4 the harvest halved, nobody went short, and the store gave no relief, because households' own stores carried them. The observer shows a law's whole history, the notables and the label with its reasons.
+- **Found by the demo:** its first observer run voted 27 times on a fifth or a tenth before a twentieth passed, one sponsor proposing 14 of them; nobody learnt anything from a vote they had watched. Now one who came to a gathering expects no more support for the same proposal than they saw it get, for a year (content API 34). The wording of a self-nomination ("proposed themselves as keeper") was fixed too.
+
+**Open:** whether a larger store would keep a village through a poor year is untested; villages chose a twentieth or a tenth.
 
 ## Development pattern that emerged
 

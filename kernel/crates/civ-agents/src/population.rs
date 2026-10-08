@@ -374,6 +374,10 @@ pub struct Population {
     pub standing: crate::standing::StandingTable,
     /// Each settlement's polity, in the order they were founded (ADR-0013 §1).
     pub polities: Vec<crate::polity::Polity>,
+    /// The notables' tier switched off (ADR-0014 §4): every adult weighs moves at the weekly
+    /// review, not only the notables and those an issue reaches. A run setting for the gate that
+    /// checks the tier, never saved; off unless set.
+    pub every_adult_deliberates: bool,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage

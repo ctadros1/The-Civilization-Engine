@@ -490,8 +490,9 @@ notable_floor = 3
 notable_keep = 1.5
 
 [polity]                         # the polity, its gathering and its laws (ADR-0013); tuning values
-# Notables and the elders of households short of food weigh what to propose once a week (ADR-0014
-# §4: notables deliberate weekly; research 09-01 §3.3 gives 7-30 days for routine review).
+# Notables, the elders of households short of food, and whoever came to a gathering or learnt a
+# law since the last review weigh what to propose once a week (ADR-0014 §4: notables deliberate
+# weekly, others when something reaches them; research 09-01 §3.3 gives 7-30 days for review).
 review_days = 7
 notice_days = 1                  # a proposal goes to the gathering the next evening
 gathering_minutes = 120          # the gathering sits from an hour before sunset, for two hours
@@ -509,6 +510,10 @@ w_attend = 0.5                   # points per point at stake in what it decides
 w_followers = 0.5                # a sponsor weighs those who regard them at half their household
 propose_cost = 0.5               # points a proposal costs its sponsor
 temperature = 0.5                # of the choice among moves, points
+# Content API 34: one who came to a gathering expects no more support for the same proposal than
+# they saw it get there, for a year (research 09-05 §1.2: a sponsor weighs expected success; the
+# year is a tuning value).
+vote_memory_days = 365
 # The lean years people believe in before they have seen any: one in four (a prior, no figure in
 # the reports). Lean years seen are those the settlement's food ran short in.
 prior_lean = 1.0

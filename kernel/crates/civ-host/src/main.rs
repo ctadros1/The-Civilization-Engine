@@ -48,6 +48,9 @@ enum Command {
     /// Gate B (ADR-0011 §5): a year from two fixture worlds, several times in each mode, and
     /// Accelerated mode's aggregates against Detailed mode's.
     Consistency(ConsistencyArgs),
+    /// The notables' gate (ADR-0014 §4): two fixture worlds lived three years several times with
+    /// the notables' tier and without it, and their polities' aggregates compared.
+    Notables(NotablesArgs),
     /// Live one world for some years and report how its people live at each year's end.
     Run(RunArgs),
     /// Report a world's weather on the valley floor, year by year, as its seed draws it.
@@ -222,6 +225,21 @@ struct ConsistencyArgs {
 }
 
 #[derive(Args)]
+struct NotablesArgs {
+    #[command(flatten)]
+    folders: Folders,
+    /// Only runs with the tier, to see the spread the tolerances are set from (PROJECT_PLAN §9).
+    #[arg(long)]
+    calibrate: bool,
+    /// Runs at a time [default: the cores, at most four].
+    #[arg(long)]
+    threads: Option<usize>,
+    /// Also write the report as JSON to this file.
+    #[arg(long)]
+    json: Option<PathBuf>,
+}
+
+#[derive(Args)]
 struct DashboardArgs {
     #[command(flatten)]
     folders: Folders,
@@ -280,6 +298,7 @@ fn main() -> ExitCode {
         Command::Smoke(args) => run_smoke(args),
         Command::Dashboard(args) => run_dashboard(args),
         Command::Consistency(args) => run_consistency(args),
+        Command::Notables(args) => run_notables(args),
         Command::Run(args) => run_world(args),
         Command::Weather(args) => weather(args),
     };
@@ -475,6 +494,56 @@ fn save_verify(args: SaveArgs) -> anyhow::Result<ExitCode> {
     let layout = paths::locate(args.folders.content, args.folders.saves, None)?;
     let content = commands::load_content(&layout.content)?;
     Ok(commands::save_verify(&args.file, &content))
+}
+
+fn run_notables(args: NotablesArgs) -> anyhow::Result<ExitCode> {
+    use civ_host::{consistency, notables};
+    let layout = paths::locate(args.folders.content, None, None)?;
+    let content = commands::load_content(&layout.content)?;
+    let threads = args.threads.unwrap_or_else(|| {
+        std::thread::available_parallelism()
+            .map_or(1, std::num::NonZero::get)
+            .min(4)
+    });
+    let runs = if args.calibrate {
+        notables::CALIBRATION_RUNS
+    } else {
+        notables::RUNS
+    };
+    println!(
+        "The notables' gate (ADR-0014 §4): {} fixture worlds at {}² cells, each lived its first \
+         month by the minute and saved; from each, {runs} runs {} at Max to the end of year {}, \
+         each with its own tie-break stream, on {threads} threads",
+        consistency::FIXTURES.len(),
+        consistency::SIZE,
+        if args.calibrate {
+            "with the tier only (calibration)"
+        } else {
+            "with the notables' tier and as many with every adult deliberating"
+        },
+        notables::LAST_YEAR,
+    );
+    let dir = tempfile::tempdir().map_err(|e| anyhow::anyhow!("no temporary folder: {e}"))?;
+    let report = notables::run_gate(
+        &content,
+        notables::NotablesOptions {
+            calibrate: args.calibrate,
+        },
+        dir.path(),
+        threads,
+    )
+    .map_err(|e| anyhow::anyhow!(e))?;
+    notables::print(&report);
+    if let Some(path) = &args.json {
+        let json = serde_json::to_string_pretty(&report)?;
+        std::fs::write(path, json)
+            .map_err(|e| anyhow::anyhow!("cannot write {}: {e}", path.display()))?;
+    }
+    Ok(if report.passed() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    })
 }
 
 fn run_consistency(args: ConsistencyArgs) -> anyhow::Result<ExitCode> {

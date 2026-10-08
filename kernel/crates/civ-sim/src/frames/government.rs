@@ -115,6 +115,8 @@ fn law_line<'a>(
             unanswered: c.unanswered,
             holder: law.holder.map_or(0, |h| h.get()),
             holder_name,
+            broken: c.broken,
+            broken_unaware: c.broken_unaware,
         },
     )
 }

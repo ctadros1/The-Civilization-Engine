@@ -2,6 +2,7 @@ import * as flatbuffers from "flatbuffers";
 import { describe, expect, it } from "vitest";
 
 import {
+  brokenText,
   labelText,
   lawDayText,
   levyText,
@@ -70,6 +71,17 @@ describe("a polity's laws in words", () => {
     ).toBe("Council community: a storekeeper's office; its levy mostly paid (confidence 0.67)");
   });
 
+  it("say how often a curfew was broken", () => {
+    expect(brokenText({ broken: 0, brokenUnaware: 0 })).toBe("");
+    expect(brokenText({ broken: 1, brokenUnaware: 0 })).toBe("broken 1 time by people who knew of it");
+    expect(brokenText({ broken: 12, brokenUnaware: 3 })).toBe(
+      "broken 12 times by people who knew of it, 3 by people who did not",
+    );
+    expect(brokenText({ broken: 0, brokenUnaware: 2 })).toBe(
+      "broken 2 times by people who did not know of it",
+    );
+  });
+
   it("tell what the store gave", () => {
     expect(reliefText({ relieved: 0, reliefKg: 0, unanswered: 0 })).toBe("");
     expect(reliefText({ relieved: 3, reliefKg: 45, unanswered: 1 })).toBe(
@@ -121,6 +133,8 @@ describe("the government on the wire", () => {
       0,
       0n,
       0,
+      7,
+      2,
     );
     const laws = W.PolityLine.createLawsVector(b, [law]);
     const office = b.createString("Storekeeper: Ada, since 3 May of year 2");
@@ -188,6 +202,8 @@ describe("the government on the wire", () => {
       couldNot: 1,
       evaded: 2,
       relieved: 3,
+      broken: 7,
+      brokenUnaware: 2,
       reliefKg: 45,
     });
     expect(l.stances).toHaveLength(1);

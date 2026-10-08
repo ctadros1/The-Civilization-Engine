@@ -13,7 +13,9 @@ use civ_schema::wire;
 use super::response;
 use crate::Sim;
 
-/// Incidents the frame carries, newest first.
+/// Incidents the frame carries, newest first: every taking and every attempt someone saw before
+/// any other, then the newest attempts that turned back unseen, which are the commonest and tell
+/// least (a lean spell can bring dozens).
 pub const MOST_INCIDENTS: usize = 60;
 
 /// "the household of Rilla", for the household `household` as the observer names it now.
@@ -45,9 +47,15 @@ fn what_words(sim: &Sim, i: &Incident) -> String {
                 .goods
                 .iter()
                 .filter_map(|&(g, kg)| {
-                    goods
-                        .get(usize::from(g))
-                        .map(|d| format!("{kg:.0} kg of {}", d.name.to_lowercase()))
+                    goods.get(usize::from(g)).map(|d| {
+                        let name = d.name.to_lowercase();
+                        // Not "0 kg of wild plant food" for a handful.
+                        if kg < 0.5 {
+                            format!("a little {name}")
+                        } else {
+                            format!("{kg:.0} kg of {name}")
+                        }
+                    })
                 })
                 .collect();
             if parts.is_empty() {
@@ -200,7 +208,27 @@ pub fn order_response(sim: &Sim) -> Vec<u8> {
     let order = &pop.order;
     let mut incidents = Vec::new();
     let mut known = Vec::new();
-    for i in order.incidents.iter().rev().take(MOST_INCIDENTS) {
+    let telling = |i: &&civ_agents::crime::Incident| {
+        i.outcome == civ_agents::crime::Outcome::Taken || !i.seen_by.is_empty()
+    };
+    let mut shown: Vec<&civ_agents::crime::Incident> = order
+        .incidents
+        .iter()
+        .rev()
+        .filter(telling)
+        .take(MOST_INCIDENTS)
+        .collect();
+    let room = MOST_INCIDENTS - shown.len();
+    shown.extend(
+        order
+            .incidents
+            .iter()
+            .rev()
+            .filter(|i| !telling(i))
+            .take(room),
+    );
+    shown.sort_unstable_by_key(|i| std::cmp::Reverse(i.id));
+    for i in shown {
         let actor_name = fbb.create_string(&pop.name_of(i.actor));
         let target_name = fbb.create_string(&household_words(sim, i.target));
         let what = fbb.create_string(&what_words(sim, i));

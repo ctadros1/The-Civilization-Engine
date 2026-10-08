@@ -13925,7 +13925,9 @@ struct LawLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_RELIEF_KG = 54,
     VT_UNANSWERED = 56,
     VT_HOLDER = 58,
-    VT_HOLDER_NAME = 60
+    VT_HOLDER_NAME = 60,
+    VT_BROKEN = 62,
+    VT_BROKEN_UNAWARE = 64
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -14014,6 +14016,12 @@ struct LawLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *holder_name() const {
     return GetPointer<const ::flatbuffers::String *>(VT_HOLDER_NAME);
   }
+  uint32_t broken() const {
+    return GetField<uint32_t>(VT_BROKEN, 0);
+  }
+  uint32_t broken_unaware() const {
+    return GetField<uint32_t>(VT_BROKEN_UNAWARE, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -14054,6 +14062,8 @@ struct LawLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_HOLDER, 8) &&
            VerifyOffset(verifier, VT_HOLDER_NAME) &&
            verifier.VerifyString(holder_name()) &&
+           VerifyField<uint32_t>(verifier, VT_BROKEN, 4) &&
+           VerifyField<uint32_t>(verifier, VT_BROKEN_UNAWARE, 4) &&
            verifier.EndTable();
   }
 };
@@ -14149,6 +14159,12 @@ struct LawLineBuilder {
   void add_holder_name(::flatbuffers::Offset<::flatbuffers::String> holder_name) {
     fbb_.AddOffset(LawLine::VT_HOLDER_NAME, holder_name);
   }
+  void add_broken(uint32_t broken) {
+    fbb_.AddElement<uint32_t>(LawLine::VT_BROKEN, broken, 0);
+  }
+  void add_broken_unaware(uint32_t broken_unaware) {
+    fbb_.AddElement<uint32_t>(LawLine::VT_BROKEN_UNAWARE, broken_unaware, 0);
+  }
   explicit LawLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -14190,7 +14206,9 @@ inline ::flatbuffers::Offset<LawLine> CreateLawLine(
     float relief_kg = 0.0f,
     uint32_t unanswered = 0,
     uint64_t holder = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> holder_name = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> holder_name = 0,
+    uint32_t broken = 0,
+    uint32_t broken_unaware = 0) {
   LawLineBuilder builder_(_fbb);
   builder_.add_holder(holder);
   builder_.add_decided_minute(decided_minute);
@@ -14198,6 +14216,8 @@ inline ::flatbuffers::Offset<LawLine> CreateLawLine(
   builder_.add_proposed_minute(proposed_minute);
   builder_.add_sponsor(sponsor);
   builder_.add_id(id);
+  builder_.add_broken_unaware(broken_unaware);
+  builder_.add_broken(broken);
   builder_.add_holder_name(holder_name);
   builder_.add_unanswered(unanswered);
   builder_.add_relief_kg(relief_kg);
@@ -14259,7 +14279,9 @@ inline ::flatbuffers::Offset<LawLine> CreateLawLineDirect(
     float relief_kg = 0.0f,
     uint32_t unanswered = 0,
     uint64_t holder = 0,
-    const char *holder_name = nullptr) {
+    const char *holder_name = nullptr,
+    uint32_t broken = 0,
+    uint32_t broken_unaware = 0) {
   auto what__ = what ? _fbb.CreateString(what) : 0;
   auto policy__ = policy ? _fbb.CreateString(policy) : 0;
   auto sponsor_name__ = sponsor_name ? _fbb.CreateString(sponsor_name) : 0;
@@ -14297,7 +14319,9 @@ inline ::flatbuffers::Offset<LawLine> CreateLawLineDirect(
       relief_kg,
       unanswered,
       holder,
-      holder_name__);
+      holder_name__,
+      broken,
+      broken_unaware);
 }
 
 struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

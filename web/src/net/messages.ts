@@ -814,6 +814,9 @@ export interface LawLine {
   /** Wire 1.28: the one it names (who keeps the store; 0 for none), and their name. */
   holder: number;
   holderName: string;
+  /** Wire 1.33: for a curfew, the times someone broke it knowing of it, and not. */
+  broken: number;
+  brokenUnaware: number;
 }
 
 /** A settlement's polity (wire 1.27): its custom, members, store, gathering called and laws. */
@@ -2786,6 +2789,8 @@ function lawLine(l: W.LawLine): LawLine {
     unanswered: l.unanswered(),
     holder: Number(l.holder()),
     holderName: l.holderName() ?? "",
+    broken: l.broken(),
+    brokenUnaware: l.brokenUnaware(),
   };
 }
 

@@ -179,6 +179,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `comply_base`, `w_comply_known`, `w_comply_regard`, `w_comply_cost`, `keep_days` | The taker's household answers a demand once: points before anything is weighed (−100 to 100), for the share of its settlement's households that believe the taker took and for full regard for the household owed (0 to 100 each), and against, per day of its own food paying would cost (0 to 100). One that means to pay gives food beyond `keep_days` of its need (0 to 3,650) day by day; what it cannot pay when due is an arrear. |
 | | `report_cost`, `w_case_belief`, `w_comply_found`, `exile_days` | Cases (M4b slice AB, ADR-0015 §4–§5; content API 36). Under a law against taking its chooser knows of, a household taken from may bring a case: points for what it would recover (the food and the bundle's compensation, at `w_demand_loss` a day) times the chance it believes the gathering would find (1 − 0.5^accounts, from its distinct witnesses; research 12-04 §1.5), less `report_cost` (0 to 100; 09-07 §4.1) and `w_forgive` for regard; one whose demand was refused or unpaid when due may bring one after. At the hearing each who came weighs `w_case_belief` points (0 to 100) toward a finding if they believe the accused took, otherwise the accounts told there either side of an even chance; the days of food their household stands to gain or lose; and the polity's `w_regard` for the one who brought it less that for the accused. What a finding imposes is answered once, whole, with `w_comply_found` points toward paying (−100 to 100). A bundle that exiles weighs on a taker's household, and stands at stake for it at a hearing, as `exile_days` of its food (0 to 3,650). |
 | | `watch_guard`, `w_watch`, `rounds_per_night`, `round_stops`, `w_watch_report`, `ask_days` | The watch (M4b slice AC, ADR-0015 §6; content API 37). A household weighs a law naming a watch by `watch_guard` (0 to 1) of all it found missing in the past year back to it and as much of what its own members took from it. The one named walks rounds at night: a round is worth `w_watch` points (0 to 100) for the night's first and less for each walked since, up to `rounds_per_night` (1 to 24; research 12-04 §2.1 gives one account of three), each standing watch at `round_stops` homes (1 to 1,000) in a set order. A watcher who sees a taking chooses once: saying nothing is 0 points; bringing it before the gathering, or telling those taken from, is `w_watch_report` (−100 to 100) and `w_forgive` for regard for the household taken from less for regard for the taker; under a law against taking, asking the taker's household for `ask_days` of its food (0 to 365; at most what it can spare) is worth `w_demand_loss` a day of the watcher's household's food, less `w_objection` for their objection (never weighed above its filter) and `w_seen` for the chance they believe they run of being found out (research 09-09 §1.3). The household asked pays with `w_comply_known` points against `w_comply_cost` a day of its food. |
+| | `curfew_guard`, `curfew_cost_days` | The curfew (M4b slice AD; content API 38). A household weighs a curfew by `curfew_guard` (0 to 1) of all it found missing in the past year back to it and as much of what its own members took from it, less `curfew_cost_days` (0 to 365) of its food a year for each hour the curfew runs and each grown member it keeps at home. |
 | `style` | `alpha`, `prestige_most`, `innovation` | How households' taste in building moves (ADR-0009 §7; content API 22): the share of the way a household's taste moves toward the most admired building its settlement finished in the year past (0 to 1); how many times the least admired the most admired weighs (1 to 10), for its owner's standing in goods and how well it was built, equally; and the chance a building has one trait new to its builders, within what its program allows (0 to 1). |
 | | `tradition`, `tradition_spread`, `personal_spread` | Each a table of `pitch_deg`, `eave_m` and `overhang_m`: the way of building founding bands' are drawn around (pitch 0 to 80°, eaves 0.5 to 6 m, overhang 0 to 3 m), the standard deviation of a band's from it, and of each household's from its band's (each from 0 to 20°, 1 m and 1 m). A building is built to its household's taste held to what its program allows. |
 | `mortality` | `a`, `b`, `c`, `d`, `e` | Siler hazard `A·e^(−Bx) + C + D·e^(Ex)` per year: the founders' ages, and everyone's daily risk of dying. |
@@ -588,10 +589,11 @@ template the content no longer has is refused.
 
 | Field | Meaning |
 |---|---|
-| `does` | What the kernel does under it: `common_store`, a share of each household's threshed grain paid into a store the polity keeps at the hearth, and food from it for a household short of food that asks; `keep_store`, a named adult keeps the common store under their own roof and gives from it at their home (the office's first form, below); `against_taking` (content API 36), whoever the gathering finds took from another household's store gives back what was taken, with what the bundle adds (below); or `keep_watch` (content API 37), a named adult keeps watch over the households' stores at night (below). |
+| `does` | What the kernel does under it: `common_store`, a share of each household's threshed grain paid into a store the polity keeps at the hearth, and food from it for a household short of food that asks; `keep_store`, a named adult keeps the common store under their own roof and gives from it at their home (the office's first form, below); `against_taking` (content API 36), whoever the gathering finds took from another household's store gives back what was taken, with what the bundle adds (below); `keep_watch` (content API 37), a named adult keeps watch over the households' stores at night (below); or `curfew` (content API 38), nobody may be away from home in the hours it sets, but the watch at its rounds and those at a gathering (below). |
 | `answers` | The issues whose presence makes proposing it a move: `food_short` (the settlement's food ran short within the year, or a household's food will not last until its next harvest); `store_unkept` (a common store is in force and holds food, and no one keeps it); `takings` (a household of the settlement found food taken from its store within the year). At least one. |
 | `levy_shares` | `common_store` only: the shares of threshed grain a sponsor may propose (1 to 8 of them, each above 0 and below 1). A `keep_store` or `keep_watch` template leaves it out. |
 | `relief_days` | `common_store` only: the most food one ask brings, in days of the asking household's need (above 0, at most 365). A `keep_store` template leaves it out. |
+| `hours` | `curfew` only (content API 38): the hours a sponsor may propose, 1 to 8 pairs `[from, to]` of hours of the day (0 to 23, different), the curfew running from the first to the second, past midnight when the second is the smaller. Any other template leaves it out. |
 | `bundles` | `against_taking` only: the sanctions a sponsor may propose, 1 to 8 tables of `compensation_days` (food to the household taken from beyond what was taken) and `fine_days` (food to the polity's common store), each 0 to 365 days of the taker's household's food, and `exile` (the one found is sent from the valley; default false). Research 09-07 §1.2 keeps restitution, compensation and a fine apart; §6.2: a sanction is a bundle, never one severity number. |
 
 The core pack has `core:policy/common_store`, at a twentieth, a tenth or a fifth (research 09-01
@@ -615,6 +617,19 @@ they regard most (themselves at full regard). A household weighs it by `watch_gu
 found missing in the past year, whoever took it, back to it, and as much of what its own members
 took from it. The holder walks rounds at night as a chosen activity (`behavior = "watch"`,
 `core:activity/keep_watch`), and the law lapses when they die or leave.
+
+A `curfew` law sets its hours from the template's (the core pack's `core:policy/curfew` offers
+21:00 to 5:00 and 23:00 to 4:00, tuning values). A household weighs it by `curfew_guard` of all it
+found missing in the past year back to it and as much of what its own members took from it, as it
+would a watch, less `curfew_cost_days` of its food a year for each hour the curfew runs and each
+grown member it keeps at home. Under a curfew in force, someone who knows of it weighs keeping it
+against any option that would take them off their home's plot (20 m) in its hours: the people
+profile's `[polity]` `comply_base`, `w_stance` for where they stood on it and `w_regard` for their
+regard for its sponsor, as a levy is weighed (research 09-06 §1.5), never below nothing. The watch
+at its rounds and those at a gathering are exempt; breaking it carries no sanction in v0, and the
+law counts the times it was broken by those who knew of it and by those who did not. Closing a
+place (a grove, a fishing ground) is not a kind yet: a household could not forecast it without a
+record of what it gathers.
 
 A `keep_store` law names its holder. Its sponsor nominates the sheltered adult they regard most
 (themselves counted at full regard), each weighs what a year's spoilage saved under a roof is worth
@@ -658,6 +673,10 @@ Content API 37 (M4b slice AC) brings the watch: the policy kind `keep_watch`
 (`core:policy/keep_watch`), the behaviour `watch` (`core:activity/keep_watch`, its stand the
 activity's `min_minutes`), and the `[crime]` keys `watch_guard`, `w_watch`, `rounds_per_night`,
 `round_stops`, `w_watch_report` and `ask_days`, all tuning values.
+
+Content API 38 (M4b slice AD) brings the curfew: the policy kind `curfew` with its `hours`
+(`core:policy/curfew`), and the `[crime]` keys `curfew_guard` and `curfew_cost_days`, tuning
+values (the research gives no figure for what a curfew costs or stops).
 
 ## Planned kinds
 

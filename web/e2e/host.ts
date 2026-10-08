@@ -56,6 +56,27 @@ export function makeWorkshopWorld(saves: string): void {
   }
 }
 
+/**
+ * Makes a village through a lean spell in `saves`, with the `theft_world` example of civ-sim
+ * (takings come only where some households have food and others none, and a natural run may have
+ * none), and waits; returns what the example printed, which says whether a finding settled. Needs
+ * cargo.
+ */
+export function makeTheftWorld(saves: string, seed = "4"): string {
+  const done = spawnSync(
+    "cargo",
+    [
+      ...["run", "--release", "--quiet", "-p", "civ-sim", "--example", "theft_world"],
+      ...["--", saves, seed],
+    ],
+    { cwd: path.join(repo, "kernel"), encoding: "utf8", timeout: 1_800_000 },
+  );
+  if (done.status !== 0) {
+    throw new Error(`theft_world failed (${done.status}):\n${done.stdout}\n${done.stderr}`);
+  }
+  return done.stdout;
+}
+
 export interface Host {
   url: string;
   process: ChildProcess;

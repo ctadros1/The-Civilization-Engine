@@ -383,6 +383,23 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** whether a watch changes how often takers succeed: the smoke's villages take a few times a decade. Curfew, prohibitions, the dashboard's crime row and the M4b demo (AD) are next.
 
+## 2026-10-08 — M4b slice AD: curfews, the crime row and the demo
+
+**Goal:** close M4b: a prohibition in the law pipeline, plan §4.7's crime row graded by its direction, and the demo of a theft from the act to its end.
+
+**What changed:**
+
+- **Curfews.** A `curfew` policy people may propose against takings, at the hours its template offers. A household weighs it as a watch, at a smaller share of what it lost, less what keeping its grown members at home costs it. Under one in force, anyone who knows of it weighs keeping it against any option that would take them off their home's plot in its hours, with the levy's terms: custom, where they stood on it and their regard for its sponsor. The watch at its rounds and those at a gathering are exempt; there is no sanction, and the law counts its breaches, shown in the Government panel.
+- **The crime row.** Every attempt to take records where the taker's household stood by food among its neighbours. The dashboard grades every attempt by that share, by direction only, with takings, those seen and cases beside it, ungraded; the smoke reports the share too.
+- **The demo.** civ-sim's `theft_world` example sets a lean spell going (every other household loses its food) and lives it until a case has been found and settled; the M4b demo spec shows that village's takings, the case and the law. The Takings panel now keeps takings and seen attempts ahead of the many unseen attempts that turned back.
+- **Boundary:** saves schema 34 (saves 33 still load), wire 1.33, content API 38.
+
+**Found on the way:** closing a grove would be inert: fallen wood grows at a constant rate, and for game and fish no household keeps a record from which to forecast a closure, so closures are designed and not built. In the template's night hours nearly everyone is already at home asleep, so the curfew's test runs through a working day to see whether keeping it weighs. Lean spells mostly end without a case (one world in five or six), so the demo's example makes up to twelve worlds and says which it kept. A pre-existing flaky test, a household keeping less seed than its fields need after the first harvest, fails about one run in twelve.
+
+**Evidence:** unit tests for the curfew's hours, being away from home, the content checks and the crime row's grading; integration tests that a known curfew keeps people in (175 samples away against 662 without) with breaches counted and an exact save and load, and that incidents carry the food measure (10 runs of 10). The kernel, web and end-to-end suites pass but for the flaky test. The ten-year smoke passed all 10 worlds: three coast villages passed a watch, a law against taking and a curfew; their takers' neighbours were richer in 0.73 of 42 attempts. The fifty-year dashboard's crime row was grey (no attempt in five valley worlds) and its structural failures red by chance (11 in 4,484 building-years). Gate B and the notables' gate passed.
+
+**Open:** whether curfews change how often takers succeed, and the crime row's grade where the dashboard's worlds go hungry. M4c, factions and unrest, is next.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

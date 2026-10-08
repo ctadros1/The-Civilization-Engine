@@ -18,6 +18,11 @@
 //!   hours above the median.
 //! - **Structural failures:** failures of buildings lived in, per 1,000 years they stood lived
 //!   in, at most [`MAX_FAILURES_PER_1000`]. Those of buildings nobody lives in are counted apart.
+//! - **Crime and poverty** (M4b slice AD): over all the worlds' attempts to take, where each
+//!   taker's household stood among its settlement's by food when they came, graded by direction
+//!   only: more of their neighbours held more than held less, once there are [`MIN_ATTEMPTS`].
+//!   Takings, those seen and those brought as cases (recorded crime, which is not crime: research
+//!   12-04 §4.B) are shown beside the attempts and not graded.
 //!
 //! The rest of §4.7 is grey, each with its reason, and never counts as a pass. Five worlds and fifty
 //! years are fixed, so the dashboard cannot grow into a campaign, and a failing run is not rerun
@@ -68,6 +73,9 @@ pub const GINI_FLOOR: f64 = 0.1;
 /// Most failures of buildings lived in, per 1,000 years they stood lived in (research 11-06
 /// §2.4's top scenario, one, doubled to allow for chance: tuning).
 pub const MAX_FAILURES_PER_1000: f64 = 2.0;
+/// Least attempts to take, all worlds together, for the crime row to be graded (tuning: at 30,
+/// a mean share of one half has a standard error of about 0.05).
+pub const MIN_ATTEMPTS: u32 = 30;
 
 /// What to run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -121,12 +129,120 @@ pub struct WorldRun {
     /// What each settlement's polity would be called at the end, with what qualifies it
     /// (ADR-0013 §6).
     pub labels: Vec<String>,
+    /// Its attempts to take, by where the taker's household stood by food.
+    pub crime: CrimeSeen,
 }
 
 impl WorldRun {
     /// People at the end of the run.
     pub fn living(&self) -> usize {
         self.people.last().copied().unwrap_or(0)
+    }
+}
+
+/// Attempts to take of one kind, counted with where each taker's household stood among its
+/// settlement's by food: the sum of the shares of its neighbours that held more
+/// ([`civ_agents::crime::Incident::richer`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct Ranked {
+    /// Attempts whose household could be compared with its neighbours.
+    pub n: u32,
+    /// The sum of the shares of their neighbours that held more.
+    pub richer: f64,
+}
+
+impl Ranked {
+    fn add(&mut self, richer: f32) {
+        if richer.is_finite() {
+            self.n += 1;
+            self.richer += f64::from(richer);
+        }
+    }
+
+    fn join(&mut self, other: Ranked) {
+        self.n += other.n;
+        self.richer += other.richer;
+    }
+
+    /// The mean share of their neighbours that held more: about one half if takers came from any
+    /// household alike, more if from the poorer.
+    pub fn mean(&self) -> Option<f64> {
+        (self.n > 0).then(|| self.richer / f64::from(self.n))
+    }
+}
+
+/// A world's attempts to take, the truth, with what came to be known of them beside it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct CrimeSeen {
+    /// Every attempt.
+    pub attempts: Ranked,
+    /// Those that carried food off.
+    pub takings: Ranked,
+    /// Those someone saw.
+    pub seen: Ranked,
+    /// Those brought before a gathering.
+    pub cases: Ranked,
+}
+
+impl CrimeSeen {
+    /// The tally of `order`'s incidents.
+    pub fn of(order: &civ_agents::crime::Order) -> CrimeSeen {
+        let mut c = CrimeSeen::default();
+        for i in &order.incidents {
+            c.attempts.add(i.richer);
+            if i.outcome == civ_agents::crime::Outcome::Taken {
+                c.takings.add(i.richer);
+            }
+            if !i.seen_by.is_empty() {
+                c.seen.add(i.richer);
+            }
+            if order.cases.iter().any(|k| k.incident == i.id) {
+                c.cases.add(i.richer);
+            }
+        }
+        c
+    }
+
+    fn join(&mut self, other: &CrimeSeen) {
+        self.attempts.join(other.attempts);
+        self.takings.join(other.takings);
+        self.seen.join(other.seen);
+        self.cases.join(other.cases);
+    }
+
+    /// In words: "34 attempts, 0.71 of their neighbours richer on average; 12 takings (0.68), 8
+    /// seen (0.70), 3 brought as cases (0.80)".
+    pub fn words(&self) -> String {
+        let one = |r: &Ranked, one: &str, many: &str, none: &str| {
+            let what = if r.n == 1 { one } else { many };
+            match r.mean() {
+                Some(m) => format!("{} {what} ({m:.2})", r.n),
+                None => none.to_owned(),
+            }
+        };
+        let attempts = match self.attempts.mean() {
+            Some(m) => format!(
+                "{} {}, {m:.2} of the takers' neighbours richer on average",
+                self.attempts.n,
+                if self.attempts.n == 1 {
+                    "attempt"
+                } else {
+                    "attempts"
+                }
+            ),
+            None => "no attempts".to_owned(),
+        };
+        format!(
+            "{attempts}; {}, {}, {}",
+            one(&self.takings, "taking", "takings", "no takings"),
+            one(&self.seen, "seen", "seen", "none seen"),
+            one(
+                &self.cases,
+                "brought as a case",
+                "brought as cases",
+                "none brought as cases"
+            ),
+        )
     }
 }
 
@@ -396,6 +512,7 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
         }
     }
     world.gini = by_year.into_iter().map(|(y, (g, p))| (y, g, p)).collect();
+    world.crime = CrimeSeen::of(&sim.people().order);
     world.labels = sim
         .people()
         .polities
@@ -437,10 +554,7 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
             Grade::Gray,
             "one settlement a world until regions (M5)".to_owned(),
         ),
-        Row::new("Crime and poverty", "crime against poverty", "correlated").graded(
-            Grade::Gray,
-            "no crime until councils and law (M4)".to_owned(),
-        ),
+        crime(worlds),
         Row::new(
             "Epidemics",
             "waterborne cases against contaminated sources",
@@ -475,6 +589,34 @@ fn regimes(worlds: &[WorldRun]) -> Row {
             format!("{} / {why}", seen.join(" / "))
         },
     )
+}
+
+/// Crime against poverty (plan §4.7; M4b slice AD): every attempt to take, all worlds together,
+/// by the share of the taker's settlement's other households that held more food when they came,
+/// graded by its direction only. What was recorded is shown beside it, ungraded: better detection
+/// raises recorded crime (research 12-04 §4.B).
+fn crime(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Crime and poverty",
+        "every attempt to take, by the share of the taker's neighbours holding more food, \
+         all worlds together; takings, those seen and cases beside",
+        "with 30 attempts or more, more than half of the neighbours richer on average",
+    )
+    .source("plan §4.7; research 04-09 §5.10 (attempts as well as completions); 30 is tuning");
+    let mut all = CrimeSeen::default();
+    for w in worlds {
+        all.join(&w.crime);
+    }
+    let words = all.words();
+    match all.attempts.mean() {
+        Some(m) if all.attempts.n >= MIN_ATTEMPTS => {
+            row.graded(if m > 0.5 { Grade::Green } else { Grade::Red }, words)
+        }
+        _ => row.graded(
+            Grade::Gray,
+            format!("too few attempts to take to judge, {MIN_ATTEMPTS} needed: {words}"),
+        ),
+    }
 }
 
 /// The most a band may have grown by the end of year `y`, as a multiple of its founders.
@@ -881,6 +1023,44 @@ mod tests {
         // counts as one.
         assert!(dashboard.passed());
         assert_eq!(dashboard.summary(), "1 passed, 8 not yet applicable");
+    }
+
+    #[test]
+    fn crime_is_graded_by_its_direction_over_attempts_and_needs_enough() {
+        let ranked = |n: u32, mean: f64| Ranked {
+            n,
+            richer: f64::from(n) * mean,
+        };
+        let mut a = world(1, &[40]);
+        a.crime.attempts = ranked(20, 0.7);
+        a.crime.takings = ranked(5, 0.8);
+        // Twenty attempts: too few, and the row says why.
+        let row = crime(&[a.clone()]);
+        assert_eq!(row.grade, Grade::Gray);
+        assert!(row.text.starts_with("too few"), "{}", row.text);
+        // Two worlds' together are enough; the takers came from the poorer.
+        let mut b = a.clone();
+        b.seed = 2;
+        b.crime.attempts = ranked(10, 0.6);
+        let row = crime(&[a.clone(), b.clone()]);
+        assert_eq!(row.grade, Grade::Green, "{}", row.text);
+        assert!(
+            row.text
+                .starts_with("30 attempts, 0.67 of the takers' neighbours richer"),
+            "{}",
+            row.text
+        );
+        assert!(row.text.contains("10 takings (0.80)"), "{}", row.text);
+        assert!(
+            row.text.contains("none seen, none brought as cases"),
+            "{}",
+            row.text
+        );
+        // From the richer, or from any household alike: the wrong direction.
+        b.crime.attempts = ranked(40, 0.2);
+        assert_eq!(crime(&[a.clone(), b.clone()]).grade, Grade::Red);
+        a.crime.attempts = ranked(30, 0.5);
+        assert_eq!(crime(&[a]).grade, Grade::Red, "one half is no direction");
     }
 
     #[test]

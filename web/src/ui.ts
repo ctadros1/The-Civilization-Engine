@@ -43,6 +43,7 @@ import { materialGoods } from "./deposits.js";
 import { introducible, knowRows, summaryText, techniqueRows } from "./knowledge.js";
 import { standingText, tieText } from "./standing.js";
 import {
+  brokenText,
   labelText,
   lawDayText,
   levyText,
@@ -1928,6 +1929,8 @@ export function bindUi(store: Store, actions: Actions): void {
           if (levy) facts.append(el("dt", { text: "Levy" }), el("dd", { text: levy }));
           const relief = reliefText(l);
           if (relief) facts.append(el("dt", { text: "Relief" }), el("dd", { text: relief }));
+          const broken = brokenText(l);
+          if (broken) facts.append(el("dt", { text: "Kept" }), el("dd", { text: broken }));
         }
         const details = el(
           "details",

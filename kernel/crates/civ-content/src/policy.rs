@@ -18,7 +18,8 @@ pub(crate) struct PolicyFile {
     pub id: String,
     pub name: String,
     pub description: String,
-    /// What the kernel does under it: `common_store`, `keep_store` or `against_taking`.
+    /// What the kernel does under it: `common_store`, `keep_store`, `against_taking`,
+    /// `keep_watch` or `curfew`.
     pub does: String,
     /// The issues it answers: `food_short`, `store_unkept`, `takings`.
     pub answers: Vec<String>,
@@ -32,6 +33,10 @@ pub(crate) struct PolicyFile {
     /// first.
     #[serde(default)]
     pub bundles: Vec<BundleFile>,
+    /// For a curfew (content API 38): the hours a sponsor may propose, each `[from, to]` hours of
+    /// the day, past midnight when `to` is the smaller.
+    #[serde(default)]
+    pub hours: Vec<[u8; 2]>,
 }
 
 /// One sanction bundle of a law against taking: what it adds to giving back what was taken, in
@@ -72,6 +77,7 @@ impl PolicyFile {
                     exile: b.exile,
                 })
                 .collect(),
+            hours: self.hours.iter().map(|h| (h[0], h[1])).collect(),
         }
     }
 
@@ -117,7 +123,7 @@ impl PolicyFile {
                     ));
                 }
             }
-            Some(k @ (PolicyKind::KeepStore | PolicyKind::KeepWatch))
+            Some(k @ (PolicyKind::KeepStore | PolicyKind::KeepWatch | PolicyKind::Curfew))
                 if !self.levy_shares.is_empty() || self.relief_days != 0.0 =>
             {
                 p.push(format!(
@@ -153,7 +159,25 @@ impl PolicyFile {
                     }
                 }
             }
-            Some(PolicyKind::KeepStore | PolicyKind::KeepWatch) | None => {}
+            Some(PolicyKind::KeepStore | PolicyKind::KeepWatch | PolicyKind::Curfew) | None => {}
+        }
+        if PolicyKind::from_name(&self.does) == Some(PolicyKind::Curfew) {
+            if !(1..=8).contains(&self.hours.len()) {
+                p.push(format!(
+                    "`hours` must hold 1 to 8 pairs (got {})",
+                    self.hours.len()
+                ));
+            }
+            for h in &self.hours {
+                if h[0] > 23 || h[1] > 23 || h[0] == h[1] {
+                    p.push(format!(
+                        "each of `hours` must be two different hours of the day, 0 to 23 (got \
+                         {h:?})"
+                    ));
+                }
+            }
+        } else if !self.hours.is_empty() {
+            p.push("only a `curfew` policy has `hours`".to_owned());
         }
         if PolicyKind::from_name(&self.does) != Some(PolicyKind::AgainstTaking)
             && !self.bundles.is_empty()
@@ -179,6 +203,7 @@ mod tests {
             levy_shares: vec![0.2, 0.05, 0.1],
             relief_days: 5.0,
             bundles: Vec::new(),
+            hours: Vec::new(),
         }
     }
 
@@ -270,5 +295,30 @@ mod tests {
                 .iter()
                 .any(|m| m.contains("only an `against_taking`"))
         );
+    }
+
+    #[test]
+    fn a_curfew_carries_its_hours_and_nothing_else_does() {
+        let mut f = file();
+        f.does = "curfew".to_owned();
+        f.answers = vec!["takings".to_owned()];
+        f.levy_shares.clear();
+        f.relief_days = 0.0;
+        assert!(
+            f.problems().iter().any(|m| m.contains("1 to 8 pairs")),
+            "{:?}",
+            f.problems()
+        );
+        f.hours = vec![[21, 5]];
+        assert!(f.problems().is_empty(), "{:?}", f.problems());
+        let d = f.def();
+        assert_eq!(d.kind, PolicyKind::Curfew);
+        assert_eq!(d.hours, vec![(21, 5)]);
+        f.hours = vec![[24, 5], [6, 6]];
+        assert_eq!(f.problems().len(), 2, "{:?}", f.problems());
+        // A common store has no hours.
+        let mut g = file();
+        g.hours = vec![[21, 5]];
+        assert!(g.problems().iter().any(|m| m.contains("only a `curfew`")));
     }
 }

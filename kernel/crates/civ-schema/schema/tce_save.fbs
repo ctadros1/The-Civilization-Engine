@@ -1106,6 +1106,12 @@ table LawSave {
   watch_night: long (id: 31);
   watch_tonight: ubyte (id: 32);
   watch_next: uint (id: 33);
+  // A curfew's hours, from and to (0 and 0 for other laws), and the times someone broke it
+  // knowing of it and not (schema 34).
+  from_hour: ubyte (id: 34);
+  to_hour: ubyte (id: 35);
+  broken: uint (id: 36);
+  broken_unaware: uint (id: 37);
 }
 
 // `law` 0: called on cases only (M4b slice AB).
@@ -1165,6 +1171,11 @@ table IncidentSave {
   kcal: float (id: 8);
   seen_by: [ulong] (id: 9);
   noticed: bool (id: 10);
+  // The taker's household's food when they came, in days of its need, and the share of the other
+  // households of its settlement that held more, ties counting half (schema 34); NaN when unknown,
+  // as in older saves.
+  food_days: float = nan (id: 11);
+  richer: float = nan (id: 12);
 }
 
 // `taker`, `from` and `origin` are 0 when unknown or none. `source`: 0 saw it, 1 told, 2 found the

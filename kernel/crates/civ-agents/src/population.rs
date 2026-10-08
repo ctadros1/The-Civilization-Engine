@@ -3004,6 +3004,28 @@ impl Population {
                 }
             }
         }
+        // A curfew in force where they live (M4b slice AD): being away from home in its hours
+        // costs one who knows of it what keeping it weighs with them. The watch at its rounds and
+        // those at a gathering are exempt.
+        let curfew = self
+            .people
+            .get(h)
+            .map(|p| p.id)
+            .and_then(|id| self.curfew_now(ctx, id, &hh, minute));
+        let covered = |c: &decide::Candidate| {
+            let exempt = catalog
+                .activities
+                .get(usize::from(c.scored.def))
+                .is_some_and(|a| matches!(a.behavior, Behavior::Watch | Behavior::Attend));
+            !exempt && self::polity::away_from_home(&c.steps, pos, hh.home)
+        };
+        if let Some((_, _, Some(points))) = curfew {
+            for c in &mut cands {
+                if covered(c) {
+                    decide::add_term(c, Reason::Curfew, -points);
+                }
+            }
+        }
         let Some(p) = self.people.get_mut(h) else {
             return;
         };
@@ -3089,6 +3111,17 @@ impl Population {
                 facts.water_days as f32,
             ],
         };
+        // One who goes out in a curfew's hours breaks it, knowing it or not.
+        if let Some((pi, li, points)) = curfew
+            && covered(&cands[choice])
+            && let Some(law) = self.polities.get_mut(pi).and_then(|x| x.laws.get_mut(li))
+        {
+            if points.is_some() {
+                law.compliance.broken += 1;
+            } else {
+                law.compliance.broken_unaware += 1;
+            }
+        }
         let chosen = &cands[choice];
         let mut target = chosen.scored.target;
         if target == Target::NewField {

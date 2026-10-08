@@ -22280,6 +22280,8 @@ impl<'a> LawLine<'a> {
   pub const VT_UNANSWERED: ::flatbuffers::VOffsetT = 56;
   pub const VT_HOLDER: ::flatbuffers::VOffsetT = 58;
   pub const VT_HOLDER_NAME: ::flatbuffers::VOffsetT = 60;
+  pub const VT_BROKEN: ::flatbuffers::VOffsetT = 62;
+  pub const VT_BROKEN_UNAWARE: ::flatbuffers::VOffsetT = 64;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -22297,6 +22299,8 @@ impl<'a> LawLine<'a> {
     builder.add_proposed_minute(args.proposed_minute);
     builder.add_sponsor(args.sponsor);
     builder.add_id(args.id);
+    builder.add_broken_unaware(args.broken_unaware);
+    builder.add_broken(args.broken);
     if let Some(x) = args.holder_name { builder.add_holder_name(x); }
     builder.add_unanswered(args.unanswered);
     builder.add_relief_kg(args.relief_kg);
@@ -22527,6 +22531,20 @@ impl<'a> LawLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(LawLine::VT_HOLDER_NAME, None)}
   }
+  #[inline]
+  pub fn broken(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawLine::VT_BROKEN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn broken_unaware(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawLine::VT_BROKEN_UNAWARE, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for LawLine<'_> {
@@ -22564,6 +22582,8 @@ impl ::flatbuffers::Verifiable for LawLine<'_> {
      .visit_field::<u32>("unanswered", Self::VT_UNANSWERED, false)?
      .visit_field::<u64>("holder", Self::VT_HOLDER, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("holder_name", Self::VT_HOLDER_NAME, false)?
+     .visit_field::<u32>("broken", Self::VT_BROKEN, false)?
+     .visit_field::<u32>("broken_unaware", Self::VT_BROKEN_UNAWARE, false)?
      .finish();
     Ok(())
   }
@@ -22598,6 +22618,8 @@ pub struct LawLineArgs<'a> {
     pub unanswered: u32,
     pub holder: u64,
     pub holder_name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub broken: u32,
+    pub broken_unaware: u32,
 }
 impl<'a> Default for LawLineArgs<'a> {
   #[inline]
@@ -22632,6 +22654,8 @@ impl<'a> Default for LawLineArgs<'a> {
       unanswered: 0,
       holder: 0,
       holder_name: None,
+      broken: 0,
+      broken_unaware: 0,
     }
   }
 }
@@ -22758,6 +22782,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LawLineBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(LawLine::VT_HOLDER_NAME, holder_name);
   }
   #[inline]
+  pub fn add_broken(&mut self, broken: u32) {
+    self.fbb_.push_slot::<u32>(LawLine::VT_BROKEN, broken, 0);
+  }
+  #[inline]
+  pub fn add_broken_unaware(&mut self, broken_unaware: u32) {
+    self.fbb_.push_slot::<u32>(LawLine::VT_BROKEN_UNAWARE, broken_unaware, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LawLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LawLineBuilder {
@@ -22804,6 +22836,8 @@ impl ::core::fmt::Debug for LawLine<'_> {
       ds.field("unanswered", &self.unanswered());
       ds.field("holder", &self.holder());
       ds.field("holder_name", &self.holder_name());
+      ds.field("broken", &self.broken());
+      ds.field("broken_unaware", &self.broken_unaware());
       ds.finish()
   }
 }

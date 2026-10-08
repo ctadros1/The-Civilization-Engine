@@ -137,11 +137,14 @@ pub enum Reason {
     Duty = 28,
     /// Excluded: they keep no watch, it is not dark, or they have walked tonight's rounds.
     NoWatch = 132,
+    /// A curfew they know of forbids being away from home now (M4b slice AD): what keeping it
+    /// weighs with them.
+    Curfew = 29,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 61] = [
+    pub const ALL: [Reason; 62] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -203,6 +206,7 @@ impl Reason {
         Reason::TurnedBackLately,
         Reason::Duty,
         Reason::NoWatch,
+        Reason::Curfew,
     ];
 
     /// The reason with this code.
@@ -274,6 +278,7 @@ impl Reason {
             Reason::TurnedBackLately => "turned back from a store lately",
             Reason::Duty => "the watch they keep",
             Reason::NoWatch => "no watch of theirs to keep now",
+            Reason::Curfew => "a curfew forbids being away from home now",
         }
     }
 }

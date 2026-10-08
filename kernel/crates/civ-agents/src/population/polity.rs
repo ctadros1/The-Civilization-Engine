@@ -443,8 +443,13 @@ impl Population {
             .iter()
             .map(|&h| (h, self.takings_known(h, now, params)))
             .collect();
-        // What a move would bring household `h`: a store at a levy share, a store kept, or a law
-        // against taking with its bundle.
+        // Grown members of each household, whom a curfew keeps at home.
+        let mut adults: BTreeMap<PermanentId, u32> = BTreeMap::new();
+        for &(_, h) in &members {
+            *adults.entry(h).or_default() += 1;
+        }
+        // What a move would bring household `h`: a store at a levy share, a store kept, a law
+        // against taking with its bundle, a watch, or a curfew.
         let policies = &ctx.catalog.policies;
         let gain_of = |m: &MoveOption, h: PermanentId| {
             let Ok(i) = outlooks.binary_search_by_key(&h, |o| o.0) else {
@@ -468,6 +473,20 @@ impl Population {
                     let (recover, owe) = known.watched(params.crime.watch_guard);
                     crate::polity::against_gain(o, recover, owe, pp)
                 }
+                // A curfew (M4b slice AD): as a watch, at its own share, less what keeping its
+                // grown members at home in its hours costs it.
+                Some(PolicyKind::Curfew) => {
+                    let known = takings
+                        .binary_search_by_key(&h, |t| t.0)
+                        .map_or_else(|_| Default::default(), |k| takings[k].1);
+                    let (recover, owe) = known.watched(params.crime.curfew_guard);
+                    let home = params.crime.curfew_cost_days
+                        * f64::from(crate::polity::hours_long(m.hours))
+                        * f64::from(adults.get(&h).copied().unwrap_or(0))
+                        * o.year_need
+                        / 365.0;
+                    crate::polity::against_gain(o, recover, owe + home, pp)
+                }
                 _ => crate::polity::store_gain(o, &belief, m.levy_share, pp),
             }
         };
@@ -490,6 +509,7 @@ impl Population {
                     issue,
                     nominee: None,
                     sanction: Default::default(),
+                    hours: (0, 0),
                     own_gain: 0.0,
                     followers_gain: 0.0,
                     support: 0.5,
@@ -506,6 +526,11 @@ impl Population {
                     PolicyKind::AgainstTaking => {
                         for &sanction in &def.bundles {
                             moves.push(MoveOption { sanction, ..blank });
+                        }
+                    }
+                    PolicyKind::Curfew => {
+                        for &hours in &def.hours {
+                            moves.push(MoveOption { hours, ..blank });
                         }
                     }
                     PolicyKind::KeepStore => {
@@ -593,7 +618,10 @@ impl Population {
                     .iter()
                     .rev()
                     .filter(|l| {
-                        l.policy == m.policy && l.holder == m.nominee && l.sanction == m.sanction
+                        l.policy == m.policy
+                            && l.holder == m.nominee
+                            && l.sanction == m.sanction
+                            && l.hours == m.hours
                     })
                     .filter(|l| (f64::from(l.levy_share) - m.levy_share).abs() < 1e-4)
                     .filter(|l| {
@@ -645,6 +673,7 @@ impl Population {
             holder: m.nominee,
             relief_days: def.relief_days as f32,
             sanction: m.sanction,
+            hours: m.hours,
             status: LawStatus::Proposed,
             sponsor,
             proposed: now,
@@ -945,6 +974,39 @@ impl Population {
         })
     }
 
+    /// A curfew in force where household `hh` lives and running at minute `minute` of the day
+    /// (M4b slice AD): its polity and law, by index, and, if `person` knows of it, the points
+    /// keeping it weighs with them (research 09-06 §1.5: the custom that the gathering binds,
+    /// where they stood on it and their regard for its sponsor, as a levy's; never below 0).
+    pub(crate) fn curfew_now(
+        &self,
+        ctx: &Ctx,
+        person: PermanentId,
+        hh: &Household,
+        minute: i64,
+    ) -> Option<(usize, usize, Option<f64>)> {
+        let pi = self.polity_of(hh.settlement?)?;
+        let laws = &self.polities[pi].laws;
+        let li = laws.iter().position(|l| {
+            l.status == LawStatus::InForce
+                && l.kind == PolicyKind::Curfew
+                && crate::polity::within_hours(l.hours, minute)
+        })?;
+        let law = &laws[li];
+        let points = law.knows(person).then(|| {
+            let stance = law
+                .stances
+                .iter()
+                .find(|r| r.person == person)
+                .map_or(0.0, |r| r.stance.sign());
+            let regard =
+                self.ties
+                    .regard(person, law.sponsor, ctx.now.day_index(), &ctx.params.ties);
+            crate::polity::comply_points(stance, regard, 0.0, &ctx.params.polity).max(0.0)
+        });
+        Some((pi, li, points))
+    }
+
     /// `person` sits down at the gathering of their settlement.
     pub(crate) fn attend(&mut self, ctx: &Ctx, person: PermanentId) {
         let Some(settlement) = self
@@ -1168,5 +1230,51 @@ impl Population {
         } else {
             c.unanswered += 1;
         }
+    }
+}
+
+/// How near home a place is still on the household's own plot, metres: what a curfew allows (a
+/// tuning value, about the reach of a home's own buildings).
+pub(crate) const HOME_PLOT_M: f32 = 20.0;
+
+/// Whether doing what `steps` say, from `pos`, takes someone off the plot of their home `home`:
+/// a walk anywhere farther, or work where they stand while they are already farther. A walk home
+/// is never away.
+pub(crate) fn away_from_home(steps: &[Step], pos: (f32, f32), home: (f32, f32)) -> bool {
+    let off = |at: (f32, f32)| (at.0 - home.0).hypot(at.1 - home.1) > HOME_PLOT_M;
+    let mut walked = false;
+    for s in steps {
+        if let Step::Walk { to } = s {
+            walked = true;
+            if off(*to) {
+                return true;
+            }
+        }
+    }
+    !walked && off(pos)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn going_out_is_away_and_walking_home_is_not() {
+        let home = (100.0, 100.0);
+        let walk = |to| Step::Walk { to };
+        let work = Step::Work { minutes: 30 };
+        // From home to the hearth 40 m off, and back: away.
+        assert!(away_from_home(
+            &[walk((140.0, 100.0)), work, walk(home)],
+            home,
+            home
+        ));
+        // Home from the hearth, to sleep: never away.
+        assert!(!away_from_home(&[walk(home), work], (140.0, 100.0), home));
+        // Work where they stand: away only if they stand off the plot.
+        assert!(away_from_home(&[work], (140.0, 100.0), home));
+        assert!(!away_from_home(&[work], (110.0, 100.0), home));
+        // A store beside the home is on its plot.
+        assert!(!away_from_home(&[walk((115.0, 105.0)), work], home, home));
     }
 }

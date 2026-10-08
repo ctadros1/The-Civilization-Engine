@@ -1,0 +1,16 @@
+# A curfew (M4b slice AD; the M4 crime brief §1.6: "nobody may be off their own plot in set
+# hours"): nobody of the settlement may be away from home in the hours the law sets, but the one
+# keeping the watch at its rounds and those at a gathering. Keeping it is each person's choice
+# (research 09-06 §1.5): the custom that a gathering binds, where they stood on it and their regard
+# for its sponsor weigh against going out, as they weigh toward paying a levy. It carries no
+# sanction in v0; nobody is stopped or brought before the gathering for breaking it. Curfews have
+# enforced status hierarchies (12-04 §1.1, Charleston's night watch), so the observer says who it
+# covers. The hours are tuning values. Whether anyone proposes it, for which hours, and whether a
+# gathering passes it, is people's choice.
+kind = "policy"
+id = "core:policy/curfew"
+name = "Curfew"
+description = "Nobody may be away from home in the hours it sets, but the watch at its rounds and those at a gathering."
+does = "curfew"
+answers = ["takings"]
+hours = [[21, 5], [23, 4]]

@@ -151,6 +151,7 @@ fn the_hungry_take_from_those_with_food_and_word_follows_what_was_seen() {
         .notice_chance = 0.0;
     let (may, may_not) = lean_spell(&mut sim);
     assert!(!may.is_empty() && !may_not.is_empty());
+    let spell = sim.now().minutes();
     let held_before = sim.people().goods_held();
     let flows_before = sim.people().flows();
     // Most who go to take turn back: someone is home or about (guardianship, settled on
@@ -192,6 +193,25 @@ fn the_hungry_take_from_those_with_food_and_word_follows_what_was_seen() {
             i.actor
         );
         assert!(i.goods.is_empty() == (i.outcome != Outcome::Taken));
+        // Where the taker's household stood by food among its neighbours (the dashboard's crime
+        // row): a measure, never an input.
+        assert!(
+            i.food_days >= 0.0 && (0.0..=1.0).contains(&i.richer),
+            "{} days of food, {} of the neighbours richer",
+            i.food_days,
+            i.richer
+        );
+    }
+    // While the other half still had food, those who went to take came from the half with none.
+    let early: Vec<f32> = order
+        .incidents
+        .iter()
+        .filter(|i| i.at.minutes() < spell + 5 * DAY)
+        .map(|i| i.richer)
+        .collect();
+    if !early.is_empty() {
+        let mean = early.iter().map(|&r| f64::from(r)).sum::<f64>() / early.len() as f64;
+        assert!(mean > 0.5, "takers' neighbours richer: {early:?}");
     }
     // Takings move goods and never make them (ADR-0015 §2).
     let goods = &sim.rules().catalog.goods;
@@ -327,7 +347,7 @@ fn a_debt_meant_to_be_paid_is_paid_from_what_can_be_spared(sim: &mut Sim) {
 
 /// Puts a law of kind `kind` in force at the first polity, as a gathering would have passed it,
 /// known to every adult there: for a law against taking, with the template's harshest bundle (it
-/// exiles); for an office, naming the first adult by id. Returns the polity's id and the law's.
+/// exiles); for an office, naming the first adult by id; for a curfew, the template's first hours. Returns the polity's id and the law's.
 fn a_law(sim: &mut Sim, kind: civ_agents::polity::PolicyKind) -> (PermanentId, PermanentId) {
     use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome as Decided};
     let policies = &sim.rules().catalog.policies;
@@ -336,6 +356,7 @@ fn a_law(sim: &mut Sim, kind: civ_agents::polity::PolicyKind) -> (PermanentId, P
         .position(|d| d.kind == kind)
         .expect("the core content has the template");
     let sanction = policies[policy].bundles.last().copied().unwrap_or_default();
+    let hours = policies[policy].hours.first().copied().unwrap_or((0, 0));
     let id = sim.allocate_id_for_tests();
     let (now, grown) = (sim.now(), sim.rules().people.family.independent_age);
     let pop = sim.people_mut_for_tests();
@@ -360,6 +381,7 @@ fn a_law(sim: &mut Sim, kind: civ_agents::polity::PolicyKind) -> (PermanentId, P
         holder: office.then_some(adults[0]),
         relief_days: 0.0,
         sanction,
+        hours,
         status: LawStatus::InForce,
         sponsor: adults[0],
         proposed: now,
@@ -794,5 +816,93 @@ fn a_watcher_without_objection_asks_to_be_paid_and_the_payment_moves_on_its_chan
         .expect("rules not yet shared")
         .people
         .crime = content_crime;
+    saves_and_goes_on_alike(&mut sim, content(), DAY);
+}
+
+/// People away from their homes' plots (20 m) at each third of an hour of `nights` days' curfew
+/// hours, `hours`, counted together, as `sim` lives them.
+fn away_in_hours(sim: &mut Sim, days: i64, hours: (u8, u8)) -> u32 {
+    let mut away = 0;
+    for _ in 0..days {
+        // The next time the hours begin, and when they end.
+        let mut from = sim.now().day_index() * DAY + i64::from(hours.0) * 60;
+        if from < sim.now().minutes() {
+            from += DAY;
+        }
+        let long = (i64::from(hours.1) - i64::from(hours.0)).rem_euclid(24) * 60;
+        let to = from + long;
+        sim.advance_minutes(from - sim.now().minutes())
+            .expect("advances");
+        while sim.now().minutes() < to {
+            let t = sim.now().minutes() as f64;
+            let pop = sim.people();
+            away += pop
+                .people
+                .iter()
+                .filter(|(_, p)| {
+                    pop.household(p.household).is_some_and(|h| {
+                        let at = p.position_at(t);
+                        (at.0 - h.home.0).hypot(at.1 - h.home.1) > 20.0
+                    })
+                })
+                .count() as u32;
+            sim.advance_minutes(20).expect("advances");
+        }
+    }
+    away
+}
+
+/// A curfew (M4b slice AD): in its hours, a village whose people know of it has fewer of them away
+/// from home than the same village without it; those who go out anyway break it, and the law
+/// keeps count; and it saves and loads exactly. In the template's night hours nearly everyone is
+/// asleep at home already, so to see whether keeping it weighs with people, this curfew runs
+/// through the working day, when most of what they do takes them away.
+#[test]
+fn under_a_curfew_fewer_are_away_in_its_hours_and_breaches_are_counted() {
+    use civ_agents::polity::PolicyKind;
+    let mut sim = world_with(content(), 5);
+    sim.advance_minutes(2 * DAY).expect("advances");
+    // The same village twice: one under a curfew, one not.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "free").expect("saves");
+    let mut free = persist::load(&saved.path, content()).expect("loads");
+    let (_, law) = a_law(&mut sim, PolicyKind::Curfew);
+    let hours = (9, 17);
+    let l = sim.people_mut_for_tests().polities[0]
+        .laws
+        .iter_mut()
+        .find(|l| l.id == law)
+        .expect("the law");
+    assert_ne!(l.hours, (0, 0), "the template sets hours");
+    l.hours = hours;
+    let nights = 3;
+    let without = away_in_hours(&mut free, nights, hours);
+    let with = away_in_hours(&mut sim, nights, hours);
+    assert!(
+        without > 0,
+        "somebody is out in those hours without a curfew, or this test shows nothing"
+    );
+    assert!(
+        with < without,
+        "a curfew everyone knows keeps some in: {with} away under it, {without} without"
+    );
+    let l = sim.people().polities[0]
+        .laws
+        .iter()
+        .find(|l| l.id == law)
+        .expect("the law");
+    // Everyone grown knows it: only children, who do not, break it unknowing.
+    eprintln!(
+        "curfew {hours:?}: {with} away under it, {without} without; broken {} knowing, {} not",
+        l.compliance.broken, l.compliance.broken_unaware
+    );
+    assert!(
+        with == 0 || l.compliance.broken + l.compliance.broken_unaware > 0,
+        "those who went out are counted: {:?}",
+        l.compliance
+    );
     saves_and_goes_on_alike(&mut sim, content(), DAY);
 }

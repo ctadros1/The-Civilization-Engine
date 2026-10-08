@@ -105,7 +105,7 @@ use super::{
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
-    finish, section, single_chunk, unreadable,
+    SCHEMA_V33, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -301,6 +301,8 @@ enum Schema {
     V32,
     /// The watch: its record on its law (M4b slice AC).
     V33,
+    /// Where a taker's household stood by food when they came (M4b slice AD).
+    V34,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -348,7 +350,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V30 => Schema::V30,
         SCHEMA_V31 => Schema::V31,
         SCHEMA_V32 => Schema::V32,
-        SAVE_SCHEMA_VERSION => Schema::V33,
+        SCHEMA_V33 => Schema::V33,
+        SAVE_SCHEMA_VERSION => Schema::V34,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -618,6 +621,10 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             watch_night: l.watch.night,
                             watch_tonight: l.watch.tonight,
                             watch_next: l.watch.next,
+                            from_hour: l.hours.0,
+                            to_hour: l.hours.1,
+                            broken: c.broken,
+                            broken_unaware: c.broken_unaware,
                             status: law_status_code(l.status),
                             sponsor: l.sponsor.get(),
                             proposed: l.proposed.minutes(),
@@ -868,6 +875,7 @@ fn decode_polities(
                     fine_days: l.fine_days(),
                     exile: l.exile(),
                 },
+                hours: (l.from_hour(), l.to_hour()),
                 status,
                 sponsor: required(l.sponsor(), "a law's sponsor")?,
                 proposed: time(l.proposed()),
@@ -888,6 +896,8 @@ fn decode_polities(
                     relieved: l.relieved(),
                     relief_kg: l.relief_kg(),
                     unanswered: l.unanswered(),
+                    broken: l.broken(),
+                    broken_unaware: l.broken_unaware(),
                 },
                 watch: civ_agents::polity::WatchRecord {
                     rounds: l.watch_rounds(),
@@ -2285,7 +2295,8 @@ fn carried(
         | Schema::V30
         | Schema::V31
         | Schema::V32
-        | Schema::V33 => {
+        | Schema::V33
+        | Schema::V34 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2428,7 +2439,8 @@ fn decode_households(
             | Schema::V30
             | Schema::V31
             | Schema::V32
-            | Schema::V33 => {
+            | Schema::V33
+            | Schema::V34 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -2562,6 +2574,8 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
                     kcal: i.kcal,
                     seen_by: Some(seen),
                     noticed: i.noticed,
+                    food_days: i.food_days,
+                    richer: i.richer,
                 },
             )
         })
@@ -2754,6 +2768,8 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
                 .map(|v| v.iter().filter_map(id_of).collect())
                 .unwrap_or_default(),
             noticed: i.noticed(),
+            food_days: i.food_days(),
+            richer: i.richer(),
         });
     }
     for b in root.beliefs().iter().flatten() {

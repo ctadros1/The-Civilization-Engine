@@ -96,6 +96,8 @@ pub(crate) struct CrimeFile {
     pub round_stops: u32,
     pub w_watch_report: f64,
     pub ask_days: f64,
+    pub curfew_guard: f64,
+    pub curfew_cost_days: f64,
 }
 
 impl CrimeFile {
@@ -138,6 +140,8 @@ impl CrimeFile {
             round_stops: self.round_stops,
             w_watch_report: self.w_watch_report,
             ask_days: self.ask_days,
+            curfew_guard: self.curfew_guard,
+            curfew_cost_days: self.curfew_cost_days,
         }
     }
 
@@ -191,6 +195,8 @@ impl CrimeFile {
             ("crime.w_watch", self.w_watch, 0.0, 100.0),
             ("crime.w_watch_report", self.w_watch_report, -100.0, 100.0),
             ("crime.ask_days", self.ask_days, 0.0, 365.0),
+            ("crime.curfew_guard", self.curfew_guard, 0.0, 1.0),
+            ("crime.curfew_cost_days", self.curfew_cost_days, 0.0, 365.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

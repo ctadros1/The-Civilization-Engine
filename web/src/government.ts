@@ -68,6 +68,23 @@ export function levyText(
   return parts.join("; ");
 }
 
+/**
+ * How often a curfew was broken (wire 1.33): "broken 12 times by people who knew of it, 3 by
+ * people who did not". "" while nobody has broken it.
+ */
+export function brokenText(l: Pick<LawLine, "broken" | "brokenUnaware">): string {
+  if (l.broken + l.brokenUnaware === 0) return "";
+  const parts: string[] = [];
+  if (l.broken > 0) parts.push(`${times(l.broken)} by people who knew of it`);
+  if (l.brokenUnaware > 0) {
+    const n = l.brokenUnaware;
+    parts.push(
+      parts.length > 0 ? `${n} by people who did not` : `${times(n)} by people who did not know of it`,
+    );
+  }
+  return `broken ${parts.join(", ")}`;
+}
+
 /** "the store answered 3 asks (45 kg); 1 it could not". "" before anyone asked. */
 export function reliefText(l: Pick<LawLine, "relieved" | "reliefKg" | "unanswered">): string {
   if (l.relieved + l.unanswered === 0) return "";

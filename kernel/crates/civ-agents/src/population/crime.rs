@@ -175,6 +175,48 @@ impl Population {
         })
     }
 
+    /// Household `hh`'s food now, in days of its need, and the share of the other households of
+    /// its settlement holding more, ties counting half (an incident's measure for the dashboard;
+    /// nothing chooses by it). NaN where there is nothing to compare.
+    fn food_place(
+        &self,
+        hh: PermanentId,
+        now: SimTime,
+        params: &PeopleParams,
+        goods: &[GoodDef],
+    ) -> (f32, f32) {
+        let days = |x: &Household| {
+            let need = x.members.len().max(1) as f64 * params.household.daily_kcal_per_person;
+            stock_kcal(&stores_now(x, now, params, goods), goods) / need
+        };
+        let Some(x) = self.household(hh) else {
+            return (f32::NAN, f32::NAN);
+        };
+        let own = days(x);
+        let Some(settlement) = x.settlement else {
+            return (own as f32, f32::NAN);
+        };
+        let (mut more, mut others) = (0.0, 0u32);
+        for (_, y) in self.households.iter() {
+            if y.id == hh || y.settlement != Some(settlement) || y.members.is_empty() {
+                continue;
+            }
+            let d = days(y);
+            others += 1;
+            if d > own {
+                more += 1.0;
+            } else if d == own {
+                more += 0.5;
+            }
+        }
+        let richer = if others == 0 {
+            f32::NAN
+        } else {
+            (more / f64::from(others)) as f32
+        };
+        (own as f32, richer)
+    }
+
     /// `h` has come to household `victim`'s home to take from its store (ADR-0015 §2). Whether
     /// anyone is there is settled now: a member home and awake, and they turn back; a sleeper who
     /// wakes, and they flee seen; otherwise they carry off what they can, and anyone awake in
@@ -194,6 +236,7 @@ impl Population {
             return;
         }
         let (home, members, settlement) = (vh.home, vh.members.clone(), vh.settlement);
+        let (food_days, richer) = self.food_place(taker_hh, now, params, goods);
         let t = now.minutes() as f64;
         // A capable guardian is one of an age to stop them (research 04-09 §1.1: routine activity
         // turns on the absence of capable guardians); a younger child at home or about sees them,
@@ -293,6 +336,8 @@ impl Population {
             kcal: kcal as f32,
             seen_by: seen_by.clone(),
             noticed: false,
+            food_days,
+            richer,
         });
         // The taker learns from their own attempt: turned back or seen is a sign takers are
         // seen; an unseen taking that they are not.

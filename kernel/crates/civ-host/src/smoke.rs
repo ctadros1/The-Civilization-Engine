@@ -675,6 +675,31 @@ fn polity(sim: &Sim) -> Option<String> {
                 if n == 1 { "" } else { "s" }
             ));
         }
+        // Curfews (M4b slice AD): how many were put, the one in force, and how it was kept.
+        let curfews: Vec<_> = p
+            .laws
+            .iter()
+            .filter(|l| kind(l) == Some(PolicyKind::Curfew))
+            .collect();
+        if !curfews.is_empty() {
+            let n = curfews.len();
+            let now = curfews
+                .iter()
+                .find(|l| l.status == LawStatus::InForce)
+                .map_or_else(
+                    || "none in force".to_owned(),
+                    |l| {
+                        format!(
+                            "in force from {}:00 to {}:00, broken {} times knowingly and {} not",
+                            l.hours.0, l.hours.1, l.compliance.broken, l.compliance.broken_unaware
+                        )
+                    },
+                );
+            parts.push(format!(
+                "{n} curfew{} proposed, {now}",
+                if n == 1 { "" } else { "s" }
+            ));
+        }
     }
     for p in &pop.polities {
         let label = civ_sim::labels::label_of(sim, p);
@@ -689,7 +714,8 @@ fn polity(sim: &Sim) -> Option<String> {
 
 /// What was taken and what followed (M4b slice AA), in words: "7 attempts to take by 3 people
 /// (of 214 adults now), 4 takings (190 kg), 2 seen; 2 known to the household taken from, 1 demand
-/// to give back (1 met, 0 refused); 3 asks refused". `None` when nobody went to take.
+/// to give back (1 met, 0 refused); 3 asks refused; 0.71 of the takers' neighbours held more food".
+/// `None` when nobody went to take.
 fn takings(sim: &Sim) -> Option<String> {
     use civ_agents::crime::{Outcome, Standing};
     let pop = sim.people();
@@ -758,9 +784,15 @@ fn takings(sim: &Sim) -> Option<String> {
             imposed.count(),
         )
     };
+    let richer = crate::dashboard::CrimeSeen::of(order)
+        .attempts
+        .mean()
+        .map_or_else(String::new, |m| {
+            format!("; {m:.2} of the takers' neighbours held more food")
+        });
     Some(format!(
         "{} to take by {} (of {adults} adults now), {} ({kg:.0} kg), {seen} seen; {} known to \
-         the household taken from, {} to give back ({} met, {} refused); {} refused{cases}",
+         the household taken from, {} to give back ({} met, {} refused); {} refused{cases}{richer}",
         n(order.incidents.len(), "attempt", "attempts"),
         n(takers.len(), "person", "people"),
         n(taken.len(), "taking", "takings"),

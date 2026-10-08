@@ -126,6 +126,12 @@ pub struct CrimeParams {
     /// Days of the taker's household's food a watcher asks to say nothing, at most what it can
     /// spare.
     pub ask_days: f64,
+    /// The share of takings a household believes a curfew would keep off (M4b slice AD): what it
+    /// weighs a curfew by, as `watch_guard` a watch.
+    pub curfew_guard: f64,
+    /// Days of its food a year a household reckons each hour of a curfew costs each of its grown
+    /// members, kept at home: what it weighs a curfew against.
+    pub curfew_cost_days: f64,
 }
 
 impl CrimeParams {
@@ -169,6 +175,8 @@ impl CrimeParams {
             round_stops: 6,
             w_watch_report: 2.0,
             ask_days: 3.0,
+            curfew_guard: 0.3,
+            curfew_cost_days: 0.25,
         }
     }
 }
@@ -279,6 +287,13 @@ pub struct Incident {
     pub seen_by: Vec<PermanentId>,
     /// The household has found the loss (a taking only).
     pub noticed: bool,
+    /// The taker's household's food when they came, in days of its need: a measure for the
+    /// dashboard's crime row (plan §4.7), never an input. NaN when unknown, as in older saves.
+    pub food_days: f32,
+    /// The share of the other households of the taker's settlement that held more food then, by
+    /// days of their need, ties counting half: about one half if takers came from any household
+    /// alike, more if from the poorer. NaN without a settlement or another household in it.
+    pub richer: f32,
 }
 
 /// How someone came to believe what they believe of an incident. Codes are part of saves: append

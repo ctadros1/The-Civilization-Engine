@@ -31,15 +31,20 @@ pub enum PolicyKind {
     /// AC, ADR-0015 §6: a watch is an office, as the storekeeper is): rounds they choose to walk,
     /// guarding and seeing only where they are. The law lapses when they die or leave.
     KeepWatch,
+    /// Nobody may be away from home in the hours it sets, but the watch at its rounds and those
+    /// at a gathering (M4b slice AD; research 12-04 §1.1, the brief's §1.6): a prohibition whose
+    /// keeping is each person's choice (09-06 §1.5), with no sanction in v0.
+    Curfew,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 4] = [
+    pub const ALL: [PolicyKind; 5] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
         PolicyKind::KeepWatch,
+        PolicyKind::Curfew,
     ];
 
     /// The authored name.
@@ -49,6 +54,7 @@ impl PolicyKind {
             PolicyKind::KeepStore => "keep_store",
             PolicyKind::AgainstTaking => "against_taking",
             PolicyKind::KeepWatch => "keep_watch",
+            PolicyKind::Curfew => "curfew",
         }
     }
 
@@ -190,6 +196,33 @@ pub struct PolicyDef {
     pub relief_days: f64,
     /// For a law against taking: the bundles a sponsor may propose, lightest first.
     pub bundles: Vec<Sanction>,
+    /// For a curfew: the hours a sponsor may propose, each `(from, to)` hours of the day, the
+    /// curfew running from the first to the second, past midnight when it is the smaller.
+    pub hours: Vec<Hours>,
+}
+
+/// Hours of the day a curfew runs, `(from, to)`: from the start of hour `from` to the start of
+/// hour `to`, past midnight when `to` is not after `from`. `(0, 0)` for a law that sets none.
+pub type Hours = (u8, u8);
+
+/// Whether minute `minute_of_day` (0 to 1439) falls within `hours`.
+pub fn within_hours(hours: Hours, minute_of_day: i64) -> bool {
+    let (from, to) = (i64::from(hours.0) * 60, i64::from(hours.1) * 60);
+    if from == to {
+        return false;
+    }
+    let m = minute_of_day.rem_euclid(24 * 60);
+    if from < to {
+        (from..to).contains(&m)
+    } else {
+        m >= from || m < to
+    }
+}
+
+/// How long `hours` run, hours.
+pub fn hours_long(hours: Hours) -> u32 {
+    let (from, to) = (u32::from(hours.0), u32::from(hours.1));
+    if from == to { 0 } else { (to + 24 - from) % 24 }
 }
 
 /// How a polity's members meet, decide, forecast and comply (the people profile's `[polity]`
@@ -447,6 +480,10 @@ pub struct Compliance {
     pub relief_kg: f64,
     /// Asks the store could not answer: it held nothing to give.
     pub unanswered: u32,
+    /// For a prohibition: times someone who knew of it did what it forbids (M4b slice AD).
+    pub broken: u32,
+    /// Times someone who did not know of it did what it forbids.
+    pub broken_unaware: u32,
 }
 
 /// What a watch has done (M4b slice AC): what anyone could see of it, and where its next round
@@ -485,6 +522,8 @@ pub struct Law {
     pub relief_days: f32,
     /// For a law against taking: what it adds to giving back what was taken.
     pub sanction: Sanction,
+    /// For a curfew: the hours it runs (`(0, 0)` for other laws).
+    pub hours: Hours,
     /// Where it stands.
     pub status: LawStatus,
     /// Stage 1: who proposed it, when, and the issue it answered.
@@ -619,6 +658,13 @@ pub fn law_words(
             Some(h) => format!("{} to keep watch over the stores at night", name_of(h)),
             None => "someone to keep watch over the stores at night".to_owned(),
         };
+    }
+    if def.is_some_and(|d| d.kind == PolicyKind::Curfew) {
+        return format!(
+            "a curfew: nobody may be away from home from {}:00 to {}:00, but the watch at its \
+             rounds and those at a gathering",
+            law.hours.0, law.hours.1
+        );
     }
     let name = def.map_or_else(
         || "a law".to_owned(),
@@ -976,6 +1022,8 @@ pub struct MoveOption {
     pub nominee: Option<PermanentId>,
     /// The bundle, for a law against taking.
     pub sanction: Sanction,
+    /// The hours, for a curfew.
+    pub hours: Hours,
     /// The forecast for the person's own household ([`store_gain`]).
     pub own_gain: f64,
     /// The forecast for the households of those who regard them, weighted by that regard.
@@ -1135,6 +1183,7 @@ pub(crate) mod tests {
             holder: None,
             relief_days: 5.0,
             sanction: Default::default(),
+            hours: (0, 0),
             status: LawStatus::Proposed,
             sponsor: pid(7),
             proposed: SimTime::ZERO,
@@ -1166,6 +1215,7 @@ pub(crate) mod tests {
             levy_shares: Vec::new(),
             relief_days: 0.0,
             bundles: Vec::new(),
+            hours: Vec::new(),
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -1181,6 +1231,7 @@ pub(crate) mod tests {
             holder: None,
             relief_days: 5.0,
             sanction: Default::default(),
+            hours: (0, 0),
             status: LawStatus::Proposed,
             sponsor: pid(7),
             proposed: SimTime::ZERO,
@@ -1252,6 +1303,7 @@ pub(crate) mod tests {
             levy_shares: Vec::new(),
             relief_days: 0.0,
             bundles: Vec::new(),
+            hours: Vec::new(),
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -1262,6 +1314,7 @@ pub(crate) mod tests {
             holder: Some(pid(9)),
             relief_days: 0.0,
             sanction: Sanction::default(),
+            hours: (0, 0),
             status: LawStatus::InForce,
             sponsor: pid(9),
             proposed: SimTime::ZERO,
@@ -1349,6 +1402,24 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_curfews_hours_run_past_midnight_when_they_end_before_they_begin() {
+        let h = |hour: i64| hour * 60;
+        assert!(within_hours((21, 5), h(21)));
+        assert!(within_hours((21, 5), h(23) + 59));
+        assert!(within_hours((21, 5), h(0)));
+        assert!(within_hours((21, 5), h(4) + 59));
+        assert!(!within_hours((21, 5), h(5)));
+        assert!(!within_hours((21, 5), h(20) + 59));
+        assert!(within_hours((9, 17), h(12)) && !within_hours((9, 17), h(17)));
+        // No hours, no curfew.
+        assert!(!within_hours((0, 0), h(3)));
+        assert_eq!(hours_long((21, 5)), 8);
+        assert_eq!(hours_long((23, 4)), 5);
+        assert_eq!(hours_long((9, 17)), 8);
+        assert_eq!(hours_long((0, 0)), 0);
+    }
+
+    #[test]
     fn the_rule_deliberator_proposes_what_it_expects_to_pass_and_gain_from() {
         let p = params();
         let d = RuleDeliberator { params: &p };
@@ -1358,6 +1429,7 @@ pub(crate) mod tests {
             issue: IssueKind::FoodShort,
             nominee: None,
             sanction: Sanction::default(),
+            hours: (0, 0),
             own_gain: 0.3,
             followers_gain: 0.2,
             support: 0.8,

@@ -1496,6 +1496,9 @@ table LawLine {
   // Wire 1.28: the one it names (who keeps the store; 0 for none), and their name.
   holder: ulong (id: 27);
   holder_name: string (id: 28);
+  // Wire 1.33: for a prohibition (a curfew), the times someone broke it knowing of it, and not.
+  broken: uint (id: 29);
+  broken_unaware: uint (id: 30);
 }
 
 // A settlement's polity (wire 1.27, ADR-0013): its custom in words, its members, its common

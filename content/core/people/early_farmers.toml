@@ -639,3 +639,11 @@ round_stops = 6
 # brought before the gathering. All tuning values: 09-09 §2.3 gives no estimable figures.
 w_watch_report = 2.0
 ask_days = 3.0
+# A curfew (M4b slice AD; the M4 crime brief §1.6: nobody may be away from home in set hours): a
+# household weighs one by `curfew_guard` of all it found missing back to it, and as much of what
+# its own members took from it, as it would a watch (the share of takings it believes a curfew
+# keeps off, smaller than a watch's: nobody stands at the stores), less `curfew_cost_days` of its
+# food a year for each hour the curfew runs and each grown member it keeps at home. Both tuning
+# values: the research gives no figure for what a curfew costs or stops.
+curfew_guard = 0.3
+curfew_cost_days = 0.25

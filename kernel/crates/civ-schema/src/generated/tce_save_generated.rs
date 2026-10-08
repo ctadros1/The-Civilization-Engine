@@ -21269,6 +21269,10 @@ impl<'a> LawSave<'a> {
   pub const VT_WATCH_NIGHT: ::flatbuffers::VOffsetT = 66;
   pub const VT_WATCH_TONIGHT: ::flatbuffers::VOffsetT = 68;
   pub const VT_WATCH_NEXT: ::flatbuffers::VOffsetT = 70;
+  pub const VT_FROM_HOUR: ::flatbuffers::VOffsetT = 72;
+  pub const VT_TO_HOUR: ::flatbuffers::VOffsetT = 74;
+  pub const VT_BROKEN: ::flatbuffers::VOffsetT = 76;
+  pub const VT_BROKEN_UNAWARE: ::flatbuffers::VOffsetT = 78;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -21291,6 +21295,8 @@ impl<'a> LawSave<'a> {
     builder.add_proposed(args.proposed);
     builder.add_sponsor(args.sponsor);
     builder.add_id(args.id);
+    builder.add_broken_unaware(args.broken_unaware);
+    builder.add_broken(args.broken);
     builder.add_watch_next(args.watch_next);
     builder.add_watch_cases(args.watch_cases);
     builder.add_watch_rounds(args.watch_rounds);
@@ -21308,6 +21314,8 @@ impl<'a> LawSave<'a> {
     builder.add_relief_days(args.relief_days);
     builder.add_levy_share(args.levy_share);
     builder.add_policy(args.policy);
+    builder.add_to_hour(args.to_hour);
+    builder.add_from_hour(args.from_hour);
     builder.add_watch_tonight(args.watch_tonight);
     builder.add_exile(args.exile);
     builder.add_outcome(args.outcome);
@@ -21556,6 +21564,34 @@ impl<'a> LawSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(LawSave::VT_WATCH_NEXT, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn from_hour(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(LawSave::VT_FROM_HOUR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn to_hour(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(LawSave::VT_TO_HOUR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn broken(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawSave::VT_BROKEN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn broken_unaware(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawSave::VT_BROKEN_UNAWARE, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for LawSave<'_> {
@@ -21598,6 +21634,10 @@ impl ::flatbuffers::Verifiable for LawSave<'_> {
      .visit_field::<i64>("watch_night", Self::VT_WATCH_NIGHT, false)?
      .visit_field::<u8>("watch_tonight", Self::VT_WATCH_TONIGHT, false)?
      .visit_field::<u32>("watch_next", Self::VT_WATCH_NEXT, false)?
+     .visit_field::<u8>("from_hour", Self::VT_FROM_HOUR, false)?
+     .visit_field::<u8>("to_hour", Self::VT_TO_HOUR, false)?
+     .visit_field::<u32>("broken", Self::VT_BROKEN, false)?
+     .visit_field::<u32>("broken_unaware", Self::VT_BROKEN_UNAWARE, false)?
      .finish();
     Ok(())
   }
@@ -21637,6 +21677,10 @@ pub struct LawSaveArgs<'a> {
     pub watch_night: i64,
     pub watch_tonight: u8,
     pub watch_next: u32,
+    pub from_hour: u8,
+    pub to_hour: u8,
+    pub broken: u32,
+    pub broken_unaware: u32,
 }
 impl<'a> Default for LawSaveArgs<'a> {
   #[inline]
@@ -21676,6 +21720,10 @@ impl<'a> Default for LawSaveArgs<'a> {
       watch_night: 0,
       watch_tonight: 0,
       watch_next: 0,
+      from_hour: 0,
+      to_hour: 0,
+      broken: 0,
+      broken_unaware: 0,
     }
   }
 }
@@ -21822,6 +21870,22 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LawSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u32>(LawSave::VT_WATCH_NEXT, watch_next, 0);
   }
   #[inline]
+  pub fn add_from_hour(&mut self, from_hour: u8) {
+    self.fbb_.push_slot::<u8>(LawSave::VT_FROM_HOUR, from_hour, 0);
+  }
+  #[inline]
+  pub fn add_to_hour(&mut self, to_hour: u8) {
+    self.fbb_.push_slot::<u8>(LawSave::VT_TO_HOUR, to_hour, 0);
+  }
+  #[inline]
+  pub fn add_broken(&mut self, broken: u32) {
+    self.fbb_.push_slot::<u32>(LawSave::VT_BROKEN, broken, 0);
+  }
+  #[inline]
+  pub fn add_broken_unaware(&mut self, broken_unaware: u32) {
+    self.fbb_.push_slot::<u32>(LawSave::VT_BROKEN_UNAWARE, broken_unaware, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LawSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LawSaveBuilder {
@@ -21873,6 +21937,10 @@ impl ::core::fmt::Debug for LawSave<'_> {
       ds.field("watch_night", &self.watch_night());
       ds.field("watch_tonight", &self.watch_tonight());
       ds.field("watch_next", &self.watch_next());
+      ds.field("from_hour", &self.from_hour());
+      ds.field("to_hour", &self.to_hour());
+      ds.field("broken", &self.broken());
+      ds.field("broken_unaware", &self.broken_unaware());
       ds.finish()
   }
 }
@@ -22463,6 +22531,8 @@ impl<'a> IncidentSave<'a> {
   pub const VT_KCAL: ::flatbuffers::VOffsetT = 20;
   pub const VT_SEEN_BY: ::flatbuffers::VOffsetT = 22;
   pub const VT_NOTICED: ::flatbuffers::VOffsetT = 24;
+  pub const VT_FOOD_DAYS: ::flatbuffers::VOffsetT = 26;
+  pub const VT_RICHER: ::flatbuffers::VOffsetT = 28;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -22478,6 +22548,8 @@ impl<'a> IncidentSave<'a> {
     builder.add_actor_household(args.actor_household);
     builder.add_actor(args.actor);
     builder.add_at(args.at);
+    builder.add_richer(args.richer);
+    builder.add_food_days(args.food_days);
     if let Some(x) = args.seen_by { builder.add_seen_by(x); }
     builder.add_kcal(args.kcal);
     if let Some(x) = args.goods { builder.add_goods(x); }
@@ -22566,6 +22638,20 @@ impl<'a> IncidentSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(IncidentSave::VT_NOTICED, Some(false)).unwrap()}
   }
+  #[inline]
+  pub fn food_days(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(IncidentSave::VT_FOOD_DAYS, Some(f32::NAN)).unwrap()}
+  }
+  #[inline]
+  pub fn richer(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(IncidentSave::VT_RICHER, Some(f32::NAN)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for IncidentSave<'_> {
@@ -22585,6 +22671,8 @@ impl ::flatbuffers::Verifiable for IncidentSave<'_> {
      .visit_field::<f32>("kcal", Self::VT_KCAL, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("seen_by", Self::VT_SEEN_BY, false)?
      .visit_field::<bool>("noticed", Self::VT_NOTICED, false)?
+     .visit_field::<f32>("food_days", Self::VT_FOOD_DAYS, false)?
+     .visit_field::<f32>("richer", Self::VT_RICHER, false)?
      .finish();
     Ok(())
   }
@@ -22601,6 +22689,8 @@ pub struct IncidentSaveArgs<'a> {
     pub kcal: f32,
     pub seen_by: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
     pub noticed: bool,
+    pub food_days: f32,
+    pub richer: f32,
 }
 impl<'a> Default for IncidentSaveArgs<'a> {
   #[inline]
@@ -22617,6 +22707,8 @@ impl<'a> Default for IncidentSaveArgs<'a> {
       kcal: 0.0,
       seen_by: None,
       noticed: false,
+      food_days: f32::NAN,
+      richer: f32::NAN,
     }
   }
 }
@@ -22671,6 +22763,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> IncidentSaveBuilder<'a, 'b, A
     self.fbb_.push_slot::<bool>(IncidentSave::VT_NOTICED, noticed, false);
   }
   #[inline]
+  pub fn add_food_days(&mut self, food_days: f32) {
+    self.fbb_.push_slot::<f32>(IncidentSave::VT_FOOD_DAYS, food_days, f32::NAN);
+  }
+  #[inline]
+  pub fn add_richer(&mut self, richer: f32) {
+    self.fbb_.push_slot::<f32>(IncidentSave::VT_RICHER, richer, f32::NAN);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> IncidentSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     IncidentSaveBuilder {
@@ -22699,6 +22799,8 @@ impl ::core::fmt::Debug for IncidentSave<'_> {
       ds.field("kcal", &self.kcal());
       ds.field("seen_by", &self.seen_by());
       ds.field("noticed", &self.noticed());
+      ds.field("food_days", &self.food_days());
+      ds.field("richer", &self.richer());
       ds.finish()
   }
 }

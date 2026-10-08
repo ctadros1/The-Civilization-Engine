@@ -26,3 +26,8 @@ fine_days = 0.0
 [[bundles]]
 compensation_days = 3.0   # and three more to the common store
 fine_days = 3.0
+
+[[bundles]]
+compensation_days = 3.0   # and the one found to have taken is sent from the valley (§6.2:
+fine_days = 3.0           # "leave or avoid a territory"; ADR-0015 §5: recorded as a migration)
+exile = true

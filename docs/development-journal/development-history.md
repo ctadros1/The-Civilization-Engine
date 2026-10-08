@@ -348,6 +348,24 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** fed villages scarcely take; whether a lean year in a village of 1,000 makes takings common, or only attempts, is untested. Cases and their decision (AB) are next.
 
+## 2026-10-08 — M4b slice AB: cases and their decision
+
+**Goal:** give a village a way past a demand: a law against taking, a case brought before the gathering, a decision kept whole, and what a finding imposes as obligations, with exile.
+
+**What changed:**
+
+- **A law against taking.** A new policy template whose sanction bundles people propose: compensation to the household taken from and a fine to the common store, in days of the taker's household's food, and exile. Each household weighs it by what it knows: what it would recover of what it lost to takers it knows of, less what its own takers would owe at the chance it believes they are seen. Households taken from since the last review may propose it. So that nothing here reads what happened, a taker now knows what they took, and a household knows what it found missing or brought home.
+- **Bringing a case.** Under such a law, known to the household's chooser, a household that learns who took from it chooses among letting it go, a demand and a case: what it would recover, times the chance it believes the gathering would find from its distinct witnesses, less the cost of bringing it. A household whose demand fails may bring a case after.
+- **The hearing.** The gathering hears cases as it decides laws, and may be called for cases alone. Each who came stands by what they believe or the accounts told there, what their household stands to gain or lose, and their regard for each party; the body's rule decides, and the decision is kept whole and never repaired.
+- **What a finding imposes.** Restitution, compensation and a fine to the store, obligations answered once and whole and paid from what the household can spare (`compensation` and `fine` channels); exile sends the one found from the valley, recorded as a leaving.
+- **Boundary:** saves schema 32 (saves 31 still load), wire 1.31 (the case beside what happened and what people believe; a gathering's cases), content API 36.
+
+**Found on the way:** the hearing first used the common store's forecast for each household's stake, which is flat below a year's subsistence, so in a lean spell nobody stood to gain or lose by a finding; it now counts days of food. The slice AA test failed about one run in 24 because a lean spell can pass 60 days without a single taking; both crime tests now set their situation explicitly. A first draft of the hearing's chronicle said a household was sent from the valley.
+
+**Evidence:** unit tests for the bundle's words, the forecast's signs (those taken from gain, takers lose, exile weighs only on takers) and the content checks; an integration test that lives a law against taking through takings, cases, hearings, findings, exile and paying, with goods conserved and an exact save and load (12 runs of 12). 548 kernel tests, 130 web tests and the end-to-end suite (16 passed) pass. The ten-year smoke passed all 10 worlds three times; in the third, three coast villages passed a law against taking after a seen taking, and in two of them a case was brought, found and what it imposed paid. No world chose exile. Gate B and the notables' gate passed, the latter with M4a's figures.
+
+**Open:** whether exile is ever chosen, and how often cases come where takings are common: fed villages scarcely take, and their takers are rarely seen. No office hears cases yet, labour-days wait for polity work, and refusing what a finding imposes has no sanction beyond its arrear until a watch exists (AC, next).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

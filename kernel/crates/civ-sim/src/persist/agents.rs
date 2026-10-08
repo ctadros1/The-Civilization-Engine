@@ -608,6 +608,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             relief_days: l.relief_days,
                             compensation_days: l.sanction.compensation_days,
                             fine_days: l.sanction.fine_days,
+                            exile: l.sanction.exile,
                             status: law_status_code(l.status),
                             sponsor: l.sponsor.get(),
                             proposed: l.proposed.minutes(),
@@ -855,6 +856,7 @@ fn decode_polities(
                 sanction: civ_agents::polity::Sanction {
                     compensation_days: l.compensation_days(),
                     fine_days: l.fine_days(),
+                    exile: l.exile(),
                 },
                 status,
                 sponsor: required(l.sponsor(), "a law's sponsor")?,
@@ -2645,6 +2647,7 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
                     heard_at: c.heard.map_or(0, |t| t.minutes()),
                     eligible: c.eligible,
                     stances: Some(stances),
+                    exiled: c.exiled,
                 },
             )
         })
@@ -2834,6 +2837,7 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
             heard: c.heard().then(|| time(c.heard_at())),
             eligible: c.eligible(),
             stances,
+            exiled: c.exiled(),
         });
     }
     for a in root.amounts().iter().flatten() {

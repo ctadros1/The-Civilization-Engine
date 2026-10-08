@@ -103,6 +103,7 @@ impl Population {
             heard: None,
             eligible: 0,
             stances: Vec::new(),
+            exiled: false,
         });
         self.put_cases(pi, day, params.polity.notice_days);
         let (place, name) = ctx
@@ -259,11 +260,16 @@ impl Population {
         let restitution = (f64::from(c.kcal) - paid).max(0.0);
         let compensation = f64::from(sanction.compensation_days) * debtor_need;
         let fine = f64::from(sanction.fine_days) * debtor_need;
+        let exile = if sanction.exile {
+            cp.exile_days * debtor_need
+        } else {
+            0.0
+        };
         // What the two households stand to gain and lose, at the points a day of its food is
         // worth to a household in a dispute (the scale of a demand), however lean the year: a
         // few days' food matters most to those with least.
         let gain = cp.w_demand_loss * (restitution + compensation) / need_of(c.accuser);
-        let loss = cp.w_demand_loss * (restitution + compensation + fine) / debtor_need;
+        let loss = cp.w_demand_loss * (restitution + compensation + fine + exile) / debtor_need;
         let members = self.members_of(settlement, now, params);
         let regard = |p: PermanentId, q: PermanentId| {
             if p == q {
@@ -330,11 +336,23 @@ impl Population {
         };
         let tally = format!("{support} for, {oppose} against; {present} of {eligible} adults came");
         let words = match decided {
-            Decided::Passed => format!(
-                "The gathering at {name} found that {accused_name} took food from \
-                 {accuser_words}: {tally}. {accused_name}'s household owes it back{}.",
-                sanction.words()
-            ),
+            Decided::Passed => {
+                // The household owes; the one found is the one sent away.
+                let owed = Sanction {
+                    exile: false,
+                    ..sanction
+                };
+                let sent = if sanction.exile {
+                    format!(" {accused_name} is sent from the valley.")
+                } else {
+                    String::new()
+                };
+                format!(
+                    "The gathering at {name} found that {accused_name} took food from \
+                     {accuser_words}: {tally}. {accused_name}'s household owes it back{}.{sent}",
+                    owed.words()
+                )
+            }
             Decided::Failed => format!(
                 "The gathering at {name} did not find that {accused_name} took food from \
                  {accuser_words}: {tally}."
@@ -389,6 +407,13 @@ impl Population {
             });
         }
         let origin = c.leads.first().copied().unwrap_or(c.by);
+        // Exile: those who found against them see them go (09-07 §1.1: enforcement needs an
+        // actual coalition; here, the gathering that found). They leave the valley, recorded as
+        // a migration (ADR-0015 §5); their household stays, and owes what was imposed.
+        if sanction.exile {
+            self.exile(ctx, c.accused);
+            self.order.cases[k].exiled = true;
+        }
         for &p in &g.present {
             if p == c.accused
                 || self

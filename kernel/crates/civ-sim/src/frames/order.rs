@@ -143,6 +143,9 @@ fn case_words(sim: &Sim, incident: u32) -> String {
     let accused = pop.name_of(c.accused);
     let decided = match c.stage {
         CaseStage::Open => "it waits to be heard".to_owned(),
+        CaseStage::Found if c.exiled => format!(
+            "the gathering found that {accused} took: {tally}; they were sent from the valley"
+        ),
         CaseStage::Found => format!("the gathering found that {accused} took: {tally}"),
         CaseStage::NotFound => {
             format!("the gathering did not find that {accused} took: {tally}")

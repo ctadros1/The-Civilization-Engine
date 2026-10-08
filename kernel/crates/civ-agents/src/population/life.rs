@@ -465,6 +465,70 @@ impl Population {
         self.check_loss(ctx, settlement, &[(id, p.knows)], None);
     }
 
+    /// `id` is sent from the valley by a gathering's finding (M4b slice AB, ADR-0015 §5): they
+    /// leave their household as the dead do (what they carried stays with it; their partner is
+    /// left without them), their record says when they left, and the chronicle notes it as a
+    /// leaving. A household left with no one is cared for at the day's end.
+    pub(crate) fn exile(&mut self, ctx: &mut Ctx, id: PermanentId) {
+        let now = ctx.now;
+        let Some(household) = self.person(id).map(|p| p.household) else {
+            return;
+        };
+        self.settle_household(ctx, household);
+        let Some(h) = self.index.remove(&id) else {
+            return;
+        };
+        let Some(p) = self.people.remove(h) else {
+            return;
+        };
+        let at = p.position_at(now.minutes() as f64);
+        let mut settlement = None;
+        let mut emptied = false;
+        if let Some(x) = self.household_mut(household) {
+            x.members.retain(|m| *m != id);
+            if let Some(g) = p.carrying.good.map(usize::from)
+                && let Some(kg) = x.stores.get_mut(g)
+            {
+                *kg += f64::from(p.carrying.kg);
+                x.flows.add(Flow::Got, g, f64::from(p.carrying.kg));
+            }
+            x.water_l += f64::from(p.carrying.water_l);
+            settlement = x.settlement;
+            emptied = x.members.is_empty();
+        }
+        if emptied {
+            self.emptied.push((household, id));
+        }
+        if let Some(r) = self.records.get_mut(&id) {
+            r.left = Some(now);
+        }
+        if let Some(q) = p.partner {
+            if let Some(partner) = self.person_mut(q) {
+                partner.partner = None;
+            }
+            for u in self.unions.iter_mut().filter(|u| u.ended.is_none()) {
+                if (u.woman == id && u.man == q) || (u.man == id && u.woman == q) {
+                    u.ended = Some(now);
+                }
+            }
+        }
+        let left = settlement
+            .and_then(|s| ctx.land.settlements.iter().find(|x| x.id == s))
+            .map(|x| x.name.clone())
+            .unwrap_or_default();
+        self.chronicle_push(
+            now,
+            ChronicleKind::Left,
+            vec![id],
+            settlement,
+            Some(at),
+            1.0,
+            left,
+        );
+        // What only they knew there leaves with them (ADR-0008 §5).
+        self.check_loss(ctx, settlement, &[(id, p.knows)], None);
+    }
+
     /// Households no one is left in pass to the nearest kin of whoever lived there last; children
     /// left without an older member go, with what their household held, to the household of
     /// their nearest adult kin, or failing kin to the neighbours best able to feed them.

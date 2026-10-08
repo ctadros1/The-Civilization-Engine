@@ -107,6 +107,9 @@ pub struct Sanction {
     pub compensation_days: f32,
     /// Food to the polity's store, days.
     pub fine_days: f32,
+    /// The one found to have taken is sent from the valley (ADR-0015 §5: exile, recorded as a
+    /// migration; 09-07 §6.2).
+    pub exile: bool,
 }
 
 impl Sanction {
@@ -147,10 +150,15 @@ impl Sanction {
         if self.fine_days > 0.0 {
             parts.push(format!("{} to the common store", days(self.fine_days)));
         }
-        match parts.len() {
+        let with = match parts.len() {
             0 => String::new(),
             1 => format!(", with {}", parts[0]),
             _ => format!(", with {} and {}", parts[0], parts[1]),
+        };
+        if self.exile {
+            format!("{with}, and is sent from the valley")
+        } else {
+            with
         }
     }
 }
@@ -1141,12 +1149,22 @@ pub(crate) mod tests {
         law.sanction = Sanction {
             compensation_days: 3.0,
             fine_days: 1.0,
+            exile: false,
         };
         assert_eq!(
             law_words(&law, &policies, &name_of),
             "a law against taking: whoever is found to have taken from another household's store \
              gives back what was taken, with three days' food to the household taken from and one \
              day's to the common store"
+        );
+        law.sanction = Sanction {
+            exile: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            law_words(&law, &policies, &name_of),
+            "a law against taking: whoever is found to have taken from another household's store \
+             gives back what was taken, and is sent from the valley"
         );
     }
 
@@ -1162,6 +1180,7 @@ pub(crate) mod tests {
         let bundle = Sanction {
             compensation_days: 3.0,
             fine_days: 3.0,
+            exile: false,
         };
         let robbed = crate::crime::TakingsKnown {
             lost_kcal: 10.0 * need_day,
@@ -1176,7 +1195,7 @@ pub(crate) mod tests {
             ..Default::default()
         };
         let gain = |k: &crate::crime::TakingsKnown, s: &Sanction| {
-            let (recover, owe) = k.under(s, need_day);
+            let (recover, owe) = k.under(s, need_day, 60.0);
             against_gain(&o, recover, owe, &p)
         };
         assert!(gain(&robbed, &bundle) > 0.0);
@@ -1184,6 +1203,14 @@ pub(crate) mod tests {
         // A harsher bundle is worth more to the one taken from and costs the taker more.
         assert!(gain(&robbed, &bundle) > gain(&robbed, &Sanction::default()));
         assert!(gain(&took, &bundle) < gain(&took, &Sanction::default()));
+        // Exile weighs on a taker's household as the days of food a grown member is worth to it,
+        // and brings the one taken from nothing more.
+        let exiled = Sanction {
+            exile: true,
+            ..bundle
+        };
+        assert!(gain(&took, &exiled) < gain(&took, &bundle));
+        assert!((gain(&robbed, &exiled) - gain(&robbed, &bundle)).abs() < 1e-12);
         // A taker sure of never being seen expects to owe nothing.
         let unseen = crate::crime::TakingsKnown { risk: 0.0, ..took };
         assert!(gain(&unseen, &bundle).abs() < 1e-12);

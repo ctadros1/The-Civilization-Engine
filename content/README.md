@@ -177,6 +177,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `remember_days`, `refuse_regard` | Days a person keeps what they believe of a taking (0 to 36,500), and the regard (0 to 100) for the elder of a household taken from at which a household refuses the asks of the taker it believes took from it. |
 | | `demand_base`, `w_demand_loss`, `w_forgive`, `due_days` | A household that learns who took from it chooses to demand the food back or let it go (09-07 §4.1): points before anything is weighed (−100 to 100), per day of its food taken (0 to 100) and against, for full regard for the taker (0 to 100); the chance of demanding is logistic in the points. A demand falls due after `due_days` (1 to 3,650). |
 | | `comply_base`, `w_comply_known`, `w_comply_regard`, `w_comply_cost`, `keep_days` | The taker's household answers a demand once: points before anything is weighed (−100 to 100), for the share of its settlement's households that believe the taker took and for full regard for the household owed (0 to 100 each), and against, per day of its own food paying would cost (0 to 100). One that means to pay gives food beyond `keep_days` of its need (0 to 3,650) day by day; what it cannot pay when due is an arrear. |
+| | `report_cost`, `w_case_belief`, `w_comply_found`, `exile_days` | Cases (M4b slice AB, ADR-0015 §4–§5; content API 36). Under a law against taking its chooser knows of, a household taken from may bring a case: points for what it would recover (the food and the bundle's compensation, at `w_demand_loss` a day) times the chance it believes the gathering would find (1 − 0.5^accounts, from its distinct witnesses; research 12-04 §1.5), less `report_cost` (0 to 100; 09-07 §4.1) and `w_forgive` for regard; one whose demand was refused or unpaid when due may bring one after. At the hearing each who came weighs `w_case_belief` points (0 to 100) toward a finding if they believe the accused took, otherwise the accounts told there either side of an even chance; the days of food their household stands to gain or lose; and the polity's `w_regard` for the one who brought it less that for the accused. What a finding imposes is answered once, whole, with `w_comply_found` points toward paying (−100 to 100). A bundle that exiles weighs on a taker's household, and stands at stake for it at a hearing, as `exile_days` of its food (0 to 3,650). |
 | `style` | `alpha`, `prestige_most`, `innovation` | How households' taste in building moves (ADR-0009 §7; content API 22): the share of the way a household's taste moves toward the most admired building its settlement finished in the year past (0 to 1); how many times the least admired the most admired weighs (1 to 10), for its owner's standing in goods and how well it was built, equally; and the chance a building has one trait new to its builders, within what its program allows (0 to 1). |
 | | `tradition`, `tradition_spread`, `personal_spread` | Each a table of `pitch_deg`, `eave_m` and `overhang_m`: the way of building founding bands' are drawn around (pitch 0 to 80°, eaves 0.5 to 6 m, overhang 0 to 3 m), the standard deviation of a band's from it, and of each household's from its band's (each from 0 to 20°, 1 m and 1 m). A building is built to its household's taste held to what its program allows. |
 | `mortality` | `a`, `b`, `c`, `d`, `e` | Siler hazard `A·e^(−Bx) + C + D·e^(Ex)` per year: the founders' ages, and everyone's daily risk of dying. |
@@ -586,15 +587,27 @@ template the content no longer has is refused.
 
 | Field | Meaning |
 |---|---|
-| `does` | What the kernel does under it: `common_store`, a share of each household's threshed grain paid into a store the polity keeps at the hearth, and food from it for a household short of food that asks; or `keep_store`, a named adult keeps the common store under their own roof and gives from it at their home (the office's first form, below). |
-| `answers` | The issues whose presence makes proposing it a move: `food_short` (the settlement's food ran short within the year, or a household's food will not last until its next harvest); `store_unkept` (a common store is in force and holds food, and no one keeps it). At least one. |
+| `does` | What the kernel does under it: `common_store`, a share of each household's threshed grain paid into a store the polity keeps at the hearth, and food from it for a household short of food that asks; `keep_store`, a named adult keeps the common store under their own roof and gives from it at their home (the office's first form, below); or `against_taking` (content API 36), whoever the gathering finds took from another household's store gives back what was taken, with what the bundle adds (below). |
+| `answers` | The issues whose presence makes proposing it a move: `food_short` (the settlement's food ran short within the year, or a household's food will not last until its next harvest); `store_unkept` (a common store is in force and holds food, and no one keeps it); `takings` (a household of the settlement found food taken from its store within the year). At least one. |
 | `levy_shares` | `common_store` only: the shares of threshed grain a sponsor may propose (1 to 8 of them, each above 0 and below 1). A `keep_store` template leaves it out. |
 | `relief_days` | `common_store` only: the most food one ask brings, in days of the asking household's need (above 0, at most 365). A `keep_store` template leaves it out. |
+| `bundles` | `against_taking` only: the sanctions a sponsor may propose, 1 to 8 tables of `compensation_days` (food to the household taken from beyond what was taken) and `fine_days` (food to the polity's common store), each 0 to 365 days of the taker's household's food, and `exile` (the one found is sent from the valley; default false). Research 09-07 §1.2 keeps restitution, compensation and a fine apart; §6.2: a sanction is a bundle, never one severity number. |
 
 The core pack has `core:policy/common_store`, at a twentieth, a tenth or a fifth (research 09-01
 §3.3 gives 0-30 % of the harvest as an uncalibrated starting range; §3.2 warns a 10-30 % tribute
 "is not a universal harvest tax"), at most five days of food an ask (a tuning value; 09-17 §1.5: a
-public store combines storage with allocation), and `core:policy/keep_store`, the storekeeper.
+public store combines storage with allocation), `core:policy/keep_store`, the storekeeper, and
+`core:policy/against_taking`, with four bundles: restitution alone; three days' compensation;
+three days' compensation and three days' fine; and that with exile (tuning values, reckoned in
+days of household food as 09-07 §2.3 advises).
+
+A law against taking is weighed by each household from what it knows: what it would recover of
+what it lost in the past year to takers one of its members knows of, with the bundle's
+compensation, less what its own members took, with compensation, the fine and (for exile)
+`exile_days` of its food, at the chance its grown members believe a taker runs of being seen.
+Households taken from since the last review may propose it. Cases under it are heard by the
+gathering, as laws are decided; a finding imposes the bundle as obligations on the accused's
+household, and exile sends the accused from the valley, recorded as a leaving.
 
 A `keep_store` law names its holder. Its sponsor nominates the sheltered adult they regard most
 (themselves counted at full regard), each weighs what a year's spoilage saved under a roof is worth
@@ -629,6 +642,10 @@ Content API 35 (M4b slice AA) brings taking: the people profile's `[crime]`, `be
 `restored` and `refused_restitution`. In the core pack about one founder in six falls below the
 moral filter. Research 04-09 §5.4 finds no established figures for any of these weights: all are
 tuning values, to be tested.
+
+Content API 36 (M4b slice AB) brings cases: the policy kind `against_taking` with its `bundles`,
+the issue `takings`, `core:policy/against_taking`, and the `[crime]` keys `report_cost`,
+`w_case_belief`, `w_comply_found` and `exile_days`, all tuning values.
 
 ## Planned kinds
 

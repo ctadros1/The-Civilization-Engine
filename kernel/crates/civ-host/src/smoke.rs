@@ -625,6 +625,26 @@ fn polity(sim: &Sim) -> Option<String> {
                 if p.keeper().is_some() { "one" } else { "none" }
             ));
         }
+        // Laws against taking (M4b slice AB): how many were put, and the one in force.
+        let against: Vec<_> = p
+            .laws
+            .iter()
+            .filter(|l| kind(l) == Some(PolicyKind::AgainstTaking))
+            .collect();
+        if !against.is_empty() {
+            let n = against.len();
+            let now = against
+                .iter()
+                .find(|l| l.status == LawStatus::InForce)
+                .map_or_else(
+                    || "none in force".to_owned(),
+                    |l| format!("in force: what was taken given back{}", l.sanction.words()),
+                );
+            parts.push(format!(
+                "{n} law{} against taking proposed, {now}",
+                if n == 1 { "" } else { "s" }
+            ));
+        }
     }
     for p in &pop.polities {
         let label = civ_sim::labels::label_of(sim, p);

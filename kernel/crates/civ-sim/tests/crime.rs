@@ -326,7 +326,8 @@ fn a_debt_meant_to_be_paid_is_paid_from_what_can_be_spared(sim: &mut Sim) {
 }
 
 /// Puts a law against taking in force at the first polity, as a gathering would have passed it,
-/// with the template's harshest bundle, known to every adult there. Returns the polity's id.
+/// with the template's harshest bundle (it exiles), known to every adult there. Returns the
+/// polity's id.
 fn a_law_against_taking(sim: &mut Sim) -> PermanentId {
     use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome as Decided, PolicyKind};
     let policies = &sim.rules().catalog.policies;
@@ -455,6 +456,16 @@ fn under_a_law_against_taking_cases_are_brought_heard_and_their_findings_owed() 
             .filter(|o| o.case == Some(c.id))
             .collect();
         if c.stage == CaseStage::Found {
+            // The harshest bundle exiles: the one found to have taken has left the valley, a
+            // migration on their record, not a disappearance (ADR-0015 §5).
+            assert!(c.exiled, "{c:?}");
+            assert!(
+                pop.person(c.accused).is_none(),
+                "{} is still here",
+                c.accused
+            );
+            let record = pop.records.get(&c.accused).expect("a record");
+            assert!(record.left.is_some() && record.died.is_none(), "{record:?}");
             // The bundle: restitution if anything is still owed, compensation, and a fine to the
             // polity's store; all owed by the accused's household.
             assert!(

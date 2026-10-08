@@ -20943,6 +20943,7 @@ impl<'a> LawSave<'a> {
   pub const VT_HOLDER: ::flatbuffers::VOffsetT = 52;
   pub const VT_COMPENSATION_DAYS: ::flatbuffers::VOffsetT = 54;
   pub const VT_FINE_DAYS: ::flatbuffers::VOffsetT = 56;
+  pub const VT_EXILE: ::flatbuffers::VOffsetT = 58;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -20977,6 +20978,7 @@ impl<'a> LawSave<'a> {
     builder.add_relief_days(args.relief_days);
     builder.add_levy_share(args.levy_share);
     builder.add_policy(args.policy);
+    builder.add_exile(args.exile);
     builder.add_outcome(args.outcome);
     builder.add_decided(args.decided);
     builder.add_issue(args.issue);
@@ -21174,6 +21176,13 @@ impl<'a> LawSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(LawSave::VT_FINE_DAYS, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn exile(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(LawSave::VT_EXILE, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for LawSave<'_> {
@@ -21209,6 +21218,7 @@ impl ::flatbuffers::Verifiable for LawSave<'_> {
      .visit_field::<u64>("holder", Self::VT_HOLDER, false)?
      .visit_field::<f32>("compensation_days", Self::VT_COMPENSATION_DAYS, false)?
      .visit_field::<f32>("fine_days", Self::VT_FINE_DAYS, false)?
+     .visit_field::<bool>("exile", Self::VT_EXILE, false)?
      .finish();
     Ok(())
   }
@@ -21241,6 +21251,7 @@ pub struct LawSaveArgs<'a> {
     pub holder: u64,
     pub compensation_days: f32,
     pub fine_days: f32,
+    pub exile: bool,
 }
 impl<'a> Default for LawSaveArgs<'a> {
   #[inline]
@@ -21273,6 +21284,7 @@ impl<'a> Default for LawSaveArgs<'a> {
       holder: 0,
       compensation_days: 0.0,
       fine_days: 0.0,
+      exile: false,
     }
   }
 }
@@ -21391,6 +21403,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LawSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(LawSave::VT_FINE_DAYS, fine_days, 0.0);
   }
   #[inline]
+  pub fn add_exile(&mut self, exile: bool) {
+    self.fbb_.push_slot::<bool>(LawSave::VT_EXILE, exile, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LawSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LawSaveBuilder {
@@ -21435,6 +21451,7 @@ impl ::core::fmt::Debug for LawSave<'_> {
       ds.field("holder", &self.holder());
       ds.field("compensation_days", &self.compensation_days());
       ds.field("fine_days", &self.fine_days());
+      ds.field("exile", &self.exile());
       ds.finish()
   }
 }
@@ -22296,6 +22313,7 @@ impl<'a> CaseSave<'a> {
   pub const VT_HEARD_AT: ::flatbuffers::VOffsetT = 30;
   pub const VT_ELIGIBLE: ::flatbuffers::VOffsetT = 32;
   pub const VT_STANCES: ::flatbuffers::VOffsetT = 34;
+  pub const VT_EXILED: ::flatbuffers::VOffsetT = 36;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -22321,6 +22339,7 @@ impl<'a> CaseSave<'a> {
     builder.add_kcal(args.kcal);
     builder.add_incident(args.incident);
     builder.add_id(args.id);
+    builder.add_exiled(args.exiled);
     builder.add_heard(args.heard);
     builder.add_stage(args.stage);
     builder.finish()
@@ -22439,6 +22458,13 @@ impl<'a> CaseSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, CaseStanceSave>>>(CaseSave::VT_STANCES, None)}
   }
+  #[inline]
+  pub fn exiled(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(CaseSave::VT_EXILED, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for CaseSave<'_> {
@@ -22463,6 +22489,7 @@ impl ::flatbuffers::Verifiable for CaseSave<'_> {
      .visit_field::<i64>("heard_at", Self::VT_HEARD_AT, false)?
      .visit_field::<u32>("eligible", Self::VT_ELIGIBLE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, CaseStanceSave>>>("stances", Self::VT_STANCES, false)?
+     .visit_field::<bool>("exiled", Self::VT_EXILED, false)?
      .finish();
     Ok(())
   }
@@ -22484,6 +22511,7 @@ pub struct CaseSaveArgs<'a> {
     pub heard_at: i64,
     pub eligible: u32,
     pub stances: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, CaseStanceSave>>>,
+    pub exiled: bool,
 }
 impl<'a> Default for CaseSaveArgs<'a> {
   #[inline]
@@ -22505,6 +22533,7 @@ impl<'a> Default for CaseSaveArgs<'a> {
       heard_at: 0,
       eligible: 0,
       stances: None,
+      exiled: false,
     }
   }
 }
@@ -22579,6 +22608,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CaseSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CaseSave::VT_STANCES, stances);
   }
   #[inline]
+  pub fn add_exiled(&mut self, exiled: bool) {
+    self.fbb_.push_slot::<bool>(CaseSave::VT_EXILED, exiled, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CaseSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     CaseSaveBuilder {
@@ -22612,6 +22645,7 @@ impl ::core::fmt::Debug for CaseSave<'_> {
       ds.field("heard_at", &self.heard_at());
       ds.field("eligible", &self.eligible());
       ds.field("stances", &self.stances());
+      ds.field("exiled", &self.exiled());
       ds.finish()
   }
 }

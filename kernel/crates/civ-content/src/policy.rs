@@ -41,6 +41,9 @@ pub(crate) struct PolicyFile {
 pub(crate) struct BundleFile {
     pub compensation_days: f64,
     pub fine_days: f64,
+    /// The one found to have taken is sent from the valley.
+    #[serde(default)]
+    pub exile: bool,
 }
 
 impl PolicyFile {
@@ -66,6 +69,7 @@ impl PolicyFile {
                 .map(|b| civ_agents::polity::Sanction {
                     compensation_days: b.compensation_days as f32,
                     fine_days: b.fine_days as f32,
+                    exile: b.exile,
                 })
                 .collect(),
         }
@@ -231,10 +235,12 @@ mod tests {
             BundleFile {
                 compensation_days: 0.0,
                 fine_days: 0.0,
+                exile: false,
             },
             BundleFile {
                 compensation_days: 3.0,
                 fine_days: 1.5,
+                exile: true,
             },
         ];
         assert!(f.problems().is_empty(), "{:?}", f.problems());
@@ -243,6 +249,7 @@ mod tests {
         assert_eq!(d.answers, vec![IssueKind::Takings]);
         assert_eq!(d.bundles[1].compensation_days, 3.0);
         assert_eq!(d.bundles[1].fine_days, 1.5);
+        assert!(d.bundles[1].exile && !d.bundles[0].exile);
         f.bundles[0].fine_days = -1.0;
         f.bundles[1].compensation_days = 400.0;
         assert_eq!(f.problems().len(), 2, "{:?}", f.problems());

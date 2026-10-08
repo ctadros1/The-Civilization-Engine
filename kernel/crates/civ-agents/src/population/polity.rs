@@ -429,7 +429,8 @@ impl Population {
                     let known = takings
                         .binary_search_by_key(&h, |t| t.0)
                         .map_or_else(|_| Default::default(), |k| takings[k].1);
-                    let (recover, owe) = known.under(&m.sanction, o.year_need / 365.0);
+                    let (recover, owe) =
+                        known.under(&m.sanction, o.year_need / 365.0, params.crime.exile_days);
                     crate::polity::against_gain(o, recover, owe, pp)
                 }
                 _ => crate::polity::store_gain(o, &belief, m.levy_share, pp),

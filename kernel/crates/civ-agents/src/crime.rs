@@ -107,6 +107,9 @@ pub struct CrimeParams {
     /// Points toward meeting what a gathering's finding imposes over refusing it: the custom that
     /// the gathering binds.
     pub w_comply_found: f64,
+    /// Days of its food a household reckons losing a grown member to exile costs it: what it
+    /// weighs a law that exiles against, and what a hearing puts at stake for it.
+    pub exile_days: f64,
 }
 
 impl CrimeParams {
@@ -143,6 +146,7 @@ impl CrimeParams {
             report_cost: 1.0,
             w_case_belief: 1.0,
             w_comply_found: 2.0,
+            exile_days: 60.0,
         }
     }
 }
@@ -341,12 +345,22 @@ pub struct TakingsKnown {
 impl TakingsKnown {
     /// What a law against taking with `sanction` would bring the household a year, kcal: back to
     /// it, what it lost to known takers with compensation; from it, what its own takers took with
-    /// compensation and the fine, at the chance they believe of being seen. Compensation and the
-    /// fine are in days of the taker's household's food, which it takes to be like its own,
-    /// `need_day` kcal a day.
-    pub fn under(&self, sanction: &crate::polity::Sanction, need_day: f64) -> (f64, f64) {
+    /// compensation and the fine (and, for exile, `exile_days` of its food for the member it would
+    /// lose), at the chance they believe of being seen. Compensation and the fine are in days of
+    /// the taker's household's food, which it takes to be like its own, `need_day` kcal a day.
+    pub fn under(
+        &self,
+        sanction: &crate::polity::Sanction,
+        need_day: f64,
+        exile_days: f64,
+    ) -> (f64, f64) {
         let comp = f64::from(sanction.compensation_days) * need_day;
-        let fine = f64::from(sanction.fine_days) * need_day;
+        let exile = if sanction.exile {
+            exile_days * need_day
+        } else {
+            0.0
+        };
+        let fine = f64::from(sanction.fine_days) * need_day + exile;
         let recover = self.lost_kcal + f64::from(self.lost) * comp;
         let owe =
             self.risk.clamp(0.0, 1.0) * (self.took_kcal + f64::from(self.took) * (comp + fine));
@@ -624,6 +638,8 @@ pub struct Case {
     pub eligible: u32,
     /// Where each who came stood, in id order: support is for finding that the accused took.
     pub stances: Vec<CaseStance>,
+    /// The finding sent the accused from the valley.
+    pub exiled: bool,
 }
 
 /// One member's stance at a hearing, with what moved it (ADR-0015 §4).

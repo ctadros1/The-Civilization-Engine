@@ -89,6 +89,7 @@ pub(crate) struct CrimeFile {
     pub report_cost: f64,
     pub w_case_belief: f64,
     pub w_comply_found: f64,
+    pub exile_days: f64,
 }
 
 impl CrimeFile {
@@ -124,6 +125,7 @@ impl CrimeFile {
             report_cost: self.report_cost,
             w_case_belief: self.w_case_belief,
             w_comply_found: self.w_comply_found,
+            exile_days: self.exile_days,
         }
     }
 
@@ -170,6 +172,7 @@ impl CrimeFile {
             ("crime.report_cost", self.report_cost, 0.0, 100.0),
             ("crime.w_case_belief", self.w_case_belief, 0.0, 100.0),
             ("crime.w_comply_found", self.w_comply_found, -100.0, 100.0),
+            ("crime.exile_days", self.exile_days, 0.0, 3650.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

@@ -611,3 +611,7 @@ keep_days = 3.0
 report_cost = 1.0
 w_case_belief = 1.0
 w_comply_found = 2.0
+# A law whose bundle exiles weighs on a taker's household, and puts at stake at a hearing, this
+# many days of its food for the grown member it would lose (a tuning value: about two months of
+# what a member brings in).
+exile_days = 60.0

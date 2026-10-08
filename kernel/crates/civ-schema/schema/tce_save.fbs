@@ -1097,6 +1097,7 @@ table LawSave {
   // taker's household's food (M4b slice AB).
   compensation_days: float (id: 25);
   fine_days: float (id: 26);
+  exile: bool (id: 27);
 }
 
 // `law` 0: called on cases only (M4b slice AB).
@@ -1265,6 +1266,7 @@ table CaseSave {
   heard_at: long (id: 13);
   eligible: uint (id: 14);
   stances: [CaseStanceSave] (id: 15);
+  exiled: bool (id: 16);
 }
 
 table Order {

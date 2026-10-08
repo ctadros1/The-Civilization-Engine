@@ -345,8 +345,9 @@ pub struct Population {
     routes_rev: u32,
     /// Per activity, what a trip is expected to bring from each patch today.
     priors: Vec<Prior>,
-    /// Per household, the new ground it would mark out for a field, as found on a day.
-    sites: FastMap<PermanentId, (i64, Option<Site>)>,
+    /// Per household, the new ground it would mark out for a field, as found on a day against the
+    /// land as it then stood ([`site_inputs`]).
+    sites: FastMap<PermanentId, (i64, u64, Option<Site>)>,
     /// Per household with nothing under way, the building it would begin and where (a home, or a
     /// store or a workshop beside it), as found on a day.
     home_sites: FastMap<PermanentId, (i64, Option<NewHome>)>,
@@ -427,6 +428,45 @@ struct HomePlan {
     work: HomeWork,
     def: usize,
     deadline: i64,
+}
+
+/// What finding new ground for a field reads that can change within a day, as one number: the
+/// fields, plots and earthworks laid out and the homes and hearth it keeps clear of. A site found
+/// earlier in the day is kept only while this is the same, so a world saved and loaded within a
+/// day finds the same ground as one lived straight on (ADR-0011 §5; a site kept from before a
+/// neighbour's field was marked out made the two differ about one world in a hundred).
+fn site_inputs(land: &civ_land::Land, homes: &[(f32, f32)]) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut mix = |v: u64| {
+        h ^= v;
+        h = h.wrapping_mul(0x0100_0000_01b3);
+    };
+    let pair = |a: i32, b: i32| u64::from(a as u32) | (u64::from(b as u32) << 32);
+    for (n, rects) in [
+        (
+            land.fields.len(),
+            land.fields.iter().map(|f| f.rect).collect::<Vec<_>>(),
+        ),
+        (
+            land.plots.len(),
+            land.plots.iter().map(|p| p.rect).collect(),
+        ),
+        (
+            land.earthworks.len(),
+            land.earthworks.iter().map(|w| w.rect).collect(),
+        ),
+    ] {
+        mix(n as u64);
+        for r in rects {
+            mix(pair(r.x, r.y));
+            mix(pair(r.w, r.h));
+        }
+    }
+    mix(homes.len() as u64);
+    for &(x, y) in homes {
+        mix(u64::from(x.to_bits()) | (u64::from(y.to_bits()) << 32));
+    }
+    h
 }
 
 /// The share of the days of crop `crop`'s window for preparing and sowing the ground can usually
@@ -1415,11 +1455,6 @@ impl Population {
         crop: &CropParams,
     ) -> Option<Site> {
         let day = ctx.now.day_index();
-        if let Some((seen, site)) = self.sites.get(&hh.id)
-            && *seen == day
-        {
-            return *site;
-        }
         let breakable = &self.homes.get(&field_key)?.breakable;
         // Clear of every home of the settlement and of its hearth.
         let mut homes: Vec<(f32, f32)> = self
@@ -1437,6 +1472,13 @@ impl Population {
                 .filter(|s| Some(s.id) == hh.settlement)
                 .map(|s| s.hearth_m),
         );
+        let inputs = site_inputs(ctx.land, &homes);
+        if let Some(&(seen, at, site)) = self.sites.get(&hh.id)
+            && seen == day
+            && at == inputs
+        {
+            return site;
+        }
         let site = farm::find_site(
             ctx.map,
             ctx.nav,
@@ -1449,7 +1491,7 @@ impl Population {
             &[ctx.seed, farm::PURPOSE_SITE, hh.id.get(), day as u64],
             hh.id,
         );
-        self.sites.insert(hh.id, (day, site));
+        self.sites.insert(hh.id, (day, inputs, site));
         site
     }
 

@@ -566,6 +566,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Slice AH is complete** for what these villages can do: factions, petitions and refusals of a levy. **Open:** slice AI (seizure and founding, with the first office of force, and damage and violence); AJ (god tools, the regimes row, the M4 demo). The save-and-load flake from step one stays open.
 
+## 2026-10-08 — The save-and-load flake, found and fixed
+
+**Goal:** find the rare failure (about 1 run in 100) of the tests that save a world, load it and check both go on alike.
+
+**What was found:** living one test world forty days from 200 fixed identities reproduced it twice. Narrowed step by step: only the decision receipts differed; the choice was the same, its probability was not; the option that scored differently was breaking new ground, at another site. A household's candidate new ground was found once a day and kept in a cache the save does not hold, so a world lived straight on reused a site found before a neighbour marked out a field that day, while a loaded world found a fresh one.
+
+**What changed:** the cached site is kept only while the land its search reads (fields, plots, earthworks, the homes it keeps clear of) is unchanged. A household also no longer holds to ground a neighbour's field has since covered. The cache of a household's planned building has the same shape; nothing showed it, and it is recorded in the plan rather than changed.
+
+**Evidence:** 600 further identities (two seeds) continued alike, where two of the first 200 had not. The kernel suite (604) passes; the ten-year smoke passed all 10 worlds; Gate B and the notables' gate passed.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

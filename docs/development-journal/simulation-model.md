@@ -1,79 +1,60 @@
 # Simulation Model
 
-This page describes systems present in the `main` source baseline documented by this journal. The project is still an early farming-village simulation. The broader historical and modern scope is planned, not already simulated.
+This guide describes the integrated public `main` baseline at commit [`33dbd4a`](https://github.com/ctadros1/The-Civilization-Engine/commit/33dbd4a), dated 2026-10-05. TCE currently simulates an early farming society. The wider historical and modern vision is not the current simulation or the planned v1 scope.
 
-## Time and simulation work
+## Time, scheduling and speeds
 
-`SimTime` is an integer-minute clock over a 365-day calendar. The world begins at a fixed in-game date and time. Detailed mode offers 1×, 3× and 10× speeds; 1× advances 96 simulated seconds per real second, or one in-game day per 15 minutes. Accelerated statistical stepping is a later milestone.
+`SimTime` is an integer-minute clock over a 365-day calendar. A new world begins on 1 March, year 1, at 06:00. `civ-core::Scheduler` merges scheduled events, such as a person finishing an activity or trip, with system cadences such as minutes, hours, days, weeks, months and years. Events have a phase, a keyed random tie-break and a scheduling sequence; entity and activity versions make stale events harmless. At a shared timestamp, cadences run from finer to coarser so a year summary sees the work that ended with it.
 
-The kernel avoids polling every person on every tick. `civ-core::Scheduler` merges two kinds of due work:
-
-- **Events** such as a person's current activity or trip step finishing. They are ordered by timestamp, phase, a random tie-break chosen when scheduled, then scheduling order. Events carry identity/activity versions so events for a dead person or abandoned activity can be ignored safely.
-- **Cadences** such as minute, hour, day, week, month, season and year. At the same instant they are delivered from finest to coarsest, so a yearly summary sees all work from the periods that ended with it.
-
-The event handler can schedule follow-up events. A guard reports excessive same-instant work as a zero-time loop instead of hanging. `civ-sim::Sim::advance_minutes` advances the scheduler in simulation time; `advance_real` maps elapsed wall time through the selected speed.
+Detailed mode offers pause, 1×, 3× and 10×. Accelerated mode offers 60×, 600× and Max. It advances whole days with the same authoritative model and event machinery, and may stop, publish, save or change modes at midnight. The exact consistency checks compare equivalent advance partitions and save/load continuations. Longer statistical comparisons are recorded separately; they do not make the simulation deterministic.
 
 ## Seeded world and changing land
 
-World generation is a pure function of a terrain preset and seed on a given build. Its current stages are:
+World generation is a pure function of the terrain preset and seed for a given build. The pipeline forms coarse watersheds with uplift, incision and hillslope processes; refines relief through multiple levels to 8 m cells; classifies water and drainage; then traces lakes and river reaches with estimated discharge and width. Generation parameters are authored content. The generated terrain is saved and remains the base surface; later earth moved by people is recorded separately.
 
-1. Build a coarse watershed context with uplift, stream-power incision, hillslope diffusion and talus relaxation.
-2. Refine the map region through three levels to the 8 m cell size, adding relief-scaled detail and erosion.
-3. Classify ocean and water, fill artifact depressions, calculate lakes and drainage receivers.
-4. Trace river reaches between confluences, lakes, sinks and outlets; estimate discharge and width from drainage and runoff.
+`civ-land` holds changing world state: 128 m habitat patches and their wild stocks, finite clay/stone/flint deposits, settlements, fields, building plots, structures, pits, quarries, earthworks, weather and worn ground. Plant-like resources grow and decay, animal stocks recover toward habitat capacity, and gathering reflects depletion. Walking wears 8 m cells; the wear fades, and the kernel traces persistent wear into routes.
 
-The terrain, elevation, water and river network are treated as generated base state. The world code also supplies terrain measures and navigation inputs. Mutable ecological and human state lives elsewhere.
+## Weather, water and farming
 
-`civ-land` groups wild resources into habitat patches, currently 128 m across. Plant-like resources grow and waste; animals recover toward habitat capacity; gathering slows as stocks are depleted. Fields track crop phase and work, seasonal deadlines and expected yields. Walking adds wear to 8 m cells, which fades and is periodically traced into paths; routes can use the most recently surveyed paths.
+Weather is a daily series shared across a landscape, keyed by world seed, landscape identity and day. The two presets therefore have separate histories for the same seed, while every speed sees the same history. The generator models wet-day persistence and rain amounts, temperature variation around monthly normals, a slower anomaly that carries wet or dry spells across seasons, and snow that lies and melts by elevation band. The `weather` content profile holds its parameters. Full parameter choices and measured distributions are in [ADR-0012](../../decisions/0012-weather-and-soil.md) and the plan's §9 log.
 
-At this baseline, stone and flint also have fixed habitat-level stock estimates. M3b slice Q has added a deterministic deposit-body placement primitive that can place bodies on a generated map from rules and a seed. The placement primitive is not yet part of normal world creation, resource finding/extraction or earthworks. Keep that implementation boundary explicit.
+Reference soil water changes with rain, snowmelt and temperature-based evapotranspiration. A growing field keeps its own root-zone water balance and crop-stage water needs from sowing to maturity. Harvest responds to the share of seasonal water need met, normalized against the landscape's long-run mean so an average season remains aligned with the authored crop yield. Wild plant growth also responds to soil water. The yearly climate multiplier has been retired.
+
+Weather limits only work that turns the soil: breaking and preparing ground and sowing wait when snow, wet ground or freezing makes the field unworkable. Weeding, reaping and threshing continue in wet weather. Households estimate the usual workable share of the crop's preparation/sowing window when planning, then respond to the weather as it occurs; they do not see future draws. The observer shows daily conditions, snow and season on the map, monthly and yearly summaries in a weather panel, yearly extremes in the chronicle, and water received so far in growing-field details. `civ-host weather` replays a preset's series and reports workable days.
+
+The same weather drives monthly wear on thatch, daub and post feet, and supplies storm and snow loads for buildings. Grain asking prices now react to household stores, allowing weather-driven harvest changes to reach the market. The weather feature was checked over long generated histories and through smoke worlds; see [Development and Evidence Practice](development-and-evidence.md) and the plan log for the exact runs and outcomes.
+
+Field water is implemented; the field nutrient budget is not yet in the integrated baseline. M3c slice V is planned to add nitrogen pools, harvest histories and deliberate field rest/manuring. More crops, livestock, farming earthworks and the remaining M3c tuning/demo work also remain ahead.
 
 ## People, households and choices
 
-People and households are represented in ordinary Rust tables, linked by stable permanent IDs and temporary generation-checked handles. The founding band is initialized from an authored people profile and life-table assumptions. Relationships, ages, births, deaths, households, inheritance and departures become explicit state and chronicle events.
+People and households are plain Rust tables connected by permanent IDs and generation-checked handles. An authored people profile supplies founding ages, relationships, needs, fertility and mortality assumptions. Births, unions, deaths, inheritance and departures become state changes and chronicle events.
 
-An agent's decision process is organized around activities defined in content:
+Activity definitions come from content. For each decision, the kernel gathers relevant facts, finds a best target for each feasible activity, scores its considerations in a shared unit, excludes impossible options with a reason, samples among the rest with a softmax, and stores a bounded decision receipt. The receipt powers the observer's explanation; the UI does not decide. An agent's trip is a route with scheduled start/arrival and geometry for display, rather than a per-frame simulation position.
 
-1. Gather relevant facts such as age, work capacity, needs, time of day, food outlook and available places.
-2. For each possible activity, retain its best available target (for example a gathering patch or field).
-3. Score each option by adding decision considerations that share a unit. Impossible options are excluded with a reason.
-4. Sample from the remaining options with a softmax whose temperature scales with the score spread.
-5. Store the chosen activity and a bounded decision receipt containing scores, exclusions and the runner-up.
+People gather, hunt, fish, farm, make goods, build, mend, trade and meet household needs when their age, skills, tools, knowledge, materials and circumstances allow. Households share stores and labor. A household that leaves is removed from the world; the current model has no regional migration network for it to join.
 
-The receipt powers the observer's “why” explanation; it is not a separate decision made by the UI. Decisions are plausible bounded choices, not unrestricted optimization or scripted historical events.
+## Goods, work and exchange
 
-Movement is represented as trips over routes, with start/arrival times, path identity and geometry queried or referenced for presentation. The web map draws people along those trips. This keeps walking and rendering separate from a per-frame position simulation.
+Goods are held in kilograms with authored spoilage, use and recipes. Tools wear through useful work; skills improve through practice and affect work rates. Each transfer between households is recorded in a ledger with source, destination, amount and channel. Household valuation is expressed in hours of its own labor; sellers post terms in goods they want, and buyers compare offers. The settlement's money is inferred from the good settling the most payments, so barter can remain common.
 
-Households share stores and labor. People eat, sleep, socialize, gather, hunt, fish, farm, carry, make goods, construct, mend and trade where their age, needs, skills, materials and knowledge permit. A household that cannot sustain itself may leave; departures remove people from the world rather than simulating migration to another settlement.
-
-## Food production, goods and exchange
-
-The current farming cycle centers on spring-sown emmer. Households select and prepare rectangular fields, clear woodland where necessary, sow, weed, reap and thresh. Yield depends on ground, weather/climate factor, planting time and harvest timing. Seed is reserved against planned area before grain can be eaten. Current crops, seasons and work rates are intentionally limited; M3c is planned to deepen weather, soils and farming.
-
-Goods are held in kilograms with kind-specific spoilage and use. Firewood is burned by an authored seasonal rate; cooked food can require fuel; shared goods such as a kill are divided; tool durability is expressed as remaining useful work. Recipes consume inputs, people need the relevant tool and skill, and practice increases skills.
-
-M3a adds an accounting ledger for transfers: household allocation, gifts, shared food, new-couple contributions, inheritance, barter and sale. The ledger records source, destination, amount and channel so that goods cannot appear through repricing. Households estimate value in hours of their own labor and post terms; buyers choose among offers. A village's money is inferred from the good that settles the most payments. It may still barter.
-
-Workshops belong to households and keep their own goods and books. They can post goods, hire work for wages and close. The model is small: firms make a narrow range of tools; they do not yet have modern contracts, credit or complex company organization.
-
-Property regimes govern who holds fields and how fields can be leased. A field's holder and cultivator are separate facts. Wealth reports land, goods and floor area with distribution measures; measured wealth does not yet drive every social decision.
+A household workshop keeps its own stores and books, posts terms and a wage, hires work through the ledger and closes when it cannot continue. Property regimes determine who holds fields and whether they can be leased. Wealth measures cover goods, land and floor area, but do not yet drive every social choice. Firms and markets remain deliberately small; there are no modern contracts, credit systems or complex company structures.
 
 ## Knowledge and buildings
 
-Techniques are authored capabilities such as growing a crop or framing a building. Activities, recipes and building programs can require them. Each person can know a technique, be learning it, or have heard of it. Knowledge transfers through household upbringing and working beside a knowledgeable person; some techniques can be discovered from practice or purposeful attempts. A settlement records when a technique arrives or is lost. The observer can introduce or tell a person about a technique.
+Techniques gate activities, recipes or building programs. People can know, learn or have heard of a technique. They learn through upbringing and work beside a knowledgeable person; practice and purposeful attempts can discover some techniques. A settlement records when a technique arrives or is lost, including loss with its last knower. The observer can introduce a technique to a person.
 
-Buildings begin as saved design specifications. `civ-grammar` expands a specification into an outline, door, construction stages, materials and labor. Frame grammar also yields bays, floors, use areas, storage and stable component groups. Rendering receives the expanded marks; it does not decide dimensions or building rules.
+A saved building design is expanded by the pure `civ-grammar` crate into parts, outline, stages, materials and labor. The hut grammar remains versioned; the frame grammar derives bays, floors, use areas, storage, work areas and stable component groups. Households choose among structures they know how to build and can afford. The observer renders kernel-produced marks and dimensions rather than calculating building rules.
 
-Construction consumes materials and labor over time. Components receive an initial quality, then wear according to exposure and authored upkeep parameters. Households choose and perform mending. Loads from the building, stored goods, occupants and monthly weather can cause sagging or failure; collapses can spill goods, damage structures and kill people. Settlements keep fading records of building failures and building-years. These records affect the dimensions chosen for later frame buildings, within each program's allowed range. The observer reports the condition and the kernel's explanation.
+Materials and labor are consumed through construction stages. Parts receive quality from builders' skill and wear according to material, exposure and upkeep. Households mend deteriorated parts. Loads include the structure, stored goods, occupants, storms and snow. Parts can sag or fail, spilling stores and sometimes killing people. Settlements keep a fading record of failures and building-years; that memory changes how strongly later frame buildings are built, within their authored programs. The observer reports the condition and kernel explanation.
 
-At the source baseline, M3b slices M–P are implemented and slice Q has started. Deposit placement is only the first step: deposits are not yet integrated into ordinary world creation or extraction, and pits/quarries, earthworks, clay processing and the geological observer tool are still ahead. Check the README and plan before claiming their status.
+## Known limits
 
-## What the model does not claim
+- The integrated content is early agrarian, centered on emmer; modern government, industry, infrastructure and cities are not implemented.
+- Nitrogen-based field fertility and intentional rotations/resting remain M3c V work. Farming earthworks and additional crops/livestock are later scope.
+- Weather and workability increase pressure on already fragile founding societies. The ten-year smoke for U passed its selected checks, but several bands were near the population threshold and others died out; this is not a general survival guarantee.
+- One settlement has no destination for departing households. Food shortages can end a settlement.
+- Selected smoke seeds, dashboard bands and long weather probes are plausibility and software checks, not proof of historical fidelity or comprehensive calibration.
+- Simulation replay is not deterministic. World generation is reproducible for a seed and build; saves are snapshots of state.
 
-- Modern governments, industrial economies, cities and infrastructure are not implemented in this baseline.
-- Realistic behavior is an aim checked against selected stylized facts, not a proof that the model reproduces history.
-- Smoke tests cover chosen seeds and rules. Passing them does not establish that all plausible worlds survive or that every parameter is calibrated.
-- Early villages can fail from food shortages. Single-settlement departures are final, and there is no regional migration network.
-- Terrain, land use and ecology are still deliberately coarse; climate, soils, multiple crops, livestock and changing drainage arrive in later work.
-
-See [Development and Evidence Practice](development-and-evidence.md) for how the project records these boundaries.
+For milestone requirements and detailed measurements, use the [project plan](../../PROJECT_PLAN.md), especially §7 and §9.

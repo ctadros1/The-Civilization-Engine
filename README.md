@@ -25,14 +25,14 @@ The current build simulates an early farming society in a local web observer. Mo
 | M0–M1: world, people and settlement | Implemented: seeded landscapes, households, farming, buildings, family life, save/load and a web observer |
 | M2: Unreal client | In progress: kernel library and C ABI implemented; Unreal integration remains |
 | M3a–M3b: economy, knowledge and buildings | Implemented |
-| M3c: seasons and time | In progress: accelerated time and the 50-year sanity dashboard are implemented; daily weather and field-water systems are underway |
+| M3c: seasons and time | In progress: S–U are implemented; V/W remain for soil fertility, Accelerated-mode approximations and tuning, and the M3c demo |
 | M4–M8: law, neighbors and cities | Planned |
 
 The project plan tracks the current slice, detailed implementation boundaries and known limitations. Smoke worlds and the dashboard are engineering checks against selected conditions, not proof that the simulation reproduces history.
 
 ## Current build
 
-This is the current web observer: a village with households, buildings, fields and the tools to inspect what people know and how they build.
+The screenshot is from the M3b village demo. The current web observer also presents daily weather, season and snow on the map, annual weather in the chronicle, and each crop's water outlook.
 
 <p align="center"><img src="assets/m3b/m3b-village.jpg" alt="The Civilization Engine web observer showing an early farming settlement with households and buildings" width="900"></p>
 
@@ -55,7 +55,7 @@ The following generated images illustrate the longer-term scope; they are concep
 | Content | Strict TOML packs compiled and cross-validated before a world starts |
 | Observer and boundary | TypeScript, Vite and PixiJS over localhost WebSocket; versioned FlatBuffers messages and a shared frame envelope; C ABI for future Unreal integration |
 | Saves | Checksummed, versioned snapshots with explicit migrations; the simulation is not intended to replay deterministically |
-| Evidence | Rust and browser checks, selected smoke worlds, and a five-world, fifty-year sanity dashboard |
+| Evidence | Rust and browser checks, selected smoke worlds, exact mode-consistency checks, and a five-world, fifty-year sanity dashboard |
 
 ## Run it
 
@@ -70,7 +70,7 @@ On Windows, run `tools\run.ps1` in PowerShell. The local observer opens at <http
 ## Documentation
 
 - [Project plan and current milestone status](PROJECT_PLAN.md)
-- [Development journal and technical notes](docs/development-journal/README.md) (historical source snapshot; see the project plan for current status)
+- [Development journal and technical notes](docs/development-journal/README.md) (development history and current technical model through M3c U)
 - [Architecture decision records](decisions/README.md)
 - [Research index](research/README.md)
 - [Content authoring guide](content/README.md)

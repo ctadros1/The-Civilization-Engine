@@ -1,10 +1,10 @@
 # Development Journal and Technical Guide
 
-This folder explains how TCE has been built, how its current simulation works, and where the main code boundaries are. It complements the milestone plan, architecture decision records (ADRs), code comments, and research library; it does not replace them.
+This folder explains how TCE has been built, how the integrated simulation works, and where its main code boundaries are. These notes are reconciled through `main` commit [`33dbd4a`](https://github.com/ctadros1/The-Civilization-Engine/commit/33dbd4a), dated 2026-10-05, which records M3c slice U complete. They complement the milestone plan, architecture decision records (ADRs), code comments, and research library; they do not replace them.
 
 ## Source baseline
 
-These pages describe the public `main` tree at commit [`fad23fa`](https://github.com/ctadros1/The-Civilization-Engine/commit/fad23fa), merged on 2026-10-04. Its current development point is M3b, with the first deposit-placement primitive started in slice Q. Treat claims about implementation as belonging to that source baseline. Later commits may change the code or milestone status; check the current source and plan before relying on a detail.
+The technical baseline is the public `main` tree at commit [`33dbd4a`](https://github.com/ctadros1/The-Civilization-Engine/commit/33dbd4a). M0–M3b are implemented; M3c slices S–U are integrated, and V (soils and fertility) and W (Accelerated-mode approximations, tuning and the demo) remain. The project plan §9 contains the detailed parameters, checks and observed outcomes. Later commits may change implementation or status, so consult the plan and source before relying on a moving detail.
 
 ## Read by question
 

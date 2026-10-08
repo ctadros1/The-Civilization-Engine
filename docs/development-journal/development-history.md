@@ -53,7 +53,21 @@ M3b through slice P added knowledge to individual people, learning from househol
 
 The hut grammar was extended with frame-building programs and derived spaces, storage and work areas. Households can choose among homes they know how to build; they can build granaries and workshops when the relevant technique and means allow. Buildings acquire part quality, wear by exposure, leak, receive upkeep and can fail under load. Settlements retain a fading record of failures; later frame structures can be sized more strongly in response.
 
-At the main-tree baseline, M3b slice Q had begun with deterministic placement logic for geological deposit bodies in `civ-land`. The placement primitive had not yet been connected to generated worlds, extraction, earthworks or the observer tool. Slice R's architectural style work and M3c remained ahead.
+M3b went on to complete slices Q and R: deposits became part of new worlds and household extraction, earthworks and pits changed the surface, and building style spread through copying. The main-tree baseline documented here includes all of M3b.
+
+## 2026-10-05 — M3c S and T: time modes and a long-run baseline
+
+Slice S added Accelerated speeds at 60×, 600× and Max. Accelerated advances a whole day at a time and changes mode only at midnight, using the same event machinery and authoritative state. Gate A checks compare advance partitions, mode changes and save/load continuations. Exact performance work was measured against state digests so speed improvements could be distinguished from changed histories.
+
+Slice T added `civ-host dashboard`, which runs five river-valley worlds for fifty years and reports the applicable population, food-price, goods-inequality, workshop-size and building-failure measures. Its initial, untuned baseline missed the population and lived-in building-failure bands. That baseline remains evidence to explain, not a result tuned away.
+
+## 2026-10-05 — M3c U: weather reaches farms, buildings and the observer
+
+Slice U replaced one annual climate multiplier with a daily weather stream for each landscape. Seed, landscape and day identify the stream, so both speeds see the same regional weather while the two landscapes have separate histories. Rain persistence and amounts, temperature anomalies, slow wet/dry periods and snow now feed a reference soil-water balance and per-field crop water. Harvests respond to water received, and wild plant growth follows soil moisture.
+
+The integration crossed several layers. Breaking and preparing ground and sowing wait for frozen, snow-covered or wet ground; other field tasks continue. Farm plans use the long-run share of workable days instead of seeing future weather. Month-level rain affects building wear; storm days and snow contribute roof loads; grain asking prices respond to household stores. The observer now shows conditions on the clock, weather and season information on the map, monthly/yearly summaries in a panel, annual extremes in the chronicle, and water status on growing fields. Weather and field water are saved; the boundary reached wire 1.24 and content API 24, with save schema 24.
+
+The final ten-year smoke for U passed the selected checks across ten worlds. Five worlds met the population floor, while four bands died out and another ended below it. Earlier smoke iterations exposed failures from over-restricting wet-weather work and from a tool-replacement loop; those causes were investigated and corrected. The remaining fragility is open work for field soils and subsequent tuning, not evidence that weather or farming is calibrated. Slice V (soil nutrients and fertility) and W (Accelerated-mode approximations, tuning and demo) remain after this baseline.
 
 ## Development pattern that emerged
 

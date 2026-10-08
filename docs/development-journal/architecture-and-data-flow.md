@@ -1,6 +1,6 @@
 # Architecture and Data Flow
 
-TCE keeps one authoritative simulation kernel and multiple possible observers. At the documented baseline, the runnable observer is a local browser app. The C interface is implemented for a future Unreal host; the Unreal client itself is not.
+TCE keeps one authoritative simulation kernel and multiple possible observers. At baseline `33dbd4a` (2026-10-05), the runnable observer is a local browser app. The C interface is implemented for a future Unreal host; the Unreal client itself is not.
 
 ## Runtime shape
 
@@ -28,7 +28,7 @@ The web and future Unreal surfaces are clients. They can ask questions and submi
 | `civ-core` | Simulation time, calendar, entity handles, permanent IDs, keyed RNG and event/cadence scheduler |
 | `civ-world` | Pure seeded terrain, hydrology, lakes, rivers, terrain metrics and navigation grids |
 | `civ-grammar` | Pure expansion from a saved building design to geometry marks, components, spaces and staged material/labor needs |
-| `civ-land` | Mutable land: habitat stocks, settlements, fields, plots, buildings, worn ground and the started deposit placement primitive |
+| `civ-land` | Mutable land: habitat stocks, daily weather, field water, settlements, fields, deposits, pits, plots, buildings, earthworks and worn ground |
 | `civ-agents` | People, households, needs, choices, activities, trips, births, deaths, work, goods, markets, firms, knowledge and building behavior |
 | `civ-content` | Strict TOML parsing, cross-reference and range validation, diagnostics, and immutable compiled registry |
 | `civ-schema` | FlatBuffers boundary/save definitions and generated Rust types |
@@ -46,7 +46,7 @@ The dependency structure is layered rather than one strict chain. `civ-core`, `c
 2. The observer sends `NewWorld` with a seed, preset, size, name and optional founding-band/regime choices.
 3. The host loads and validates the TOML content pack into a `ContentRegistry`. Invalid content yields diagnostics and cannot produce a registry.
 4. `civ-sim` invokes `civ-world` to create terrain and hydrology from the seed and preset. World generation is pure for a given build and input. The resulting map is retained; ongoing simulation does not regenerate it.
-5. `civ-land` and `civ-agents` initialize mutable stocks, the settlement and its people. The kernel publishes initial metadata, snapshot and event frames for observers.
+5. `civ-land` initializes deposits, mutable ecological stocks and a daily weather stream keyed by world seed, landscape and day. `civ-agents` initializes the settlement and its people. The kernel publishes initial metadata, snapshot and event frames for observers.
 
 New worlds use 8 m simulation cells. The default is 2,048 cells per side (16 km); smaller sizes support rapid iteration. The clock begins on 1 March, year 1, at 06:00. Generation parameters and content fingerprints are kept with world metadata; the generated terrain itself is saved.
 
@@ -54,7 +54,7 @@ New worlds use 8 m simulation cells. The default is 2,048 cells per side (16 km)
 
 The host owns the simulation worker. While running, `civ-host::Engine` receives commands and queries, advances `Sim`, schedules autosaves, and publishes updates. A user command changes kernel state only after validation and execution in the host/kernel path.
 
-The observer uses one TypeScript network module to encode commands and queries, decode responses, and maintain a client state store. The map and panels display received facts. They do not invent prices, household decisions, field states or building dimensions. Pure display helpers turn kernel facts into labels and shapes.
+The observer uses one TypeScript network module to encode commands and queries, decode responses, and maintain a client state store. The map and panels display received facts, including current weather, season and snow; they do not invent prices, household decisions, field states or building dimensions. Pure display helpers turn kernel facts into labels and shapes.
 
 Frame delivery has two paths:
 

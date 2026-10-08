@@ -1,7 +1,7 @@
 # The Civilization Engine: Project Plan
 
 Status: plan of record, written 2026-09-27 from the planning interview.
-Implementation (2026-10-05): **M0 Foundations and M1 A band settles are implemented** (people,
+Implementation status (2026-10-05; `main` at `33dbd4a`): **M0 Foundations and M1 A band settles are implemented** (people,
 foraging, farming, huts, births, deaths and families, worn trails, the first god tool and running
 ahead). **M2 is in progress:** its kernel side (the kernel as a library with a C interface, the
 panels alone) is implemented; its Unreal work needs the Windows PC. **M3a Village economy is
@@ -14,9 +14,11 @@ demo). **M3b Knowledge and building is implemented** in six slices: M (knowledge
 people), N (discovery and the first new crafts), O (the frame grammar, storehouses and
 workshops), P (wear, upkeep, loads, failures and caution), Q (deposits, levelled plots, pits and
 quarries, pots and ovens) and R (style copied from admired buildings, and the demo). **M3c Seasons
-and time is in progress**: slices S (the speeds and the day step) and T (the fifty-year
-dashboard and its baseline) are implemented, and slice U (weather) has its first step (§7).
-The README lists what exists, what is planned and the known limitations.
+and time is in progress**: slices S (the speeds and the day step), T (the fifty-year dashboard)
+and U (daily weather, field water, workable soil-turning days, weather displays, roof loads and
+grain asks that answer stores) are implemented. Slices V (soils and fertility) and W (Accelerated
+mode approximations, tuning and the demo) remain (§7). The README lists what exists, what is
+planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
 (i9 13th gen, RTX 4070 Ti with 12 GB VRAM, 64 GB DDR5).
 
@@ -1217,18 +1219,19 @@ prices, buildings and wealth distribution), is M3a's.
 
   [ADR-0011](decisions/0011-execution-modes.md) governs the speeds and their consistency;
   [ADR-0012](decisions/0012-weather-and-soil.md) governs weather, field water and the soil.
-- *Status (2026-10-05):* slices S and T implemented: exact speed work, saves 23 (a world saved
-  and lived on matches one never saved), the day step and the Accelerated speeds with Gate A's
-  tests; and the dashboard, whose baseline before any tuning failed on population (two worlds of
-  five kept ten people, both under village fields) and on failures of lived-in buildings (2.17
-  per 1,000 building-years against 2) (§9). Slice U's first two steps are implemented: a daily
-  weather series per landscape, each growing field's water setting its harvest, wild plants
-  following the soil water, `civ-host weather`, and the observer's weather on the clock and in a
-  panel (saves 24, wire 1.24); then rain, snow and frost keeping people from turning the soil,
-  spring plans counting on the days that can usually be worked, growing crops judged by their
-  water so far (content API 24), and buildings wearing as wet as each month was. Next in U: the
-  season and snow on the map, the year's weather in the chronicle, storms and snow on roofs, and
-  grain asks that answer stores.
+- *Status (2026-10-05; `main` at `33dbd4a`):* slices S, T and U are implemented. S adds
+  detailed and Accelerated speeds, day-boundary switching, and Gate A consistency checks; a save
+  lived on matches an uninterrupted run. T adds the five-world, fifty-year dashboard and records
+  its untuned baseline, including population and structural-failure rows that missed their bands.
+  U replaces the yearly climate draw with a daily weather series per landscape, carries water
+  balances through growing fields, and makes harvests respond to water. Breaking/preparing soil
+  and sowing wait for workable days; weeding, reaping and threshing remain available in wet
+  weather. Weather appears on the clock, map, yearly chronicle and weather panel, and drives
+  building wear and roof loads. Grain asking prices respond to stores. The final ten-year smoke
+  for U passed all ten selected worlds, though several bands remained near or below the population
+  threshold; this is not evidence that the farming model is robust. Wire 1.24, save schema 24 and
+  content API 24. Next are V's field nutrients and fertility, then W's declared Accelerated-mode
+  approximations, tuning against the dashboard and the M3c demo.
 
 **M4: Councils, law & crime.**
 - *Contents:*

@@ -2,15 +2,17 @@
 
 TCE treats boundary messages and durable saves as long-lived contracts. Their versioning, ownership and error behavior are deliberate parts of the architecture, not implementation details to change casually.
 
+At the documented `main` baseline `33dbd4a` (2026-10-05), the boundary is TCE wire 1.24, the save schema is 24, and the content API is 24. Those are source versions, not promises that later branches remain at the same numbers.
+
 ## Content loading
 
-`civ-content` reads the `content/` TOML pack into strict typed definitions. A content ID names its pack, kind and item; file paths, identity fields, references, numeric ranges, techniques and recipe/bootstrap constraints are checked before an immutable `ContentRegistry` is produced. Diagnostics have stable codes and file locations for command-line and agent tooling.
+`civ-content` reads the `content/` TOML pack into strict typed definitions. A content ID names its pack, kind and item; file paths, identity fields, references, numeric ranges, techniques and recipe/bootstrap constraints are checked before an immutable `ContentRegistry` is produced. Diagnostics have stable codes and file locations for command-line and agent tooling. Content API 24 includes landscape weather parameters, field-work thresholds, and crop water-response parameters.
 
 The registry keeps an artifact fingerprint over source bytes and a semantic BLAKE3 fingerprint over effective compiled content. World metadata records the pack identities and content stamp. A save can therefore explain which rules it used, while formatting-only edits need not count as semantic changes.
 
 ## Network and host boundary
 
-`commons-wire` defines an engine-neutral binary frame envelope. At this baseline its envelope major is 1; TCE payload schemas are FlatBuffers generated from `kernel/crates/civ-schema/schema/`. Each frame identifies the schema, frame kind, world epoch and ordering/correlation information needed by its delivery class.
+`commons-wire` defines an engine-neutral binary frame envelope. At this baseline its envelope major is 1 and TCE payload schema is 1.24; payloads are FlatBuffers generated from `kernel/crates/civ-schema/schema/`. Each frame identifies the schema, frame kind, world epoch and ordering/correlation information needed by its delivery class.
 
 The main payload flow is:
 
@@ -23,13 +25,15 @@ Snapshots are replaceable state: a slow client can skip an older snapshot and co
 
 `civ-host` serves the browser files and WebSocket on localhost. It rejects pages from other origins and can require a token. The web network layer centralizes frame handling in `web/src/net/messages.ts` and `web/src/net/client.ts`; generated TypeScript is kept behind the messages module. Display components operate on plain typed data.
 
+Wire 1.24 exposes the day's weather and a revision that advances with lived days, a query for monthly and annual weather summaries, and each growing field's water status. The browser renders those facts on the clock, weather panel, map and field readout; the kernel remains responsible for weather generation and crop effects.
+
 The schema is append-only within a major version. New fields and enum values are added without renumbering old fields. `tools/gen-schema.sh` regenerates Rust, TypeScript and C++ readers from the pinned FlatBuffers compiler, and CI checks that generated files are current. See [ADR-0001](../../decisions/0001-boundary-schema.md).
 
 ## Save format and lifecycle
 
 `commons-persist` stores named sections in a versioned snapshot container. The format carries an engine identity, container and state-schema versions, world/snapshot identities, section descriptors, lengths and checksums. Section payloads are compressed where configured. Readers enforce size limits and verify data; a damaged or incompatible file is refused rather than silently repaired.
 
-`civ-sim` maps authoritative world state into sections such as metadata, clock/scheduler, terrain and water, land, agents, buildings, economy and knowledge. State that can be derived from saved records (for example terrain indexes and certain presentation summaries) is rebuilt rather than independently persisted. Save code owns migration from supported older schemas; a meaning change requires a schema version change and an explicit migration.
+`civ-sim` maps authoritative world state into sections such as metadata, clock/scheduler, terrain and water, land, agents, buildings, economy and knowledge. Save schema 24 includes the weather generator's continuation state and monthly history, snow by elevation band, reference-soil water, and growing-field water balances. State that can be derived from saved records (for example terrain indexes and certain presentation summaries) is rebuilt rather than independently persisted. Save code owns migration from supported older schemas; a meaning change requires a schema version change and an explicit migration.
 
 Each manual save or autosave publishes a new immutable generation in `saves/<world>/`. A save is not an event-log replay: it is a snapshot of current state. TCE does not promise deterministic simulation replay from a seed. World generation is reproducible for a given build and input; the subsequent simulation is not required to reproduce bit for bit.
 

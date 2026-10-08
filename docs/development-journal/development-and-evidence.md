@@ -30,6 +30,10 @@ The repository's operating instructions in [AGENTS.md](../../AGENTS.md) are auth
 | Smoke worlds | Behavior across selected seeds and presets, checking invariants and thresholds over time |
 | M3a economy grading | Annual checks for stock changes, asks, inequality and workshop distributions, with gray/amber bands where evidence is too sparse or incomplete |
 | Ten-year runs | Longer interactions among food, demography, knowledge, farming and building systems; currently nightly/PR CI also runs these by repository configuration |
+| Accelerated Gate A | Exact comparisons across advance partitions, speed-mode changes, and save/load continuations |
+| Accelerated Gate B | Nightly statistical comparisons of declared approximations against repeated Detailed runs; tolerances and fixtures are logged in the plan |
+| M3c dashboard | Five river-valley worlds × fifty years; applicable population, price, goods inequality, firm-size and lived-in building-failure rows are graded, with inapplicable measures shown as unavailable |
+| Weather probes | Long generated series check annual totals, wet-day counts, temperature, snow and water-driven harvest variation; weather remains shared by the landscape, not sampled independently by each field |
 
 The important distinction is between **software properties** and **behavioral observations**. “Goods balance exactly across a ledger transfer” is an invariant. “This seed empties its valley after a bad harvest” is an observation about one configuration and run. Neither should be presented as proof of a general historical claim.
 
@@ -39,18 +43,21 @@ The important distinction is between **software properties** and **behavioral ob
 - M1 added population checks and longer runs because a terrain-only test cannot reveal whether people can reach food, water and shelter.
 - M3a checks the conservation of goods as well as annual economy signals. The record showed that the two land regimes can look similar while land is plentiful, and that large founding villages can experience a severe harvest shortfall and leave. This motivated a logged M3c farming nudge.
 - M3b's knowledge and structural-building work extended smoke checks to technique continuity, building condition, loads, collapse outcomes and economy. A smoke run caught implausibly frequent failures after slice P's load model; correction of when monthly storms applied and hut member sizes brought the recorded ten-year run into its expected check band. Later, caution based on village building failures was implemented and its recorded ten-year smoke showed no load failures in those selected worlds.
+- M3c T recorded the dashboard before tuning: population and lived-in structural failures were outside their bands. This baseline is preserved so later changes can be compared against the original result.
+- M3c U's final ten-year smoke passed its selected checks in ten worlds after narrowing weather restrictions to soil-turning work and fixing a way for households to replace a worn axe. Five worlds met the population floor; the other five were extinct or below it. The run therefore passes its configured checks without establishing broad settlement resilience.
+- Weather probes over long histories check the generated climate and crop-water distribution. A sound distribution does not establish realistic farming outcomes or prove the selected parameters are calibrated.
 
-These are source-baseline results, not calibration guarantees. See the chronological entries in [`development-history.md`](development-history.md) and the detailed per-slice evidence in [`PROJECT_PLAN.md` §9](../../PROJECT_PLAN.md#9-decisions-log).
+These results describe the integrated `main` source baseline at commit [`33dbd4a`](https://github.com/ctadros1/The-Civilization-Engine/commit/33dbd4a), not calibration guarantees. See the chronological entries in [`development-history.md`](development-history.md) and the detailed per-slice evidence in [`PROJECT_PLAN.md` §9](../../PROJECT_PLAN.md#9-decisions-log).
 
 ## Known model limits at this baseline
 
 - The world simulates a small founding society and early farming, not the project's full span through modern civilization.
 - A single settlement has no connected regional destination for departures. A household that leaves is removed from the simulated world.
-- Farming centers on emmer and a spring crop cycle. Soil nutrients, a broader crop set, livestock and M3c's fuller weather/soil behavior are not implemented.
-- Some early-world stock estimates and rates are tuning values. The geological deposit-placement primitive is not yet connected to normal world generation or extraction.
+- Farming centers on emmer and a spring crop cycle. Weather and field water are integrated, but nitrogen-based fertility, deliberate rotations/resting, a broader crop set and livestock are not.
+- Some early-world stock estimates and rates are tuning values. Deposits and pits/quarries are integrated, but geological placement rules remain authored approximations.
 - Markets, workshops, property regimes and building programs cover a deliberately narrow set of early institutions.
 - Unreal is not the current viewer. The kernel C ABI is ready as an integration surface, but the UE client and its rendering pipeline remain to be built.
-- Simulation determinism is explicitly not a goal. Results can differ between runs; world generation is reproducible per build/input.
+- Simulation replay is not deterministic. World generation is reproducible per build/input; each world's weather stream is keyed by seed, landscape and day.
 
 ## Continuing the journal
 

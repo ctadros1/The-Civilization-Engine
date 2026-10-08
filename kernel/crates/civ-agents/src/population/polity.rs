@@ -14,7 +14,7 @@ use crate::word::Blamed;
 
 /// A decision someone saw made at a gathering (M4c slice AF): each stance taken, by person and
 /// household, with what the household stood to gain in points, and whether it passed.
-struct Seen {
+pub(super) struct Seen {
     stances: Vec<(PermanentId, PermanentId, Stance, f64)>,
     passed: bool,
 }
@@ -146,6 +146,7 @@ impl Population {
         // Petitions that have sat go before the gathering, and those decided are answered; then
         // those whose day it is review where they belong (M4c slice AH).
         self.petitions_day(ctx);
+        self.revolts_day(ctx);
         self.factions_day(ctx);
         for pi in 0..self.polities.len() {
             let p = &self.polities[pi];
@@ -503,6 +504,105 @@ impl Population {
         }
     }
 
+    /// What polity `pi`'s gatherings decided within memory under its present custom (M4c slice
+    /// AF): each law and case, with the stances taken there (open acclamation: those who came saw
+    /// them). Only decisions the present custom made count: a change of custom is judged by how
+    /// the custom it would replace has decided, so a newly amended custom is not undone on the
+    /// strength of what an older one did (that let two camps toggle the custom week by week).
+    pub(super) fn decisions_seen(&self, ctx: &Ctx, pi: usize) -> Vec<Seen> {
+        let pp = &ctx.params.polity;
+        let day = ctx.now.day_index();
+        let memory = i64::from(pp.vote_memory_days);
+        let polity = &self.polities[pi];
+        let custom_since = polity.versions.last().map_or(polity.founded, |v| v.since);
+        let recent = |t: Option<SimTime>| {
+            t.is_some_and(|t| day - t.day_index() <= memory && t >= custom_since)
+        };
+        // Amendments themselves are not among them: a rule is judged by the laws and cases it
+        // decides, not by other changes of rule (which would let the custom feed on itself).
+        let mut decisions: Vec<Seen> = polity
+            .laws
+            .iter()
+            .filter(|l| recent(l.decided) && !l.stances.is_empty())
+            .filter(|l| l.kind != PolicyKind::AmendBody)
+            .map(|l| Seen {
+                stances: l
+                    .stances
+                    .iter()
+                    .map(|r| (r.person, r.household, r.stance, f64::from(r.gain)))
+                    .collect(),
+                passed: l.outcome == Some(Outcome::Passed),
+            })
+            .collect();
+        decisions.extend(
+            self.order
+                .cases
+                .iter()
+                .filter(|c| recent(c.heard) && !c.stances.is_empty())
+                .filter(|c| polity.laws.iter().any(|l| l.id == c.law))
+                .map(|c| Seen {
+                    stances: c
+                        .stances
+                        .iter()
+                        .map(|r| (r.person, r.household, r.stance, f64::from(r.stake)))
+                        .collect(),
+                    passed: c.stage == crate::crime::CaseStage::Found,
+                }),
+        );
+        decisions
+    }
+
+    /// What body `b` would have brought households `households` from `decisions`, summed (research
+    /// 09-02 §3.7, 09-05 §1.2: a rule is judged by how it would have decided what was seen): each
+    /// decision one of them was at that `b`, admitting those it admits now, would have turned the
+    /// other way, at that household's stake in it (M4c slice AI: a faction's program).
+    pub(super) fn body_gain(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        b: &Body,
+        households: &[PermanentId],
+        decisions: &[Seen],
+    ) -> f64 {
+        let (now, params) = (ctx.now, ctx.params);
+        let pp = &params.polity;
+        let settlement = self.polities[pi].settlement;
+        let adults = self.members_of(settlement, now, params);
+        let admitted: Vec<PermanentId> = self
+            .admitted(b.members, &adults, &ctx.land.fields, now, params)
+            .into_iter()
+            .map(|a| a.0)
+            .collect();
+        decisions
+            .iter()
+            .map(|s| {
+                let (mut present, mut support, mut oppose) = (0, 0, 0);
+                for &(p, _, stance, _) in &s.stances {
+                    if admitted.binary_search(&p).is_err() {
+                        continue;
+                    }
+                    present += 1;
+                    match stance {
+                        Stance::Support => support += 1,
+                        Stance::Oppose => oppose += 1,
+                        Stance::Abstain => {}
+                    }
+                }
+                let now_passes =
+                    b.decide(admitted.len() as u32, present, support, oppose) == Outcome::Passed;
+                if now_passes == s.passed {
+                    return 0.0;
+                }
+                let sign = if now_passes { 1.0 } else { -1.0 };
+                households
+                    .iter()
+                    .filter_map(|&h| s.stances.iter().find(|r| r.1 == h))
+                    .map(|r| sign * r.3 / pp.w_gain.max(1e-9))
+                    .sum::<f64>()
+            })
+            .sum()
+    }
+
     /// A polity's routine review (ADR-0013 §5): with nothing before the gathering and an issue
     /// present, its notables and the elders of households whose food will not last to their
     /// next harvest each weigh proposing what answers it, at each level the template allows,
@@ -665,43 +765,8 @@ impl Population {
         // Only decisions the present custom made count: a change of custom is judged by how the
         // custom it would replace has decided, so a newly amended custom is not undone on the
         // strength of what an older one did (that let two camps toggle the custom week by week).
-        let memory = i64::from(pp.vote_memory_days);
+        let decisions = self.decisions_seen(ctx, pi);
         let polity = &self.polities[pi];
-        let custom_since = polity.versions.last().map_or(polity.founded, |v| v.since);
-        let recent = |t: Option<SimTime>| {
-            t.is_some_and(|t| day - t.day_index() <= memory && t >= custom_since)
-        };
-        // Amendments themselves are not among them: a rule is judged by the laws and cases it
-        // decides, not by other changes of rule (which would let the custom feed on itself).
-        let mut decisions: Vec<Seen> = polity
-            .laws
-            .iter()
-            .filter(|l| recent(l.decided) && !l.stances.is_empty())
-            .filter(|l| l.kind != PolicyKind::AmendBody)
-            .map(|l| Seen {
-                stances: l
-                    .stances
-                    .iter()
-                    .map(|r| (r.person, r.household, r.stance, f64::from(r.gain)))
-                    .collect(),
-                passed: l.outcome == Some(Outcome::Passed),
-            })
-            .collect();
-        decisions.extend(
-            self.order
-                .cases
-                .iter()
-                .filter(|c| recent(c.heard) && !c.stances.is_empty())
-                .filter(|c| polity.laws.iter().any(|l| l.id == c.law))
-                .map(|c| Seen {
-                    stances: c
-                        .stances
-                        .iter()
-                        .map(|r| (r.person, r.household, r.stance, f64::from(r.stake)))
-                        .collect(),
-                    passed: c.stage == crate::crime::CaseStage::Found,
-                }),
-        );
         let (current, polity_id) = (polity.body, polity.id);
         let admitted_by: Vec<Vec<PermanentId>> = Membership::ALL
             .iter()
@@ -1277,6 +1342,7 @@ impl Population {
                 body: new,
                 since: now,
                 law: Some(law_id),
+                seized_by: None,
             });
             let words = format!(
                 "The custom at {name} changed by its own procedure, on {}'s proposal: from now \

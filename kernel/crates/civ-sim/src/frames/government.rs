@@ -304,6 +304,52 @@ pub fn refusal_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<String
         .collect()
 }
 
+/// The revolts at `settlement` in words (wire 1.43, ADR-0017 §4), newest first: "Mira's faction
+/// called on everyone on 3 May of year 2 to stand with it: from now on, the elders of its
+/// households decide ...; it held on 20 May of year 2, 14 standing with it, 9 with the gathering".
+pub fn revolt_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<String> {
+    use civ_agents::faction::{RevoltEnd, Side};
+    let pop = &sim.people;
+    let mut here: Vec<&civ_agents::faction::Revolt> = pop
+        .factions
+        .revolts
+        .iter()
+        .filter(|r| r.settlement == settlement)
+        .collect();
+    here.sort_by(|a, b| b.called.cmp(&a.called).then(b.id.cmp(&a.id)));
+    here.into_iter()
+        .map(|r| {
+            let name = pop.factions.get(r.faction).map_or_else(
+                || "A faction".to_owned(),
+                |f| super::word::faction_name(sim, f),
+            );
+            let called = day_words(r.called);
+            let counts = format!(
+                "{} standing with it, {} with the gathering, {} with neither",
+                r.count(Side::With),
+                r.count(Side::Gathering),
+                r.count(Side::Neither)
+            );
+            let how = match r.ended {
+                None => format!(
+                    "it stands until {}: {counts} now",
+                    day_words(SimTime::from_minutes(r.until * 24 * 60))
+                ),
+                Some((RevoltEnd::Held, at)) => {
+                    format!("it held on {}, {counts}", day_words(at))
+                }
+                Some((RevoltEnd::Failed, at)) => {
+                    format!("it came to nothing on {}, {counts}", day_words(at))
+                }
+            };
+            format!(
+                "{name} called on everyone on {called} to stand with it: from now on, {}; {how}",
+                r.body.clause()
+            )
+        })
+        .collect()
+}
+
 /// A `Response` with every settlement's polity.
 pub fn government_response(sim: &Sim) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
@@ -378,6 +424,12 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
             .map(|w| fbb.create_string(w))
             .collect();
         let refusals = fbb.create_vector(&refusals);
+        // Its revolts (wire 1.43, M4c slice AI).
+        let revolts: Vec<_> = revolt_words(sim, polity.settlement)
+            .iter()
+            .map(|w| fbb.create_string(w))
+            .collect();
+        let revolts = fbb.create_vector(&revolts);
         let body_members = pop
             .body_members(&sim.land.fields, pi, now, &rules.people)
             .len() as u32;
@@ -445,6 +497,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                 factions: Some(factions),
                 petitions: Some(petitions),
                 refusals: Some(refusals),
+                revolts: Some(revolts),
                 body_members,
             },
         ));

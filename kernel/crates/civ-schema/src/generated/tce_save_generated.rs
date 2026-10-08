@@ -11816,6 +11816,133 @@ impl<'a> MemberSave {
 
 }
 
+// struct SideSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct SideSave(pub [u8; 16]);
+impl Default for SideSave { 
+  fn default() -> Self { 
+    Self([0; 16])
+  }
+}
+impl ::core::fmt::Debug for SideSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("SideSave")
+      .field("person", &self.person())
+      .field("side", &self.side())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for SideSave {}
+impl<'a> ::flatbuffers::Follow<'a> for SideSave {
+  type Inner = &'a SideSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a SideSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a SideSave {
+  type Inner = &'a SideSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<SideSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for SideSave {
+    type Output = SideSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const SideSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for SideSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> SideSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    person: u64,
+    side: u8,
+  ) -> Self {
+    let mut s = Self([0; 16]);
+    s.set_person(person);
+    s.set_side(side);
+    s
+  }
+
+  pub fn person(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_person(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn side(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_side(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 pub enum ParamOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -24885,6 +25012,7 @@ impl<'a> PolitySave<'a> {
   pub const VT_GATHERING: ::flatbuffers::VOffsetT = 22;
   pub const VT_REVIEWED: ::flatbuffers::VOffsetT = 24;
   pub const VT_VERSIONS: ::flatbuffers::VOffsetT = 26;
+  pub const VT_SEIZED_BY: ::flatbuffers::VOffsetT = 28;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -24901,6 +25029,7 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.seized_by { builder.add_seized_by(x); }
     if let Some(x) = args.versions { builder.add_versions(x); }
     if let Some(x) = args.gathering { builder.add_gathering(x); }
     if let Some(x) = args.laws { builder.add_laws(x); }
@@ -24996,6 +25125,13 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, CustomVersionSave>>>(PolitySave::VT_VERSIONS, None)}
   }
+  #[inline]
+  pub fn seized_by(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(PolitySave::VT_SEIZED_BY, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -25016,6 +25152,7 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<GatheringSave>>("gathering", Self::VT_GATHERING, false)?
      .visit_field::<i64>("reviewed", Self::VT_REVIEWED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, CustomVersionSave>>>("versions", Self::VT_VERSIONS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("seized_by", Self::VT_SEIZED_BY, false)?
      .finish();
     Ok(())
   }
@@ -25033,6 +25170,7 @@ pub struct PolitySaveArgs<'a> {
     pub gathering: Option<::flatbuffers::WIPOffset<GatheringSave<'a>>>,
     pub reviewed: i64,
     pub versions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, CustomVersionSave>>>,
+    pub seized_by: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -25050,6 +25188,7 @@ impl<'a> Default for PolitySaveArgs<'a> {
       gathering: None,
       reviewed: 0,
       versions: None,
+      seized_by: None,
     }
   }
 }
@@ -25108,6 +25247,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_VERSIONS, versions);
   }
   #[inline]
+  pub fn add_seized_by(&mut self, seized_by: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_SEIZED_BY, seized_by);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -25137,6 +25280,7 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("gathering", &self.gathering());
       ds.field("reviewed", &self.reviewed());
       ds.field("versions", &self.versions());
+      ds.field("seized_by", &self.seized_by());
       ds.finish()
   }
 }
@@ -27969,6 +28113,323 @@ impl ::core::fmt::Debug for RefusalSave<'_> {
       ds.finish()
   }
 }
+pub enum RevoltSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RevoltSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for RevoltSave<'a> {
+  type Inner = RevoltSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> RevoltSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_FACTION: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_ORGANIZER: ::flatbuffers::VOffsetT = 10;
+  pub const VT_CALLED: ::flatbuffers::VOffsetT = 12;
+  pub const VT_UNTIL: ::flatbuffers::VOffsetT = 14;
+  pub const VT_MEMBERS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_QUORUM_SHARE: ::flatbuffers::VOffsetT = 18;
+  pub const VT_PASS: ::flatbuffers::VOffsetT = 20;
+  pub const VT_SIDES: ::flatbuffers::VOffsetT = 22;
+  pub const VT_HAS_HELD: ::flatbuffers::VOffsetT = 24;
+  pub const VT_HELD_SINCE: ::flatbuffers::VOffsetT = 26;
+  pub const VT_ENDED: ::flatbuffers::VOffsetT = 28;
+  pub const VT_ENDED_AT: ::flatbuffers::VOffsetT = 30;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    RevoltSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args RevoltSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<RevoltSave<'bldr>> {
+    let mut builder = RevoltSaveBuilder::new(_fbb);
+    builder.add_ended_at(args.ended_at);
+    builder.add_held_since(args.held_since);
+    builder.add_until(args.until);
+    builder.add_called(args.called);
+    builder.add_organizer(args.organizer);
+    builder.add_settlement(args.settlement);
+    builder.add_faction(args.faction);
+    builder.add_id(args.id);
+    if let Some(x) = args.sides { builder.add_sides(x); }
+    builder.add_quorum_share(args.quorum_share);
+    builder.add_ended(args.ended);
+    builder.add_has_held(args.has_held);
+    builder.add_pass(args.pass);
+    builder.add_members(args.members);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RevoltSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn faction(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RevoltSave::VT_FACTION, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RevoltSave::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn organizer(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RevoltSave::VT_ORGANIZER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn called(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RevoltSave::VT_CALLED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn until(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RevoltSave::VT_UNTIL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn members(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(RevoltSave::VT_MEMBERS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn quorum_share(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(RevoltSave::VT_QUORUM_SHARE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn pass(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(RevoltSave::VT_PASS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn sides(&self) -> Option<::flatbuffers::Vector<'a, SideSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, SideSave>>>(RevoltSave::VT_SIDES, None)}
+  }
+  #[inline]
+  pub fn has_held(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(RevoltSave::VT_HAS_HELD, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn held_since(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RevoltSave::VT_HELD_SINCE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ended(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(RevoltSave::VT_ENDED, Some(255)).unwrap()}
+  }
+  #[inline]
+  pub fn ended_at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RevoltSave::VT_ENDED_AT, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for RevoltSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("faction", Self::VT_FACTION, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<u64>("organizer", Self::VT_ORGANIZER, false)?
+     .visit_field::<i64>("called", Self::VT_CALLED, false)?
+     .visit_field::<i64>("until", Self::VT_UNTIL, false)?
+     .visit_field::<u8>("members", Self::VT_MEMBERS, false)?
+     .visit_field::<f32>("quorum_share", Self::VT_QUORUM_SHARE, false)?
+     .visit_field::<u8>("pass", Self::VT_PASS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, SideSave>>>("sides", Self::VT_SIDES, false)?
+     .visit_field::<bool>("has_held", Self::VT_HAS_HELD, false)?
+     .visit_field::<i64>("held_since", Self::VT_HELD_SINCE, false)?
+     .visit_field::<u8>("ended", Self::VT_ENDED, false)?
+     .visit_field::<i64>("ended_at", Self::VT_ENDED_AT, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RevoltSaveArgs<'a> {
+    pub id: u64,
+    pub faction: u64,
+    pub settlement: u64,
+    pub organizer: u64,
+    pub called: i64,
+    pub until: i64,
+    pub members: u8,
+    pub quorum_share: f32,
+    pub pass: u8,
+    pub sides: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, SideSave>>>,
+    pub has_held: bool,
+    pub held_since: i64,
+    pub ended: u8,
+    pub ended_at: i64,
+}
+impl<'a> Default for RevoltSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    RevoltSaveArgs {
+      id: 0,
+      faction: 0,
+      settlement: 0,
+      organizer: 0,
+      called: 0,
+      until: 0,
+      members: 0,
+      quorum_share: 0.0,
+      pass: 0,
+      sides: None,
+      has_held: false,
+      held_since: 0,
+      ended: 255,
+      ended_at: 0,
+    }
+  }
+}
+
+pub struct RevoltSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RevoltSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(RevoltSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_faction(&mut self, faction: u64) {
+    self.fbb_.push_slot::<u64>(RevoltSave::VT_FACTION, faction, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(RevoltSave::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_organizer(&mut self, organizer: u64) {
+    self.fbb_.push_slot::<u64>(RevoltSave::VT_ORGANIZER, organizer, 0);
+  }
+  #[inline]
+  pub fn add_called(&mut self, called: i64) {
+    self.fbb_.push_slot::<i64>(RevoltSave::VT_CALLED, called, 0);
+  }
+  #[inline]
+  pub fn add_until(&mut self, until: i64) {
+    self.fbb_.push_slot::<i64>(RevoltSave::VT_UNTIL, until, 0);
+  }
+  #[inline]
+  pub fn add_members(&mut self, members: u8) {
+    self.fbb_.push_slot::<u8>(RevoltSave::VT_MEMBERS, members, 0);
+  }
+  #[inline]
+  pub fn add_quorum_share(&mut self, quorum_share: f32) {
+    self.fbb_.push_slot::<f32>(RevoltSave::VT_QUORUM_SHARE, quorum_share, 0.0);
+  }
+  #[inline]
+  pub fn add_pass(&mut self, pass: u8) {
+    self.fbb_.push_slot::<u8>(RevoltSave::VT_PASS, pass, 0);
+  }
+  #[inline]
+  pub fn add_sides(&mut self, sides: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , SideSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RevoltSave::VT_SIDES, sides);
+  }
+  #[inline]
+  pub fn add_has_held(&mut self, has_held: bool) {
+    self.fbb_.push_slot::<bool>(RevoltSave::VT_HAS_HELD, has_held, false);
+  }
+  #[inline]
+  pub fn add_held_since(&mut self, held_since: i64) {
+    self.fbb_.push_slot::<i64>(RevoltSave::VT_HELD_SINCE, held_since, 0);
+  }
+  #[inline]
+  pub fn add_ended(&mut self, ended: u8) {
+    self.fbb_.push_slot::<u8>(RevoltSave::VT_ENDED, ended, 255);
+  }
+  #[inline]
+  pub fn add_ended_at(&mut self, ended_at: i64) {
+    self.fbb_.push_slot::<i64>(RevoltSave::VT_ENDED_AT, ended_at, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RevoltSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    RevoltSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<RevoltSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for RevoltSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("RevoltSave");
+      ds.field("id", &self.id());
+      ds.field("faction", &self.faction());
+      ds.field("settlement", &self.settlement());
+      ds.field("organizer", &self.organizer());
+      ds.field("called", &self.called());
+      ds.field("until", &self.until());
+      ds.field("members", &self.members());
+      ds.field("quorum_share", &self.quorum_share());
+      ds.field("pass", &self.pass());
+      ds.field("sides", &self.sides());
+      ds.field("has_held", &self.has_held());
+      ds.field("held_since", &self.held_since());
+      ds.field("ended", &self.ended());
+      ds.field("ended_at", &self.ended_at());
+      ds.finish()
+  }
+}
 pub enum FactionsSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -27993,6 +28454,7 @@ impl<'a> FactionsSave<'a> {
   pub const VT_PETITIONS: ::flatbuffers::VOffsetT = 14;
   pub const VT_POLICIES: ::flatbuffers::VOffsetT = 16;
   pub const VT_REFUSALS: ::flatbuffers::VOffsetT = 18;
+  pub const VT_REVOLTS: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -28006,6 +28468,7 @@ impl<'a> FactionsSave<'a> {
     let mut builder = FactionsSaveBuilder::new(_fbb);
     builder.add_left(args.left);
     builder.add_joined(args.joined);
+    if let Some(x) = args.revolts { builder.add_revolts(x); }
     if let Some(x) = args.refusals { builder.add_refusals(x); }
     if let Some(x) = args.policies { builder.add_policies(x); }
     if let Some(x) = args.petitions { builder.add_petitions(x); }
@@ -28072,6 +28535,13 @@ impl<'a> FactionsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RefusalSave>>>>(FactionsSave::VT_REFUSALS, None)}
   }
+  #[inline]
+  pub fn revolts(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RevoltSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RevoltSave>>>>(FactionsSave::VT_REVOLTS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FactionsSave<'_> {
@@ -28088,6 +28558,7 @@ impl ::flatbuffers::Verifiable for FactionsSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PetitionSave>>>>("petitions", Self::VT_PETITIONS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("policies", Self::VT_POLICIES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RefusalSave>>>>("refusals", Self::VT_REFUSALS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RevoltSave>>>>("revolts", Self::VT_REVOLTS, false)?
      .finish();
     Ok(())
   }
@@ -28101,6 +28572,7 @@ pub struct FactionsSaveArgs<'a> {
     pub petitions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PetitionSave<'a>>>>>,
     pub policies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub refusals: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RefusalSave<'a>>>>>,
+    pub revolts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RevoltSave<'a>>>>>,
 }
 impl<'a> Default for FactionsSaveArgs<'a> {
   #[inline]
@@ -28114,6 +28586,7 @@ impl<'a> Default for FactionsSaveArgs<'a> {
       petitions: None,
       policies: None,
       refusals: None,
+      revolts: None,
     }
   }
 }
@@ -28156,6 +28629,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FactionsSaveBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FactionsSave::VT_REFUSALS, refusals);
   }
   #[inline]
+  pub fn add_revolts(&mut self, revolts: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<RevoltSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FactionsSave::VT_REVOLTS, revolts);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FactionsSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FactionsSaveBuilder {
@@ -28181,6 +28658,7 @@ impl ::core::fmt::Debug for FactionsSave<'_> {
       ds.field("petitions", &self.petitions());
       ds.field("policies", &self.policies());
       ds.field("refusals", &self.refusals());
+      ds.field("revolts", &self.revolts());
       ds.finish()
   }
 }

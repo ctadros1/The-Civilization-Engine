@@ -21,15 +21,19 @@ pub enum ClaimKind {
     Petition = 2,
     /// A faction keeps back a levy until a day (M4c slice AH, step three).
     Refusal = 3,
+    /// A faction calls on everyone to stand with its body in place of the gathering's, until a
+    /// day (M4c slice AI).
+    Revolt = 4,
 }
 
 impl ClaimKind {
     /// Every kind, in code order.
-    pub const ALL: [ClaimKind; 4] = [
+    pub const ALL: [ClaimKind; 5] = [
         ClaimKind::Gathering,
         ClaimKind::Grievance,
         ClaimKind::Petition,
         ClaimKind::Refusal,
+        ClaimKind::Revolt,
     ];
 
     /// Its number in saves.
@@ -55,7 +59,7 @@ pub struct Claim {
     /// The day it concerns: the day a gathering meets; the day a grievance was first told.
     pub day: i64,
     /// For a gathering called on a law, the law; for a grievance, the one who holds it; for a
-    /// petition, the petition; for a refusal, the refusal (its `day` the last it stands).
+    /// petition, the petition; for a refusal or a revolt, it (its `day` the last it stands).
     pub subject: Option<PermanentId>,
     /// For a grievance: the party blamed and the issue.
     pub grievance: Option<(Blamed, Grieved)>,
@@ -128,10 +132,15 @@ impl Word {
 
     /// The claim that refusal `refusal` keeps back a levy, if one was made.
     pub fn refusal(&self, refusal: PermanentId) -> Option<u32> {
+        self.episode(ClaimKind::Refusal, refusal)
+    }
+
+    /// The claim of kind `kind` about episode `subject` (a refusal or a revolt), if one was made.
+    pub fn episode(&self, kind: ClaimKind, subject: PermanentId) -> Option<u32> {
         self.claims
             .iter()
             .rev()
-            .find(|c| c.kind == ClaimKind::Refusal && c.subject == Some(refusal))
+            .find(|c| c.kind == kind && c.subject == Some(subject))
             .map(|c| c.id)
     }
 
@@ -188,7 +197,9 @@ impl Word {
     /// and a grievance told more than `news_days` ago and not since; and of claims nobody holds.
     pub fn prune(&mut self, today: i64, news_days: i64) {
         let stale = |c: &Claim, last: i64| match c.kind {
-            ClaimKind::Gathering | ClaimKind::Petition | ClaimKind::Refusal => c.day < today,
+            ClaimKind::Gathering | ClaimKind::Petition | ClaimKind::Refusal | ClaimKind::Revolt => {
+                c.day < today
+            }
             ClaimKind::Grievance => last + news_days < today,
         };
         let claims = &self.claims;

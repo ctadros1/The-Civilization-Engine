@@ -166,6 +166,8 @@ pub const SCHEMA_V41: u32 = 41;
 /// The schema version of M4c slice AH's second step: petitions, before refusals (see
 /// [`agents`]).
 pub const SCHEMA_V42: u32 = 42;
+/// The schema version of M4c slice AH's third step: refusals, before revolts (see [`agents`]).
+pub const SCHEMA_V43: u32 = 43;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

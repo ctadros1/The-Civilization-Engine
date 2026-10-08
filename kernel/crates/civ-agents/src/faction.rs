@@ -16,6 +16,7 @@
 use civ_core::{PermanentId, SimTime};
 
 use crate::person::Flows;
+use crate::polity::Body;
 use crate::word::Blamed;
 
 /// How factions are founded, joined and kept (the people profile's `[faction]` table, content
@@ -79,6 +80,16 @@ pub struct FactionParams {
     /// for abiding by what the gathering decided, and the call stands `refusal_days`.
     pub refusal_cost: f64,
     pub refusal_days: u32,
+    /// Taking the deciding from the gathering (M4c slice AI, step one): calling on everyone to
+    /// stand with the faction's program costs an organizer `revolt_cost` points beside what the
+    /// norms they hold weigh; the call stands `revolt_days`, and holds once every officeholder,
+    /// and more adults than stand with the gathering, have stood with it `hold_days` together
+    /// (research 09-11 §2.2). One the new body would leave out weighs `w_exclusion` against it
+    /// (09-11 §1.6).
+    pub revolt_cost: f64,
+    pub revolt_days: u32,
+    pub hold_days: u32,
+    pub w_exclusion: f64,
 }
 
 impl FactionParams {
@@ -110,6 +121,10 @@ impl FactionParams {
             refused_days: 5.0,
             refusal_cost: 0.5,
             refusal_days: 365,
+            revolt_cost: 0.75,
+            revolt_days: 60,
+            hold_days: 7,
+            w_exclusion: 1.0,
         }
     }
 
@@ -339,6 +354,94 @@ pub struct Refusal {
     pub kept_kg: f64,
 }
 
+/// Where someone stands on a revolt (M4c slice AI): with it, with the gathering, or with
+/// neither.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Side {
+    With = 0,
+    Gathering = 1,
+    Neither = 2,
+}
+
+impl Side {
+    /// Every side, in code order.
+    pub const ALL: [Side; 3] = [Side::With, Side::Gathering, Side::Neither];
+
+    /// Its number in saves.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The side numbered `code`.
+    pub fn from_code(code: u8) -> Option<Side> {
+        Side::ALL.get(usize::from(code)).copied()
+    }
+}
+
+/// How a revolt ended: it held, and its body decides; or it came to nothing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RevoltEnd {
+    Held = 0,
+    Failed = 1,
+}
+
+impl RevoltEnd {
+    /// Every end, in code order.
+    pub const ALL: [RevoltEnd; 2] = [RevoltEnd::Held, RevoltEnd::Failed];
+
+    /// Its number in saves.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The end numbered `code`.
+    pub fn from_code(code: u8) -> Option<RevoltEnd> {
+        RevoltEnd::ALL.get(usize::from(code)).copied()
+    }
+}
+
+/// A revolt (M4c slice AI, step one; ADR-0017 §4): a faction's organizer declares that its
+/// program's body decides from now on, without the custom's procedure, and calls on everyone to
+/// stand with it. It holds only through people's own choices, the officeholders' above all
+/// (research 09-11 §1.5: authority changes hands when administration and coercion do), and
+/// there is no roll for it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Revolt {
+    /// Permanent id.
+    pub id: PermanentId,
+    /// The faction that called it, and its settlement.
+    pub faction: PermanentId,
+    pub settlement: PermanentId,
+    /// Who called it, when, and the last day it stands.
+    pub organizer: PermanentId,
+    pub called: SimTime,
+    pub until: i64,
+    /// The body it would put in place of the custom's: its program.
+    pub body: Body,
+    /// Where each adult who heard of it stands, as they last weighed it, in person order.
+    pub sides: Vec<(PermanentId, Side)>,
+    /// The day it first held every officeholder and more adults than the gathering does, while it
+    /// still does.
+    pub held_since: Option<i64>,
+    /// How and when it ended.
+    pub ended: Option<(RevoltEnd, SimTime)>,
+}
+
+impl Revolt {
+    /// Those on side `side`.
+    pub fn count(&self, side: Side) -> usize {
+        self.sides.iter().filter(|s| s.1 == side).count()
+    }
+
+    /// Where `person` stands, if they weighed it.
+    pub fn side_of(&self, person: PermanentId) -> Option<Side> {
+        self.sides
+            .binary_search_by_key(&person, |s| s.0)
+            .ok()
+            .map(|i| self.sides[i].1)
+    }
+}
+
 /// Every faction and who belongs to each (ADR-0017 §2).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Factions {
@@ -348,6 +451,8 @@ pub struct Factions {
     pub petitions: Vec<Petition>,
     /// Every refusal of a levy called, oldest first (M4c slice AH, step three).
     pub refusals: Vec<Refusal>,
+    /// Every revolt called, oldest first (M4c slice AI).
+    pub revolts: Vec<Revolt>,
     /// Memberships, in person order: one each at most in v0.
     pub members: Vec<Member>,
     /// Joinings and leavings since the world began (a measure, for the smoke).

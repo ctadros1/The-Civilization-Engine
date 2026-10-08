@@ -93,6 +93,23 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
                 None => format!("a faction keeps back the levy until {until}"),
             }
         }
+        ClaimKind::Revolt => {
+            let until = day_words(SimTime::from_minutes(c.day * DAY));
+            match c
+                .subject
+                .and_then(|id| pop.factions.revolts.iter().find(|r| r.id == id))
+            {
+                Some(r) => format!(
+                    "{} calls on everyone to stand with it until {until}: from now on, {}, in place \
+                     of the gathering's custom",
+                    pop.factions
+                        .get(r.faction)
+                        .map_or_else(|| "a faction".to_owned(), |f| faction_name(sim, f)),
+                    r.body.clause()
+                ),
+                None => format!("a faction calls on everyone to stand with it until {until}"),
+            }
+        }
         ClaimKind::Grievance => {
             let who = c.subject.map_or_else(|| "someone".to_owned(), name_of);
             match c.grievance {

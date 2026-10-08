@@ -15408,7 +15408,8 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_BODY_MEMBERS = 42,
     VT_FACTIONS = 44,
     VT_PETITIONS = 46,
-    VT_REFUSALS = 48
+    VT_REFUSALS = 48,
+    VT_REVOLTS = 50
   };
   uint64_t polity() const {
     return GetField<uint64_t>(VT_POLITY, 0);
@@ -15479,6 +15480,9 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *refusals() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_REFUSALS);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *revolts() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_REVOLTS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -15527,6 +15531,9 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_REFUSALS) &&
            verifier.VerifyVector(refusals()) &&
            verifier.VerifyVectorOfStrings(refusals()) &&
+           VerifyOffset(verifier, VT_REVOLTS) &&
+           verifier.VerifyVector(revolts()) &&
+           verifier.VerifyVectorOfStrings(revolts()) &&
            verifier.EndTable();
   }
 };
@@ -15604,6 +15611,9 @@ struct PolityLineBuilder {
   void add_refusals(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> refusals) {
     fbb_.AddOffset(PolityLine::VT_REFUSALS, refusals);
   }
+  void add_revolts(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> revolts) {
+    fbb_.AddOffset(PolityLine::VT_REVOLTS, revolts);
+  }
   explicit PolityLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -15639,13 +15649,15 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLine(
     uint32_t body_members = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> factions = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> petitions = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> refusals = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> refusals = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> revolts = 0) {
   PolityLineBuilder builder_(_fbb);
   builder_.add_gathering_minute(gathering_minute);
   builder_.add_gathering_law(gathering_law);
   builder_.add_founded_minute(founded_minute);
   builder_.add_settlement(settlement);
   builder_.add_polity(polity);
+  builder_.add_revolts(revolts);
   builder_.add_refusals(refusals);
   builder_.add_petitions(petitions);
   builder_.add_factions(factions);
@@ -15696,7 +15708,8 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
     uint32_t body_members = 0,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *factions = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *petitions = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *refusals = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *refusals = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *revolts = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto custom__ = custom ? _fbb.CreateString(custom) : 0;
   auto store__ = store ? _fbb.CreateString(store) : 0;
@@ -15710,6 +15723,7 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
   auto factions__ = factions ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*factions) : 0;
   auto petitions__ = petitions ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*petitions) : 0;
   auto refusals__ = refusals ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*refusals) : 0;
+  auto revolts__ = revolts ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*revolts) : 0;
   return tce::wire::CreatePolityLine(
       _fbb,
       polity,
@@ -15734,7 +15748,8 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
       body_members,
       factions__,
       petitions__,
-      refusals__);
+      refusals__,
+      revolts__);
 }
 
 struct Government FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

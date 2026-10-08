@@ -967,6 +967,37 @@ fn polity(sim: &Sim) -> Option<String> {
             kept.join("; ")
         ));
     }
+    // Revolts (M4c slice AI, step one): how many were called, how each ended, and the sides
+    // people took when it ended (or today, if it is still open).
+    if !fs.revolts.is_empty() {
+        use civ_agents::faction::{RevoltEnd, Side};
+        let ended = |e: RevoltEnd| {
+            fs.revolts
+                .iter()
+                .filter(|r| r.ended.map(|(x, _)| x) == Some(e))
+                .count()
+        };
+        let sides: Vec<String> = fs
+            .revolts
+            .iter()
+            .map(|r| {
+                format!(
+                    "{} with, {} with the gathering, {} neither",
+                    r.count(Side::With),
+                    r.count(Side::Gathering),
+                    r.count(Side::Neither)
+                )
+            })
+            .collect();
+        parts.push(format!(
+            "revolts: {} called ({}); {} held, {} came to nothing, {} open",
+            fs.revolts.len(),
+            sides.join("; "),
+            ended(RevoltEnd::Held),
+            ended(RevoltEnd::Failed),
+            fs.revolts.iter().filter(|r| r.ended.is_none()).count(),
+        ));
+    }
     // Norms (M4c slice AG): for each, how far it is held on average, what people believe of
     // others against what households did at their last levy, how many it moves, and how often an
     // account was told and taken in.

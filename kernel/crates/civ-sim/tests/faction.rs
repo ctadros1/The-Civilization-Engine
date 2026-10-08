@@ -10,7 +10,7 @@ use std::sync::OnceLock;
 use std::sync::atomic::AtomicBool;
 
 use civ_agents::ledger::Channel;
-use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome, PolicyKind};
+use civ_agents::polity::{Body, IssueKind, Law, LawStatus, Outcome, PolicyKind};
 use civ_agents::ties::Tie;
 use civ_agents::word::{Blamed, Claim, ClaimKind, Grievance, Grieved, Wrong};
 use civ_content::ContentRegistry;
@@ -636,6 +636,259 @@ fn where_no_petition_can_be_called_a_faction_keeps_back_the_levy_together() {
     let lines = civ_sim::frames::government::refusal_words(&sim, settlement);
     assert!(
         lines.iter().any(|w| w.contains("to keep back the levy of")),
+        "{lines:?}"
+    );
+    saves_and_goes_on_alike(&mut sim, content(), DAY);
+}
+
+/// A village of [`aggrieved_village`] whose founding custom lets only its elders decide, where
+/// nobody holds the norm that the gathering binds, and where a levy the elders passed went against
+/// the households of the faction its grievance founds: no amendment one change from the custom
+/// would have decided it otherwise, so none would serve them, and there is no levy in force to
+/// petition over or keep back. Runs until its organizer calls a revolt; returns it, and the
+/// elders' body.
+fn revolt_called(seed: u64) -> (Sim, civ_agents::faction::Revolt, Body) {
+    use civ_agents::polity::{Membership, Stance};
+    let (mut sim, adults) = aggrieved_village(seed);
+    let pop = sim.people_mut_for_tests();
+    // Its founding custom lets only the elders of its households decide.
+    let elders = Body {
+        members: Membership::Elders,
+        ..pop.polities[0].body
+    };
+    pop.polities[0].body = elders;
+    pop.polities[0].versions[0].body = elders;
+    // Nobody here holds that what the gathering decides binds, nor believes others abide by it.
+    for s in &mut pop.norms.states {
+        s.endorse = 0.0;
+        s.expect = 0.0;
+    }
+    let mut faction = None;
+    for _ in 0..40 {
+        sim.advance_minutes(DAY).expect("advances");
+        if let Some(f) = sim.people().factions.list.iter().find(|f| f.is_live()) {
+            faction = Some((f.id, f.settlement, f.organizer));
+            break;
+        }
+    }
+    let (faction, settlement, organizer) = faction.expect("a faction");
+    let store = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|p| p.kind == PolicyKind::CommonStore)
+        .expect("in core") as u16;
+    let now = sim.now();
+    let day = now.day_index();
+    let law = PermanentId::from_raw(sim.ids().peek_next() + 1_000_000).expect("non-zero");
+    let came: Vec<PermanentId> = sim
+        .people()
+        .body_members(&sim.land().fields, 0, now, &sim.rules().people)
+        .into_iter()
+        .map(|m| m.0)
+        .collect();
+    let pop = sim.people_mut_for_tests();
+    let household = |pop: &civ_agents::population::Population, p: PermanentId| {
+        pop.person(p).expect("here").household
+    };
+    let mut theirs: Vec<PermanentId> = pop
+        .factions
+        .members_of(faction)
+        .map(|m| household(pop, m.person))
+        .collect();
+    theirs.sort_unstable();
+    theirs.dedup();
+    // A levy the elders decided lately, all of them there: those of the faction's households
+    // stood against it, two in three or more stood for it, and it passed. No body one change
+    // from the custom would have decided it otherwise, so no amendment would serve them; a
+    // gathering of all the adults, half of whom must come, would not have reached it. The store
+    // it made has since given way, so there is no levy to petition over or keep back.
+    let stood = |p: PermanentId, stance, gain| civ_agents::polity::StanceRecord {
+        person: p,
+        household: household(pop, p),
+        stance,
+        gain,
+        regard: 0.0,
+        opinion: 0.0,
+        values: 0.0,
+    };
+    let (against, others): (Vec<PermanentId>, Vec<PermanentId>) = came
+        .iter()
+        .partition(|&&a| theirs.binary_search(&household(pop, a)).is_ok());
+    let (o, s, n) = (against.len(), others.len(), adults.len());
+    assert!(
+        o >= 1 && 3 * s >= 2 * (s + o) && 2 * came.len() < n && 4 * came.len() >= n,
+        "{o} against, {s} for, of {} elders and {n} adults",
+        came.len()
+    );
+    let mut stances: Vec<_> = against
+        .iter()
+        .map(|&a| stood(a, Stance::Oppose, -5.0))
+        .chain(others.iter().map(|&a| stood(a, Stance::Support, 0.0)))
+        .collect();
+    stances.sort_by_key(|r| r.person);
+    pop.polities[0].laws.push(Law {
+        id: law,
+        policy: store,
+        kind: PolicyKind::CommonStore,
+        levy_share: 0.2,
+        holder: None,
+        relief_days: 5.0,
+        sanction: Default::default(),
+        hours: (0, 0),
+        status: LawStatus::Superseded,
+        sponsor: others[0],
+        proposed: now,
+        issue: IssueKind::FoodShort,
+        meets_day: day,
+        decided: Some(now),
+        outcome: Some(Outcome::Passed),
+        eligible: came.len() as u32,
+        stances,
+        known: adults.iter().map(|&a| (a, day)).collect(),
+        compliance: Default::default(),
+        watch: Default::default(),
+        body: None,
+        ends: None,
+    });
+    assert!(
+        !pop.polities[0]
+            .laws
+            .iter()
+            .any(|l| l.status == LawStatus::InForce && l.kind == PolicyKind::CommonStore),
+        "no levy in force"
+    );
+    // At the organizer's next review, they call on everyone to stand with the faction.
+    let mut called = None;
+    for _ in 0..40 {
+        sim.advance_minutes(DAY).expect("advances");
+        if let Some(r) = sim.people().factions.revolts.first() {
+            called = Some(r.clone());
+            break;
+        }
+    }
+    let called = called.expect("a revolt was called");
+    assert_eq!(
+        (called.faction, called.settlement, called.organizer),
+        (faction, settlement, organizer)
+    );
+    assert_ne!(called.body, elders, "it would put another body in place");
+    assert_eq!(called.body.members, Membership::Adults, "{:?}", called.body);
+    let pop = sim.people();
+    assert!(pop.factions.petitions.is_empty() && pop.factions.refusals.is_empty());
+    let claim = pop
+        .word
+        .episode(ClaimKind::Revolt, called.id)
+        .expect("word of it");
+    for m in pop.factions.members_of(faction) {
+        assert!(pop.word.has_heard(m.person, claim), "{m:?}");
+    }
+    let words = civ_sim::frames::word::claim_words(
+        &sim,
+        pop.word
+            .claims
+            .iter()
+            .find(|c| c.id == claim)
+            .expect("kept"),
+    );
+    assert!(
+        words.contains("calls on everyone to stand with it"),
+        "{words}"
+    );
+    assert!(
+        pop.chronicle
+            .iter()
+            .any(|e| e.kind == civ_agents::ChronicleKind::RevoltCalled),
+        "the chronicle tells it"
+    );
+    (sim, called, elders)
+}
+
+#[test]
+fn where_neither_petition_nor_refusal_can_be_a_faction_calls_a_revolt_which_holds() {
+    use civ_agents::faction::{RevoltEnd, Side};
+    let (mut sim, called, _) = revolt_called(5);
+    let (settlement, organizer) = (called.settlement, called.organizer);
+    let claim = sim
+        .people()
+        .word
+        .episode(ClaimKind::Revolt, called.id)
+        .expect("word of it");
+    // Each day, those who heard of it take a side, until it holds.
+    let mut sided = false;
+    for _ in 0..(called.until - sim.now().day_index() + 2) {
+        sim.advance_minutes(DAY).expect("advances");
+        let r = &sim.people().factions.revolts[0];
+        sided |= !r.sides.is_empty();
+        if r.ended.is_some() {
+            break;
+        }
+    }
+    assert!(sided, "people took sides");
+    let pop = sim.people();
+    let r = &pop.factions.revolts[0];
+    let (end, at) = r.ended.expect("it ended");
+    assert_eq!(end, RevoltEnd::Held, "{r:?}");
+    // Only those who had heard of it took a side; more stood with it than with the gathering.
+    for &(p, _) in &r.sides {
+        assert!(
+            pop.word.has_heard(p, claim) || pop.person(p).is_none(),
+            "{p}"
+        );
+    }
+    assert!(r.count(Side::With) > r.count(Side::Gathering), "{r:?}");
+    // Its body decides from now on: a version of the custom taken, not amended.
+    let p = &pop.polities[0];
+    assert_eq!(p.body, called.body, "its body decides now");
+    let v = p.versions.last().expect("versions");
+    assert_eq!((v.body, v.since, v.law), (called.body, at, None));
+    assert_eq!(v.seized_by, Some(organizer));
+    assert!(
+        pop.chronicle
+            .iter()
+            .any(|e| e.kind == civ_agents::ChronicleKind::CustomTaken),
+        "the chronicle tells it"
+    );
+    let lines = civ_sim::frames::government::revolt_words(&sim, settlement);
+    assert!(lines.iter().any(|w| w.contains("it held on")), "{lines:?}");
+    let history = civ_agents::polity::custom_history_words(p, &|_| "Ada".to_owned());
+    assert!(
+        history
+            .last()
+            .is_some_and(|h| h.contains("not by its procedure")),
+        "{history:?}"
+    );
+    saves_and_goes_on_alike(&mut sim, content(), DAY);
+}
+
+#[test]
+fn a_revolt_that_has_not_held_when_its_time_is_out_comes_to_nothing() {
+    use civ_agents::faction::RevoltEnd;
+    let (mut sim, called, elders) = revolt_called(5);
+    // Its time is out tonight, before anyone could have stood with it a week.
+    let today = sim.now().day_index();
+    sim.people_mut_for_tests().factions.revolts[0].until = today;
+    sim.advance_minutes(2 * DAY).expect("advances");
+    let pop = sim.people();
+    let r = &pop.factions.revolts[0];
+    assert_eq!(r.ended.map(|e| e.0), Some(RevoltEnd::Failed), "{r:?}");
+    assert_eq!(pop.polities[0].body, elders, "the custom stands");
+    assert!(
+        pop.polities[0]
+            .versions
+            .iter()
+            .all(|v| v.seized_by.is_none())
+    );
+    assert!(
+        pop.chronicle
+            .iter()
+            .any(|e| e.kind == civ_agents::ChronicleKind::RevoltFailed),
+        "the chronicle tells it"
+    );
+    let lines = civ_sim::frames::government::revolt_words(&sim, called.settlement);
+    assert!(
+        lines.iter().any(|w| w.contains("it came to nothing")),
         "{lines:?}"
     );
     saves_and_goes_on_alike(&mut sim, content(), DAY);

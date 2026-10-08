@@ -193,6 +193,11 @@ describe("the government on the wire", () => {
         "Mira's faction called on its members on 3 May of year 2 to keep back the levy of a common store, taking a tenth of each harvest, until 3 May of year 3: 6 kept back 240 kg",
       ),
     ]);
+    const revolts = W.PolityLine.createRevoltsVector(b, [
+      b.createString(
+        "Mira's faction called on everyone on 3 May of year 2 to stand with it: from now on, the elders decide; it held on 12 May of year 2, 9 standing with it, 2 with the gathering, 1 with neither",
+      ),
+    ]);
     const name = b.createString("Stonewick");
     const custom = b.createString("The adults who come to the hearth decide by acclamation.");
     const store = b.createString("grain 26 kg");
@@ -221,6 +226,7 @@ describe("the government on the wire", () => {
       factions,
       petitions,
       refusals,
+      revolts,
     );
     const polities = W.Government.createPolitiesVector(b, [polity]);
     const government = W.Government.createGovernment(b, BigInt(103 * DAY), polities);
@@ -250,6 +256,8 @@ describe("the government on the wire", () => {
     expect(p.petitions[0]).toContain("the gathering turned it down");
     expect(p.refusals).toHaveLength(1);
     expect(p.refusals[0]).toContain("6 kept back 240 kg");
+    expect(p.revolts).toHaveLength(1);
+    expect(p.revolts[0]).toContain("it held on 12 May of year 2");
     expect(p.customHistory).toHaveLength(2);
     expect(p.customHistory[1]).toContain("by the amendment Ada proposed");
     const l = p.laws[0]!;

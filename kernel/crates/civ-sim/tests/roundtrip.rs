@@ -2133,6 +2133,27 @@ fn a_schema_42_save_loads_with_no_refusals() {
 }
 
 #[test]
+fn a_schema_43_save_loads_with_no_revolts() {
+    let sim = load_first();
+    // A schema-43 save, from before revolts (M4c slice AI, step one): none were called and no
+    // version of a custom was taken outside its procedure.
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V43;
+    let path = republish("slice-ah3", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-43 save loads");
+    assert!(loaded.people().factions.revolts.is_empty());
+    assert!(
+        loaded
+            .people()
+            .polities
+            .iter()
+            .flat_map(|p| &p.versions)
+            .all(|v| v.seized_by.is_none())
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn slice_q_saves_load_with_each_household_s_taste_drawn_as_its_band_s() {
     let mut sim = load_first();
     // Tastes no band would bring, which the migration replaces.

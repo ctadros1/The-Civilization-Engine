@@ -1684,6 +1684,11 @@ table PolityLine {
   // by the kernel ("Mira's faction called on its members on 3 May of year 2 to keep back the levy
   // of a common store, taking a tenth of each harvest, until 3 May of year 3: 6 kept back 240 kg").
   refusals: [string] (id: 22);
+  // Wire 1.43 (M4c slice AI, ADR-0017 §4): its revolts, newest first, in words rendered by the
+  // kernel ("Mira's faction called on everyone on 3 May of year 2 to stand with it: from now on,
+  // the elders of its households decide ...; it held on 20 May of year 2, 14 standing with it, 9
+  // with the gathering, 2 with neither").
+  revolts: [string] (id: 23);
 }
 
 table Government {

@@ -11,10 +11,10 @@
 use super::*;
 use crate::decide::GatheringFacts;
 use crate::faction::{
-    Faction, FactionEvent, FactionEventKind, Member, Petition, Refusal, Why, attend_points,
-    found_worth, shared, why_belong,
+    Faction, FactionEvent, FactionEventKind, Member, Petition, Refusal, Revolt, RevoltEnd, Side,
+    Why, attend_points, found_worth, shared, why_belong,
 };
-use crate::polity::{IssueKind, LawStatus, MoveOption, Outcome, PolicyKind};
+use crate::polity::{Body, CustomVersion, IssueKind, LawStatus, MoveOption, Outcome, PolicyKind};
 use crate::word::{Blamed, ClaimKind, Grieved, Wrong};
 
 /// Purpose tags for a person's review day and their threshold for belonging.
@@ -231,8 +231,10 @@ impl Population {
                     .get(m.faction)
                     .is_some_and(|f| f.organizer == person && f.is_live())
                     && !self.consider_petition(ctx, person, m.faction, threshold)
+                    && !self.consider_refusal(ctx, person, m.faction, threshold)
                 {
-                    self.consider_refusal(ctx, person, m.faction, threshold);
+                    // Or, where neither can be called, a revolt (M4c slice AI).
+                    self.consider_revolt(ctx, person, m.faction, threshold);
                 }
             }
             return;
@@ -768,15 +770,15 @@ impl Population {
         organizer: PermanentId,
         faction: PermanentId,
         threshold: f64,
-    ) {
+    ) -> bool {
         let fp = &ctx.params.faction;
         let (now, day) = (ctx.now, ctx.now.day_index());
         let Some(f) = self.factions.get(faction) else {
-            return;
+            return false;
         };
         let (settlement, against) = (f.settlement, f.against);
         let Some(pi) = self.polity_of(settlement) else {
-            return;
+            return false;
         };
         let polity = &self.polities[pi];
         let blames_store = match against {
@@ -796,7 +798,7 @@ impl Population {
             })
             .map(|l| l.id)
         else {
-            return;
+            return false;
         };
         let members: Vec<PermanentId> = self
             .factions
@@ -814,7 +816,7 @@ impl Population {
                 .iter()
                 .any(|r| r.faction == faction && r.until >= day);
         if !blames_store || busy || (members.len() as u32) < fp.petition_members.max(1) {
-            return;
+            return false;
         }
         let keen = members
             .iter()
@@ -827,7 +829,7 @@ impl Population {
         let fp = &ctx.params.faction;
         let worth = fp.w_grievance * keen + f64::from(why.belong) - fp.refusal_cost - norm.max(0.0);
         if worth <= threshold {
-            return;
+            return false;
         }
         let id = ctx.ids.allocate();
         let until = day + i64::from(fp.refusal_days.max(1));
@@ -842,7 +844,367 @@ impl Population {
             kept: Vec::new(),
             kept_kg: 0.0,
         });
-        self.refusal_word(settlement, until, id, organizer, &members, day);
+        self.episode_word(
+            ClaimKind::Refusal,
+            settlement,
+            until,
+            id,
+            organizer,
+            &members,
+            day,
+        );
+        true
+    }
+
+    /// The body faction `faction` of polity `pi`'s settlement would put in place of the custom's,
+    /// if any (M4c slice AI): of the bodies the content's amendments offer that differ from the
+    /// custom and admit `organizer`, the one under which the decisions its members' households
+    /// were at would have gone most their way (slice AF's test; research 09-02 §3.7), if any would.
+    fn program(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        faction: PermanentId,
+        organizer: PermanentId,
+    ) -> Option<Body> {
+        let (now, params) = (ctx.now, ctx.params);
+        let polity = &self.polities[pi];
+        let current = polity.body;
+        let decisions = self.decisions_seen(ctx, pi);
+        if decisions.is_empty() {
+            return None;
+        }
+        let mut households: Vec<PermanentId> = self
+            .factions
+            .members_of(faction)
+            .filter_map(|m| self.person(m.person).map(|p| p.household))
+            .collect();
+        households.sort_unstable();
+        households.dedup();
+        let adults = self.members_of(polity.settlement, now, params);
+        let mut best: Option<(f64, Body)> = None;
+        for def in ctx
+            .catalog
+            .policies
+            .iter()
+            .filter(|d| d.kind == PolicyKind::AmendBody)
+        {
+            for &b in &def.bodies {
+                let admits = self
+                    .admitted(b.members, &adults, &ctx.land.fields, now, params)
+                    .iter()
+                    .any(|a| a.0 == organizer);
+                if b == current || !admits {
+                    continue;
+                }
+                let gain = self.body_gain(ctx, pi, &b, &households, &decisions);
+                if gain > 1e-9 && best.is_none_or(|(g, _)| gain > g) {
+                    best = Some((gain, b));
+                }
+            }
+        }
+        best.map(|b| b.1)
+    }
+
+    /// `organizer` of faction `faction`, of threshold `threshold`, weighs calling on everyone to
+    /// stand with its program in place of the gathering's body (M4c slice AI, step one; ADR-0017
+    /// §4): when its members blame the gathering, it has a program and enough members, nothing of
+    /// its own waits or stands, no revolt stands at its settlement and none of its own was called
+    /// within `petition_days`. It is worth what a petition is, less `revolt_cost` and what the
+    /// norms the organizer holds weigh: the custom itself is what it breaks.
+    fn consider_revolt(
+        &mut self,
+        ctx: &mut Ctx,
+        organizer: PermanentId,
+        faction: PermanentId,
+        threshold: f64,
+    ) {
+        let fp = &ctx.params.faction;
+        let (now, day) = (ctx.now, ctx.now.day_index());
+        let Some(f) = self.factions.get(faction) else {
+            return;
+        };
+        let (settlement, against, founder) = (f.settlement, f.against, f.founder);
+        let Some(pi) = self.polity_of(settlement) else {
+            return;
+        };
+        if against != Blamed::Body(self.polities[pi].id) {
+            return;
+        }
+        let members: Vec<PermanentId> = self
+            .factions
+            .members_of(faction)
+            .map(|m| m.person)
+            .collect();
+        let fs = &self.factions;
+        let busy = fs
+            .petitions
+            .iter()
+            .any(|p| p.faction == faction && !p.answered)
+            || fs
+                .refusals
+                .iter()
+                .any(|r| r.faction == faction && r.until >= day)
+            || fs.revolts.iter().any(|r| {
+                (r.settlement == settlement && r.ended.is_none())
+                    || (r.faction == faction
+                        && day - r.called.day_index() < i64::from(fp.petition_days))
+            });
+        if busy || (members.len() as u32) < fp.petition_members.max(1) {
+            return;
+        }
+        let Some(body) = self.program(ctx, pi, faction, organizer) else {
+            return;
+        };
+        let keen = members
+            .iter()
+            .map(|&m| self.keenness(ctx, m, against))
+            .sum::<f64>()
+            / members.len() as f64;
+        let why = self.why_for(ctx, organizer, faction, threshold);
+        self.ensure_norm_state(ctx, organizer);
+        let norm = self.norm_points(ctx, organizer);
+        let fp = &ctx.params.faction;
+        let worth = fp.w_grievance * keen + f64::from(why.belong) - fp.revolt_cost - norm.max(0.0);
+        if worth <= threshold {
+            return;
+        }
+        let id = ctx.ids.allocate();
+        let until = day + i64::from(fp.revolt_days.max(1));
+        self.factions.revolts.push(Revolt {
+            id,
+            faction,
+            settlement,
+            organizer,
+            called: now,
+            until,
+            body,
+            sides: Vec::new(),
+            held_since: None,
+            ended: None,
+        });
+        self.episode_word(
+            ClaimKind::Revolt,
+            settlement,
+            until,
+            id,
+            organizer,
+            &members,
+            day,
+        );
+        let (place, name) = self.settlement_place(ctx, settlement);
+        let words = format!(
+            "called on everyone at {name} to stand with {}'s faction: from now on, {}, in place \
+             of the gathering's custom.",
+            self.name_of(founder),
+            body.clause()
+        );
+        self.chronicle_push(
+            now,
+            ChronicleKind::RevoltCalled,
+            vec![organizer],
+            Some(settlement),
+            place,
+            0.0,
+            words,
+        );
+    }
+
+    /// Where settlement `settlement`'s hearth is, and its name.
+    fn settlement_place(&self, ctx: &Ctx, settlement: PermanentId) -> (Option<(f32, f32)>, String) {
+        ctx.land
+            .settlements
+            .iter()
+            .find(|s| s.id == settlement)
+            .map_or((None, String::new()), |s| {
+                (Some(s.hearth_m), s.name.clone())
+            })
+    }
+
+    /// What standing with a revolt of faction `faction` called by `organizer` is worth to
+    /// `person` today (M4c slice AI; research 04-10 §5.3, 09-11 §1.4): their grievance against
+    /// the gathering, belonging or regard for the organizer, and the share of those they know who
+    /// stood with it yesterday (`before`), for some of whom more adds less; less what the norms
+    /// they hold weigh for abiding by the gathering, and `w_exclusion` for one its body would
+    /// leave out (09-11 §1.6).
+    #[allow(clippy::too_many_arguments)]
+    fn revolt_points(
+        &self,
+        ctx: &Ctx,
+        person: PermanentId,
+        faction: PermanentId,
+        organizer: PermanentId,
+        polity: PermanentId,
+        before: &[(PermanentId, Side)],
+        admitted: bool,
+    ) -> f64 {
+        let (day, fp, tp) = (ctx.now.day_index(), &ctx.params.faction, &ctx.params.ties);
+        let member = self
+            .factions
+            .membership(person)
+            .is_some_and(|m| m.faction == faction);
+        let regard = self.ties.regard(person, organizer, day, tp);
+        let (mut all, mut with) = (0.0, 0.0);
+        for t in self.ties.of(person) {
+            let w = t.known_at(day, tp);
+            if w <= 0.0 {
+                continue;
+            }
+            all += w;
+            if before
+                .binary_search_by_key(&t.to, |s| s.0)
+                .is_ok_and(|i| before[i].1 == Side::With)
+            {
+                with += w;
+            }
+        }
+        let expect = if all > 0.0 { with / all } else { 0.0 };
+        let rider = Rng64::from_key(&[ctx.seed, PURPOSE_FREE_RIDER, person.get()]).next_f64()
+            < fp.free_ride_share;
+        let grievance = self.keenness(ctx, person, Blamed::Body(polity));
+        let excluded = if admitted { 0.0 } else { fp.w_exclusion };
+        attend_points(grievance, member, regard, expect, rider, fp)
+            - self.norm_points(ctx, person).max(0.0)
+            - excluded
+    }
+
+    /// Midnight (M4c slice AI): each adult who has heard of a revolt standing at their settlement
+    /// weighs where they stand anew (research 09-11 §2.5: in a crisis, daily), from where those
+    /// they know stood the day before. It holds once every officeholder, and more adults than
+    /// stand with the gathering, have stood with it `hold_days` together (09-11 §2.2), and fails
+    /// when its organizer or faction is gone or its time is out.
+    pub(super) fn revolts_day(&mut self, ctx: &mut Ctx) {
+        let (now, day, params) = (ctx.now, ctx.now.day_index(), ctx.params);
+        let margin = params.polity.stance_margin;
+        for ri in 0..self.factions.revolts.len() {
+            let r = &self.factions.revolts[ri];
+            if r.ended.is_some() {
+                continue;
+            }
+            let (id, settlement, faction, organizer, until, body) =
+                (r.id, r.settlement, r.faction, r.organizer, r.until, r.body);
+            let Some(pi) = self.polity_of(settlement) else {
+                self.factions.revolts[ri].ended = Some((RevoltEnd::Failed, now));
+                continue;
+            };
+            let live = self.person(organizer).is_some()
+                && self.factions.get(faction).is_some_and(Faction::is_live);
+            if !live || day > until {
+                self.end_revolt(ctx, ri, pi, RevoltEnd::Failed);
+                continue;
+            }
+            let adults = self.members_of(settlement, now, params);
+            let mut admitted: Vec<PermanentId> = self
+                .admitted(body.members, &adults, &ctx.land.fields, now, params)
+                .into_iter()
+                .map(|a| a.0)
+                .collect();
+            admitted.sort_unstable();
+            let polity = self.polities[pi].id;
+            let before = self.factions.revolts[ri].sides.clone();
+            let heard: Vec<PermanentId> = adults
+                .iter()
+                .map(|a| a.0)
+                .filter(|&p| self.heard_of_episode(p, ClaimKind::Revolt, id))
+                .collect();
+            let mut sides = Vec::with_capacity(heard.len());
+            for p in heard {
+                self.ensure_norm_state(ctx, p);
+                let ok = admitted.binary_search(&p).is_ok();
+                let points = self.revolt_points(ctx, p, faction, organizer, polity, &before, ok);
+                let side = if points > margin {
+                    Side::With
+                } else if points < -margin {
+                    Side::Gathering
+                } else {
+                    Side::Neither
+                };
+                sides.push((p, side));
+            }
+            sides.sort_by_key(|s| s.0);
+            // Its officeholders: the store's keeper and the watch (09-11 §1.5: administration
+            // and coercion).
+            let holders: Vec<PermanentId> = self.polities[pi]
+                .laws
+                .iter()
+                .filter(|l| {
+                    l.status == LawStatus::InForce
+                        && matches!(l.kind, PolicyKind::KeepStore | PolicyKind::KeepWatch)
+                })
+                .filter_map(|l| l.holder)
+                .collect();
+            let r = &mut self.factions.revolts[ri];
+            r.sides = sides;
+            let holds = holders.iter().all(|&h| r.side_of(h) == Some(Side::With))
+                && r.count(Side::With) > r.count(Side::Gathering);
+            if !holds {
+                r.held_since = None;
+                continue;
+            }
+            let since = *r.held_since.get_or_insert(day);
+            if day - since >= i64::from(params.faction.hold_days) {
+                self.end_revolt(ctx, ri, pi, RevoltEnd::Held);
+            }
+        }
+    }
+
+    /// Revolt `ri` at polity `pi` ends as `end`: held, its body decides from now on, a version
+    /// of the custom taken, not amended (ADR-0017 §1), any amendment in force superseded; or it
+    /// came to nothing. The chronicle says which.
+    fn end_revolt(&mut self, ctx: &Ctx, ri: usize, pi: usize, end: RevoltEnd) {
+        let now = ctx.now;
+        let r = &mut self.factions.revolts[ri];
+        r.ended = Some((end, now));
+        let (settlement, organizer, body) = (r.settlement, r.organizer, r.body);
+        let (place, name) = self.settlement_place(ctx, settlement);
+        let who = self.name_of(organizer);
+        match end {
+            RevoltEnd::Held => {
+                let polity = &mut self.polities[pi];
+                for l in &mut polity.laws {
+                    if l.kind == PolicyKind::AmendBody && l.status == LawStatus::InForce {
+                        l.status = LawStatus::Superseded;
+                    }
+                }
+                polity.body = body;
+                polity.versions.push(CustomVersion {
+                    body,
+                    since: now,
+                    law: None,
+                    seized_by: Some(organizer),
+                });
+                let version = polity.versions.len() as f64;
+                let words = format!(
+                    "At {name}, those who stood with {who} took the deciding from the gathering, \
+                     not by its procedure: from now on, {}.",
+                    body.clause()
+                );
+                self.chronicle_push(
+                    now,
+                    ChronicleKind::CustomTaken,
+                    vec![organizer],
+                    Some(settlement),
+                    place,
+                    version,
+                    words,
+                );
+            }
+            RevoltEnd::Failed => {
+                let words = format!(
+                    "{who}'s call at {name} that {} came to nothing.",
+                    body.clause()
+                );
+                self.chronicle_push(
+                    now,
+                    ChronicleKind::RevoltFailed,
+                    vec![organizer],
+                    Some(settlement),
+                    place,
+                    0.0,
+                    words,
+                );
+            }
+        }
     }
 
     /// The share of those `person` knows, by how well, who belong to faction `faction` today.
@@ -901,7 +1263,7 @@ impl Population {
             .enumerate()
             .rev()
             .find(|(_, r)| r.settlement == settlement && r.law == law && r.until >= day)?;
-        if !self.heard_of_refusal(person, r.id) {
+        if !self.heard_of_episode(person, ClaimKind::Refusal, r.id) {
             return None;
         }
         let f = self.factions.get(r.faction)?;

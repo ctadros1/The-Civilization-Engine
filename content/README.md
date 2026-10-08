@@ -708,6 +708,13 @@ Content API 47 (M4c slice AH, step three) brings refusals of a levy: the `[facti
 `refusal_cost` (what calling on members to keep back a levy costs an organizer, points, beside
 what the norms they hold weigh) and `refusal_days` (how long the call stands), design priors.
 
+Content API 48 (M4c slice AI, step one) brings revolts: the `[faction]` keys `revolt_cost` (what
+calling on everyone to stand with a faction's program costs an organizer, points, beside what the
+norms they hold weigh), `revolt_days` (how long the call stands), `hold_days` (how long every
+officeholder, and more adults than stand with the gathering, must stand with it before it holds)
+and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
+points), design priors (`hold_days` is research 09-11 §2.2's seven days).
+
 Content API 44 (M4c slice AG) brings ideologies: the kind `ideology` (below) and the core pack's
 `core:ideology/common_provision`, `order_kept` and `own_say`.
 

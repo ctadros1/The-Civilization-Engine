@@ -576,6 +576,25 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Evidence:** 600 further identities (two seeds) continued alike, where two of the first 200 had not. The kernel suite (604) passes; the ten-year smoke passed all 10 worlds; Gate B and the notables' gate passed.
 
+## 2026-10-08 — M4c slice AI, step one: a faction's revolt
+
+**Goal:** let a faction take the deciding from the gathering outside its procedure, without a roll or a timer: the revolt holds only if people, and the officeholders above all, choose to stand with it.
+
+**What changed:**
+
+- **A program:** a faction whose members blame the gathering holds the body under which the decisions its members saw would have gone most their way (slice AF's test), of those the content's amendments offer; unlike an amendment it need not be one change away.
+- **Calling a revolt:** where neither a petition nor a refusal can be called, its organizer may call on everyone to stand with that body, worth what a petition is less `revolt_cost` and the norms they hold (ADR-0017 §4).
+- **Sides:** each adult who heard of it takes a side each day, with it, with the gathering or with neither, from their grievance, belonging or regard for the organizer and where those they know stood the day before, less the norms they hold and a cost for one the new body would leave out (research 04-10 §5.3, 09-11 §1.6, §2.5).
+- **Holding:** once the keeper and the watch, and more adults than stand with the gathering, have stood with it seven days (09-11 §2.2), its body decides; the custom's history records a version taken, not amended, and the chronicle says so. It comes to nothing after 60 days or when its organizer or faction is gone.
+- **Boundary:** saves schema 44 (43 still loads), wire 1.43 (revolts in the Government panel), content API 48.
+- **Also fixed:** the plan's AJ entry, which the last plan edit had run into AI's text.
+
+**Findings:** with `revolt_cost` 1.0 even a fully aggrieved organizer where no one held the norm could not call one (0.65 against a threshold of 0.78); it is now 0.75, above a refusal's 0.5. The first test village amended its custom by procedure before its faction's organizer reviewed, and the decision the faction minded no longer counted, so no revolt came: the legal route first. The test now uses an elders' custom, which no single amendment would have changed to the faction's good.
+
+**Evidence:** integration tests that a revolt is called, every one of the 27 who heard of it stands with it and it holds a week later, the custom's new version naming who took it; that one whose time runs out comes to nothing; each saving and loading exactly; a test that a schema-43 save loads; the web tests. The kernel (607), web (142) and end-to-end (16, 6 demos skipped) suites pass, with clippy and the format and schema checks clean. The ten-year smoke passed all 10 worlds with no revolt called (four petitions in three villages, all granted). Gate B and the notables' gate passed.
+
+**Open:** steps two to four of slice AI (founding, a watch of several and coups, force and violence); slice AJ.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

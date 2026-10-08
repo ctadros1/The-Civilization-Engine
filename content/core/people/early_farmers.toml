@@ -758,3 +758,18 @@ refused_days = 5.0
 # joining it at their threshing as they weigh coming to a petition. Design priors.
 refusal_cost = 0.5
 refusal_days = 365
+# A faction whose members blame the gathering holds a program: of the bodies the content's
+# amendments offer, the one under which the decisions its members saw would have gone most their
+# way (M4c slice AI; ADR-0017 §4). Where it can call neither a petition nor a refusal, its organizer
+# may call on everyone to stand with that body in place of the gathering's, worth what a petition
+# is less `revolt_cost` and less what the norms they hold weigh. Each adult who heard of it weighs
+# daily where they stand (research 09-11 §2.5), as they weigh coming to a petition, less those
+# norms and `w_exclusion` if the new body would leave them out (09-11 §1.6). It holds once the
+# store's keeper and the watch stand with it and more adults stand with it than with the gathering
+# for `hold_days` (09-11 §2.2's seven days), and fails after `revolt_days`. Design priors:
+# `revolt_cost` sits above a refusal's (1.0 kept even an organizer all of whose members held the
+# grievance fully, where nobody held the norm, from calling one).
+revolt_cost = 0.75
+revolt_days = 60
+hold_days = 7
+w_exclusion = 1.0

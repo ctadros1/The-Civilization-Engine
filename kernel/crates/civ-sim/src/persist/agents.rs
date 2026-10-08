@@ -106,7 +106,7 @@ use super::{
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
-    SCHEMA_V41, SCHEMA_V42, finish, section, single_chunk, unreadable,
+    SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -354,6 +354,8 @@ enum Schema {
     V42,
     /// Refusals of a levy (M4c slice AH).
     V43,
+    /// Revolts, and customs taken rather than amended (M4c slice AI).
+    V44,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -411,7 +413,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V40 => Schema::V40,
         SCHEMA_V41 => Schema::V41,
         SCHEMA_V42 => Schema::V42,
-        SAVE_SCHEMA_VERSION => Schema::V43,
+        SCHEMA_V43 => Schema::V43,
+        SAVE_SCHEMA_VERSION => Schema::V44,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -773,6 +776,12 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let versions = fbb.create_vector(&versions);
+            let seized: Vec<u64> = p
+                .versions
+                .iter()
+                .map(|v| v.seized_by.map_or(0, PermanentId::get))
+                .collect();
+            let seized_by = fbb.create_vector(&seized);
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -809,6 +818,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     gathering,
                     reviewed: p.reviewed,
                     versions: Some(versions),
+                    seized_by: Some(seized_by),
                 },
             )
         })
@@ -1105,7 +1115,11 @@ fn decode_polities(
         };
         // The custom's versions (schema 36); before, the founding custom alone.
         let mut versions = Vec::new();
-        for v in p.versions().iter().flatten() {
+        let seized: Vec<u64> = p
+            .seized_by()
+            .map(|v| v.iter().collect())
+            .unwrap_or_default();
+        for (k, v) in p.versions().iter().flatten().enumerate() {
             versions.push(CustomVersion {
                 body: body_of(
                     v.members(),
@@ -1115,6 +1129,7 @@ fn decode_polities(
                 )?,
                 since: time(v.since()),
                 law: id_of(v.law()),
+                seized_by: seized.get(k).copied().and_then(PermanentId::from_raw),
             });
         }
         if versions.is_empty() {
@@ -1122,6 +1137,7 @@ fn decode_polities(
                 body,
                 since: time(p.founded()),
                 law: None,
+                seized_by: None,
             });
         }
         if versions.last().map(|v| v.body) != Some(body) {
@@ -2480,7 +2496,8 @@ fn carried(
         | Schema::V40
         | Schema::V41
         | Schema::V42
-        | Schema::V43 => {
+        | Schema::V43
+        | Schema::V44 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2633,7 +2650,8 @@ fn decode_households(
             | Schema::V40
             | Schema::V41
             | Schema::V42
-            | Schema::V43 => {
+            | Schema::V43
+            | Schema::V44 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3228,6 +3246,9 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::CaseBrought => 30,
         ChronicleKind::CaseHeard => 31,
         ChronicleKind::CustomAmended => 32,
+        ChronicleKind::RevoltCalled => 33,
+        ChronicleKind::CustomTaken => 34,
+        ChronicleKind::RevoltFailed => 35,
     }
 }
 
@@ -3265,6 +3286,9 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         30 => Some(ChronicleKind::CaseBrought),
         31 => Some(ChronicleKind::CaseHeard),
         32 => Some(ChronicleKind::CustomAmended),
+        33 => Some(ChronicleKind::RevoltCalled),
+        34 => Some(ChronicleKind::CustomTaken),
+        35 => Some(ChronicleKind::RevoltFailed),
         _ => None,
     }
 }
@@ -5577,6 +5601,38 @@ fn encode_factions(
         })
         .collect();
     let refusals = fbb.create_vector(&refusals);
+    let revolts: Vec<_> = factions
+        .revolts
+        .iter()
+        .map(|r| {
+            let sides: Vec<save::SideSave> = r
+                .sides
+                .iter()
+                .map(|&(p, s)| save::SideSave::new(p.get(), s.code()))
+                .collect();
+            let sides = fbb.create_vector(&sides);
+            save::RevoltSave::create(
+                &mut fbb,
+                &save::RevoltSaveArgs {
+                    id: r.id.get(),
+                    faction: r.faction.get(),
+                    settlement: r.settlement.get(),
+                    organizer: r.organizer.get(),
+                    called: r.called.minutes(),
+                    until: r.until,
+                    members: r.body.members.code(),
+                    quorum_share: r.body.quorum_share,
+                    pass: r.body.pass.code(),
+                    sides: Some(sides),
+                    has_held: r.held_since.is_some(),
+                    held_since: r.held_since.unwrap_or(0),
+                    ended: r.ended.map_or(u8::MAX, |e| e.0.code()),
+                    ended_at: r.ended.map_or(0, |e| e.1.minutes()),
+                },
+            )
+        })
+        .collect();
+    let revolts = fbb.create_vector(&revolts);
     let list: Vec<_> = factions
         .list
         .iter()
@@ -5646,6 +5702,7 @@ fn encode_factions(
             petitions: Some(petitions),
             policies: Some(policy_dictionary),
             refusals: Some(refusals),
+            revolts: Some(revolts),
         },
     );
     finish(fbb, root)
@@ -5656,8 +5713,10 @@ fn decode_factions(
     rules: &Rules,
 ) -> Result<civ_agents::faction::Factions, LoadError> {
     use civ_agents::faction::{
-        Faction, FactionEvent, FactionEventKind, Factions, Member, Petition, Refusal, Why,
+        Faction, FactionEvent, FactionEventKind, Factions, Member, Petition, Refusal, Revolt,
+        RevoltEnd, Side, Why,
     };
+    use civ_agents::polity::{Body, Membership, PassRule};
     let root = flatbuffers::root::<save::FactionsSave>(bytes)
         .map_err(|e| unreadable(SECTION_FACTIONS, &e))?;
     let goods = good_map(&read_strings(root.goods()), rules);
@@ -5817,10 +5876,57 @@ fn decode_factions(
             kept_kg: r.kept_kg(),
         });
     }
+    let mut revolts = Vec::new();
+    for r in root.revolts().iter().flatten() {
+        let id = required(r.id(), "a revolt")?;
+        let faction = required(r.faction(), "a revolt's faction")?;
+        if !list.iter().any(|f: &Faction| f.id == faction) {
+            return Err(bad(format!(
+                "revolt {id} was called by faction {faction}, which never was"
+            )));
+        }
+        let body = Body {
+            members: Membership::from_code(r.members())
+                .ok_or_else(|| bad(format!("revolt {id} has membership code {}", r.members())))?,
+            quorum_share: r.quorum_share(),
+            pass: PassRule::from_code(r.pass())
+                .ok_or_else(|| bad(format!("revolt {id} has decision rule code {}", r.pass())))?,
+        };
+        let mut sides = Vec::new();
+        for s in r.sides().iter().flatten() {
+            let side = Side::from_code(s.side())
+                .ok_or_else(|| bad(format!("revolt {id} has side code {}", s.side())))?;
+            sides.push((required(s.person(), "one who stood on a revolt")?, side));
+        }
+        if !sides.windows(2).all(|w| w[0].0 < w[1].0) {
+            return Err(bad(format!("revolt {id} lists who stood out of order")));
+        }
+        let ended = match r.ended() {
+            u8::MAX => None,
+            c => Some((
+                RevoltEnd::from_code(c)
+                    .ok_or_else(|| bad(format!("revolt {id} has end code {c}")))?,
+                SimTime::from_minutes(r.ended_at()),
+            )),
+        };
+        revolts.push(Revolt {
+            id,
+            faction,
+            settlement: required(r.settlement(), "a revolt's settlement")?,
+            organizer: required(r.organizer(), "a revolt's organizer")?,
+            called: SimTime::from_minutes(r.called()),
+            until: r.until(),
+            body,
+            sides,
+            held_since: r.has_held().then(|| r.held_since()),
+            ended,
+        });
+    }
     Ok(Factions {
         list,
         petitions,
         refusals,
+        revolts,
         members,
         joined: root.joined(),
         left: root.left(),

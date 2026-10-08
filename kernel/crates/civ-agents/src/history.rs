@@ -526,6 +526,16 @@ pub enum ChronicleKind {
     /// whole of it in words ("The custom at Ashford changed by its own procedure, on Ada's
     /// proposal: from now on, the elders of its households ...").
     CustomAmended,
+    /// A faction called on everyone to stand with its body in place of the gathering's (M4c slice
+    /// AI): `people` is its organizer, `name` the whole of it in words.
+    RevoltCalled,
+    /// The custom was taken from the gathering, not amended (M4c slice AI, ADR-0017 §1: a
+    /// replacement): `people` is the one who called it, `number` the custom's version now, and
+    /// `name` the whole of it in words.
+    CustomTaken,
+    /// A faction's call to stand with its body came to nothing (M4c slice AI): `people` is the
+    /// one who called it, `name` the whole of it in words.
+    RevoltFailed,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -907,10 +917,12 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::LawLapsed
         | ChronicleKind::Restitution
         | ChronicleKind::CaseHeard
-        | ChronicleKind::CustomAmended => {
+        | ChronicleKind::CustomAmended
+        | ChronicleKind::CustomTaken
+        | ChronicleKind::RevoltFailed => {
             vec![Span::Text(event.name.clone())]
         }
-        ChronicleKind::CaseBrought => match person(0) {
+        ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled => match person(0) {
             Some(who) => vec![who, Span::Text(format!(" {}", event.name))],
             None => vec![Span::Text(format!("Someone {}", event.name))],
         },

@@ -60,7 +60,8 @@ pub(crate) struct PeopleFile {
     pub faction: FactionFile,
 }
 
-/// Factions, their petitions and refusals (M4c slice AH, ADR-0017 §2-3; content API 45-47). See
+/// Factions, their petitions, refusals and revolts (M4c slices AH-AI, ADR-0017 §2-4; content API
+/// 45-48). See
 /// [`civ_agents::faction::FactionParams`] for what each means.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -90,6 +91,10 @@ pub(crate) struct FactionFile {
     pub refused_days: f64,
     pub refusal_cost: f64,
     pub refusal_days: u32,
+    pub revolt_cost: f64,
+    pub revolt_days: u32,
+    pub hold_days: u32,
+    pub w_exclusion: f64,
 }
 
 impl FactionFile {
@@ -120,6 +125,10 @@ impl FactionFile {
             refused_days: self.refused_days,
             refusal_cost: self.refusal_cost,
             refusal_days: self.refusal_days,
+            revolt_cost: self.revolt_cost,
+            revolt_days: self.revolt_days,
+            hold_days: self.hold_days,
+            w_exclusion: self.w_exclusion,
         }
     }
 
@@ -141,6 +150,14 @@ impl FactionFile {
                 "`faction.petition_members` must be between 2 and 1000 (got {})",
                 self.petition_members
             ));
+        }
+        for (name, v) in [
+            ("faction.revolt_days", self.revolt_days),
+            ("faction.hold_days", self.hold_days),
+        ] {
+            if !(1..=3650).contains(&v) {
+                p.push(format!("`{name}` must be between 1 and 3650 (got {v})"));
+            }
         }
         if !(1..=3650).contains(&self.refusal_days) {
             p.push(format!(
@@ -176,6 +193,8 @@ impl FactionFile {
             ("faction.free_ride_share", self.free_ride_share, 0.0, 1.0),
             ("faction.refused_days", self.refused_days, 0.0, 365.0),
             ("faction.refusal_cost", self.refusal_cost, 0.0, 100.0),
+            ("faction.revolt_cost", self.revolt_cost, 0.0, 100.0),
+            ("faction.w_exclusion", self.w_exclusion, 0.0, 100.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

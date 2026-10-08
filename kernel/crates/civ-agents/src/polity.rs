@@ -902,6 +902,14 @@ pub fn custom_history_words(
         .iter()
         .map(|v| {
             let since = day_words(v.since);
+            if let Some(who) = v.seized_by {
+                return format!(
+                    "Since {since}, taken from the gathering by those who stood with {}, not by \
+                     its procedure: {}.",
+                    name_of(who),
+                    v.body.clause()
+                );
+            }
             match v.law.and_then(|id| polity.laws.iter().find(|l| l.id == id)) {
                 Some(l) => format!(
                     "Since {since}, by the amendment {} proposed: {}.",
@@ -1043,6 +1051,9 @@ pub struct CustomVersion {
     pub since: SimTime,
     /// The amendment that made it.
     pub law: Option<PermanentId>,
+    /// For a custom taken from the gathering rather than amended (M4c slice AI): who called those
+    /// who stood with it.
+    pub seized_by: Option<PermanentId>,
 }
 
 impl Polity {
@@ -1068,6 +1079,7 @@ impl Polity {
                 body: Body::gathering(params),
                 since: now,
                 law: None,
+                seized_by: None,
             }],
         }
     }
@@ -1809,6 +1821,7 @@ pub(crate) mod tests {
             body: elders,
             since: SimTime::from_minutes(1440),
             law: Some(pid(5)),
+            seized_by: None,
         });
         let history = custom_history_words(&polity, &|_| "Ada".to_owned());
         assert_eq!(history.len(), 2);

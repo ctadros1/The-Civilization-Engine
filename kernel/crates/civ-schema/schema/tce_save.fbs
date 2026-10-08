@@ -1169,6 +1169,9 @@ table PolitySave {
   // Every version of its custom, oldest first (schema 36); older saves have the founding custom
   // alone.
   versions: [CustomVersionSave] (id: 11);
+  // For each version, in `versions` order, who called those who took it from the gathering, 0
+  // for one made by the custom's procedure (schema 44, M4c slice AI); absent before.
+  seized_by: [ulong] (id: 12);
 }
 
 table Polities {
@@ -1553,6 +1556,32 @@ table RefusalSave {
   kept_kg: double (id: 8);
 }
 
+// Where one adult stood on a revolt (schema 44): `side` 0 with it, 1 with the gathering, 2
+// neither.
+struct SideSave {
+  person: ulong;
+  side: ubyte;
+}
+
+// A revolt (schema 44, M4c slice AI, ADR-0017 §4): its program's body as a custom version keeps
+// it; `ended` 255 while it stands, else 0 held, 1 failed, at `ended_at` (minutes).
+table RevoltSave {
+  id: ulong (id: 0);
+  faction: ulong (id: 1);
+  settlement: ulong (id: 2);
+  organizer: ulong (id: 3);
+  called: long (id: 4);
+  until: long (id: 5);
+  members: ubyte (id: 6);
+  quorum_share: float (id: 7);
+  pass: ubyte (id: 8);
+  sides: [SideSave] (id: 9);
+  has_held: bool (id: 10);
+  held_since: long (id: 11);
+  ended: ubyte = 255 (id: 12);
+  ended_at: long (id: 13);
+}
+
 table FactionsSave {
   factions: [FactionSave] (id: 0);
   members: [MemberSave] (id: 1);
@@ -1566,6 +1595,8 @@ table FactionsSave {
   policies: [string] (id: 6);
   // Every refusal of a levy called, oldest first (schema 43); absent before.
   refusals: [RefusalSave] (id: 7);
+  // Every revolt called, oldest first (schema 44); absent before.
+  revolts: [RevoltSave] (id: 8);
 }
 
 // Section "events": the scheduler's pending events.

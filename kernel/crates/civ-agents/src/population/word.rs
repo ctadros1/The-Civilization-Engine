@@ -24,7 +24,7 @@ fn gathering_key(c: &Claim) -> u64 {
 fn call_ahead(c: &Claim, day: i64) -> bool {
     matches!(
         c.kind,
-        ClaimKind::Gathering | ClaimKind::Petition | ClaimKind::Refusal
+        ClaimKind::Gathering | ClaimKind::Petition | ClaimKind::Refusal | ClaimKind::Revolt
     ) && c.day >= day
 }
 
@@ -103,25 +103,28 @@ impl Population {
         }
     }
 
-    /// Word that refusal `refusal` at `settlement` keeps back a levy until `until`: the claim,
-    /// made if it is new, and each of `first` hears it on `today` from `from`, who began it.
-    pub(super) fn refusal_word(
+    /// Word of episode `subject` of kind `kind` (a refusal or a revolt) at `settlement`, standing
+    /// until `until`: the claim, made if it is new, and each of `first` hears it on `today` from
+    /// `from`, who began it.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn episode_word(
         &mut self,
+        kind: ClaimKind,
         settlement: PermanentId,
         until: i64,
-        refusal: PermanentId,
+        subject: PermanentId,
         from: PermanentId,
         first: &[PermanentId],
         today: i64,
     ) {
-        let claim = match self.word.refusal(refusal) {
+        let claim = match self.word.episode(kind, subject) {
             Some(c) => c,
             None => self.word.make(Claim {
                 id: 0,
-                kind: ClaimKind::Refusal,
+                kind,
                 settlement,
                 day: until,
-                subject: Some(refusal),
+                subject: Some(subject),
                 grievance: None,
             }),
         };
@@ -131,10 +134,15 @@ impl Population {
         }
     }
 
-    /// Whether `person` has heard of refusal `refusal`.
-    pub(crate) fn heard_of_refusal(&self, person: PermanentId, refusal: PermanentId) -> bool {
+    /// Whether `person` has heard of episode `subject` of kind `kind`.
+    pub(crate) fn heard_of_episode(
+        &self,
+        person: PermanentId,
+        kind: ClaimKind,
+        subject: PermanentId,
+    ) -> bool {
         self.word
-            .refusal(refusal)
+            .episode(kind, subject)
             .is_some_and(|c| self.word.has_heard(person, c))
     }
 

@@ -697,6 +697,29 @@ fn polity(sim: &Sim) -> Option<String> {
                 if n == 1 { "" } else { "s" }
             ));
         }
+        // Amendments of the custom (M4c slice AF): how many were put and passed, and the custom
+        // now when it changed.
+        let amendments: Vec<_> = p
+            .laws
+            .iter()
+            .filter(|l| kind(l) == Some(PolicyKind::AmendBody))
+            .collect();
+        if !amendments.is_empty() {
+            let passed = amendments
+                .iter()
+                .filter(|l| l.outcome == Some(Outcome::Passed))
+                .count();
+            let now = if p.versions.len() > 1 {
+                format!("; the custom now: {}", p.body.clause())
+            } else {
+                String::new()
+            };
+            parts.push(format!(
+                "{} amendment{} of the custom proposed, {passed} passed{now}",
+                amendments.len(),
+                if amendments.len() == 1 { "" } else { "s" },
+            ));
+        }
         // Curfews (M4b slice AD): how many were put, the one in force, and how it was kept.
         let curfews: Vec<_> = p
             .laws

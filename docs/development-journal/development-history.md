@@ -419,6 +419,23 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** nothing acts on a grievance yet; whether larger villages, where word thins out, see gatherings fail for want of a quorum. Amending the custom (AF) is next.
 
+## 2026-10-08 — M4c slice AF: amending the custom
+
+**Goal:** let a village change who decides by its own procedure, and keep the record that says it was an amendment.
+
+**What changed:**
+
+- **Amendable bodies.** Membership (every adult, each household's elder, or landholders), the share who must come and the rule (more for, or two-thirds) are values a content template offers, one change at a time.
+- **Who proposes, and why.** Only someone a gathering overruled within memory, or who holds a grievance against it, and only when the new rule would have decided what they saw in their household's favour: each decision is re-decided under the new body from the stances recorded there.
+- **What it changes.** The present custom decides it. Once passed, only members come, stand and count; the custom keeps every version with the amendment that made it; the chronicle tells an amendment apart from a decision; the label reads the real share of adults the body admits; the Government panel lists the versions and how many may decide.
+- **Boundary:** saves schema 36 (35 still loads), wire 1.35, content API 40.
+
+**Found on the way:** with temperature 0.5 a softmax over four amendments of no gain would choose one about three times in five (worked out from the scores), and a village voted 24 to 0 for a landholders' custom that changed nothing; an amendment is now weighed only when it would have served the sponsor's household.
+
+**Evidence:** unit tests for the two-thirds rule, the codes and the custom's history in words, and the content checks; integration tests that those a thin gathering overruled propose that the elders decide (one change, the one that would have passed what they backed), and that a passed amendment changes the body, its versions, who counts and the panel, with an exact save and load (seven runs of seven). The kernel (568), web (137) and end-to-end (16, 6 demos skipped) suites pass, with clippy and the schema check clean. The ten-year smoke passed all 10 worlds and no village amended its custom: gatherings of about 50 are nearly unanimous. Gate B and the notables' gate passed.
+
+**Open:** whether larger villages, with thinner gatherings, amend their customs; opinion, ideology and norms (AG) are next.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

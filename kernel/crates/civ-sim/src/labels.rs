@@ -8,7 +8,7 @@
 //! The thresholds are display conventions, uncalibrated engineering defaults in 09-15 §4B's
 //! ranges, not historical boundaries.
 
-use civ_agents::polity::{Law, LawStatus, Membership, Outcome, PolicyDef, PolicyKind, Polity};
+use civ_agents::polity::{Law, LawStatus, Outcome, PolicyDef, PolicyKind, Polity};
 use civ_core::{PermanentId, SimTime};
 
 /// The window of behaviour a label weighs, days (09-15 §4B: 24 months; test 12–36).
@@ -119,20 +119,15 @@ impl Label {
     }
 }
 
-/// The share of the governed adults that a body of membership `m` admits.
-fn admits(m: Membership) -> f64 {
-    match m {
-        Membership::Adults => 1.0,
-    }
-}
-
-/// The evidence for polity `polity` at `now`, its body governing `adults` adults. `policies` is the
-/// catalog's, and `margin` the polity's stance margin: a backer whose household's points stay
-/// within it was carried by regard.
+/// The evidence for polity `polity` at `now`, its body governing `adults` adults and admitting
+/// `admitted` of them (M4c slice AF: the custom says who). `policies` is the catalog's, and
+/// `margin` the polity's stance margin: a backer whose household's points stay within it was
+/// carried by regard.
 pub fn evidence(
     polity: &Polity,
     policies: &[PolicyDef],
     adults: u32,
+    admitted: u32,
     now: SimTime,
     margin: f64,
 ) -> Evidence {
@@ -209,7 +204,11 @@ pub fn evidence(
         }
     }
     Evidence {
-        body_share: admits(polity.body.members),
+        body_share: if adults == 0 {
+            1.0
+        } else {
+            f64::from(admitted.min(adults)) / f64::from(adults)
+        },
         adults,
         young: polity.founded.day_index() > from,
         standing_laws: polity
@@ -250,10 +249,19 @@ pub fn label_of(sim: &crate::Sim, polity: &Polity) -> Label {
                 .is_some_and(|x| x.settlement == Some(polity.settlement))
         })
         .count() as u32;
+    let admitted = pop
+        .polities
+        .iter()
+        .position(|p| p.id == polity.id)
+        .map_or(adults, |pi| {
+            pop.body_members(&sim.land().fields, pi, now, &rules.people)
+                .len() as u32
+        });
     let e = evidence(
         polity,
         &rules.catalog.policies,
         adults,
+        admitted,
         now,
         rules.people.polity.stance_margin,
     );

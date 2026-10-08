@@ -105,7 +105,7 @@ use super::{
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
-    SCHEMA_V33, SCHEMA_V34, finish, section, single_chunk, unreadable,
+    SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -308,6 +308,8 @@ enum Schema {
     V34,
     /// What people have heard and the grievances they hold (M4c slice AE).
     V35,
+    /// Amendments of the custom: a law's proposed body, the custom's versions (M4c slice AF).
+    V36,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -357,7 +359,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V32 => Schema::V32,
         SCHEMA_V33 => Schema::V33,
         SCHEMA_V34 => Schema::V34,
-        SAVE_SCHEMA_VERSION => Schema::V35,
+        SCHEMA_V35 => Schema::V35,
+        SAVE_SCHEMA_VERSION => Schema::V36,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -660,11 +663,28 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             relief_kg: c.relief_kg,
                             unanswered: c.unanswered,
                             holder: l.holder.map_or(0, PermanentId::get),
+                            body_members: l.body.map_or(u8::MAX, |b| b.members.code()),
+                            body_quorum: l.body.map_or(0.0, |b| b.quorum_share),
+                            body_pass: l.body.map_or(0, |b| b.pass.code()),
                         },
                     )
                 })
                 .collect();
             let laws = fbb.create_vector(&laws);
+            let versions: Vec<save::CustomVersionSave> = p
+                .versions
+                .iter()
+                .map(|v| {
+                    save::CustomVersionSave::new(
+                        v.body.members.code(),
+                        v.body.pass.code(),
+                        v.body.quorum_share,
+                        v.since.minutes(),
+                        v.law.map_or(0, PermanentId::get),
+                    )
+                })
+                .collect();
+            let versions = fbb.create_vector(&versions);
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -692,18 +712,15 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     id: p.id.get(),
                     settlement: p.settlement.get(),
                     founded: p.founded.minutes(),
-                    members: match p.body.members {
-                        civ_agents::polity::Membership::Adults => 0,
-                    },
+                    members: p.body.members.code(),
                     quorum_share: p.body.quorum_share,
-                    pass: match p.body.pass {
-                        civ_agents::polity::PassRule::MoreForThanAgainst => 0,
-                    },
+                    pass: p.body.pass.code(),
                     stores: Some(stores),
                     stores_at: p.stores_at.minutes(),
                     laws: Some(laws),
                     gathering,
                     reviewed: p.reviewed,
+                    versions: Some(versions),
                 },
             )
         })
@@ -746,6 +763,7 @@ fn law_status_code(s: civ_agents::polity::LawStatus) -> u8 {
         LawStatus::InForce => 1,
         LawStatus::Rejected => 2,
         LawStatus::Lapsed => 3,
+        LawStatus::Superseded => 4,
     }
 }
 
@@ -755,6 +773,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::FoodShort => 0,
         IssueKind::StoreUnkept => 1,
         IssueKind::Takings => 2,
+        IssueKind::Overruled => 3,
     }
 }
 
@@ -770,8 +789,8 @@ fn decode_polities(
     rules: &Rules,
 ) -> Result<Vec<civ_agents::polity::Polity>, LoadError> {
     use civ_agents::polity::{
-        Body, Compliance, Gathering, IssueKind, Law, LawStatus, Membership, Outcome, PassRule,
-        Polity, Stance, StanceRecord,
+        Body, Compliance, CustomVersion, Gathering, IssueKind, Law, LawStatus, Membership, Outcome,
+        PassRule, Polity, Stance, StanceRecord,
     };
     let root =
         flatbuffers::root::<save::Polities>(bytes).map_err(|e| unreadable(SECTION_POLITY, &e))?;
@@ -793,14 +812,21 @@ fn decode_polities(
     for p in root.polities().iter().flatten() {
         let id = required(p.id(), "a polity")?;
         let settlement = required(p.settlement(), "a polity's settlement")?;
-        let members = match p.members() {
-            0 => Membership::Adults,
-            c => return Err(bad(format!("polity {id} has membership code {c}"))),
+        let body_of = |members: u8, quorum_share: f32, pass: u8, what: &str| {
+            Ok::<Body, LoadError>(Body {
+                members: Membership::from_code(members)
+                    .ok_or_else(|| bad(format!("{what} has membership code {members}")))?,
+                quorum_share,
+                pass: PassRule::from_code(pass)
+                    .ok_or_else(|| bad(format!("{what} has decision rule code {pass}")))?,
+            })
         };
-        let pass = match p.pass() {
-            0 => PassRule::MoreForThanAgainst,
-            c => return Err(bad(format!("polity {id} has decision rule code {c}"))),
-        };
+        let body = body_of(
+            p.members(),
+            p.quorum_share(),
+            p.pass(),
+            &format!("polity {id}"),
+        )?;
         let saved: Vec<f64> = p.stores().map(|v| v.iter().collect()).unwrap_or_default();
         if saved.len() != goods.len() {
             return Err(bad(format!(
@@ -839,12 +865,14 @@ fn decode_polities(
                 1 => LawStatus::InForce,
                 2 => LawStatus::Rejected,
                 3 => LawStatus::Lapsed,
+                4 => LawStatus::Superseded,
                 c => return Err(bad(format!("law {law} has status code {c}"))),
             };
             let issue = match l.issue() {
                 0 => IssueKind::FoodShort,
                 1 => IssueKind::StoreUnkept,
                 2 => IssueKind::Takings,
+                3 => IssueKind::Overruled,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -921,6 +949,15 @@ fn decode_polities(
                     tonight: l.watch_tonight(),
                     next: l.watch_next(),
                 },
+                body: match l.body_members() {
+                    u8::MAX => None,
+                    m => Some(body_of(
+                        m,
+                        l.body_quorum(),
+                        l.body_pass(),
+                        &format!("law {law}"),
+                    )?),
+                },
             });
         }
         let gathering = match p.gathering() {
@@ -963,15 +1000,36 @@ fn decode_polities(
                 })
             }
         };
+        // The custom's versions (schema 36); before, the founding custom alone.
+        let mut versions = Vec::new();
+        for v in p.versions().iter().flatten() {
+            versions.push(CustomVersion {
+                body: body_of(
+                    v.members(),
+                    v.quorum_share(),
+                    v.pass(),
+                    &format!("polity {id}'s custom"),
+                )?,
+                since: time(v.since()),
+                law: id_of(v.law()),
+            });
+        }
+        if versions.is_empty() {
+            versions.push(CustomVersion {
+                body,
+                since: time(p.founded()),
+                law: None,
+            });
+        }
+        if versions.last().map(|v| v.body) != Some(body) {
+            return Err(bad(format!("polity {id}'s custom is not its last version")));
+        }
         out.push(Polity {
             id,
             settlement,
             founded: time(p.founded()),
-            body: Body {
-                members,
-                quorum_share: p.quorum_share(),
-                pass,
-            },
+            body,
+            versions,
             stores,
             stores_at: time(p.stores_at()),
             flows: Default::default(),
@@ -2311,7 +2369,8 @@ fn carried(
         | Schema::V32
         | Schema::V33
         | Schema::V34
-        | Schema::V35 => {
+        | Schema::V35
+        | Schema::V36 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2456,7 +2515,8 @@ fn decode_households(
             | Schema::V32
             | Schema::V33
             | Schema::V34
-            | Schema::V35 => {
+            | Schema::V35
+            | Schema::V36 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3050,6 +3110,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Restitution => 29,
         ChronicleKind::CaseBrought => 30,
         ChronicleKind::CaseHeard => 31,
+        ChronicleKind::CustomAmended => 32,
     }
 }
 
@@ -3086,6 +3147,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         29 => Some(ChronicleKind::Restitution),
         30 => Some(ChronicleKind::CaseBrought),
         31 => Some(ChronicleKind::CaseHeard),
+        32 => Some(ChronicleKind::CustomAmended),
         _ => None,
     }
 }

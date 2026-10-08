@@ -1,0 +1,18 @@
+# Amending the custom (M4c slice AF; ADR-0013 §2: the gathering may amend its own body; ADR-0017
+# §1: an amendment, told apart from a replacement). Who belongs to the body, how many must come
+# and how it decides are rules the custom's own procedure may change (research 09-02 §3.7,
+# 09-05 §3.9: political change can come from modifying who occupies a gate). Its levels combine
+# into bodies, and a sponsor weighs those one change away from the custom they live under. It is
+# open only to someone a gathering they came to overruled, or who holds a grievance against the
+# gathering, and each household judges a rule by how it would have decided what its members saw
+# decided. The present custom decides it. Whether anyone proposes one, which, and whether it
+# passes, is people's choice; the levels are tuning values.
+kind = "policy"
+id = "core:policy/amend_custom"
+name = "Amend the custom"
+description = "Changes who belongs to the deciding body, how many must come, or how it decides."
+does = "amend_body"
+answers = ["overruled"]
+members = ["adults", "elders", "landholders"]
+quorum_shares = [0.25, 0.5]
+pass = ["more_for", "two_thirds"]

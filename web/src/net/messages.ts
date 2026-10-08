@@ -810,7 +810,7 @@ export interface StanceLine {
 }
 
 /** Where a law stands ("lapsed", wire 1.28: the one it named died or left). */
-export type LawStatus = "proposed" | "in force" | "rejected" | "lapsed";
+export type LawStatus = "proposed" | "in force" | "rejected" | "lapsed" | "superseded";
 
 /** How a gathering decided. */
 export type LawOutcome = "passed" | "failed" | "tied" | "no quorum";
@@ -889,6 +889,10 @@ export interface PolityLine {
   labelConfidence: number;
   /** Wire 1.31: the cases the gathering called is to hear, in the kernel's words. */
   gatheringCases: string[];
+  /** Wire 1.35 (M4c slice AF): every version of its custom, oldest first, in the kernel's
+   * words, and how many its body admits now (`members` counts every adult). */
+  customHistory: string[];
+  bodyMembers: number;
 }
 
 /** Every settlement's polity at `minute` (wire 1.27). */
@@ -2814,7 +2818,7 @@ function standingLine(l: W.StandingLine): StandingLine {
 }
 
 const STANCES: StanceKind[] = ["for", "against", "abstained"];
-const LAW_STATUSES: LawStatus[] = ["proposed", "in force", "rejected", "lapsed"];
+const LAW_STATUSES: LawStatus[] = ["proposed", "in force", "rejected", "lapsed", "superseded"];
 const OUTCOMES: LawOutcome[] = ["passed", "failed", "tied", "no quorum"];
 
 function lawLine(l: W.LawLine): LawLine {
@@ -2901,6 +2905,11 @@ function governmentInfo(w: W.Government): GovernmentInfo {
         { length: p.gatheringCasesLength() },
         (_, k) => p.gatheringCases(k) ?? "",
       ),
+      customHistory: Array.from(
+        { length: p.customHistoryLength() },
+        (_, k) => p.customHistory(k) ?? "",
+      ),
+      bodyMembers: p.bodyMembers(),
     });
   }
   return { minute: Number(w.minute()), polities };

@@ -7,9 +7,17 @@
 use super::*;
 use crate::decide::GatheringFacts;
 use crate::polity::{
-    Belief, Deliberator, Gathering, IssueKind, Law, LawStatus, MoveOption, Outcome, Outlook,
-    PolicyKind, Polity, RuleDeliberator, Stance, StanceRecord,
+    Belief, Body, CustomVersion, Deliberator, Gathering, IssueKind, Law, LawStatus, Membership,
+    MoveOption, Outcome, Outlook, PolicyKind, Polity, RuleDeliberator, Stance, StanceRecord,
 };
+use crate::word::Blamed;
+
+/// A decision someone saw made at a gathering (M4c slice AF): each stance taken, by person and
+/// household, with what the household stood to gain in points, and whether it passed.
+struct Seen {
+    stances: Vec<(PermanentId, PermanentId, Stance, f64)>,
+    passed: bool,
+}
 
 /// Purpose tag for a deliberator's draw among moves.
 pub const PURPOSE_DELIBERATE: u64 = 0x6465_6c69_6265_7231; // "deliber1"
@@ -174,6 +182,69 @@ impl Population {
             .collect();
         out.sort_unstable();
         out
+    }
+
+    /// Of `adults` (adults and their households, in id order), those a body of membership `m`
+    /// admits (M4c slice AF): all of them; each household's elder; or the adults of households
+    /// holding a field among `fields`.
+    pub(super) fn admitted(
+        &self,
+        m: Membership,
+        adults: &[(PermanentId, PermanentId)],
+        fields: &[civ_land::fields::Field],
+        now: SimTime,
+        params: &PeopleParams,
+    ) -> Vec<(PermanentId, PermanentId)> {
+        match m {
+            Membership::Adults => adults.to_vec(),
+            Membership::Elders => adults
+                .iter()
+                .copied()
+                .filter(|&(p, h)| self.elder_of(h, now, params) == Some(p))
+                .collect(),
+            Membership::Landholders => {
+                let mut holding: Vec<PermanentId> =
+                    fields.iter().filter_map(|f| f.holder.household()).collect();
+                holding.sort_unstable();
+                holding.dedup();
+                adults
+                    .iter()
+                    .copied()
+                    .filter(|(_, h)| holding.binary_search(h).is_ok())
+                    .collect()
+            }
+        }
+    }
+
+    /// The members of polity `pi`'s body now, with their households, in id order (ADR-0013 §2;
+    /// M4c slice AF): the adults it admits under its custom.
+    pub fn body_members(
+        &self,
+        fields: &[civ_land::fields::Field],
+        pi: usize,
+        now: SimTime,
+        params: &PeopleParams,
+    ) -> Vec<(PermanentId, PermanentId)> {
+        let polity = &self.polities[pi];
+        let adults = self.members_of(polity.settlement, now, params);
+        self.admitted(polity.body.members, &adults, fields, now, params)
+    }
+
+    /// Whether adult `person` of household `hh` belongs to polity `pi`'s body (M4c slice AF).
+    fn admits(
+        &self,
+        fields: &[civ_land::fields::Field],
+        pi: usize,
+        person: PermanentId,
+        hh: PermanentId,
+        now: SimTime,
+        params: &PeopleParams,
+    ) -> bool {
+        match self.polities[pi].body.members {
+            Membership::Adults => true,
+            Membership::Elders => self.elder_of(hh, now, params) == Some(person),
+            Membership::Landholders => fields.iter().any(|f| f.holder.household() == Some(hh)),
+        }
     }
 
     /// What household `household` expects of its coming year: the food it holds, an ordinary
@@ -394,10 +465,26 @@ impl Population {
                 Some((k as u16, issue))
             })
             .collect();
-        if open.is_empty() {
+        // An amendment of the custom answers no settlement's issue: it is open to those a
+        // gathering overruled (M4c slice AF), so a content that has one always reviews.
+        let amendable = ctx
+            .catalog
+            .policies
+            .iter()
+            .any(|d| d.kind == PolicyKind::AmendBody && !d.bodies.is_empty());
+        if open.is_empty() && !amendable {
             return;
         }
-        let members = self.members_of(settlement, now, params);
+        // The settlement's adults, and those of them its body admits (M4c slice AF): only members
+        // propose and stand at its gatherings; anyone may hold an office it creates.
+        let adults = self.members_of(settlement, now, params);
+        let members = self.admitted(
+            self.polities[pi].body.members,
+            &adults,
+            &ctx.land.fields,
+            now,
+            params,
+        );
         let outlooks: Vec<(PermanentId, Outlook)> = households
             .iter()
             .filter_map(|&h| Some((h, self.outlook(ctx, h)?)))
@@ -407,7 +494,7 @@ impl Population {
         // What a roof over the store would keep for each household a year.
         let kept = self.roof_saves(ctx, pi) / outlooks.len().max(1) as f64;
         // Who could keep the store: adults whose household is under a roof.
-        let roofed: Vec<PermanentId> = members
+        let roofed: Vec<PermanentId> = adults
             .iter()
             .filter(|(_, h)| self.household(*h).is_some_and(|x| x.sheltered))
             .map(|(p, _)| *p)
@@ -446,6 +533,94 @@ impl Population {
         deliberators.dedup();
         deliberators.retain(|d| members.binary_search_by_key(d, |m| m.0).is_ok());
         let tp = &params.ties;
+        // What its gatherings decided within memory (M4c slice AF): each law and case, with the
+        // stances taken there (open acclamation: those who came saw them), and who each kind of
+        // body would admit now.
+        let memory = i64::from(pp.vote_memory_days);
+        let recent = |t: Option<SimTime>| t.is_some_and(|t| day - t.day_index() <= memory);
+        let polity = &self.polities[pi];
+        let mut decisions: Vec<Seen> = polity
+            .laws
+            .iter()
+            .filter(|l| recent(l.decided) && !l.stances.is_empty())
+            .map(|l| Seen {
+                stances: l
+                    .stances
+                    .iter()
+                    .map(|r| (r.person, r.household, r.stance, f64::from(r.gain)))
+                    .collect(),
+                passed: l.outcome == Some(Outcome::Passed),
+            })
+            .collect();
+        decisions.extend(
+            self.order
+                .cases
+                .iter()
+                .filter(|c| recent(c.heard) && !c.stances.is_empty())
+                .filter(|c| polity.laws.iter().any(|l| l.id == c.law))
+                .map(|c| Seen {
+                    stances: c
+                        .stances
+                        .iter()
+                        .map(|r| (r.person, r.household, r.stance, f64::from(r.stake)))
+                        .collect(),
+                    passed: c.stage == crate::crime::CaseStage::Found,
+                }),
+        );
+        let (current, polity_id) = (polity.body, polity.id);
+        let admitted_by: Vec<Vec<PermanentId>> = Membership::ALL
+            .iter()
+            .map(|&m| {
+                self.admitted(m, &adults, &ctx.land.fields, now, params)
+                    .into_iter()
+                    .map(|a| a.0)
+                    .collect()
+            })
+            .collect();
+        // Whether body `b` would have passed decision `s`: those of the stances it admits now,
+        // by its rule (research 09-05 §1.4).
+        let would_pass = |s: &Seen, b: &Body| {
+            let admitted = &admitted_by[usize::from(b.members.code())];
+            let (mut present, mut support, mut oppose) = (0, 0, 0);
+            for &(p, _, stance, _) in &s.stances {
+                if admitted.binary_search(&p).is_err() {
+                    continue;
+                }
+                present += 1;
+                match stance {
+                    Stance::Support => support += 1,
+                    Stance::Oppose => oppose += 1,
+                    Stance::Abstain => {}
+                }
+            }
+            b.decide(admitted.len() as u32, present, support, oppose) == Outcome::Passed
+        };
+        // What body `b` would bring household `h`, from decisions `seen` (research 09-02 §3.7,
+        // 09-05 §1.2: a rule is judged by how it would have decided what was seen): each one it
+        // would have turned the other way, at the household's stake in it.
+        let amend_gain = |b: &Body, h: PermanentId, seen: &[usize]| -> f64 {
+            seen.iter()
+                .map(|&i| {
+                    let s = &decisions[i];
+                    let now_passes = would_pass(s, b);
+                    if now_passes == s.passed {
+                        return 0.0;
+                    }
+                    let stake = s.stances.iter().find(|r| r.1 == h).map_or(0.0, |r| r.3);
+                    let sign = if now_passes { 1.0 } else { -1.0 };
+                    sign * stake / pp.w_gain.max(1e-9)
+                })
+                .sum()
+        };
+        // The decisions those `seen` saw.
+        let seen_by = |seen: &dyn Fn(PermanentId, PermanentId) -> bool| -> Vec<usize> {
+            decisions
+                .iter()
+                .enumerate()
+                .filter(|(_, s)| s.stances.iter().any(|r| seen(r.0, r.1)))
+                .map(|(i, _)| i)
+                .collect()
+        };
         let deliberator = RuleDeliberator { params: pp };
         // What each household knows of takings in the last year: what it lost to takers it knows
         // of, and what its own members took (M4b slice AB).
@@ -454,9 +629,9 @@ impl Population {
             .map(|&h| (h, self.takings_known(h, now, params)))
             .collect();
         // Grown members of each household, whom a curfew keeps at home.
-        let mut adults: BTreeMap<PermanentId, u32> = BTreeMap::new();
-        for &(_, h) in &members {
-            *adults.entry(h).or_default() += 1;
+        let mut grown: BTreeMap<PermanentId, u32> = BTreeMap::new();
+        for &(_, h) in &adults {
+            *grown.entry(h).or_default() += 1;
         }
         // What a move would bring household `h`: a store at a levy share, a store kept, a law
         // against taking with its bundle, a watch, or a curfew.
@@ -492,7 +667,7 @@ impl Population {
                     let (recover, owe) = known.watched(params.crime.curfew_guard);
                     let home = params.crime.curfew_cost_days
                         * f64::from(crate::polity::hours_long(m.hours))
-                        * f64::from(adults.get(&h).copied().unwrap_or(0))
+                        * f64::from(grown.get(&h).copied().unwrap_or(0))
                         * o.year_need
                         / 365.0;
                     crate::polity::against_gain(o, recover, owe + home, pp)
@@ -520,6 +695,7 @@ impl Population {
                     nominee: None,
                     sanction: Default::default(),
                     hours: (0, 0),
+                    body: None,
                     own_gain: 0.0,
                     followers_gain: 0.0,
                     support: 0.5,
@@ -562,10 +738,12 @@ impl Population {
                             });
                         }
                     }
+                    // An amendment answers no settlement's issue: it is weighed below.
+                    PolicyKind::AmendBody => {}
                     // A watch: the adult they regard most, themselves at full regard (M4b slice
                     // AC).
                     PolicyKind::KeepWatch => {
-                        let pick = members
+                        let pick = adults
                             .iter()
                             .map(|&(c, _)| {
                                 let r = if c == d {
@@ -585,6 +763,59 @@ impl Population {
                     }
                 }
             }
+            // An amendment of the custom (M4c slice AF): open to one whom a gathering they came
+            // to within memory overruled, or who holds a grievance against the gathering; each
+            // body a template offers that differs from the custom and would keep them in it.
+            let seen_d = seen_by(&|p, _| p == d);
+            let overruled = seen_d.iter().any(|&i| {
+                let s = &decisions[i];
+                s.stances.iter().any(|r| {
+                    r.0 == d
+                        && match r.2 {
+                            Stance::Support => !s.passed,
+                            Stance::Oppose => s.passed,
+                            Stance::Abstain => false,
+                        }
+                })
+            }) || self
+                .word
+                .grievances_of(d)
+                .any(|g| g.blamed == Blamed::Body(polity_id) && g.unresolved_days > 0.0);
+            if overruled {
+                for (k, def) in ctx.catalog.policies.iter().enumerate() {
+                    if def.kind != PolicyKind::AmendBody {
+                        continue;
+                    }
+                    for &b in &def.bodies {
+                        let keeps = admitted_by[usize::from(b.members.code())]
+                            .binary_search(&d)
+                            .is_ok();
+                        // One change at a time (research 09-05 §2.3: a sponsor weighs a few
+                        // alternatives; §3.9: reform changes a gate within the procedure).
+                        let changes = u32::from(b.members != current.members)
+                            + u32::from((b.quorum_share - current.quorum_share).abs() > 1e-6)
+                            + u32::from(b.pass != current.pass);
+                        if changes == 1 && keeps {
+                            moves.push(MoveOption {
+                                policy: k as u16,
+                                levy_share: 0.0,
+                                issue: IssueKind::Overruled,
+                                nominee: None,
+                                sanction: Default::default(),
+                                hours: (0, 0),
+                                body: Some(b),
+                                own_gain: 0.0,
+                                followers_gain: 0.0,
+                                support: 0.5,
+                            });
+                        }
+                    }
+                }
+            }
+            let gain_for = |m: &MoveOption, h: PermanentId| match m.body {
+                Some(b) => amend_gain(&b, h, &seen_d),
+                None => gain_of(m, h),
+            };
             for m in &mut moves {
                 // Those who regard them, by how much; and those they know, by where they would
                 // stand with them as its sponsor (or with the one it names).
@@ -594,7 +825,7 @@ impl Population {
                     if a == d {
                         continue;
                     }
-                    let gain = gain_of(m, h);
+                    let gain = gain_for(m, h);
                     let regard = self.ties.regard(a, d, day, tp).clamp(0.0, 1.0);
                     if regard > 0.0 {
                         weighed += regard * gain;
@@ -613,7 +844,7 @@ impl Population {
                         }
                     }
                 }
-                m.own_gain = gain_of(m, own);
+                m.own_gain = gain_for(m, own);
                 m.followers_gain = if weight > 0.0 { weighed / weight } else { 0.0 };
                 m.support = if support + oppose > 0 {
                     f64::from(support) / f64::from(support + oppose)
@@ -632,6 +863,7 @@ impl Population {
                             && l.holder == m.nominee
                             && l.sanction == m.sanction
                             && l.hours == m.hours
+                            && l.body == m.body
                     })
                     .filter(|l| (f64::from(l.levy_share) - m.levy_share).abs() < 1e-4)
                     .filter(|l| {
@@ -646,13 +878,25 @@ impl Population {
                     }
                 }
             }
+            // An amendment is weighed only by one it would have served (research 09-02 §3.7:
+            // institutional change is proposed for an expected benefit): with nothing to gain,
+            // changing the custom is no move of theirs.
+            moves.retain(|m| m.body.is_none() || m.own_gain > 0.0);
             let u =
                 Rng64::from_key(&[ctx.seed, PURPOSE_DELIBERATE, d.get(), day as u64]).next_f64();
             let choice = deliberator.choose(&moves, u);
             if let Some(m) = choice.chosen.map(|i| moves[i]) {
                 let stakes: Vec<(PermanentId, f32)> = outlooks
                     .iter()
-                    .map(|(h, _)| (*h, (pp.w_gain * gain_of(&m, *h)) as f32))
+                    .map(|(h, _)| {
+                        // Each household judges an amendment by the decisions its own members
+                        // saw (M4c slice AF).
+                        let gain = match m.body {
+                            Some(b) => amend_gain(&b, *h, &seen_by(&|_, hh| hh == *h)),
+                            None => gain_of(&m, *h),
+                        };
+                        (*h, (pp.w_gain * gain) as f32)
+                    })
                     .collect();
                 self.propose(ctx, pi, d, m, stakes);
                 return;
@@ -696,6 +940,7 @@ impl Population {
             known: vec![(sponsor, day)],
             compliance: Default::default(),
             watch: Default::default(),
+            body: m.body,
         };
         // "Mira proposed themselves as keeper of the common store", not "Mira as keeper".
         let words = format!(
@@ -760,7 +1005,8 @@ impl Population {
         let (now, params) = (ctx.now, ctx.params);
         let pp = &params.polity;
         let settlement = self.polities[pi].settlement;
-        let members = self.members_of(settlement, now, params);
+        // Its body's members now (M4c slice AF: the custom says who they are).
+        let members = self.body_members(&ctx.land.fields, pi, now, params);
         let Some(law) = self.polities[pi].laws.iter().find(|l| l.id == law_id) else {
             return;
         };
@@ -831,7 +1077,12 @@ impl Population {
             .map_or((None, String::new()), |s| {
                 (Some(s.hearth_m), s.name.clone())
             });
-        let tally = format!("{support} for, {oppose} against; {present} of {eligible} adults came");
+        let who = match body.members {
+            Membership::Adults => "adults",
+            Membership::Elders => "elders",
+            Membership::Landholders => "landholders",
+        };
+        let tally = format!("{support} for, {oppose} against; {present} of {eligible} {who} came");
         let words = match outcome {
             Outcome::Passed => format!("The gathering at {name} agreed to {what}: {tally}."),
             Outcome::Failed => format!("The gathering at {name} turned down {what}: {tally}."),
@@ -840,7 +1091,7 @@ impl Population {
             ),
             Outcome::NoQuorum => format!(
                 "Too few came to the gathering at {name} to decide on {what}: {present} of \
-                 {eligible} adults, where {} were needed.",
+                 {eligible} {who}, where {} were needed.",
                 body.quorum(eligible)
             ),
         };
@@ -853,6 +1104,46 @@ impl Population {
             f64::from(outcome as u8),
             words,
         );
+        // An amendment passed changes the custom by its own procedure (M4c slice AF, ADR-0017
+        // §1): a new version, the one it replaces superseded, told as an amendment.
+        let amended = self.polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == law_id)
+            .filter(|l| l.outcome == Some(Outcome::Passed) && l.kind == PolicyKind::AmendBody)
+            .and_then(|l| l.body);
+        if let Some(new) = amended {
+            let polity = &mut self.polities[pi];
+            for l in &mut polity.laws {
+                if l.kind == PolicyKind::AmendBody
+                    && l.status == LawStatus::InForce
+                    && l.id != law_id
+                {
+                    l.status = LawStatus::Superseded;
+                }
+            }
+            polity.body = new;
+            polity.versions.push(CustomVersion {
+                body: new,
+                since: now,
+                law: Some(law_id),
+            });
+            let words = format!(
+                "The custom at {name} changed by its own procedure, on {}'s proposal: from now \
+                 on, {}.",
+                self.name_of(sponsor),
+                new.clause()
+            );
+            self.chronicle_push(
+                now,
+                ChronicleKind::CustomAmended,
+                vec![sponsor],
+                Some(settlement),
+                place,
+                f64::from(self.polities[pi].versions.len() as u32),
+                words,
+            );
+        }
     }
 
     /// Those at home hear of the laws in force their households know (ADR-0013 §3, stage 4):
@@ -936,7 +1227,8 @@ impl Population {
         if age < params.family.independent_age {
             return None;
         }
-        let polity = &self.polities[self.polity_of(hh.settlement?)?];
+        let pi = self.polity_of(hh.settlement?)?;
+        let polity = &self.polities[pi];
         let g = polity.gathering.as_ref()?;
         let end = evening_start + i64::from(pp.gathering_minutes);
         if g.day != ctx.now.day_index()
@@ -945,6 +1237,8 @@ impl Population {
             || g.present.binary_search(&person).is_ok()
             // Only those who heard it is called come (M4c slice AE, ADR-0016 §3).
             || !self.heard_of_gathering(person, polity.settlement, g.day)
+            // And only the body's members (M4c slice AF).
+            || !self.admits(&ctx.land.fields, pi, person, hh.id, ctx.now, params)
         {
             return None;
         }

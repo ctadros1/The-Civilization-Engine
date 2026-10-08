@@ -14683,7 +14683,9 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_LABEL_MODIFIERS = 32,
     VT_LABEL_WHY = 34,
     VT_LABEL_CONFIDENCE = 36,
-    VT_GATHERING_CASES = 38
+    VT_GATHERING_CASES = 38,
+    VT_CUSTOM_HISTORY = 40,
+    VT_BODY_MEMBERS = 42
   };
   uint64_t polity() const {
     return GetField<uint64_t>(VT_POLITY, 0);
@@ -14739,6 +14741,12 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *gathering_cases() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_GATHERING_CASES);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *custom_history() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_CUSTOM_HISTORY);
+  }
+  uint32_t body_members() const {
+    return GetField<uint32_t>(VT_BODY_MEMBERS, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -14774,6 +14782,10 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_GATHERING_CASES) &&
            verifier.VerifyVector(gathering_cases()) &&
            verifier.VerifyVectorOfStrings(gathering_cases()) &&
+           VerifyOffset(verifier, VT_CUSTOM_HISTORY) &&
+           verifier.VerifyVector(custom_history()) &&
+           verifier.VerifyVectorOfStrings(custom_history()) &&
+           VerifyField<uint32_t>(verifier, VT_BODY_MEMBERS, 4) &&
            verifier.EndTable();
   }
 };
@@ -14836,6 +14848,12 @@ struct PolityLineBuilder {
   void add_gathering_cases(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> gathering_cases) {
     fbb_.AddOffset(PolityLine::VT_GATHERING_CASES, gathering_cases);
   }
+  void add_custom_history(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> custom_history) {
+    fbb_.AddOffset(PolityLine::VT_CUSTOM_HISTORY, custom_history);
+  }
+  void add_body_members(uint32_t body_members) {
+    fbb_.AddElement<uint32_t>(PolityLine::VT_BODY_MEMBERS, body_members, 0);
+  }
   explicit PolityLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -14866,13 +14884,17 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLine(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> label_modifiers = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> label_why = 0,
     float label_confidence = 0.0f,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> gathering_cases = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> gathering_cases = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> custom_history = 0,
+    uint32_t body_members = 0) {
   PolityLineBuilder builder_(_fbb);
   builder_.add_gathering_minute(gathering_minute);
   builder_.add_gathering_law(gathering_law);
   builder_.add_founded_minute(founded_minute);
   builder_.add_settlement(settlement);
   builder_.add_polity(polity);
+  builder_.add_body_members(body_members);
+  builder_.add_custom_history(custom_history);
   builder_.add_gathering_cases(gathering_cases);
   builder_.add_label_confidence(label_confidence);
   builder_.add_label_why(label_why);
@@ -14913,7 +14935,9 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *label_modifiers = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *label_why = nullptr,
     float label_confidence = 0.0f,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *gathering_cases = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *gathering_cases = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *custom_history = nullptr,
+    uint32_t body_members = 0) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto custom__ = custom ? _fbb.CreateString(custom) : 0;
   auto store__ = store ? _fbb.CreateString(store) : 0;
@@ -14923,6 +14947,7 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
   auto label_modifiers__ = label_modifiers ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*label_modifiers) : 0;
   auto label_why__ = label_why ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*label_why) : 0;
   auto gathering_cases__ = gathering_cases ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*gathering_cases) : 0;
+  auto custom_history__ = custom_history ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*custom_history) : 0;
   return tce::wire::CreatePolityLine(
       _fbb,
       polity,
@@ -14942,7 +14967,9 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
       label_modifiers__,
       label_why__,
       label_confidence,
-      gathering_cases__);
+      gathering_cases__,
+      custom_history__,
+      body_members);
 }
 
 struct Government FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

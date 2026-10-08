@@ -48,6 +48,7 @@ import {
   labelText,
   lawDayText,
   levyText,
+  membersText,
   reliefText,
   stanceText,
   statusText,
@@ -1921,9 +1922,20 @@ export function bindUi(store: Store, actions: Actions): void {
         el("p", { className: "custom", text: p.custom }),
         el("p", {
           className: "since",
-          text: `${p.members} adults; the common store holds ${p.store}.`,
+          text: `${membersText(p)}; the common store holds ${p.store}.`,
         }),
       );
+      // Its custom's versions, once it has been amended (wire 1.35, ADR-0017 §1).
+      if (p.customHistory.length > 1) {
+        block.append(
+          el(
+            "details",
+            { className: "custom-history" },
+            el("summary", { text: `The custom has changed ${p.customHistory.length - 1} time${p.customHistory.length === 2 ? "" : "s"}` }),
+            el("ol", {}, ...p.customHistory.map((v) => el("li", { text: v }))),
+          ),
+        );
+      }
       if (p.offices.length > 0) {
         block.append(
           el("ul", { className: "offices" }, ...p.offices.map((o) => el("li", { text: o }))),

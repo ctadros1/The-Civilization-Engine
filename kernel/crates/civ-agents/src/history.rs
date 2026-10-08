@@ -512,6 +512,11 @@ pub enum ChronicleKind {
     /// accused, `number` the case's stage ([`crate::crime::CaseStage`] as a number), and `name`
     /// the whole of it in words.
     CaseHeard,
+    /// The custom changed by its own procedure (M4c slice AF, ADR-0017 §1: an amendment, not a
+    /// replacement): `people` is the sponsor, `number` the custom's version now, and `name` the
+    /// whole of it in words ("The custom at Ashford changed by its own procedure, on Ada's
+    /// proposal: from now on, the elders of its households ...").
+    CustomAmended,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -892,7 +897,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         ChronicleKind::LawDecided
         | ChronicleKind::LawLapsed
         | ChronicleKind::Restitution
-        | ChronicleKind::CaseHeard => {
+        | ChronicleKind::CaseHeard
+        | ChronicleKind::CustomAmended => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought => match person(0) {

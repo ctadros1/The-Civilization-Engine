@@ -3,7 +3,7 @@
 //! anyone proposes it, and whether it passes, is decided by people at run time; a template
 //! carries no weight toward being chosen.
 
-use civ_agents::polity::{IssueKind, PolicyDef, PolicyKind};
+use civ_agents::polity::{Body, IssueKind, Membership, PassRule, PolicyDef, PolicyKind};
 use serde::Deserialize;
 
 /// The `kind` value of a policy template.
@@ -19,9 +19,9 @@ pub(crate) struct PolicyFile {
     pub name: String,
     pub description: String,
     /// What the kernel does under it: `common_store`, `keep_store`, `against_taking`,
-    /// `keep_watch` or `curfew`.
+    /// `keep_watch`, `curfew` or `amend_body`.
     pub does: String,
-    /// The issues it answers: `food_short`, `store_unkept`, `takings`.
+    /// The issues it answers: `food_short`, `store_unkept`, `takings`, `overruled`.
     pub answers: Vec<String>,
     /// For a common store: the shares of threshed grain a sponsor may propose for the levy.
     #[serde(default)]
@@ -37,6 +37,15 @@ pub(crate) struct PolicyFile {
     /// the day, past midnight when `to` is the smaller.
     #[serde(default)]
     pub hours: Vec<[u8; 2]>,
+    /// For an amendment of the custom (content API 40): who may belong (`adults`, `elders`,
+    /// `landholders`), the shares of members who must come, and the rules (`more_for`,
+    /// `two_thirds`) a sponsor may combine into the body they propose.
+    #[serde(default)]
+    pub members: Vec<String>,
+    #[serde(default)]
+    pub quorum_shares: Vec<f64>,
+    #[serde(default)]
+    pub pass: Vec<String>,
 }
 
 /// One sanction bundle of a law against taking: what it adds to giving back what was taken, in
@@ -78,7 +87,29 @@ impl PolicyFile {
                 })
                 .collect(),
             hours: self.hours.iter().map(|h| (h[0], h[1])).collect(),
+            bodies: self.bodies(),
         }
+    }
+
+    /// For an amendment: every body its levels combine, in the order written (memberships, then
+    /// quorum shares, then rules).
+    fn bodies(&self) -> Vec<Body> {
+        if PolicyKind::from_name(&self.does) != Some(PolicyKind::AmendBody) {
+            return Vec::new();
+        }
+        let mut out = Vec::new();
+        for m in self.members.iter().filter_map(|m| Membership::from_name(m)) {
+            for &q in &self.quorum_shares {
+                for r in self.pass.iter().filter_map(|r| PassRule::from_name(r)) {
+                    out.push(Body {
+                        members: m,
+                        quorum_share: q as f32,
+                        pass: r,
+                    });
+                }
+            }
+        }
+        out
     }
 
     /// Range problems, as messages.
@@ -123,9 +154,12 @@ impl PolicyFile {
                     ));
                 }
             }
-            Some(k @ (PolicyKind::KeepStore | PolicyKind::KeepWatch | PolicyKind::Curfew))
-                if !self.levy_shares.is_empty() || self.relief_days != 0.0 =>
-            {
+            Some(
+                k @ (PolicyKind::KeepStore
+                | PolicyKind::KeepWatch
+                | PolicyKind::Curfew
+                | PolicyKind::AmendBody),
+            ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
                     k.name()
@@ -159,7 +193,65 @@ impl PolicyFile {
                     }
                 }
             }
-            Some(PolicyKind::KeepStore | PolicyKind::KeepWatch | PolicyKind::Curfew) | None => {}
+            Some(
+                PolicyKind::KeepStore
+                | PolicyKind::KeepWatch
+                | PolicyKind::Curfew
+                | PolicyKind::AmendBody,
+            )
+            | None => {}
+        }
+        if PolicyKind::from_name(&self.does) == Some(PolicyKind::AmendBody) {
+            if !(1..=3).contains(&self.members.len()) {
+                p.push(format!(
+                    "`members` must hold 1 to 3 memberships (got {})",
+                    self.members.len()
+                ));
+            }
+            for m in &self.members {
+                if Membership::from_name(m).is_none() {
+                    let all: Vec<&str> = Membership::ALL.iter().map(|m| m.name()).collect();
+                    p.push(format!(
+                        "`members` names `{m}`; memberships are `{}`",
+                        all.join("`, `")
+                    ));
+                }
+            }
+            if !(1..=8).contains(&self.quorum_shares.len()) {
+                p.push(format!(
+                    "`quorum_shares` must hold 1 to 8 shares (got {})",
+                    self.quorum_shares.len()
+                ));
+            }
+            for &q in &self.quorum_shares {
+                if !(q.is_finite() && (0.0..=1.0).contains(&q)) {
+                    p.push(format!(
+                        "`quorum_shares` must lie between 0 and 1 (got {q})"
+                    ));
+                }
+            }
+            if !(1..=2).contains(&self.pass.len()) {
+                p.push(format!(
+                    "`pass` must hold 1 or 2 rules (got {})",
+                    self.pass.len()
+                ));
+            }
+            for r in &self.pass {
+                if PassRule::from_name(r).is_none() {
+                    let all: Vec<&str> = PassRule::ALL.iter().map(|r| r.name()).collect();
+                    p.push(format!(
+                        "`pass` names `{r}`; rules are `{}`",
+                        all.join("`, `")
+                    ));
+                }
+            }
+        } else if !self.members.is_empty()
+            || !self.quorum_shares.is_empty()
+            || !self.pass.is_empty()
+        {
+            p.push(
+                "only an `amend_body` policy has `members`, `quorum_shares` and `pass`".to_owned(),
+            );
         }
         if PolicyKind::from_name(&self.does) == Some(PolicyKind::Curfew) {
             if !(1..=8).contains(&self.hours.len()) {
@@ -204,6 +296,9 @@ mod tests {
             relief_days: 5.0,
             bundles: Vec::new(),
             hours: Vec::new(),
+            members: Vec::new(),
+            quorum_shares: Vec::new(),
+            pass: Vec::new(),
         }
     }
 
@@ -320,5 +415,33 @@ mod tests {
         let mut g = file();
         g.hours = vec![[21, 5]];
         assert!(g.problems().iter().any(|m| m.contains("only a `curfew`")));
+    }
+
+    #[test]
+    fn an_amendment_combines_its_levels_into_bodies_and_nothing_else_has_them() {
+        let mut f = file();
+        f.does = "amend_body".to_owned();
+        f.answers = vec!["overruled".to_owned()];
+        f.levy_shares = Vec::new();
+        f.relief_days = 0.0;
+        f.members = vec!["adults".to_owned(), "elders".to_owned()];
+        f.quorum_shares = vec![0.25, 0.5];
+        f.pass = vec!["more_for".to_owned()];
+        assert!(f.problems().is_empty(), "{:?}", f.problems());
+        let d = f.def();
+        assert_eq!(d.kind, PolicyKind::AmendBody);
+        assert_eq!(d.answers, vec![IssueKind::Overruled]);
+        assert_eq!(d.bodies.len(), 4);
+        assert_eq!(d.bodies[0].members, Membership::Adults);
+        assert_eq!(d.bodies[3].members, Membership::Elders);
+        assert!((d.bodies[3].quorum_share - 0.5).abs() < 1e-6);
+        f.members = vec!["chiefs".to_owned()];
+        f.quorum_shares = vec![1.5];
+        f.pass = vec!["unanimity".to_owned()];
+        assert_eq!(f.problems().len(), 3, "{:?}", f.problems());
+        // A common store has none of them.
+        let mut g = file();
+        g.pass = vec!["more_for".to_owned()];
+        assert_eq!(g.problems().len(), 1);
     }
 }

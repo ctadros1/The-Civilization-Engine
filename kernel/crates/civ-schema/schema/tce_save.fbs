@@ -1112,6 +1112,11 @@ table LawSave {
   to_hour: ubyte (id: 35);
   broken: uint (id: 36);
   broken_unaware: uint (id: 37);
+  // For an amendment of the custom (schema 36, M4c slice AF): the body it would make, its
+  // membership code (255 for a law that is no amendment), quorum share and rule code.
+  body_members: ubyte = 255 (id: 38);
+  body_quorum: float (id: 39);
+  body_pass: ubyte (id: 40);
 }
 
 // `law` 0: called on cases only (M4b slice AB).
@@ -1122,6 +1127,16 @@ table GatheringSave {
   present: [ulong] (id: 3);
   // Case numbers, in the order brought.
   cases: [uint] (id: 4);
+}
+
+// A version of a polity's custom (schema 36, ADR-0017 §1): its body, since when (minutes), and the
+// amendment that made it (0 for the founding custom).
+struct CustomVersionSave {
+  members: ubyte;
+  pass: ubyte;
+  quorum_share: float;
+  since: long;
+  law: ulong;
 }
 
 table PolitySave {
@@ -1139,6 +1154,9 @@ table PolitySave {
   laws: [LawSave] (id: 8);
   gathering: GatheringSave (id: 9);
   reviewed: long (id: 10);
+  // Every version of its custom, oldest first (schema 36); older saves have the founding custom
+  // alone.
+  versions: [CustomVersionSave] (id: 11);
 }
 
 table Polities {

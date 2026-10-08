@@ -109,6 +109,7 @@ fn a_store(sim: &mut Sim, known: &[PermanentId]) -> PermanentId {
         known: known.iter().map(|&k| (k, 0)).collect(),
         compliance: Default::default(),
         watch: Default::default(),
+        body: None,
     });
     assert!(p.stores.iter().all(|kg| *kg == 0.0), "its store is empty");
     id

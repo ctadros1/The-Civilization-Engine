@@ -30,6 +30,7 @@ export function lawDayText(minute: number): string {
 export function statusText(l: Pick<LawLine, "status" | "outcome" | "meetsMinute">): string {
   if (l.status === "in force") return "in force";
   if (l.status === "lapsed") return "lapsed: the one it named is gone";
+  if (l.status === "superseded") return "superseded by a later amendment";
   if (l.status === "proposed") return `before the gathering on ${lawDayText(l.meetsMinute)}`;
   switch (l.outcome) {
     case "tied":
@@ -39,6 +40,12 @@ export function statusText(l: Pick<LawLine, "status" | "outcome" | "meetsMinute"
     default:
       return "turned down";
   }
+}
+
+/** "24 adults", or when the custom admits fewer, "24 adults, 9 of whom may decide". */
+export function membersText(p: Pick<PolityLine, "members" | "bodyMembers">): string {
+  const adults = `${p.members} adults`;
+  return p.bodyMembers < p.members ? `${adults}, ${p.bodyMembers} of whom may decide` : adults;
 }
 
 /** "for: their household stands to gain". */

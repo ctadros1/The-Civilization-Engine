@@ -1506,7 +1506,7 @@ table LawLine {
   levy_share: float (id: 3);
   relief_days: float (id: 4);
   // 0 before the gathering, 1 in force, 2 rejected, 3 lapsed (wire 1.28: the one it named died or
-  // left).
+  // left), 4 superseded (wire 1.35: an amendment of the custom a later one replaced).
   status: ubyte (id: 5);
   sponsor: ulong (id: 6);
   sponsor_name: string (id: 7);
@@ -1578,6 +1578,12 @@ table PolityLine {
   // Wire 1.31: the cases the gathering called is to hear, in words ("the household of Rilla's
   // case against Tam"); a gathering may be called on cases alone (`gathering_law` 0).
   gathering_cases: [string] (id: 17);
+  // Wire 1.35 (M4c slice AF, ADR-0017 §1): every version of its custom, oldest first, in words
+  // rendered by the kernel ("Since 3 May of year 2, the founding custom: …"; "Since 9 June of
+  // year 5, by the amendment Ada proposed: the elders of its households …"), and how many its
+  // body admits now (`members` counts every adult).
+  custom_history: [string] (id: 18);
+  body_members: uint (id: 19);
 }
 
 table Government {

@@ -6524,6 +6524,229 @@ impl<'a> StakeSave {
 
 }
 
+// struct CustomVersionSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct CustomVersionSave(pub [u8; 24]);
+impl Default for CustomVersionSave { 
+  fn default() -> Self { 
+    Self([0; 24])
+  }
+}
+impl ::core::fmt::Debug for CustomVersionSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("CustomVersionSave")
+      .field("members", &self.members())
+      .field("pass", &self.pass())
+      .field("quorum_share", &self.quorum_share())
+      .field("since", &self.since())
+      .field("law", &self.law())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for CustomVersionSave {}
+impl<'a> ::flatbuffers::Follow<'a> for CustomVersionSave {
+  type Inner = &'a CustomVersionSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a CustomVersionSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a CustomVersionSave {
+  type Inner = &'a CustomVersionSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<CustomVersionSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for CustomVersionSave {
+    type Output = CustomVersionSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const CustomVersionSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for CustomVersionSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> CustomVersionSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    members: u8,
+    pass: u8,
+    quorum_share: f32,
+    since: i64,
+    law: u64,
+  ) -> Self {
+    let mut s = Self([0; 24]);
+    s.set_members(members);
+    s.set_pass(pass);
+    s.set_quorum_share(quorum_share);
+    s.set_since(since);
+    s.set_law(law);
+    s
+  }
+
+  pub fn members(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_members(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn pass(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[1..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_pass(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[1..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn quorum_share(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_quorum_share(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn since(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_since(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn law(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_law(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct TakenGood, aligned to 4
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -21943,6 +22166,9 @@ impl<'a> LawSave<'a> {
   pub const VT_TO_HOUR: ::flatbuffers::VOffsetT = 74;
   pub const VT_BROKEN: ::flatbuffers::VOffsetT = 76;
   pub const VT_BROKEN_UNAWARE: ::flatbuffers::VOffsetT = 78;
+  pub const VT_BODY_MEMBERS: ::flatbuffers::VOffsetT = 80;
+  pub const VT_BODY_QUORUM: ::flatbuffers::VOffsetT = 82;
+  pub const VT_BODY_PASS: ::flatbuffers::VOffsetT = 84;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -21965,6 +22191,7 @@ impl<'a> LawSave<'a> {
     builder.add_proposed(args.proposed);
     builder.add_sponsor(args.sponsor);
     builder.add_id(args.id);
+    builder.add_body_quorum(args.body_quorum);
     builder.add_broken_unaware(args.broken_unaware);
     builder.add_broken(args.broken);
     builder.add_watch_next(args.watch_next);
@@ -21984,6 +22211,8 @@ impl<'a> LawSave<'a> {
     builder.add_relief_days(args.relief_days);
     builder.add_levy_share(args.levy_share);
     builder.add_policy(args.policy);
+    builder.add_body_pass(args.body_pass);
+    builder.add_body_members(args.body_members);
     builder.add_to_hour(args.to_hour);
     builder.add_from_hour(args.from_hour);
     builder.add_watch_tonight(args.watch_tonight);
@@ -22262,6 +22491,27 @@ impl<'a> LawSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(LawSave::VT_BROKEN_UNAWARE, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn body_members(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(LawSave::VT_BODY_MEMBERS, Some(255)).unwrap()}
+  }
+  #[inline]
+  pub fn body_quorum(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(LawSave::VT_BODY_QUORUM, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn body_pass(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(LawSave::VT_BODY_PASS, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for LawSave<'_> {
@@ -22308,6 +22558,9 @@ impl ::flatbuffers::Verifiable for LawSave<'_> {
      .visit_field::<u8>("to_hour", Self::VT_TO_HOUR, false)?
      .visit_field::<u32>("broken", Self::VT_BROKEN, false)?
      .visit_field::<u32>("broken_unaware", Self::VT_BROKEN_UNAWARE, false)?
+     .visit_field::<u8>("body_members", Self::VT_BODY_MEMBERS, false)?
+     .visit_field::<f32>("body_quorum", Self::VT_BODY_QUORUM, false)?
+     .visit_field::<u8>("body_pass", Self::VT_BODY_PASS, false)?
      .finish();
     Ok(())
   }
@@ -22351,6 +22604,9 @@ pub struct LawSaveArgs<'a> {
     pub to_hour: u8,
     pub broken: u32,
     pub broken_unaware: u32,
+    pub body_members: u8,
+    pub body_quorum: f32,
+    pub body_pass: u8,
 }
 impl<'a> Default for LawSaveArgs<'a> {
   #[inline]
@@ -22394,6 +22650,9 @@ impl<'a> Default for LawSaveArgs<'a> {
       to_hour: 0,
       broken: 0,
       broken_unaware: 0,
+      body_members: 255,
+      body_quorum: 0.0,
+      body_pass: 0,
     }
   }
 }
@@ -22556,6 +22815,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LawSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u32>(LawSave::VT_BROKEN_UNAWARE, broken_unaware, 0);
   }
   #[inline]
+  pub fn add_body_members(&mut self, body_members: u8) {
+    self.fbb_.push_slot::<u8>(LawSave::VT_BODY_MEMBERS, body_members, 255);
+  }
+  #[inline]
+  pub fn add_body_quorum(&mut self, body_quorum: f32) {
+    self.fbb_.push_slot::<f32>(LawSave::VT_BODY_QUORUM, body_quorum, 0.0);
+  }
+  #[inline]
+  pub fn add_body_pass(&mut self, body_pass: u8) {
+    self.fbb_.push_slot::<u8>(LawSave::VT_BODY_PASS, body_pass, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LawSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LawSaveBuilder {
@@ -22611,6 +22882,9 @@ impl ::core::fmt::Debug for LawSave<'_> {
       ds.field("to_hour", &self.to_hour());
       ds.field("broken", &self.broken());
       ds.field("broken_unaware", &self.broken_unaware());
+      ds.field("body_members", &self.body_members());
+      ds.field("body_quorum", &self.body_quorum());
+      ds.field("body_pass", &self.body_pass());
       ds.finish()
   }
 }
@@ -22805,6 +23079,7 @@ impl<'a> PolitySave<'a> {
   pub const VT_LAWS: ::flatbuffers::VOffsetT = 20;
   pub const VT_GATHERING: ::flatbuffers::VOffsetT = 22;
   pub const VT_REVIEWED: ::flatbuffers::VOffsetT = 24;
+  pub const VT_VERSIONS: ::flatbuffers::VOffsetT = 26;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -22821,6 +23096,7 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.versions { builder.add_versions(x); }
     if let Some(x) = args.gathering { builder.add_gathering(x); }
     if let Some(x) = args.laws { builder.add_laws(x); }
     if let Some(x) = args.stores { builder.add_stores(x); }
@@ -22908,6 +23184,13 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(PolitySave::VT_REVIEWED, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn versions(&self) -> Option<::flatbuffers::Vector<'a, CustomVersionSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, CustomVersionSave>>>(PolitySave::VT_VERSIONS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -22927,6 +23210,7 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<LawSave>>>>("laws", Self::VT_LAWS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<GatheringSave>>("gathering", Self::VT_GATHERING, false)?
      .visit_field::<i64>("reviewed", Self::VT_REVIEWED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, CustomVersionSave>>>("versions", Self::VT_VERSIONS, false)?
      .finish();
     Ok(())
   }
@@ -22943,6 +23227,7 @@ pub struct PolitySaveArgs<'a> {
     pub laws: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LawSave<'a>>>>>,
     pub gathering: Option<::flatbuffers::WIPOffset<GatheringSave<'a>>>,
     pub reviewed: i64,
+    pub versions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, CustomVersionSave>>>,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -22959,6 +23244,7 @@ impl<'a> Default for PolitySaveArgs<'a> {
       laws: None,
       gathering: None,
       reviewed: 0,
+      versions: None,
     }
   }
 }
@@ -23013,6 +23299,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<i64>(PolitySave::VT_REVIEWED, reviewed, 0);
   }
   #[inline]
+  pub fn add_versions(&mut self, versions: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , CustomVersionSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_VERSIONS, versions);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -23041,6 +23331,7 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("laws", &self.laws());
       ds.field("gathering", &self.gathering());
       ds.field("reviewed", &self.reviewed());
+      ds.field("versions", &self.versions());
       ds.finish()
   }
 }

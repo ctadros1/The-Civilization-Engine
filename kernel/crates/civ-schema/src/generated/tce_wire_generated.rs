@@ -23356,6 +23356,8 @@ impl<'a> PolityLine<'a> {
   pub const VT_LABEL_WHY: ::flatbuffers::VOffsetT = 34;
   pub const VT_LABEL_CONFIDENCE: ::flatbuffers::VOffsetT = 36;
   pub const VT_GATHERING_CASES: ::flatbuffers::VOffsetT = 38;
+  pub const VT_CUSTOM_HISTORY: ::flatbuffers::VOffsetT = 40;
+  pub const VT_BODY_MEMBERS: ::flatbuffers::VOffsetT = 42;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -23372,6 +23374,8 @@ impl<'a> PolityLine<'a> {
     builder.add_founded_minute(args.founded_minute);
     builder.add_settlement(args.settlement);
     builder.add_polity(args.polity);
+    builder.add_body_members(args.body_members);
+    if let Some(x) = args.custom_history { builder.add_custom_history(x); }
     if let Some(x) = args.gathering_cases { builder.add_gathering_cases(x); }
     builder.add_label_confidence(args.label_confidence);
     if let Some(x) = args.label_why { builder.add_label_why(x); }
@@ -23515,6 +23519,20 @@ impl<'a> PolityLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PolityLine::VT_GATHERING_CASES, None)}
   }
+  #[inline]
+  pub fn custom_history(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PolityLine::VT_CUSTOM_HISTORY, None)}
+  }
+  #[inline]
+  pub fn body_members(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(PolityLine::VT_BODY_MEMBERS, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolityLine<'_> {
@@ -23541,6 +23559,8 @@ impl ::flatbuffers::Verifiable for PolityLine<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("label_why", Self::VT_LABEL_WHY, false)?
      .visit_field::<f32>("label_confidence", Self::VT_LABEL_CONFIDENCE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("gathering_cases", Self::VT_GATHERING_CASES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("custom_history", Self::VT_CUSTOM_HISTORY, false)?
+     .visit_field::<u32>("body_members", Self::VT_BODY_MEMBERS, false)?
      .finish();
     Ok(())
   }
@@ -23564,6 +23584,8 @@ pub struct PolityLineArgs<'a> {
     pub label_why: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub label_confidence: f32,
     pub gathering_cases: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub custom_history: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub body_members: u32,
 }
 impl<'a> Default for PolityLineArgs<'a> {
   #[inline]
@@ -23587,6 +23609,8 @@ impl<'a> Default for PolityLineArgs<'a> {
       label_why: None,
       label_confidence: 0.0,
       gathering_cases: None,
+      custom_history: None,
+      body_members: 0,
     }
   }
 }
@@ -23669,6 +23693,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolityLineBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_GATHERING_CASES, gathering_cases);
   }
   #[inline]
+  pub fn add_custom_history(&mut self, custom_history: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_CUSTOM_HISTORY, custom_history);
+  }
+  #[inline]
+  pub fn add_body_members(&mut self, body_members: u32) {
+    self.fbb_.push_slot::<u32>(PolityLine::VT_BODY_MEMBERS, body_members, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolityLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolityLineBuilder {
@@ -23704,6 +23736,8 @@ impl ::core::fmt::Debug for PolityLine<'_> {
       ds.field("label_why", &self.label_why());
       ds.field("label_confidence", &self.label_confidence());
       ds.field("gathering_cases", &self.gathering_cases());
+      ds.field("custom_history", &self.custom_history());
+      ds.field("body_members", &self.body_members());
       ds.finish()
   }
 }

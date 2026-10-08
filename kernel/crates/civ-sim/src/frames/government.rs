@@ -19,6 +19,7 @@ fn status_code(s: LawStatus) -> u8 {
         LawStatus::InForce => 1,
         LawStatus::Rejected => 2,
         LawStatus::Lapsed => 3,
+        LawStatus::Superseded => 4,
     }
 }
 
@@ -157,7 +158,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
     let goods = &rules.catalog.goods;
     let adult = rules.people.family.independent_age;
     let mut list = Vec::new();
-    for polity in &pop.polities {
+    for (pi, polity) in pop.polities.iter().enumerate() {
         let settlement = sim
             .land
             .settlements
@@ -198,6 +199,16 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
         .map(|w| fbb.create_string(w))
         .collect();
         let offices = fbb.create_vector(&offices);
+        // The custom's versions, and how many its body admits now (wire 1.35, M4c slice AF).
+        let history: Vec<_> =
+            civ_agents::polity::custom_history_words(polity, &|id| pop.name_of(id))
+                .iter()
+                .map(|w| fbb.create_string(w))
+                .collect();
+        let custom_history = fbb.create_vector(&history);
+        let body_members = pop
+            .body_members(&sim.land.fields, pi, now, &rules.people)
+            .len() as u32;
         let label = crate::labels::label_of(sim, polity);
         let label_name = fbb.create_string(&label.name);
         let modifiers: Vec<_> = label
@@ -258,6 +269,8 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                 label_modifiers: Some(label_modifiers),
                 label_why: Some(label_why),
                 label_confidence: label.confidence as f32,
+                custom_history: Some(custom_history),
+                body_members,
             },
         ));
     }

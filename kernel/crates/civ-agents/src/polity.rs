@@ -35,16 +35,21 @@ pub enum PolicyKind {
     /// at a gathering (M4b slice AD; research 12-04 §1.1, the brief's §1.6): a prohibition whose
     /// keeping is each person's choice (09-06 §1.5), with no sanction in v0.
     Curfew,
+    /// The custom itself changes (M4c slice AF; ADR-0013 §2, ADR-0017 §1): who belongs to the
+    /// body, how many must come and how it decides, by the custom's own procedure (research
+    /// 09-02 §3.7, 09-05 §3.9: who occupies a gate is an amendable rule).
+    AmendBody,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 5] = [
+    pub const ALL: [PolicyKind; 6] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
         PolicyKind::KeepWatch,
         PolicyKind::Curfew,
+        PolicyKind::AmendBody,
     ];
 
     /// The authored name.
@@ -55,6 +60,7 @@ impl PolicyKind {
             PolicyKind::AgainstTaking => "against_taking",
             PolicyKind::KeepWatch => "keep_watch",
             PolicyKind::Curfew => "curfew",
+            PolicyKind::AmendBody => "amend_body",
         }
     }
 
@@ -76,14 +82,19 @@ pub enum IssueKind {
     /// A household of the settlement found food taken from its store within the last year (M4b
     /// slice AB): what its members know, not what happened.
     Takings,
+    /// A gathering they came to within memory decided against where they stood, or they hold a
+    /// grievance against the gathering (M4c slice AF): what one person has seen and holds, so
+    /// it opens moves to them alone.
+    Overruled,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 3] = [
+    pub const ALL: [IssueKind; 4] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
+        IssueKind::Overruled,
     ];
 
     /// The authored name.
@@ -92,6 +103,7 @@ impl IssueKind {
             IssueKind::FoodShort => "food_short",
             IssueKind::StoreUnkept => "store_unkept",
             IssueKind::Takings => "takings",
+            IssueKind::Overruled => "overruled",
         }
     }
 
@@ -106,6 +118,7 @@ impl IssueKind {
             IssueKind::FoodShort => "food would not last until the harvest",
             IssueKind::StoreUnkept => "the common store lay in the open with nobody to keep it",
             IssueKind::Takings => "food was taken from households' stores",
+            IssueKind::Overruled => "the gathering had decided against them",
         }
     }
 }
@@ -199,6 +212,8 @@ pub struct PolicyDef {
     /// For a curfew: the hours a sponsor may propose, each `(from, to)` hours of the day, the
     /// curfew running from the first to the second, past midnight when it is the smaller.
     pub hours: Vec<Hours>,
+    /// For an amendment of the custom: the bodies a sponsor may propose (M4c slice AF).
+    pub bodies: Vec<Body>,
 }
 
 /// Hours of the day a curfew runs, `(from, to)`: from the start of hour `from` to the start of
@@ -311,6 +326,45 @@ impl PolityParams {
 pub enum Membership {
     /// Every adult who lives in the settlement.
     Adults,
+    /// The elder of each household: its eldest of an age to keep one (M4c slice AF; research
+    /// 09-05 §1.4: aggregation by household).
+    Elders,
+    /// The adults of households that hold land (M4c slice AF): under a regime where the
+    /// settlement holds the fields, nobody.
+    Landholders,
+}
+
+impl Membership {
+    /// Every membership, in code order.
+    pub const ALL: [Membership; 3] = [
+        Membership::Adults,
+        Membership::Elders,
+        Membership::Landholders,
+    ];
+
+    /// Its number in saves.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The membership numbered `code`.
+    pub fn from_code(code: u8) -> Option<Membership> {
+        Membership::ALL.get(usize::from(code)).copied()
+    }
+
+    /// The authored name.
+    pub fn name(self) -> &'static str {
+        match self {
+            Membership::Adults => "adults",
+            Membership::Elders => "elders",
+            Membership::Landholders => "landholders",
+        }
+    }
+
+    /// The membership with an authored name.
+    pub fn from_name(name: &str) -> Option<Membership> {
+        Membership::ALL.into_iter().find(|m| m.name() == name)
+    }
 }
 
 /// How a body decides (ADR-0013 §2; research 09-05 §1.4). Codes are part of saves: append only.
@@ -318,6 +372,37 @@ pub enum Membership {
 pub enum PassRule {
     /// Acclamation: more of those present for than against; a tie fails.
     MoreForThanAgainst,
+    /// Two of every three who take a side must be for it; a tie fails (M4c slice AF; research
+    /// 09-05 §1.4: a supermajority threshold).
+    TwoThirds,
+}
+
+impl PassRule {
+    /// Every rule, in code order.
+    pub const ALL: [PassRule; 2] = [PassRule::MoreForThanAgainst, PassRule::TwoThirds];
+
+    /// Its number in saves.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The rule numbered `code`.
+    pub fn from_code(code: u8) -> Option<PassRule> {
+        PassRule::ALL.get(usize::from(code)).copied()
+    }
+
+    /// The authored name.
+    pub fn name(self) -> &'static str {
+        match self {
+            PassRule::MoreForThanAgainst => "more_for",
+            PassRule::TwoThirds => "two_thirds",
+        }
+    }
+
+    /// The rule with an authored name.
+    pub fn from_name(name: &str) -> Option<PassRule> {
+        PassRule::ALL.into_iter().find(|r| r.name() == name)
+    }
 }
 
 /// A deciding body, as values: who belongs, how many must come, and how it decides. Saved with
@@ -348,10 +433,17 @@ impl Body {
     pub fn words(&self) -> String {
         let who = match self.members {
             Membership::Adults => "The adults who come to the hearth",
+            Membership::Elders => "The elders of its households who come to the hearth",
+            Membership::Landholders => {
+                "The adults of households that hold land who come to the hearth"
+            }
         };
         let how = match self.pass {
             PassRule::MoreForThanAgainst => {
                 "decide by acclamation: more for than against carries it, and a tie fails"
+            }
+            PassRule::TwoThirds => {
+                "decide by acclamation: two of every three who take a side must be for it"
             }
         };
         let share = f64::from(self.quorum_share);
@@ -365,6 +457,18 @@ impl Body {
         format!("{who} {how}; {quorum}.")
     }
 
+    /// The body as a clause to follow "so that" or a colon: "the elders of its households who
+    /// come to the hearth decide by acclamation: ...; half of them must come".
+    pub fn clause(&self) -> String {
+        let w = self.words();
+        let w = w.trim_end_matches('.');
+        let mut c = w.chars();
+        match c.next() {
+            Some(f) => f.to_lowercase().chain(c).collect(),
+            None => String::new(),
+        }
+    }
+
     /// How many must come of `eligible` members: at least one.
     pub fn quorum(&self, eligible: u32) -> u32 {
         ((f64::from(self.quorum_share) * f64::from(eligible)).ceil() as u32).max(1)
@@ -376,10 +480,17 @@ impl Body {
         if present < self.quorum(eligible) {
             return Outcome::NoQuorum;
         }
-        match self.pass {
-            PassRule::MoreForThanAgainst if support > oppose => Outcome::Passed,
-            PassRule::MoreForThanAgainst if support == oppose => Outcome::Tied,
-            PassRule::MoreForThanAgainst => Outcome::Failed,
+        if support == oppose {
+            return Outcome::Tied;
+        }
+        let passes = match self.pass {
+            PassRule::MoreForThanAgainst => support > oppose,
+            PassRule::TwoThirds => 3 * support >= 2 * (support + oppose),
+        };
+        if passes {
+            Outcome::Passed
+        } else {
+            Outcome::Failed
         }
     }
 }
@@ -395,6 +506,8 @@ pub enum LawStatus {
     Rejected,
     /// In force until the one it named died or left.
     Lapsed,
+    /// An amendment of the custom that a later one replaced (M4c slice AF).
+    Superseded,
 }
 
 /// How a gathering's decision went. Codes are part of saves: append only.
@@ -548,6 +661,8 @@ pub struct Law {
     pub compliance: Compliance,
     /// For a watch: what it has done (M4b slice AC).
     pub watch: WatchRecord,
+    /// For an amendment of the custom: the body it would make (M4c slice AF).
+    pub body: Option<Body>,
 }
 
 impl Law {
@@ -640,6 +755,12 @@ pub fn law_words(
     name_of: &dyn Fn(PermanentId) -> String,
 ) -> String {
     let def = policies.get(usize::from(law.policy));
+    if let Some(body) = law
+        .body
+        .filter(|_| def.is_some_and(|d| d.kind == PolicyKind::AmendBody))
+    {
+        return format!("a change of the custom: {}", body.clause());
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::AgainstTaking) {
         return format!(
             "a law against taking: whoever is found to have taken from another household's \
@@ -688,6 +809,31 @@ pub fn day_words(t: SimTime) -> String {
     let date = t.date();
     let month = civ_land::weather::MONTH_NAMES[usize::from(date.month.clamp(1, 12)) - 1];
     format!("{} {month} of year {}", date.day, date.year)
+}
+
+/// Every version of a polity's custom, oldest first, in words (ADR-0017 §1): "Since 3 May of
+/// year 2, the founding custom: the adults who come to the hearth decide …", then "Since 9 June
+/// of year 5, by the amendment Ada proposed: the elders of its households …". `name_of` names
+/// people.
+pub fn custom_history_words(
+    polity: &Polity,
+    name_of: &dyn Fn(PermanentId) -> String,
+) -> Vec<String> {
+    polity
+        .versions
+        .iter()
+        .map(|v| {
+            let since = day_words(v.since);
+            match v.law.and_then(|id| polity.laws.iter().find(|l| l.id == id)) {
+                Some(l) => format!(
+                    "Since {since}, by the amendment {} proposed: {}.",
+                    name_of(l.sponsor),
+                    v.body.clause()
+                ),
+                None => format!("Since {since}, the founding custom: {}.", v.body.clause()),
+            }
+        })
+        .collect()
 }
 
 /// A polity's offices, in words: "Storekeeper: Ada, since 3 May of year 2", or once its holder is
@@ -804,6 +950,21 @@ pub struct Polity {
     pub gathering: Option<Gathering>,
     /// The day of its last routine review.
     pub reviewed: i64,
+    /// Every version of its custom, oldest first: the founding custom, then each amendment
+    /// (ADR-0017 §1). The last is `body`.
+    pub versions: Vec<CustomVersion>,
+}
+
+/// A version of a polity's custom (ADR-0017 §1): its body, since when, and the law that made it
+/// (none for the founding custom).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CustomVersion {
+    /// The body.
+    pub body: Body,
+    /// When it began.
+    pub since: SimTime,
+    /// The amendment that made it.
+    pub law: Option<PermanentId>,
 }
 
 impl Polity {
@@ -825,6 +986,11 @@ impl Polity {
             laws: Vec::new(),
             gathering: None,
             reviewed: now.day_index(),
+            versions: vec![CustomVersion {
+                body: Body::gathering(params),
+                since: now,
+                law: None,
+            }],
         }
     }
 
@@ -1024,6 +1190,8 @@ pub struct MoveOption {
     pub sanction: Sanction,
     /// The hours, for a curfew.
     pub hours: Hours,
+    /// The body, for an amendment of the custom (M4c slice AF).
+    pub body: Option<Body>,
     /// The forecast for the person's own household ([`store_gain`]).
     pub own_gain: f64,
     /// The forecast for the households of those who regard them, weighted by that regard.
@@ -1196,6 +1364,7 @@ pub(crate) mod tests {
             known: Vec::new(),
             compliance: Compliance::default(),
             watch: WatchRecord::default(),
+            body: None,
         };
         assert!(law.learn(pid(9), 3));
         assert!(law.learn(pid(4), 5));
@@ -1216,6 +1385,7 @@ pub(crate) mod tests {
             relief_days: 0.0,
             bundles: Vec::new(),
             hours: Vec::new(),
+            bodies: Vec::new(),
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -1244,6 +1414,7 @@ pub(crate) mod tests {
             known: Vec::new(),
             compliance: Compliance::default(),
             watch: WatchRecord::default(),
+            body: None,
         };
         let name_of = |_: PermanentId| "Ada".to_owned();
         assert_eq!(
@@ -1304,6 +1475,7 @@ pub(crate) mod tests {
             relief_days: 0.0,
             bundles: Vec::new(),
             hours: Vec::new(),
+            bodies: Vec::new(),
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -1332,6 +1504,7 @@ pub(crate) mod tests {
                 cases: 1,
                 ..Default::default()
             },
+            body: None,
         });
         assert_eq!(polity.watcher().map(|w| w.0), Some(pid(9)));
         assert!(polity.keeper().is_none(), "a watch keeps no store");
@@ -1420,6 +1593,103 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_two_thirds_rule_needs_two_of_every_three_who_take_a_side() {
+        let body = Body {
+            pass: PassRule::TwoThirds,
+            ..Body::gathering(&params())
+        };
+        assert_eq!(body.decide(40, 12, 8, 4), Outcome::Passed);
+        assert_eq!(
+            body.decide(40, 12, 7, 5),
+            Outcome::Failed,
+            "a bare majority is not enough"
+        );
+        assert_eq!(body.decide(40, 12, 6, 6), Outcome::Tied);
+        assert_eq!(body.decide(40, 9, 9, 0), Outcome::NoQuorum);
+        for m in Membership::ALL {
+            assert_eq!(Membership::from_code(m.code()), Some(m));
+            assert_eq!(Membership::from_name(m.name()), Some(m));
+        }
+        for r in PassRule::ALL {
+            assert_eq!(PassRule::from_code(r.code()), Some(r));
+            assert_eq!(PassRule::from_name(r.name()), Some(r));
+        }
+    }
+
+    #[test]
+    fn the_custom_says_who_decides_and_keeps_its_versions() {
+        let p = params();
+        let mut polity = Polity::found(pid(1), pid(2), SimTime::from_minutes(0), &p);
+        assert_eq!(polity.versions.len(), 1);
+        let elders = Body {
+            members: Membership::Elders,
+            quorum_share: 0.5,
+            ..polity.body
+        };
+        assert_eq!(
+            elders.clause(),
+            "the elders of its households who come to the hearth decide by acclamation: more \
+             for than against carries it, and a tie fails; half of them must come"
+        );
+        let law = Law {
+            id: pid(5),
+            policy: 0,
+            kind: PolicyKind::AmendBody,
+            levy_share: 0.0,
+            holder: None,
+            relief_days: 0.0,
+            sanction: Sanction::default(),
+            hours: (0, 0),
+            status: LawStatus::InForce,
+            sponsor: pid(9),
+            proposed: SimTime::from_minutes(0),
+            issue: IssueKind::Overruled,
+            meets_day: 1,
+            decided: Some(SimTime::from_minutes(1440)),
+            outcome: Some(Outcome::Passed),
+            eligible: 0,
+            stances: Vec::new(),
+            known: Vec::new(),
+            compliance: Compliance::default(),
+            watch: WatchRecord::default(),
+            body: Some(elders),
+        };
+        let policies = [PolicyDef {
+            id: "core:policy/amend_custom".to_owned(),
+            name: "Amend the custom".to_owned(),
+            description: String::new(),
+            kind: PolicyKind::AmendBody,
+            answers: vec![IssueKind::Overruled],
+            levy_shares: Vec::new(),
+            relief_days: 0.0,
+            bundles: Vec::new(),
+            hours: Vec::new(),
+            bodies: vec![elders],
+        }];
+        assert!(
+            law_words(&law, &policies, &|_| "Ada".to_owned())
+                .starts_with("a change of the custom: the elders of its households")
+        );
+        polity.laws.push(law);
+        polity.body = elders;
+        polity.versions.push(CustomVersion {
+            body: elders,
+            since: SimTime::from_minutes(1440),
+            law: Some(pid(5)),
+        });
+        let history = custom_history_words(&polity, &|_| "Ada".to_owned());
+        assert_eq!(history.len(), 2);
+        assert!(
+            history[0].contains("the founding custom: the adults"),
+            "{history:?}"
+        );
+        assert!(
+            history[1].contains("by the amendment Ada proposed: the elders"),
+            "{history:?}"
+        );
+    }
+
+    #[test]
     fn the_rule_deliberator_proposes_what_it_expects_to_pass_and_gain_from() {
         let p = params();
         let d = RuleDeliberator { params: &p };
@@ -1430,6 +1700,7 @@ pub(crate) mod tests {
             nominee: None,
             sanction: Sanction::default(),
             hours: (0, 0),
+            body: None,
             own_gain: 0.3,
             followers_gain: 0.2,
             support: 0.8,

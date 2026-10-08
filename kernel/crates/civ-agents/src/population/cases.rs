@@ -299,7 +299,8 @@ impl Population {
         // few days' food matters most to those with least.
         let gain = cp.w_demand_loss * (restitution + compensation) / need_of(c.accuser);
         let loss = cp.w_demand_loss * (restitution + compensation + fine + exile) / debtor_need;
-        let members = self.members_of(settlement, now, params);
+        // Its body's members now (M4c slice AF).
+        let members = self.body_members(&ctx.land.fields, pi, now, params);
         let regard = |p: PermanentId, q: PermanentId| {
             if p == q {
                 1.0

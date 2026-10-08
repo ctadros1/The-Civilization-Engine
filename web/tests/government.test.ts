@@ -8,6 +8,7 @@ import {
   levyText,
   reliefText,
   stanceText,
+  membersText,
   statusText,
 } from "../src/government.js";
 import * as M from "../src/net/messages.js";
@@ -37,6 +38,14 @@ describe("a polity's laws in words", () => {
     expect(statusText({ status: "proposed", outcome: null, meetsMinute: 40 * DAY })).toBe(
       "before the gathering on 10 February of year 1",
     );
+  });
+
+  it("say an amendment a later one replaced, and how many may decide", () => {
+    expect(statusText({ status: "superseded", outcome: "passed", meetsMinute: 0 })).toBe(
+      "superseded by a later amendment",
+    );
+    expect(membersText({ members: 24, bodyMembers: 24 })).toBe("24 adults");
+    expect(membersText({ members: 24, bodyMembers: 9 })).toBe("24 adults, 9 of whom may decide");
   });
 
   it("join a stance and its reason", () => {
@@ -147,6 +156,10 @@ describe("the government on the wire", () => {
     const gatheringCases = W.PolityLine.createGatheringCasesVector(b, [
       b.createString("Rilla's case against Tam"),
     ]);
+    const customHistory = W.PolityLine.createCustomHistoryVector(b, [
+      b.createString("Since 1 March of year 1, the founding custom: the adults decide."),
+      b.createString("Since 9 June of year 2, by the amendment Ada proposed: the elders decide."),
+    ]);
     const name = b.createString("Stonewick");
     const custom = b.createString("The adults who come to the hearth decide by acclamation.");
     const store = b.createString("grain 26 kg");
@@ -170,6 +183,8 @@ describe("the government on the wire", () => {
       labelWhy,
       0.5,
       gatheringCases,
+      customHistory,
+      3,
     );
     const polities = W.Government.createPolitiesVector(b, [polity]);
     const government = W.Government.createGovernment(b, BigInt(103 * DAY), polities);
@@ -190,7 +205,10 @@ describe("the government on the wire", () => {
       labelWhy: ["All its adults may come and decide."],
       labelConfidence: 0.5,
       gatheringCases: ["Rilla's case against Tam"],
+      bodyMembers: 3,
     });
+    expect(p.customHistory).toHaveLength(2);
+    expect(p.customHistory[1]).toContain("by the amendment Ada proposed");
     const l = p.laws[0]!;
     expect(l).toMatchObject({
       id: 208,

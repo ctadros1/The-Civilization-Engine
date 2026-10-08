@@ -298,6 +298,7 @@ fn a_common_store_in_force_takes_its_levy_at_threshing_and_answers_asks() {
         known,
         compliance: Default::default(),
         watch: Default::default(),
+        body: None,
     });
     let held_before = sim.people().goods_held();
     let flows_before = sim.people().flows();
@@ -380,6 +381,7 @@ fn a_keeper_keeps_the_store_under_a_roof_until_they_are_gone() {
         known: known.clone(),
         compliance: Default::default(),
         watch: Default::default(),
+        body: None,
     };
     let p = &mut pop.polities[0];
     p.laws.push(law(0, store, None));

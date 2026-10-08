@@ -893,3 +893,145 @@ fn a_revolt_that_has_not_held_when_its_time_is_out_comes_to_nothing() {
     );
     saves_and_goes_on_alike(&mut sim, content(), DAY);
 }
+
+#[test]
+fn a_body_that_took_the_deciding_weighs_ending_the_laws_the_old_custom_made() {
+    use civ_agents::faction::RevoltEnd;
+    let (mut sim, called, _) = revolt_called(5);
+    for _ in 0..(called.until - sim.now().day_index() + 2) {
+        sim.advance_minutes(DAY).expect("advances");
+        if sim.people().factions.revolts[0].ended.is_some() {
+            break;
+        }
+    }
+    let r = &sim.people().factions.revolts[0];
+    assert_eq!(r.ended.map(|e| e.0), Some(RevoltEnd::Held), "{r:?}");
+    // The old custom had made a curfew and a heavy levy, from households that hold plenty: what
+    // the levy takes, they expect never to need back, and the curfew keeps their grown members
+    // home where nothing is taken.
+    let policy_of = |sim: &Sim, kind: PolicyKind| {
+        sim.rules()
+            .catalog
+            .policies
+            .iter()
+            .position(|p| p.kind == kind)
+            .expect("in core") as u16
+    };
+    let (store, curfew) = (
+        policy_of(&sim, PolicyKind::CommonStore),
+        policy_of(&sim, PolicyKind::Curfew),
+    );
+    let grain = sim
+        .rules()
+        .catalog
+        .good_index("core:good/grain")
+        .expect("in core");
+    let next = sim.ids().peek_next() + 3_000_000;
+    let pop = sim.people_mut_for_tests();
+    let taken = pop.polities[0].versions.last().expect("versions").since;
+    let before = civ_core::SimTime::from_minutes(called.called.minutes() - DAY);
+    let sponsor = called.organizer;
+    let law = |id: u64, policy: u16, kind: PolicyKind, levy_share: f32, hours: (u8, u8)| Law {
+        id: PermanentId::from_raw(id).expect("non-zero"),
+        policy,
+        kind,
+        levy_share,
+        holder: None,
+        relief_days: if kind == PolicyKind::CommonStore {
+            5.0
+        } else {
+            0.0
+        },
+        sanction: Default::default(),
+        hours,
+        status: LawStatus::InForce,
+        sponsor,
+        proposed: before,
+        issue: IssueKind::FoodShort,
+        meets_day: before.day_index(),
+        decided: Some(before),
+        outcome: Some(Outcome::Passed),
+        eligible: 0,
+        stances: Vec::new(),
+        known: Vec::new(),
+        compliance: Default::default(),
+        watch: Default::default(),
+        body: None,
+        ends: None,
+    };
+    let (levy, home) = (
+        PermanentId::from_raw(next).expect("non-zero"),
+        PermanentId::from_raw(next + 1).expect("non-zero"),
+    );
+    pop.polities[0]
+        .laws
+        .push(law(next, store, PolicyKind::CommonStore, 0.2, (0, 0)));
+    pop.polities[0]
+        .laws
+        .push(law(next + 1, curfew, PolicyKind::Curfew, 0.0, (19, 7)));
+    for (_, x) in pop.households.iter_mut() {
+        x.stores.resize(grain + 1, 0.0);
+        x.stores[grain] += 4000.0;
+    }
+    // Within the founding, the new body's members weigh ending each; some propose an end, and it
+    // decides each as any law.
+    let founding = i64::from(sim.rules().people.polity.founding_days);
+    let mut put = Vec::new();
+    for _ in 0..founding {
+        sim.advance_minutes(DAY).expect("advances");
+        put = sim.people().polities[0]
+            .laws
+            .iter()
+            .filter(|l| l.issue == IssueKind::Founding && l.decided.is_some())
+            .cloned()
+            .collect();
+        if put.len() >= 2 {
+            break;
+        }
+    }
+    assert!(
+        !put.is_empty(),
+        "an end to a law the old custom made was put"
+    );
+    let pop = sim.people();
+    let p = &pop.polities[0];
+    for l in &put {
+        let ended = l.ends.expect("each names the law it would end");
+        assert!(ended == levy || ended == home, "{l:?}");
+        assert!(l.proposed >= taken, "proposed under the new custom");
+        let old = p.laws.iter().find(|x| x.id == ended).expect("kept");
+        let words = p.words_of(l, &sim.rules().catalog.policies, &|id| pop.name_of(id));
+        if ended == home {
+            assert_eq!(l.kind, PolicyKind::Repeal);
+            assert_eq!(words, "an end to the curfew from 19:00 to 7:00");
+        } else {
+            assert_eq!((l.kind, l.levy_share), (PolicyKind::CommonStore, 0.0));
+            assert!(
+                words.starts_with("an end to the common store's levy"),
+                "{words}"
+            );
+        }
+        match l.outcome {
+            Some(Outcome::Passed) => {
+                assert_eq!(old.status, LawStatus::Superseded);
+                let expect = if ended == home {
+                    LawStatus::Carried
+                } else {
+                    LawStatus::InForce
+                };
+                assert_eq!(l.status, expect, "{l:?}");
+            }
+            _ => {
+                assert_eq!(old.status, LawStatus::InForce);
+                assert_eq!(l.status, LawStatus::Rejected);
+            }
+        }
+        // Each was put once: what the new body leaves stands.
+        assert_eq!(
+            p.laws.iter().filter(|x| x.ends == Some(ended)).count(),
+            1,
+            "{ended}"
+        );
+    }
+    saves_and_goes_on_alike(&mut sim, content(), DAY);
+}

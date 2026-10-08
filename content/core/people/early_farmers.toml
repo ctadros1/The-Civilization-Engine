@@ -536,6 +536,12 @@ subsistence_share = 0.5
 # base, 1.5 for everyone; now the norm carries it and the base is 0.
 comply_base = 0.0
 w_stance = 1.0
+# Content API 49 (M4c slice AI): for this many days after the custom is taken from the gathering,
+# every member of the body that took it weighs ending each law the old custom made, as any move
+# (research 09-11 §1.6: provisional authority over what survives, unless actors dismantle it; its
+# founding processes run 3 to 36 months, and none is forced to finish). What they leave stands. A
+# design prior.
+founding_days = 90
 
 [crime]                          # taking, what is seen of it and what is owed (ADR-0015); tuning values
 # Research 04-09 §5.4 finds no established figures for moral-cost weights, belief-update rates or

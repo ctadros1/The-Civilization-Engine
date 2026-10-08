@@ -595,6 +595,22 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** steps two to four of slice AI (founding, a watch of several and coups, force and violence); slice AJ.
 
+## 2026-10-08 — M4c slice AI, step two: founding
+
+**Goal:** after a revolt, let the body that took the deciding weigh what it inherited, so a seizure ends in a bargain from the old constitution rather than a blank (ADR-0017 §5; research 09-11 §1.6).
+
+**What changed:**
+
+- **A founding window:** for `founding_days` (90, a design prior) after the custom is taken, while laws the old custom made are unweighed, a new issue, `founding`, is before the village, and every member of the new body deliberates at each weekly review.
+- **Ending a law:** a new policy kind, `repeal` (content `core:policy/repeal`), opens an end to each inherited law: a store's levy at none, as a petition ends it, or any other law repealed. A repeal that passes is carried, a new law status, and the law it names is superseded.
+- **Weighing an end:** each household weighs it as what the law, kept, would bring it, turned about, with what the law does to what its people hold dear turned about too. Each law is put once; what the body leaves stands.
+- **A fix in passing:** a petition to end a store's levy had weighed values as if for a store; any end to a law now weighs them turned about.
+- **Boundary:** saves schema 45 (44 still loads), wire 1.44 (status `carried`), content API 49. The web now says "superseded by a later law" for any law a later one replaced.
+
+**Evidence:** an integration test in which, after a revolt holds, the new body ends both the old custom's heavy levy (22 for, 1 against) and its curfew (24 for, none against) within two weeks, saving and loading exactly; a test that a schema-44 save loads; the web tests. The kernel (609), web (142) and end-to-end (16, 6 demos skipped) suites pass, with clippy and the format and schema checks clean. The ten-year smoke passed all 10 worlds (no revolt, so no founding; three petitions in two villages, all granted). Gate B and the notables' gate passed.
+
+**Open:** steps three and four of slice AI (a watch of several and coups; force, damage and violence); slice AJ.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

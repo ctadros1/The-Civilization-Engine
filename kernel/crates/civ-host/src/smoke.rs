@@ -997,6 +997,22 @@ fn polity(sim: &Sim) -> Option<String> {
             ended(RevoltEnd::Failed),
             fs.revolts.iter().filter(|r| r.ended.is_none()).count(),
         ));
+        // Founding (step two): the ends of inherited laws its new body put, and those it passed.
+        let put: Vec<&civ_agents::polity::Law> = pop
+            .polities
+            .iter()
+            .flat_map(|p| &p.laws)
+            .filter(|l| l.issue == civ_agents::polity::IssueKind::Founding)
+            .collect();
+        if !put.is_empty() {
+            parts.push(format!(
+                "founding: {} ends of inherited laws put, {} passed",
+                put.len(),
+                put.iter()
+                    .filter(|l| l.outcome == Some(civ_agents::polity::Outcome::Passed))
+                    .count()
+            ));
+        }
     }
     // Norms (M4c slice AG): for each, how far it is held on average, what people believe of
     // others against what households did at their last levy, how many it moves, and how often an

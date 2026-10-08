@@ -513,6 +513,9 @@ pub(crate) struct PolityFile {
     pub subsistence_share: f64,
     pub comply_base: f64,
     pub w_stance: f64,
+    /// Content API 49 (M4c slice AI): days after the custom is taken in which its new body weighs
+    /// ending the laws the old one made.
+    pub founding_days: u32,
 }
 
 impl PolityFile {
@@ -537,6 +540,7 @@ impl PolityFile {
             subsistence_share: self.subsistence_share,
             comply_base: self.comply_base,
             w_stance: self.w_stance,
+            founding_days: self.founding_days,
         }
     }
 
@@ -546,6 +550,7 @@ impl PolityFile {
             ("polity.notice_days", self.notice_days, 1, 30),
             ("polity.gathering_minutes", self.gathering_minutes, 15, 600),
             ("polity.vote_memory_days", self.vote_memory_days, 0, 3650),
+            ("polity.founding_days", self.founding_days, 1, 3650),
         ] {
             if !(lo..=hi).contains(&v) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

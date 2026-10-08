@@ -1591,7 +1591,9 @@ table LawLine {
   levy_share: float (id: 3);
   relief_days: float (id: 4);
   // 0 before the gathering, 1 in force, 2 rejected, 3 lapsed (wire 1.28: the one it named died or
-  // left), 4 superseded (wire 1.35: an amendment of the custom a later one replaced).
+  // left), 4 superseded (wire 1.35: an amendment of the custom a later one replaced; 1.41: any law
+  // a later one ended or changed), 5 carried (wire 1.44: a repeal that passed, ending the law it
+  // named).
   status: ubyte (id: 5);
   sponsor: ulong (id: 6);
   sponsor_name: string (id: 7);

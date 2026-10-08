@@ -39,17 +39,23 @@ pub enum PolicyKind {
     /// body, how many must come and how it decides, by the custom's own procedure (research
     /// 09-02 §3.7, 09-05 §3.9: who occupies a gate is an amendable rule).
     AmendBody,
+    /// A law in force ends, with nothing in its place (M4c slice AI, step two; ADR-0017 §5): the
+    /// law it names is superseded, and it is carried rather than in force. A body that took the
+    /// deciding weighs ending the laws the custom it replaced made (research 09-11 §1.6:
+    /// provisional authority over what survives, unless actors dismantle it).
+    Repeal,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 6] = [
+    pub const ALL: [PolicyKind; 7] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
         PolicyKind::KeepWatch,
         PolicyKind::Curfew,
         PolicyKind::AmendBody,
+        PolicyKind::Repeal,
     ];
 
     /// The authored name.
@@ -61,6 +67,7 @@ impl PolicyKind {
             PolicyKind::KeepWatch => "keep_watch",
             PolicyKind::Curfew => "curfew",
             PolicyKind::AmendBody => "amend_body",
+            PolicyKind::Repeal => "repeal",
         }
     }
 
@@ -89,16 +96,21 @@ pub enum IssueKind {
     /// A faction petitioned the gathering for it (M4c slice AH): its members held grievances
     /// against the gathering. It answers no settlement's issue and opens no move to anyone.
     Petition,
+    /// The custom was taken from the gathering lately (M4c slice AI, step two): the body that took
+    /// it weighs which of the laws the old custom made stand (research 09-11 §1.6). It opens
+    /// moves to that body's members, for those laws alone.
+    Founding,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 5] = [
+    pub const ALL: [IssueKind; 6] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
         IssueKind::Overruled,
         IssueKind::Petition,
+        IssueKind::Founding,
     ];
 
     /// The authored name.
@@ -109,6 +121,7 @@ impl IssueKind {
             IssueKind::Takings => "takings",
             IssueKind::Overruled => "overruled",
             IssueKind::Petition => "petition",
+            IssueKind::Founding => "founding",
         }
     }
 
@@ -126,6 +139,10 @@ impl IssueKind {
             IssueKind::Overruled => "the gathering had decided against them",
             IssueKind::Petition => {
                 "those who came to petition for it held it against the gathering"
+            }
+            IssueKind::Founding => {
+                "the deciding had been taken from the gathering, and the laws it made stood only \
+                 until the new body weighed them"
             }
         }
     }
@@ -307,6 +324,10 @@ pub struct PolityParams {
     /// Points for paying per unit of the stance a person took on the law (1 for, −1 against, 0
     /// for abstaining or absent).
     pub w_stance: f64,
+    /// Days after the custom is taken from the gathering in which its new body's members weigh
+    /// ending each law the old custom made (M4c slice AI, step two; research 09-11 §1.6). What
+    /// they leave stands.
+    pub founding_days: u32,
 }
 
 impl PolityParams {
@@ -332,6 +353,7 @@ impl PolityParams {
             subsistence_share: 0.5,
             comply_base: 0.0,
             w_stance: 1.0,
+            founding_days: 90,
         }
     }
 }
@@ -524,6 +546,9 @@ pub enum LawStatus {
     /// Replaced by a later law: an amendment of the custom by a later one (M4c slice AF), or a
     /// law by one that ends or changes it (M4c slice AH).
     Superseded,
+    /// A repeal that passed (M4c slice AI, step two): the law it named is superseded, and the
+    /// repeal itself asks and gives nothing.
+    Carried,
 }
 
 /// How a gathering's decision went. Codes are part of saves: append only.
@@ -808,6 +833,11 @@ pub fn law_words(
     {
         return format!("a change of the custom: {}", body.clause());
     }
+    // A repeal names the law it ends; without that law at hand (see [`Polity::words_of`]), only
+    // that it ends one.
+    if def.is_some_and(|d| d.kind == PolicyKind::Repeal) {
+        return "an end to a law in force".to_owned();
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::AgainstTaking) {
         return format!(
             "a law against taking: whoever is found to have taken from another household's \
@@ -851,6 +881,31 @@ pub fn law_words(
         policy_name(def),
         share_text(f64::from(law.levy_share))
     )
+}
+
+/// What ending law `ended` ends, in words, after "an end to" (M4c slice AI, step two): "Ada's
+/// keeping of the common store", "the curfew from 21:00 to 5:00". `name_of` names people.
+pub fn ending_words(
+    ended: &Law,
+    policies: &[PolicyDef],
+    name_of: &dyn Fn(PermanentId) -> String,
+) -> String {
+    let who = |what: &str| match ended.holder {
+        Some(h) => format!("{}'s {what}", name_of(h)),
+        None => format!("the {what}"),
+    };
+    match policies.get(usize::from(ended.policy)).map(|d| d.kind) {
+        Some(PolicyKind::CommonStore) => "the common store's levy".to_owned(),
+        Some(PolicyKind::KeepStore) => who("keeping of the common store"),
+        Some(PolicyKind::KeepWatch) => who("watch over the stores at night"),
+        Some(PolicyKind::AgainstTaking) => "the law against taking".to_owned(),
+        Some(PolicyKind::Curfew) => format!(
+            "the curfew from {}:00 to {}:00",
+            ended.hours.0, ended.hours.1
+        ),
+        Some(PolicyKind::AmendBody) => "a change of the custom".to_owned(),
+        Some(PolicyKind::Repeal) | None => "a law".to_owned(),
+    }
 }
 
 /// A policy's name with its article: "a common store".
@@ -1119,6 +1174,27 @@ impl Polity {
                     .get(usize::from(l.policy))
                     .is_some_and(|d| d.kind == kind)
         })
+    }
+
+    /// Law `law` in words, as [`law_words`] says it, but a repeal naming the law of this polity
+    /// it ends (M4c slice AI, step two): "an end to Ada's keeping of the common store".
+    pub fn words_of(
+        &self,
+        law: &Law,
+        policies: &[PolicyDef],
+        name_of: &dyn Fn(PermanentId) -> String,
+    ) -> String {
+        let repeal = policies
+            .get(usize::from(law.policy))
+            .is_some_and(|d| d.kind == PolicyKind::Repeal);
+        match law
+            .ends
+            .filter(|_| repeal)
+            .and_then(|e| self.laws.iter().find(|l| l.id == e))
+        {
+            Some(ended) => format!("an end to {}", ending_words(ended, policies, name_of)),
+            None => law_words(law, policies, name_of),
+        }
     }
 
     /// The law with id `id`.

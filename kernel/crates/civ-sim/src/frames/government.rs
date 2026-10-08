@@ -3,8 +3,7 @@
 //! (1.29). The kernel renders the words; the observer only shows them.
 
 use civ_agents::polity::{
-    Law, LawStatus, Outcome, Polity, Stance, day_words, decision_words, law_words, office_words,
-    stance_words,
+    Law, LawStatus, Outcome, Polity, Stance, day_words, decision_words, office_words, stance_words,
 };
 use civ_core::SimTime;
 use civ_schema::flatbuffers::{FlatBufferBuilder, WIPOffset};
@@ -20,6 +19,7 @@ fn status_code(s: LawStatus) -> u8 {
         LawStatus::Rejected => 2,
         LawStatus::Lapsed => 3,
         LawStatus::Superseded => 4,
+        LawStatus::Carried => 5,
     }
 }
 
@@ -66,9 +66,8 @@ fn law_line<'a>(
         })
         .collect();
     let stances = fbb.create_vector(&stances);
-    let what = fbb.create_string(&law_words(law, &rules.catalog.policies, &|id| {
-        pop.name_of(id)
-    }));
+    let what =
+        fbb.create_string(&polity.words_of(law, &rules.catalog.policies, &|id| pop.name_of(id)));
     let holder_name = law.holder.map(|h| fbb.create_string(&pop.name_of(h)));
     let policy = fbb.create_string(
         rules

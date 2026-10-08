@@ -40,9 +40,12 @@ describe("a polity's laws in words", () => {
     );
   });
 
-  it("say an amendment a later one replaced, and how many may decide", () => {
+  it("say a law a later one replaced or a repeal ended, and how many may decide", () => {
     expect(statusText({ status: "superseded", outcome: "passed", meetsMinute: 0 })).toBe(
-      "superseded by a later amendment",
+      "superseded by a later law",
+    );
+    expect(statusText({ status: "carried", outcome: "passed", meetsMinute: 0 })).toBe(
+      "carried: the law it named is ended",
     );
     expect(membersText({ members: 24, bodyMembers: 24 })).toBe("24 adults");
     expect(membersText({ members: 24, bodyMembers: 9 })).toBe("24 adults, 9 of whom may decide");

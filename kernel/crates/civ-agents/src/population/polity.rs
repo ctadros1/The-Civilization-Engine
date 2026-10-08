@@ -77,7 +77,9 @@ impl Forecasts {
                     / 365.0;
                 crate::polity::against_gain(o, recover, owe + home, pp)
             }
-            Some(PolicyKind::AmendBody) => 0.0,
+            // An amendment's gain is judged from decisions seen, and an end to a law from that
+            // law, kept (M4c slices AF, AI): neither forecasts anything of its own.
+            Some(PolicyKind::AmendBody | PolicyKind::Repeal) => 0.0,
             _ => crate::polity::store_gain(o, &self.belief, m.levy_share, pp),
         }
     }
@@ -420,6 +422,7 @@ impl Population {
         pressed: bool,
         unkept: bool,
         takings: bool,
+        founding: bool,
     ) -> Vec<IssueKind> {
         let mut out = Vec::new();
         if self.lean_lately(ctx, settlement) || pressed {
@@ -431,7 +434,36 @@ impl Population {
         if takings {
             out.push(IssueKind::Takings);
         }
+        if founding {
+            out.push(IssueKind::Founding);
+        }
         out
+    }
+
+    /// When polity `pi`'s custom was taken from the gathering, while its new body is founding
+    /// (M4c slice AI, step two): within `founding_days` of a version seized rather than amended.
+    pub(super) fn founding_since(&self, ctx: &Ctx, pi: usize) -> Option<SimTime> {
+        let v = self.polities[pi].versions.last()?;
+        v.seized_by?;
+        let days = ctx.now.day_index() - v.since.day_index();
+        (days < i64::from(ctx.params.polity.founding_days)).then_some(v.since)
+    }
+
+    /// The laws of polity `pi` the custom that was taken on `since` made and its new body has not
+    /// yet weighed (M4c slice AI, step two): in force, decided before then, and neither an
+    /// amendment nor a store that levies nothing already; none put to the new body to end it.
+    fn inherited(&self, pi: usize, since: SimTime) -> Vec<&Law> {
+        let laws = &self.polities[pi].laws;
+        laws.iter()
+            .filter(|l| l.status == LawStatus::InForce && l.decided.is_none_or(|t| t < since))
+            .filter(|l| !matches!(l.kind, PolicyKind::AmendBody | PolicyKind::Repeal))
+            .filter(|l| l.kind != PolicyKind::CommonStore || l.levy_share > 0.0)
+            .filter(|l| {
+                !laws
+                    .iter()
+                    .any(|x| x.ends == Some(l.id) && x.issue == IssueKind::Founding)
+            })
+            .collect()
     }
 
     /// Food polity `pi`'s store would keep over a year under a roof rather than in the open, kcal.
@@ -647,12 +679,17 @@ impl Population {
                 .collect()
         };
         let robbed_lately = robbed(review_since);
+        // A body that took the deciding weighs the laws the old custom made (M4c slice AI).
+        let founding = self
+            .founding_since(ctx, pi)
+            .filter(|&since| !self.inherited(pi, since).is_empty());
         let issues = self.issues(
             ctx,
             settlement,
             !pressed.is_empty(),
             unkept,
             !robbed(day - 365).is_empty(),
+            founding.is_some(),
         );
         let polity = &self.polities[pi];
         // Templates that answer a present issue and are not already in force here.
@@ -711,50 +748,53 @@ impl Population {
             .collect();
         // Who weighs moves (ADR-0014 §4): the notables, a compute tier; and those something
         // reached since the last review: the elders of households whose food will not last, and
-        // whoever came to a gathering or learnt a law. With the tier off, every adult.
-        let mut deliberators: Vec<PermanentId> = if self.every_adult_deliberates {
-            members.iter().map(|m| m.0).collect()
-        } else {
-            let since = now.day_index() - i64::from(pp.review_days.max(1));
-            let reached = self.polities[pi].laws.iter().flat_map(|l| {
-                let came = l
-                    .decided
-                    .filter(|t| t.day_index() > since)
-                    .map(|_| l.stances.iter().map(|r| r.person))
-                    .into_iter()
-                    .flatten();
-                let learnt = l.known.iter().filter(move |k| k.1 > since).map(|k| k.0);
-                came.chain(learnt)
-            });
-            self.standing
-                .in_settlement(settlement)
-                .filter(|r| r.notable)
-                .map(|r| r.person)
-                .chain(
-                    pressed
-                        .iter()
-                        .chain(&robbed_lately)
-                        .filter_map(|&h| self.elder_of(h, now, params)),
-                )
-                .chain(reached)
-                // And whoever holds an ideology whose program answers a problem before the
-                // village (M4c slice AG).
-                .chain(
-                    self.ideologies
-                        .held
-                        .iter()
-                        .filter(|h| {
-                            ctx.catalog
-                                .ideologies
-                                .get(usize::from(h.ideology))
-                                .is_some_and(|d| {
-                                    !d.program.is_empty() && issues.contains(&d.explains)
-                                })
-                        })
-                        .map(|h| h.holder),
-                )
-                .collect()
-        };
+        // whoever came to a gathering or learnt a law. With the tier off, every adult; and every
+        // member of a body that took the deciding while it is founding (M4c slice AI; research
+        // 09-11 §1.6: representation through the body that exists).
+        let mut deliberators: Vec<PermanentId> =
+            if self.every_adult_deliberates || founding.is_some() {
+                members.iter().map(|m| m.0).collect()
+            } else {
+                let since = now.day_index() - i64::from(pp.review_days.max(1));
+                let reached = self.polities[pi].laws.iter().flat_map(|l| {
+                    let came = l
+                        .decided
+                        .filter(|t| t.day_index() > since)
+                        .map(|_| l.stances.iter().map(|r| r.person))
+                        .into_iter()
+                        .flatten();
+                    let learnt = l.known.iter().filter(move |k| k.1 > since).map(|k| k.0);
+                    came.chain(learnt)
+                });
+                self.standing
+                    .in_settlement(settlement)
+                    .filter(|r| r.notable)
+                    .map(|r| r.person)
+                    .chain(
+                        pressed
+                            .iter()
+                            .chain(&robbed_lately)
+                            .filter_map(|&h| self.elder_of(h, now, params)),
+                    )
+                    .chain(reached)
+                    // And whoever holds an ideology whose program answers a problem before the
+                    // village (M4c slice AG).
+                    .chain(
+                        self.ideologies
+                            .held
+                            .iter()
+                            .filter(|h| {
+                                ctx.catalog
+                                    .ideologies
+                                    .get(usize::from(h.ideology))
+                                    .is_some_and(|d| {
+                                        !d.program.is_empty() && issues.contains(&d.explains)
+                                    })
+                            })
+                            .map(|h| h.holder),
+                    )
+                    .collect()
+            };
         deliberators.sort_unstable();
         deliberators.dedup();
         deliberators.retain(|d| members.binary_search_by_key(d, |m| m.0).is_ok());
@@ -824,6 +864,32 @@ impl Population {
         let deliberator = RuleDeliberator { params: pp };
         let policies = &ctx.catalog.policies;
         let gain_of = |m: &MoveOption, h: PermanentId| fc.gain(m, h, policies, params);
+        // While it is founding, the laws the old custom made, each as the move it would be were
+        // it proposed now (M4c slice AI): what ending one brings a household is what keeping it
+        // would bring, lost.
+        let kept: Vec<(PermanentId, MoveOption)> = founding.map_or_else(Vec::new, |since| {
+            self.inherited(pi, since)
+                .into_iter()
+                .map(|l| {
+                    let m = MoveOption {
+                        policy: l.policy,
+                        levy_share: f64::from(l.levy_share),
+                        issue: l.issue,
+                        nominee: l.holder,
+                        sanction: l.sanction,
+                        hours: l.hours,
+                        body: None,
+                        ends: None,
+                        own_gain: 0.0,
+                        followers_gain: 0.0,
+                        support: 0.5,
+                    };
+                    (l.id, m)
+                })
+                .collect()
+        });
+        let ended = |m: &MoveOption| m.ends.and_then(|e| kept.iter().find(|k| k.0 == e));
+        let held = |m: &MoveOption, h: PermanentId| ended(m).map_or(0.0, |k| gain_of(&k.1, h));
         for d in deliberators {
             let Some(own) = members
                 .binary_search_by_key(&d, |m| m.0)
@@ -902,6 +968,28 @@ impl Population {
                     }
                     // An amendment answers no settlement's issue: it is weighed below.
                     PolicyKind::AmendBody => {}
+                    // While founding, an end to each law the old custom made (M4c slice AI): a
+                    // store's levy ends as a petition would end it, the store giving what it
+                    // holds; any other law is repealed.
+                    PolicyKind::Repeal => {
+                        for (e, k) in &kept {
+                            let store = policies
+                                .get(usize::from(k.policy))
+                                .is_some_and(|d| d.kind == PolicyKind::CommonStore);
+                            moves.push(if store {
+                                MoveOption {
+                                    policy: k.policy,
+                                    ends: Some(*e),
+                                    ..blank
+                                }
+                            } else {
+                                MoveOption {
+                                    ends: Some(*e),
+                                    ..blank
+                                }
+                            });
+                        }
+                    }
                     // A watch: the adult they regard most, themselves at full regard (M4b slice
                     // AC).
                     PolicyKind::KeepWatch => {
@@ -975,9 +1063,10 @@ impl Population {
                     }
                 }
             }
-            let gain_for = |m: &MoveOption, h: PermanentId| match m.body {
-                Some(b) => amend_gain(&b, h, &seen_d),
-                None => gain_of(m, h),
+            let gain_for = |m: &MoveOption, h: PermanentId| match (m.body, m.ends) {
+                (Some(b), _) => amend_gain(&b, h, &seen_d),
+                (None, Some(_)) => -held(m, h),
+                (None, None) => gain_of(m, h),
             };
             for m in &mut moves {
                 // Those who regard them, by how much; and those they know, by where they would
@@ -1010,10 +1099,12 @@ impl Population {
                 // What it does to what they hold dear weighs beside their household's lot (M4c
                 // slice AG); nobody sees another's, so those they count on are judged by their
                 // households' lots alone.
-                // And the ideology they hold that proposes it, if one does (M4c slice AG).
-                let creed = self.creed_for(ctx, d, m.policy).map_or(0.0, |c| c.1);
+                // And the ideology they hold that proposes it, if one does (M4c slice AG). An
+                // end to a law weighs what that law does to them, turned about (M4c slice AI).
+                let (policy, sign) = ended(m).map_or((m.policy, 1.0), |k| (k.1.policy, -1.0));
+                let creed = self.creed_for(ctx, d, policy).map_or(0.0, |c| c.1);
                 m.own_gain = gain_for(m, own)
-                    + (self.value_points(ctx, d, m.policy) + creed) / pp.w_gain.max(1e-9);
+                    + sign * (self.value_points(ctx, d, policy) + creed) / pp.w_gain.max(1e-9);
                 m.followers_gain = if weight > 0.0 { weighed / weight } else { 0.0 };
                 m.support = if support + oppose > 0 {
                     f64::from(support) / f64::from(support + oppose)
@@ -1035,6 +1126,7 @@ impl Population {
                             && l.body == m.body
                     })
                     .filter(|l| (f64::from(l.levy_share) - m.levy_share).abs() < 1e-4)
+                    .filter(|l| m.ends.is_none() || l.ends == m.ends)
                     .filter(|l| {
                         l.decided
                             .is_some_and(|t| day - t.day_index() <= i64::from(pp.vote_memory_days))
@@ -1060,9 +1152,10 @@ impl Population {
                     .map(|(h, _)| {
                         // Each household judges an amendment by the decisions its own members
                         // saw (M4c slice AF).
-                        let gain = match m.body {
-                            Some(b) => amend_gain(&b, *h, &seen_by(&|_, hh| hh == *h)),
-                            None => gain_of(&m, *h),
+                        let gain = match (m.body, m.ends) {
+                            (Some(b), _) => amend_gain(&b, *h, &seen_by(&|_, hh| hh == *h)),
+                            (None, Some(_)) => -held(&m, *h),
+                            (None, None) => gain_of(&m, *h),
                         };
                         (*h, (pp.w_gain * gain) as f32)
                     })
@@ -1122,7 +1215,7 @@ impl Population {
             .unwrap_or_default();
         let words = format!(
             "{}, because {}{held}",
-            crate::polity::law_words(&law, &ctx.catalog.policies, &|id| {
+            self.polities[pi].words_of(&law, &ctx.catalog.policies, &|id| {
                 if id == sponsor {
                     "themselves".to_owned()
                 } else {
@@ -1190,7 +1283,17 @@ impl Population {
         let Some(law) = self.polities[pi].laws.iter().find(|l| l.id == law_id) else {
             return;
         };
-        let (sponsor, policy) = (law.sponsor, law.policy);
+        let (sponsor, policy, kind) = (law.sponsor, law.policy, law.kind);
+        // An end to a law, a repeal or a store's levy at none (M4c slices AH-AI), weighs what
+        // that law does to people, turned about.
+        let (policy, sign) = law
+            .ends
+            .filter(|_| {
+                kind == PolicyKind::Repeal
+                    || (kind == PolicyKind::CommonStore && law.levy_share <= 0.0)
+            })
+            .and_then(|e| self.polities[pi].laws.iter().find(|l| l.id == e))
+            .map_or((policy, 1.0), |l| (l.policy, -1.0));
         let w_position = params.opinion.w_position;
         // Those who came weigh their regard for the one the law names, or else for its sponsor;
         // for one named in place of an office's holder, less their regard for that holder, which
@@ -1219,9 +1322,9 @@ impl Population {
                 };
                 // How far talk at the hearth has moved them from their household's lot (M4c
                 // slice AG).
-                let talk = self.opinion_points(p, policy, w_position);
+                let talk = sign * self.opinion_points(p, policy, w_position);
                 // And what it does to what they hold dear (M4c slice AG).
-                let values = self.value_points(ctx, p, policy);
+                let values = sign * self.value_points(ctx, p, policy);
                 let held = replaced.map_or(0.0, |(o, office)| {
                     if p == o {
                         1.0
@@ -1262,7 +1365,12 @@ impl Population {
             for p in &g.present {
                 law.learn(*p, day);
             }
-            LawStatus::InForce
+            // A repeal asks and gives nothing: it ends the law it names (M4c slice AI).
+            if kind == PolicyKind::Repeal {
+                LawStatus::Carried
+            } else {
+                LawStatus::InForce
+            }
         } else {
             LawStatus::Rejected
         };
@@ -1283,7 +1391,7 @@ impl Population {
             .iter()
             .position(|l| l.id == law_id)
             .unwrap_or(0)];
-        let what = crate::polity::law_words(law, &ctx.catalog.policies, &|id| self.name_of(id));
+        let what = self.polities[pi].words_of(law, &ctx.catalog.policies, &|id| self.name_of(id));
         let (place, name) = ctx
             .land
             .settlements

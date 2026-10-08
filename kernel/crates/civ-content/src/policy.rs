@@ -19,9 +19,10 @@ pub(crate) struct PolicyFile {
     pub name: String,
     pub description: String,
     /// What the kernel does under it: `common_store`, `keep_store`, `against_taking`,
-    /// `keep_watch`, `curfew` or `amend_body`.
+    /// `keep_watch`, `curfew`, `amend_body` or `repeal` (content API 49).
     pub does: String,
-    /// The issues it answers: `food_short`, `store_unkept`, `takings`, `overruled`.
+    /// The issues it answers: `food_short`, `store_unkept`, `takings`, `overruled`, `petition`,
+    /// `founding` (content API 49).
     pub answers: Vec<String>,
     /// For a common store: the shares of threshed grain a sponsor may propose for the levy.
     #[serde(default)]
@@ -182,7 +183,8 @@ impl PolicyFile {
                 k @ (PolicyKind::KeepStore
                 | PolicyKind::KeepWatch
                 | PolicyKind::Curfew
-                | PolicyKind::AmendBody),
+                | PolicyKind::AmendBody
+                | PolicyKind::Repeal),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
@@ -221,7 +223,8 @@ impl PolicyFile {
                 PolicyKind::KeepStore
                 | PolicyKind::KeepWatch
                 | PolicyKind::Curfew
-                | PolicyKind::AmendBody,
+                | PolicyKind::AmendBody
+                | PolicyKind::Repeal,
             )
             | None => {}
         }

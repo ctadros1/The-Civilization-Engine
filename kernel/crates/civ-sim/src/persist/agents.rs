@@ -106,7 +106,7 @@ use super::{
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
-    SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, finish, section, single_chunk, unreadable,
+    SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -356,6 +356,8 @@ enum Schema {
     V43,
     /// Revolts, and customs taken rather than amended (M4c slice AI).
     V44,
+    /// Repeals carried, and laws put to a founding (M4c slice AI, step two).
+    V45,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -414,7 +416,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V41 => Schema::V41,
         SCHEMA_V42 => Schema::V42,
         SCHEMA_V43 => Schema::V43,
-        SAVE_SCHEMA_VERSION => Schema::V44,
+        SCHEMA_V44 => Schema::V44,
+        SAVE_SCHEMA_VERSION => Schema::V45,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -862,6 +865,7 @@ fn law_status_code(s: civ_agents::polity::LawStatus) -> u8 {
         LawStatus::Rejected => 2,
         LawStatus::Lapsed => 3,
         LawStatus::Superseded => 4,
+        LawStatus::Carried => 5,
     }
 }
 
@@ -873,6 +877,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::Takings => 2,
         IssueKind::Overruled => 3,
         IssueKind::Petition => 4,
+        IssueKind::Founding => 5,
     }
 }
 
@@ -965,6 +970,7 @@ fn decode_polities(
                 2 => LawStatus::Rejected,
                 3 => LawStatus::Lapsed,
                 4 => LawStatus::Superseded,
+                5 => LawStatus::Carried,
                 c => return Err(bad(format!("law {law} has status code {c}"))),
             };
             let issue = match l.issue() {
@@ -973,6 +979,7 @@ fn decode_polities(
                 2 => IssueKind::Takings,
                 3 => IssueKind::Overruled,
                 4 => IssueKind::Petition,
+                5 => IssueKind::Founding,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -2497,7 +2504,8 @@ fn carried(
         | Schema::V41
         | Schema::V42
         | Schema::V43
-        | Schema::V44 => {
+        | Schema::V44
+        | Schema::V45 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2651,7 +2659,8 @@ fn decode_households(
             | Schema::V41
             | Schema::V42
             | Schema::V43
-            | Schema::V44 => {
+            | Schema::V44
+            | Schema::V45 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

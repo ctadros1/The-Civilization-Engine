@@ -886,8 +886,11 @@ export interface StanceLine {
   values: number;
 }
 
-/** Where a law stands ("lapsed", wire 1.28: the one it named died or left). */
-export type LawStatus = "proposed" | "in force" | "rejected" | "lapsed" | "superseded";
+/**
+ * Where a law stands ("lapsed", wire 1.28: the one it named died or left; "carried", wire 1.44: a
+ * repeal that passed, ending the law it named).
+ */
+export type LawStatus = "proposed" | "in force" | "rejected" | "lapsed" | "superseded" | "carried";
 
 /** How a gathering decided. */
 export type LawOutcome = "passed" | "failed" | "tied" | "no quorum";
@@ -2969,7 +2972,14 @@ function standingLine(l: W.StandingLine): StandingLine {
 }
 
 const STANCES: StanceKind[] = ["for", "against", "abstained"];
-const LAW_STATUSES: LawStatus[] = ["proposed", "in force", "rejected", "lapsed", "superseded"];
+const LAW_STATUSES: LawStatus[] = [
+  "proposed",
+  "in force",
+  "rejected",
+  "lapsed",
+  "superseded",
+  "carried",
+];
 const OUTCOMES: LawOutcome[] = ["passed", "failed", "tied", "no quorum"];
 
 function lawLine(l: W.LawLine): LawLine {

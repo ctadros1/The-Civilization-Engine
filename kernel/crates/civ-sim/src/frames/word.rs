@@ -50,13 +50,12 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
             let law = c.subject.and_then(|id| {
                 pop.polities
                     .iter()
-                    .flat_map(|p| &p.laws)
-                    .find(|l| l.id == id)
+                    .find_map(|p| Some((p, p.laws.iter().find(|l| l.id == id)?)))
             });
             match law {
-                Some(l) => format!(
+                Some((p, l)) => format!(
                     "a gathering meets on {day} to decide on {}",
-                    law_words(l, &sim.rules.catalog.policies, &name_of)
+                    p.words_of(l, &sim.rules.catalog.policies, &name_of)
                 ),
                 None => format!("a gathering meets on {day} to hear a case"),
             }

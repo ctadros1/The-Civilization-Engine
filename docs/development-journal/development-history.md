@@ -285,6 +285,7 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 - **Three seeds over four years:** a twentieth passed in each, once after a fifth was turned down 1–18. Gatherings drew nearly every adult, and 5–43 % of the levy owed was kept back or unpayable.
 - **Ten-year smoke:** all 10 worlds passed. Every village ended with a store at a twentieth, after 1–15 proposals, and four stores gave relief. Ria coast 5, which died out in year 4 before, kept 15 people.
+- **Gate B:** passed. The coast fixture's Detailed runs spread more than when its tolerances were set (work ±0.27 h against ±0.15), cause not traced.
 - **Tests:** an integration test proposes, gathers, decides and saves exactly. Another puts a law in force by hand, then sees the levy paid at threshing, every good accounted for, and asks answered from the store.
 - **Checks:** the workspace tests and clippy pass.
 

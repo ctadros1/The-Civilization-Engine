@@ -638,9 +638,8 @@ fn polity(sim: &Sim) -> Option<String> {
             let hours: f64 = watches.iter().map(|l| l.watch.minutes).sum::<f64>() / 60.0;
             let cases: u32 = watches.iter().map(|l| l.watch.cases).sum();
             let order = &pop.order;
-            let kept = |k: civ_agents::crime::Kept| {
-                order.sightings.iter().filter(|s| s.kept == k).count()
-            };
+            let kept =
+                |k: civ_agents::crime::Kept| order.sightings.iter().filter(|s| s.kept == k).count();
             use civ_agents::crime::Kept;
             parts.push(format!(
                 "{} watch{} named, {} keeping it now: {rounds} rounds, {hours:.0} hours, {cases} \

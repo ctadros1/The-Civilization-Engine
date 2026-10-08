@@ -366,6 +366,23 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** whether exile is ever chosen, and how often cases come where takings are common: fed villages scarcely take, and their takers are rarely seen. No office hears cases yet, labour-days wait for polity work, and refusing what a finding imposes has no sanction beyond its arrear until a watch exists (AC, next).
 
+## 2026-10-08 — M4b slice AC: the watch and corruption v0
+
+**Goal:** a village's own guard, built from what already exists: an office named by a law, a guardian who acts only where they stand, and the first corrupt act as a person's choice rather than a rate.
+
+**What changed:**
+
+- **The watch is an office.** A `keep_watch` law names its holder as the storekeeper's does; a household weighs it by a share of everything it found missing against as much of what its own takers took. A law now carries its template's kind, so offices are told apart without the catalog, and any office lapses when its holder dies or leaves.
+- **Rounds are a choice.** The one named walks rounds of the settlement's homes at night, a stand at each, worth less with each round, until sleep wins. Standing there they are someone about: the guardianship of slice AA turns a taker back or makes them seen, and nothing else makes the watch work. Its rounds, hours and cases show in the Government panel.
+- **What a watcher does with what they saw.** Once per taking: bring it before the gathering (or tell those taken from), say nothing, or ask the taker's household for food to say nothing, weighed against the watcher's objection to taking and the chance they believe they run of being found out. A household asked pays, or is brought before the gathering. A payment moves on a `bribe` channel; a quiet watcher tells nobody; what they chose shows only as truth.
+- **Boundary:** saves schema 33, wire 1.32, content API 37.
+
+**Found on the way:** a test watcher with no objection to taking also took, once their household had fed its hungry neighbours, and was found and exiled, ending the watch. A starving taker's household has nothing to pay with by the next midnight, and a watcher who has heard of many takings expects to be found out, so asking is rare even without objection.
+
+**Evidence:** unit tests for the watch's words, forecast and content checks; integration tests that a watch walks its rounds within the night's limit, that a watcher chooses once and keeps quiet or brings a case accordingly, and that a payment moves on its channel with goods conserved (10 runs of 10). 553 kernel tests, 130 web tests and the end-to-end suite (16 passed) pass. The ten-year smoke passed all 10 worlds; one village named a watch, which walked about two hours a night for the decade and brought the one taking it saw before the gathering. Gate B and the notables' gate passed.
+
+**Open:** whether a watch changes how often takers succeed: the smoke's villages take a few times a decade. Curfew, prohibitions, the dashboard's crime row and the M4b demo (AD) are next.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

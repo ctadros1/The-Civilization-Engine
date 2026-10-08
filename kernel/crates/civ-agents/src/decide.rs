@@ -72,6 +72,9 @@ pub struct Facts {
     pub petition: Option<GatheringFacts>,
     /// The round of the watch they keep, if they keep one and may walk it now (M4b slice AC).
     pub watch: Option<WatchFacts>,
+    /// Whether a blow keeps them from work today (M4c slice AI, step four): they eat, drink, rest,
+    /// sleep and keep company, and do no work.
+    pub hurt: bool,
 }
 
 /// A round of the watch someone keeps (M4b slice AC): the homes it passes, in order, and what
@@ -531,6 +534,23 @@ pub fn candidates(
         }
         if def.daylight_only && f.dark {
             excluded.push((id, Reason::NotInDark));
+            continue;
+        }
+        // A blow keeps them from work (M4c slice AI, step four).
+        if f.hurt
+            && !matches!(
+                def.behavior,
+                Behavior::Sleep
+                    | Behavior::Eat
+                    | Behavior::FetchWater
+                    | Behavior::Socialize
+                    | Behavior::Rest
+                    | Behavior::Ask
+                    | Behavior::Attend
+                    | Behavior::Petition
+            )
+        {
+            excluded.push((id, Reason::Hurt));
             continue;
         }
         let mut terms = Vec::new();
@@ -1444,6 +1464,7 @@ mod tests {
     fn facts() -> Facts {
         Facts {
             petition: None,
+            hurt: false,
             age: 30.0,
             capacity: 1.0,
             hunger: 0.5,

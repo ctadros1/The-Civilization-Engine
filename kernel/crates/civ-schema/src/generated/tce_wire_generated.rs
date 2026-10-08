@@ -25492,6 +25492,7 @@ impl<'a> Order<'a> {
   pub const VT_FOUND: ::flatbuffers::VOffsetT = 28;
   pub const VT_NOT_FOUND: ::flatbuffers::VOffsetT = 30;
   pub const VT_UNHEARD: ::flatbuffers::VOffsetT = 32;
+  pub const VT_ENCOUNTERS: ::flatbuffers::VOffsetT = 34;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -25505,6 +25506,7 @@ impl<'a> Order<'a> {
     let mut builder = OrderBuilder::new(_fbb);
     builder.add_refusals(args.refusals);
     builder.add_minute(args.minute);
+    if let Some(x) = args.encounters { builder.add_encounters(x); }
     builder.add_unheard(args.unheard);
     builder.add_not_found(args.not_found);
     builder.add_found(args.found);
@@ -25627,6 +25629,13 @@ impl<'a> Order<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(Order::VT_UNHEARD, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn encounters(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Order::VT_ENCOUNTERS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Order<'_> {
@@ -25650,6 +25659,7 @@ impl ::flatbuffers::Verifiable for Order<'_> {
      .visit_field::<u32>("found", Self::VT_FOUND, false)?
      .visit_field::<u32>("not_found", Self::VT_NOT_FOUND, false)?
      .visit_field::<u32>("unheard", Self::VT_UNHEARD, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("encounters", Self::VT_ENCOUNTERS, false)?
      .finish();
     Ok(())
   }
@@ -25670,6 +25680,7 @@ pub struct OrderArgs<'a> {
     pub found: u32,
     pub not_found: u32,
     pub unheard: u32,
+    pub encounters: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for OrderArgs<'a> {
   #[inline]
@@ -25690,6 +25701,7 @@ impl<'a> Default for OrderArgs<'a> {
       found: 0,
       not_found: 0,
       unheard: 0,
+      encounters: None,
     }
   }
 }
@@ -25760,6 +25772,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> OrderBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u32>(Order::VT_UNHEARD, unheard, 0);
   }
   #[inline]
+  pub fn add_encounters(&mut self, encounters: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Order::VT_ENCOUNTERS, encounters);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> OrderBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     OrderBuilder {
@@ -25792,6 +25808,7 @@ impl ::core::fmt::Debug for Order<'_> {
       ds.field("found", &self.found());
       ds.field("not_found", &self.not_found());
       ds.field("unheard", &self.unheard());
+      ds.field("encounters", &self.encounters());
       ds.finish()
   }
 }

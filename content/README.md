@@ -715,6 +715,13 @@ officeholder, and more adults than stand with the gathering, must stand with it 
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
 
+Content API 51 (M4c slice AI, step four) brings force: the `[crime]` keys `w_collect` (points
+toward going to take what a refused finding owed, for one who keeps the watch, beside the norms
+they hold), `w_harm` (points against taking it by force for each at the household who resisted),
+`strike_threshold` (the range each person's reluctance to strike is drawn from, points),
+`hurt_days` (the range of days a blow keeps the one struck from work) and `kill_share` (the chance
+a blow kills), all design priors; and the tie act `struck`.
+
 Content API 50 (M4c slice AI, step three) brings coups: the `[faction]` key `coup_cost` (what
 calling on the others who keep the watch to take the deciding for it costs a watcher, points,
 beside what the norms they hold weigh), a design prior; and the body membership `watch` (those who

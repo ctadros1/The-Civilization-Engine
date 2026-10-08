@@ -352,7 +352,7 @@ impl Population {
     }
 
     /// The members of household `household` old enough to sit at a gathering.
-    fn grown_of(
+    pub(super) fn grown_of(
         &self,
         household: PermanentId,
         now: SimTime,
@@ -371,7 +371,7 @@ impl Population {
     }
 
     /// A household's food need a day, kcal.
-    fn day_need(&self, household: PermanentId, params: &PeopleParams) -> f64 {
+    pub(super) fn day_need(&self, household: PermanentId, params: &PeopleParams) -> f64 {
         self.household(household)
             .map_or(1, |x| x.members.len().max(1)) as f64
             * params.household.daily_kcal_per_person

@@ -386,6 +386,12 @@ pub(crate) struct CrimeFile {
     pub ask_days: f64,
     pub curfew_guard: f64,
     pub curfew_cost_days: f64,
+    /// Content API 51 (M4c slice AI, step four): force.
+    pub w_collect: f64,
+    pub w_harm: f64,
+    pub strike_threshold: [f64; 2],
+    pub hurt_days: [u16; 2],
+    pub kill_share: f64,
 }
 
 impl CrimeFile {
@@ -430,6 +436,11 @@ impl CrimeFile {
             ask_days: self.ask_days,
             curfew_guard: self.curfew_guard,
             curfew_cost_days: self.curfew_cost_days,
+            w_collect: self.w_collect,
+            w_harm: self.w_harm,
+            strike_threshold: self.strike_threshold,
+            hurt_days: self.hurt_days,
+            kill_share: self.kill_share,
         }
     }
 
@@ -485,10 +496,27 @@ impl CrimeFile {
             ("crime.ask_days", self.ask_days, 0.0, 365.0),
             ("crime.curfew_guard", self.curfew_guard, 0.0, 1.0),
             ("crime.curfew_cost_days", self.curfew_cost_days, 0.0, 365.0),
+            ("crime.w_collect", self.w_collect, -100.0, 100.0),
+            ("crime.w_harm", self.w_harm, 0.0, 100.0),
+            ("crime.kill_share", self.kill_share, 0.0, 1.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
             }
+        }
+        let [lo, hi] = self.strike_threshold;
+        if !(lo.is_finite() && hi.is_finite() && 0.0 <= lo && lo <= hi && hi <= 100.0) {
+            p.push(format!(
+                "`crime.strike_threshold` must be two points from 0 to 100, the first at most \
+                 the second (got [{lo}, {hi}])"
+            ));
+        }
+        let [lo, hi] = self.hurt_days;
+        if !(1 <= lo && lo <= hi && hi <= 365) {
+            p.push(format!(
+                "`crime.hurt_days` must be two days from 1 to 365, the first at most the second \
+                 (got [{lo}, {hi}])"
+            ));
         }
     }
 }

@@ -87,6 +87,8 @@ pub enum Act {
     Restored,
     /// The other's household refused to give back what was taken from the holder's.
     RefusedRestitution,
+    /// The other struck the holder, or one of the holder's household (M4c slice AI, step four).
+    Struck,
 }
 
 impl Act {
@@ -105,6 +107,7 @@ impl Act {
         Act::TookFromOthers,
         Act::Restored,
         Act::RefusedRestitution,
+        Act::Struck,
     ];
 
     /// Its number in saves.
@@ -133,6 +136,7 @@ impl Act {
             Act::TookFromOthers => "took_from_others",
             Act::Restored => "restored",
             Act::RefusedRestitution => "refused_restitution",
+            Act::Struck => "struck",
         }
     }
 
@@ -143,7 +147,7 @@ impl Act {
 }
 
 /// Number of acts.
-pub const ACTS: usize = 13;
+pub const ACTS: usize = 14;
 
 /// What one act writes into its holder's tie, for each unit of it (an act, or an hour for
 /// [`Act::LearnedFrom`] and [`Act::Hearth`]). Authored in content as tuning values.
@@ -247,6 +251,7 @@ impl TieParams {
             bad(Domain::Provision, 1.0),
             w(0.0, 0.0, Some(Domain::Word), 1.0),
             bad(Domain::Word, 2.0),
+            bad(Domain::Provision, 3.0),
         ];
         p
     }
@@ -281,6 +286,7 @@ impl Reason {
             Act::TookFromOthers => "took food from another household",
             Act::Restored => "gave back what was taken from their household",
             Act::RefusedRestitution => "would not give back what was taken from their household",
+            Act::Struck => "struck them or one of their household",
         };
         let date = civ_core::time::SimTime::from_minutes(self.day * 1440).date();
         let month = civ_land::weather::MONTH_NAMES[usize::from(date.month.clamp(1, 12)) - 1];

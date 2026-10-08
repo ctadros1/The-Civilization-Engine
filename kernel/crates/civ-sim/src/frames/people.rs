@@ -9,7 +9,7 @@ use std::collections::HashSet;
 use civ_agents::history::{self, Span};
 use civ_agents::params::GoodUse;
 use civ_agents::person::{food_kcal, fuel_kg, stock_kcal};
-use civ_agents::{Cause, Origin, Person, Receipt, Repro, Scored, Sex, Step, Target, population};
+use civ_agents::{Origin, Person, Receipt, Repro, Scored, Sex, Step, Target, population};
 use civ_core::PermanentId;
 use civ_land::Building;
 use civ_schema::flatbuffers::{FlatBufferBuilder, ForwardsUOffset, Vector, WIPOffset};
@@ -712,15 +712,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
     let mut fbb = FlatBufferBuilder::new();
     let name = fbb.create_string(&record.given);
     let (died_minute, cause) = match record.died {
-        Some((at, cause)) => (
-            at.minutes(),
-            match cause {
-                Cause::Unspecified => "illness or accident",
-                Cause::Starvation => "hunger",
-                Cause::Childbirth => "childbirth",
-                Cause::Collapse => "a building's collapse",
-            },
-        ),
+        Some((at, cause)) => (at.minutes(), cause.label()),
         None => (0, ""),
     };
     let cause = fbb.create_string(cause);

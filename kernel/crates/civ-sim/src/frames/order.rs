@@ -316,6 +316,15 @@ pub fn order_response(sim: &Sim) -> Vec<u8> {
             .count() as u32
     };
     let stage = |s: CaseStage| order.cases.iter().filter(|c| c.stage == s).count() as u32;
+    // Encounters (wire 1.46), newest first, as the chronicle told them.
+    let encounters: Vec<_> = pop
+        .chronicle
+        .iter()
+        .rev()
+        .filter(|e| e.kind == civ_agents::ChronicleKind::Encounter)
+        .map(|e| fbb.create_string(&e.name))
+        .collect();
+    let encounters = fbb.create_vector(&encounters);
     let body = wire::Order::create(
         &mut fbb,
         &wire::OrderArgs {
@@ -338,6 +347,7 @@ pub fn order_response(sim: &Sim) -> Vec<u8> {
             found: stage(CaseStage::Found),
             not_found: stage(CaseStage::NotFound),
             unheard: stage(CaseStage::Unheard),
+            encounters: Some(encounters),
         },
     );
     response(fbb, wire::ResponseBody::Order, body)

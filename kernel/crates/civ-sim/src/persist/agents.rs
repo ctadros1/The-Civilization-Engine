@@ -106,8 +106,8 @@ use super::{
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
-    SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, finish, section, single_chunk,
-    unreadable,
+    SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -361,6 +361,8 @@ enum Schema {
     V45,
     /// Coups, and a body of those who keep the watch (M4c slice AI, step three).
     V46,
+    /// Encounters, blows and deaths by violence (M4c slice AI, step four).
+    V47,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -421,7 +423,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V43 => Schema::V43,
         SCHEMA_V44 => Schema::V44,
         SCHEMA_V45 => Schema::V45,
-        SAVE_SCHEMA_VERSION => Schema::V46,
+        SCHEMA_V46 => Schema::V46,
+        SAVE_SCHEMA_VERSION => Schema::V47,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2510,7 +2513,8 @@ fn carried(
         | Schema::V43
         | Schema::V44
         | Schema::V45
-        | Schema::V46 => {
+        | Schema::V46
+        | Schema::V47 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2666,7 +2670,8 @@ fn decode_households(
             | Schema::V43
             | Schema::V44
             | Schema::V45
-            | Schema::V46 => {
+            | Schema::V46
+            | Schema::V47 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -2930,6 +2935,41 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let sightings = fbb.create_vector(&sightings);
+    // Encounters (schema 47).
+    let encounters: Vec<_> = order
+        .encounters
+        .iter()
+        .map(|e| {
+            let met: Vec<save::MetSave> = e
+                .met
+                .iter()
+                .map(|&(p, m)| save::MetSave::new(p.get(), m.code()))
+                .collect();
+            let met = fbb.create_vector(&met);
+            let harms: Vec<save::HarmSave> = e
+                .harms
+                .iter()
+                .map(|h| save::HarmSave::new(h.by.get(), h.to.get(), h.days, h.killed))
+                .collect();
+            let harms = fbb.create_vector(&harms);
+            save::EncounterSave::create(
+                &mut fbb,
+                &save::EncounterSaveArgs {
+                    id: e.id,
+                    day: e.day,
+                    officer: e.officer.get(),
+                    household: e.household.get(),
+                    obligation: e.obligation,
+                    owed_kcal: e.owed_kcal,
+                    met: Some(met),
+                    forced: e.forced,
+                    taken_kcal: e.taken_kcal,
+                    harms: Some(harms),
+                },
+            )
+        })
+        .collect();
+    let encounters = fbb.create_vector(&encounters);
     let amounts: Vec<save::AmountSave> = order
         .amounts
         .iter()
@@ -2949,6 +2989,7 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
             obligations2: Some(obligations),
             cases: Some(cases),
             sightings: Some(sightings),
+            encounters: Some(encounters),
         },
     );
     finish(fbb, root)
@@ -3140,6 +3181,35 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
             points: (s.report_points(), s.ask_open().then_some(s.ask_points())),
         });
     }
+    for e in root.encounters().iter().flatten() {
+        let mut met = Vec::new();
+        for m in e.met().iter().flatten() {
+            let how = civ_agents::crime::Met::from_code(m.met())
+                .ok_or_else(|| bad(format!("encounter {} has answer code {}", e.id(), m.met())))?;
+            met.push((required(m.person(), "one met in an encounter")?, how));
+        }
+        let mut harms = Vec::new();
+        for h in e.harms().iter().flatten() {
+            harms.push(civ_agents::crime::Harm {
+                by: required(h.by(), "one who struck")?,
+                to: required(h.to(), "one struck")?,
+                days: h.days(),
+                killed: h.killed(),
+            });
+        }
+        order.encounters.push(civ_agents::crime::Encounter {
+            id: e.id(),
+            day: e.day(),
+            officer: required(e.officer(), "an encounter's watcher")?,
+            household: required(e.household(), "an encounter's household")?,
+            obligation: e.obligation(),
+            owed_kcal: e.owed_kcal(),
+            met,
+            forced: e.forced(),
+            taken_kcal: e.taken_kcal(),
+            harms,
+        });
+    }
     let problems = order_problems(&order);
     if !problems.is_empty() {
         return Err(LoadError::Invalid(problems));
@@ -3266,6 +3336,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::RevoltFailed => 35,
         ChronicleKind::CoupCalled => 36,
         ChronicleKind::CoupFailed => 37,
+        ChronicleKind::Encounter => 38,
     }
 }
 
@@ -3308,6 +3379,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         35 => Some(ChronicleKind::RevoltFailed),
         36 => Some(ChronicleKind::CoupCalled),
         37 => Some(ChronicleKind::CoupFailed),
+        38 => Some(ChronicleKind::Encounter),
         _ => None,
     }
 }
@@ -3328,6 +3400,7 @@ fn encode_history(pop: &Population) -> Vec<u8> {
                         Cause::Starvation => save::Cause::Starvation,
                         Cause::Childbirth => save::Cause::Childbirth,
                         Cause::Collapse => save::Cause::Collapse,
+                        Cause::Violence => save::Cause::Violence,
                     },
                 ),
                 None => (false, 0, save::Cause::Unspecified),
@@ -3426,6 +3499,7 @@ fn decode_history(bytes: &[u8]) -> Result<DecodedHistory, LoadError> {
             save::Cause::Starvation => Cause::Starvation,
             save::Cause::Childbirth => Cause::Childbirth,
             save::Cause::Collapse => Cause::Collapse,
+            save::Cause::Violence => Cause::Violence,
             other => {
                 return Err(LoadError::Incompatible(format!(
                     "record {rid} has cause of death {}, which this build does not know",

@@ -2189,6 +2189,19 @@ fn a_schema_45_save_loads_with_no_coups() {
 }
 
 #[test]
+fn a_schema_46_save_loads_with_no_encounters() {
+    let sim = load_first();
+    // A schema-46 save, from before force (M4c slice AI, step four): no watcher came to take what
+    // a finding owed, and nobody was struck.
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V46;
+    let path = republish("slice-ai3", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-46 save loads");
+    assert!(loaded.people().order.encounters.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn slice_q_saves_load_with_each_household_s_taste_drawn_as_its_band_s() {
     let mut sim = load_first();
     // Tastes no band would bring, which the migration replaces.

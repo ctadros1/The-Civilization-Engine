@@ -334,11 +334,16 @@ pub enum Wrong {
     /// The gathering turned down, or was too thin to decide, what they came to petition for
     /// (M4c slice AH).
     Refused = 6,
+    /// One who keeps the watch took what a finding owed from their household by force (M4c
+    /// slice AI, step four).
+    Forced = 7,
+    /// One of their household was struck by one who keeps the watch (M4c slice AI, step four).
+    Struck = 8,
 }
 
 impl Wrong {
     /// Every event, in code order.
-    pub const ALL: [Wrong; 7] = [
+    pub const ALL: [Wrong; 9] = [
         Wrong::StoreEmpty,
         Wrong::FoundAgainst,
         Wrong::NotFound,
@@ -346,6 +351,8 @@ impl Wrong {
         Wrong::Unpaid,
         Wrong::LeanLevy,
         Wrong::Refused,
+        Wrong::Forced,
+        Wrong::Struck,
     ];
 
     /// Its number in saves.
@@ -375,6 +382,10 @@ impl Wrong {
                  year's food"
             }
             Wrong::Refused => "the gathering did not grant what they came to petition for",
+            Wrong::Forced => {
+                "one who keeps the watch took what a finding owed from their household by force"
+            }
+            Wrong::Struck => "one of their household was struck by one who keeps the watch",
         }
     }
 }

@@ -1061,6 +1061,11 @@ export interface OrderInfo {
   found: number;
   notFound: number;
   unheard: number;
+  /**
+   * Wire 1.46 (M4c slice AI, step four): watchers come to take what a refused finding owed,
+   * newest first, in the kernel's words.
+   */
+  encounters: string[];
 }
 
 /** One good in a settlement's market (M3a slice I). Tallies fade by half every memory. */
@@ -3140,6 +3145,7 @@ export function orderInfo(w: W.Order): OrderInfo {
     found: w.found(),
     notFound: w.notFound(),
     unheard: w.unheard(),
+    encounters: Array.from({ length: w.encountersLength() }, (_, k) => w.encounters(k) ?? ""),
   };
 }
 

@@ -111,8 +111,20 @@ unheard():number {
   return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
 }
 
+encounters(index: number):string
+encounters(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+encounters(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 34);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+encountersLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 34);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startOrder(builder:flatbuffers.Builder) {
-  builder.startObject(15);
+  builder.startObject(16);
 }
 
 static addMinute(builder:flatbuffers.Builder, minute:bigint) {
@@ -199,12 +211,28 @@ static addUnheard(builder:flatbuffers.Builder, unheard:number) {
   builder.addFieldInt32(14, unheard, 0);
 }
 
+static addEncounters(builder:flatbuffers.Builder, encountersOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(15, encountersOffset, 0);
+}
+
+static createEncountersVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startEncountersVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endOrder(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createOrder(builder:flatbuffers.Builder, minute:bigint, incidentsOffset:flatbuffers.Offset, knownOffset:flatbuffers.Offset, attempts:number, takings:number, seen:number, knownToVictims:number, demands:number, met:number, refused:number, refusals:bigint, cases:number, found:number, notFound:number, unheard:number):flatbuffers.Offset {
+static createOrder(builder:flatbuffers.Builder, minute:bigint, incidentsOffset:flatbuffers.Offset, knownOffset:flatbuffers.Offset, attempts:number, takings:number, seen:number, knownToVictims:number, demands:number, met:number, refused:number, refusals:bigint, cases:number, found:number, notFound:number, unheard:number, encountersOffset:flatbuffers.Offset):flatbuffers.Offset {
   Order.startOrder(builder);
   Order.addMinute(builder, minute);
   Order.addIncidents(builder, incidentsOffset);
@@ -221,6 +249,7 @@ static createOrder(builder:flatbuffers.Builder, minute:bigint, incidentsOffset:f
   Order.addFound(builder, found);
   Order.addNotFound(builder, notFound);
   Order.addUnheard(builder, unheard);
+  Order.addEncounters(builder, encountersOffset);
   return Order.endOrder(builder);
 }
 }

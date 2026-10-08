@@ -485,6 +485,9 @@ acts = [
   { act = "took_from_others", familiarity = 0.0, warmth = 0.0, domain = "provision", good = 0.0, bad = 1.0 },
   { act = "restored", familiarity = 0.0, warmth = 0.0, domain = "word", good = 1.0, bad = 0.0 },
   { act = "refused_restitution", familiarity = 0.0, warmth = 0.0, domain = "word", good = 0.0, bad = 2.0 },
+  # M4c slice AI, step four (content API 51): being struck weighs against the one who struck, as
+  # heavily as their taking from one's own household.
+  { act = "struck", familiarity = 0.0, warmth = 0.0, domain = "provision", good = 0.0, bad = 3.0 },
 ]
 
 [standing]                       # standing and notables (ADR-0014 §3-4); tuning values
@@ -655,6 +658,24 @@ ask_days = 3.0
 # values: the research gives no figure for what a curfew costs or stops.
 curfew_guard = 0.3
 curfew_cost_days = 0.25
+# Force (content API 51, M4c slice AI, step four; ADR-0017 §3-4). One who keeps the watch weighs, at
+# their monthly review, going to take what a gathering's finding owed and the household refused
+# (research 09-06 §1.3: an order's execution is a stage of its own), at `w_collect` and the norms
+# they hold (the gathering binds), with their regard for the household owed over their regard for
+# the household owing, against their threshold. Each adult of the household meets them: letting it
+# be taken is worth the norms they hold and their regard for the one who came; resisting, how
+# strongly their household refused it and their grievances against the watch and the gathering. One
+# whose will to resist passes their reluctance to strike, drawn for each person between the two
+# `strike_threshold` points (04-10 §1.8: people differ over violence), strikes; one short of it
+# stands in the way. Where any resisted, the watcher takes it by force only if it is still worth
+# it less `w_harm` for each who did; each who struck strikes them, and they strike back. A blow
+# keeps the one struck from work for `hurt_days` (a range) and kills at `kill_share`. All design
+# priors: the research gives no figure for how hard a blow falls in a village quarrel.
+w_collect = 0.5
+w_harm = 1.0
+strike_threshold = [1.0, 4.0]
+hurt_days = [3, 21]
+kill_share = 0.02
 
 [word]                           # word of mouth and grievances (M4c slice AE, ADR-0016); tuning values
 # A gathering is heard of by contact, never broadcast (research 09-16 §1.3: attendance and timing

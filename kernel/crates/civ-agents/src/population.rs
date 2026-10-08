@@ -45,6 +45,7 @@ mod deposits;
 mod digging;
 mod faction;
 mod firm;
+mod force;
 mod ideology;
 mod knowledge;
 mod land;
@@ -2338,6 +2339,10 @@ impl Population {
             gathering: self.gathering_facts(ctx, p.id, age, &hh, minute, evening_start),
             petition: self.petition_facts(ctx, p.id, age, &hh, minute, evening_start),
             watch: self.watch_facts(ctx, p.id, &hh, dark),
+            hurt: self
+                .order
+                .hurt_until(p.id)
+                .is_some_and(|d| d >= now.day_index()),
         };
         let limits = Limits {
             sleep_needed_min: needs::minutes_to_rest(&params.sleep, f64::from(p.sleep_pressure)),

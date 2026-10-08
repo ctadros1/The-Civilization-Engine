@@ -173,6 +173,8 @@ pub const SCHEMA_V43: u32 = 43;
 pub const SCHEMA_V44: u32 = 44;
 /// The schema version of M4c slice AI's second step: founding, before coups (see [`agents`]).
 pub const SCHEMA_V45: u32 = 45;
+/// The schema version of M4c slice AI's third step: coups, before force (see [`agents`]).
+pub const SCHEMA_V46: u32 = 46;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

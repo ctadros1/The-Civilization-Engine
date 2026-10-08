@@ -132,6 +132,21 @@ pub struct CrimeParams {
     /// Days of its food a year a household reckons each hour of a curfew costs each of its grown
     /// members, kept at home: what it weighs a curfew against.
     pub curfew_cost_days: f64,
+    /// Force (M4c slice AI, step four; research 09-06 §1.3: an order's execution): points toward
+    /// going to take what a refused finding owes, for one who keeps the watch, beside the norms
+    /// they hold and their regard for the household owed over the household owing.
+    pub w_collect: f64,
+    /// Points against taking it by force, for each at the household who stood in the way or
+    /// struck (the harm the watcher expects).
+    pub w_harm: f64,
+    /// The range a person's reluctance to strike is drawn from, points, keyed (04-10 §1.8:
+    /// people differ over the acceptability of violence): one strikes only when their will to
+    /// resist exceeds it.
+    pub strike_threshold: [f64; 2],
+    /// The range of days a blow keeps the one struck from work.
+    pub hurt_days: [u16; 2],
+    /// The chance a blow kills.
+    pub kill_share: f64,
 }
 
 impl CrimeParams {
@@ -177,6 +192,11 @@ impl CrimeParams {
             ask_days: 3.0,
             curfew_guard: 0.3,
             curfew_cost_days: 0.25,
+            w_collect: 0.5,
+            w_harm: 1.0,
+            strike_threshold: [1.0, 4.0],
+            hurt_days: [3, 21],
+            kill_share: 0.02,
         }
     }
 }
@@ -611,8 +631,101 @@ pub struct Order {
     /// What watchers chose to do with takings they saw, in the order they chose (M4b slice AC):
     /// the truth, which nobody else learns.
     pub sightings: Vec<Sighting>,
+    /// Watchers come to households to take what a refused finding owed, in order (M4c slice AI,
+    /// step four).
+    pub encounters: Vec<Encounter>,
     /// Asks refused because the giver believed the asker took (a counter, not saved).
     pub refusals: u64,
+}
+
+/// How someone at a household met one of the watch come to take what a gathering's finding owed
+/// (M4c slice AI, step four; research 09-06 §1.5: comply or resist; 04-10 §1.8: violence is a
+/// choice of its own, recorded apart). Codes are part of saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Met {
+    /// They let it be taken.
+    Yielded = 0,
+    /// They stood in the way, and struck no one.
+    Barred = 1,
+    /// They struck the one who came.
+    Struck = 2,
+}
+
+impl Met {
+    /// Every answer, in code order.
+    pub const ALL: [Met; 3] = [Met::Yielded, Met::Barred, Met::Struck];
+
+    /// Its number in saves.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The answer numbered `code`.
+    pub fn from_code(code: u8) -> Option<Met> {
+        Met::ALL.get(usize::from(code)).copied()
+    }
+}
+
+/// A blow struck in an encounter (ADR-0017 §3: any death or injury resolves to a record and a
+/// cause; research 06-10 §4.C: who did what to whom).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Harm {
+    /// Who struck.
+    pub by: PermanentId,
+    /// Whom.
+    pub to: PermanentId,
+    /// Days it kept them from work.
+    pub days: u16,
+    /// Whether it killed them.
+    pub killed: bool,
+}
+
+/// One who keeps the watch came to a household to take what a gathering's finding owed and the
+/// household had refused (M4c slice AI, step four; research 09-06 §1.3: an order's execution is a
+/// stage of its own, which can fail for a recorded reason). The household's adults each met them
+/// as they chose; where any stood in the way the watcher chose to take it by force or turn back;
+/// every blow is a [`Harm`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct Encounter {
+    /// Its number, from 1.
+    pub id: u32,
+    /// The day it happened.
+    pub day: i64,
+    /// The one who came.
+    pub officer: PermanentId,
+    /// The household come to.
+    pub household: PermanentId,
+    /// The obligation it was to execute.
+    pub obligation: u32,
+    /// What was owed then, kcal.
+    pub owed_kcal: f32,
+    /// How each adult of the household met them, in person order.
+    pub met: Vec<(PermanentId, Met)>,
+    /// Whether the watcher took it though some stood in the way.
+    pub forced: bool,
+    /// What was taken, kcal.
+    pub taken_kcal: f32,
+    /// The blows struck, in order.
+    pub harms: Vec<Harm>,
+}
+
+impl Encounter {
+    /// Whether anyone stood in the way or struck.
+    pub fn resisted(&self) -> bool {
+        self.met.iter().any(|m| m.1 != Met::Yielded)
+    }
+}
+
+impl Order {
+    /// The day through which `person` is kept from work by blows they took, if any.
+    pub fn hurt_until(&self, person: PermanentId) -> Option<i64> {
+        self.encounters
+            .iter()
+            .flat_map(|e| e.harms.iter().map(move |h| (e.day, h)))
+            .filter(|(_, h)| h.to == person && !h.killed)
+            .map(|(day, h)| day + i64::from(h.days))
+            .max()
+    }
 }
 
 /// What a watcher who saw a taking chose (M4b slice AC, ADR-0015 §6; research 09-09 §1.3). Codes

@@ -2176,6 +2176,12 @@ export function bindUi(store: Store, actions: Actions): void {
       }),
       el("p", { className: "order-totals", text: totalsText(o) }),
     ];
+    // Watchers come to take what a refused finding owed (wire 1.46).
+    if (o.encounters.length > 0) {
+      nodes.push(
+        el("ul", { className: "encounters" }, ...o.encounters.map((v) => el("li", { text: v }))),
+      );
+    }
     const known = new Map(o.known.map((k) => [k.incident, k]));
     if (o.incidents.length > 0) {
       const list = el("ol", { className: "takings" });

@@ -628,6 +628,24 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** step four of slice AI (force, damage and violence); slice AJ.
 
+## 2026-10-08 — M4c slice AI, step four: force
+
+**Goal:** let the first office of force use it, with every blow a record and a cause (ADR-0017 §3–§4; research 04-10 §1.7–1.8, 09-06 §1.3, 06-10 §4).
+
+**What changed:**
+
+- **Going to collect:** at their monthly review, one who keeps the watch weighs going to take what a gathering's finding owed and a household refused, worth a duty, the norms they hold and their regard for the household owed, less their regard for the household owing.
+- **How they are met:** each adult of the household lets it be taken, stands in the way, or strikes, from the norms they hold, their regard for the watcher, how strongly the household refused and their grievances against the watch and the gathering, against their own keyed reluctance to strike.
+- **Force and blows:** where anyone resisted, the watcher takes it by force if it is still worth it less a cost for each who did, or turns back; each who struck strikes the watcher and is struck back. A blow keeps the one struck from work for days and rarely kills, a death by violence.
+- **What it leaves:** grievances against the watch, a tie act for a blow, and the encounter told in plain verbs in the chronicle and the Order panel.
+- **Boundary:** saves schema 47 (46 still loads), wire 1.46 (encounters in the Order panel), content API 51 (`w_collect`, `w_harm`, `strike_threshold`, `hurt_days`, `kill_share`; the tie act `struck`).
+
+**Findings:** no village in the ten-year smoke named a watch or refused a finding this run, so force fired only in the tests; it waits on conditions the villages rarely reach, as a coup did in step three. A test that expected two grievances found one: the grievance against the watch for taking by force and the one for a blow merge as one wrong against one party, so the test accepts either.
+
+**Evidence:** integration tests that a watcher takes a refused finding by force against a household that struck, each blow recorded and the save loading exactly, and that a killing blow is a death by violence with its record; that a schema-46 save loads; the web tests. The kernel (615), web (142) and end-to-end (16, 6 demos skipped) suites pass, with clippy and the format and schema checks clean. The ten-year smoke passed all 10 worlds, and Gate B and the notables' gate passed.
+
+**Open:** keeping a seized store, damage to property, fear from a blow; slice AJ (the god tools, the regimes row and the M4 demo).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

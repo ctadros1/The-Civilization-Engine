@@ -425,7 +425,7 @@ table Households {
 enum Origin : ubyte { Founder = 0, Born = 1, Spawned = 2 }
 
 // Collapse (3): a building gave way around them (slice P's second step, ADR-0009 §5).
-enum Cause : ubyte { Unspecified = 0, Starvation = 1, Childbirth = 2, Collapse = 3 }
+enum Cause : ubyte { Unspecified = 0, Starvation = 1, Childbirth = 2, Collapse = 3, Violence = 4 }
 
 table PersonRecord {
   id: ulong (id: 0);
@@ -1334,6 +1334,34 @@ table CaseSave {
   exiled: bool (id: 16);
 }
 
+// How someone met one of the watch come to take what a finding owed: 0 yielded, 1 stood in the
+// way, 2 struck (schema 47).
+struct MetSave {
+  person: ulong;
+  met: ubyte;
+}
+
+// A blow: who struck whom, the days it kept them from work, and whether it killed them.
+struct HarmSave {
+  by: ulong;
+  to: ulong;
+  days: ushort;
+  killed: bool;
+}
+
+table EncounterSave {
+  id: uint (id: 0);
+  day: long (id: 1);
+  officer: ulong (id: 2);
+  household: ulong (id: 3);
+  obligation: uint (id: 4);
+  owed_kcal: float (id: 5);
+  met: [MetSave] (id: 6);
+  forced: bool (id: 7);
+  taken_kcal: float (id: 8);
+  harms: [HarmSave] (id: 9);
+}
+
 table Order {
   incidents: [IncidentSave] (id: 0);
   beliefs: [BeliefSave] (id: 1);
@@ -1347,6 +1375,8 @@ table Order {
   obligations2: [ObligationSave2] (id: 7);
   cases: [CaseSave] (id: 8);
   sightings: [SightingSave] (id: 9);
+  // Watchers come to households to take what a refused finding owed (schema 47); absent before.
+  encounters: [EncounterSave] (id: 10);
 }
 
 // Section "word" (schema 35, M4c slice AE, ADR-0016): shared claims, who heard them, and the

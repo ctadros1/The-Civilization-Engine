@@ -960,3 +960,264 @@ fn a_watch_of_several_each_walk_their_own_rounds() {
     }
     saves_and_goes_on_alike(&mut sim, content(), DAY);
 }
+
+/// A village with a watch and a law against taking, in which the gathering found that one of a
+/// household took from another and the household refused what the finding owed: the watcher's
+/// norms held fully, the refusing household's not at all. Returns the watcher, the household owing
+/// and the obligation's number.
+fn a_refused_finding(sim: &mut Sim) -> (PermanentId, PermanentId, u32) {
+    use civ_agents::crime::{Case, CaseStage, Incident, Obligation, Outcome as Ended};
+    use civ_agents::polity::PolicyKind;
+    let (_, _) = a_law(sim, PolicyKind::KeepWatch);
+    let (_, against) = a_law(sim, PolicyKind::AgainstTaking);
+    let grain = sim
+        .rules()
+        .catalog
+        .good_index("core:good/grain")
+        .expect("in core");
+    let (now, grown) = (sim.now(), sim.rules().people.family.independent_age);
+    let pop = sim.people_mut_for_tests();
+    let settlement = pop.polities[0].settlement;
+    let watcher = pop.polities[0].watcher().map(|w| w.0).expect("a watcher");
+    let own = pop.person(watcher).expect("here").household;
+    let mut homes: Vec<(PermanentId, Vec<PermanentId>)> = pop
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .filter(|h| h.settlement == Some(settlement) && h.id != own)
+        .map(|h| {
+            let grown: Vec<PermanentId> = h
+                .members
+                .iter()
+                .copied()
+                .filter(|&m| pop.person(m).is_some_and(|p| p.age_years(now) >= grown))
+                .collect();
+            (h.id, grown)
+        })
+        .filter(|(_, g)| !g.is_empty())
+        .collect();
+    homes.sort_by_key(|h| h.0);
+    let (debtor, takers) = homes[0].clone();
+    let (owed, accusers) = homes[1].clone();
+    let day = now.day_index();
+    let order = &mut pop.order;
+    let incident = order.incidents.len() as u32 + 1;
+    order.incidents.push(Incident {
+        id: incident,
+        at: now,
+        actor: takers[0],
+        actor_household: debtor,
+        target: owed,
+        place: (0.0, 0.0),
+        outcome: Ended::Taken,
+        goods: vec![(grain as u16, 8.0)],
+        kcal: 26_000.0,
+        seen_by: Vec::new(),
+        noticed: true,
+        food_days: f32::NAN,
+        richer: f32::NAN,
+    });
+    let case = order.cases.len() as u32 + 1;
+    order.cases.push(Case {
+        id: case,
+        incident,
+        settlement,
+        law: against,
+        accuser: owed,
+        by: accusers[0],
+        accused: takers[0],
+        accused_household: debtor,
+        kcal: 26_000.0,
+        leads: Vec::new(),
+        opened: day,
+        stage: CaseStage::Found,
+        heard: Some(now),
+        eligible: 0,
+        stances: Vec::new(),
+        exiled: false,
+    });
+    let id = order.obligations.iter().map(|o| o.id).max().unwrap_or(0) + 1;
+    order.obligations.push(Obligation {
+        id,
+        incident,
+        kind: civ_agents::crime::Owed::Restitution,
+        case: Some(case),
+        debtor,
+        beneficiary: owed,
+        kcal: 26_000.0,
+        paid_kcal: 0.0,
+        made: day,
+        due: day + 30,
+        standing: civ_agents::crime::Standing::Refused,
+        answer: Some((false, -3.0)),
+    });
+    // The household owing holds plenty, so there is something to take.
+    for (_, x) in pop.households.iter_mut().filter(|(_, x)| x.id == debtor) {
+        x.stores.resize(grain + 1, 0.0);
+        x.stores[grain] += 200.0;
+    }
+    for s in &mut pop.norms.states {
+        let full = s.holder == watcher;
+        s.endorse = if full { 1.0 } else { 0.0 };
+        s.expect = if full { 1.0 } else { 0.0 };
+    }
+    (watcher, debtor, id)
+}
+
+#[test]
+fn a_watcher_takes_what_a_refused_finding_owed_and_every_blow_is_recorded() {
+    use civ_agents::crime::Met;
+    let mut sim = world_with(content(), 7);
+    sim.advance_minutes(3 * DAY).expect("advances");
+    // The situation under test: whoever resists strikes, and the watcher takes it by force.
+    let content_crime = sim.rules().people.crime.clone();
+    {
+        let crime = &mut sim
+            .rules_mut_for_tests()
+            .expect("rules not yet shared")
+            .people
+            .crime;
+        crime.strike_threshold = [0.0, 0.0];
+        crime.w_harm = 0.0;
+        crime.kill_share = 0.0;
+    }
+    let (watcher, debtor, obligation) = a_refused_finding(&mut sim);
+    let held_before = sim.people().goods_held();
+    let flows_before = sim.people().flows();
+    // At the watcher's monthly review, they go.
+    for _ in 0..31 {
+        sim.advance_minutes(DAY).expect("advances");
+        if !sim.people().order.encounters.is_empty() {
+            break;
+        }
+    }
+    let pop = sim.people();
+    let e = pop.order.encounters.first().expect("the watcher went");
+    assert_eq!(
+        (e.officer, e.household, e.obligation),
+        (watcher, debtor, obligation)
+    );
+    // Each adult of the household met them, by their own choice.
+    assert!(
+        !e.met.is_empty() && e.met.windows(2).all(|w| w[0].0 < w[1].0),
+        "{e:?}"
+    );
+    let struck: Vec<PermanentId> = e
+        .met
+        .iter()
+        .filter(|m| m.1 == Met::Struck)
+        .map(|m| m.0)
+        .collect();
+    assert!(e.resisted() && e.forced, "{e:?}");
+    assert!(e.taken_kcal > 0.0, "{e:?}");
+    // Each who struck struck the watcher, and the watcher struck back: every blow a record.
+    assert_eq!(e.harms.len(), 2 * struck.len(), "{e:?}");
+    for &s in &struck {
+        assert!(e.harms.iter().any(|h| h.by == s && h.to == watcher));
+        assert!(e.harms.iter().any(|h| h.by == watcher && h.to == s));
+    }
+    // A blow keeps the one struck from work.
+    let day = sim.now().day_index();
+    for h in &e.harms {
+        assert!(!h.killed);
+        assert!(pop.order.hurt_until(h.to).is_some_and(|d| d >= e.day));
+    }
+    // The finding's food moved where it said; nothing was made or lost.
+    let ob = pop
+        .order
+        .obligations
+        .iter()
+        .find(|o| o.id == obligation)
+        .expect("kept");
+    assert!((ob.paid_kcal - e.taken_kcal).abs() < 1.0, "{ob:?} {e:?}");
+    let goods = &sim.rules().catalog.goods;
+    let gaps = population::unaccounted(
+        goods.len(),
+        (&held_before, &flows_before),
+        (&pop.goods_held(), &pop.flows()),
+    );
+    assert!(gaps.is_empty(), "unaccounted for: {gaps:?}");
+    // The household holds it against the watch (one grievance against the office, raised again
+    // by each wrong); the chronicle names who did what to whom.
+    let elder = e.met[0].0;
+    assert!(
+        pop.word.grievances_of(elder).any(|g| {
+            matches!(g.blamed, civ_agents::word::Blamed::Office(_))
+                && matches!(
+                    g.wrong,
+                    civ_agents::word::Wrong::Forced | civ_agents::word::Wrong::Struck
+                )
+        }),
+        "{:?}",
+        pop.word.grievances_of(elder).collect::<Vec<_>>()
+    );
+    let told = pop
+        .chronicle
+        .iter()
+        .find(|c| c.kind == civ_agents::ChronicleKind::Encounter)
+        .expect("the chronicle tells it");
+    assert!(
+        told.name.contains("who keeps the watch, came to"),
+        "{}",
+        told.name
+    );
+    if let Some(&s) = struck.first() {
+        let blow = format!("{} struck {}", pop.name_of(s), pop.name_of(watcher));
+        assert!(told.name.contains(&blow), "{}", told.name);
+    }
+    let _ = day;
+    sim.rules_mut_for_tests()
+        .expect("rules not yet shared")
+        .people
+        .crime = content_crime;
+    saves_and_goes_on_alike(&mut sim, content(), 2 * DAY);
+}
+
+#[test]
+fn a_blow_that_kills_is_a_death_by_violence_with_its_record() {
+    let mut sim = world_with(content(), 7);
+    sim.advance_minutes(3 * DAY).expect("advances");
+    let content_crime = sim.rules().people.crime.clone();
+    {
+        let crime = &mut sim
+            .rules_mut_for_tests()
+            .expect("rules not yet shared")
+            .people
+            .crime;
+        crime.strike_threshold = [0.0, 0.0];
+        crime.w_harm = 0.0;
+        crime.kill_share = 1.0;
+    }
+    let (_, _, _) = a_refused_finding(&mut sim);
+    for _ in 0..31 {
+        sim.advance_minutes(DAY).expect("advances");
+        if !sim.people().order.encounters.is_empty() {
+            break;
+        }
+    }
+    let pop = sim.people();
+    let e = pop.order.encounters.first().expect("the watcher went");
+    assert!(!e.harms.is_empty(), "someone struck: {e:?}");
+    for h in &e.harms {
+        assert!(h.killed);
+        let r = pop.records.get(&h.to).expect("a record");
+        assert_eq!(
+            r.died.map(|d| d.1),
+            Some(civ_agents::Cause::Violence),
+            "{r:?}"
+        );
+        assert!(pop.person(h.to).is_none(), "the dead are gone");
+    }
+    assert!(
+        pop.chronicle
+            .iter()
+            .any(|c| c.kind == civ_agents::ChronicleKind::Encounter
+                && c.name.contains("who died of it")),
+        "the chronicle tells it"
+    );
+    sim.rules_mut_for_tests()
+        .expect("rules not yet shared")
+        .people
+        .crime = content_crime;
+    saves_and_goes_on_alike(&mut sim, content(), DAY);
+}

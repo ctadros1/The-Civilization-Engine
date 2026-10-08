@@ -221,6 +221,8 @@ impl Population {
         // step three).
         if self.keeps_a_watch(person) {
             self.consider_coup(ctx, person, settlement, threshold);
+            // And going to take what a refused finding owed (step four).
+            self.consider_collection(ctx, person, settlement, threshold);
         }
         // A member stays while belonging is worth enough to them (04-10 §5.4: leaving has
         // conditions of its own).

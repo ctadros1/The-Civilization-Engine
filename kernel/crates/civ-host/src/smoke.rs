@@ -1050,6 +1050,28 @@ fn polity(sim: &Sim) -> Option<String> {
             fs.coups.iter().filter(|c| c.ended.is_none()).count(),
         ));
     }
+    // Force (M4c slice AI, step four): watchers come to take what refused findings owed, how
+    // they were met, and every blow, with the deaths among them.
+    let encounters = &pop.order.encounters;
+    if !encounters.is_empty() {
+        let forced = encounters.iter().filter(|e| e.forced).count();
+        let turned = encounters
+            .iter()
+            .filter(|e| e.resisted() && !e.forced)
+            .count();
+        let blows: usize = encounters.iter().map(|e| e.harms.len()).sum();
+        let killed: usize = encounters
+            .iter()
+            .flat_map(|e| &e.harms)
+            .filter(|h| h.killed)
+            .count();
+        parts.push(format!(
+            "force: {} encounters ({} yielded, {forced} taken by force, {turned} turned back); \
+             {blows} blows, {killed} killing",
+            encounters.len(),
+            encounters.len() - forced - turned,
+        ));
+    }
     // Norms (M4c slice AG): for each, how far it is held on average, what people believe of
     // others against what households did at their last levy, how many it moves, and how often an
     // account was told and taken in.

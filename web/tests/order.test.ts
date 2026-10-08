@@ -106,6 +106,7 @@ describe("takings in words", () => {
       found: 0,
       notFound: 0,
       unheard: 0,
+      encounters: [],
     };
     expect(totalsText(none)).toBe("Nobody has gone to take from another household's store.");
     expect(
@@ -158,6 +159,11 @@ describe("takings in words", () => {
     const brought = b.createString("Rilla brought it before the gathering on the word of 1 witness");
     const k = W.KnownLine.createKnownLine(b, 3, 4, 0, 1, true, response, owed, brought);
     const knownList = W.Order.createKnownVector(b, [k]);
+    const encounters = W.Order.createEncountersVector(b, [
+      b.createString(
+        "Bo, who keeps the watch, came to the household of Rilla to take what a finding of the gathering owed; they let Bo take 4 days' food.",
+      ),
+    ]);
     const order = W.Order.createOrder(
       b,
       BigInt(41 * DAY),
@@ -175,6 +181,7 @@ describe("takings in words", () => {
       1,
       0,
       0,
+      encounters,
     );
     b.finish(W.Response.createResponse(b, W.ResponseBody.Order, order));
     const body = M.decodeResponse(b.asUint8Array());
@@ -191,6 +198,8 @@ describe("takings in words", () => {
       cases: 1,
       found: 1,
     });
+    expect(o.encounters).toHaveLength(1);
+    expect(o.encounters[0]).toContain("they let Bo take 4 days' food");
     expect(o.incidents[0]).toMatchObject({
       id: 3,
       actor: 7,

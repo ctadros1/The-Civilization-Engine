@@ -145,11 +145,13 @@ pub enum Reason {
     Petition = 30,
     /// Excluded: no petition they heard of sits now.
     NoPetition = 133,
+    /// Excluded: a blow keeps them from work (M4c slice AI, step four).
+    Hurt = 134,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 64] = [
+    pub const ALL: [Reason; 65] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -214,6 +216,7 @@ impl Reason {
         Reason::Curfew,
         Reason::Petition,
         Reason::NoPetition,
+        Reason::Hurt,
     ];
 
     /// The reason with this code.
@@ -288,6 +291,7 @@ impl Reason {
             Reason::Curfew => "a curfew forbids being away from home now",
             Reason::Petition => "the petition at the hearth",
             Reason::NoPetition => "no petition they heard of sits now",
+            Reason::Hurt => "a blow keeps them from work",
         }
     }
 }
@@ -358,15 +362,19 @@ pub enum Cause {
     Childbirth,
     /// When a building gave way around them (ADR-0009 §5).
     Collapse,
+    /// Of a blow another struck (M4c slice AI, step four; ADR-0017 §3): the encounter that
+    /// records who struck it.
+    Violence,
 }
 
 impl Cause {
     /// Every cause.
-    pub const ALL: [Cause; 4] = [
+    pub const ALL: [Cause; 5] = [
         Cause::Unspecified,
         Cause::Starvation,
         Cause::Childbirth,
         Cause::Collapse,
+        Cause::Violence,
     ];
 
     /// The key a chronicle entry keeps it as.
@@ -376,6 +384,7 @@ impl Cause {
             Cause::Starvation => "starvation",
             Cause::Childbirth => "childbirth",
             Cause::Collapse => "collapse",
+            Cause::Violence => "violence",
         }
     }
 
@@ -391,6 +400,7 @@ impl Cause {
             Cause::Starvation => "hunger",
             Cause::Childbirth => "childbirth",
             Cause::Collapse => "a building's collapse",
+            Cause::Violence => "a blow struck by another",
         }
     }
 }
@@ -542,6 +552,10 @@ pub enum ChronicleKind {
     /// A call for the watch to take the deciding came to nothing (M4c slice AI, step three):
     /// `people` is the one who called it, `name` the whole of it in words.
     CoupFailed,
+    /// One who keeps the watch came to take what a refused finding owed (M4c slice AI, step four;
+    /// research 06-10 §4.C): `people` is the watcher, then the household's elder; `number` the
+    /// food taken, kcal; `name` the whole of it in words, who met them how and every blow.
+    Encounter,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -662,6 +676,7 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 Some(Cause::Starvation) => format!(" died of hunger, {age}."),
                 Some(Cause::Childbirth) => format!(" died in childbirth, {age}."),
                 Some(Cause::Collapse) => format!(" died when a building gave way, {age}."),
+                Some(Cause::Violence) => format!(" died of a blow, {age}."),
                 _ => format!(" died, {age}."),
             };
             vec![who, Span::Text(how)]
@@ -926,7 +941,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::CustomAmended
         | ChronicleKind::CustomTaken
         | ChronicleKind::RevoltFailed
-        | ChronicleKind::CoupFailed => {
+        | ChronicleKind::CoupFailed
+        | ChronicleKind::Encounter => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

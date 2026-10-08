@@ -14320,7 +14320,8 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_LABEL = 30,
     VT_LABEL_MODIFIERS = 32,
     VT_LABEL_WHY = 34,
-    VT_LABEL_CONFIDENCE = 36
+    VT_LABEL_CONFIDENCE = 36,
+    VT_GATHERING_CASES = 38
   };
   uint64_t polity() const {
     return GetField<uint64_t>(VT_POLITY, 0);
@@ -14373,6 +14374,9 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   float label_confidence() const {
     return GetField<float>(VT_LABEL_CONFIDENCE, 0.0f);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *gathering_cases() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_GATHERING_CASES);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -14405,6 +14409,9 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVector(label_why()) &&
            verifier.VerifyVectorOfStrings(label_why()) &&
            VerifyField<float>(verifier, VT_LABEL_CONFIDENCE, 4) &&
+           VerifyOffset(verifier, VT_GATHERING_CASES) &&
+           verifier.VerifyVector(gathering_cases()) &&
+           verifier.VerifyVectorOfStrings(gathering_cases()) &&
            verifier.EndTable();
   }
 };
@@ -14464,6 +14471,9 @@ struct PolityLineBuilder {
   void add_label_confidence(float label_confidence) {
     fbb_.AddElement<float>(PolityLine::VT_LABEL_CONFIDENCE, label_confidence, 0.0f);
   }
+  void add_gathering_cases(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> gathering_cases) {
+    fbb_.AddOffset(PolityLine::VT_GATHERING_CASES, gathering_cases);
+  }
   explicit PolityLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -14493,13 +14503,15 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLine(
     ::flatbuffers::Offset<::flatbuffers::String> label = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> label_modifiers = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> label_why = 0,
-    float label_confidence = 0.0f) {
+    float label_confidence = 0.0f,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> gathering_cases = 0) {
   PolityLineBuilder builder_(_fbb);
   builder_.add_gathering_minute(gathering_minute);
   builder_.add_gathering_law(gathering_law);
   builder_.add_founded_minute(founded_minute);
   builder_.add_settlement(settlement);
   builder_.add_polity(polity);
+  builder_.add_gathering_cases(gathering_cases);
   builder_.add_label_confidence(label_confidence);
   builder_.add_label_why(label_why);
   builder_.add_label_modifiers(label_modifiers);
@@ -14538,7 +14550,8 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
     const char *label = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *label_modifiers = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *label_why = nullptr,
-    float label_confidence = 0.0f) {
+    float label_confidence = 0.0f,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *gathering_cases = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto custom__ = custom ? _fbb.CreateString(custom) : 0;
   auto store__ = store ? _fbb.CreateString(store) : 0;
@@ -14547,6 +14560,7 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
   auto label__ = label ? _fbb.CreateString(label) : 0;
   auto label_modifiers__ = label_modifiers ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*label_modifiers) : 0;
   auto label_why__ = label_why ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*label_why) : 0;
+  auto gathering_cases__ = gathering_cases ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*gathering_cases) : 0;
   return tce::wire::CreatePolityLine(
       _fbb,
       polity,
@@ -14565,7 +14579,8 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
       label__,
       label_modifiers__,
       label_why__,
-      label_confidence);
+      label_confidence,
+      gathering_cases__);
 }
 
 struct Government FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -14834,7 +14849,8 @@ struct KnownLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_SOURCES = 10,
     VT_VICTIM_KNOWS = 12,
     VT_RESPONSE = 14,
-    VT_OWED = 16
+    VT_OWED = 16,
+    VT_CASE_ = 18
   };
   uint32_t incident() const {
     return GetField<uint32_t>(VT_INCIDENT, 0);
@@ -14857,6 +14873,9 @@ struct KnownLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *owed() const {
     return GetPointer<const ::flatbuffers::String *>(VT_OWED);
   }
+  const ::flatbuffers::String *case_() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_CASE_);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -14869,6 +14888,8 @@ struct KnownLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyString(response()) &&
            VerifyOffset(verifier, VT_OWED) &&
            verifier.VerifyString(owed()) &&
+           VerifyOffset(verifier, VT_CASE_) &&
+           verifier.VerifyString(case_()) &&
            verifier.EndTable();
   }
 };
@@ -14898,6 +14919,9 @@ struct KnownLineBuilder {
   void add_owed(::flatbuffers::Offset<::flatbuffers::String> owed) {
     fbb_.AddOffset(KnownLine::VT_OWED, owed);
   }
+  void add_case_(::flatbuffers::Offset<::flatbuffers::String> case_) {
+    fbb_.AddOffset(KnownLine::VT_CASE_, case_);
+  }
   explicit KnownLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -14917,8 +14941,10 @@ inline ::flatbuffers::Offset<KnownLine> CreateKnownLine(
     uint32_t sources = 0,
     bool victim_knows = false,
     ::flatbuffers::Offset<::flatbuffers::String> response = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> owed = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> owed = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> case_ = 0) {
   KnownLineBuilder builder_(_fbb);
+  builder_.add_case_(case_);
   builder_.add_owed(owed);
   builder_.add_response(response);
   builder_.add_sources(sources);
@@ -14942,9 +14968,11 @@ inline ::flatbuffers::Offset<KnownLine> CreateKnownLineDirect(
     uint32_t sources = 0,
     bool victim_knows = false,
     const char *response = nullptr,
-    const char *owed = nullptr) {
+    const char *owed = nullptr,
+    const char *case_ = nullptr) {
   auto response__ = response ? _fbb.CreateString(response) : 0;
   auto owed__ = owed ? _fbb.CreateString(owed) : 0;
+  auto case___ = case_ ? _fbb.CreateString(case_) : 0;
   return tce::wire::CreateKnownLine(
       _fbb,
       incident,
@@ -14953,7 +14981,8 @@ inline ::flatbuffers::Offset<KnownLine> CreateKnownLineDirect(
       sources,
       victim_knows,
       response__,
-      owed__);
+      owed__,
+      case___);
 }
 
 struct Order FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -14970,7 +14999,11 @@ struct Order FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_DEMANDS = 18,
     VT_MET = 20,
     VT_REFUSED = 22,
-    VT_REFUSALS = 24
+    VT_REFUSALS = 24,
+    VT_CASES = 26,
+    VT_FOUND = 28,
+    VT_NOT_FOUND = 30,
+    VT_UNHEARD = 32
   };
   int64_t minute() const {
     return GetField<int64_t>(VT_MINUTE, 0);
@@ -15005,6 +15038,18 @@ struct Order FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint64_t refusals() const {
     return GetField<uint64_t>(VT_REFUSALS, 0);
   }
+  uint32_t cases() const {
+    return GetField<uint32_t>(VT_CASES, 0);
+  }
+  uint32_t found() const {
+    return GetField<uint32_t>(VT_FOUND, 0);
+  }
+  uint32_t not_found() const {
+    return GetField<uint32_t>(VT_NOT_FOUND, 0);
+  }
+  uint32_t unheard() const {
+    return GetField<uint32_t>(VT_UNHEARD, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -15023,6 +15068,10 @@ struct Order FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint32_t>(verifier, VT_MET, 4) &&
            VerifyField<uint32_t>(verifier, VT_REFUSED, 4) &&
            VerifyField<uint64_t>(verifier, VT_REFUSALS, 8) &&
+           VerifyField<uint32_t>(verifier, VT_CASES, 4) &&
+           VerifyField<uint32_t>(verifier, VT_FOUND, 4) &&
+           VerifyField<uint32_t>(verifier, VT_NOT_FOUND, 4) &&
+           VerifyField<uint32_t>(verifier, VT_UNHEARD, 4) &&
            verifier.EndTable();
   }
 };
@@ -15064,6 +15113,18 @@ struct OrderBuilder {
   void add_refusals(uint64_t refusals) {
     fbb_.AddElement<uint64_t>(Order::VT_REFUSALS, refusals, 0);
   }
+  void add_cases(uint32_t cases) {
+    fbb_.AddElement<uint32_t>(Order::VT_CASES, cases, 0);
+  }
+  void add_found(uint32_t found) {
+    fbb_.AddElement<uint32_t>(Order::VT_FOUND, found, 0);
+  }
+  void add_not_found(uint32_t not_found) {
+    fbb_.AddElement<uint32_t>(Order::VT_NOT_FOUND, not_found, 0);
+  }
+  void add_unheard(uint32_t unheard) {
+    fbb_.AddElement<uint32_t>(Order::VT_UNHEARD, unheard, 0);
+  }
   explicit OrderBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -15087,10 +15148,18 @@ inline ::flatbuffers::Offset<Order> CreateOrder(
     uint32_t demands = 0,
     uint32_t met = 0,
     uint32_t refused = 0,
-    uint64_t refusals = 0) {
+    uint64_t refusals = 0,
+    uint32_t cases = 0,
+    uint32_t found = 0,
+    uint32_t not_found = 0,
+    uint32_t unheard = 0) {
   OrderBuilder builder_(_fbb);
   builder_.add_refusals(refusals);
   builder_.add_minute(minute);
+  builder_.add_unheard(unheard);
+  builder_.add_not_found(not_found);
+  builder_.add_found(found);
+  builder_.add_cases(cases);
   builder_.add_refused(refused);
   builder_.add_met(met);
   builder_.add_demands(demands);
@@ -15120,7 +15189,11 @@ inline ::flatbuffers::Offset<Order> CreateOrderDirect(
     uint32_t demands = 0,
     uint32_t met = 0,
     uint32_t refused = 0,
-    uint64_t refusals = 0) {
+    uint64_t refusals = 0,
+    uint32_t cases = 0,
+    uint32_t found = 0,
+    uint32_t not_found = 0,
+    uint32_t unheard = 0) {
   auto incidents__ = incidents ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::IncidentLine>>(*incidents) : 0;
   auto known__ = known ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::KnownLine>>(*known) : 0;
   return tce::wire::CreateOrder(
@@ -15135,7 +15208,11 @@ inline ::flatbuffers::Offset<Order> CreateOrderDirect(
       demands,
       met,
       refused,
-      refusals);
+      refusals,
+      cases,
+      found,
+      not_found,
+      unheard);
 }
 
 struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

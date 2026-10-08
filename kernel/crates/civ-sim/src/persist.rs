@@ -134,6 +134,9 @@ pub const SCHEMA_V29: u32 = 29;
 /// The schema version of M4a slice Z's last steps: laws that name someone, before takings (see
 /// [`agents`]).
 pub const SCHEMA_V30: u32 = 30;
+/// The schema version of M4b slice AA: takings and what was seen, before laws against them (see
+/// [`agents`]).
+pub const SCHEMA_V31: u32 = 31;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

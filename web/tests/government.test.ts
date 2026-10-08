@@ -130,6 +130,9 @@ describe("the government on the wire", () => {
     const modifiers = W.PolityLine.createLabelModifiersVector(b, [modifier]);
     const reason = b.createString("All its adults may come and decide.");
     const labelWhy = W.PolityLine.createLabelWhyVector(b, [reason]);
+    const gatheringCases = W.PolityLine.createGatheringCasesVector(b, [
+      b.createString("Rilla's case against Tam"),
+    ]);
     const name = b.createString("Stonewick");
     const custom = b.createString("The adults who come to the hearth decide by acclamation.");
     const store = b.createString("grain 26 kg");
@@ -152,6 +155,7 @@ describe("the government on the wire", () => {
       modifiers,
       labelWhy,
       0.5,
+      gatheringCases,
     );
     const polities = W.Government.createPolitiesVector(b, [polity]);
     const government = W.Government.createGovernment(b, BigInt(103 * DAY), polities);
@@ -171,6 +175,7 @@ describe("the government on the wire", () => {
       labelModifiers: ["a storekeeper's office"],
       labelWhy: ["All its adults may come and decide."],
       labelConfidence: 0.5,
+      gatheringCases: ["Rilla's case against Tam"],
     });
     const l = p.laws[0]!;
     expect(l).toMatchObject({

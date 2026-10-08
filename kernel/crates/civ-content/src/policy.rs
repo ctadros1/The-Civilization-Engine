@@ -18,9 +18,9 @@ pub(crate) struct PolicyFile {
     pub id: String,
     pub name: String,
     pub description: String,
-    /// What the kernel does under it: `common_store` or `keep_store`.
+    /// What the kernel does under it: `common_store`, `keep_store` or `against_taking`.
     pub does: String,
-    /// The issues it answers: `food_short`, `store_unkept`.
+    /// The issues it answers: `food_short`, `store_unkept`, `takings`.
     pub answers: Vec<String>,
     /// For a common store: the shares of threshed grain a sponsor may propose for the levy.
     #[serde(default)]
@@ -28,6 +28,19 @@ pub(crate) struct PolicyFile {
     /// For a common store: the most food one ask brings a household from it, days of its need.
     #[serde(default)]
     pub relief_days: f64,
+    /// For a law against taking (content API 36): the bundles a sponsor may propose, lightest
+    /// first.
+    #[serde(default)]
+    pub bundles: Vec<BundleFile>,
+}
+
+/// One sanction bundle of a law against taking: what it adds to giving back what was taken, in
+/// days of the taker's household's food.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct BundleFile {
+    pub compensation_days: f64,
+    pub fine_days: f64,
 }
 
 impl PolicyFile {
@@ -47,6 +60,14 @@ impl PolicyFile {
                 .collect(),
             levy_shares,
             relief_days: self.relief_days,
+            bundles: self
+                .bundles
+                .iter()
+                .map(|b| civ_agents::polity::Sanction {
+                    compensation_days: b.compensation_days as f32,
+                    fine_days: b.fine_days as f32,
+                })
+                .collect(),
         }
     }
 
@@ -101,7 +122,40 @@ impl PolicyFile {
                         .to_owned(),
                 );
             }
+            Some(PolicyKind::AgainstTaking) => {
+                if !self.levy_shares.is_empty() || self.relief_days != 0.0 {
+                    p.push(
+                        "an `against_taking` policy levies nothing: leave out `levy_shares` and \
+                         `relief_days`"
+                            .to_owned(),
+                    );
+                }
+                // Research 09-05 §2.3: a sponsor weighs a few levels; one is allowed.
+                if !(1..=8).contains(&self.bundles.len()) {
+                    p.push(format!(
+                        "`bundles` must hold 1 to 8 bundles (got {})",
+                        self.bundles.len()
+                    ));
+                }
+                for b in &self.bundles {
+                    for (what, d) in [
+                        ("compensation_days", b.compensation_days),
+                        ("fine_days", b.fine_days),
+                    ] {
+                        if !(d.is_finite() && (0.0..=365.0).contains(&d)) {
+                            p.push(format!(
+                                "a bundle's `{what}` must be between 0 and 365 (got {d})"
+                            ));
+                        }
+                    }
+                }
+            }
             Some(PolicyKind::KeepStore) | None => {}
+        }
+        if PolicyKind::from_name(&self.does) != Some(PolicyKind::AgainstTaking)
+            && !self.bundles.is_empty()
+        {
+            p.push("only an `against_taking` policy has `bundles`".to_owned());
         }
         p
     }
@@ -121,6 +175,7 @@ mod tests {
             answers: vec!["food_short".to_owned()],
             levy_shares: vec![0.2, 0.05, 0.1],
             relief_days: 5.0,
+            bundles: Vec::new(),
         }
     }
 
@@ -158,5 +213,46 @@ mod tests {
         f.relief_days = 0.0;
         assert!(f.problems().is_empty(), "{:?}", f.problems());
         assert_eq!(f.def().kind, PolicyKind::KeepStore);
+    }
+
+    #[test]
+    fn a_law_against_taking_carries_its_bundles_and_nothing_else_does() {
+        let mut f = file();
+        f.does = "against_taking".to_owned();
+        f.answers = vec!["takings".to_owned()];
+        f.levy_shares.clear();
+        f.relief_days = 0.0;
+        assert!(
+            f.problems().iter().any(|m| m.contains("1 to 8 bundles")),
+            "it needs a bundle: {:?}",
+            f.problems()
+        );
+        f.bundles = vec![
+            BundleFile {
+                compensation_days: 0.0,
+                fine_days: 0.0,
+            },
+            BundleFile {
+                compensation_days: 3.0,
+                fine_days: 1.5,
+            },
+        ];
+        assert!(f.problems().is_empty(), "{:?}", f.problems());
+        let d = f.def();
+        assert_eq!(d.kind, PolicyKind::AgainstTaking);
+        assert_eq!(d.answers, vec![IssueKind::Takings]);
+        assert_eq!(d.bundles[1].compensation_days, 3.0);
+        assert_eq!(d.bundles[1].fine_days, 1.5);
+        f.bundles[0].fine_days = -1.0;
+        f.bundles[1].compensation_days = 400.0;
+        assert_eq!(f.problems().len(), 2, "{:?}", f.problems());
+        // A common store has no bundles.
+        let mut g = file();
+        g.bundles = f.bundles.clone();
+        assert!(
+            g.problems()
+                .iter()
+                .any(|m| m.contains("only an `against_taking`"))
+        );
     }
 }

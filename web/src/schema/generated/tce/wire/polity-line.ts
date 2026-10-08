@@ -144,8 +144,20 @@ labelConfidence():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
+gatheringCases(index: number):string
+gatheringCases(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+gatheringCases(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 38);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+gatheringCasesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 38);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startPolityLine(builder:flatbuffers.Builder) {
-  builder.startObject(17);
+  builder.startObject(18);
 }
 
 static addPolity(builder:flatbuffers.Builder, polity:bigint) {
@@ -264,12 +276,28 @@ static addLabelConfidence(builder:flatbuffers.Builder, labelConfidence:number) {
   builder.addFieldFloat32(16, labelConfidence, 0.0);
 }
 
+static addGatheringCases(builder:flatbuffers.Builder, gatheringCasesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(17, gatheringCasesOffset, 0);
+}
+
+static createGatheringCasesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startGatheringCasesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endPolityLine(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:bigint, nameOffset:flatbuffers.Offset, foundedMinute:bigint, customOffset:flatbuffers.Offset, members:number, storeOffset:flatbuffers.Offset, storeKg:number, lawsOffset:flatbuffers.Offset, gatheringLaw:bigint, gatheringMinute:bigint, gatheringPresent:number, officesOffset:flatbuffers.Offset, labelOffset:flatbuffers.Offset, labelModifiersOffset:flatbuffers.Offset, labelWhyOffset:flatbuffers.Offset, labelConfidence:number):flatbuffers.Offset {
+static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:bigint, nameOffset:flatbuffers.Offset, foundedMinute:bigint, customOffset:flatbuffers.Offset, members:number, storeOffset:flatbuffers.Offset, storeKg:number, lawsOffset:flatbuffers.Offset, gatheringLaw:bigint, gatheringMinute:bigint, gatheringPresent:number, officesOffset:flatbuffers.Offset, labelOffset:flatbuffers.Offset, labelModifiersOffset:flatbuffers.Offset, labelWhyOffset:flatbuffers.Offset, labelConfidence:number, gatheringCasesOffset:flatbuffers.Offset):flatbuffers.Offset {
   PolityLine.startPolityLine(builder);
   PolityLine.addPolity(builder, polity);
   PolityLine.addSettlement(builder, settlement);
@@ -288,6 +316,7 @@ static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:b
   PolityLine.addLabelModifiers(builder, labelModifiersOffset);
   PolityLine.addLabelWhy(builder, labelWhyOffset);
   PolityLine.addLabelConfidence(builder, labelConfidence);
+  PolityLine.addGatheringCases(builder, gatheringCasesOffset);
   return PolityLine.endPolityLine(builder);
 }
 }

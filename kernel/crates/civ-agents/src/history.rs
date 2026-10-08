@@ -490,6 +490,15 @@ pub enum ChronicleKind {
     /// the obligation's standing ([`crate::crime::Standing`] as a number), and `name` it in words
     /// ("The household of Tam gave back the food taken from the household of Rilla.").
     Restitution,
+    /// Someone brought a case before the gathering (M4b slice AB, ADR-0015 §4): `people` is the
+    /// one who brought it and then the accused, `number` how many witnesses its accounts come
+    /// from, and `name` the rest in words ("brought a case before the gathering at Ashford: that
+    /// Tam took food from their household, on the word of Bram.").
+    CaseBrought,
+    /// The gathering heard a case, or it lapsed: `people` is the one who brought it and the
+    /// accused, `number` the case's stage ([`crate::crime::CaseStage`] as a number), and `name`
+    /// the whole of it in words.
+    CaseHeard,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -867,9 +876,16 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             Some(who) => vec![who, Span::Text(format!(" proposed {}.", event.name))],
             None => vec![Span::Text(format!("Someone proposed {}.", event.name))],
         },
-        ChronicleKind::LawDecided | ChronicleKind::LawLapsed | ChronicleKind::Restitution => {
+        ChronicleKind::LawDecided
+        | ChronicleKind::LawLapsed
+        | ChronicleKind::Restitution
+        | ChronicleKind::CaseHeard => {
             vec![Span::Text(event.name.clone())]
         }
+        ChronicleKind::CaseBrought => match person(0) {
+            Some(who) => vec![who, Span::Text(format!(" {}", event.name))],
+            None => vec![Span::Text(format!("Someone {}", event.name))],
+        },
         ChronicleKind::Taking => match person(0) {
             Some(who) => vec![who, Span::Text(format!(" {}", event.name))],
             None => vec![Span::Text(format!("Someone {}", event.name))],

@@ -208,8 +208,33 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
         let label_why = fbb.create_vector(&why);
         let (gathering_law, gathering_minute, gathering_present) =
             polity.gathering.as_ref().map_or((0, 0, 0), |g| {
-                (g.law.get(), g.day * 1440, g.present.len() as u32)
+                (
+                    g.law.map_or(0, civ_core::PermanentId::get),
+                    g.day * 1440,
+                    g.present.len() as u32,
+                )
             });
+        // The cases it is to hear (wire 1.31).
+        let pop = &sim.people;
+        let cases: Vec<String> = polity
+            .gathering
+            .as_ref()
+            .map(|g| {
+                g.cases
+                    .iter()
+                    .filter_map(|&c| pop.order.case(c))
+                    .map(|c| {
+                        format!(
+                            "{}'s case against {}",
+                            pop.name_of(c.by),
+                            pop.name_of(c.accused)
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let cases: Vec<_> = cases.iter().map(|c| fbb.create_string(c)).collect();
+        let gathering_cases = fbb.create_vector(&cases);
         list.push(wire::PolityLine::create(
             &mut fbb,
             &wire::PolityLineArgs {
@@ -225,6 +250,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                 gathering_law,
                 gathering_minute,
                 gathering_present,
+                gathering_cases: Some(gathering_cases),
                 offices: Some(offices),
                 label: Some(label_name),
                 label_modifiers: Some(label_modifiers),

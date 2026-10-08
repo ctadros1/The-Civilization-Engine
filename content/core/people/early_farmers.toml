@@ -596,3 +596,18 @@ w_comply_known = 4.0
 w_comply_regard = 2.0
 w_comply_cost = 0.5
 keep_days = 3.0
+# Where a law against taking is in force and the chooser knows of it, a case before the gathering
+# is a third choice (M4b slice AB; 09-07 §4.1: U = p̂(success) V - C): what it would recover (the
+# food and the bundle's compensation, `w_demand_loss` a day), times the chance the household
+# believes a gathering would find against the taker from its distinct accounts (1 - 0.5^accounts;
+# 12-04 §1.5: several people repeating one witness are one), less `report_cost` points and the
+# same `w_forgive` for regard. A household whose demand was refused, or not met when due, may then
+# bring a case (09-07 §1.1). At the hearing each who came weighs `w_case_belief` points toward a
+# finding if they believe the accused took (otherwise the accounts told there, either side of an
+# even chance; with none, that much against), what their household stands to gain or lose, and
+# the polity's `w_regard` for the one who brought it less that for the accused. What a finding
+# imposes is answered once, whole, with `w_comply_found` points toward paying: the custom that the
+# gathering binds.
+report_cost = 1.0
+w_case_belief = 1.0
+w_comply_found = 2.0

@@ -54,7 +54,7 @@ pub(crate) struct PeopleFile {
     pub crime: CrimeFile,
 }
 
-/// Taking and what follows it (M4b slice AA, ADR-0015; content API 35). See
+/// Taking and what follows it (M4b slice AA, ADR-0015; content API 35; cases from content API 36). See
 /// [`civ_agents::crime::CrimeParams`] for what each means.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -86,6 +86,9 @@ pub(crate) struct CrimeFile {
     pub w_comply_regard: f64,
     pub w_comply_cost: f64,
     pub keep_days: f64,
+    pub report_cost: f64,
+    pub w_case_belief: f64,
+    pub w_comply_found: f64,
 }
 
 impl CrimeFile {
@@ -118,6 +121,9 @@ impl CrimeFile {
             w_comply_regard: self.w_comply_regard,
             w_comply_cost: self.w_comply_cost,
             keep_days: self.keep_days,
+            report_cost: self.report_cost,
+            w_case_belief: self.w_case_belief,
+            w_comply_found: self.w_comply_found,
         }
     }
 
@@ -161,6 +167,9 @@ impl CrimeFile {
             ("crime.w_comply_regard", self.w_comply_regard, 0.0, 100.0),
             ("crime.w_comply_cost", self.w_comply_cost, 0.0, 100.0),
             ("crime.keep_days", self.keep_days, 0.0, 3650.0),
+            ("crime.report_cost", self.report_cost, 0.0, 100.0),
+            ("crime.w_case_belief", self.w_case_belief, 0.0, 100.0),
+            ("crime.w_comply_found", self.w_comply_found, -100.0, 100.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

@@ -845,6 +845,8 @@ export interface PolityLine {
   labelModifiers: string[];
   labelWhy: string[];
   labelConfidence: number;
+  /** Wire 1.31: the cases the gathering called is to hear, in the kernel's words. */
+  gatheringCases: string[];
 }
 
 /** Every settlement's polity at `minute` (wire 1.27). */
@@ -892,6 +894,8 @@ export interface KnownLine {
   response: string;
   /** Where what is owed stands, in words, or "". */
   owed: string;
+  /** Wire 1.31: the case brought for it and how the gathering decided, in words, or "". */
+  case: string;
 }
 
 /** Takings at `minute` (wire 1.30): the most recent, newest first, and totals over all. */
@@ -908,6 +912,11 @@ export interface OrderInfo {
   refused: number;
   /** Asks refused because the giver believed the asker took, since the world was loaded. */
   refusals: number;
+  /** Wire 1.31: cases brought before the gathering, and how they ended. */
+  cases: number;
+  found: number;
+  notFound: number;
+  unheard: number;
 }
 
 /** One good in a settlement's market (M3a slice I). Tallies fade by half every memory. */
@@ -2806,6 +2815,10 @@ function governmentInfo(w: W.Government): GovernmentInfo {
       ),
       labelWhy: Array.from({ length: p.labelWhyLength() }, (_, k) => p.labelWhy(k) ?? ""),
       labelConfidence: p.labelConfidence(),
+      gatheringCases: Array.from(
+        { length: p.gatheringCasesLength() },
+        (_, k) => p.gatheringCases(k) ?? "",
+      ),
     });
   }
   return { minute: Number(w.minute()), polities };
@@ -2845,6 +2858,7 @@ export function orderInfo(w: W.Order): OrderInfo {
       victimKnows: l.victimKnows(),
       response: l.response() ?? "",
       owed: l.owed() ?? "",
+      case: l.case_() ?? "",
     });
   }
   return {
@@ -2859,6 +2873,10 @@ export function orderInfo(w: W.Order): OrderInfo {
     met: w.met(),
     refused: w.refused(),
     refusals: Number(w.refusals()),
+    cases: w.cases(),
+    found: w.found(),
+    notFound: w.notFound(),
+    unheard: w.unheard(),
   };
 }
 

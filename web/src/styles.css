@@ -1441,7 +1441,8 @@ button.link:hover {
   font-style: italic;
 }
 
-/* Takings (wire 1.30): what happened beside what people believe, each labelled. */
+/* Takings (wire 1.30): what happened beside what people believe, each labelled; from 1.31 the
+   case the gathering heard. */
 .order-panel .order-totals {
   margin: 0.4rem 0;
 }
@@ -1459,4 +1460,9 @@ button.link:hover {
 .order-panel .believed {
   padding-left: 0.6rem;
   border-left: 2px solid var(--line);
+}
+/* Wire 1.31: what the gathering was told and decided, the third layer. */
+.order-panel .case {
+  padding-left: 0.6rem;
+  border-left: 2px dashed var(--line);
 }

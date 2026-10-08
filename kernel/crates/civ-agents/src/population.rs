@@ -39,6 +39,7 @@ use crate::person::{
     fuel_kg, reserve_food_kcal, stock_kcal,
 };
 
+mod cases;
 mod crime;
 mod deposits;
 mod digging;

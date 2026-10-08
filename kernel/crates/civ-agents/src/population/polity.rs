@@ -51,6 +51,17 @@ impl Population {
                 self.decide_gathering(ctx, pi);
             }
         }
+        // Cases still waiting go before the next gathering (M4b slice AB).
+        if self
+            .order
+            .cases
+            .iter()
+            .any(|c| c.stage == crate::crime::CaseStage::Open)
+        {
+            for pi in 0..self.polities.len() {
+                self.put_cases(pi, day, ctx.params.polity.notice_days);
+            }
+        }
         self.tell_households(day);
         for pi in 0..self.polities.len() {
             let p = &self.polities[pi];
@@ -113,7 +124,7 @@ impl Population {
 
     /// The adults living in settlement `settlement`, with their households, in id order: the
     /// gathering's members (ADR-0013 §1: membership is residence).
-    fn members_of(
+    pub(super) fn members_of(
         &self,
         settlement: PermanentId,
         now: SimTime,
@@ -207,13 +218,15 @@ impl Population {
 
     /// The issues settlement `settlement` faces now (research 09-05 §1.1): its food ran short
     /// within the last year, or a household's food will not last until its next harvest
-    /// (`pressed`); and its common store holds food nobody keeps under a roof (`unkept`).
+    /// (`pressed`); its common store holds food nobody keeps under a roof (`unkept`); and a
+    /// household found food taken from its store within the last year (`takings`).
     fn issues(
         &self,
         ctx: &Ctx,
         settlement: PermanentId,
         pressed: bool,
         unkept: bool,
+        takings: bool,
     ) -> Vec<IssueKind> {
         let short_now = ctx
             .land
@@ -232,6 +245,9 @@ impl Population {
         }
         if unkept {
             out.push(IssueKind::StoreUnkept);
+        }
+        if takings {
+            out.push(IssueKind::Takings);
         }
         out
     }
@@ -303,7 +319,25 @@ impl Population {
             .is_some()
             && polity.keeper().is_none()
             && stock_kcal(&polity.stores, &ctx.catalog.goods) > 0.0;
-        let issues = self.issues(ctx, settlement, !pressed.is_empty(), unkept);
+        // Households of the settlement that found food taken from their stores in the last year,
+        // and since the last review (what they know: M4b slice AB).
+        let day = now.day_index();
+        let review_since = day - i64::from(pp.review_days.max(1));
+        let robbed = |since: i64| -> Vec<PermanentId> {
+            households
+                .iter()
+                .copied()
+                .filter(|&h| self.order.lost_since(h, since))
+                .collect()
+        };
+        let robbed_lately = robbed(review_since);
+        let issues = self.issues(
+            ctx,
+            settlement,
+            !pressed.is_empty(),
+            unkept,
+            !robbed(day - 365).is_empty(),
+        );
         let polity = &self.polities[pi];
         // Templates that answer a present issue and are not already in force here.
         let open: Vec<(u16, IssueKind)> = ctx
@@ -364,6 +398,7 @@ impl Population {
                 .chain(
                     pressed
                         .iter()
+                        .chain(&robbed_lately)
                         .filter_map(|&h| self.elder_of(h, now, params)),
                 )
                 .chain(reached)
@@ -372,17 +407,33 @@ impl Population {
         deliberators.sort_unstable();
         deliberators.dedup();
         deliberators.retain(|d| members.binary_search_by_key(d, |m| m.0).is_ok());
-        let day = now.day_index();
         let tp = &params.ties;
         let deliberator = RuleDeliberator { params: pp };
-        // What a move would bring household `h`: a store at a levy share, or a store kept.
+        // What each household knows of takings in the last year: what it lost to takers it knows
+        // of, and what its own members took (M4b slice AB).
+        let takings: Vec<(PermanentId, crate::crime::TakingsKnown)> = households
+            .iter()
+            .map(|&h| (h, self.takings_known(h, now, params)))
+            .collect();
+        // What a move would bring household `h`: a store at a levy share, a store kept, or a law
+        // against taking with its bundle.
+        let policies = &ctx.catalog.policies;
         let gain_of = |m: &MoveOption, h: PermanentId| {
-            outlooks
-                .binary_search_by_key(&h, |o| o.0)
-                .map_or(0.0, |i| match m.nominee {
-                    Some(_) => crate::polity::kept_gain(&outlooks[i].1, kept, pp),
-                    None => crate::polity::store_gain(&outlooks[i].1, &belief, m.levy_share, pp),
-                })
+            let Ok(i) = outlooks.binary_search_by_key(&h, |o| o.0) else {
+                return 0.0;
+            };
+            let o = &outlooks[i].1;
+            match policies.get(usize::from(m.policy)).map(|d| d.kind) {
+                Some(PolicyKind::KeepStore) => crate::polity::kept_gain(o, kept, pp),
+                Some(PolicyKind::AgainstTaking) => {
+                    let known = takings
+                        .binary_search_by_key(&h, |t| t.0)
+                        .map_or_else(|_| Default::default(), |k| takings[k].1);
+                    let (recover, owe) = known.under(&m.sanction, o.year_need / 365.0);
+                    crate::polity::against_gain(o, recover, owe, pp)
+                }
+                _ => crate::polity::store_gain(o, &belief, m.levy_share, pp),
+            }
         };
         for d in deliberators {
             let Some(own) = members
@@ -402,6 +453,7 @@ impl Population {
                     levy_share: 0.0,
                     issue,
                     nominee: None,
+                    sanction: Default::default(),
                     own_gain: 0.0,
                     followers_gain: 0.0,
                     support: 0.5,
@@ -413,6 +465,11 @@ impl Population {
                                 levy_share: share,
                                 ..blank
                             });
+                        }
+                    }
+                    PolicyKind::AgainstTaking => {
+                        for &sanction in &def.bundles {
+                            moves.push(MoveOption { sanction, ..blank });
                         }
                     }
                     PolicyKind::KeepStore => {
@@ -478,7 +535,9 @@ impl Population {
                     .laws
                     .iter()
                     .rev()
-                    .filter(|l| l.policy == m.policy && l.holder == m.nominee)
+                    .filter(|l| {
+                        l.policy == m.policy && l.holder == m.nominee && l.sanction == m.sanction
+                    })
                     .filter(|l| (f64::from(l.levy_share) - m.levy_share).abs() < 1e-4)
                     .filter(|l| {
                         l.decided
@@ -527,6 +586,7 @@ impl Population {
             levy_share: m.levy_share as f32,
             holder: m.nominee,
             relief_days: def.relief_days as f32,
+            sanction: m.sanction,
             status: LawStatus::Proposed,
             sponsor,
             proposed: now,
@@ -554,10 +614,11 @@ impl Population {
         let polity = &mut self.polities[pi];
         polity.laws.push(law);
         polity.gathering = Some(Gathering {
-            law: id,
+            law: Some(id),
             day: meets,
             stakes,
             present: Vec::new(),
+            cases: Vec::new(),
         });
         let settlement = polity.settlement;
         let place = ctx
@@ -577,19 +638,30 @@ impl Population {
         );
     }
 
-    /// The gathering called at polity `pi` has sat (ADR-0013 §3, stages 2-4): each member who
-    /// came takes a stance from what their household made of the law and their regard for its
-    /// sponsor, the body decides by its rule, and if it passed, those who came know it. A thin
-    /// gathering or a tie is recorded as what it was.
+    /// The gathering called at polity `pi` has sat: it decides the law before it, if any, and
+    /// then hears its cases in the order they were brought (M4b slice AB).
     fn decide_gathering(&mut self, ctx: &mut Ctx, pi: usize) {
-        let (now, params) = (ctx.now, ctx.params);
-        let pp = &params.polity;
         let Some(g) = self.polities[pi].gathering.take() else {
             return;
         };
+        if let Some(law) = g.law {
+            self.decide_law(ctx, pi, &g, law);
+        }
+        for &case in &g.cases {
+            self.hear_case(ctx, pi, &g, case);
+        }
+    }
+
+    /// The gathering called at polity `pi` has sat on law `law_id` (ADR-0013 §3, stages 2-4):
+    /// each member who came takes a stance from what their household made of the law and their
+    /// regard for its sponsor, the body decides by its rule, and if it passed, those who came know
+    /// it. A thin gathering or a tie is recorded as what it was.
+    fn decide_law(&mut self, ctx: &mut Ctx, pi: usize, g: &Gathering, law_id: PermanentId) {
+        let (now, params) = (ctx.now, ctx.params);
+        let pp = &params.polity;
         let settlement = self.polities[pi].settlement;
         let members = self.members_of(settlement, now, params);
-        let Some(law) = self.polities[pi].laws.iter().find(|l| l.id == g.law) else {
+        let Some(law) = self.polities[pi].laws.iter().find(|l| l.id == law_id) else {
             return;
         };
         let sponsor = law.sponsor;
@@ -627,7 +699,7 @@ impl Population {
             .collect();
         let polity = &mut self.polities[pi];
         let body = polity.body;
-        let Some(law) = polity.law_mut(g.law) else {
+        let Some(law) = polity.law_mut(law_id) else {
             return;
         };
         law.stances = stances;
@@ -648,7 +720,7 @@ impl Population {
         let law = &self.polities[pi].laws[self.polities[pi]
             .laws
             .iter()
-            .position(|l| l.id == g.law)
+            .position(|l| l.id == law_id)
             .unwrap_or(0)];
         let what = crate::polity::law_words(law, &ctx.catalog.policies, &|id| self.name_of(id));
         let (place, name) = ctx
@@ -774,12 +846,40 @@ impl Population {
         {
             return None;
         }
-        let sponsor = polity.laws.iter().find(|l| l.id == g.law)?.sponsor;
-        let regard = self
-            .ties
-            .regard(person, sponsor, ctx.now.day_index(), &params.ties)
-            .clamp(0.0, 1.0);
-        let stake = g.stake(hh.id).abs() + pp.w_regard * regard;
+        let day = ctx.now.day_index();
+        let regard_for = |q: PermanentId| {
+            if q == person {
+                1.0
+            } else {
+                self.ties
+                    .regard(person, q, day, &params.ties)
+                    .clamp(0.0, 1.0)
+            }
+        };
+        // What the law means to their household, and their regard for its sponsor; and for each
+        // case, their regard for whichever party they regard more (their own household's case
+        // counts as full regard).
+        let law_stake = g
+            .law
+            .and_then(|id| polity.laws.iter().find(|l| l.id == id))
+            .map_or(0.0, |l| {
+                g.stake(hh.id).abs() + pp.w_regard * regard_for(l.sponsor)
+            });
+        let case_stake = g
+            .cases
+            .iter()
+            .filter_map(|&c| self.order.case(c))
+            .map(|c| {
+                let party = hh.id == c.accuser || hh.id == c.accused_household;
+                let r = if party {
+                    1.0
+                } else {
+                    regard_for(c.by).max(regard_for(c.accused))
+                };
+                pp.w_regard * r
+            })
+            .fold(0.0, f64::max);
+        let stake = law_stake.max(case_stake);
         Some(GatheringFacts {
             points: pp.attend_base + pp.w_attend * stake,
             minutes: (end - minute) as f64,

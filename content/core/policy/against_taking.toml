@@ -1,0 +1,28 @@
+# A law against taking (ADR-0015 §6; M4b slice AB): whoever the gathering finds took from another
+# household's store gives back what was taken, and may owe more besides. Research 09-07 §1.2 keeps
+# three transfers apart: restitution returns the loss, compensation goes to the household taken
+# from, and a fine goes to the authority (here the common store); §6.2: a sanction is a bundle,
+# never one severity number; §2.3: burdens are reckoned in days of local household food. The
+# amounts below are tuning values, not historical rates. Whether anyone proposes such a law, with
+# which bundle, and whether a gathering passes it, is people's choice; nothing here weighs toward
+# it.
+kind = "policy"
+id = "core:policy/against_taking"
+name = "Law against taking"
+description = "Whoever is found to have taken from another household's store gives it back, and may owe the household and the common store more besides."
+does = "against_taking"
+answers = ["takings"]
+
+# Each bundle is one form the law can take; a sponsor weighs each (09-05 §2.3). Days are days of
+# the taker's household's food.
+[[bundles]]
+compensation_days = 0.0   # restitution only
+fine_days = 0.0
+
+[[bundles]]
+compensation_days = 3.0   # and three days' food to the household taken from
+fine_days = 0.0
+
+[[bundles]]
+compensation_days = 3.0   # and three more to the common store
+fine_days = 3.0

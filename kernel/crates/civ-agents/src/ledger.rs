@@ -35,13 +35,19 @@ pub enum Channel {
     Relief = 11,
     /// Food taken from a household's store without its leave (M4b slice AA, ADR-0015 §2).
     Take = 12,
-    /// Food given back to a household that was taken from, as it demanded (ADR-0015 §5).
+    /// Food given back to a household that was taken from, as it demanded or a gathering found
+    /// (ADR-0015 §5).
     Restitution = 13,
+    /// Food to a household taken from beyond what was taken, as a gathering's finding imposed
+    /// (M4b slice AB; research 09-07 §1.2).
+    Compensation = 14,
+    /// Food to the polity's common store, as a gathering's finding imposed (M4b slice AB).
+    Fine = 15,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 13] = [
+    pub const ALL: [Channel; 15] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -55,6 +61,8 @@ impl Channel {
         Channel::Relief,
         Channel::Take,
         Channel::Restitution,
+        Channel::Compensation,
+        Channel::Fine,
     ];
 
     /// The channel with this code.
@@ -78,6 +86,8 @@ impl Channel {
             Channel::Relief => "relief",
             Channel::Take => "taking",
             Channel::Restitution => "restitution",
+            Channel::Compensation => "compensation",
+            Channel::Fine => "fine",
         }
     }
 }

@@ -9,7 +9,7 @@ use std::sync::OnceLock;
 use std::sync::atomic::AtomicBool;
 
 use civ_agents::Channel;
-use civ_agents::crime::{Obligation, Outcome, Source, Standing};
+use civ_agents::crime::{Obligation, Outcome, Owed, Source, Standing};
 use civ_agents::params::GoodUse;
 use civ_agents::population;
 use civ_content::ContentRegistry;
@@ -140,6 +140,15 @@ fn lean_spell(sim: &mut Sim) -> (BTreeSet<PermanentId>, BTreeSet<PermanentId>) {
 fn the_hungry_take_from_those_with_food_and_word_follows_what_was_seen() {
     let mut sim = world_with(content(), 4);
     sim.advance_minutes(3 * DAY).expect("advances");
+    // The situation under test: a taker notices nobody about, so those about see them rather than
+    // turn them back (with the content's attentive neighbours about 1 lean spell in 24 sees no
+    // taking in 60 days). A member at home still turns them back.
+    let content_crime = sim.rules().people.crime.clone();
+    sim.rules_mut_for_tests()
+        .expect("rules not yet shared")
+        .people
+        .crime
+        .notice_chance = 0.0;
     let (may, may_not) = lean_spell(&mut sim);
     assert!(!may.is_empty() && !may_not.is_empty());
     let held_before = sim.people().goods_held();
@@ -192,8 +201,8 @@ fn the_hungry_take_from_those_with_food_and_word_follows_what_was_seen() {
         (&pop.goods_held(), &pop.flows()),
     );
     assert!(gaps.is_empty(), "unaccounted for: {gaps:?}");
-    // Every belief that names a taker traces to someone who saw it (ADR-0015 §1), and names the
-    // one who did it; a loss found without a witness names nobody.
+    // Every belief that names a taker traces to someone who saw it or to the taker themself
+    // (ADR-0015 §1), and names the one who did it; a loss found without a witness names nobody.
     for b in &order.beliefs {
         let i = order.incident(b.incident).expect("its incident");
         match b.taker {
@@ -201,11 +210,14 @@ fn the_hungry_take_from_those_with_food_and_word_follows_what_was_seen() {
                 assert_eq!(t, i.actor, "a belief names someone who did not do it");
                 let origin = b.origin.expect("an account has an origin");
                 assert!(
-                    i.seen_by.contains(&origin),
+                    origin == i.actor || i.seen_by.contains(&origin),
                     "{b:?} traces to nobody who saw it"
                 );
-                if b.source == Source::Saw {
+                if matches!(b.source, Source::Saw | Source::Did) {
                     assert_eq!(origin, b.holder);
+                }
+                if b.source == Source::Did {
+                    assert_eq!(b.holder, i.actor, "only the taker knows by doing");
                 }
             }
             None => assert_eq!(b.source, Source::Noticed),
@@ -225,6 +237,11 @@ fn the_hungry_take_from_those_with_food_and_word_follows_what_was_seen() {
         );
     }
     a_debt_meant_to_be_paid_is_paid_from_what_can_be_spared(&mut sim);
+    // A loaded world runs by the content's rules: so must this one, to go on alike.
+    sim.rules_mut_for_tests()
+        .expect("rules not yet shared")
+        .people
+        .crime = content_crime;
     saves_and_goes_on_alike(&mut sim, content(), 2 * DAY);
 }
 
@@ -262,6 +279,8 @@ fn a_debt_meant_to_be_paid_is_paid_from_what_can_be_spared(sim: &mut Sim) {
     pop.order.obligations.push(Obligation {
         id,
         incident,
+        kind: Owed::Demanded,
+        case: None,
         debtor,
         beneficiary,
         kcal,
@@ -304,4 +323,178 @@ fn a_debt_meant_to_be_paid_is_paid_from_what_can_be_spared(sim: &mut Sim) {
                 && e.name.contains("gave back")),
         "the chronicle tells it"
     );
+}
+
+/// Puts a law against taking in force at the first polity, as a gathering would have passed it,
+/// with the template's harshest bundle, known to every adult there. Returns the polity's id.
+fn a_law_against_taking(sim: &mut Sim) -> PermanentId {
+    use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome as Decided, PolicyKind};
+    let policies = &sim.rules().catalog.policies;
+    let policy = policies
+        .iter()
+        .position(|d| d.kind == PolicyKind::AgainstTaking)
+        .expect("the core content has a law against taking");
+    let sanction = *policies[policy].bundles.last().expect("a bundle");
+    let id = sim.allocate_id_for_tests();
+    let (now, grown) = (sim.now(), sim.rules().people.family.independent_age);
+    let pop = sim.people_mut_for_tests();
+    let settlement = pop.polities[0].settlement;
+    let mut adults: Vec<PermanentId> = pop
+        .households
+        .iter()
+        .filter(|(_, h)| h.settlement == Some(settlement))
+        .flat_map(|(_, h)| h.members.clone())
+        .filter(|&m| pop.person(m).is_some_and(|p| p.age_years(now) >= grown))
+        .collect();
+    adults.sort_unstable();
+    let mut law = Law {
+        id,
+        policy: policy as u16,
+        levy_share: 0.0,
+        holder: None,
+        relief_days: 0.0,
+        sanction,
+        status: LawStatus::InForce,
+        sponsor: adults[0],
+        proposed: now,
+        issue: IssueKind::Takings,
+        meets_day: now.day_index(),
+        decided: Some(now),
+        outcome: Some(Decided::Passed),
+        eligible: adults.len() as u32,
+        stances: Vec::new(),
+        known: Vec::new(),
+        compliance: Default::default(),
+    };
+    for &a in &adults {
+        law.learn(a, now.day_index());
+    }
+    pop.polities[0].laws.push(law);
+    pop.polities[0].id
+}
+
+#[test]
+fn under_a_law_against_taking_cases_are_brought_heard_and_their_findings_owed() {
+    use civ_agents::crime::{CaseStage, Choice};
+    use civ_agents::polity::Stance;
+    let mut sim = world_with(content(), 6);
+    sim.advance_minutes(3 * DAY).expect("advances");
+    // The situation under test, not the tuning's balance: nobody is a capable guardian and a
+    // taker notices nobody, so a taking succeeds and whoever is about sees it; and a household
+    // that learns who took from it brings a case rather than letting it go or demanding the food
+    // back.
+    let content_crime = sim.rules().people.crime.clone();
+    {
+        let crime = &mut sim
+            .rules_mut_for_tests()
+            .expect("rules not yet shared")
+            .people
+            .crime;
+        crime.guardian_age = 200.0;
+        crime.notice_chance = 0.0;
+        crime.report_cost = -20.0;
+        crime.demand_base = -20.0;
+    }
+    let polity = a_law_against_taking(&mut sim);
+    let (may, _) = lean_spell(&mut sim);
+    assert!(!may.is_empty());
+    let held_before = sim.people().goods_held();
+    let flows_before = sim.people().flows();
+    let heard = |sim: &Sim| {
+        sim.people()
+            .order
+            .cases
+            .iter()
+            .any(|c| c.stage != CaseStage::Open)
+    };
+    for _ in 0..12 {
+        if heard(&sim) {
+            break;
+        }
+        sim.advance_minutes(5 * DAY).expect("advances");
+    }
+    // A few days more for what a finding imposes to be answered and paid.
+    sim.advance_minutes(3 * DAY).expect("advances");
+    let pop = sim.people();
+    let order = &pop.order;
+    assert!(
+        heard(&sim),
+        "a case was heard within 60 days: {:?}",
+        order.cases
+    );
+    assert!(
+        order
+            .responses
+            .iter()
+            .any(|r| r.choice == Choice::Report && r.report_points.is_some())
+    );
+    for c in &order.cases {
+        // What the gathering was told traces to what happened: the household taken from
+        // accuses the one who took, on the word of those who saw (ADR-0015 §1, §4).
+        let i = order.incident(c.incident).expect("its incident");
+        assert_eq!(c.accuser, i.target, "{c:?}");
+        assert_eq!(c.accused, i.actor, "{c:?}");
+        assert!(!c.leads.is_empty(), "a case with no account: {c:?}");
+        assert!(c.leads.iter().all(|w| i.seen_by.contains(w)), "{c:?}");
+        if c.stage == CaseStage::Open {
+            continue;
+        }
+        assert!(c.heard.is_some());
+        assert!(c.stances.windows(2).all(|w| w[0].person < w[1].person));
+        for r in &c.stances {
+            if r.person == c.by {
+                assert_eq!(r.stance, Stance::Support);
+            }
+            if r.person == c.accused {
+                assert_eq!(r.stance, Stance::Oppose);
+            }
+        }
+        let owed: Vec<_> = order
+            .obligations
+            .iter()
+            .filter(|o| o.case == Some(c.id))
+            .collect();
+        if c.stage == CaseStage::Found {
+            // The bundle: restitution if anything is still owed, compensation, and a fine to the
+            // polity's store; all owed by the accused's household.
+            assert!(
+                owed.iter().any(|o| o.kind == Owed::Compensation),
+                "{owed:?}"
+            );
+            assert!(
+                owed.iter()
+                    .any(|o| o.kind == Owed::Fine && o.beneficiary == polity),
+                "{owed:?}"
+            );
+            assert!(
+                owed.iter()
+                    .all(|o| o.kind == Owed::Fine || o.beneficiary == c.accuser)
+            );
+            // What a finding imposes is answered once, whole.
+            let answers: BTreeSet<_> = owed.iter().filter_map(|o| o.answer.map(|a| a.0)).collect();
+            assert!(answers.len() <= 1, "{owed:?}");
+        } else {
+            assert!(
+                owed.is_empty(),
+                "nothing is owed without a finding: {owed:?}"
+            );
+        }
+    }
+    // Cases move goods only as obligations are paid, and never make them (ADR-0015 §5).
+    let goods = &sim.rules().catalog.goods;
+    let gaps = population::unaccounted(
+        goods.len(),
+        (&held_before, &flows_before),
+        (&pop.goods_held(), &pop.flows()),
+    );
+    assert!(gaps.is_empty(), "unaccounted for: {gaps:?}");
+    let told = |k: civ_agents::ChronicleKind| pop.chronicle.iter().any(|e| e.kind == k);
+    assert!(told(civ_agents::ChronicleKind::CaseBrought));
+    assert!(told(civ_agents::ChronicleKind::CaseHeard));
+    // A loaded world runs by the content's rules: so must this one, to go on alike.
+    sim.rules_mut_for_tests()
+        .expect("rules not yet shared")
+        .people
+        .crime = content_crime;
+    saves_and_goes_on_alike(&mut sim, content(), 2 * DAY);
 }

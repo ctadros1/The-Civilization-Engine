@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import * as M from "../src/net/messages.js";
 import {
   believedText,
+  caseText,
   choiceText,
   happenedRest,
   happenedText,
@@ -40,6 +41,7 @@ function known(over: Partial<M.KnownLine> = {}): M.KnownLine {
     victimKnows: false,
     response: "",
     owed: "",
+    case: "",
     ...over,
   };
 }
@@ -99,6 +101,10 @@ describe("takings in words", () => {
       met: 0,
       refused: 0,
       refusals: 0,
+      cases: 0,
+      found: 0,
+      notFound: 0,
+      unheard: 0,
     };
     expect(totalsText(none)).toBe("Nobody has gone to take from another household's store.");
     expect(
@@ -106,6 +112,21 @@ describe("takings in words", () => {
     ).toBe(
       "5 attempts, 3 takings; 2 seen; 2 known to the household taken from; 1 demand to give back (1 met, 0 refused); 0 asks refused to those believed to have taken.",
     );
+    expect(totalsText({ ...none, attempts: 2, takings: 2, cases: 2, found: 1, notFound: 1 })).toContain(
+      " 2 cases before the gathering: 1 found, 1 not found, 0 unheard.",
+    );
+  });
+
+  it("say what the gathering was told, apart from what people believe", () => {
+    expect(caseText(known())).toBe("");
+    expect(
+      caseText(
+        known({
+          case: "Rilla brought it before the gathering on the word of 1 witness; the gathering found that Tam took: 12 for, 3 against; 20 of 41 adults came",
+        }),
+      ),
+    ).toMatch(/^Rilla brought it before the gathering/);
+    expect(caseText(known({ case: "rilla brought it" }))).toBe("Rilla brought it");
   });
 
   it("decode truth and knowledge into their own lists", () => {
@@ -131,7 +152,8 @@ describe("takings in words", () => {
     const incidents = W.Order.createIncidentsVector(b, [line]);
     const response = b.createString("Rilla demanded the food back");
     const owed = b.createString("paid");
-    const k = W.KnownLine.createKnownLine(b, 3, 4, 0, 1, true, response, owed);
+    const brought = b.createString("Rilla brought it before the gathering on the word of 1 witness");
+    const k = W.KnownLine.createKnownLine(b, 3, 4, 0, 1, true, response, owed, brought);
     const knownList = W.Order.createKnownVector(b, [k]);
     const order = W.Order.createOrder(
       b,
@@ -146,13 +168,26 @@ describe("takings in words", () => {
       1,
       0,
       2n,
+      1,
+      1,
+      0,
+      0,
     );
     b.finish(W.Response.createResponse(b, W.ResponseBody.Order, order));
     const body = M.decodeResponse(b.asUint8Array());
     expect(body.kind).toBe("order");
     if (body.kind !== "order") return;
     const o = body.order;
-    expect(o).toMatchObject({ attempts: 4, takings: 3, seen: 1, demands: 1, met: 1, refusals: 2 });
+    expect(o).toMatchObject({
+      attempts: 4,
+      takings: 3,
+      seen: 1,
+      demands: 1,
+      met: 1,
+      refusals: 2,
+      cases: 1,
+      found: 1,
+    });
     expect(o.incidents[0]).toMatchObject({
       id: 3,
       actor: 7,
@@ -169,6 +204,7 @@ describe("takings in words", () => {
       victimKnows: true,
       response: "Rilla demanded the food back",
       owed: "paid",
+      case: "Rilla brought it before the gathering on the word of 1 witness",
     });
   });
 });

@@ -560,7 +560,8 @@ fn polity_problems(sim: &Sim) -> Vec<String> {
             .iter()
             .filter(|l| l.status == LawStatus::Proposed)
             .count();
-        let called = p.gathering.as_ref().map(|g| g.law);
+        // A gathering may sit on cases alone; one called on a law carries the proposal.
+        let called = p.gathering.as_ref().and_then(|g| g.law);
         if proposed > 1 || called != p.agenda().map(|l| l.id) {
             out.push(format!("polity {} has {proposed} laws before it", p.id));
         }
@@ -664,8 +665,20 @@ fn takings(sim: &Sim) -> Option<String> {
         .count();
     let known: std::collections::BTreeSet<u32> =
         order.responses.iter().map(|r| r.incident).collect();
-    let demands = order.responses.iter().filter(|r| r.demand).count();
-    let standing = |s: Standing| order.obligations.iter().filter(|o| o.standing == s).count();
+    let demands = order
+        .responses
+        .iter()
+        .filter(|r| r.choice == civ_agents::crime::Choice::Demand)
+        .count();
+    let standing = |s: Standing| {
+        order
+            .obligations
+            .iter()
+            .filter(|o| o.kind == civ_agents::crime::Owed::Demanded && o.standing == s)
+            .count()
+    };
+    let stage =
+        |s: civ_agents::crime::CaseStage| order.cases.iter().filter(|c| c.stage == s).count();
     let takers: std::collections::BTreeSet<_> = order.incidents.iter().map(|i| i.actor).collect();
     let adult = sim.rules().people.family.independent_age;
     let adults = pop
@@ -676,9 +689,28 @@ fn takings(sim: &Sim) -> Option<String> {
     let n = |count: usize, one: &str, many: &str| {
         format!("{count} {}", if count == 1 { one } else { many })
     };
+    let cases = if order.cases.is_empty() {
+        String::new()
+    } else {
+        use civ_agents::crime::CaseStage;
+        let imposed = order.obligations.iter().filter(|o| o.case.is_some());
+        let paid = imposed
+            .clone()
+            .filter(|o| o.standing == Standing::Met)
+            .count();
+        format!(
+            "; {} before the gathering ({} found, {} not found, {} unheard; {paid} of {} \
+             imposed obligations paid)",
+            n(order.cases.len(), "case", "cases"),
+            stage(CaseStage::Found),
+            stage(CaseStage::NotFound),
+            stage(CaseStage::Unheard),
+            imposed.count(),
+        )
+    };
     Some(format!(
         "{} to take by {} (of {adults} adults now), {} ({kg:.0} kg), {seen} seen; {} known to \
-         the household taken from, {} to give back ({} met, {} refused); {} refused",
+         the household taken from, {} to give back ({} met, {} refused); {} refused{cases}",
         n(order.incidents.len(), "attempt", "attempts"),
         n(takers.len(), "person", "people"),
         n(taken.len(), "taking", "takings"),

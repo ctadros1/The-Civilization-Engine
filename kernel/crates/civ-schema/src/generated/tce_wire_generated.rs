@@ -22840,6 +22840,7 @@ impl<'a> PolityLine<'a> {
   pub const VT_LABEL_MODIFIERS: ::flatbuffers::VOffsetT = 32;
   pub const VT_LABEL_WHY: ::flatbuffers::VOffsetT = 34;
   pub const VT_LABEL_CONFIDENCE: ::flatbuffers::VOffsetT = 36;
+  pub const VT_GATHERING_CASES: ::flatbuffers::VOffsetT = 38;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -22856,6 +22857,7 @@ impl<'a> PolityLine<'a> {
     builder.add_founded_minute(args.founded_minute);
     builder.add_settlement(args.settlement);
     builder.add_polity(args.polity);
+    if let Some(x) = args.gathering_cases { builder.add_gathering_cases(x); }
     builder.add_label_confidence(args.label_confidence);
     if let Some(x) = args.label_why { builder.add_label_why(x); }
     if let Some(x) = args.label_modifiers { builder.add_label_modifiers(x); }
@@ -22991,6 +22993,13 @@ impl<'a> PolityLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(PolityLine::VT_LABEL_CONFIDENCE, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn gathering_cases(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PolityLine::VT_GATHERING_CASES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolityLine<'_> {
@@ -23016,6 +23025,7 @@ impl ::flatbuffers::Verifiable for PolityLine<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("label_modifiers", Self::VT_LABEL_MODIFIERS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("label_why", Self::VT_LABEL_WHY, false)?
      .visit_field::<f32>("label_confidence", Self::VT_LABEL_CONFIDENCE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("gathering_cases", Self::VT_GATHERING_CASES, false)?
      .finish();
     Ok(())
   }
@@ -23038,6 +23048,7 @@ pub struct PolityLineArgs<'a> {
     pub label_modifiers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub label_why: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub label_confidence: f32,
+    pub gathering_cases: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for PolityLineArgs<'a> {
   #[inline]
@@ -23060,6 +23071,7 @@ impl<'a> Default for PolityLineArgs<'a> {
       label_modifiers: None,
       label_why: None,
       label_confidence: 0.0,
+      gathering_cases: None,
     }
   }
 }
@@ -23138,6 +23150,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolityLineBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<f32>(PolityLine::VT_LABEL_CONFIDENCE, label_confidence, 0.0);
   }
   #[inline]
+  pub fn add_gathering_cases(&mut self, gathering_cases: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_GATHERING_CASES, gathering_cases);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolityLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolityLineBuilder {
@@ -23172,6 +23188,7 @@ impl ::core::fmt::Debug for PolityLine<'_> {
       ds.field("label_modifiers", &self.label_modifiers());
       ds.field("label_why", &self.label_why());
       ds.field("label_confidence", &self.label_confidence());
+      ds.field("gathering_cases", &self.gathering_cases());
       ds.finish()
   }
 }
@@ -23577,6 +23594,7 @@ impl<'a> KnownLine<'a> {
   pub const VT_VICTIM_KNOWS: ::flatbuffers::VOffsetT = 12;
   pub const VT_RESPONSE: ::flatbuffers::VOffsetT = 14;
   pub const VT_OWED: ::flatbuffers::VOffsetT = 16;
+  pub const VT_CASE: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -23588,6 +23606,7 @@ impl<'a> KnownLine<'a> {
     args: &'args KnownLineArgs<'args>
   ) -> ::flatbuffers::WIPOffset<KnownLine<'bldr>> {
     let mut builder = KnownLineBuilder::new(_fbb);
+    if let Some(x) = args.case { builder.add_case(x); }
     if let Some(x) = args.owed { builder.add_owed(x); }
     if let Some(x) = args.response { builder.add_response(x); }
     builder.add_sources(args.sources);
@@ -23648,6 +23667,13 @@ impl<'a> KnownLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(KnownLine::VT_OWED, None)}
   }
+  #[inline]
+  pub fn case(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(KnownLine::VT_CASE, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for KnownLine<'_> {
@@ -23663,6 +23689,7 @@ impl ::flatbuffers::Verifiable for KnownLine<'_> {
      .visit_field::<bool>("victim_knows", Self::VT_VICTIM_KNOWS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("response", Self::VT_RESPONSE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("owed", Self::VT_OWED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("case", Self::VT_CASE, false)?
      .finish();
     Ok(())
   }
@@ -23675,6 +23702,7 @@ pub struct KnownLineArgs<'a> {
     pub victim_knows: bool,
     pub response: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub owed: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub case: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for KnownLineArgs<'a> {
   #[inline]
@@ -23687,6 +23715,7 @@ impl<'a> Default for KnownLineArgs<'a> {
       victim_knows: false,
       response: None,
       owed: None,
+      case: None,
     }
   }
 }
@@ -23725,6 +23754,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> KnownLineBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(KnownLine::VT_OWED, owed);
   }
   #[inline]
+  pub fn add_case(&mut self, case: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(KnownLine::VT_CASE, case);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> KnownLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     KnownLineBuilder {
@@ -23749,6 +23782,7 @@ impl ::core::fmt::Debug for KnownLine<'_> {
       ds.field("victim_knows", &self.victim_knows());
       ds.field("response", &self.response());
       ds.field("owed", &self.owed());
+      ds.field("case", &self.case());
       ds.finish()
   }
 }
@@ -23779,6 +23813,10 @@ impl<'a> Order<'a> {
   pub const VT_MET: ::flatbuffers::VOffsetT = 20;
   pub const VT_REFUSED: ::flatbuffers::VOffsetT = 22;
   pub const VT_REFUSALS: ::flatbuffers::VOffsetT = 24;
+  pub const VT_CASES: ::flatbuffers::VOffsetT = 26;
+  pub const VT_FOUND: ::flatbuffers::VOffsetT = 28;
+  pub const VT_NOT_FOUND: ::flatbuffers::VOffsetT = 30;
+  pub const VT_UNHEARD: ::flatbuffers::VOffsetT = 32;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -23792,6 +23830,10 @@ impl<'a> Order<'a> {
     let mut builder = OrderBuilder::new(_fbb);
     builder.add_refusals(args.refusals);
     builder.add_minute(args.minute);
+    builder.add_unheard(args.unheard);
+    builder.add_not_found(args.not_found);
+    builder.add_found(args.found);
+    builder.add_cases(args.cases);
     builder.add_refused(args.refused);
     builder.add_met(args.met);
     builder.add_demands(args.demands);
@@ -23882,6 +23924,34 @@ impl<'a> Order<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(Order::VT_REFUSALS, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn cases(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Order::VT_CASES, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn found(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Order::VT_FOUND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn not_found(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Order::VT_NOT_FOUND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn unheard(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Order::VT_UNHEARD, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Order<'_> {
@@ -23901,6 +23971,10 @@ impl ::flatbuffers::Verifiable for Order<'_> {
      .visit_field::<u32>("met", Self::VT_MET, false)?
      .visit_field::<u32>("refused", Self::VT_REFUSED, false)?
      .visit_field::<u64>("refusals", Self::VT_REFUSALS, false)?
+     .visit_field::<u32>("cases", Self::VT_CASES, false)?
+     .visit_field::<u32>("found", Self::VT_FOUND, false)?
+     .visit_field::<u32>("not_found", Self::VT_NOT_FOUND, false)?
+     .visit_field::<u32>("unheard", Self::VT_UNHEARD, false)?
      .finish();
     Ok(())
   }
@@ -23917,6 +23991,10 @@ pub struct OrderArgs<'a> {
     pub met: u32,
     pub refused: u32,
     pub refusals: u64,
+    pub cases: u32,
+    pub found: u32,
+    pub not_found: u32,
+    pub unheard: u32,
 }
 impl<'a> Default for OrderArgs<'a> {
   #[inline]
@@ -23933,6 +24011,10 @@ impl<'a> Default for OrderArgs<'a> {
       met: 0,
       refused: 0,
       refusals: 0,
+      cases: 0,
+      found: 0,
+      not_found: 0,
+      unheard: 0,
     }
   }
 }
@@ -23987,6 +24069,22 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> OrderBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(Order::VT_REFUSALS, refusals, 0);
   }
   #[inline]
+  pub fn add_cases(&mut self, cases: u32) {
+    self.fbb_.push_slot::<u32>(Order::VT_CASES, cases, 0);
+  }
+  #[inline]
+  pub fn add_found(&mut self, found: u32) {
+    self.fbb_.push_slot::<u32>(Order::VT_FOUND, found, 0);
+  }
+  #[inline]
+  pub fn add_not_found(&mut self, not_found: u32) {
+    self.fbb_.push_slot::<u32>(Order::VT_NOT_FOUND, not_found, 0);
+  }
+  #[inline]
+  pub fn add_unheard(&mut self, unheard: u32) {
+    self.fbb_.push_slot::<u32>(Order::VT_UNHEARD, unheard, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> OrderBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     OrderBuilder {
@@ -24015,6 +24113,10 @@ impl ::core::fmt::Debug for Order<'_> {
       ds.field("met", &self.met());
       ds.field("refused", &self.refused());
       ds.field("refusals", &self.refusals());
+      ds.field("cases", &self.cases());
+      ds.field("found", &self.found());
+      ds.field("not_found", &self.not_found());
+      ds.field("unheard", &self.unheard());
       ds.finish()
   }
 }

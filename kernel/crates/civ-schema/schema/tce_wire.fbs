@@ -1529,6 +1529,9 @@ table PolityLine {
   label_modifiers: [string] (id: 14);
   label_why: [string] (id: 15);
   label_confidence: float (id: 16);
+  // Wire 1.31: the cases the gathering called is to hear, in words ("the household of Rilla's
+  // case against Tam"); a gathering may be called on cases alone (`gathering_law` 0).
+  gathering_cases: [string] (id: 17);
 }
 
 table Government {
@@ -1570,6 +1573,10 @@ table KnownLine {
   response: string (id: 5);
   // Where what is owed for it stands, in words, or empty.
   owed: string (id: 6);
+  // Wire 1.31: the case brought for it and how the gathering decided, in words, or empty
+  // ("Rilla brought it before the gathering on 4 May, on the word of 1 witness; the gathering
+  // found that Tam took: 12 for, 3 against, 20 of 41 adults came"). What the polity knows.
+  case: string (id: 7);
 }
 
 table Order {
@@ -1587,6 +1594,11 @@ table Order {
   refused: uint (id: 9);
   // Asks refused because the giver believed the asker took, since the world was loaded.
   refusals: ulong (id: 10);
+  // Wire 1.31: cases brought before the gathering, and how they ended.
+  cases: uint (id: 11);
+  found: uint (id: 12);
+  not_found: uint (id: 13);
+  unheard: uint (id: 14);
 }
 
 union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order }

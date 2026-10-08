@@ -1040,6 +1040,13 @@ impl Sim {
         self.dirty = true;
     }
 
+    /// The world's rules, to set up a situation in a test (a tuning value pushed to an extreme,
+    /// say); `None` once they are shared. A world's rules otherwise come only from its content.
+    #[doc(hidden)]
+    pub fn rules_mut_for_tests(&mut self) -> Option<&mut Rules> {
+        Arc::get_mut(&mut self.rules)
+    }
+
     /// The world's regime, to set up a situation in a test (a review sooner, say). A world's
     /// regime is otherwise fixed when it is created.
     #[doc(hidden)]

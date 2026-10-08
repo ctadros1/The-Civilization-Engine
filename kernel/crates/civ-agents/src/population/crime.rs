@@ -5,8 +5,8 @@
 
 use super::*;
 use crate::crime::{
-    Belief, Incident, Obligation, Outcome, Response, Source, Standing, comply_points,
-    demand_points, logistic, updated_risk,
+    Belief, Choice, Incident, KnownAmount, Obligation, Outcome, Owed, Response, Source, Standing,
+    TakingsKnown, comply_points, demand_points, logistic, report_points, updated_risk,
 };
 use crate::decide::TakeOption;
 use crate::ties::Act;
@@ -17,6 +17,8 @@ pub const PURPOSE_TAKE: u64 = 0x7461_6b65_6f6e_6531; // "takeone1"
 pub const PURPOSE_RESPOND: u64 = 0x7265_7370_6f6e_6431; // "respond1"
 /// Purpose tag for a household's choice to meet a demand.
 pub const PURPOSE_ANSWER: u64 = 0x616e_7377_6572_3031; // "answer01"
+/// Purpose tag for a household's choice to bring a case after a demand failed.
+pub const PURPOSE_ESCALATE: u64 = 0x6573_6361_6c61_7465; // "escalate"
 
 /// Metres from its home within which a member counts as at home.
 const AT_HOME_M: f32 = 2.0;
@@ -308,8 +310,30 @@ impl Population {
                 p.guarded = Some((victim, now.plus_minutes(wait_min.round() as i64)));
             }
         }
-        // Those who saw know who it was.
+        // The taker knows what they did, and their household what came home (M4b slice AB).
         let day = now.day_index();
+        if outcome == Outcome::Taken {
+            self.come_to_believe(
+                ctx,
+                Belief {
+                    holder: taker,
+                    incident: id,
+                    taker: Some(taker),
+                    source: Source::Did,
+                    from: None,
+                    origin: Some(taker),
+                    day,
+                },
+            );
+            self.order.amounts.push(KnownAmount {
+                household: taker_hh,
+                incident: id,
+                kcal: kcal as f32,
+                lost: false,
+                day,
+            });
+        }
+        // Those who saw know who it was.
         for &w in &seen_by {
             self.come_to_believe(
                 ctx,
@@ -372,6 +396,10 @@ impl Population {
         if !self.order.learn(belief) {
             return;
         }
+        // What a taker knows of their own taking moves nothing.
+        if belief.source == Source::Did {
+            return;
+        }
         let cp = &ctx.params.crime;
         let s = if belief.taker.is_some() { 1.0 } else { 0.0 };
         if let Some(&ph) = self.index.get(&belief.holder)
@@ -379,8 +407,11 @@ impl Population {
         {
             p.risk_seen = updated_risk(p.risk_seen, s, cp.risk_alpha_told);
         }
+        // Nobody thinks the worse of one of their own household for it.
+        let own = |q: PermanentId| self.person(q).map(|p| p.household);
         if let Some(taker) = belief.taker
             && taker != belief.holder
+            && own(taker) != own(belief.holder)
         {
             let ours = self
                 .person(belief.holder)
@@ -484,8 +515,18 @@ impl Population {
             if inc.outcome != Outcome::Taken || inc.noticed {
                 continue;
             }
-            let (id, target) = (inc.id, inc.target);
+            let (id, target, kcal) = (inc.id, inc.target, inc.kcal);
             self.order.incidents[k].noticed = true;
+            // The household knows what it found missing from its store.
+            if self.household(target).is_some() {
+                self.order.amounts.push(KnownAmount {
+                    household: target,
+                    incident: id,
+                    kcal,
+                    lost: true,
+                    day,
+                });
+            }
             let members = self
                 .household(target)
                 .map(|x| x.members.clone())
@@ -601,18 +642,16 @@ impl Population {
     }
 
     /// Each household that has learnt who took from it, and has not yet chosen, chooses (ADR-0015
-    /// §3): the one who stands for it weighs the days of food lost against their regard for the
-    /// taker, and lets it go or demands the food back.
+    /// §3) from what it knows, never from the incident: the one who stands for it weighs the
+    /// days of food it found missing against their regard for the taker, and lets it go, demands
+    /// the food back or, under a law against taking they know of, brings a case before the
+    /// gathering (M4b slice AB).
     fn respond(&mut self, ctx: &mut Ctx) {
         let (now, params) = (ctx.now, ctx.params);
         let cp = &params.crime;
         let day = now.day_index();
-        // Only takings people still remember can come to be known; and each is answered once.
+        // Only losses people still remember can come to be known; and each is answered once.
         let since = day - i64::from(cp.remember_days);
-        let start = self
-            .order
-            .incidents
-            .partition_point(|i| i.at.day_index() < since);
         let answered: std::collections::BTreeSet<u32> = self
             .order
             .responses
@@ -621,21 +660,23 @@ impl Population {
             .take_while(|r| r.day >= since)
             .map(|r| r.incident)
             .collect();
+        let start = self.order.amounts.partition_point(|a| a.day < since);
         let mut due: Vec<(u32, PermanentId, PermanentId, f64)> = Vec::new();
-        for inc in &self.order.incidents[start..] {
-            if inc.outcome != Outcome::Taken || answered.contains(&inc.id) {
+        for a in &self.order.amounts[start..] {
+            if !a.lost || answered.contains(&a.incident) {
                 continue;
             }
-            let Some(x) = self.household(inc.target) else {
+            let Some(x) = self.household(a.household) else {
                 continue;
             };
-            let knows = x.members.iter().any(|&m| {
+            let taker = x.members.iter().find_map(|&m| {
                 self.order
-                    .belief(m, inc.id)
-                    .is_some_and(|b| b.taker == Some(inc.actor))
+                    .belief(m, a.incident)
+                    .and_then(|b| b.taker)
+                    .filter(|&t| t != m)
             });
-            if knows {
-                due.push((inc.id, inc.target, inc.actor, f64::from(inc.kcal)));
+            if let Some(taker) = taker {
+                due.push((a.incident, a.household, taker, f64::from(a.kcal)));
             }
         }
         for (incident, household, taker, kcal) in due {
@@ -648,46 +689,145 @@ impl Population {
                 * params.household.daily_kcal_per_person;
             let regard = self.ties.regard(by, taker, day, &params.ties);
             let points = demand_points(kcal / need, regard, cp);
+            let report = self
+                .law_against_taking(ctx, household, by)
+                .map(|(law, sanction)| {
+                    let members = self
+                        .household(household)
+                        .map(|x| x.members.clone())
+                        .unwrap_or_default();
+                    let accounts = self.order.leads(&members, incident, taker).len();
+                    let r = report_points(
+                        accounts,
+                        kcal / need,
+                        f64::from(sanction.compensation_days),
+                        regard,
+                        cp,
+                    );
+                    (law, r)
+                });
             let key = [ctx.seed, PURPOSE_RESPOND, u64::from(incident), day as u64];
-            let demand = Rng64::from_key(&key).next_f64() < logistic(points);
+            let u = Rng64::from_key(&key).next_f64();
+            let choice = match report {
+                // Letting it go or a demand: the choice slice AA made.
+                None => {
+                    if u < logistic(points) {
+                        Choice::Demand
+                    } else {
+                        Choice::LetGo
+                    }
+                }
+                Some((_, r)) => match crate::demography::pick_softmax(&[0.0, points, r], u) {
+                    Some(1) => Choice::Demand,
+                    Some(2) => Choice::Report,
+                    _ => Choice::LetGo,
+                },
+            };
             self.order.responses.push(Response {
                 incident,
                 household,
                 by,
                 day,
-                demand,
+                choice,
                 points: points as f32,
+                report_points: report.map(|r| r.1 as f32),
             });
             let debtor = self.person(taker).map(|p| p.household);
-            if let (true, Some(debtor)) = (demand, debtor)
-                && debtor != household
-            {
-                let id = self.order.obligations.last().map_or(1, |o| o.id + 1);
-                self.order.obligations.push(Obligation {
-                    id,
-                    incident,
-                    debtor,
-                    beneficiary: household,
-                    kcal: kcal as f32,
-                    paid_kcal: 0.0,
-                    made: day,
-                    due: day + i64::from(cp.due_days),
-                    standing: Standing::Open,
-                    answer: None,
-                });
+            match (choice, debtor) {
+                (Choice::Demand, Some(debtor)) if debtor != household => {
+                    let id = self.order.obligations.last().map_or(1, |o| o.id + 1);
+                    self.order.obligations.push(Obligation {
+                        id,
+                        incident,
+                        kind: Owed::Demanded,
+                        case: None,
+                        debtor,
+                        beneficiary: household,
+                        kcal: kcal as f32,
+                        paid_kcal: 0.0,
+                        made: day,
+                        due: day + i64::from(cp.due_days),
+                        standing: Standing::Open,
+                        answer: None,
+                    });
+                }
+                (Choice::Report, Some(_)) => {
+                    if let Some((law, _)) = report {
+                        self.bring_case(ctx, incident, household, by, taker, kcal, law);
+                    }
+                }
+                _ => {}
             }
+        }
+    }
+
+    /// A household whose demand was refused, or not met in full when due, may bring a case under
+    /// a law against taking its chooser knows of (research 09-07 §1.1: negotiation can fail and the
+    /// dispute go on to a forum); `left` is what is still owed, kcal.
+    fn weigh_case_after_demand(
+        &mut self,
+        ctx: &mut Ctx,
+        incident: u32,
+        household: PermanentId,
+        taker: PermanentId,
+        left: f64,
+    ) {
+        let (now, params) = (ctx.now, ctx.params);
+        let cp = &params.crime;
+        let day = now.day_index();
+        let Some(by) = self.elder_of(household, now, params) else {
+            return;
+        };
+        let Some((law, sanction)) = self.law_against_taking(ctx, household, by) else {
+            return;
+        };
+        let Some(x) = self.household(household) else {
+            return;
+        };
+        let need = x.members.len().max(1) as f64 * params.household.daily_kcal_per_person;
+        let members = x.members.clone();
+        let accounts = self.order.leads(&members, incident, taker).len();
+        let regard = self.ties.regard(by, taker, day, &params.ties);
+        let r = report_points(
+            accounts,
+            left / need,
+            f64::from(sanction.compensation_days),
+            regard,
+            cp,
+        );
+        let key = [ctx.seed, PURPOSE_ESCALATE, u64::from(incident), day as u64];
+        let report = Rng64::from_key(&key).next_f64() < logistic(r);
+        self.order.responses.push(Response {
+            incident,
+            household,
+            by,
+            day,
+            choice: if report {
+                Choice::Report
+            } else {
+                Choice::LetGo
+            },
+            points: 0.0,
+            report_points: Some(r as f32),
+        });
+        if report {
+            self.bring_case(ctx, incident, household, by, taker, left, law);
         }
     }
 
     /// What is owed is answered, paid or falls due (ADR-0015 §5). A household answers a demand
     /// once, weighing how many households of its settlement believe the taker took and its regard
-    /// for the household owed against what paying would cost it; one that means to pay gives
-    /// food it can spare day by day until it is paid or due. An award never creates goods: what
-    /// a household cannot spare stays owed, and is an arrear when due.
+    /// for the household owed against what paying would cost it; what a gathering's finding
+    /// imposed it answers once for the whole finding, with the custom that the gathering binds
+    /// behind paying. One that means to pay gives food it can spare day by day until it is paid
+    /// or due: restitution first, then compensation, then the fine. An award never creates goods:
+    /// what a household cannot spare stays owed, and is an arrear when due. A demand that fails
+    /// may go on to a case.
     fn answer_obligations(&mut self, ctx: &mut Ctx) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let cp = &params.crime;
         let day = now.day_index();
+        let mut failed: Vec<(u32, PermanentId, PermanentId, f64)> = Vec::new();
         for k in 0..self.order.obligations.len() {
             let ob = self.order.obligations[k];
             if ob.standing != Standing::Open {
@@ -696,49 +836,95 @@ impl Population {
             let Some(taker) = self.order.incident(ob.incident).map(|i| i.actor) else {
                 continue;
             };
-            let (Some(debtor), Some(owed)) =
-                (self.household(ob.debtor), self.household(ob.beneficiary))
-            else {
+            // The one owed: a household, or for a fine the polity.
+            let owed_here = if ob.kind == Owed::Fine {
+                self.polities.iter().any(|p| p.id == ob.beneficiary)
+            } else {
+                self.household(ob.beneficiary).is_some()
+            };
+            let Some(debtor) = self.household(ob.debtor).filter(|_| owed_here) else {
                 self.order.obligations[k].standing = Standing::Lapsed;
                 continue;
             };
             let settlement = debtor.settlement;
             let need = debtor.members.len().max(1) as f64 * params.household.daily_kcal_per_person;
-            let owed_members = owed.members.clone();
+            let owed_members = if ob.kind == Owed::Fine {
+                Vec::new()
+            } else {
+                self.household(ob.beneficiary)
+                    .map(|x| x.members.clone())
+                    .unwrap_or_default()
+            };
             let place = debtor.home;
             if ob.answer.is_none() {
-                let Some(by) = self.elder_of(ob.debtor, now, params) else {
-                    continue;
-                };
-                let households: Vec<&Household> = self
-                    .households
-                    .iter()
-                    .map(|(_, x)| x)
-                    .filter(|x| x.settlement == settlement && !x.members.is_empty())
-                    .collect();
-                let since = day - i64::from(cp.remember_days);
-                let knowing = households
-                    .iter()
-                    .filter(|x| {
-                        x.members
+                // A finding is answered once, whole.
+                let given = ob.case.and_then(|c| {
+                    self.order.obligations[..k]
+                        .iter()
+                        .find(|o| o.case == Some(c))
+                        .and_then(|o| o.answer)
+                });
+                let answer = match given {
+                    Some(a) => a,
+                    None => {
+                        let Some(by) = self.elder_of(ob.debtor, now, params) else {
+                            continue;
+                        };
+                        let households: Vec<&Household> = self
+                            .households
                             .iter()
-                            .any(|&m| self.order.believes_took(m, taker, since, &|_| true))
-                    })
-                    .count();
-                let known = knowing as f64 / households.len().max(1) as f64;
-                let regard = self
-                    .elder_of(ob.beneficiary, now, params)
-                    .map_or(0.0, |e| self.ties.regard(by, e, day, &params.ties));
-                let points = comply_points(known, regard, ob.left_kcal() / need, cp);
-                let key = [ctx.seed, PURPOSE_ANSWER, u64::from(ob.id), day as u64];
-                let pays = Rng64::from_key(&key).next_f64() < logistic(points);
-                self.order.obligations[k].answer = Some((pays, points as f32));
-                if !pays {
+                            .map(|(_, x)| x)
+                            .filter(|x| x.settlement == settlement && !x.members.is_empty())
+                            .collect();
+                        let since = day - i64::from(cp.remember_days);
+                        let knowing = households
+                            .iter()
+                            .filter(|x| {
+                                x.members
+                                    .iter()
+                                    .any(|&m| self.order.believes_took(m, taker, since, &|_| true))
+                            })
+                            .count();
+                        let known = knowing as f64 / households.len().max(1) as f64;
+                        // Regard for the household owed: for a finding, the one taken from.
+                        let owed_household = match ob.case.and_then(|c| self.order.case(c)) {
+                            Some(c) => c.accuser,
+                            None => ob.beneficiary,
+                        };
+                        let regard = self
+                            .elder_of(owed_household, now, params)
+                            .map_or(0.0, |e| self.ties.regard(by, e, day, &params.ties));
+                        let left: f64 = match ob.case {
+                            Some(c) => self.order.obligations[k..]
+                                .iter()
+                                .filter(|o| o.case == Some(c) && o.standing == Standing::Open)
+                                .map(Obligation::left_kcal)
+                                .sum(),
+                            None => ob.left_kcal(),
+                        };
+                        let found = if ob.case.is_some() {
+                            cp.w_comply_found
+                        } else {
+                            0.0
+                        };
+                        let points = comply_points(known, regard, left / need, cp) + found;
+                        let key = [ctx.seed, PURPOSE_ANSWER, u64::from(ob.id), day as u64];
+                        let pays = Rng64::from_key(&key).next_f64() < logistic(points);
+                        (pays, points as f32)
+                    }
+                };
+                self.order.obligations[k].answer = Some(answer);
+                if !answer.0 {
                     self.order.obligations[k].standing = Standing::Refused;
-                    for &m in &owed_members {
-                        self.note_tie(ctx, m, taker, Act::RefusedRestitution, 1.0, 0.0);
+                    if ob.kind != Owed::Fine {
+                        for &m in &owed_members {
+                            self.note_tie(ctx, m, taker, Act::RefusedRestitution, 1.0, 0.0);
+                        }
                     }
                     self.restitution_note(ctx, k, place);
+                    if ob.kind == Owed::Demanded {
+                        failed.push((ob.incident, ob.beneficiary, taker, ob.left_kcal()));
+                    }
                     continue;
                 }
             }
@@ -763,22 +949,34 @@ impl Population {
                     .iter()
                     .map(|l| l.amount * goods[l.good].kcal_per_kg)
                     .sum();
-                if !legs.is_empty()
-                    && self.transfer(now, params, goods, &legs, Channel::Restitution)
-                {
+                let channel = match ob.kind {
+                    Owed::Demanded | Owed::Restitution => Channel::Restitution,
+                    Owed::Compensation => Channel::Compensation,
+                    Owed::Fine => Channel::Fine,
+                };
+                if !legs.is_empty() && self.transfer(now, params, goods, &legs, channel) {
                     self.order.obligations[k].paid_kcal += kcal as f32;
                 }
             }
             if self.order.obligations[k].left_kcal() <= 1.0 {
                 self.order.obligations[k].standing = Standing::Met;
-                for &m in &owed_members {
-                    self.note_tie(ctx, m, taker, Act::Restored, 1.0, 0.0);
+                if matches!(ob.kind, Owed::Demanded | Owed::Restitution) {
+                    for &m in &owed_members {
+                        self.note_tie(ctx, m, taker, Act::Restored, 1.0, 0.0);
+                    }
                 }
                 self.restitution_note(ctx, k, place);
             } else if day >= ob.due {
                 self.order.obligations[k].standing = Standing::Defaulted;
                 self.restitution_note(ctx, k, place);
+                if ob.kind == Owed::Demanded {
+                    let left = self.order.obligations[k].left_kcal();
+                    failed.push((ob.incident, ob.beneficiary, taker, left));
+                }
             }
+        }
+        for (incident, household, taker, left) in failed {
+            self.weigh_case_after_demand(ctx, incident, household, taker, left);
         }
     }
 
@@ -795,18 +993,47 @@ impl Population {
                 |e| format!("the household of {}", self.name_of(e)),
             )
         };
-        let (debtor, owed) = (of(ob.debtor), of(ob.beneficiary));
+        let debtor = of(ob.debtor);
         let who = self.name_of(taker);
-        let mut name = match ob.standing {
-            Standing::Met => format!("{debtor} gave back the food {who} took from {owed}."),
-            Standing::Refused => {
-                format!("{debtor} refused to give back the food {who} took from {owed}.")
+        let left = 100.0 * ob.left_kcal() / f64::from(ob.kcal).max(1.0);
+        let mut name = match ob.kind {
+            Owed::Demanded | Owed::Restitution => {
+                let owed = of(ob.beneficiary);
+                let under = if ob.kind == Owed::Restitution {
+                    ", as the gathering found"
+                } else {
+                    ""
+                };
+                match ob.standing {
+                    Standing::Met => {
+                        format!("{debtor} gave back the food {who} took from {owed}{under}.")
+                    }
+                    Standing::Refused => {
+                        format!(
+                            "{debtor} refused to give back the food {who} took from {owed}{under}."
+                        )
+                    }
+                    _ => format!(
+                        "{debtor} could not give back all the food {who} took from {owed} in time: \
+                         {left:.0}\u{a0}% of it is still owed."
+                    ),
+                }
             }
-            _ => format!(
-                "{debtor} could not give back all the food {who} took from {owed} in time: \
-                 {:.0}\u{a0}% of it is still owed.",
-                100.0 * ob.left_kcal() / f64::from(ob.kcal).max(1.0)
-            ),
+            Owed::Compensation | Owed::Fine => {
+                let what = if ob.kind == Owed::Fine {
+                    "the fine to the common store".to_owned()
+                } else {
+                    format!("what it owed {} for {who}'s taking", of(ob.beneficiary))
+                };
+                match ob.standing {
+                    Standing::Met => format!("{debtor} paid {what}."),
+                    Standing::Refused => format!("{debtor} refused to pay {what}."),
+                    _ => format!(
+                        "{debtor} could not pay all of {what} in time: {left:.0}\u{a0}% of it is \
+                         still owed."
+                    ),
+                }
+            }
         };
         name = name[..1].to_uppercase() + &name[1..];
         let settlement = self.household(ob.debtor).and_then(|x| x.settlement);
@@ -835,6 +1062,58 @@ impl Population {
                 p.risk_seen = params.risk_prior as f32;
             }
         }
+    }
+
+    /// What household `h` knows of takings in the year to `now` (M4b slice AB): what it lost to
+    /// takers a member knows of, and what its members took, with the mean chance its grown
+    /// members believe a taker runs of being seen.
+    pub(super) fn takings_known(
+        &self,
+        h: PermanentId,
+        now: SimTime,
+        params: &PeopleParams,
+    ) -> TakingsKnown {
+        let mut out = TakingsKnown::default();
+        let since = now.day_index() - 365;
+        let Some(x) = self.household(h) else {
+            return out;
+        };
+        for a in self
+            .order
+            .amounts
+            .iter()
+            .rev()
+            .take_while(|a| a.day >= since)
+            .filter(|a| a.household == h)
+        {
+            if a.lost {
+                let known = x.members.iter().any(|&m| {
+                    self.order
+                        .belief(m, a.incident)
+                        .is_some_and(|b| b.taker.is_some())
+                });
+                if known {
+                    out.lost_kcal += f64::from(a.kcal);
+                    out.lost += 1;
+                }
+            } else {
+                out.took_kcal += f64::from(a.kcal);
+                out.took += 1;
+            }
+        }
+        let grown: Vec<f64> = x
+            .members
+            .iter()
+            .filter_map(|&m| self.person(m))
+            .filter(|p| p.age_years(now) >= params.family.independent_age)
+            .map(|p| f64::from(p.risk_seen))
+            .collect();
+        out.risk = if grown.is_empty() {
+            params.crime.risk_prior
+        } else {
+            grown.iter().sum::<f64>() / grown.len() as f64
+        };
+        out
     }
 
     /// Lets go of beliefs held by people no longer here, and of beliefs older than people keep

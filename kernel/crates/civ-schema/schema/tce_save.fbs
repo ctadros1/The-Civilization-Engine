@@ -1093,13 +1093,20 @@ table LawSave {
   relief_kg: double (id: 22);
   unanswered: uint (id: 23);
   holder: ulong (id: 24);
+  // Schema 32: for a law against taking, what it adds to giving back what was taken, days of the
+  // taker's household's food (M4b slice AB).
+  compensation_days: float (id: 25);
+  fine_days: float (id: 26);
 }
 
+// `law` 0: called on cases only (M4b slice AB).
 table GatheringSave {
   law: ulong (id: 0);
   day: long (id: 1);
   stakes: [StakeSave] (id: 2);
   present: [ulong] (id: 3);
+  // Case numbers, in the order brought.
+  cases: [uint] (id: 4);
 }
 
 table PolitySave {
@@ -1152,7 +1159,7 @@ table IncidentSave {
 }
 
 // `taker`, `from` and `origin` are 0 when unknown or none. `source`: 0 saw it, 1 told, 2 found the
-// loss.
+// loss, 3 did it (schema 32).
 struct BeliefSave {
   holder: ulong;
   taker: ulong;
@@ -1188,6 +1195,78 @@ struct ObligationSave {
   answer: ubyte;
 }
 
+// Schema 32: what a household knows of the food an incident moved: what it found missing from its
+// store (`lost`), or what a member brought home.
+struct AmountSave {
+  household: ulong;
+  day: long;
+  incident: uint;
+  kcal: float;
+  lost: bool;
+}
+
+// From saves 32 (M4b slice AB), in place of `ResponseSave`. `choice`: 0 let go, 1 demanded, 2
+// brought a case; `report_points` counts only when `report_open`.
+struct ResponseSave2 {
+  household: ulong;
+  by: ulong;
+  day: long;
+  incident: uint;
+  points: float;
+  report_points: float;
+  choice: ubyte;
+  report_open: bool;
+}
+
+// From saves 32, in place of `ObligationSave`. `kind`: 0 demanded back, 1 restitution, 2
+// compensation, 3 a fine (`beneficiary` is then the polity); `case_id` 0 when no case imposed it.
+struct ObligationSave2 {
+  debtor: ulong;
+  beneficiary: ulong;
+  made: long;
+  due: long;
+  id: uint;
+  incident: uint;
+  case_id: uint;
+  kcal: float;
+  paid_kcal: float;
+  answer_points: float;
+  standing: ubyte;
+  answer: ubyte;
+  kind: ubyte;
+}
+
+// `stance`: as in `StanceSave`.
+struct CaseStanceSave {
+  person: ulong;
+  household: ulong;
+  stake: float;
+  belief: float;
+  regard: float;
+  stance: ubyte;
+}
+
+// `stage`: 0 open, 1 found, 2 not found, 3 unheard, 4 lapsed.
+table CaseSave {
+  id: uint (id: 0);
+  incident: uint (id: 1);
+  settlement: ulong (id: 2);
+  law: ulong (id: 3);
+  accuser: ulong (id: 4);
+  by: ulong (id: 5);
+  accused: ulong (id: 6);
+  accused_household: ulong (id: 7);
+  kcal: float (id: 8);
+  leads: [ulong] (id: 9);
+  opened: long (id: 10);
+  stage: ubyte (id: 11);
+  heard: bool (id: 12);
+  // Minutes, when `heard`.
+  heard_at: long (id: 13);
+  eligible: uint (id: 14);
+  stances: [CaseStanceSave] (id: 15);
+}
+
 table Order {
   incidents: [IncidentSave] (id: 0);
   beliefs: [BeliefSave] (id: 1);
@@ -1195,6 +1274,11 @@ table Order {
   obligations: [ObligationSave] (id: 3);
   // Good content ids at save time.
   goods: [string] (id: 4);
+  amounts: [AmountSave] (id: 5);
+  // From saves 32: these replace `responses` and `obligations`, which are then left empty.
+  responses2: [ResponseSave2] (id: 6);
+  obligations2: [ObligationSave2] (id: 7);
+  cases: [CaseSave] (id: 8);
 }
 
 // Section "events": the scheduler's pending events.

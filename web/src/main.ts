@@ -991,6 +991,7 @@ const hooks = {
               label: p.label,
               labelWhy: p.labelWhy,
               gatheringLaw: p.gatheringLaw,
+              gatheringCases: p.gatheringCases,
               laws: p.laws.map((l) => ({
                 what: l.what,
                 status: l.status,
@@ -1010,6 +1011,8 @@ const hooks = {
             seen: s.order.seen,
             demands: s.order.demands,
             refusals: s.order.refusals,
+            cases: s.order.cases,
+            found: s.order.found,
             incidents: s.order.incidents.map((i) => ({
               id: i.id,
               outcome: i.outcome,
@@ -1023,6 +1026,7 @@ const hooks = {
               sources: k.sources,
               response: k.response,
               owed: k.owed,
+              case: k.case,
             })),
           }
         : null,

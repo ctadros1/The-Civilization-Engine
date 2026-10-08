@@ -6,9 +6,13 @@
 //! - **Beliefs are what people know**: each records how its holder came by it (they saw it, were
 //!   told, or found the loss), and whose eyes it comes from, so several people repeating one
 //!   witness are one source (research 12-04 §1.5).
-//! - **Responses and obligations**: a household that knows who took from it chooses to let it go
-//!   or to demand the food back; a demand is an obligation the taker's household chooses to meet
-//!   or refuse, and meets only from what it has (research 09-07 §1.2).
+//! - **Responses and obligations**: a household that knows who took from it chooses to let it go,
+//!   to demand the food back, or, where a law against taking is in force and it knows of it, to
+//!   bring a case before the gathering (M4b slice AB); a demand, or what a finding imposes, is an
+//!   obligation the taker's household chooses to meet or refuse, and meets only from what it has
+//!   (research 09-07 §1.2).
+//! - **Cases are what the polity knows** (ADR-0015 §4): the accusation, the accounts behind it,
+//!   and how the gathering decided, whole. A case never reads the incident it is about.
 //!
 //! Each person carries an objection to taking, drawn at birth and pulled toward their parents'
 //! (research 04-09 §1.1, social learning), and the chance they believe a taker runs of being
@@ -94,6 +98,15 @@ pub struct CrimeParams {
     pub w_comply_cost: f64,
     /// A household meeting a demand pays only from food beyond this many days of its own need.
     pub keep_days: f64,
+    /// Points against bringing a case before the gathering (M4b slice AB): an evening there and
+    /// the dispute made public (research 09-07 §4.1: the cost C of seeking a forum).
+    pub report_cost: f64,
+    /// Points toward finding against the accused, at a hearing, for one who believes they took;
+    /// one who does not weighs the accounts told there, and with none at all, this much against.
+    pub w_case_belief: f64,
+    /// Points toward meeting what a gathering's finding imposes over refusing it: the custom that
+    /// the gathering binds.
+    pub w_comply_found: f64,
 }
 
 impl CrimeParams {
@@ -127,6 +140,9 @@ impl CrimeParams {
             w_comply_regard: 2.0,
             w_comply_cost: 0.5,
             keep_days: 3.0,
+            report_cost: 1.0,
+            w_case_belief: 1.0,
+            w_comply_found: 2.0,
         }
     }
 }
@@ -249,11 +265,13 @@ pub enum Source {
     Told = 1,
     /// Their household found food gone from its store, and they do not know who took it.
     Noticed = 2,
+    /// They did it themselves (M4b slice AB): a taker knows what they took.
+    Did = 3,
 }
 
 impl Source {
     /// Every source, in code order.
-    pub const ALL: [Source; 3] = [Source::Saw, Source::Told, Source::Noticed];
+    pub const ALL: [Source; 4] = [Source::Saw, Source::Told, Source::Noticed, Source::Did];
 
     /// Its number in saves.
     pub fn code(self) -> u8 {
@@ -286,7 +304,84 @@ pub struct Belief {
     pub day: i64,
 }
 
-/// What a household chose when it learnt who took from it (ADR-0015 §3), with its receipt.
+/// What a household knows of the food an incident moved (M4b slice AB): what it found missing
+/// from its store, or what a member brought home from another's. Kept apart from the incident,
+/// which no choice reads.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct KnownAmount {
+    /// The household.
+    pub household: PermanentId,
+    /// The incident.
+    pub incident: u32,
+    /// Food energy, kcal.
+    pub kcal: f32,
+    /// It lost the food; otherwise a member took it.
+    pub lost: bool,
+    /// The day it came to know.
+    pub day: i64,
+}
+
+/// What a household knows of takings over a year (M4b slice AB): what it lost to takers it knows
+/// of, and what its own members took, with the chance its grown members believe a taker runs of
+/// being seen.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct TakingsKnown {
+    /// Food lost to takings whose taker a member knows, kcal.
+    pub lost_kcal: f64,
+    /// How many such takings.
+    pub lost: u32,
+    /// Food its members took, kcal.
+    pub took_kcal: f64,
+    /// How many takings.
+    pub took: u32,
+    /// The mean chance its grown members believe a taker runs of being seen.
+    pub risk: f64,
+}
+
+impl TakingsKnown {
+    /// What a law against taking with `sanction` would bring the household a year, kcal: back to
+    /// it, what it lost to known takers with compensation; from it, what its own takers took with
+    /// compensation and the fine, at the chance they believe of being seen. Compensation and the
+    /// fine are in days of the taker's household's food, which it takes to be like its own,
+    /// `need_day` kcal a day.
+    pub fn under(&self, sanction: &crate::polity::Sanction, need_day: f64) -> (f64, f64) {
+        let comp = f64::from(sanction.compensation_days) * need_day;
+        let fine = f64::from(sanction.fine_days) * need_day;
+        let recover = self.lost_kcal + f64::from(self.lost) * comp;
+        let owe =
+            self.risk.clamp(0.0, 1.0) * (self.took_kcal + f64::from(self.took) * (comp + fine));
+        (recover, owe)
+    }
+}
+
+/// What a household taken from chose to do about it. Codes are part of saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Choice {
+    /// It let it go.
+    LetGo = 0,
+    /// It demanded the food back of the taker's household.
+    Demand = 1,
+    /// It brought a case before the gathering, under a law against taking (M4b slice AB).
+    Report = 2,
+}
+
+impl Choice {
+    /// Every choice, in code order.
+    pub const ALL: [Choice; 3] = [Choice::LetGo, Choice::Demand, Choice::Report];
+
+    /// Its number in saves.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The choice numbered `code`.
+    pub fn from_code(code: u8) -> Option<Choice> {
+        Choice::ALL.get(usize::from(code)).copied()
+    }
+}
+
+/// What a household chose when it learnt who took from it, or when the taker's household would
+/// not give back what it demanded (ADR-0015 §3), with its receipt.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Response {
     /// The incident.
@@ -297,10 +392,14 @@ pub struct Response {
     pub by: PermanentId,
     /// The day.
     pub day: i64,
-    /// It demanded the food back; otherwise it let it go.
-    pub demand: bool,
-    /// Points toward demanding over letting it go: the receipt.
+    /// What it chose.
+    pub choice: Choice,
+    /// Points toward demanding over letting it go (the receipt); 0 when a demand was not open,
+    /// as after one was refused.
     pub points: f32,
+    /// Points toward bringing a case over letting it go, when a law against taking it knew of
+    /// was in force.
+    pub report_points: Option<f32>,
 }
 
 /// Where an obligation stands. Codes are part of saves: append only.
@@ -350,19 +449,67 @@ impl Standing {
     }
 }
 
-/// What one household owes another (ADR-0015 §5). Slice AA has one kind, restitution demanded by
-/// the household taken from; later slices add those a decision imposes.
+/// What an obligation is (ADR-0015 §5; research 09-07 §1.2: restitution, compensation and a fine
+/// are different transfers). Codes are part of saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Owed {
+    /// What was taken, demanded back by the household taken from.
+    Demanded = 0,
+    /// What was taken, given back as a gathering's finding imposes.
+    Restitution = 1,
+    /// More food to the household taken from, as the law's bundle says.
+    Compensation = 2,
+    /// Food to the polity's common store, as the law's bundle says.
+    Fine = 3,
+}
+
+impl Owed {
+    /// Every kind, in code order.
+    pub const ALL: [Owed; 4] = [
+        Owed::Demanded,
+        Owed::Restitution,
+        Owed::Compensation,
+        Owed::Fine,
+    ];
+
+    /// Its number in saves.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The kind numbered `code`.
+    pub fn from_code(code: u8) -> Option<Owed> {
+        Owed::ALL.get(usize::from(code)).copied()
+    }
+
+    /// In words: "the food back", "restitution", "compensation", "a fine".
+    pub fn words(self) -> &'static str {
+        match self {
+            Owed::Demanded => "the food back",
+            Owed::Restitution => "restitution",
+            Owed::Compensation => "compensation",
+            Owed::Fine => "a fine",
+        }
+    }
+}
+
+/// What one household owes another, or its polity (ADR-0015 §5): food demanded back, or what a
+/// gathering's finding imposed.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Obligation {
     /// Its number, from 1.
     pub id: u32,
     /// The incident it answers.
     pub incident: u32,
+    /// What it is.
+    pub kind: Owed,
+    /// The case whose finding imposed it, if one did.
+    pub case: Option<u32>,
     /// The household that owes.
     pub debtor: PermanentId,
-    /// The household owed.
+    /// The household owed, or for a fine the polity.
     pub beneficiary: PermanentId,
-    /// Food energy owed, kcal: what was taken.
+    /// Food energy owed, kcal.
     pub kcal: f32,
     /// Food energy paid so far, kcal.
     pub paid_kcal: f32,
@@ -396,8 +543,147 @@ pub struct Order {
     pub responses: Vec<Response>,
     /// What households owe one another, in the order demanded.
     pub obligations: Vec<Obligation>,
+    /// What households know of the food incidents moved, in the order they came to know.
+    pub amounts: Vec<KnownAmount>,
+    /// Cases brought before the gathering, in the order brought (M4b slice AB).
+    pub cases: Vec<Case>,
     /// Asks refused because the giver believed the asker took (a counter, not saved).
     pub refusals: u64,
+}
+
+/// Where a case stands. Codes are part of saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CaseStage {
+    /// Brought, and waiting for the gathering to hear it.
+    Open = 0,
+    /// The gathering found that the accused took.
+    Found = 1,
+    /// The gathering did not find it: it turned the accusation down, or split evenly.
+    NotFound = 2,
+    /// Too few came to the gathering to hear it.
+    Unheard = 3,
+    /// The household that brought it, or the accused, was no longer there to be heard.
+    Lapsed = 4,
+}
+
+impl CaseStage {
+    /// Every stage, in code order.
+    pub const ALL: [CaseStage; 5] = [
+        CaseStage::Open,
+        CaseStage::Found,
+        CaseStage::NotFound,
+        CaseStage::Unheard,
+        CaseStage::Lapsed,
+    ];
+
+    /// Its number in saves.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The stage numbered `code`.
+    pub fn from_code(code: u8) -> Option<CaseStage> {
+        CaseStage::ALL.get(usize::from(code)).copied()
+    }
+}
+
+/// An accusation brought before the gathering under a law against taking (ADR-0015 §4; research
+/// 12-04 §1.5: a case holds its leads with their provenance). It is what the polity knows: the
+/// household's account of its loss, who it says took, and the witnesses its account comes from.
+/// The decision is kept whole, as a law's is.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Case {
+    /// Its number, from 1.
+    pub id: u32,
+    /// The incident the accusation is of (a join key; the case never reads it).
+    pub incident: u32,
+    /// The settlement whose gathering hears it.
+    pub settlement: PermanentId,
+    /// The law it is brought under.
+    pub law: PermanentId,
+    /// The household that brought it: the one taken from.
+    pub accuser: PermanentId,
+    /// The member who brought it.
+    pub by: PermanentId,
+    /// Whom it accuses.
+    pub accused: PermanentId,
+    /// Their household when it was brought: the one that would owe.
+    pub accused_household: PermanentId,
+    /// What the household says it lost, kcal: what it found missing.
+    pub kcal: f32,
+    /// The witnesses the accusation's accounts come from, in id order: several people repeating
+    /// one witness are one lead.
+    pub leads: Vec<PermanentId>,
+    /// The day it was brought.
+    pub opened: i64,
+    /// Where it stands.
+    pub stage: CaseStage,
+    /// When the gathering sat on it.
+    pub heard: Option<SimTime>,
+    /// The adults who could have come, when it sat.
+    pub eligible: u32,
+    /// Where each who came stood, in id order: support is for finding that the accused took.
+    pub stances: Vec<CaseStance>,
+}
+
+/// One member's stance at a hearing, with what moved it (ADR-0015 §4).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CaseStance {
+    /// Who.
+    pub person: PermanentId,
+    /// Their household.
+    pub household: PermanentId,
+    /// Where they stood: support is for finding that the accused took.
+    pub stance: crate::polity::Stance,
+    /// What their household stood to gain or lose by a finding, points: the days of its food at
+    /// stake, at a demand's points a day.
+    pub stake: f32,
+    /// What they believed, or made of the accounts told, points.
+    pub belief: f32,
+    /// Their regard for the one who brought it less their regard for the accused, points.
+    pub regard: f32,
+}
+
+impl Case {
+    /// Who came, and how many supported and opposed a finding.
+    pub fn counts(&self) -> (u32, u32, u32) {
+        let n =
+            |s: crate::polity::Stance| self.stances.iter().filter(|r| r.stance == s).count() as u32;
+        (
+            self.stances.len() as u32,
+            n(crate::polity::Stance::Support),
+            n(crate::polity::Stance::Oppose),
+        )
+    }
+}
+
+/// The chance someone believes a gathering will find against a taker from `accounts` distinct
+/// accounts (research 12-04 §1.5: identifying information mostly comes with the report; several
+/// people repeating one witness are one observation): 1 − 0.5^accounts, a tuning form.
+pub fn case_strength(accounts: usize) -> f64 {
+    1.0 - 0.5f64.powi(accounts.min(64) as i32)
+}
+
+/// Points toward bringing a case over letting it go (research 09-07 §4.1: U = p̂(success)·V − C):
+/// `accounts` distinct accounts of who took, `lost_days` and `compensation_days` days of the
+/// household's food to recover, and `regard` the chooser's for the taker.
+pub fn report_points(
+    accounts: usize,
+    lost_days: f64,
+    compensation_days: f64,
+    regard: f64,
+    p: &CrimeParams,
+) -> f64 {
+    let v = p.w_demand_loss * (lost_days.max(0.0) + compensation_days.max(0.0));
+    case_strength(accounts) * v - p.report_cost - p.w_forgive * regard.clamp(0.0, 1.0)
+}
+
+/// Points toward finding against the accused for someone at a hearing (ADR-0015 §4): `believes`
+/// whether they believe the accused took; otherwise `leads`, the accounts told there, weigh
+/// [`case_strength`] either side of an even chance.
+pub fn belief_points(believes: bool, leads: usize, p: &CrimeParams) -> f64 {
+    let b = if believes { 1.0 } else { case_strength(leads) };
+    p.w_case_belief * (2.0 * b - 1.0)
 }
 
 impl Order {
@@ -460,14 +746,54 @@ impl Order {
         }
     }
 
+    /// The case numbered `id`.
+    pub fn case(&self, id: u32) -> Option<&Case> {
+        self.cases
+            .binary_search_by_key(&id, |c| c.id)
+            .ok()
+            .map(|k| &self.cases[k])
+    }
+
+    /// The witnesses behind what `holders` believe of who took in incident `incident`, in id
+    /// order, leaving out `taker`'s own knowledge: the accounts they could bring.
+    pub fn leads(
+        &self,
+        holders: &[PermanentId],
+        incident: u32,
+        taker: PermanentId,
+    ) -> Vec<PermanentId> {
+        let mut out: Vec<PermanentId> = holders
+            .iter()
+            .filter_map(|&h| self.belief(h, incident))
+            .filter(|b| b.taker == Some(taker))
+            .filter_map(|b| b.origin)
+            .filter(|&o| o != taker)
+            .collect();
+        out.sort_unstable();
+        out.dedup();
+        out
+    }
+
+    /// Whether household `household` found food taken from its store on or after day `since`.
+    pub fn lost_since(&self, household: PermanentId, since: i64) -> bool {
+        self.amounts
+            .iter()
+            .rev()
+            .take_while(|a| a.day >= since)
+            .any(|a| a.lost && a.household == household)
+    }
+
     /// The number of distinct first-hand accounts behind what people believe of incident
-    /// `incident` (several people repeating one witness are one: research 12-04 §1.5).
+    /// `incident` (several people repeating one witness are one: research 12-04 §1.5). The taker's
+    /// own knowledge is not an account of it.
     pub fn sources(&self, incident: u32) -> usize {
+        let actor = self.incident(incident).map(|i| i.actor);
         let mut origins: Vec<PermanentId> = self
             .beliefs
             .iter()
             .filter(|b| b.incident == incident)
             .filter_map(|b| b.origin)
+            .filter(|&o| Some(o) != actor)
             .collect();
         origins.sort_unstable();
         origins.dedup();

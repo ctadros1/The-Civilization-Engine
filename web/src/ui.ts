@@ -50,7 +50,7 @@ import {
   stanceText,
   statusText,
 } from "./government.js";
-import { believedText, choiceText, happenedRest, seenText, totalsText } from "./order.js";
+import { believedText, caseText, choiceText, happenedRest, seenText, totalsText } from "./order.js";
 import { PATH_LEGEND } from "./paths.js";
 import {
   HOUSEHOLDS_SHOWN,
@@ -1892,11 +1892,13 @@ export function bindUi(store: Store, actions: Actions): void {
           ),
         );
       }
-      if (p.gatheringLaw !== 0) {
+      if (p.gatheringLaw !== 0 || p.gatheringCases.length > 0) {
+        const hears =
+          p.gatheringCases.length > 0 ? ` It is to hear ${p.gatheringCases.join("; ")}.` : "";
         block.append(
           el("p", {
             className: "gathering",
-            text: `A gathering is called for ${lawDayText(p.gatheringMinute)}${p.gatheringPresent > 0 ? `; ${p.gatheringPresent} have come so far` : ""}.`,
+            text: `A gathering is called for ${lawDayText(p.gatheringMinute)}${p.gatheringPresent > 0 ? `; ${p.gatheringPresent} have come so far` : ""}.${hears}`,
           }),
         );
       }
@@ -2025,6 +2027,17 @@ export function bindUi(store: Store, actions: Actions): void {
             ),
           ),
         );
+        const brought = caseText(k);
+        if (brought !== "") {
+          list.lastElementChild?.append(
+            el(
+              "div",
+              { className: "case" },
+              el("span", { className: "layer", text: "What the gathering was told: " }),
+              `${brought}.`,
+            ),
+          );
+        }
       }
       nodes.push(list);
     }

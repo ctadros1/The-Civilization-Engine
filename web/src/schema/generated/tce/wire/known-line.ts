@@ -61,8 +61,15 @@ owed(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+case_():string|null
+case_(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+case_(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startKnownLine(builder:flatbuffers.Builder) {
-  builder.startObject(7);
+  builder.startObject(8);
 }
 
 static addIncident(builder:flatbuffers.Builder, incident:number) {
@@ -93,12 +100,16 @@ static addOwed(builder:flatbuffers.Builder, owedOffset:flatbuffers.Offset) {
   builder.addFieldOffset(6, owedOffset, 0);
 }
 
+static addCase(builder:flatbuffers.Builder, case_Offset:flatbuffers.Offset) {
+  builder.addFieldOffset(7, case_Offset, 0);
+}
+
 static endKnownLine(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createKnownLine(builder:flatbuffers.Builder, incident:number, knowTaker:number, knowLoss:number, sources:number, victimKnows:boolean, responseOffset:flatbuffers.Offset, owedOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createKnownLine(builder:flatbuffers.Builder, incident:number, knowTaker:number, knowLoss:number, sources:number, victimKnows:boolean, responseOffset:flatbuffers.Offset, owedOffset:flatbuffers.Offset, case_Offset:flatbuffers.Offset):flatbuffers.Offset {
   KnownLine.startKnownLine(builder);
   KnownLine.addIncident(builder, incident);
   KnownLine.addKnowTaker(builder, knowTaker);
@@ -107,6 +118,7 @@ static createKnownLine(builder:flatbuffers.Builder, incident:number, knowTaker:n
   KnownLine.addVictimKnows(builder, victimKnows);
   KnownLine.addResponse(builder, responseOffset);
   KnownLine.addOwed(builder, owedOffset);
+  KnownLine.addCase(builder, case_Offset);
   return KnownLine.endKnownLine(builder);
 }
 }

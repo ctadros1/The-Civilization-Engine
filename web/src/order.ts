@@ -1,6 +1,7 @@
-// Takings in words (wire 1.30, ADR-0015): what happened beside what people believe of it. The
-// kernel renders what was carried off, the household's name and what was chosen; the observer
-// only joins the pieces, and never mixes the two layers in one sentence.
+// Takings in words (wire 1.30, ADR-0015): what happened beside what people believe of it, and
+// from wire 1.31 what the gathering was told and decided. The kernel renders what was carried
+// off, the household's name, what was chosen and the case; the observer only joins the pieces,
+// and never mixes the layers in one sentence.
 
 import { lawDayText } from "./government.js";
 import type { IncidentLine, KnownLine, OrderInfo } from "./net/messages.js";
@@ -58,6 +59,12 @@ export function choiceText(k: KnownLine | undefined): string {
   return k.owed === "" ? k.response : `${k.response}: ${k.owed}`;
 }
 
+/** The case brought for it, as the gathering knows it: "Rilla brought it before the gathering …". */
+export function caseText(k: KnownLine | undefined): string {
+  if (!k || k.case === "") return "";
+  return k.case.charAt(0).toUpperCase() + k.case.slice(1);
+}
+
 /** The totals in a sentence. */
 export function totalsText(o: OrderInfo): string {
   if (o.attempts === 0) return "Nobody has gone to take from another household's store.";
@@ -66,5 +73,9 @@ export function totalsText(o: OrderInfo): string {
   const seen = `${o.seen} seen`;
   const known = `${o.knownToVictims} known to the household taken from`;
   const demands = o.demands === 1 ? "1 demand" : `${o.demands} demands`;
-  return `${attempts}, ${takings}; ${seen}; ${known}; ${demands} to give back (${o.met} met, ${o.refused} refused); ${o.refusals} asks refused to those believed to have taken.`;
+  const cases =
+    o.cases === 0
+      ? ""
+      : ` ${o.cases === 1 ? "1 case" : `${o.cases} cases`} before the gathering: ${o.found} found, ${o.notFound} not found, ${o.unheard} unheard.`;
+  return `${attempts}, ${takings}; ${seen}; ${known}; ${demands} to give back (${o.met} met, ${o.refused} refused); ${o.refusals} asks refused to those believed to have taken.${cases}`;
 }

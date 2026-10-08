@@ -23,17 +23,26 @@ pub enum PolicyKind {
     /// first form, ADR-0013 §2): it spoils as a roofed store does, and those who ask for relief
     /// ask at their home. The law lapses when they die or leave.
     KeepStore,
+    /// Taking from another household's store is a wrong the gathering hears (M4b slice AB,
+    /// ADR-0015 §4): whoever it finds took gives back what was taken, and the law's bundle
+    /// besides (research 09-07 §6.2).
+    AgainstTaking,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 2] = [PolicyKind::CommonStore, PolicyKind::KeepStore];
+    pub const ALL: [PolicyKind; 3] = [
+        PolicyKind::CommonStore,
+        PolicyKind::KeepStore,
+        PolicyKind::AgainstTaking,
+    ];
 
     /// The authored name.
     pub fn name(self) -> &'static str {
         match self {
             PolicyKind::CommonStore => "common_store",
             PolicyKind::KeepStore => "keep_store",
+            PolicyKind::AgainstTaking => "against_taking",
         }
     }
 
@@ -52,17 +61,25 @@ pub enum IssueKind {
     FoodShort,
     /// A common store is in force and holds food, and nobody keeps it under a roof.
     StoreUnkept,
+    /// A household of the settlement found food taken from its store within the last year (M4b
+    /// slice AB): what its members know, not what happened.
+    Takings,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 2] = [IssueKind::FoodShort, IssueKind::StoreUnkept];
+    pub const ALL: [IssueKind; 3] = [
+        IssueKind::FoodShort,
+        IssueKind::StoreUnkept,
+        IssueKind::Takings,
+    ];
 
     /// The authored name.
     pub fn name(self) -> &'static str {
         match self {
             IssueKind::FoodShort => "food_short",
             IssueKind::StoreUnkept => "store_unkept",
+            IssueKind::Takings => "takings",
         }
     }
 
@@ -76,6 +93,64 @@ impl IssueKind {
         match self {
             IssueKind::FoodShort => "food would not last until the harvest",
             IssueKind::StoreUnkept => "the common store lay in the open with nobody to keep it",
+            IssueKind::Takings => "food was taken from households' stores",
+        }
+    }
+}
+
+/// What a law against taking adds to giving back what was taken (research 09-07 §1.2, §6.2:
+/// restitution, compensation and a fine are different transfers, and a punishment is a bundle),
+/// in days of the taker's household's food (09-07 §2.3).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Sanction {
+    /// Food to the household taken from, besides what was taken, days.
+    pub compensation_days: f32,
+    /// Food to the polity's store, days.
+    pub fine_days: f32,
+}
+
+impl Sanction {
+    /// In words, after "what was taken given back": ", with three days' food to the household
+    /// taken from and three to the common store", or "" for nothing more.
+    pub fn words(&self) -> String {
+        let days = |d: f32| {
+            let d = f64::from(d);
+            let n = match d.round() as i64 {
+                1 => "one",
+                2 => "two",
+                3 => "three",
+                4 => "four",
+                5 => "five",
+                6 => "six",
+                7 => "seven",
+                10 => "ten",
+                _ => "",
+            };
+            let unit = if (d - 1.0).abs() < 1e-6 {
+                "day's"
+            } else {
+                "days'"
+            };
+            if n.is_empty() || (d - d.round()).abs() > 1e-6 {
+                format!("{d:.1} {unit}")
+            } else {
+                format!("{n} {unit}")
+            }
+        };
+        let mut parts = Vec::new();
+        if self.compensation_days > 0.0 {
+            parts.push(format!(
+                "{} food to the household taken from",
+                days(self.compensation_days)
+            ));
+        }
+        if self.fine_days > 0.0 {
+            parts.push(format!("{} to the common store", days(self.fine_days)));
+        }
+        match parts.len() {
+            0 => String::new(),
+            1 => format!(", with {}", parts[0]),
+            _ => format!(", with {} and {}", parts[0], parts[1]),
         }
     }
 }
@@ -99,6 +174,8 @@ pub struct PolicyDef {
     pub levy_shares: Vec<f64>,
     /// The most food one ask brings a household from the store, in days of its need.
     pub relief_days: f64,
+    /// For a law against taking: the bundles a sponsor may propose, lightest first.
+    pub bundles: Vec<Sanction>,
 }
 
 /// How a polity's members meet, decide, forecast and comply (the people profile's `[polity]`
@@ -371,6 +448,8 @@ pub struct Law {
     pub holder: Option<PermanentId>,
     /// The most one ask brings, days of the asking household's food.
     pub relief_days: f32,
+    /// For a law against taking: what it adds to giving back what was taken.
+    pub sanction: Sanction,
     /// Where it stands.
     pub status: LawStatus,
     /// Stage 1: who proposed it, when, and the issue it answered.
@@ -423,12 +502,12 @@ impl Law {
     }
 }
 
-/// A gathering called on a proposal: the law, the day it meets, what each household made of it
-/// when word went round, and who came.
+/// A gathering called on a proposal or a case: the law before it, the day it meets, what each
+/// household made of the law when word went round, the cases it is to hear, and who came.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Gathering {
-    /// The law before it.
-    pub law: PermanentId,
+    /// The law before it, if it was called on one.
+    pub law: Option<PermanentId>,
     /// The day it meets.
     pub day: i64,
     /// Each household's forecast of the law when it was proposed, points
@@ -436,6 +515,8 @@ pub struct Gathering {
     pub stakes: Vec<(PermanentId, f32)>,
     /// Those who came, in id order.
     pub present: Vec<PermanentId>,
+    /// The cases brought before it, by number, in the order brought (M4b slice AB).
+    pub cases: Vec<u32>,
 }
 
 impl Gathering {
@@ -483,6 +564,13 @@ pub fn law_words(
     name_of: &dyn Fn(PermanentId) -> String,
 ) -> String {
     let def = policies.get(usize::from(law.policy));
+    if def.is_some_and(|d| d.kind == PolicyKind::AgainstTaking) {
+        return format!(
+            "a law against taking: whoever is found to have taken from another household's \
+             store gives back what was taken{}",
+            law.sanction.words()
+        );
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::KeepStore) {
         return match law.holder {
             Some(h) => format!("{} as keeper of the common store", name_of(h)),
@@ -751,6 +839,14 @@ pub fn kept_gain(o: &Outlook, kcal: f64, params: &PolityParams) -> f64 {
     u(before + kcal.max(0.0)) - u(before)
 }
 
+/// What a household expects of a law against taking (M4b slice AB), in the units of
+/// [`store_gain`]: `recover` kcal a year back to it (what it lost to takers it knows of in the past
+/// year, with the bundle's compensation), less `owe` kcal a year from it (what its own members
+/// took, with the bundle, at the chance they believe a taker runs of being seen).
+pub fn against_gain(o: &Outlook, recover: f64, owe: f64, params: &PolityParams) -> f64 {
+    kept_gain(o, recover, params) - levy_cost(o, owe, params)
+}
+
 /// What paying a levy of `kcal` now costs a household with outlook `o`, in the same units as
 /// [`store_gain`]: the fall in the log of its year's food above subsistence.
 pub fn levy_cost(o: &Outlook, kcal: f64, params: &PolityParams) -> f64 {
@@ -808,6 +904,8 @@ pub struct MoveOption {
     pub issue: IssueKind,
     /// The one it would name, for a law that names someone.
     pub nominee: Option<PermanentId>,
+    /// The bundle, for a law against taking.
+    pub sanction: Sanction,
     /// The forecast for the person's own household ([`store_gain`]).
     pub own_gain: f64,
     /// The forecast for the households of those who regard them, weighted by that regard.
@@ -965,6 +1063,7 @@ pub(crate) mod tests {
             levy_share: 0.1,
             holder: None,
             relief_days: 5.0,
+            sanction: Default::default(),
             status: LawStatus::Proposed,
             sponsor: pid(7),
             proposed: SimTime::ZERO,
@@ -994,10 +1093,12 @@ pub(crate) mod tests {
             answers: Vec::new(),
             levy_shares: Vec::new(),
             relief_days: 0.0,
+            bundles: Vec::new(),
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
             def(PolicyKind::KeepStore, "Storekeeper"),
+            def(PolicyKind::AgainstTaking, "Against taking"),
         ];
         let mut law = Law {
             id: pid(1),
@@ -1005,6 +1106,7 @@ pub(crate) mod tests {
             levy_share: 0.1,
             holder: None,
             relief_days: 5.0,
+            sanction: Default::default(),
             status: LawStatus::Proposed,
             sponsor: pid(7),
             proposed: SimTime::ZERO,
@@ -1029,6 +1131,68 @@ pub(crate) mod tests {
             law_words(&law, &policies, &name_of),
             "Ada as keeper of the common store"
         );
+        law.policy = 2;
+        law.holder = None;
+        assert_eq!(
+            law_words(&law, &policies, &name_of),
+            "a law against taking: whoever is found to have taken from another household's store \
+             gives back what was taken"
+        );
+        law.sanction = Sanction {
+            compensation_days: 3.0,
+            fine_days: 1.0,
+        };
+        assert_eq!(
+            law_words(&law, &policies, &name_of),
+            "a law against taking: whoever is found to have taken from another household's store \
+             gives back what was taken, with three days' food to the household taken from and one \
+             day's to the common store"
+        );
+    }
+
+    #[test]
+    fn a_law_against_taking_helps_those_taken_from_and_costs_those_who_took() {
+        let p = params();
+        let need_day = 4.0 * 2100.0;
+        let o = Outlook {
+            held: 30.0 * need_day,
+            harvest: 300.0 * need_day,
+            year_need: 365.0 * need_day,
+        };
+        let bundle = Sanction {
+            compensation_days: 3.0,
+            fine_days: 3.0,
+        };
+        let robbed = crate::crime::TakingsKnown {
+            lost_kcal: 10.0 * need_day,
+            lost: 2,
+            risk: 0.5,
+            ..Default::default()
+        };
+        let took = crate::crime::TakingsKnown {
+            took_kcal: 10.0 * need_day,
+            took: 2,
+            risk: 0.5,
+            ..Default::default()
+        };
+        let gain = |k: &crate::crime::TakingsKnown, s: &Sanction| {
+            let (recover, owe) = k.under(s, need_day);
+            against_gain(&o, recover, owe, &p)
+        };
+        assert!(gain(&robbed, &bundle) > 0.0);
+        assert!(gain(&took, &bundle) < 0.0);
+        // A harsher bundle is worth more to the one taken from and costs the taker more.
+        assert!(gain(&robbed, &bundle) > gain(&robbed, &Sanction::default()));
+        assert!(gain(&took, &bundle) < gain(&took, &Sanction::default()));
+        // A taker sure of never being seen expects to owe nothing.
+        let unseen = crate::crime::TakingsKnown { risk: 0.0, ..took };
+        assert!(gain(&unseen, &bundle).abs() < 1e-12);
+        // A household with no takings either way is untouched.
+        let none = crate::crime::TakingsKnown {
+            risk: 0.5,
+            ..Default::default()
+        };
+        assert!(gain(&none, &bundle).abs() < 1e-12);
     }
 
     #[test]
@@ -1040,6 +1204,7 @@ pub(crate) mod tests {
             levy_share: 0.1,
             issue: IssueKind::FoodShort,
             nominee: None,
+            sanction: Sanction::default(),
             own_gain: 0.3,
             followers_gain: 0.2,
             support: 0.8,

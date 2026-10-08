@@ -22,6 +22,8 @@ the milestone is too big and gets split.
 | [0013](0013-polity-offices-laws.md) | The polity, its offices and its laws | Accepted | M4a |
 | [0014](0014-ties-standing-notables.md) | Ties, standing and notables | Accepted | M4a |
 | [0015](0015-incidents-cases-obligations.md) | Incidents, cases and obligations | Accepted | M4b |
+| [0016](0016-grievances-claims-opinions.md) | Grievances, claims and opinions, and the interventions that touch them | Accepted | M4c |
+| [0017](0017-factions-episodes-regime-change.md) | Factions, episodes and changes of regime | Accepted | M4c |
 
 ## Template
 

@@ -172,6 +172,19 @@ impl Word {
         };
         self.heard
             .retain(|h| find(h.claim).is_some_and(|c| !stale(c, h.last)));
+        self.drop_unheld_claims();
+    }
+
+    /// Lets go of what those no longer here held (`here` is false for them): their grievances
+    /// and what they had heard go with them, and so do claims nobody holds now. A claim about
+    /// them that others heard stays news as long as it would.
+    pub fn let_go_of_gone(&mut self, here: impl Fn(PermanentId) -> bool) {
+        self.grievances.retain(|g| here(g.holder));
+        self.heard.retain(|h| here(h.holder));
+        self.drop_unheld_claims();
+    }
+
+    fn drop_unheld_claims(&mut self) {
         let mut held: Vec<u32> = self.heard.iter().map(|h| h.claim).collect();
         held.sort_unstable();
         held.dedup();
@@ -450,6 +463,41 @@ mod tests {
         assert!(w.has_heard(id(3), c));
         w.prune(11, 60);
         assert!(!w.has_heard(id(3), c) && w.claim(c).is_none());
+    }
+
+    #[test]
+    fn what_the_dead_held_goes_with_them() {
+        let mut w = Word::default();
+        let c = w.make(Claim {
+            id: 0,
+            kind: ClaimKind::Gathering,
+            settlement: id(1),
+            day: 10,
+            subject: None,
+            grievance: None,
+        });
+        w.hear(id(5), c, 8, None, Some(id(5)));
+        w.hear(id(3), c, 9, Some(id(5)), Some(id(5)));
+        for holder in [id(3), id(5)] {
+            w.grievances.push(Grievance {
+                holder,
+                issue: Grieved::Collective,
+                blamed: Blamed::Body(id(9)),
+                law: id(9),
+                wrong: Wrong::StoreEmpty,
+                harm_days: 3.0,
+                unresolved_days: 3.0,
+                activation: 1.0,
+                raised: 8,
+                made: 8,
+            });
+        }
+        // 5 died: what they held and had heard goes; 3 keeps what they heard from them.
+        w.let_go_of_gone(|p| p != id(5));
+        assert!(w.grievances.iter().all(|g| g.holder == id(3)));
+        assert!(!w.has_heard(id(5), c) && w.has_heard(id(3), c));
+        w.let_go_of_gone(|_| false);
+        assert!(w.grievances.is_empty() && w.claim(c).is_none());
     }
 
     #[test]

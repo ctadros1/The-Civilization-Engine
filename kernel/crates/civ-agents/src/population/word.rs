@@ -80,11 +80,14 @@ impl Population {
     }
 
     /// Midnight (ADR-0016 §3): each member of a household tells each other member of a gathering
-    /// ahead that they heard of, by the content's chance; then what is no longer news is let go.
-    /// Who tells is fixed at the start, so the order households are seen in changes nothing.
+    /// ahead that they heard of, by the content's chance; then what is no longer news is let go,
+    /// and so is what those who died or left held. Who tells is fixed at the start, so the order
+    /// households are seen in changes nothing.
     pub(super) fn word_day(&mut self, ctx: &Ctx) {
         let wp = &ctx.params.word;
         let day = ctx.now.day_index();
+        let index = &self.index;
+        self.word.let_go_of_gone(|p| index.contains_key(&p));
         self.word.prune(day, i64::from(wp.news_days));
         // Each with the settlement and day it is keyed by: never the claim's number, which
         // unrelated claims move (ADR-0016 §6).

@@ -28455,6 +28455,7 @@ impl<'a> FactionsSave<'a> {
   pub const VT_POLICIES: ::flatbuffers::VOffsetT = 16;
   pub const VT_REFUSALS: ::flatbuffers::VOffsetT = 18;
   pub const VT_REVOLTS: ::flatbuffers::VOffsetT = 20;
+  pub const VT_COUPS: ::flatbuffers::VOffsetT = 22;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -28468,6 +28469,7 @@ impl<'a> FactionsSave<'a> {
     let mut builder = FactionsSaveBuilder::new(_fbb);
     builder.add_left(args.left);
     builder.add_joined(args.joined);
+    if let Some(x) = args.coups { builder.add_coups(x); }
     if let Some(x) = args.revolts { builder.add_revolts(x); }
     if let Some(x) = args.refusals { builder.add_refusals(x); }
     if let Some(x) = args.policies { builder.add_policies(x); }
@@ -28542,6 +28544,13 @@ impl<'a> FactionsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RevoltSave>>>>(FactionsSave::VT_REVOLTS, None)}
   }
+  #[inline]
+  pub fn coups(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RevoltSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RevoltSave>>>>(FactionsSave::VT_COUPS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FactionsSave<'_> {
@@ -28559,6 +28568,7 @@ impl ::flatbuffers::Verifiable for FactionsSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("policies", Self::VT_POLICIES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RefusalSave>>>>("refusals", Self::VT_REFUSALS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RevoltSave>>>>("revolts", Self::VT_REVOLTS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RevoltSave>>>>("coups", Self::VT_COUPS, false)?
      .finish();
     Ok(())
   }
@@ -28573,6 +28583,7 @@ pub struct FactionsSaveArgs<'a> {
     pub policies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub refusals: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RefusalSave<'a>>>>>,
     pub revolts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RevoltSave<'a>>>>>,
+    pub coups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RevoltSave<'a>>>>>,
 }
 impl<'a> Default for FactionsSaveArgs<'a> {
   #[inline]
@@ -28587,6 +28598,7 @@ impl<'a> Default for FactionsSaveArgs<'a> {
       policies: None,
       refusals: None,
       revolts: None,
+      coups: None,
     }
   }
 }
@@ -28633,6 +28645,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FactionsSaveBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FactionsSave::VT_REVOLTS, revolts);
   }
   #[inline]
+  pub fn add_coups(&mut self, coups: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<RevoltSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FactionsSave::VT_COUPS, coups);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FactionsSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FactionsSaveBuilder {
@@ -28659,6 +28675,7 @@ impl ::core::fmt::Debug for FactionsSave<'_> {
       ds.field("policies", &self.policies());
       ds.field("refusals", &self.refusals());
       ds.field("revolts", &self.revolts());
+      ds.field("coups", &self.coups());
       ds.finish()
   }
 }

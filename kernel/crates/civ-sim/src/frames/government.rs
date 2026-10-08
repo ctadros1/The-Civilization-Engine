@@ -349,6 +349,50 @@ pub fn revolt_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<String>
         .collect()
 }
 
+/// The coups at `settlement` in words (wire 1.45, ADR-0017 §4), newest first: "Bo called on those
+/// who keep the watch on 3 May of year 2 to take the deciding with them; it held on 11 May of year
+/// 2, 2 of 3 watchers with it, none with the gathering".
+pub fn coup_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<String> {
+    use civ_agents::faction::{RevoltEnd, Side};
+    let pop = &sim.people;
+    let mut here: Vec<&civ_agents::faction::Coup> = pop
+        .factions
+        .coups
+        .iter()
+        .filter(|c| c.settlement == settlement)
+        .collect();
+    here.sort_by(|a, b| b.called.cmp(&a.called).then(b.id.cmp(&a.id)));
+    here.into_iter()
+        .map(|c| {
+            let count = |n: usize| match n {
+                0 => "none".to_owned(),
+                n => n.to_string(),
+            };
+            let counts = format!(
+                "{} of {} watchers with it, {} with the gathering",
+                count(c.count(Side::With)),
+                c.sides.len(),
+                count(c.count(Side::Gathering))
+            );
+            let how = match c.ended {
+                None => format!(
+                    "it stands until {}: {counts} now",
+                    day_words(SimTime::from_minutes(c.until * 24 * 60))
+                ),
+                Some((RevoltEnd::Held, at)) => format!("it held on {}, {counts}", day_words(at)),
+                Some((RevoltEnd::Failed, at)) => {
+                    format!("it came to nothing on {}, {counts}", day_words(at))
+                }
+            };
+            format!(
+                "{} called on those who keep the watch on {} to take the deciding with them; {how}",
+                pop.name_of(c.challenger),
+                day_words(c.called)
+            )
+        })
+        .collect()
+}
+
 /// A `Response` with every settlement's polity.
 pub fn government_response(sim: &Sim) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
@@ -429,6 +473,12 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
             .map(|w| fbb.create_string(w))
             .collect();
         let revolts = fbb.create_vector(&revolts);
+        // Its coups (wire 1.45, M4c slice AI, step three).
+        let coups: Vec<_> = coup_words(sim, polity.settlement)
+            .iter()
+            .map(|w| fbb.create_string(w))
+            .collect();
+        let coups = fbb.create_vector(&coups);
         let body_members = pop
             .body_members(&sim.land.fields, pi, now, &rules.people)
             .len() as u32;
@@ -497,6 +547,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                 petitions: Some(petitions),
                 refusals: Some(refusals),
                 revolts: Some(revolts),
+                coups: Some(coups),
                 body_members,
             },
         ));

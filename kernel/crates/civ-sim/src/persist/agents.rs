@@ -106,7 +106,8 @@ use super::{
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
-    SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, finish, section, single_chunk, unreadable,
+    SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, finish, section, single_chunk,
+    unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -358,6 +359,8 @@ enum Schema {
     V44,
     /// Repeals carried, and laws put to a founding (M4c slice AI, step two).
     V45,
+    /// Coups, and a body of those who keep the watch (M4c slice AI, step three).
+    V46,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -417,7 +420,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V42 => Schema::V42,
         SCHEMA_V43 => Schema::V43,
         SCHEMA_V44 => Schema::V44,
-        SAVE_SCHEMA_VERSION => Schema::V45,
+        SCHEMA_V45 => Schema::V45,
+        SAVE_SCHEMA_VERSION => Schema::V46,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2505,7 +2509,8 @@ fn carried(
         | Schema::V42
         | Schema::V43
         | Schema::V44
-        | Schema::V45 => {
+        | Schema::V45
+        | Schema::V46 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2660,7 +2665,8 @@ fn decode_households(
             | Schema::V42
             | Schema::V43
             | Schema::V44
-            | Schema::V45 => {
+            | Schema::V45
+            | Schema::V46 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3258,6 +3264,8 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::RevoltCalled => 33,
         ChronicleKind::CustomTaken => 34,
         ChronicleKind::RevoltFailed => 35,
+        ChronicleKind::CoupCalled => 36,
+        ChronicleKind::CoupFailed => 37,
     }
 }
 
@@ -3298,6 +3306,8 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         33 => Some(ChronicleKind::RevoltCalled),
         34 => Some(ChronicleKind::CustomTaken),
         35 => Some(ChronicleKind::RevoltFailed),
+        36 => Some(ChronicleKind::CoupCalled),
+        37 => Some(ChronicleKind::CoupFailed),
         _ => None,
     }
 }
@@ -5642,6 +5652,39 @@ fn encode_factions(
         })
         .collect();
     let revolts = fbb.create_vector(&revolts);
+    // Coups (schema 46), as revolts with no faction.
+    let coups: Vec<_> = factions
+        .coups
+        .iter()
+        .map(|c| {
+            let sides: Vec<save::SideSave> = c
+                .sides
+                .iter()
+                .map(|&(p, s)| save::SideSave::new(p.get(), s.code()))
+                .collect();
+            let sides = fbb.create_vector(&sides);
+            save::RevoltSave::create(
+                &mut fbb,
+                &save::RevoltSaveArgs {
+                    id: c.id.get(),
+                    faction: 0,
+                    settlement: c.settlement.get(),
+                    organizer: c.challenger.get(),
+                    called: c.called.minutes(),
+                    until: c.until,
+                    members: c.body.members.code(),
+                    quorum_share: c.body.quorum_share,
+                    pass: c.body.pass.code(),
+                    sides: Some(sides),
+                    has_held: c.held_since.is_some(),
+                    held_since: c.held_since.unwrap_or(0),
+                    ended: c.ended.map_or(u8::MAX, |e| e.0.code()),
+                    ended_at: c.ended.map_or(0, |e| e.1.minutes()),
+                },
+            )
+        })
+        .collect();
+    let coups = fbb.create_vector(&coups);
     let list: Vec<_> = factions
         .list
         .iter()
@@ -5712,6 +5755,7 @@ fn encode_factions(
             policies: Some(policy_dictionary),
             refusals: Some(refusals),
             revolts: Some(revolts),
+            coups: Some(coups),
         },
     );
     finish(fbb, root)
@@ -5722,7 +5766,7 @@ fn decode_factions(
     rules: &Rules,
 ) -> Result<civ_agents::faction::Factions, LoadError> {
     use civ_agents::faction::{
-        Faction, FactionEvent, FactionEventKind, Factions, Member, Petition, Refusal, Revolt,
+        Coup, Faction, FactionEvent, FactionEventKind, Factions, Member, Petition, Refusal, Revolt,
         RevoltEnd, Side, Why,
     };
     use civ_agents::polity::{Body, Membership, PassRule};
@@ -5885,6 +5929,35 @@ fn decode_factions(
             kept_kg: r.kept_kg(),
         });
     }
+    // A revolt's or a coup's body, sides and end.
+    type Parts = (Body, Vec<(PermanentId, Side)>, Option<(RevoltEnd, SimTime)>);
+    let parts = |r: &save::RevoltSave, id: PermanentId| -> Result<Parts, LoadError> {
+        let body = Body {
+            members: Membership::from_code(r.members())
+                .ok_or_else(|| bad(format!("episode {id} has membership code {}", r.members())))?,
+            quorum_share: r.quorum_share(),
+            pass: PassRule::from_code(r.pass())
+                .ok_or_else(|| bad(format!("episode {id} has decision rule code {}", r.pass())))?,
+        };
+        let mut sides = Vec::new();
+        for s in r.sides().iter().flatten() {
+            let side = Side::from_code(s.side())
+                .ok_or_else(|| bad(format!("episode {id} has side code {}", s.side())))?;
+            sides.push((required(s.person(), "one who stood on an episode")?, side));
+        }
+        if !sides.windows(2).all(|w| w[0].0 < w[1].0) {
+            return Err(bad(format!("episode {id} lists who stood out of order")));
+        }
+        let ended = match r.ended() {
+            u8::MAX => None,
+            c => Some((
+                RevoltEnd::from_code(c)
+                    .ok_or_else(|| bad(format!("episode {id} has end code {c}")))?,
+                SimTime::from_minutes(r.ended_at()),
+            )),
+        };
+        Ok((body, sides, ended))
+    };
     let mut revolts = Vec::new();
     for r in root.revolts().iter().flatten() {
         let id = required(r.id(), "a revolt")?;
@@ -5894,30 +5967,7 @@ fn decode_factions(
                 "revolt {id} was called by faction {faction}, which never was"
             )));
         }
-        let body = Body {
-            members: Membership::from_code(r.members())
-                .ok_or_else(|| bad(format!("revolt {id} has membership code {}", r.members())))?,
-            quorum_share: r.quorum_share(),
-            pass: PassRule::from_code(r.pass())
-                .ok_or_else(|| bad(format!("revolt {id} has decision rule code {}", r.pass())))?,
-        };
-        let mut sides = Vec::new();
-        for s in r.sides().iter().flatten() {
-            let side = Side::from_code(s.side())
-                .ok_or_else(|| bad(format!("revolt {id} has side code {}", s.side())))?;
-            sides.push((required(s.person(), "one who stood on a revolt")?, side));
-        }
-        if !sides.windows(2).all(|w| w[0].0 < w[1].0) {
-            return Err(bad(format!("revolt {id} lists who stood out of order")));
-        }
-        let ended = match r.ended() {
-            u8::MAX => None,
-            c => Some((
-                RevoltEnd::from_code(c)
-                    .ok_or_else(|| bad(format!("revolt {id} has end code {c}")))?,
-                SimTime::from_minutes(r.ended_at()),
-            )),
-        };
+        let (body, sides, ended) = parts(&r, id)?;
         revolts.push(Revolt {
             id,
             faction,
@@ -5931,11 +5981,28 @@ fn decode_factions(
             ended,
         });
     }
+    let mut coups = Vec::new();
+    for c in root.coups().iter().flatten() {
+        let id = required(c.id(), "a coup")?;
+        let (body, sides, ended) = parts(&c, id)?;
+        coups.push(Coup {
+            id,
+            settlement: required(c.settlement(), "a coup's settlement")?,
+            challenger: required(c.organizer(), "a coup's challenger")?,
+            called: SimTime::from_minutes(c.called()),
+            until: c.until(),
+            body,
+            sides,
+            held_since: c.has_held().then(|| c.held_since()),
+            ended,
+        });
+    }
     Ok(Factions {
         list,
         petitions,
         refusals,
         revolts,
+        coups,
         members,
         joined: root.joined(),
         left: root.left(),

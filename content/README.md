@@ -598,7 +598,7 @@ template the content no longer has is refused.
 | `levy_shares` | `common_store` only: the shares of threshed grain a sponsor may propose (1 to 8 of them, each above 0 and below 1). A `keep_store` or `keep_watch` template leaves it out. |
 | `relief_days` | `common_store` only: the most food one ask brings, in days of the asking household's need (above 0, at most 365). A `keep_store` template leaves it out. |
 | `hours` | `curfew` only (content API 38): the hours a sponsor may propose, 1 to 8 pairs `[from, to]` of hours of the day (0 to 23, different), the curfew running from the first to the second, past midnight when the second is the smaller. Any other template leaves it out. |
-| `members`, `quorum_shares`, `pass` | `amend_body` only (content API 40): who may belong to the body (1 to 3 of `adults`, `elders` (each household's eldest of an age to keep one), `landholders` (the adults of households holding a field)), the shares of members who must come (1 to 8, each 0 to 1), and how it decides (1 or 2 of `more_for`, more for than against, and `two_thirds`, two of every three who take a side). They combine into bodies; a sponsor weighs those one change away from the custom they live under, and only if the new body would keep them in it. Any other template leaves them out. |
+| `members`, `quorum_shares`, `pass` | `amend_body` only (content API 40): who may belong to the body (1 to 4 of `adults`, `elders` (each household's eldest of an age to keep one), `landholders` (the adults of households holding a field), `watch` (content API 50: those who keep the watch by a law in force)), the shares of members who must come (1 to 8, each 0 to 1), and how it decides (1 or 2 of `more_for`, more for than against, and `two_thirds`, two of every three who take a side). They combine into bodies; a sponsor weighs those one change away from the custom they live under, and only if the new body would keep them in it. Any other template leaves them out. |
 | `[bears]` | Optional (content API 43): how a law of the template bears on each value (`"core:value/security" = 1.0`), from -1 (against it) to 1 (for it); each must name a value that exists. What a law does to what someone holds dear weighs, beside their household's lot, in their anchor on its question, their stance at its gathering and how they weigh proposing it. An authoring judgement, not a measurement. |
 | `question` | Optional (content API 41): the question people take positions on, in words to follow "on" ("whether to keep a common store"). Each adult then holds a position on it, anchored in what their household's lot makes of the template's law in force, or else its middle level, and moved by talk at the hearth (the `[opinion]` table). Left out, nobody holds one. |
 | `bundles` | `against_taking` only: the sanctions a sponsor may propose, 1 to 8 tables of `compensation_days` (food to the household taken from beyond what was taken) and `fine_days` (food to the polity's common store), each 0 to 365 days of the taker's household's food, and `exile` (the one found is sent from the valley; default false). Research 09-07 §1.2 keeps restitution, compensation and a fine apart; §6.2: a sanction is a bundle, never one severity number. |
@@ -714,6 +714,11 @@ norms they hold weigh), `revolt_days` (how long the call stands), `hold_days` (h
 officeholder, and more adults than stand with the gathering, must stand with it before it holds)
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
+
+Content API 50 (M4c slice AI, step three) brings coups: the `[faction]` key `coup_cost` (what
+calling on the others who keep the watch to take the deciding for it costs a watcher, points,
+beside what the norms they hold weigh), a design prior; and the body membership `watch` (those who
+keep the watch by a law in force), which a coup makes and an amendment template may name.
 
 Content API 49 (M4c slice AI, step two) brings founding: the policy kind `repeal` (a law that ends
 the one it names, carried rather than in force), the issue `founding` (present for

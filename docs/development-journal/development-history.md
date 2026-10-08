@@ -611,6 +611,23 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** steps three and four of slice AI (a watch of several and coups; force, damage and violence); slice AJ.
 
+## 2026-10-08 — M4c slice AI, step three: a watch of several and coups
+
+**Goal:** give the village its first office of force worth seizing with, and let its holders, and only they, decide whether the deciding passes to them (ADR-0017 §4; research 09-11 §1.4).
+
+**What changed:**
+
+- **A watch of several:** while takings continue, a further watcher may be proposed beside those in office, each adding what the others leave unguarded; every watcher walks their own rounds and sees.
+- **Coups:** a watcher of several who blames the gathering weighs, at their monthly review, calling on the others to take the deciding for the watch, at their grievance and how well the others regard them, less a cost and the norms they hold.
+- **Sides among the watchers alone:** each day each watcher stands with it, with the gathering or with neither, from their grievance, their regard for the caller and where the others stood; once more back it than the gathering for a week, the body becomes those who keep the watch, the custom taken, and a founding follows.
+- **Boundary:** saves schema 46 (45 still loads), wire 1.45 (coups in the Government panel), content API 50 (`coup_cost`, the membership `watch`).
+
+**Findings:** the first build left the watch template open whenever a watch was in force, and the smoke had one coast village name 18 watchers and another 28: a move worth almost nothing is still proposed now and then and passes on regard for the one it names. A further watcher now needs takings since the newest watcher was named, and a sponsor it serves; the rerun named one watch in one village and three over ten years in another. A crime test assumed a single watcher; with takings continuing in it, the village named a second, as it now may. The ideology spread test failed about 1 run in 20: for some worlds' identities the ideology fitted nobody who heard it, so the test now sets what people hold dear.
+
+**Evidence:** integration tests that three aggrieved watchers carry a coup and the watch then decides, saving and loading exactly; that a watch of two each walk their own rounds; that a schema-45 save loads; the web tests. The kernel (612), web (142) and end-to-end (16, 6 demos skipped) suites pass, with clippy and the format and schema checks clean. The ten-year smoke passed all 10 worlds on both runs, and Gate B and the notables' gate passed.
+
+**Open:** step four of slice AI (force, damage and violence); slice AJ.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

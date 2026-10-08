@@ -113,6 +113,35 @@ fn founders_bring_ideologies_and_companions_take_them_up_from_each_other() {
         d.share = 0.05;
         d.adopt = 1.0;
     }
+    // And everyone holds dear what the most-held ideology commits its holders to, so it fits
+    // whoever hears it: whether it fits is the founders' draw, which for some worlds' identities
+    // left nobody it fitted (0 of 337 tellings taken up).
+    let commitments = {
+        let ideas = &sim.people().ideologies;
+        let mut count = std::collections::BTreeMap::<u16, usize>::new();
+        for h in &ideas.held {
+            *count.entry(h.ideology).or_default() += 1;
+        }
+        let k = count
+            .iter()
+            .max_by_key(|&(k, n)| (*n, std::cmp::Reverse(*k)))
+            .map(|(k, _)| *k)
+            .expect("some hold one");
+        sim.rules().catalog.ideologies[usize::from(k)]
+            .commitments
+            .clone()
+    };
+    let pop = sim.people_mut_for_tests();
+    let people: Vec<PermanentId> = pop.people.iter().map(|(_, p)| p.id).collect();
+    for p in people {
+        for &(value, c) in &commitments {
+            pop.values.insert(civ_agents::values::Held {
+                holder: p,
+                value,
+                v: 0.8 * c.signum(),
+            });
+        }
+    }
     sim.advance_minutes(30 * DAY).expect("advances");
     let pop = sim.people();
     let ideas = &pop.ideologies;

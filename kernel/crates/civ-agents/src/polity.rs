@@ -369,14 +369,18 @@ pub enum Membership {
     /// The adults of households that hold land (M4c slice AF): under a regime where the
     /// settlement holds the fields, nobody.
     Landholders,
+    /// Those who keep the watch by a law in force (M4c slice AI, step three): the body a coup
+    /// among them makes. When none keeps it, nobody.
+    Watch,
 }
 
 impl Membership {
     /// Every membership, in code order.
-    pub const ALL: [Membership; 3] = [
+    pub const ALL: [Membership; 4] = [
         Membership::Adults,
         Membership::Elders,
         Membership::Landholders,
+        Membership::Watch,
     ];
 
     /// Its number in saves.
@@ -395,12 +399,23 @@ impl Membership {
             Membership::Adults => "adults",
             Membership::Elders => "elders",
             Membership::Landholders => "landholders",
+            Membership::Watch => "watch",
         }
     }
 
     /// The membership with an authored name.
     pub fn from_name(name: &str) -> Option<Membership> {
         Membership::ALL.into_iter().find(|m| m.name() == name)
+    }
+
+    /// Its members, in a count: "24 adults", "5 watchers".
+    pub fn noun(self) -> &'static str {
+        match self {
+            Membership::Adults => "adults",
+            Membership::Elders => "elders",
+            Membership::Landholders => "landholders",
+            Membership::Watch => "watchers",
+        }
     }
 }
 
@@ -474,6 +489,7 @@ impl Body {
             Membership::Landholders => {
                 "The adults of households that hold land who come to the hearth"
             }
+            Membership::Watch => "Those who keep the watch",
         };
         let how = match self.pass {
             PassRule::MoreForThanAgainst => {
@@ -1041,8 +1057,9 @@ pub fn decision_words(law: &Law, body: &Body) -> Option<String> {
     let outcome = law.outcome?;
     let (present, support, oppose) = law.counts();
     let came = format!(
-        "{present} of {} adults came, {} needed",
+        "{present} of {} {} came, {} needed",
         law.eligible,
+        body.members.noun(),
         body.quorum(law.eligible)
     );
     Some(match outcome {
@@ -1149,9 +1166,19 @@ impl Polity {
         self.office(PolicyKind::KeepStore)
     }
 
-    /// The one who keeps watch by a law in force, and that law (M4b slice AC).
+    /// The one who keeps watch by a law in force, and that law (M4b slice AC): the first, when
+    /// several do.
     pub fn watcher(&self) -> Option<(PermanentId, &Law)> {
         self.office(PolicyKind::KeepWatch)
+    }
+
+    /// Everyone who keeps watch by a law in force, with their laws, oldest law first (M4c slice
+    /// AI: a watch of several).
+    pub fn watchers(&self) -> impl Iterator<Item = (PermanentId, &Law)> {
+        self.laws
+            .iter()
+            .filter(|l| l.status == LawStatus::InForce && l.kind == PolicyKind::KeepWatch)
+            .filter_map(|l| Some((l.holder?, l)))
     }
 
     /// The holder of the office a law of kind `kind` in force names, and that law.

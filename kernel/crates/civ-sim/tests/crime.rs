@@ -616,20 +616,33 @@ fn a_watcher_chooses_once_what_to_do_with_a_taking_they_saw() {
         !order.sightings.is_empty(),
         "the watcher saw no taking in 60 days"
     );
+    let watchers: Vec<PermanentId> = pop.polities[0]
+        .laws
+        .iter()
+        .filter(|l| {
+            l.kind == PolicyKind::KeepWatch
+                && l.outcome == Some(civ_agents::polity::Outcome::Passed)
+        })
+        .filter_map(|l| l.holder)
+        .collect();
     let mut seen = BTreeSet::new();
     for s in &order.sightings {
-        // Once each, by the one who keeps the watch, of a taking they did see.
+        // Once each, by one who keeps the watch (the first, or a further watcher the village
+        // named while takings went on: M4c slice AI), of a taking they did see.
         assert!(seen.insert((s.officer, s.incident)), "{s:?} chosen twice");
-        assert_eq!(s.officer, officer);
+        assert!(
+            s.officer == officer || watchers.contains(&s.officer),
+            "{s:?} by one who never kept the watch"
+        );
         let i = order.incident(s.incident).expect("its incident");
-        assert!(i.seen_by.contains(&officer));
+        assert!(i.seen_by.contains(&s.officer));
         match s.kept {
             // Kept quiet: nobody learnt it from them.
             Kept::LookedAway | Kept::Paid => assert!(
                 !order
                     .beliefs
                     .iter()
-                    .any(|b| b.incident == s.incident && b.from == Some(officer)),
+                    .any(|b| b.incident == s.incident && b.from == Some(s.officer)),
                 "{s:?} was told"
             ),
             Kept::Reported | Kept::Refused => assert!(
@@ -906,5 +919,44 @@ fn under_a_curfew_fewer_are_away_in_its_hours_and_breaches_are_counted() {
         "those who went out are counted: {:?}",
         l.compliance
     );
+    saves_and_goes_on_alike(&mut sim, content(), DAY);
+}
+
+#[test]
+fn a_watch_of_several_each_walk_their_own_rounds() {
+    use civ_agents::polity::PolicyKind;
+    let mut sim = world_with(content(), 7);
+    sim.advance_minutes(3 * DAY).expect("advances");
+    let (_, first) = a_law(&mut sim, PolicyKind::KeepWatch);
+    let (_, second) = a_law(&mut sim, PolicyKind::KeepWatch);
+    // The second names another adult (M4c slice AI: a watch of several), its rounds starting past
+    // the first's.
+    let stops = sim.rules().people.crime.round_stops;
+    let (now, grown) = (sim.now(), sim.rules().people.family.independent_age);
+    let pop = sim.people_mut_for_tests();
+    let holder = pop.polities[0]
+        .laws
+        .iter()
+        .find(|l| l.id == first)
+        .and_then(|l| l.holder)
+        .expect("a watcher");
+    let other = pop
+        .people
+        .iter()
+        .map(|(_, p)| p.id)
+        .filter(|&p| p != holder)
+        .find(|&p| pop.person(p).is_some_and(|q| q.age_years(now) >= grown))
+        .expect("another adult");
+    let l = pop.polities[0].law_mut(second).expect("the law");
+    l.holder = Some(other);
+    l.watch.next = stops;
+    sim.advance_minutes(6 * DAY).expect("advances");
+    let p = &sim.people().polities[0];
+    let watchers: Vec<_> = p.watchers().map(|(h, l)| (h, l.watch.rounds)).collect();
+    assert_eq!(watchers.len(), 2, "{watchers:?}");
+    assert_ne!(watchers[0].0, watchers[1].0);
+    for (h, rounds) in &watchers {
+        assert!(*rounds > 0, "{h} walked no round: {watchers:?}");
+    }
     saves_and_goes_on_alike(&mut sim, content(), DAY);
 }

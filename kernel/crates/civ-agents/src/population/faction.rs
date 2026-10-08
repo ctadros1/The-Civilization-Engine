@@ -11,10 +11,12 @@
 use super::*;
 use crate::decide::GatheringFacts;
 use crate::faction::{
-    Faction, FactionEvent, FactionEventKind, Member, Petition, Refusal, Revolt, RevoltEnd, Side,
-    Why, attend_points, found_worth, shared, why_belong,
+    Coup, Faction, FactionEvent, FactionEventKind, Member, Petition, Refusal, Revolt, RevoltEnd,
+    Side, Why, attend_points, found_worth, shared, why_belong,
 };
-use crate::polity::{Body, CustomVersion, IssueKind, LawStatus, MoveOption, Outcome, PolicyKind};
+use crate::polity::{
+    Body, CustomVersion, IssueKind, LawStatus, Membership, MoveOption, Outcome, PolicyKind,
+};
 use crate::word::{Blamed, ClaimKind, Grieved, Wrong};
 
 /// Purpose tags for a person's review day and their threshold for belonging.
@@ -215,6 +217,11 @@ impl Population {
         let (now, day) = (ctx.now, ctx.now.day_index());
         let u = Rng64::from_key(&[ctx.seed, PURPOSE_FACTION_THRESHOLD, person.get()]).next_f64();
         let threshold = fp.threshold_at(u);
+        // One who keeps the watch beside others weighs taking the deciding for it (M4c slice AI,
+        // step three).
+        if self.keeps_a_watch(person) {
+            self.consider_coup(ctx, person, settlement, threshold);
+        }
         // A member stays while belonging is worth enough to them (04-10 §5.4: leaving has
         // conditions of its own).
         if let Some(m) = self.factions.membership(person).copied() {
@@ -1160,34 +1167,12 @@ impl Population {
         let who = self.name_of(organizer);
         match end {
             RevoltEnd::Held => {
-                let polity = &mut self.polities[pi];
-                for l in &mut polity.laws {
-                    if l.kind == PolicyKind::AmendBody && l.status == LawStatus::InForce {
-                        l.status = LawStatus::Superseded;
-                    }
-                }
-                polity.body = body;
-                polity.versions.push(CustomVersion {
-                    body,
-                    since: now,
-                    law: None,
-                    seized_by: Some(organizer),
-                });
-                let version = polity.versions.len() as f64;
                 let words = format!(
                     "At {name}, those who stood with {who} took the deciding from the gathering, \
                      not by its procedure: from now on, {}.",
                     body.clause()
                 );
-                self.chronicle_push(
-                    now,
-                    ChronicleKind::CustomTaken,
-                    vec![organizer],
-                    Some(settlement),
-                    place,
-                    version,
-                    words,
-                );
+                self.take_custom(ctx, pi, body, organizer, words);
             }
             RevoltEnd::Failed => {
                 let words = format!(
@@ -1198,6 +1183,236 @@ impl Population {
                     now,
                     ChronicleKind::RevoltFailed,
                     vec![organizer],
+                    Some(settlement),
+                    place,
+                    0.0,
+                    words,
+                );
+            }
+        }
+    }
+
+    /// Polity `pi`'s custom is taken from the gathering by those who stood with `by` (M4c slice
+    /// AI; ADR-0017 §1: a replacement): body `body` decides from now on, a version of the custom
+    /// taken rather than amended, any amendment in force superseded; the chronicle tells it in
+    /// `words`.
+    fn take_custom(&mut self, ctx: &Ctx, pi: usize, body: Body, by: PermanentId, words: String) {
+        let now = ctx.now;
+        let settlement = self.polities[pi].settlement;
+        let (place, _) = self.settlement_place(ctx, settlement);
+        let polity = &mut self.polities[pi];
+        for l in &mut polity.laws {
+            if l.kind == PolicyKind::AmendBody && l.status == LawStatus::InForce {
+                l.status = LawStatus::Superseded;
+            }
+        }
+        polity.body = body;
+        polity.versions.push(CustomVersion {
+            body,
+            since: now,
+            law: None,
+            seized_by: Some(by),
+        });
+        let version = polity.versions.len() as f64;
+        self.chronicle_push(
+            now,
+            ChronicleKind::CustomTaken,
+            vec![by],
+            Some(settlement),
+            place,
+            version,
+            words,
+        );
+    }
+
+    /// `challenger`, who keeps the watch at `settlement` beside others, of threshold `threshold`,
+    /// weighs calling on the others to take the deciding for the watch (M4c slice AI, step three;
+    /// ADR-0017 §4: open only to those holding an office that commands force, the watch when it
+    /// is several). Not where the watch decides already, nor while a coup or revolt stands there,
+    /// nor within `petition_days` of one of their own. It is worth their grievance against the
+    /// gathering and how well the other watchers regard them (research 09-11 §1.4: officers act
+    /// on what they believe the others will do), less `coup_cost` and the norms they hold.
+    pub(super) fn consider_coup(
+        &mut self,
+        ctx: &mut Ctx,
+        challenger: PermanentId,
+        settlement: PermanentId,
+        threshold: f64,
+    ) {
+        let (now, day, fp) = (ctx.now, ctx.now.day_index(), &ctx.params.faction);
+        let Some(pi) = self.polity_of(settlement) else {
+            return;
+        };
+        let polity = &self.polities[pi];
+        let others: Vec<PermanentId> = polity
+            .watchers()
+            .map(|w| w.0)
+            .filter(|&w| w != challenger)
+            .collect();
+        let busy = self.factions.coups.iter().any(|c| {
+            (c.settlement == settlement && c.ended.is_none())
+                || (c.challenger == challenger
+                    && day - c.called.day_index() < i64::from(fp.petition_days))
+        }) || self
+            .factions
+            .revolts
+            .iter()
+            .any(|r| r.settlement == settlement && r.ended.is_none());
+        if others.is_empty() || polity.body.members == Membership::Watch || busy {
+            return;
+        }
+        let (polity_id, current) = (polity.id, polity.body);
+        let keen = self.keenness(ctx, challenger, Blamed::Body(polity_id));
+        if keen <= 0.0 {
+            return;
+        }
+        let tp = &ctx.params.ties;
+        let backing = others
+            .iter()
+            .map(|&w| self.ties.regard(w, challenger, day, tp).clamp(0.0, 1.0))
+            .sum::<f64>()
+            / others.len() as f64;
+        self.ensure_norm_state(ctx, challenger);
+        let norm = self.norm_points(ctx, challenger);
+        let fp = &ctx.params.faction;
+        let worth = fp.w_grievance * keen + backing - fp.coup_cost - norm.max(0.0);
+        if worth <= threshold {
+            return;
+        }
+        let body = Body {
+            members: Membership::Watch,
+            ..current
+        };
+        let id = ctx.ids.allocate();
+        self.factions.coups.push(Coup {
+            id,
+            settlement,
+            challenger,
+            called: now,
+            until: day + i64::from(fp.revolt_days.max(1)),
+            body,
+            sides: Vec::new(),
+            held_since: None,
+            ended: None,
+        });
+        let (place, name) = self.settlement_place(ctx, settlement);
+        let words = format!(
+            "called on those who keep the watch at {name} to take the deciding from the gathering \
+             with them: from now on, {}.",
+            body.clause()
+        );
+        self.chronicle_push(
+            now,
+            ChronicleKind::CoupCalled,
+            vec![challenger],
+            Some(settlement),
+            place,
+            0.0,
+            words,
+        );
+    }
+
+    /// Midnight (M4c slice AI, step three): each who keeps the watch where a coup stands weighs
+    /// where they stand anew, from where the other watchers stood the day before (research 09-11
+    /// §1.4: a coordination contest): their grievance against the gathering, their regard for the
+    /// one who called it and the share of the others with it, less the norms they hold. It holds
+    /// once more watchers stand with it than with the gathering for `hold_days` (09-11 §2.2), and
+    /// fails when its challenger no longer keeps the watch, the watch is no longer several, or its
+    /// time is out.
+    pub(super) fn coups_day(&mut self, ctx: &mut Ctx) {
+        let (now, day, params) = (ctx.now, ctx.now.day_index(), ctx.params);
+        let margin = params.polity.stance_margin;
+        for ci in 0..self.factions.coups.len() {
+            let c = &self.factions.coups[ci];
+            if c.ended.is_some() {
+                continue;
+            }
+            let (settlement, challenger, until) = (c.settlement, c.challenger, c.until);
+            let Some(pi) = self.polity_of(settlement) else {
+                self.factions.coups[ci].ended = Some((RevoltEnd::Failed, now));
+                continue;
+            };
+            let mut watchers: Vec<PermanentId> =
+                self.polities[pi].watchers().map(|w| w.0).collect();
+            watchers.sort_unstable();
+            watchers.dedup();
+            if !watchers.contains(&challenger) || watchers.len() < 2 || day > until {
+                self.end_coup(ctx, ci, pi, RevoltEnd::Failed);
+                continue;
+            }
+            let polity = self.polities[pi].id;
+            let before = self.factions.coups[ci].sides.clone();
+            let with_before = |w: PermanentId| {
+                before
+                    .binary_search_by_key(&w, |s| s.0)
+                    .is_ok_and(|i| before[i].1 == Side::With)
+            };
+            let mut sides = Vec::with_capacity(watchers.len());
+            for &w in &watchers {
+                if w == challenger {
+                    sides.push((w, Side::With));
+                    continue;
+                }
+                let others = watchers.iter().filter(|&&o| o != w).count().max(1);
+                let expect = watchers
+                    .iter()
+                    .filter(|&&o| o != w && with_before(o))
+                    .count() as f64
+                    / others as f64;
+                self.ensure_norm_state(ctx, w);
+                let grievance = self.keenness(ctx, w, Blamed::Body(polity));
+                let regard = self.ties.regard(w, challenger, day, &params.ties);
+                let points =
+                    attend_points(grievance, false, regard, expect, false, &params.faction)
+                        - self.norm_points(ctx, w).max(0.0);
+                let side = if points > margin {
+                    Side::With
+                } else if points < -margin {
+                    Side::Gathering
+                } else {
+                    Side::Neither
+                };
+                sides.push((w, side));
+            }
+            let c = &mut self.factions.coups[ci];
+            c.sides = sides;
+            if c.count(Side::With) <= c.count(Side::Gathering) {
+                c.held_since = None;
+                continue;
+            }
+            let since = *c.held_since.get_or_insert(day);
+            if day - since >= i64::from(params.faction.hold_days) {
+                self.end_coup(ctx, ci, pi, RevoltEnd::Held);
+            }
+        }
+    }
+
+    /// Coup `ci` at polity `pi` ends as `end`: held, the watch decides from now on, the custom
+    /// taken; or it came to nothing. The chronicle says which.
+    fn end_coup(&mut self, ctx: &Ctx, ci: usize, pi: usize, end: RevoltEnd) {
+        let now = ctx.now;
+        let c = &mut self.factions.coups[ci];
+        c.ended = Some((end, now));
+        let (settlement, challenger, body) = (c.settlement, c.challenger, c.body);
+        let (place, name) = self.settlement_place(ctx, settlement);
+        let who = self.name_of(challenger);
+        match end {
+            RevoltEnd::Held => {
+                let words = format!(
+                    "At {name}, those who keep the watch, with {who}, took the deciding from the \
+                     gathering, not by its procedure: from now on, {}.",
+                    body.clause()
+                );
+                self.take_custom(ctx, pi, body, challenger, words);
+            }
+            RevoltEnd::Failed => {
+                let words = format!(
+                    "{who}'s call at {name} for the watch to take the deciding came to nothing."
+                );
+                self.chronicle_push(
+                    now,
+                    ChronicleKind::CoupFailed,
+                    vec![challenger],
                     Some(settlement),
                     place,
                     0.0,

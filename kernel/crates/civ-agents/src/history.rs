@@ -536,6 +536,12 @@ pub enum ChronicleKind {
     /// A faction's call to stand with its body came to nothing (M4c slice AI): `people` is the
     /// one who called it, `name` the whole of it in words.
     RevoltFailed,
+    /// One who keeps the watch called on the others to take the deciding for it (M4c slice AI,
+    /// step three): `people` is the one who called it, `name` the whole of it in words.
+    CoupCalled,
+    /// A call for the watch to take the deciding came to nothing (M4c slice AI, step three):
+    /// `people` is the one who called it, `name` the whole of it in words.
+    CoupFailed,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -919,13 +925,16 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::CaseHeard
         | ChronicleKind::CustomAmended
         | ChronicleKind::CustomTaken
-        | ChronicleKind::RevoltFailed => {
+        | ChronicleKind::RevoltFailed
+        | ChronicleKind::CoupFailed => {
             vec![Span::Text(event.name.clone())]
         }
-        ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled => match person(0) {
-            Some(who) => vec![who, Span::Text(format!(" {}", event.name))],
-            None => vec![Span::Text(format!("Someone {}", event.name))],
-        },
+        ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {
+            match person(0) {
+                Some(who) => vec![who, Span::Text(format!(" {}", event.name))],
+                None => vec![Span::Text(format!("Someone {}", event.name))],
+            }
+        }
         ChronicleKind::Taking => match person(0) {
             Some(who) => vec![who, Span::Text(format!(" {}", event.name))],
             None => vec![Span::Text(format!("Someone {}", event.name))],

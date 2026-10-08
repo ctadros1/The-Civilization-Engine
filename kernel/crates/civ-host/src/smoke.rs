@@ -692,7 +692,11 @@ fn polity(sim: &Sim) -> Option<String> {
                  say nothing",
                 watches.len(),
                 if watches.len() == 1 { "" } else { "es" },
-                if p.watcher().is_some() { "one" } else { "none" },
+                match p.watchers().count() {
+                    0 => "none".to_owned(),
+                    1 => "one".to_owned(),
+                    n => n.to_string(),
+                },
                 if cases == 1 { "" } else { "s" },
                 order.sightings.len(),
                 kept(Kept::Reported) + kept(Kept::Told) + kept(Kept::Refused),
@@ -997,22 +1001,54 @@ fn polity(sim: &Sim) -> Option<String> {
             ended(RevoltEnd::Failed),
             fs.revolts.iter().filter(|r| r.ended.is_none()).count(),
         ));
-        // Founding (step two): the ends of inherited laws its new body put, and those it passed.
-        let put: Vec<&civ_agents::polity::Law> = pop
-            .polities
+    }
+    // Founding (M4c slice AI, step two): the ends of inherited laws a body that took the deciding
+    // put, after a revolt or a coup, and those it passed.
+    let put: Vec<&civ_agents::polity::Law> = pop
+        .polities
+        .iter()
+        .flat_map(|p| &p.laws)
+        .filter(|l| l.issue == civ_agents::polity::IssueKind::Founding)
+        .collect();
+    if !put.is_empty() {
+        parts.push(format!(
+            "founding: {} ends of inherited laws put, {} passed",
+            put.len(),
+            put.iter()
+                .filter(|l| l.outcome == Some(civ_agents::polity::Outcome::Passed))
+                .count()
+        ));
+    }
+    // Coups (M4c slice AI, step three): how many were called, how each ended, and the watchers'
+    // sides when it ended (or today).
+    if !fs.coups.is_empty() {
+        use civ_agents::faction::{RevoltEnd, Side};
+        let ended = |e: RevoltEnd| {
+            fs.coups
+                .iter()
+                .filter(|c| c.ended.map(|(x, _)| x) == Some(e))
+                .count()
+        };
+        let sides: Vec<String> = fs
+            .coups
             .iter()
-            .flat_map(|p| &p.laws)
-            .filter(|l| l.issue == civ_agents::polity::IssueKind::Founding)
+            .map(|c| {
+                format!(
+                    "{} of {} watchers with, {} with the gathering",
+                    c.count(Side::With),
+                    c.sides.len(),
+                    c.count(Side::Gathering)
+                )
+            })
             .collect();
-        if !put.is_empty() {
-            parts.push(format!(
-                "founding: {} ends of inherited laws put, {} passed",
-                put.len(),
-                put.iter()
-                    .filter(|l| l.outcome == Some(civ_agents::polity::Outcome::Passed))
-                    .count()
-            ));
-        }
+        parts.push(format!(
+            "coups: {} called ({}); {} held, {} came to nothing, {} open",
+            fs.coups.len(),
+            sides.join("; "),
+            ended(RevoltEnd::Held),
+            ended(RevoltEnd::Failed),
+            fs.coups.iter().filter(|c| c.ended.is_none()).count(),
+        ));
     }
     // Norms (M4c slice AG): for each, how far it is held on average, what people believe of
     // others against what households did at their last levy, how many it moves, and how often an

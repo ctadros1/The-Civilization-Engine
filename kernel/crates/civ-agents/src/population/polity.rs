@@ -32,6 +32,8 @@ pub(super) struct Forecasts {
     takings: Vec<(PermanentId, crate::crime::TakingsKnown)>,
     /// Grown members of each household, whom a curfew keeps at home.
     grown: BTreeMap<PermanentId, u32>,
+    /// Those who keep the watch now, with their laws (M4c slice AI: a watch of several).
+    watchers: Vec<(PermanentId, PermanentId)>,
 }
 
 impl Forecasts {
@@ -62,8 +64,17 @@ impl Forecasts {
                     known().under(&m.sanction, o.year_need / 365.0, params.crime.exile_days);
                 crate::polity::against_gain(o, recover, owe, pp)
             }
+            // A watcher guards what the others leave unguarded (M4c slice AI): one more beside
+            // `n` others adds `g(1 - g)^n` of the guard `g` one alone gives. The others are those
+            // who keep it now but the one it names and the one whose law it would end.
             Some(PolicyKind::KeepWatch) => {
-                let (recover, owe) = known().watched(params.crime.watch_guard);
+                let g = params.crime.watch_guard.clamp(0.0, 1.0);
+                let others = self
+                    .watchers
+                    .iter()
+                    .filter(|w| Some(w.0) != m.nominee && Some(w.1) != m.ends)
+                    .count();
+                let (recover, owe) = known().watched(g * (1.0 - g).powi(others as i32));
                 crate::polity::against_gain(o, recover, owe, pp)
             }
             // A curfew (M4b slice AD): as a watch, at its own share, less what keeping its grown
@@ -149,6 +160,7 @@ impl Population {
         // those whose day it is review where they belong (M4c slice AH).
         self.petitions_day(ctx);
         self.revolts_day(ctx);
+        self.coups_day(ctx);
         self.factions_day(ctx);
         for pi in 0..self.polities.len() {
             let p = &self.polities[pi];
@@ -288,6 +300,12 @@ impl Population {
                     .filter(|(_, h)| holding.binary_search(h).is_ok())
                     .collect()
             }
+            // Those of them who keep a watch (M4c slice AI): a watcher keeps it where they live.
+            Membership::Watch => adults
+                .iter()
+                .copied()
+                .filter(|&(p, _)| self.keeps_a_watch(p))
+                .collect(),
         }
     }
 
@@ -319,7 +337,15 @@ impl Population {
             Membership::Adults => true,
             Membership::Elders => self.elder_of(hh, now, params) == Some(person),
             Membership::Landholders => fields.iter().any(|f| f.holder.household() == Some(hh)),
+            Membership::Watch => self.keeps_a_watch(person),
         }
+    }
+
+    /// Whether `person` keeps a watch by a law in force (M4c slice AI).
+    pub(super) fn keeps_a_watch(&self, person: PermanentId) -> bool {
+        self.polities
+            .iter()
+            .any(|p| p.watchers().any(|(h, _)| h == person))
     }
 
     /// What household `household` expects of its coming year: the food it holds, an ordinary
@@ -527,12 +553,17 @@ impl Population {
         for &(_, h) in adults {
             *grown.entry(h).or_default() += 1;
         }
+        let watchers = self.polities[pi]
+            .watchers()
+            .map(|(h, l)| (h, l.id))
+            .collect();
         Forecasts {
             outlooks,
             belief,
             kept,
             takings,
             grown,
+            watchers,
         }
     }
 
@@ -692,17 +723,30 @@ impl Population {
             founding.is_some(),
         );
         let polity = &self.polities[pi];
+        // A watch may have one more while takings continue (M4c slice AI: a watch of several):
+        // food taken from a household here since the newest watcher was named.
+        let newest_watch = polity
+            .watchers()
+            .filter_map(|(_, l)| l.decided)
+            .map(|t| t.day_index())
+            .max();
+        let taken_since = newest_watch.is_some_and(|since| {
+            households
+                .iter()
+                .any(|&h| self.order.lost_since(h, since + 1))
+        });
         // Templates that answer a present issue and are not already in force here.
         let open: Vec<(u16, IssueKind)> = ctx
             .catalog
             .policies
             .iter()
             .enumerate()
-            .filter(|(k, _)| {
-                !polity
-                    .laws
-                    .iter()
-                    .any(|l| usize::from(l.policy) == *k && l.status == LawStatus::InForce)
+            .filter(|(k, d)| {
+                (d.kind == PolicyKind::KeepWatch && taken_since)
+                    || !polity
+                        .laws
+                        .iter()
+                        .any(|l| usize::from(l.policy) == *k && l.status == LawStatus::InForce)
             })
             .filter_map(|(k, d)| {
                 let issue = d.answers.iter().copied().find(|a| issues.contains(a))?;
@@ -889,6 +933,8 @@ impl Population {
                 .collect()
         });
         let ended = |m: &MoveOption| m.ends.and_then(|e| kept.iter().find(|k| k.0 == e));
+        // Those who keep the watch now (M4c slice AI).
+        let watching: Vec<PermanentId> = self.polities[pi].watchers().map(|w| w.0).collect();
         let held = |m: &MoveOption, h: PermanentId| ended(m).map_or(0.0, |k| gain_of(&k.1, h));
         for d in deliberators {
             let Some(own) = members
@@ -991,10 +1037,11 @@ impl Population {
                         }
                     }
                     // A watch: the adult they regard most, themselves at full regard (M4b slice
-                    // AC).
+                    // AC), of those who do not keep it already (M4c slice AI).
                     PolicyKind::KeepWatch => {
                         let pick = adults
                             .iter()
+                            .filter(|&&(c, _)| !watching.contains(&c))
                             .map(|&(c, _)| {
                                 let r = if c == d {
                                     1.0
@@ -1141,8 +1188,14 @@ impl Population {
             }
             // An amendment is weighed only by one it would have served (research 09-02 §3.7:
             // institutional change is proposed for an expected benefit): with nothing to gain,
-            // changing the custom is no move of theirs.
-            moves.retain(|m| m.body.is_none() || m.own_gain > 0.0);
+            // changing the custom is no move of theirs. So is a further watcher (M4c slice AI).
+            let further = |m: &MoveOption| {
+                policies
+                    .get(usize::from(m.policy))
+                    .is_some_and(|d| d.kind == PolicyKind::KeepWatch)
+                    && !watching.is_empty()
+            };
+            moves.retain(|m| (m.body.is_none() && !further(m)) || m.own_gain > 0.0);
             let u =
                 Rng64::from_key(&[ctx.seed, PURPOSE_DELIBERATE, d.get(), day as u64]).next_f64();
             let choice = deliberator.choose(&moves, u);
@@ -1351,6 +1404,8 @@ impl Population {
             .collect();
         let polity = &mut self.polities[pi];
         let body = polity.body;
+        // A further watcher's rounds start past those of the watchers before them (M4c slice AI).
+        let watching = polity.watchers().count() as u32;
         let Some(law) = polity.law_mut(law_id) else {
             return;
         };
@@ -1364,6 +1419,9 @@ impl Population {
         law.status = if outcome == Outcome::Passed {
             for p in &g.present {
                 law.learn(*p, day);
+            }
+            if kind == PolicyKind::KeepWatch {
+                law.watch.next = watching.wrapping_mul(ctx.params.crime.round_stops.max(1));
             }
             // A repeal asks and gives nothing: it ends the law it names (M4c slice AI).
             if kind == PolicyKind::Repeal {
@@ -1400,11 +1458,7 @@ impl Population {
             .map_or((None, String::new()), |s| {
                 (Some(s.hearth_m), s.name.clone())
             });
-        let who = match body.members {
-            Membership::Adults => "adults",
-            Membership::Elders => "elders",
-            Membership::Landholders => "landholders",
-        };
+        let who = body.members.noun();
         let tally = format!("{support} for, {oppose} against; {present} of {eligible} {who} came");
         let words = match outcome {
             Outcome::Passed => format!("The gathering at {name} agreed to {what}: {tally}."),

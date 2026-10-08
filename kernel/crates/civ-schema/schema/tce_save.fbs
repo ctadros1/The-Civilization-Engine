@@ -1597,6 +1597,9 @@ table FactionsSave {
   refusals: [RefusalSave] (id: 7);
   // Every revolt called, oldest first (schema 44); absent before.
   revolts: [RevoltSave] (id: 8);
+  // Every coup called, oldest first (schema 46), as a revolt with no faction (0) and its
+  // challenger as `organizer`; absent before.
+  coups: [RevoltSave] (id: 9);
 }
 
 // Section "events": the scheduler's pending events.

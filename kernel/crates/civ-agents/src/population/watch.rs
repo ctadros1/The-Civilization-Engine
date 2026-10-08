@@ -39,10 +39,7 @@ impl Population {
         let cp = &ctx.params.crime;
         let settlement = hh.settlement?;
         let polity = &self.polities[self.polity_of(settlement)?];
-        let (holder, law) = polity.watcher()?;
-        if holder != person {
-            return None;
-        }
+        let (_, law) = polity.watchers().find(|(h, _)| *h == person)?;
         let rounds = cp.rounds_per_night.max(1);
         let tonight = if law.watch.night == night_of(ctx.now) {
             u32::from(law.watch.tonight)
@@ -155,8 +152,7 @@ impl Population {
         self.household(household)
             .and_then(|x| x.settlement)
             .and_then(|s| self.polity_of(s))
-            .and_then(|pi| self.polities[pi].watcher())
-            .is_some_and(|(h, _)| h == person)
+            .is_some_and(|pi| self.polities[pi].watchers().any(|(h, _)| h == person))
     }
 
     /// `officer`, who keeps the watch, saw `taker` take from household `victim` in incident

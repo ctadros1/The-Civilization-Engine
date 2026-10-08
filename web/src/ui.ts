@@ -2029,7 +2029,8 @@ export function bindUi(store: Store, actions: Actions): void {
           el("ul", { className: "factions" }, ...p.factions.map((v) => el("li", { text: v }))),
         );
       }
-      // Its petitions (wire 1.41, ADR-0017 §3), refusals of a levy (1.42) and revolts (1.43).
+      // Its petitions (wire 1.41, ADR-0017 §3), refusals of a levy (1.42), revolts (1.43) and
+      // coups (1.45).
       if (p.petitions.length > 0) {
         block.append(
           el("ul", { className: "petitions" }, ...p.petitions.map((v) => el("li", { text: v }))),
@@ -2044,6 +2045,9 @@ export function bindUi(store: Store, actions: Actions): void {
         block.append(
           el("ul", { className: "revolts" }, ...p.revolts.map((v) => el("li", { text: v }))),
         );
+      }
+      if (p.coups.length > 0) {
+        block.append(el("ul", { className: "coups" }, ...p.coups.map((v) => el("li", { text: v }))));
       }
       const label = labelText(p);
       if (label !== "") {

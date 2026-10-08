@@ -201,6 +201,11 @@ describe("the government on the wire", () => {
         "Mira's faction called on everyone on 3 May of year 2 to stand with it: from now on, the elders decide; it held on 12 May of year 2, 9 standing with it, 2 with the gathering, 1 with neither",
       ),
     ]);
+    const coups = W.PolityLine.createCoupsVector(b, [
+      b.createString(
+        "Bo called on those who keep the watch on 3 May of year 2 to take the deciding with them; it held on 11 May of year 2, 2 of 3 watchers with it, none with the gathering",
+      ),
+    ]);
     const name = b.createString("Stonewick");
     const custom = b.createString("The adults who come to the hearth decide by acclamation.");
     const store = b.createString("grain 26 kg");
@@ -230,6 +235,7 @@ describe("the government on the wire", () => {
       petitions,
       refusals,
       revolts,
+      coups,
     );
     const polities = W.Government.createPolitiesVector(b, [polity]);
     const government = W.Government.createGovernment(b, BigInt(103 * DAY), polities);
@@ -261,6 +267,9 @@ describe("the government on the wire", () => {
     expect(p.refusals[0]).toContain("6 kept back 240 kg");
     expect(p.revolts).toHaveLength(1);
     expect(p.revolts[0]).toContain("it held on 12 May of year 2");
+    expect(p.coups).toEqual([
+      "Bo called on those who keep the watch on 3 May of year 2 to take the deciding with them; it held on 11 May of year 2, 2 of 3 watchers with it, none with the gathering",
+    ]);
     expect(p.customHistory).toHaveLength(2);
     expect(p.customHistory[1]).toContain("by the amendment Ada proposed");
     const l = p.laws[0]!;

@@ -229,9 +229,10 @@ impl PolicyFile {
             | None => {}
         }
         if PolicyKind::from_name(&self.does) == Some(PolicyKind::AmendBody) {
-            if !(1..=3).contains(&self.members.len()) {
+            if !(1..=Membership::ALL.len()).contains(&self.members.len()) {
                 p.push(format!(
-                    "`members` must hold 1 to 3 memberships (got {})",
+                    "`members` must hold 1 to {} memberships (got {})",
+                    Membership::ALL.len(),
                     self.members.len()
                 ));
             }

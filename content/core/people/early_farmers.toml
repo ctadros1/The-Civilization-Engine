@@ -779,3 +779,12 @@ revolt_cost = 0.75
 revolt_days = 60
 hold_days = 7
 w_exclusion = 1.0
+# Content API 50 (M4c slice AI, step three): where the watch is several, one who keeps it and holds
+# a grievance against the gathering may call on the others to take the deciding for the watch
+# (ADR-0017 §4: a coup is open only to those holding an office that commands force), worth their
+# grievance and how well the other watchers regard them (research 09-11 §1.4: officers act on what
+# they believe the others will do), less `coup_cost` and the norms they hold. Each watcher weighs
+# each day where they stand, as anyone weighs standing with a revolt, from where the others stood
+# the day before; it holds once more stand with it than with the gathering for `hold_days`, and
+# fails after `revolt_days`. A design prior, as a revolt's.
+coup_cost = 0.75

@@ -95,6 +95,8 @@ pub(crate) struct FactionFile {
     pub revolt_days: u32,
     pub hold_days: u32,
     pub w_exclusion: f64,
+    /// Content API 50 (M4c slice AI, step three): what calling a coup costs a watcher, points.
+    pub coup_cost: f64,
 }
 
 impl FactionFile {
@@ -129,6 +131,7 @@ impl FactionFile {
             revolt_days: self.revolt_days,
             hold_days: self.hold_days,
             w_exclusion: self.w_exclusion,
+            coup_cost: self.coup_cost,
         }
     }
 
@@ -195,6 +198,7 @@ impl FactionFile {
             ("faction.refusal_cost", self.refusal_cost, 0.0, 100.0),
             ("faction.revolt_cost", self.revolt_cost, 0.0, 100.0),
             ("faction.w_exclusion", self.w_exclusion, 0.0, 100.0),
+            ("faction.coup_cost", self.coup_cost, 0.0, 100.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

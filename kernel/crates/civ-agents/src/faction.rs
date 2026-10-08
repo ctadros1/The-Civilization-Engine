@@ -90,6 +90,10 @@ pub struct FactionParams {
     pub revolt_days: u32,
     pub hold_days: u32,
     pub w_exclusion: f64,
+    /// A coup (M4c slice AI, step three): calling on the others who keep the watch to take the
+    /// deciding for it costs a watcher `coup_cost` points beside what the norms they hold weigh;
+    /// it stands `revolt_days` and holds as a revolt does, `hold_days` (09-11 §1.4, §2.2).
+    pub coup_cost: f64,
 }
 
 impl FactionParams {
@@ -125,6 +129,7 @@ impl FactionParams {
             revolt_days: 60,
             hold_days: 7,
             w_exclusion: 1.0,
+            coup_cost: 0.75,
         }
     }
 
@@ -442,6 +447,39 @@ impl Revolt {
     }
 }
 
+/// A coup (M4c slice AI, step three; ADR-0017 §4): one who keeps the watch, beside others,
+/// declares that those who keep it decide from now on, and calls on the others to back them. It
+/// is open only where the watch is several, and holds only through the watchers' own choices
+/// (research 09-11 §1.4: a coordination contest, attempt and success apart).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Coup {
+    /// Permanent id.
+    pub id: PermanentId,
+    /// Its settlement.
+    pub settlement: PermanentId,
+    /// The watcher who called it.
+    pub challenger: PermanentId,
+    /// When it was called.
+    pub called: SimTime,
+    /// The last day it stands, unless it held or failed before.
+    pub until: i64,
+    /// The body it would make: those who keep the watch, by the custom's quorum and rule.
+    pub body: Body,
+    /// Where each watcher stood at its last weighing, in person order.
+    pub sides: Vec<(PermanentId, Side)>,
+    /// The day since which it has held, if it does.
+    pub held_since: Option<i64>,
+    /// How and when it ended.
+    pub ended: Option<(RevoltEnd, SimTime)>,
+}
+
+impl Coup {
+    /// Those on side `side`.
+    pub fn count(&self, side: Side) -> usize {
+        self.sides.iter().filter(|s| s.1 == side).count()
+    }
+}
+
 /// Every faction and who belongs to each (ADR-0017 §2).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Factions {
@@ -453,6 +491,8 @@ pub struct Factions {
     pub refusals: Vec<Refusal>,
     /// Every revolt called, oldest first (M4c slice AI).
     pub revolts: Vec<Revolt>,
+    /// Every coup called, oldest first (M4c slice AI, step three).
+    pub coups: Vec<Coup>,
     /// Memberships, in person order: one each at most in v0.
     pub members: Vec<Member>,
     /// Joinings and leavings since the world began (a measure, for the smoke).

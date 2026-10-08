@@ -1035,3 +1035,116 @@ fn a_body_that_took_the_deciding_weighs_ending_the_laws_the_old_custom_made() {
     }
     saves_and_goes_on_alike(&mut sim, content(), DAY);
 }
+
+#[test]
+fn where_the_watch_is_several_one_of_them_may_take_the_deciding_for_it() {
+    use civ_agents::faction::{RevoltEnd, Side};
+    use civ_agents::polity::Membership;
+    let (mut sim, adults) = aggrieved_village(5);
+    let watch = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|p| p.kind == PolicyKind::KeepWatch)
+        .expect("in core") as u16;
+    let now = sim.now();
+    let next = sim.ids().peek_next() + 4_000_000;
+    let pop = sim.people_mut_for_tests();
+    // Three keep the watch, each by a law of their own; nobody here holds that what the
+    // gathering decides binds.
+    let watchers: Vec<PermanentId> = adults.iter().copied().take(3).collect();
+    for (k, &w) in watchers.iter().enumerate() {
+        pop.polities[0].laws.push(Law {
+            id: PermanentId::from_raw(next + k as u64).expect("non-zero"),
+            policy: watch,
+            kind: PolicyKind::KeepWatch,
+            levy_share: 0.0,
+            holder: Some(w),
+            relief_days: 0.0,
+            sanction: Default::default(),
+            hours: (0, 0),
+            status: LawStatus::InForce,
+            sponsor: w,
+            proposed: now,
+            issue: IssueKind::Takings,
+            meets_day: now.day_index(),
+            decided: Some(now),
+            outcome: Some(Outcome::Passed),
+            eligible: 0,
+            stances: Vec::new(),
+            known: Vec::new(),
+            compliance: Default::default(),
+            watch: Default::default(),
+            body: None,
+            ends: None,
+        });
+    }
+    for s in &mut pop.norms.states {
+        s.endorse = 0.0;
+        s.expect = 0.0;
+    }
+    let before = pop.polities[0].body;
+    // At their monthly review, one of them calls on the others to take the deciding.
+    let mut called = None;
+    for _ in 0..40 {
+        sim.advance_minutes(DAY).expect("advances");
+        if let Some(c) = sim.people().factions.coups.first() {
+            called = Some(c.clone());
+            break;
+        }
+    }
+    let called = called.expect("a coup was called");
+    assert!(watchers.contains(&called.challenger), "{called:?}");
+    assert_eq!(called.body.members, Membership::Watch);
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|e| e.kind == civ_agents::ChronicleKind::CoupCalled),
+        "the chronicle tells it"
+    );
+    // Each day the watchers, and only they, take a side.
+    for _ in 0..(called.until - sim.now().day_index() + 2) {
+        sim.advance_minutes(DAY).expect("advances");
+        let c = &sim.people().factions.coups[0];
+        assert!(c.sides.iter().all(|s| watchers.contains(&s.0)), "{c:?}");
+        if c.ended.is_some() {
+            break;
+        }
+    }
+    let pop = sim.people();
+    let c = &pop.factions.coups[0];
+    let (end, at) = c.ended.expect("it ended");
+    let p = &pop.polities[0];
+    let lines = civ_sim::frames::government::coup_words(&sim, called.settlement);
+    // All three keep a grievance against the gathering and regard one another well: it holds a
+    // week after the call.
+    assert_eq!(end, RevoltEnd::Held, "{c:?}");
+    match end {
+        RevoltEnd::Held => {
+            assert!(c.count(Side::With) > c.count(Side::Gathering), "{c:?}");
+            assert_eq!(p.body, called.body, "the watch decides now");
+            let v = p.versions.last().expect("versions");
+            assert_eq!((v.since, v.seized_by), (at, Some(called.challenger)));
+            // Its body is those who keep the watch.
+            let members: Vec<PermanentId> = pop
+                .body_members(&sim.land().fields, 0, sim.now(), &sim.rules().people)
+                .into_iter()
+                .map(|m| m.0)
+                .collect();
+            let mut keeping: Vec<PermanentId> = p.watchers().map(|w| w.0).collect();
+            keeping.sort_unstable();
+            assert_eq!(members, keeping);
+            assert!(lines.iter().any(|w| w.contains("it held on")), "{lines:?}");
+        }
+        RevoltEnd::Failed => {
+            assert_eq!(p.body, before, "the custom stands");
+            assert!(
+                lines.iter().any(|w| w.contains("it came to nothing")),
+                "{lines:?}"
+            );
+        }
+    }
+    saves_and_goes_on_alike(&mut sim, content(), DAY);
+}

@@ -1399,7 +1399,8 @@ button.link:hover {
 .polity .factions,
 .polity .petitions,
 .polity .refusals,
-.polity .revolts {
+.polity .revolts,
+.polity .coups {
   margin: 2px 0;
   padding-left: 18px;
   font-size: 12px;

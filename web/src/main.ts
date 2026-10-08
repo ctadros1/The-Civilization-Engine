@@ -76,6 +76,7 @@ const client = new HostClient(socketUrl(), {
     void syncKnowledge();
     void syncStanding();
     void syncGovernment();
+    void syncOrder();
     void syncDeposits();
     void syncEarthworks();
     void refreshPerson(false);
@@ -616,6 +617,43 @@ async function syncGovernment(): Promise<void> {
   }
 }
 
+/** `world:year-month-day` of the takings shown, and the world they belong to. */
+let orderKey = "";
+let orderWorld = "";
+let orderBusy = false;
+
+/**
+ * Fetches the takings once a day: losses are found, word goes round and households choose at
+ * midnight (ADR-0015); the day's takings are in the next fetch.
+ */
+async function syncOrder(): Promise<void> {
+  const s = store.state;
+  const world = s.snapshot?.world;
+  const clock = s.snapshot?.clock;
+  if (!world || !clock) return;
+  const worldKey = world.worldId;
+  if (worldKey !== orderWorld) {
+    orderWorld = worldKey;
+    orderKey = "";
+    store.update({ order: null, orderError: null });
+  }
+  const d = simDate(clock.minute);
+  const key = `${worldKey}:${d.year}-${d.month}-${d.day}`;
+  if (key === orderKey || orderBusy) return;
+  orderBusy = true;
+  try {
+    const order = await client.order();
+    if (orderWorld === worldKey) {
+      orderKey = key;
+      store.update({ order, orderError: null });
+    }
+  } catch (e) {
+    if (orderWorld === worldKey) store.update({ orderError: errorText(e) });
+  } finally {
+    orderBusy = false;
+  }
+}
+
 /** `world:revision` of the knowledge shown, the world it belongs to, and when it was asked for. */
 let knowledgeKey = "";
 let knowledgeWorld = "";
@@ -961,6 +999,30 @@ const hooks = {
                 stances: l.stances.length,
                 known: l.known,
               })),
+            })),
+          }
+        : null,
+      order: s.order
+        ? {
+            minute: s.order.minute,
+            attempts: s.order.attempts,
+            takings: s.order.takings,
+            seen: s.order.seen,
+            demands: s.order.demands,
+            refusals: s.order.refusals,
+            incidents: s.order.incidents.map((i) => ({
+              id: i.id,
+              outcome: i.outcome,
+              actor: i.actorName,
+              target: i.targetName,
+              seenBy: i.seenBy.length,
+            })),
+            known: s.order.known.map((k) => ({
+              incident: k.incident,
+              knowTaker: k.knowTaker,
+              sources: k.sources,
+              response: k.response,
+              owed: k.owed,
             })),
           }
         : null,

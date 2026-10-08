@@ -477,6 +477,14 @@ acts = [
   { act = "traded", familiarity = 0.1, warmth = 0.0, domain = "word", good = 0.5, bad = 0.0 },
   { act = "learned_from", familiarity = 0.02, warmth = 0.005, domain = "craft", good = 0.1, bad = 0.0 },
   { act = "hearth", familiarity = 0.1, warmth = 0.01, domain = "none", good = 0.0, bad = 0.0 },
+  # M4b slice AA (content API 35): coming to believe the other took food weighs against them in
+  # provision, three times a gift's weight when it was from one's own household (04-06 §1.6:
+  # negative evidence weighs more than positive; the figures are tuning values); giving back what
+  # was taken keeps one's word, refusing breaks it.
+  { act = "took_from_us", familiarity = 0.0, warmth = 0.0, domain = "provision", good = 0.0, bad = 3.0 },
+  { act = "took_from_others", familiarity = 0.0, warmth = 0.0, domain = "provision", good = 0.0, bad = 1.0 },
+  { act = "restored", familiarity = 0.0, warmth = 0.0, domain = "word", good = 1.0, bad = 0.0 },
+  { act = "refused_restitution", familiarity = 0.0, warmth = 0.0, domain = "word", good = 0.0, bad = 2.0 },
 ]
 
 [standing]                       # standing and notables (ADR-0014 §3-4); tuning values
@@ -526,3 +534,65 @@ subsistence_share = 0.5
 # the law, against what paying costs their household. No sanction until M4b.
 comply_base = 1.5
 w_stance = 1.0
+
+[crime]                          # taking, what is seen of it and what is owed (ADR-0015); tuning values
+# Research 04-09 §5.4 finds no established figures for moral-cost weights, belief-update rates or
+# the conversion of hunger into offending: every value here is a tuning value, to be tested.
+# A person's objection to taking what is not theirs, 0-1: the log-odds of a founder's is drawn
+# from a normal of this mean and spread, and a child's is pulled toward its parents' with this
+# heritability (04-09 §1.1: social learning; §5.1: an offence-specific objection, kept apart from
+# personality and self-control). With these, about one person in six falls below the filter.
+objection_mean = 2.5
+objection_sd = 1.2
+objection_heritability = 0.5
+# At or above this objection, taking is not weighed at all (04-09 §5.3: a moral filter first, or
+# a noisy chooser "may eventually make almost everyone offend").
+objection_filter = 0.8
+# Points against taking: for a full objection; for a certainty of being seen (what the taker
+# believes being seen would cost them with those who would hear, scaled by exp(-w_risk_trait *
+# risk) for their risk-taking); and for full regard for the one taken from. A household out of
+# food weighs a load of grain at up to about 30 points (`[decision]` w_food and w_hunger), so only
+# real need outweighs these (04-09 §5.3: U = G - C - M - I - p̂L, on one scale).
+w_objection = 20.0
+w_seen = 10.0
+w_risk_trait = 0.3
+w_regard = 5.0
+# The chance of being seen someone believes before they have taken or heard of a taking, and the
+# share of the gap their own attempt, or a taking they hear of, closes (04-09 §5.4: p̂ ← (1 - α)p̂ +
+# αs; word comes only of takers who were seen, a selected sample).
+risk_prior = 0.5
+risk_alpha = 0.3
+risk_alpha_told = 0.1
+# Guardianship is settled on arrival (12-04 §1.4, 04-09 §1.1: routine activity, which turns on
+# capable guardians): a member of at least `guardian_age` home and awake and the taker turns back;
+# anyone else of that age awake within `sight_m` metres the taker notices with `notice_chance`
+# each, and turns back for; those they miss, and younger children, see them at it; a grown
+# sleeper at home wakes with `wake_chance`. One who turned back or fled waits between half and one
+# and a half times `retry_hours` before weighing taking again (12-04 §1.4: an offender may change
+# their timing).
+sight_m = 30.0
+notice_chance = 0.7
+retry_hours = 12.0
+guardian_age = 10.0
+wake_chance = 0.25
+# Days a person keeps what they believe of a taking; within them a household refuses the asks of
+# someone it believes took from it, or from a household whose elder one of its members regards at
+# least this much (12-04 §1.2: exclusion is credible when enough people will back it).
+remember_days = 730
+refuse_regard = 0.5
+# A household that learns who took from it demands the food back, or lets it go (09-07 §4.1: U =
+# p̂(success) p̂(enforcement) V - C): points toward demanding, per day of its food taken, and
+# against, for full regard for the taker. The taker's household answers once: points toward
+# paying, for the share of its settlement's households that believe the taker took and for
+# regard for the household owed, against the days of its own food paying would cost. It pays from
+# food beyond `keep_days` of its need, until `due_days` after the demand; what it cannot pay is an
+# arrear (09-07 §1.2: an award creates no goods).
+demand_base = 0.0
+w_demand_loss = 1.0
+w_forgive = 3.0
+due_days = 30
+comply_base = 0.0
+w_comply_known = 4.0
+w_comply_regard = 2.0
+w_comply_cost = 0.5
+keep_days = 3.0

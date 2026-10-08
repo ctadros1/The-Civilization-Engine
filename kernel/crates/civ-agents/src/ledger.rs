@@ -33,11 +33,15 @@ pub enum Channel {
     Levy = 10,
     /// Food from a polity's common store to a household that asked (ADR-0013 §4).
     Relief = 11,
+    /// Food taken from a household's store without its leave (M4b slice AA, ADR-0015 §2).
+    Take = 12,
+    /// Food given back to a household that was taken from, as it demanded (ADR-0015 §5).
+    Restitution = 13,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 11] = [
+    pub const ALL: [Channel; 13] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -49,6 +53,8 @@ impl Channel {
         Channel::Rent,
         Channel::Levy,
         Channel::Relief,
+        Channel::Take,
+        Channel::Restitution,
     ];
 
     /// The channel with this code.
@@ -70,6 +76,8 @@ impl Channel {
             Channel::Rent => "rent",
             Channel::Levy => "levy",
             Channel::Relief => "relief",
+            Channel::Take => "taking",
+            Channel::Restitution => "restitution",
         }
     }
 }

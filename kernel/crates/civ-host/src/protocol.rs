@@ -133,6 +133,8 @@ pub enum Request {
     GetStanding,
     /// Every settlement's polity, its laws and their histories (wire 1.27).
     GetGovernment,
+    /// Takings: what happened, and what people believe and chose (wire 1.30).
+    GetOrder,
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -456,6 +458,7 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                 wire::QueryBody::GetWeather => Ok(Request::GetWeather),
                 wire::QueryBody::GetStanding => Ok(Request::GetStanding),
                 wire::QueryBody::GetGovernment => Ok(Request::GetGovernment),
+                wire::QueryBody::GetOrder => Ok(Request::GetOrder),
                 other => Err(format!("unknown query {}", other.0)),
             }
         }

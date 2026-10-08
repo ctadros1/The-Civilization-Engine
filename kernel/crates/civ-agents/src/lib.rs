@@ -18,6 +18,7 @@
 //! - [`wealth`]: what households have, measured several ways, and how it spreads (ADR-0007 §4).
 //! - [`ties`]: what people remember of one another, written by the acts they see (ADR-0014).
 //! - [`standing`]: what a settlement's adults think of one another, summed monthly, and notables.
+//! - [`crime`]: takings as the kernel's truth, what people believe of them, and what is owed.
 //!
 //! The engine authors the vocabulary, never the plot (plan §1): activities, needs and their
 //! weights are content; what people do, and where, follows from their circumstances.
@@ -27,6 +28,7 @@
 pub mod build;
 pub mod caution;
 pub mod condition;
+pub mod crime;
 pub mod decide;
 pub mod demography;
 pub mod farm;

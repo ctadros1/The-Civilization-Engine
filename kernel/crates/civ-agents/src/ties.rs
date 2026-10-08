@@ -79,6 +79,14 @@ pub enum Act {
     LearnedFrom,
     /// The holder kept company with the other at the hearth, by the hour.
     Hearth,
+    /// The holder came to believe the other took from the holder's household (M4b slice AA).
+    TookFromUs,
+    /// The holder came to believe the other took from another household.
+    TookFromOthers,
+    /// The other's household gave back what was taken from the holder's, as it demanded.
+    Restored,
+    /// The other's household refused to give back what was taken from the holder's.
+    RefusedRestitution,
 }
 
 impl Act {
@@ -93,6 +101,10 @@ impl Act {
         Act::Traded,
         Act::LearnedFrom,
         Act::Hearth,
+        Act::TookFromUs,
+        Act::TookFromOthers,
+        Act::Restored,
+        Act::RefusedRestitution,
     ];
 
     /// Its number in saves.
@@ -117,6 +129,10 @@ impl Act {
             Act::Traded => "traded",
             Act::LearnedFrom => "learned_from",
             Act::Hearth => "hearth",
+            Act::TookFromUs => "took_from_us",
+            Act::TookFromOthers => "took_from_others",
+            Act::Restored => "restored",
+            Act::RefusedRestitution => "refused_restitution",
         }
     }
 
@@ -127,7 +143,7 @@ impl Act {
 }
 
 /// Number of acts.
-pub const ACTS: usize = 9;
+pub const ACTS: usize = 13;
 
 /// What one act writes into its holder's tie, for each unit of it (an act, or an hour for
 /// [`Act::LearnedFrom`] and [`Act::Hearth`]). Authored in content as tuning values.
@@ -210,6 +226,13 @@ impl TieParams {
             good,
             bad: 0.0,
         };
+        let bad = |domain, bad| ActWeights {
+            familiarity: 0.0,
+            warmth: 0.0,
+            domain: Some(domain),
+            good: 0.0,
+            bad,
+        };
         p.acts = [
             w(0.2, 0.1, Some(Domain::Provision), 1.0),
             w(0.1, 0.02, None, 0.0),
@@ -220,6 +243,10 @@ impl TieParams {
             w(0.1, 0.0, Some(Domain::Word), 0.5),
             w(0.02, 0.005, Some(Domain::Craft), 0.1),
             w(0.1, 0.01, None, 0.0),
+            bad(Domain::Provision, 3.0),
+            bad(Domain::Provision, 1.0),
+            w(0.0, 0.0, Some(Domain::Word), 1.0),
+            bad(Domain::Word, 2.0),
         ];
         p
     }
@@ -250,6 +277,10 @@ impl Reason {
             Act::Traded => "traded with their household",
             Act::LearnedFrom => "taught them",
             Act::Hearth => "kept them company at the hearth",
+            Act::TookFromUs => "took food from their household",
+            Act::TookFromOthers => "took food from another household",
+            Act::Restored => "gave back what was taken from their household",
+            Act::RefusedRestitution => "would not give back what was taken from their household",
         };
         let date = civ_core::time::SimTime::from_minutes(self.day * 1440).date();
         let month = civ_land::weather::MONTH_NAMES[usize::from(date.month.clamp(1, 12)) - 1];

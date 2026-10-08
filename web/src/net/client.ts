@@ -324,6 +324,13 @@ export class HostClient {
     return body.government;
   }
 
+  /** Takings: what happened, and what people believe and chose (wire 1.30). */
+  async order(): Promise<M.OrderInfo> {
+    const body = await this.query(M.getOrder());
+    if (body.kind !== "order") throw new HostError("internal", "expected order");
+    return body.order;
+  }
+
   /** What each settlement knows, is learning and has lost (M3b slice M). */
   async knowledge(): Promise<M.KnowledgeInfo> {
     const body = await this.query(M.getKnowledge());

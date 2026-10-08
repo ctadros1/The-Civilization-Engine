@@ -50,6 +50,123 @@ pub(crate) struct PeopleFile {
     pub standing: StandingFile,
     /// The polity: its gathering, forecasts and compliance (M4a slice Z; content API 31).
     pub polity: PolityFile,
+    /// Taking, what is seen of it and what is owed for it (M4b slice AA; content API 35).
+    pub crime: CrimeFile,
+}
+
+/// Taking and what follows it (M4b slice AA, ADR-0015; content API 35). See
+/// [`civ_agents::crime::CrimeParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct CrimeFile {
+    pub objection_mean: f64,
+    pub objection_sd: f64,
+    pub objection_heritability: f64,
+    pub objection_filter: f64,
+    pub w_objection: f64,
+    pub w_seen: f64,
+    pub w_risk_trait: f64,
+    pub w_regard: f64,
+    pub risk_prior: f64,
+    pub risk_alpha: f64,
+    pub risk_alpha_told: f64,
+    pub sight_m: f64,
+    pub notice_chance: f64,
+    pub retry_hours: f64,
+    pub guardian_age: f64,
+    pub wake_chance: f64,
+    pub remember_days: u32,
+    pub refuse_regard: f64,
+    pub demand_base: f64,
+    pub w_demand_loss: f64,
+    pub w_forgive: f64,
+    pub due_days: u32,
+    pub comply_base: f64,
+    pub w_comply_known: f64,
+    pub w_comply_regard: f64,
+    pub w_comply_cost: f64,
+    pub keep_days: f64,
+}
+
+impl CrimeFile {
+    fn params(&self) -> civ_agents::crime::CrimeParams {
+        civ_agents::crime::CrimeParams {
+            objection_mean: self.objection_mean,
+            objection_sd: self.objection_sd,
+            objection_heritability: self.objection_heritability,
+            objection_filter: self.objection_filter,
+            w_objection: self.w_objection,
+            w_seen: self.w_seen,
+            w_risk_trait: self.w_risk_trait,
+            w_regard: self.w_regard,
+            risk_prior: self.risk_prior,
+            risk_alpha: self.risk_alpha,
+            risk_alpha_told: self.risk_alpha_told,
+            sight_m: self.sight_m,
+            notice_chance: self.notice_chance,
+            retry_hours: self.retry_hours,
+            guardian_age: self.guardian_age,
+            wake_chance: self.wake_chance,
+            remember_days: self.remember_days,
+            refuse_regard: self.refuse_regard,
+            demand_base: self.demand_base,
+            w_demand_loss: self.w_demand_loss,
+            w_forgive: self.w_forgive,
+            due_days: self.due_days,
+            comply_base: self.comply_base,
+            w_comply_known: self.w_comply_known,
+            w_comply_regard: self.w_comply_regard,
+            w_comply_cost: self.w_comply_cost,
+            keep_days: self.keep_days,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            ("crime.remember_days", self.remember_days, 0, 36_500),
+            ("crime.due_days", self.due_days, 1, 3650),
+        ] {
+            if !(lo..=hi).contains(&v) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        for (name, v, lo, hi) in [
+            ("crime.objection_mean", self.objection_mean, -20.0, 20.0),
+            ("crime.objection_sd", self.objection_sd, 0.0, 20.0),
+            (
+                "crime.objection_heritability",
+                self.objection_heritability,
+                0.0,
+                1.0,
+            ),
+            ("crime.objection_filter", self.objection_filter, 0.0, 1.0),
+            ("crime.w_objection", self.w_objection, 0.0, 1000.0),
+            ("crime.w_seen", self.w_seen, 0.0, 1000.0),
+            ("crime.w_risk_trait", self.w_risk_trait, 0.0, 10.0),
+            ("crime.w_regard", self.w_regard, 0.0, 1000.0),
+            ("crime.risk_prior", self.risk_prior, 0.0, 1.0),
+            ("crime.risk_alpha", self.risk_alpha, 0.0, 1.0),
+            ("crime.risk_alpha_told", self.risk_alpha_told, 0.0, 1.0),
+            ("crime.sight_m", self.sight_m, 0.0, 10_000.0),
+            ("crime.notice_chance", self.notice_chance, 0.0, 1.0),
+            ("crime.retry_hours", self.retry_hours, 0.0, 87_600.0),
+            ("crime.guardian_age", self.guardian_age, 0.0, 130.0),
+            ("crime.wake_chance", self.wake_chance, 0.0, 1.0),
+            ("crime.refuse_regard", self.refuse_regard, 0.0, 100.0),
+            ("crime.demand_base", self.demand_base, -100.0, 100.0),
+            ("crime.w_demand_loss", self.w_demand_loss, 0.0, 100.0),
+            ("crime.w_forgive", self.w_forgive, 0.0, 100.0),
+            ("crime.comply_base", self.comply_base, -100.0, 100.0),
+            ("crime.w_comply_known", self.w_comply_known, 0.0, 100.0),
+            ("crime.w_comply_regard", self.w_comply_regard, 0.0, 100.0),
+            ("crime.w_comply_cost", self.w_comply_cost, 0.0, 100.0),
+            ("crime.keep_days", self.keep_days, 0.0, 3650.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+    }
 }
 
 /// The polity (M4a slice Z, ADR-0013; content API 31). See
@@ -987,6 +1104,7 @@ impl PeopleFile {
                 notable_keep: self.standing.notable_keep,
             },
             polity: self.polity.params(),
+            crime: self.crime.params(),
             names,
         }
     }
@@ -997,6 +1115,7 @@ impl PeopleFile {
         positive("digging.h_per_m3", self.digging.h_per_m3, &mut p);
         self.ties.problems(&mut p);
         self.polity.problems(&mut p);
+        self.crime.problems(&mut p);
         let st = &self.standing;
         if !(1..=100).contains(&st.candidates) {
             p.push(format!(

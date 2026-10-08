@@ -171,6 +171,28 @@ pub struct GiverOption {
     pub kcal: f64,
 }
 
+/// A household whose store someone could take from (M4b slice AA, ADR-0015 §2), with what
+/// weighs against it for this person, in points: their objection, the chance they believe they
+/// run of being seen times what that would cost them, and their household's regard for the one
+/// taken from.
+#[derive(Clone, Copy, Debug)]
+pub struct TakeOption {
+    /// The household.
+    pub household: PermanentId,
+    /// One-way walk to its home, minutes.
+    pub walk_min: f64,
+    /// Its home, metres.
+    pub at: (f32, f32),
+    /// Food energy they could carry off, kcal.
+    pub kcal: f64,
+    /// Points against, for their objection to taking.
+    pub objection: f64,
+    /// Points against, for the chance of being seen.
+    pub risk: f64,
+    /// Points against, for regard.
+    pub regard: f64,
+}
+
 /// The best purchase a household knows of (slice I): the seller, the walk to its home, the good
 /// and what it would bring the household.
 #[derive(Clone, Copy, Debug)]
@@ -463,6 +485,7 @@ pub fn candidates(
     build: Result<BuildOption, Reason>,
     shop: &Workshop,
     trying: &dyn Fn() -> Result<TryOption, Reason>,
+    take: &dyn Fn() -> Result<TakeOption, Reason>,
 ) -> (Vec<Candidate>, Vec<(u16, Reason)>) {
     let mut out: Vec<Candidate> = Vec::new();
     let mut excluded = Vec::new();
@@ -884,6 +907,53 @@ pub fn candidates(
                     Step::Walk { to: f.home },
                 ];
                 out.push(finish(id, Target::Household(giver.household), terms, steps));
+            }
+            Behavior::Take => {
+                // Take from another household's store when short (M4b slice AA, ADR-0015 §2;
+                // research 04-09 §5.3: U = G − C − M − I − p̂L). The gain is asking's, the food
+                // the household needs; against it are the walk, the person's objection, the
+                // chance they believe they run of being seen times what that would cost them, and
+                // their regard for those they would take from. The moral filter is `take`'s: above
+                // it, taking is not a candidate at all.
+                let target = f.food_target_days.max(1e-6);
+                let short = (1.0 - f.food_days / target).clamp(0.0, 1.0);
+                if short <= 0.0 {
+                    excluded.push((id, Reason::NotShort));
+                    continue;
+                }
+                let t = match take() {
+                    Ok(t) => t,
+                    Err(why) => {
+                        excluded.push((id, why));
+                        continue;
+                    }
+                };
+                if t.walk_min > f64::from(def.max_walk_minutes) {
+                    excluded.push((id, Reason::Unreachable));
+                    continue;
+                }
+                let half = w.trip_half_worth_days * f.household_kcal_day.max(1.0);
+                let worth = t.kcal / (t.kcal + half.max(1.0));
+                term(&mut terms, Reason::FoodShortage, w.w_food * short * worth);
+                if !f.has_food {
+                    term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
+                }
+                term(
+                    &mut terms,
+                    Reason::Walking,
+                    -w.w_walk_hour * 2.0 * t.walk_min / 60.0,
+                );
+                term(&mut terms, Reason::Objection, -t.objection);
+                term(&mut terms, Reason::Risk, -t.risk);
+                term(&mut terms, Reason::Regard, -t.regard);
+                let steps = vec![
+                    Step::Walk { to: t.at },
+                    Step::Work {
+                        minutes: def.min_minutes.max(1),
+                    },
+                    Step::Walk { to: f.home },
+                ];
+                out.push(finish(id, Target::Household(t.household), terms, steps));
             }
             Behavior::Trade => {
                 // Buy what is cheaper to get from a neighbour than to make or gather (research
@@ -1426,6 +1496,7 @@ mod tests {
             Err(Reason::Built),
             &shop,
             &|| Err(Reason::NoProblem),
+            &|| Err(Reason::WouldNotTake),
         )
     }
 
@@ -1527,6 +1598,7 @@ mod tests {
                 Err(Reason::Built),
                 &shop,
                 &|| Err(Reason::NoProblem),
+                &|| Err(Reason::WouldNotTake),
             )
         };
         // With an axe free, wood is cut with it and not by hand.
@@ -1669,6 +1741,7 @@ mod tests {
                 Err(Reason::Built),
                 &shop,
                 &|| Err(Reason::NoProblem),
+                &|| Err(Reason::WouldNotTake),
             );
             let total = |d: u16| {
                 cands

@@ -39,6 +39,7 @@ use crate::person::{
     fuel_kg, reserve_food_kcal, stock_kcal,
 };
 
+mod crime;
 mod deposits;
 mod digging;
 mod firm;
@@ -225,6 +226,7 @@ struct HouseholdView {
     trade: Option<Option<decide::TradeOption>>,
     giver: Option<Option<GiverOption>>,
     job: Option<Option<decide::JobOption>>,
+    take: Option<Option<crime::TakeTarget>>,
     /// Per activity: the best place to gather or dig, or none.
     patches: Vec<Option<Option<PatchOption>>>,
     /// Per activity: the best field to work, or why there is none.
@@ -236,6 +238,7 @@ struct ViewCells {
     trade: OnceCell<Option<decide::TradeOption>>,
     giver: OnceCell<Option<GiverOption>>,
     job: OnceCell<Option<decide::JobOption>>,
+    take: OnceCell<Option<crime::TakeTarget>>,
     patches: Vec<OnceCell<Option<PatchOption>>>,
     fields: Vec<OnceCell<Result<FieldOption, Reason>>>,
 }
@@ -261,6 +264,7 @@ impl HouseholdView {
             trade: cell(self.trade),
             giver: cell(self.giver),
             job: cell(self.job),
+            take: cell(self.take),
             patches,
             fields,
         }
@@ -274,6 +278,7 @@ impl ViewCells {
             trade: self.trade.into_inner(),
             giver: self.giver.into_inner(),
             job: self.job.into_inner(),
+            take: self.take.into_inner(),
             patches: self.patches.into_iter().map(OnceCell::into_inner).collect(),
             fields: self.fields.into_iter().map(OnceCell::into_inner).collect(),
         }
@@ -378,6 +383,8 @@ pub struct Population {
     /// review, not only the notables and those an issue reaches. A run setting for the gate that
     /// checks the tier, never saved; off unless set.
     pub every_adult_deliberates: bool,
+    /// Takings, what people believe of them, and what households owe for them (ADR-0015).
+    pub order: crate::crime::Order,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -2934,6 +2941,21 @@ impl Population {
                 points: params.knowledge.w_try * share,
             })
         };
+        // Taking from another household's store (M4b slice AA, ADR-0015 §2): the person's moral
+        // filter first, then the household's target.
+        let take = || -> Result<decide::TakeOption, Reason> {
+            let p = self.people.get(h).ok_or(Reason::WouldNotTake)?;
+            if f64::from(p.objection) >= params.crime.objection_filter {
+                return Err(Reason::WouldNotTake);
+            }
+            if Population::turned_back_lately(p, now) {
+                return Err(Reason::TurnedBackLately);
+            }
+            let target = *hh_view
+                .take
+                .get_or_init(|| self.take_target(ctx, &hh, field_key, kcal_day, stock));
+            Population::take_option(p, target, params)
+        };
         let (cands, excluded) = decide::candidates(
             &catalog.activities,
             &params.decision,
@@ -2948,6 +2970,7 @@ impl Population {
             build,
             &shop,
             &trying,
+            &take,
         );
         if ctx.approx.household_view {
             self.views.insert(hh_id, hh_view.kept());
@@ -3032,7 +3055,10 @@ impl Population {
             .activities
             .get(usize::from(cands[choice].scored.def))
             .is_some_and(|a| {
-                matches!(a.behavior, Behavior::Trade | Behavior::Ask | Behavior::Hire)
+                matches!(
+                    a.behavior,
+                    Behavior::Trade | Behavior::Ask | Behavior::Hire | Behavior::Take
+                )
             });
         if claims {
             self.changed(hh_id);
@@ -3405,7 +3431,8 @@ impl Population {
                 | Behavior::Ask
                 | Behavior::Trade
                 | Behavior::Hire
-                | Behavior::Build,
+                | Behavior::Build
+                | Behavior::Take,
             ) => (def_par, false, 0.0),
             None => (params.energy.idle_par, false, 0.0),
         };
@@ -3531,6 +3558,11 @@ impl Population {
                         self.give_food(ctx, giver, household, asker);
                     }
                 }
+                Some(Behavior::Take) => {
+                    if let Target::Household(victim) = p.act.target {
+                        self.take_from(ctx, h, victim);
+                    }
+                }
                 Some(Behavior::Trade) => {
                     if let Target::Household(seller) | Target::Firm(seller) = p.act.target {
                         let (who, household) = (p.id, p.household);
@@ -3586,7 +3618,9 @@ impl Population {
                 Behavior::Farm | Behavior::Build | Behavior::Make | Behavior::Try => {
                     self.changed(household);
                 }
-                Behavior::Ask | Behavior::Trade | Behavior::Hire => self.views.clear(),
+                Behavior::Ask | Behavior::Trade | Behavior::Hire | Behavior::Take => {
+                    self.views.clear();
+                }
                 _ => {}
             }
         }
@@ -3741,6 +3775,12 @@ impl Population {
         // The common store gives by its law (ADR-0013 §4).
         if let Some(pi) = self.polities.iter().position(|p| p.id == giver) {
             self.give_relief(ctx, pi, to);
+            return;
+        }
+        // A household that believes the asker took from it, or from those it regards, refuses
+        // them (ADR-0015 §3).
+        if self.refuses(ctx, giver, asker) {
+            self.order.refusals += 1;
             return;
         }
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
@@ -4563,6 +4603,7 @@ impl Population {
         // worked out afresh (ADR-0014 §1, §3).
         if now.date().day == 1 {
             self.prune_ties();
+            self.prune_beliefs(now, params);
             self.derive_standing(now, params);
         }
         // The season turns for every field: a sowing window passes, a crop left standing is lost.
@@ -4615,6 +4656,9 @@ impl Population {
         // Each settlement's polity: founded under the custom, its gathering decided, word of its
         // laws gone round, its review held (ADR-0013).
         self.polity_day(ctx);
+        // Takings found, word of them gone round, and what households taken from choose and are
+        // owed (ADR-0015).
+        self.crime_day(ctx);
         // The yearly land review (ADR-0007 §2): fields given out by need, or ground nobody holds
         // any more taken up.
         if day.rem_euclid(365) == i64::from(ctx.regime.review_day) {

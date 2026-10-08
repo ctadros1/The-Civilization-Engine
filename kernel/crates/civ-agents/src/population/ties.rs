@@ -171,6 +171,8 @@ impl Population {
             self.note_tie(ctx, me, q, Act::Hearth, hours, 0.0);
             // Word of the laws in force goes round at the hearth (ADR-0013 §3, stage 4).
             self.share_laws(me, q, day);
+            // So does word of who took from whom (ADR-0015 §1).
+            self.share_takings(ctx, me, q);
         }
     }
 

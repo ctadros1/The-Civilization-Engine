@@ -493,6 +493,10 @@ impl Engine {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::government::government_response(&w.sim)),
             },
+            Request::GetOrder => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::order::order_response(&w.sim)),
+            },
             Request::GetDeposits => match &self.world {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::deposits::deposits_response(&w.sim)),

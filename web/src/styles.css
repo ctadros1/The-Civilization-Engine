@@ -1440,3 +1440,23 @@ button.link:hover {
 .weather-years tr.partial td {
   font-style: italic;
 }
+
+/* Takings (wire 1.30): what happened beside what people believe, each labelled. */
+.order-panel .order-totals {
+  margin: 0.4rem 0;
+}
+.order-panel .takings {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+.order-panel .taking {
+  margin-bottom: 0.5rem;
+}
+.order-panel .layer {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+.order-panel .believed {
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--line);
+}

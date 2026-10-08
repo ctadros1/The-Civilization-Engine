@@ -853,6 +853,63 @@ export interface GovernmentInfo {
   polities: PolityLine[];
 }
 
+/** How an attempt to take ended (wire 1.30). */
+export type TakingOutcome = "taken" | "turned back" | "fled";
+
+/**
+ * What happened (the truth layer, ADR-0015 §1): one attempt to take from a household's store.
+ * Kept apart from what anyone believes of it, which is a {@link KnownLine} with the same number.
+ */
+export interface IncidentLine {
+  id: number;
+  minute: number;
+  /** 0 when the household taken from has none. */
+  settlement: number;
+  actor: number;
+  actorName: string;
+  /** The household taken from, and its name for the one who stands for it. */
+  target: number;
+  targetName: string;
+  outcome: TakingOutcome;
+  /** What was carried off ("12 kg of grain"), or how it ended, in the kernel's words. */
+  what: string;
+  kcal: number;
+  /** Who saw the taker at it. */
+  seenBy: string[];
+}
+
+/** What the living believe of one incident, and what was chosen (the knowledge layer). */
+export interface KnownLine {
+  incident: number;
+  /** People who believe they know who took, and people who know only of a loss. */
+  knowTaker: number;
+  knowLoss: number;
+  /** Distinct first-hand accounts behind what they believe. */
+  sources: number;
+  /** Someone of the household taken from knows who took. */
+  victimKnows: boolean;
+  /** What the household taken from chose, in words, or "". */
+  response: string;
+  /** Where what is owed stands, in words, or "". */
+  owed: string;
+}
+
+/** Takings at `minute` (wire 1.30): the most recent, newest first, and totals over all. */
+export interface OrderInfo {
+  minute: number;
+  incidents: IncidentLine[];
+  known: KnownLine[];
+  attempts: number;
+  takings: number;
+  seen: number;
+  knownToVictims: number;
+  demands: number;
+  met: number;
+  refused: number;
+  /** Asks refused because the giver believed the asker took, since the world was loaded. */
+  refusals: number;
+}
+
 /** One good in a settlement's market (M3a slice I). Tallies fade by half every memory. */
 export interface MarketGood {
   /** An index into Welcome.goods. */
@@ -1233,7 +1290,8 @@ export type ResponseBody =
   | { kind: "earthworks"; earthworks: EarthworksInfo }
   | { kind: "weather"; weather: WeatherReport }
   | { kind: "standing"; standing: StandingInfo }
-  | { kind: "government"; government: GovernmentInfo };
+  | { kind: "government"; government: GovernmentInfo }
+  | { kind: "order"; order: OrderInfo };
 
 export type ErrorCode =
   | "unknown"
@@ -1476,6 +1534,12 @@ export function getGovernment(): Uint8Array {
   const b = new flatbuffers.Builder(16);
   W.GetGovernment.startGetGovernment(b);
   return query(b, W.QueryBody.GetGovernment, W.GetGovernment.endGetGovernment(b));
+}
+
+export function getOrder(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetOrder.startGetOrder(b);
+  return query(b, W.QueryBody.GetOrder, W.GetOrder.endGetOrder(b));
 }
 
 export function getWeather(): Uint8Array {
@@ -2747,6 +2811,57 @@ function governmentInfo(w: W.Government): GovernmentInfo {
   return { minute: Number(w.minute()), polities };
 }
 
+const TAKING_OUTCOMES: TakingOutcome[] = ["taken", "turned back", "fled"];
+
+/** Takings, the truth and what is believed kept in their own lists (wire 1.30). */
+export function orderInfo(w: W.Order): OrderInfo {
+  const incidents: IncidentLine[] = [];
+  for (let k = 0; k < w.incidentsLength(); k++) {
+    const i = w.incidents(k);
+    if (!i) continue;
+    incidents.push({
+      id: i.id(),
+      minute: Number(i.minute()),
+      settlement: Number(i.settlement()),
+      actor: Number(i.actor()),
+      actorName: i.actorName() ?? "",
+      target: Number(i.target()),
+      targetName: i.targetName() ?? "",
+      outcome: TAKING_OUTCOMES[i.outcome()] ?? "taken",
+      what: i.what() ?? "",
+      kcal: i.kcal(),
+      seenBy: Array.from({ length: i.seenByLength() }, (_, j) => i.seenBy(j) ?? ""),
+    });
+  }
+  const known: KnownLine[] = [];
+  for (let k = 0; k < w.knownLength(); k++) {
+    const l = w.known(k);
+    if (!l) continue;
+    known.push({
+      incident: l.incident(),
+      knowTaker: l.knowTaker(),
+      knowLoss: l.knowLoss(),
+      sources: l.sources(),
+      victimKnows: l.victimKnows(),
+      response: l.response() ?? "",
+      owed: l.owed() ?? "",
+    });
+  }
+  return {
+    minute: Number(w.minute()),
+    incidents,
+    known,
+    attempts: w.attempts(),
+    takings: w.takings(),
+    seen: w.seen(),
+    knownToVictims: w.knownToVictims(),
+    demands: w.demands(),
+    met: w.met(),
+    refused: w.refused(),
+    refusals: Number(w.refusals()),
+  };
+}
+
 function standingInfo(w: W.Standing): StandingInfo {
   const settlements: SettlementStanding[] = [];
   for (let k = 0; k < w.settlementsLength(); k++) {
@@ -2872,6 +2987,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Government()) as W.Government | null;
       if (!f) break;
       return { kind: "government", government: governmentInfo(f) };
+    }
+    case W.ResponseBody.Order: {
+      const f = r.body(new W.Order()) as W.Order | null;
+      if (!f) break;
+      return { kind: "order", order: orderInfo(f) };
     }
     default:
       break;

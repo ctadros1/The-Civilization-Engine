@@ -72,6 +72,24 @@ test("a polity, its custom and a law's history in the government panel", async (
     if (shots) {
       await page.locator("#government-panel").screenshot({ path: `${shots}/m4a-government.png` });
     }
+
+    // M4b slice AA: the Takings panel, what happened beside what people believe (wire 1.30).
+    // Whether anyone took in these lean weeks is the world's; the panel shows whichever it was.
+    await page.waitForFunction(() => window.__TCE__.state().order !== null, null, {
+      timeout: 60_000,
+    });
+    const order = (await page.evaluate(() => window.__TCE__.state().order))!;
+    console.log(`order: ${JSON.stringify({ ...order, known: order.known.slice(0, 5) })}`);
+    const takings = page.locator("#order-body");
+    await expect(takings.locator(".order-totals")).toContainText(
+      order.attempts === 0 ? "Nobody has gone to take" : `${order.attempts} attempt`,
+    );
+    await expect(takings.locator("li.taking")).toHaveCount(order.incidents.length);
+    if (order.incidents.length > 0) {
+      const first = takings.locator("li.taking").first();
+      await expect(first.locator(".happened")).toContainText(order.incidents[0]!.actor);
+      await expect(first.locator(".believed")).toContainText("What people believe:");
+    }
   } finally {
     await host.stop();
   }

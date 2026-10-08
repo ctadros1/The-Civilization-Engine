@@ -104,8 +104,8 @@ use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
-    SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, finish, section, single_chunk,
-    unreadable,
+    SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -148,6 +148,8 @@ pub const SECTION_EARTH: SectionTag = SectionTag::new("earth");
 pub const SECTION_TIES: SectionTag = SectionTag::new("ties");
 /// Section: each settlement's polity, its laws and its store (schema 29, ADR-0013).
 pub const SECTION_POLITY: SectionTag = SectionTag::new("polity");
+/// Section: takings, what people believe of them, and what households owe (schema 31, ADR-0015).
+pub const SECTION_ORDER: SectionTag = SectionTag::new("order");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -214,6 +216,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             0,
             encode_polities(&sim.people, rules, &goods),
         ),
+        section(SECTION_ORDER, 0, encode_order(&sim.people.order, &goods)),
     ]
 }
 
@@ -292,6 +295,8 @@ enum Schema {
     V29,
     /// Laws that name someone, and laws that lapse (ADR-0013 §2).
     V30,
+    /// Takings, beliefs and obligations; each person's objection and perceived risk (ADR-0015).
+    V31,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -336,7 +341,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V27 => Schema::V27,
         SCHEMA_V28 => Schema::V28,
         SCHEMA_V29 => Schema::V29,
-        SAVE_SCHEMA_VERSION => Schema::V30,
+        SCHEMA_V30 => Schema::V30,
+        SAVE_SCHEMA_VERSION => Schema::V31,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -370,6 +376,9 @@ pub(super) fn decode<R: Read + Seek>(
     for p in persons {
         people.insert_person(p);
     }
+    // Before schema 31 nobody had an objection to taking or a sense of the chance of being seen:
+    // each gets a founder's, by a draw keyed to them (ADR-0015 §2).
+    people.give_crime_state(&rules.people.crime, seed);
     let bytes = single_chunk(reader, SECTION_HISTORY)?;
     let (records, chronicle, unions) = decode_history(&bytes)?;
     people.records = records;
@@ -470,6 +479,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V29 {
         let bytes = single_chunk(reader, SECTION_POLITY)?;
         people.polities = decode_polities(&bytes, rules)?;
+    }
+    // Takings (schema 31); before them nobody had taken anything.
+    if schema >= Schema::V31 {
+        let bytes = single_chunk(reader, SECTION_ORDER)?;
+        people.order = decode_order(&bytes, rules)?;
     }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
     match standing {
@@ -1910,6 +1924,10 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
             skills: Some(skills),
             knows: Some(knows),
             tried: p.tried.map_or(-1, SimTime::minutes),
+            objection: p.objection,
+            risk_seen: p.risk_seen,
+            guarded: raw(p.guarded.map(|(h, _)| h)),
+            guarded_at: p.guarded.map_or(0, |(_, at)| at.minutes()),
         },
     )
 }
@@ -2147,6 +2165,18 @@ fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedP
                 knows
             },
             tried: (p.tried() >= 0).then(|| time(p.tried())),
+            // Not kept before schema 31 (-1): drawn once the people are in.
+            objection: if p.objection().is_finite() {
+                p.objection().min(1.0)
+            } else {
+                -1.0
+            },
+            risk_seen: if p.risk_seen().is_finite() {
+                p.risk_seen().min(1.0)
+            } else {
+                -1.0
+            },
+            guarded: id(p.guarded()).map(|h| (h, time(p.guarded_at()))),
         });
     }
     Ok((
@@ -2199,7 +2229,8 @@ fn carried(
         | Schema::V27
         | Schema::V28
         | Schema::V29
-        | Schema::V30 => {
+        | Schema::V30
+        | Schema::V31 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2339,7 +2370,8 @@ fn decode_households(
             | Schema::V27
             | Schema::V28
             | Schema::V29
-            | Schema::V30 => {
+            | Schema::V30
+            | Schema::V31 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -2442,6 +2474,246 @@ fn decode_households(
     Ok(out)
 }
 
+// ---- order -------------------------------------------------------------------------------------
+
+fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let good_dictionary = strings(&mut fbb, goods);
+    let incidents: Vec<_> = order
+        .incidents
+        .iter()
+        .map(|i| {
+            let taken: Vec<save::TakenGood> = i
+                .goods
+                .iter()
+                .map(|&(g, amount)| save::TakenGood::new(g, amount))
+                .collect();
+            let taken = fbb.create_vector(&taken);
+            let seen: Vec<u64> = i.seen_by.iter().map(|p| p.get()).collect();
+            let seen = fbb.create_vector(&seen);
+            save::IncidentSave::create(
+                &mut fbb,
+                &save::IncidentSaveArgs {
+                    id: i.id,
+                    at: i.at.minutes(),
+                    actor: i.actor.get(),
+                    actor_household: i.actor_household.get(),
+                    target: i.target.get(),
+                    place: Some(&point(i.place)),
+                    outcome: i.outcome.code(),
+                    goods: Some(taken),
+                    kcal: i.kcal,
+                    seen_by: Some(seen),
+                    noticed: i.noticed,
+                },
+            )
+        })
+        .collect();
+    let incidents = fbb.create_vector(&incidents);
+    let beliefs: Vec<save::BeliefSave> = order
+        .beliefs
+        .iter()
+        .map(|b| {
+            save::BeliefSave::new(
+                b.holder.get(),
+                raw(b.taker),
+                raw(b.from),
+                raw(b.origin),
+                b.day,
+                b.incident,
+                b.source.code(),
+            )
+        })
+        .collect();
+    let beliefs = fbb.create_vector(&beliefs);
+    let responses: Vec<save::ResponseSave> = order
+        .responses
+        .iter()
+        .map(|r| {
+            save::ResponseSave::new(
+                r.household.get(),
+                r.by.get(),
+                r.day,
+                r.incident,
+                r.points,
+                r.demand,
+            )
+        })
+        .collect();
+    let responses = fbb.create_vector(&responses);
+    let obligations: Vec<save::ObligationSave> = order
+        .obligations
+        .iter()
+        .map(|o| {
+            let (answer, points) = match o.answer {
+                None => (0, 0.0),
+                Some((true, p)) => (1, p),
+                Some((false, p)) => (2, p),
+            };
+            save::ObligationSave::new(
+                o.debtor.get(),
+                o.beneficiary.get(),
+                o.made,
+                o.due,
+                o.id,
+                o.incident,
+                o.kcal,
+                o.paid_kcal,
+                points,
+                o.standing.code(),
+                answer,
+            )
+        })
+        .collect();
+    let obligations = fbb.create_vector(&obligations);
+    let root = save::Order::create(
+        &mut fbb,
+        &save::OrderArgs {
+            incidents: Some(incidents),
+            beliefs: Some(beliefs),
+            responses: Some(responses),
+            obligations: Some(obligations),
+            goods: Some(good_dictionary),
+        },
+    );
+    finish(fbb, root)
+}
+
+/// Takings and what follows them, from a save. A good the loaded content no longer has is dropped
+/// from what an incident records as carried off.
+fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order, LoadError> {
+    use civ_agents::crime::{
+        Belief, Incident, Obligation, Order, Outcome, Response, Source, Standing,
+    };
+    let root =
+        flatbuffers::root::<save::Order>(bytes).map_err(|e| unreadable(SECTION_ORDER, &e))?;
+    let goods = good_map(&read_strings(root.goods()), rules);
+    let bad = |what: String| LoadError::Malformed(what);
+    let mut order = Order::default();
+    for i in root.incidents().iter().flatten() {
+        let id = i.id();
+        let outcome = Outcome::from_code(i.outcome())
+            .ok_or_else(|| bad(format!("incident {id} has outcome code {}", i.outcome())))?;
+        let mut taken = Vec::new();
+        for g in i.goods().iter().flatten() {
+            if let Some(good) =
+                saved_good(&goods, u32::from(g.good()), || format!("incident {id}"))?
+            {
+                taken.push((good, g.amount()));
+            }
+        }
+        let place = i.place().map_or((0.0, 0.0), |p| (p.x(), p.y()));
+        order.incidents.push(Incident {
+            id,
+            at: time(i.at()),
+            actor: required(i.actor(), "an incident's actor")?,
+            actor_household: required(i.actor_household(), "an incident's household")?,
+            target: required(i.target(), "an incident's target")?,
+            place,
+            outcome,
+            goods: taken,
+            kcal: i.kcal(),
+            seen_by: i
+                .seen_by()
+                .map(|v| v.iter().filter_map(id_of).collect())
+                .unwrap_or_default(),
+            noticed: i.noticed(),
+        });
+    }
+    for b in root.beliefs().iter().flatten() {
+        order.beliefs.push(Belief {
+            holder: required(b.holder(), "a belief's holder")?,
+            incident: b.incident(),
+            taker: id(b.taker()),
+            source: Source::from_code(b.source())
+                .ok_or_else(|| bad(format!("a belief has source code {}", b.source())))?,
+            from: id(b.from()),
+            origin: id(b.origin()),
+            day: b.day(),
+        });
+    }
+    for r in root.responses().iter().flatten() {
+        order.responses.push(Response {
+            incident: r.incident(),
+            household: required(r.household(), "a response's household")?,
+            by: required(r.by(), "a response's chooser")?,
+            day: r.day(),
+            demand: r.demand(),
+            points: r.points(),
+        });
+    }
+    for o in root.obligations().iter().flatten() {
+        let oid = o.id();
+        order.obligations.push(Obligation {
+            id: oid,
+            incident: o.incident(),
+            debtor: required(o.debtor(), "an obligation's debtor")?,
+            beneficiary: required(o.beneficiary(), "an obligation's beneficiary")?,
+            kcal: o.kcal(),
+            paid_kcal: o.paid_kcal(),
+            made: o.made(),
+            due: o.due(),
+            standing: Standing::from_code(o.standing()).ok_or_else(|| {
+                bad(format!(
+                    "obligation {oid} has standing code {}",
+                    o.standing()
+                ))
+            })?,
+            answer: match o.answer() {
+                0 => None,
+                1 => Some((true, o.answer_points())),
+                2 => Some((false, o.answer_points())),
+                c => return Err(bad(format!("obligation {oid} has answer code {c}"))),
+            },
+        });
+    }
+    let problems = order_problems(&order);
+    if !problems.is_empty() {
+        return Err(LoadError::Invalid(problems));
+    }
+    Ok(order)
+}
+
+fn id_of(raw: u64) -> Option<PermanentId> {
+    PermanentId::from_raw(raw)
+}
+
+/// What is wrong with a save's takings: records out of order, or beliefs, responses and
+/// obligations that name an incident there is no record of.
+fn order_problems(order: &civ_agents::crime::Order) -> Vec<String> {
+    let mut out = Vec::new();
+    if order.incidents.windows(2).any(|w| w[0].id >= w[1].id) {
+        out.push("incidents are out of order".to_owned());
+    }
+    if order
+        .beliefs
+        .windows(2)
+        .any(|w| (w[0].holder, w[0].incident) >= (w[1].holder, w[1].incident))
+    {
+        out.push("beliefs are out of order".to_owned());
+    }
+    if order.obligations.windows(2).any(|w| w[0].id >= w[1].id) {
+        out.push("obligations are out of order".to_owned());
+    }
+    let known = |i: u32| order.incident(i).is_some();
+    if let Some(b) = order.beliefs.iter().find(|b| !known(b.incident)) {
+        out.push(format!(
+            "a belief of {} names missing incident {}",
+            b.holder, b.incident
+        ));
+    }
+    if let Some(r) = order.responses.iter().find(|r| !known(r.incident)) {
+        out.push(format!("a response names missing incident {}", r.incident));
+    }
+    if let Some(o) = order.obligations.iter().find(|o| !known(o.incident)) {
+        out.push(format!(
+            "obligation {} names missing incident {}",
+            o.id, o.incident
+        ));
+    }
+    out
+}
+
 // ---- history -----------------------------------------------------------------------------------
 
 fn chronicle_code(kind: ChronicleKind) -> u16 {
@@ -2473,6 +2745,8 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::LawProposed => 25,
         ChronicleKind::LawDecided => 26,
         ChronicleKind::LawLapsed => 27,
+        ChronicleKind::Taking => 28,
+        ChronicleKind::Restitution => 29,
     }
 }
 
@@ -2505,6 +2779,8 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         25 => Some(ChronicleKind::LawProposed),
         26 => Some(ChronicleKind::LawDecided),
         27 => Some(ChronicleKind::LawLapsed),
+        28 => Some(ChronicleKind::Taking),
+        29 => Some(ChronicleKind::Restitution),
         _ => None,
     }
 }

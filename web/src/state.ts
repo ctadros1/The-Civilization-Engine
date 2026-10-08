@@ -9,6 +9,7 @@ import type {
   FirmBrief,
   FirmInfo,
   GovernmentInfo,
+  OrderInfo,
   KnowledgeInfo,
   MarketInfo,
   PersonInfo,
@@ -97,6 +98,10 @@ export interface AppState {
   government: GovernmentInfo | null;
   /** Why the government could not be read. */
   governmentError: string | null;
+  /** Takings in the world on show (null = not read yet; wire 1.30). */
+  order: OrderInfo | null;
+  /** Why the takings could not be read. */
+  orderError: string | null;
 }
 
 export const MAX_EVENTS = 300;
@@ -134,6 +139,8 @@ export function initialState(): AppState {
     standingError: null,
     government: null,
     governmentError: null,
+    order: null,
+    orderError: null,
   };
 }
 

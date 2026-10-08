@@ -38,6 +38,8 @@ pub enum Draw {
     Fecundity = 6,
     /// Whether a household gives up and leaves today.
     Leave = 7,
+    /// A person's objection to taking, at birth (M4b slice AA).
+    Objection = 8,
 }
 
 /// The generator for `person`'s draw of `what` on `day`.

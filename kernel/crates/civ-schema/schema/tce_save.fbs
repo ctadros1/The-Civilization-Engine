@@ -309,6 +309,14 @@ table Person {
   knows: [Knowing] (id: 33);
   // Schema 14: when their last session of trying toward a technique ended (-1 = never).
   tried: long = -1 (id: 34);
+  // Schema 31: their objection to taking, 0-1, and the chance they believe a taker runs of being
+  // seen, 0-1 (ADR-0015 §2). -1: not kept (an older save); drawn and set on load.
+  objection: float = -1.0 (id: 35);
+  risk_seen: float = -1.0 (id: 36);
+  // The household whose store they last turned back or fled from (0 = none), and until when they
+  // wait before weighing taking again (minutes).
+  guarded: ulong (id: 37);
+  guarded_at: long (id: 38);
 }
 
 // Schema 13: what a person knows of one technique, by index into People.techniques. `known`:
@@ -1117,6 +1125,76 @@ table Polities {
   goods: [string] (id: 1);
   // Policy content ids at save time.
   policies: [string] (id: 2);
+}
+
+// Section "order" (schema 31, ADR-0015): takings as they happened (the truth), what people believe
+// of them, what households taken from chose, and what households owe one another.
+// `outcome`: 0 taken, 1 turned back, 2 fled when a sleeper woke.
+struct TakenGood {
+  // By index into `Order.goods`.
+  good: ushort;
+  amount: float;
+}
+
+table IncidentSave {
+  id: uint (id: 0);
+  // Minutes.
+  at: long (id: 1);
+  actor: ulong (id: 2);
+  actor_household: ulong (id: 3);
+  target: ulong (id: 4);
+  place: Point (id: 5);
+  outcome: ubyte (id: 6);
+  goods: [TakenGood] (id: 7);
+  kcal: float (id: 8);
+  seen_by: [ulong] (id: 9);
+  noticed: bool (id: 10);
+}
+
+// `taker`, `from` and `origin` are 0 when unknown or none. `source`: 0 saw it, 1 told, 2 found the
+// loss.
+struct BeliefSave {
+  holder: ulong;
+  taker: ulong;
+  from: ulong;
+  origin: ulong;
+  day: long;
+  incident: uint;
+  source: ubyte;
+}
+
+struct ResponseSave {
+  household: ulong;
+  by: ulong;
+  day: long;
+  incident: uint;
+  points: float;
+  demand: bool;
+}
+
+// `standing`: 0 open, 1 met, 2 refused, 3 unpaid when due, 4 lapsed. `answer`: 0 not yet, 1 means
+// to pay, 2 refused; `answer_points` its receipt.
+struct ObligationSave {
+  debtor: ulong;
+  beneficiary: ulong;
+  made: long;
+  due: long;
+  id: uint;
+  incident: uint;
+  kcal: float;
+  paid_kcal: float;
+  answer_points: float;
+  standing: ubyte;
+  answer: ubyte;
+}
+
+table Order {
+  incidents: [IncidentSave] (id: 0);
+  beliefs: [BeliefSave] (id: 1);
+  responses: [ResponseSave] (id: 2);
+  obligations: [ObligationSave] (id: 3);
+  // Good content ids at save time.
+  goods: [string] (id: 4);
 }
 
 // Section "events": the scheduler's pending events.

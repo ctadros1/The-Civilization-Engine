@@ -506,7 +506,11 @@ table GetStanding {}
 // Every settlement's polity, its laws and their histories (wire 1.27, ADR-0013).
 table GetGovernment {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment }
+// Wire 1.30 (M4b slice AA, ADR-0015 §7): takings, with what happened and what people believe in
+// separate tables, joined only by an incident's number.
+table GetOrder {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder }
 
 table Query {
   body: QueryBody (id: 1);
@@ -1532,7 +1536,60 @@ table Government {
   polities: [PolityLine] (id: 1);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government }
+// What happened (the truth layer, ADR-0015 §1): one attempt to take from a household's store.
+table IncidentLine {
+  id: uint (id: 0);
+  minute: long (id: 1);
+  // 0 when the household taken from has none.
+  settlement: ulong (id: 2);
+  actor: ulong (id: 3);
+  actor_name: string (id: 4);
+  // The household taken from, named for the one who stands for it ("the household of Rilla").
+  target: ulong (id: 5);
+  target_name: string (id: 6);
+  // 0 taken, 1 turned back (someone was home), 2 fled when a sleeper woke.
+  outcome: ubyte (id: 7);
+  // In words: what was carried off ("12 kg of grain"), or how it ended.
+  what: string (id: 8);
+  kcal: float (id: 9);
+  // Who saw the taker at it.
+  seen_by: [string] (id: 10);
+}
+
+// What people believe of one incident, and what was chosen (the knowledge layer).
+table KnownLine {
+  incident: uint (id: 0);
+  // Living people who believe they know who took, and who know only of a loss.
+  know_taker: uint (id: 1);
+  know_loss: uint (id: 2);
+  // Distinct first-hand accounts behind what they believe (one witness repeated is one).
+  sources: uint (id: 3);
+  // Someone of the household taken from knows who took.
+  victim_knows: bool (id: 4);
+  // What the household taken from chose, in words, or empty.
+  response: string (id: 5);
+  // Where what is owed for it stands, in words, or empty.
+  owed: string (id: 6);
+}
+
+table Order {
+  minute: long (id: 0);
+  // The most recent incidents, newest first (at most 60), and what is believed of each.
+  incidents: [IncidentLine] (id: 1);
+  known: [KnownLine] (id: 2);
+  // Totals over every incident there has been.
+  attempts: uint (id: 3);
+  takings: uint (id: 4);
+  seen: uint (id: 5);
+  known_to_victims: uint (id: 6);
+  demands: uint (id: 7);
+  met: uint (id: 8);
+  refused: uint (id: 9);
+  // Asks refused because the giver believed the asker took, since the world was loaded.
+  refusals: ulong (id: 10);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order }
 
 table Response {
   body: ResponseBody (id: 1);

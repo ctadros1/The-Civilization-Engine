@@ -140,6 +140,9 @@ pub struct Run {
     pub values: Vec<f64>,
     /// The checks it failed.
     pub failures: Vec<String>,
+    /// Attempts to take and takings in the year (M4b slice AA): reported, not graded. They are
+    /// rare events in a fixture's third year, too few for a mean's relative tolerance.
+    pub takings: (usize, usize),
 }
 
 /// One aggregate of one fixture, compared.
@@ -247,6 +250,7 @@ fn run(
         seconds: 0.0,
         values: Vec::new(),
         failures: Vec::new(),
+        takings: (0, 0),
     };
     let mut sim = match persist::load(save, content) {
         Ok(sim) => sim,
@@ -280,6 +284,20 @@ fn run(
     }
     out.failures = long.year_end(&sim, u32::try_from(RUN_YEAR).unwrap_or(3));
     out.values = aggregates(&sim);
+    let start = SimTime::from_date(RUN_YEAR, 1, 1, 0, 0).map_or(0, |t| t.minutes());
+    let year: Vec<_> = sim
+        .people()
+        .order
+        .incidents
+        .iter()
+        .filter(|i| i.at.minutes() >= start)
+        .collect();
+    out.takings = (
+        year.len(),
+        year.iter()
+            .filter(|i| i.outcome == civ_agents::crime::Outcome::Taken)
+            .count(),
+    );
     out.seconds = started.elapsed().as_secs_f64();
     out
 }
@@ -532,6 +550,20 @@ pub fn print(report: &Report) {
     {
         println!();
         println!("fixture {}: {preset} seed {seed}", f + 1);
+        let takings = |accelerated: bool| {
+            report
+                .runs
+                .iter()
+                .filter(|r| r.fixture == f && r.accelerated == accelerated)
+                .map(|r| format!("{}/{}", r.takings.1, r.takings.0))
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        println!(
+            "  takings/attempts by run (not graded): Detailed {}; Accelerated {}",
+            takings(false),
+            takings(true)
+        );
         println!(
             "  {:<10} {:>18} {:>18} {:>10} {:>10} {:>10}",
             "aggregate", "Detailed", "Accelerated", "difference", "tolerance", "calibrated"

@@ -131,6 +131,9 @@ pub const SCHEMA_V28: u32 = 28;
 /// The schema version of M4a slice Z's first steps: polities, before laws that name anyone (see
 /// [`agents`]).
 pub const SCHEMA_V29: u32 = 29;
+/// The schema version of M4a slice Z's last steps: laws that name someone, before takings (see
+/// [`agents`]).
+pub const SCHEMA_V30: u32 = 30;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

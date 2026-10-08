@@ -257,6 +257,15 @@ pub struct Person {
     pub knows: Vec<Know>,
     /// When their last session of trying toward a technique ended (ADR-0008 §3), if ever.
     pub tried: Option<SimTime>,
+    /// Their objection to taking what is not theirs, 0–1 (M4b slice AA, ADR-0015 §2): drawn at
+    /// birth, pulled toward their parents'.
+    pub objection: f32,
+    /// The chance they believe someone taking from another household's store runs of being seen,
+    /// 0–1, from what they have lived and heard (research 04-09 §5.4).
+    pub risk_seen: f32,
+    /// The household whose store they last turned back or fled from, and until when they wait
+    /// before weighing taking again (M4b slice AA).
+    pub guarded: Option<(PermanentId, SimTime)>,
 }
 
 /// How a person came to know of a technique (ADR-0008 §2). Numeric in saves: append only.

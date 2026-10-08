@@ -680,6 +680,16 @@ fn add_family(
                 now,
             ),
             tried: None,
+            // Founders' objections come from the content's distribution, each by its own keyed
+            // draw (M4b slice AA): none of their parents lived here.
+            objection: crate::crime::draw_objection(
+                None,
+                None,
+                &params.crime,
+                &mut demography::life_rng(ctx.seed, id, 0, demography::Draw::Objection),
+            ),
+            risk_seen: params.crime.risk_prior as f32,
+            guarded: None,
         });
         people.push(id);
     }
@@ -1194,6 +1204,7 @@ pub(crate) mod tests {
             ties: crate::ties::TieParams::core(),
             standing: crate::standing::StandingParams::default(),
             polity: crate::polity::PolityParams::core(),
+            crime: crate::crime::CrimeParams::core(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

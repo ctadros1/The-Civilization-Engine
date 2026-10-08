@@ -328,6 +328,26 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** whether a larger store would keep a village through a poor year is untested; villages chose a twentieth or a tenth. M4b, crime and order, is next.
 
+## 2026-10-08 — M4b design, and slice AA: theft and what was seen
+
+**Goal:** begin crime and order with the part every later slice stands on: taking as a person's choice, what happened kept apart from what people believe of it, and the first thing one household can owe another.
+
+**Design:** from the M4 crime brief, its citations checked against the criminology, policing, justice and corruption reports. One ADR, [ADR-0015](../../decisions/0015-incidents-cases-obligations.md): incidents (the kernel's truth), cases (what a polity knows) and beliefs (what people know) are kept and saved apart, and no choice reads an incident; taking is a scored choice behind a moral filter; every sanction is an obligation. Four slices, AA to AD ([plan §7](../../PROJECT_PLAN.md#7-milestones)). The briefs are now kept in `docs/briefs/`.
+
+**Slice AA, what changed:**
+
+- **Taking is a choice.** Someone whose household is short may go to another household's home to take food, weighed like asking: the food a load would carry against the walk, their objection to taking, the chance they believe a taker runs of being seen and their regard for those they would take from. Above a moral filter it is not weighed at all. Each person's objection is drawn at birth and pulled toward their parents'; the chance of being seen moves with what they try and hear.
+- **Arrival settles guardianship.** Someone old enough to stop them at home, or anyone they notice about, turns them back; a sleeper may wake; those they miss, and children, see them. One who turned back waits a while before trying again.
+- **Truth and belief.** Every attempt is an incident only the kernel reads. People believe what they saw, were told or found missing, each belief with the witness it began with. A household finds a loss at midnight; who took travels by household and hearth, a witness telling those taken from unless they regard the taker more.
+- **What follows.** A household refuses the asks of someone it believes took from it or from those it regards. One that learns who took may demand the food back; the taker's household pays from what it can spare, refuses, or leaves an arrear. The ledger gains `take` and `restitution`; the chronicle tells what was seen plainly; a Takings panel shows what happened beside what people believe.
+- **Boundary:** saves schema 31, wire 1.30, content API 35.
+
+**Found on the way:** the first lean-spell run had takers turn back only for a member at home, so evening takings were "seen" by most of the village from the hearth, and the same few people went back to a guarded store dozens of times a day. The policing report's guardianship rules (an offender notices and abandons, or changes their timing) and capable guardians fixed it; a fixed wait then put every retry at dawn or dusk, when households are up, so the wait is drawn.
+
+**Evidence:** unit tests for the objection draw, the belief rules and the choices' points; an integration test of a well-fed village (no takings) and of a test's shared shortage (the moral filter holds, goods are conserved, beliefs trace to witnesses, a demand meant to be paid is paid, an exact save and load); the end-to-end suite reads the Takings panel. The ten-year smoke passed all 10 worlds: seven never tried to take, and on the coast one village saw five takings, each seen, demanded back and four of them paid. Gate B and the notables' gate passed.
+
+**Open:** fed villages scarcely take; whether a lean year in a village of 1,000 makes takings common, or only attempts, is untested. Cases and their decision (AB) are next.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

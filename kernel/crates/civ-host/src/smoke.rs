@@ -517,6 +517,7 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
     result.notes.extend(style(sim));
     result.failures.extend(polity_problems(sim));
     result.notes.extend(polity(sim));
+    result.notes.extend(takings(sim));
 }
 
 /// What a polity's history must hold to (ADR-0013): one polity a settlement; every law decided by
@@ -633,6 +634,60 @@ fn polity(sim: &Sim) -> Option<String> {
         ));
     }
     Some(parts.join("; "))
+}
+
+/// What was taken and what followed (M4b slice AA), in words: "7 attempts to take by 3 people
+/// (of 214 adults now), 4 takings (190 kg), 2 seen; 2 known to the household taken from, 1 demand
+/// to give back (1 met, 0 refused); 3 asks refused". `None` when nobody went to take.
+fn takings(sim: &Sim) -> Option<String> {
+    use civ_agents::crime::{Outcome, Standing};
+    let pop = sim.people();
+    let order = &pop.order;
+    if order.incidents.is_empty() {
+        return None;
+    }
+    let taken: Vec<_> = order
+        .incidents
+        .iter()
+        .filter(|i| i.outcome == Outcome::Taken)
+        .collect();
+    let kg = taken
+        .iter()
+        .flat_map(|i| &i.goods)
+        .map(|&(_, kg)| f64::from(kg))
+        .sum::<f64>()
+        .max(0.0);
+    let seen = order
+        .incidents
+        .iter()
+        .filter(|i| !i.seen_by.is_empty())
+        .count();
+    let known: std::collections::BTreeSet<u32> =
+        order.responses.iter().map(|r| r.incident).collect();
+    let demands = order.responses.iter().filter(|r| r.demand).count();
+    let standing = |s: Standing| order.obligations.iter().filter(|o| o.standing == s).count();
+    let takers: std::collections::BTreeSet<_> = order.incidents.iter().map(|i| i.actor).collect();
+    let adult = sim.rules().people.family.independent_age;
+    let adults = pop
+        .people
+        .iter()
+        .filter(|(_, p)| p.age_years(sim.now()) >= adult)
+        .count();
+    let n = |count: usize, one: &str, many: &str| {
+        format!("{count} {}", if count == 1 { one } else { many })
+    };
+    Some(format!(
+        "{} to take by {} (of {adults} adults now), {} ({kg:.0} kg), {seen} seen; {} known to \
+         the household taken from, {} to give back ({} met, {} refused); {} refused",
+        n(order.incidents.len(), "attempt", "attempts"),
+        n(takers.len(), "person", "people"),
+        n(taken.len(), "taking", "takings"),
+        known.len(),
+        n(demands, "demand", "demands"),
+        standing(Standing::Met),
+        standing(Standing::Refused),
+        n(order.refusals as usize, "ask", "asks"),
+    ))
 }
 
 /// What households hold of goods that keep others or stay where they are made (M3b slice Q), in

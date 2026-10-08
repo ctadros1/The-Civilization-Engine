@@ -50,6 +50,7 @@ import {
   stanceText,
   statusText,
 } from "./government.js";
+import { believedText, choiceText, happenedRest, seenText, totalsText } from "./order.js";
 import { PATH_LEGEND } from "./paths.js";
 import {
   HOUSEHOLDS_SHOWN,
@@ -1968,6 +1969,71 @@ export function bindUi(store: Store, actions: Actions): void {
     governmentBody.replaceChildren(...nodes);
   };
 
+  // ---- Order (takings) ---------------------------------------------------------------------
+  const orderBody = $("order-body");
+  let orderRenderKey: unknown[] = [];
+  const renderOrder = (state: AppState) => {
+    const world = state.snapshot?.world ?? null;
+    const key = [world?.worldId ?? null, state.order, state.orderError];
+    if (key.length === orderRenderKey.length && key.every((k, i) => k === orderRenderKey[i])) return;
+    orderRenderKey = key;
+    if (!world) {
+      orderBody.replaceChildren(el("p", { className: "empty", text: "No world loaded." }));
+      return;
+    }
+    const o = state.order;
+    if (o === null) {
+      orderBody.replaceChildren(
+        state.orderError
+          ? el("p", {
+              className: "form-error",
+              text: `The takings could not be read: ${state.orderError}`,
+            })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      );
+      return;
+    }
+    const nodes: Node[] = [
+      el("p", {
+        className: "aside",
+        text: "Each taking is shown twice: what happened, which nobody in the world reads, and what the living believe of it and chose. They differ: a taking nobody saw is known only as a loss, and word of a taker travels only along ties.",
+      }),
+      el("p", { className: "order-totals", text: totalsText(o) }),
+    ];
+    const known = new Map(o.known.map((k) => [k.incident, k]));
+    if (o.incidents.length > 0) {
+      const list = el("ol", { className: "takings" });
+      for (const i of o.incidents) {
+        const k = known.get(i.id);
+        const choice = choiceText(k);
+        list.append(
+          el(
+            "li",
+            { className: `taking taking-${i.outcome.replace(" ", "-")}` },
+            el(
+              "div",
+              { className: "happened" },
+              el("span", { className: "layer", text: "What happened: " }),
+              link(i.actorName, () => actions.focusPerson(i.actor)),
+              ` ${happenedRest(i)} ${seenText(i)}.`,
+            ),
+            el(
+              "div",
+              { className: "believed" },
+              el("span", { className: "layer", text: "What people believe: " }),
+              `${believedText(k)}.${choice ? ` ${choice}.` : ""}`,
+            ),
+          ),
+        );
+      }
+      nodes.push(list);
+    }
+    if (state.orderError) {
+      nodes.push(el("p", { className: "note", text: `Not up to date: ${state.orderError}` }));
+    }
+    orderBody.replaceChildren(...nodes);
+  };
+
   // ---- Knowledge ---------------------------------------------------------------------------
   const knowledgeBody = $("knowledge-body");
   let knowledgeKey: unknown[] = [];
@@ -2163,6 +2229,7 @@ export function bindUi(store: Store, actions: Actions): void {
     renderKnowledge(state);
     renderStanding(state);
     renderGovernment(state);
+    renderOrder(state);
     renderWorld(state);
     renderEvents(state);
     renderTask(state);

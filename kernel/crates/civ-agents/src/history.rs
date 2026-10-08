@@ -121,11 +121,23 @@ pub enum Reason {
     Gathering = 24,
     /// Excluded: no gathering is sitting that they belong to.
     NoGathering = 128,
+    /// Their objection to taking what is not theirs (M4b slice AA, ADR-0015 §2).
+    Objection = 25,
+    /// The chance they believe they run of being seen, and what being seen would cost them.
+    Risk = 26,
+    /// Their regard for those they would take from.
+    Regard = 27,
+    /// Excluded: they would not take what is not theirs (a moral filter, research 04-09 §5.3).
+    WouldNotTake = 129,
+    /// Excluded: no household within reach has food to take.
+    NothingToTake = 130,
+    /// Excluded: they turned back or fled from a store lately, and wait to try again.
+    TurnedBackLately = 131,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 53] = [
+    pub const ALL: [Reason; 59] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -179,6 +191,12 @@ impl Reason {
         Reason::FrozenGround,
         Reason::Gathering,
         Reason::NoGathering,
+        Reason::Objection,
+        Reason::Risk,
+        Reason::Regard,
+        Reason::WouldNotTake,
+        Reason::NothingToTake,
+        Reason::TurnedBackLately,
     ];
 
     /// The reason with this code.
@@ -242,6 +260,12 @@ impl Reason {
             Reason::FrozenGround => "the ground frozen",
             Reason::Gathering => "a say at the gathering",
             Reason::NoGathering => "no gathering is sitting",
+            Reason::Objection => "taking what is not theirs",
+            Reason::Risk => "the chance of being seen",
+            Reason::Regard => "regard for those taken from",
+            Reason::WouldNotTake => "would not take what is not theirs",
+            Reason::NothingToTake => "no store within reach to take from",
+            Reason::TurnedBackLately => "turned back from a store lately",
         }
     }
 }
@@ -458,6 +482,14 @@ pub enum ChronicleKind {
     /// A law naming someone lapsed because they died or left: `people` is them, `name` it in
     /// words ("Ada no longer keeps the common store at Ashford: they died.").
     LawLapsed,
+    /// Someone was seen taking food from another household's store (M4b slice AA): `people` is
+    /// the taker and then those who saw, `number` the kilograms taken, and `name` the rest in
+    /// words ("took 12 kg of grain from the household of Rilla; Bram saw it.").
+    Taking,
+    /// A demand to give back what was taken ended (ADR-0015 §5): `people` is the taker, `number`
+    /// the obligation's standing ([`crate::crime::Standing`] as a number), and `name` it in words
+    /// ("The household of Tam gave back the food taken from the household of Rilla.").
+    Restitution,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -835,9 +867,13 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             Some(who) => vec![who, Span::Text(format!(" proposed {}.", event.name))],
             None => vec![Span::Text(format!("Someone proposed {}.", event.name))],
         },
-        ChronicleKind::LawDecided | ChronicleKind::LawLapsed => {
+        ChronicleKind::LawDecided | ChronicleKind::LawLapsed | ChronicleKind::Restitution => {
             vec![Span::Text(event.name.clone())]
         }
+        ChronicleKind::Taking => match person(0) {
+            Some(who) => vec![who, Span::Text(format!(" {}", event.name))],
+            None => vec![Span::Text(format!("Someone {}", event.name))],
+        },
         ChronicleKind::FirstTrail => vec![
             Span::Text("The first trail out of ".to_owned()),
             settlement(event),

@@ -43,11 +43,14 @@ pub enum Behavior {
     /// Go to the hearth for the gathering called there, and have a say (M4a slice Z, ADR-0013
     /// §1).
     Attend,
+    /// Go to another household's home and take food from its store, when short (M4b slice AA,
+    /// ADR-0015 §2).
+    Take,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 16] = [
+    pub const ALL: [Behavior; 17] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -64,6 +67,7 @@ impl Behavior {
         Behavior::Try,
         Behavior::Dig,
         Behavior::Attend,
+        Behavior::Take,
     ];
 
     /// The authored name of a behavior.
@@ -85,6 +89,7 @@ impl Behavior {
             Behavior::Try => "try",
             Behavior::Dig => "dig",
             Behavior::Attend => "attend",
+            Behavior::Take => "take",
         }
     }
 
@@ -1339,6 +1344,8 @@ pub struct PeopleParams {
     pub standing: crate::standing::StandingParams,
     /// The polity: its gathering, forecasts and compliance (M4a slice Z, ADR-0013).
     pub polity: crate::polity::PolityParams,
+    /// Taking, what is seen of it and what is owed for it (M4b slice AA, ADR-0015).
+    pub crime: crate::crime::CrimeParams,
     /// Names.
     pub names: NameParams,
 }

@@ -264,6 +264,11 @@ impl Population {
             params.family.trait_heritability,
             &mut rng,
         );
+        // The child's objection to taking, pulled toward its parents' (M4b slice AA), by a draw
+        // of its own so the birth's other draws are as they were.
+        let parent_objection =
+            |p: Option<PermanentId>| p.and_then(|p| self.person(p)).map(|q| q.objection);
+        let objection_parents = (parent_objection(Some(mother)), parent_objection(father));
         let recovery = recovery_days(f, &mut rng);
         let dies = rng.next_f64() < params.mortality.maternal_death_per_birth;
         let id = ctx.ids.allocate();
@@ -325,6 +330,14 @@ impl Population {
             skills: Vec::new(),
             knows: Vec::new(),
             tried: None,
+            objection: crate::crime::draw_objection(
+                objection_parents.0,
+                objection_parents.1,
+                &params.crime,
+                &mut life_rng(ctx.seed, id, day, Draw::Objection),
+            ),
+            risk_seen: params.crime.risk_prior as f32,
+            guarded: None,
         });
         if let Some(x) = self.household_mut(household) {
             x.members.push(id);

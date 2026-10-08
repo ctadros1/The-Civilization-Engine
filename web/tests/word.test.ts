@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { GrievanceLine, HeardLine, PositionLine } from "../src/net/messages.js";
+import type { GrievanceLine, HeardLine, NormLine, PositionLine } from "../src/net/messages.js";
 import {
   claimText,
   grievanceFacts,
@@ -8,6 +8,7 @@ import {
   heardHow,
   heardWhen,
   keennessText,
+  normText,
   positionText,
 } from "../src/word.js";
 
@@ -94,5 +95,26 @@ describe("grievances and news in words", () => {
       "taken in once, turned them against it",
     );
     expect(positionText(p({ x: 0.58 }))).toBe("leaning for (0.58); as their household's lot makes it");
+  });
+
+  it("say how far someone holds a norm, what they believe others do and whether it holds them", () => {
+    const n = (over: Partial<NormLine> = {}): NormLine => ({
+      statement: "what the gathering decides binds everyone",
+      holds: "holds firmly",
+      believes: "most households pay what the gathering asks",
+      endorse: 0.81,
+      expect: 0.72,
+      threshold: 0.4,
+      activation: 0.96,
+      heard: 3,
+      ...over,
+    });
+    expect(normText(n())).toBe(
+      "holds firmly (0.81); believes most households pay what the gathering asks (0.72), from 3 accounts at the hearth; enough do to hold them to it",
+    );
+    expect(normText(n({ heard: 0, activation: 0.1 }))).toContain(
+      "from what their own people believed; too few do to hold them to it",
+    );
+    expect(normText(n({ heard: 1 }))).toContain("from one account at the hearth");
   });
 });

@@ -42,7 +42,7 @@ import {
 import { materialGoods } from "./deposits.js";
 import { introducible, knowRows, summaryText, techniqueRows } from "./knowledge.js";
 import { standingText, tieText } from "./standing.js";
-import { claimText, grievanceFacts, grievanceHead, heardHow, heardWhen, positionText } from "./word.js";
+import { claimText, grievanceFacts, grievanceHead, heardHow, heardWhen, normText, positionText } from "./word.js";
 import {
   brokenText,
   labelText,
@@ -863,22 +863,38 @@ export function bindUi(store: Store, actions: Actions): void {
     const box = el("div", { className: "opinions" }, el("h4", { text: "Where they stand" }));
     if (p.positions.length === 0) {
       box.append(el("p", { className: "empty", text: "Holds no position yet: one is first held on the first of a month." }));
-      return box;
-    }
-    box.append(
-      el(
-        "ul",
-        {},
-        ...p.positions.map((q) =>
-          el(
-            "li",
-            {},
-            el("span", { text: `On ${q.question}: ` }),
-            el("span", { className: "aside", text: positionText(q) }),
+    } else {
+      box.append(
+        el(
+          "ul",
+          {},
+          ...p.positions.map((q) =>
+            el(
+              "li",
+              {},
+              el("span", { text: `On ${q.question}: ` }),
+              el("span", { className: "aside", text: positionText(q) }),
+            ),
           ),
         ),
-      ),
-    );
+      );
+    }
+    if (p.norms.length > 0) {
+      box.append(
+        el(
+          "ul",
+          { className: "norms" },
+          ...p.norms.map((n) =>
+            el(
+              "li",
+              {},
+              el("span", { text: `That ${n.statement}: ` }),
+              el("span", { className: "aside", text: normText(n) }),
+            ),
+          ),
+        ),
+      );
+    }
     return box;
   };
   /** The technique chosen in the inspector's introduce form, kept while the inspector is redrawn. */

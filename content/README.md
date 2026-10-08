@@ -169,7 +169,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `w_followers`, `propose_cost`, `temperature` | Proposing (ADR-0013 §5): the weight of those who regard a sponsor against the sponsor's own household (0 to 10), the points a proposal costs (0 to 100), and the temperature of the choice among moves and none (0.01 to 100). A move is worth its forecast by the share of those the sponsor knows who would back it. |
 | | `vote_memory_days` | Days a member remembers how a gathering they came to stood on a proposal (0 to 3650): while they do, they expect no more support for the same proposal, at the same level or naming the same holder, than it got there (content API 34; research 09-05 §1.2: a sponsor weighs expected success). |
 | | `prior_lean`, `prior_years`, `lean_harvest`, `subsistence_share` | Forecasts: the lean years believed in before any are seen, out of `prior_years` (lean years seen are those the settlement's food ran short in); a lean year's harvest as a share of an ordinary one (0 to 1); and the share of a year's food below which a household cannot live (0 to 1): food there is worth the most, and a household that would fall below it by paying a levy cannot pay. |
-| | `comply_base`, `w_stance` | Paying a levy (ADR-0013 §3): the points for paying before its cost (−100 to 100), and per unit of the stance the payer took (1 for, −1 against, 0 otherwise; 0 to 100), against what paying costs their household. The chance of paying is logistic in the points. |
+| | `comply_base`, `w_stance` | Paying a levy (ADR-0013 §3): the points for paying before its cost and apart from the norms the payer holds (−100 to 100; 0 in the core pack since content API 42, when the norm `core:norm/gathering_binds` took over its former 1.5), and per unit of the stance the payer took (1 for, −1 against, 0 otherwise; 0 to 100), against what paying costs their household. The chance of paying is logistic in the points. |
 | `crime` | `objection_mean`, `objection_sd`, `objection_heritability`, `objection_filter` | Taking (M4b slice AA, ADR-0015; content API 35). Each person's objection to taking what is not theirs, 0–1: the log-odds of a founder's is drawn from a normal of this mean (−20 to 20) and spread (0 to 20), and a child's is pulled toward its parents' with this heritability (0 to 1; research 04-09 §1.1, §5.1). At or above `objection_filter` (0 to 1) taking is not weighed at all: a moral filter first (04-09 §5.3). |
 | | `w_objection`, `w_seen`, `w_risk_trait`, `w_regard` | Points against taking (0 to 1,000; `w_risk_trait` 0 to 10): for a full objection; for a certainty of being seen, scaled by `exp(-w_risk_trait × risk)` for the person's risk-taking; and for full regard for the elder of the household taken from. The gain is asking's: the food the household needs, by the load a taker can carry. |
 | | `risk_prior`, `risk_alpha`, `risk_alpha_told` | The chance of being seen a taker runs, as each person believes it (0 to 1 each): before anything is seen or heard, and the share of the gap their own attempt closes toward what happened (seen or turned back 1, unseen 0) and a taking they hear of closes toward 1 (04-09 §5.4: p̂ ← (1 − α)p̂ + αs). A loss found that nobody saw moves it toward 0. |
@@ -630,8 +630,9 @@ found missing in the past year back to it and as much of what its own members to
 would a watch, less `curfew_cost_days` of its food a year for each hour the curfew runs and each
 grown member it keeps at home. Under a curfew in force, someone who knows of it weighs keeping it
 against any option that would take them off their home's plot (20 m) in its hours: the people
-profile's `[polity]` `comply_base`, `w_stance` for where they stood on it and `w_regard` for their
-regard for its sponsor, as a levy is weighed (research 09-06 §1.5), never below nothing. The watch
+profile's `[polity]` `comply_base`, the norms they hold that the gathering binds (the `norm` kind),
+`w_stance` for where they stood on it and `w_regard` for their regard for its sponsor, as a levy is
+weighed (research 09-06 §1.5), never below nothing. The watch
 at its rounds and those at a gathering are exempt; breaking it carries no sanction in v0, and the
 law counts the times it was broken by those who knew of it and by those who did not. Closing a
 place (a grove, a fishing ground) is not a kind yet: a household could not forecast it without a
@@ -684,6 +685,10 @@ Content API 38 (M4b slice AD) brings the curfew: the policy kind `curfew` with i
 (`core:policy/curfew`), and the `[crime]` keys `curfew_guard` and `curfew_cost_days`, tuning
 values (the research gives no figure for what a curfew costs or stops).
 
+Content API 42 (M4c slice AG) brings norms: the kind `norm` (below) and the core pack's
+`core:norm/gathering_binds`; the people profile's `[polity]` `comply_base` drops from 1.5 to 0, as
+the norm now carries what it stood for.
+
 Content API 41 (M4c slice AG) brings opinion: a policy template's optional `question`
 (`core:policy/common_store`, `against_taking`, `keep_watch` and `curfew` ask one) and the people
 profile's `[opinion]` table, design priors from research 06-04 §3.2.
@@ -696,6 +701,32 @@ Content API 39 (M4c slice AE) brings word of mouth and grievances: the people pr
 table (`share_home`, `share_urgent`, `share_routine`, `news_days`, `max_grievances`,
 `half_life_days`, `full_harm_days`, `reminder`, `tell_floor` and `remind_days`), tuning values
 with the ranges research 09-16 and 04-06 give where they give one.
+
+## Kinds (M4c)
+
+### `norm`
+
+A prescription people hold each their own way (ADR-0016 §4; research 06-05). Each person holds an
+endorsement of it, drawn by a key and pulled toward their parents', a belief of how many
+households abide by it, and a threshold on that belief; together they add points for doing what it
+asks. What anyone believes of others is moved only by what companions tell of their own
+households' acts, never by the settlement's true rate. Every number is a design prior (06-05
+§2.2), not an estimate.
+
+| Key | Meaning |
+| --- | --- |
+| `id`, `name`, `description` | As for every kind (`pack:norm/name`). |
+| `statement` | What it says, in words the inspector shows after "That": "what the gathering decides binds everyone". |
+| `does` | What the kernel does with it: `abide_by_laws` (its points weigh in paying a levy and keeping a curfew the gathering passed, and companions tell whether their household paid its last levy; a household that could not pay is not counted). |
+| `[endorse]` `mean`, `sd`, `heritability` | A founder's endorsement in log-odds (−10 to 10) and its spread (0 to 10); a child takes on `heritability` (0 to 1) of its parents' mean, as the objection to taking is drawn. |
+| `[expect]` `prior`, `learn_rate`, `share`, `tell_days` | What a founder believes of others before anyone has told them anything (0 to 1; someone new takes their household's); the share of the gap one account closes (0 to 1; 06-05 §2.2: 0.02–0.30); the chance a companion at the hearth tells of their household's last act, a session (0 to 1); and the days an act is worth telling (1 to 3,650). |
+| `[threshold]` `low`, `high`, `width` | Each person's threshold on what they believe others do is drawn evenly from `low` to `high` (0 to 1; 06-05 §2.2: 0.2–0.9); `width` (0.001 to 1) smooths the step. |
+| `[weights]` `endorse`, `expect` | Points for doing what it asks, for a full endorsement and for a belief well above one's threshold (0 to 100 each). |
+
+The core pack's `core:norm/gathering_binds` is set so a founding village starts near the flat 1.5
+points it replaced: an endorsement of about 0.6 on average, and most founders' thresholds below
+the 0.85 they believe at first. Not built: the normative expectation (what others think one ought
+to do), sanctions for breaking a norm, and norms that do anything but `abide_by_laws`.
 
 ## Planned kinds
 

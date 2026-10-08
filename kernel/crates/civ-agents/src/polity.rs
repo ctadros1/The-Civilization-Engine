@@ -289,8 +289,9 @@ pub struct PolityParams {
     /// The share of a year's food below which a household cannot live: food there is worth the
     /// most, and a household that would fall below it cannot pay a levy.
     pub subsistence_share: f64,
-    /// Points for paying what a law asks, before its cost: the custom that a gathering's
-    /// decision binds.
+    /// Points for paying what a law asks, before its cost and apart from the norms each person
+    /// holds (content API 42: the custom that the gathering binds is a norm, `core:norm/
+    /// gathering_binds`, held by each person their own way; before it, this was 1.5 for all).
     pub comply_base: f64,
     /// Points for paying per unit of the stance a person took on the law (1 for, −1 against, 0
     /// for abstaining or absent).
@@ -318,7 +319,7 @@ impl PolityParams {
             prior_years: 4.0,
             lean_harvest: 0.5,
             subsistence_share: 0.5,
-            comply_base: 1.5,
+            comply_base: 0.0,
             w_stance: 1.0,
         }
     }
@@ -1175,11 +1176,18 @@ pub fn stance(gain_points: f64, regard: f64, params: &PolityParams) -> (Stance, 
     (stance, regard_points)
 }
 
-/// The points for paying a levy: the custom that a gathering's decision binds, the stance the
-/// person took, their regard for the law's sponsor, less what paying costs their household.
-/// There is no sanction yet (M4b): nobody is set to see who pays.
-pub fn comply_points(stance: f64, regard: f64, cost_points: f64, params: &PolityParams) -> f64 {
-    params.comply_base + params.w_stance * stance + params.w_regard * regard.clamp(0.0, 1.0)
+/// The points for paying a levy: `norm`, what the norms the person holds add for abiding by what
+/// the gathering decided (M4c slice AG), the stance the person took, their regard for the law's
+/// sponsor, less what paying costs their household. There is no sanction: nobody is set to see
+/// who pays.
+pub fn comply_points(
+    norm: f64,
+    stance: f64,
+    regard: f64,
+    cost_points: f64,
+    params: &PolityParams,
+) -> f64 {
+    params.comply_base + norm + params.w_stance * stance + params.w_regard * regard.clamp(0.0, 1.0)
         - cost_points
 }
 
@@ -1348,10 +1356,11 @@ pub(crate) mod tests {
     #[test]
     fn paying_is_likelier_for_those_who_backed_the_law_and_dearer_for_the_hard_pressed() {
         let p = params();
-        let backed = comply_chance(comply_points(1.0, 0.0, 0.5, &p));
-        let opposed = comply_chance(comply_points(-1.0, 0.0, 0.5, &p));
-        let pressed = comply_chance(comply_points(1.0, 0.0, 3.0, &p));
-        assert!(backed > opposed && backed > pressed);
+        let backed = comply_chance(comply_points(1.5, 1.0, 0.0, 0.5, &p));
+        let opposed = comply_chance(comply_points(1.5, -1.0, 0.0, 0.5, &p));
+        let pressed = comply_chance(comply_points(1.5, 1.0, 0.0, 3.0, &p));
+        let unbound = comply_chance(comply_points(0.0, 1.0, 0.0, 0.5, &p));
+        assert!(backed > opposed && backed > pressed && backed > unbound);
         assert!(cannot_pay(100.0, 60.0, 200.0, &p));
         assert!(!cannot_pay(200.0, 60.0, 200.0, &p));
     }

@@ -40,6 +40,7 @@ pub mod ledger;
 pub mod make;
 pub mod market;
 pub mod needs;
+pub mod norm;
 pub mod opinion;
 pub mod params;
 pub mod person;

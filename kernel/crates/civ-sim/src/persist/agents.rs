@@ -105,7 +105,8 @@ use super::{
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
-    SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, finish, section, single_chunk, unreadable,
+    SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, finish, section, single_chunk,
+    unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -154,6 +155,8 @@ pub const SECTION_ORDER: SectionTag = SectionTag::new("order");
 pub const SECTION_WORD: SectionTag = SectionTag::new("word");
 /// Section: where people stand on the questions content names (schema 37, M4c slice AG).
 pub const SECTION_OPINION: SectionTag = SectionTag::new("opinion");
+/// Section: what people hold of the norms content names (schema 38, M4c slice AG).
+pub const SECTION_NORMS: SectionTag = SectionTag::new("norms");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -227,6 +230,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             0,
             encode_opinion(&sim.people.opinion, rules),
         ),
+        section(SECTION_NORMS, 0, encode_norms(&sim.people.norms, rules)),
     ]
 }
 
@@ -319,6 +323,8 @@ enum Schema {
     V36,
     /// Where people stand on questions; what talk added to stances (M4c slice AG).
     V37,
+    /// What people hold of norms; what households last did at a levy (M4c slice AG).
+    V38,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -370,7 +376,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V34 => Schema::V34,
         SCHEMA_V35 => Schema::V35,
         SCHEMA_V36 => Schema::V36,
-        SAVE_SCHEMA_VERSION => Schema::V37,
+        SCHEMA_V37 => Schema::V37,
+        SAVE_SCHEMA_VERSION => Schema::V38,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -526,6 +533,12 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V37 {
         let bytes = single_chunk(reader, SECTION_OPINION)?;
         people.opinion = decode_opinion(&bytes, rules)?;
+    }
+    // Norms (schema 38); before them nobody held one, and each takes theirs at the next first of
+    // the month, or when first asked to pay a levy.
+    if schema >= Schema::V38 {
+        let bytes = single_chunk(reader, SECTION_NORMS)?;
+        people.norms = decode_norms(&bytes, rules)?;
     }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
     match standing {
@@ -2395,7 +2408,8 @@ fn carried(
         | Schema::V34
         | Schema::V35
         | Schema::V36
-        | Schema::V37 => {
+        | Schema::V37
+        | Schema::V38 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2542,7 +2556,8 @@ fn decode_households(
             | Schema::V34
             | Schema::V35
             | Schema::V36
-            | Schema::V37 => {
+            | Schema::V37
+            | Schema::V38 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5139,6 +5154,114 @@ fn decode_word(bytes: &[u8]) -> Result<civ_agents::word::Word, LoadError> {
         });
     }
     Ok(word)
+}
+
+// ---- norms (M4c slice AG, ADR-0016 §4) ---------------------------------------------------------
+
+fn encode_norms(norms: &civ_agents::norm::Norms, rules: &Rules) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let states: Vec<save::NormStateSave> = norms
+        .states
+        .iter()
+        .map(|s| {
+            save::NormStateSave::new(
+                s.holder.get(),
+                s.endorse,
+                s.expect,
+                s.threshold,
+                s.heard,
+                s.norm,
+            )
+        })
+        .collect();
+    let states = fbb.create_vector(&states);
+    let ids: Vec<_> = rules
+        .catalog
+        .norms
+        .iter()
+        .map(|d| fbb.create_string(&d.id))
+        .collect();
+    let ids = fbb.create_vector(&ids);
+    let acts: Vec<save::LevyActSave> = norms
+        .acts
+        .iter()
+        .map(|a| save::LevyActSave::new(a.household.get(), a.day, a.paid, a.kept))
+        .collect();
+    let acts = fbb.create_vector(&acts);
+    let root = save::NormsSave::create(
+        &mut fbb,
+        &save::NormsSaveArgs {
+            states: Some(states),
+            norms: Some(ids),
+            acts: Some(acts),
+            told: norms.told,
+            taken: norms.taken,
+        },
+    );
+    finish(fbb, root)
+}
+
+/// States of a norm the loaded content no longer names are let go: everyone takes one afresh if
+/// it names it again.
+fn decode_norms(bytes: &[u8], rules: &Rules) -> Result<civ_agents::norm::Norms, LoadError> {
+    use civ_agents::norm::{LevyAct, NormState, Norms};
+    let root =
+        flatbuffers::root::<save::NormsSave>(bytes).map_err(|e| unreadable(SECTION_NORMS, &e))?;
+    let map: Vec<Option<u16>> = read_strings(root.norms())
+        .iter()
+        .map(|id| {
+            rules
+                .catalog
+                .norms
+                .iter()
+                .position(|d| &d.id == id)
+                .and_then(|i| u16::try_from(i).ok())
+        })
+        .collect();
+    let mut states = Vec::new();
+    for s in root.states().iter().flatten() {
+        let Some(Some(norm)) = map.get(usize::from(s.norm())) else {
+            continue;
+        };
+        states.push(NormState {
+            holder: required(s.holder(), "a norm's holder")?,
+            norm: *norm,
+            endorse: s.endorse(),
+            expect: s.expect(),
+            threshold: s.threshold(),
+            heard: s.heard(),
+        });
+    }
+    states.sort_by_key(|s| (s.holder, s.norm));
+    if states
+        .windows(2)
+        .any(|w| (w[0].holder, w[0].norm) == (w[1].holder, w[1].norm))
+    {
+        return Err(LoadError::Malformed(
+            "a person holds one norm twice".to_owned(),
+        ));
+    }
+    let mut acts = Vec::new();
+    for a in root.acts().iter().flatten() {
+        acts.push(LevyAct {
+            household: required(a.household(), "a levy act's household")?,
+            day: a.day(),
+            paid: a.paid(),
+            kept: a.kept(),
+        });
+    }
+    acts.sort_by_key(|a| a.household);
+    if acts.windows(2).any(|w| w[0].household == w[1].household) {
+        return Err(LoadError::Malformed(
+            "a household has two levy acts".to_owned(),
+        ));
+    }
+    Ok(Norms {
+        states,
+        acts,
+        told: root.told(),
+        taken: root.taken(),
+    })
 }
 
 #[cfg(test)]

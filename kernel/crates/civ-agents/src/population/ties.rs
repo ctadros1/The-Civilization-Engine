@@ -177,6 +177,8 @@ impl Population {
             self.share_word(ctx, me, q);
             // And where they stand on the questions of the day (M4c slice AG, ADR-0016 §4).
             self.share_opinion(ctx, me, q);
+            // And whether their household paid its last levy (M4c slice AG, ADR-0016 §4).
+            self.share_norms(ctx, me, q);
         }
     }
 

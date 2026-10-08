@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 41
+kernel_content_api = 42
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -987,6 +987,51 @@ fn activities_check_their_behavior() {
 }
 
 #[test]
+fn norms_check_their_numbers_and_what_they_do() {
+    let preset = real_preset();
+    let binds = real("norm/gathering_binds.toml");
+    for (body, needle) in [
+        (
+            binds.replace("does = \"abide_by_laws\"", "does = \"obey\""),
+            "`does`",
+        ),
+        (
+            binds.replace("learn_rate = 0.1", "learn_rate = 1.5"),
+            "`expect.learn_rate`",
+        ),
+        (binds.replace("low = 0.2", "low = 0.95"), "`threshold.low`"),
+        (
+            binds.replace(
+                "statement = \"what the gathering decides binds everyone\"",
+                "statement = \" \"",
+            ),
+            "`statement`",
+        ),
+    ] {
+        assert_ne!(body, binds, "{needle}: the edit applies");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("norm/gathering_binds.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(
+            report.diagnostics[0].message.contains(needle),
+            "{needle}: {}",
+            report.diagnostics[0].message
+        );
+    }
+    // The core pack's norm compiles into the catalog.
+    let ok = registry(load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("norm/gathering_binds.toml", &binds),
+    ]));
+    let n = &ok.catalog.norms;
+    assert_eq!(n.len(), 1);
+    assert_eq!(n[0].kind, civ_agents::norm::NormKind::AbideByLaws);
+    assert!((n[0].expect_prior - 0.85).abs() < 1e-12);
+}
+
+#[test]
 fn profiles_check_their_ranges_and_fields() {
     let preset = real_preset();
     let land = real("land/temperate_valley.toml").replace(
@@ -1138,6 +1183,11 @@ fn the_fingerprint_covers_every_kind() {
             "technique/quern_grinding.toml",
             "learn_h = 20.0",
             "learn_h = 21.0",
+        ),
+        (
+            "norm/gathering_binds.toml",
+            "learn_rate = 0.1",
+            "learn_rate = 0.12",
         ),
     ] {
         let body = real(path).replace(from, to);

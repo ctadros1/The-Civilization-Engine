@@ -1404,6 +1404,34 @@ table OpinionSave {
   taken: ulong (id: 3);
 }
 
+// Section "norms" (schema 38, M4c slice AG, ADR-0016 §4): what each person holds of the norms
+// content names, and what each household last did at a levy. `norm` indexes `NormsSave.norms`;
+// `day` is a day index.
+struct NormStateSave {
+  holder: ulong;
+  endorse: float;
+  expect: float;
+  threshold: float;
+  heard: uint;
+  norm: ushort;
+}
+
+struct LevyActSave {
+  household: ulong;
+  day: long;
+  paid: ushort;
+  kept: ushort;
+}
+
+table NormsSave {
+  states: [NormStateSave] (id: 0);
+  // Norm content ids at save time.
+  norms: [string] (id: 1);
+  acts: [LevyActSave] (id: 2);
+  told: ulong (id: 3);
+  taken: ulong (id: 4);
+}
+
 // Section "events": the scheduler's pending events.
 enum EventKind : ubyte { AgentStep = 0 }
 

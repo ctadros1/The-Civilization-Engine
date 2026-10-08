@@ -1341,8 +1341,9 @@ impl Population {
 
     /// A curfew in force where household `hh` lives and running at minute `minute` of the day
     /// (M4b slice AD): its polity and law, by index, and, if `person` knows of it, the points
-    /// keeping it weighs with them (research 09-06 §1.5: the custom that the gathering binds,
-    /// where they stood on it and their regard for its sponsor, as a levy's; never below 0).
+    /// keeping it weighs with them (research 09-06 §1.5: the norms they hold that the gathering
+    /// binds, where they stood on it and their regard for its sponsor, as a levy's; never below
+    /// 0).
     pub(crate) fn curfew_now(
         &self,
         ctx: &Ctx,
@@ -1367,7 +1368,8 @@ impl Population {
             let regard =
                 self.ties
                     .regard(person, law.sponsor, ctx.now.day_index(), &ctx.params.ties);
-            crate::polity::comply_points(stance, regard, 0.0, &ctx.params.polity).max(0.0)
+            let norm = self.norm_points(ctx, person);
+            crate::polity::comply_points(norm, stance, regard, 0.0, &ctx.params.polity).max(0.0)
         });
         Some((pi, li, points))
     }
@@ -1458,13 +1460,18 @@ impl Population {
             }
             let regard = self.ties.regard(who, sponsor, day, &params.ties);
             let cost = pp.w_gain * crate::polity::levy_cost(&outlook, kcal, pp);
-            let points = crate::polity::comply_points(stance, regard, cost, pp);
+            // What the norms they hold add (M4c slice AG): someone new holds theirs now.
+            self.ensure_norm_state(ctx, who);
+            let norm = self.norm_points(ctx, who);
+            let points = crate::polity::comply_points(norm, stance, regard, cost, pp);
             let chance = crate::polity::comply_chance(points);
             let key = [ctx.seed, PURPOSE_LEVY, who.get(), now.minutes() as u64];
             if Rng64::from_key(&key).next_f64() >= chance {
                 let c = &mut self.polities[pi].laws[li].compliance;
                 c.evaded += 1;
                 c.withheld_kg += owed;
+                // What the household did is theirs to tell (M4c slice AG).
+                self.norms.note_levy(household, day, false);
                 continue;
             }
             let held = self
@@ -1484,6 +1491,7 @@ impl Population {
                 let c = &mut self.polities[pi].laws[li].compliance;
                 c.complied += 1;
                 c.levied_kg += paid;
+                self.norms.note_levy(household, day, true);
                 // A levy taken in a lean year that leaves the household short of a year's food is
                 // held against the gathering (M4c slice AE); in an ordinary year it is the
                 // custom, however it weighs (research 04-10 §1.1).

@@ -511,6 +511,9 @@ pub struct Catalog {
     /// Policy templates, in content id order (ADR-0013 §3). Laws refer to them by index, saves
     /// by content id.
     pub policies: Vec<crate::polity::PolicyDef>,
+    /// Norm templates, in content id order (ADR-0016 §4). People's states refer to them by
+    /// index, saves by content id.
+    pub norms: Vec<crate::norm::NormDef>,
 }
 
 impl Catalog {

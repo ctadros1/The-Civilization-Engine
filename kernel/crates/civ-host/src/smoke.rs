@@ -783,6 +783,54 @@ fn polity(sim: &Sim) -> Option<String> {
             op.taken as f64 / adults / weeks,
         ));
     }
+    // Norms (M4c slice AG): for each, how far it is held on average, what people believe of
+    // others against what households did at their last levy, how many it moves, and how often an
+    // account was told and taken in.
+    let nm = &pop.norms;
+    for (k, def) in sim.rules().catalog.norms.iter().enumerate() {
+        let held: Vec<_> = nm
+            .states
+            .iter()
+            .filter(|s| usize::from(s.norm) == k)
+            .collect();
+        if held.is_empty() {
+            continue;
+        }
+        let n = held.len() as f64;
+        let mean = |f: &dyn Fn(&civ_agents::norm::NormState) -> f64| {
+            held.iter().map(|s| f(s)).sum::<f64>() / n
+        };
+        let endorse = mean(&|s| f64::from(s.endorse));
+        let expect = mean(&|s| f64::from(s.expect));
+        let moved = mean(&|s| {
+            civ_agents::norm::activation(f64::from(s.expect), f64::from(s.threshold), def.width)
+        });
+        let day = sim.now().day_index();
+        let recent: Vec<f64> = nm
+            .acts
+            .iter()
+            .filter(|a| day - a.day <= def.tell_days)
+            .filter_map(civ_agents::norm::LevyAct::share_paid)
+            .collect();
+        let did = if recent.is_empty() {
+            "no household paid or kept back a levy within the year".to_owned()
+        } else {
+            format!(
+                "{:.2} paid by the {} households at their last levy",
+                recent.iter().sum::<f64>() / recent.len() as f64,
+                recent.len()
+            )
+        };
+        let weeks = (sim.now().minutes() as f64 / (7.0 * 1440.0)).max(1.0);
+        parts.push(format!(
+            "{}: held {endorse:.2} on average; they believe {expect:.2} of households abide \
+             ({did}); {moved:.2} moved by others' doing it; {:.2} accounts told and {:.2} taken \
+             in a person a week",
+            def.name,
+            nm.told as f64 / n / weeks,
+            nm.taken as f64 / n / weeks,
+        ));
+    }
     // Grievances (M4c slice AE): what is held now, by issue, and how many are told and still news.
     let word = &pop.word;
     if !word.grievances.is_empty() {

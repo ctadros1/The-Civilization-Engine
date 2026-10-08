@@ -1140,6 +1140,11 @@ ul.rules li {
   color: var(--muted);
 }
 
+/* The norms they hold, set apart from the questions of the day (M4c slice AG) */
+.opinions ul.norms {
+  margin-top: 6px;
+}
+
 /* What a person knows, and the observer's introduce form (M3b slice M) */
 .knows {
   border-top: 1px solid var(--line);

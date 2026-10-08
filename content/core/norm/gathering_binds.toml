@@ -1,0 +1,42 @@
+# The norm that what the gathering decides binds everyone (M4c slice AG, ADR-0016 §4; research
+# 06-05). Each person holds their own endorsement of it, a belief of how many households abide by
+# it and a threshold on that belief; together they add points for paying a levy or keeping a
+# curfew the gathering passed. In content API 41 the same points were a flat `comply_base` of 1.5
+# for everyone; the priors below are chosen so that a founding village starts near it (an
+# endorsement of about 0.58 on average, and about 0.93 of the founders' thresholds below the 0.85
+# they believe at first), and from then on what each person believes is what they are told.
+# Every number is a design prior (06-05 §2.2), not an estimate.
+kind = "norm"
+id = "core:norm/gathering_binds"
+name = "the gathering binds"
+description = "What the gathering decides binds everyone: its levy is paid and its curfew kept."
+statement = "what the gathering decides binds everyone"
+does = "abide_by_laws"
+
+[endorse]
+# A founder's endorsement in log-odds (0.4 is about 0.6) and its spread; a child takes on half
+# its parents' mean, as the objection to taking is drawn (ADR-0015 §2).
+mean = 0.4
+sd = 1.0
+heritability = 0.5
+
+[expect]
+# What founders believe of others before anyone has told them anything: the custom they brought.
+prior = 0.85
+# One account closes a tenth of the gap (06-05 §2.2: 0.02-0.30 for one credible observation).
+learn_rate = 0.1
+# The chance a companion at the hearth says whether their household paid its last levy, a
+# session; the season's act is worth telling for a year.
+share = 0.001
+tell_days = 365
+
+[threshold]
+# Thresholds spread evenly over 06-05 §2.2's range, with a smooth step a tenth wide.
+low = 0.2
+high = 0.9
+width = 0.1
+
+[weights]
+# Points for abiding: a full endorsement, and a belief well above one's threshold.
+endorse = 1.0
+expect = 1.0

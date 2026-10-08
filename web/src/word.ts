@@ -3,7 +3,7 @@
 // joins the pieces.
 
 import { lawDayText } from "./government.js";
-import type { GrievanceLine, HeardLine, PositionLine } from "./net/messages.js";
+import type { GrievanceLine, HeardLine, NormLine, PositionLine } from "./net/messages.js";
 
 /** One number of days as the panels show it: "4", "1.5". */
 function days(x: number): string {
@@ -76,4 +76,15 @@ export function positionText(p: PositionLine): string {
     );
   }
   return parts.join("; ");
+}
+
+/** What someone holds of a norm, after its statement: "holds firmly (0.81); believes most
+ * households pay what the gathering asks (0.72), from 3 accounts at the hearth; enough do to hold
+ * them to it". */
+export function normText(n: NormLine): string {
+  const at = (x: number) => (Math.round(x * 100) / 100).toFixed(2);
+  const from =
+    n.heard === 0 ? "from what their own people believed" : n.heard === 1 ? "from one account at the hearth" : `from ${n.heard} accounts at the hearth`;
+  const moved = n.activation >= 0.5 ? "enough do to hold them to it" : "too few do to hold them to it";
+  return `${n.holds} (${at(n.endorse)}); believes ${n.believes} (${at(n.expect)}), ${from}; ${moved}`;
 }

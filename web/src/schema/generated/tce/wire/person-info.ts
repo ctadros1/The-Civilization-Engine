@@ -9,6 +9,7 @@ import { GrievanceLine } from '../../tce/wire/grievance-line.js';
 import { HeardLine } from '../../tce/wire/heard-line.js';
 import { KinLink } from '../../tce/wire/kin-link.js';
 import { KnowLine } from '../../tce/wire/know-line.js';
+import { NormLine } from '../../tce/wire/norm-line.js';
 import { PositionLine } from '../../tce/wire/position-line.js';
 import { Sex } from '../../tce/wire/sex.js';
 import { SkillLine } from '../../tce/wire/skill-line.js';
@@ -335,8 +336,18 @@ positionsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+norms(index: number, obj?:NormLine):NormLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 94);
+  return offset ? (obj || new NormLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+normsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 94);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(45);
+  builder.startObject(46);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -637,6 +648,22 @@ static createPositionsVector(builder:flatbuffers.Builder, data:flatbuffers.Offse
 }
 
 static startPositionsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addNorms(builder:flatbuffers.Builder, normsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(45, normsOffset, 0);
+}
+
+static createNormsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startNormsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 

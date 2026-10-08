@@ -318,7 +318,11 @@ fn an_empty_store_is_held_against_the_gathering_and_relief_redresses_it() {
             .grievances
             .iter()
             .all(|g| pop.person(g.holder).is_some())
-            && pop.word.heard.iter().all(|h| pop.person(h.holder).is_some())
+            && pop
+                .word
+                .heard
+                .iter()
+                .all(|h| pop.person(h.holder).is_some())
     );
     saves_and_goes_on_alike(&mut sim, content(), 2 * DAY);
 }

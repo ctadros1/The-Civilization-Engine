@@ -81,6 +81,7 @@ export { Markets } from './wire/markets.js';
 export { MonthOfTrade } from './wire/month-of-trade.js';
 export { MonthStatement } from './wire/month-statement.js';
 export { NewWorld } from './wire/new-world.js';
+export { NormLine } from './wire/norm-line.js';
 export { OfferInfo } from './wire/offer-info.js';
 export { Order } from './wire/order.js';
 export { Paths } from './wire/paths.js';

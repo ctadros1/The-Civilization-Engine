@@ -454,6 +454,26 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** norms, values and ideologies, the rest of slice AG.
 
+## 2026-10-08 — M4c slice AG, step two: norms
+
+**Goal:** turn the flat custom that "the gathering binds" into a norm each person holds their own way, and let what they believe of others come only from what others tell them.
+
+**What changed:**
+
+- **Norms are content.** A new kind, `norm`, names a prescription the kernel can act on; the core pack's says that what the gathering decides binds everyone.
+- **Each person's state** (research 06-05): an endorsement drawn at birth and pulled toward the parents', a belief of how many households abide, and a threshold on that belief, so a principled few hold to it whatever others do and others follow the crowd.
+- **What it does.** Paying a levy or keeping a curfew weighs the person's endorsement and how far others' doing it moves them, in place of the flat 1.5 points every payer weighed before.
+- **What moves belief.** Only what companions at the hearth say their own household did at its last levy; a household that could not pay is not counted.
+- **The inspector** says how far someone holds it, what they believe others do and whether that holds them to it.
+- **Also:** grievances and hearing records of people who died or left are now let go (found by the opinion smoke).
+- **Boundary:** saves schema 38 (37 still loads), wire 1.37, content API 42.
+
+**Found on the way:** the slice AE fix went in with one line not formatted as `cargo fmt` wants; it is formatted in this step.
+
+**Evidence:** unit tests for activation, the draws, learning and the season's count; integration tests that everyone holds a state drawn their own way, that companions' accounts move beliefs, with an exact save and load, and that a village that holds the norm and believes others pay pays a levy 0.91 of the time where one that does neither pays 0.59; content checks for the kind; the inspector's words in the web tests and the standing end-to-end spec. The kernel (580), web (139) and end-to-end (16, 6 demos skipped) suites pass, with clippy, the format check and the schema check clean. The ten-year smoke passed all 10 worlds: people believed 0.90 to 0.95 of households abide where 0.86 to 0.95 had paid, from 0.08 to 0.29 accounts a person a week; three villages amended their custom once each. Gate B and the notables' gate passed.
+
+**Open:** values and ideologies, the rest of slice AG; the normative expectation and sanctions.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

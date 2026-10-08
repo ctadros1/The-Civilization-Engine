@@ -49,6 +49,7 @@ mod land;
 mod life;
 mod loads;
 mod market;
+mod norm;
 mod opinion;
 mod polity;
 mod watch;
@@ -393,6 +394,9 @@ pub struct Population {
     pub word: crate::word::Word,
     /// Where people stand on the questions content names (M4c slice AG, ADR-0016 §4).
     pub opinion: crate::opinion::Opinion,
+    /// What each holds of the norms content names, and what each household last did (M4c slice
+    /// AG, ADR-0016 §4).
+    pub norms: crate::norm::Norms,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -4664,6 +4668,8 @@ impl Population {
             // And where each stands on the questions content names is anchored afresh in their
             // household's lot (M4c slice AG, ADR-0016 §4).
             self.opinion_month(ctx);
+            // Everyone holds a state of each norm content names (M4c slice AG).
+            self.norm_month(ctx);
         }
         // The season turns for every field: a sowing window passes, a crop left standing is lost.
         let day = now.day_index();

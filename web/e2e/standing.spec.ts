@@ -1,8 +1,8 @@
 // M4a slice Y, end to end: people who keep company at the hearth come to know one another, and
 // the inspector lists whom someone knows best and why, in the kernel's words; on the first of
 // each month the standing panel sums what each settlement's adults think of one another and names
-// its notables (ADR-0014); and the inspector says what they hold against whom and what they
-// have heard (ADR-0016).
+// its notables (ADR-0014); and the inspector says what they hold against whom, what they have
+// heard, where they stand and what they hold of the norm that the gathering binds (ADR-0016).
 
 import { expect, test } from "@playwright/test";
 
@@ -65,11 +65,20 @@ test("ties in the inspector and standing in its panel", async ({ page }) => {
     await expect(word.locator("h4")).toHaveText("Grievances and news");
     await expect(word).toContainText(/Holds no grievance\.|Holds a grievance against/);
     await expect(word).toContainText(/Has heard no news\.|\((told by|they knew it first)/);
+    // Where they stand on the questions of the day, and what they hold of the norm that the
+    // gathering binds (wire 1.36-1.37), both taken on 1 April.
+    const opinions = page.locator("#people-body .opinions");
+    await expect(opinions.locator("h4")).toHaveText("Where they stand");
+    await expect(opinions).toContainText("On whether to keep a common store: ");
+    await expect(opinions.locator(".norms")).toContainText(
+      /That what the gathering decides binds everyone: (holds firmly|holds|doubts|does not hold) \(\d\.\d\d\); believes /,
+    );
     console.log(
       `standing: ${JSON.stringify({
         village,
         ties: await ties.locator("li").allInnerTexts(),
         word: await word.innerText(),
+        opinions: await opinions.innerText(),
       })}`,
     );
     if (shots) {

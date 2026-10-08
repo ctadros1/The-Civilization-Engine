@@ -530,9 +530,11 @@ lean_harvest = 0.5               # a lean year's harvest, as a share of an ordin
 # Below half a year's food a household cannot live through the year: food there is worth the most,
 # and a household that would fall below it by paying a levy cannot pay (09-01 §6.4).
 subsistence_share = 0.5
-# Paying a levy is the payer's choice: the custom that a gathering binds, and where they stood on
-# the law, against what paying costs their household. No sanction until M4b.
-comply_base = 1.5
+# Paying a levy is the payer's choice: the norms they hold that what the gathering decides binds
+# (`core:norm/gathering_binds`, each person their own way; content API 42), and where they stood
+# on the law, against what paying costs their household. Before the norm, the custom was this flat
+# base, 1.5 for everyone; now the norm carries it and the base is 0.
+comply_base = 0.0
 w_stance = 1.0
 
 [crime]                          # taking, what is seen of it and what is owed (ADR-0015); tuning values

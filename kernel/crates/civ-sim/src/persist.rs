@@ -152,6 +152,8 @@ pub const SCHEMA_V35: u32 = 35;
 /// The schema version of M4c slice AF: amendments of the custom, before opinion (see
 /// [`agents`]).
 pub const SCHEMA_V36: u32 = 36;
+/// The schema version of M4c slice AG's first step: opinion, before norms (see [`agents`]).
+pub const SCHEMA_V37: u32 = 37;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

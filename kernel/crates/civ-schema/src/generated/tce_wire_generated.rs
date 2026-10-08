@@ -13033,6 +13033,7 @@ impl<'a> PersonInfo<'a> {
   pub const VT_GRIEVANCES: ::flatbuffers::VOffsetT = 88;
   pub const VT_HEARD: ::flatbuffers::VOffsetT = 90;
   pub const VT_POSITIONS: ::flatbuffers::VOffsetT = 92;
+  pub const VT_NORMS: ::flatbuffers::VOffsetT = 94;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -13054,6 +13055,7 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.norms { builder.add_norms(x); }
     if let Some(x) = args.positions { builder.add_positions(x); }
     if let Some(x) = args.heard { builder.add_heard(x); }
     if let Some(x) = args.grievances { builder.add_grievances(x); }
@@ -13408,6 +13410,13 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PositionLine>>>>(PersonInfo::VT_POSITIONS, None)}
   }
+  #[inline]
+  pub fn norms(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NormLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NormLine>>>>(PersonInfo::VT_NORMS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -13461,6 +13470,7 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GrievanceLine>>>>("grievances", Self::VT_GRIEVANCES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<HeardLine>>>>("heard", Self::VT_HEARD, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PositionLine>>>>("positions", Self::VT_POSITIONS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<NormLine>>>>("norms", Self::VT_NORMS, false)?
      .finish();
     Ok(())
   }
@@ -13511,6 +13521,7 @@ pub struct PersonInfoArgs<'a> {
     pub grievances: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GrievanceLine<'a>>>>>,
     pub heard: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HeardLine<'a>>>>>,
     pub positions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PositionLine<'a>>>>>,
+    pub norms: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NormLine<'a>>>>>,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -13561,6 +13572,7 @@ impl<'a> Default for PersonInfoArgs<'a> {
       grievances: None,
       heard: None,
       positions: None,
+      norms: None,
     }
   }
 }
@@ -13751,6 +13763,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_POSITIONS, positions);
   }
   #[inline]
+  pub fn add_norms(&mut self, norms: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<NormLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_NORMS, norms);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -13813,6 +13829,222 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("grievances", &self.grievances());
       ds.field("heard", &self.heard());
       ds.field("positions", &self.positions());
+      ds.field("norms", &self.norms());
+      ds.finish()
+  }
+}
+pub enum NormLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct NormLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for NormLine<'a> {
+  type Inner = NormLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> NormLine<'a> {
+  pub const VT_STATEMENT: ::flatbuffers::VOffsetT = 4;
+  pub const VT_HOLDS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_BELIEVES: ::flatbuffers::VOffsetT = 8;
+  pub const VT_ENDORSE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_EXPECT: ::flatbuffers::VOffsetT = 12;
+  pub const VT_THRESHOLD: ::flatbuffers::VOffsetT = 14;
+  pub const VT_ACTIVATION: ::flatbuffers::VOffsetT = 16;
+  pub const VT_HEARD: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    NormLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args NormLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<NormLine<'bldr>> {
+    let mut builder = NormLineBuilder::new(_fbb);
+    builder.add_heard(args.heard);
+    builder.add_activation(args.activation);
+    builder.add_threshold(args.threshold);
+    builder.add_expect(args.expect);
+    builder.add_endorse(args.endorse);
+    if let Some(x) = args.believes { builder.add_believes(x); }
+    if let Some(x) = args.holds { builder.add_holds(x); }
+    if let Some(x) = args.statement { builder.add_statement(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn statement(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(NormLine::VT_STATEMENT, None)}
+  }
+  #[inline]
+  pub fn holds(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(NormLine::VT_HOLDS, None)}
+  }
+  #[inline]
+  pub fn believes(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(NormLine::VT_BELIEVES, None)}
+  }
+  #[inline]
+  pub fn endorse(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(NormLine::VT_ENDORSE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn expect(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(NormLine::VT_EXPECT, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn threshold(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(NormLine::VT_THRESHOLD, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn activation(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(NormLine::VT_ACTIVATION, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn heard(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(NormLine::VT_HEARD, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for NormLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("statement", Self::VT_STATEMENT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("holds", Self::VT_HOLDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("believes", Self::VT_BELIEVES, false)?
+     .visit_field::<f32>("endorse", Self::VT_ENDORSE, false)?
+     .visit_field::<f32>("expect", Self::VT_EXPECT, false)?
+     .visit_field::<f32>("threshold", Self::VT_THRESHOLD, false)?
+     .visit_field::<f32>("activation", Self::VT_ACTIVATION, false)?
+     .visit_field::<u32>("heard", Self::VT_HEARD, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct NormLineArgs<'a> {
+    pub statement: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub holds: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub believes: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub endorse: f32,
+    pub expect: f32,
+    pub threshold: f32,
+    pub activation: f32,
+    pub heard: u32,
+}
+impl<'a> Default for NormLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    NormLineArgs {
+      statement: None,
+      holds: None,
+      believes: None,
+      endorse: 0.0,
+      expect: 0.0,
+      threshold: 0.0,
+      activation: 0.0,
+      heard: 0,
+    }
+  }
+}
+
+pub struct NormLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> NormLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_statement(&mut self, statement: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(NormLine::VT_STATEMENT, statement);
+  }
+  #[inline]
+  pub fn add_holds(&mut self, holds: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(NormLine::VT_HOLDS, holds);
+  }
+  #[inline]
+  pub fn add_believes(&mut self, believes: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(NormLine::VT_BELIEVES, believes);
+  }
+  #[inline]
+  pub fn add_endorse(&mut self, endorse: f32) {
+    self.fbb_.push_slot::<f32>(NormLine::VT_ENDORSE, endorse, 0.0);
+  }
+  #[inline]
+  pub fn add_expect(&mut self, expect: f32) {
+    self.fbb_.push_slot::<f32>(NormLine::VT_EXPECT, expect, 0.0);
+  }
+  #[inline]
+  pub fn add_threshold(&mut self, threshold: f32) {
+    self.fbb_.push_slot::<f32>(NormLine::VT_THRESHOLD, threshold, 0.0);
+  }
+  #[inline]
+  pub fn add_activation(&mut self, activation: f32) {
+    self.fbb_.push_slot::<f32>(NormLine::VT_ACTIVATION, activation, 0.0);
+  }
+  #[inline]
+  pub fn add_heard(&mut self, heard: u32) {
+    self.fbb_.push_slot::<u32>(NormLine::VT_HEARD, heard, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> NormLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    NormLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<NormLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for NormLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("NormLine");
+      ds.field("statement", &self.statement());
+      ds.field("holds", &self.holds());
+      ds.field("believes", &self.believes());
+      ds.field("endorse", &self.endorse());
+      ds.field("expect", &self.expect());
+      ds.field("threshold", &self.threshold());
+      ds.field("activation", &self.activation());
+      ds.field("heard", &self.heard());
       ds.finish()
   }
 }

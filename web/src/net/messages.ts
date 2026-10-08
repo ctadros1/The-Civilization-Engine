@@ -710,6 +710,24 @@ export interface PersonInfo {
   heard: HeardLine[];
   /** Wire 1.36 (M4c slice AG): where they stand on each question content names. */
   positions: PositionLine[];
+  /** Wire 1.37 (M4c slice AG): what they hold of each norm content names. */
+  norms: NormLine[];
+}
+
+/** What someone holds of a norm (wire 1.37, ADR-0016 §4). */
+export interface NormLine {
+  /** What it says, how far they hold it and what they believe others do, in the kernel's words. */
+  statement: string;
+  holds: string;
+  believes: string;
+  /** 0-1: their endorsement; the share of households they believe abide; where others' doing it
+   * starts to move them; how far it moves them now. */
+  endorse: number;
+  expect: number;
+  threshold: number;
+  activation: number;
+  /** Accounts of what households did that they have taken in. */
+  heard: number;
 }
 
 /** Where someone stands on a question (wire 1.36, ADR-0016 §4). */
@@ -2785,6 +2803,21 @@ function personInfo(p: W.PersonInfo): PersonInfo {
       heard: q.heard(),
     });
   }
+  const norms: NormLine[] = [];
+  for (let k = 0; k < p.normsLength(); k++) {
+    const n = p.norms(k);
+    if (!n) continue;
+    norms.push({
+      statement: n.statement() ?? "",
+      holds: n.holds() ?? "",
+      believes: n.believes() ?? "",
+      endorse: n.endorse(),
+      expect: n.expect(),
+      threshold: n.threshold(),
+      activation: n.activation(),
+      heard: n.heard(),
+    });
+  }
   const standing = p.standing();
   const pos = p.pos();
   return {
@@ -2834,6 +2867,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     grievances,
     heard,
     positions,
+    norms,
   };
 }
 

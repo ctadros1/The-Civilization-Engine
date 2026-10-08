@@ -230,6 +230,9 @@ struct StoreLine;
 struct PersonInfo;
 struct PersonInfoBuilder;
 
+struct NormLine;
+struct NormLineBuilder;
+
 struct PositionLine;
 struct PositionLineBuilder;
 
@@ -7739,7 +7742,8 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_STANDING = 86,
     VT_GRIEVANCES = 88,
     VT_HEARD = 90,
-    VT_POSITIONS = 92
+    VT_POSITIONS = 92,
+    VT_NORMS = 94
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -7876,6 +7880,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PositionLine>> *positions() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PositionLine>> *>(VT_POSITIONS);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::NormLine>> *norms() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::NormLine>> *>(VT_NORMS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -7950,6 +7957,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_POSITIONS) &&
            verifier.VerifyVector(positions()) &&
            verifier.VerifyVectorOfTables(positions()) &&
+           VerifyOffset(verifier, VT_NORMS) &&
+           verifier.VerifyVector(norms()) &&
+           verifier.VerifyVectorOfTables(norms()) &&
            verifier.EndTable();
   }
 };
@@ -8093,6 +8103,9 @@ struct PersonInfoBuilder {
   void add_positions(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PositionLine>>> positions) {
     fbb_.AddOffset(PersonInfo::VT_POSITIONS, positions);
   }
+  void add_norms(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::NormLine>>> norms) {
+    fbb_.AddOffset(PersonInfo::VT_NORMS, norms);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8150,7 +8163,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     ::flatbuffers::Offset<tce::wire::StandingLine> standing = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GrievanceLine>>> grievances = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::HeardLine>>> heard = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PositionLine>>> positions = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PositionLine>>> positions = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::NormLine>>> norms = 0) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
@@ -8162,6 +8176,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_norms(norms);
   builder_.add_positions(positions);
   builder_.add_heard(heard);
   builder_.add_grievances(grievances);
@@ -8251,7 +8266,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     ::flatbuffers::Offset<tce::wire::StandingLine> standing = 0,
     const std::vector<::flatbuffers::Offset<tce::wire::GrievanceLine>> *grievances = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::HeardLine>> *heard = nullptr,
-    const std::vector<::flatbuffers::Offset<tce::wire::PositionLine>> *positions = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::PositionLine>> *positions = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::NormLine>> *norms = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -8269,6 +8285,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto grievances__ = grievances ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::GrievanceLine>>(*grievances) : 0;
   auto heard__ = heard ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::HeardLine>>(*heard) : 0;
   auto positions__ = positions ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PositionLine>>(*positions) : 0;
+  auto norms__ = norms ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::NormLine>>(*norms) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -8315,7 +8332,154 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       standing,
       grievances__,
       heard__,
-      positions__);
+      positions__,
+      norms__);
+}
+
+struct NormLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef NormLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_STATEMENT = 4,
+    VT_HOLDS = 6,
+    VT_BELIEVES = 8,
+    VT_ENDORSE = 10,
+    VT_EXPECT = 12,
+    VT_THRESHOLD = 14,
+    VT_ACTIVATION = 16,
+    VT_HEARD = 18
+  };
+  const ::flatbuffers::String *statement() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_STATEMENT);
+  }
+  const ::flatbuffers::String *holds() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_HOLDS);
+  }
+  const ::flatbuffers::String *believes() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_BELIEVES);
+  }
+  float endorse() const {
+    return GetField<float>(VT_ENDORSE, 0.0f);
+  }
+  float expect() const {
+    return GetField<float>(VT_EXPECT, 0.0f);
+  }
+  float threshold() const {
+    return GetField<float>(VT_THRESHOLD, 0.0f);
+  }
+  float activation() const {
+    return GetField<float>(VT_ACTIVATION, 0.0f);
+  }
+  uint32_t heard() const {
+    return GetField<uint32_t>(VT_HEARD, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_STATEMENT) &&
+           verifier.VerifyString(statement()) &&
+           VerifyOffset(verifier, VT_HOLDS) &&
+           verifier.VerifyString(holds()) &&
+           VerifyOffset(verifier, VT_BELIEVES) &&
+           verifier.VerifyString(believes()) &&
+           VerifyField<float>(verifier, VT_ENDORSE, 4) &&
+           VerifyField<float>(verifier, VT_EXPECT, 4) &&
+           VerifyField<float>(verifier, VT_THRESHOLD, 4) &&
+           VerifyField<float>(verifier, VT_ACTIVATION, 4) &&
+           VerifyField<uint32_t>(verifier, VT_HEARD, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct NormLineBuilder {
+  typedef NormLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_statement(::flatbuffers::Offset<::flatbuffers::String> statement) {
+    fbb_.AddOffset(NormLine::VT_STATEMENT, statement);
+  }
+  void add_holds(::flatbuffers::Offset<::flatbuffers::String> holds) {
+    fbb_.AddOffset(NormLine::VT_HOLDS, holds);
+  }
+  void add_believes(::flatbuffers::Offset<::flatbuffers::String> believes) {
+    fbb_.AddOffset(NormLine::VT_BELIEVES, believes);
+  }
+  void add_endorse(float endorse) {
+    fbb_.AddElement<float>(NormLine::VT_ENDORSE, endorse, 0.0f);
+  }
+  void add_expect(float expect) {
+    fbb_.AddElement<float>(NormLine::VT_EXPECT, expect, 0.0f);
+  }
+  void add_threshold(float threshold) {
+    fbb_.AddElement<float>(NormLine::VT_THRESHOLD, threshold, 0.0f);
+  }
+  void add_activation(float activation) {
+    fbb_.AddElement<float>(NormLine::VT_ACTIVATION, activation, 0.0f);
+  }
+  void add_heard(uint32_t heard) {
+    fbb_.AddElement<uint32_t>(NormLine::VT_HEARD, heard, 0);
+  }
+  explicit NormLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<NormLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<NormLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<NormLine> CreateNormLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::String> statement = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> holds = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> believes = 0,
+    float endorse = 0.0f,
+    float expect = 0.0f,
+    float threshold = 0.0f,
+    float activation = 0.0f,
+    uint32_t heard = 0) {
+  NormLineBuilder builder_(_fbb);
+  builder_.add_heard(heard);
+  builder_.add_activation(activation);
+  builder_.add_threshold(threshold);
+  builder_.add_expect(expect);
+  builder_.add_endorse(endorse);
+  builder_.add_believes(believes);
+  builder_.add_holds(holds);
+  builder_.add_statement(statement);
+  return builder_.Finish();
+}
+
+struct NormLine::Traits {
+  using type = NormLine;
+  static auto constexpr Create = CreateNormLine;
+};
+
+inline ::flatbuffers::Offset<NormLine> CreateNormLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const char *statement = nullptr,
+    const char *holds = nullptr,
+    const char *believes = nullptr,
+    float endorse = 0.0f,
+    float expect = 0.0f,
+    float threshold = 0.0f,
+    float activation = 0.0f,
+    uint32_t heard = 0) {
+  auto statement__ = statement ? _fbb.CreateString(statement) : 0;
+  auto holds__ = holds ? _fbb.CreateString(holds) : 0;
+  auto believes__ = believes ? _fbb.CreateString(believes) : 0;
+  return tce::wire::CreateNormLine(
+      _fbb,
+      statement__,
+      holds__,
+      believes__,
+      endorse,
+      expect,
+      threshold,
+      activation,
+      heard);
 }
 
 struct PositionLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

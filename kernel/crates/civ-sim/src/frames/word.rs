@@ -149,6 +149,50 @@ pub fn position_lines<'a>(
     fbb.create_vector(&lines)
 }
 
+/// What `p` holds of each norm content names (wire 1.37, ADR-0016 §4).
+pub fn norm_lines<'a>(
+    fbb: &mut FlatBufferBuilder<'a>,
+    sim: &Sim,
+    p: &Person,
+) -> WIPOffset<Vector<'a, ForwardsUOffset<wire::NormLine<'a>>>> {
+    use civ_agents::norm::{NormKind, activation, endorse_words, expect_words};
+    let norms = &sim.rules.catalog.norms;
+    let lines: Vec<_> = sim
+        .people
+        .norms
+        .held_by(p.id)
+        .iter()
+        .filter_map(|s| Some((s, norms.get(usize::from(s.norm))?)))
+        .map(|(s, def)| {
+            let (e, x, t) = (
+                f64::from(s.endorse),
+                f64::from(s.expect),
+                f64::from(s.threshold),
+            );
+            let does = match def.kind {
+                NormKind::AbideByLaws => "pay what the gathering asks",
+            };
+            let statement = fbb.create_string(&def.statement);
+            let holds = fbb.create_string(endorse_words(e));
+            let believes = fbb.create_string(&format!("{} {does}", expect_words(x)));
+            wire::NormLine::create(
+                fbb,
+                &wire::NormLineArgs {
+                    statement: Some(statement),
+                    holds: Some(holds),
+                    believes: Some(believes),
+                    endorse: s.endorse,
+                    expect: s.expect,
+                    threshold: s.threshold,
+                    activation: activation(x, t, def.width) as f32,
+                    heard: s.heard,
+                },
+            )
+        })
+        .collect();
+    fbb.create_vector(&lines)
+}
+
 /// What `p` has heard that is still news, the latest first, at most [`MAX_HEARD_SHOWN`].
 pub fn heard_lines<'a>(
     fbb: &mut FlatBufferBuilder<'a>,

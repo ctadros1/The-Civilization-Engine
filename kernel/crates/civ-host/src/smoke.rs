@@ -586,8 +586,30 @@ fn polity(sim: &Sim) -> Option<String> {
         .iter()
         .filter(|l| l.outcome == Some(Outcome::Passed))
         .count();
+    // Who came (M4c slice AE: only those who heard a gathering was called may come).
+    let sat: Vec<_> = laws
+        .iter()
+        .filter(|l| l.outcome.is_some() && l.eligible > 0)
+        .collect();
+    let came = if sat.is_empty() {
+        String::new()
+    } else {
+        let share = sat
+            .iter()
+            .map(|l| l.stances.len() as f64 / f64::from(l.eligible))
+            .sum::<f64>()
+            / sat.len() as f64;
+        let short = sat
+            .iter()
+            .filter(|l| l.outcome == Some(Outcome::NoQuorum))
+            .count();
+        format!(
+            " ({:.0}\u{a0}% of the members came on average; {short} without a quorum)",
+            100.0 * share
+        )
+    };
     let mut parts = vec![format!(
-        "{} laws proposed, {decided} decided, {passed} passed",
+        "{} laws proposed, {decided} decided{came}, {passed} passed",
         laws.len()
     )];
     for p in &pop.polities {
@@ -700,6 +722,29 @@ fn polity(sim: &Sim) -> Option<String> {
                 if n == 1 { "" } else { "s" }
             ));
         }
+    }
+    // Grievances (M4c slice AE): what is held now, by issue, and how many are told and still news.
+    let word = &pop.word;
+    if !word.grievances.is_empty() {
+        use civ_agents::word::{ClaimKind, Grieved};
+        let of = |i: Grieved| word.grievances.iter().filter(|g| g.issue == i).count();
+        let mut holders: Vec<_> = word.grievances.iter().map(|g| g.holder).collect();
+        holders.dedup();
+        let told = word
+            .claims
+            .iter()
+            .filter(|c| c.kind == ClaimKind::Grievance)
+            .count();
+        parts.push(format!(
+            "{} grievances held now by {} people ({} over food, {} over a levy, {} over how they \
+             were treated, {} over a wrong unanswered), {told} told and still news",
+            word.grievances.len(),
+            holders.len(),
+            of(Grieved::Subsistence),
+            of(Grieved::Extraction),
+            of(Grieved::Treatment),
+            of(Grieved::Collective),
+        ));
     }
     for p in &pop.polities {
         let label = civ_sim::labels::label_of(sim, p);

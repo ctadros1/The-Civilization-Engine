@@ -1,7 +1,8 @@
 // M4a slice Y, end to end: people who keep company at the hearth come to know one another, and
 // the inspector lists whom someone knows best and why, in the kernel's words; on the first of
 // each month the standing panel sums what each settlement's adults think of one another and names
-// its notables (ADR-0014).
+// its notables (ADR-0014); and the inspector says what they hold against whom and what they
+// have heard (ADR-0016).
 
 import { expect, test } from "@playwright/test";
 
@@ -58,8 +59,18 @@ test("ties in the inspector and standing in its panel", async ({ page }) => {
     await expect(ties.locator("h4")).toHaveText("Knows people");
     await expect(ties).toContainText("Standing:");
     await expect(ties.locator("li").first()).toContainText("last in");
+    // And what they hold against whom and what they have heard (wire 1.34), even when it is
+    // nothing yet.
+    const word = page.locator("#people-body .word");
+    await expect(word.locator("h4")).toHaveText("Grievances and news");
+    await expect(word).toContainText(/Holds no grievance\.|Holds a grievance against/);
+    await expect(word).toContainText(/Has heard no news\.|\((told by|they knew it first)/);
     console.log(
-      `standing: ${JSON.stringify({ village, ties: await ties.locator("li").allInnerTexts() })}`,
+      `standing: ${JSON.stringify({
+        village,
+        ties: await ties.locator("li").allInnerTexts(),
+        word: await word.innerText(),
+      })}`,
     );
     if (shots) {
       await page.locator("#standing-panel").screenshot({ path: `${shots}/m4a-standing.png` });

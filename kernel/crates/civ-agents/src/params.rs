@@ -1351,6 +1351,8 @@ pub struct PeopleParams {
     pub polity: crate::polity::PolityParams,
     /// Taking, what is seen of it and what is owed for it (M4b slice AA, ADR-0015).
     pub crime: crate::crime::CrimeParams,
+    /// How word travels and grievances are held (M4c slice AE, ADR-0016).
+    pub word: crate::word::WordParams,
     /// Names.
     pub names: NameParams,
 }

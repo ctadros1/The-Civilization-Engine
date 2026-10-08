@@ -230,6 +230,12 @@ struct StoreLine;
 struct PersonInfo;
 struct PersonInfoBuilder;
 
+struct GrievanceLine;
+struct GrievanceLineBuilder;
+
+struct HeardLine;
+struct HeardLineBuilder;
+
 struct TieLine;
 struct TieLineBuilder;
 
@@ -7727,7 +7733,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_HOUSEHOLD_TASTE = 80,
     VT_HOUSEHOLD_ADMIRED = 82,
     VT_TIES = 84,
-    VT_STANDING = 86
+    VT_STANDING = 86,
+    VT_GRIEVANCES = 88,
+    VT_HEARD = 90
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -7855,6 +7863,12 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const tce::wire::StandingLine *standing() const {
     return GetPointer<const tce::wire::StandingLine *>(VT_STANDING);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GrievanceLine>> *grievances() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GrievanceLine>> *>(VT_GRIEVANCES);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::HeardLine>> *heard() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::HeardLine>> *>(VT_HEARD);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -7920,6 +7934,12 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVectorOfTables(ties()) &&
            VerifyOffset(verifier, VT_STANDING) &&
            verifier.VerifyTable(standing()) &&
+           VerifyOffset(verifier, VT_GRIEVANCES) &&
+           verifier.VerifyVector(grievances()) &&
+           verifier.VerifyVectorOfTables(grievances()) &&
+           VerifyOffset(verifier, VT_HEARD) &&
+           verifier.VerifyVector(heard()) &&
+           verifier.VerifyVectorOfTables(heard()) &&
            verifier.EndTable();
   }
 };
@@ -8054,6 +8074,12 @@ struct PersonInfoBuilder {
   void add_standing(::flatbuffers::Offset<tce::wire::StandingLine> standing) {
     fbb_.AddOffset(PersonInfo::VT_STANDING, standing);
   }
+  void add_grievances(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GrievanceLine>>> grievances) {
+    fbb_.AddOffset(PersonInfo::VT_GRIEVANCES, grievances);
+  }
+  void add_heard(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::HeardLine>>> heard) {
+    fbb_.AddOffset(PersonInfo::VT_HEARD, heard);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8108,7 +8134,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     ::flatbuffers::Offset<::flatbuffers::String> household_taste = 0,
     uint64_t household_admired = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TieLine>>> ties = 0,
-    ::flatbuffers::Offset<tce::wire::StandingLine> standing = 0) {
+    ::flatbuffers::Offset<tce::wire::StandingLine> standing = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GrievanceLine>>> grievances = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::HeardLine>>> heard = 0) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
@@ -8120,6 +8148,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_heard(heard);
+  builder_.add_grievances(grievances);
   builder_.add_standing(standing);
   builder_.add_ties(ties);
   builder_.add_household_taste(household_taste);
@@ -8203,7 +8233,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     const char *household_taste = nullptr,
     uint64_t household_admired = 0,
     const std::vector<::flatbuffers::Offset<tce::wire::TieLine>> *ties = nullptr,
-    ::flatbuffers::Offset<tce::wire::StandingLine> standing = 0) {
+    ::flatbuffers::Offset<tce::wire::StandingLine> standing = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::GrievanceLine>> *grievances = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::HeardLine>> *heard = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -8218,6 +8250,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto knows__ = knows ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::KnowLine>>(*knows) : 0;
   auto household_taste__ = household_taste ? _fbb.CreateString(household_taste) : 0;
   auto ties__ = ties ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::TieLine>>(*ties) : 0;
+  auto grievances__ = grievances ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::GrievanceLine>>(*grievances) : 0;
+  auto heard__ = heard ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::HeardLine>>(*heard) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -8261,7 +8295,311 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       household_taste__,
       household_admired,
       ties__,
-      standing);
+      standing,
+      grievances__,
+      heard__);
+}
+
+struct GrievanceLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GrievanceLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ISSUE = 4,
+    VT_OVER = 6,
+    VT_BLAMED = 8,
+    VT_LAW = 10,
+    VT_HARM_DAYS = 12,
+    VT_UNRESOLVED_DAYS = 14,
+    VT_ACTIVATION = 16,
+    VT_MADE_MINUTE = 18,
+    VT_RAISED_MINUTE = 20,
+    VT_REASON = 22
+  };
+  uint8_t issue() const {
+    return GetField<uint8_t>(VT_ISSUE, 0);
+  }
+  const ::flatbuffers::String *over() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_OVER);
+  }
+  const ::flatbuffers::String *blamed() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_BLAMED);
+  }
+  uint64_t law() const {
+    return GetField<uint64_t>(VT_LAW, 0);
+  }
+  float harm_days() const {
+    return GetField<float>(VT_HARM_DAYS, 0.0f);
+  }
+  float unresolved_days() const {
+    return GetField<float>(VT_UNRESOLVED_DAYS, 0.0f);
+  }
+  float activation() const {
+    return GetField<float>(VT_ACTIVATION, 0.0f);
+  }
+  int64_t made_minute() const {
+    return GetField<int64_t>(VT_MADE_MINUTE, 0);
+  }
+  int64_t raised_minute() const {
+    return GetField<int64_t>(VT_RAISED_MINUTE, 0);
+  }
+  const ::flatbuffers::String *reason() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_REASON);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_ISSUE, 1) &&
+           VerifyOffset(verifier, VT_OVER) &&
+           verifier.VerifyString(over()) &&
+           VerifyOffset(verifier, VT_BLAMED) &&
+           verifier.VerifyString(blamed()) &&
+           VerifyField<uint64_t>(verifier, VT_LAW, 8) &&
+           VerifyField<float>(verifier, VT_HARM_DAYS, 4) &&
+           VerifyField<float>(verifier, VT_UNRESOLVED_DAYS, 4) &&
+           VerifyField<float>(verifier, VT_ACTIVATION, 4) &&
+           VerifyField<int64_t>(verifier, VT_MADE_MINUTE, 8) &&
+           VerifyField<int64_t>(verifier, VT_RAISED_MINUTE, 8) &&
+           VerifyOffset(verifier, VT_REASON) &&
+           verifier.VerifyString(reason()) &&
+           verifier.EndTable();
+  }
+};
+
+struct GrievanceLineBuilder {
+  typedef GrievanceLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_issue(uint8_t issue) {
+    fbb_.AddElement<uint8_t>(GrievanceLine::VT_ISSUE, issue, 0);
+  }
+  void add_over(::flatbuffers::Offset<::flatbuffers::String> over) {
+    fbb_.AddOffset(GrievanceLine::VT_OVER, over);
+  }
+  void add_blamed(::flatbuffers::Offset<::flatbuffers::String> blamed) {
+    fbb_.AddOffset(GrievanceLine::VT_BLAMED, blamed);
+  }
+  void add_law(uint64_t law) {
+    fbb_.AddElement<uint64_t>(GrievanceLine::VT_LAW, law, 0);
+  }
+  void add_harm_days(float harm_days) {
+    fbb_.AddElement<float>(GrievanceLine::VT_HARM_DAYS, harm_days, 0.0f);
+  }
+  void add_unresolved_days(float unresolved_days) {
+    fbb_.AddElement<float>(GrievanceLine::VT_UNRESOLVED_DAYS, unresolved_days, 0.0f);
+  }
+  void add_activation(float activation) {
+    fbb_.AddElement<float>(GrievanceLine::VT_ACTIVATION, activation, 0.0f);
+  }
+  void add_made_minute(int64_t made_minute) {
+    fbb_.AddElement<int64_t>(GrievanceLine::VT_MADE_MINUTE, made_minute, 0);
+  }
+  void add_raised_minute(int64_t raised_minute) {
+    fbb_.AddElement<int64_t>(GrievanceLine::VT_RAISED_MINUTE, raised_minute, 0);
+  }
+  void add_reason(::flatbuffers::Offset<::flatbuffers::String> reason) {
+    fbb_.AddOffset(GrievanceLine::VT_REASON, reason);
+  }
+  explicit GrievanceLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GrievanceLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GrievanceLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GrievanceLine> CreateGrievanceLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t issue = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> over = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> blamed = 0,
+    uint64_t law = 0,
+    float harm_days = 0.0f,
+    float unresolved_days = 0.0f,
+    float activation = 0.0f,
+    int64_t made_minute = 0,
+    int64_t raised_minute = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> reason = 0) {
+  GrievanceLineBuilder builder_(_fbb);
+  builder_.add_raised_minute(raised_minute);
+  builder_.add_made_minute(made_minute);
+  builder_.add_law(law);
+  builder_.add_reason(reason);
+  builder_.add_activation(activation);
+  builder_.add_unresolved_days(unresolved_days);
+  builder_.add_harm_days(harm_days);
+  builder_.add_blamed(blamed);
+  builder_.add_over(over);
+  builder_.add_issue(issue);
+  return builder_.Finish();
+}
+
+struct GrievanceLine::Traits {
+  using type = GrievanceLine;
+  static auto constexpr Create = CreateGrievanceLine;
+};
+
+inline ::flatbuffers::Offset<GrievanceLine> CreateGrievanceLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t issue = 0,
+    const char *over = nullptr,
+    const char *blamed = nullptr,
+    uint64_t law = 0,
+    float harm_days = 0.0f,
+    float unresolved_days = 0.0f,
+    float activation = 0.0f,
+    int64_t made_minute = 0,
+    int64_t raised_minute = 0,
+    const char *reason = nullptr) {
+  auto over__ = over ? _fbb.CreateString(over) : 0;
+  auto blamed__ = blamed ? _fbb.CreateString(blamed) : 0;
+  auto reason__ = reason ? _fbb.CreateString(reason) : 0;
+  return tce::wire::CreateGrievanceLine(
+      _fbb,
+      issue,
+      over__,
+      blamed__,
+      law,
+      harm_days,
+      unresolved_days,
+      activation,
+      made_minute,
+      raised_minute,
+      reason__);
+}
+
+struct HeardLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef HeardLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_KIND = 4,
+    VT_WHAT = 6,
+    VT_FROM = 8,
+    VT_FROM_NAME = 10,
+    VT_ORIGIN = 12,
+    VT_FIRST_MINUTE = 14,
+    VT_LAST_MINUTE = 16
+  };
+  uint8_t kind() const {
+    return GetField<uint8_t>(VT_KIND, 0);
+  }
+  const ::flatbuffers::String *what() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WHAT);
+  }
+  uint64_t from() const {
+    return GetField<uint64_t>(VT_FROM, 0);
+  }
+  const ::flatbuffers::String *from_name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_FROM_NAME);
+  }
+  uint64_t origin() const {
+    return GetField<uint64_t>(VT_ORIGIN, 0);
+  }
+  int64_t first_minute() const {
+    return GetField<int64_t>(VT_FIRST_MINUTE, 0);
+  }
+  int64_t last_minute() const {
+    return GetField<int64_t>(VT_LAST_MINUTE, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_KIND, 1) &&
+           VerifyOffset(verifier, VT_WHAT) &&
+           verifier.VerifyString(what()) &&
+           VerifyField<uint64_t>(verifier, VT_FROM, 8) &&
+           VerifyOffset(verifier, VT_FROM_NAME) &&
+           verifier.VerifyString(from_name()) &&
+           VerifyField<uint64_t>(verifier, VT_ORIGIN, 8) &&
+           VerifyField<int64_t>(verifier, VT_FIRST_MINUTE, 8) &&
+           VerifyField<int64_t>(verifier, VT_LAST_MINUTE, 8) &&
+           verifier.EndTable();
+  }
+};
+
+struct HeardLineBuilder {
+  typedef HeardLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_kind(uint8_t kind) {
+    fbb_.AddElement<uint8_t>(HeardLine::VT_KIND, kind, 0);
+  }
+  void add_what(::flatbuffers::Offset<::flatbuffers::String> what) {
+    fbb_.AddOffset(HeardLine::VT_WHAT, what);
+  }
+  void add_from(uint64_t from) {
+    fbb_.AddElement<uint64_t>(HeardLine::VT_FROM, from, 0);
+  }
+  void add_from_name(::flatbuffers::Offset<::flatbuffers::String> from_name) {
+    fbb_.AddOffset(HeardLine::VT_FROM_NAME, from_name);
+  }
+  void add_origin(uint64_t origin) {
+    fbb_.AddElement<uint64_t>(HeardLine::VT_ORIGIN, origin, 0);
+  }
+  void add_first_minute(int64_t first_minute) {
+    fbb_.AddElement<int64_t>(HeardLine::VT_FIRST_MINUTE, first_minute, 0);
+  }
+  void add_last_minute(int64_t last_minute) {
+    fbb_.AddElement<int64_t>(HeardLine::VT_LAST_MINUTE, last_minute, 0);
+  }
+  explicit HeardLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<HeardLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<HeardLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<HeardLine> CreateHeardLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t kind = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> what = 0,
+    uint64_t from = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> from_name = 0,
+    uint64_t origin = 0,
+    int64_t first_minute = 0,
+    int64_t last_minute = 0) {
+  HeardLineBuilder builder_(_fbb);
+  builder_.add_last_minute(last_minute);
+  builder_.add_first_minute(first_minute);
+  builder_.add_origin(origin);
+  builder_.add_from(from);
+  builder_.add_from_name(from_name);
+  builder_.add_what(what);
+  builder_.add_kind(kind);
+  return builder_.Finish();
+}
+
+struct HeardLine::Traits {
+  using type = HeardLine;
+  static auto constexpr Create = CreateHeardLine;
+};
+
+inline ::flatbuffers::Offset<HeardLine> CreateHeardLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t kind = 0,
+    const char *what = nullptr,
+    uint64_t from = 0,
+    const char *from_name = nullptr,
+    uint64_t origin = 0,
+    int64_t first_minute = 0,
+    int64_t last_minute = 0) {
+  auto what__ = what ? _fbb.CreateString(what) : 0;
+  auto from_name__ = from_name ? _fbb.CreateString(from_name) : 0;
+  return tce::wire::CreateHeardLine(
+      _fbb,
+      kind,
+      what__,
+      from,
+      from_name__,
+      origin,
+      first_minute,
+      last_minute);
 }
 
 struct TieLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

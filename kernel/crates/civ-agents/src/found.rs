@@ -1205,6 +1205,7 @@ pub(crate) mod tests {
             standing: crate::standing::StandingParams::default(),
             polity: crate::polity::PolityParams::core(),
             crime: crate::crime::CrimeParams::core(),
+            word: crate::word::WordParams::core(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

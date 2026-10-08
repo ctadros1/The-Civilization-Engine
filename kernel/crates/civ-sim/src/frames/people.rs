@@ -877,6 +877,8 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
             .standing
             .of(p.id)
             .map(|r| super::standing::standing_line(&mut fbb, sim, r));
+        args.grievances = Some(super::word::grievance_lines(&mut fbb, sim, p));
+        args.heard = Some(super::word::heard_lines(&mut fbb, sim, p));
     }
     let body = wire::PersonInfo::create(&mut fbb, &args);
     Ok(response(fbb, wire::ResponseBody::PersonInfo, body))

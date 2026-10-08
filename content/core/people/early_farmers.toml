@@ -647,3 +647,28 @@ ask_days = 3.0
 # values: the research gives no figure for what a curfew costs or stops.
 curfew_guard = 0.3
 curfew_cost_days = 0.25
+
+[word]                           # word of mouth and grievances (M4c slice AE, ADR-0016); tuning values
+# A gathering is heard of by contact, never broadcast (research 09-16 §1.3: attendance and timing
+# decide who hears): its sponsor (or whoever brought its case) knows first; at midnight each member
+# of a household tells each other member with `share_home`, and companions at the hearth tell
+# each other with `share_urgent` (09-16 §2.2: 0.4-0.9 for urgent news). Only those who heard may
+# come. A grievance held keenly enough (`tell_floor`) is told to a companion with `share_routine`
+# (09-16 §2.2: 0.05-0.25) and stays news `news_days` without being told again (30-180).
+share_home = 0.8
+share_urgent = 0.6
+share_routine = 0.15
+news_days = 60
+# A grievance (ADR-0016 §2; research 04-06 §1.7, §5.3): its activation fades by its issue's
+# half-life, days, for subsistence, extraction, treatment and a collective claim (04-06 §2.2: 1-7
+# for minor events, 7-90 for severe ones); a harm of `full_harm_days` of the household's food is
+# felt fully (twice the store's five days of relief), less in proportion; hearing it told raises
+# it by `reminder`. A person holds at most `max_grievances`, the least keenly felt giving way.
+max_grievances = 8
+half_life_days = [30.0, 30.0, 90.0, 60.0]
+full_harm_days = 10.0
+reminder = 0.1
+tell_floor = 0.2
+# A harm that goes on (a store still empty while the household is short) raises its grievance
+# again only after `remind_days`: a reminder, never re-added each day (04-06 §5.3).
+remind_days = 7

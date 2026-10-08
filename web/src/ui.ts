@@ -42,6 +42,7 @@ import {
 import { materialGoods } from "./deposits.js";
 import { introducible, knowRows, summaryText, techniqueRows } from "./knowledge.js";
 import { standingText, tieText } from "./standing.js";
+import { claimText, grievanceFacts, grievanceHead, heardHow, heardWhen } from "./word.js";
 import {
   brokenText,
   labelText,
@@ -806,6 +807,56 @@ export function bindUi(store: Store, actions: Actions): void {
     );
     return box;
   };
+  /** What a person holds against whom and why, and what they have heard that is still news,
+   * with who told them (wire 1.34, ADR-0016). */
+  const wordBlock = (p: PersonInfo): Node => {
+    const box = el("div", { className: "word" }, el("h4", { text: "Grievances and news" }));
+    if (p.grievances.length === 0) {
+      box.append(el("p", { className: "empty", text: "Holds no grievance." }));
+    } else {
+      box.append(
+        el(
+          "ul",
+          { className: "grievances" },
+          ...p.grievances.map((g) =>
+            el(
+              "li",
+              {},
+              el("span", { text: `Holds a grievance ${grievanceHead(g)}` }),
+              el("span", { className: "aside", text: ` (${grievanceFacts(g)})` }),
+            ),
+          ),
+        ),
+      );
+    }
+    if (p.heard.length === 0) {
+      box.append(el("p", { className: "empty", text: "Has heard no news." }));
+    } else {
+      box.append(
+        el(
+          "ul",
+          { className: "heard" },
+          ...p.heard.map((h) =>
+            el(
+              "li",
+              {},
+              el("span", { text: `${claimText(h)} ` }),
+              h.from !== 0
+                ? el(
+                    "span",
+                    { className: "aside" },
+                    "(told by ",
+                    link(h.fromName, () => actions.focusPerson(h.from)),
+                    ` ${heardWhen(h)})`,
+                  )
+                : el("span", { className: "aside", text: `(${heardHow(h)})` }),
+            ),
+          ),
+        ),
+      );
+    }
+    return box;
+  };
   /** The technique chosen in the inspector's introduce form, kept while the inspector is redrawn. */
   let introChoice: { person: number; technique: number } | null = null;
   let introSelect: HTMLSelectElement | null = null;
@@ -993,7 +1044,7 @@ export function bindUi(store: Store, actions: Actions): void {
       }
     }
     nodes.push(knowsBlock(welcome, p));
-    if (p.alive) nodes.push(tiesBlock(state, p));
+    if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p));
     if (p.kin.length > 0 || p.family.length > 0) {
       nodes.push(
         el(

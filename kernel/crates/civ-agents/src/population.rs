@@ -51,6 +51,7 @@ mod loads;
 mod market;
 mod polity;
 mod watch;
+mod word;
 
 pub use deposits::{DepositKnown, FIND_M};
 pub use loads::{
@@ -387,6 +388,8 @@ pub struct Population {
     pub every_adult_deliberates: bool,
     /// Takings, what people believe of them, and what households owe for them (ADR-0015).
     pub order: crate::crime::Order,
+    /// What people have heard and the grievances they hold (M4c slice AE, ADR-0016).
+    pub word: crate::word::Word,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage

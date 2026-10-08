@@ -63,6 +63,10 @@ impl Population {
             }
         }
         self.tell_households(day);
+        // Households tell their members of gatherings ahead, and those short of food who find
+        // the common store empty hold it against it (M4c slice AE).
+        self.word_day(ctx);
+        self.grieve_empty_stores(ctx);
         for pi in 0..self.polities.len() {
             let p = &self.polities[pi];
             if day - p.reviewed >= i64::from(ctx.params.polity.review_days.max(1)) {
@@ -244,6 +248,23 @@ impl Population {
         days < to_harvest || days < params.household.short_food_days
     }
 
+    /// Whether settlement `settlement`'s food is short now or ran short within the last year: a
+    /// lean year, as its people have seen it (the chronicle's, ADR-0013 §5).
+    pub(super) fn lean_lately(&self, ctx: &Ctx, settlement: PermanentId) -> bool {
+        let short_now = ctx
+            .land
+            .settlements
+            .iter()
+            .any(|s| s.id == settlement && s.food_short);
+        let since = ctx.now.day_index() - 365;
+        short_now
+            || self.chronicle.iter().rev().any(|e| {
+                e.kind == ChronicleKind::FoodRanShort
+                    && e.settlement == Some(settlement)
+                    && e.at.day_index() >= since
+            })
+    }
+
     /// The issues settlement `settlement` faces now (research 09-05 §1.1): its food ran short
     /// within the last year, or a household's food will not last until its next harvest
     /// (`pressed`); its common store holds food nobody keeps under a roof (`unkept`); and a
@@ -256,19 +277,8 @@ impl Population {
         unkept: bool,
         takings: bool,
     ) -> Vec<IssueKind> {
-        let short_now = ctx
-            .land
-            .settlements
-            .iter()
-            .any(|s| s.id == settlement && s.food_short);
-        let since = ctx.now.day_index() - 365;
-        let short_lately = self.chronicle.iter().rev().any(|e| {
-            e.kind == ChronicleKind::FoodRanShort
-                && e.settlement == Some(settlement)
-                && e.at.day_index() >= since
-        });
         let mut out = Vec::new();
-        if short_now || short_lately || pressed {
+        if self.lean_lately(ctx, settlement) || pressed {
             out.push(IssueKind::FoodShort);
         }
         if unkept {
@@ -709,6 +719,8 @@ impl Population {
             cases: Vec::new(),
         });
         let settlement = polity.settlement;
+        // The sponsor knows it is called; everyone else hears by word (M4c slice AE).
+        self.call_word(settlement, meets, Some(id), &[sponsor], day);
         let place = ctx
             .land
             .settlements
@@ -931,6 +943,8 @@ impl Population {
             || minute < evening_start
             || minute + LEAST_SITTING_MIN > end
             || g.present.binary_search(&person).is_ok()
+            // Only those who heard it is called come (M4c slice AE, ADR-0016 §3).
+            || !self.heard_of_gathering(person, polity.settlement, g.day)
         {
             return None;
         }
@@ -1119,6 +1133,16 @@ impl Population {
                 let c = &mut self.polities[pi].laws[li].compliance;
                 c.complied += 1;
                 c.levied_kg += paid;
+                // A levy taken in a lean year that leaves the household short of a year's food is
+                // held against the gathering (M4c slice AE); in an ordinary year it is the
+                // custom, however it weighs (research 04-10 §1.1).
+                let paid_kcal = paid * kcal_per_kg;
+                let short = (outlook.year_need - (outlook.held - paid_kcal)).min(paid_kcal);
+                let settlement = self.polities[pi].settlement;
+                if short > 0.0 && self.lean_lately(ctx, settlement) {
+                    let law = self.polities[pi].laws[li].id;
+                    self.grieve_levy(ctx, pi, law, household, short);
+                }
             }
         }
     }
@@ -1222,11 +1246,18 @@ impl Population {
             want -= kg * goods[i].kcal_per_kg;
         }
         let kg: f64 = legs.iter().map(|l| l.amount).sum();
+        let kcal: f64 = legs
+            .iter()
+            .map(|l| l.amount * goods[l.good].kcal_per_kg)
+            .sum();
         let given = !legs.is_empty() && self.transfer(now, params, goods, &legs, Channel::Relief);
+        let store_law = self.polities[pi].laws[li].id;
         let c = &mut self.polities[pi].laws[li].compliance;
         if given {
             c.relieved += 1;
             c.relief_kg += kg;
+            // What it gave redresses what was held against the store (M4c slice AE).
+            self.redress_store(to, store_law, kcal / need.max(1.0));
         } else {
             c.unanswered += 1;
         }

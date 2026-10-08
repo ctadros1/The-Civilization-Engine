@@ -173,6 +173,8 @@ impl Population {
             self.share_laws(me, q, day);
             // So does word of who took from whom (ADR-0015 §1).
             self.share_takings(ctx, me, q);
+            // And of gatherings called (M4c slice AE, ADR-0016 §3).
+            self.share_word(ctx, me, q);
         }
     }
 

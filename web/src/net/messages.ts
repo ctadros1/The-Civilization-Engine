@@ -704,6 +704,45 @@ export interface PersonInfo {
   ties: TieLine[];
   /** Their standing in their settlement as last worked out (null before the first time). */
   standing: StandingLine | null;
+  /** Wire 1.34 (M4c slice AE, ADR-0016): the grievances they hold, the most keenly felt first,
+   * and what they have heard that is still news, the latest first (the living only). */
+  grievances: GrievanceLine[];
+  heard: HeardLine[];
+}
+
+/** A grievance someone holds (wire 1.34, ADR-0016 §2). */
+export interface GrievanceLine {
+  /** 0 subsistence, 1 extraction, 2 treatment, 3 a collective claim. */
+  issue: number;
+  /** What it is over and whom it is held against, in words rendered by the kernel ("food when
+   * their household was short"; "the gathering"). */
+  over: string;
+  blamed: string;
+  /** The law whose terms it broke (0 = none). */
+  law: number;
+  /** The harm, and what of it nothing has yet made good, days of their household's food. */
+  harmDays: number;
+  unresolvedDays: number;
+  /** How keenly it is felt now, 0-1: it fades, and only a reminder raises it. */
+  activation: number;
+  madeMinute: number;
+  raisedMinute: number;
+  /** What last raised it, in words rendered by the kernel. */
+  reason: string;
+}
+
+/** A claim someone has heard (wire 1.34, ADR-0016 §3). */
+export interface HeardLine {
+  /** 0 a gathering called, 1 a grievance told. */
+  kind: number;
+  /** What it says, in words rendered by the kernel. */
+  what: string;
+  /** Who told them (0 = nobody: it began with them), and the one the account began with. */
+  from: number;
+  fromName: string;
+  origin: number;
+  firstMinute: number;
+  lastMinute: number;
 }
 
 /** One person's view of another (wire 1.26, ADR-0014). */
@@ -2681,6 +2720,37 @@ function personInfo(p: W.PersonInfo): PersonInfo {
       mutual: t.mutual(),
     });
   }
+  const grievances: GrievanceLine[] = [];
+  for (let k = 0; k < p.grievancesLength(); k++) {
+    const g = p.grievances(k);
+    if (!g) continue;
+    grievances.push({
+      issue: g.issue(),
+      over: g.over() ?? "",
+      blamed: g.blamed() ?? "",
+      law: Number(g.law()),
+      harmDays: g.harmDays(),
+      unresolvedDays: g.unresolvedDays(),
+      activation: g.activation(),
+      madeMinute: Number(g.madeMinute()),
+      raisedMinute: Number(g.raisedMinute()),
+      reason: g.reason() ?? "",
+    });
+  }
+  const heard: HeardLine[] = [];
+  for (let k = 0; k < p.heardLength(); k++) {
+    const h = p.heard(k);
+    if (!h) continue;
+    heard.push({
+      kind: h.kind(),
+      what: h.what() ?? "",
+      from: Number(h.from()),
+      fromName: h.fromName() ?? "",
+      origin: Number(h.origin()),
+      firstMinute: Number(h.firstMinute()),
+      lastMinute: Number(h.lastMinute()),
+    });
+  }
   const standing = p.standing();
   const pos = p.pos();
   return {
@@ -2727,6 +2797,8 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     householdAdmired: Number(p.householdAdmired()),
     ties,
     standing: standing ? standingLine(standing) : null,
+    grievances,
+    heard,
   };
 }
 

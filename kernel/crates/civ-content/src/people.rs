@@ -52,6 +52,82 @@ pub(crate) struct PeopleFile {
     pub polity: PolityFile,
     /// Taking, what is seen of it and what is owed for it (M4b slice AA; content API 35).
     pub crime: CrimeFile,
+    /// How word travels and grievances are held (M4c slice AE; content API 39).
+    pub word: WordFile,
+}
+
+/// Word of mouth and grievances (M4c slice AE, ADR-0016; content API 39). See
+/// [`civ_agents::word::WordParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct WordFile {
+    pub share_home: f64,
+    pub share_urgent: f64,
+    pub share_routine: f64,
+    pub news_days: u32,
+    pub max_grievances: u32,
+    pub half_life_days: [f64; 4],
+    pub full_harm_days: f64,
+    pub reminder: f64,
+    pub tell_floor: f64,
+    pub remind_days: u32,
+}
+
+impl WordFile {
+    fn params(&self) -> civ_agents::word::WordParams {
+        civ_agents::word::WordParams {
+            share_home: self.share_home,
+            share_urgent: self.share_urgent,
+            share_routine: self.share_routine,
+            news_days: self.news_days,
+            max_grievances: self.max_grievances,
+            half_life_days: self.half_life_days,
+            full_harm_days: self.full_harm_days,
+            reminder: self.reminder,
+            tell_floor: self.tell_floor,
+            remind_days: self.remind_days,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            ("word.share_home", self.share_home, 0.0, 1.0),
+            ("word.share_urgent", self.share_urgent, 0.0, 1.0),
+            ("word.share_routine", self.share_routine, 0.0, 1.0),
+            ("word.full_harm_days", self.full_harm_days, 0.01, 3650.0),
+            ("word.reminder", self.reminder, 0.0, 1.0),
+            ("word.tell_floor", self.tell_floor, 0.0, 1.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        for &h in &self.half_life_days {
+            if !(h.is_finite() && h > 0.0 && h <= 3650.0) {
+                p.push(format!(
+                    "`word.half_life_days` must each be above 0 and at most 3650 (got {h})"
+                ));
+            }
+        }
+        if !(1..=3650).contains(&self.news_days) {
+            p.push(format!(
+                "`word.news_days` must be 1 to 3650 (got {})",
+                self.news_days
+            ));
+        }
+        if !(1..=365).contains(&self.remind_days) {
+            p.push(format!(
+                "`word.remind_days` must be 1 to 365 (got {})",
+                self.remind_days
+            ));
+        }
+        if !(1..=64).contains(&self.max_grievances) {
+            p.push(format!(
+                "`word.max_grievances` must be 1 to 64 (got {})",
+                self.max_grievances
+            ));
+        }
+    }
 }
 
 /// Taking and what follows it (M4b slice AA, ADR-0015; content API 35; cases from content API 36). See
@@ -1141,6 +1217,7 @@ impl PeopleFile {
             },
             polity: self.polity.params(),
             crime: self.crime.params(),
+            word: self.word.params(),
             names,
         }
     }
@@ -1152,6 +1229,7 @@ impl PeopleFile {
         self.ties.problems(&mut p);
         self.polity.problems(&mut p);
         self.crime.problems(&mut p);
+        self.word.problems(&mut p);
         let st = &self.standing;
         if !(1..=100).contains(&st.candidates) {
             p.push(format!(

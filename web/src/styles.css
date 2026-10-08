@@ -1114,6 +1114,28 @@ ul.rules li {
   margin-top: 8px;
 }
 
+/* What a person holds against whom, and what they have heard (M4c slice AE) */
+.word {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+.word ul {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+  font-size: 12px;
+}
+
+.word li {
+  padding: 1px 0;
+}
+
+.word .aside {
+  color: var(--muted);
+}
+
 /* What a person knows, and the observer's introduce form (M3b slice M) */
 .knows {
   border-top: 1px solid var(--line);

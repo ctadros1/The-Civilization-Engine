@@ -13030,6 +13030,8 @@ impl<'a> PersonInfo<'a> {
   pub const VT_HOUSEHOLD_ADMIRED: ::flatbuffers::VOffsetT = 82;
   pub const VT_TIES: ::flatbuffers::VOffsetT = 84;
   pub const VT_STANDING: ::flatbuffers::VOffsetT = 86;
+  pub const VT_GRIEVANCES: ::flatbuffers::VOffsetT = 88;
+  pub const VT_HEARD: ::flatbuffers::VOffsetT = 90;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -13051,6 +13053,8 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.heard { builder.add_heard(x); }
+    if let Some(x) = args.grievances { builder.add_grievances(x); }
     if let Some(x) = args.standing { builder.add_standing(x); }
     if let Some(x) = args.ties { builder.add_ties(x); }
     if let Some(x) = args.household_taste { builder.add_household_taste(x); }
@@ -13381,6 +13385,20 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<StandingLine>>(PersonInfo::VT_STANDING, None)}
   }
+  #[inline]
+  pub fn grievances(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GrievanceLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GrievanceLine>>>>(PersonInfo::VT_GRIEVANCES, None)}
+  }
+  #[inline]
+  pub fn heard(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HeardLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HeardLine>>>>(PersonInfo::VT_HEARD, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -13431,6 +13449,8 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<u64>("household_admired", Self::VT_HOUSEHOLD_ADMIRED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TieLine>>>>("ties", Self::VT_TIES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<StandingLine>>("standing", Self::VT_STANDING, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GrievanceLine>>>>("grievances", Self::VT_GRIEVANCES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<HeardLine>>>>("heard", Self::VT_HEARD, false)?
      .finish();
     Ok(())
   }
@@ -13478,6 +13498,8 @@ pub struct PersonInfoArgs<'a> {
     pub household_admired: u64,
     pub ties: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TieLine<'a>>>>>,
     pub standing: Option<::flatbuffers::WIPOffset<StandingLine<'a>>>,
+    pub grievances: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GrievanceLine<'a>>>>>,
+    pub heard: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HeardLine<'a>>>>>,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -13525,6 +13547,8 @@ impl<'a> Default for PersonInfoArgs<'a> {
       household_admired: 0,
       ties: None,
       standing: None,
+      grievances: None,
+      heard: None,
     }
   }
 }
@@ -13703,6 +13727,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<StandingLine>>(PersonInfo::VT_STANDING, standing);
   }
   #[inline]
+  pub fn add_grievances(&mut self, grievances: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<GrievanceLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_GRIEVANCES, grievances);
+  }
+  #[inline]
+  pub fn add_heard(&mut self, heard: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<HeardLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_HEARD, heard);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -13762,6 +13794,455 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("household_admired", &self.household_admired());
       ds.field("ties", &self.ties());
       ds.field("standing", &self.standing());
+      ds.field("grievances", &self.grievances());
+      ds.field("heard", &self.heard());
+      ds.finish()
+  }
+}
+pub enum GrievanceLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GrievanceLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GrievanceLine<'a> {
+  type Inner = GrievanceLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GrievanceLine<'a> {
+  pub const VT_ISSUE: ::flatbuffers::VOffsetT = 4;
+  pub const VT_OVER: ::flatbuffers::VOffsetT = 6;
+  pub const VT_BLAMED: ::flatbuffers::VOffsetT = 8;
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 10;
+  pub const VT_HARM_DAYS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_UNRESOLVED_DAYS: ::flatbuffers::VOffsetT = 14;
+  pub const VT_ACTIVATION: ::flatbuffers::VOffsetT = 16;
+  pub const VT_MADE_MINUTE: ::flatbuffers::VOffsetT = 18;
+  pub const VT_RAISED_MINUTE: ::flatbuffers::VOffsetT = 20;
+  pub const VT_REASON: ::flatbuffers::VOffsetT = 22;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GrievanceLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GrievanceLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<GrievanceLine<'bldr>> {
+    let mut builder = GrievanceLineBuilder::new(_fbb);
+    builder.add_raised_minute(args.raised_minute);
+    builder.add_made_minute(args.made_minute);
+    builder.add_law(args.law);
+    if let Some(x) = args.reason { builder.add_reason(x); }
+    builder.add_activation(args.activation);
+    builder.add_unresolved_days(args.unresolved_days);
+    builder.add_harm_days(args.harm_days);
+    if let Some(x) = args.blamed { builder.add_blamed(x); }
+    if let Some(x) = args.over { builder.add_over(x); }
+    builder.add_issue(args.issue);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn issue(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(GrievanceLine::VT_ISSUE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn over(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(GrievanceLine::VT_OVER, None)}
+  }
+  #[inline]
+  pub fn blamed(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(GrievanceLine::VT_BLAMED, None)}
+  }
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(GrievanceLine::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn harm_days(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GrievanceLine::VT_HARM_DAYS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn unresolved_days(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GrievanceLine::VT_UNRESOLVED_DAYS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn activation(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GrievanceLine::VT_ACTIVATION, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn made_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(GrievanceLine::VT_MADE_MINUTE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn raised_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(GrievanceLine::VT_RAISED_MINUTE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn reason(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(GrievanceLine::VT_REASON, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for GrievanceLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u8>("issue", Self::VT_ISSUE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("over", Self::VT_OVER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("blamed", Self::VT_BLAMED, false)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<f32>("harm_days", Self::VT_HARM_DAYS, false)?
+     .visit_field::<f32>("unresolved_days", Self::VT_UNRESOLVED_DAYS, false)?
+     .visit_field::<f32>("activation", Self::VT_ACTIVATION, false)?
+     .visit_field::<i64>("made_minute", Self::VT_MADE_MINUTE, false)?
+     .visit_field::<i64>("raised_minute", Self::VT_RAISED_MINUTE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("reason", Self::VT_REASON, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GrievanceLineArgs<'a> {
+    pub issue: u8,
+    pub over: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub blamed: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub law: u64,
+    pub harm_days: f32,
+    pub unresolved_days: f32,
+    pub activation: f32,
+    pub made_minute: i64,
+    pub raised_minute: i64,
+    pub reason: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for GrievanceLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    GrievanceLineArgs {
+      issue: 0,
+      over: None,
+      blamed: None,
+      law: 0,
+      harm_days: 0.0,
+      unresolved_days: 0.0,
+      activation: 0.0,
+      made_minute: 0,
+      raised_minute: 0,
+      reason: None,
+    }
+  }
+}
+
+pub struct GrievanceLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GrievanceLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_issue(&mut self, issue: u8) {
+    self.fbb_.push_slot::<u8>(GrievanceLine::VT_ISSUE, issue, 0);
+  }
+  #[inline]
+  pub fn add_over(&mut self, over: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GrievanceLine::VT_OVER, over);
+  }
+  #[inline]
+  pub fn add_blamed(&mut self, blamed: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GrievanceLine::VT_BLAMED, blamed);
+  }
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(GrievanceLine::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_harm_days(&mut self, harm_days: f32) {
+    self.fbb_.push_slot::<f32>(GrievanceLine::VT_HARM_DAYS, harm_days, 0.0);
+  }
+  #[inline]
+  pub fn add_unresolved_days(&mut self, unresolved_days: f32) {
+    self.fbb_.push_slot::<f32>(GrievanceLine::VT_UNRESOLVED_DAYS, unresolved_days, 0.0);
+  }
+  #[inline]
+  pub fn add_activation(&mut self, activation: f32) {
+    self.fbb_.push_slot::<f32>(GrievanceLine::VT_ACTIVATION, activation, 0.0);
+  }
+  #[inline]
+  pub fn add_made_minute(&mut self, made_minute: i64) {
+    self.fbb_.push_slot::<i64>(GrievanceLine::VT_MADE_MINUTE, made_minute, 0);
+  }
+  #[inline]
+  pub fn add_raised_minute(&mut self, raised_minute: i64) {
+    self.fbb_.push_slot::<i64>(GrievanceLine::VT_RAISED_MINUTE, raised_minute, 0);
+  }
+  #[inline]
+  pub fn add_reason(&mut self, reason: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GrievanceLine::VT_REASON, reason);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GrievanceLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GrievanceLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GrievanceLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GrievanceLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GrievanceLine");
+      ds.field("issue", &self.issue());
+      ds.field("over", &self.over());
+      ds.field("blamed", &self.blamed());
+      ds.field("law", &self.law());
+      ds.field("harm_days", &self.harm_days());
+      ds.field("unresolved_days", &self.unresolved_days());
+      ds.field("activation", &self.activation());
+      ds.field("made_minute", &self.made_minute());
+      ds.field("raised_minute", &self.raised_minute());
+      ds.field("reason", &self.reason());
+      ds.finish()
+  }
+}
+pub enum HeardLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct HeardLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for HeardLine<'a> {
+  type Inner = HeardLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> HeardLine<'a> {
+  pub const VT_KIND: ::flatbuffers::VOffsetT = 4;
+  pub const VT_WHAT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_FROM: ::flatbuffers::VOffsetT = 8;
+  pub const VT_FROM_NAME: ::flatbuffers::VOffsetT = 10;
+  pub const VT_ORIGIN: ::flatbuffers::VOffsetT = 12;
+  pub const VT_FIRST_MINUTE: ::flatbuffers::VOffsetT = 14;
+  pub const VT_LAST_MINUTE: ::flatbuffers::VOffsetT = 16;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    HeardLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args HeardLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<HeardLine<'bldr>> {
+    let mut builder = HeardLineBuilder::new(_fbb);
+    builder.add_last_minute(args.last_minute);
+    builder.add_first_minute(args.first_minute);
+    builder.add_origin(args.origin);
+    builder.add_from(args.from);
+    if let Some(x) = args.from_name { builder.add_from_name(x); }
+    if let Some(x) = args.what { builder.add_what(x); }
+    builder.add_kind(args.kind);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn kind(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(HeardLine::VT_KIND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn what(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(HeardLine::VT_WHAT, None)}
+  }
+  #[inline]
+  pub fn from(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(HeardLine::VT_FROM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn from_name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(HeardLine::VT_FROM_NAME, None)}
+  }
+  #[inline]
+  pub fn origin(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(HeardLine::VT_ORIGIN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn first_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(HeardLine::VT_FIRST_MINUTE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn last_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(HeardLine::VT_LAST_MINUTE, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for HeardLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u8>("kind", Self::VT_KIND, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("what", Self::VT_WHAT, false)?
+     .visit_field::<u64>("from", Self::VT_FROM, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("from_name", Self::VT_FROM_NAME, false)?
+     .visit_field::<u64>("origin", Self::VT_ORIGIN, false)?
+     .visit_field::<i64>("first_minute", Self::VT_FIRST_MINUTE, false)?
+     .visit_field::<i64>("last_minute", Self::VT_LAST_MINUTE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct HeardLineArgs<'a> {
+    pub kind: u8,
+    pub what: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub from: u64,
+    pub from_name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub origin: u64,
+    pub first_minute: i64,
+    pub last_minute: i64,
+}
+impl<'a> Default for HeardLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    HeardLineArgs {
+      kind: 0,
+      what: None,
+      from: 0,
+      from_name: None,
+      origin: 0,
+      first_minute: 0,
+      last_minute: 0,
+    }
+  }
+}
+
+pub struct HeardLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HeardLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_kind(&mut self, kind: u8) {
+    self.fbb_.push_slot::<u8>(HeardLine::VT_KIND, kind, 0);
+  }
+  #[inline]
+  pub fn add_what(&mut self, what: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(HeardLine::VT_WHAT, what);
+  }
+  #[inline]
+  pub fn add_from(&mut self, from: u64) {
+    self.fbb_.push_slot::<u64>(HeardLine::VT_FROM, from, 0);
+  }
+  #[inline]
+  pub fn add_from_name(&mut self, from_name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(HeardLine::VT_FROM_NAME, from_name);
+  }
+  #[inline]
+  pub fn add_origin(&mut self, origin: u64) {
+    self.fbb_.push_slot::<u64>(HeardLine::VT_ORIGIN, origin, 0);
+  }
+  #[inline]
+  pub fn add_first_minute(&mut self, first_minute: i64) {
+    self.fbb_.push_slot::<i64>(HeardLine::VT_FIRST_MINUTE, first_minute, 0);
+  }
+  #[inline]
+  pub fn add_last_minute(&mut self, last_minute: i64) {
+    self.fbb_.push_slot::<i64>(HeardLine::VT_LAST_MINUTE, last_minute, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HeardLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    HeardLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<HeardLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for HeardLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("HeardLine");
+      ds.field("kind", &self.kind());
+      ds.field("what", &self.what());
+      ds.field("from", &self.from());
+      ds.field("from_name", &self.from_name());
+      ds.field("origin", &self.origin());
+      ds.field("first_minute", &self.first_minute());
+      ds.field("last_minute", &self.last_minute());
       ds.finish()
   }
 }

@@ -1316,6 +1316,53 @@ table Order {
   sightings: [SightingSave] (id: 9);
 }
 
+// Section "word" (schema 35, M4c slice AE, ADR-0016): shared claims, who heard them, and the
+// grievances people hold. `kind`: 0 a gathering called, 1 a grievance told. `subject` and the
+// ids below are 0 when none. `blamed_kind`: 0 the polity's body, 1 an office (by its law), 2 a
+// household, 3 a person; 255 none. `issue`: 0 subsistence, 1 extraction, 2 treatment, 3 a
+// collective claim. `wrong`: 0 the store empty when short, 1 found against, 2 not found, 3 unheard,
+// 4 left unpaid.
+table ClaimSave {
+  id: uint (id: 0);
+  kind: ubyte (id: 1);
+  settlement: ulong (id: 2);
+  day: long (id: 3);
+  subject: ulong (id: 4);
+  blamed_kind: ubyte = 255 (id: 5);
+  blamed: ulong (id: 6);
+  issue: ubyte (id: 7);
+}
+
+struct HeardSave {
+  holder: ulong;
+  from: ulong;
+  origin: ulong;
+  first: long;
+  last: long;
+  claim: uint;
+}
+
+struct GrievanceSave {
+  holder: ulong;
+  blamed: ulong;
+  law: ulong;
+  raised: long;
+  made: long;
+  harm_days: float;
+  unresolved_days: float;
+  activation: float;
+  issue: ubyte;
+  blamed_kind: ubyte;
+  wrong: ubyte;
+}
+
+table WordSave {
+  claims: [ClaimSave] (id: 0);
+  heard: [HeardSave] (id: 1);
+  grievances: [GrievanceSave] (id: 2);
+  next: uint (id: 3);
+}
+
 // Section "events": the scheduler's pending events.
 enum EventKind : ubyte { AgentStep = 0 }
 

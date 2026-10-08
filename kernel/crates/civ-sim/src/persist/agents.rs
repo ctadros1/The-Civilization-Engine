@@ -105,7 +105,7 @@ use super::{
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
-    SCHEMA_V33, finish, section, single_chunk, unreadable,
+    SCHEMA_V33, SCHEMA_V34, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -150,6 +150,8 @@ pub const SECTION_TIES: SectionTag = SectionTag::new("ties");
 pub const SECTION_POLITY: SectionTag = SectionTag::new("polity");
 /// Section: takings, what people believe of them, and what households owe (schema 31, ADR-0015).
 pub const SECTION_ORDER: SectionTag = SectionTag::new("order");
+/// Section: what people have heard and the grievances they hold (M4c slice AE, ADR-0016).
+pub const SECTION_WORD: SectionTag = SectionTag::new("word");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -217,6 +219,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             encode_polities(&sim.people, rules, &goods),
         ),
         section(SECTION_ORDER, 0, encode_order(&sim.people.order, &goods)),
+        section(SECTION_WORD, 0, encode_word(&sim.people.word)),
     ]
 }
 
@@ -303,6 +306,8 @@ enum Schema {
     V33,
     /// Where a taker's household stood by food when they came (M4b slice AD).
     V34,
+    /// What people have heard and the grievances they hold (M4c slice AE).
+    V35,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -351,7 +356,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V31 => Schema::V31,
         SCHEMA_V32 => Schema::V32,
         SCHEMA_V33 => Schema::V33,
-        SAVE_SCHEMA_VERSION => Schema::V34,
+        SCHEMA_V34 => Schema::V34,
+        SAVE_SCHEMA_VERSION => Schema::V35,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -493,6 +499,14 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V31 {
         let bytes = single_chunk(reader, SECTION_ORDER)?;
         people.order = decode_order(&bytes, rules)?;
+    }
+    // Word and grievances (schema 35). Before them every adult heard of a gathering called, so a
+    // gathering still to sit is heard of by every adult of its settlement.
+    if schema >= Schema::V35 {
+        let bytes = single_chunk(reader, SECTION_WORD)?;
+        people.word = decode_word(&bytes)?;
+    } else {
+        people.hear_of_gatherings_called(now, &rules.people);
     }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
     match standing {
@@ -2296,7 +2310,8 @@ fn carried(
         | Schema::V31
         | Schema::V32
         | Schema::V33
-        | Schema::V34 => {
+        | Schema::V34
+        | Schema::V35 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2440,7 +2455,8 @@ fn decode_households(
             | Schema::V31
             | Schema::V32
             | Schema::V33
-            | Schema::V34 => {
+            | Schema::V34
+            | Schema::V35 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -4799,6 +4815,155 @@ fn decode_events(bytes: &[u8]) -> Result<Vec<PendingEvent<SimEvent>>, LoadError>
         });
     }
     Ok(out)
+}
+
+// ---- word of mouth and grievances (M4c slice AE, ADR-0016) -------------------------------------
+
+fn encode_word(word: &civ_agents::word::Word) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let claims: Vec<_> = word
+        .claims
+        .iter()
+        .map(|c| {
+            let (blamed_kind, blamed, issue) = match c.grievance {
+                Some((b, i)) => {
+                    let (k, id) = b.to_raw();
+                    (k, id, i.code())
+                }
+                None => (255, 0, 0),
+            };
+            save::ClaimSave::create(
+                &mut fbb,
+                &save::ClaimSaveArgs {
+                    id: c.id,
+                    kind: c.kind.code(),
+                    settlement: c.settlement.get(),
+                    day: c.day,
+                    subject: raw(c.subject),
+                    blamed_kind,
+                    blamed,
+                    issue,
+                },
+            )
+        })
+        .collect();
+    let claims = fbb.create_vector(&claims);
+    let heard: Vec<save::HeardSave> = word
+        .heard
+        .iter()
+        .map(|h| {
+            save::HeardSave::new(
+                h.holder.get(),
+                raw(h.from),
+                raw(h.origin),
+                h.first,
+                h.last,
+                h.claim,
+            )
+        })
+        .collect();
+    let heard = fbb.create_vector(&heard);
+    let grievances: Vec<save::GrievanceSave> = word
+        .grievances
+        .iter()
+        .map(|g| {
+            let (kind, blamed) = g.blamed.to_raw();
+            save::GrievanceSave::new(
+                g.holder.get(),
+                blamed,
+                g.law.get(),
+                g.raised,
+                g.made,
+                g.harm_days,
+                g.unresolved_days,
+                g.activation,
+                g.issue.code(),
+                kind,
+                g.wrong.code(),
+            )
+        })
+        .collect();
+    let grievances = fbb.create_vector(&grievances);
+    let root = save::WordSave::create(
+        &mut fbb,
+        &save::WordSaveArgs {
+            claims: Some(claims),
+            heard: Some(heard),
+            grievances: Some(grievances),
+            next: word.next,
+        },
+    );
+    finish(fbb, root)
+}
+
+fn decode_word(bytes: &[u8]) -> Result<civ_agents::word::Word, LoadError> {
+    use civ_agents::word::{Blamed, Claim, ClaimKind, Grievance, Grieved, Heard, Word, Wrong};
+    let root =
+        flatbuffers::root::<save::WordSave>(bytes).map_err(|e| unreadable(SECTION_WORD, &e))?;
+    let bad = |what: String| LoadError::Malformed(what);
+    let mut word = Word {
+        next: root.next(),
+        ..Word::default()
+    };
+    for c in root.claims().iter().flatten() {
+        let kind = ClaimKind::from_code(c.kind())
+            .ok_or_else(|| bad(format!("claim {} has kind code {}", c.id(), c.kind())))?;
+        let grievance = if c.blamed_kind() == 255 {
+            None
+        } else {
+            let blamed = Blamed::from_raw(c.blamed_kind(), c.blamed())
+                .ok_or_else(|| bad(format!("claim {} blames nobody known", c.id())))?;
+            let issue = Grieved::from_code(c.issue())
+                .ok_or_else(|| bad(format!("claim {} has issue code {}", c.id(), c.issue())))?;
+            Some((blamed, issue))
+        };
+        word.claims.push(Claim {
+            id: c.id(),
+            kind,
+            settlement: required(c.settlement(), "a claim's settlement")?,
+            day: c.day(),
+            subject: id(c.subject()),
+            grievance,
+        });
+    }
+    if !word.claims.windows(2).all(|w| w[0].id < w[1].id) {
+        return Err(bad("claims are out of order".to_owned()));
+    }
+    for h in root.heard().iter().flatten() {
+        word.heard.push(Heard {
+            holder: required(h.holder(), "a hearer")?,
+            claim: h.claim(),
+            first: h.first(),
+            last: h.last(),
+            from: id(h.from()),
+            origin: id(h.origin()),
+        });
+    }
+    if !word
+        .heard
+        .windows(2)
+        .all(|w| (w[0].holder, w[0].claim) < (w[1].holder, w[1].claim))
+    {
+        return Err(bad("what people heard is out of order".to_owned()));
+    }
+    for g in root.grievances().iter().flatten() {
+        word.grievances.push(Grievance {
+            holder: required(g.holder(), "a grievance's holder")?,
+            issue: Grieved::from_code(g.issue())
+                .ok_or_else(|| bad(format!("a grievance has issue code {}", g.issue())))?,
+            blamed: Blamed::from_raw(g.blamed_kind(), g.blamed())
+                .ok_or_else(|| bad("a grievance blames nobody known".to_owned()))?,
+            law: required(g.law(), "a grievance's law")?,
+            harm_days: g.harm_days(),
+            unresolved_days: g.unresolved_days(),
+            activation: g.activation(),
+            raised: g.raised(),
+            made: g.made(),
+            wrong: Wrong::from_code(g.wrong())
+                .ok_or_else(|| bad(format!("a grievance has cause code {}", g.wrong())))?,
+        });
+    }
+    Ok(word)
 }
 
 #[cfg(test)]

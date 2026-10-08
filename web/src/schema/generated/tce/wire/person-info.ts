@@ -5,6 +5,8 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { Decision } from '../../tce/wire/decision.js';
+import { GrievanceLine } from '../../tce/wire/grievance-line.js';
+import { HeardLine } from '../../tce/wire/heard-line.js';
 import { KinLink } from '../../tce/wire/kin-link.js';
 import { KnowLine } from '../../tce/wire/know-line.js';
 import { Sex } from '../../tce/wire/sex.js';
@@ -302,8 +304,28 @@ standing(obj?:StandingLine):StandingLine|null {
   return offset ? (obj || new StandingLine()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
+grievances(index: number, obj?:GrievanceLine):GrievanceLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 88);
+  return offset ? (obj || new GrievanceLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+grievancesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 88);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+heard(index: number, obj?:HeardLine):HeardLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 90);
+  return offset ? (obj || new HeardLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+heardLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 90);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(42);
+  builder.startObject(44);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -557,6 +579,38 @@ static startTiesVector(builder:flatbuffers.Builder, numElems:number) {
 
 static addStanding(builder:flatbuffers.Builder, standingOffset:flatbuffers.Offset) {
   builder.addFieldOffset(41, standingOffset, 0);
+}
+
+static addGrievances(builder:flatbuffers.Builder, grievancesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(42, grievancesOffset, 0);
+}
+
+static createGrievancesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startGrievancesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addHeard(builder:flatbuffers.Builder, heardOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(43, heardOffset, 0);
+}
+
+static createHeardVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startHeardVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
 }
 
 static endPersonInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

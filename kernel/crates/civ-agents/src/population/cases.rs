@@ -172,21 +172,39 @@ impl Population {
         if waiting.is_empty() {
             return;
         }
+        // Those who brought them know the gathering that is to hear them (M4c slice AE).
+        let bringers: Vec<PermanentId> = self
+            .order
+            .cases
+            .iter()
+            .filter(|c| waiting.contains(&c.id))
+            .map(|c| c.by)
+            .collect();
         let polity = &mut self.polities[pi];
-        match polity.gathering.as_mut() {
-            Some(g) if g.day >= day => g.cases.extend(waiting),
+        let meets = match polity.gathering.as_mut() {
+            Some(g) if g.day >= day => {
+                g.cases.extend(waiting);
+                g.day
+            }
             // One already sat and waits to be decided: the cases go to the next.
-            Some(_) => {}
+            Some(_) => return,
             None => {
+                let meets = day + i64::from(notice_days.max(1));
                 polity.gathering = Some(Gathering {
                     law: None,
-                    day: day + i64::from(notice_days.max(1)),
+                    day: meets,
                     stakes: Vec::new(),
                     present: Vec::new(),
                     cases: waiting,
                 });
+                meets
             }
-        }
+        };
+        let (settlement, law) = (
+            polity.settlement,
+            polity.gathering.as_ref().and_then(|g| g.law),
+        );
+        self.call_word(settlement, meets, law, &bringers, day);
     }
 
     /// The gathering `g` of polity `pi` hears case `id` (ADR-0015 §4): each member who came stands
@@ -387,6 +405,16 @@ impl Population {
             place,
             f64::from(self.order.cases[k].stage.code()),
             words,
+        );
+        // What the decision leaves people holding against the gathering (M4c slice AE).
+        let stage = self.order.cases[k].stage;
+        self.grieve_case(
+            ctx,
+            pi,
+            &c,
+            stage,
+            restitution + compensation + fine,
+            decided == Decided::Passed && sanction.exile,
         );
         if decided != Decided::Passed {
             return;

@@ -1004,6 +1004,13 @@ impl Population {
                 self.order.obligations[k].answer = Some(answer);
                 if !answer.0 {
                     self.order.obligations[k].standing = Standing::Refused;
+                    // A finding refused is held against the household that refused it (M4c
+                    // slice AE).
+                    if ob.kind != Owed::Fine
+                        && let Some(law) = ob.case.and_then(|c| self.order.case(c)).map(|c| c.law)
+                    {
+                        self.grieve_refusal(ctx, law, ob.debtor, ob.beneficiary, ob.left_kcal());
+                    }
                     if ob.kind != Owed::Fine {
                         for &m in &owed_members {
                             self.note_tie(ctx, m, taker, Act::RefusedRestitution, 1.0, 0.0);

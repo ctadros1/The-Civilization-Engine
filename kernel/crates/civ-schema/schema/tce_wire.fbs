@@ -737,6 +737,49 @@ table PersonInfo {
   // first of a month).
   ties: [TieLine] (id: 40);
   standing: StandingLine (id: 41);
+  // Wire 1.34 (M4c slice AE, ADR-0016 §2-3): the living only: the grievances they hold, the
+  // most keenly felt first, and what they have heard that is still news, the latest first.
+  grievances: [GrievanceLine] (id: 42);
+  heard: [HeardLine] (id: 43);
+}
+
+// A grievance a person holds (wire 1.34, ADR-0016 §2).
+table GrievanceLine {
+  // 0 subsistence, 1 extraction, 2 treatment, 3 a collective claim (codes of saves).
+  issue: ubyte (id: 0);
+  // What it is over, and whom it is held against, in words rendered by the kernel ("food when
+  // their household was short"; "the gathering", "Ada as keeper of the common store").
+  over: string (id: 1);
+  blamed: string (id: 2);
+  // The law whose terms it broke (0 = none).
+  law: ulong (id: 3);
+  // The harm, and what of it nothing has yet made good, days of their household's food.
+  harm_days: float (id: 4);
+  unresolved_days: float (id: 5);
+  // How keenly it is felt now, 0-1 (it fades, and is raised only by a reminder), and the day it
+  // was first held and last raised, as minutes.
+  activation: float (id: 6);
+  made_minute: long (id: 7);
+  raised_minute: long (id: 8);
+  // What last raised it, in words rendered by the kernel ("the common store was empty when
+  // their household was short").
+  reason: string (id: 9);
+}
+
+// A claim a person has heard (wire 1.34, ADR-0016 §3).
+table HeardLine {
+  // 0 a gathering called, 1 a grievance told.
+  kind: ubyte (id: 0);
+  // What it says, in words rendered by the kernel ("a gathering meets on 3 May of year 2 on a
+  // common store, taking a tenth of each harvest"; "Bo holds a grievance against the gathering
+  // over food when their household was short").
+  what: string (id: 1);
+  // Who told them (0 = nobody: it began with them), and the one the account began with.
+  from: ulong (id: 2);
+  from_name: string (id: 3);
+  origin: ulong (id: 4);
+  first_minute: long (id: 5);
+  last_minute: long (id: 6);
 }
 
 // One person's view of another (wire 1.26, ADR-0014 §1).

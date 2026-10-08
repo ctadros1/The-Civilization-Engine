@@ -40,6 +40,7 @@ pub mod people;
 pub mod standing;
 pub mod wealth;
 pub mod weather;
+pub mod word;
 
 /// Largest region one raster query may ask for, in cells of its level.
 pub const MAX_QUERY_CELLS: u64 = 1024 * 1024;

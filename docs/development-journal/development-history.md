@@ -400,6 +400,25 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** whether curfews change how often takers succeed, and the crime row's grade where the dashboard's worlds go hungry. M4c, factions and unrest, is next.
 
+## 2026-10-08 — M4c design and slice AE: claims and grievances
+
+**Goal:** design factions and unrest (M4c), and build its first slice: news that travels only by contact, and grievances people hold against the polity for what its acts cost them.
+
+**Design:** from the M4 factions brief, its citations checked against the reputation, collective action, information flow, ideology, norms, revolutions and structural demography reports. Two ADRs: [ADR-0016](../../decisions/0016-grievances-claims-opinions.md) (social memory per person, sparse and sourced: grievances, shared claims with per-person hearing, opinion with anchors, god tools that touch only what can be perceived) and [ADR-0017](../../decisions/0017-factions-episodes-regime-change.md) (leader, regime and constitution told apart; factions as organizations with treasuries; attendance as a scored choice; seizure only by force or effective authority, with no roll). Six slices, AE to AJ ([plan §7](../../PROJECT_PLAN.md#7-milestones)).
+
+**What changed:**
+
+- **Word of mouth.** A gathering's call is a shared claim. Its sponsor, or whoever brought its cases, hears first; households tell their members at midnight and companions tell each other at the hearth, each by a keyed chance; only those who heard may come.
+- **Grievances.** Each is held by one person against a party (the gathering, an office, a household), under a law whose terms it broke, with a harm in days of food, the part not yet made good, and an activation that fades and is raised only by reminders. They come from an empty store when short, a levy in a lean year that leaves a household short, a finding a household thinks wrong, a case not found or not heard, and a finding's obligation refused. Relief makes good what was held against the store; a grievance held keenly is told at the hearth.
+- **The inspector** lists a person's grievances and what they have heard, with who told them, in the kernel's words.
+- **Boundary:** saves schema 35 (saves 34 still load: every adult hears of a gathering already called), wire 1.34, content API 39.
+
+**Found on the way:** the first levy grievance had no lean-year test, and the smoke showed nearly every adult in every world holding one: households rarely hold a year's food in store, so an ordinary levy counted as a wrong. The rule now needs a year the settlement's food ran short, as the polity's own issue test does. At the first `full_harm_days` (30) an empty store's harm was felt below the telling floor and could never be told; it is now 10. Draws about a gathering's call were keyed by the claim's number, which grievance claims moved; they are now keyed by the settlement and the day. News of laws and findings is not copied into claims: both already travel by contact in their own records.
+
+**Evidence:** unit tests for claims, hearing, pruning and grievance activation; integration tests that only those who heard a gathering came and that word of it was passed on, that an empty store is held against the gathering by those who know its law and that relief makes it good, and that a levy is held against the gathering in a lean year (13 grievances) and not in an ordinary one (168 levies paid, none held); the inspector's words are read back from the wire. The kernel (563), web (136) and end-to-end (16, 6 demos skipped) suites pass, with clippy and the schema check clean. The ten-year smoke passed all 10 worlds: 92-99 % of the members came on average and no gathering lacked a quorum; only the three hungry coast villages held grievances at the end (45 to 65 among 25 to 28 people). Gate B and the notables' gate passed.
+
+**Open:** nothing acts on a grievance yet; whether larger villages, where word thins out, see gatherings fail for want of a quorum. Amending the custom (AF) is next.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

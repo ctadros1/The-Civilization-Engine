@@ -1,0 +1,61 @@
+// Grievances and word of mouth in words (wire 1.34, ADR-0016 §2-3). The kernel renders what a
+// grievance is over, whom it blames, what raised it and what a claim says; the observer only
+// joins the pieces.
+
+import { lawDayText } from "./government.js";
+import type { GrievanceLine, HeardLine } from "./net/messages.js";
+
+/** One number of days as the panels show it: "4", "1.5". */
+function days(x: number): string {
+  const r = Math.round(x * 10) / 10;
+  return Number.isInteger(r) ? String(r) : r.toFixed(1);
+}
+
+/** How keenly a grievance is felt now: "keenly felt", "felt", "faintly felt". */
+export function keennessText(activation: number): string {
+  return activation >= 0.6 ? "keenly felt" : activation >= 0.2 ? "felt" : "faintly felt";
+}
+
+/** The grievance itself: "against the gathering, over food when their household was short". */
+export function grievanceHead(g: Pick<GrievanceLine, "blamed" | "over">): string {
+  return `against ${g.blamed}, over ${g.over}`;
+}
+
+/** Why and how much: "the common store was empty when their household was short; 4 of 5 days
+ * of food not made good; held since 3 May of year 2, last raised on 9 May of year 2; felt". */
+export function grievanceFacts(g: GrievanceLine): string {
+  const parts = [g.reason];
+  parts.push(
+    g.unresolvedDays > 0
+      ? `${days(g.unresolvedDays)} of ${days(g.harmDays)} days of food not made good`
+      : `${days(g.harmDays)} days of food, all made good`,
+  );
+  const since = lawDayText(g.madeMinute);
+  parts.push(
+    g.raisedMinute > g.madeMinute
+      ? `held since ${since}, last raised on ${lawDayText(g.raisedMinute)}`
+      : `held since ${since}`,
+  );
+  parts.push(keennessText(g.activation));
+  return parts.join("; ");
+}
+
+/** When they heard a claim: "on 3 May of year 2", and ", last heard on 5 May of year 2" when
+ * heard again since. */
+export function heardWhen(h: Pick<HeardLine, "firstMinute" | "lastMinute">): string {
+  const first = `on ${lawDayText(h.firstMinute)}`;
+  return h.lastMinute > h.firstMinute ? `${first}, last heard on ${lawDayText(h.lastMinute)}` : first;
+}
+
+/** How they heard a claim: "told by Wren on 3 May of year 2", "they knew it first, on 3 May of
+ * year 2". */
+export function heardHow(h: HeardLine): string {
+  return h.from === 0 ? `they knew it first, ${heardWhen(h)}` : `told by ${h.fromName} ${heardWhen(h)}`;
+}
+
+/** The claim itself, as a sentence: "A gathering meets on 9 May of year 2 to hear a case." */
+export function claimText(h: Pick<HeardLine, "what">): string {
+  const w = h.what.trim();
+  if (!w) return "";
+  return `${w.charAt(0).toUpperCase()}${w.slice(1)}.`;
+}

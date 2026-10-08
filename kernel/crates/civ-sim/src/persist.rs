@@ -143,6 +143,9 @@ pub const SCHEMA_V32: u32 = 32;
 /// The schema version of M4b slice AC: the watch, before incidents said where a taker's household
 /// stood by food (see [`agents`]).
 pub const SCHEMA_V33: u32 = 33;
+/// The schema version of M4b slice AD: curfews and where a taker stood by food, before word and
+/// grievances (see [`agents`]).
+pub const SCHEMA_V34: u32 = 34;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

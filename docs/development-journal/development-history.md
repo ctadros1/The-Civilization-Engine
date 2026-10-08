@@ -324,7 +324,9 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 - **The demo:** river valley seed 2 lived five years twice from the command line and once in the observer (`web/e2e/m4a-demo.spec.ts`). In each run a gathering passed a common store at a twentieth in the lean weeks before the first harvest and named a keeper within a year; the levy was mostly paid; and in the dry year 4 the harvest halved, nobody went short, and the store gave no relief, because households' own stores carried them. The observer shows a law's whole history, the notables and the label with its reasons.
 - **Found by the demo:** its first observer run voted 27 times on a fifth or a tenth before a twentieth passed, one sponsor proposing 14 of them; nobody learnt anything from a vote they had watched. Now one who came to a gathering expects no more support for the same proposal than they saw it get, for a year (content API 34). The wording of a self-nomination ("proposed themselves as keeper") was fixed too.
 
-**Open:** whether a larger store would keep a village through a poor year is untested; villages chose a twentieth or a tenth.
+**M4a closed:** the fifty-year dashboard passed on the last build, four rows green and the Gini of goods amber; every world kept its band (77–94 people at year 50) and ended a council community whose storekeeper's office had outlived a holder. Carried forward: office pay and land tenure as a law, a general office primitive, slice X's speed goal, and word of a gathering spreading by mouth.
+
+**Open:** whether a larger store would keep a village through a poor year is untested; villages chose a twentieth or a tenth. M4b, crime and order, is next.
 
 ## Development pattern that emerged
 

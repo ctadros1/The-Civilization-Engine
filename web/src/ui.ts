@@ -42,7 +42,14 @@ import {
 import { materialGoods } from "./deposits.js";
 import { introducible, knowRows, summaryText, techniqueRows } from "./knowledge.js";
 import { standingText, tieText } from "./standing.js";
-import { lawDayText, levyText, reliefText, stanceText, statusText } from "./government.js";
+import {
+  labelText,
+  lawDayText,
+  levyText,
+  reliefText,
+  stanceText,
+  statusText,
+} from "./government.js";
 import { PATH_LEGEND } from "./paths.js";
 import {
   HOUSEHOLDS_SHOWN,
@@ -1867,6 +1874,21 @@ export function bindUi(store: Store, actions: Actions): void {
       if (p.offices.length > 0) {
         block.append(
           el("ul", { className: "offices" }, ...p.offices.map((o) => el("li", { text: o }))),
+        );
+      }
+      const label = labelText(p);
+      if (label !== "") {
+        block.append(
+          el(
+            "details",
+            { className: "label" },
+            el("summary", { text: `Would be called: ${label}` }),
+            el("p", {
+              className: "aside",
+              text: "Worked out afterwards from its history over the last two years; nothing in the world reads it.",
+            }),
+            el("ul", {}, ...p.labelWhy.map((w) => el("li", { text: w }))),
+          ),
         );
       }
       if (p.gatheringLaw !== 0) {

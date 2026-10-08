@@ -1517,6 +1517,14 @@ table PolityLine {
   // Wire 1.28: its offices and who holds them, in words ("Storekeeper: Ada, since 3 May of year
   // 2"), and those vacant ("Storekeeper: vacant since 9 June of year 5, when Ada died").
   offices: [string] (id: 12);
+  // Wire 1.29: what it would be called, worked out afterwards from its history and read by
+  // nothing in the world (ADR-0013 §6): a name ("Council community"), what qualifies it ("a
+  // storekeeper's office", "its levy mostly paid"), the reasons in sentences, and how much
+  // evidence stands behind it (0-1, uncalibrated).
+  label: string (id: 13);
+  label_modifiers: [string] (id: 14);
+  label_why: [string] (id: 15);
+  label_confidence: float (id: 16);
 }
 
 table Government {

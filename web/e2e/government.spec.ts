@@ -1,7 +1,7 @@
 // M4a slice Z, end to end: each settlement's polity in the Government panel, with the custom it
-// decides by, its common store, and a law's whole history in the kernel's words: who proposed it
-// and why, how the gathering decided, where each who came stood and why, and what it asked and
-// gave (ADR-0013).
+// decides by, its common store, what it would be called and why, and a law's whole history in the
+// kernel's words: who proposed it and why, how the gathering decided, where each who came stood
+// and why, and what it asked and gave (ADR-0013).
 
 import { expect, test } from "@playwright/test";
 
@@ -48,6 +48,14 @@ test("a polity, its custom and a law's history in the government panel", async (
     await expect(panel.locator(".polity .since").first()).toContainText(
       `${polity.members} adults; the common store holds`,
     );
+
+    // What it would be called, worked out by the kernel from its history, with the reasons.
+    expect(polity.label).toMatch(/^Council community/);
+    const label = panel.locator("details.label").first();
+    await expect(label.locator("summary")).toContainText(`Would be called: ${polity.label}`);
+    await label.locator("summary").click();
+    await expect(label.locator("li")).toHaveCount(polity.labelWhy.length);
+    await expect(label.locator("li").first()).toContainText("adults may come and decide");
 
     // A law the gathering decided, opened to its history.
     expect(polity.laws.length).toBeGreaterThan(0);

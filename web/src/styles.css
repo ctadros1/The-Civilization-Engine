@@ -1356,6 +1356,16 @@ button.link:hover {
   font-size: 12px;
 }
 
+.polity details.label {
+  margin: 2px 0;
+  font-size: 12px;
+}
+
+.polity details.label ul {
+  margin: 2px 0;
+  padding-left: 18px;
+}
+
 .polity details.law {
   border-bottom: 1px solid var(--line);
   padding: 3px 0;

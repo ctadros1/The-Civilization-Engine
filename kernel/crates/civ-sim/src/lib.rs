@@ -13,6 +13,7 @@
 #![forbid(unsafe_code)]
 
 pub mod frames;
+pub mod labels;
 pub mod persist;
 
 use std::fmt;

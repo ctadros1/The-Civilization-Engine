@@ -1,9 +1,9 @@
 // A settlement's polity and its laws in words (wire 1.27, ADR-0013). The kernel renders what a
-// law is, how it was decided and why each member stood where they did; the observer only joins
-// the pieces.
+// law is, how it was decided, why each member stood where they did, and what the polity would be
+// called (1.29); the observer only joins the pieces.
 
 import { formatKg, simDate } from "./format.js";
-import type { LawLine, StanceLine } from "./net/messages.js";
+import type { LawLine, PolityLine, StanceLine } from "./net/messages.js";
 
 const MONTHS = [
   "January",
@@ -74,4 +74,16 @@ export function reliefText(l: Pick<LawLine, "relieved" | "reliefKg" | "unanswere
   const asks = `${l.relieved} ask${l.relieved === 1 ? "" : "s"}`;
   const text = `the store answered ${asks} (${formatKg(l.reliefKg)})`;
   return l.unanswered > 0 ? `${text}; ${l.unanswered} it could not` : text;
+}
+
+/**
+ * What a polity would be called, with what qualifies it and how sure: "Council community: a
+ * storekeeper's office; its levy mostly paid (confidence 0.67)". "" before the kernel labels it.
+ */
+export function labelText(
+  p: Pick<PolityLine, "label" | "labelModifiers" | "labelConfidence">,
+): string {
+  if (p.label === "") return "";
+  const qualified = p.labelModifiers.length > 0 ? `: ${p.labelModifiers.join("; ")}` : "";
+  return `${p.label}${qualified} (confidence ${p.labelConfidence.toFixed(2)})`;
 }

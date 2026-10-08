@@ -22727,6 +22727,10 @@ impl<'a> PolityLine<'a> {
   pub const VT_GATHERING_MINUTE: ::flatbuffers::VOffsetT = 24;
   pub const VT_GATHERING_PRESENT: ::flatbuffers::VOffsetT = 26;
   pub const VT_OFFICES: ::flatbuffers::VOffsetT = 28;
+  pub const VT_LABEL: ::flatbuffers::VOffsetT = 30;
+  pub const VT_LABEL_MODIFIERS: ::flatbuffers::VOffsetT = 32;
+  pub const VT_LABEL_WHY: ::flatbuffers::VOffsetT = 34;
+  pub const VT_LABEL_CONFIDENCE: ::flatbuffers::VOffsetT = 36;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -22743,6 +22747,10 @@ impl<'a> PolityLine<'a> {
     builder.add_founded_minute(args.founded_minute);
     builder.add_settlement(args.settlement);
     builder.add_polity(args.polity);
+    builder.add_label_confidence(args.label_confidence);
+    if let Some(x) = args.label_why { builder.add_label_why(x); }
+    if let Some(x) = args.label_modifiers { builder.add_label_modifiers(x); }
+    if let Some(x) = args.label { builder.add_label(x); }
     if let Some(x) = args.offices { builder.add_offices(x); }
     builder.add_gathering_present(args.gathering_present);
     if let Some(x) = args.laws { builder.add_laws(x); }
@@ -22846,6 +22854,34 @@ impl<'a> PolityLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PolityLine::VT_OFFICES, None)}
   }
+  #[inline]
+  pub fn label(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PolityLine::VT_LABEL, None)}
+  }
+  #[inline]
+  pub fn label_modifiers(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PolityLine::VT_LABEL_MODIFIERS, None)}
+  }
+  #[inline]
+  pub fn label_why(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PolityLine::VT_LABEL_WHY, None)}
+  }
+  #[inline]
+  pub fn label_confidence(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(PolityLine::VT_LABEL_CONFIDENCE, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolityLine<'_> {
@@ -22867,6 +22903,10 @@ impl ::flatbuffers::Verifiable for PolityLine<'_> {
      .visit_field::<i64>("gathering_minute", Self::VT_GATHERING_MINUTE, false)?
      .visit_field::<u32>("gathering_present", Self::VT_GATHERING_PRESENT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("offices", Self::VT_OFFICES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("label", Self::VT_LABEL, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("label_modifiers", Self::VT_LABEL_MODIFIERS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("label_why", Self::VT_LABEL_WHY, false)?
+     .visit_field::<f32>("label_confidence", Self::VT_LABEL_CONFIDENCE, false)?
      .finish();
     Ok(())
   }
@@ -22885,6 +22925,10 @@ pub struct PolityLineArgs<'a> {
     pub gathering_minute: i64,
     pub gathering_present: u32,
     pub offices: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub label: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub label_modifiers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub label_why: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub label_confidence: f32,
 }
 impl<'a> Default for PolityLineArgs<'a> {
   #[inline]
@@ -22903,6 +22947,10 @@ impl<'a> Default for PolityLineArgs<'a> {
       gathering_minute: 0,
       gathering_present: 0,
       offices: None,
+      label: None,
+      label_modifiers: None,
+      label_why: None,
+      label_confidence: 0.0,
     }
   }
 }
@@ -22965,6 +23013,22 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolityLineBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_OFFICES, offices);
   }
   #[inline]
+  pub fn add_label(&mut self, label: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_LABEL, label);
+  }
+  #[inline]
+  pub fn add_label_modifiers(&mut self, label_modifiers: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_LABEL_MODIFIERS, label_modifiers);
+  }
+  #[inline]
+  pub fn add_label_why(&mut self, label_why: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_LABEL_WHY, label_why);
+  }
+  #[inline]
+  pub fn add_label_confidence(&mut self, label_confidence: f32) {
+    self.fbb_.push_slot::<f32>(PolityLine::VT_LABEL_CONFIDENCE, label_confidence, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolityLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolityLineBuilder {
@@ -22995,6 +23059,10 @@ impl ::core::fmt::Debug for PolityLine<'_> {
       ds.field("gathering_minute", &self.gathering_minute());
       ds.field("gathering_present", &self.gathering_present());
       ds.field("offices", &self.offices());
+      ds.field("label", &self.label());
+      ds.field("label_modifiers", &self.label_modifiers());
+      ds.field("label_why", &self.label_why());
+      ds.field("label_confidence", &self.label_confidence());
       ds.finish()
   }
 }

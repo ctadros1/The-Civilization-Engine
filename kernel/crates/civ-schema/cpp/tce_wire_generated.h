@@ -14247,7 +14247,11 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_GATHERING_LAW = 22,
     VT_GATHERING_MINUTE = 24,
     VT_GATHERING_PRESENT = 26,
-    VT_OFFICES = 28
+    VT_OFFICES = 28,
+    VT_LABEL = 30,
+    VT_LABEL_MODIFIERS = 32,
+    VT_LABEL_WHY = 34,
+    VT_LABEL_CONFIDENCE = 36
   };
   uint64_t polity() const {
     return GetField<uint64_t>(VT_POLITY, 0);
@@ -14288,6 +14292,18 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *offices() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_OFFICES);
   }
+  const ::flatbuffers::String *label() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_LABEL);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *label_modifiers() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_LABEL_MODIFIERS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *label_why() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_LABEL_WHY);
+  }
+  float label_confidence() const {
+    return GetField<float>(VT_LABEL_CONFIDENCE, 0.0f);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -14311,6 +14327,15 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_OFFICES) &&
            verifier.VerifyVector(offices()) &&
            verifier.VerifyVectorOfStrings(offices()) &&
+           VerifyOffset(verifier, VT_LABEL) &&
+           verifier.VerifyString(label()) &&
+           VerifyOffset(verifier, VT_LABEL_MODIFIERS) &&
+           verifier.VerifyVector(label_modifiers()) &&
+           verifier.VerifyVectorOfStrings(label_modifiers()) &&
+           VerifyOffset(verifier, VT_LABEL_WHY) &&
+           verifier.VerifyVector(label_why()) &&
+           verifier.VerifyVectorOfStrings(label_why()) &&
+           VerifyField<float>(verifier, VT_LABEL_CONFIDENCE, 4) &&
            verifier.EndTable();
   }
 };
@@ -14358,6 +14383,18 @@ struct PolityLineBuilder {
   void add_offices(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> offices) {
     fbb_.AddOffset(PolityLine::VT_OFFICES, offices);
   }
+  void add_label(::flatbuffers::Offset<::flatbuffers::String> label) {
+    fbb_.AddOffset(PolityLine::VT_LABEL, label);
+  }
+  void add_label_modifiers(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> label_modifiers) {
+    fbb_.AddOffset(PolityLine::VT_LABEL_MODIFIERS, label_modifiers);
+  }
+  void add_label_why(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> label_why) {
+    fbb_.AddOffset(PolityLine::VT_LABEL_WHY, label_why);
+  }
+  void add_label_confidence(float label_confidence) {
+    fbb_.AddElement<float>(PolityLine::VT_LABEL_CONFIDENCE, label_confidence, 0.0f);
+  }
   explicit PolityLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -14383,13 +14420,21 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLine(
     uint64_t gathering_law = 0,
     int64_t gathering_minute = 0,
     uint32_t gathering_present = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> offices = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> offices = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> label = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> label_modifiers = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> label_why = 0,
+    float label_confidence = 0.0f) {
   PolityLineBuilder builder_(_fbb);
   builder_.add_gathering_minute(gathering_minute);
   builder_.add_gathering_law(gathering_law);
   builder_.add_founded_minute(founded_minute);
   builder_.add_settlement(settlement);
   builder_.add_polity(polity);
+  builder_.add_label_confidence(label_confidence);
+  builder_.add_label_why(label_why);
+  builder_.add_label_modifiers(label_modifiers);
+  builder_.add_label(label);
   builder_.add_offices(offices);
   builder_.add_gathering_present(gathering_present);
   builder_.add_laws(laws);
@@ -14420,12 +14465,19 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
     uint64_t gathering_law = 0,
     int64_t gathering_minute = 0,
     uint32_t gathering_present = 0,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *offices = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *offices = nullptr,
+    const char *label = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *label_modifiers = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *label_why = nullptr,
+    float label_confidence = 0.0f) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto custom__ = custom ? _fbb.CreateString(custom) : 0;
   auto store__ = store ? _fbb.CreateString(store) : 0;
   auto laws__ = laws ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::LawLine>>(*laws) : 0;
   auto offices__ = offices ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*offices) : 0;
+  auto label__ = label ? _fbb.CreateString(label) : 0;
+  auto label_modifiers__ = label_modifiers ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*label_modifiers) : 0;
+  auto label_why__ = label_why ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*label_why) : 0;
   return tce::wire::CreatePolityLine(
       _fbb,
       polity,
@@ -14440,7 +14492,11 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
       gathering_law,
       gathering_minute,
       gathering_present,
-      offices__);
+      offices__,
+      label__,
+      label_modifiers__,
+      label_why__,
+      label_confidence);
 }
 
 struct Government FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

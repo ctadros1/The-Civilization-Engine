@@ -750,6 +750,25 @@ fn report_polity(sim: &Sim, from: i64, out: &mut dyn Write) -> anyhow::Result<()
     }
     let goods = &sim.rules().catalog.goods;
     for p in &pop.polities {
+        // What it would be called, worked out from its history (ADR-0013 §6).
+        let label = civ_sim::labels::label_of(sim, p);
+        let place = sim
+            .land()
+            .settlements
+            .iter()
+            .find(|s| s.id == p.settlement)
+            .map_or("", |s| s.name.as_str());
+        let qualified = if label.modifiers.is_empty() {
+            String::new()
+        } else {
+            format!(": {}", label.modifiers.join("; "))
+        };
+        writeln!(
+            out,
+            "  {place} would be called {}{qualified} (confidence {:.2})",
+            label.in_prose(),
+            label.confidence
+        )?;
         if p.laws.iter().all(|l| l.status != LawStatus::InForce) {
             continue;
         }

@@ -836,6 +836,15 @@ export interface PolityLine {
   gatheringPresent: number;
   /** Wire 1.28: its offices and who holds them, in the kernel's words. */
   offices: string[];
+  /**
+   * Wire 1.29: what it would be called, worked out afterwards from its history and read by
+   * nothing in the world (ADR-0013 §6): a name, what qualifies it, why, and how much evidence
+   * stands behind it (0-1, uncalibrated).
+   */
+  label: string;
+  labelModifiers: string[];
+  labelWhy: string[];
+  labelConfidence: number;
 }
 
 /** Every settlement's polity at `minute` (wire 1.27). */
@@ -2726,6 +2735,13 @@ function governmentInfo(w: W.Government): GovernmentInfo {
       gatheringMinute: Number(p.gatheringMinute()),
       gatheringPresent: p.gatheringPresent(),
       offices: Array.from({ length: p.officesLength() }, (_, k) => p.offices(k) ?? ""),
+      label: p.label() ?? "",
+      labelModifiers: Array.from(
+        { length: p.labelModifiersLength() },
+        (_, k) => p.labelModifiers(k) ?? "",
+      ),
+      labelWhy: Array.from({ length: p.labelWhyLength() }, (_, k) => p.labelWhy(k) ?? ""),
+      labelConfidence: p.labelConfidence(),
     });
   }
   return { minute: Number(w.minute()), polities };

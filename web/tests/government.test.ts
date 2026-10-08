@@ -1,7 +1,14 @@
 import * as flatbuffers from "flatbuffers";
 import { describe, expect, it } from "vitest";
 
-import { lawDayText, levyText, reliefText, stanceText, statusText } from "../src/government.js";
+import {
+  labelText,
+  lawDayText,
+  levyText,
+  reliefText,
+  stanceText,
+  statusText,
+} from "../src/government.js";
 import * as M from "../src/net/messages.js";
 import * as W from "../src/schema/generated/tce/wire.js";
 
@@ -46,6 +53,21 @@ describe("a polity's laws in words", () => {
     ).toBe(
       "paid 249 times (326 kg); kept back 16 times, could not pay 2, did not know of it 1 (18 kg withheld)",
     );
+  });
+
+  it("say what a polity would be called, and how sure", () => {
+    const none = { label: "", labelModifiers: [], labelConfidence: 0 };
+    expect(labelText(none)).toBe("");
+    expect(labelText({ label: "Council community", labelModifiers: [], labelConfidence: 0.2 })).toBe(
+      "Council community (confidence 0.20)",
+    );
+    expect(
+      labelText({
+        label: "Council community",
+        labelModifiers: ["a storekeeper's office", "its levy mostly paid"],
+        labelConfidence: 2 / 3,
+      }),
+    ).toBe("Council community: a storekeeper's office; its levy mostly paid (confidence 0.67)");
   });
 
   it("tell what the store gave", () => {
@@ -103,6 +125,11 @@ describe("the government on the wire", () => {
     const laws = W.PolityLine.createLawsVector(b, [law]);
     const office = b.createString("Storekeeper: Ada, since 3 May of year 2");
     const offices = W.PolityLine.createOfficesVector(b, [office]);
+    const label = b.createString("Council community");
+    const modifier = b.createString("a storekeeper's office");
+    const modifiers = W.PolityLine.createLabelModifiersVector(b, [modifier]);
+    const reason = b.createString("All its adults may come and decide.");
+    const labelWhy = W.PolityLine.createLabelWhyVector(b, [reason]);
     const name = b.createString("Stonewick");
     const custom = b.createString("The adults who come to the hearth decide by acclamation.");
     const store = b.createString("grain 26 kg");
@@ -121,6 +148,10 @@ describe("the government on the wire", () => {
       0n,
       0,
       offices,
+      label,
+      modifiers,
+      labelWhy,
+      0.5,
     );
     const polities = W.Government.createPolitiesVector(b, [polity]);
     const government = W.Government.createGovernment(b, BigInt(103 * DAY), polities);
@@ -136,6 +167,10 @@ describe("the government on the wire", () => {
       store: "grain 26 kg",
       gatheringLaw: 0,
       offices: ["Storekeeper: Ada, since 3 May of year 2"],
+      label: "Council community",
+      labelModifiers: ["a storekeeper's office"],
+      labelWhy: ["All its adults may come and decide."],
+      labelConfidence: 0.5,
     });
     const l = p.laws[0]!;
     expect(l).toMatchObject({

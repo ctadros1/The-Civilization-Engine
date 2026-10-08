@@ -1,6 +1,6 @@
 //! Each settlement's polity for the observer (wire 1.27, ADR-0013): its custom, its members, its
-//! store and every law proposed there with its whole history. The kernel renders the words; the
-//! observer only shows them.
+//! store, every law proposed there with its whole history, its offices (1.28) and its label
+//! (1.29). The kernel renders the words; the observer only shows them.
 
 use civ_agents::polity::{
     Law, LawStatus, Outcome, Polity, Stance, day_words, decision_words, law_words, office_words,
@@ -196,6 +196,16 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
         .map(|w| fbb.create_string(w))
         .collect();
         let offices = fbb.create_vector(&offices);
+        let label = crate::labels::label_of(sim, polity);
+        let label_name = fbb.create_string(&label.name);
+        let modifiers: Vec<_> = label
+            .modifiers
+            .iter()
+            .map(|m| fbb.create_string(m))
+            .collect();
+        let label_modifiers = fbb.create_vector(&modifiers);
+        let why: Vec<_> = label.why.iter().map(|w| fbb.create_string(w)).collect();
+        let label_why = fbb.create_vector(&why);
         let (gathering_law, gathering_minute, gathering_present) =
             polity.gathering.as_ref().map_or((0, 0, 0), |g| {
                 (g.law.get(), g.day * 1440, g.present.len() as u32)
@@ -216,6 +226,10 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                 gathering_minute,
                 gathering_present,
                 offices: Some(offices),
+                label: Some(label_name),
+                label_modifiers: Some(label_modifiers),
+                label_why: Some(label_why),
+                label_confidence: label.confidence as f32,
             },
         ));
     }

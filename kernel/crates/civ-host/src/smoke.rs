@@ -624,6 +624,14 @@ fn polity(sim: &Sim) -> Option<String> {
             ));
         }
     }
+    for p in &pop.polities {
+        let label = civ_sim::labels::label_of(sim, p);
+        parts.push(format!(
+            "labelled {} ({:.2})",
+            label.in_prose(),
+            label.confidence
+        ));
+    }
     Some(parts.join("; "))
 }
 

@@ -950,6 +950,8 @@ const hooks = {
               custom: p.custom,
               store: p.store,
               offices: p.offices,
+              label: p.label,
+              labelWhy: p.labelWhy,
               gatheringLaw: p.gatheringLaw,
               laws: p.laws.map((l) => ({
                 what: l.what,

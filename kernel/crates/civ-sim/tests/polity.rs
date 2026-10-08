@@ -131,6 +131,45 @@ fn a_village_whose_food_will_not_last_proposes_and_its_gathering_decides() {
     check_the_history(&sim);
     // And all of it saves and loads exactly, and goes on alike.
     saves_and_goes_on_alike(&mut sim, &sure, 3 * DAY);
+    labels_name_it_and_change_nothing(&mut sim, &sure);
+}
+
+/// The village is labelled from its history (ADR-0013 §6), and a copy of it whose labels and
+/// government panel are worked out every day lives exactly as one never labelled.
+fn labels_name_it_and_change_nothing(sim: &mut Sim, content: &ContentRegistry) {
+    let label = civ_sim::labels::label_of(sim, &sim.people().polities[0]);
+    assert!(label.name.starts_with("Council community"), "{label:?}");
+    assert!(
+        label.why.iter().any(|w| w.contains("since it was founded")),
+        "{label:?}"
+    );
+    assert!(label.confidence >= 0.2, "{label:?}");
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(sim, &saves, commons_persist::SaveKind::Manual, "labels").expect("saves");
+    let mut plain = persist::load(&saved.path, content).expect("loads");
+    let mut labelled = persist::load(&saved.path, content).expect("loads");
+    for _ in 0..5 {
+        plain.advance_minutes(DAY).expect("advances");
+        labelled.advance_minutes(DAY).expect("advances");
+        for p in &labelled.people().polities {
+            let _ = civ_sim::labels::label_of(&labelled, p);
+        }
+        let _ = civ_sim::frames::government::government_response(&labelled);
+    }
+    let (a, b) = (
+        persist::encode_sections(&plain),
+        persist::encode_sections(&labelled),
+    );
+    for (x, y) in a.iter().zip(&b) {
+        assert!(
+            x.tag == persist::SECTION_META || x.bytes == y.bytes,
+            "section `{}` differs once labelled",
+            x.tag
+        );
+    }
 }
 
 /// The history of the first law a gathering decided, stage by stage.

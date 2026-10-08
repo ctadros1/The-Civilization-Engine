@@ -108,8 +108,44 @@ officesLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+label():string|null
+label(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+label(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 30);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+labelModifiers(index: number):string
+labelModifiers(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+labelModifiers(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 32);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+labelModifiersLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 32);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+labelWhy(index: number):string
+labelWhy(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+labelWhy(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 34);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+labelWhyLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 34);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+labelConfidence():number {
+  const offset = this.bb!.__offset(this.bb_pos, 36);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
 static startPolityLine(builder:flatbuffers.Builder) {
-  builder.startObject(13);
+  builder.startObject(17);
 }
 
 static addPolity(builder:flatbuffers.Builder, polity:bigint) {
@@ -188,12 +224,52 @@ static startOfficesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addLabel(builder:flatbuffers.Builder, labelOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(13, labelOffset, 0);
+}
+
+static addLabelModifiers(builder:flatbuffers.Builder, labelModifiersOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(14, labelModifiersOffset, 0);
+}
+
+static createLabelModifiersVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startLabelModifiersVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addLabelWhy(builder:flatbuffers.Builder, labelWhyOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(15, labelWhyOffset, 0);
+}
+
+static createLabelWhyVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startLabelWhyVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addLabelConfidence(builder:flatbuffers.Builder, labelConfidence:number) {
+  builder.addFieldFloat32(16, labelConfidence, 0.0);
+}
+
 static endPolityLine(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:bigint, nameOffset:flatbuffers.Offset, foundedMinute:bigint, customOffset:flatbuffers.Offset, members:number, storeOffset:flatbuffers.Offset, storeKg:number, lawsOffset:flatbuffers.Offset, gatheringLaw:bigint, gatheringMinute:bigint, gatheringPresent:number, officesOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:bigint, nameOffset:flatbuffers.Offset, foundedMinute:bigint, customOffset:flatbuffers.Offset, members:number, storeOffset:flatbuffers.Offset, storeKg:number, lawsOffset:flatbuffers.Offset, gatheringLaw:bigint, gatheringMinute:bigint, gatheringPresent:number, officesOffset:flatbuffers.Offset, labelOffset:flatbuffers.Offset, labelModifiersOffset:flatbuffers.Offset, labelWhyOffset:flatbuffers.Offset, labelConfidence:number):flatbuffers.Offset {
   PolityLine.startPolityLine(builder);
   PolityLine.addPolity(builder, polity);
   PolityLine.addSettlement(builder, settlement);
@@ -208,6 +284,10 @@ static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:b
   PolityLine.addGatheringMinute(builder, gatheringMinute);
   PolityLine.addGatheringPresent(builder, gatheringPresent);
   PolityLine.addOffices(builder, officesOffset);
+  PolityLine.addLabel(builder, labelOffset);
+  PolityLine.addLabelModifiers(builder, labelModifiersOffset);
+  PolityLine.addLabelWhy(builder, labelWhyOffset);
+  PolityLine.addLabelConfidence(builder, labelConfidence);
   return PolityLine.endPolityLine(builder);
 }
 }

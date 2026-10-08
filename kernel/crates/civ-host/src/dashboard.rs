@@ -118,6 +118,9 @@ pub struct WorldRun {
     pub ended: Option<String>,
     /// The saves kept at each tenth year's end.
     pub saves: Vec<PathBuf>,
+    /// What each settlement's polity would be called at the end, with what qualifies it
+    /// (ADR-0013 §6).
+    pub labels: Vec<String>,
 }
 
 impl WorldRun {
@@ -393,6 +396,19 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
         }
     }
     world.gini = by_year.into_iter().map(|(y, (g, p))| (y, g, p)).collect();
+    world.labels = sim
+        .people()
+        .polities
+        .iter()
+        .map(|p| {
+            let l = civ_sim::labels::label_of(sim, p);
+            if l.modifiers.is_empty() {
+                l.in_prose()
+            } else {
+                format!("{} ({})", l.in_prose(), l.modifiers.join("; "))
+            }
+        })
+        .collect();
     for c in run.economy.grade(sim) {
         let seen = Some((c.grade, c.text.clone()));
         match c.name {
@@ -431,18 +447,34 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
             "clustered",
         )
         .graded(Grade::Gray, "no disease until M6".to_owned()),
-        Row::new(
-            "Regimes",
-            "labels inferred from how worlds are run",
-            "two seeds differ",
-        )
-        .graded(
-            Grade::Gray,
-            "regimes are given by seed, so differing would pass by construction; no labels are \
-             inferred until M4"
-                .to_owned(),
-        ),
+        regimes(worlds),
     ]
+}
+
+/// The labels the worlds' polities ended with (ADR-0013 §6). Every world keeps the one founding
+/// custom, which nothing can yet amend or seize (M4c), so labels that differ would show offices
+/// and evidence, not who rules: the row reports them and is not graded until then.
+fn regimes(worlds: &[WorldRun]) -> Row {
+    let seen: Vec<String> = worlds
+        .iter()
+        .filter(|w| !w.labels.is_empty())
+        .map(|w| format!("world {}: {}", w.seed, w.labels.join(", ")))
+        .collect();
+    let why = "every world keeps its founding custom, which none can yet amend or seize (M4c), \
+               so differing labels would show offices and evidence, not who rules";
+    Row::new(
+        "Regimes",
+        "labels inferred from how worlds are run",
+        "two seeds differ",
+    )
+    .graded(
+        Grade::Gray,
+        if seen.is_empty() {
+            format!("no polity to label; {why}")
+        } else {
+            format!("{} / {why}", seen.join(" / "))
+        },
+    )
 }
 
 /// The most a band may have grown by the end of year `y`, as a multiple of its founders.

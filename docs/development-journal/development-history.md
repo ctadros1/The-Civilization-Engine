@@ -308,7 +308,13 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Found on the way:** the fifty-year dashboard failed one row, structural failures at 2.01 per 1,000 building-years against 2, within the spread of earlier runs (1.10–2.37). Its roof failures killed people where slice W's had killed nobody. A time-boxed probe showed the collapse rule unchanged: slice W's failures were mostly huts their households had left.
 
-**Open:** labels (Z5) and the notables' gate with the demo (Z6) are next. Whether a larger store would keep a village through a poor year is untested; villages chose a twentieth or a tenth.
+**Fifth step, labels:**
+
+- **What changed:** a pure classifier works out what each polity would be called from its saved history: who may decide, what it decided in the last two years and how many came, whether one person's following carries what passes, its offices and whether one outlived its holder, and whether its levy is paid. It gives a name, modifiers, a confidence and reasons in words, shown in the Government panel (wire 1.29), the run report and the smoke. Nothing is saved.
+- **Evidence:** table-driven tests over the classifier, including cases from the research (twice the people under the same institutions changes nothing; a body admitting a third of the adults is an oligarchy). An integration test labels a village every day on one copy of a save and not on another, and both end byte for byte the same. The end-to-end suite opens a label to its reasons.
+- **Found on the way:** the first ten-year smoke labelled every village at the lowest confidence, because nothing had been decided in the last two years, and the classifier would have called a custom exercised years before "not yet exercised". Laws still in force now count as evidence that the procedure binds.
+
+**Open:** the notables' gate with the demo (Z6) is next. Whether a larger store would keep a village through a poor year is untested; villages chose a twentieth or a tenth.
 
 ## Development pattern that emerged
 

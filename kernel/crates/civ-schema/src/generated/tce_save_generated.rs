@@ -18512,6 +18512,7 @@ impl<'a> LawSave<'a> {
   pub const VT_RELIEVED: ::flatbuffers::VOffsetT = 46;
   pub const VT_RELIEF_KG: ::flatbuffers::VOffsetT = 48;
   pub const VT_UNANSWERED: ::flatbuffers::VOffsetT = 50;
+  pub const VT_HOLDER: ::flatbuffers::VOffsetT = 52;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -18523,6 +18524,7 @@ impl<'a> LawSave<'a> {
     args: &'args LawSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<LawSave<'bldr>> {
     let mut builder = LawSaveBuilder::new(_fbb);
+    builder.add_holder(args.holder);
     builder.add_relief_kg(args.relief_kg);
     builder.add_withheld_kg(args.withheld_kg);
     builder.add_levied_kg(args.levied_kg);
@@ -18719,6 +18721,13 @@ impl<'a> LawSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(LawSave::VT_UNANSWERED, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn holder(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LawSave::VT_HOLDER, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for LawSave<'_> {
@@ -18751,6 +18760,7 @@ impl ::flatbuffers::Verifiable for LawSave<'_> {
      .visit_field::<u32>("relieved", Self::VT_RELIEVED, false)?
      .visit_field::<f64>("relief_kg", Self::VT_RELIEF_KG, false)?
      .visit_field::<u32>("unanswered", Self::VT_UNANSWERED, false)?
+     .visit_field::<u64>("holder", Self::VT_HOLDER, false)?
      .finish();
     Ok(())
   }
@@ -18780,6 +18790,7 @@ pub struct LawSaveArgs<'a> {
     pub relieved: u32,
     pub relief_kg: f64,
     pub unanswered: u32,
+    pub holder: u64,
 }
 impl<'a> Default for LawSaveArgs<'a> {
   #[inline]
@@ -18809,6 +18820,7 @@ impl<'a> Default for LawSaveArgs<'a> {
       relieved: 0,
       relief_kg: 0.0,
       unanswered: 0,
+      holder: 0,
     }
   }
 }
@@ -18915,6 +18927,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LawSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u32>(LawSave::VT_UNANSWERED, unanswered, 0);
   }
   #[inline]
+  pub fn add_holder(&mut self, holder: u64) {
+    self.fbb_.push_slot::<u64>(LawSave::VT_HOLDER, holder, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LawSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LawSaveBuilder {
@@ -18956,6 +18972,7 @@ impl ::core::fmt::Debug for LawSave<'_> {
       ds.field("relieved", &self.relieved());
       ds.field("relief_kg", &self.relief_kg());
       ds.field("unanswered", &self.unanswered());
+      ds.field("holder", &self.holder());
       ds.finish()
   }
 }

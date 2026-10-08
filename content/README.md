@@ -138,7 +138,8 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `raised_store_factor` | How many times as long goods keep on a raised store's floor as elsewhere under a roof (1 or more). |
 | | `fuel_kg_per_person_day`, `fuel_target_days` | Firewood burned per person per day by month (January first), and the store people aim for. |
 | | `short_food_days`, `recovered_food_days` | The chronicle notes a settlement's shortage below the first and its end above the second. |
-| | `leave_at_depletion`, `leave_per_day`, `leave_unless_ripe_within_days` | A household with less than a day's food, whose members have drawn on average this share of their reserve, and with no crop of its own ripening within these days or reaped and waiting, gives up and leaves with this chance a day. |
+| | `leave_at_depletion`, `leave_per_day`, `leave_unless_ripe_within_days` | A household with less than a day's food, whose members have drawn on average this share of their reserve, and with no crop of its own ripening within these days or reaped and waiting, weighs leaving, with at most this chance a day. |
+| | `leave_w_gap`, `leave_w_stake`, `leave_stay` | How it weighs it (M4a slice Z; content API 32): points toward going for the whole of the wait to its next harvest that its food, its share of what other households could spare and its share of a common store it knows it may ask would not cover (0 to 100); toward staying for a whole year's food its fields should bring, which leaving gives up (0 to 100); and toward staying before either (−100 to 100). The day's chance is `leave_per_day` times the logistic of going's points less staying's. |
 | `decision` | `temperature_sd_fraction`, `min_temperature` | Softmax temperature: a fraction of the spread of the acceptable options' scores, with a floor. Only options worth more than doing nothing (a positive total) are sampled, unless none is. |
 | | `w_*`, `trip_half_worth_days` | Points per unit of each consideration (hunger, sleep, company, food, firewood and water shortage, useful work, walking, effort, darkness, rest, play, field work's harvest, shelter, stores that will not last to the next harvest (`w_lean`), and a deadline's pressure); a trip bringing `trip_half_worth_days` of the household's need is worth half a very large haul. Beyond any shortage, more of a good is worth less the more of it is in store. `w_shelter` is what a session of building, or a load of what the household still needs for its roof, is worth. |
 | `band` | `default_size`, `min_size`, `max_size`, `min_families` | The founding band the new-world dialog offers. `min_size` is at least twice `min_families`. |
@@ -577,15 +578,22 @@ template the content no longer has is refused.
 
 | Field | Meaning |
 |---|---|
-| `does` | What the kernel does under it: `common_store`, a share of each household's threshed grain paid into a store the polity keeps at the hearth, and food from it for a household short of food that asks. |
-| `answers` | The issues whose presence makes proposing it a move: `food_short` (the settlement's food ran short within the year, or a household's food will not last until its next harvest). At least one. |
-| `levy_shares` | The shares of threshed grain a sponsor may propose (1 to 8 of them, each above 0 and below 1). |
-| `relief_days` | The most food one ask brings, in days of the asking household's need (above 0, at most 365). |
+| `does` | What the kernel does under it: `common_store`, a share of each household's threshed grain paid into a store the polity keeps at the hearth, and food from it for a household short of food that asks; or `keep_store`, a named adult keeps the common store under their own roof and gives from it at their home (the office's first form, below). |
+| `answers` | The issues whose presence makes proposing it a move: `food_short` (the settlement's food ran short within the year, or a household's food will not last until its next harvest); `store_unkept` (a common store is in force and holds food, and no one keeps it). At least one. |
+| `levy_shares` | `common_store` only: the shares of threshed grain a sponsor may propose (1 to 8 of them, each above 0 and below 1). A `keep_store` template leaves it out. |
+| `relief_days` | `common_store` only: the most food one ask brings, in days of the asking household's need (above 0, at most 365). A `keep_store` template leaves it out. |
 
 The core pack has `core:policy/common_store`, at a twentieth, a tenth or a fifth (research 09-01
 §3.3 gives 0-30 % of the harvest as an uncalibrated starting range; §3.2 warns a 10-30 % tribute
 "is not a universal harvest tax"), at most five days of food an ask (a tuning value; 09-17 §1.5: a
-public store combines storage with allocation).
+public store combines storage with allocation), and `core:policy/keep_store`, the storekeeper.
+
+A `keep_store` law names its holder. Its sponsor nominates the sheltered adult they regard most
+(themselves counted at full regard), each weighs what a year's spoilage saved under a roof is worth
+to their household, and the gathering decides as for any law. While the holder lives in the
+settlement the store spoils as a roofed store and relief is asked at their home; when they die or
+leave the law lapses (the chronicle says so), the store is unkept again and the issue is open for
+a new proposal: succession is a new law, not a rule written in advance (research 09-03 §3.1, §5.1).
 
 Content API 31 (M4a slice Z) brings the polity: the `policy` kind, the people profile's
 `[polity]` and `behavior = "attend"` (`core:activity/attend_gathering`, adults only). The core
@@ -594,8 +602,17 @@ evening for two hours, needs a quarter of the adults (no figure in the reports),
 lean year in four before it has seen any, takes a lean harvest as half an ordinary one and half a
 year's food as the edge of subsistence. All are tuning values.
 
+Content API 32 (M4a slice Z) weighs leaving: the people profile's `[household]` gains
+`leave_w_gap`, `leave_w_stake` and `leave_stay`. In the core pack a household with nothing to wait
+on goes at nearly `leave_per_day`, and one that others or the store could carry to its harvest at
+about a tenth of it (tuning values).
+
+Content API 33 (M4a slice Z) brings the storekeeper: `does = "keep_store"`, the `store_unkept`
+issue and `core:policy/keep_store`. `levy_shares` and `relief_days` became optional and are checked
+per kind: required for `common_store`, refused for `keep_store`.
+
 ## Planned kinds
 
 More techniques (each only with the work behind it), more building programs and grammars, style
-primitives, offices and further policies, service capability ladders, all
+primitives, offices beyond the storekeeper and further policies, service capability ladders, all
 as the milestones in the plan introduce them (§5, §7).

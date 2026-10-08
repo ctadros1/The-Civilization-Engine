@@ -455,6 +455,9 @@ pub enum ChronicleKind {
     /// ("The gathering at Ashford passed a common store, a tenth of each harvest: 14 for, 3
     /// against; 19 of 40 adults came.").
     LawDecided,
+    /// A law naming someone lapsed because they died or left: `people` is them, `name` it in
+    /// words ("Ada no longer keeps the common store at Ashford: they died.").
+    LawLapsed,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -832,7 +835,9 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             Some(who) => vec![who, Span::Text(format!(" proposed {}.", event.name))],
             None => vec![Span::Text(format!("Someone proposed {}.", event.name))],
         },
-        ChronicleKind::LawDecided => vec![Span::Text(event.name.clone())],
+        ChronicleKind::LawDecided | ChronicleKind::LawLapsed => {
+            vec![Span::Text(event.name.clone())]
+        }
         ChronicleKind::FirstTrail => vec![
             Span::Text("The first trail out of ".to_owned()),
             settlement(event),

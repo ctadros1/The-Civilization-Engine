@@ -1864,6 +1864,11 @@ export function bindUi(store: Store, actions: Actions): void {
           text: `${p.members} adults; the common store holds ${p.store}.`,
         }),
       );
+      if (p.offices.length > 0) {
+        block.append(
+          el("ul", { className: "offices" }, ...p.offices.map((o) => el("li", { text: o }))),
+        );
+      }
       if (p.gatheringLaw !== 0) {
         block.append(
           el("p", {
@@ -1892,7 +1897,7 @@ export function bindUi(store: Store, actions: Actions): void {
             el("dd", { text: `${lawDayText(l.decidedMinute)}: ${l.decision}` }),
           );
         }
-        if (l.status === "in force") {
+        if (l.status === "in force" || l.status === "lapsed") {
           facts.append(el("dt", { text: "Known by" }), el("dd", { text: `${l.known} living` }));
           const levy = levyText(l);
           if (levy) facts.append(el("dt", { text: "Levy" }), el("dd", { text: levy }));

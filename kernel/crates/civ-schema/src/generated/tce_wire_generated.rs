@@ -22169,6 +22169,8 @@ impl<'a> LawLine<'a> {
   pub const VT_RELIEVED: ::flatbuffers::VOffsetT = 52;
   pub const VT_RELIEF_KG: ::flatbuffers::VOffsetT = 54;
   pub const VT_UNANSWERED: ::flatbuffers::VOffsetT = 56;
+  pub const VT_HOLDER: ::flatbuffers::VOffsetT = 58;
+  pub const VT_HOLDER_NAME: ::flatbuffers::VOffsetT = 60;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -22180,11 +22182,13 @@ impl<'a> LawLine<'a> {
     args: &'args LawLineArgs<'args>
   ) -> ::flatbuffers::WIPOffset<LawLine<'bldr>> {
     let mut builder = LawLineBuilder::new(_fbb);
+    builder.add_holder(args.holder);
     builder.add_decided_minute(args.decided_minute);
     builder.add_meets_minute(args.meets_minute);
     builder.add_proposed_minute(args.proposed_minute);
     builder.add_sponsor(args.sponsor);
     builder.add_id(args.id);
+    if let Some(x) = args.holder_name { builder.add_holder_name(x); }
     builder.add_unanswered(args.unanswered);
     builder.add_relief_kg(args.relief_kg);
     builder.add_relieved(args.relieved);
@@ -22400,6 +22404,20 @@ impl<'a> LawLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(LawLine::VT_UNANSWERED, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn holder(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LawLine::VT_HOLDER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn holder_name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(LawLine::VT_HOLDER_NAME, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for LawLine<'_> {
@@ -22435,6 +22453,8 @@ impl ::flatbuffers::Verifiable for LawLine<'_> {
      .visit_field::<u32>("relieved", Self::VT_RELIEVED, false)?
      .visit_field::<f32>("relief_kg", Self::VT_RELIEF_KG, false)?
      .visit_field::<u32>("unanswered", Self::VT_UNANSWERED, false)?
+     .visit_field::<u64>("holder", Self::VT_HOLDER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("holder_name", Self::VT_HOLDER_NAME, false)?
      .finish();
     Ok(())
   }
@@ -22467,6 +22487,8 @@ pub struct LawLineArgs<'a> {
     pub relieved: u32,
     pub relief_kg: f32,
     pub unanswered: u32,
+    pub holder: u64,
+    pub holder_name: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for LawLineArgs<'a> {
   #[inline]
@@ -22499,6 +22521,8 @@ impl<'a> Default for LawLineArgs<'a> {
       relieved: 0,
       relief_kg: 0.0,
       unanswered: 0,
+      holder: 0,
+      holder_name: None,
     }
   }
 }
@@ -22617,6 +22641,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LawLineBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u32>(LawLine::VT_UNANSWERED, unanswered, 0);
   }
   #[inline]
+  pub fn add_holder(&mut self, holder: u64) {
+    self.fbb_.push_slot::<u64>(LawLine::VT_HOLDER, holder, 0);
+  }
+  #[inline]
+  pub fn add_holder_name(&mut self, holder_name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(LawLine::VT_HOLDER_NAME, holder_name);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LawLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LawLineBuilder {
@@ -22661,6 +22693,8 @@ impl ::core::fmt::Debug for LawLine<'_> {
       ds.field("relieved", &self.relieved());
       ds.field("relief_kg", &self.relief_kg());
       ds.field("unanswered", &self.unanswered());
+      ds.field("holder", &self.holder());
+      ds.field("holder_name", &self.holder_name());
       ds.finish()
   }
 }
@@ -22692,6 +22726,7 @@ impl<'a> PolityLine<'a> {
   pub const VT_GATHERING_LAW: ::flatbuffers::VOffsetT = 22;
   pub const VT_GATHERING_MINUTE: ::flatbuffers::VOffsetT = 24;
   pub const VT_GATHERING_PRESENT: ::flatbuffers::VOffsetT = 26;
+  pub const VT_OFFICES: ::flatbuffers::VOffsetT = 28;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -22708,6 +22743,7 @@ impl<'a> PolityLine<'a> {
     builder.add_founded_minute(args.founded_minute);
     builder.add_settlement(args.settlement);
     builder.add_polity(args.polity);
+    if let Some(x) = args.offices { builder.add_offices(x); }
     builder.add_gathering_present(args.gathering_present);
     if let Some(x) = args.laws { builder.add_laws(x); }
     builder.add_store_kg(args.store_kg);
@@ -22803,6 +22839,13 @@ impl<'a> PolityLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(PolityLine::VT_GATHERING_PRESENT, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn offices(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PolityLine::VT_OFFICES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolityLine<'_> {
@@ -22823,6 +22866,7 @@ impl ::flatbuffers::Verifiable for PolityLine<'_> {
      .visit_field::<u64>("gathering_law", Self::VT_GATHERING_LAW, false)?
      .visit_field::<i64>("gathering_minute", Self::VT_GATHERING_MINUTE, false)?
      .visit_field::<u32>("gathering_present", Self::VT_GATHERING_PRESENT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("offices", Self::VT_OFFICES, false)?
      .finish();
     Ok(())
   }
@@ -22840,6 +22884,7 @@ pub struct PolityLineArgs<'a> {
     pub gathering_law: u64,
     pub gathering_minute: i64,
     pub gathering_present: u32,
+    pub offices: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for PolityLineArgs<'a> {
   #[inline]
@@ -22857,6 +22902,7 @@ impl<'a> Default for PolityLineArgs<'a> {
       gathering_law: 0,
       gathering_minute: 0,
       gathering_present: 0,
+      offices: None,
     }
   }
 }
@@ -22915,6 +22961,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolityLineBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<u32>(PolityLine::VT_GATHERING_PRESENT, gathering_present, 0);
   }
   #[inline]
+  pub fn add_offices(&mut self, offices: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_OFFICES, offices);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolityLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolityLineBuilder {
@@ -22944,6 +22994,7 @@ impl ::core::fmt::Debug for PolityLine<'_> {
       ds.field("gathering_law", &self.gathering_law());
       ds.field("gathering_minute", &self.gathering_minute());
       ds.field("gathering_present", &self.gathering_present());
+      ds.field("offices", &self.offices());
       ds.finish()
   }
 }

@@ -41,6 +41,7 @@ impl Population {
             }
         }
         let day = ctx.now.day_index();
+        self.lapse_keepers(ctx);
         for pi in 0..self.polities.len() {
             if self.polities[pi]
                 .gathering
@@ -57,6 +58,56 @@ impl Population {
                 self.polities[pi].reviewed = day;
                 self.review(ctx, pi);
             }
+        }
+    }
+
+    /// A law that names someone lapses when they die or leave the settlement: the store they
+    /// kept lies unkept again, which is a vacancy the next review may answer (succession,
+    /// ADR-0013 §2). Nothing fills it by itself.
+    fn lapse_keepers(&mut self, ctx: &mut Ctx) {
+        for pi in 0..self.polities.len() {
+            let settlement = self.polities[pi].settlement;
+            let Some((holder, law)) = self.polities[pi].keeper().map(|(h, l)| (h, l.id)) else {
+                continue;
+            };
+            let here = self
+                .person(holder)
+                .and_then(|p| self.household(p.household))
+                .is_some_and(|x| x.settlement == Some(settlement));
+            if here {
+                continue;
+            }
+            let sheltered = self.polity_sheltered(pi);
+            self.polities[pi].settle_stores(ctx.now, &ctx.catalog.goods, sheltered);
+            if let Some(l) = self.polities[pi].law_mut(law) {
+                l.status = LawStatus::Lapsed;
+            }
+            let why = match self.records.get(&holder) {
+                Some(r) if r.died.is_some() => "they died",
+                Some(r) if r.left.is_some() => "they left the valley",
+                _ => "they no longer live there",
+            };
+            let (place, name) = ctx
+                .land
+                .settlements
+                .iter()
+                .find(|s| s.id == settlement)
+                .map_or((None, String::new()), |s| {
+                    (Some(s.hearth_m), s.name.clone())
+                });
+            let words = format!(
+                "{} no longer keeps the common store at {name}: {why}.",
+                self.name_of(holder)
+            );
+            self.chronicle_push(
+                ctx.now,
+                ChronicleKind::LawLapsed,
+                vec![holder],
+                Some(settlement),
+                place,
+                0.0,
+                words,
+            );
         }
     }
 
@@ -84,7 +135,7 @@ impl Population {
 
     /// What household `household` expects of its coming year: the food it holds, an ordinary
     /// harvest of its fields as their records say (less the seed), and a year's need.
-    fn outlook(&self, ctx: &Ctx, household: PermanentId) -> Option<Outlook> {
+    pub(super) fn outlook(&self, ctx: &Ctx, household: PermanentId) -> Option<Outlook> {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let x = self.household(household)?;
         let need_day = x.members.len() as f64 * params.household.daily_kcal_per_person;
@@ -155,9 +206,15 @@ impl Population {
     }
 
     /// The issues settlement `settlement` faces now (research 09-05 §1.1): its food ran short
-    /// within the last year, or a household's food will not last to its next harvest
-    /// (`pressed`).
-    fn issues(&self, ctx: &Ctx, settlement: PermanentId, pressed: bool) -> Vec<IssueKind> {
+    /// within the last year, or a household's food will not last until its next harvest
+    /// (`pressed`); and its common store holds food nobody keeps under a roof (`unkept`).
+    fn issues(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+        pressed: bool,
+        unkept: bool,
+    ) -> Vec<IssueKind> {
         let short_now = ctx
             .land
             .settlements
@@ -169,11 +226,49 @@ impl Population {
                 && e.settlement == Some(settlement)
                 && e.at.day_index() >= since
         });
+        let mut out = Vec::new();
         if short_now || short_lately || pressed {
-            vec![IssueKind::FoodShort]
-        } else {
-            Vec::new()
+            out.push(IssueKind::FoodShort);
         }
+        if unkept {
+            out.push(IssueKind::StoreUnkept);
+        }
+        out
+    }
+
+    /// Food polity `pi`'s store would keep over a year under a roof rather than in the open, kcal.
+    fn roof_saves(&self, ctx: &Ctx, pi: usize) -> f64 {
+        let goods = &ctx.catalog.goods;
+        let left = |half: f64| {
+            if half > 0.0 {
+                0.5f64.powf(365.0 / half)
+            } else {
+                1.0
+            }
+        };
+        self.polities[pi]
+            .stores
+            .iter()
+            .zip(goods)
+            .filter(|(_, g)| g.purpose == GoodUse::Food && !g.kept_back())
+            .map(|(kg, g)| {
+                let roofed = if g.sheltered_half_life_days > 0.0 {
+                    g.sheltered_half_life_days
+                } else {
+                    g.half_life_days
+                };
+                kg.max(0.0) * g.kcal_per_kg * (left(roofed) - left(g.half_life_days)).max(0.0)
+            })
+            .sum()
+    }
+
+    /// Whether polity `pi`'s store is kept under a roof now: its keeper's household is under one.
+    pub(crate) fn polity_sheltered(&self, pi: usize) -> bool {
+        self.polities[pi]
+            .keeper()
+            .and_then(|(k, _)| self.person(k))
+            .and_then(|p| self.household(p.household))
+            .is_some_and(|x| x.sheltered)
     }
 
     /// A polity's routine review (ADR-0013 §5): with nothing before the gathering and an issue
@@ -201,7 +296,14 @@ impl Population {
             .copied()
             .filter(|&h| self.pressed(ctx, h))
             .collect();
-        let issues = self.issues(ctx, settlement, !pressed.is_empty());
+        let polity = &self.polities[pi];
+        let unkept = polity
+            .in_force(&ctx.catalog.policies, PolicyKind::CommonStore)
+            .next()
+            .is_some()
+            && polity.keeper().is_none()
+            && stock_kcal(&polity.stores, &ctx.catalog.goods) > 0.0;
+        let issues = self.issues(ctx, settlement, !pressed.is_empty(), unkept);
         let polity = &self.polities[pi];
         // Templates that answer a present issue and are not already in force here.
         let open: Vec<(u16, IssueKind)> = ctx
@@ -230,6 +332,14 @@ impl Population {
             .collect();
         let just: Vec<Outlook> = outlooks.iter().map(|o| o.1).collect();
         let belief = self.belief(ctx, settlement, &just);
+        // What a roof over the store would keep for each household a year.
+        let kept = self.roof_saves(ctx, pi) / outlooks.len().max(1) as f64;
+        // Who could keep the store: adults whose household is under a roof.
+        let roofed: Vec<PermanentId> = members
+            .iter()
+            .filter(|(_, h)| self.household(*h).is_some_and(|x| x.sheltered))
+            .map(|(p, _)| *p)
+            .collect();
         // Who weighs moves: the notables (a compute tier, ADR-0014 §4), and the elders of
         // households whose food will not last, whom the issue reaches.
         let mut deliberators: Vec<PermanentId> = self
@@ -249,6 +359,15 @@ impl Population {
         let day = now.day_index();
         let tp = &params.ties;
         let deliberator = RuleDeliberator { params: pp };
+        // What a move would bring household `h`: a store at a levy share, or a store kept.
+        let gain_of = |m: &MoveOption, h: PermanentId| {
+            outlooks
+                .binary_search_by_key(&h, |o| o.0)
+                .map_or(0.0, |i| match m.nominee {
+                    Some(_) => crate::polity::kept_gain(&outlooks[i].1, kept, pp),
+                    None => crate::polity::store_gain(&outlooks[i].1, &belief, m.levy_share, pp),
+                })
+        };
         for d in deliberators {
             let Some(own) = members
                 .binary_search_by_key(&d, |m| m.0)
@@ -257,52 +376,85 @@ impl Population {
             else {
                 continue;
             };
+            // The moves open to them: each level of a store, and a keeper of their choosing:
+            // themselves if their roof would do, or whoever under a roof they regard most.
             let mut moves = Vec::new();
             for &(k, issue) in &open {
                 let def = &ctx.catalog.policies[usize::from(k)];
-                if def.kind != PolicyKind::CommonStore {
-                    continue;
-                }
-                for &share in &def.levy_shares {
-                    let gain_of = |h: PermanentId| {
-                        outlooks.binary_search_by_key(&h, |o| o.0).map_or(0.0, |i| {
-                            crate::polity::store_gain(&outlooks[i].1, &belief, share, pp)
-                        })
-                    };
-                    // Those who regard them, by how much; and those they know, by where they
-                    // would stand with them as its sponsor.
-                    let (mut weighed, mut weight, mut support, mut oppose) = (0.0, 0.0, 0, 0);
-                    for &(a, h) in &members {
-                        if a == d {
-                            continue;
-                        }
-                        let regard = self.ties.regard(a, d, day, tp).clamp(0.0, 1.0);
-                        let gain = gain_of(h);
-                        if regard > 0.0 {
-                            weighed += regard * gain;
-                            weight += regard;
-                        }
-                        if self.ties.known(d, a, day, tp) > 0.0 {
-                            match crate::polity::stance(pp.w_gain * gain, regard, pp).0 {
-                                Stance::Support => support += 1,
-                                Stance::Oppose => oppose += 1,
-                                Stance::Abstain => {}
-                            }
+                let blank = MoveOption {
+                    policy: k,
+                    levy_share: 0.0,
+                    issue,
+                    nominee: None,
+                    own_gain: 0.0,
+                    followers_gain: 0.0,
+                    support: 0.5,
+                };
+                match def.kind {
+                    PolicyKind::CommonStore => {
+                        for &share in &def.levy_shares {
+                            moves.push(MoveOption {
+                                levy_share: share,
+                                ..blank
+                            });
                         }
                     }
-                    moves.push(MoveOption {
-                        policy: k,
-                        levy_share: share,
-                        issue,
-                        own_gain: gain_of(own),
-                        followers_gain: if weight > 0.0 { weighed / weight } else { 0.0 },
-                        support: if support + oppose > 0 {
-                            f64::from(support) / f64::from(support + oppose)
-                        } else {
-                            0.5
-                        },
-                    });
+                    PolicyKind::KeepStore => {
+                        let pick = roofed
+                            .iter()
+                            .map(|&c| {
+                                let r = if c == d {
+                                    1.0
+                                } else {
+                                    self.ties.regard(d, c, day, tp).clamp(0.0, 1.0)
+                                };
+                                (r, c)
+                            })
+                            .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
+                        if let Some((_, c)) = pick {
+                            moves.push(MoveOption {
+                                nominee: Some(c),
+                                ..blank
+                            });
+                        }
+                    }
                 }
+            }
+            for m in &mut moves {
+                // Those who regard them, by how much; and those they know, by where they would
+                // stand with them as its sponsor (or with the one it names).
+                let face = m.nominee.unwrap_or(d);
+                let (mut weighed, mut weight, mut support, mut oppose) = (0.0, 0.0, 0, 0);
+                for &(a, h) in &members {
+                    if a == d {
+                        continue;
+                    }
+                    let gain = gain_of(m, h);
+                    let regard = self.ties.regard(a, d, day, tp).clamp(0.0, 1.0);
+                    if regard > 0.0 {
+                        weighed += regard * gain;
+                        weight += regard;
+                    }
+                    if self.ties.known(d, a, day, tp) > 0.0 {
+                        let to_face = if face == a {
+                            1.0
+                        } else {
+                            self.ties.regard(a, face, day, tp)
+                        };
+                        match crate::polity::stance(pp.w_gain * gain, to_face, pp).0 {
+                            Stance::Support => support += 1,
+                            Stance::Oppose => oppose += 1,
+                            Stance::Abstain => {}
+                        }
+                    }
+                }
+                m.own_gain = gain_of(m, own);
+                m.followers_gain = if weight > 0.0 { weighed / weight } else { 0.0 };
+                m.support = if support + oppose > 0 {
+                    f64::from(support) / f64::from(support + oppose)
+                } else {
+                    0.5
+                };
             }
             let u =
                 Rng64::from_key(&[ctx.seed, PURPOSE_DELIBERATE, d.get(), day as u64]).next_f64();
@@ -310,10 +462,7 @@ impl Population {
             if let Some(m) = choice.chosen.map(|i| moves[i]) {
                 let stakes: Vec<(PermanentId, f32)> = outlooks
                     .iter()
-                    .map(|(h, o)| {
-                        let gain = crate::polity::store_gain(o, &belief, m.levy_share, pp);
-                        (*h, (pp.w_gain * gain) as f32)
-                    })
+                    .map(|(h, _)| (*h, (pp.w_gain * gain_of(&m, *h)) as f32))
                     .collect();
                 self.propose(ctx, pi, d, m, stakes);
                 return;
@@ -340,6 +489,7 @@ impl Population {
             id,
             policy: m.policy,
             levy_share: m.levy_share as f32,
+            holder: m.nominee,
             relief_days: def.relief_days as f32,
             status: LawStatus::Proposed,
             sponsor,
@@ -355,7 +505,7 @@ impl Population {
         };
         let words = format!(
             "{}, because {}",
-            crate::polity::law_words(&law, &ctx.catalog.policies),
+            crate::polity::law_words(&law, &ctx.catalog.policies, &|id| self.name_of(id)),
             m.issue.words()
         );
         let polity = &mut self.polities[pi];
@@ -400,7 +550,12 @@ impl Population {
             return;
         };
         let sponsor = law.sponsor;
+        // Those who came weigh their regard for the one the law names, or else for its sponsor.
+        let face = law.holder.unwrap_or(sponsor);
         let day = now.day_index();
+        // The store spoils under the roof it had until a new keeper takes it.
+        let sheltered = self.polity_sheltered(pi);
+        self.polities[pi].settle_stores(now, &ctx.catalog.goods, sheltered);
         let stances: Vec<StanceRecord> = g
             .present
             .iter()
@@ -408,7 +563,11 @@ impl Population {
                 let i = members.binary_search_by_key(&p, |m| m.0).ok()?;
                 let household = members[i].1;
                 let gain = g.stake(household);
-                let regard = self.ties.regard(p, sponsor, day, &params.ties);
+                let regard = if p == face {
+                    1.0
+                } else {
+                    self.ties.regard(p, face, day, &params.ties)
+                };
                 let (stance, regard_points) = if p == sponsor {
                     (Stance::Support, 0.0)
                 } else {
@@ -443,7 +602,12 @@ impl Population {
         } else {
             LawStatus::Rejected
         };
-        let what = crate::polity::law_words(law, &ctx.catalog.policies);
+        let law = &self.polities[pi].laws[self.polities[pi]
+            .laws
+            .iter()
+            .position(|l| l.id == g.law)
+            .unwrap_or(0)];
+        let what = crate::polity::law_words(law, &ctx.catalog.policies, &|id| self.name_of(id));
         let (place, name) = ctx
             .land
             .settlements
@@ -697,18 +861,24 @@ impl Population {
 
     /// The common store of `hh`'s settlement as somewhere to ask for food (ADR-0013 §4), when a
     /// common store is in force there that one of its members knows, and it holds food: as much
-    /// as the law allows an ask, up to `want` kcal, a walk of `walk_min` minutes away at the
-    /// hearth `at`.
+    /// as the law allows an ask, up to `want` kcal, at its keeper's home or else at the hearth
+    /// `hearth`, walked to as `reach` says.
     pub(crate) fn relief_option(
         &self,
         ctx: &Ctx,
         hh: &Household,
         kcal_day: f64,
         want: f64,
-        walk_min: f64,
-        at: (f32, f32),
+        reach: &TravelField,
+        hearth: (f32, f32),
     ) -> Option<GiverOption> {
         let polity = &self.polities[self.polity_of(hh.settlement?)?];
+        let at = polity
+            .keeper()
+            .and_then(|(k, _)| self.person(k))
+            .and_then(|p| self.household(p.household))
+            .map_or(hearth, |x| x.home);
+        let walk_min = f64::from(reach.seconds_to(cell_of(ctx.map, at))?) / 60.0;
         let law = polity
             .in_force(&ctx.catalog.policies, PolicyKind::CommonStore)
             .find(|l| hh.members.iter().any(|&m| l.knows(m)))?;
@@ -750,7 +920,8 @@ impl Population {
         if want <= 0.0 {
             return;
         }
-        self.polities[pi].settle_stores(now, goods);
+        let sheltered = self.polity_sheltered(pi);
+        self.polities[pi].settle_stores(now, goods, sheltered);
         let store = self.polities[pi].id;
         let stores = self.polities[pi].stores.clone();
         let mut order: Vec<usize> = (0..goods.len())

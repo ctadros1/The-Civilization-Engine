@@ -104,7 +104,8 @@ use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
-    SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, finish, section, single_chunk, unreadable,
+    SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, finish, section, single_chunk,
+    unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -289,6 +290,8 @@ enum Schema {
     V28,
     /// Each settlement's polity, its laws and its store (ADR-0013).
     V29,
+    /// Laws that name someone, and laws that lapse (ADR-0013 §2).
+    V30,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -332,7 +335,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V26 => Schema::V26,
         SCHEMA_V27 => Schema::V27,
         SCHEMA_V28 => Schema::V28,
-        SAVE_SCHEMA_VERSION => Schema::V29,
+        SCHEMA_V29 => Schema::V29,
+        SAVE_SCHEMA_VERSION => Schema::V30,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -605,6 +609,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             relieved: c.relieved,
                             relief_kg: c.relief_kg,
                             unanswered: c.unanswered,
+                            holder: l.holder.map_or(0, PermanentId::get),
                         },
                     )
                 })
@@ -678,6 +683,7 @@ fn law_status_code(s: civ_agents::polity::LawStatus) -> u8 {
         LawStatus::Proposed => 0,
         LawStatus::InForce => 1,
         LawStatus::Rejected => 2,
+        LawStatus::Lapsed => 3,
     }
 }
 
@@ -685,6 +691,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
     use civ_agents::polity::IssueKind;
     match i {
         IssueKind::FoodShort => 0,
+        IssueKind::StoreUnkept => 1,
     }
 }
 
@@ -768,10 +775,12 @@ fn decode_polities(
                 0 => LawStatus::Proposed,
                 1 => LawStatus::InForce,
                 2 => LawStatus::Rejected,
+                3 => LawStatus::Lapsed,
                 c => return Err(bad(format!("law {law} has status code {c}"))),
             };
             let issue = match l.issue() {
                 0 => IssueKind::FoodShort,
+                1 => IssueKind::StoreUnkept,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -808,6 +817,7 @@ fn decode_polities(
                 id: law,
                 policy,
                 levy_share: l.levy_share(),
+                holder: PermanentId::from_raw(l.holder()),
                 relief_days: l.relief_days(),
                 status,
                 sponsor: required(l.sponsor(), "a law's sponsor")?,
@@ -2188,7 +2198,8 @@ fn carried(
         | Schema::V26
         | Schema::V27
         | Schema::V28
-        | Schema::V29 => {
+        | Schema::V29
+        | Schema::V30 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2327,7 +2338,8 @@ fn decode_households(
             | Schema::V26
             | Schema::V27
             | Schema::V28
-            | Schema::V29 => {
+            | Schema::V29
+            | Schema::V30 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -2460,6 +2472,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Weather => 24,
         ChronicleKind::LawProposed => 25,
         ChronicleKind::LawDecided => 26,
+        ChronicleKind::LawLapsed => 27,
     }
 }
 
@@ -2491,6 +2504,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         24 => Some(ChronicleKind::Weather),
         25 => Some(ChronicleKind::LawProposed),
         26 => Some(ChronicleKind::LawDecided),
+        27 => Some(ChronicleKind::LawLapsed),
         _ => None,
     }
 }

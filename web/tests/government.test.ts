@@ -16,6 +16,9 @@ describe("a polity's laws in words", () => {
 
   it("say where a law stands", () => {
     expect(statusText({ status: "in force", outcome: "passed", meetsMinute: 0 })).toBe("in force");
+    expect(statusText({ status: "lapsed", outcome: "passed", meetsMinute: 0 })).toBe(
+      "lapsed: the one it named is gone",
+    );
     expect(statusText({ status: "rejected", outcome: "failed", meetsMinute: 0 })).toBe("turned down");
     expect(statusText({ status: "rejected", outcome: "tied", meetsMinute: 0 })).toBe(
       "failed: evenly split",
@@ -94,8 +97,12 @@ describe("the government on the wire", () => {
       3,
       45,
       0,
+      0n,
+      0,
     );
     const laws = W.PolityLine.createLawsVector(b, [law]);
+    const office = b.createString("Storekeeper: Ada, since 3 May of year 2");
+    const offices = W.PolityLine.createOfficesVector(b, [office]);
     const name = b.createString("Stonewick");
     const custom = b.createString("The adults who come to the hearth decide by acclamation.");
     const store = b.createString("grain 26 kg");
@@ -113,6 +120,7 @@ describe("the government on the wire", () => {
       0n,
       0n,
       0,
+      offices,
     );
     const polities = W.Government.createPolitiesVector(b, [polity]);
     const government = W.Government.createGovernment(b, BigInt(103 * DAY), polities);
@@ -127,6 +135,7 @@ describe("the government on the wire", () => {
       members: 4,
       store: "grain 26 kg",
       gatheringLaw: 0,
+      offices: ["Storekeeper: Ada, since 3 May of year 2"],
     });
     const l = p.laws[0]!;
     expect(l).toMatchObject({

@@ -1458,7 +1458,8 @@ table LawLine {
   policy: string (id: 2);
   levy_share: float (id: 3);
   relief_days: float (id: 4);
-  // 0 before the gathering, 1 in force, 2 rejected.
+  // 0 before the gathering, 1 in force, 2 rejected, 3 lapsed (wire 1.28: the one it named died or
+  // left).
   status: ubyte (id: 5);
   sponsor: ulong (id: 6);
   sponsor_name: string (id: 7);
@@ -1488,6 +1489,9 @@ table LawLine {
   relieved: uint (id: 24);
   relief_kg: float (id: 25);
   unanswered: uint (id: 26);
+  // Wire 1.28: the one it names (who keeps the store; 0 for none), and their name.
+  holder: ulong (id: 27);
+  holder_name: string (id: 28);
 }
 
 // A settlement's polity (wire 1.27, ADR-0013): its custom in words, its members, its common
@@ -1510,6 +1514,9 @@ table PolityLine {
   gathering_law: ulong (id: 9);
   gathering_minute: long (id: 10);
   gathering_present: uint (id: 11);
+  // Wire 1.28: its offices and who holds them, in words ("Storekeeper: Ada, since 3 May of year
+  // 2"), and those vacant ("Storekeeper: vacant since 9 June of year 5, when Ada died").
+  offices: [string] (id: 12);
 }
 
 table Government {

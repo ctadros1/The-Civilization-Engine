@@ -19,16 +19,21 @@ pub enum PolicyKind {
     /// short of food may ask the store for some (a levy and relief: research 09-17 §1.5, 09-01
     /// §3.3).
     CommonStore,
+    /// The one the gathering names keeps the common store under their roof (an office in its
+    /// first form, ADR-0013 §2): it spoils as a roofed store does, and those who ask for relief
+    /// ask at their home. The law lapses when they die or leave.
+    KeepStore,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 1] = [PolicyKind::CommonStore];
+    pub const ALL: [PolicyKind; 2] = [PolicyKind::CommonStore, PolicyKind::KeepStore];
 
     /// The authored name.
     pub fn name(self) -> &'static str {
         match self {
             PolicyKind::CommonStore => "common_store",
+            PolicyKind::KeepStore => "keep_store",
         }
     }
 
@@ -45,16 +50,19 @@ pub enum IssueKind {
     /// The settlement's food ran short within the last year, or a household's food will not last
     /// until its next harvest: a shortfall against the outlook.
     FoodShort,
+    /// A common store is in force and holds food, and nobody keeps it under a roof.
+    StoreUnkept,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 1] = [IssueKind::FoodShort];
+    pub const ALL: [IssueKind; 2] = [IssueKind::FoodShort, IssueKind::StoreUnkept];
 
     /// The authored name.
     pub fn name(self) -> &'static str {
         match self {
             IssueKind::FoodShort => "food_short",
+            IssueKind::StoreUnkept => "store_unkept",
         }
     }
 
@@ -67,6 +75,7 @@ impl IssueKind {
     pub fn words(self) -> &'static str {
         match self {
             IssueKind::FoodShort => "food would not last until the harvest",
+            IssueKind::StoreUnkept => "the common store lay in the open with nobody to keep it",
         }
     }
 }
@@ -255,6 +264,8 @@ pub enum LawStatus {
     InForce,
     /// Not passed.
     Rejected,
+    /// In force until the one it named died or left.
+    Lapsed,
 }
 
 /// How a gathering's decision went. Codes are part of saves: append only.
@@ -349,8 +360,10 @@ pub struct Law {
     pub id: PermanentId,
     /// Its template, by index in the catalog's policies.
     pub policy: u16,
-    /// The levy share proposed.
+    /// The levy share proposed (0 for a law that levies nothing).
     pub levy_share: f32,
+    /// The one it names, for a law that names someone (who keeps the store).
+    pub holder: Option<PermanentId>,
     /// The most one ask brings, days of the asking household's food.
     pub relief_days: f32,
     /// Where it stands.
@@ -457,9 +470,21 @@ pub fn stance_words(r: &StanceRecord, margin: f64, sponsor: PermanentId) -> Stri
     }
 }
 
-/// What a law is, in words: "a common store, taking a tenth of each harvest".
-pub fn law_words(law: &Law, policies: &[PolicyDef]) -> String {
-    let name = policies.get(usize::from(law.policy)).map_or_else(
+/// What a law is, in words, to follow "proposed", "agreed to" or "turned down": "a common store,
+/// taking a tenth of each harvest", "Ada as keeper of the common store". `name_of` names people.
+pub fn law_words(
+    law: &Law,
+    policies: &[PolicyDef],
+    name_of: &dyn Fn(PermanentId) -> String,
+) -> String {
+    let def = policies.get(usize::from(law.policy));
+    if def.is_some_and(|d| d.kind == PolicyKind::KeepStore) {
+        return match law.holder {
+            Some(h) => format!("{} as keeper of the common store", name_of(h)),
+            None => "someone as keeper of the common store".to_owned(),
+        };
+    }
+    let name = def.map_or_else(
         || "a law".to_owned(),
         |d| {
             let name = d.name.to_lowercase();
@@ -474,6 +499,53 @@ pub fn law_words(law: &Law, policies: &[PolicyDef]) -> String {
         "{name}, taking {} of each harvest",
         share_text(f64::from(law.levy_share))
     )
+}
+
+/// A day in words: "3 May of year 2".
+pub fn day_words(t: SimTime) -> String {
+    let date = t.date();
+    let month = civ_land::weather::MONTH_NAMES[usize::from(date.month.clamp(1, 12)) - 1];
+    format!("{} {month} of year {}", date.day, date.year)
+}
+
+/// A polity's offices, in words: "Storekeeper: Ada, since 3 May of year 2", or once its holder is
+/// gone and nobody named since, "Storekeeper: vacant since 9 June of year 5, when Ada died".
+/// `gone` says how someone left ("died", "left the valley").
+pub fn office_words(
+    polity: &Polity,
+    policies: &[PolicyDef],
+    name_of: &dyn Fn(PermanentId) -> String,
+    gone: &dyn Fn(PermanentId) -> String,
+) -> Vec<String> {
+    let mut out = Vec::new();
+    for (k, def) in policies.iter().enumerate() {
+        if def.kind != PolicyKind::KeepStore {
+            continue;
+        }
+        // The last one named, still holding it or since gone.
+        let last = polity.laws.iter().rfind(|l| {
+            usize::from(l.policy) == k
+                && l.holder.is_some()
+                && matches!(l.status, LawStatus::InForce | LawStatus::Lapsed)
+        });
+        let Some(law) = last else {
+            continue;
+        };
+        let Some(holder) = law.holder else {
+            continue;
+        };
+        let since = law.decided.map(day_words).unwrap_or_default();
+        out.push(match law.status {
+            LawStatus::InForce => format!("{}: {}, since {since}", def.name, name_of(holder)),
+            _ => format!(
+                "{}: vacant, since {} {}",
+                def.name,
+                name_of(holder),
+                gone(holder)
+            ),
+        });
+    }
+    out
 }
 
 /// How the gathering decided a law, in words: "agreed: 20 for, 3 against; 23 of 24 adults came,
@@ -561,6 +633,15 @@ impl Polity {
         self.laws.iter().find(|l| l.status == LawStatus::Proposed)
     }
 
+    /// The one who keeps the store under their roof by a law in force, and that law: only a law
+    /// that keeps the store names anyone.
+    pub fn keeper(&self) -> Option<(PermanentId, &Law)> {
+        self.laws
+            .iter()
+            .filter(|l| l.status == LawStatus::InForce)
+            .find_map(|l| Some((l.holder?, l)))
+    }
+
     /// The laws in force of kind `kind` (by the catalog's policies).
     pub fn in_force<'a>(
         &'a self,
@@ -580,16 +661,21 @@ impl Polity {
         self.laws.iter_mut().find(|l| l.id == id)
     }
 
-    /// Spoils the store up to `t` as anyone's unroofed store spoils.
-    pub fn settle_stores(&mut self, t: SimTime, goods: &[crate::params::GoodDef]) {
+    /// Spoils the store up to `t` as anyone's store spoils, under a roof when `sheltered`.
+    pub fn settle_stores(&mut self, t: SimTime, goods: &[crate::params::GoodDef], sheltered: bool) {
         if t <= self.stores_at {
             return;
         }
         self.stores.resize(goods.len(), 0.0);
         let days = (t.minutes() - self.stores_at.minutes()) as f64 / 1440.0;
         for (g, (kg, d)) in self.stores.iter_mut().zip(goods).enumerate() {
-            if d.half_life_days > 0.0 && *kg > 0.0 {
-                let after = *kg * 0.5f64.powf(days / d.half_life_days);
+            let half_life = if sheltered && d.sheltered_half_life_days > 0.0 {
+                d.sheltered_half_life_days
+            } else {
+                d.half_life_days
+            };
+            if half_life > 0.0 && *kg > 0.0 {
+                let after = *kg * 0.5f64.powf(days / half_life);
                 self.flows.add(crate::person::Flow::Spoiled, g, *kg - after);
                 *kg = after;
             }
@@ -651,6 +737,15 @@ pub fn store_gain(o: &Outlook, b: &Belief, levy: f64, params: &PolityParams) -> 
     (1.0 - p) * year(o.harvest) + p * year(o.harvest * params.lean_harvest)
 }
 
+/// How much better a household expects its year when `kcal` more food is kept for it, in the same
+/// units as [`store_gain`]: what a store kept under a roof saves from spoiling, as its share.
+pub fn kept_gain(o: &Outlook, kcal: f64, params: &PolityParams) -> f64 {
+    let need = o.year_need.max(1.0);
+    let u = |kcal: f64| ((kcal / need - params.subsistence_share).max(0.0) + FLOOR_SMOOTH).ln();
+    let before = o.held + o.harvest;
+    u(before + kcal.max(0.0)) - u(before)
+}
+
 /// What paying a levy of `kcal` now costs a household with outlook `o`, in the same units as
 /// [`store_gain`]: the fall in the log of its year's food above subsistence.
 pub fn levy_cost(o: &Outlook, kcal: f64, params: &PolityParams) -> f64 {
@@ -706,6 +801,8 @@ pub struct MoveOption {
     pub levy_share: f64,
     /// The issue it answers.
     pub issue: IssueKind,
+    /// The one it would name, for a law that names someone.
+    pub nominee: Option<PermanentId>,
     /// The forecast for the person's own household ([`store_gain`]).
     pub own_gain: f64,
     /// The forecast for the households of those who regard them, weighted by that regard.
@@ -861,6 +958,7 @@ pub(crate) mod tests {
             id: pid(1),
             policy: 0,
             levy_share: 0.1,
+            holder: None,
             relief_days: 5.0,
             status: LawStatus::Proposed,
             sponsor: pid(7),
@@ -882,6 +980,53 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_law_in_words_follows_the_gatherings_verbs() {
+        let def = |kind: PolicyKind, name: &str| PolicyDef {
+            id: format!("core:policy/{name}"),
+            name: name.to_owned(),
+            description: String::new(),
+            kind,
+            answers: Vec::new(),
+            levy_shares: Vec::new(),
+            relief_days: 0.0,
+        };
+        let policies = [
+            def(PolicyKind::CommonStore, "Common store"),
+            def(PolicyKind::KeepStore, "Storekeeper"),
+        ];
+        let mut law = Law {
+            id: pid(1),
+            policy: 0,
+            levy_share: 0.1,
+            holder: None,
+            relief_days: 5.0,
+            status: LawStatus::Proposed,
+            sponsor: pid(7),
+            proposed: SimTime::ZERO,
+            issue: IssueKind::FoodShort,
+            meets_day: 1,
+            decided: None,
+            outcome: None,
+            eligible: 0,
+            stances: Vec::new(),
+            known: Vec::new(),
+            compliance: Compliance::default(),
+        };
+        let name_of = |_: PermanentId| "Ada".to_owned();
+        assert_eq!(
+            law_words(&law, &policies, &name_of),
+            "a common store, taking a tenth of each harvest"
+        );
+        law.policy = 1;
+        law.holder = Some(pid(9));
+        // "proposed …", "agreed to …" and "turned down …" all read.
+        assert_eq!(
+            law_words(&law, &policies, &name_of),
+            "Ada as keeper of the common store"
+        );
+    }
+
+    #[test]
     fn the_rule_deliberator_proposes_what_it_expects_to_pass_and_gain_from() {
         let p = params();
         let d = RuleDeliberator { params: &p };
@@ -889,6 +1034,7 @@ pub(crate) mod tests {
             policy: 0,
             levy_share: 0.1,
             issue: IssueKind::FoodShort,
+            nominee: None,
             own_gain: 0.3,
             followers_gain: 0.2,
             support: 0.8,

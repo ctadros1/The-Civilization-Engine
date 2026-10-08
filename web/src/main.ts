@@ -949,6 +949,7 @@ const hooks = {
               members: p.members,
               custom: p.custom,
               store: p.store,
+              offices: p.offices,
               gatheringLaw: p.gatheringLaw,
               laws: p.laws.map((l) => ({
                 what: l.what,

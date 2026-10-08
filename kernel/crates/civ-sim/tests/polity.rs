@@ -223,6 +223,7 @@ fn a_common_store_in_force_takes_its_levy_at_threshing_and_answers_asks() {
         id: civ_core::PermanentId::from_raw(id + 1_000_000).expect("non-zero"),
         policy,
         levy_share: 0.2,
+        holder: None,
         relief_days: 5.0,
         status: LawStatus::InForce,
         sponsor,
@@ -265,4 +266,88 @@ fn a_common_store_in_force_takes_its_levy_at_threshing_and_answers_asks() {
     assert!(c.relieved > 0, "the store answered asks: {c:?}");
     assert!(c.relief_kg > 0.0);
     saves_and_goes_on_alike(&mut sim, content(), 2 * DAY);
+}
+
+#[test]
+fn a_keeper_keeps_the_store_under_a_roof_until_they_are_gone() {
+    let mut sim = world_with(content(), 3);
+    // Early November: the households are under their roofs.
+    sim.advance_minutes(250 * DAY).expect("advances");
+    let now = sim.now();
+    let policies = sim.rules().catalog.policies.clone();
+    let of = |kind: PolicyKind| {
+        policies
+            .iter()
+            .position(|p| p.kind == kind)
+            .expect("in core") as u16
+    };
+    let (store, keep) = (of(PolicyKind::CommonStore), of(PolicyKind::KeepStore));
+    let grain = sim.rules().catalog.crops[0].good;
+    let adult = sim.rules().people.family.independent_age;
+    let next = sim.ids().peek_next();
+    let pop = sim.people_mut_for_tests();
+    let keeper = pop
+        .people
+        .iter()
+        .map(|(_, p)| p)
+        .filter(|p| p.age_years(now) >= adult)
+        .filter(|p| pop.household(p.household).is_some_and(|x| x.sheltered))
+        .map(|p| p.id)
+        .min()
+        .expect("someone lives under a roof");
+    let mut known: Vec<_> = pop.people.iter().map(|(_, p)| (p.id, 0)).collect();
+    known.sort_unstable();
+    let law = |id: u64, policy: u16, holder: Option<civ_core::PermanentId>| Law {
+        id: civ_core::PermanentId::from_raw(next + 1_000_000 + id).expect("non-zero"),
+        policy,
+        levy_share: if holder.is_some() { 0.0 } else { 0.1 },
+        holder,
+        relief_days: 5.0,
+        status: LawStatus::InForce,
+        sponsor: keeper,
+        proposed: now,
+        issue: civ_agents::polity::IssueKind::FoodShort,
+        meets_day: now.day_index(),
+        decided: Some(now),
+        outcome: Some(Outcome::Passed),
+        eligible: 0,
+        stances: Vec::new(),
+        known: known.clone(),
+        compliance: Default::default(),
+    };
+    let p = &mut pop.polities[0];
+    p.laws.push(law(0, store, None));
+    p.laws.push(law(1, keep, Some(keeper)));
+    p.stores.resize(grain + 1, 0.0);
+    p.stores[grain] = 1000.0;
+    p.stores_at = now;
+    assert_eq!(p.keeper().map(|k| k.0), Some(keeper));
+    // A hundred days under their roof: grain loses about 1.4 % (4.3 % in the open).
+    sim.advance_minutes(100 * DAY).expect("advances");
+    let spoiled = sim.people().polities[0]
+        .flows
+        .get(civ_agents::person::Flow::Spoiled, grain);
+    assert!(spoiled < 25.0, "kept under a roof: {spoiled} kg spoiled");
+    // Their household moves away: the law lapses, and the chronicle says so.
+    let pop = sim.people_mut_for_tests();
+    let home = pop.person(keeper).expect("alive").household;
+    for (_, x) in pop.households.iter_mut() {
+        if x.id == home {
+            x.settlement = None;
+        }
+    }
+    sim.advance_minutes(DAY).expect("advances");
+    let pop = sim.people();
+    let kept = pop.polities[0]
+        .laws
+        .iter()
+        .find(|l| l.holder == Some(keeper))
+        .expect("the law");
+    assert_eq!(kept.status, LawStatus::Lapsed);
+    assert!(pop.polities[0].keeper().is_none());
+    assert!(
+        pop.chronicle
+            .iter()
+            .any(|e| e.kind == ChronicleKind::LawLapsed && e.people == vec![keeper])
+    );
 }

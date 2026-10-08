@@ -175,8 +175,20 @@ unanswered():number {
   return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
 }
 
+holder():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 58);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
+holderName():string|null
+holderName(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+holderName(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 60);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startLawLine(builder:flatbuffers.Builder) {
-  builder.startObject(27);
+  builder.startObject(29);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -299,12 +311,20 @@ static addUnanswered(builder:flatbuffers.Builder, unanswered:number) {
   builder.addFieldInt32(26, unanswered, 0);
 }
 
+static addHolder(builder:flatbuffers.Builder, holder:bigint) {
+  builder.addFieldInt64(27, holder, BigInt('0'));
+}
+
+static addHolderName(builder:flatbuffers.Builder, holderNameOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(28, holderNameOffset, 0);
+}
+
 static endLawLine(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createLawLine(builder:flatbuffers.Builder, id:bigint, whatOffset:flatbuffers.Offset, policyOffset:flatbuffers.Offset, levyShare:number, reliefDays:number, status:number, sponsor:bigint, sponsorNameOffset:flatbuffers.Offset, proposedMinute:bigint, issueOffset:flatbuffers.Offset, meetsMinute:bigint, decidedMinute:bigint, outcome:number, decisionOffset:flatbuffers.Offset, eligible:number, quorum:number, stancesOffset:flatbuffers.Offset, known:number, complied:number, couldNot:number, evaded:number, unaware:number, leviedKg:number, withheldKg:number, relieved:number, reliefKg:number, unanswered:number):flatbuffers.Offset {
+static createLawLine(builder:flatbuffers.Builder, id:bigint, whatOffset:flatbuffers.Offset, policyOffset:flatbuffers.Offset, levyShare:number, reliefDays:number, status:number, sponsor:bigint, sponsorNameOffset:flatbuffers.Offset, proposedMinute:bigint, issueOffset:flatbuffers.Offset, meetsMinute:bigint, decidedMinute:bigint, outcome:number, decisionOffset:flatbuffers.Offset, eligible:number, quorum:number, stancesOffset:flatbuffers.Offset, known:number, complied:number, couldNot:number, evaded:number, unaware:number, leviedKg:number, withheldKg:number, relieved:number, reliefKg:number, unanswered:number, holder:bigint, holderNameOffset:flatbuffers.Offset):flatbuffers.Offset {
   LawLine.startLawLine(builder);
   LawLine.addId(builder, id);
   LawLine.addWhat(builder, whatOffset);
@@ -333,6 +353,8 @@ static createLawLine(builder:flatbuffers.Builder, id:bigint, whatOffset:flatbuff
   LawLine.addRelieved(builder, relieved);
   LawLine.addReliefKg(builder, reliefKg);
   LawLine.addUnanswered(builder, unanswered);
+  LawLine.addHolder(builder, holder);
+  LawLine.addHolderName(builder, holderNameOffset);
   return LawLine.endLawLine(builder);
 }
 }

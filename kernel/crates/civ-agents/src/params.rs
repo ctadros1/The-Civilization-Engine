@@ -798,10 +798,20 @@ pub struct HouseholdParams {
     /// A household out of food whose members have drawn on average this share of their bodies'
     /// reserve may give up and leave the valley...
     pub leave_at_depletion: f64,
-    /// ...with this chance a day...
+    /// ...with at most this chance a day...
     pub leave_per_day: f64,
     /// ...unless a crop of theirs ripens within this many days.
     pub leave_unless_ripe_within_days: f64,
+    /// The day's chance is weighed (M4a slice Z): points toward going for the whole of the wait to
+    /// its next harvest that its food, what others could spare it and any relief it may ask for
+    /// would not cover...
+    pub leave_w_gap: f64,
+    /// ...points toward staying for a whole year's food its fields should bring, what leaving
+    /// gives up...
+    pub leave_w_stake: f64,
+    /// ...and points toward staying before either; the day's chance is `leave_per_day` times the
+    /// logistic of going's points less staying's.
+    pub leave_stay: f64,
 }
 
 /// How choices are scored and sampled (research 01-09 §4.3, 04-07 §2.3).

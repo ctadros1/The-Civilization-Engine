@@ -90,12 +90,20 @@ short_food_days = 2.0
 recovered_food_days = 5.0
 daily_kcal_per_person = 2100.0   # band average (research 05-02 §2.2)
 # A household out of food whose members have drawn on average this share of their bodies' reserve,
-# with no crop of its own ripening within a month, may give up and leave the valley, with this
-# chance a day (research 05-06 §1.4: famine migration follows expected access to food; §5.2: a
-# founding can fail, and its households withdraw). Tuning values.
+# with no crop of its own ripening within a month, may give up and leave the valley, with at most
+# this chance a day (research 05-06 §1.4: famine migration follows expected access to food; §5.2:
+# a founding can fail, and its households withdraw). Tuning values.
 leave_at_depletion = 0.3
 leave_per_day = 0.1
 leave_unless_ripe_within_days = 30.0
+# The day's chance weighs going against staying (M4a slice Z): points toward going for the whole
+# of the wait to its next harvest that its food, what others could spare and any relief it may ask
+# the store for would not cover; toward staying for a whole year's food its fields should bring,
+# which leaving gives up, and before either. Tuning values: a household with nothing to wait for
+# goes at nearly the full rate, one others could carry to its harvest at about a tenth of it.
+leave_w_gap = 6.0
+leave_w_stake = 3.0
+leave_stay = 2.0
 
 [decision]                       # utility points; softmax over each activity's best target (research 01-09 §4.3)
 temperature_sd_fraction = 0.35

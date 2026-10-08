@@ -543,7 +543,8 @@ fn polity_problems(sim: &Sim) -> Vec<String> {
                         out.push(format!("law {} was not decided by its body's rule", l.id));
                     }
                     let passed = o == Outcome::Passed;
-                    if passed != (l.status == LawStatus::InForce) {
+                    let held = matches!(l.status, LawStatus::InForce | LawStatus::Lapsed);
+                    if passed != held {
                         out.push(format!("law {} stands {:?} after {o:?}", l.id, l.status));
                     }
                 }
@@ -566,12 +567,14 @@ fn polity_problems(sim: &Sim) -> Vec<String> {
     out
 }
 
-/// What the polities did, in words: "2 laws put to gatherings, 1 passed; a common store, a
-/// twentieth: 1114 kg levied, 0 kg given in relief, 1278 kg held". `None` when nothing was
-/// proposed.
+/// What the polities did, in words: "3 laws proposed, 3 decided, 2 passed; a common store at a
+/// twentieth: 1114 kg levied, 80 kg kept back, 0 kg given in relief, 1278 kg held; 1 storekeeper
+/// named, 0 gone, one keeping it now". `None` when nothing was proposed.
 fn polity(sim: &Sim) -> Option<String> {
-    use civ_agents::polity::{LawStatus, Outcome};
+    use civ_agents::polity::{Law, LawStatus, Outcome, PolicyKind};
     let pop = sim.people();
+    let policies = &sim.rules().catalog.policies;
+    let kind = |l: &Law| policies.get(usize::from(l.policy)).map(|d| d.kind);
     let laws: Vec<_> = pop.polities.iter().flat_map(|p| &p.laws).collect();
     if laws.is_empty() {
         return None;
@@ -586,7 +589,11 @@ fn polity(sim: &Sim) -> Option<String> {
         laws.len()
     )];
     for p in &pop.polities {
-        for l in p.laws.iter().filter(|l| l.status == LawStatus::InForce) {
+        let stores = p
+            .laws
+            .iter()
+            .filter(|l| l.status == LawStatus::InForce && kind(l) == Some(PolicyKind::CommonStore));
+        for l in stores {
             let c = &l.compliance;
             parts.push(format!(
                 "a common store at {}: {:.0} kg levied, {:.0} kg kept back, {:.0} kg given in \
@@ -596,6 +603,24 @@ fn polity(sim: &Sim) -> Option<String> {
                 c.withheld_kg,
                 c.relief_kg,
                 p.stores.iter().sum::<f64>()
+            ));
+        }
+        let named: Vec<_> = p
+            .laws
+            .iter()
+            .filter(|l| kind(l) == Some(PolicyKind::KeepStore))
+            .filter(|l| matches!(l.status, LawStatus::InForce | LawStatus::Lapsed))
+            .collect();
+        if !named.is_empty() {
+            let gone = named
+                .iter()
+                .filter(|l| l.status == LawStatus::Lapsed)
+                .count();
+            parts.push(format!(
+                "{} storekeeper{} named, {gone} gone, {} keeping it now",
+                named.len(),
+                if named.len() == 1 { "" } else { "s" },
+                if p.keeper().is_some() { "one" } else { "none" }
             ));
         }
     }

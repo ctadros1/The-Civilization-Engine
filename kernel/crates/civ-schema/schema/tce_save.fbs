@@ -1035,9 +1035,10 @@ table Ties {
 // store, every law proposed there with its whole history, and the gathering called, if any. Laws
 // name their template by index into `policies`, the policy content ids at save time; a save naming
 // one the loaded content lacks is refused (ADR-0013 §2). Codes: `members` (0 adults), `pass` (0
-// more for than against), law `status` (0 proposed, 1 in force, 2 rejected), `issue` (0 food
-// short), `outcome` (0 passed, 1 failed, 2 tied, 3 no quorum; 255 none yet), stance (0 support, 1
-// oppose, 2 abstain).
+// more for than against), law `status` (0 proposed, 1 in force, 2 rejected, 3 lapsed: schema 30),
+// `issue` (0 food short, 1 store unkept: schema 30), `outcome` (0 passed, 1 failed, 2 tied, 3 no
+// quorum; 255 none yet), stance (0 support, 1 oppose, 2 abstain). `holder` (schema 30) is the one
+// a law names (who keeps the store), 0 for none.
 struct StanceSave {
   person: ulong;
   household: ulong;
@@ -1083,6 +1084,7 @@ table LawSave {
   relieved: uint (id: 21);
   relief_kg: double (id: 22);
   unanswered: uint (id: 23);
+  holder: ulong (id: 24);
 }
 
 table GatheringSave {

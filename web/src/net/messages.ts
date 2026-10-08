@@ -770,8 +770,8 @@ export interface StanceLine {
   why: string;
 }
 
-/** Where a law stands. */
-export type LawStatus = "proposed" | "in force" | "rejected";
+/** Where a law stands ("lapsed", wire 1.28: the one it named died or left). */
+export type LawStatus = "proposed" | "in force" | "rejected" | "lapsed";
 
 /** How a gathering decided. */
 export type LawOutcome = "passed" | "failed" | "tied" | "no quorum";
@@ -811,6 +811,9 @@ export interface LawLine {
   relieved: number;
   reliefKg: number;
   unanswered: number;
+  /** Wire 1.28: the one it names (who keeps the store; 0 for none), and their name. */
+  holder: number;
+  holderName: string;
 }
 
 /** A settlement's polity (wire 1.27): its custom, members, store, gathering called and laws. */
@@ -831,6 +834,8 @@ export interface PolityLine {
   gatheringLaw: number;
   gatheringMinute: number;
   gatheringPresent: number;
+  /** Wire 1.28: its offices and who holds them, in the kernel's words. */
+  offices: string[];
 }
 
 /** Every settlement's polity at `minute` (wire 1.27). */
@@ -2647,7 +2652,7 @@ function standingLine(l: W.StandingLine): StandingLine {
 }
 
 const STANCES: StanceKind[] = ["for", "against", "abstained"];
-const LAW_STATUSES: LawStatus[] = ["proposed", "in force", "rejected"];
+const LAW_STATUSES: LawStatus[] = ["proposed", "in force", "rejected", "lapsed"];
 const OUTCOMES: LawOutcome[] = ["passed", "failed", "tied", "no quorum"];
 
 function lawLine(l: W.LawLine): LawLine {
@@ -2692,6 +2697,8 @@ function lawLine(l: W.LawLine): LawLine {
     relieved: l.relieved(),
     reliefKg: l.reliefKg(),
     unanswered: l.unanswered(),
+    holder: Number(l.holder()),
+    holderName: l.holderName() ?? "",
   };
 }
 
@@ -2718,6 +2725,7 @@ function governmentInfo(w: W.Government): GovernmentInfo {
       gatheringLaw: Number(p.gatheringLaw()),
       gatheringMinute: Number(p.gatheringMinute()),
       gatheringPresent: p.gatheringPresent(),
+      offices: Array.from({ length: p.officesLength() }, (_, k) => p.offices(k) ?? ""),
     });
   }
   return { minute: Number(w.minute()), polities };

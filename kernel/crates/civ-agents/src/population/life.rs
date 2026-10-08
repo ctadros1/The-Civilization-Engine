@@ -505,16 +505,22 @@ impl Population {
     }
 
     /// Households out of food whose members are worn down, with no crop of theirs ripening or
-    /// waiting to be threshed, may give up and leave the valley (research 05-06 §1.4: famine
-    /// migration follows expected access to food, not only hunger; §5.2: a founding can fail,
-    /// and its households withdraw). They go together and take what they carry; their fields and
-    /// huts stand abandoned.
+    /// waiting to be threshed, weigh leaving the valley (research 05-06 §1.4: famine migration
+    /// follows expected access to food, not only hunger; §5.2: a founding can fail, and its
+    /// households withdraw). Each day such a household goes with a chance that weighs the wait to
+    /// its next harvest that its food, what others could spare and any relief it may ask for would
+    /// not cover, against what its fields should bring, which leaving gives up ([`leave_chance`];
+    /// M4a slice Z). They go together and take what they carry; their fields and huts stand
+    /// abandoned.
     fn departures(&mut self, ctx: &mut Ctx, day: i64) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let h = &params.household;
         let crop = ctx.catalog.crops.get(params.farm.crop);
         let mut ids: Vec<PermanentId> = self.households.iter().map(|(_, x)| x.id).collect();
         ids.sort_unstable();
+        // Per settlement, what its households could spare and how many are out of food, worked
+        // out when first needed today.
+        let mut villages: Vec<(PermanentId, f64, usize)> = Vec::new();
         for household in ids {
             let Some(x) = self.household(household) else {
                 continue;
@@ -537,25 +543,85 @@ impl Population {
             if worn < h.leave_at_depletion {
                 continue;
             }
+            let fields = || ctx.land.fields.iter().filter(|f| f.household == household);
             let coming = crop.is_some_and(|c| {
-                ctx.land.fields.iter().any(|f| {
-                    f.household == household
-                        && match f.stage {
-                            FieldStage::Sown => {
-                                (f.ripe_day(c) - day) as f64 <= h.leave_unless_ripe_within_days
-                            }
-                            FieldStage::Reaped => true,
-                            _ => false,
-                        }
+                fields().any(|f| match f.stage {
+                    FieldStage::Sown => {
+                        (f.ripe_day(c) - day) as f64 <= h.leave_unless_ripe_within_days
+                    }
+                    FieldStage::Reaped => true,
+                    _ => false,
                 })
             });
-            if coming
-                || life_rng(ctx.seed, household, day, Draw::Leave).next_f64() >= h.leave_per_day
-            {
+            if coming {
+                continue;
+            }
+            // What staying offers: its own food, its share of what others could spare those out of
+            // food, and its share of the common store if a law its members know keeps one,
+            // against the wait to its next harvest.
+            let settlement = x.settlement;
+            let (spare, short) = match settlement {
+                Some(s) => match villages.iter().find(|v| v.0 == s) {
+                    Some(v) => (v.1, v.2),
+                    None => {
+                        let (spare, short) = self.village_food(ctx, s);
+                        villages.push((s, spare, short));
+                        (spare, short)
+                    }
+                },
+                None => (0.0, 1),
+            };
+            let short = short.max(1) as f64;
+            let relief = settlement
+                .and_then(|s| self.polity_of(s))
+                .map_or(0.0, |pi| {
+                    let p = &self.polities[pi];
+                    let knows = p
+                        .in_force(
+                            &ctx.catalog.policies,
+                            crate::polity::PolicyKind::CommonStore,
+                        )
+                        .any(|l| x.members.iter().any(|&m| l.knows(m)));
+                    if knows {
+                        stock_kcal(&p.stores, goods)
+                    } else {
+                        0.0
+                    }
+                });
+            let wait = crop.map_or(365.0, |c| farm::days_to_harvest(c, fields(), day));
+            let reach = (food + (spare + relief) / short) / need.max(1.0);
+            let gap = 1.0 - reach / wait.max(1.0);
+            let stake = self
+                .outlook(ctx, household)
+                .map_or(0.0, |o| o.harvest / o.year_need.max(1.0));
+            let chance = leave_chance(gap, stake, h);
+            if life_rng(ctx.seed, household, day, Draw::Leave).next_f64() >= chance {
                 continue;
             }
             self.leave(ctx, household);
         }
+    }
+
+    /// What settlement `settlement`'s households could spare a household in need, kcal, and how
+    /// many of its households are out of food.
+    fn village_food(&self, ctx: &Ctx, settlement: PermanentId) -> (f64, usize) {
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let mut out = (0.0, 0);
+        let mut homes: Vec<&Household> = self
+            .households
+            .iter()
+            .map(|(_, x)| x)
+            .filter(|x| x.settlement == Some(settlement) && !x.members.is_empty())
+            .collect();
+        homes.sort_by_key(|x| x.id);
+        for x in homes {
+            out.0 += spare_food_kcal(x, now, params, goods);
+            let need = x.members.len() as f64 * params.household.daily_kcal_per_person;
+            if stock_kcal(&stores_now(x, now, params, goods), goods) < need {
+                out.1 += 1;
+            }
+        }
+        out
     }
 
     /// Household `household` leaves the world: its people are no longer simulated, their
@@ -1343,5 +1409,33 @@ impl Population {
             &|_| 0.0,
         );
         crate::found::home_site(ctx.map, &field, wanted).unwrap_or(near)
+    }
+}
+
+/// The chance a household out of food and worn down leaves today (M4a slice Z): `leave_per_day`
+/// times the logistic of the points for going, `leave_w_gap` for the whole of the wait to its next
+/// harvest uncovered (`gap`, 0-1), less those for staying, `leave_w_stake` for a whole year's food
+/// its fields should bring (`stake`, 0-1) and `leave_stay`. A household that others or a store
+/// could carry to its harvest seldom goes; one with nothing to wait for goes at nearly the full
+/// rate.
+pub(crate) fn leave_chance(gap: f64, stake: f64, h: &HouseholdParams) -> f64 {
+    let points = h.leave_w_gap * gap.clamp(0.0, 1.0)
+        - h.leave_w_stake * stake.clamp(0.0, 1.0)
+        - h.leave_stay;
+    h.leave_per_day / (1.0 + (-points).exp())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_household_others_could_carry_seldom_leaves_and_one_with_nothing_goes() {
+        let h = crate::found::tests::params().household;
+        let nothing = super::leave_chance(1.0, 0.0, &h);
+        let carried = super::leave_chance(0.0, 0.0, &h);
+        let fields = super::leave_chance(1.0, 1.0, &h);
+        assert!(nothing > 0.9 * h.leave_per_day, "{nothing}");
+        assert!(carried < 0.2 * h.leave_per_day, "{carried}");
+        assert!(fields < nothing, "fields to lose hold some back");
+        assert!(super::leave_chance(5.0, -1.0, &h) <= h.leave_per_day);
     }
 }

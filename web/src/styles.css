@@ -1350,6 +1350,12 @@ button.link:hover {
   font-weight: 600;
 }
 
+.polity .offices {
+  margin: 2px 0;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
 .polity details.law {
   border-bottom: 1px solid var(--line);
   padding: 3px 0;

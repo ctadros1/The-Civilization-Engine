@@ -295,7 +295,20 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 - **Evidence:** the end-to-end suite passes with a new government test.
 - **Two findings:** in the one run whose stances were read in full, the law passed mostly on regard for its sponsor, and two worlds of one seed differ in their details because each draws its own identity.
 
-**Open:** nobody asked the store for relief in these runs, because nobody ran short. Leaving as a choice (Z3), offices and succession (Z4), labels (Z5) and the notables' gate with the demo (Z6) are next.
+**Third step, leaving weighed:**
+
+- **What changed:** a household out of food and worn down still leaves only with no harvest near, but now at a chance scaled by what staying offers: its own food, its share of what neighbours could spare, and a common store it knows of, against the wait to its next harvest, and the year's food its fields should bring. The chance never exceeds the old one (content API 32).
+- **Evidence:** a unit test of the weighing; the ten-year smoke passed. A coast village whose store held a few hundred kilograms still lost half its people in a poor year: there was little to wait on.
+
+**Fourth step, the storekeeper:**
+
+- **What changed:** an unkept store with food in it is an issue. A sponsor may propose the sheltered adult they regard most as its keeper, and the gathering decides as for any law. Under a keeper the store spoils as a roofed store and relief is asked at their home. When the keeper dies or leaves, the law lapses and a successor needs a new law (saves 30, wire 1.28, content API 33).
+- **A deviation, recorded:** ADR-0013's general office (seats, removal, pay, powers) is not built; the first office is a law naming its holder.
+- **Evidence:** an integration test puts a keeper law in force by hand, sees the store keep under the keeper's roof, moves the keeper's household away and sees the law lapse in the chronicle; the ten-year smoke passed with a keeper in every village and spoilage down from 32–40 % to 11–18 %; one coast run showed a keeper gone and a successor named; Gate B and the end-to-end suite passed.
+
+**Found on the way:** the fifty-year dashboard failed one row, structural failures at 2.01 per 1,000 building-years against 2, within the spread of earlier runs (1.10–2.37). Its roof failures killed people where slice W's had killed nobody. A time-boxed probe showed the collapse rule unchanged: slice W's failures were mostly huts their households had left.
+
+**Open:** labels (Z5) and the notables' gate with the demo (Z6) are next. Whether a larger store would keep a village through a poor year is untested; villages chose a twentieth or a tenth.
 
 ## Development pattern that emerged
 

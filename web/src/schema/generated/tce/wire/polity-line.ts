@@ -96,8 +96,20 @@ gatheringPresent():number {
   return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
 }
 
+offices(index: number):string
+offices(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+offices(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 28);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+officesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 28);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startPolityLine(builder:flatbuffers.Builder) {
-  builder.startObject(12);
+  builder.startObject(13);
 }
 
 static addPolity(builder:flatbuffers.Builder, polity:bigint) {
@@ -160,12 +172,28 @@ static addGatheringPresent(builder:flatbuffers.Builder, gatheringPresent:number)
   builder.addFieldInt32(11, gatheringPresent, 0);
 }
 
+static addOffices(builder:flatbuffers.Builder, officesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(12, officesOffset, 0);
+}
+
+static createOfficesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startOfficesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endPolityLine(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:bigint, nameOffset:flatbuffers.Offset, foundedMinute:bigint, customOffset:flatbuffers.Offset, members:number, storeOffset:flatbuffers.Offset, storeKg:number, lawsOffset:flatbuffers.Offset, gatheringLaw:bigint, gatheringMinute:bigint, gatheringPresent:number):flatbuffers.Offset {
+static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:bigint, nameOffset:flatbuffers.Offset, foundedMinute:bigint, customOffset:flatbuffers.Offset, members:number, storeOffset:flatbuffers.Offset, storeKg:number, lawsOffset:flatbuffers.Offset, gatheringLaw:bigint, gatheringMinute:bigint, gatheringPresent:number, officesOffset:flatbuffers.Offset):flatbuffers.Offset {
   PolityLine.startPolityLine(builder);
   PolityLine.addPolity(builder, polity);
   PolityLine.addSettlement(builder, settlement);
@@ -179,6 +207,7 @@ static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:b
   PolityLine.addGatheringLaw(builder, gatheringLaw);
   PolityLine.addGatheringMinute(builder, gatheringMinute);
   PolityLine.addGatheringPresent(builder, gatheringPresent);
+  PolityLine.addOffices(builder, officesOffset);
   return PolityLine.endPolityLine(builder);
 }
 }

@@ -3,7 +3,8 @@
 //! observer only shows them.
 
 use civ_agents::polity::{
-    Law, LawStatus, Outcome, Polity, Stance, decision_words, law_words, stance_words,
+    Law, LawStatus, Outcome, Polity, Stance, day_words, decision_words, law_words, office_words,
+    stance_words,
 };
 use civ_core::SimTime;
 use civ_schema::flatbuffers::{FlatBufferBuilder, WIPOffset};
@@ -17,6 +18,7 @@ fn status_code(s: LawStatus) -> u8 {
         LawStatus::Proposed => 0,
         LawStatus::InForce => 1,
         LawStatus::Rejected => 2,
+        LawStatus::Lapsed => 3,
     }
 }
 
@@ -61,7 +63,10 @@ fn law_line<'a>(
         })
         .collect();
     let stances = fbb.create_vector(&stances);
-    let what = fbb.create_string(&law_words(law, &rules.catalog.policies));
+    let what = fbb.create_string(&law_words(law, &rules.catalog.policies, &|id| {
+        pop.name_of(id)
+    }));
+    let holder_name = law.holder.map(|h| fbb.create_string(&pop.name_of(h)));
     let policy = fbb.create_string(
         rules
             .catalog
@@ -108,8 +113,22 @@ fn law_line<'a>(
             relieved: c.relieved,
             relief_kg: c.relief_kg as f32,
             unanswered: c.unanswered,
+            holder: law.holder.map_or(0, |h| h.get()),
+            holder_name,
         },
     )
+}
+
+/// How someone came to be gone, in words: "when they died on 9 June of year 5".
+fn gone_words(sim: &Sim, id: civ_core::PermanentId) -> String {
+    match sim.people.records.get(&id) {
+        Some(r) => match (r.died, r.left) {
+            (Some((t, _)), _) => format!("died on {}", day_words(t)),
+            (_, Some(t)) => format!("left the valley on {}", day_words(t)),
+            _ => "moved away".to_owned(),
+        },
+        None => "is gone".to_owned(),
+    }
 }
 
 /// What a store holds, in words: "grain 322 kg", or "nothing".
@@ -167,6 +186,16 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
             .map(|l| law_line(&mut fbb, sim, polity, l))
             .collect();
         let laws = fbb.create_vector(&laws);
+        let offices: Vec<_> = office_words(
+            polity,
+            &rules.catalog.policies,
+            &|id| pop.name_of(id),
+            &|id| gone_words(sim, id),
+        )
+        .iter()
+        .map(|w| fbb.create_string(w))
+        .collect();
+        let offices = fbb.create_vector(&offices);
         let (gathering_law, gathering_minute, gathering_present) =
             polity.gathering.as_ref().map_or((0, 0, 0), |g| {
                 (g.law.get(), g.day * 1440, g.present.len() as u32)
@@ -186,6 +215,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                 gathering_law,
                 gathering_minute,
                 gathering_present,
+                offices: Some(offices),
             },
         ));
     }

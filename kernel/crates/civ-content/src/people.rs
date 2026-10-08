@@ -554,6 +554,10 @@ pub(crate) struct Household {
     pub leave_at_depletion: f64,
     pub leave_per_day: f64,
     pub leave_unless_ripe_within_days: f64,
+    /// Leaving weighed (M4a slice Z; content API 32).
+    pub leave_w_gap: f64,
+    pub leave_w_stake: f64,
+    pub leave_stay: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -794,6 +798,9 @@ impl PeopleFile {
                 leave_at_depletion: h.leave_at_depletion,
                 leave_per_day: h.leave_per_day,
                 leave_unless_ripe_within_days: h.leave_unless_ripe_within_days,
+                leave_w_gap: h.leave_w_gap,
+                leave_w_stake: h.leave_w_stake,
+                leave_stay: h.leave_stay,
             },
             decision: DecisionParams {
                 temperature_sd_fraction: d.temperature_sd_fraction,
@@ -1314,6 +1321,15 @@ impl PeopleFile {
             h.leave_unless_ripe_within_days,
             &mut p,
         );
+        for (name, v, lo, hi) in [
+            ("household.leave_w_gap", h.leave_w_gap, 0.0, 100.0),
+            ("household.leave_w_stake", h.leave_w_stake, 0.0, 100.0),
+            ("household.leave_stay", h.leave_stay, -100.0, 100.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
         let d = &self.decision;
         positive(
             "decision.temperature_sd_fraction",

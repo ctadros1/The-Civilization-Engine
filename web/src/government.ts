@@ -26,9 +26,10 @@ export function lawDayText(minute: number): string {
   return `${d.day} ${MONTHS[d.month - 1] ?? "?"} of year ${d.year}`;
 }
 
-/** "in force", "turned down", "before the gathering on 9 May of year 3". */
+/** "in force", "turned down", "lapsed", "before the gathering on 9 May of year 3". */
 export function statusText(l: Pick<LawLine, "status" | "outcome" | "meetsMinute">): string {
   if (l.status === "in force") return "in force";
+  if (l.status === "lapsed") return "lapsed: the one it named is gone";
   if (l.status === "proposed") return `before the gathering on ${lawDayText(l.meetsMinute)}`;
   switch (l.outcome) {
     case "tied":

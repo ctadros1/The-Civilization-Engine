@@ -2032,11 +2032,10 @@ impl Population {
                 kcal,
             });
         }
-        // The common store, at the hearth, when a law its members know keeps one (ADR-0013 §4).
+        // The common store, at its keeper's or the hearth, when a law its members know keeps one
+        // (ADR-0013 §4).
         if let Some(s) = ctx.land.settlements.iter().find(|s| s.id == settlement)
-            && let Some(secs) = reach.seconds_to(cell_of(ctx.map, s.hearth_m))
-            && let Some(store) =
-                self.relief_option(ctx, hh, kcal_day, want, f64::from(secs) / 60.0, s.hearth_m)
+            && let Some(store) = self.relief_option(ctx, hh, kcal_day, want, reach, s.hearth_m)
         {
             found.push(store);
         }
@@ -4806,6 +4805,9 @@ mod tests {
             leave_at_depletion: 0.3,
             leave_per_day: 0.1,
             leave_unless_ripe_within_days: 30.0,
+            leave_w_gap: 6.0,
+            leave_w_stake: 3.0,
+            leave_stay: 2.0,
             ready_food_days: 2.0,
             harvest_margin_days: 30.0,
             raised_store_factor: 2.0,

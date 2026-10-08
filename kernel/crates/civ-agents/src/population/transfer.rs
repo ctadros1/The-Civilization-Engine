@@ -59,8 +59,9 @@ impl Population {
                 }
             }
             Holder::Polity(i) => {
+                let sheltered = self.polity_sheltered(i);
                 if let Some(p) = self.polities.get_mut(i) {
-                    p.settle_stores(now, goods);
+                    p.settle_stores(now, goods, sheltered);
                     p.stores.resize(goods.len(), 0.0);
                 }
             }

@@ -749,6 +749,22 @@ table PersonInfo {
   values: [ValueLine] (id: 46);
   // Wire 1.39 (M4c slice AG, ADR-0016 §4): the ideologies they hold.
   ideologies: [IdeologyLine] (id: 47);
+  // Wire 1.40 (M4c slice AH, ADR-0017 §2): the faction they belong to, if any.
+  faction: FactionLine (id: 48);
+}
+
+// The faction someone belongs to (wire 1.40, ADR-0017 §2, §6).
+table FactionLine {
+  faction: ulong (id: 0);
+  // "Mira's faction", and what it stands against ("the gathering").
+  name: string (id: 1);
+  against: string (id: 2);
+  organizer: ulong (id: 3);
+  organizer_name: string (id: 4);
+  // The start of the day they joined.
+  since_minute: long (id: 5);
+  // Why they belong, as they last reviewed it, in words rendered by the kernel.
+  why: string (id: 6);
 }
 
 // An ideology someone holds (wire 1.39, ADR-0016 §4).
@@ -1653,6 +1669,10 @@ table PolityLine {
   // body admits now (`members` counts every adult).
   custom_history: [string] (id: 18);
   body_members: uint (id: 19);
+  // Wire 1.40 (M4c slice AH, ADR-0017 §2): its factions, live first, in words rendered by the
+  // kernel ("Mira's faction, against the gathering, since 3 May of year 2: 5 members, organized
+  // by Mira; its store holds grain 40 kg").
+  factions: [string] (id: 20);
 }
 
 table Government {

@@ -56,9 +56,13 @@ fn saves_and_goes_on_alike(sim: &mut Sim, content: &ContentRegistry, minutes: i6
     let same = |a: &Sim, b: &Sim| {
         let (a, b) = (persist::encode_sections(a), persist::encode_sections(b));
         assert_eq!(a.len(), b.len());
-        for (x, y) in a.iter().zip(&b) {
-            assert!(x.bytes == y.bytes, "section `{}` differs", x.tag);
-        }
+        let differ: Vec<String> = a
+            .iter()
+            .zip(&b)
+            .filter(|(x, y)| x.bytes != y.bytes)
+            .map(|(x, _)| x.tag.to_string())
+            .collect();
+        assert!(differ.is_empty(), "sections differ: {differ:?}");
     };
     same(sim, &loaded);
     sim.advance_minutes(minutes).expect("advances");

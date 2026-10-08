@@ -43,6 +43,7 @@ mod cases;
 mod crime;
 mod deposits;
 mod digging;
+mod faction;
 mod firm;
 mod ideology;
 mod knowledge;
@@ -404,6 +405,8 @@ pub struct Population {
     /// Who holds which ideology, and the creeds laws were proposed under (M4c slice AG,
     /// ADR-0016 §4).
     pub ideologies: crate::ideology::Ideologies,
+    /// Factions and who belongs to each (M4c slice AH, ADR-0017 §2).
+    pub factions: crate::faction::Factions,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -1057,6 +1060,41 @@ impl Population {
                 out.push(format!(
                     "firm {} has a store that is not a number or outlived it",
                     f.id
+                ));
+            }
+        }
+        // Factions (M4c slice AH): ids of their own, members alive and in live ones.
+        let mut faction_ids = std::collections::HashSet::new();
+        for f in &self.factions.list {
+            if !faction_ids.insert(f.id)
+                || hh_ids.contains(&f.id)
+                || firm_ids.contains(&f.id)
+                || f.id.get() >= next_id
+            {
+                out.push(format!(
+                    "faction {} has a duplicate or unallocated id",
+                    f.id
+                ));
+            }
+            if !f.stores.iter().all(|v| v.is_finite() && *v >= 0.0) {
+                out.push(format!("faction {} has a store that is not a number", f.id));
+            }
+        }
+        for m in &self.factions.members {
+            if self.person(m.person).is_none() {
+                out.push(format!(
+                    "{} belongs to a faction but is not alive",
+                    m.person
+                ));
+            }
+            if !self
+                .factions
+                .get(m.faction)
+                .is_some_and(crate::faction::Faction::is_live)
+            {
+                out.push(format!(
+                    "{} belongs to faction {}, which is not live",
+                    m.person, m.faction
                 ));
             }
         }
@@ -2069,6 +2107,11 @@ impl Population {
         {
             found.push(store);
         }
+        // The store of a faction one of its members belongs to, at its organizer's (M4c slice
+        // AH).
+        if let Some(store) = self.aid_option(ctx, hh, kcal_day, want, reach) {
+            found.push(store);
+        }
         // Those who could give the most; among them, the nearest once a walk is weighed against
         // how well the household's members regard the one who stands for each (ADR-0014 §3):
         // they would walk `ask_known_min` further to ask someone they regard fully than a
@@ -2077,7 +2120,12 @@ impl Population {
         let tp = &params.ties;
         let day = now.day_index();
         let cost = |g: &GiverOption| {
-            let elder = self.elder_of(g.household, now, params);
+            // A faction's store is asked of its organizer.
+            let elder = self
+                .factions
+                .get(g.household)
+                .map(|f| f.organizer)
+                .or_else(|| self.elder_of(g.household, now, params));
             let regard = elder.map_or(0.0, |e| {
                 hh.members
                     .iter()
@@ -3844,6 +3892,11 @@ impl Population {
             self.give_relief(ctx, pi, to);
             return;
         }
+        // A faction's store gives its members' households (M4c slice AH).
+        if let Some(fi) = self.factions.list.iter().position(|f| f.id == giver) {
+            self.give_aid(ctx, fi, to);
+            return;
+        }
         // A household that believes the asker took from it, or from those it regards, refuses
         // them (ADR-0015 §3).
         if self.refuses(ctx, giver, asker) {
@@ -4117,6 +4170,8 @@ impl Population {
             };
             let kept = done.grain_kg * (1.0 - rent);
             self.levy(ctx, who, household, kept, crop.good);
+            // And a faction the thresher belongs to its dues (M4c slice AH).
+            self.pay_dues(ctx, who, household, kept, crop.good);
         }
         let Some(si) = settlement.and_then(|s| ctx.land.settlements.iter().position(|x| x.id == s))
         else {

@@ -30,6 +30,7 @@ export { Event } from './wire/event.js';
 export { EventKind } from './wire/event-kind.js';
 export { Events } from './wire/events.js';
 export { Exclusion } from './wire/exclusion.js';
+export { FactionLine } from './wire/faction-line.js';
 export { FieldInfo } from './wire/field-info.js';
 export { FieldStage } from './wire/field-stage.js';
 export { Fields } from './wire/fields.js';

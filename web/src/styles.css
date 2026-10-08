@@ -1140,13 +1140,18 @@ ul.rules li {
   color: var(--muted);
 }
 
-/* What they hold dear and the norms they hold, set apart from the questions of the day (M4c
-   slice AG) */
+/* What they hold dear, the norms they hold and the faction they belong to, set apart from the
+   questions of the day (M4c slices AG and AH) */
 .opinions ul.norms,
 .opinions ul.ideologies,
 .opinions p.ideologies,
+.opinions p.faction,
 .opinions p.values {
   margin-top: 6px;
+}
+
+.opinions p.faction.empty {
+  color: var(--muted);
 }
 
 .opinions p.values {
@@ -1390,7 +1395,8 @@ button.link:hover {
   font-weight: 600;
 }
 
-.polity .offices {
+.polity .offices,
+.polity .factions {
   margin: 2px 0;
   padding-left: 18px;
   font-size: 12px;

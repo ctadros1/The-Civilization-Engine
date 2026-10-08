@@ -508,7 +508,26 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Evidence:** unit tests for holdings, fit and the adoption chance; integration tests that founders bring ideologies and companions take them up from whom the record says, that a holder proposes what their ideology proposes and the law keeps its creed, and that a schema-39 save loads and its founders bring the same ideologies the next midnight; content checks for the kind and for unknown values and templates; the web tests and the standing end-to-end spec. The kernel (591), web (141) and end-to-end (16, 6 demos skipped) suites pass, with clippy and the format and schema checks clean. The ten-year smoke passed all 10 worlds: each ideology held by 0 to 35 of 17 to 56 people; 15 of 29 laws were proposed by someone holding an ideology that names them, with 2 to 6 laws a village in ten years as before. The creed marks a law; it does not show the creed caused it. Gate B and the notables' gate passed.
 
-**Slice AG is complete:** opinion, the norm that the gathering binds, values and ideologies. **Open:** slice AH, factions and episodes (ADR-0017).
+**Slice AG is complete:** opinion, the norm that the gathering binds, values and ideologies. **Open:** slice AH, factions and episodes (ADR-0017; below).
+
+## 2026-10-08 — M4c slice AH, step one: factions
+
+**Goal:** let people who share a grievance organize, as their own choice, without the engine deciding who rebels or when.
+
+**What changed:**
+
+- **A faction** organizes those who hold grievances against one party, the gathering or an office (ADR-0017 §2; research 04-10 §1.1, §1.5). It has a founder, an organizer, members, a store on the ledger and a history.
+- **Founding** needs a grievance felt keenly and the belief, from what someone has heard, that others they trust hold one against the same party too; never a count of angry people.
+- **Joining, staying and leaving** are each adult's choice on a day of their own each month: their grievance, their regard for the organizer, how many of those they know belong and the dues, against a threshold of their own. Leaving needs the worth to fall well below it. Membership is kept apart from belief.
+- **The store** takes dues from members' threshing up to a reserve (a new ledger channel, `dues`) and gives to a member's household short of food. The longest-standing member takes over when the organizer is gone; a faction with no members ends.
+- **The inspector** says which faction someone belongs to and why; **the Government panel** lists each polity's factions.
+- **Boundary:** saves schema 41 (40 still loads), wire 1.40, content API 45.
+
+**Three findings:** unbounded dues piled up thousands of kilograms that were never given out (members' households were never short after joining), so dues now stop at a reserve; a founder's self-regard kept lone founders in factions nobody joined, and removing it made them found and quit monthly (117 foundings in one village), so a founder whose faction ended waits a year; and two coast villages that fell to 16 and 14 in one run were the draw of the world's life, not factions (the same seeds with fixed identities, factions on and off, ended within two people).
+
+**Evidence:** unit tests for founding, belonging, the words of why someone belongs and memberships; integration tests that a shared grievance founds a faction others join for reasons the record keeps, that a member's household short of food is given from its store, and that a schema-40 save loads with no factions, each saving and loading exactly; the web tests and the standing end-to-end spec. The kernel (598), web (142) and end-to-end (16, 6 demos skipped) suites pass, with clippy and the format and schema checks clean. The ten-year smoke passed all 10 worlds: factions formed only in the three hungry coast villages (one of 26 members in a village of 48). Gate B and the notables' gate passed.
+
+**Open:** step two, petitions and assemblies with a demand the gathering decides; step three, refusals of a levy, damage and violence. A rare save-and-load test failure (about 1 run in 100) is narrowed to one unchosen option scoring differently after a reload, most likely a decision cache rebuilt on load; it stays open.
 
 ## Development pattern that emerged
 

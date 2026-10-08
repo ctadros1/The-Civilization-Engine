@@ -182,10 +182,10 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 25 land, field, plot, building,
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 26 land, field, plot, building,
     // wear, market, firm, wealth, knowledge, deposits, earth, ties, polity, order, word, opinion,
-    // norms, values, creeds and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 25);
+    // norms, values, creeds, factions and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 26);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -2071,6 +2071,23 @@ fn a_schema_39_save_loads_and_its_people_take_their_ideologies_the_next_midnight
     assert_eq!(brought(&loaded), brought(&sim));
     let last = loaded.people().people.iter().map(|(_, p)| p.id.get()).max();
     assert_eq!(Some(loaded.people().ideologies.seen), last);
+}
+
+#[test]
+fn a_schema_40_save_loads_with_no_factions() {
+    let sim = load_first();
+    // A schema-40 save, from before factions (M4c slice AH): none have been founded.
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_FACTIONS)
+        .collect();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V40;
+    let path = republish("slice-ag4", &info, &sections);
+    let mut loaded = persist::load(&path, content()).expect("a schema-40 save loads");
+    assert!(loaded.people().factions.list.is_empty());
+    assert!(loaded.people().factions.members.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
 }
 
 #[test]

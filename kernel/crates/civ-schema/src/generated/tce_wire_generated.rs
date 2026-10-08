@@ -13036,6 +13036,7 @@ impl<'a> PersonInfo<'a> {
   pub const VT_NORMS: ::flatbuffers::VOffsetT = 94;
   pub const VT_VALUES: ::flatbuffers::VOffsetT = 96;
   pub const VT_IDEOLOGIES: ::flatbuffers::VOffsetT = 98;
+  pub const VT_FACTION: ::flatbuffers::VOffsetT = 100;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -13057,6 +13058,7 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.faction { builder.add_faction(x); }
     if let Some(x) = args.ideologies { builder.add_ideologies(x); }
     if let Some(x) = args.values { builder.add_values(x); }
     if let Some(x) = args.norms { builder.add_norms(x); }
@@ -13435,6 +13437,13 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IdeologyLine>>>>(PersonInfo::VT_IDEOLOGIES, None)}
   }
+  #[inline]
+  pub fn faction(&self) -> Option<FactionLine<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<FactionLine>>(PersonInfo::VT_FACTION, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -13491,6 +13500,7 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<NormLine>>>>("norms", Self::VT_NORMS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ValueLine>>>>("values", Self::VT_VALUES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<IdeologyLine>>>>("ideologies", Self::VT_IDEOLOGIES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<FactionLine>>("faction", Self::VT_FACTION, false)?
      .finish();
     Ok(())
   }
@@ -13544,6 +13554,7 @@ pub struct PersonInfoArgs<'a> {
     pub norms: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NormLine<'a>>>>>,
     pub values: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ValueLine<'a>>>>>,
     pub ideologies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IdeologyLine<'a>>>>>,
+    pub faction: Option<::flatbuffers::WIPOffset<FactionLine<'a>>>,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -13597,6 +13608,7 @@ impl<'a> Default for PersonInfoArgs<'a> {
       norms: None,
       values: None,
       ideologies: None,
+      faction: None,
     }
   }
 }
@@ -13799,6 +13811,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_IDEOLOGIES, ideologies);
   }
   #[inline]
+  pub fn add_faction(&mut self, faction: ::flatbuffers::WIPOffset<FactionLine<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<FactionLine>>(PersonInfo::VT_FACTION, faction);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -13864,6 +13880,205 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("norms", &self.norms());
       ds.field("values", &self.values());
       ds.field("ideologies", &self.ideologies());
+      ds.field("faction", &self.faction());
+      ds.finish()
+  }
+}
+pub enum FactionLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct FactionLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for FactionLine<'a> {
+  type Inner = FactionLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> FactionLine<'a> {
+  pub const VT_FACTION: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_AGAINST: ::flatbuffers::VOffsetT = 8;
+  pub const VT_ORGANIZER: ::flatbuffers::VOffsetT = 10;
+  pub const VT_ORGANIZER_NAME: ::flatbuffers::VOffsetT = 12;
+  pub const VT_SINCE_MINUTE: ::flatbuffers::VOffsetT = 14;
+  pub const VT_WHY: ::flatbuffers::VOffsetT = 16;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    FactionLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args FactionLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<FactionLine<'bldr>> {
+    let mut builder = FactionLineBuilder::new(_fbb);
+    builder.add_since_minute(args.since_minute);
+    builder.add_organizer(args.organizer);
+    builder.add_faction(args.faction);
+    if let Some(x) = args.why { builder.add_why(x); }
+    if let Some(x) = args.organizer_name { builder.add_organizer_name(x); }
+    if let Some(x) = args.against { builder.add_against(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn faction(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(FactionLine::VT_FACTION, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FactionLine::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn against(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FactionLine::VT_AGAINST, None)}
+  }
+  #[inline]
+  pub fn organizer(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(FactionLine::VT_ORGANIZER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn organizer_name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FactionLine::VT_ORGANIZER_NAME, None)}
+  }
+  #[inline]
+  pub fn since_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(FactionLine::VT_SINCE_MINUTE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn why(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FactionLine::VT_WHY, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for FactionLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("faction", Self::VT_FACTION, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("against", Self::VT_AGAINST, false)?
+     .visit_field::<u64>("organizer", Self::VT_ORGANIZER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("organizer_name", Self::VT_ORGANIZER_NAME, false)?
+     .visit_field::<i64>("since_minute", Self::VT_SINCE_MINUTE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("why", Self::VT_WHY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct FactionLineArgs<'a> {
+    pub faction: u64,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub against: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub organizer: u64,
+    pub organizer_name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub since_minute: i64,
+    pub why: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for FactionLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    FactionLineArgs {
+      faction: 0,
+      name: None,
+      against: None,
+      organizer: 0,
+      organizer_name: None,
+      since_minute: 0,
+      why: None,
+    }
+  }
+}
+
+pub struct FactionLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FactionLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_faction(&mut self, faction: u64) {
+    self.fbb_.push_slot::<u64>(FactionLine::VT_FACTION, faction, 0);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FactionLine::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_against(&mut self, against: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FactionLine::VT_AGAINST, against);
+  }
+  #[inline]
+  pub fn add_organizer(&mut self, organizer: u64) {
+    self.fbb_.push_slot::<u64>(FactionLine::VT_ORGANIZER, organizer, 0);
+  }
+  #[inline]
+  pub fn add_organizer_name(&mut self, organizer_name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FactionLine::VT_ORGANIZER_NAME, organizer_name);
+  }
+  #[inline]
+  pub fn add_since_minute(&mut self, since_minute: i64) {
+    self.fbb_.push_slot::<i64>(FactionLine::VT_SINCE_MINUTE, since_minute, 0);
+  }
+  #[inline]
+  pub fn add_why(&mut self, why: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FactionLine::VT_WHY, why);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FactionLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    FactionLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<FactionLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for FactionLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("FactionLine");
+      ds.field("faction", &self.faction());
+      ds.field("name", &self.name());
+      ds.field("against", &self.against());
+      ds.field("organizer", &self.organizer());
+      ds.field("organizer_name", &self.organizer_name());
+      ds.field("since_minute", &self.since_minute());
+      ds.field("why", &self.why());
       ds.finish()
   }
 }
@@ -24150,6 +24365,7 @@ impl<'a> PolityLine<'a> {
   pub const VT_GATHERING_CASES: ::flatbuffers::VOffsetT = 38;
   pub const VT_CUSTOM_HISTORY: ::flatbuffers::VOffsetT = 40;
   pub const VT_BODY_MEMBERS: ::flatbuffers::VOffsetT = 42;
+  pub const VT_FACTIONS: ::flatbuffers::VOffsetT = 44;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -24166,6 +24382,7 @@ impl<'a> PolityLine<'a> {
     builder.add_founded_minute(args.founded_minute);
     builder.add_settlement(args.settlement);
     builder.add_polity(args.polity);
+    if let Some(x) = args.factions { builder.add_factions(x); }
     builder.add_body_members(args.body_members);
     if let Some(x) = args.custom_history { builder.add_custom_history(x); }
     if let Some(x) = args.gathering_cases { builder.add_gathering_cases(x); }
@@ -24325,6 +24542,13 @@ impl<'a> PolityLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(PolityLine::VT_BODY_MEMBERS, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn factions(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PolityLine::VT_FACTIONS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolityLine<'_> {
@@ -24353,6 +24577,7 @@ impl ::flatbuffers::Verifiable for PolityLine<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("gathering_cases", Self::VT_GATHERING_CASES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("custom_history", Self::VT_CUSTOM_HISTORY, false)?
      .visit_field::<u32>("body_members", Self::VT_BODY_MEMBERS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("factions", Self::VT_FACTIONS, false)?
      .finish();
     Ok(())
   }
@@ -24378,6 +24603,7 @@ pub struct PolityLineArgs<'a> {
     pub gathering_cases: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub custom_history: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub body_members: u32,
+    pub factions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for PolityLineArgs<'a> {
   #[inline]
@@ -24403,6 +24629,7 @@ impl<'a> Default for PolityLineArgs<'a> {
       gathering_cases: None,
       custom_history: None,
       body_members: 0,
+      factions: None,
     }
   }
 }
@@ -24493,6 +24720,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolityLineBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<u32>(PolityLine::VT_BODY_MEMBERS, body_members, 0);
   }
   #[inline]
+  pub fn add_factions(&mut self, factions: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_FACTIONS, factions);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolityLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolityLineBuilder {
@@ -24530,6 +24761,7 @@ impl ::core::fmt::Debug for PolityLine<'_> {
       ds.field("gathering_cases", &self.gathering_cases());
       ds.field("custom_history", &self.custom_history());
       ds.field("body_members", &self.body_members());
+      ds.field("factions", &self.factions());
       ds.finish()
   }
 }

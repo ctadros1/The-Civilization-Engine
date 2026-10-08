@@ -686,6 +686,14 @@ Content API 38 (M4b slice AD) brings the curfew: the policy kind `curfew` with i
 (`core:policy/curfew`), and the `[crime]` keys `curfew_guard` and `curfew_cost_days`, tuning
 values (the research gives no figure for what a curfew costs or stops).
 
+Content API 45 (M4c slice AH) brings factions: the people profile's `[faction]` table (how often
+each adult reviews where they belong, the weights of a grievance, of regard for an organizer, of
+those one knows belonging and of dues, the thresholds, the founding cost and how long a founder
+whose faction ended waits before founding another, the dues share, the
+reserve past which a store asks no more dues and how much one ask of it may bring), all design
+priors (research 04-10 and 09-12 give
+no founding size or joining rate).
+
 Content API 44 (M4c slice AG) brings ideologies: the kind `ideology` (below) and the core pack's
 `core:ideology/common_provision`, `order_kept` and `own_say`.
 

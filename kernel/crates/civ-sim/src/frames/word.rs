@@ -254,6 +254,41 @@ pub fn ideology_lines<'a>(
     fbb.create_vector(&lines)
 }
 
+/// A faction's name, after its founder: "Mira's faction".
+pub fn faction_name(sim: &Sim, f: &civ_agents::faction::Faction) -> String {
+    format!("{}'s faction", sim.people.name_of(f.founder))
+}
+
+/// The faction `p` belongs to, if any, and why (wire 1.40, ADR-0017 §2, §6).
+pub fn faction_line<'a>(
+    fbb: &mut FlatBufferBuilder<'a>,
+    sim: &Sim,
+    p: &Person,
+) -> Option<WIPOffset<wire::FactionLine<'a>>> {
+    let pop = &sim.people;
+    let m = pop.factions.membership(p.id)?;
+    let f = pop.factions.get(m.faction)?;
+    let party = blamed_words(sim, f.against);
+    let organizer = pop.name_of(f.organizer);
+    let why = civ_agents::faction::why_words(&m.why, &party, &organizer, f.organizer == p.id);
+    let name = fbb.create_string(&faction_name(sim, f));
+    let against = fbb.create_string(&party);
+    let organizer_name = fbb.create_string(&organizer);
+    let why = fbb.create_string(&why);
+    Some(wire::FactionLine::create(
+        fbb,
+        &wire::FactionLineArgs {
+            faction: f.id.get(),
+            name: Some(name),
+            against: Some(against),
+            organizer: f.organizer.get(),
+            organizer_name: Some(organizer_name),
+            since_minute: m.since * DAY,
+            why: Some(why),
+        },
+    ))
+}
+
 /// What `p` has heard that is still news, the latest first, at most [`MAX_HEARD_SHOWN`].
 pub fn heard_lines<'a>(
     fbb: &mut FlatBufferBuilder<'a>,

@@ -7,6 +7,7 @@ import {
   grievanceHead,
   heardHow,
   heardWhen,
+  factionText,
   ideologyText,
   keennessText,
   normText,
@@ -150,5 +151,22 @@ describe("grievances and news in words", () => {
       "'what the village gathers, the village keeps against a lean year'; brought with them",
     );
     expect(ideologyText(d({ from: 7, fromName: "Wren" }))).toMatch(/; from Wren since \d+ \w+ of year \d+$/);
+  });
+});
+
+describe("factionText", () => {
+  it("names the faction, what it stands against, since when and why they belong", () => {
+    const text = factionText({
+      faction: 300,
+      name: "Mira's faction",
+      against: "the gathering",
+      organizer: 7,
+      organizerName: "Mira",
+      sinceMinute: 101 * DAY,
+      why: "belong, holding a grievance against the gathering: worth 1.35 to them against a threshold of 1.10, its dues counted",
+    });
+    expect(text).toMatch(/^Mira's faction, against the gathering, since \d+ \w+ of year \d+; organized by Mira\. /);
+    expect(text).toContain("They belong, holding a grievance against the gathering");
+    expect(text.endsWith("its dues counted.")).toBe(true);
   });
 });

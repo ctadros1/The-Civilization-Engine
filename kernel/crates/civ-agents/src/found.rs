@@ -1207,6 +1207,7 @@ pub(crate) mod tests {
             crime: crate::crime::CrimeParams::core(),
             word: crate::word::WordParams::core(),
             opinion: crate::opinion::OpinionParams::core(),
+            faction: crate::faction::FactionParams::core(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

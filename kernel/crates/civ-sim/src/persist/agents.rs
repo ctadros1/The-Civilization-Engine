@@ -105,8 +105,8 @@ use super::{
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
-    SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, finish,
-    section, single_chunk, unreadable,
+    SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
+    finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -162,6 +162,9 @@ pub const SECTION_VALUES: SectionTag = SectionTag::new("values");
 /// Section: who holds which ideology, and the creeds laws were proposed under (schema 40, M4c
 /// slice AG).
 pub const SECTION_IDEOLOGIES: SectionTag = SectionTag::new("creeds");
+/// Section: factions, their stores and histories, and who belongs to each (schema 41, M4c slice
+/// AH).
+pub const SECTION_FACTIONS: SectionTag = SectionTag::new("factions");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -241,6 +244,11 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             SECTION_IDEOLOGIES,
             0,
             encode_ideologies(&sim.people.ideologies, rules),
+        ),
+        section(
+            SECTION_FACTIONS,
+            0,
+            encode_factions(&sim.people.factions, &goods),
         ),
     ]
 }
@@ -340,6 +348,8 @@ enum Schema {
     V39,
     /// Who holds which ideology; the creeds laws were proposed under (M4c slice AG).
     V40,
+    /// Factions and who belongs to each (M4c slice AH).
+    V41,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -394,7 +404,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V37 => Schema::V37,
         SCHEMA_V38 => Schema::V38,
         SCHEMA_V39 => Schema::V39,
-        SAVE_SCHEMA_VERSION => Schema::V40,
+        SCHEMA_V40 => Schema::V40,
+        SAVE_SCHEMA_VERSION => Schema::V41,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -567,6 +578,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V40 {
         let bytes = single_chunk(reader, SECTION_IDEOLOGIES)?;
         people.ideologies = decode_ideologies(&bytes, rules)?;
+    }
+    // Factions (schema 41); before them there were none.
+    if schema >= Schema::V41 {
+        let bytes = single_chunk(reader, SECTION_FACTIONS)?;
+        people.factions = decode_factions(&bytes, rules)?;
     }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
     match standing {
@@ -2447,7 +2463,8 @@ fn carried(
         | Schema::V37
         | Schema::V38
         | Schema::V39
-        | Schema::V40 => {
+        | Schema::V40
+        | Schema::V41 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2597,7 +2614,8 @@ fn decode_households(
             | Schema::V37
             | Schema::V38
             | Schema::V39
-            | Schema::V40 => {
+            | Schema::V40
+            | Schema::V41 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5472,6 +5490,171 @@ fn decode_ideologies(
         taken: root.taken(),
         seen: root.seen(),
         creeds,
+    })
+}
+
+// ---- factions ----------------------------------------------------------------------------------
+
+fn encode_factions(factions: &civ_agents::faction::Factions, goods: &[&str]) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let good_dictionary = strings(&mut fbb, goods);
+    let list: Vec<_> = factions
+        .list
+        .iter()
+        .map(|f| {
+            let mut stores = f.stores.clone();
+            stores.resize(goods.len(), 0.0);
+            let stores = fbb.create_vector(&stores);
+            let history: Vec<save::FactionEventSave> = f
+                .history
+                .iter()
+                .map(|e| {
+                    save::FactionEventSave::new(
+                        e.at.minutes(),
+                        e.who.map_or(0, PermanentId::get),
+                        e.kind.code(),
+                    )
+                })
+                .collect();
+            let history = fbb.create_vector(&history);
+            let (against_kind, against) = f.against.to_raw();
+            save::FactionSave::create(
+                &mut fbb,
+                &save::FactionSaveArgs {
+                    id: f.id.get(),
+                    settlement: f.settlement.get(),
+                    against_kind,
+                    against,
+                    founder: f.founder.get(),
+                    organizer: f.organizer.get(),
+                    founded: f.founded.minutes(),
+                    has_ended: f.ended.is_some(),
+                    ended: f.ended.map_or(0, SimTime::minutes),
+                    stores: Some(stores),
+                    stores_at: f.stores_at.minutes(),
+                    history: Some(history),
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let members: Vec<save::MemberSave> = factions
+        .members
+        .iter()
+        .map(|m| {
+            save::MemberSave::new(
+                m.person.get(),
+                m.faction.get(),
+                m.since,
+                m.why.grievance,
+                m.why.organizer,
+                m.why.belong,
+                m.why.dues,
+                m.why.threshold,
+                m.why.known,
+            )
+        })
+        .collect();
+    let members = fbb.create_vector(&members);
+    let root = save::FactionsSave::create(
+        &mut fbb,
+        &save::FactionsSaveArgs {
+            factions: Some(list),
+            members: Some(members),
+            goods: Some(good_dictionary),
+            joined: factions.joined,
+            left: factions.left,
+        },
+    );
+    finish(fbb, root)
+}
+
+fn decode_factions(
+    bytes: &[u8],
+    rules: &Rules,
+) -> Result<civ_agents::faction::Factions, LoadError> {
+    use civ_agents::faction::{Faction, FactionEvent, FactionEventKind, Factions, Member, Why};
+    let root = flatbuffers::root::<save::FactionsSave>(bytes)
+        .map_err(|e| unreadable(SECTION_FACTIONS, &e))?;
+    let goods = good_map(&read_strings(root.goods()), rules);
+    let bad = |m: String| LoadError::Malformed(m);
+    let mut list = Vec::new();
+    for f in root.factions().iter().flatten() {
+        let id = required(f.id(), "a faction")?;
+        let against = civ_agents::word::Blamed::from_raw(f.against_kind(), f.against())
+            .ok_or_else(|| bad(format!("faction {id} holds against no party")))?;
+        let saved: Vec<f64> = f.stores().map(|v| v.iter().collect()).unwrap_or_default();
+        if saved.len() != goods.len() {
+            return Err(bad(format!(
+                "faction {id} stores {} goods of {}",
+                saved.len(),
+                goods.len()
+            )));
+        }
+        let mut stores = vec![0.0; rules.catalog.goods.len()];
+        for (kg, g) in saved.iter().zip(&goods) {
+            if let Some(g) = g {
+                stores[*g] += kg;
+            }
+        }
+        let mut history = Vec::new();
+        for e in f.history().iter().flatten() {
+            let kind = FactionEventKind::from_code(e.kind())
+                .ok_or_else(|| bad(format!("faction {id} has an event of kind {}", e.kind())))?;
+            history.push(FactionEvent {
+                at: SimTime::from_minutes(e.at()),
+                kind,
+                who: PermanentId::from_raw(e.who()),
+            });
+        }
+        list.push(Faction {
+            id,
+            settlement: required(f.settlement(), "a faction's settlement")?,
+            against,
+            founder: required(f.founder(), "a faction's founder")?,
+            organizer: required(f.organizer(), "a faction's organizer")?,
+            founded: SimTime::from_minutes(f.founded()),
+            ended: f.has_ended().then(|| SimTime::from_minutes(f.ended())),
+            stores,
+            stores_at: SimTime::from_minutes(f.stores_at()),
+            flows: Default::default(),
+            history,
+        });
+    }
+    let mut members = Vec::new();
+    for m in root.members().iter().flatten() {
+        let faction = required(m.faction(), "a member's faction")?;
+        if !list
+            .iter()
+            .any(|f: &Faction| f.id == faction && f.is_live())
+        {
+            return Err(bad(format!(
+                "a member belongs to faction {faction}, which is not live"
+            )));
+        }
+        members.push(Member {
+            person: required(m.person(), "a faction's member")?,
+            faction,
+            since: m.since(),
+            why: Why {
+                grievance: m.grievance(),
+                organizer: m.organizer(),
+                belong: m.belong(),
+                known: m.known(),
+                dues: m.dues(),
+                threshold: m.threshold(),
+            },
+        });
+    }
+    members.sort_by_key(|m| m.person);
+    if members.windows(2).any(|w| w[0].person == w[1].person) {
+        return Err(bad("a person belongs to two factions".to_owned()));
+    }
+    Ok(Factions {
+        list,
+        members,
+        joined: root.joined(),
+        left: root.left(),
     })
 }
 

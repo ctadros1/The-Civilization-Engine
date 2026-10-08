@@ -3,7 +3,15 @@
 // joins the pieces.
 
 import { lawDayText } from "./government.js";
-import type { GrievanceLine, HeardLine, IdeologyLine, NormLine, PositionLine, ValueLine } from "./net/messages.js";
+import type {
+  FactionLine,
+  GrievanceLine,
+  HeardLine,
+  IdeologyLine,
+  NormLine,
+  PositionLine,
+  ValueLine,
+} from "./net/messages.js";
 
 /** One number of days as the panels show it: "4", "1.5". */
 function days(x: number): string {
@@ -101,4 +109,13 @@ export function valuesText(vs: ValueLine[]): string {
 export function ideologyText(d: IdeologyLine): string {
   const how = d.from === 0 ? "brought with them" : `from ${d.fromName} since ${lawDayText(d.sinceMinute)}`;
   return `'${d.legitimacy}'; ${how}`;
+}
+
+/** The faction someone belongs to, in one line: "Mira's faction, against the gathering, since
+ * 3 May of year 2; organized by Mira. They belong, holding a grievance against the gathering: worth
+ * 1.35 to them against a threshold of 1.10, its dues counted." */
+export function factionText(f: FactionLine): string {
+  const organizer = f.organizerName ? `; organized by ${f.organizerName}` : "";
+  const why = f.why ? ` They ${f.why}.` : "";
+  return `${f.name}, against ${f.against}, since ${lawDayText(f.sinceMinute)}${organizer}.${why}`;
 }

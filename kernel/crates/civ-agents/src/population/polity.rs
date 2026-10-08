@@ -143,6 +143,8 @@ impl Population {
         // the common store empty hold it against it (M4c slice AE).
         self.word_day(ctx);
         self.grieve_empty_stores(ctx);
+        // Those whose day it is review where they belong (M4c slice AH).
+        self.factions_day(ctx);
         for pi in 0..self.polities.len() {
             let p = &self.polities[pi];
             if day - p.reviewed >= i64::from(ctx.params.polity.review_days.max(1)) {

@@ -860,6 +860,49 @@ fn polity(sim: &Sim) -> Option<String> {
             ideas.taken as f64 / people / weeks,
         ));
     }
+    // Factions (M4c slice AH): how many were founded and how many have members now, their
+    // sizes, how often people joined and left, and the food members' households gave their
+    // stores and the stores gave back.
+    let fs = &pop.factions;
+    let live: Vec<usize> = fs
+        .list
+        .iter()
+        .filter(|f| f.is_live())
+        .map(|f| fs.members_of(f.id).count())
+        .collect();
+    let food_kg = |flow: civ_agents::person::Flow| -> f64 {
+        let goods = &sim.rules().catalog.goods;
+        fs.list
+            .iter()
+            .map(|f| {
+                (0..goods.len())
+                    .filter(|&g| goods[g].kcal_per_kg > 0.0)
+                    .map(|g| f.flows.get(flow, g))
+                    .sum::<f64>()
+            })
+            .sum()
+    };
+    parts.push(format!(
+        "factions: {} founded, {} with members now{}; {} joinings and {} leavings; {:.0} kg given \
+         in dues, {:.0} kg given out",
+        fs.list.len(),
+        live.len(),
+        if live.is_empty() {
+            String::new()
+        } else {
+            format!(
+                " ({} members)",
+                live.iter()
+                    .map(usize::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        },
+        fs.joined,
+        fs.left,
+        food_kg(civ_agents::person::Flow::Received).max(0.0),
+        food_kg(civ_agents::person::Flow::Given).max(0.0),
+    ));
     // Norms (M4c slice AG): for each, how far it is held on average, what people believe of
     // others against what households did at their last levy, how many it moves, and how often an
     // account was told and taken in.

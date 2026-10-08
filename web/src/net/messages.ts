@@ -716,6 +716,22 @@ export interface PersonInfo {
   values: ValueLine[];
   /** Wire 1.39 (M4c slice AG): the ideologies they hold. */
   ideologies: IdeologyLine[];
+  /** Wire 1.40 (M4c slice AH): the faction they belong to, if any. */
+  faction: FactionLine | null;
+}
+
+/** The faction someone belongs to (wire 1.40, ADR-0017 §2, §6). */
+export interface FactionLine {
+  faction: number;
+  /** "Mira's faction", and what it stands against ("the gathering"). */
+  name: string;
+  against: string;
+  organizer: number;
+  organizerName: string;
+  /** The start of the day they joined. */
+  sinceMinute: number;
+  /** Why they belong, as they last reviewed it, in the kernel's words. */
+  why: string;
 }
 
 /** An ideology someone holds (wire 1.39, ADR-0016 §4). */
@@ -954,6 +970,8 @@ export interface PolityLine {
    * words, and how many its body admits now (`members` counts every adult). */
   customHistory: string[];
   bodyMembers: number;
+  /** Wire 1.40 (M4c slice AH): its factions, those with members first, in the kernel's words. */
+  factions: string[];
 }
 
 /** Every settlement's polity at `minute` (wire 1.27). */
@@ -2862,6 +2880,18 @@ function personInfo(p: W.PersonInfo): PersonInfo {
       fromName: d.fromName() ?? "",
     });
   }
+  const f = p.faction();
+  const faction: FactionLine | null = f
+    ? {
+        faction: Number(f.faction()),
+        name: f.name() ?? "",
+        against: f.against() ?? "",
+        organizer: Number(f.organizer()),
+        organizerName: f.organizerName() ?? "",
+        sinceMinute: Number(f.sinceMinute()),
+        why: f.why() ?? "",
+      }
+    : null;
   const standing = p.standing();
   const pos = p.pos();
   return {
@@ -2914,6 +2944,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     norms,
     values,
     ideologies,
+    faction,
   };
 }
 
@@ -3023,6 +3054,7 @@ function governmentInfo(w: W.Government): GovernmentInfo {
         (_, k) => p.customHistory(k) ?? "",
       ),
       bodyMembers: p.bodyMembers(),
+      factions: Array.from({ length: p.factionsLength() }, (_, k) => p.factions(k) ?? ""),
     });
   }
   return { minute: Number(w.minute()), polities };

@@ -14,12 +14,14 @@ use crate::person::Flow;
 /// a shortfall.
 const COVER_SLACK: f64 = 1e-9;
 
-/// A holder of goods the ledger moves between: a household, an open firm or a polity's store.
+/// A holder of goods the ledger moves between: a household, an open firm, a polity's store or a
+/// faction's (M4c slice AH).
 #[derive(Clone, Copy, Debug)]
 enum Holder {
     Household(civ_core::Handle<crate::person::Household>),
     Firm(usize),
     Polity(usize),
+    Faction(usize),
 }
 
 impl Population {
@@ -30,10 +32,14 @@ impl Population {
         if let Some(i) = self.firms.iter().position(|f| f.id == id && f.is_open()) {
             return Some(Holder::Firm(i));
         }
-        self.polities
+        if let Some(i) = self.polities.iter().position(|p| p.id == id) {
+            return Some(Holder::Polity(i));
+        }
+        self.factions
+            .list
             .iter()
-            .position(|p| p.id == id)
-            .map(Holder::Polity)
+            .position(|f| f.id == id)
+            .map(Holder::Faction)
     }
 
     /// Brings a holder's stores up to `now`: a household's spoil and burn, a firm's spoil (under
@@ -65,6 +71,13 @@ impl Population {
                     p.stores.resize(goods.len(), 0.0);
                 }
             }
+            Holder::Faction(i) => {
+                let sheltered = self.faction_sheltered(i);
+                if let Some(f) = self.factions.list.get_mut(i) {
+                    f.settle_stores(now, goods, sheltered);
+                    f.stores.resize(goods.len(), 0.0);
+                }
+            }
         }
     }
 
@@ -79,6 +92,11 @@ impl Population {
                 .polities
                 .get_mut(i)
                 .map(|p| (&mut p.stores, &mut p.flows)),
+            Holder::Faction(i) => self
+                .factions
+                .list
+                .get_mut(i)
+                .map(|f| (&mut f.stores, &mut f.flows)),
         }
     }
 
@@ -123,6 +141,7 @@ impl Population {
                     Holder::Household(hd) => self.households.get(hd).map(|x| &x.stores),
                     Holder::Firm(i) => self.firms.get(i).map(|f| &f.stores),
                     Holder::Polity(i) => self.polities.get(i).map(|p| &p.stores),
+                    Holder::Faction(i) => self.factions.list.get(i).map(|f| &f.stores),
                 })
                 .and_then(|s| s.get(good))
                 .copied()

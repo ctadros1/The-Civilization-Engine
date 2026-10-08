@@ -230,6 +230,9 @@ struct StoreLine;
 struct PersonInfo;
 struct PersonInfoBuilder;
 
+struct FactionLine;
+struct FactionLineBuilder;
+
 struct IdeologyLine;
 struct IdeologyLineBuilder;
 
@@ -7751,7 +7754,8 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_POSITIONS = 92,
     VT_NORMS = 94,
     VT_VALUES = 96,
-    VT_IDEOLOGIES = 98
+    VT_IDEOLOGIES = 98,
+    VT_FACTION = 100
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -7897,6 +7901,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IdeologyLine>> *ideologies() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IdeologyLine>> *>(VT_IDEOLOGIES);
   }
+  const tce::wire::FactionLine *faction() const {
+    return GetPointer<const tce::wire::FactionLine *>(VT_FACTION);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -7980,6 +7987,8 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_IDEOLOGIES) &&
            verifier.VerifyVector(ideologies()) &&
            verifier.VerifyVectorOfTables(ideologies()) &&
+           VerifyOffset(verifier, VT_FACTION) &&
+           verifier.VerifyTable(faction()) &&
            verifier.EndTable();
   }
 };
@@ -8132,6 +8141,9 @@ struct PersonInfoBuilder {
   void add_ideologies(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IdeologyLine>>> ideologies) {
     fbb_.AddOffset(PersonInfo::VT_IDEOLOGIES, ideologies);
   }
+  void add_faction(::flatbuffers::Offset<tce::wire::FactionLine> faction) {
+    fbb_.AddOffset(PersonInfo::VT_FACTION, faction);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8192,7 +8204,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PositionLine>>> positions = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::NormLine>>> norms = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::ValueLine>>> values = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IdeologyLine>>> ideologies = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IdeologyLine>>> ideologies = 0,
+    ::flatbuffers::Offset<tce::wire::FactionLine> faction = 0) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
@@ -8204,6 +8217,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_faction(faction);
   builder_.add_ideologies(ideologies);
   builder_.add_values(values);
   builder_.add_norms(norms);
@@ -8299,7 +8313,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::PositionLine>> *positions = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::NormLine>> *norms = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::ValueLine>> *values = nullptr,
-    const std::vector<::flatbuffers::Offset<tce::wire::IdeologyLine>> *ideologies = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::IdeologyLine>> *ideologies = nullptr,
+    ::flatbuffers::Offset<tce::wire::FactionLine> faction = 0) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -8369,7 +8384,144 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       positions__,
       norms__,
       values__,
-      ideologies__);
+      ideologies__,
+      faction);
+}
+
+struct FactionLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef FactionLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_FACTION = 4,
+    VT_NAME = 6,
+    VT_AGAINST = 8,
+    VT_ORGANIZER = 10,
+    VT_ORGANIZER_NAME = 12,
+    VT_SINCE_MINUTE = 14,
+    VT_WHY = 16
+  };
+  uint64_t faction() const {
+    return GetField<uint64_t>(VT_FACTION, 0);
+  }
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  const ::flatbuffers::String *against() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_AGAINST);
+  }
+  uint64_t organizer() const {
+    return GetField<uint64_t>(VT_ORGANIZER, 0);
+  }
+  const ::flatbuffers::String *organizer_name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_ORGANIZER_NAME);
+  }
+  int64_t since_minute() const {
+    return GetField<int64_t>(VT_SINCE_MINUTE, 0);
+  }
+  const ::flatbuffers::String *why() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WHY);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_FACTION, 8) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyOffset(verifier, VT_AGAINST) &&
+           verifier.VerifyString(against()) &&
+           VerifyField<uint64_t>(verifier, VT_ORGANIZER, 8) &&
+           VerifyOffset(verifier, VT_ORGANIZER_NAME) &&
+           verifier.VerifyString(organizer_name()) &&
+           VerifyField<int64_t>(verifier, VT_SINCE_MINUTE, 8) &&
+           VerifyOffset(verifier, VT_WHY) &&
+           verifier.VerifyString(why()) &&
+           verifier.EndTable();
+  }
+};
+
+struct FactionLineBuilder {
+  typedef FactionLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_faction(uint64_t faction) {
+    fbb_.AddElement<uint64_t>(FactionLine::VT_FACTION, faction, 0);
+  }
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(FactionLine::VT_NAME, name);
+  }
+  void add_against(::flatbuffers::Offset<::flatbuffers::String> against) {
+    fbb_.AddOffset(FactionLine::VT_AGAINST, against);
+  }
+  void add_organizer(uint64_t organizer) {
+    fbb_.AddElement<uint64_t>(FactionLine::VT_ORGANIZER, organizer, 0);
+  }
+  void add_organizer_name(::flatbuffers::Offset<::flatbuffers::String> organizer_name) {
+    fbb_.AddOffset(FactionLine::VT_ORGANIZER_NAME, organizer_name);
+  }
+  void add_since_minute(int64_t since_minute) {
+    fbb_.AddElement<int64_t>(FactionLine::VT_SINCE_MINUTE, since_minute, 0);
+  }
+  void add_why(::flatbuffers::Offset<::flatbuffers::String> why) {
+    fbb_.AddOffset(FactionLine::VT_WHY, why);
+  }
+  explicit FactionLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<FactionLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<FactionLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<FactionLine> CreateFactionLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t faction = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> against = 0,
+    uint64_t organizer = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> organizer_name = 0,
+    int64_t since_minute = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> why = 0) {
+  FactionLineBuilder builder_(_fbb);
+  builder_.add_since_minute(since_minute);
+  builder_.add_organizer(organizer);
+  builder_.add_faction(faction);
+  builder_.add_why(why);
+  builder_.add_organizer_name(organizer_name);
+  builder_.add_against(against);
+  builder_.add_name(name);
+  return builder_.Finish();
+}
+
+struct FactionLine::Traits {
+  using type = FactionLine;
+  static auto constexpr Create = CreateFactionLine;
+};
+
+inline ::flatbuffers::Offset<FactionLine> CreateFactionLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t faction = 0,
+    const char *name = nullptr,
+    const char *against = nullptr,
+    uint64_t organizer = 0,
+    const char *organizer_name = nullptr,
+    int64_t since_minute = 0,
+    const char *why = nullptr) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto against__ = against ? _fbb.CreateString(against) : 0;
+  auto organizer_name__ = organizer_name ? _fbb.CreateString(organizer_name) : 0;
+  auto why__ = why ? _fbb.CreateString(why) : 0;
+  return tce::wire::CreateFactionLine(
+      _fbb,
+      faction,
+      name__,
+      against__,
+      organizer,
+      organizer_name__,
+      since_minute,
+      why__);
 }
 
 struct IdeologyLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -15241,7 +15393,8 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_LABEL_CONFIDENCE = 36,
     VT_GATHERING_CASES = 38,
     VT_CUSTOM_HISTORY = 40,
-    VT_BODY_MEMBERS = 42
+    VT_BODY_MEMBERS = 42,
+    VT_FACTIONS = 44
   };
   uint64_t polity() const {
     return GetField<uint64_t>(VT_POLITY, 0);
@@ -15303,6 +15456,9 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint32_t body_members() const {
     return GetField<uint32_t>(VT_BODY_MEMBERS, 0);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *factions() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_FACTIONS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -15342,6 +15498,9 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVector(custom_history()) &&
            verifier.VerifyVectorOfStrings(custom_history()) &&
            VerifyField<uint32_t>(verifier, VT_BODY_MEMBERS, 4) &&
+           VerifyOffset(verifier, VT_FACTIONS) &&
+           verifier.VerifyVector(factions()) &&
+           verifier.VerifyVectorOfStrings(factions()) &&
            verifier.EndTable();
   }
 };
@@ -15410,6 +15569,9 @@ struct PolityLineBuilder {
   void add_body_members(uint32_t body_members) {
     fbb_.AddElement<uint32_t>(PolityLine::VT_BODY_MEMBERS, body_members, 0);
   }
+  void add_factions(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> factions) {
+    fbb_.AddOffset(PolityLine::VT_FACTIONS, factions);
+  }
   explicit PolityLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -15442,13 +15604,15 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLine(
     float label_confidence = 0.0f,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> gathering_cases = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> custom_history = 0,
-    uint32_t body_members = 0) {
+    uint32_t body_members = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> factions = 0) {
   PolityLineBuilder builder_(_fbb);
   builder_.add_gathering_minute(gathering_minute);
   builder_.add_gathering_law(gathering_law);
   builder_.add_founded_minute(founded_minute);
   builder_.add_settlement(settlement);
   builder_.add_polity(polity);
+  builder_.add_factions(factions);
   builder_.add_body_members(body_members);
   builder_.add_custom_history(custom_history);
   builder_.add_gathering_cases(gathering_cases);
@@ -15493,7 +15657,8 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
     float label_confidence = 0.0f,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *gathering_cases = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *custom_history = nullptr,
-    uint32_t body_members = 0) {
+    uint32_t body_members = 0,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *factions = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto custom__ = custom ? _fbb.CreateString(custom) : 0;
   auto store__ = store ? _fbb.CreateString(store) : 0;
@@ -15504,6 +15669,7 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
   auto label_why__ = label_why ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*label_why) : 0;
   auto gathering_cases__ = gathering_cases ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*gathering_cases) : 0;
   auto custom_history__ = custom_history ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*custom_history) : 0;
+  auto factions__ = factions ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*factions) : 0;
   return tce::wire::CreatePolityLine(
       _fbb,
       polity,
@@ -15525,7 +15691,8 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
       label_confidence,
       gathering_cases__,
       custom_history__,
-      body_members);
+      body_members,
+      factions__);
 }
 
 struct Government FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

@@ -56,6 +56,93 @@ pub(crate) struct PeopleFile {
     pub word: WordFile,
     /// How opinion moves (M4c slice AG; content API 41).
     pub opinion: OpinionFile,
+    /// How factions are founded, joined and kept (M4c slice AH; content API 45).
+    pub faction: FactionFile,
+}
+
+/// Factions (M4c slice AH, ADR-0017 §2; content API 45). See
+/// [`civ_agents::faction::FactionParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct FactionFile {
+    pub review_days: u32,
+    pub found_floor: f64,
+    pub trust_floor: f64,
+    pub shared_full: f64,
+    pub w_grievance: f64,
+    pub w_shared: f64,
+    pub w_organizer: f64,
+    pub w_belong: f64,
+    pub w_dues: f64,
+    pub found_cost: f64,
+    pub retry_days: u32,
+    pub threshold: [f64; 2],
+    pub leave_margin: f64,
+    pub dues_share: f64,
+    pub reserve_days: f64,
+    pub aid_days: f64,
+}
+
+impl FactionFile {
+    fn params(&self) -> civ_agents::faction::FactionParams {
+        civ_agents::faction::FactionParams {
+            review_days: self.review_days,
+            found_floor: self.found_floor,
+            trust_floor: self.trust_floor,
+            shared_full: self.shared_full,
+            w_grievance: self.w_grievance,
+            w_shared: self.w_shared,
+            w_organizer: self.w_organizer,
+            w_belong: self.w_belong,
+            w_dues: self.w_dues,
+            found_cost: self.found_cost,
+            retry_days: self.retry_days,
+            threshold: self.threshold,
+            leave_margin: self.leave_margin,
+            dues_share: self.dues_share,
+            reserve_days: self.reserve_days,
+            aid_days: self.aid_days,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        if self.retry_days > 36500 {
+            p.push(format!(
+                "`faction.retry_days` must be at most 36500 (got {})",
+                self.retry_days
+            ));
+        }
+        if !(1..=365).contains(&self.review_days) {
+            p.push(format!(
+                "`faction.review_days` must be between 1 and 365 (got {})",
+                self.review_days
+            ));
+        }
+        for (name, v, lo, hi) in [
+            ("faction.found_floor", self.found_floor, 0.0, 1.0),
+            ("faction.trust_floor", self.trust_floor, 0.0, 1.0),
+            ("faction.shared_full", self.shared_full, 0.0, 100.0),
+            ("faction.w_grievance", self.w_grievance, 0.0, 100.0),
+            ("faction.w_shared", self.w_shared, 0.0, 100.0),
+            ("faction.w_organizer", self.w_organizer, 0.0, 100.0),
+            ("faction.w_belong", self.w_belong, 0.0, 100.0),
+            ("faction.w_dues", self.w_dues, 0.0, 1000.0),
+            ("faction.found_cost", self.found_cost, 0.0, 100.0),
+            ("faction.threshold[0]", self.threshold[0], 0.0, 100.0),
+            ("faction.threshold[1]", self.threshold[1], 0.0, 100.0),
+            ("faction.leave_margin", self.leave_margin, 0.0, 100.0),
+            ("faction.dues_share", self.dues_share, 0.0, 1.0),
+            ("faction.reserve_days", self.reserve_days, 0.0, 3650.0),
+            ("faction.aid_days", self.aid_days, 0.0, 365.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        if self.threshold[0] > self.threshold[1] {
+            p.push("`faction.threshold` must run from low to high".to_owned());
+        }
+    }
 }
 
 /// Opinion (M4c slice AG, ADR-0016 §4; content API 41). See
@@ -1279,6 +1366,7 @@ impl PeopleFile {
             crime: self.crime.params(),
             word: self.word.params(),
             opinion: self.opinion.params(),
+            faction: self.faction.params(),
             names,
         }
     }
@@ -1292,6 +1380,7 @@ impl PeopleFile {
         self.crime.problems(&mut p);
         self.word.problems(&mut p);
         self.opinion.problems(&mut p);
+        self.faction.problems(&mut p);
         let st = &self.standing;
         if !(1..=100).contains(&st.candidates) {
             p.push(format!(

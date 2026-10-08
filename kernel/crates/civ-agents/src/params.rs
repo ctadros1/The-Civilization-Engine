@@ -1364,6 +1364,8 @@ pub struct PeopleParams {
     pub word: crate::word::WordParams,
     /// How opinion moves (M4c slice AG, ADR-0016 §4).
     pub opinion: crate::opinion::OpinionParams,
+    /// How factions are founded, joined and kept (M4c slice AH, ADR-0017 §2).
+    pub faction: crate::faction::FactionParams,
     /// Names.
     pub names: NameParams,
 }

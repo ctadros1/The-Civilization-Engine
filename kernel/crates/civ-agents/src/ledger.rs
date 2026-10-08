@@ -45,11 +45,14 @@ pub enum Channel {
     Fine = 15,
     /// Food a taker's household paid a watcher to say nothing (M4b slice AC, ADR-0015 §6).
     Bribe = 16,
+    /// A member's household's share of its threshing to its faction's store (M4c slice AH,
+    /// ADR-0017 §2).
+    Dues = 17,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 16] = [
+    pub const ALL: [Channel; 17] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -66,6 +69,7 @@ impl Channel {
         Channel::Compensation,
         Channel::Fine,
         Channel::Bribe,
+        Channel::Dues,
     ];
 
     /// The channel with this code.
@@ -92,6 +96,7 @@ impl Channel {
             Channel::Compensation => "compensation",
             Channel::Fine => "fine",
             Channel::Bribe => "payment to say nothing",
+            Channel::Dues => "dues",
         }
     }
 }

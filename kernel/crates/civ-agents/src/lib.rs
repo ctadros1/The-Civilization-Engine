@@ -31,6 +31,7 @@ pub mod condition;
 pub mod crime;
 pub mod decide;
 pub mod demography;
+pub mod faction;
 pub mod farm;
 pub mod firm;
 pub mod found;

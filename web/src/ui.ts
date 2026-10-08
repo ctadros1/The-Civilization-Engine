@@ -48,6 +48,7 @@ import {
   grievanceHead,
   heardHow,
   heardWhen,
+  factionText,
   ideologyText,
   normText,
   positionText,
@@ -914,6 +915,12 @@ export function bindUi(store: Store, actions: Actions): void {
               ),
             ),
           ),
+    );
+    // The faction they belong to (wire 1.40, ADR-0017 §2).
+    box.append(
+      p.faction
+        ? el("p", { className: "faction", text: factionText(p.faction) })
+        : el("p", { className: "faction empty", text: "Belongs to no faction." }),
     );
     if (p.norms.length > 0) {
       box.append(
@@ -2014,6 +2021,12 @@ export function bindUi(store: Store, actions: Actions): void {
       if (p.offices.length > 0) {
         block.append(
           el("ul", { className: "offices" }, ...p.offices.map((o) => el("li", { text: o }))),
+        );
+      }
+      // Its factions (wire 1.40, ADR-0017 §2).
+      if (p.factions.length > 0) {
+        block.append(
+          el("ul", { className: "factions" }, ...p.factions.map((v) => el("li", { text: v }))),
         );
       }
       const label = labelText(p);

@@ -144,11 +144,11 @@ fn gone_words(sim: &Sim, id: civ_core::PermanentId) -> String {
 }
 
 /// What a store holds, in words: "grain 322 kg", or "nothing".
-fn store_words(sim: &Sim, polity: &Polity) -> String {
+fn store_words(sim: &Sim, stores: &[f64]) -> String {
     let goods = &sim.rules.catalog.goods;
     let held: Vec<String> = goods
         .iter()
-        .zip(&polity.stores)
+        .zip(stores)
         .filter(|(_, kg)| **kg >= 0.5)
         .map(|(g, kg)| format!("{} {kg:.0} kg", g.name.to_lowercase()))
         .collect();
@@ -157,6 +157,49 @@ fn store_words(sim: &Sim, polity: &Polity) -> String {
     } else {
         held.join(", ")
     }
+}
+
+/// The factions of `settlement` in words (wire 1.40, ADR-0017 §2), those with members first, the
+/// newest first among each: "Mira's faction, against the gathering, since 3 May of year 2: 5
+/// members, organized by Mira; its store holds grain 40 kg"; "Bo's faction, against the
+/// storekeeper, from 3 May of year 2 until 9 June of year 3, when its last member left".
+fn faction_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<String> {
+    let pop = &sim.people;
+    let mut here: Vec<&civ_agents::faction::Faction> = pop
+        .factions
+        .list
+        .iter()
+        .filter(|f| f.settlement == settlement)
+        .collect();
+    here.sort_by(|a, b| {
+        b.is_live()
+            .cmp(&a.is_live())
+            .then(b.founded.cmp(&a.founded))
+            .then(b.id.cmp(&a.id))
+    });
+    here.into_iter()
+        .map(|f| {
+            let name = super::word::faction_name(sim, f);
+            let against = super::word::blamed_words(sim, f.against);
+            let since = civ_agents::polity::day_words(f.founded);
+            match f.ended {
+                None => {
+                    let members = pop.factions.members_of(f.id).count();
+                    format!(
+                        "{name}, against {against}, since {since}: {members} member{}, organized \
+                         by {}; its store holds {}",
+                        if members == 1 { "" } else { "s" },
+                        pop.name_of(f.organizer),
+                        store_words(sim, &f.stores)
+                    )
+                }
+                Some(end) => format!(
+                    "{name}, against {against}, from {since} until {}, when its last member left",
+                    civ_agents::polity::day_words(end)
+                ),
+            }
+        })
+        .collect()
 }
 
 /// A `Response` with every settlement's polity.
@@ -175,7 +218,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
             .find(|s| s.id == polity.settlement);
         let name = fbb.create_string(settlement.map_or("", |s| s.name.as_str()));
         let custom = fbb.create_string(&polity.body.words());
-        let store = fbb.create_string(&store_words(sim, polity));
+        let store = fbb.create_string(&store_words(sim, &polity.stores));
         let store_kg: f64 = goods
             .iter()
             .zip(&polity.stores)
@@ -215,6 +258,12 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                 .map(|w| fbb.create_string(w))
                 .collect();
         let custom_history = fbb.create_vector(&history);
+        // Its factions (wire 1.40, M4c slice AH).
+        let factions: Vec<_> = faction_words(sim, polity.settlement)
+            .iter()
+            .map(|w| fbb.create_string(w))
+            .collect();
+        let factions = fbb.create_vector(&factions);
         let body_members = pop
             .body_members(&sim.land.fields, pi, now, &rules.people)
             .len() as u32;
@@ -279,6 +328,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                 label_why: Some(label_why),
                 label_confidence: label.confidence as f32,
                 custom_history: Some(custom_history),
+                factions: Some(factions),
                 body_members,
             },
         ));

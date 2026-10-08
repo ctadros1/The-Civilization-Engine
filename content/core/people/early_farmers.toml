@@ -699,3 +699,35 @@ salience_live = 1.0
 salience_idle = 0.3
 youth_until = 30.0
 youth_factor = 2.0
+
+[faction]                        # who gathers others over a grievance, who joins, who stays (M4c slice AH, ADR-0017 §2)
+# Each adult reviews where they belong every `review_days` on a day of their own (research 09-12
+# §2.2: one to three months). Belonging is worth `w_grievance` points for a grievance against the
+# faction's party felt fully, `w_organizer` for full regard for its organizer and `w_belong` for
+# everyone they know belonging, less `w_dues` times the share of each threshing a member's
+# household gives its store (`dues_share`, while the store holds less than `reserve_days` of its
+# members' households' food); they join when that beats a threshold of their own, drawn evenly
+# from `threshold` (04-10 §1.3), and leave when it falls `leave_margin` below it (04-10 §5.4). One
+# who feels a grievance against the gathering or an office at `found_floor` or more, and has heard
+# that others they regard at `trust_floor` or more hold one against it too (`shared_full` of them
+# fully), weighs founding one at `w_grievance` and `w_shared` less `found_cost` (04-10 §1.1, §1.5),
+# unless a faction they founded ended within `retry_days` (04-10 §3: a failed attempt lowers what
+# one expects of the next). A member's household short of food may ask the faction's store
+# for up to `aid_days` of its food (04-10 §1.2: mutual assistance). Every value is a design prior;
+# no report gives a founding size or a joining rate.
+review_days = 30
+found_floor = 0.3
+trust_floor = 0.25
+shared_full = 3.0
+w_grievance = 1.0
+w_shared = 1.0
+w_organizer = 0.5
+w_belong = 1.0
+w_dues = 5.0
+found_cost = 0.5
+retry_days = 365
+threshold = [0.5, 2.0]
+leave_margin = 0.5
+dues_share = 0.05
+reserve_days = 20.0
+aid_days = 5.0

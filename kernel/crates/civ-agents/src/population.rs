@@ -52,6 +52,7 @@ mod market;
 mod norm;
 mod opinion;
 mod polity;
+mod values;
 mod watch;
 mod word;
 
@@ -397,6 +398,8 @@ pub struct Population {
     /// What each holds of the norms content names, and what each household last did (M4c slice
     /// AG, ADR-0016 §4).
     pub norms: crate::norm::Norms,
+    /// What each holds dear (M4c slice AG, ADR-0016 §4).
+    pub values: crate::values::Values,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -4667,6 +4670,9 @@ impl Population {
             self.derive_standing(now, params);
             // And where each stands on the questions content names is anchored afresh in their
             // household's lot (M4c slice AG, ADR-0016 §4).
+            // Everyone holds each value content names, before their anchors are worked out from
+            // them (M4c slice AG).
+            self.values_month(ctx);
             self.opinion_month(ctx);
             // Everyone holds a state of each norm content names (M4c slice AG).
             self.norm_month(ctx);

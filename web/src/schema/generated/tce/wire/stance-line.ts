@@ -61,8 +61,13 @@ opinion():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
+values():number {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
 static startStanceLine(builder:flatbuffers.Builder) {
-  builder.startObject(7);
+  builder.startObject(8);
 }
 
 static addPerson(builder:flatbuffers.Builder, person:bigint) {
@@ -93,12 +98,16 @@ static addOpinion(builder:flatbuffers.Builder, opinion:number) {
   builder.addFieldFloat32(6, opinion, 0.0);
 }
 
+static addValues(builder:flatbuffers.Builder, values:number) {
+  builder.addFieldFloat32(7, values, 0.0);
+}
+
 static endStanceLine(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createStanceLine(builder:flatbuffers.Builder, person:bigint, nameOffset:flatbuffers.Offset, stance:number, gain:number, regard:number, whyOffset:flatbuffers.Offset, opinion:number):flatbuffers.Offset {
+static createStanceLine(builder:flatbuffers.Builder, person:bigint, nameOffset:flatbuffers.Offset, stance:number, gain:number, regard:number, whyOffset:flatbuffers.Offset, opinion:number, values:number):flatbuffers.Offset {
   StanceLine.startStanceLine(builder);
   StanceLine.addPerson(builder, person);
   StanceLine.addName(builder, nameOffset);
@@ -107,6 +116,7 @@ static createStanceLine(builder:flatbuffers.Builder, person:bigint, nameOffset:f
   StanceLine.addRegard(builder, regard);
   StanceLine.addWhy(builder, whyOffset);
   StanceLine.addOpinion(builder, opinion);
+  StanceLine.addValues(builder, values);
   return StanceLine.endStanceLine(builder);
 }
 }

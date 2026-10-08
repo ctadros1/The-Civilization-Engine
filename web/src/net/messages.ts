@@ -712,6 +712,17 @@ export interface PersonInfo {
   positions: PositionLine[];
   /** Wire 1.37 (M4c slice AG): what they hold of each norm content names. */
   norms: NormLine[];
+  /** Wire 1.38 (M4c slice AG): what they hold of each value content names. */
+  values: ValueLine[];
+}
+
+/** What someone holds of a value (wire 1.38, ADR-0016 §4). */
+export interface ValueLine {
+  /** The value, and what they hold of it, in the kernel's words. */
+  name: string;
+  words: string;
+  /** -1 (less than most) to 1 (more than most). */
+  v: number;
 }
 
 /** What someone holds of a norm (wire 1.37, ADR-0016 §4). */
@@ -842,6 +853,8 @@ export interface StanceLine {
   why: string;
   /** Wire 1.36: what talk at the hearth had moved them from their household's lot, points. */
   opinion: number;
+  /** Wire 1.38: what the law does to what they hold dear, points. */
+  values: number;
 }
 
 /** Where a law stands ("lapsed", wire 1.28: the one it named died or left). */
@@ -2818,6 +2831,12 @@ function personInfo(p: W.PersonInfo): PersonInfo {
       heard: n.heard(),
     });
   }
+  const values: ValueLine[] = [];
+  for (let k = 0; k < p.valuesLength(); k++) {
+    const v = p.values(k);
+    if (!v) continue;
+    values.push({ name: v.name() ?? "", words: v.words() ?? "", v: v.v() });
+  }
   const standing = p.standing();
   const pos = p.pos();
   return {
@@ -2868,6 +2887,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     heard,
     positions,
     norms,
+    values,
   };
 }
 
@@ -2899,6 +2919,7 @@ function lawLine(l: W.LawLine): LawLine {
       regard: r.regard(),
       why: r.why() ?? "",
       opinion: r.opinion(),
+      values: r.values(),
     });
   }
   return {

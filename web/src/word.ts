@@ -3,7 +3,7 @@
 // joins the pieces.
 
 import { lawDayText } from "./government.js";
-import type { GrievanceLine, HeardLine, NormLine, PositionLine } from "./net/messages.js";
+import type { GrievanceLine, HeardLine, NormLine, PositionLine, ValueLine } from "./net/messages.js";
 
 /** One number of days as the panels show it: "4", "1.5". */
 function days(x: number): string {
@@ -67,9 +67,9 @@ export function positionText(p: PositionLine): string {
   const parts = [`${p.lean} (${at(p.x)})`];
   const moved = p.x - p.anchor;
   if (Math.abs(moved) < 0.01) {
-    parts.push("as their household's lot makes it");
+    parts.push("as their household's lot and what they hold dear make it");
   } else {
-    parts.push(`their household's lot alone would make it ${at(p.anchor)}`);
+    parts.push(`their household's lot and what they hold dear would make it ${at(p.anchor)}`);
     const times = p.heard === 1 ? "once" : `${p.heard} times`;
     parts.push(
       `talk at the hearth, taken in ${times}, ${moved > 0 ? "drew them toward it" : "turned them against it"}`,
@@ -87,4 +87,11 @@ export function normText(n: NormLine): string {
     n.heard === 0 ? "from what their own people believed" : n.heard === 1 ? "from one account at the hearth" : `from ${n.heard} accounts at the hearth`;
   const moved = n.activation >= 0.5 ? "enough do to hold them to it" : "too few do to hold them to it";
   return `${n.holds} (${at(n.endorse)}); believes ${n.believes} (${at(n.expect)}), ${from}; ${moved}`;
+}
+
+/** What someone holds dear, in one line: "holds safety from want and harm dear (0.62); cares as
+ * most do for a household's say over what is its own (0.10)". */
+export function valuesText(vs: ValueLine[]): string {
+  const at = (x: number) => (Math.round(x * 100) / 100).toFixed(2);
+  return vs.map((v) => `${v.words} (${at(v.v)})`).join("; ");
 }

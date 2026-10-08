@@ -18,6 +18,12 @@ question = "whether the gathering should hear takings"
 
 # Each bundle is one form the law can take; a sponsor weighs each (09-05 §2.3). Days are days of
 # the taker's household's food.
+# How a law of this kind bears on what people hold dear (content API 43, M4c slice AG): -1
+# against a value to 1 for it. An authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 0.5
+"core:value/reciprocity" = 1.0  # what was taken is given back
+
 [[bundles]]
 compensation_days = 0.0   # restitution only
 fine_days = 0.0

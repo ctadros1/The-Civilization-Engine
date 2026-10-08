@@ -120,13 +120,21 @@ fn positions_are_anchored_in_each_households_lot_and_moved_by_talk() {
         );
         assert!(questions.contains(&p.policy));
     }
-    // Members of one household share its lot: their anchors agree.
-    let mut by_home: Vec<(PermanentId, u16, f32)> = op
+    // Members of one household share its lot: their anchors agree once what each holds dear is
+    // taken out (M4c slice AG step three).
+    let catalog = &sim.rules().catalog;
+    let scale = sim.rules().people.opinion.anchor_points;
+    let lot = |p: &civ_agents::opinion::Position| {
+        let a = f64::from(p.anchor).clamp(1e-9, 1.0 - 1e-9);
+        let bears = &catalog.policies[usize::from(p.policy)].bears;
+        scale * (a / (1.0 - a)).ln() - pop.values.points(p.holder, bears, &catalog.values)
+    };
+    let mut by_home: Vec<(PermanentId, u16, f64)> = op
         .positions
         .iter()
         .filter_map(|p| {
             let h = pop.person(p.holder)?.household;
-            Some((h, p.policy, p.anchor))
+            Some((h, p.policy, lot(p)))
         })
         .collect();
     by_home.sort_by_key(|a| (a.0, a.1));
@@ -134,8 +142,21 @@ fn positions_are_anchored_in_each_households_lot_and_moved_by_talk() {
         by_home
             .windows(2)
             .filter(|w| (w[0].0, w[0].1) == (w[1].0, w[1].1))
-            .all(|w| (w[0].2 - w[1].2).abs() < 1e-6),
+            .all(|w| (w[0].2 - w[1].2).abs() < 1e-3),
         "one household, one lot"
+    );
+    // And what they hold dear sets them apart within it.
+    assert!(
+        op.positions.iter().any(|p| pop
+            .values
+            .points(
+                p.holder,
+                &catalog.policies[usize::from(p.policy)].bears,
+                &catalog.values
+            )
+            .abs()
+            > 0.1),
+        "values weigh in anchors"
     );
     // Companions said where they stood, and some of it was taken in; talk moves a little.
     assert!(
@@ -173,6 +194,11 @@ fn how_far_talk_moved_someone_weighs_in_their_stance_and_the_record_says_so() {
     let params = sim.rules().people.clone();
     let w_position = params.opinion.w_position as f32;
     let pop = sim.people_mut_for_tests();
+    // Nobody holds anything dearer than most, so talk alone sets them apart (M4c slice AG step
+    // three).
+    for h in &mut pop.values.held {
+        h.v = 0.0;
+    }
     // Talk has drawn everyone toward a common store, well past what their household's lot makes
     // of it: by hand, as if a season of talk had done it.
     for p in pop

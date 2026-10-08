@@ -13034,6 +13034,7 @@ impl<'a> PersonInfo<'a> {
   pub const VT_HEARD: ::flatbuffers::VOffsetT = 90;
   pub const VT_POSITIONS: ::flatbuffers::VOffsetT = 92;
   pub const VT_NORMS: ::flatbuffers::VOffsetT = 94;
+  pub const VT_VALUES: ::flatbuffers::VOffsetT = 96;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -13055,6 +13056,7 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.values { builder.add_values(x); }
     if let Some(x) = args.norms { builder.add_norms(x); }
     if let Some(x) = args.positions { builder.add_positions(x); }
     if let Some(x) = args.heard { builder.add_heard(x); }
@@ -13417,6 +13419,13 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NormLine>>>>(PersonInfo::VT_NORMS, None)}
   }
+  #[inline]
+  pub fn values(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ValueLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ValueLine>>>>(PersonInfo::VT_VALUES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -13471,6 +13480,7 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<HeardLine>>>>("heard", Self::VT_HEARD, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PositionLine>>>>("positions", Self::VT_POSITIONS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<NormLine>>>>("norms", Self::VT_NORMS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ValueLine>>>>("values", Self::VT_VALUES, false)?
      .finish();
     Ok(())
   }
@@ -13522,6 +13532,7 @@ pub struct PersonInfoArgs<'a> {
     pub heard: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HeardLine<'a>>>>>,
     pub positions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PositionLine<'a>>>>>,
     pub norms: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NormLine<'a>>>>>,
+    pub values: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ValueLine<'a>>>>>,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -13573,6 +13584,7 @@ impl<'a> Default for PersonInfoArgs<'a> {
       heard: None,
       positions: None,
       norms: None,
+      values: None,
     }
   }
 }
@@ -13767,6 +13779,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_NORMS, norms);
   }
   #[inline]
+  pub fn add_values(&mut self, values: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<ValueLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_VALUES, values);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -13830,6 +13846,137 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("heard", &self.heard());
       ds.field("positions", &self.positions());
       ds.field("norms", &self.norms());
+      ds.field("values", &self.values());
+      ds.finish()
+  }
+}
+pub enum ValueLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ValueLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for ValueLine<'a> {
+  type Inner = ValueLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> ValueLine<'a> {
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 4;
+  pub const VT_WORDS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_V: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    ValueLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ValueLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<ValueLine<'bldr>> {
+    let mut builder = ValueLineBuilder::new(_fbb);
+    builder.add_v(args.v);
+    if let Some(x) = args.words { builder.add_words(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ValueLine::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn words(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ValueLine::VT_WORDS, None)}
+  }
+  #[inline]
+  pub fn v(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(ValueLine::VT_V, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for ValueLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .visit_field::<f32>("v", Self::VT_V, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ValueLineArgs<'a> {
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub v: f32,
+}
+impl<'a> Default for ValueLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ValueLineArgs {
+      name: None,
+      words: None,
+      v: 0.0,
+    }
+  }
+}
+
+pub struct ValueLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ValueLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ValueLine::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_words(&mut self, words: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ValueLine::VT_WORDS, words);
+  }
+  #[inline]
+  pub fn add_v(&mut self, v: f32) {
+    self.fbb_.push_slot::<f32>(ValueLine::VT_V, v, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ValueLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ValueLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<ValueLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for ValueLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("ValueLine");
+      ds.field("name", &self.name());
+      ds.field("words", &self.words());
+      ds.field("v", &self.v());
       ds.finish()
   }
 }
@@ -22988,6 +23135,7 @@ impl<'a> StanceLine<'a> {
   pub const VT_REGARD: ::flatbuffers::VOffsetT = 12;
   pub const VT_WHY: ::flatbuffers::VOffsetT = 14;
   pub const VT_OPINION: ::flatbuffers::VOffsetT = 16;
+  pub const VT_VALUES: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -23000,6 +23148,7 @@ impl<'a> StanceLine<'a> {
   ) -> ::flatbuffers::WIPOffset<StanceLine<'bldr>> {
     let mut builder = StanceLineBuilder::new(_fbb);
     builder.add_person(args.person);
+    builder.add_values(args.values);
     builder.add_opinion(args.opinion);
     if let Some(x) = args.why { builder.add_why(x); }
     builder.add_regard(args.regard);
@@ -23059,6 +23208,13 @@ impl<'a> StanceLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(StanceLine::VT_OPINION, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn values(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(StanceLine::VT_VALUES, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for StanceLine<'_> {
@@ -23074,6 +23230,7 @@ impl ::flatbuffers::Verifiable for StanceLine<'_> {
      .visit_field::<f32>("regard", Self::VT_REGARD, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("why", Self::VT_WHY, false)?
      .visit_field::<f32>("opinion", Self::VT_OPINION, false)?
+     .visit_field::<f32>("values", Self::VT_VALUES, false)?
      .finish();
     Ok(())
   }
@@ -23086,6 +23243,7 @@ pub struct StanceLineArgs<'a> {
     pub regard: f32,
     pub why: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub opinion: f32,
+    pub values: f32,
 }
 impl<'a> Default for StanceLineArgs<'a> {
   #[inline]
@@ -23098,6 +23256,7 @@ impl<'a> Default for StanceLineArgs<'a> {
       regard: 0.0,
       why: None,
       opinion: 0.0,
+      values: 0.0,
     }
   }
 }
@@ -23136,6 +23295,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> StanceLineBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<f32>(StanceLine::VT_OPINION, opinion, 0.0);
   }
   #[inline]
+  pub fn add_values(&mut self, values: f32) {
+    self.fbb_.push_slot::<f32>(StanceLine::VT_VALUES, values, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> StanceLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     StanceLineBuilder {
@@ -23160,6 +23323,7 @@ impl ::core::fmt::Debug for StanceLine<'_> {
       ds.field("regard", &self.regard());
       ds.field("why", &self.why());
       ds.field("opinion", &self.opinion());
+      ds.field("values", &self.values());
       ds.finish()
   }
 }

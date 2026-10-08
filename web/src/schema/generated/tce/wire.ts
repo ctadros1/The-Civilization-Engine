@@ -134,6 +134,7 @@ export { TradeInfo } from './wire/trade-info.js';
 export { TrailInfo } from './wire/trail-info.js';
 export { TripInfo } from './wire/trip-info.js';
 export { Trips } from './wire/trips.js';
+export { ValueLine } from './wire/value-line.js';
 export { Vec2 } from './wire/vec2.js';
 export { WageInfo } from './wire/wage-info.js';
 export { Wealth } from './wire/wealth.js';

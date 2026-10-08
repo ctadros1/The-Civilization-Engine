@@ -514,6 +514,9 @@ pub struct Catalog {
     /// Norm templates, in content id order (ADR-0016 §4). People's states refer to them by
     /// index, saves by content id.
     pub norms: Vec<crate::norm::NormDef>,
+    /// Values, in content id order (M4c slice AG, ADR-0016 §4). What people hold refers to them
+    /// by index, saves by content id.
+    pub values: Vec<crate::values::ValueDef>,
 }
 
 impl Catalog {

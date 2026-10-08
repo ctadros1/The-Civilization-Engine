@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 42
+kernel_content_api = 43
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -1032,6 +1032,74 @@ fn norms_check_their_numbers_and_what_they_do() {
 }
 
 #[test]
+fn values_check_their_numbers_and_policies_bear_on_values_that_exist() {
+    let preset = real_preset();
+    let security = real("value/security.toml");
+    for (body, needle) in [
+        (security.replace("sd = 0.8", "sd = 9.0"), "`sd`"),
+        (
+            security.replace("weight = 1.0", "weight = -1.0"),
+            "`weight`",
+        ),
+        (
+            security.replace(
+                "high = \"holds safety from want and harm dear\"",
+                "high = \" \"",
+            ),
+            "`high`",
+        ),
+    ] {
+        assert_ne!(body, security, "{needle}: the edit applies");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("value/security.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(
+            report.diagnostics[0].message.contains(needle),
+            "{needle}: {}",
+            report.diagnostics[0].message
+        );
+    }
+    // A template's `bears` must name values that exist, each between -1 and 1.
+    let store = real("policy/common_store.toml");
+    let values = [
+        ("value/security.toml", real("value/security.toml")),
+        ("value/autonomy.toml", real("value/autonomy.toml")),
+        ("value/reciprocity.toml", real("value/reciprocity.toml")),
+    ];
+    let alone = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("policy/common_store.toml", &store),
+    ]);
+    assert_eq!(codes(&alone), vec!["E2006", "E2006", "E2006"]);
+    let mut files: Vec<(&str, &str)> = values.iter().map(|(p, b)| (*p, b.as_str())).collect();
+    files.push(("worldgen/river_valley.toml", &preset));
+    let too_much = store.replace(
+        "\"core:value/security\" = 1.0",
+        "\"core:value/security\" = 1.5",
+    );
+    assert_ne!(too_much, store);
+    let mut bad = files.clone();
+    bad.push(("policy/common_store.toml", &too_much));
+    let report = load_fixture(&bad);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(report.diagnostics[0].message.contains("`bears`"));
+    files.push(("policy/common_store.toml", &store));
+    let ok = registry(load_fixture(&files));
+    assert_eq!(ok.catalog.values.len(), 3);
+    let def = &ok.catalog.policies[0];
+    assert_eq!(def.bears.len(), 3, "{:?}", def.bears);
+    let security = ok
+        .catalog
+        .values
+        .iter()
+        .position(|v| v.id == "core:value/security")
+        .expect("defined") as u16;
+    assert!(def.bears.contains(&(security, 1.0)));
+}
+
+#[test]
 fn profiles_check_their_ranges_and_fields() {
     let preset = real_preset();
     let land = real("land/temperate_valley.toml").replace(
@@ -1189,6 +1257,7 @@ fn the_fingerprint_covers_every_kind() {
             "learn_rate = 0.1",
             "learn_rate = 0.12",
         ),
+        ("value/autonomy.toml", "sd = 0.8", "sd = 0.9"),
     ] {
         let body = real(path).replace(from, to);
         assert_ne!(body, real(path), "{path}: the edit applies");

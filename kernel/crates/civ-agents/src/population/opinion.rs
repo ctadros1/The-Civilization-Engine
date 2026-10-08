@@ -103,7 +103,10 @@ impl Population {
                     op.salience_idle
                 };
                 for &(a, h) in &adults {
-                    let z = anchor_of(pp.w_gain * fc.gain(&m, h, policies, params), op);
+                    // Their household's lot, and what it does to what they hold dear.
+                    let points =
+                        pp.w_gain * fc.gain(&m, h, policies, params) + self.value_points(ctx, a, k);
+                    let z = anchor_of(points, op);
                     anchors.push((a, k, z, salience));
                 }
             }

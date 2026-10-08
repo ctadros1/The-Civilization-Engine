@@ -104,7 +104,7 @@ describe("the government on the wire", () => {
     const b = new flatbuffers.Builder(512);
     const stanceName = b.createString("Ada");
     const why = b.createString("their household stands to gain");
-    const stance = W.StanceLine.createStanceLine(b, 7n, stanceName, 0, 2.5, 0.4, why, 0.3);
+    const stance = W.StanceLine.createStanceLine(b, 7n, stanceName, 0, 2.5, 0.4, why, 0.3, -0.6);
     const stances = W.LawLine.createStancesVector(b, [stance]);
     const what = b.createString("a common store, taking a tenth of each harvest");
     const policy = b.createString("core:policy/common_store");
@@ -234,5 +234,6 @@ describe("the government on the wire", () => {
     });
     expect(l.stances[0]!.regard).toBeCloseTo(0.4, 5);
     expect(l.stances[0]!.opinion).toBeCloseTo(0.3, 5);
+    expect(l.stances[0]!.values).toBeCloseTo(-0.6, 5);
   });
 });

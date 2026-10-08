@@ -50,6 +50,10 @@ pub(crate) struct PolicyFile {
     /// common store". Left out, nobody holds a position on it.
     #[serde(default)]
     pub question: Option<String>,
+    /// How a law of it bears on each value (content API 43, M4c slice AG): value id to −1
+    /// (against it) .. 1 (for it). Left out, it bears on none.
+    #[serde(default)]
+    pub bears: std::collections::BTreeMap<String, f64>,
 }
 
 /// One sanction bundle of a law against taking: what it adds to giving back what was taken, in
@@ -65,8 +69,15 @@ pub(crate) struct BundleFile {
 }
 
 impl PolicyFile {
-    /// The compiled template (call after [`PolicyFile::problems`] found none).
-    pub fn def(&self) -> PolicyDef {
+    /// The compiled template (call after [`PolicyFile::problems`] found none, and with every
+    /// value `bears` names defined: `value_index` finds it).
+    pub fn def(&self, value_index: &dyn Fn(&str) -> Option<usize>) -> PolicyDef {
+        let mut bears: Vec<(u16, f32)> = self
+            .bears
+            .iter()
+            .filter_map(|(id, &b)| Some((u16::try_from(value_index(id)?).ok()?, b as f32)))
+            .collect();
+        bears.sort_by_key(|b| b.0);
         let mut levy_shares = self.levy_shares.clone();
         levy_shares.sort_by(f64::total_cmp);
         PolicyDef {
@@ -93,6 +104,7 @@ impl PolicyFile {
             hours: self.hours.iter().map(|h| (h[0], h[1])).collect(),
             bodies: self.bodies(),
             question: self.question.clone(),
+            bears,
         }
     }
 
@@ -120,6 +132,13 @@ impl PolicyFile {
     /// Range problems, as messages.
     pub fn problems(&self) -> Vec<String> {
         let mut p = Vec::new();
+        for (id, &b) in &self.bears {
+            if !(b.is_finite() && (-1.0..=1.0).contains(&b)) {
+                p.push(format!(
+                    "`bears` gives `{id}` {b}; it must be between -1 and 1"
+                ));
+            }
+        }
         if PolicyKind::from_name(&self.does).is_none() {
             let all: Vec<&str> = PolicyKind::ALL.iter().map(|k| k.name()).collect();
             p.push(format!("`does` must be one of `{}`", all.join("`, `")));
@@ -305,14 +324,19 @@ mod tests {
             quorum_shares: Vec::new(),
             pass: Vec::new(),
             question: None,
+            bears: Default::default(),
         }
+    }
+
+    fn no_values(_: &str) -> Option<usize> {
+        None
     }
 
     #[test]
     fn a_template_compiles_with_its_levels_in_order() {
         let f = file();
         assert!(f.problems().is_empty(), "{:?}", f.problems());
-        let d = f.def();
+        let d = f.def(&no_values);
         assert_eq!(d.kind, PolicyKind::CommonStore);
         assert_eq!(d.answers, vec![IssueKind::FoodShort]);
         assert_eq!(d.levy_shares, vec![0.05, 0.1, 0.2]);
@@ -341,7 +365,7 @@ mod tests {
         f.levy_shares.clear();
         f.relief_days = 0.0;
         assert!(f.problems().is_empty(), "{:?}", f.problems());
-        assert_eq!(f.def().kind, PolicyKind::KeepStore);
+        assert_eq!(f.def(&no_values).kind, PolicyKind::KeepStore);
         // So does a watch.
         f.does = "keep_watch".to_owned();
         f.answers = vec!["takings".to_owned()];
@@ -379,7 +403,7 @@ mod tests {
             },
         ];
         assert!(f.problems().is_empty(), "{:?}", f.problems());
-        let d = f.def();
+        let d = f.def(&no_values);
         assert_eq!(d.kind, PolicyKind::AgainstTaking);
         assert_eq!(d.answers, vec![IssueKind::Takings]);
         assert_eq!(d.bundles[1].compensation_days, 3.0);
@@ -412,7 +436,7 @@ mod tests {
         );
         f.hours = vec![[21, 5]];
         assert!(f.problems().is_empty(), "{:?}", f.problems());
-        let d = f.def();
+        let d = f.def(&no_values);
         assert_eq!(d.kind, PolicyKind::Curfew);
         assert_eq!(d.hours, vec![(21, 5)]);
         f.hours = vec![[24, 5], [6, 6]];
@@ -434,7 +458,7 @@ mod tests {
         f.quorum_shares = vec![0.25, 0.5];
         f.pass = vec!["more_for".to_owned()];
         assert!(f.problems().is_empty(), "{:?}", f.problems());
-        let d = f.def();
+        let d = f.def(&no_values);
         assert_eq!(d.kind, PolicyKind::AmendBody);
         assert_eq!(d.answers, vec![IssueKind::Overruled]);
         assert_eq!(d.bodies.len(), 4);

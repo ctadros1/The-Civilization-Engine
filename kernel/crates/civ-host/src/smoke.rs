@@ -783,6 +783,42 @@ fn polity(sim: &Sim) -> Option<String> {
             op.taken as f64 / adults / weeks,
         ));
     }
+    // Values (M4c slice AG): how widely each is held one way or the other, and how often what
+    // someone holds dear weighed in a stance at a gathering (more than the stance margin).
+    let vs = &pop.values;
+    if !vs.held.is_empty() {
+        let defs = &sim.rules().catalog.values;
+        let spread: Vec<String> = defs
+            .iter()
+            .enumerate()
+            .map(|(k, d)| {
+                let held: Vec<f64> = vs
+                    .held
+                    .iter()
+                    .filter(|h| usize::from(h.value) == k)
+                    .map(|h| f64::from(h.v))
+                    .collect();
+                let n = held.len().max(1) as f64;
+                let mean = held.iter().sum::<f64>() / n;
+                let strong = held.iter().filter(|v| v.abs() >= 0.5).count() as f64 / n;
+                format!("{} {mean:+.2} ({:.0} % strongly)", d.name, 100.0 * strong)
+            })
+            .collect();
+        let margin = sim.rules().people.polity.stance_margin as f32;
+        let (weighed, stances) = pop
+            .polities
+            .iter()
+            .flat_map(|p| &p.laws)
+            .flat_map(|l| &l.stances)
+            .fold((0usize, 0usize), |(w, n), r| {
+                (w + usize::from(r.values.abs() > margin), n + 1)
+            });
+        parts.push(format!(
+            "values held on average: {}; what they hold dear weighed in {weighed} of {stances} \
+             stances",
+            spread.join(", ")
+        ));
+    }
     // Norms (M4c slice AG): for each, how far it is held on average, what people believe of
     // others against what households did at their last levy, how many it moves, and how often an
     // account was told and taken in.

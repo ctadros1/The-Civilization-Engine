@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { GrievanceLine, HeardLine, NormLine, PositionLine } from "../src/net/messages.js";
+import type { GrievanceLine, HeardLine, NormLine, PositionLine, ValueLine } from "../src/net/messages.js";
 import {
   claimText,
   grievanceFacts,
@@ -10,6 +10,7 @@ import {
   keennessText,
   normText,
   positionText,
+  valuesText,
 } from "../src/word.js";
 
 const DAY = 24 * 60;
@@ -89,12 +90,14 @@ describe("grievances and news in words", () => {
       ...over,
     });
     expect(positionText(p())).toBe(
-      "leaning for (0.66); their household's lot alone would make it 0.58; talk at the hearth, taken in 4 times, drew them toward it",
+      "leaning for (0.66); their household's lot and what they hold dear would make it 0.58; talk at the hearth, taken in 4 times, drew them toward it",
     );
     expect(positionText(p({ x: 0.5, anchor: 0.6, lean: "undecided", heard: 1 }))).toContain(
       "taken in once, turned them against it",
     );
-    expect(positionText(p({ x: 0.58 }))).toBe("leaning for (0.58); as their household's lot makes it");
+    expect(positionText(p({ x: 0.58 }))).toBe(
+      "leaning for (0.58); as their household's lot and what they hold dear make it",
+    );
   });
 
   it("say how far someone holds a norm, what they believe others do and whether it holds them", () => {
@@ -116,5 +119,20 @@ describe("grievances and news in words", () => {
       "from what their own people believed; too few do to hold them to it",
     );
     expect(normText(n({ heard: 1 }))).toContain("from one account at the hearth");
+  });
+
+  it("say what someone holds dear", () => {
+    const vs: ValueLine[] = [
+      { name: "safety from want and harm", words: "holds safety from want and harm dear", v: 0.624 },
+      {
+        name: "a household's say over what is its own",
+        words: "cares as most do for a household's say over what is its own",
+        v: -0.1,
+      },
+    ];
+    expect(valuesText(vs)).toBe(
+      "holds safety from want and harm dear (0.62); cares as most do for a household's say over what is its own (-0.10)",
+    );
+    expect(valuesText([])).toBe("");
   });
 });

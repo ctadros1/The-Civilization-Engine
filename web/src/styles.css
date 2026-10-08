@@ -1140,9 +1140,16 @@ ul.rules li {
   color: var(--muted);
 }
 
-/* The norms they hold, set apart from the questions of the day (M4c slice AG) */
-.opinions ul.norms {
+/* What they hold dear and the norms they hold, set apart from the questions of the day (M4c
+   slice AG) */
+.opinions ul.norms,
+.opinions p.values {
   margin-top: 6px;
+}
+
+.opinions p.values {
+  font-size: 12px;
+  margin-bottom: 0;
 }
 
 /* What a person knows, and the observer's introduce form (M3b slice M) */

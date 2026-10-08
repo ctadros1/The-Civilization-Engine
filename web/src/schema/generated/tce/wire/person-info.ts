@@ -16,6 +16,7 @@ import { SkillLine } from '../../tce/wire/skill-line.js';
 import { StandingLine } from '../../tce/wire/standing-line.js';
 import { StoreLine } from '../../tce/wire/store-line.js';
 import { TieLine } from '../../tce/wire/tie-line.js';
+import { ValueLine } from '../../tce/wire/value-line.js';
 import { Vec2 } from '../../tce/wire/vec2.js';
 
 
@@ -346,8 +347,18 @@ normsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+values(index: number, obj?:ValueLine):ValueLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 96);
+  return offset ? (obj || new ValueLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+valuesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 96);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(46);
+  builder.startObject(47);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -664,6 +675,22 @@ static createNormsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[])
 }
 
 static startNormsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addValues(builder:flatbuffers.Builder, valuesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(46, valuesOffset, 0);
+}
+
+static createValuesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startValuesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 

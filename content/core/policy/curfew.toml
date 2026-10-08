@@ -17,3 +17,9 @@ answers = ["takings"]
 # anchored in what their household's lot makes of it and moved by talk at the hearth.
 question = "whether to keep everyone at home at night"
 hours = [[21, 5], [23, 4]]
+
+# How a law of this kind bears on what people hold dear (content API 43, M4c slice AG): -1
+# against a value to 1 for it. An authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 0.5
+"core:value/autonomy" = -1.0    # everyone kept home by night

@@ -16,3 +16,10 @@ answers = ["food_short"]
 question = "whether to keep a common store"
 levy_shares = [0.05, 0.1, 0.2]   # a twentieth, a tenth or a fifth (09-05 §2.3: a sponsor weighs a few levels)
 relief_days = 5.0                # one ask brings at most five days of the household's food (a tuning value)
+
+# How a law of this kind bears on what people hold dear (content API 43, M4c slice AG): -1
+# against a value to 1 for it. An authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 1.0     # food in store against a lean year
+"core:value/autonomy" = -0.5    # a share of every harvest, owed
+"core:value/reciprocity" = 0.5  # those who pay may ask in need

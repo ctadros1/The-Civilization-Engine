@@ -599,6 +599,7 @@ template the content no longer has is refused.
 | `relief_days` | `common_store` only: the most food one ask brings, in days of the asking household's need (above 0, at most 365). A `keep_store` template leaves it out. |
 | `hours` | `curfew` only (content API 38): the hours a sponsor may propose, 1 to 8 pairs `[from, to]` of hours of the day (0 to 23, different), the curfew running from the first to the second, past midnight when the second is the smaller. Any other template leaves it out. |
 | `members`, `quorum_shares`, `pass` | `amend_body` only (content API 40): who may belong to the body (1 to 3 of `adults`, `elders` (each household's eldest of an age to keep one), `landholders` (the adults of households holding a field)), the shares of members who must come (1 to 8, each 0 to 1), and how it decides (1 or 2 of `more_for`, more for than against, and `two_thirds`, two of every three who take a side). They combine into bodies; a sponsor weighs those one change away from the custom they live under, and only if the new body would keep them in it. Any other template leaves them out. |
+| `[bears]` | Optional (content API 43): how a law of the template bears on each value (`"core:value/security" = 1.0`), from -1 (against it) to 1 (for it); each must name a value that exists. What a law does to what someone holds dear weighs, beside their household's lot, in their anchor on its question, their stance at its gathering and how they weigh proposing it. An authoring judgement, not a measurement. |
 | `question` | Optional (content API 41): the question people take positions on, in words to follow "on" ("whether to keep a common store"). Each adult then holds a position on it, anchored in what their household's lot makes of the template's law in force, or else its middle level, and moved by talk at the hearth (the `[opinion]` table). Left out, nobody holds one. |
 | `bundles` | `against_taking` only: the sanctions a sponsor may propose, 1 to 8 tables of `compensation_days` (food to the household taken from beyond what was taken) and `fine_days` (food to the polity's common store), each 0 to 365 days of the taker's household's food, and `exile` (the one found is sent from the valley; default false). Research 09-07 §1.2 keeps restitution, compensation and a fine apart; §6.2: a sanction is a bundle, never one severity number. |
 
@@ -685,6 +686,10 @@ Content API 38 (M4b slice AD) brings the curfew: the policy kind `curfew` with i
 (`core:policy/curfew`), and the `[crime]` keys `curfew_guard` and `curfew_cost_days`, tuning
 values (the research gives no figure for what a curfew costs or stops).
 
+Content API 43 (M4c slice AG) brings values: the kind `value` (below), the core pack's
+`core:value/security`, `autonomy` and `reciprocity`, and the policy templates' optional `[bears]`
+(`common_store`, `against_taking`, `keep_watch` and `curfew` bear on them).
+
 Content API 42 (M4c slice AG) brings norms: the kind `norm` (below) and the core pack's
 `core:norm/gathering_binds`; the people profile's `[polity]` `comply_base` drops from 1.5 to 0, as
 the norm now carries what it stood for.
@@ -727,6 +732,25 @@ The core pack's `core:norm/gathering_binds` is set so a founding village starts 
 points it replaced: an endorsement of about 0.6 on average, and most founders' thresholds below
 the 0.85 they believe at first. Not built: the normative expectation (what others think one ought
 to do), sanctions for breaking a norm, and norms that do anything but `abide_by_laws`.
+
+### `value`
+
+A slow axis on which people weigh what a law does beyond their household's own food (ADR-0016 §4;
+research 06-04 §1.1: values such as security, autonomy and reciprocity). Each person holds each
+value somewhere between -1 (less than most) and 1 (more than most), drawn by a key and pulled
+toward their parents'; it does not change after (06-04 §3.2's twenty-year drift is not built).
+Policy templates say in `[bears]` how a law of their kind bears on each.
+
+| Key | Meaning |
+| --- | --- |
+| `id`, `name`, `description` | As for every kind (`pack:value/name`); `name` follows "cares for": "safety from want and harm". |
+| `high`, `low` | Holding it more, and less, than most, in words the inspector shows: "holds safety from want and harm dear". |
+| `mean`, `sd`, `heritability` | A founder's value is `tanh(mean + sd · z)` (mean -5 to 5, sd 0 to 5); a child takes on `heritability` (0 to 1) of its parents' mean. A mean of 0 tilts nobody one way. Design priors. |
+| `weight` | Points a law that bears fully on it adds for one who holds it fully (0 to 100). A tuning value. |
+
+The core pack names three, each with mean 0, spread 0.8, heritability 0.5 and weight 1. Not
+built: values that move with experience, values seen by others (a sponsor counts on others by
+their households' lots alone), and values weighing in anything but laws.
 
 ## Planned kinds
 

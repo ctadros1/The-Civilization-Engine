@@ -14,3 +14,9 @@ answers = ["takings"]
 # The question people take positions on (content API 41, M4c slice AG): each adult's is
 # anchored in what their household's lot makes of it and moved by talk at the hearth.
 question = "whether to keep a watch over the stores at night"
+
+# How a law of this kind bears on what people hold dear (content API 43, M4c slice AG): -1
+# against a value to 1 for it. An authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 1.0
+"core:value/autonomy" = -0.5    # someone walks the village at night

@@ -1,6 +1,6 @@
 //! Norms at work (M4c slice AG, step two, ADR-0016 §4; research 06-05). Each person takes a state
-//! of each norm content names when first seen on the first of a month, or when first asked to
-//! abide by one: an endorsement drawn by a key and pulled toward their parents', a threshold, and
+//! of each norm content names the first midnight they are here, or when first asked to abide by
+//! one: an endorsement drawn by a key and pulled toward their parents', a threshold, and
 //! what they believe others do, learned from their household's adults or else the founders'
 //! custom (06-05 §5.4: children and newcomers learn through those they can reach). At the hearth,
 //! companions now and then say whether their household paid its last levy, and a listener's

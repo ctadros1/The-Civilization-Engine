@@ -232,10 +232,11 @@ fn check_the_history(sim: &Sim) {
         }
         _ => assert_eq!(law.status, LawStatus::Rejected),
     }
-    // Each stance is the forecast, the regard for the sponsor and what talk had moved them
-    // (M4c slice AG), against the margin.
+    // Each stance is the forecast, the regard for the sponsor, what talk had moved them and what
+    // the law does to what they hold dear (M4c slice AG), against the margin.
     for r in law.stances.iter().filter(|r| r.person != law.sponsor) {
-        let s = f64::from(r.gain) + f64::from(r.regard) + f64::from(r.opinion);
+        let s =
+            f64::from(r.gain) + f64::from(r.regard) + f64::from(r.opinion) + f64::from(r.values);
         let want = if s > pp.stance_margin {
             Stance::Support
         } else if s < -pp.stance_margin {

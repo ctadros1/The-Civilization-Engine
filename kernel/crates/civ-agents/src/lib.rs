@@ -51,6 +51,7 @@ pub mod structure;
 pub mod style;
 pub mod ties;
 pub mod value;
+pub mod values;
 pub mod wealth;
 pub mod word;
 

@@ -1120,6 +1120,9 @@ table LawSave {
   // What talk at the hearth added to each stance, points, in `stances` order (schema 37, M4c
   // slice AG); absent before.
   stance_opinions: [float] (id: 41);
+  // What what they hold dear added to each stance, points, in `stances` order (schema 39, M4c
+  // slice AG); absent before.
+  stance_values: [float] (id: 42);
 }
 
 // `law` 0: called on cases only (M4b slice AB).
@@ -1430,6 +1433,20 @@ table NormsSave {
   acts: [LevyActSave] (id: 2);
   told: ulong (id: 3);
   taken: ulong (id: 4);
+}
+
+// Section "values" (schema 39, M4c slice AG, ADR-0016 §4): what each person holds of the values
+// content names, -1 to 1. `value` indexes `ValuesSave.values`.
+struct HeldValueSave {
+  holder: ulong;
+  v: float;
+  value: ushort;
+}
+
+table ValuesSave {
+  held: [HeldValueSave] (id: 0);
+  // Value content ids at save time.
+  values: [string] (id: 1);
 }
 
 // Section "events": the scheduler's pending events.

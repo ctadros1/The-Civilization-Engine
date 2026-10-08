@@ -745,6 +745,18 @@ table PersonInfo {
   positions: [PositionLine] (id: 44);
   // Wire 1.37 (M4c slice AG, ADR-0016 §4): what they hold of each norm content names.
   norms: [NormLine] (id: 45);
+  // Wire 1.38 (M4c slice AG, ADR-0016 §4): what they hold of each value content names.
+  values: [ValueLine] (id: 46);
+}
+
+// What someone holds of a value (wire 1.38, ADR-0016 §4; research 06-04 §1.1).
+table ValueLine {
+  // The value and what they hold of it, in words rendered by the kernel ("safety from want and
+  // harm"; "holds safety from want and harm dear").
+  name: string (id: 0);
+  words: string (id: 1);
+  // -1 (less than most) to 1 (more than most).
+  v: float (id: 2);
 }
 
 // What someone holds of a norm (wire 1.37, ADR-0016 §4; research 06-05 §1.1): how far they hold
@@ -1534,6 +1546,8 @@ table StanceLine {
   // Wire 1.36 (M4c slice AG): what talk at the hearth had moved them from their household's
   // lot, points.
   opinion: float (id: 6);
+  // Wire 1.38 (M4c slice AG): what the law does to what they hold dear, points.
+  values: float (id: 7);
 }
 
 // A law and its whole history (wire 1.27, ADR-0013 §3): proposal, stances, decision, who knows

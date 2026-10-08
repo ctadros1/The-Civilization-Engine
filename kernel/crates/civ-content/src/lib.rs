@@ -13,8 +13,8 @@
 //!
 //! Kinds so far: world-generation presets (M0); the people profile, the land profile, name lists,
 //! activities, goods, crops and building programs (M1); recipes and skills (M3a slice H),
-//! property regimes (slice K), techniques (M3b slice M), policy templates (M4a slice Z) and norms
-//! (M4c slice AG). Later milestones add the rest of the plan's primitives, each as a new `kind`.
+//! property regimes (slice K), techniques (M3b slice M), policy templates (M4a slice Z), and norms
+//! and values (M4c slice AG). Later milestones add the rest of the plan's primitives, each as a new `kind`.
 
 #![forbid(unsafe_code)]
 
@@ -41,12 +41,13 @@ mod recipe;
 mod regime;
 mod skill;
 mod technique;
+mod value;
 mod worldgen;
 
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 42;
+pub const KERNEL_CONTENT_API: u32 = 43;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -71,7 +72,7 @@ pub enum Severity {
 /// | E2003 | An id's kind segment does not match the file's `kind` |
 /// | E2004 | The file's path does not match its id (`<kind>/<name>.toml`) |
 /// | E2005 | Two definitions share an id |
-/// | E2006 | A reference names something that is not defined (a name list, a land resource, a good, a crop, a building program, a recipe, a skill, a technique, an activity) |
+/// | E2006 | A reference names something that is not defined (a name list, a land resource, a good, a crop, a building program, a recipe, a skill, a technique, an activity, a value) |
 /// | E3001 | A value is out of its allowed range |
 /// | E3002 | The `kind` is unknown, or missing |
 /// | E3003 | Not exactly one world-generation preset is marked `default = true` |
@@ -409,6 +410,7 @@ struct Parsed {
     techniques: Vec<Def<technique::TechniqueFile>>,
     policies: Vec<Def<policy::PolicyFile>>,
     norms: Vec<Def<norm::NormFile>>,
+    values: Vec<Def<value::ValueFile>>,
     /// Files declaring `kind = "people"`, parsed or not (so a broken profile is not also
     /// reported as a missing one).
     people_files: usize,
@@ -1001,7 +1003,21 @@ fn resolve(
         }
     }
     techniques.sort_by(|a, b| a.id.cmp(&b.id));
-    let mut policies: Vec<_> = parsed.policies.iter().map(|d| d.file.def()).collect();
+    let mut values: Vec<_> = parsed.values.iter().map(|d| d.file.def()).collect();
+    values.sort_by(|a, b| a.id.cmp(&b.id));
+    let value_index = |id: &str| values.iter().position(|v| v.id == id);
+    for d in &parsed.policies {
+        for id in d.file.bears.keys() {
+            if value_index(id).is_none() {
+                missing(c, parsed, &d.rel, "bears", id);
+            }
+        }
+    }
+    let mut policies: Vec<_> = parsed
+        .policies
+        .iter()
+        .map(|d| d.file.def(&value_index))
+        .collect();
     policies.sort_by(|a, b| a.id.cmp(&b.id));
     let mut norms: Vec<_> = parsed.norms.iter().map(|d| d.file.def()).collect();
     norms.sort_by(|a, b| a.id.cmp(&b.id));
@@ -1016,6 +1032,7 @@ fn resolve(
         techniques,
         policies,
         norms,
+        values,
     };
     knowledge_problems(c, parsed, &catalog, land.as_ref());
     (people, land, catalog)
@@ -1209,6 +1226,7 @@ fn parsed_tables(parsed: &Parsed) -> Vec<(&str, &toml::Table)> {
     all.extend(tables(&parsed.techniques, |f| &f.id));
     all.extend(tables(&parsed.policies, |f| &f.id));
     all.extend(tables(&parsed.norms, |f| &f.id));
+    all.extend(tables(&parsed.values, |f| &f.id));
     all
 }
 
@@ -1278,7 +1296,7 @@ fn range_problems(c: &mut Collector, rel: &str, problems: Vec<String>) {
     }
 }
 
-const KINDS: [&str; 14] = [
+const KINDS: [&str; 15] = [
     worldgen::KIND,
     people::KIND,
     land::KIND,
@@ -1293,6 +1311,7 @@ const KINDS: [&str; 14] = [
     technique::KIND,
     policy::KIND,
     norm::KIND,
+    value::KIND,
 ];
 
 fn compile_file(
@@ -1434,6 +1453,16 @@ fn compile_file(
             if check_identity(c, pack, rel, &file.id, skill::ID_KIND, seen_ids) {
                 range_problems(c, rel, file.problems());
                 parsed.skills.push(def(rel, pack, file, table));
+            }
+        }
+        value::KIND => {
+            let Some(file) = parse::<value::ValueFile>(c, rel, source) else {
+                return;
+            };
+            debug_assert_eq!(file.kind, value::KIND, "dispatched on kind");
+            if check_identity(c, pack, rel, &file.id, value::ID_KIND, seen_ids) {
+                range_problems(c, rel, file.problems());
+                parsed.values.push(def(rel, pack, file, table));
             }
         }
         norm::KIND => {

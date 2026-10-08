@@ -135,6 +135,8 @@ impl Population {
             }
         }
         self.tell_households(day);
+        // Anyone new takes what they hold of each value and norm (M4c slice AG).
+        self.take_new_holdings(ctx);
         // Households tell their members of gatherings ahead, and those short of food who find
         // the common store empty hold it against it (M4c slice AE).
         self.word_day(ctx);
@@ -896,7 +898,11 @@ impl Population {
                         }
                     }
                 }
-                m.own_gain = gain_for(m, own);
+                // What it does to what they hold dear weighs beside their household's lot (M4c
+                // slice AG); nobody sees another's, so those they count on are judged by their
+                // households' lots alone.
+                m.own_gain =
+                    gain_for(m, own) + self.value_points(ctx, d, m.policy) / pp.w_gain.max(1e-9);
                 m.followers_gain = if weight > 0.0 { weighed / weight } else { 0.0 };
                 m.support = if support + oppose > 0 {
                     f64::from(support) / f64::from(support + oppose)
@@ -1085,10 +1091,12 @@ impl Population {
                 // How far talk at the hearth has moved them from their household's lot (M4c
                 // slice AG).
                 let talk = self.opinion_points(p, policy, w_position);
+                // And what it does to what they hold dear (M4c slice AG).
+                let values = self.value_points(ctx, p, policy);
                 let (stance, regard_points) = if p == sponsor {
                     (Stance::Support, 0.0)
                 } else {
-                    crate::polity::stance(gain + talk, regard, pp)
+                    crate::polity::stance(gain + values + talk, regard, pp)
                 };
                 Some(StanceRecord {
                     person: p,
@@ -1097,6 +1105,7 @@ impl Population {
                     gain: gain as f32,
                     regard: regard_points as f32,
                     opinion: talk as f32,
+                    values: values as f32,
                 })
             })
             .collect();

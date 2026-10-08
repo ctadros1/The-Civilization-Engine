@@ -193,6 +193,35 @@ pub fn norm_lines<'a>(
     fbb.create_vector(&lines)
 }
 
+/// What `p` holds of each value content names (wire 1.38, ADR-0016 §4).
+pub fn value_lines<'a>(
+    fbb: &mut FlatBufferBuilder<'a>,
+    sim: &Sim,
+    p: &Person,
+) -> WIPOffset<Vector<'a, ForwardsUOffset<wire::ValueLine<'a>>>> {
+    let defs = &sim.rules.catalog.values;
+    let lines: Vec<_> = sim
+        .people
+        .values
+        .held_by(p.id)
+        .iter()
+        .filter_map(|h| Some((h, defs.get(usize::from(h.value))?)))
+        .map(|(h, def)| {
+            let name = fbb.create_string(&def.name);
+            let words = fbb.create_string(&civ_agents::values::words(f64::from(h.v), def));
+            wire::ValueLine::create(
+                fbb,
+                &wire::ValueLineArgs {
+                    name: Some(name),
+                    words: Some(words),
+                    v: h.v,
+                },
+            )
+        })
+        .collect();
+    fbb.create_vector(&lines)
+}
+
 /// What `p` has heard that is still news, the latest first, at most [`MAX_HEARD_SHOWN`].
 pub fn heard_lines<'a>(
     fbb: &mut FlatBufferBuilder<'a>,

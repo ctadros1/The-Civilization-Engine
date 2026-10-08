@@ -474,6 +474,24 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** values and ideologies, the rest of slice AG; the normative expectation and sanctions.
 
+## 2026-10-08 — M4c slice AG, step three: values
+
+**Goal:** let people weigh a law by more than what it does to their household's food, each by what they hold dear.
+
+**What changed:**
+
+- **Values are content.** A new kind, `value`; the core pack names three (research 06-04 §1.1): safety from want and harm, a household's say over what is its own, and giving back what was given or taken.
+- **Each person** holds each between less than most and more than most, drawn at birth and like their parents', for life.
+- **Templates say how a law bears** on each value (`[bears]`): a common store for safety and against a household's say, a curfew against a household's say.
+- **Where it weighs:** in someone's anchor on a question, their stance at a gathering (the record says when it mattered) and how they weigh proposing a law. Nobody sees another's values.
+- **States at midnight.** Everyone takes their values and norms the first midnight they are here: a three-day curfew test found that until 1 April nobody held the norm that the gathering binds, so a curfew weighed nothing in a world's first month.
+- **The inspector** says what someone holds dear.
+- **Boundary:** saves schema 39 (38 still loads), wire 1.38, content API 43.
+
+**Evidence:** unit tests for the draw, heredity and points; integration tests that everyone holds each value their own way and that a village holding safety dear stands for a store nobody gains by (and against it when it does not), with the record's words and an exact save and load; content checks for the kind and for templates naming values that do not exist; the web tests and the standing end-to-end spec. The kernel (585), web (140) and end-to-end (16, 6 demos skipped) suites pass, with clippy and the format and schema checks clean. The ten-year smoke passed all 10 worlds: values weighed in 24 to 54 % of stances. Gate B and the notables' gate passed.
+
+**Open:** ideologies, the last of slice AG.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

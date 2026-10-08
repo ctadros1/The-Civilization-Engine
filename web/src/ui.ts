@@ -42,7 +42,7 @@ import {
 import { materialGoods } from "./deposits.js";
 import { introducible, knowRows, summaryText, techniqueRows } from "./knowledge.js";
 import { standingText, tieText } from "./standing.js";
-import { claimText, grievanceFacts, grievanceHead, heardHow, heardWhen, normText, positionText } from "./word.js";
+import { claimText, grievanceFacts, grievanceHead, heardHow, heardWhen, normText, positionText, valuesText } from "./word.js";
 import {
   brokenText,
   labelText,
@@ -876,6 +876,16 @@ export function bindUi(store: Store, actions: Actions): void {
               el("span", { className: "aside", text: positionText(q) }),
             ),
           ),
+        ),
+      );
+    }
+    if (p.values.length > 0) {
+      box.append(
+        el(
+          "p",
+          { className: "values" },
+          el("span", { text: "What they hold dear: " }),
+          el("span", { className: "aside", text: valuesText(p.values) }),
         ),
       );
     }

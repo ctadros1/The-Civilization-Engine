@@ -217,6 +217,9 @@ pub struct PolicyDef {
     /// The question people take positions on, in words ("whether to keep a common store"), or
     /// none (M4c slice AG, ADR-0016 §4).
     pub question: Option<String>,
+    /// How a law of it bears on each value content names: (index in the catalog's values, −1
+    /// against to 1 for), in value order (M4c slice AG, step three).
+    pub bears: Vec<(u16, f32)>,
 }
 
 /// Hours of the day a curfew runs, `(from, to)`: from the start of hour `from` to the start of
@@ -577,6 +580,8 @@ pub struct StanceRecord {
     /// What talk at the hearth had moved them from their household's own lot, points (M4c slice
     /// AG; 0 before).
     pub opinion: f32,
+    /// What the law does to what they hold dear, points (M4c slice AG step three; 0 before).
+    pub values: f32,
 }
 
 /// What became of what a law asks of people and gives them (ADR-0013 §3, stages 6-7).
@@ -733,7 +738,14 @@ pub fn stance_words(r: &StanceRecord, margin: f64, sponsor: PermanentId) -> Stri
         return "they proposed it".to_owned();
     }
     let (gain, regard) = (f64::from(r.gain), f64::from(r.regard));
-    let talk = f64::from(r.opinion);
+    let (talk, values) = (f64::from(r.opinion), f64::from(r.values));
+    let held = if values > margin {
+        "; what they hold dear drew them toward it"
+    } else if values < -margin {
+        "; what they hold dear turned them against it"
+    } else {
+        ""
+    };
     let talked = if talk > margin {
         "; talk at the hearth had drawn them toward it"
     } else if talk < -margin {
@@ -760,7 +772,7 @@ pub fn stance_words(r: &StanceRecord, margin: f64, sponsor: PermanentId) -> Stri
         }
         _ => household.to_owned(),
     };
-    format!("{why}{talked}")
+    format!("{why}{held}{talked}")
 }
 
 /// What a law is, in words, to follow "proposed", "agreed to" or "turned down": "a common store,
@@ -1411,6 +1423,7 @@ pub(crate) mod tests {
             hours: Vec::new(),
             bodies: Vec::new(),
             question: None,
+            bears: Vec::new(),
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -1502,6 +1515,7 @@ pub(crate) mod tests {
             hours: Vec::new(),
             bodies: Vec::new(),
             question: None,
+            bears: Vec::new(),
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -1692,6 +1706,7 @@ pub(crate) mod tests {
             hours: Vec::new(),
             bodies: vec![elders],
             question: None,
+            bears: Vec::new(),
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())

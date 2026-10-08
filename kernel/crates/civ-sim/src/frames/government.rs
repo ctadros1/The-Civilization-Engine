@@ -78,7 +78,14 @@ fn law_line<'a>(
             .map_or("", |d| d.id.as_str()),
     );
     let sponsor_name = fbb.create_string(&pop.name_of(law.sponsor));
-    let issue = fbb.create_string(law.issue.words());
+    // The issue it answered, and the creed its sponsor proposed it under (M4c slice AG).
+    let creed = pop
+        .ideologies
+        .creed_of(law.id)
+        .and_then(|k| sim.rules.catalog.ideologies.get(usize::from(k)))
+        .map(|d| format!(", as one who holds to {}", d.name))
+        .unwrap_or_default();
+    let issue = fbb.create_string(&format!("{}{creed}", law.issue.words()));
     let decision = decision_words(law, &polity.body).map(|w| fbb.create_string(&w));
     let known = law
         .known

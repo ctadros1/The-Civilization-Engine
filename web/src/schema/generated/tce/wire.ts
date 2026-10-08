@@ -65,6 +65,7 @@ export { HeardLine } from './wire/heard-line.js';
 export { Hello } from './wire/hello.js';
 export { HouseholdWealth } from './wire/household-wealth.js';
 export { Hydrography } from './wire/hydrography.js';
+export { IdeologyLine } from './wire/ideology-line.js';
 export { IncidentLine } from './wire/incident-line.js';
 export { IntroduceTechnique } from './wire/introduce-technique.js';
 export { KinLink } from './wire/kin-link.js';

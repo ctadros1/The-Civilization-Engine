@@ -139,6 +139,8 @@ fn what_a_law_does_to_what_they_hold_dear_weighs_in_their_stance() {
         for h in &mut pop.values.held {
             h.v = if h.value == security { security_v } else { 0.0 };
         }
+        // Nobody holds an ideology, so what they hold dear alone tilts them (step four).
+        pop.ideologies.held.clear();
         // Talk has moved nobody from their household's lot.
         for p in &mut pop.opinion.positions {
             p.x = p.anchor;

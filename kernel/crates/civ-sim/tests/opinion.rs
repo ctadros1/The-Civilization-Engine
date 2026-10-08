@@ -127,7 +127,27 @@ fn positions_are_anchored_in_each_households_lot_and_moved_by_talk() {
     let lot = |p: &civ_agents::opinion::Position| {
         let a = f64::from(p.anchor).clamp(1e-9, 1.0 - 1e-9);
         let bears = &catalog.policies[usize::from(p.policy)].bears;
-        scale * (a / (1.0 - a)).ln() - pop.values.points(p.holder, bears, &catalog.values)
+        // What they hold dear, and the commitments of the ideologies they hold (step four).
+        let creeds: f64 = pop
+            .ideologies
+            .held_by(p.holder)
+            .iter()
+            .map(|h| {
+                let idea = &catalog.ideologies[usize::from(h.ideology)];
+                bears
+                    .iter()
+                    .map(|&(k, b)| {
+                        let c = idea
+                            .commitments
+                            .iter()
+                            .find(|c| c.0 == k)
+                            .map_or(0.0, |c| c.1);
+                        catalog.values[usize::from(k)].weight * f64::from(c) * f64::from(b)
+                    })
+                    .sum::<f64>()
+            })
+            .sum();
+        scale * (a / (1.0 - a)).ln() - pop.values.points(p.holder, bears, &catalog.values) - creeds
     };
     let mut by_home: Vec<(PermanentId, u16, f64)> = op
         .positions

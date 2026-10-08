@@ -747,6 +747,20 @@ table PersonInfo {
   norms: [NormLine] (id: 45);
   // Wire 1.38 (M4c slice AG, ADR-0016 §4): what they hold of each value content names.
   values: [ValueLine] (id: 46);
+  // Wire 1.39 (M4c slice AG, ADR-0016 §4): the ideologies they hold.
+  ideologies: [IdeologyLine] (id: 47);
+}
+
+// An ideology someone holds (wire 1.39, ADR-0016 §4).
+table IdeologyLine {
+  // What it is called and its legitimacy story, in words ("common provision"; "what the village
+  // gathers, the village keeps against a lean year").
+  name: string (id: 0);
+  legitimacy: string (id: 1);
+  // When they took it up, and from whom (0 and empty: they brought it with them).
+  since_minute: long (id: 2);
+  from: ulong (id: 3);
+  from_name: string (id: 4);
 }
 
 // What someone holds of a value (wire 1.38, ADR-0016 §4; research 06-04 §1.1).

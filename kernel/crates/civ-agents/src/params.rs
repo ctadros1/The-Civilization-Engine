@@ -517,6 +517,9 @@ pub struct Catalog {
     /// Values, in content id order (M4c slice AG, ADR-0016 §4). What people hold refers to them
     /// by index, saves by content id.
     pub values: Vec<crate::values::ValueDef>,
+    /// Ideologies, in content id order (M4c slice AG, ADR-0016 §4). Holdings refer to them by
+    /// index, saves by content id.
+    pub ideologies: Vec<crate::ideology::IdeologyDef>,
 }
 
 impl Catalog {

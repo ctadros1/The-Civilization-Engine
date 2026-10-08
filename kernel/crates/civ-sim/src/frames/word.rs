@@ -222,6 +222,38 @@ pub fn value_lines<'a>(
     fbb.create_vector(&lines)
 }
 
+/// The ideologies `p` holds (wire 1.39, ADR-0016 §4).
+pub fn ideology_lines<'a>(
+    fbb: &mut FlatBufferBuilder<'a>,
+    sim: &Sim,
+    p: &Person,
+) -> WIPOffset<Vector<'a, ForwardsUOffset<wire::IdeologyLine<'a>>>> {
+    let defs = &sim.rules.catalog.ideologies;
+    let lines: Vec<_> = sim
+        .people
+        .ideologies
+        .held_by(p.id)
+        .iter()
+        .filter_map(|h| Some((h, defs.get(usize::from(h.ideology))?)))
+        .map(|(h, def)| {
+            let name = fbb.create_string(&def.name);
+            let legitimacy = fbb.create_string(&def.legitimacy);
+            let from_name = h.from.map(|f| fbb.create_string(&sim.people.name_of(f)));
+            wire::IdeologyLine::create(
+                fbb,
+                &wire::IdeologyLineArgs {
+                    name: Some(name),
+                    legitimacy: Some(legitimacy),
+                    since_minute: h.since * DAY,
+                    from: h.from.map_or(0, PermanentId::get),
+                    from_name,
+                },
+            )
+        })
+        .collect();
+    fbb.create_vector(&lines)
+}
+
 /// What `p` has heard that is still news, the latest first, at most [`MAX_HEARD_SHOWN`].
 pub fn heard_lines<'a>(
     fbb: &mut FlatBufferBuilder<'a>,

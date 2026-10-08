@@ -686,6 +686,9 @@ Content API 38 (M4b slice AD) brings the curfew: the policy kind `curfew` with i
 (`core:policy/curfew`), and the `[crime]` keys `curfew_guard` and `curfew_cost_days`, tuning
 values (the research gives no figure for what a curfew costs or stops).
 
+Content API 44 (M4c slice AG) brings ideologies: the kind `ideology` (below) and the core pack's
+`core:ideology/common_provision`, `order_kept` and `own_say`.
+
 Content API 43 (M4c slice AG) brings values: the kind `value` (below), the core pack's
 `core:value/security`, `autonomy` and `reciprocity`, and the policy templates' optional `[bears]`
 (`common_store`, `against_taking`, `keep_watch` and `curfew` bear on them).
@@ -751,6 +754,33 @@ Policy templates say in `[bears]` how a law of their kind bears on each.
 The core pack names three, each with mean 0, spread 0.8, heritability 0.5 and weight 1. Not
 built: values that move with experience, values seen by others (a sponsor counts on others by
 their households' lots alone), and values weighing in anything but laws.
+
+### `ideology`
+
+A content record of a political idea (ADR-0016 §4; research 06-04 §6.1: problem explanation,
+moral commitments, institutional proposals, legitimacy narrative). A holder weighs every law with
+its commitments beside their own values, and, when the problem it explains is before the
+village, weighs the laws of its program among their moves; a law they so propose keeps the creed
+in its record. It travels only
+with people.
+
+| Key | Meaning |
+| --- | --- |
+| `id`, `name`, `description` | As for every kind (`pack:ideology/name`); `name` follows "holds to": "common provision". |
+| `explains` | The problem it explains: an issue (`food_short`, `store_unkept`, `takings`, `overruled`). Only while it is before the village do holders weigh its program, and a law of the program is proposed as answering it. |
+| `legitimacy` | Its legitimacy story, in words the inspector shows. |
+| `program` | Policy template ids it proposes (each must exist; amendments of the custom are not weighed from a program yet). |
+| `[commitments]` | Value id to -1 .. 1: how it tilts what its holders hold dear when they weigh a law (each value must exist). |
+| `[spread]` `founders` | The share (0 to 1) of founders, and of newcomers with no parents recorded, who bring it. |
+| `[spread]` `share`, `adopt` | The chance (0 to 1) a holder speaks of it to a companion at the hearth, a session; and the chance one who hears it takes it up when they trust the teller fully and hold dear just what it is committed to (scaled by trust, their regard for the teller, and by fit: none unless it fits what they hold dear at all, all of it for a perfect fit; 06-04 §1.4). |
+| `[spread]` `inherit` | The chance (0 to 1) a child takes up what a parent holds. |
+| `[spread]` `w_program` | Points (0 to 100) it adds, for a holder, to proposing a law of its program. |
+
+The core pack names three, each brought by a tenth of the founders: `common_provision` (food
+short; for safety and giving back; a common store and its keeper), `order_kept` (takings; a law
+against taking and a watch) and `own_say` (overruled; for a household's say; no program). Not
+built: giving an ideology up, new ones made by people (06-04 §4.2's recombination), organizations
+that teach one, and the god tool that introduces one (slice AJ).
 
 ## Planned kinds
 

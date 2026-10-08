@@ -135,8 +135,10 @@ impl Population {
             }
         }
         self.tell_households(day);
-        // Anyone new takes what they hold of each value and norm (M4c slice AG).
+        // Anyone new takes what they hold of each value and norm, and of the ideologies a founder
+        // brings or a parent holds (M4c slice AG).
         self.take_new_holdings(ctx);
+        self.take_ideology_starts(ctx);
         // Households tell their members of gatherings ahead, and those short of food who find
         // the common store empty hold it against it (M4c slice AE).
         self.word_day(ctx);
@@ -573,7 +575,15 @@ impl Population {
             .policies
             .iter()
             .any(|d| d.kind == PolicyKind::AmendBody && !d.bodies.is_empty());
-        if open.is_empty() && !amendable {
+        // Holders of an ideology weigh its program when the problem it explains is before the
+        // village (M4c slice AG).
+        let programs = ctx
+            .catalog
+            .ideologies
+            .iter()
+            .any(|d| !d.program.is_empty() && issues.contains(&d.explains))
+            && !self.ideologies.held.is_empty();
+        if open.is_empty() && !amendable && !programs {
             return;
         }
         // The settlement's adults, and those of them its body admits (M4c slice AF): only members
@@ -623,6 +633,22 @@ impl Population {
                         .filter_map(|&h| self.elder_of(h, now, params)),
                 )
                 .chain(reached)
+                // And whoever holds an ideology whose program answers a problem before the
+                // village (M4c slice AG).
+                .chain(
+                    self.ideologies
+                        .held
+                        .iter()
+                        .filter(|h| {
+                            ctx.catalog
+                                .ideologies
+                                .get(usize::from(h.ideology))
+                                .is_some_and(|d| {
+                                    !d.program.is_empty() && issues.contains(&d.explains)
+                                })
+                        })
+                        .map(|h| h.holder),
+                )
                 .collect()
         };
         deliberators.sort_unstable();
@@ -740,7 +766,19 @@ impl Population {
             // The moves open to them: each level of a store, and a keeper of their choosing:
             // themselves if their roof would do, or whoever under a roof they regard most.
             let mut moves = Vec::new();
-            for &(k, issue) in &open {
+            // With the laws the ideologies they hold propose for a problem before the village, at
+            // the issue each explains (M4c slice AG).
+            let mut wants = open.clone();
+            for (k, issue) in self.programs_of(ctx, d, &issues) {
+                let in_force = self.polities[pi]
+                    .laws
+                    .iter()
+                    .any(|l| l.policy == k && l.status == LawStatus::InForce);
+                if !in_force && !wants.iter().any(|w| w.0 == k) {
+                    wants.push((k, issue));
+                }
+            }
+            for &(k, issue) in &wants {
                 let def = &ctx.catalog.policies[usize::from(k)];
                 let blank = MoveOption {
                     policy: k,
@@ -901,8 +939,10 @@ impl Population {
                 // What it does to what they hold dear weighs beside their household's lot (M4c
                 // slice AG); nobody sees another's, so those they count on are judged by their
                 // households' lots alone.
-                m.own_gain =
-                    gain_for(m, own) + self.value_points(ctx, d, m.policy) / pp.w_gain.max(1e-9);
+                // And the ideology they hold that proposes it, if one does (M4c slice AG).
+                let creed = self.creed_for(ctx, d, m.policy).map_or(0.0, |c| c.1);
+                m.own_gain = gain_for(m, own)
+                    + (self.value_points(ctx, d, m.policy) + creed) / pp.w_gain.max(1e-9);
                 m.followers_gain = if weight > 0.0 { weighed / weight } else { 0.0 };
                 m.support = if support + oppose > 0 {
                     f64::from(support) / f64::from(support + oppose)
@@ -956,7 +996,8 @@ impl Population {
                         (*h, (pp.w_gain * gain) as f32)
                     })
                     .collect();
-                self.propose(ctx, pi, d, m, stakes);
+                let creed = self.creed_for(ctx, d, m.policy).map(|c| c.0);
+                self.propose(ctx, pi, d, m, stakes, creed);
                 return;
             }
         }
@@ -971,6 +1012,7 @@ impl Population {
         sponsor: PermanentId,
         m: MoveOption,
         stakes: Vec<(PermanentId, f32)>,
+        creed: Option<u16>,
     ) {
         let (now, pp) = (ctx.now, &ctx.params.polity);
         let day = now.day_index();
@@ -1000,9 +1042,14 @@ impl Population {
             watch: Default::default(),
             body: m.body,
         };
-        // "Mira proposed themselves as keeper of the common store", not "Mira as keeper".
+        // "Mira proposed themselves as keeper of the common store", not "Mira as keeper"; and
+        // the creed they proposed it under, if any (M4c slice AG).
+        let held = creed
+            .and_then(|k| ctx.catalog.ideologies.get(usize::from(k)))
+            .map(|d| format!(", as one who holds to {}", d.name))
+            .unwrap_or_default();
         let words = format!(
-            "{}, because {}",
+            "{}, because {}{held}",
             crate::polity::law_words(&law, &ctx.catalog.policies, &|id| {
                 if id == sponsor {
                     "themselves".to_owned()
@@ -1012,6 +1059,9 @@ impl Population {
             }),
             m.issue.words()
         );
+        if let Some(k) = creed {
+            self.ideologies.note_creed(id, k);
+        }
         let polity = &mut self.polities[pi];
         polity.laws.push(law);
         polity.gathering = Some(Gathering {

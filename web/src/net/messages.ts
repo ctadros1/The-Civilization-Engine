@@ -714,6 +714,19 @@ export interface PersonInfo {
   norms: NormLine[];
   /** Wire 1.38 (M4c slice AG): what they hold of each value content names. */
   values: ValueLine[];
+  /** Wire 1.39 (M4c slice AG): the ideologies they hold. */
+  ideologies: IdeologyLine[];
+}
+
+/** An ideology someone holds (wire 1.39, ADR-0016 §4). */
+export interface IdeologyLine {
+  /** What it is called and its legitimacy story, in the kernel's words. */
+  name: string;
+  legitimacy: string;
+  /** When they took it up, and from whom (0 and "": they brought it with them). */
+  sinceMinute: number;
+  from: number;
+  fromName: string;
 }
 
 /** What someone holds of a value (wire 1.38, ADR-0016 §4). */
@@ -2837,6 +2850,18 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     if (!v) continue;
     values.push({ name: v.name() ?? "", words: v.words() ?? "", v: v.v() });
   }
+  const ideologies: IdeologyLine[] = [];
+  for (let k = 0; k < p.ideologiesLength(); k++) {
+    const d = p.ideologies(k);
+    if (!d) continue;
+    ideologies.push({
+      name: d.name() ?? "",
+      legitimacy: d.legitimacy() ?? "",
+      sinceMinute: Number(d.sinceMinute()),
+      from: Number(d.from()),
+      fromName: d.fromName() ?? "",
+    });
+  }
   const standing = p.standing();
   const pos = p.pos();
   return {
@@ -2888,6 +2913,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     positions,
     norms,
     values,
+    ideologies,
   };
 }
 

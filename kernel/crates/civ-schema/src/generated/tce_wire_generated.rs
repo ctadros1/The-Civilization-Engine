@@ -13035,6 +13035,7 @@ impl<'a> PersonInfo<'a> {
   pub const VT_POSITIONS: ::flatbuffers::VOffsetT = 92;
   pub const VT_NORMS: ::flatbuffers::VOffsetT = 94;
   pub const VT_VALUES: ::flatbuffers::VOffsetT = 96;
+  pub const VT_IDEOLOGIES: ::flatbuffers::VOffsetT = 98;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -13056,6 +13057,7 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.ideologies { builder.add_ideologies(x); }
     if let Some(x) = args.values { builder.add_values(x); }
     if let Some(x) = args.norms { builder.add_norms(x); }
     if let Some(x) = args.positions { builder.add_positions(x); }
@@ -13426,6 +13428,13 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ValueLine>>>>(PersonInfo::VT_VALUES, None)}
   }
+  #[inline]
+  pub fn ideologies(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IdeologyLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IdeologyLine>>>>(PersonInfo::VT_IDEOLOGIES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -13481,6 +13490,7 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PositionLine>>>>("positions", Self::VT_POSITIONS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<NormLine>>>>("norms", Self::VT_NORMS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ValueLine>>>>("values", Self::VT_VALUES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<IdeologyLine>>>>("ideologies", Self::VT_IDEOLOGIES, false)?
      .finish();
     Ok(())
   }
@@ -13533,6 +13543,7 @@ pub struct PersonInfoArgs<'a> {
     pub positions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PositionLine<'a>>>>>,
     pub norms: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NormLine<'a>>>>>,
     pub values: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ValueLine<'a>>>>>,
+    pub ideologies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IdeologyLine<'a>>>>>,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -13585,6 +13596,7 @@ impl<'a> Default for PersonInfoArgs<'a> {
       positions: None,
       norms: None,
       values: None,
+      ideologies: None,
     }
   }
 }
@@ -13783,6 +13795,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_VALUES, values);
   }
   #[inline]
+  pub fn add_ideologies(&mut self, ideologies: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<IdeologyLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_IDEOLOGIES, ideologies);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -13847,6 +13863,171 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("positions", &self.positions());
       ds.field("norms", &self.norms());
       ds.field("values", &self.values());
+      ds.field("ideologies", &self.ideologies());
+      ds.finish()
+  }
+}
+pub enum IdeologyLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct IdeologyLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for IdeologyLine<'a> {
+  type Inner = IdeologyLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> IdeologyLine<'a> {
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 4;
+  pub const VT_LEGITIMACY: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SINCE_MINUTE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_FROM: ::flatbuffers::VOffsetT = 10;
+  pub const VT_FROM_NAME: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    IdeologyLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args IdeologyLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<IdeologyLine<'bldr>> {
+    let mut builder = IdeologyLineBuilder::new(_fbb);
+    builder.add_from(args.from);
+    builder.add_since_minute(args.since_minute);
+    if let Some(x) = args.from_name { builder.add_from_name(x); }
+    if let Some(x) = args.legitimacy { builder.add_legitimacy(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(IdeologyLine::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn legitimacy(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(IdeologyLine::VT_LEGITIMACY, None)}
+  }
+  #[inline]
+  pub fn since_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(IdeologyLine::VT_SINCE_MINUTE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn from(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(IdeologyLine::VT_FROM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn from_name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(IdeologyLine::VT_FROM_NAME, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for IdeologyLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("legitimacy", Self::VT_LEGITIMACY, false)?
+     .visit_field::<i64>("since_minute", Self::VT_SINCE_MINUTE, false)?
+     .visit_field::<u64>("from", Self::VT_FROM, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("from_name", Self::VT_FROM_NAME, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct IdeologyLineArgs<'a> {
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub legitimacy: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub since_minute: i64,
+    pub from: u64,
+    pub from_name: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for IdeologyLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    IdeologyLineArgs {
+      name: None,
+      legitimacy: None,
+      since_minute: 0,
+      from: 0,
+      from_name: None,
+    }
+  }
+}
+
+pub struct IdeologyLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> IdeologyLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(IdeologyLine::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_legitimacy(&mut self, legitimacy: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(IdeologyLine::VT_LEGITIMACY, legitimacy);
+  }
+  #[inline]
+  pub fn add_since_minute(&mut self, since_minute: i64) {
+    self.fbb_.push_slot::<i64>(IdeologyLine::VT_SINCE_MINUTE, since_minute, 0);
+  }
+  #[inline]
+  pub fn add_from(&mut self, from: u64) {
+    self.fbb_.push_slot::<u64>(IdeologyLine::VT_FROM, from, 0);
+  }
+  #[inline]
+  pub fn add_from_name(&mut self, from_name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(IdeologyLine::VT_FROM_NAME, from_name);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> IdeologyLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    IdeologyLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<IdeologyLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for IdeologyLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("IdeologyLine");
+      ds.field("name", &self.name());
+      ds.field("legitimacy", &self.legitimacy());
+      ds.field("since_minute", &self.since_minute());
+      ds.field("from", &self.from());
+      ds.field("from_name", &self.from_name());
       ds.finish()
   }
 }

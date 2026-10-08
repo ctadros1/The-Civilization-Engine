@@ -819,6 +819,47 @@ fn polity(sim: &Sim) -> Option<String> {
             spread.join(", ")
         ));
     }
+    // Ideologies (M4c slice AG): how many hold each now, how often one was spoken of and taken up
+    // at the hearth, and the laws proposed under each and how many of them passed.
+    let ideas = &pop.ideologies;
+    let defs = &sim.rules().catalog.ideologies;
+    if !defs.is_empty() {
+        let weeks = (sim.now().minutes() as f64 / (7.0 * 1440.0)).max(1.0);
+        let people = pop.people.len().max(1) as f64;
+        let each: Vec<String> = defs
+            .iter()
+            .enumerate()
+            .map(|(k, d)| {
+                let holders = ideas
+                    .held
+                    .iter()
+                    .filter(|h| usize::from(h.ideology) == k)
+                    .count();
+                let laws: Vec<_> = pop
+                    .polities
+                    .iter()
+                    .flat_map(|p| &p.laws)
+                    .filter(|l| ideas.creed_of(l.id) == Some(k as u16))
+                    .collect();
+                let passed = laws
+                    .iter()
+                    .filter(|l| l.outcome == Some(civ_agents::polity::Outcome::Passed))
+                    .count();
+                format!(
+                    "{} held by {holders} ({} law{} proposed under it, {passed} passed)",
+                    d.name,
+                    laws.len(),
+                    if laws.len() == 1 { "" } else { "s" }
+                )
+            })
+            .collect();
+        parts.push(format!(
+            "ideologies: {}; {:.3} spoken of and {:.3} taken up a person a week",
+            each.join(", "),
+            ideas.told as f64 / people / weeks,
+            ideas.taken as f64 / people / weeks,
+        ));
+    }
     // Norms (M4c slice AG): for each, how far it is held on average, what people believe of
     // others against what households did at their last levy, how many it moves, and how often an
     // account was told and taken in.

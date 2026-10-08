@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import type { GrievanceLine, HeardLine, NormLine, PositionLine, ValueLine } from "../src/net/messages.js";
+import type { GrievanceLine, HeardLine, IdeologyLine, NormLine, PositionLine, ValueLine } from "../src/net/messages.js";
 import {
   claimText,
   grievanceFacts,
   grievanceHead,
   heardHow,
   heardWhen,
+  ideologyText,
   keennessText,
   normText,
   positionText,
@@ -134,5 +135,20 @@ describe("grievances and news in words", () => {
       "holds safety from want and harm dear (0.62); cares as most do for a household's say over what is its own (-0.10)",
     );
     expect(valuesText([])).toBe("");
+  });
+
+  it("say what someone holds to and whom they had it from", () => {
+    const d = (over: Partial<IdeologyLine> = {}): IdeologyLine => ({
+      name: "common provision",
+      legitimacy: "what the village gathers, the village keeps against a lean year",
+      sinceMinute: 62 * DAY,
+      from: 0,
+      fromName: "",
+      ...over,
+    });
+    expect(ideologyText(d())).toBe(
+      "'what the village gathers, the village keeps against a lean year'; brought with them",
+    );
+    expect(ideologyText(d({ from: 7, fromName: "Wren" }))).toMatch(/; from Wren since \d+ \w+ of year \d+$/);
   });
 });

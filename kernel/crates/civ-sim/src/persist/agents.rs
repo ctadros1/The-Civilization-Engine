@@ -105,8 +105,8 @@ use super::{
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
-    SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, finish, section,
-    single_chunk, unreadable,
+    SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, finish,
+    section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -159,6 +159,9 @@ pub const SECTION_OPINION: SectionTag = SectionTag::new("opinion");
 pub const SECTION_NORMS: SectionTag = SectionTag::new("norms");
 /// Section: what people hold of the values content names (schema 39, M4c slice AG).
 pub const SECTION_VALUES: SectionTag = SectionTag::new("values");
+/// Section: who holds which ideology, and the creeds laws were proposed under (schema 40, M4c
+/// slice AG).
+pub const SECTION_IDEOLOGIES: SectionTag = SectionTag::new("creeds");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -234,6 +237,11 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         ),
         section(SECTION_NORMS, 0, encode_norms(&sim.people.norms, rules)),
         section(SECTION_VALUES, 0, encode_values(&sim.people.values, rules)),
+        section(
+            SECTION_IDEOLOGIES,
+            0,
+            encode_ideologies(&sim.people.ideologies, rules),
+        ),
     ]
 }
 
@@ -330,6 +338,8 @@ enum Schema {
     V38,
     /// What people hold dear; what it added to stances (M4c slice AG).
     V39,
+    /// Who holds which ideology; the creeds laws were proposed under (M4c slice AG).
+    V40,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -383,7 +393,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V36 => Schema::V36,
         SCHEMA_V37 => Schema::V37,
         SCHEMA_V38 => Schema::V38,
-        SAVE_SCHEMA_VERSION => Schema::V39,
+        SCHEMA_V39 => Schema::V39,
+        SAVE_SCHEMA_VERSION => Schema::V40,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -546,11 +557,16 @@ pub(super) fn decode<R: Read + Seek>(
         let bytes = single_chunk(reader, SECTION_NORMS)?;
         people.norms = decode_norms(&bytes, rules)?;
     }
-    // Values (schema 39); before them nobody held one, and each takes theirs at the next first of
-    // the month, or when first asked what they make of a law.
+    // Values (schema 39); before them nobody held one, and each takes theirs the next midnight.
     if schema >= Schema::V39 {
         let bytes = single_chunk(reader, SECTION_VALUES)?;
         people.values = decode_values(&bytes, rules)?;
+    }
+    // Ideologies (schema 40); before them nobody held one, and everyone takes their start the
+    // next midnight.
+    if schema >= Schema::V40 {
+        let bytes = single_chunk(reader, SECTION_IDEOLOGIES)?;
+        people.ideologies = decode_ideologies(&bytes, rules)?;
     }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
     match standing {
@@ -2430,7 +2446,8 @@ fn carried(
         | Schema::V36
         | Schema::V37
         | Schema::V38
-        | Schema::V39 => {
+        | Schema::V39
+        | Schema::V40 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2579,7 +2596,8 @@ fn decode_households(
             | Schema::V36
             | Schema::V37
             | Schema::V38
-            | Schema::V39 => {
+            | Schema::V39
+            | Schema::V40 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5351,6 +5369,110 @@ fn decode_values(bytes: &[u8], rules: &Rules) -> Result<civ_agents::values::Valu
         ));
     }
     Ok(Values { held })
+}
+
+// ---- ideologies (M4c slice AG, ADR-0016 §4) ----------------------------------------------------
+
+fn encode_ideologies(ideas: &civ_agents::ideology::Ideologies, rules: &Rules) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let held: Vec<save::HoldingSave> = ideas
+        .held
+        .iter()
+        .map(|h| {
+            save::HoldingSave::new(
+                h.holder.get(),
+                h.since,
+                h.from.map_or(0, PermanentId::get),
+                h.ideology,
+            )
+        })
+        .collect();
+    let held = fbb.create_vector(&held);
+    let ids: Vec<_> = rules
+        .catalog
+        .ideologies
+        .iter()
+        .map(|d| fbb.create_string(&d.id))
+        .collect();
+    let ids = fbb.create_vector(&ids);
+    let creeds: Vec<save::CreedSave> = ideas
+        .creeds
+        .iter()
+        .map(|&(law, k)| save::CreedSave::new(law.get(), k))
+        .collect();
+    let creeds = fbb.create_vector(&creeds);
+    let root = save::IdeologiesSave::create(
+        &mut fbb,
+        &save::IdeologiesSaveArgs {
+            held: Some(held),
+            ideologies: Some(ids),
+            creeds: Some(creeds),
+            told: ideas.told,
+            taken: ideas.taken,
+            seen: ideas.seen,
+        },
+    );
+    finish(fbb, root)
+}
+
+/// Holdings and creeds of an ideology the loaded content no longer names are let go.
+fn decode_ideologies(
+    bytes: &[u8],
+    rules: &Rules,
+) -> Result<civ_agents::ideology::Ideologies, LoadError> {
+    use civ_agents::ideology::{Holding, Ideologies};
+    let root = flatbuffers::root::<save::IdeologiesSave>(bytes)
+        .map_err(|e| unreadable(SECTION_IDEOLOGIES, &e))?;
+    let map: Vec<Option<u16>> = read_strings(root.ideologies())
+        .iter()
+        .map(|id| {
+            rules
+                .catalog
+                .ideologies
+                .iter()
+                .position(|d| &d.id == id)
+                .and_then(|i| u16::try_from(i).ok())
+        })
+        .collect();
+    let mut held = Vec::new();
+    for h in root.held().iter().flatten() {
+        let Some(Some(ideology)) = map.get(usize::from(h.ideology())) else {
+            continue;
+        };
+        held.push(Holding {
+            holder: required(h.holder(), "an ideology's holder")?,
+            ideology: *ideology,
+            since: h.since(),
+            from: PermanentId::from_raw(h.from()),
+        });
+    }
+    held.sort_by_key(|h| (h.holder, h.ideology));
+    if held
+        .windows(2)
+        .any(|w| (w[0].holder, w[0].ideology) == (w[1].holder, w[1].ideology))
+    {
+        return Err(LoadError::Malformed(
+            "a person holds one ideology twice".to_owned(),
+        ));
+    }
+    let mut creeds = Vec::new();
+    for c in root.creeds().iter().flatten() {
+        let Some(Some(ideology)) = map.get(usize::from(c.ideology())) else {
+            continue;
+        };
+        creeds.push((required(c.law(), "a creed's law")?, *ideology));
+    }
+    creeds.sort_by_key(|c| c.0);
+    if creeds.windows(2).any(|w| w[0].0 == w[1].0) {
+        return Err(LoadError::Malformed("a law has two creeds".to_owned()));
+    }
+    Ok(Ideologies {
+        held,
+        told: root.told(),
+        taken: root.taken(),
+        seen: root.seen(),
+        creeds,
+    })
 }
 
 #[cfg(test)]

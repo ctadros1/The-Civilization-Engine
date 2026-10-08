@@ -44,6 +44,7 @@ mod crime;
 mod deposits;
 mod digging;
 mod firm;
+mod ideology;
 mod knowledge;
 mod land;
 mod life;
@@ -400,6 +401,9 @@ pub struct Population {
     pub norms: crate::norm::Norms,
     /// What each holds dear (M4c slice AG, ADR-0016 §4).
     pub values: crate::values::Values,
+    /// Who holds which ideology, and the creeds laws were proposed under (M4c slice AG,
+    /// ADR-0016 §4).
+    pub ideologies: crate::ideology::Ideologies,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage

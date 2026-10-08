@@ -1449,6 +1449,31 @@ table ValuesSave {
   values: [string] (id: 1);
 }
 
+// Section "creeds" (schema 40, M4c slice AG, ADR-0016 §4): who holds which ideology and whom
+// they had it from (0: they brought it), the creed laws were proposed under, and the highest
+// person id given their start. `ideology` indexes `IdeologiesSave.ideologies`.
+struct HoldingSave {
+  holder: ulong;
+  since: long;
+  from: ulong;
+  ideology: ushort;
+}
+
+struct CreedSave {
+  law: ulong;
+  ideology: ushort;
+}
+
+table IdeologiesSave {
+  held: [HoldingSave] (id: 0);
+  // Ideology content ids at save time.
+  ideologies: [string] (id: 1);
+  creeds: [CreedSave] (id: 2);
+  told: ulong (id: 3);
+  taken: ulong (id: 4);
+  seen: ulong (id: 5);
+}
+
 // Section "events": the scheduler's pending events.
 enum EventKind : ubyte { AgentStep = 0 }
 

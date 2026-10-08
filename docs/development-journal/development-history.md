@@ -490,7 +490,25 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Evidence:** unit tests for the draw, heredity and points; integration tests that everyone holds each value their own way and that a village holding safety dear stands for a store nobody gains by (and against it when it does not), with the record's words and an exact save and load; content checks for the kind and for templates naming values that do not exist; the web tests and the standing end-to-end spec. The kernel (585), web (140) and end-to-end (16, 6 demos skipped) suites pass, with clippy and the format and schema checks clean. The ten-year smoke passed all 10 worlds: values weighed in 24 to 54 % of stances. Gate B and the notables' gate passed.
 
-**Open:** ideologies, the last of slice AG.
+**Open:** ideologies, the last of slice AG (below).
+
+## 2026-10-08 — M4c slice AG, step four: ideologies
+
+**Goal:** let people hold shared explanations of what goes wrong and what to do about it, carried from person to person, without the engine choosing which wins.
+
+**What changed:**
+
+- **Ideologies are content.** A new kind, `ideology` (research 06-04 §6.1): the problem it explains, how it tilts what its holders hold dear, the laws it proposes, its legitimacy story and how it travels. The core pack names three: common provision (food short; a store and a storekeeper), order kept by all (takings; a law against taking and a watch) and each household its own (being overruled; no program).
+- **Holding one.** Some founders bring each; a child may take up a parent's; at the hearth a holder now and then speaks of one, and a listener takes it up by their trust in the teller and how well it fits what they hold dear, never when it runs against it (06-04 §1.4). The record keeps from whom.
+- **What it does.** Its commitments weigh beside a holder's values on every law. Its program joins a holder's moves only when the problem it explains is before the village (06-04 §1.2). A law so proposed keeps its creed, and the Government panel says it was proposed "as one who holds to" it.
+- **The inspector** lists what someone holds to, since when and from whom.
+- **Boundary:** saves schema 40 (39 still loads, and everyone takes their start the next midnight), wire 1.39, content API 44.
+
+**Two findings:** programs weighed with no problem present had holders proposing stores in villages never short of food (eleven tests broke), so programs now wait on their problem. Spreading by trust alone saturated villages, with every ideology held by 31 to 52 of about 50 people within ten years; the fit gate stopped that, and the adoption chance was calibrated to 0.3 (a design prior).
+
+**Evidence:** unit tests for holdings, fit and the adoption chance; integration tests that founders bring ideologies and companions take them up from whom the record says, that a holder proposes what their ideology proposes and the law keeps its creed, and that a schema-39 save loads and its founders bring the same ideologies the next midnight; content checks for the kind and for unknown values and templates; the web tests and the standing end-to-end spec. The kernel (591), web (141) and end-to-end (16, 6 demos skipped) suites pass, with clippy and the format and schema checks clean. The ten-year smoke passed all 10 worlds: each ideology held by 0 to 35 of 17 to 56 people; 15 of 29 laws were proposed by someone holding an ideology that names them, with 2 to 6 laws a village in ten years as before. The creed marks a law; it does not show the creed caused it. Gate B and the notables' gate passed.
+
+**Slice AG is complete:** opinion, the norm that the gathering binds, values and ideologies. **Open:** slice AH, factions and episodes (ADR-0017).
 
 ## Development pattern that emerged
 

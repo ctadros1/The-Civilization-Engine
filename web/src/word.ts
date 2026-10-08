@@ -3,7 +3,7 @@
 // joins the pieces.
 
 import { lawDayText } from "./government.js";
-import type { GrievanceLine, HeardLine, NormLine, PositionLine, ValueLine } from "./net/messages.js";
+import type { GrievanceLine, HeardLine, IdeologyLine, NormLine, PositionLine, ValueLine } from "./net/messages.js";
 
 /** One number of days as the panels show it: "4", "1.5". */
 function days(x: number): string {
@@ -94,4 +94,11 @@ export function normText(n: NormLine): string {
 export function valuesText(vs: ValueLine[]): string {
   const at = (x: number) => (Math.round(x * 100) / 100).toFixed(2);
   return vs.map((v) => `${v.words} (${at(v.v)})`).join("; ");
+}
+
+/** An ideology someone holds, after its name: "'what the village gathers, the village keeps
+ * against a lean year'; brought with them", or "...; from Wren since 9 May of year 2". */
+export function ideologyText(d: IdeologyLine): string {
+  const how = d.from === 0 ? "brought with them" : `from ${d.fromName} since ${lawDayText(d.sinceMinute)}`;
+  return `'${d.legitimacy}'; ${how}`;
 }

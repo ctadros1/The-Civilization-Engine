@@ -156,6 +156,8 @@ pub const SCHEMA_V36: u32 = 36;
 pub const SCHEMA_V37: u32 = 37;
 /// The schema version of M4c slice AG's second step: norms, before values (see [`agents`]).
 pub const SCHEMA_V38: u32 = 38;
+/// The schema version of M4c slice AG's third step: values, before ideologies (see [`agents`]).
+pub const SCHEMA_V39: u32 = 39;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

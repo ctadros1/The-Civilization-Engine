@@ -7,6 +7,7 @@ import * as flatbuffers from 'flatbuffers';
 import { Decision } from '../../tce/wire/decision.js';
 import { GrievanceLine } from '../../tce/wire/grievance-line.js';
 import { HeardLine } from '../../tce/wire/heard-line.js';
+import { IdeologyLine } from '../../tce/wire/ideology-line.js';
 import { KinLink } from '../../tce/wire/kin-link.js';
 import { KnowLine } from '../../tce/wire/know-line.js';
 import { NormLine } from '../../tce/wire/norm-line.js';
@@ -357,8 +358,18 @@ valuesLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+ideologies(index: number, obj?:IdeologyLine):IdeologyLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 98);
+  return offset ? (obj || new IdeologyLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+ideologiesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 98);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(47);
+  builder.startObject(48);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -691,6 +702,22 @@ static createValuesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]
 }
 
 static startValuesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addIdeologies(builder:flatbuffers.Builder, ideologiesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(47, ideologiesOffset, 0);
+}
+
+static createIdeologiesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startIdeologiesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 

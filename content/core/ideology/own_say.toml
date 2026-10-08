@@ -1,0 +1,24 @@
+# An ideology (M4c slice AG, ADR-0016 §4; research 06-04 §6.1: problem explanation, moral
+# commitments, institutional proposals, legitimacy narrative). A holder weighs every law with its
+# commitments beside their own values, and, when the problem it explains is before the village,
+# weighs the laws of its program among their moves. It travels only with people: some founders bring it, a child may
+# take it up from a parent, and a holder now and then speaks of it at the hearth, where a listener
+# takes it up by their trust in the teller and how well it fits what they hold dear. Every number
+# under [spread] is a design prior, not an estimate.
+kind = "ideology"
+id = "core:ideology/own_say"
+name = "each household its own"
+description = "The gathering overrules those who know their own harvest best; a household answers for its own, and owes no more than it chose to give."
+explains = "overruled"
+legitimacy = "a household answers for its own harvest and its own nights"
+program = []
+
+[commitments]
+"core:value/autonomy" = 0.6
+
+[spread]
+founders = 0.1
+share = 0.0005
+adopt = 0.3
+inherit = 0.5
+w_program = 1.0

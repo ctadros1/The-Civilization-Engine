@@ -42,7 +42,17 @@ import {
 import { materialGoods } from "./deposits.js";
 import { introducible, knowRows, summaryText, techniqueRows } from "./knowledge.js";
 import { standingText, tieText } from "./standing.js";
-import { claimText, grievanceFacts, grievanceHead, heardHow, heardWhen, normText, positionText, valuesText } from "./word.js";
+import {
+  claimText,
+  grievanceFacts,
+  grievanceHead,
+  heardHow,
+  heardWhen,
+  ideologyText,
+  normText,
+  positionText,
+  valuesText,
+} from "./word.js";
 import {
   brokenText,
   labelText,
@@ -889,6 +899,22 @@ export function bindUi(store: Store, actions: Actions): void {
         ),
       );
     }
+    box.append(
+      p.ideologies.length === 0
+        ? el("p", { className: "ideologies empty", text: "Holds to no ideology." })
+        : el(
+            "ul",
+            { className: "ideologies" },
+            ...p.ideologies.map((d) =>
+              el(
+                "li",
+                {},
+                el("span", { text: `Holds to ${d.name}: ` }),
+                el("span", { className: "aside", text: ideologyText(d) }),
+              ),
+            ),
+          ),
+    );
     if (p.norms.length > 0) {
       box.append(
         el(

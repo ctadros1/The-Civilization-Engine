@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 43
+kernel_content_api = 44
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -1097,6 +1097,63 @@ fn values_check_their_numbers_and_policies_bear_on_values_that_exist() {
         .position(|v| v.id == "core:value/security")
         .expect("defined") as u16;
     assert!(def.bears.contains(&(security, 1.0)));
+}
+
+#[test]
+fn ideologies_check_their_numbers_and_name_values_and_templates_that_exist() {
+    let preset = real_preset();
+    let provision = real("ideology/common_provision.toml");
+    let mut base: Vec<(String, String)> = [
+        "value/security.toml",
+        "value/autonomy.toml",
+        "value/reciprocity.toml",
+        "policy/common_store.toml",
+        "policy/keep_store.toml",
+    ]
+    .iter()
+    .map(|p| (p.to_string(), real(p)))
+    .collect();
+    base.push(("worldgen/river_valley.toml".to_owned(), preset.clone()));
+    let with = |body: &str| {
+        let mut files: Vec<(&str, &str)> =
+            base.iter().map(|(p, b)| (p.as_str(), b.as_str())).collect();
+        files.push(("ideology/common_provision.toml", body));
+        load_fixture(&files)
+    };
+    for (body, needle) in [
+        (
+            provision.replace("explains = \"food_short\"", "explains = \"famine\""),
+            "`explains`",
+        ),
+        (
+            provision.replace("adopt = 0.3", "adopt = 3.0"),
+            "`spread.adopt`",
+        ),
+        (
+            provision.replace(
+                "\"core:value/security\" = 0.5",
+                "\"core:value/security\" = 2.0",
+            ),
+            "`commitments`",
+        ),
+    ] {
+        assert_ne!(body, provision, "{needle}: the edit applies");
+        let report = with(&body);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(
+            report.diagnostics[0].message.contains(needle),
+            "{needle}: {}",
+            report.diagnostics[0].message
+        );
+    }
+    // Its commitments and program must name values and templates that exist.
+    let unknown = provision.replace("core:policy/keep_store", "core:policy/keep_granary");
+    assert_eq!(codes(&with(&unknown)), vec!["E2006"]);
+    let ok = registry(with(&provision));
+    let def = &ok.catalog.ideologies[0];
+    assert_eq!(def.program.len(), 2);
+    assert_eq!(def.commitments.len(), 2);
+    assert_eq!(def.explains, civ_agents::polity::IssueKind::FoodShort);
 }
 
 #[test]

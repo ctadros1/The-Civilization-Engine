@@ -10988,6 +10988,324 @@ impl<'a> HeldValueSave {
 
 }
 
+// struct HoldingSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct HoldingSave(pub [u8; 32]);
+impl Default for HoldingSave { 
+  fn default() -> Self { 
+    Self([0; 32])
+  }
+}
+impl ::core::fmt::Debug for HoldingSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("HoldingSave")
+      .field("holder", &self.holder())
+      .field("since", &self.since())
+      .field("from", &self.from())
+      .field("ideology", &self.ideology())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for HoldingSave {}
+impl<'a> ::flatbuffers::Follow<'a> for HoldingSave {
+  type Inner = &'a HoldingSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a HoldingSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a HoldingSave {
+  type Inner = &'a HoldingSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<HoldingSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for HoldingSave {
+    type Output = HoldingSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const HoldingSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for HoldingSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> HoldingSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    holder: u64,
+    since: i64,
+    from: u64,
+    ideology: u16,
+  ) -> Self {
+    let mut s = Self([0; 32]);
+    s.set_holder(holder);
+    s.set_since(since);
+    s.set_from(from);
+    s.set_ideology(ideology);
+    s
+  }
+
+  pub fn holder(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_holder(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn since(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_since(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn from(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_from(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn ideology(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[24..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_ideology(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[24..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct CreedSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct CreedSave(pub [u8; 16]);
+impl Default for CreedSave { 
+  fn default() -> Self { 
+    Self([0; 16])
+  }
+}
+impl ::core::fmt::Debug for CreedSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("CreedSave")
+      .field("law", &self.law())
+      .field("ideology", &self.ideology())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for CreedSave {}
+impl<'a> ::flatbuffers::Follow<'a> for CreedSave {
+  type Inner = &'a CreedSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a CreedSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a CreedSave {
+  type Inner = &'a CreedSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<CreedSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for CreedSave {
+    type Output = CreedSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const CreedSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for CreedSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> CreedSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    law: u64,
+    ideology: u16,
+  ) -> Self {
+    let mut s = Self([0; 16]);
+    s.set_law(law);
+    s.set_ideology(ideology);
+    s
+  }
+
+  pub fn law(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_law(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn ideology(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_ideology(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 pub enum ParamOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -26091,6 +26409,187 @@ impl ::core::fmt::Debug for ValuesSave<'_> {
     let mut ds = f.debug_struct("ValuesSave");
       ds.field("held", &self.held());
       ds.field("values", &self.values());
+      ds.finish()
+  }
+}
+pub enum IdeologiesSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct IdeologiesSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for IdeologiesSave<'a> {
+  type Inner = IdeologiesSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> IdeologiesSave<'a> {
+  pub const VT_HELD: ::flatbuffers::VOffsetT = 4;
+  pub const VT_IDEOLOGIES: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CREEDS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_TOLD: ::flatbuffers::VOffsetT = 10;
+  pub const VT_TAKEN: ::flatbuffers::VOffsetT = 12;
+  pub const VT_SEEN: ::flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    IdeologiesSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args IdeologiesSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<IdeologiesSave<'bldr>> {
+    let mut builder = IdeologiesSaveBuilder::new(_fbb);
+    builder.add_seen(args.seen);
+    builder.add_taken(args.taken);
+    builder.add_told(args.told);
+    if let Some(x) = args.creeds { builder.add_creeds(x); }
+    if let Some(x) = args.ideologies { builder.add_ideologies(x); }
+    if let Some(x) = args.held { builder.add_held(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn held(&self) -> Option<::flatbuffers::Vector<'a, HoldingSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, HoldingSave>>>(IdeologiesSave::VT_HELD, None)}
+  }
+  #[inline]
+  pub fn ideologies(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(IdeologiesSave::VT_IDEOLOGIES, None)}
+  }
+  #[inline]
+  pub fn creeds(&self) -> Option<::flatbuffers::Vector<'a, CreedSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, CreedSave>>>(IdeologiesSave::VT_CREEDS, None)}
+  }
+  #[inline]
+  pub fn told(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(IdeologiesSave::VT_TOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn taken(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(IdeologiesSave::VT_TAKEN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn seen(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(IdeologiesSave::VT_SEEN, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for IdeologiesSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, HoldingSave>>>("held", Self::VT_HELD, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("ideologies", Self::VT_IDEOLOGIES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, CreedSave>>>("creeds", Self::VT_CREEDS, false)?
+     .visit_field::<u64>("told", Self::VT_TOLD, false)?
+     .visit_field::<u64>("taken", Self::VT_TAKEN, false)?
+     .visit_field::<u64>("seen", Self::VT_SEEN, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct IdeologiesSaveArgs<'a> {
+    pub held: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, HoldingSave>>>,
+    pub ideologies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub creeds: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, CreedSave>>>,
+    pub told: u64,
+    pub taken: u64,
+    pub seen: u64,
+}
+impl<'a> Default for IdeologiesSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    IdeologiesSaveArgs {
+      held: None,
+      ideologies: None,
+      creeds: None,
+      told: 0,
+      taken: 0,
+      seen: 0,
+    }
+  }
+}
+
+pub struct IdeologiesSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> IdeologiesSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_held(&mut self, held: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , HoldingSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(IdeologiesSave::VT_HELD, held);
+  }
+  #[inline]
+  pub fn add_ideologies(&mut self, ideologies: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(IdeologiesSave::VT_IDEOLOGIES, ideologies);
+  }
+  #[inline]
+  pub fn add_creeds(&mut self, creeds: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , CreedSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(IdeologiesSave::VT_CREEDS, creeds);
+  }
+  #[inline]
+  pub fn add_told(&mut self, told: u64) {
+    self.fbb_.push_slot::<u64>(IdeologiesSave::VT_TOLD, told, 0);
+  }
+  #[inline]
+  pub fn add_taken(&mut self, taken: u64) {
+    self.fbb_.push_slot::<u64>(IdeologiesSave::VT_TAKEN, taken, 0);
+  }
+  #[inline]
+  pub fn add_seen(&mut self, seen: u64) {
+    self.fbb_.push_slot::<u64>(IdeologiesSave::VT_SEEN, seen, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> IdeologiesSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    IdeologiesSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<IdeologiesSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for IdeologiesSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("IdeologiesSave");
+      ds.field("held", &self.held());
+      ds.field("ideologies", &self.ideologies());
+      ds.field("creeds", &self.creeds());
+      ds.field("told", &self.told());
+      ds.field("taken", &self.taken());
+      ds.field("seen", &self.seen());
       ds.finish()
   }
 }

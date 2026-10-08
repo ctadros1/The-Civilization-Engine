@@ -73,7 +73,8 @@ impl Population {
         }
     }
 
-    /// The points what `person` holds dear adds to what they make of a law of template `policy`.
+    /// The points what `person` holds dear adds to what they make of a law of template `policy`,
+    /// with the commitments of the ideologies they hold (M4c slice AG, step four).
     pub(super) fn value_points(&self, ctx: &Ctx, person: PermanentId, policy: u16) -> f64 {
         ctx.catalog
             .policies
@@ -81,5 +82,6 @@ impl Population {
             .map_or(0.0, |d| {
                 self.values.points(person, &d.bears, &ctx.catalog.values)
             })
+            + self.creed_points(ctx, person, policy)
     }
 }

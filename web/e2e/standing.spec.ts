@@ -2,8 +2,8 @@
 // the inspector lists whom someone knows best and why, in the kernel's words; on the first of
 // each month the standing panel sums what each settlement's adults think of one another and names
 // its notables (ADR-0014); and the inspector says what they hold against whom, what they have
-// heard, where they stand, what they hold dear and what they hold of the norm that the gathering
-// binds (ADR-0016).
+// heard, where they stand, what they hold dear, the ideologies they hold and what they hold of the
+// norm that the gathering binds (ADR-0016).
 
 import { expect, test } from "@playwright/test";
 
@@ -73,6 +73,9 @@ test("ties in the inspector and standing in its panel", async ({ page }) => {
     await expect(opinions).toContainText("On whether to keep a common store: ");
     await expect(opinions.locator(".values")).toContainText(
       /^What they hold dear: .*safety from want and harm.* \(-?\d\.\d\d\)/,
+    );
+    await expect(opinions.locator(".ideologies")).toContainText(
+      /^(Holds to no ideology\.|Holds to .+: '.+'; (brought with them|from .+ since .+))/,
     );
     await expect(opinions.locator(".norms")).toContainText(
       /That what the gathering decides binds everyone: (holds firmly|holds|doubts|does not hold) \(\d\.\d\d\); believes /,

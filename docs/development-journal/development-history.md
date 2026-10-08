@@ -263,6 +263,33 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** a tighter route search bound changes ties between equally fast routes and waits for towns. The notables' gate comes with deliberation in slice Z. Gate B does not yet compare ties.
 
+## 2026-10-08 — M4a slice Z, first step: the polity, its gathering and a common store
+
+**Starting point:** slice Y done (`2571a66`). People remembered one another and settlements had notables, but no settlement could decide anything together.
+
+**Goal:** ADR-0013's polity in its first form. Every world starts from one custom. A law is proposed only when someone weighs it worth proposing, a gathering decides it, people pay or do not, the store gives to those who ask, and the whole history is kept.
+
+**Implementation:**
+
+- `civ_agents::polity` (pure): the body as values (adults, a quorum share, acclamation), laws with their whole history, the forecast, stances, the chance of paying, and the `Deliberator` trait with a rule-based deliberator.
+- `population::polity`: founding, the weekly review, proposals, the gathering decided at midnight, word going round, the levy at threshing and relief from the store.
+- The `policy` content kind and the core pack's common store. The people profile's `[polity]`. A new behaviour, `attend`. Ledger channels `levy` and `relief`, with the polity as a holder. Chronicle entries for proposals and decisions. Saves 29, content API 31.
+
+**Decisions:**
+
+- The issue is a shortfall against the outlook: a household whose food will not last until its harvest, or a settlement that ran short. Three seeds lived five years without a settlement-wide shortage.
+- A forecast is the change in the expected log of a household's year of food above subsistence, over an ordinary and a lean year. Pooling then helps those near the edge and costs those with plenty, and no issue weighs toward any policy.
+- Being unable to pay (it would leave a household below subsistence) is recorded apart from keeping a levy back.
+
+**Evidence:**
+
+- **Three seeds over four years:** a twentieth passed in each, once after a fifth was turned down 1–18. Gatherings drew nearly every adult, and 5–43 % of the levy owed was kept back or unpayable.
+- **Ten-year smoke:** all 10 worlds passed. Every village ended with a store at a twentieth, after 1–15 proposals, and four stores gave relief. Ria coast 5, which died out in year 4 before, kept 15 people.
+- **Tests:** an integration test proposes, gathers, decides and saves exactly. Another puts a law in force by hand, then sees the levy paid at threshing, every good accounted for, and asks answered from the store.
+- **Checks:** the workspace tests and clippy pass.
+
+**Open:** nobody asked the store for relief in these runs, because nobody ran short. The government panel (Z2), leaving as a choice (Z3), offices and succession (Z4), labels (Z5) and the notables' gate with the demo (Z6) are next.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

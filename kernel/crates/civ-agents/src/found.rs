@@ -1190,6 +1190,7 @@ pub(crate) mod tests {
             },
             ties: crate::ties::TieParams::core(),
             standing: crate::standing::StandingParams::default(),
+            polity: crate::polity::PolityParams::core(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

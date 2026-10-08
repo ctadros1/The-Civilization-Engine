@@ -40,11 +40,14 @@ pub enum Behavior {
     /// Walk to a deposit the settlement knows, dig its good from a pit there and carry it home
     /// (M3b slice Q, ADR-0010 §2): the activity names the good.
     Dig,
+    /// Go to the hearth for the gathering called there, and have a say (M4a slice Z, ADR-0013
+    /// §1).
+    Attend,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 15] = [
+    pub const ALL: [Behavior; 16] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -60,6 +63,7 @@ impl Behavior {
         Behavior::Hire,
         Behavior::Try,
         Behavior::Dig,
+        Behavior::Attend,
     ];
 
     /// The authored name of a behavior.
@@ -80,6 +84,7 @@ impl Behavior {
             Behavior::Hire => "hire",
             Behavior::Try => "try",
             Behavior::Dig => "dig",
+            Behavior::Attend => "attend",
         }
     }
 
@@ -493,6 +498,9 @@ pub struct Catalog {
     /// Techniques, in content id order (ADR-0008). Their index is how people's knowledge
     /// refers to them.
     pub techniques: Vec<TechniqueDef>,
+    /// Policy templates, in content id order (ADR-0013 §3). Laws refer to them by index, saves
+    /// by content id.
+    pub policies: Vec<crate::polity::PolicyDef>,
 }
 
 impl Catalog {
@@ -1319,6 +1327,8 @@ pub struct PeopleParams {
     pub ties: crate::ties::TieParams,
     /// Standing and notables (M4a slice Y, ADR-0014 §3-4).
     pub standing: crate::standing::StandingParams,
+    /// The polity: its gathering, forecasts and compliance (M4a slice Z, ADR-0013).
+    pub polity: crate::polity::PolityParams,
     /// Names.
     pub names: NameParams,
 }

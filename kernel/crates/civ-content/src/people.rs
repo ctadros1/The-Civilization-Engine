@@ -48,6 +48,97 @@ pub(crate) struct PeopleFile {
     pub ties: TiesFile,
     /// Standing and notables (M4a slice Y; content API 30).
     pub standing: StandingFile,
+    /// The polity: its gathering, forecasts and compliance (M4a slice Z; content API 31).
+    pub polity: PolityFile,
+}
+
+/// The polity (M4a slice Z, ADR-0013; content API 31). See
+/// [`civ_agents::polity::PolityParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PolityFile {
+    pub review_days: u32,
+    pub notice_days: u32,
+    pub gathering_minutes: u32,
+    pub quorum_share: f64,
+    pub w_gain: f64,
+    pub w_regard: f64,
+    pub stance_margin: f64,
+    pub attend_base: f64,
+    pub w_attend: f64,
+    pub w_followers: f64,
+    pub propose_cost: f64,
+    pub temperature: f64,
+    pub prior_lean: f64,
+    pub prior_years: f64,
+    pub lean_harvest: f64,
+    pub subsistence_share: f64,
+    pub comply_base: f64,
+    pub w_stance: f64,
+}
+
+impl PolityFile {
+    fn params(&self) -> civ_agents::polity::PolityParams {
+        civ_agents::polity::PolityParams {
+            review_days: self.review_days,
+            notice_days: self.notice_days,
+            gathering_minutes: self.gathering_minutes,
+            quorum_share: self.quorum_share,
+            w_gain: self.w_gain,
+            w_regard: self.w_regard,
+            stance_margin: self.stance_margin,
+            attend_base: self.attend_base,
+            w_attend: self.w_attend,
+            w_followers: self.w_followers,
+            propose_cost: self.propose_cost,
+            temperature: self.temperature,
+            prior_lean: self.prior_lean,
+            prior_years: self.prior_years,
+            lean_harvest: self.lean_harvest,
+            subsistence_share: self.subsistence_share,
+            comply_base: self.comply_base,
+            w_stance: self.w_stance,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            ("polity.review_days", self.review_days, 1, 365),
+            ("polity.notice_days", self.notice_days, 1, 30),
+            ("polity.gathering_minutes", self.gathering_minutes, 15, 600),
+        ] {
+            if !(lo..=hi).contains(&v) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        for (name, v, lo, hi) in [
+            ("polity.quorum_share", self.quorum_share, 0.0, 1.0),
+            ("polity.w_gain", self.w_gain, 0.0, 100.0),
+            ("polity.w_regard", self.w_regard, 0.0, 100.0),
+            ("polity.stance_margin", self.stance_margin, 0.0, 100.0),
+            ("polity.attend_base", self.attend_base, -100.0, 100.0),
+            ("polity.w_attend", self.w_attend, 0.0, 100.0),
+            ("polity.w_followers", self.w_followers, 0.0, 10.0),
+            ("polity.propose_cost", self.propose_cost, 0.0, 100.0),
+            ("polity.temperature", self.temperature, 0.01, 100.0),
+            ("polity.prior_lean", self.prior_lean, 0.0, 100.0),
+            ("polity.prior_years", self.prior_years, 0.01, 100.0),
+            ("polity.lean_harvest", self.lean_harvest, 0.0, 1.0),
+            ("polity.subsistence_share", self.subsistence_share, 0.0, 1.0),
+            ("polity.comply_base", self.comply_base, -100.0, 100.0),
+            ("polity.w_stance", self.w_stance, 0.0, 100.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        if self.prior_lean > self.prior_years {
+            p.push(format!(
+                "`polity.prior_lean` must be at most `polity.prior_years` (got {} of {})",
+                self.prior_lean, self.prior_years
+            ));
+        }
+    }
 }
 
 /// Standing and notables (M4a slice Y, ADR-0014 §3-4; content API 30). See
@@ -885,6 +976,7 @@ impl PeopleFile {
                 notable_floor: self.standing.notable_floor as usize,
                 notable_keep: self.standing.notable_keep,
             },
+            polity: self.polity.params(),
             names,
         }
     }
@@ -894,6 +986,7 @@ impl PeopleFile {
         let mut p = Vec::new();
         positive("digging.h_per_m3", self.digging.h_per_m3, &mut p);
         self.ties.problems(&mut p);
+        self.polity.problems(&mut p);
         let st = &self.standing;
         if !(1..=100).contains(&st.candidates) {
             p.push(format!(

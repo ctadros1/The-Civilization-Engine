@@ -99,7 +99,9 @@ impl Population {
                         .catalog
                         .activities
                         .get(q.act.def as usize)
-                        .is_some_and(|a| a.behavior == Behavior::Socialize)
+                        .is_some_and(|a| {
+                            matches!(a.behavior, Behavior::Socialize | Behavior::Attend)
+                        })
             })
             .map(|(_, q)| q.id)
             .collect();
@@ -167,6 +169,8 @@ impl Population {
                 known.remove(k).1
             };
             self.note_tie(ctx, me, q, Act::Hearth, hours, 0.0);
+            // Word of the laws in force goes round at the hearth (ADR-0013 §3, stage 4).
+            self.share_laws(me, q, day);
         }
     }
 

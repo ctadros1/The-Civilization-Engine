@@ -162,6 +162,12 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | `midden` | `kg_per_person_day`, `n_kg_per_person_year`, `half_life_days`, `load_kg`, `spread_h_per_t` | Each household's midden beside its home and carrying it to the fields (M3c slice V; content API 29): kilograms a member adds to the heap a day (0 to 10) and the nitrogen a member's share holds a year (0 to 20; the core pack's must stay below the nitrogen in the grain a person eats in a year, which a test checks: a midden returns part of what harvests took, never more); days the heap takes to lose half of itself and its nitrogen to the air and the rain (0 to 36,500; 0 keeps it all); kilograms carried in one load (1 to 200); and hours a capable adult takes to dig a tonne out of the heap and spread it (0 to 100), besides carrying it a load at a time there and back. |
 | `ties` | `room`, `companions`, `prior`, `evidence_half_life_days`, `familiarity_half_life_days`, `warmth_half_life_days`, `fear_half_life_days`, `help_half_life_days`, `hold_help_h`, `salience_per_evidence`, `new_share`, `ask_known_min`, `acts` | What people remember of one another (M4a slice Y, ADR-0014; content API 30): the most ties a person keeps (1 to 1,000); how many of those at the hearth a session's company touches (0 to 100); the good and bad evidence a stranger starts from in each domain (0.01 to 100); the half-lives, in days, at which evidence fades back to that prior and familiarity, warmth, fear and the balance of help fade toward nothing (1 to 36,500); the hours of help owed or owing above which a tie is let go only when no other can be (0 to 10,000); the salience a unit of evidence adds beside familiarity and warmth (0 to 10); the share of a session's company drawn from those not yet known (0 to 1); and the minutes further a household short of food walks to ask someone its members regard fully than a stranger, among those who could give it as much (0 to 1,440). `acts` says, for every act the engine records (`gift_received`, `gift_given`, `wages_paid`, `work_seen`, `rent_paid`, `land_lent`, `traded`, `learned_from`, `hearth`), the share of the gap to 1 that each act, or each hour for `learned_from` and `hearth`, closes in familiarity and warmth (0 to 1), and the good and bad evidence it adds (0 to 100) in its `domain` (`provision`, `craft`, `word`, `counsel`, or `none`). Every act must be listed once; an act the engine does not record is an error. |
 | `standing` | `candidates`, `notable_share`, `notable_floor`, `notable_keep` | Standing and notables (M4a slice Y, ADR-0014 §3-4; content API 30), worked out on the first of each month: how many people each adult counts among those they regard most (1 to 100); the share of a settlement's adults who are notables (0 to 1), at least `notable_floor` of them (0 to 1,000); and how far down the ranking a notable may fall and stay one, in multiples of their number (1 to 10). Being a notable grants nothing: it only decides who considers the settlement's affairs weekly, from slice Z. |
+| `polity` | `review_days`, `notice_days`, `gathering_minutes`, `quorum_share` | The polity and its founding custom (M4a slice Z, ADR-0013; content API 31): days between a polity's routine reviews, when its notables and the elders of households whose food will not last weigh proposing (1 to 365); days from a proposal to the gathering that decides it (1 to 30); minutes a gathering sits from the start of the evening (15 to 600); and the share of the settlement's adults who must come for it to decide (0 to 1). Every world starts from this one custom: the adults at the hearth decide by acclamation, more for than against, a tie failing. |
+| | `w_gain`, `w_regard`, `stance_margin` | Stances (0 to 100 each): points per unit of what a law is forecast to bring a member's household (the change in the expected log of its year's food above subsistence, over an ordinary and a lean year), points for full regard for the law's sponsor, and the points either way within which a member abstains. |
+| | `attend_base`, `w_attend` | Attending: the points the custom itself is worth (−100 to 100), and points per point a member's household and regard for the sponsor have at stake (0 to 100). |
+| | `w_followers`, `propose_cost`, `temperature` | Proposing (ADR-0013 §5): the weight of those who regard a sponsor against the sponsor's own household (0 to 10), the points a proposal costs (0 to 100), and the temperature of the choice among moves and none (0.01 to 100). A move is worth its forecast by the share of those the sponsor knows who would back it. |
+| | `prior_lean`, `prior_years`, `lean_harvest`, `subsistence_share` | Forecasts: the lean years believed in before any are seen, out of `prior_years` (lean years seen are those the settlement's food ran short in); a lean year's harvest as a share of an ordinary one (0 to 1); and the share of a year's food below which a household cannot live (0 to 1): food there is worth the most, and a household that would fall below it by paying a levy cannot pay. |
+| | `comply_base`, `w_stance` | Paying a levy (ADR-0013 §3): the points for paying before its cost (−100 to 100), and per unit of the stance the payer took (1 for, −1 against, 0 otherwise; 0 to 100), against what paying costs their household. The chance of paying is logistic in the points. |
 | `style` | `alpha`, `prestige_most`, `innovation` | How households' taste in building moves (ADR-0009 §7; content API 22): the share of the way a household's taste moves toward the most admired building its settlement finished in the year past (0 to 1); how many times the least admired the most admired weighs (1 to 10), for its owner's standing in goods and how well it was built, equally; and the chance a building has one trait new to its builders, within what its program allows (0 to 1). |
 | | `tradition`, `tradition_spread`, `personal_spread` | Each a table of `pitch_deg`, `eave_m` and `overhang_m`: the way of building founding bands' are drawn around (pitch 0 to 80°, eaves 0.5 to 6 m, overhang 0 to 3 m), the standard deviation of a band's from it, and of each household's from its band's (each from 0 to 20°, 1 m and 1 m). A building is built to its household's taste held to what its program allows. |
 | `mortality` | `a`, `b`, `c`, `d`, `e` | Siler hazard `A·e^(−Bx) + C + D·e^(Ex)` per year: the founders' ages, and everyone's daily risk of dying. |
@@ -328,7 +334,7 @@ decided by people at run time.
 
 | Field | Meaning |
 |---|---|
-| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b). |
+| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b), `attend` (M4a: going to the gathering called at the hearth, while it sits, for the settlement's adults). |
 | `resource` | For `gather` only: the land resource gathered (hunting, fishing, collecting firewood and cutting building materials are gathering too). A trip works until its load is full or its time runs out. |
 | `task` | For `farm` only: the field work, one of `prepare`, `sow`, `tend`, `reap`, `thresh`. |
 | `recipe` | For `make` only: the recipe worked, at home. |
@@ -558,8 +564,38 @@ flake at a fifth of an axe's rate. It is left out while the household holds an a
 another member's hands: it is how a household whose axe has worn out gets the wood for a new
 haft.
 
+## Kinds (M4a)
+
+### `policy`
+
+A policy template (M4a slice Z, ADR-0013 §3): what a law of this kind does, the issues whose
+presence makes proposing it a move, and the levels a sponsor may put forward. An issue only makes
+a move available and weighs toward no policy; whether anyone proposes a law, at which level, and
+whether a gathering passes it, are people's choices, each scored by what they forecast for their
+household and those who regard them. A save binds to the template's id: a save whose laws name a
+template the content no longer has is refused.
+
+| Field | Meaning |
+|---|---|
+| `does` | What the kernel does under it: `common_store`, a share of each household's threshed grain paid into a store the polity keeps at the hearth, and food from it for a household short of food that asks. |
+| `answers` | The issues whose presence makes proposing it a move: `food_short` (the settlement's food ran short within the year, or a household's food will not last until its next harvest). At least one. |
+| `levy_shares` | The shares of threshed grain a sponsor may propose (1 to 8 of them, each above 0 and below 1). |
+| `relief_days` | The most food one ask brings, in days of the asking household's need (above 0, at most 365). |
+
+The core pack has `core:policy/common_store`, at a twentieth, a tenth or a fifth (research 09-01
+§3.3 gives 0-30 % of the harvest as an uncalibrated starting range; §3.2 warns a 10-30 % tribute
+"is not a universal harvest tax"), at most five days of food an ask (a tuning value; 09-17 §1.5: a
+public store combines storage with allocation).
+
+Content API 31 (M4a slice Z) brings the polity: the `policy` kind, the people profile's
+`[polity]` and `behavior = "attend"` (`core:activity/attend_gathering`, adults only). The core
+pack reviews weekly (ADR-0014 §4; research 09-01 §3.3: 7-30 days), calls the gathering the next
+evening for two hours, needs a quarter of the adults (no figure in the reports), believes in one
+lean year in four before it has seen any, takes a lean harvest as half an ordinary one and half a
+year's food as the edge of subsistence. All are tuning values.
+
 ## Planned kinds
 
 More techniques (each only with the work behind it), more building programs and grammars, style
-primitives, offices and policies, service capability ladders, all
+primitives, offices and further policies, service capability ladders, all
 as the milestones in the plan introduce them (§5, §7).

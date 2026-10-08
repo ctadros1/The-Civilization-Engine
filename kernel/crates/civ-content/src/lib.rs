@@ -13,8 +13,8 @@
 //!
 //! Kinds so far: world-generation presets (M0); the people profile, the land profile, name lists,
 //! activities, goods, crops and building programs (M1); recipes and skills (M3a slice H),
-//! property regimes (slice K) and techniques (M3b slice M). Later milestones add offices and the
-//! rest of the plan's primitives, each as a new `kind`.
+//! property regimes (slice K), techniques (M3b slice M) and policy templates (M4a slice Z). Later
+//! milestones add offices and the rest of the plan's primitives, each as a new `kind`.
 
 #![forbid(unsafe_code)]
 
@@ -35,6 +35,7 @@ mod good;
 mod land;
 mod names;
 mod people;
+mod policy;
 mod recipe;
 mod regime;
 mod skill;
@@ -44,7 +45,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 30;
+pub const KERNEL_CONTENT_API: u32 = 31;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -405,6 +406,7 @@ struct Parsed {
     skills: Vec<Def<skill::SkillFile>>,
     regimes: Vec<Def<regime::RegimeFile>>,
     techniques: Vec<Def<technique::TechniqueFile>>,
+    policies: Vec<Def<policy::PolicyFile>>,
     /// Files declaring `kind = "people"`, parsed or not (so a broken profile is not also
     /// reported as a missing one).
     people_files: usize,
@@ -997,6 +999,8 @@ fn resolve(
         }
     }
     techniques.sort_by(|a, b| a.id.cmp(&b.id));
+    let mut policies: Vec<_> = parsed.policies.iter().map(|d| d.file.def()).collect();
+    policies.sort_by(|a, b| a.id.cmp(&b.id));
     let catalog = Catalog {
         activities,
         goods,
@@ -1006,6 +1010,7 @@ fn resolve(
         skills,
         regimes,
         techniques,
+        policies,
     };
     knowledge_problems(c, parsed, &catalog, land.as_ref());
     (people, land, catalog)
@@ -1197,6 +1202,7 @@ fn parsed_tables(parsed: &Parsed) -> Vec<(&str, &toml::Table)> {
     all.extend(tables(&parsed.skills, |f| &f.id));
     all.extend(tables(&parsed.regimes, |f| &f.id));
     all.extend(tables(&parsed.techniques, |f| &f.id));
+    all.extend(tables(&parsed.policies, |f| &f.id));
     all
 }
 
@@ -1266,7 +1272,7 @@ fn range_problems(c: &mut Collector, rel: &str, problems: Vec<String>) {
     }
 }
 
-const KINDS: [&str; 12] = [
+const KINDS: [&str; 13] = [
     worldgen::KIND,
     people::KIND,
     land::KIND,
@@ -1279,6 +1285,7 @@ const KINDS: [&str; 12] = [
     skill::KIND,
     regime::KIND,
     technique::KIND,
+    policy::KIND,
 ];
 
 fn compile_file(
@@ -1420,6 +1427,16 @@ fn compile_file(
             if check_identity(c, pack, rel, &file.id, skill::ID_KIND, seen_ids) {
                 range_problems(c, rel, file.problems());
                 parsed.skills.push(def(rel, pack, file, table));
+            }
+        }
+        policy::KIND => {
+            let Some(file) = parse::<policy::PolicyFile>(c, rel, source) else {
+                return;
+            };
+            debug_assert_eq!(file.kind, policy::KIND, "dispatched on kind");
+            if check_identity(c, pack, rel, &file.id, policy::ID_KIND, seen_ids) {
+                range_problems(c, rel, file.problems());
+                parsed.policies.push(def(rel, pack, file, table));
             }
         }
         regime::KIND => {

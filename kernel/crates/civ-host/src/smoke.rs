@@ -515,6 +515,91 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
     result.notes.extend(earthworks(sim));
     result.notes.extend(kept_and_fixed(sim));
     result.notes.extend(style(sim));
+    result.failures.extend(polity_problems(sim));
+    result.notes.extend(polity(sim));
+}
+
+/// What a polity's history must hold to (ADR-0013): one polity a settlement; every law decided by
+/// its body's rule over the stances recorded, no more present than eligible; a law in force
+/// passed; at most one law before the gathering, and a gathering only for it.
+fn polity_problems(sim: &Sim) -> Vec<String> {
+    use civ_agents::polity::{LawStatus, Outcome};
+    let mut out = Vec::new();
+    let pop = sim.people();
+    for s in &sim.land().settlements {
+        let n = pop.polities.iter().filter(|p| p.settlement == s.id).count();
+        if n != 1 {
+            out.push(format!("{} has {n} polities", s.name));
+        }
+    }
+    for p in &pop.polities {
+        for l in &p.laws {
+            let (present, support, oppose) = l.counts();
+            match l.outcome {
+                Some(o) => {
+                    if o != p.body.decide(l.eligible, present, support, oppose)
+                        || present > l.eligible
+                    {
+                        out.push(format!("law {} was not decided by its body's rule", l.id));
+                    }
+                    let passed = o == Outcome::Passed;
+                    if passed != (l.status == LawStatus::InForce) {
+                        out.push(format!("law {} stands {:?} after {o:?}", l.id, l.status));
+                    }
+                }
+                None if l.status != LawStatus::Proposed => {
+                    out.push(format!("law {} is {:?} undecided", l.id, l.status));
+                }
+                None => {}
+            }
+        }
+        let proposed = p
+            .laws
+            .iter()
+            .filter(|l| l.status == LawStatus::Proposed)
+            .count();
+        let called = p.gathering.as_ref().map(|g| g.law);
+        if proposed > 1 || called != p.agenda().map(|l| l.id) {
+            out.push(format!("polity {} has {proposed} laws before it", p.id));
+        }
+    }
+    out
+}
+
+/// What the polities did, in words: "2 laws put to gatherings, 1 passed; a common store, a
+/// twentieth: 1114 kg levied, 0 kg given in relief, 1278 kg held". `None` when nothing was
+/// proposed.
+fn polity(sim: &Sim) -> Option<String> {
+    use civ_agents::polity::{LawStatus, Outcome};
+    let pop = sim.people();
+    let laws: Vec<_> = pop.polities.iter().flat_map(|p| &p.laws).collect();
+    if laws.is_empty() {
+        return None;
+    }
+    let decided = laws.iter().filter(|l| l.outcome.is_some()).count();
+    let passed = laws
+        .iter()
+        .filter(|l| l.outcome == Some(Outcome::Passed))
+        .count();
+    let mut parts = vec![format!(
+        "{} laws proposed, {decided} decided, {passed} passed",
+        laws.len()
+    )];
+    for p in &pop.polities {
+        for l in p.laws.iter().filter(|l| l.status == LawStatus::InForce) {
+            let c = &l.compliance;
+            parts.push(format!(
+                "a common store at {}: {:.0} kg levied, {:.0} kg kept back, {:.0} kg given in \
+                 relief, {:.0} kg held",
+                civ_agents::polity::share_text(f64::from(l.levy_share)),
+                c.levied_kg,
+                c.withheld_kg,
+                c.relief_kg,
+                p.stores.iter().sum::<f64>()
+            ));
+        }
+    }
+    Some(parts.join("; "))
 }
 
 /// What households hold of goods that keep others or stay where they are made (M3b slice Q), in

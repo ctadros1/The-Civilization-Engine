@@ -724,6 +724,70 @@ fn report_soil(sim: &Sim, held: &[&civ_land::Field], out: &mut dyn Write) -> any
     Ok(())
 }
 
+/// What each settlement's gathering heard and decided this year, and what its laws in force asked
+/// and gave (ADR-0013): the chronicle's words, then the store and each law's tallies.
+fn report_polity(sim: &Sim, from: i64, out: &mut dyn Write) -> anyhow::Result<()> {
+    use civ_agents::polity::LawStatus;
+    let pop = sim.people();
+    let names = |id| pop.name_of(id);
+    for e in pop.chronicle.iter().filter(|e| {
+        e.at.minutes() >= from
+            && matches!(
+                e.kind,
+                civ_agents::ChronicleKind::LawProposed | civ_agents::ChronicleKind::LawDecided
+            )
+    }) {
+        let words: String = civ_agents::history::render(e, &names)
+            .into_iter()
+            .map(|s| match s {
+                civ_agents::history::Span::Text(t)
+                | civ_agents::history::Span::Person(_, t)
+                | civ_agents::history::Span::Settlement(_, t)
+                | civ_agents::history::Span::Firm(_, t) => t,
+            })
+            .collect();
+        writeln!(out, "  {}: {words}", e.at.date())?;
+    }
+    let goods = &sim.rules().catalog.goods;
+    for p in &pop.polities {
+        if p.laws.iter().all(|l| l.status != LawStatus::InForce) {
+            continue;
+        }
+        let held: Vec<String> = goods
+            .iter()
+            .zip(&p.stores)
+            .filter(|(_, kg)| **kg > 0.5)
+            .map(|(g, kg)| format!("{} {kg:.0} kg", g.name.to_lowercase()))
+            .collect();
+        let held = if held.is_empty() {
+            "nothing".to_owned()
+        } else {
+            held.join(", ")
+        };
+        writeln!(out, "  the common store holds {held}")?;
+        for l in p.laws.iter().filter(|l| l.status == LawStatus::InForce) {
+            let c = &l.compliance;
+            writeln!(
+                out,
+                "  law {}: {} know it; paid {} times ({:.0} kg), could not {}, kept back {}, \
+                 unaware {} ({:.0} kg withheld); relief {} times ({:.0} kg), {} unanswered",
+                l.id,
+                l.known.len(),
+                c.complied,
+                c.levied_kg,
+                c.could_not,
+                c.evaded,
+                c.unaware,
+                c.withheld_kg,
+                c.relieved,
+                c.relief_kg,
+                c.unanswered
+            )?;
+        }
+    }
+    Ok(())
+}
+
 fn report_year(
     sim: &Sim,
     year: u32,
@@ -791,6 +855,7 @@ fn report_year(
     )?;
     report_weather(sim, &held, out)?;
     report_soil(sim, &held, out)?;
+    report_polity(sim, from, out)?;
     // Stores, summed over households.
     let mut totals = vec![0.0; goods.len()];
     for h in &households {

@@ -104,7 +104,7 @@ use super::{
     LoadError, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8,
     SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_V12, SCHEMA_V13, SCHEMA_V14, SCHEMA_V15, SCHEMA_V16,
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
-    SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, finish, section, single_chunk, unreadable,
+    SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -145,6 +145,8 @@ pub const SECTION_DEPOSITS: SectionTag = SectionTag::new("deposits");
 pub const SECTION_EARTH: SectionTag = SectionTag::new("earth");
 /// Section "ties" (schema 28): what each person remembers of others (ADR-0014).
 pub const SECTION_TIES: SectionTag = SectionTag::new("ties");
+/// Section: each settlement's polity, its laws and its store (schema 29, ADR-0013).
+pub const SECTION_POLITY: SectionTag = SectionTag::new("polity");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -206,6 +208,11 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         ),
         section(SECTION_EARTH, 0, encode_earth(&sim.land)),
         section(SECTION_TIES, 0, encode_ties(&sim.people)),
+        section(
+            SECTION_POLITY,
+            0,
+            encode_polities(&sim.people, rules, &goods),
+        ),
     ]
 }
 
@@ -280,6 +287,8 @@ enum Schema {
     V27,
     /// Ties between people (ADR-0014).
     V28,
+    /// Each settlement's polity, its laws and its store (ADR-0013).
+    V29,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -322,7 +331,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V25 => Schema::V25,
         SCHEMA_V26 => Schema::V26,
         SCHEMA_V27 => Schema::V27,
-        SAVE_SCHEMA_VERSION => Schema::V28,
+        SCHEMA_V28 => Schema::V28,
+        SAVE_SCHEMA_VERSION => Schema::V29,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -451,6 +461,12 @@ pub(super) fn decode<R: Read + Seek>(
         let bytes = single_chunk(reader, SECTION_TIES)?;
         (people.ties, standing) = decode_ties(&bytes)?;
     }
+    // Polities (schema 29); before them no settlement had one, and each is founded at the next
+    // midnight under the custom (ADR-0013 §1).
+    if schema >= Schema::V29 {
+        let bytes = single_chunk(reader, SECTION_POLITY)?;
+        people.polities = decode_polities(&bytes, rules)?;
+    }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
     match standing {
         Some(table) => people.standing = table,
@@ -474,6 +490,20 @@ pub(super) fn decode<R: Read + Seek>(
     for (_, h) in people.households.iter() {
         if h.settlement.is_some_and(|s| !settlements.contains(&s)) {
             problems.push(format!("household {} names a missing settlement", h.id));
+        }
+    }
+    for (i, p) in people.polities.iter().enumerate() {
+        if !settlements.contains(&p.settlement) {
+            problems.push(format!(
+                "polity {} names missing settlement {}",
+                p.id, p.settlement
+            ));
+        }
+        if people.polities[..i]
+            .iter()
+            .any(|o| o.settlement == p.settlement)
+        {
+            problems.push(format!("settlement {} has two polities", p.settlement));
         }
     }
     for (i, m) in people.markets.iter().enumerate() {
@@ -502,6 +532,354 @@ pub(super) fn decode<R: Read + Seek>(
         redecide,
         place_deposits: schema < Schema::V19,
     })
+}
+
+// ---- polity ------------------------------------------------------------------------------------
+
+fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let good_dictionary = strings(&mut fbb, goods);
+    let policies: Vec<&str> = rules
+        .catalog
+        .policies
+        .iter()
+        .map(|p| p.id.as_str())
+        .collect();
+    let policy_dictionary = strings(&mut fbb, &policies);
+    let list: Vec<_> = pop
+        .polities
+        .iter()
+        .map(|p| {
+            let mut stores = p.stores.clone();
+            stores.resize(goods.len(), 0.0);
+            let stores = fbb.create_vector(&stores);
+            let laws: Vec<_> = p
+                .laws
+                .iter()
+                .map(|l| {
+                    let stances: Vec<save::StanceSave> = l
+                        .stances
+                        .iter()
+                        .map(|r| {
+                            save::StanceSave::new(
+                                r.person.get(),
+                                r.household.get(),
+                                r.gain,
+                                r.regard,
+                                stance_code(r.stance),
+                            )
+                        })
+                        .collect();
+                    let stances = fbb.create_vector(&stances);
+                    let known: Vec<save::KnownSave> = l
+                        .known
+                        .iter()
+                        .map(|&(person, day)| save::KnownSave::new(person.get(), day))
+                        .collect();
+                    let known = fbb.create_vector(&known);
+                    let c = &l.compliance;
+                    save::LawSave::create(
+                        &mut fbb,
+                        &save::LawSaveArgs {
+                            id: l.id.get(),
+                            policy: u32::from(l.policy),
+                            levy_share: l.levy_share,
+                            relief_days: l.relief_days,
+                            status: law_status_code(l.status),
+                            sponsor: l.sponsor.get(),
+                            proposed: l.proposed.minutes(),
+                            issue: issue_code(l.issue),
+                            meets_day: l.meets_day,
+                            decided: l.decided.is_some(),
+                            decided_at: l.decided.map_or(0, SimTime::minutes),
+                            outcome: l.outcome.map_or(u8::MAX, outcome_code),
+                            eligible: l.eligible,
+                            stances: Some(stances),
+                            known: Some(known),
+                            complied: c.complied,
+                            could_not: c.could_not,
+                            evaded: c.evaded,
+                            unaware: c.unaware,
+                            levied_kg: c.levied_kg,
+                            withheld_kg: c.withheld_kg,
+                            relieved: c.relieved,
+                            relief_kg: c.relief_kg,
+                            unanswered: c.unanswered,
+                        },
+                    )
+                })
+                .collect();
+            let laws = fbb.create_vector(&laws);
+            let gathering = p.gathering.as_ref().map(|g| {
+                let stakes: Vec<save::StakeSave> = g
+                    .stakes
+                    .iter()
+                    .map(|&(h, points)| save::StakeSave::new(h.get(), points))
+                    .collect();
+                let stakes = fbb.create_vector(&stakes);
+                let present: Vec<u64> = g.present.iter().map(|p| p.get()).collect();
+                let present = fbb.create_vector(&present);
+                save::GatheringSave::create(
+                    &mut fbb,
+                    &save::GatheringSaveArgs {
+                        law: g.law.get(),
+                        day: g.day,
+                        stakes: Some(stakes),
+                        present: Some(present),
+                    },
+                )
+            });
+            save::PolitySave::create(
+                &mut fbb,
+                &save::PolitySaveArgs {
+                    id: p.id.get(),
+                    settlement: p.settlement.get(),
+                    founded: p.founded.minutes(),
+                    members: match p.body.members {
+                        civ_agents::polity::Membership::Adults => 0,
+                    },
+                    quorum_share: p.body.quorum_share,
+                    pass: match p.body.pass {
+                        civ_agents::polity::PassRule::MoreForThanAgainst => 0,
+                    },
+                    stores: Some(stores),
+                    stores_at: p.stores_at.minutes(),
+                    laws: Some(laws),
+                    gathering,
+                    reviewed: p.reviewed,
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let root = save::Polities::create(
+        &mut fbb,
+        &save::PolitiesArgs {
+            polities: Some(list),
+            goods: Some(good_dictionary),
+            policies: Some(policy_dictionary),
+        },
+    );
+    finish(fbb, root)
+}
+
+fn stance_code(s: civ_agents::polity::Stance) -> u8 {
+    use civ_agents::polity::Stance;
+    match s {
+        Stance::Support => 0,
+        Stance::Oppose => 1,
+        Stance::Abstain => 2,
+    }
+}
+
+fn law_status_code(s: civ_agents::polity::LawStatus) -> u8 {
+    use civ_agents::polity::LawStatus;
+    match s {
+        LawStatus::Proposed => 0,
+        LawStatus::InForce => 1,
+        LawStatus::Rejected => 2,
+    }
+}
+
+fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
+    use civ_agents::polity::IssueKind;
+    match i {
+        IssueKind::FoodShort => 0,
+    }
+}
+
+fn outcome_code(o: civ_agents::polity::Outcome) -> u8 {
+    o as u8
+}
+
+/// The polities of a save. A law naming a policy template the loaded content lacks, or any code
+/// this build does not know, refuses the save: a constitution is never rewritten to fit
+/// (ADR-0013 §2).
+fn decode_polities(
+    bytes: &[u8],
+    rules: &Rules,
+) -> Result<Vec<civ_agents::polity::Polity>, LoadError> {
+    use civ_agents::polity::{
+        Body, Compliance, Gathering, IssueKind, Law, LawStatus, Membership, Outcome, PassRule,
+        Polity, Stance, StanceRecord,
+    };
+    let root =
+        flatbuffers::root::<save::Polities>(bytes).map_err(|e| unreadable(SECTION_POLITY, &e))?;
+    let goods = good_map(&read_strings(root.goods()), rules);
+    let policies: Vec<Option<u16>> = read_strings(root.policies())
+        .iter()
+        .map(|id| {
+            rules
+                .catalog
+                .policies
+                .iter()
+                .position(|p| &p.id == id)
+                .and_then(|i| u16::try_from(i).ok())
+        })
+        .collect();
+    let saved_policies = read_strings(root.policies());
+    let bad = |what: String| LoadError::Malformed(what);
+    let mut out = Vec::new();
+    for p in root.polities().iter().flatten() {
+        let id = required(p.id(), "a polity")?;
+        let settlement = required(p.settlement(), "a polity's settlement")?;
+        let members = match p.members() {
+            0 => Membership::Adults,
+            c => return Err(bad(format!("polity {id} has membership code {c}"))),
+        };
+        let pass = match p.pass() {
+            0 => PassRule::MoreForThanAgainst,
+            c => return Err(bad(format!("polity {id} has decision rule code {c}"))),
+        };
+        let saved: Vec<f64> = p.stores().map(|v| v.iter().collect()).unwrap_or_default();
+        if saved.len() != goods.len() {
+            return Err(bad(format!(
+                "polity {id} stores {} goods of {}",
+                saved.len(),
+                goods.len()
+            )));
+        }
+        let mut stores = vec![0.0; rules.catalog.goods.len()];
+        for (kg, g) in saved.iter().zip(&goods) {
+            if let Some(g) = g {
+                stores[*g] += kg;
+            }
+        }
+        let mut laws = Vec::new();
+        for l in p.laws().iter().flatten() {
+            let law = required(l.id(), "a law")?;
+            let policy = match policies.get(l.policy() as usize) {
+                Some(Some(k)) => *k,
+                Some(None) => {
+                    return Err(LoadError::Incompatible(format!(
+                        "law {law} is a `{}`, which the loaded content does not define",
+                        saved_policies[l.policy() as usize]
+                    )));
+                }
+                None => {
+                    return Err(bad(format!(
+                        "law {law} names policy {} of {}",
+                        l.policy(),
+                        policies.len()
+                    )));
+                }
+            };
+            let status = match l.status() {
+                0 => LawStatus::Proposed,
+                1 => LawStatus::InForce,
+                2 => LawStatus::Rejected,
+                c => return Err(bad(format!("law {law} has status code {c}"))),
+            };
+            let issue = match l.issue() {
+                0 => IssueKind::FoodShort,
+                c => return Err(bad(format!("law {law} has issue code {c}"))),
+            };
+            let outcome = match l.outcome() {
+                u8::MAX => None,
+                0 => Some(Outcome::Passed),
+                1 => Some(Outcome::Failed),
+                2 => Some(Outcome::Tied),
+                3 => Some(Outcome::NoQuorum),
+                c => return Err(bad(format!("law {law} has outcome code {c}"))),
+            };
+            let mut stances = Vec::new();
+            for r in l.stances().iter().flatten() {
+                stances.push(StanceRecord {
+                    person: required(r.person(), "a stance")?,
+                    household: required(r.household(), "a stance's household")?,
+                    stance: match r.stance() {
+                        0 => Stance::Support,
+                        1 => Stance::Oppose,
+                        2 => Stance::Abstain,
+                        c => return Err(bad(format!("law {law} has stance code {c}"))),
+                    },
+                    gain: r.gain(),
+                    regard: r.regard(),
+                });
+            }
+            let mut known = Vec::new();
+            for k in l.known().iter().flatten() {
+                known.push((required(k.person(), "a law's knower")?, k.day()));
+            }
+            if !known.windows(2).all(|w| w[0].0 < w[1].0) {
+                return Err(bad(format!("law {law} lists who knows it out of order")));
+            }
+            laws.push(Law {
+                id: law,
+                policy,
+                levy_share: l.levy_share(),
+                relief_days: l.relief_days(),
+                status,
+                sponsor: required(l.sponsor(), "a law's sponsor")?,
+                proposed: time(l.proposed()),
+                issue,
+                meets_day: l.meets_day(),
+                decided: l.decided().then(|| time(l.decided_at())),
+                outcome,
+                eligible: l.eligible(),
+                stances,
+                known,
+                compliance: Compliance {
+                    complied: l.complied(),
+                    could_not: l.could_not(),
+                    evaded: l.evaded(),
+                    unaware: l.unaware(),
+                    levied_kg: l.levied_kg(),
+                    withheld_kg: l.withheld_kg(),
+                    relieved: l.relieved(),
+                    relief_kg: l.relief_kg(),
+                    unanswered: l.unanswered(),
+                },
+            });
+        }
+        let gathering = match p.gathering() {
+            None => None,
+            Some(g) => {
+                let mut stakes = Vec::new();
+                for s in g.stakes().iter().flatten() {
+                    stakes.push((required(s.household(), "a stake")?, s.points()));
+                }
+                let mut present = Vec::new();
+                for raw in g.present().iter().flatten() {
+                    present.push(required(raw, "someone at a gathering")?);
+                }
+                if !stakes.windows(2).all(|w| w[0].0 < w[1].0)
+                    || !present.windows(2).all(|w| w[0] < w[1])
+                {
+                    return Err(bad(format!("polity {id}'s gathering is out of order")));
+                }
+                let law = required(g.law(), "a gathering's law")?;
+                if !laws.iter().any(|l: &Law| l.id == law) {
+                    return Err(bad(format!(
+                        "polity {id}'s gathering names missing law {law}"
+                    )));
+                }
+                Some(Gathering {
+                    law,
+                    day: g.day(),
+                    stakes,
+                    present,
+                })
+            }
+        };
+        out.push(Polity {
+            id,
+            settlement,
+            founded: time(p.founded()),
+            body: Body {
+                members,
+                quorum_share: p.quorum_share(),
+                pass,
+            },
+            stores,
+            stores_at: time(p.stores_at()),
+            flows: Default::default(),
+            laws,
+            gathering,
+            reviewed: p.reviewed(),
+        });
+    }
+    Ok(out)
 }
 
 // ---- earth -------------------------------------------------------------------------------------
@@ -1809,7 +2187,8 @@ fn carried(
         | Schema::V25
         | Schema::V26
         | Schema::V27
-        | Schema::V28 => {
+        | Schema::V28
+        | Schema::V29 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -1947,7 +2326,8 @@ fn decode_households(
             | Schema::V25
             | Schema::V26
             | Schema::V27
-            | Schema::V28 => {
+            | Schema::V28
+            | Schema::V29 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -2078,6 +2458,8 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::DepositFound => 22,
         ChronicleKind::DepositPlaced => 23,
         ChronicleKind::Weather => 24,
+        ChronicleKind::LawProposed => 25,
+        ChronicleKind::LawDecided => 26,
     }
 }
 
@@ -2107,6 +2489,8 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         22 => Some(ChronicleKind::DepositFound),
         23 => Some(ChronicleKind::DepositPlaced),
         24 => Some(ChronicleKind::Weather),
+        25 => Some(ChronicleKind::LawProposed),
+        26 => Some(ChronicleKind::LawDecided),
         _ => None,
     }
 }

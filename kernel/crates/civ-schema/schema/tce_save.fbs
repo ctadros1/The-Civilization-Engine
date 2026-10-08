@@ -1031,6 +1031,92 @@ table Ties {
   standing_day: long (id: 2);
 }
 
+// Section "polity" (schema 29): each settlement's polity (ADR-0013), its body as values, its common
+// store, every law proposed there with its whole history, and the gathering called, if any. Laws
+// name their template by index into `policies`, the policy content ids at save time; a save naming
+// one the loaded content lacks is refused (ADR-0013 §2). Codes: `members` (0 adults), `pass` (0
+// more for than against), law `status` (0 proposed, 1 in force, 2 rejected), `issue` (0 food
+// short), `outcome` (0 passed, 1 failed, 2 tied, 3 no quorum; 255 none yet), stance (0 support, 1
+// oppose, 2 abstain).
+struct StanceSave {
+  person: ulong;
+  household: ulong;
+  gain: float;
+  regard: float;
+  stance: ubyte;
+}
+
+struct KnownSave {
+  person: ulong;
+  day: long;
+}
+
+struct StakeSave {
+  household: ulong;
+  points: float;
+}
+
+table LawSave {
+  id: ulong (id: 0);
+  policy: uint (id: 1);
+  levy_share: float (id: 2);
+  relief_days: float (id: 3);
+  status: ubyte (id: 4);
+  sponsor: ulong (id: 5);
+  // Minutes.
+  proposed: long (id: 6);
+  issue: ubyte (id: 7);
+  meets_day: long (id: 8);
+  decided: bool (id: 9);
+  // Minutes, when `decided`.
+  decided_at: long (id: 10);
+  outcome: ubyte = 255 (id: 11);
+  eligible: uint (id: 12);
+  stances: [StanceSave] (id: 13);
+  known: [KnownSave] (id: 14);
+  complied: uint (id: 15);
+  could_not: uint (id: 16);
+  evaded: uint (id: 17);
+  unaware: uint (id: 18);
+  levied_kg: double (id: 19);
+  withheld_kg: double (id: 20);
+  relieved: uint (id: 21);
+  relief_kg: double (id: 22);
+  unanswered: uint (id: 23);
+}
+
+table GatheringSave {
+  law: ulong (id: 0);
+  day: long (id: 1);
+  stakes: [StakeSave] (id: 2);
+  present: [ulong] (id: 3);
+}
+
+table PolitySave {
+  id: ulong (id: 0);
+  settlement: ulong (id: 1);
+  // Minutes.
+  founded: long (id: 2);
+  members: ubyte (id: 3);
+  quorum_share: float (id: 4);
+  pass: ubyte (id: 5);
+  // By good, in `Polities.goods` order.
+  stores: [double] (id: 6);
+  // Minutes.
+  stores_at: long (id: 7);
+  laws: [LawSave] (id: 8);
+  gathering: GatheringSave (id: 9);
+  reviewed: long (id: 10);
+}
+
+table Polities {
+  polities: [PolitySave] (id: 0);
+  // Good content ids at save time.
+  goods: [string] (id: 1);
+  // Policy content ids at save time.
+  policies: [string] (id: 2);
+}
+
 // Section "events": the scheduler's pending events.
 enum EventKind : ubyte { AgentStep = 0 }
 

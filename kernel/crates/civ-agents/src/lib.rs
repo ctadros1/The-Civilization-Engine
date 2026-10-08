@@ -40,6 +40,7 @@ pub mod market;
 pub mod needs;
 pub mod params;
 pub mod person;
+pub mod polity;
 pub mod population;
 pub mod standing;
 pub mod structure;

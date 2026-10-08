@@ -480,3 +480,36 @@ candidates = 8
 notable_share = 0.01
 notable_floor = 3
 notable_keep = 1.5
+
+[polity]                         # the polity, its gathering and its laws (ADR-0013); tuning values
+# Notables and the elders of households short of food weigh what to propose once a week (ADR-0014
+# §4: notables deliberate weekly; research 09-01 §3.3 gives 7-30 days for routine review).
+review_days = 7
+notice_days = 1                  # a proposal goes to the gathering the next evening
+gathering_minutes = 120          # the gathering sits from an hour before sunset, for two hours
+# The founding custom (ADR-0013 §1): the adults who come to the hearth decide by acclamation, more
+# for than against, a tie failing. A quarter of the adults must come (no figure in the reports).
+quorum_share = 0.25
+# Forecasts are the change in the log of a year's food above subsistence, so food near the edge is
+# worth the most (research 09-17 §1.2: households insure one another, and a store pools that).
+# Points per unit of it, for proposing and for a stance.
+w_gain = 10.0
+w_regard = 1.0                   # points for full regard for a law's sponsor
+stance_margin = 0.25             # points either way within which a member abstains
+attend_base = 1.0                # the custom's own pull to the gathering, points
+w_attend = 0.5                   # points per point at stake in what it decides
+w_followers = 0.5                # a sponsor weighs those who regard them at half their household
+propose_cost = 0.5               # points a proposal costs its sponsor
+temperature = 0.5                # of the choice among moves, points
+# The lean years people believe in before they have seen any: one in four (a prior, no figure in
+# the reports). Lean years seen are those the settlement's food ran short in.
+prior_lean = 1.0
+prior_years = 4.0
+lean_harvest = 0.5               # a lean year's harvest, as a share of an ordinary one
+# Below half a year's food a household cannot live through the year: food there is worth the most,
+# and a household that would fall below it by paying a levy cannot pay (09-01 §6.4).
+subsistence_share = 0.5
+# Paying a levy is the payer's choice: the custom that a gathering binds, and where they stood on
+# the law, against what paying costs their household. No sanction until M4b.
+comply_base = 1.5
+w_stance = 1.0

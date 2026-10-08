@@ -6047,6 +6047,483 @@ impl<'a> StandingRecord {
 
 }
 
+// struct StanceSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct StanceSave(pub [u8; 32]);
+impl Default for StanceSave { 
+  fn default() -> Self { 
+    Self([0; 32])
+  }
+}
+impl ::core::fmt::Debug for StanceSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("StanceSave")
+      .field("person", &self.person())
+      .field("household", &self.household())
+      .field("gain", &self.gain())
+      .field("regard", &self.regard())
+      .field("stance", &self.stance())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for StanceSave {}
+impl<'a> ::flatbuffers::Follow<'a> for StanceSave {
+  type Inner = &'a StanceSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a StanceSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a StanceSave {
+  type Inner = &'a StanceSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<StanceSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for StanceSave {
+    type Output = StanceSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const StanceSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for StanceSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> StanceSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    person: u64,
+    household: u64,
+    gain: f32,
+    regard: f32,
+    stance: u8,
+  ) -> Self {
+    let mut s = Self([0; 32]);
+    s.set_person(person);
+    s.set_household(household);
+    s.set_gain(gain);
+    s.set_regard(regard);
+    s.set_stance(stance);
+    s
+  }
+
+  pub fn person(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_person(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn household(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_household(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn gain(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_gain(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn regard(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[20..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_regard(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[20..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn stance(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[24..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_stance(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[24..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct KnownSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct KnownSave(pub [u8; 16]);
+impl Default for KnownSave { 
+  fn default() -> Self { 
+    Self([0; 16])
+  }
+}
+impl ::core::fmt::Debug for KnownSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("KnownSave")
+      .field("person", &self.person())
+      .field("day", &self.day())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for KnownSave {}
+impl<'a> ::flatbuffers::Follow<'a> for KnownSave {
+  type Inner = &'a KnownSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a KnownSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a KnownSave {
+  type Inner = &'a KnownSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<KnownSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for KnownSave {
+    type Output = KnownSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const KnownSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for KnownSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> KnownSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    person: u64,
+    day: i64,
+  ) -> Self {
+    let mut s = Self([0; 16]);
+    s.set_person(person);
+    s.set_day(day);
+    s
+  }
+
+  pub fn person(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_person(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn day(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_day(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct StakeSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct StakeSave(pub [u8; 16]);
+impl Default for StakeSave { 
+  fn default() -> Self { 
+    Self([0; 16])
+  }
+}
+impl ::core::fmt::Debug for StakeSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("StakeSave")
+      .field("household", &self.household())
+      .field("points", &self.points())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for StakeSave {}
+impl<'a> ::flatbuffers::Follow<'a> for StakeSave {
+  type Inner = &'a StakeSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a StakeSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a StakeSave {
+  type Inner = &'a StakeSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<StakeSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for StakeSave {
+    type Output = StakeSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const StakeSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for StakeSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> StakeSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    household: u64,
+    points: f32,
+  ) -> Self {
+    let mut s = Self([0; 16]);
+    s.set_household(household);
+    s.set_points(points);
+    s
+  }
+
+  pub fn household(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_household(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn points(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_points(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 pub enum ParamOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -17992,6 +18469,1036 @@ impl ::core::fmt::Debug for Ties<'_> {
       ds.field("ties", &self.ties());
       ds.field("standing", &self.standing());
       ds.field("standing_day", &self.standing_day());
+      ds.finish()
+  }
+}
+pub enum LawSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct LawSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for LawSave<'a> {
+  type Inner = LawSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> LawSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_POLICY: ::flatbuffers::VOffsetT = 6;
+  pub const VT_LEVY_SHARE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_RELIEF_DAYS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_STATUS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_SPONSOR: ::flatbuffers::VOffsetT = 14;
+  pub const VT_PROPOSED: ::flatbuffers::VOffsetT = 16;
+  pub const VT_ISSUE: ::flatbuffers::VOffsetT = 18;
+  pub const VT_MEETS_DAY: ::flatbuffers::VOffsetT = 20;
+  pub const VT_DECIDED: ::flatbuffers::VOffsetT = 22;
+  pub const VT_DECIDED_AT: ::flatbuffers::VOffsetT = 24;
+  pub const VT_OUTCOME: ::flatbuffers::VOffsetT = 26;
+  pub const VT_ELIGIBLE: ::flatbuffers::VOffsetT = 28;
+  pub const VT_STANCES: ::flatbuffers::VOffsetT = 30;
+  pub const VT_KNOWN: ::flatbuffers::VOffsetT = 32;
+  pub const VT_COMPLIED: ::flatbuffers::VOffsetT = 34;
+  pub const VT_COULD_NOT: ::flatbuffers::VOffsetT = 36;
+  pub const VT_EVADED: ::flatbuffers::VOffsetT = 38;
+  pub const VT_UNAWARE: ::flatbuffers::VOffsetT = 40;
+  pub const VT_LEVIED_KG: ::flatbuffers::VOffsetT = 42;
+  pub const VT_WITHHELD_KG: ::flatbuffers::VOffsetT = 44;
+  pub const VT_RELIEVED: ::flatbuffers::VOffsetT = 46;
+  pub const VT_RELIEF_KG: ::flatbuffers::VOffsetT = 48;
+  pub const VT_UNANSWERED: ::flatbuffers::VOffsetT = 50;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    LawSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args LawSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<LawSave<'bldr>> {
+    let mut builder = LawSaveBuilder::new(_fbb);
+    builder.add_relief_kg(args.relief_kg);
+    builder.add_withheld_kg(args.withheld_kg);
+    builder.add_levied_kg(args.levied_kg);
+    builder.add_decided_at(args.decided_at);
+    builder.add_meets_day(args.meets_day);
+    builder.add_proposed(args.proposed);
+    builder.add_sponsor(args.sponsor);
+    builder.add_id(args.id);
+    builder.add_unanswered(args.unanswered);
+    builder.add_relieved(args.relieved);
+    builder.add_unaware(args.unaware);
+    builder.add_evaded(args.evaded);
+    builder.add_could_not(args.could_not);
+    builder.add_complied(args.complied);
+    if let Some(x) = args.known { builder.add_known(x); }
+    if let Some(x) = args.stances { builder.add_stances(x); }
+    builder.add_eligible(args.eligible);
+    builder.add_relief_days(args.relief_days);
+    builder.add_levy_share(args.levy_share);
+    builder.add_policy(args.policy);
+    builder.add_outcome(args.outcome);
+    builder.add_decided(args.decided);
+    builder.add_issue(args.issue);
+    builder.add_status(args.status);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LawSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn policy(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawSave::VT_POLICY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn levy_share(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(LawSave::VT_LEVY_SHARE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn relief_days(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(LawSave::VT_RELIEF_DAYS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn status(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(LawSave::VT_STATUS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn sponsor(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LawSave::VT_SPONSOR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn proposed(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(LawSave::VT_PROPOSED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn issue(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(LawSave::VT_ISSUE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn meets_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(LawSave::VT_MEETS_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn decided(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(LawSave::VT_DECIDED, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn decided_at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(LawSave::VT_DECIDED_AT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn outcome(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(LawSave::VT_OUTCOME, Some(255)).unwrap()}
+  }
+  #[inline]
+  pub fn eligible(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawSave::VT_ELIGIBLE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn stances(&self) -> Option<::flatbuffers::Vector<'a, StanceSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, StanceSave>>>(LawSave::VT_STANCES, None)}
+  }
+  #[inline]
+  pub fn known(&self) -> Option<::flatbuffers::Vector<'a, KnownSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, KnownSave>>>(LawSave::VT_KNOWN, None)}
+  }
+  #[inline]
+  pub fn complied(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawSave::VT_COMPLIED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn could_not(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawSave::VT_COULD_NOT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn evaded(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawSave::VT_EVADED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn unaware(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawSave::VT_UNAWARE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn levied_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(LawSave::VT_LEVIED_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn withheld_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(LawSave::VT_WITHHELD_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn relieved(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawSave::VT_RELIEVED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn relief_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(LawSave::VT_RELIEF_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn unanswered(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LawSave::VT_UNANSWERED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for LawSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u32>("policy", Self::VT_POLICY, false)?
+     .visit_field::<f32>("levy_share", Self::VT_LEVY_SHARE, false)?
+     .visit_field::<f32>("relief_days", Self::VT_RELIEF_DAYS, false)?
+     .visit_field::<u8>("status", Self::VT_STATUS, false)?
+     .visit_field::<u64>("sponsor", Self::VT_SPONSOR, false)?
+     .visit_field::<i64>("proposed", Self::VT_PROPOSED, false)?
+     .visit_field::<u8>("issue", Self::VT_ISSUE, false)?
+     .visit_field::<i64>("meets_day", Self::VT_MEETS_DAY, false)?
+     .visit_field::<bool>("decided", Self::VT_DECIDED, false)?
+     .visit_field::<i64>("decided_at", Self::VT_DECIDED_AT, false)?
+     .visit_field::<u8>("outcome", Self::VT_OUTCOME, false)?
+     .visit_field::<u32>("eligible", Self::VT_ELIGIBLE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, StanceSave>>>("stances", Self::VT_STANCES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, KnownSave>>>("known", Self::VT_KNOWN, false)?
+     .visit_field::<u32>("complied", Self::VT_COMPLIED, false)?
+     .visit_field::<u32>("could_not", Self::VT_COULD_NOT, false)?
+     .visit_field::<u32>("evaded", Self::VT_EVADED, false)?
+     .visit_field::<u32>("unaware", Self::VT_UNAWARE, false)?
+     .visit_field::<f64>("levied_kg", Self::VT_LEVIED_KG, false)?
+     .visit_field::<f64>("withheld_kg", Self::VT_WITHHELD_KG, false)?
+     .visit_field::<u32>("relieved", Self::VT_RELIEVED, false)?
+     .visit_field::<f64>("relief_kg", Self::VT_RELIEF_KG, false)?
+     .visit_field::<u32>("unanswered", Self::VT_UNANSWERED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct LawSaveArgs<'a> {
+    pub id: u64,
+    pub policy: u32,
+    pub levy_share: f32,
+    pub relief_days: f32,
+    pub status: u8,
+    pub sponsor: u64,
+    pub proposed: i64,
+    pub issue: u8,
+    pub meets_day: i64,
+    pub decided: bool,
+    pub decided_at: i64,
+    pub outcome: u8,
+    pub eligible: u32,
+    pub stances: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, StanceSave>>>,
+    pub known: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, KnownSave>>>,
+    pub complied: u32,
+    pub could_not: u32,
+    pub evaded: u32,
+    pub unaware: u32,
+    pub levied_kg: f64,
+    pub withheld_kg: f64,
+    pub relieved: u32,
+    pub relief_kg: f64,
+    pub unanswered: u32,
+}
+impl<'a> Default for LawSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    LawSaveArgs {
+      id: 0,
+      policy: 0,
+      levy_share: 0.0,
+      relief_days: 0.0,
+      status: 0,
+      sponsor: 0,
+      proposed: 0,
+      issue: 0,
+      meets_day: 0,
+      decided: false,
+      decided_at: 0,
+      outcome: 255,
+      eligible: 0,
+      stances: None,
+      known: None,
+      complied: 0,
+      could_not: 0,
+      evaded: 0,
+      unaware: 0,
+      levied_kg: 0.0,
+      withheld_kg: 0.0,
+      relieved: 0,
+      relief_kg: 0.0,
+      unanswered: 0,
+    }
+  }
+}
+
+pub struct LawSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LawSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(LawSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_policy(&mut self, policy: u32) {
+    self.fbb_.push_slot::<u32>(LawSave::VT_POLICY, policy, 0);
+  }
+  #[inline]
+  pub fn add_levy_share(&mut self, levy_share: f32) {
+    self.fbb_.push_slot::<f32>(LawSave::VT_LEVY_SHARE, levy_share, 0.0);
+  }
+  #[inline]
+  pub fn add_relief_days(&mut self, relief_days: f32) {
+    self.fbb_.push_slot::<f32>(LawSave::VT_RELIEF_DAYS, relief_days, 0.0);
+  }
+  #[inline]
+  pub fn add_status(&mut self, status: u8) {
+    self.fbb_.push_slot::<u8>(LawSave::VT_STATUS, status, 0);
+  }
+  #[inline]
+  pub fn add_sponsor(&mut self, sponsor: u64) {
+    self.fbb_.push_slot::<u64>(LawSave::VT_SPONSOR, sponsor, 0);
+  }
+  #[inline]
+  pub fn add_proposed(&mut self, proposed: i64) {
+    self.fbb_.push_slot::<i64>(LawSave::VT_PROPOSED, proposed, 0);
+  }
+  #[inline]
+  pub fn add_issue(&mut self, issue: u8) {
+    self.fbb_.push_slot::<u8>(LawSave::VT_ISSUE, issue, 0);
+  }
+  #[inline]
+  pub fn add_meets_day(&mut self, meets_day: i64) {
+    self.fbb_.push_slot::<i64>(LawSave::VT_MEETS_DAY, meets_day, 0);
+  }
+  #[inline]
+  pub fn add_decided(&mut self, decided: bool) {
+    self.fbb_.push_slot::<bool>(LawSave::VT_DECIDED, decided, false);
+  }
+  #[inline]
+  pub fn add_decided_at(&mut self, decided_at: i64) {
+    self.fbb_.push_slot::<i64>(LawSave::VT_DECIDED_AT, decided_at, 0);
+  }
+  #[inline]
+  pub fn add_outcome(&mut self, outcome: u8) {
+    self.fbb_.push_slot::<u8>(LawSave::VT_OUTCOME, outcome, 255);
+  }
+  #[inline]
+  pub fn add_eligible(&mut self, eligible: u32) {
+    self.fbb_.push_slot::<u32>(LawSave::VT_ELIGIBLE, eligible, 0);
+  }
+  #[inline]
+  pub fn add_stances(&mut self, stances: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , StanceSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(LawSave::VT_STANCES, stances);
+  }
+  #[inline]
+  pub fn add_known(&mut self, known: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , KnownSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(LawSave::VT_KNOWN, known);
+  }
+  #[inline]
+  pub fn add_complied(&mut self, complied: u32) {
+    self.fbb_.push_slot::<u32>(LawSave::VT_COMPLIED, complied, 0);
+  }
+  #[inline]
+  pub fn add_could_not(&mut self, could_not: u32) {
+    self.fbb_.push_slot::<u32>(LawSave::VT_COULD_NOT, could_not, 0);
+  }
+  #[inline]
+  pub fn add_evaded(&mut self, evaded: u32) {
+    self.fbb_.push_slot::<u32>(LawSave::VT_EVADED, evaded, 0);
+  }
+  #[inline]
+  pub fn add_unaware(&mut self, unaware: u32) {
+    self.fbb_.push_slot::<u32>(LawSave::VT_UNAWARE, unaware, 0);
+  }
+  #[inline]
+  pub fn add_levied_kg(&mut self, levied_kg: f64) {
+    self.fbb_.push_slot::<f64>(LawSave::VT_LEVIED_KG, levied_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_withheld_kg(&mut self, withheld_kg: f64) {
+    self.fbb_.push_slot::<f64>(LawSave::VT_WITHHELD_KG, withheld_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_relieved(&mut self, relieved: u32) {
+    self.fbb_.push_slot::<u32>(LawSave::VT_RELIEVED, relieved, 0);
+  }
+  #[inline]
+  pub fn add_relief_kg(&mut self, relief_kg: f64) {
+    self.fbb_.push_slot::<f64>(LawSave::VT_RELIEF_KG, relief_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_unanswered(&mut self, unanswered: u32) {
+    self.fbb_.push_slot::<u32>(LawSave::VT_UNANSWERED, unanswered, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LawSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    LawSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<LawSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for LawSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("LawSave");
+      ds.field("id", &self.id());
+      ds.field("policy", &self.policy());
+      ds.field("levy_share", &self.levy_share());
+      ds.field("relief_days", &self.relief_days());
+      ds.field("status", &self.status());
+      ds.field("sponsor", &self.sponsor());
+      ds.field("proposed", &self.proposed());
+      ds.field("issue", &self.issue());
+      ds.field("meets_day", &self.meets_day());
+      ds.field("decided", &self.decided());
+      ds.field("decided_at", &self.decided_at());
+      ds.field("outcome", &self.outcome());
+      ds.field("eligible", &self.eligible());
+      ds.field("stances", &self.stances());
+      ds.field("known", &self.known());
+      ds.field("complied", &self.complied());
+      ds.field("could_not", &self.could_not());
+      ds.field("evaded", &self.evaded());
+      ds.field("unaware", &self.unaware());
+      ds.field("levied_kg", &self.levied_kg());
+      ds.field("withheld_kg", &self.withheld_kg());
+      ds.field("relieved", &self.relieved());
+      ds.field("relief_kg", &self.relief_kg());
+      ds.field("unanswered", &self.unanswered());
+      ds.finish()
+  }
+}
+pub enum GatheringSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GatheringSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GatheringSave<'a> {
+  type Inner = GatheringSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GatheringSave<'a> {
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 4;
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 6;
+  pub const VT_STAKES: ::flatbuffers::VOffsetT = 8;
+  pub const VT_PRESENT: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GatheringSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GatheringSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<GatheringSave<'bldr>> {
+    let mut builder = GatheringSaveBuilder::new(_fbb);
+    builder.add_day(args.day);
+    builder.add_law(args.law);
+    if let Some(x) = args.present { builder.add_present(x); }
+    if let Some(x) = args.stakes { builder.add_stakes(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(GatheringSave::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(GatheringSave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn stakes(&self) -> Option<::flatbuffers::Vector<'a, StakeSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, StakeSave>>>(GatheringSave::VT_STAKES, None)}
+  }
+  #[inline]
+  pub fn present(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(GatheringSave::VT_PRESENT, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for GatheringSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, StakeSave>>>("stakes", Self::VT_STAKES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("present", Self::VT_PRESENT, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GatheringSaveArgs<'a> {
+    pub law: u64,
+    pub day: i64,
+    pub stakes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, StakeSave>>>,
+    pub present: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+}
+impl<'a> Default for GatheringSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    GatheringSaveArgs {
+      law: 0,
+      day: 0,
+      stakes: None,
+      present: None,
+    }
+  }
+}
+
+pub struct GatheringSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GatheringSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(GatheringSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(GatheringSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_stakes(&mut self, stakes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , StakeSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GatheringSave::VT_STAKES, stakes);
+  }
+  #[inline]
+  pub fn add_present(&mut self, present: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GatheringSave::VT_PRESENT, present);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GatheringSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GatheringSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GatheringSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GatheringSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GatheringSave");
+      ds.field("law", &self.law());
+      ds.field("day", &self.day());
+      ds.field("stakes", &self.stakes());
+      ds.field("present", &self.present());
+      ds.finish()
+  }
+}
+pub enum PolitySaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct PolitySave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for PolitySave<'a> {
+  type Inner = PolitySave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> PolitySave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_FOUNDED: ::flatbuffers::VOffsetT = 8;
+  pub const VT_MEMBERS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_QUORUM_SHARE: ::flatbuffers::VOffsetT = 12;
+  pub const VT_PASS: ::flatbuffers::VOffsetT = 14;
+  pub const VT_STORES: ::flatbuffers::VOffsetT = 16;
+  pub const VT_STORES_AT: ::flatbuffers::VOffsetT = 18;
+  pub const VT_LAWS: ::flatbuffers::VOffsetT = 20;
+  pub const VT_GATHERING: ::flatbuffers::VOffsetT = 22;
+  pub const VT_REVIEWED: ::flatbuffers::VOffsetT = 24;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    PolitySave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args PolitySaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<PolitySave<'bldr>> {
+    let mut builder = PolitySaveBuilder::new(_fbb);
+    builder.add_reviewed(args.reviewed);
+    builder.add_stores_at(args.stores_at);
+    builder.add_founded(args.founded);
+    builder.add_settlement(args.settlement);
+    builder.add_id(args.id);
+    if let Some(x) = args.gathering { builder.add_gathering(x); }
+    if let Some(x) = args.laws { builder.add_laws(x); }
+    if let Some(x) = args.stores { builder.add_stores(x); }
+    builder.add_quorum_share(args.quorum_share);
+    builder.add_pass(args.pass);
+    builder.add_members(args.members);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PolitySave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PolitySave::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn founded(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(PolitySave::VT_FOUNDED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn members(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(PolitySave::VT_MEMBERS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn quorum_share(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(PolitySave::VT_QUORUM_SHARE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn pass(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(PolitySave::VT_PASS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn stores(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(PolitySave::VT_STORES, None)}
+  }
+  #[inline]
+  pub fn stores_at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(PolitySave::VT_STORES_AT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn laws(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LawSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LawSave>>>>(PolitySave::VT_LAWS, None)}
+  }
+  #[inline]
+  pub fn gathering(&self) -> Option<GatheringSave<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<GatheringSave>>(PolitySave::VT_GATHERING, None)}
+  }
+  #[inline]
+  pub fn reviewed(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(PolitySave::VT_REVIEWED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for PolitySave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<i64>("founded", Self::VT_FOUNDED, false)?
+     .visit_field::<u8>("members", Self::VT_MEMBERS, false)?
+     .visit_field::<f32>("quorum_share", Self::VT_QUORUM_SHARE, false)?
+     .visit_field::<u8>("pass", Self::VT_PASS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("stores", Self::VT_STORES, false)?
+     .visit_field::<i64>("stores_at", Self::VT_STORES_AT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<LawSave>>>>("laws", Self::VT_LAWS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<GatheringSave>>("gathering", Self::VT_GATHERING, false)?
+     .visit_field::<i64>("reviewed", Self::VT_REVIEWED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct PolitySaveArgs<'a> {
+    pub id: u64,
+    pub settlement: u64,
+    pub founded: i64,
+    pub members: u8,
+    pub quorum_share: f32,
+    pub pass: u8,
+    pub stores: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+    pub stores_at: i64,
+    pub laws: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LawSave<'a>>>>>,
+    pub gathering: Option<::flatbuffers::WIPOffset<GatheringSave<'a>>>,
+    pub reviewed: i64,
+}
+impl<'a> Default for PolitySaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    PolitySaveArgs {
+      id: 0,
+      settlement: 0,
+      founded: 0,
+      members: 0,
+      quorum_share: 0.0,
+      pass: 0,
+      stores: None,
+      stores_at: 0,
+      laws: None,
+      gathering: None,
+      reviewed: 0,
+    }
+  }
+}
+
+pub struct PolitySaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(PolitySave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(PolitySave::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_founded(&mut self, founded: i64) {
+    self.fbb_.push_slot::<i64>(PolitySave::VT_FOUNDED, founded, 0);
+  }
+  #[inline]
+  pub fn add_members(&mut self, members: u8) {
+    self.fbb_.push_slot::<u8>(PolitySave::VT_MEMBERS, members, 0);
+  }
+  #[inline]
+  pub fn add_quorum_share(&mut self, quorum_share: f32) {
+    self.fbb_.push_slot::<f32>(PolitySave::VT_QUORUM_SHARE, quorum_share, 0.0);
+  }
+  #[inline]
+  pub fn add_pass(&mut self, pass: u8) {
+    self.fbb_.push_slot::<u8>(PolitySave::VT_PASS, pass, 0);
+  }
+  #[inline]
+  pub fn add_stores(&mut self, stores: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_STORES, stores);
+  }
+  #[inline]
+  pub fn add_stores_at(&mut self, stores_at: i64) {
+    self.fbb_.push_slot::<i64>(PolitySave::VT_STORES_AT, stores_at, 0);
+  }
+  #[inline]
+  pub fn add_laws(&mut self, laws: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<LawSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_LAWS, laws);
+  }
+  #[inline]
+  pub fn add_gathering(&mut self, gathering: ::flatbuffers::WIPOffset<GatheringSave<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<GatheringSave>>(PolitySave::VT_GATHERING, gathering);
+  }
+  #[inline]
+  pub fn add_reviewed(&mut self, reviewed: i64) {
+    self.fbb_.push_slot::<i64>(PolitySave::VT_REVIEWED, reviewed, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    PolitySaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<PolitySave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for PolitySave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("PolitySave");
+      ds.field("id", &self.id());
+      ds.field("settlement", &self.settlement());
+      ds.field("founded", &self.founded());
+      ds.field("members", &self.members());
+      ds.field("quorum_share", &self.quorum_share());
+      ds.field("pass", &self.pass());
+      ds.field("stores", &self.stores());
+      ds.field("stores_at", &self.stores_at());
+      ds.field("laws", &self.laws());
+      ds.field("gathering", &self.gathering());
+      ds.field("reviewed", &self.reviewed());
+      ds.finish()
+  }
+}
+pub enum PolitiesOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Polities<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Polities<'a> {
+  type Inner = Polities<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Polities<'a> {
+  pub const VT_POLITIES: ::flatbuffers::VOffsetT = 4;
+  pub const VT_GOODS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_POLICIES: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Polities { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args PolitiesArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Polities<'bldr>> {
+    let mut builder = PolitiesBuilder::new(_fbb);
+    if let Some(x) = args.policies { builder.add_policies(x); }
+    if let Some(x) = args.goods { builder.add_goods(x); }
+    if let Some(x) = args.polities { builder.add_polities(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn polities(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PolitySave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PolitySave>>>>(Polities::VT_POLITIES, None)}
+  }
+  #[inline]
+  pub fn goods(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Polities::VT_GOODS, None)}
+  }
+  #[inline]
+  pub fn policies(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Polities::VT_POLICIES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Polities<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PolitySave>>>>("polities", Self::VT_POLITIES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("goods", Self::VT_GOODS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("policies", Self::VT_POLICIES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct PolitiesArgs<'a> {
+    pub polities: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PolitySave<'a>>>>>,
+    pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub policies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+}
+impl<'a> Default for PolitiesArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    PolitiesArgs {
+      polities: None,
+      goods: None,
+      policies: None,
+    }
+  }
+}
+
+pub struct PolitiesBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitiesBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_polities(&mut self, polities: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<PolitySave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Polities::VT_POLITIES, polities);
+  }
+  #[inline]
+  pub fn add_goods(&mut self, goods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Polities::VT_GOODS, goods);
+  }
+  #[inline]
+  pub fn add_policies(&mut self, policies: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Polities::VT_POLICIES, policies);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitiesBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    PolitiesBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Polities<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Polities<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Polities");
+      ds.field("polities", &self.polities());
+      ds.field("goods", &self.goods());
+      ds.field("policies", &self.policies());
       ds.finish()
   }
 }

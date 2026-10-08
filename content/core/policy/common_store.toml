@@ -1,0 +1,15 @@
+# A common store (ADR-0013 §3-4): a share of every household's threshed grain goes into a store
+# the polity keeps at the hearth, and a household short of food may ask it for some (research
+# 09-17 §1.5: a public store combines storage with allocation, and storage alone grants nobody a
+# claim to it; 09-01 §3.3 gives 0-30 % of the harvest as an uncalibrated starting range, and §3.2
+# warns a 10-30 % tribute "is not a universal harvest tax"). Whether anyone proposes it, and at
+# which share, and whether a gathering passes it, is people's choice; nothing here weighs toward
+# it.
+kind = "policy"
+id = "core:policy/common_store"
+name = "Common store"
+description = "A share of each harvest goes into a store kept at the hearth, from which a household short of food may ask."
+does = "common_store"
+answers = ["food_short"]
+levy_shares = [0.05, 0.1, 0.2]   # a twentieth, a tenth or a fifth (09-05 §2.3: a sponsor weighs a few levels)
+relief_days = 5.0                # one ask brings at most five days of the household's food (a tuning value)

@@ -1,7 +1,8 @@
-//! The ledger (ADR-0006 §3): every movement of goods between holders (households and firms) is
-//! one operation that moves exact quantities and carries its channel. A transfer that cannot be covered does not happen,
-//! so stores are never driven below zero, and over all holders goods are conserved: a transfer
-//! counts as given by one holder and received by the other (see `Population::transfer`).
+//! The ledger (ADR-0006 §3): every movement of goods between holders (households, firms and
+//! polities, ADR-0013 §4) is one operation that moves exact quantities and carries its channel. A
+//! transfer that cannot be covered does not happen, so stores are never driven below zero, and
+//! over all holders goods are conserved: a transfer counts as given by one holder and received by
+//! the other (see `Population::transfer`).
 
 use civ_core::{PermanentId, SimTime};
 
@@ -28,11 +29,15 @@ pub enum Channel {
     Wage = 8,
     /// A tenant's share of a let field's grain to its holder (slice K, ADR-0007 §3).
     Rent = 9,
+    /// A household's share of its threshed grain into its polity's common store (ADR-0013 §4).
+    Levy = 10,
+    /// Food from a polity's common store to a household that asked (ADR-0013 §4).
+    Relief = 11,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 9] = [
+    pub const ALL: [Channel; 11] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -42,6 +47,8 @@ impl Channel {
         Channel::Owner,
         Channel::Wage,
         Channel::Rent,
+        Channel::Levy,
+        Channel::Relief,
     ];
 
     /// The channel with this code.
@@ -61,6 +68,8 @@ impl Channel {
             Channel::Owner => "owner",
             Channel::Wage => "wage",
             Channel::Rent => "rent",
+            Channel::Levy => "levy",
+            Channel::Relief => "relief",
         }
     }
 }

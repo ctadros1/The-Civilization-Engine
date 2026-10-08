@@ -47,6 +47,7 @@ mod land;
 mod life;
 mod loads;
 mod market;
+mod polity;
 
 pub use deposits::{DepositKnown, FIND_M};
 pub use loads::{
@@ -371,6 +372,8 @@ pub struct Population {
     pub ties: crate::ties::Ties,
     /// Each settlement's standing as worked out on the first of the month (ADR-0014 §3).
     pub standing: crate::standing::StandingTable,
+    /// Each settlement's polity, in the order they were founded (ADR-0013 §1).
+    pub polities: Vec<crate::polity::Polity>,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -835,8 +838,8 @@ impl Population {
         }
     }
 
-    /// What became of every household's and firm's goods since the counters began, those that
-    /// are no more included.
+    /// What became of every household's, firm's and polity's goods since the counters began,
+    /// those that are no more included.
     pub fn flows(&self) -> Flows {
         let mut all = self.flows_gone.clone();
         for (_, h) in self.households.iter() {
@@ -845,18 +848,22 @@ impl Population {
         for f in &self.firms {
             all.absorb(&f.flows);
         }
+        for p in &self.polities {
+            all.absorb(&p.flows);
+        }
         all
     }
 
-    /// What all households and firms hold, by good, as each one's stores were last brought up to
-    /// date: the balance that [`Population::flows`] accounts for (ADR-0006 §3).
+    /// What all households, firms and polities hold, by good, as each one's stores were last
+    /// brought up to date: the balance that [`Population::flows`] accounts for (ADR-0006 §3).
     pub fn goods_held(&self) -> Vec<f64> {
         let mut out: Vec<f64> = Vec::new();
         let stores = self
             .households
             .iter()
             .map(|(_, h)| &h.stores)
-            .chain(self.firms.iter().map(|f| &f.stores));
+            .chain(self.firms.iter().map(|f| &f.stores))
+            .chain(self.polities.iter().map(|p| &p.stores));
         for s in stores {
             if out.len() < s.len() {
                 out.resize(s.len(), 0.0);
@@ -2025,6 +2032,14 @@ impl Population {
                 kcal,
             });
         }
+        // The common store, at the hearth, when a law its members know keeps one (ADR-0013 §4).
+        if let Some(s) = ctx.land.settlements.iter().find(|s| s.id == settlement)
+            && let Some(secs) = reach.seconds_to(cell_of(ctx.map, s.hearth_m))
+            && let Some(store) =
+                self.relief_option(ctx, hh, kcal_day, want, f64::from(secs) / 60.0, s.hearth_m)
+        {
+            found.push(store);
+        }
         // Those who could give the most; among them, the nearest once a walk is weighed against
         // how well the household's members regard the one who stands for each (ADR-0014 §3):
         // they would walk `ask_known_min` further to ask someone they regard fully than a
@@ -2201,6 +2216,7 @@ impl Population {
             at_home: (pos.0 - hh.home.0).abs() < 1.0 && (pos.1 - hh.home.1).abs() < 1.0,
             home: hh.home,
             hearth,
+            gathering: self.gathering_facts(ctx, p.id, age, &hh, minute, evening_start),
         };
         let limits = Limits {
             sleep_needed_min: needs::minutes_to_rest(&params.sleep, f64::from(p.sleep_pressure)),
@@ -3335,9 +3351,16 @@ impl Population {
         let now = ctx.now;
         let params = ctx.params;
         let present = match (behavior, self.people.get(h)) {
-            (Some(Behavior::Socialize), Some(p)) => self.hearth_company(ctx, p.id, p.act.target),
+            (Some(Behavior::Socialize | Behavior::Attend), Some(p)) => {
+                self.hearth_company(ctx, p.id, p.act.target)
+            }
             _ => Vec::new(),
         };
+        // Someone come to the gathering takes their place there (ADR-0013 §1).
+        if let (Some(Behavior::Attend), Some(p)) = (behavior, self.people.get(h)) {
+            let me = p.id;
+            self.attend(ctx, me);
+        }
         let companions = present.len();
         // Company at the hearth: a few of those there become ties (ADR-0014 §2), a session's
         // worth each, a block's for each of its sessions.
@@ -3362,7 +3385,7 @@ impl Population {
             .map_or(params.energy.idle_par, |a| a.par);
         let (par, asleep, company) = match behavior {
             Some(Behavior::Sleep) => (def_par, true, params.social.household_quality),
-            Some(Behavior::Socialize) => (
+            Some(Behavior::Socialize | Behavior::Attend) => (
                 def_par,
                 false,
                 (params.social.quality_per_companion * companions as f64).min(1.0),
@@ -3712,6 +3735,11 @@ impl Population {
     /// `to` to the days of food it tries to keep, and no more than one person carries home. The
     /// most perishable food goes first. No debt is kept (research 08-11 §5.4: need-based help).
     fn give_food(&mut self, ctx: &Ctx, giver: PermanentId, to: PermanentId, asker: PermanentId) {
+        // The common store gives by its law (ADR-0013 §4).
+        if let Some(pi) = self.polities.iter().position(|p| p.id == giver) {
+            self.give_relief(ctx, pi, to);
+            return;
+        }
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let (Some(&gh), Some(&th)) = (self.hh_index.get(&giver), self.hh_index.get(&to)) else {
             return;
@@ -3968,6 +3996,17 @@ impl Population {
                 let (lent, paid) = (crate::ties::Act::LandLent, crate::ties::Act::RentPaid);
                 self.note_between(ctx, Some(who), household, holder, lent, paid, 0.0);
             }
+        }
+        // A common store in force takes its share of what is left to the household (ADR-0013 §4).
+        if done.grain_kg > 0.0 {
+            let rent = match (ctx.land.fields[fi].lease, ctx.land.fields[fi].holder) {
+                (Some(lease), Party::Household(holder)) if holder != household => {
+                    f64::from(lease.holder_share)
+                }
+                _ => 0.0,
+            };
+            let kept = done.grain_kg * (1.0 - rent);
+            self.levy(ctx, who, household, kept, crop.good);
         }
         let Some(si) = settlement.and_then(|s| ctx.land.settlements.iter().position(|x| x.id == s))
         else {
@@ -4570,6 +4609,9 @@ impl Population {
             let (name, place) = (s.name.clone(), s.hearth_m);
             self.chronicle_push(now, kind, Vec::new(), Some(id), Some(place), days, name);
         }
+        // Each settlement's polity: founded under the custom, its gathering decided, word of its
+        // laws gone round, its review held (ADR-0013).
+        self.polity_day(ctx);
         // The yearly land review (ADR-0007 §2): fields given out by need, or ground nobody holds
         // any more taken up.
         if day.rem_euclid(365) == i64::from(ctx.regime.review_day) {

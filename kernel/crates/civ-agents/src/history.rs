@@ -116,11 +116,16 @@ pub enum Reason {
     SnowCover = 126,
     /// Excluded: the ground is frozen.
     FrozenGround = 127,
+    /// To have a say at the gathering called at the hearth: what it decides is worth to the
+    /// household (M4a slice Z, ADR-0013 §1).
+    Gathering = 24,
+    /// Excluded: no gathering is sitting that they belong to.
+    NoGathering = 128,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 51] = [
+    pub const ALL: [Reason; 53] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -172,6 +177,8 @@ impl Reason {
         Reason::WetGround,
         Reason::SnowCover,
         Reason::FrozenGround,
+        Reason::Gathering,
+        Reason::NoGathering,
     ];
 
     /// The reason with this code.
@@ -233,6 +240,8 @@ impl Reason {
             Reason::WetGround => "the ground too wet to work",
             Reason::SnowCover => "snow on the ground",
             Reason::FrozenGround => "the ground frozen",
+            Reason::Gathering => "a say at the gathering",
+            Reason::NoGathering => "no gathering is sitting",
         }
     }
 }
@@ -437,6 +446,15 @@ pub enum ChronicleKind {
     /// flags) and `name` says it in words ("October was wet and cold on the valley floor: 168 mm
     /// fell, 2.1 times what October usually brings; a mean of 3.5 °C, 6.0 °C below its usual.").
     Weather,
+    /// Someone put a law to the gathering (ADR-0013 §3, stage 1): `people` is the sponsor,
+    /// `number` the levy share, and `name` what they proposed and why, in words ("a common
+    /// store, a tenth of each harvest, because food ran short").
+    LawProposed,
+    /// A gathering decided on a law (ADR-0013 §3, stage 3): `people` is the sponsor, `number`
+    /// how it went ([`crate::polity::Outcome`] as a number) and `name` the whole of it in words
+    /// ("The gathering at Ashford passed a common store, a tenth of each harvest: 14 for, 3
+    /// against; 19 of 40 adults came.").
+    LawDecided,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -810,6 +828,11 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             ))]
         }
         ChronicleKind::Weather => vec![Span::Text(event.name.clone())],
+        ChronicleKind::LawProposed => match person(0) {
+            Some(who) => vec![who, Span::Text(format!(" proposed {}.", event.name))],
+            None => vec![Span::Text(format!("Someone proposed {}.", event.name))],
+        },
+        ChronicleKind::LawDecided => vec![Span::Text(event.name.clone())],
         ChronicleKind::FirstTrail => vec![
             Span::Text("The first trail out of ".to_owned()),
             settlement(event),

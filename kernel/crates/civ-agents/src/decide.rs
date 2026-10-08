@@ -65,6 +65,19 @@ pub struct Facts {
     pub home: (f32, f32),
     /// The settlement hearth, if any.
     pub hearth: Option<(f32, f32)>,
+    /// The gathering sitting at the hearth that they may attend, if any (ADR-0013 §1).
+    pub gathering: Option<GatheringFacts>,
+}
+
+/// A gathering a person may attend now (ADR-0013 §1): what having a say there is worth to them,
+/// and the minutes it still sits.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GatheringFacts {
+    /// Points: the custom's pull, and what their household and their regard for the law's
+    /// sponsor have at stake.
+    pub points: f64,
+    /// Minutes it still sits.
+    pub minutes: f64,
 }
 
 /// A place a gathering trip could go: patch, walking minutes one way, expected return per
@@ -1026,6 +1039,26 @@ pub fn candidates(
                 ];
                 out.push(finish(id, Target::Hearth, terms, steps));
             }
+            Behavior::Attend => {
+                let (Some(hearth), Some(g)) = (f.hearth, f.gathering) else {
+                    excluded.push((id, Reason::NoGathering));
+                    continue;
+                };
+                // A say in what the gathering decides, and the company of those who come.
+                term(&mut terms, Reason::Gathering, g.points);
+                term(
+                    &mut terms,
+                    Reason::Loneliness,
+                    w.w_social * f.loneliness * f.evening.max(0.25),
+                );
+                let steps = vec![
+                    Step::Walk { to: hearth },
+                    Step::Work {
+                        minutes: g.minutes.round().max(1.0) as u32,
+                    },
+                ];
+                out.push(finish(id, Target::Hearth, terms, steps));
+            }
             Behavior::Rest => {
                 term(&mut terms, Reason::Rest, w.w_rest);
                 let mut steps = walk_home_first(f);
@@ -1312,6 +1345,7 @@ mod tests {
             at_home: true,
             home: (0.0, 0.0),
             hearth: None,
+            gathering: None,
         }
     }
 

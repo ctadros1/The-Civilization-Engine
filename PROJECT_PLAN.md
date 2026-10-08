@@ -1315,7 +1315,14 @@ polities.
   - **Z**: the first council. The polity and its founding custom, the gathering, the
     `Deliberator` and its moves, the law pipeline, the common store on the ledger, relief,
     leaving as a choice, succession, labels, the government panel, the notables' gate (ADR-0014
-    §4) and the demo.
+    §4) and the demo. In six steps:
+    - **Z1:** the polity, its gathering and the first law (a common store: a levy at threshing,
+      relief to those who ask), with its whole history and compliance; saves and content.
+    - **Z2:** the government panel and a law's history in the observer (wire 1.27).
+    - **Z3:** leaving the valley as a scored choice.
+    - **Z4:** offices (a storekeeper first) and succession.
+    - **Z5:** labels from a pure classifier.
+    - **Z6:** the notables' gate and the demo.
 
   [ADR-0013](decisions/0013-polity-offices-laws.md) governs the polity, its offices and its
   laws; [ADR-0014](decisions/0014-ties-standing-notables.md) governs ties, standing and
@@ -1328,7 +1335,11 @@ polities.
   only by the acts they see, each settlement's standing is summed from them monthly and its
   notables named, a household short of food asks those its members regard before strangers, and
   the observer shows ties with their reasons and each settlement's standing (saves 28, wire 1.26,
-  content API 30). Slice Z, the first council, is next.
+  content API 30). Slice Z, the first council, has begun. Its first step is done (§9): each
+  settlement has a polity under one founding custom, and those whose food will not last propose
+  a common store. A gathering at the hearth decides it, people pay its levy at threshing or keep
+  it back, households short of food ask the store, and every law's history is kept (saves 29,
+  content API 31). The government panel (Z2) is next.
 
 **M4b: Crime and order.**
 - *Contents:*
@@ -1891,3 +1902,16 @@ One line each. Don't re-litigate without a reason written next to the entry.
   - **Ten-year smoke:** passed; 9 of 10 bands kept 43–63 people, and ria coast 5 died out in year 4, as before.
   - **Gate B:** passed with the same figures as before slice Y. Its fixture years see no shortage, so nobody asks for food. It does not yet compare ties.
   - **Tests:** the end-to-end suite passes (15 tests, the demos skipped), with a new standing test.
+- **The polity and its first law, as built (2026-10-08, M4a slice Z's first step, ADR-0013 §1-5):** each settlement has a polity of its own id, founded at the first midnight under the custom every world shares: its adults decide by acclamation at the hearth, more for than against, a quarter of them needed, a tie failing (the people profile's `[polity]`, content API 31). The body is saved with the polity as values. **Issues:** food short, present when the settlement's food ran short in the last year or a household's food will not last until its next harvest. ADR-0013 §5 names "a food shortfall against the outlook"; a settlement-wide shortage alone never arose in five-year runs of three seeds. **Deliberation:** once a week, when nothing is before the gathering and an issue is present, the notables and the elders of the households whose food will not last each weigh proposing each level of each template that answers the issue (the new `policy` kind; the core pack's common store at a twentieth, a tenth or a fifth), against proposing nothing. A move is worth the person's forecast for their household, plus half the regard-weighted forecast for those who regard them, times the share of those they know who would back it, less a cost; a softmax picks. **The forecast:** the change in the expected log of a household's year of food above subsistence (half a year's food), over an ordinary year and a lean one at half the harvest. A lean year is believed one in four before any is seen; lean years seen are those the settlement's food ran short in. It pays the levy on its harvest and draws relief up to a year's need from a store holding the levy on an average harvest. A household near the edge gains and one with plenty loses, so a store splits a village by its fortunes (research 09-17 §1.2). **The gathering:** the next evening, for two hours from an hour before sunset. Attending is a new activity (`behavior = "attend"`, adults only), worth a point plus half of what the household and regard for the sponsor have at stake, beside the company. Every adult hears of it: awareness by word is left for M4c. At the next midnight each member who came takes a stance from their household's forecast and their regard for the sponsor, against a margin; the body decides; if it passed, those who came know the law. **Word of a law:** households tell their members at midnight, and companions at the hearth tell each other. **The levy:** at threshing, a thresher who knows the law pays its share of the grain their household keeps into the store, as their choice. They cannot when paying would leave the household below subsistence. Otherwise the chance of paying is logistic in the custom's pull (1.5 points), their stance (±1) and regard for the sponsor, less what paying costs their household; there is no sanction until M4b. **Relief:** the store, kept unroofed at the hearth, is one more place a household short of food may ask, by a law one of its members knows: at most five days of food an ask. The polity is a ledger holder (channels `levy` and `relief`), and every good stays accounted for. **History:** every law keeps its sponsor, issue and level, the stances of those present with what moved them, the decision and the counts, who knows it and since when, and what was paid, could not be, kept back or not known of, and given. Nothing is pruned (saves 29). The chronicle says each proposal and decision in words ("The gathering at Stonewick turned down a common store, taking a fifth of each harvest: 1 for, 18 against; 28 of 28 adults came."). **Measured:**
+  - **Three seeds, four years:**
+    - Seed 1: a twentieth passed in year 3, 20 for and 3 against, with 23 of 24 adults present.
+    - Seed 2: a twentieth passed in year 1, 14–0.
+    - Seed 3: a fifth was turned down 1–18, and a week later another sponsor's twentieth passed 27–0.
+    - Afterwards: 300–1,100 kg levied a year, with 5–43 % of what was owed kept back or unpayable (the most in seed 2, whose poorer households could not pay). No relief was asked for, since no household ran short.
+  - **Ten-year smoke:** all 10 worlds passed, and with them the new checks: one polity a settlement, and every law decided by its body's rule.
+    - Every village ended with a common store at a twentieth, after 1–15 proposals (the smoke records how many, not at which levels). The levels were the same everywhere, but the timing, the number of failed proposals and the payments differed.
+    - Each store took 1.8–6.8 t over the years, and 0.4–2.5 t was kept back or unpayable.
+    - Four stores gave 143–286 kg in relief. The rest gave none, because nobody there ran short.
+    - The unroofed stores lost a third to two-fifths of what came in to spoiling (32–40 %), and held 1.1–3.8 t at the end.
+    - Ria coast 5, which died out in year 4 before this step, ended with 15 people, after its store gave 143 kg. The other nine kept 44–59 people.
+    - **An observation, no nudge made:** every village converging on the smallest levy is a finding to watch, not a target. With one template, and a forecast that prices risk only through the lean-year belief, the twentieth is the level most households can back. Offices (Z4) and leaving as a choice (Z3) change what a store is for.

@@ -21,6 +21,7 @@ the milestone is too big and gets split.
 | [0012](0012-weather-and-soil.md) | Weather and the soil | Accepted | M3c |
 | [0013](0013-polity-offices-laws.md) | The polity, its offices and its laws | Accepted | M4a |
 | [0014](0014-ties-standing-notables.md) | Ties, standing and notables | Accepted | M4a |
+| [0015](0015-incidents-cases-obligations.md) | Incidents, cases and obligations | Accepted | M4b |
 
 ## Template
 

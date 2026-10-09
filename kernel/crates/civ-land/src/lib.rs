@@ -281,7 +281,41 @@ impl Patches {
     }
 }
 
-/// A place people founded.
+/// How a settlement came to be founded (ADR-0018 §1). Numeric in saves: append only.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Founding {
+    /// By one of the founding groups the world was made with.
+    #[default]
+    Setup,
+    /// By a family, or an agitator, the observer sent.
+    Sent,
+    /// By households of a migration wave.
+    Wave,
+    /// By a coalition of households already in the world.
+    Coalition,
+}
+
+impl Founding {
+    /// Every way of founding, in code order.
+    pub const ALL: [Founding; 4] = [
+        Founding::Setup,
+        Founding::Sent,
+        Founding::Wave,
+        Founding::Coalition,
+    ];
+
+    /// Its code in saves.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The way of founding with a code.
+    pub fn from_code(code: u8) -> Option<Founding> {
+        Founding::ALL.get(usize::from(code)).copied()
+    }
+}
+
+/// A place people founded. Its record is kept for good, abandoned or not (ADR-0018 §1).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Settlement {
     /// Permanent id.
@@ -296,6 +330,12 @@ pub struct Settlement {
     pub food_short: bool,
     /// Grain threshed from its fields since its last harvest was noted, kilograms.
     pub harvest_kg: f64,
+    /// The settlement its founders came from, if they came from one.
+    pub parent: Option<PermanentId>,
+    /// How it was founded.
+    pub founding: Founding,
+    /// When its last resident died or left, if they have.
+    pub abandoned: Option<SimTime>,
 }
 
 /// All land state of one world.

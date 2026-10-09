@@ -256,6 +256,10 @@ struct DashboardArgs {
     /// Keep each world's saves at every tenth year's end in this folder.
     #[arg(long)]
     keep_saves: Option<PathBuf>,
+    /// Founding groups each world is made with, placed together (ADR-0018 §6); 1 is the
+    /// dashboard of M3c to M4.
+    #[arg(long, default_value_t = civ_host::dashboard::GROUPS)]
+    groups: u32,
 }
 
 #[derive(Args)]
@@ -625,6 +629,7 @@ fn run_dashboard(args: DashboardArgs) -> anyhow::Result<ExitCode> {
         dashboard::DashboardOptions {
             size: args.size,
             years: args.years,
+            groups: args.groups,
         },
         args.keep_saves.as_deref(),
         &|world| println!("{}", dashboard::format_world(world)),

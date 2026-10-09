@@ -89,7 +89,14 @@ pub struct DashboardOptions {
     /// Years each world lives after its first month: [`YEARS`] for the dashboard itself, fewer
     /// only for a quick look, which grades the rows over what it saw.
     pub years: u32,
+    /// Founding groups each world is made with, each a band of the content's default size placed
+    /// together with the others (ADR-0018 §6): [`GROUPS`] from M5a; 1 is the dashboard of M3c to
+    /// M4.
+    pub groups: u32,
 }
+
+/// Founding groups a dashboard world is made with (M5a slice AK).
+pub const GROUPS: u32 = 2;
 
 /// A graded check and what was seen, in words.
 pub type Seen = (Grade, String);
@@ -140,6 +147,12 @@ pub struct WorldRun {
     pub regimes_by_decade: Vec<(u32, Vec<String>)>,
     /// Its attempts to take, by where the taker's household stood by food.
     pub crime: CrimeSeen,
+    /// Each settlement at the end: its name and its residents (ADR-0018).
+    pub settlements: Vec<(String, u32)>,
+    /// Where a settlement's accounts did not balance in some year (ADR-0018 §3's hard check).
+    pub accounting: Vec<String>,
+    /// Its settlements' accounts over the run, summed.
+    pub moves: smoke::Moves,
 }
 
 impl WorldRun {
@@ -431,6 +444,7 @@ fn run_one(
             preset_id: PRESET.to_owned(),
             size_cells: options.size,
             band_size: 0,
+            neighbours: vec![0; options.groups.saturating_sub(1) as usize],
             regime_id: regime.0,
         },
         content,
@@ -528,6 +542,14 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
     }
     world.gini = by_year.into_iter().map(|(y, (g, p))| (y, g, p)).collect();
     world.crime = CrimeSeen::of(&sim.people().order);
+    world.settlements = sim
+        .land()
+        .settlements
+        .iter()
+        .map(|s| (s.name.clone(), sim.people().residents(s.id)))
+        .collect();
+    world.accounting = run.accounting.clone();
+    world.moves = run.moves;
     world.labels = sim
         .people()
         .polities
@@ -561,15 +583,8 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
         gini(worlds),
         firm_sizes(worlds),
         failures(worlds),
-        Row::new(
-            "Settlement sizes",
-            "the spread of settlements' sizes",
-            "right-skewed",
-        )
-        .graded(
-            Grade::Gray,
-            "one settlement a world until regions (M5)".to_owned(),
-        ),
+        settlement_sizes(worlds),
+        accounting(worlds),
         crime(worlds),
         Row::new(
             "Epidemics",
@@ -579,6 +594,82 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
         .graded(Grade::Gray, "no disease until M6".to_owned()),
         regimes(worlds),
     ]
+}
+
+/// Settlements' sizes at the end, reported and not graded: 10-01 §4 and 10-02 §5 warn against
+/// fitting a distribution to a few settlements, so the row stays grey until there are many (M9).
+fn settlement_sizes(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Settlement sizes",
+        "the spread of settlements' sizes",
+        "right-skewed",
+    )
+    .source("10-01 §4; 10-02 §5");
+    let seen: Vec<String> = worlds
+        .iter()
+        .filter(|w| !w.settlements.is_empty())
+        .map(|w| {
+            let sizes: Vec<String> = w
+                .settlements
+                .iter()
+                .map(|(name, n)| format!("{name} {n}"))
+                .collect();
+            format!("world {}: {}", w.seed, sizes.join(", "))
+        })
+        .collect();
+    let text = if seen.is_empty() {
+        "no world lived".to_owned()
+    } else {
+        format!(
+            "reported, not graded until there are many (M9): {}",
+            seen.join("; ")
+        )
+    };
+    row.graded(Grade::Gray, text)
+}
+
+/// Every settlement's accounts balance every year (ADR-0018 §3): a hard check. Shown with the
+/// moves the runs saw.
+fn accounting(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Population accounting",
+        "each settlement's births − deaths + arrivals − departures against its change in residents, \
+         every year",
+        "every one balances",
+    )
+    .source("05-06 §1.1; ADR-0018 §3");
+    let lived: Vec<&WorldRun> = worlds.iter().filter(|w| !w.people.is_empty()).collect();
+    if lived.is_empty() {
+        return row.graded(Grade::Gray, "no world lived".to_owned());
+    }
+    let mut sum = smoke::Moves::default();
+    for w in &lived {
+        sum.births += w.moves.births;
+        sum.deaths += w.moves.deaths;
+        sum.arrivals += w.moves.arrivals;
+        sum.from_off_map += w.moves.from_off_map;
+        sum.departures += w.moves.departures;
+        sum.off_map += w.moves.off_map;
+    }
+    let between = sum.departures - sum.off_map;
+    let moves = format!(
+        "{} born, {} died, {} came from off the map, {} left it, {between} moved between \
+         settlements",
+        sum.births, sum.deaths, sum.from_off_map, sum.off_map
+    );
+    match lived
+        .iter()
+        .find_map(|w| w.accounting.first().map(|f| (w.seed, f)))
+    {
+        None => row.graded(
+            Grade::Green,
+            format!(
+                "every settlement of {} worlds, every year; {moves}",
+                lived.len()
+            ),
+        ),
+        Some((seed, first)) => row.graded(Grade::Red, format!("world {seed}: {first}; {moves}")),
+    }
 }
 
 /// Each polity of `sim`'s regime now: its label's principal name without the person it names
@@ -1125,10 +1216,10 @@ mod tests {
             worlds,
             rows,
         };
-        // Only population is graded, and both worlds keep their bands: a pass, but no grey row
-        // counts as one.
+        // Only population and the accounts are graded, both worlds keep their bands and no
+        // settlement's accounts failed: a pass, but no grey row counts as one.
         assert!(dashboard.passed());
-        assert_eq!(dashboard.summary(), "1 passed, 8 not yet applicable");
+        assert_eq!(dashboard.summary(), "2 passed, 8 not yet applicable");
     }
 
     #[test]

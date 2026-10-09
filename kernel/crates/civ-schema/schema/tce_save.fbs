@@ -210,6 +210,13 @@ table Settlement {
   food_short: bool (id: 4);
   // Schema 4: grain threshed from its fields since its last harvest was noted, kilograms.
   harvest_kg: double (id: 5);
+  // Schema 50 (ADR-0018 §1): the settlement its founders came from (0: none), how it was founded
+  // (civ_land::Founding's code; 255 in older saves, where the first settlement was the founding
+  // band's and any later one a family the observer sent), and when it was abandoned.
+  parent: ulong (id: 6);
+  founding: ubyte = 255 (id: 7);
+  abandoned: bool (id: 8);
+  abandoned_at: long (id: 9);
 }
 
 table Settlements {
@@ -441,6 +448,18 @@ table PersonRecord {
   // Schema 6: they left the world alive (their household gave up and left the valley).
   left: bool (id: 10);
   left_at: long (id: 11);
+  // Schema 50 (ADR-0018 §2): where they have lived, oldest first. Older saves have none; they
+  // are inferred as the world loads.
+  residence: [Stay] (id: 12);
+}
+
+// One stay in someone's residence history (schema 50).
+table Stay {
+  // The settlement (0: off the map).
+  settlement: ulong (id: 0);
+  since: long (id: 1);
+  // civ_agents::ResidenceWhy's code.
+  why: ubyte (id: 2);
 }
 
 table ChronicleEntry {

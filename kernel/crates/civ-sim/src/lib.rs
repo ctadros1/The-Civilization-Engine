@@ -98,6 +98,10 @@ pub struct NewWorld {
     pub size_cells: u32,
     /// People in the founding band; 0 means the people profile's default.
     pub band_size: u32,
+    /// People in each further founding group, each a band of its own whose site is chosen
+    /// together with the first's (ADR-0018 §6); 0 means the default. At most
+    /// [`civ_agents::MAX_FOUNDING_GROUPS`] groups in all.
+    pub neighbours: Vec<u32>,
     /// Content id of the property regime (ADR-0007); empty means the content's default.
     pub regime_id: String,
 }
@@ -261,6 +265,8 @@ pub enum SimError {
     UnknownPreset(String),
     /// The content has no property regime with this id.
     UnknownRegime(String),
+    /// A world is made with at most [`civ_agents::MAX_FOUNDING_GROUPS`] founding groups.
+    TooManyGroups(usize),
     /// A founding band must have between the people profile's smallest and largest size.
     InvalidBandSize {
         /// What was asked for.
@@ -283,6 +289,11 @@ impl fmt::Display for SimError {
         match self {
             SimError::UnknownPreset(id) => write!(f, "there is no world preset `{id}`"),
             SimError::UnknownRegime(id) => write!(f, "there is no property regime `{id}`"),
+            SimError::TooManyGroups(n) => write!(
+                f,
+                "{n} founding groups is too many (at most {})",
+                civ_agents::MAX_FOUNDING_GROUPS
+            ),
             SimError::InvalidBandSize { size, min, max } => write!(
                 f,
                 "a founding band of {size} is out of range ({min} to {max} people)"
@@ -407,17 +418,23 @@ impl Sim {
             .preset(&request.preset_id)
             .ok_or_else(|| SimError::UnknownPreset(request.preset_id.clone()))?;
         let band = &content.people.params.band;
-        let band_size = match request.band_size {
-            0 => band.default_size,
-            size if (band.min_size..=band.max_size).contains(&size) => size,
-            size => {
-                return Err(SimError::InvalidBandSize {
-                    size,
-                    min: band.min_size,
-                    max: band.max_size,
-                });
-            }
+        let size_of = |size: u32| match size {
+            0 => Ok(band.default_size),
+            size if (band.min_size..=band.max_size).contains(&size) => Ok(size),
+            size => Err(SimError::InvalidBandSize {
+                size,
+                min: band.min_size,
+                max: band.max_size,
+            }),
         };
+        let groups = 1 + request.neighbours.len();
+        if groups > civ_agents::MAX_FOUNDING_GROUPS {
+            return Err(SimError::TooManyGroups(groups));
+        }
+        let mut sizes = vec![size_of(request.band_size)?];
+        for &size in &request.neighbours {
+            sizes.push(size_of(size)?);
+        }
         let generate = GenerateRequest {
             seed: request.seed,
             width_cells: request.size_cells,
@@ -496,8 +513,25 @@ impl Sim {
             stage: "The first people arrive",
             fraction: 1.0,
         });
-        if let Err(why) = sim.found_band(band_size) {
-            sim.founding_problem = Some(why);
+        // Groups that find no room apart are left out, the last listed first, and the problem
+        // kept to tell.
+        let mut placed = sizes.len();
+        while placed > 0 {
+            match sim.found_bands(&sizes[..placed]) {
+                Ok(_) if placed == sizes.len() => break,
+                Ok(_) => {
+                    sim.founding_problem = Some(format!(
+                        "only {placed} of {} founding groups found room for fields apart",
+                        sizes.len()
+                    ));
+                    break;
+                }
+                Err(why) if placed == 1 => {
+                    sim.founding_problem = Some(why);
+                    break;
+                }
+                Err(_) => placed -= 1,
+            }
         }
         // Deposits are laid down once, after the band arrives so its founding draws are as they
         // were before deposits existed (ADR-0010 §1).
@@ -508,6 +542,12 @@ impl Sim {
 
     /// Brings a founding band of `size` people to the world now. They choose where to camp.
     pub fn found_band(&mut self, size: u32) -> Result<Founded, String> {
+        self.found_bands(&[size]).map(|mut all| all.remove(0))
+    }
+
+    /// Brings founding groups of `sizes` people to the world now, each a band of its own, their
+    /// sites chosen together (ADR-0018 §6).
+    pub fn found_bands(&mut self, sizes: &[u32]) -> Result<Vec<Founded>, String> {
         let now = self.now();
         let approx = self.approximations_now();
         let mut pending = Vec::new();
@@ -526,7 +566,7 @@ impl Sim {
                 schedule: &mut pending,
                 approx,
             };
-            civ_agents::found_band(&mut self.people, &mut ctx, size)
+            civ_agents::found_bands(&mut self.people, &mut ctx, sizes)
         };
         for (at, event) in pending {
             // Agent events are never scheduled before the next minute.

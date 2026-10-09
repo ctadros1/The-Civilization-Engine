@@ -66,6 +66,7 @@ import {
 } from "./government.js";
 import { believedText, caseText, choiceText, happenedRest, seenText, totalsText } from "./order.js";
 import { PATH_LEGEND } from "./paths.js";
+import { neighbourSizes } from "./settlements.js";
 import {
   HOUSEHOLDS_SHOWN,
   giniLines,
@@ -103,6 +104,8 @@ export interface Actions {
     bandSize: number;
     /** The property regime, by content id; empty = the content's default. */
     regimeId: string;
+    /** People in each further founding group, placed together with the first (ADR-0018). */
+    neighbours: number[];
   }): Promise<void>;
   save(label: string): Promise<void>;
   listSaves(): Promise<SaveEntry[]>;
@@ -216,6 +219,7 @@ export function bindUi(store: Store, actions: Actions): void {
   const nwSize = $<HTMLSelectElement>("nw-size");
   const nwSeed = $<HTMLInputElement>("nw-seed");
   const nwBand = $<HTMLInputElement>("nw-band");
+  const nwNeighbours = $<HTMLInputElement>("nw-neighbours");
   const nwRegime = $<HTMLSelectElement>("nw-regime");
   const nwError = $("nw-error");
   const nwCreate = $<HTMLButtonElement>("nw-create");
@@ -266,6 +270,11 @@ export function bindUi(store: Store, actions: Actions): void {
       $("nw-band-hint"),
       `People in the first band, ${welcome.bandSizeMin} to ${welcome.bandSizeMax}. They choose where to camp.`,
     );
+    setText(
+      $("nw-neighbours-hint"),
+      `Up to two more bands, each with its own people and way of building, camping where their ` +
+        `fields lie apart from the others'. Their sizes, separated by commas; blank for none.`,
+    );
     describePreset();
     describeRegime();
   };
@@ -280,6 +289,7 @@ export function bindUi(store: Store, actions: Actions): void {
     fillNewWorld(welcome);
     nwSeed.value = randomSeed().toString();
     nwBand.value = String(welcome.bandSizeDefault);
+    nwNeighbours.value = "";
     nwError.hidden = true;
     nwCreate.disabled = false;
     nwDialog.showModal();
@@ -304,6 +314,12 @@ export function bindUi(store: Store, actions: Actions): void {
       nwError.hidden = false;
       return;
     }
+    const neighbours = neighbourSizes(nwNeighbours.value, welcome);
+    if (typeof neighbours === "string") {
+      nwError.textContent = neighbours;
+      nwError.hidden = false;
+      return;
+    }
     nwCreate.disabled = true;
     actions
       .newWorld({
@@ -313,6 +329,7 @@ export function bindUi(store: Store, actions: Actions): void {
         seed: BigInt(text),
         bandSize: welcome ? band : 0,
         regimeId: nwRegime.value,
+        neighbours,
       })
       .then(() => nwDialog.close())
       .catch((e: unknown) => {
@@ -1269,6 +1286,16 @@ export function bindUi(store: Store, actions: Actions): void {
       }
     }
     nodes.push(knowsBlock(welcome, p));
+    if (p.residence.length > 0) {
+      nodes.push(
+        el(
+          "div",
+          { className: "residence" },
+          el("h4", { text: p.residence.length > 1 ? "Where they have lived" : "Where they live" }),
+          el("ul", {}, ...p.residence.map((line) => el("li", { text: line }))),
+        ),
+      );
+    }
     if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p), opinionBlock(p));
     if (p.alive) nodes.push(observerBlock(welcome, p));
     if (p.kin.length > 0 || p.family.length > 0) {
@@ -1320,6 +1347,8 @@ export function bindUi(store: Store, actions: Actions): void {
         Math.floor(s.foodDays),
         s.foodShort,
         Math.round(s.harvestKg / 100),
+        s.year,
+        s.abandonedMinute,
       ]),
       state.welcome?.activities.length ?? 0,
     ]);
@@ -1346,7 +1375,17 @@ export function bindUi(store: Store, actions: Actions): void {
         ` · ${s.population} people · food for ${formatDays(s.foodDays)}`,
         s.harvestKg > 0 ? ` · harvest so far ${formatKg(s.harvestKg)}` : "",
         s.foodShort ? el("span", { className: "badge warn", text: "short of food" }) : "",
-        el("span", { className: "since", text: `founded ${formatSimMinute(s.foundedMinute)}` }),
+        s.abandonedMinute >= 0
+          ? el("span", {
+              className: "badge",
+              text: `abandoned ${formatSimMinute(s.abandonedMinute)}`,
+            })
+          : "",
+        el("span", {
+          className: "since",
+          text: `founded ${formatSimMinute(s.foundedMinute)}${s.founding ? `, ${s.founding}` : ""}`,
+        }),
+        s.year ? el("span", { className: "since", text: `In the past year: ${s.year}.` }) : "",
       ),
     );
     nodes.push(

@@ -356,6 +356,10 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         preset_id: b.preset_id().unwrap_or_default().to_owned(),
                         size_cells: b.size_cells(),
                         band_size: b.band_size(),
+                        neighbours: b
+                            .neighbours()
+                            .map(|v| v.iter().collect())
+                            .unwrap_or_default(),
                         regime_id: b.regime_id().unwrap_or_default().to_owned(),
                     }))
                 }

@@ -716,6 +716,24 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** M5a slice AK. M5b and M5c are designed when reached. Per-polity currencies wait for something to mint.
 
+## 2026-10-09 — M5a slice AK: several settlements at setup
+
+**Goal:** worlds that begin with two or three settlements, each knowing who lives in it and how they came there (plan §7, ADR-0018).
+
+**What changed:**
+
+- **Founding groups:** a new world may begin with up to two neighbouring groups besides the first. Their sites are drawn together from one pool so their fields lie apart, and the order they are listed in cannot choose their land. A group that finds no room is left out and the world says so.
+- **Records:** a settlement keeps its parent, how it was founded and when it was abandoned; the hearth target names its settlement; every person keeps a residence history.
+- **Accounts:** each settlement's births, deaths, arrivals and departures are derived from those histories, and the smoke and the dashboard check every year that they balance.
+- **The dashboard** founds two groups a world, with a graded population-accounting row and settlement sizes reported.
+- **The observer:** the new-world dialog's neighbouring groups, how each settlement was founded and its past year's accounts, and where a person has lived.
+
+**Findings:** a world of one group lives exactly as before, shown by loading the same save in both builds and comparing what twenty days do. Two settlements founded together share nothing over two years without contact.
+
+**Evidence:** new tests for placement, order, accounts, isolation, Gate A with two settlements and loading a schema-49 save; the whole kernel suite, clippy, the ten smoke worlds and an end-to-end test of the dialog.
+
+**Open:** slice AL, scale for several settlements. Whether groups know one another at the start moves to slice AM, which brings known places.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

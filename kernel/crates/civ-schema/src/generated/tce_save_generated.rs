@@ -15076,6 +15076,10 @@ impl<'a> Settlement<'a> {
   pub const VT_HEARTH: ::flatbuffers::VOffsetT = 10;
   pub const VT_FOOD_SHORT: ::flatbuffers::VOffsetT = 12;
   pub const VT_HARVEST_KG: ::flatbuffers::VOffsetT = 14;
+  pub const VT_PARENT: ::flatbuffers::VOffsetT = 16;
+  pub const VT_FOUNDING: ::flatbuffers::VOffsetT = 18;
+  pub const VT_ABANDONED: ::flatbuffers::VOffsetT = 20;
+  pub const VT_ABANDONED_AT: ::flatbuffers::VOffsetT = 22;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -15087,11 +15091,15 @@ impl<'a> Settlement<'a> {
     args: &'args SettlementArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Settlement<'bldr>> {
     let mut builder = SettlementBuilder::new(_fbb);
+    builder.add_abandoned_at(args.abandoned_at);
+    builder.add_parent(args.parent);
     builder.add_harvest_kg(args.harvest_kg);
     builder.add_founded(args.founded);
     builder.add_id(args.id);
     if let Some(x) = args.hearth { builder.add_hearth(x); }
     if let Some(x) = args.name { builder.add_name(x); }
+    builder.add_abandoned(args.abandoned);
+    builder.add_founding(args.founding);
     builder.add_food_short(args.food_short);
     builder.finish()
   }
@@ -15139,6 +15147,34 @@ impl<'a> Settlement<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f64>(Settlement::VT_HARVEST_KG, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn parent(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Settlement::VT_PARENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn founding(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(Settlement::VT_FOUNDING, Some(255)).unwrap()}
+  }
+  #[inline]
+  pub fn abandoned(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(Settlement::VT_ABANDONED, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn abandoned_at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Settlement::VT_ABANDONED_AT, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Settlement<'_> {
@@ -15153,6 +15189,10 @@ impl ::flatbuffers::Verifiable for Settlement<'_> {
      .visit_field::<Point>("hearth", Self::VT_HEARTH, false)?
      .visit_field::<bool>("food_short", Self::VT_FOOD_SHORT, false)?
      .visit_field::<f64>("harvest_kg", Self::VT_HARVEST_KG, false)?
+     .visit_field::<u64>("parent", Self::VT_PARENT, false)?
+     .visit_field::<u8>("founding", Self::VT_FOUNDING, false)?
+     .visit_field::<bool>("abandoned", Self::VT_ABANDONED, false)?
+     .visit_field::<i64>("abandoned_at", Self::VT_ABANDONED_AT, false)?
      .finish();
     Ok(())
   }
@@ -15164,6 +15204,10 @@ pub struct SettlementArgs<'a> {
     pub hearth: Option<&'a Point>,
     pub food_short: bool,
     pub harvest_kg: f64,
+    pub parent: u64,
+    pub founding: u8,
+    pub abandoned: bool,
+    pub abandoned_at: i64,
 }
 impl<'a> Default for SettlementArgs<'a> {
   #[inline]
@@ -15175,6 +15219,10 @@ impl<'a> Default for SettlementArgs<'a> {
       hearth: None,
       food_short: false,
       harvest_kg: 0.0,
+      parent: 0,
+      founding: 255,
+      abandoned: false,
+      abandoned_at: 0,
     }
   }
 }
@@ -15209,6 +15257,22 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SettlementBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<f64>(Settlement::VT_HARVEST_KG, harvest_kg, 0.0);
   }
   #[inline]
+  pub fn add_parent(&mut self, parent: u64) {
+    self.fbb_.push_slot::<u64>(Settlement::VT_PARENT, parent, 0);
+  }
+  #[inline]
+  pub fn add_founding(&mut self, founding: u8) {
+    self.fbb_.push_slot::<u8>(Settlement::VT_FOUNDING, founding, 255);
+  }
+  #[inline]
+  pub fn add_abandoned(&mut self, abandoned: bool) {
+    self.fbb_.push_slot::<bool>(Settlement::VT_ABANDONED, abandoned, false);
+  }
+  #[inline]
+  pub fn add_abandoned_at(&mut self, abandoned_at: i64) {
+    self.fbb_.push_slot::<i64>(Settlement::VT_ABANDONED_AT, abandoned_at, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SettlementBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SettlementBuilder {
@@ -15232,6 +15296,10 @@ impl ::core::fmt::Debug for Settlement<'_> {
       ds.field("hearth", &self.hearth());
       ds.field("food_short", &self.food_short());
       ds.field("harvest_kg", &self.harvest_kg());
+      ds.field("parent", &self.parent());
+      ds.field("founding", &self.founding());
+      ds.field("abandoned", &self.abandoned());
+      ds.field("abandoned_at", &self.abandoned_at());
       ds.finish()
   }
 }
@@ -17470,6 +17538,7 @@ impl<'a> PersonRecord<'a> {
   pub const VT_ORIGIN: ::flatbuffers::VOffsetT = 22;
   pub const VT_LEFT: ::flatbuffers::VOffsetT = 24;
   pub const VT_LEFT_AT: ::flatbuffers::VOffsetT = 26;
+  pub const VT_RESIDENCE: ::flatbuffers::VOffsetT = 28;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -17487,6 +17556,7 @@ impl<'a> PersonRecord<'a> {
     builder.add_died_at(args.died_at);
     builder.add_born(args.born);
     builder.add_id(args.id);
+    if let Some(x) = args.residence { builder.add_residence(x); }
     if let Some(x) = args.given { builder.add_given(x); }
     builder.add_left(args.left);
     builder.add_origin(args.origin);
@@ -17581,6 +17651,13 @@ impl<'a> PersonRecord<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(PersonRecord::VT_LEFT_AT, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn residence(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Stay<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Stay>>>>(PersonRecord::VT_RESIDENCE, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonRecord<'_> {
@@ -17601,6 +17678,7 @@ impl ::flatbuffers::Verifiable for PersonRecord<'_> {
      .visit_field::<Origin>("origin", Self::VT_ORIGIN, false)?
      .visit_field::<bool>("left", Self::VT_LEFT, false)?
      .visit_field::<i64>("left_at", Self::VT_LEFT_AT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Stay>>>>("residence", Self::VT_RESIDENCE, false)?
      .finish();
     Ok(())
   }
@@ -17618,6 +17696,7 @@ pub struct PersonRecordArgs<'a> {
     pub origin: Origin,
     pub left: bool,
     pub left_at: i64,
+    pub residence: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Stay<'a>>>>>,
 }
 impl<'a> Default for PersonRecordArgs<'a> {
   #[inline]
@@ -17635,6 +17714,7 @@ impl<'a> Default for PersonRecordArgs<'a> {
       origin: Origin::Founder,
       left: false,
       left_at: 0,
+      residence: None,
     }
   }
 }
@@ -17693,6 +17773,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonRecordBuilder<'a, 'b, A
     self.fbb_.push_slot::<i64>(PersonRecord::VT_LEFT_AT, left_at, 0);
   }
   #[inline]
+  pub fn add_residence(&mut self, residence: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Stay<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonRecord::VT_RESIDENCE, residence);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonRecordBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonRecordBuilder {
@@ -17722,6 +17806,137 @@ impl ::core::fmt::Debug for PersonRecord<'_> {
       ds.field("origin", &self.origin());
       ds.field("left", &self.left());
       ds.field("left_at", &self.left_at());
+      ds.field("residence", &self.residence());
+      ds.finish()
+  }
+}
+pub enum StayOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Stay<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Stay<'a> {
+  type Inner = Stay<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Stay<'a> {
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SINCE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_WHY: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Stay { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args StayArgs
+  ) -> ::flatbuffers::WIPOffset<Stay<'bldr>> {
+    let mut builder = StayBuilder::new(_fbb);
+    builder.add_since(args.since);
+    builder.add_settlement(args.settlement);
+    builder.add_why(args.why);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Stay::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn since(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Stay::VT_SINCE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn why(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(Stay::VT_WHY, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Stay<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<i64>("since", Self::VT_SINCE, false)?
+     .visit_field::<u8>("why", Self::VT_WHY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct StayArgs {
+    pub settlement: u64,
+    pub since: i64,
+    pub why: u8,
+}
+impl<'a> Default for StayArgs {
+  #[inline]
+  fn default() -> Self {
+    StayArgs {
+      settlement: 0,
+      since: 0,
+      why: 0,
+    }
+  }
+}
+
+pub struct StayBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> StayBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(Stay::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_since(&mut self, since: i64) {
+    self.fbb_.push_slot::<i64>(Stay::VT_SINCE, since, 0);
+  }
+  #[inline]
+  pub fn add_why(&mut self, why: u8) {
+    self.fbb_.push_slot::<u8>(Stay::VT_WHY, why, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> StayBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    StayBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Stay<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Stay<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Stay");
+      ds.field("settlement", &self.settlement());
+      ds.field("since", &self.since());
+      ds.field("why", &self.why());
       ds.finish()
   }
 }

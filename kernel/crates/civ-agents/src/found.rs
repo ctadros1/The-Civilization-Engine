@@ -355,14 +355,68 @@ fn plan_band(params: &PeopleParams, d: &mut Draws, size: u32) -> Vec<Vec<Member>
     families
 }
 
-/// Scores candidate camp sites and picks one. Returns the chosen cell.
-fn choose_site(ctx: &Ctx, params: &PeopleParams, d: &mut Draws, size: u32) -> Option<usize> {
+/// The ground a site is judged on, worked out once for all the candidates.
+struct SiteGround {
+    slopes: Vec<f32>,
+    hand: Vec<f32>,
+}
+
+impl SiteGround {
+    fn of(ctx: &Ctx) -> SiteGround {
+        SiteGround {
+            slopes: terrain::slopes(ctx.map),
+            hand: terrain::height_above_drainage(
+                ctx.map,
+                (ctx.land_params.channel_area_km2 * 1.0e6) as f32,
+            ),
+        }
+    }
+}
+
+/// How far a field may lie from the hearth, metres: the content's longest walk to a field, off
+/// trail on the flat.
+fn field_reach_m(params: &PeopleParams) -> f32 {
+    (params.nav.tobler_ms(0.0) * params.nav.offtrail_factor * params.farm.max_walk_minutes * 60.0)
+        as f32
+}
+
+/// Up to `want` candidate camp sites: dry, walkable, gentle cells drawn at random.
+fn site_pool(
+    ctx: &Ctx,
+    params: &PeopleParams,
+    ground: &SiteGround,
+    d: &mut Draws,
+    want: usize,
+) -> Vec<usize> {
+    let map = ctx.map;
+    let n = map.cell_count();
+    let mut cells = Vec::new();
+    let mut attempts = 0usize;
+    while cells.len() < want && attempts < 50 * want {
+        attempts += 1;
+        let cell = (d.0.next_u64() % n as u64) as usize;
+        if map.water[cell] != WATER_LAND
+            || !ctx.nav.walkable(cell)
+            || f64::from(ground.slopes[cell]) > params.band.site_max_slope
+        {
+            continue;
+        }
+        cells.push(cell);
+    }
+    cells
+}
+
+/// Each of `cells` scored as a camp for a band of `size`: wild food near, cropland within a field
+/// walk, water, slope and floods.
+fn site_scores(
+    ctx: &Ctx,
+    params: &PeopleParams,
+    ground: &SiteGround,
+    cells: &[usize],
+    size: u32,
+) -> Vec<f32> {
     let map = ctx.map;
     let band = &params.band;
-    let slopes = terrain::slopes(map);
-    let hand =
-        terrain::height_above_drainage(map, (ctx.land_params.channel_area_km2 * 1.0e6) as f32);
-    let n = map.cell_count();
     let (w, h) = (map.width as i64, map.height as i64);
     let year_need = f64::from(size) * params.household.daily_kcal_per_person * 365.0;
     let patches = &ctx.land.patches;
@@ -395,10 +449,7 @@ fn choose_site(ctx: &Ctx, params: &PeopleParams, d: &mut Draws, size: u32) -> Op
         farm::need_area_ha(size as usize, params, c, kcal, c.yield_kg_per_ha)
     });
     let break_h = crop.map_or(1.0, |c| c.break_h_per_ha);
-    let field_reach_m = (params.nav.tobler_ms(0.0)
-        * params.nav.offtrail_factor
-        * params.farm.max_walk_minutes
-        * 60.0) as f32;
+    let field_reach_m = field_reach_m(params);
     let arable: Vec<f64> = patches
         .class
         .iter()
@@ -407,17 +458,8 @@ fn choose_site(ctx: &Ctx, params: &PeopleParams, d: &mut Draws, size: u32) -> Op
             _ => 0.0,
         })
         .collect();
-    let mut sites = Vec::new();
-    let mut attempts = 0u32;
-    while sites.len() < band.camp_candidates as usize && attempts < 50 * band.camp_candidates {
-        attempts += 1;
-        let cell = (d.0.next_u64() % n as u64) as usize;
-        if map.water[cell] != WATER_LAND
-            || !ctx.nav.walkable(cell)
-            || f64::from(slopes[cell]) > band.site_max_slope
-        {
-            continue;
-        }
+    let mut scores = Vec::with_capacity(cells.len());
+    for &cell in cells {
         let at = cell_centre(map, cell);
         // Wild food within the radius: what a person-hour of work would bring in each patch, in
         // kcal, summed over the food resources.
@@ -461,21 +503,86 @@ fn choose_site(ctx: &Ctx, params: &PeopleParams, d: &mut Draws, size: u32) -> Op
         let food_years = food * 8.0 * 365.0 / year_need.max(1.0);
         let mut score = band.site_w_food * (1.0 + food_years).ln()
             - band.site_w_water_per_100m * water_m / 100.0
-            - band.site_w_slope_per_pct * f64::from(slopes[cell]) * 100.0;
+            - band.site_w_slope_per_pct * f64::from(ground.slopes[cell]) * 100.0;
         if need_ha > 0.0 {
             score += band.site_w_arable * (1.0 + arable_ha / need_ha).ln();
         }
-        if f64::from(hand[cell]) < band.site_flood_hand_m {
+        if f64::from(ground.hand[cell]) < band.site_flood_hand_m {
             score -= band.site_w_flood;
         }
-        sites.push((cell, score as f32));
+        scores.push(score as f32);
     }
-    if sites.is_empty() {
+    scores
+}
+
+/// Camp sites for founding groups of `sizes` people, chosen together (ADR-0018 §6): one pool of
+/// candidates, each scored for each group, and one draw over the summed scores of the
+/// assignments whose fields' reaches do not overlap, so the order the groups are listed in
+/// cannot decide who gets the best land. Groups are taken largest first (groups of a size are
+/// alike). Returns each group's cell, in the order given, or `None` when no assignment fits.
+fn choose_sites(
+    ctx: &Ctx,
+    params: &PeopleParams,
+    d: &mut Draws,
+    sizes: &[u32],
+) -> Option<Vec<usize>> {
+    let ground = SiteGround::of(ctx);
+    let groups = sizes.len().max(1);
+    let pool = site_pool(
+        ctx,
+        params,
+        &ground,
+        d,
+        params.band.camp_candidates as usize * groups,
+    );
+    if pool.is_empty() || sizes.is_empty() {
         return None;
     }
-    let totals: Vec<f32> = sites.iter().map(|s| s.1).collect();
+    let mut order: Vec<usize> = (0..sizes.len()).collect();
+    order.sort_by_key(|&g| std::cmp::Reverse(sizes[g]));
+    let scores: Vec<Vec<f32>> = order
+        .iter()
+        .map(|&g| site_scores(ctx, params, &ground, &pool, sizes[g]))
+        .collect();
+    let apart = 2.0 * field_reach_m(params);
+    let at: Vec<(f32, f32)> = pool.iter().map(|&c| cell_centre(ctx.map, c)).collect();
+    let fits = |a: usize, b: usize| a != b && (at[a].0 - at[b].0).hypot(at[a].1 - at[b].1) >= apart;
+    let n = pool.len();
+    let mut totals: Vec<f32> = Vec::new();
+    let mut choices: Vec<[u16; 3]> = Vec::new();
+    match scores.len() {
+        1 => {
+            totals = scores[0].clone();
+            choices = (0..n).map(|a| [a as u16, 0, 0]).collect();
+        }
+        2 => {
+            for a in 0..n {
+                for b in (0..n).filter(|&b| fits(a, b)) {
+                    totals.push(scores[0][a] + scores[1][b]);
+                    choices.push([a as u16, b as u16, 0]);
+                }
+            }
+        }
+        _ => {
+            for a in 0..n {
+                for b in (0..n).filter(|&b| fits(a, b)) {
+                    for c in (0..n).filter(|&c| fits(a, c) && fits(b, c)) {
+                        totals.push(scores[0][a] + scores[1][b] + scores[2][c]);
+                        choices.push([a as u16, b as u16, c as u16]);
+                    }
+                }
+            }
+        }
+    }
+    if totals.is_empty() {
+        return None;
+    }
     let (i, _, _) = decide::choose(&totals, &params.decision, d.unit());
-    Some(sites[i].0)
+    let mut cells = vec![0; sizes.len()];
+    for (k, &g) in order.iter().enumerate().take(3) {
+        cells[g] = pool[usize::from(choices[i][k])];
+    }
+    Some(cells)
 }
 
 /// Adds a planned family to the world: a household of `settlement` living at `home`, carrying in
@@ -605,6 +712,15 @@ fn add_family(
                 mother,
                 father,
                 origin,
+                residence: vec![crate::history::Stay {
+                    settlement: Some(settlement),
+                    since: now,
+                    why: match origin {
+                        Origin::Founder => crate::history::ResidenceWhy::Founder,
+                        Origin::Born => crate::history::ResidenceWhy::Born,
+                        Origin::Spawned => crate::history::ResidenceWhy::Arrived,
+                    },
+                }],
             },
         );
         let traits = Traits {
@@ -723,18 +839,53 @@ pub fn founder_skills(
         .collect()
 }
 
+/// Most founding groups a world is made with (ADR-0018 §6).
+pub const MAX_FOUNDING_GROUPS: usize = 3;
+
 /// Brings a founding band of `size` people into the world at a site they choose, founds their
 /// settlement, records the chronicle, and has everyone decide what to do first.
 pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Founded, String> {
-    let params = ctx.params;
-    let now = ctx.now;
+    found_bands(pop, ctx, &[size]).map(|mut all| all.remove(0))
+}
+
+/// Brings founding groups of `sizes` people (at most [`MAX_FOUNDING_GROUPS`]) into the world,
+/// each a band of its own, at sites chosen together so that none counts on another's fields
+/// (ADR-0018 §6), and founds a settlement for each as [`found_band`] does. Fails when there is no
+/// ground to camp on, or no room for the groups apart.
+pub fn found_bands(
+    pop: &mut Population,
+    ctx: &mut Ctx,
+    sizes: &[u32],
+) -> Result<Vec<Founded>, String> {
+    let sizes = &sizes[..sizes.len().min(MAX_FOUNDING_GROUPS)];
     let mut d = Draws(Rng64::from_key(&[
         ctx.seed,
         PURPOSE_BAND,
-        now.minutes() as u64,
+        ctx.now.minutes() as u64,
     ]));
-    let cell = choose_site(ctx, params, &mut d, size)
-        .ok_or_else(|| "there is no dry, gentle ground to camp on".to_owned())?;
+    let cells = choose_sites(ctx, ctx.params, &mut d, sizes).ok_or_else(|| match sizes.len() {
+        0 | 1 => "there is no dry, gentle ground to camp on".to_owned(),
+        n => format!("there is no room for {n} settlements whose fields lie apart"),
+    })?;
+    Ok(sizes
+        .iter()
+        .zip(cells)
+        .map(|(&size, cell)| settle_band(pop, ctx, &mut d, cell, size))
+        .collect())
+}
+
+/// A founding band of `size` people camps at `cell`: their settlement is founded and named,
+/// their families placed around its hearth, the chronicle told, and everyone decides what to do
+/// first.
+fn settle_band(
+    pop: &mut Population,
+    ctx: &mut Ctx,
+    d: &mut Draws,
+    cell: usize,
+    size: u32,
+) -> Founded {
+    let params = ctx.params;
+    let now = ctx.now;
     let hearth = cell_centre(ctx.map, cell);
     let name = match (
         d.pick(&params.names.place_first).cloned(),
@@ -752,9 +903,12 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
         hearth_m: hearth,
         food_short: false,
         harvest_kg: 0.0,
+        parent: None,
+        founding: civ_land::Founding::Setup,
+        abandoned: None,
     });
 
-    let families = plan_band(params, &mut d, size);
+    let families = plan_band(params, d, size);
     let mut people = Vec::new();
     let mut households = Vec::new();
     let mut used_names: Vec<String> = Vec::new();
@@ -782,7 +936,7 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
             Some(settlement),
             home,
             Origin::Founder,
-            &mut d,
+            d,
             &mut used_names,
         );
         households.push(hh_id);
@@ -813,13 +967,13 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
     for &id in &people {
         pop.begin(ctx, id);
     }
-    Ok(Founded {
+    Founded {
         settlement,
         name,
         hearth,
         people,
         households,
-    })
+    }
 }
 
 /// Most families the observer sends at once.
@@ -1026,6 +1180,9 @@ fn spawn_one(
                 hearth_m: home,
                 food_short: false,
                 harvest_kg: 0.0,
+                parent: None,
+                founding: civ_land::Founding::Sent,
+                abandoned: None,
             });
             (id, name, true)
         }

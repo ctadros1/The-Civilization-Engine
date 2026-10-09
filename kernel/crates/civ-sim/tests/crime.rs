@@ -39,6 +39,7 @@ fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
             preset_id: PRESET.to_owned(),
             size_cells: 512,
             band_size: 0,
+            neighbours: Vec::new(),
             regime_id: String::new(),
         },
         content,

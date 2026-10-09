@@ -59,11 +59,12 @@ pub mod wealth;
 pub mod word;
 
 pub use found::{
-    Founded, MAX_SPAWN_FAMILIES, Spawned, found_band, send_agitator, spawn_families, spawn_family,
+    Founded, MAX_FOUNDING_GROUPS, MAX_SPAWN_FAMILIES, Spawned, found_band, found_bands,
+    send_agitator, spawn_families, spawn_family,
 };
 pub use history::{
-    Cause, ChronicleEvent, ChronicleKind, Moved, Origin, PersonRecord, Reason, Receipt, Scored,
-    Span, Term, Union,
+    Cause, ChronicleEvent, ChronicleKind, Moved, Origin, PersonRecord, Reason, Receipt,
+    ResidenceWhy, Scored, Span, Stay, Term, Union,
 };
 pub use ledger::Channel;
 pub use needs::Sex;

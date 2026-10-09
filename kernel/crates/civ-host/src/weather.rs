@@ -304,6 +304,7 @@ mod tests {
                 preset_id: preset.id.clone(),
                 size_cells: 256,
                 band_size: 0,
+                neighbours: Vec::new(),
                 regime_id: String::new(),
             },
             &content,

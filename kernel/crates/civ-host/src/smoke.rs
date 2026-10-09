@@ -340,6 +340,31 @@ pub struct LongRun {
     /// Months lived-in buildings have stood, counted as each month begins: their standing
     /// buildings, finished, of households with someone living.
     pub lived_building_months: u64,
+    /// When the year being lived began: each settlement's accounts are checked from here.
+    year_from: civ_core::SimTime,
+    /// Where a settlement's accounts did not balance, or disagreed with who lives there, by year
+    /// (ADR-0018 §3's hard check).
+    pub accounting: Vec<String>,
+    /// Each settlement's accounts over the run, summed: births, deaths, arrivals and departures,
+    /// and of those, arrivals from off the map and departures off it.
+    pub moves: Moves,
+}
+
+/// Each settlement's accounts over a run, summed over its settlements (ADR-0018 §3).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
+pub struct Moves {
+    /// Children born.
+    pub births: u32,
+    /// Residents who died.
+    pub deaths: u32,
+    /// People who came to live in a settlement, from another or from off the map.
+    pub arrivals: u32,
+    /// Of those, from off the map.
+    pub from_off_map: u32,
+    /// Residents who went to live elsewhere, in another settlement or off the map.
+    pub departures: u32,
+    /// Of those, off the map.
+    pub off_map: u32,
 }
 
 impl LongRun {
@@ -350,7 +375,45 @@ impl LongRun {
             books: (sim.people().goods_held(), sim.people().flows()),
             economy: Economy::default(),
             lived_building_months: 0,
+            year_from: sim.now(),
+            accounting: Vec::new(),
+            moves: Moves::default(),
         }
+    }
+
+    /// Checks each settlement's accounts for the year just lived (ADR-0018 §3): births less
+    /// deaths plus arrivals less departures is its change in residents, which is who lives there
+    /// now. Adds them to the run's sums.
+    fn check_accounts(&mut self, sim: &Sim, y: u32) -> Vec<String> {
+        let pop = sim.people();
+        let (from, to) = (self.year_from, sim.now().plus_minutes(1));
+        let mut failures = Vec::new();
+        for s in &sim.land().settlements {
+            let a = pop.accounts(s.id, from, to);
+            if !a.balance() || a.end != pop.residents(s.id) {
+                failures.push(format!(
+                    "{}'s accounts in year {y} do not balance: {} at the start, {} born, {} died, \
+                     {} came, {} went, {} at the end, {} living there",
+                    s.name,
+                    a.start,
+                    a.births,
+                    a.deaths,
+                    a.arrived(),
+                    a.departed(),
+                    a.end,
+                    pop.residents(s.id)
+                ));
+            }
+            self.moves.births += a.births;
+            self.moves.deaths += a.deaths;
+            self.moves.arrivals += a.arrived();
+            self.moves.from_off_map += a.arrivals.get(&None).copied().unwrap_or(0);
+            self.moves.departures += a.departed();
+            self.moves.off_map += a.departures.get(&None).copied().unwrap_or(0);
+        }
+        self.year_from = to;
+        self.accounting.extend(failures.iter().cloned());
+        failures
     }
 
     /// Lives `sim` to `end` month by month, sampling the economy as each month begins.
@@ -392,6 +455,7 @@ impl LongRun {
     /// claims, fields and wealth measures in order. Growth is the caller's to judge.
     pub fn year_end(&mut self, sim: &Sim, y: u32) -> Vec<String> {
         let mut failures = self.economy.year_end(sim, y);
+        failures.extend(self.check_accounts(sim, y));
         let now = sim.now();
         let living = sim.people().living();
         let stuck = sim
@@ -1560,6 +1624,7 @@ fn run_one(
             preset_id: preset.to_owned(),
             size_cells: options.size,
             band_size: 0,
+            neighbours: Vec::new(),
             regime_id: regime.0,
         },
         content,

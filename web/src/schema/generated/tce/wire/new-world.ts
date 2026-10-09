@@ -58,8 +58,23 @@ regimeId(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+neighbours(index: number):number|null {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? this.bb!.readUint32(this.bb!.__vector(this.bb_pos + offset) + index * 4) : 0;
+}
+
+neighboursLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+neighboursArray():Uint32Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? new Uint32Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
+}
+
 static startNewWorld(builder:flatbuffers.Builder) {
-  builder.startObject(6);
+  builder.startObject(7);
 }
 
 static addSeed(builder:flatbuffers.Builder, seed:bigint) {
@@ -86,12 +101,33 @@ static addRegimeId(builder:flatbuffers.Builder, regimeIdOffset:flatbuffers.Offse
   builder.addFieldOffset(5, regimeIdOffset, 0);
 }
 
+static addNeighbours(builder:flatbuffers.Builder, neighboursOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(6, neighboursOffset, 0);
+}
+
+static createNeighboursVector(builder:flatbuffers.Builder, data:number[]|Uint32Array):flatbuffers.Offset;
+/**
+ * @deprecated This Uint8Array overload will be removed in the future.
+ */
+static createNeighboursVector(builder:flatbuffers.Builder, data:number[]|Uint8Array):flatbuffers.Offset;
+static createNeighboursVector(builder:flatbuffers.Builder, data:number[]|Uint32Array|Uint8Array):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addInt32(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startNeighboursVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endNewWorld(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createNewWorld(builder:flatbuffers.Builder, seed:bigint, presetIdOffset:flatbuffers.Offset, sizeCells:number, nameOffset:flatbuffers.Offset, bandSize:number, regimeIdOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createNewWorld(builder:flatbuffers.Builder, seed:bigint, presetIdOffset:flatbuffers.Offset, sizeCells:number, nameOffset:flatbuffers.Offset, bandSize:number, regimeIdOffset:flatbuffers.Offset, neighboursOffset:flatbuffers.Offset):flatbuffers.Offset {
   NewWorld.startNewWorld(builder);
   NewWorld.addSeed(builder, seed);
   NewWorld.addPresetId(builder, presetIdOffset);
@@ -99,6 +135,7 @@ static createNewWorld(builder:flatbuffers.Builder, seed:bigint, presetIdOffset:f
   NewWorld.addName(builder, nameOffset);
   NewWorld.addBandSize(builder, bandSize);
   NewWorld.addRegimeId(builder, regimeIdOffset);
+  NewWorld.addNeighbours(builder, neighboursOffset);
   return NewWorld.endNewWorld(builder);
 }
 }

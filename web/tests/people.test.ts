@@ -144,6 +144,8 @@ describe("people payloads", () => {
     const person = W.PersonBrief.endPersonBrief(b);
     const people = W.Snapshot.createPeopleVector(b, [person]);
     const name = b.createString("Alderford");
+    const founding = b.createString("one of the groups the world began with");
+    const year = b.createString("2 born, 1 died");
     W.SettlementBrief.startSettlementBrief(b);
     W.SettlementBrief.addId(b, 3n);
     W.SettlementBrief.addName(b, name);
@@ -152,6 +154,8 @@ describe("people payloads", () => {
     W.SettlementBrief.addPopulation(b, 40);
     W.SettlementBrief.addFoodDays(b, 1.5);
     W.SettlementBrief.addFoodShort(b, true);
+    W.SettlementBrief.addFounding(b, founding);
+    W.SettlementBrief.addYear(b, year);
     const settlement = W.SettlementBrief.endSettlementBrief(b);
     const settlements = W.Snapshot.createSettlementsVector(b, [settlement]);
     W.Snapshot.startSnapshot(b);
@@ -185,6 +189,9 @@ describe("people payloads", () => {
         foodDays: 1.5,
         foodShort: true,
         harvestKg: 0,
+        founding: "one of the groups the world began with",
+        year: "2 born, 1 died",
+        abandonedMinute: -1,
       },
     ]);
     expect(s.chronicleHead).toBe(2);

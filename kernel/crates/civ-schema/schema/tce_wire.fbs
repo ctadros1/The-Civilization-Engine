@@ -296,6 +296,14 @@ table SettlementBrief {
   food_short: bool (id: 6);
   // Grain threshed from its fields this harvest, kilograms (M1 slice C).
   harvest_kg: float (id: 7);
+  // How it was founded, in words (wire 1.49, ADR-0018 §1): "one of the groups the world began
+  // with", "by a family the observer sent".
+  founding: string (id: 8);
+  // Its accounts over the past year, in words (ADR-0018 §3): "3 born, 1 died, 4 came from beyond
+  // the map"; empty when nothing changed.
+  year: string (id: 9);
+  // When its last resident died or left (-1: it is lived in).
+  abandoned_minute: long = -1 (id: 10);
 }
 
 table Snapshot {
@@ -371,6 +379,9 @@ table NewWorld {
   band_size: uint (id: 4);
   // The property regime, by content id; empty = the content's default (M3a slice K).
   regime_id: string (id: 5);
+  // People in each further founding group, a band of its own placed together with the first
+  // (wire 1.49, ADR-0018 §6); 0 = the content's default. At most two.
+  neighbours: [uint] (id: 6);
 }
 
 table SaveWorld {
@@ -799,6 +810,9 @@ table PersonInfo {
   // Wire 1.47: the observer's interventions that reached them, newest first, with what came of
   // each.
   influences: [InfluenceLine] (id: 50);
+  // Where they have lived, oldest first, each in words (wire 1.49, ADR-0018 §2): "Ashford, from
+  // the spring of year 1: came with a founding group".
+  residence: [string] (id: 51);
 }
 
 // Wire 1.47 (M4c slice AJ): a claim that may be whispered.

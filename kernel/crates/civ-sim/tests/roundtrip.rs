@@ -101,6 +101,7 @@ fn fixture() -> &'static Fixture {
                 preset_id: PRESET.to_owned(),
                 size_cells: SIDE,
                 band_size: 0,
+                neighbours: Vec::new(),
                 regime_id: String::new(),
             },
             content(),
@@ -208,6 +209,7 @@ fn a_loaded_map_equals_a_regenerated_one() {
             preset_id: PRESET.to_owned(),
             size_cells: SIDE,
             band_size: 0,
+            neighbours: Vec::new(),
             regime_id: String::new(),
         },
         content(),
@@ -1177,6 +1179,7 @@ fn worn_ground_and_its_trails_survive_a_save_and_load() {
             preset_id: PRESET.to_owned(),
             size_cells: SIDE,
             band_size: 0,
+            neighbours: Vec::new(),
             regime_id: String::new(),
         },
         content(),
@@ -1753,6 +1756,7 @@ fn unknown_presets_are_refused() {
             preset_id: "core:worldgen/nowhere".to_owned(),
             size_cells: 256,
             band_size: 0,
+            neighbours: Vec::new(),
             regime_id: String::new(),
         },
         content(),
@@ -2229,6 +2233,38 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
             .iter()
             .all(|(_, p)| pop.influences.luck(p.id, day).is_none())
     );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_49_save_loads_with_everyone_s_residence_inferred() {
+    let mut sim = load_first();
+    // A schema-49 save, from before residence histories (M5a slice AK, ADR-0018 §2): nobody's
+    // stays were kept.
+    for r in sim.people_mut_for_tests().records.values_mut() {
+        r.residence.clear();
+    }
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V49;
+    let path = republish("slice-aj2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-49 save loads");
+    let pop = loaded.people();
+    assert!(
+        pop.residence_problems().is_empty(),
+        "{:?}",
+        pop.residence_problems()
+    );
+    let village = loaded.land().settlements[0].id;
+    for r in pop.records.values() {
+        let first = r.residence.first().expect("a stay inferred");
+        assert_eq!(first.settlement, Some(village));
+        let why = match r.origin {
+            civ_agents::Origin::Founder => civ_agents::ResidenceWhy::Founder,
+            civ_agents::Origin::Born => civ_agents::ResidenceWhy::Born,
+            civ_agents::Origin::Spawned => civ_agents::ResidenceWhy::Arrived,
+        };
+        assert_eq!(first.why, why);
+    }
     loaded.advance_minutes(24 * 60).expect("goes on");
 }
 

@@ -34,6 +34,19 @@ describe("builders", () => {
       ),
     );
     expect((village.body(new W.NewWorld()) as W.NewWorld).regimeId()).toBe("core:regime/village");
+    expect(body.neighboursLength()).toBe(0);
+    const neighbours = W.Command.getRootAsCommand(
+      bb(
+        M.newWorld({
+          seed: 1n,
+          presetId: "core:worldgen/river_valley",
+          sizeCells: 768,
+          name: "",
+          neighbours: [40, 30],
+        }),
+      ),
+    ).body(new W.NewWorld()) as W.NewWorld;
+    expect(Array.from(neighbours.neighboursArray() ?? [])).toEqual([40, 30]);
   });
 
   it("builds clock and raster requests", () => {

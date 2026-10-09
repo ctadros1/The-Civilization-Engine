@@ -170,6 +170,7 @@ fn fixture(content: &ContentRegistry, dir: &Path, index: usize) -> Made {
             preset_id: preset.to_owned(),
             size_cells: SIZE,
             band_size: 0,
+            neighbours: Vec::new(),
             regime_id: String::new(),
         },
         content,

@@ -181,6 +181,9 @@ pub const SCHEMA_V47: u32 = 47;
 /// The schema version of M4c slice AJ's first step: whispers and ideologies told of, before
 /// agitators, blessings and curses (see [`agents`]).
 pub const SCHEMA_V48: u32 = 48;
+/// The schema version of M4c slice AJ's second step: agitators, blessings and curses, before
+/// several settlements (see [`agents`]).
+pub const SCHEMA_V49: u32 = 49;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

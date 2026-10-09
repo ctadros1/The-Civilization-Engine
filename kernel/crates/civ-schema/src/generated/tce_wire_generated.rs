@@ -6025,6 +6025,9 @@ impl<'a> SettlementBrief<'a> {
   pub const VT_FOOD_DAYS: ::flatbuffers::VOffsetT = 14;
   pub const VT_FOOD_SHORT: ::flatbuffers::VOffsetT = 16;
   pub const VT_HARVEST_KG: ::flatbuffers::VOffsetT = 18;
+  pub const VT_FOUNDING: ::flatbuffers::VOffsetT = 20;
+  pub const VT_YEAR: ::flatbuffers::VOffsetT = 22;
+  pub const VT_ABANDONED_MINUTE: ::flatbuffers::VOffsetT = 24;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6036,8 +6039,11 @@ impl<'a> SettlementBrief<'a> {
     args: &'args SettlementBriefArgs<'args>
   ) -> ::flatbuffers::WIPOffset<SettlementBrief<'bldr>> {
     let mut builder = SettlementBriefBuilder::new(_fbb);
+    builder.add_abandoned_minute(args.abandoned_minute);
     builder.add_founded_minute(args.founded_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.year { builder.add_year(x); }
+    if let Some(x) = args.founding { builder.add_founding(x); }
     builder.add_harvest_kg(args.harvest_kg);
     builder.add_food_days(args.food_days);
     builder.add_population(args.population);
@@ -6104,6 +6110,27 @@ impl<'a> SettlementBrief<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(SettlementBrief::VT_HARVEST_KG, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn founding(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(SettlementBrief::VT_FOUNDING, None)}
+  }
+  #[inline]
+  pub fn year(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(SettlementBrief::VT_YEAR, None)}
+  }
+  #[inline]
+  pub fn abandoned_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(SettlementBrief::VT_ABANDONED_MINUTE, Some(-1)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for SettlementBrief<'_> {
@@ -6120,6 +6147,9 @@ impl ::flatbuffers::Verifiable for SettlementBrief<'_> {
      .visit_field::<f32>("food_days", Self::VT_FOOD_DAYS, false)?
      .visit_field::<bool>("food_short", Self::VT_FOOD_SHORT, false)?
      .visit_field::<f32>("harvest_kg", Self::VT_HARVEST_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("founding", Self::VT_FOUNDING, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("year", Self::VT_YEAR, false)?
+     .visit_field::<i64>("abandoned_minute", Self::VT_ABANDONED_MINUTE, false)?
      .finish();
     Ok(())
   }
@@ -6133,6 +6163,9 @@ pub struct SettlementBriefArgs<'a> {
     pub food_days: f32,
     pub food_short: bool,
     pub harvest_kg: f32,
+    pub founding: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub year: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub abandoned_minute: i64,
 }
 impl<'a> Default for SettlementBriefArgs<'a> {
   #[inline]
@@ -6146,6 +6179,9 @@ impl<'a> Default for SettlementBriefArgs<'a> {
       food_days: 0.0,
       food_short: false,
       harvest_kg: 0.0,
+      founding: None,
+      year: None,
+      abandoned_minute: -1,
     }
   }
 }
@@ -6188,6 +6224,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SettlementBriefBuilder<'a, 'b
     self.fbb_.push_slot::<f32>(SettlementBrief::VT_HARVEST_KG, harvest_kg, 0.0);
   }
   #[inline]
+  pub fn add_founding(&mut self, founding: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SettlementBrief::VT_FOUNDING, founding);
+  }
+  #[inline]
+  pub fn add_year(&mut self, year: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SettlementBrief::VT_YEAR, year);
+  }
+  #[inline]
+  pub fn add_abandoned_minute(&mut self, abandoned_minute: i64) {
+    self.fbb_.push_slot::<i64>(SettlementBrief::VT_ABANDONED_MINUTE, abandoned_minute, -1);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SettlementBriefBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SettlementBriefBuilder {
@@ -6213,6 +6261,9 @@ impl ::core::fmt::Debug for SettlementBrief<'_> {
       ds.field("food_days", &self.food_days());
       ds.field("food_short", &self.food_short());
       ds.field("harvest_kg", &self.harvest_kg());
+      ds.field("founding", &self.founding());
+      ds.field("year", &self.year());
+      ds.field("abandoned_minute", &self.abandoned_minute());
       ds.finish()
   }
 }
@@ -6900,6 +6951,7 @@ impl<'a> NewWorld<'a> {
   pub const VT_NAME: ::flatbuffers::VOffsetT = 10;
   pub const VT_BAND_SIZE: ::flatbuffers::VOffsetT = 12;
   pub const VT_REGIME_ID: ::flatbuffers::VOffsetT = 14;
+  pub const VT_NEIGHBOURS: ::flatbuffers::VOffsetT = 16;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6912,6 +6964,7 @@ impl<'a> NewWorld<'a> {
   ) -> ::flatbuffers::WIPOffset<NewWorld<'bldr>> {
     let mut builder = NewWorldBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.neighbours { builder.add_neighbours(x); }
     if let Some(x) = args.regime_id { builder.add_regime_id(x); }
     builder.add_band_size(args.band_size);
     if let Some(x) = args.name { builder.add_name(x); }
@@ -6963,6 +7016,13 @@ impl<'a> NewWorld<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(NewWorld::VT_REGIME_ID, None)}
   }
+  #[inline]
+  pub fn neighbours(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(NewWorld::VT_NEIGHBOURS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for NewWorld<'_> {
@@ -6977,6 +7037,7 @@ impl ::flatbuffers::Verifiable for NewWorld<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
      .visit_field::<u32>("band_size", Self::VT_BAND_SIZE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("regime_id", Self::VT_REGIME_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("neighbours", Self::VT_NEIGHBOURS, false)?
      .finish();
     Ok(())
   }
@@ -6988,6 +7049,7 @@ pub struct NewWorldArgs<'a> {
     pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub band_size: u32,
     pub regime_id: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub neighbours: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
 }
 impl<'a> Default for NewWorldArgs<'a> {
   #[inline]
@@ -6999,6 +7061,7 @@ impl<'a> Default for NewWorldArgs<'a> {
       name: None,
       band_size: 0,
       regime_id: None,
+      neighbours: None,
     }
   }
 }
@@ -7033,6 +7096,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> NewWorldBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(NewWorld::VT_REGIME_ID, regime_id);
   }
   #[inline]
+  pub fn add_neighbours(&mut self, neighbours: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(NewWorld::VT_NEIGHBOURS, neighbours);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> NewWorldBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     NewWorldBuilder {
@@ -7056,6 +7123,7 @@ impl ::core::fmt::Debug for NewWorld<'_> {
       ds.field("name", &self.name());
       ds.field("band_size", &self.band_size());
       ds.field("regime_id", &self.regime_id());
+      ds.field("neighbours", &self.neighbours());
       ds.finish()
   }
 }
@@ -13780,6 +13848,7 @@ impl<'a> PersonInfo<'a> {
   pub const VT_FACTION: ::flatbuffers::VOffsetT = 100;
   pub const VT_NEWS: ::flatbuffers::VOffsetT = 102;
   pub const VT_INFLUENCES: ::flatbuffers::VOffsetT = 104;
+  pub const VT_RESIDENCE: ::flatbuffers::VOffsetT = 106;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -13801,6 +13870,7 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.residence { builder.add_residence(x); }
     if let Some(x) = args.influences { builder.add_influences(x); }
     if let Some(x) = args.news { builder.add_news(x); }
     if let Some(x) = args.faction { builder.add_faction(x); }
@@ -14203,6 +14273,13 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<InfluenceLine>>>>(PersonInfo::VT_INFLUENCES, None)}
   }
+  #[inline]
+  pub fn residence(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PersonInfo::VT_RESIDENCE, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -14262,6 +14339,7 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<FactionLine>>("faction", Self::VT_FACTION, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<NewsLine>>>>("news", Self::VT_NEWS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<InfluenceLine>>>>("influences", Self::VT_INFLUENCES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("residence", Self::VT_RESIDENCE, false)?
      .finish();
     Ok(())
   }
@@ -14318,6 +14396,7 @@ pub struct PersonInfoArgs<'a> {
     pub faction: Option<::flatbuffers::WIPOffset<FactionLine<'a>>>,
     pub news: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NewsLine<'a>>>>>,
     pub influences: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<InfluenceLine<'a>>>>>,
+    pub residence: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -14374,6 +14453,7 @@ impl<'a> Default for PersonInfoArgs<'a> {
       faction: None,
       news: None,
       influences: None,
+      residence: None,
     }
   }
 }
@@ -14588,6 +14668,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_INFLUENCES, influences);
   }
   #[inline]
+  pub fn add_residence(&mut self, residence: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_RESIDENCE, residence);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -14656,6 +14740,7 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("faction", &self.faction());
       ds.field("news", &self.news());
       ds.field("influences", &self.influences());
+      ds.field("residence", &self.residence());
       ds.finish()
   }
 }

@@ -56,6 +56,7 @@ mod market;
 mod norm;
 mod opinion;
 mod polity;
+mod residence;
 mod values;
 mod watch;
 mod word;
@@ -75,6 +76,7 @@ use knowledge::Gate;
 pub use knowledge::{LOST_AWARE, LOST_MADE_REMAIN};
 
 pub use life::{depleted, extra_kcal_day};
+pub use residence::Accounts;
 
 /// Keeps a route (or that there is none) in the newer generation of the route cache, retiring
 /// that generation to the older when it is full. The cache is exact: a route kept is the one a
@@ -1202,6 +1204,7 @@ impl Population {
                 ));
             }
         }
+        out.extend(self.residence_problems());
         out
     }
 
@@ -2339,7 +2342,7 @@ impl Population {
             household_fuel_day,
             at_home: (pos.0 - hh.home.0).abs() < 1.0 && (pos.1 - hh.home.1).abs() < 1.0,
             home: hh.home,
-            hearth,
+            hearth: hh.settlement.zip(hearth),
             gathering: self.gathering_facts(ctx, p.id, age, &hh, minute, evening_start),
             petition: self.petition_facts(ctx, p.id, age, &hh, minute, evening_start),
             watch: self.watch_facts(ctx, p.id, &hh, dark),

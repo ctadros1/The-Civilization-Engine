@@ -18,6 +18,7 @@
 //! `--max` lives the days at Max, in Accelerated mode from the first midnight with the
 //! approximations it declares (ADR-0011 §4); `--exact` with it switches them off, and `--only
 //! leisure` or `--only view` keeps one. `--digest` also prints how people spent their time.
+//! `--groups N` founds N groups of `--people` each, their sites chosen together (ADR-0018 §6).
 
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
@@ -42,6 +43,7 @@ struct Args {
     max: bool,
     exact: bool,
     only: String,
+    groups: u32,
 }
 
 fn args() -> Args {
@@ -60,6 +62,7 @@ fn args() -> Args {
         max: false,
         exact: false,
         only: String::new(),
+        groups: 1,
     };
     let mut it = std::env::args().skip(1);
     while let Some(flag) = it.next() {
@@ -88,6 +91,7 @@ fn args() -> Args {
             "--profile-after" => a.profile_after = value.parse().expect("--profile-after DAYS"),
             "--families" => a.families = value.parse().expect("--families N"),
             "--only" => a.only = value,
+            "--groups" => a.groups = value.parse().expect("--groups N"),
             other => panic!("unknown flag {other}"),
         }
     }
@@ -121,6 +125,7 @@ fn main() {
                 preset_id: content.default_preset().id.clone(),
                 size_cells: a.size,
                 band_size: a.people,
+                neighbours: vec![a.people; a.groups.saturating_sub(1) as usize],
                 regime_id: a.regime.clone(),
             },
             &content,

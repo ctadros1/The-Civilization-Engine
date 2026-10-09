@@ -19,7 +19,7 @@ use crate::demography::{
     fecundity, inherit_traits, life_rng, minutes_of_days, pick_name, pick_softmax,
     pregnancy_course, recovery_days, too_close,
 };
-use crate::history::{Cause, Moved, Origin, Union};
+use crate::history::{Cause, Moved, Origin, ResidenceWhy, Stay, Union};
 use crate::ledger::{Channel, Leg};
 use crate::needs::Sex;
 use crate::params::{FamilyParams, Residence};
@@ -139,6 +139,7 @@ impl Population {
         self.conceptions(ctx, day);
         self.partnering(ctx, day);
         self.emptied.clear();
+        self.note_abandoned(ctx);
     }
 
     /// Living people by permanent id: a fixed order, however the table is laid out.
@@ -289,6 +290,11 @@ impl Population {
                 mother: Some(mother),
                 father,
                 origin: Origin::Born,
+                residence: vec![Stay {
+                    settlement,
+                    since: now,
+                    why: crate::history::ResidenceWhy::Born,
+                }],
             },
         );
         self.insert_person(Person {
@@ -521,6 +527,8 @@ impl Population {
         if let Some(r) = self.records.get_mut(&id) {
             r.left = Some(now);
         }
+        // Off the map: nobody yet decides where an exile goes (ADR-0018 §3).
+        self.note_residence(id, None, now, ResidenceWhy::Exiled);
         if let Some(q) = p.partner {
             if let Some(partner) = self.person_mut(q) {
                 partner.partner = None;
@@ -583,7 +591,7 @@ impl Population {
                 continue;
             };
             let taker = self.household(to).and_then(|x| x.members.first().copied());
-            self.merge_household(ctx, household, to, true);
+            self.merge_household(ctx, household, to, true, ResidenceWhy::TakenIn);
             let settlement = self.household(to).and_then(|x| x.settlement);
             let place = self.household(to).map(|x| x.home);
             let mut people: Vec<PermanentId> = taker.into_iter().collect();
@@ -740,6 +748,7 @@ impl Population {
             if let Some(r) = self.records.get_mut(m) {
                 r.left = Some(now);
             }
+            self.note_residence(*m, None, now, ResidenceWhy::LeftMap);
             if let Some(q) = p.partner.filter(|q| !members.contains(q))
                 && let Some(partner) = self.person_mut(q)
             {
@@ -946,7 +955,14 @@ impl Population {
     /// land, and its plots and buildings, and with `fields` its fields too (when its people move
     /// with them; the fields of a household that is no more go by the regime's succession rule
     /// instead). `from` is no more.
-    fn merge_household(&mut self, ctx: &mut Ctx, from: PermanentId, to: PermanentId, fields: bool) {
+    fn merge_household(
+        &mut self,
+        ctx: &mut Ctx,
+        from: PermanentId,
+        to: PermanentId,
+        fields: bool,
+        why: ResidenceWhy,
+    ) {
         if from == to || self.household(to).is_none() {
             return;
         }
@@ -983,10 +999,12 @@ impl Population {
             return;
         };
         self.flows_gone.absorb(&gone.flows);
+        let settlement = self.household(to).and_then(|x| x.settlement);
         for m in &gone.members {
             if let Some(p) = self.person_mut(*m) {
                 p.household = to;
             }
+            self.note_residence(*m, settlement, ctx.now, why);
         }
         if let Some(x) = self.household_mut(to) {
             x.members.extend(gone.members.iter().copied());
@@ -1071,7 +1089,7 @@ impl Population {
         let settlement = self.household(household).and_then(|x| x.settlement);
         self.succeed(ctx, household, heirs);
         match heir {
-            Some(to) => self.merge_household(ctx, household, to, false),
+            Some(to) => self.merge_household(ctx, household, to, false, ResidenceWhy::TakenIn),
             None => {
                 self.settle_household(ctx, household);
                 if let Some(hd) = self.hh_index.remove(&household)
@@ -1287,21 +1305,21 @@ impl Population {
                         }
                     };
                     if to_his {
-                        self.merge_household(ctx, hw, hm, true);
+                        self.merge_household(ctx, hw, hm, true, ResidenceWhy::Married);
                         Moved::HerToHis
                     } else {
-                        self.merge_household(ctx, hm, hw, true);
+                        self.merge_household(ctx, hm, hw, true, ResidenceWhy::Married);
                         Moved::HisToHers
                     }
                 }
                 (true, false) => {
                     let group = self.with_dependants(ctx, man);
-                    self.move_people(ctx, &group, hm, hw);
+                    self.move_people(ctx, &group, hm, hw, ResidenceWhy::Married);
                     Moved::HisToHers
                 }
                 (false, true) => {
                     let group = self.with_dependants(ctx, woman);
-                    self.move_people(ctx, &group, hw, hm);
+                    self.move_people(ctx, &group, hw, hm, ResidenceWhy::Married);
                     Moved::HerToHis
                 }
                 (false, false) => match rule {
@@ -1311,12 +1329,12 @@ impl Population {
                     }
                     Residence::HisHousehold => {
                         let group = self.with_dependants(ctx, woman);
-                        self.move_people(ctx, &group, hw, hm);
+                        self.move_people(ctx, &group, hw, hm, ResidenceWhy::Married);
                         Moved::HerToHis
                     }
                     Residence::HerHousehold => {
                         let group = self.with_dependants(ctx, man);
-                        self.move_people(ctx, &group, hm, hw);
+                        self.move_people(ctx, &group, hm, hw, ResidenceWhy::Married);
                         Moved::HisToHers
                     }
                 },
@@ -1347,6 +1365,7 @@ impl Population {
         people: &[PermanentId],
         from: PermanentId,
         to: PermanentId,
+        why: ResidenceWhy,
     ) {
         if from == to || people.is_empty() || self.household(to).is_none() {
             return;
@@ -1355,7 +1374,7 @@ impl Population {
             return;
         };
         if people.len() >= before {
-            self.merge_household(ctx, from, to, true);
+            self.merge_household(ctx, from, to, true, why);
             return;
         }
         self.settle_household(ctx, from);
@@ -1403,10 +1422,12 @@ impl Population {
                 x.known = known;
             }
         }
+        let settlement = self.household(to).and_then(|x| x.settlement);
         for m in people {
             if let Some(p) = self.person_mut(*m) {
                 p.household = to;
             }
+            self.note_residence(*m, settlement, ctx.now, why);
         }
         self.sort_members(to);
     }
@@ -1462,7 +1483,7 @@ impl Population {
             };
             let group = self.with_dependants(ctx, who);
             let before = self.household(from).map_or(0, |x| x.members.len());
-            self.move_people(ctx, &group, from, id);
+            self.move_people(ctx, &group, from, id, ResidenceWhy::Married);
             // A share of the family's fields, as of its stores, where the regime says so
             // (ADR-0007 §2); a whole household that moves brings all of them.
             if ctx.regime.union_share && before > group.len() && self.household(from).is_some() {

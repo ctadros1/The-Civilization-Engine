@@ -33,6 +33,7 @@ fn new_world(seed: u64) -> Sim {
             preset_id: "core:worldgen/river_valley".to_owned(),
             size_cells: 512,
             band_size: 0,
+            neighbours: Vec::new(),
             regime_id: String::new(),
         },
         content(),
@@ -98,6 +99,52 @@ fn a_world_saved_at_midnight_lives_on_as_if_never_saved() {
         .advance_minutes(29 * MINUTES_PER_DAY)
         .expect("advances");
     assert_same("saved and loaded at a midnight", &straight, &resumed);
+}
+
+#[test]
+fn two_settlements_live_the_same_however_saved_or_cut() {
+    // Two founding groups (ADR-0018 §6): the second settlement is lived as exactly as the first.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let mut sim = Sim::create_for_tests(
+        &NewWorld {
+            name: "Neighbours".to_owned(),
+            seed: 3,
+            preset_id: "core:worldgen/river_valley".to_owned(),
+            size_cells: 768,
+            band_size: 0,
+            neighbours: vec![0],
+            regime_id: String::new(),
+        },
+        content(),
+        [7; 16],
+    )
+    .expect("generates");
+    assert_eq!(sim.land().settlements.len(), 2);
+    sim.advance_minutes(10 * MINUTES_PER_DAY).expect("advances");
+    sim.advance_to_midnight().expect("advances");
+    let start = save(&mut sim, dir.path(), "founded");
+    let mut straight = load(&start);
+    straight
+        .advance_minutes(20 * MINUTES_PER_DAY)
+        .expect("advances");
+    let mut saved = load(&start);
+    saved
+        .advance_minutes(7 * MINUTES_PER_DAY)
+        .expect("advances");
+    let mid = save(&mut saved, dir.path(), "midnight");
+    let mut resumed = load(&mid);
+    resumed
+        .advance_minutes(13 * MINUTES_PER_DAY)
+        .expect("advances");
+    assert_same("saved and loaded at a midnight", &straight, &resumed);
+    let mut cut = load(&start);
+    let (total, mut done) = (20 * MINUTES_PER_DAY, 0);
+    while done < total {
+        let step = 433.min(total - done);
+        cut.advance_minutes(step).expect("advances");
+        done += step;
+    }
+    assert_same("twenty days cut every 433 minutes", &straight, &cut);
 }
 
 #[test]

@@ -426,6 +426,91 @@ pub struct PersonRecord {
     pub father: Option<PermanentId>,
     /// How they came to be here.
     pub origin: Origin,
+    /// Where they have lived, oldest first: each settlement (none: off the map), since when and
+    /// why (ADR-0018 §2). The last is where they live now, or where they last lived.
+    pub residence: Vec<Stay>,
+}
+
+impl PersonRecord {
+    /// The settlement they lived in at `t` (after everything at an earlier minute), if any.
+    pub fn residence_at(&self, t: SimTime) -> Option<PermanentId> {
+        self.residence
+            .iter()
+            .take_while(|r| r.since < t)
+            .last()
+            .and_then(|r| r.settlement)
+    }
+}
+
+/// Why someone came to live where they did, or went (ADR-0018 §2). Numeric in saves: append
+/// only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ResidenceWhy {
+    /// Born to a household there.
+    Born,
+    /// One of a founding group the world was made with.
+    Founder,
+    /// Came from off the map: a family or an agitator the observer sent, or a wave.
+    Arrived,
+    /// Their household moved there from another settlement.
+    Moved,
+    /// Joined a household there on marrying.
+    Married,
+    /// Taken in by kin there when nobody older was left in their own household.
+    TakenIn,
+    /// Sent away by a finding.
+    Exiled,
+    /// Their household gave up and left the map.
+    LeftMap,
+}
+
+impl ResidenceWhy {
+    /// Every reason, in code order.
+    pub const ALL: [ResidenceWhy; 8] = [
+        ResidenceWhy::Born,
+        ResidenceWhy::Founder,
+        ResidenceWhy::Arrived,
+        ResidenceWhy::Moved,
+        ResidenceWhy::Married,
+        ResidenceWhy::TakenIn,
+        ResidenceWhy::Exiled,
+        ResidenceWhy::LeftMap,
+    ];
+
+    /// Its code in saves.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The reason with a code.
+    pub fn from_code(code: u8) -> Option<ResidenceWhy> {
+        ResidenceWhy::ALL.get(usize::from(code)).copied()
+    }
+
+    /// In words, as the inspector says it.
+    pub fn words(self) -> &'static str {
+        match self {
+            ResidenceWhy::Born => "born there",
+            ResidenceWhy::Founder => "came with a founding group",
+            ResidenceWhy::Arrived => "came from beyond the map",
+            ResidenceWhy::Moved => "moved there with their household",
+            ResidenceWhy::Married => "married into a household there",
+            ResidenceWhy::TakenIn => "taken in by kin there",
+            ResidenceWhy::Exiled => "sent away by a finding",
+            ResidenceWhy::LeftMap => "left with their household",
+        }
+    }
+}
+
+/// One stay in someone's residence history (ADR-0018 §2).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Stay {
+    /// The settlement, or none: off the map.
+    pub settlement: Option<PermanentId>,
+    /// From when.
+    pub since: SimTime,
+    /// Why.
+    pub why: ResidenceWhy,
 }
 
 /// What happened, in the chronicle. Numeric in saves: append only.

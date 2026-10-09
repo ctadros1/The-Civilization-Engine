@@ -19,8 +19,9 @@ pub enum Target {
     None,
     /// The household's home.
     Home,
-    /// The settlement's hearth.
-    Hearth,
+    /// A settlement's hearth, by the settlement's permanent id (ADR-0018 §2: company there is
+    /// whoever is present, residents or not).
+    Hearth(PermanentId),
     /// A land patch, by index.
     Patch(u32),
     /// A terrain cell next to drinkable water.

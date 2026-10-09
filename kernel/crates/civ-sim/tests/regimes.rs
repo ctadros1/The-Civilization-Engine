@@ -34,6 +34,7 @@ fn create(seed: u64, regime: &str) -> Result<Sim, SimError> {
             preset_id: "core:worldgen/river_valley".to_owned(),
             size_cells: 512,
             band_size: 0,
+            neighbours: Vec::new(),
             regime_id: regime.to_owned(),
         },
         content(),

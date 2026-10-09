@@ -1484,6 +1484,7 @@ mod tests {
                 preset_id: PRESET.to_owned(),
                 size_cells: 256,
                 band_size: 0,
+                neighbours: Vec::new(),
                 regime_id: String::new(),
             }));
             assert!(matches!(reply, Reply::Response(_)), "{reply:?}");
@@ -1933,6 +1934,7 @@ mod tests {
             preset_id: PRESET.to_owned(),
             size_cells: 300,
             band_size: 0,
+            neighbours: Vec::new(),
             regime_id: String::new(),
         };
         assert_eq!(
@@ -1980,6 +1982,7 @@ mod tests {
                 preset_id: PRESET.to_owned(),
                 size_cells: 2048,
                 band_size: 0,
+                neighbours: Vec::new(),
                 regime_id: String::new(),
             })),
             Reply::Response(_)

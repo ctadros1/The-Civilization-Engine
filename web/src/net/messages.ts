@@ -287,6 +287,12 @@ export interface SettlementBrief {
   foodShort: boolean;
   /** Grain threshed from its fields this harvest, kilograms. */
   harvestKg: number;
+  /** How it was founded, in the kernel's words (wire 1.49, ADR-0018 §1). */
+  founding: string;
+  /** Its accounts over the past year, in the kernel's words; empty when nothing changed. */
+  year: string;
+  /** When its last resident died or left; -1 while it is lived in. */
+  abandonedMinute: number;
 }
 
 export interface Snapshot {
@@ -733,6 +739,8 @@ export interface PersonInfo {
   /** Wire 1.47: the observer's interventions that reached them, newest first, with what came of
    * each, in the kernel's words. */
   influences: InfluenceLine[];
+  /** Wire 1.49 (ADR-0018 §2): where they have lived, oldest first, in the kernel's words. */
+  residence: string[];
 }
 
 /** A claim the observer may whisper (wire 1.47). */
@@ -1533,11 +1541,14 @@ export function newWorld(args: {
   bandSize?: number;
   /** The property regime, by content id; empty or absent = the content's default. */
   regimeId?: string;
+  /** People in each further founding group (wire 1.49); 0 = the content's default. */
+  neighbours?: number[];
 }): Uint8Array {
   const b = new flatbuffers.Builder(128);
   const preset = b.createString(args.presetId);
   const name = b.createString(args.name);
   const regime = b.createString(args.regimeId ?? "");
+  const neighbours = W.NewWorld.createNeighboursVector(b, args.neighbours ?? []);
   const body = W.NewWorld.createNewWorld(
     b,
     args.seed,
@@ -1546,6 +1557,7 @@ export function newWorld(args: {
     name,
     args.bandSize ?? 0,
     regime,
+    neighbours,
   );
   return command(b, W.CommandBody.NewWorld, body);
 }
@@ -2093,6 +2105,9 @@ function settlementBriefs(s: W.Snapshot): SettlementBrief[] {
       foodDays: t.foodDays(),
       foodShort: t.foodShort(),
       harvestKg: t.harvestKg(),
+      founding: t.founding() ?? "",
+      year: t.year() ?? "",
+      abandonedMinute: Number(t.abandonedMinute()),
     });
   }
   return out;
@@ -3002,6 +3017,10 @@ function personInfo(p: W.PersonInfo): PersonInfo {
       what: i.what() ?? "",
     });
   }
+  const residence: string[] = [];
+  for (let k = 0; k < p.residenceLength(); k++) {
+    residence.push(p.residence(k) ?? "");
+  }
   const f = p.faction();
   const faction: FactionLine | null = f
     ? {
@@ -3069,6 +3088,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     faction,
     news,
     influences,
+    residence,
   };
 }
 

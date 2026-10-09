@@ -10,7 +10,7 @@ use civ_agents::history::{self, Span};
 use civ_agents::params::GoodUse;
 use civ_agents::person::{food_kcal, fuel_kg, stock_kcal};
 use civ_agents::{Origin, Person, Receipt, Repro, Scored, Sex, Step, Target, population};
-use civ_core::PermanentId;
+use civ_core::{PermanentId, SimTime};
 use civ_land::Building;
 use civ_schema::flatbuffers::{FlatBufferBuilder, ForwardsUOffset, Vector, WIPOffset};
 use civ_schema::wire;
@@ -101,6 +101,8 @@ pub fn settlement_briefs<'a>(
                 &sim.rules.people,
                 &sim.rules.catalog.goods,
             );
+            let founding = fbb.create_string(&founding_words(sim, s));
+            let year = fbb.create_string(&year_words(sim, s.id));
             wire::SettlementBrief::create(
                 fbb,
                 &wire::SettlementBriefArgs {
@@ -112,11 +114,86 @@ pub fn settlement_briefs<'a>(
                     food_days: food_days.unwrap_or(0.0) as f32,
                     food_short: s.food_short,
                     harvest_kg: s.harvest_kg as f32,
+                    founding: Some(founding),
+                    year: Some(year),
+                    abandoned_minute: s.abandoned.map_or(-1, |t| t.minutes()),
                 },
             )
         })
         .collect();
     fbb.create_vector(&briefs)
+}
+
+/// A settlement's name, or "beyond the map" for none (ADR-0018 §3).
+fn place_name(sim: &Sim, s: Option<PermanentId>) -> String {
+    s.and_then(|s| sim.land.settlements.iter().find(|x| x.id == s))
+        .map_or_else(|| "beyond the map".to_owned(), |x| x.name.clone())
+}
+
+/// When `t` was, in words: "the spring of year 3".
+fn season_words(t: SimTime) -> String {
+    let d = t.date();
+    format!("the {} of year {}", d.season().name(), d.year)
+}
+
+/// How settlement `s` was founded, in words (ADR-0018 §1).
+pub fn founding_words(sim: &Sim, s: &civ_land::Settlement) -> String {
+    match s.founding {
+        civ_land::Founding::Setup => "one of the groups the world began with".to_owned(),
+        civ_land::Founding::Sent => "by a family the observer sent".to_owned(),
+        civ_land::Founding::Wave => "by a migration wave".to_owned(),
+        civ_land::Founding::Coalition => match s.parent {
+            Some(p) => format!("by households from {}", place_name(sim, Some(p))),
+            None => "by households already in the world".to_owned(),
+        },
+    }
+}
+
+/// Settlement `s`'s accounts over the past year, in words (ADR-0018 §3): "3 born, 1 died, 4 came
+/// from beyond the map"; empty when nothing changed.
+pub fn year_words(sim: &Sim, s: PermanentId) -> String {
+    let now = sim.now();
+    let from = now.plus_minutes(-civ_core::time::MINUTES_PER_YEAR);
+    let a = sim.people.accounts(s, from, now.plus_minutes(1));
+    let mut parts = Vec::new();
+    if a.births > 0 {
+        parts.push(format!("{} born", a.births));
+    }
+    if a.deaths > 0 {
+        parts.push(format!("{} died", a.deaths));
+    }
+    for (&origin, &n) in &a.arrivals {
+        parts.push(format!("{n} came from {}", place_name(sim, origin)));
+    }
+    for (&to, &n) in &a.departures {
+        match to {
+            None => parts.push(format!("{n} left the map")),
+            Some(_) => parts.push(format!("{n} went to {}", place_name(sim, to))),
+        }
+    }
+    parts.join(", ")
+}
+
+/// Where person `id` has lived, oldest first, each in words (ADR-0018 §2): "Ashford, from the
+/// spring of year 1: came with a founding group".
+pub fn residence_words(sim: &Sim, id: PermanentId) -> Vec<String> {
+    sim.people
+        .records
+        .get(&id)
+        .map(|r| {
+            r.residence
+                .iter()
+                .map(|x| {
+                    format!(
+                        "{}, from {}: {}",
+                        place_name(sim, x.settlement),
+                        season_words(x.since),
+                        x.why.words()
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// The newest chronicle entry's sequence number (0 = none).
@@ -264,7 +341,14 @@ pub fn describe_target(
     match target {
         Target::None => String::new(),
         Target::Home => "home".to_owned(),
-        Target::Hearth => "the hearth".to_owned(),
+        // One's own settlement's hearth is "the hearth"; another's is named (ADR-0018 §2).
+        Target::Hearth(s) => {
+            let own = sim.people.household(household).and_then(|x| x.settlement) == Some(s);
+            match sim.land.settlements.iter().find(|x| x.id == s) {
+                Some(x) if !own => format!("the hearth of {}", x.name),
+                _ => "the hearth".to_owned(),
+            }
+        }
         Target::Patch(p) if (p as usize) < sim.land.patches.len() => {
             let class = sim.land.patches.class[p as usize] as usize;
             let habitat = sim
@@ -878,6 +962,11 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.faction = super::word::faction_line(&mut fbb, sim, p);
         args.news = Some(super::word::news_lines(&mut fbb, sim, p));
         args.influences = Some(super::word::influence_lines(&mut fbb, sim, p));
+        let residence: Vec<_> = residence_words(sim, p.id)
+            .iter()
+            .map(|w| fbb.create_string(w))
+            .collect();
+        args.residence = Some(fbb.create_vector(&residence));
     }
     let body = wire::PersonInfo::create(&mut fbb, &args);
     Ok(response(fbb, wire::ResponseBody::PersonInfo, body))

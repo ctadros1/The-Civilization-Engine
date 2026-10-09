@@ -73,7 +73,9 @@ use std::io::{Read, Seek};
 use civ_agents::caution::Trust;
 use civ_agents::condition;
 use civ_agents::firm::{BookKind, Books, Entry as BookEntryOf, Exit, Firm, Statement, WageOffer};
-use civ_agents::history::{ChronicleEvent, ChronicleKind, Origin, PersonRecord};
+use civ_agents::history::{
+    ChronicleEvent, ChronicleKind, Origin, PersonRecord, ResidenceWhy, Stay,
+};
 use civ_agents::knowledge::{KnowledgeEvent, KnowledgeEventKind};
 use civ_agents::ledger::{Channel, Trade};
 use civ_agents::market::{Market, MonthOfTrade, Offer};
@@ -90,9 +92,9 @@ use civ_grammar::{BuildingSpec, Footprint, PARAMS};
 use civ_land::deposits::{Body, Deposit};
 use civ_land::soil::RECORD_KEPT;
 use civ_land::{
-    Building, BuildingState, Climatology, Field, FieldSoil, FieldStage, GroupCondition, GroupState,
-    HarvestRecord, Land, Lease, Limit, MonthRecord, Party, Patches, Plot, PlotUse, RectCm, Repair,
-    Settlement, ViewTile, Wear, WearTile, Weather, WeatherDay,
+    Building, BuildingState, Climatology, Field, FieldSoil, FieldStage, Founding, GroupCondition,
+    GroupState, HarvestRecord, Land, Lease, Limit, MonthRecord, Party, Patches, Plot, PlotUse,
+    RectCm, Repair, Settlement, ViewTile, Wear, WearTile, Weather, WeatherDay,
 };
 use civ_schema::SAVE_SCHEMA_VERSION;
 use civ_schema::flatbuffers::{self, FlatBufferBuilder, WIPOffset};
@@ -107,7 +109,7 @@ use super::{
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
-    finish, section, single_chunk, unreadable,
+    SCHEMA_V49, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -374,6 +376,9 @@ enum Schema {
     V48,
     /// Agitators, blessings and curses (M4c slice AJ, step two).
     V49,
+    /// Several settlements: how each was founded, residence histories, hearths that name their
+    /// settlement (M5a slice AK, ADR-0018).
+    V50,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -437,7 +442,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V46 => Schema::V46,
         SCHEMA_V47 => Schema::V47,
         SCHEMA_V48 => Schema::V48,
-        SAVE_SCHEMA_VERSION => Schema::V49,
+        SCHEMA_V49 => Schema::V49,
+        SAVE_SCHEMA_VERSION => Schema::V50,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -466,7 +472,7 @@ pub(super) fn decode<R: Read + Seek>(
     }
     let bytes = single_chunk(reader, SECTION_PEOPLE)?;
     let (persons, next_trip, redecide, new_skills, new_techniques) =
-        decode_people(&bytes, rules, schema)?;
+        decode_people(&bytes, rules, schema, &people)?;
     people.next_trip = next_trip;
     for p in persons {
         people.insert_person(p);
@@ -479,6 +485,11 @@ pub(super) fn decode<R: Read + Seek>(
     people.records = records;
     people.chronicle = chronicle;
     people.unions = unions;
+    // Before schema 50 nobody's residence was kept: it is inferred from where they live, the
+    // chronicle and how they came (ADR-0018 §2).
+    if schema < Schema::V50 {
+        people.infer_residence(&land.settlements);
+    }
     if schema < Schema::V6 {
         people.infer_couples(&rules.people, seed, now);
     }
@@ -1660,7 +1671,7 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
     match t {
         Target::None => (save::TargetKind::None, 0, 0),
         Target::Home => (save::TargetKind::Home, 0, 0),
-        Target::Hearth => (save::TargetKind::Hearth, 0, 0),
+        Target::Hearth(s) => (save::TargetKind::Hearth, 0, s.get()),
         Target::Patch(p) => (save::TargetKind::Patch, p, 0),
         Target::Water(c) => (save::TargetKind::Water, c, 0),
         Target::Field(f) => (save::TargetKind::Field, 0, f.get()),
@@ -1675,11 +1686,23 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
     }
 }
 
-fn target_of(kind: save::TargetKind, index: u32, id: u64) -> Result<Target, LoadError> {
+/// A target from its saved kind, index and id. `hearth` is the settlement whose hearth a target
+/// saved before schema 50 meant (the person's own: the hearth named no settlement then); a
+/// hearth target with neither is malformed.
+fn target_of(
+    kind: save::TargetKind,
+    index: u32,
+    id: u64,
+    hearth: Option<PermanentId>,
+) -> Result<Target, LoadError> {
     Ok(match kind {
         save::TargetKind::None => Target::None,
         save::TargetKind::Home => Target::Home,
-        save::TargetKind::Hearth => Target::Hearth,
+        save::TargetKind::Hearth => Target::Hearth(
+            PermanentId::from_raw(id)
+                .or(hearth)
+                .ok_or_else(|| LoadError::Malformed("a hearth of no settlement".to_owned()))?,
+        ),
         save::TargetKind::Patch => Target::Patch(index),
         save::TargetKind::Water => Target::Water(index),
         save::TargetKind::Field => Target::Field(required(id, "a field target")?),
@@ -1998,6 +2021,10 @@ fn encode_settlements(settlements: &[Settlement]) -> Vec<u8> {
                     hearth: Some(&point(s.hearth_m)),
                     food_short: s.food_short,
                     harvest_kg: s.harvest_kg,
+                    parent: raw(s.parent),
+                    founding: s.founding.code(),
+                    abandoned: s.abandoned.is_some(),
+                    abandoned_at: s.abandoned.map_or(0, SimTime::minutes),
                 },
             )
         })
@@ -2018,7 +2045,17 @@ fn decode_settlements(bytes: &[u8]) -> Result<Vec<Settlement>, LoadError> {
     s.settlements()
         .iter()
         .flatten()
-        .map(|s| {
+        .enumerate()
+        .map(|(i, s)| {
+            // Before schema 50 the way of founding was not kept: the first settlement was the
+            // founding band's and any later one a family the observer sent.
+            let founding = match s.founding() {
+                u8::MAX if i == 0 => Founding::Setup,
+                u8::MAX => Founding::Sent,
+                code => Founding::from_code(code).ok_or_else(|| {
+                    LoadError::Malformed(format!("a settlement was founded in way {code}"))
+                })?,
+            };
             Ok(Settlement {
                 id: required(s.id(), "a settlement")?,
                 name: s.name().unwrap_or_default().to_owned(),
@@ -2026,6 +2063,9 @@ fn decode_settlements(bytes: &[u8]) -> Result<Vec<Settlement>, LoadError> {
                 hearth_m: xy(s.hearth()),
                 food_short: s.food_short(),
                 harvest_kg: s.harvest_kg(),
+                parent: PermanentId::from_raw(s.parent()),
+                founding,
+                abandoned: s.abandoned().then(|| time(s.abandoned_at())),
             })
         })
         .collect()
@@ -2222,7 +2262,14 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
 /// knew nothing of.
 type DecodedPeople = (Vec<Person>, u64, Vec<PermanentId>, Vec<usize>, Vec<usize>);
 
-fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedPeople, LoadError> {
+/// `homes` holds the households already loaded: a hearth target saved before schema 50 is their
+/// settlement's.
+fn decode_people(
+    bytes: &[u8],
+    rules: &Rules,
+    schema: Schema,
+    homes: &Population,
+) -> Result<DecodedPeople, LoadError> {
     let root =
         flatbuffers::root::<save::People>(bytes).map_err(|e| unreadable(SECTION_PEOPLE, &e))?;
     let map = activity_map(&read_strings(root.activities()), rules);
@@ -2347,7 +2394,14 @@ fn decode_people(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<DecodedP
             company: p.company(),
             act: Activity {
                 def,
-                target: match target_of(a.target_kind(), a.target_index(), a.target_id())? {
+                target: match target_of(
+                    a.target_kind(),
+                    a.target_index(),
+                    a.target_id(),
+                    PermanentId::from_raw(p.household())
+                        .and_then(|h| homes.household(h))
+                        .and_then(|x| x.settlement),
+                )? {
                     // A technique tried toward, by its place in the save's techniques: if the
                     // content no longer has it, the person decides again.
                     Target::Technique(t) => match technique_ids.get(usize::from(t)) {
@@ -2534,7 +2588,8 @@ fn carried(
         | Schema::V46
         | Schema::V47
         | Schema::V48
-        | Schema::V49 => {
+        | Schema::V49
+        | Schema::V50 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2693,7 +2748,8 @@ fn decode_households(
             | Schema::V46
             | Schema::V47
             | Schema::V48
-            | Schema::V49 => {
+            | Schema::V49
+            | Schema::V50 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3431,6 +3487,21 @@ fn encode_history(pop: &Population) -> Vec<u8> {
                 ),
                 None => (false, 0, save::Cause::Unspecified),
             };
+            let stays: Vec<_> = r
+                .residence
+                .iter()
+                .map(|x| {
+                    save::Stay::create(
+                        &mut fbb,
+                        &save::StayArgs {
+                            settlement: raw(x.settlement),
+                            since: x.since.minutes(),
+                            why: x.why.code(),
+                        },
+                    )
+                })
+                .collect();
+            let residence = fbb.create_vector(&stays);
             save::PersonRecord::create(
                 &mut fbb,
                 &save::PersonRecordArgs {
@@ -3450,6 +3521,7 @@ fn encode_history(pop: &Population) -> Vec<u8> {
                         Origin::Born => save::Origin::Born,
                         Origin::Spawned => save::Origin::Spawned,
                     },
+                    residence: Some(residence),
                 },
             )
         })
@@ -3544,6 +3616,19 @@ fn decode_history(bytes: &[u8]) -> Result<DecodedHistory, LoadError> {
                 )));
             }
         };
+        let mut residence = Vec::new();
+        for x in r.residence().iter().flatten() {
+            residence.push(Stay {
+                settlement: id(x.settlement()),
+                since: time(x.since()),
+                why: ResidenceWhy::from_code(x.why()).ok_or_else(|| {
+                    LoadError::Incompatible(format!(
+                        "record {rid} moved for reason {}, which this build does not know",
+                        x.why()
+                    ))
+                })?,
+            });
+        }
         records.insert(
             rid,
             PersonRecord {
@@ -3556,6 +3641,7 @@ fn decode_history(bytes: &[u8]) -> Result<DecodedHistory, LoadError> {
                 mother: id(r.mother()),
                 father: id(r.father()),
                 origin,
+                residence,
             },
         );
     }
@@ -3704,7 +3790,11 @@ fn def_of(map: &[Option<u16>], saved: u32) -> Result<u16, LoadError> {
     }
 }
 
-fn decode_scored(s: &save::Scored<'_>, map: &[Option<u16>]) -> Result<Scored, LoadError> {
+fn decode_scored(
+    s: &save::Scored<'_>,
+    map: &[Option<u16>],
+    hearth: Option<PermanentId>,
+) -> Result<Scored, LoadError> {
     let mut terms = Vec::new();
     for t in s.terms().iter().flatten() {
         terms.push(Term {
@@ -3714,13 +3804,17 @@ fn decode_scored(s: &save::Scored<'_>, map: &[Option<u16>]) -> Result<Scored, Lo
     }
     Ok(Scored {
         def: def_of(map, s.def())?,
-        target: target_of(s.target_kind(), s.target_index(), s.target_id())?,
+        target: target_of(s.target_kind(), s.target_index(), s.target_id(), hearth)?,
         total: s.total(),
         terms,
     })
 }
 
-fn decode_receipt(r: &save::Receipt<'_>, map: &[Option<u16>]) -> Result<Receipt, LoadError> {
+fn decode_receipt(
+    r: &save::Receipt<'_>,
+    map: &[Option<u16>],
+    hearth: Option<PermanentId>,
+) -> Result<Receipt, LoadError> {
     let chosen = r
         .chosen()
         .ok_or_else(|| LoadError::Malformed("a decision receipt has no choice".to_owned()))?;
@@ -3738,8 +3832,11 @@ fn decode_receipt(r: &save::Receipt<'_>, map: &[Option<u16>]) -> Result<Receipt,
     }
     Ok(Receipt {
         at: time(r.at()),
-        chosen: decode_scored(&chosen, map)?,
-        runner_up: r.runner_up().map(|s| decode_scored(&s, map)).transpose()?,
+        chosen: decode_scored(&chosen, map, hearth)?,
+        runner_up: r
+            .runner_up()
+            .map(|s| decode_scored(&s, map, hearth))
+            .transpose()?,
         others,
         excluded,
         probability: r.probability(),
@@ -3760,9 +3857,14 @@ fn decode_receipts(bytes: &[u8], rules: &Rules, pop: &mut Population) -> Result<
                 "receipts are kept for {who}, who is not alive"
             )]));
         };
+        // A hearth weighed before schema 50 was their own settlement's.
+        let hearth = pop
+            .person(who)
+            .and_then(|p| pop.household(p.household))
+            .and_then(|x| x.settlement);
         let mut receipts = VecDeque::new();
         for r in entry.receipts().iter().flatten() {
-            receipts.push_back(decode_receipt(&r, &map)?);
+            receipts.push_back(decode_receipt(&r, &map, hearth)?);
         }
         if receipts.len() > civ_agents::person::RECEIPT_RING {
             return Err(LoadError::Invalid(vec![format!(

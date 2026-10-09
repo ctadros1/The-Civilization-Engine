@@ -67,8 +67,27 @@ harvestKg():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
+founding():string|null
+founding(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+founding(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+year():string|null
+year(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+year(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 22);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+abandonedMinute():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? this.bb!.readInt64(this.bb_pos + offset) : BigInt('-1');
+}
+
 static startSettlementBrief(builder:flatbuffers.Builder) {
-  builder.startObject(8);
+  builder.startObject(11);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -101,6 +120,18 @@ static addFoodShort(builder:flatbuffers.Builder, foodShort:boolean) {
 
 static addHarvestKg(builder:flatbuffers.Builder, harvestKg:number) {
   builder.addFieldFloat32(7, harvestKg, 0.0);
+}
+
+static addFounding(builder:flatbuffers.Builder, foundingOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(8, foundingOffset, 0);
+}
+
+static addYear(builder:flatbuffers.Builder, yearOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(9, yearOffset, 0);
+}
+
+static addAbandonedMinute(builder:flatbuffers.Builder, abandonedMinute:bigint) {
+  builder.addFieldInt64(10, abandonedMinute, BigInt('-1'));
 }
 
 static endSettlementBrief(builder:flatbuffers.Builder):flatbuffers.Offset {

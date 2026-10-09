@@ -458,6 +458,7 @@ pub(crate) mod tests {
             mother: mother.map(id),
             father: father.map(id),
             origin: crate::history::Origin::Founder,
+            residence: Vec::new(),
         }
     }
 

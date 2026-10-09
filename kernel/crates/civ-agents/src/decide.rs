@@ -63,8 +63,8 @@ pub struct Facts {
     pub at_home: bool,
     /// Home position, metres.
     pub home: (f32, f32),
-    /// The settlement hearth, if any.
-    pub hearth: Option<(f32, f32)>,
+    /// The household's settlement and where its hearth is, if it has one.
+    pub hearth: Option<(PermanentId, (f32, f32))>,
     /// The gathering sitting at the hearth that they may attend, if any (ADR-0013 §1).
     pub gathering: Option<GatheringFacts>,
     /// A petition sitting at the hearth they heard of and may join (M4c slice AH): what joining
@@ -1127,7 +1127,7 @@ pub fn candidates(
                 out.push(finish(id, Target::Technique(t.technique), terms, steps));
             }
             Behavior::Socialize => {
-                let Some(hearth) = f.hearth else {
+                let Some((settlement, hearth)) = f.hearth else {
                     excluded.push((id, Reason::NoHearth));
                     continue;
                 };
@@ -1142,10 +1142,10 @@ pub fn candidates(
                         minutes: def.min_minutes.max(1),
                     },
                 ];
-                out.push(finish(id, Target::Hearth, terms, steps));
+                out.push(finish(id, Target::Hearth(settlement), terms, steps));
             }
             Behavior::Attend => {
-                let (Some(hearth), Some(g)) = (f.hearth, f.gathering) else {
+                let (Some((settlement, hearth)), Some(g)) = (f.hearth, f.gathering) else {
                     excluded.push((id, Reason::NoGathering));
                     continue;
                 };
@@ -1162,10 +1162,10 @@ pub fn candidates(
                         minutes: g.minutes.round().max(1.0) as u32,
                     },
                 ];
-                out.push(finish(id, Target::Hearth, terms, steps));
+                out.push(finish(id, Target::Hearth(settlement), terms, steps));
             }
             Behavior::Petition => {
-                let (Some(hearth), Some(g)) = (f.hearth, f.petition) else {
+                let (Some((settlement, hearth)), Some(g)) = (f.hearth, f.petition) else {
                     excluded.push((id, Reason::NoPetition));
                     continue;
                 };
@@ -1182,7 +1182,7 @@ pub fn candidates(
                         minutes: g.minutes.round().max(1.0) as u32,
                     },
                 ];
-                out.push(finish(id, Target::Hearth, terms, steps));
+                out.push(finish(id, Target::Hearth(settlement), terms, steps));
             }
             Behavior::Watch => {
                 // A round of the watch (M4b slice AC, ADR-0015 §6): a stand at each home on it,

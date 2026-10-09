@@ -38,6 +38,7 @@ fn world(seed: u64) -> Sim {
             preset_id: "core:worldgen/river_valley".to_owned(),
             size_cells: 512,
             band_size: 0,
+            neighbours: Vec::new(),
             regime_id: String::new(),
         },
         content(),

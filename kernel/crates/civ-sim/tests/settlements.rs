@@ -940,3 +940,200 @@ fn a_migration_wave_comes_over_its_days_as_kin_of_one_band_knowing_what_lies_nea
             .is_empty()
     );
 }
+
+#[test]
+fn a_household_gathers_its_kin_and_founds_a_settlement_when_they_hold_enough_to_go() {
+    // One village. A household's member has adult children in four other households of it, and
+    // its people have walked land two field walks out. With moving's and founding's costs set to
+    // nothing (so kin coming are reason enough), the household gathers them; when its plan has
+    // won two reviews they go if they hold food past their first harvest, and else wait
+    // (M5a slice AO; research 05-06 §1.3, 10-01 §2.3).
+    use civ_agents::places::{CoalitionFate, Lacking};
+    let mut sim = world(3, 50, &[]).expect("generates");
+    sim.advance_minutes(30 * 24 * 60).expect("lives");
+    {
+        let rules = sim.rules_mut_for_tests().expect("rules of its own");
+        rules.people.moving.cost = 0.0;
+        rules.people.founding.cost = 0.0;
+    }
+    let a = sim.land().settlements[0].id;
+    let hearth = sim.land().settlements[0].hearth_m;
+    let (organizer, parent) = household_of(&sim, a);
+    let female = sim
+        .people()
+        .person(parent)
+        .is_some_and(|p| p.sex == civ_agents::Sex::Female);
+    let children: Vec<_> = adults_of(&sim, a)
+        .into_iter()
+        .map(|x| x.0)
+        .filter(|&q| sim.people().person(q).map(|p| p.household) != Some(organizer))
+        .take(4)
+        .collect();
+    // Land walked two field walks out: the centre of a patch on dry, gentle ground.
+    let reach = field_reach_m(&sim) as f32;
+    let patches = &sim.land().patches;
+    let site = (0..patches.class.len())
+        .find(|&p| {
+            let c = patches.centre_m(p);
+            let d = (c.0 - hearth.0).hypot(c.1 - hearth.1);
+            let cell = civ_agents::population::cell_of(sim.map(), c);
+            d > 2.0 * reach + 100.0
+                && d < 2.0 * reach + 1500.0
+                && sim.map().water[cell] == civ_world::WATER_LAND
+                && sim.nav().walkable(cell)
+                && f64::from(civ_world::terrain::slope_at(sim.map(), cell))
+                    <= sim.rules().people.band.site_max_slope
+        })
+        .expect("dry, gentle land two field walks out");
+    let day = sim.now().day_index();
+    {
+        let pop = sim.people_mut_for_tests();
+        for &c in &children {
+            let r = pop.records.get_mut(&c).expect("on record");
+            if female {
+                r.mother = Some(parent);
+            } else {
+                r.father = Some(parent);
+            }
+        }
+        pop.forget_derived();
+        for (_, x) in pop.households.iter_mut() {
+            if x.id == organizer {
+                x.known.push(civ_agents::person::KnownPatch {
+                    resource: 0,
+                    patch: site as u32,
+                    rate: 1.0,
+                    hours: 1.0,
+                    seen_day: day,
+                });
+            }
+        }
+        pop.review_due.insert(organizer);
+    }
+    sim.advance_minutes(24 * 60).expect("lives");
+    let c = sim
+        .people()
+        .coalitions
+        .last()
+        .cloned()
+        .expect("it began to gather");
+    assert_eq!((c.organizer, c.from, c.reviews), (organizer, a, 1));
+    assert_eq!(c.fate, CoalitionFate::Gathering);
+    let kin_households: Vec<_> = children
+        .iter()
+        .filter_map(|&q| sim.people().person(q).map(|p| p.household))
+        .collect();
+    assert!(
+        kin_households.iter().any(|h| c.members.contains(h)),
+        "kin's households join: {:?}",
+        c.members
+    );
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|e| e.kind == civ_agents::ChronicleKind::Coalition && e.number == 0.0)
+    );
+    let words = civ_sim::frames::people::coalition_words(&sim, a);
+    assert!(
+        words.len() == 1 && words[0].contains("to found a settlement") && words[0].contains("km"),
+        "{words:?}"
+    );
+    // Its second winning review: in the growing season, with what a band brought sown or eaten,
+    // they hold too little seed or food to go yet.
+    sim.people_mut_for_tests().review_due.insert(organizer);
+    sim.advance_minutes(24 * 60).expect("lives");
+    let c = sim
+        .people()
+        .coalitions
+        .last()
+        .cloned()
+        .expect("still on record");
+    assert_eq!(c.fate, CoalitionFate::Gathering);
+    assert!(matches!(c.lacking, Lacking::Food | Lacking::Seed), "{c:?}");
+    assert!(sim.people().chronicle.iter().any(|e| {
+        e.kind == civ_agents::ChronicleKind::Coalition && (e.number == 1.0 || e.number == 2.0)
+    }));
+    // With grain enough laid by, to eat and to sow, the next review sends them.
+    {
+        let rules = sim.rules().clone();
+        let crop = &rules.catalog.crops[rules.people.farm.crop];
+        let pop = sim.people_mut_for_tests();
+        for (_, x) in pop.households.iter_mut() {
+            if c.members.contains(&x.id) {
+                for (good, kg) in [(crop.good, 2_000.0), (crop.seed_good, 200.0)] {
+                    x.stores[good] += kg;
+                    x.flows.add(civ_agents::person::Flow::Brought, good, kg);
+                }
+            }
+        }
+        pop.review_due.insert(organizer);
+    }
+    let going: Vec<_> = c
+        .members
+        .iter()
+        .flat_map(|&h| sim.people().household(h).expect("lives").members.clone())
+        .collect();
+    sim.advance_minutes(24 * 60).expect("lives");
+    let pop = sim.people();
+    let c = pop.coalitions.last().cloned().expect("on record");
+    assert_eq!(c.fate, CoalitionFate::Founded, "{c:?}");
+    let new = c.settlement.expect("its settlement");
+    let s = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == new)
+        .expect("written");
+    assert_eq!(
+        (s.parent, s.founding),
+        (Some(a), civ_land::Founding::Coalition)
+    );
+    assert_eq!(c.people as usize, going.len());
+    for &q in &going {
+        let last = pop.records[&q].residence.last().expect("a stay");
+        assert_eq!(
+            (last.settlement, last.why),
+            (Some(new), ResidenceWhy::Founded)
+        );
+    }
+    // Its polity lives under the body its founders knew, with no law of the parent's.
+    let parent_body = pop
+        .polities
+        .iter()
+        .find(|p| p.settlement == a)
+        .expect("the parent's polity")
+        .body;
+    let daughter = pop
+        .polities
+        .iter()
+        .find(|p| p.settlement == new)
+        .expect("its own polity");
+    assert_eq!(daughter.body, parent_body);
+    assert!(daughter.laws.is_empty());
+    assert!(
+        pop.chronicle
+            .iter()
+            .any(|e| e.kind == civ_agents::ChronicleKind::Coalition
+                && e.number == 4.0
+                && e.settlement == Some(new))
+    );
+    let now = sim.now().plus_minutes(1);
+    for s in &sim.land().settlements {
+        let acc = pop.accounts(s.id, SimTime::ZERO, now);
+        assert!(acc.balance(), "{}: {acc:?}", s.name);
+    }
+    assert!(
+        pop.problems(sim.ids().peek_next(), sim.rules().catalog.activities.len())
+            .is_empty()
+    );
+    let words = civ_sim::frames::people::coalition_words(&sim, a);
+    assert!(
+        words
+            .iter()
+            .any(|w| w.contains(&format!("founded {}", s.name))),
+        "{words:?}"
+    );
+    // Saved and loaded with a settlement founded, a world goes on alike.
+    saves_and_goes_on_alike(&mut sim, 24 * 60);
+}

@@ -31217,6 +31217,7 @@ impl<'a> PlacesSave<'a> {
   pub const VT_UNMATCHED: ::flatbuffers::VOffsetT = 8;
   pub const VT_LEANINGS: ::flatbuffers::VOffsetT = 10;
   pub const VT_REVIEW_DUE: ::flatbuffers::VOffsetT = 12;
+  pub const VT_COALITIONS: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -31228,6 +31229,7 @@ impl<'a> PlacesSave<'a> {
     args: &'args PlacesSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<PlacesSave<'bldr>> {
     let mut builder = PlacesSaveBuilder::new(_fbb);
+    if let Some(x) = args.coalitions { builder.add_coalitions(x); }
     if let Some(x) = args.review_due { builder.add_review_due(x); }
     if let Some(x) = args.leanings { builder.add_leanings(x); }
     if let Some(x) = args.unmatched { builder.add_unmatched(x); }
@@ -31272,6 +31274,13 @@ impl<'a> PlacesSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(PlacesSave::VT_REVIEW_DUE, None)}
   }
+  #[inline]
+  pub fn coalitions(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CoalitionSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CoalitionSave>>>>(PlacesSave::VT_COALITIONS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PlacesSave<'_> {
@@ -31285,6 +31294,7 @@ impl ::flatbuffers::Verifiable for PlacesSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<UnmatchedSave>>>>("unmatched", Self::VT_UNMATCHED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<LeaningSave>>>>("leanings", Self::VT_LEANINGS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("review_due", Self::VT_REVIEW_DUE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CoalitionSave>>>>("coalitions", Self::VT_COALITIONS, false)?
      .finish();
     Ok(())
   }
@@ -31295,6 +31305,7 @@ pub struct PlacesSaveArgs<'a> {
     pub unmatched: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<UnmatchedSave<'a>>>>>,
     pub leanings: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LeaningSave<'a>>>>>,
     pub review_due: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub coalitions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CoalitionSave<'a>>>>>,
 }
 impl<'a> Default for PlacesSaveArgs<'a> {
   #[inline]
@@ -31305,6 +31316,7 @@ impl<'a> Default for PlacesSaveArgs<'a> {
       unmatched: None,
       leanings: None,
       review_due: None,
+      coalitions: None,
     }
   }
 }
@@ -31335,6 +31347,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlacesSaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_REVIEW_DUE, review_due);
   }
   #[inline]
+  pub fn add_coalitions(&mut self, coalitions: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<CoalitionSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_COALITIONS, coalitions);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlacesSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PlacesSaveBuilder {
@@ -31357,6 +31373,307 @@ impl ::core::fmt::Debug for PlacesSave<'_> {
       ds.field("unmatched", &self.unmatched());
       ds.field("leanings", &self.leanings());
       ds.field("review_due", &self.review_due());
+      ds.field("coalitions", &self.coalitions());
+      ds.finish()
+  }
+}
+pub enum CoalitionSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct CoalitionSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for CoalitionSave<'a> {
+  type Inner = CoalitionSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> CoalitionSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_ORGANIZER: ::flatbuffers::VOffsetT = 6;
+  pub const VT_FROM: ::flatbuffers::VOffsetT = 8;
+  pub const VT_SITE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_FORMED: ::flatbuffers::VOffsetT = 12;
+  pub const VT_REVIEWS: ::flatbuffers::VOffsetT = 14;
+  pub const VT_MEMBERS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_PEOPLE: ::flatbuffers::VOffsetT = 18;
+  pub const VT_LACKING: ::flatbuffers::VOffsetT = 20;
+  pub const VT_FATE: ::flatbuffers::VOffsetT = 22;
+  pub const VT_ENDED: ::flatbuffers::VOffsetT = 24;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 26;
+  pub const VT_NAMED: ::flatbuffers::VOffsetT = 28;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    CoalitionSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CoalitionSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<CoalitionSave<'bldr>> {
+    let mut builder = CoalitionSaveBuilder::new(_fbb);
+    builder.add_named(args.named);
+    builder.add_settlement(args.settlement);
+    builder.add_ended(args.ended);
+    builder.add_formed(args.formed);
+    builder.add_from(args.from);
+    builder.add_organizer(args.organizer);
+    builder.add_people(args.people);
+    if let Some(x) = args.members { builder.add_members(x); }
+    builder.add_reviews(args.reviews);
+    if let Some(x) = args.site { builder.add_site(x); }
+    builder.add_id(args.id);
+    builder.add_fate(args.fate);
+    builder.add_lacking(args.lacking);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CoalitionSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn organizer(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CoalitionSave::VT_ORGANIZER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn from(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CoalitionSave::VT_FROM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn site(&self) -> Option<&'a Point> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Point>(CoalitionSave::VT_SITE, None)}
+  }
+  #[inline]
+  pub fn formed(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(CoalitionSave::VT_FORMED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn reviews(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CoalitionSave::VT_REVIEWS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn members(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(CoalitionSave::VT_MEMBERS, None)}
+  }
+  #[inline]
+  pub fn people(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CoalitionSave::VT_PEOPLE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn lacking(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(CoalitionSave::VT_LACKING, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn fate(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(CoalitionSave::VT_FATE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ended(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(CoalitionSave::VT_ENDED, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CoalitionSave::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn named(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CoalitionSave::VT_NAMED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for CoalitionSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("organizer", Self::VT_ORGANIZER, false)?
+     .visit_field::<u64>("from", Self::VT_FROM, false)?
+     .visit_field::<Point>("site", Self::VT_SITE, false)?
+     .visit_field::<i64>("formed", Self::VT_FORMED, false)?
+     .visit_field::<u32>("reviews", Self::VT_REVIEWS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("members", Self::VT_MEMBERS, false)?
+     .visit_field::<u32>("people", Self::VT_PEOPLE, false)?
+     .visit_field::<u8>("lacking", Self::VT_LACKING, false)?
+     .visit_field::<u8>("fate", Self::VT_FATE, false)?
+     .visit_field::<i64>("ended", Self::VT_ENDED, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<u64>("named", Self::VT_NAMED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CoalitionSaveArgs<'a> {
+    pub id: u32,
+    pub organizer: u64,
+    pub from: u64,
+    pub site: Option<&'a Point>,
+    pub formed: i64,
+    pub reviews: u32,
+    pub members: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub people: u32,
+    pub lacking: u8,
+    pub fate: u8,
+    pub ended: i64,
+    pub settlement: u64,
+    pub named: u64,
+}
+impl<'a> Default for CoalitionSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CoalitionSaveArgs {
+      id: 0,
+      organizer: 0,
+      from: 0,
+      site: None,
+      formed: 0,
+      reviews: 0,
+      members: None,
+      people: 0,
+      lacking: 0,
+      fate: 0,
+      ended: -1,
+      settlement: 0,
+      named: 0,
+    }
+  }
+}
+
+pub struct CoalitionSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CoalitionSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(CoalitionSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_organizer(&mut self, organizer: u64) {
+    self.fbb_.push_slot::<u64>(CoalitionSave::VT_ORGANIZER, organizer, 0);
+  }
+  #[inline]
+  pub fn add_from(&mut self, from: u64) {
+    self.fbb_.push_slot::<u64>(CoalitionSave::VT_FROM, from, 0);
+  }
+  #[inline]
+  pub fn add_site(&mut self, site: &Point) {
+    self.fbb_.push_slot_always::<&Point>(CoalitionSave::VT_SITE, site);
+  }
+  #[inline]
+  pub fn add_formed(&mut self, formed: i64) {
+    self.fbb_.push_slot::<i64>(CoalitionSave::VT_FORMED, formed, 0);
+  }
+  #[inline]
+  pub fn add_reviews(&mut self, reviews: u32) {
+    self.fbb_.push_slot::<u32>(CoalitionSave::VT_REVIEWS, reviews, 0);
+  }
+  #[inline]
+  pub fn add_members(&mut self, members: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CoalitionSave::VT_MEMBERS, members);
+  }
+  #[inline]
+  pub fn add_people(&mut self, people: u32) {
+    self.fbb_.push_slot::<u32>(CoalitionSave::VT_PEOPLE, people, 0);
+  }
+  #[inline]
+  pub fn add_lacking(&mut self, lacking: u8) {
+    self.fbb_.push_slot::<u8>(CoalitionSave::VT_LACKING, lacking, 0);
+  }
+  #[inline]
+  pub fn add_fate(&mut self, fate: u8) {
+    self.fbb_.push_slot::<u8>(CoalitionSave::VT_FATE, fate, 0);
+  }
+  #[inline]
+  pub fn add_ended(&mut self, ended: i64) {
+    self.fbb_.push_slot::<i64>(CoalitionSave::VT_ENDED, ended, -1);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(CoalitionSave::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_named(&mut self, named: u64) {
+    self.fbb_.push_slot::<u64>(CoalitionSave::VT_NAMED, named, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CoalitionSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CoalitionSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<CoalitionSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for CoalitionSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("CoalitionSave");
+      ds.field("id", &self.id());
+      ds.field("organizer", &self.organizer());
+      ds.field("from", &self.from());
+      ds.field("site", &self.site());
+      ds.field("formed", &self.formed());
+      ds.field("reviews", &self.reviews());
+      ds.field("members", &self.members());
+      ds.field("people", &self.people());
+      ds.field("lacking", &self.lacking());
+      ds.field("fate", &self.fate());
+      ds.field("ended", &self.ended());
+      ds.field("settlement", &self.settlement());
+      ds.field("named", &self.named());
       ds.finish()
   }
 }

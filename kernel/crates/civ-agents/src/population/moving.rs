@@ -28,12 +28,17 @@ impl Population {
     /// Households whose day of the year it is, or whom an event prompted, review where they live
     /// (ADR-0018 §5).
     pub(super) fn residence_reviews(&mut self, ctx: &mut Ctx, day: i64) {
-        if ctx.land.settlements.len() < 2 {
-            self.review_due.clear();
-            return;
-        }
+        // A world of one settlement has nowhere to move to, but its households may still found
+        // one (M5a slice AO).
         let hh = &self.hh_index;
         self.leanings.retain(|h, _| hh.contains_key(h));
+        // A coalition whose organizing household is no more (it moved, or its people died) ends.
+        for c in &mut self.coalitions {
+            if c.fate == crate::places::CoalitionFate::Gathering && !hh.contains_key(&c.organizer) {
+                c.fate = crate::places::CoalitionFate::Dissolved;
+                c.ended = Some(day);
+            }
+        }
         let mut ids: Vec<PermanentId> = self
             .households
             .iter()
@@ -57,14 +62,25 @@ impl Population {
         }
     }
 
-    /// Household `household` weighs moving to each settlement it knows against staying; a place
-    /// that wins the content's number of reviews running is where it goes.
+    /// Household `household` weighs moving to each settlement it knows, and founding one with
+    /// others (M5a slice AO), against staying; a place that wins the content's number of reviews
+    /// running is where it goes, and a plan to found that wins gathers its coalition.
     fn review_residence(&mut self, ctx: &mut Ctx, household: PermanentId, day: i64) {
         let best = self
             .move_worth(ctx, household)
             .into_iter()
             .filter(|&(_, v)| v > 0.0)
             .max_by(|a, b| a.1.total_cmp(&b.1).then(b.0.cmp(&a.0)));
+        let best_move = best.map_or(0.0, |b| b.1);
+        if let Some(plan) = self
+            .founding_plan(ctx, household, best_move)
+            .filter(|p| p.worth > best_move)
+        {
+            self.leanings.remove(&household);
+            self.gather(ctx, household, plan, day);
+            return;
+        }
+        self.give_up(ctx, household, day);
         let Some((to, _)) = best else {
             self.leanings.remove(&household);
             return;
@@ -92,7 +108,7 @@ impl Population {
     /// points (ADR-0018 §5): kin and those known there against here, the food a member saw there
     /// against what they see at home, the grievances its members hold, against the harvest its
     /// fields here should bring, the work of a new home and fields, and the walk there once.
-    fn move_worth(&self, ctx: &Ctx, household: PermanentId) -> Vec<(PermanentId, f64)> {
+    pub(super) fn move_worth(&self, ctx: &Ctx, household: PermanentId) -> Vec<(PermanentId, f64)> {
         let Some(x) = self.household(household) else {
             return Vec::new();
         };
@@ -235,7 +251,7 @@ impl Population {
     }
 
     /// The most keenly felt grievance a member of `household` holds now, 0–1 (ADR-0016 §2).
-    fn grievance_of(&self, ctx: &Ctx, household: PermanentId) -> f64 {
+    pub(super) fn grievance_of(&self, ctx: &Ctx, household: PermanentId) -> f64 {
         let Some(x) = self.household(household) else {
             return 0.0;
         };
@@ -269,6 +285,18 @@ impl Population {
     /// with what it holds, camped beside the hearth as a sent family, and the household they leave
     /// is no more: its ground, home and workshop stand as a household's that left.
     pub(super) fn relocate(&mut self, ctx: &mut Ctx, from: PermanentId, to: PermanentId) {
+        self.relocate_as(ctx, from, to, ResidenceWhy::Moved);
+    }
+
+    /// [`Population::relocate`], its people's residence histories saying `why`; a household that
+    /// goes to found a settlement (M5a slice AO) is told of in the coalition's entry, not its own.
+    pub(super) fn relocate_as(
+        &mut self,
+        ctx: &mut Ctx,
+        from: PermanentId,
+        to: PermanentId,
+        why: ResidenceWhy,
+    ) {
         let now = ctx.now;
         let Some(left) = self.household(from).and_then(|x| x.settlement) else {
             return;
@@ -315,7 +343,7 @@ impl Population {
             if let Some(p) = self.person_mut(m) {
                 p.household = id;
             }
-            self.note_residence(m, Some(to), now, ResidenceWhy::Moved);
+            self.note_residence(m, Some(to), now, why);
         }
         if let Some(x) = self.household_mut(id) {
             x.members = old.members.clone();
@@ -340,6 +368,9 @@ impl Population {
         let people = old.members.len() as u32;
         self.contacts
             .moved(day.div_euclid(DAYS_PER_YEAR), left, to, people);
+        if why != ResidenceWhy::Moved {
+            return;
+        }
         let name = ctx
             .land
             .settlements

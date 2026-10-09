@@ -147,6 +147,9 @@ describe("people payloads", () => {
     const founding = b.createString("one of the groups the world began with");
     const year = b.createString("2 born, 1 died");
     const contacts = b.createString("in year 2: 3 visits from Brook, 4 hours at the hearth here");
+    const coalitions = W.SettlementBrief.createCoalitionsVector(b, [
+      b.createString("Ada's household and one more household mean to found a settlement 3.1 km north"),
+    ]);
     W.SettlementBrief.startSettlementBrief(b);
     W.SettlementBrief.addId(b, 3n);
     W.SettlementBrief.addName(b, name);
@@ -158,6 +161,7 @@ describe("people payloads", () => {
     W.SettlementBrief.addFounding(b, founding);
     W.SettlementBrief.addYear(b, year);
     W.SettlementBrief.addContacts(b, contacts);
+    W.SettlementBrief.addCoalitions(b, coalitions);
     const settlement = W.SettlementBrief.endSettlementBrief(b);
     const settlements = W.Snapshot.createSettlementsVector(b, [settlement]);
     W.Snapshot.startSnapshot(b);
@@ -195,6 +199,7 @@ describe("people payloads", () => {
         year: "2 born, 1 died",
         abandonedMinute: -1,
         contacts: "in year 2: 3 visits from Brook, 4 hours at the hearth here",
+        coalitions: ["Ada's household and one more household mean to found a settlement 3.1 km north"],
       },
     ]);
     expect(s.chronicleHead).toBe(2);

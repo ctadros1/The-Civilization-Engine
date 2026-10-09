@@ -61,6 +61,9 @@ pub(crate) struct PeopleFile {
     /// How households come to know other places (M5a slice AM; content API 52).
     pub places: PlacesFile,
     pub moving: MovingFile,
+    /// What founding a settlement is worth, and what a coalition must hold (M5a slice AO; content
+    /// API 55).
+    pub founding: FoundingFile,
 }
 
 /// Factions, their petitions, refusals and revolts (M4c slices AH-AI, ADR-0017 §2-4; content API
@@ -298,6 +301,20 @@ pub(crate) struct MovingFile {
     pub w_stake: f64,
     pub cost: f64,
     pub reviews: u32,
+}
+
+/// What founding a settlement of its own is worth to a household, and what a coalition must hold
+/// to go (M5a slice AO; content API 55). See [`civ_agents::places::FoundingParams`] for what each
+/// means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct FoundingFile {
+    pub cost: f64,
+    pub yield_share: f64,
+    pub walk_hours: f64,
+    pub candidates: u32,
+    pub buffer_months: f64,
+    pub work_h_per_day: f64,
 }
 
 /// Word of mouth and grievances (M4c slice AE, ADR-0016; content API 39). See
@@ -1515,6 +1532,14 @@ impl PeopleFile {
                 cost: self.moving.cost,
                 reviews: self.moving.reviews,
             },
+            founding: civ_agents::places::FoundingParams {
+                cost: self.founding.cost,
+                yield_share: self.founding.yield_share,
+                walk_hours: self.founding.walk_hours,
+                candidates: self.founding.candidates,
+                buffer_months: self.founding.buffer_months,
+                work_h_per_day: self.founding.work_h_per_day,
+            },
             names,
         }
     }
@@ -1567,6 +1592,24 @@ impl PeopleFile {
             if !(v.is_finite() && (0.0..=100.0).contains(&v)) {
                 p.push(format!("`{key}` must be between 0 and 100 (got {v})"));
             }
+        }
+        let f = &self.founding;
+        for (key, v, lo, hi) in [
+            ("founding.cost", f.cost, 0.0, 100.0),
+            ("founding.yield_share", f.yield_share, 0.05, 1.0),
+            ("founding.walk_hours", f.walk_hours, 0.25, 24.0),
+            ("founding.buffer_months", f.buffer_months, 0.0, 24.0),
+            ("founding.work_h_per_day", f.work_h_per_day, 0.5, 16.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{key}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        if !(1..=256).contains(&f.candidates) {
+            p.push(format!(
+                "`founding.candidates` must be between 1 and 256 (got {})",
+                f.candidates
+            ));
         }
         if !(1..=10).contains(&self.moving.reviews) {
             p.push(format!(

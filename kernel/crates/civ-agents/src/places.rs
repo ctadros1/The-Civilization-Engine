@@ -372,6 +372,120 @@ impl MovingParams {
     }
 }
 
+/// What founding a settlement of its own is worth to a household, and what a coalition must hold
+/// to go (the people profile's `[founding]` table; content API 55; M5a slice AO, research 10-01
+/// §1.5, §2.3, §5.2; 05-06 §1.3). All are design priors; the terms it shares with moving are
+/// [`MovingParams`]'.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FoundingParams {
+    /// Against the work of breaking every field and building where there is no hearth, store or
+    /// neighbour yet, besides moving's `cost`.
+    pub cost: f64,
+    /// The share of the believed yield a site is forecast at: a low percentile (10-01 §2.3: the
+    /// 10th–30th).
+    pub yield_share: f64,
+    /// The farthest walk from home a site may lie, hours (05-06 §1.3: a daughter near its parent
+    /// can rely on it).
+    pub walk_hours: f64,
+    /// Sites weighed at a review, of those a member has walked (10-01 §2.3: 16–64 bundles).
+    pub candidates: u32,
+    /// Months of food beyond the first harvest a coalition must hold to go (10-01 §2.3: 1–3).
+    pub buffer_months: f64,
+    /// Hours a day an adult can break new ground, for whether the first crop can be sown this
+    /// year.
+    pub work_h_per_day: f64,
+}
+
+impl FoundingParams {
+    /// The core content's values, for tests.
+    pub fn core() -> Self {
+        FoundingParams {
+            cost: 1.0,
+            yield_share: 0.7,
+            walk_hours: 2.0,
+            candidates: 16,
+            buffer_months: 2.0,
+            work_h_per_day: 6.0,
+        }
+    }
+}
+
+/// What became of a coalition gathered to found a settlement (M5a slice AO). Codes are part of
+/// saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CoalitionFate {
+    /// Still gathering, or waiting until it holds enough to go.
+    Gathering = 0,
+    /// It went and founded its settlement.
+    Founded = 1,
+    /// Its organizer gave the plan up.
+    Dissolved = 2,
+}
+
+impl CoalitionFate {
+    /// Every fate, in code order.
+    pub const ALL: [CoalitionFate; 3] = [
+        CoalitionFate::Gathering,
+        CoalitionFate::Founded,
+        CoalitionFate::Dissolved,
+    ];
+
+    /// The fate numbered `code`.
+    pub fn from_code(code: u8) -> Option<CoalitionFate> {
+        CoalitionFate::ALL.get(usize::from(code)).copied()
+    }
+}
+
+/// What a coalition lacked when its time came to go. Codes are part of saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Lacking {
+    /// Nothing: it went, or its time has not come.
+    Nothing = 0,
+    /// Food to the first harvest and the months beyond.
+    Food = 1,
+    /// Seed for the ground it needs.
+    Seed = 2,
+}
+
+impl Lacking {
+    /// Every case, in code order.
+    pub const ALL: [Lacking; 3] = [Lacking::Nothing, Lacking::Food, Lacking::Seed];
+
+    /// The case numbered `code`.
+    pub fn from_code(code: u8) -> Option<Lacking> {
+        Lacking::ALL.get(usize::from(code)).copied()
+    }
+}
+
+/// Households gathered to found a settlement of their own (M5a slice AO; research 05-06 §1.3,
+/// 10-01 §1.5, §5.2): the organizing household's plan, the households that would go with it at
+/// its last review, and what became of it. A record is kept for ever.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Coalition {
+    /// Its number, from 1, in the order gathered.
+    pub id: u32,
+    /// The household that organizes it (as it was when it last reviewed), and the person it is
+    /// named for: that household's eldest when it began.
+    pub organizer: PermanentId,
+    pub named: Option<PermanentId>,
+    /// The settlement they would leave.
+    pub from: PermanentId,
+    /// Where they mean to found, metres.
+    pub site: (f32, f32),
+    /// The day it began to gather, and the reviews running its plan has won.
+    pub formed: i64,
+    pub reviews: u32,
+    /// The households that would go at its last review, the organizer first, and their people.
+    pub members: Vec<PermanentId>,
+    pub people: u32,
+    /// What it lacked when last its time came, if anything.
+    pub lacking: Lacking,
+    /// What became of it, the day it ended (founded or given up), and the settlement founded.
+    pub fate: CoalitionFate,
+    pub ended: Option<i64>,
+    pub settlement: Option<PermanentId>,
+}
+
 /// A household's leaning toward moving: the place that last won its review, and how many
 /// reviews running it has won.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

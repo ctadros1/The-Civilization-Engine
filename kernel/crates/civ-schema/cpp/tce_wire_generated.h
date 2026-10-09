@@ -3882,7 +3882,8 @@ struct SettlementBrief FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_FOUNDING = 20,
     VT_YEAR = 22,
     VT_ABANDONED_MINUTE = 24,
-    VT_CONTACTS = 26
+    VT_CONTACTS = 26,
+    VT_COALITIONS = 28
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -3920,6 +3921,9 @@ struct SettlementBrief FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *contacts() const {
     return GetPointer<const ::flatbuffers::String *>(VT_CONTACTS);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *coalitions() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_COALITIONS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -3939,6 +3943,9 @@ struct SettlementBrief FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<int64_t>(verifier, VT_ABANDONED_MINUTE, 8) &&
            VerifyOffset(verifier, VT_CONTACTS) &&
            verifier.VerifyString(contacts()) &&
+           VerifyOffset(verifier, VT_COALITIONS) &&
+           verifier.VerifyVector(coalitions()) &&
+           verifier.VerifyVectorOfStrings(coalitions()) &&
            verifier.EndTable();
   }
 };
@@ -3983,6 +3990,9 @@ struct SettlementBriefBuilder {
   void add_contacts(::flatbuffers::Offset<::flatbuffers::String> contacts) {
     fbb_.AddOffset(SettlementBrief::VT_CONTACTS, contacts);
   }
+  void add_coalitions(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coalitions) {
+    fbb_.AddOffset(SettlementBrief::VT_COALITIONS, coalitions);
+  }
   explicit SettlementBriefBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -4007,11 +4017,13 @@ inline ::flatbuffers::Offset<SettlementBrief> CreateSettlementBrief(
     ::flatbuffers::Offset<::flatbuffers::String> founding = 0,
     ::flatbuffers::Offset<::flatbuffers::String> year = 0,
     int64_t abandoned_minute = -1LL,
-    ::flatbuffers::Offset<::flatbuffers::String> contacts = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> contacts = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coalitions = 0) {
   SettlementBriefBuilder builder_(_fbb);
   builder_.add_abandoned_minute(abandoned_minute);
   builder_.add_founded_minute(founded_minute);
   builder_.add_id(id);
+  builder_.add_coalitions(coalitions);
   builder_.add_contacts(contacts);
   builder_.add_year(year);
   builder_.add_founding(founding);
@@ -4042,11 +4054,13 @@ inline ::flatbuffers::Offset<SettlementBrief> CreateSettlementBriefDirect(
     const char *founding = nullptr,
     const char *year = nullptr,
     int64_t abandoned_minute = -1LL,
-    const char *contacts = nullptr) {
+    const char *contacts = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *coalitions = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto founding__ = founding ? _fbb.CreateString(founding) : 0;
   auto year__ = year ? _fbb.CreateString(year) : 0;
   auto contacts__ = contacts ? _fbb.CreateString(contacts) : 0;
+  auto coalitions__ = coalitions ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*coalitions) : 0;
   return tce::wire::CreateSettlementBrief(
       _fbb,
       id,
@@ -4060,7 +4074,8 @@ inline ::flatbuffers::Offset<SettlementBrief> CreateSettlementBriefDirect(
       founding__,
       year__,
       abandoned_minute,
-      contacts__);
+      contacts__,
+      coalitions__);
 }
 
 struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

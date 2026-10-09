@@ -64,8 +64,8 @@ pub use found::{
     found_bands, send_agitator, send_wave, spawn_families, spawn_family,
 };
 pub use history::{
-    Cause, ChronicleEvent, ChronicleKind, Moved, Origin, PersonRecord, Reason, Receipt,
-    ResidenceWhy, Scored, Span, Stay, Term, Union,
+    Cause, ChronicleEvent, ChronicleKind, CoalitionStep, Moved, Origin, PersonRecord, Reason,
+    Receipt, ResidenceWhy, Scored, Span, Stay, Term, Union,
 };
 pub use ledger::Channel;
 pub use needs::Sex;

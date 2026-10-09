@@ -2241,6 +2241,19 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
 }
 
 #[test]
+fn a_schema_54_save_loads_with_no_coalition_gathered() {
+    // A schema-54 save, from before households gathered to found settlements (M5a slice AO).
+    let sim = load_first();
+    assert!(sim.people().coalitions.is_empty());
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V54;
+    let path = republish("slice-an2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-54 save loads");
+    assert!(loaded.people().coalitions.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_53_save_loads_with_no_wave_sent() {
     // A schema-53 save, from before migration waves (M5a slice AN, step two).
     let sim = load_first();

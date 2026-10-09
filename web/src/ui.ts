@@ -1383,6 +1383,7 @@ export function bindUi(store: Store, actions: Actions): void {
         s.year,
         s.abandonedMinute,
         s.contacts,
+        s.coalitions,
       ]),
       state.welcome?.activities.length ?? 0,
     ]);
@@ -1423,6 +1424,7 @@ export function bindUi(store: Store, actions: Actions): void {
         s.contacts
           ? el("span", { className: "since contacts", text: `Between settlements, ${s.contacts}.` })
           : "",
+        ...s.coalitions.map((c) => el("span", { className: "since coalition", text: `${c}.` })),
       ),
     );
     nodes.push(

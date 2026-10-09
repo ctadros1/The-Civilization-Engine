@@ -1773,4 +1773,26 @@ table PlacesSave {
   // review where they live at the next midnight.
   leanings: [LeaningSave] (id: 3);
   review_due: [ulong] (id: 4);
+  // Schema 55 (M5a slice AO): every coalition gathered to found a settlement, in order.
+  coalitions: [CoalitionSave] (id: 5);
+}
+
+// Schema 55 (M5a slice AO): households gathered to found a settlement. `lacking`: 0 nothing,
+// 1 food, 2 seed; `fate`: 0 gathering, 1 founded, 2 dissolved; `ended` -1 and `settlement` 0
+// while none.
+table CoalitionSave {
+  id: uint (id: 0);
+  organizer: ulong (id: 1);
+  from: ulong (id: 2);
+  site: Point (id: 3);
+  formed: long (id: 4);
+  reviews: uint (id: 5);
+  members: [ulong] (id: 6);
+  people: uint (id: 7);
+  lacking: ubyte (id: 8);
+  fate: ubyte (id: 9);
+  ended: long = -1 (id: 10);
+  settlement: ulong (id: 11);
+  // The person it is named for (0: none).
+  named: ulong (id: 12);
 }

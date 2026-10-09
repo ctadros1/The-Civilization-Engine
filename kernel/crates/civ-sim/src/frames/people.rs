@@ -104,6 +104,11 @@ pub fn settlement_briefs<'a>(
             let founding = fbb.create_string(&founding_words(sim, s));
             let year = fbb.create_string(&year_words(sim, s.id));
             let contacts = fbb.create_string(&contacts_words(sim, s.id));
+            let coalitions: Vec<_> = coalition_words(sim, s.id)
+                .iter()
+                .map(|w| fbb.create_string(w))
+                .collect();
+            let coalitions = fbb.create_vector(&coalitions);
             wire::SettlementBrief::create(
                 fbb,
                 &wire::SettlementBriefArgs {
@@ -119,11 +124,81 @@ pub fn settlement_briefs<'a>(
                     year: Some(year),
                     abandoned_minute: s.abandoned.map_or(-1, |t| t.minutes()),
                     contacts: Some(contacts),
+                    coalitions: Some(coalitions),
                 },
             )
         })
         .collect();
     fbb.create_vector(&briefs)
+}
+
+/// The coalitions of settlement `s`'s households gathered to found a settlement, still gathering
+/// or ended in the past year, each in words (M5a slice AO): "Ada's household gathers 2 more
+/// households, 14 people, to found a settlement 3.1 km north, since the spring of year 2; lacks
+/// seed"; "Ada's household and 2 more founded Birchford in the summer of year 3".
+pub fn coalition_words(sim: &Sim, s: PermanentId) -> Vec<String> {
+    use civ_agents::places::{CoalitionFate, Lacking};
+    let now = sim.now();
+    let year_ago = now.day_index() - civ_core::time::DAYS_PER_YEAR;
+    let day_words =
+        |d: i64| season_words(SimTime::from_minutes(d * civ_core::time::MINUTES_PER_DAY));
+    sim.people
+        .coalitions
+        .iter()
+        .filter(|c| c.from == s && c.ended.is_none_or(|d| d >= year_ago))
+        .map(|c| {
+            let who = c.named.map_or_else(
+                || "A household".to_owned(),
+                |p| format!("{}'s household", sim.people.name_of(p)),
+            );
+            let more = c.members.len().saturating_sub(1);
+            let them = match more {
+                0 => who.clone(),
+                1 => format!("{who} and one more household"),
+                n => format!("{who} and {n} more households"),
+            };
+            match c.fate {
+                CoalitionFate::Gathering => {
+                    let home = sim.land.settlements.iter().find(|x| x.id == s);
+                    let way = home.map_or_else(String::new, |h| {
+                        let (dx, dy) = (c.site.0 - h.hearth_m.0, c.site.1 - h.hearth_m.1);
+                        let way = match ((dy.atan2(dx).to_degrees() + 382.5) % 360.0 / 45.0) as u32
+                        {
+                            0 => "east",
+                            1 => "south-east",
+                            2 => "south",
+                            3 => "south-west",
+                            4 => "west",
+                            5 => "north-west",
+                            6 => "north",
+                            _ => "north-east",
+                        };
+                        format!(" {:.1} km {way}", dx.hypot(dy) / 1000.0)
+                    });
+                    let lack = match c.lacking {
+                        Lacking::Nothing => "",
+                        Lacking::Food => "; too little food to go yet",
+                        Lacking::Seed => "; too little seed to go yet",
+                    };
+                    format!(
+                        "{them} {} to found a settlement{way}, {} people, since {}{lack}",
+                        if more == 0 { "means" } else { "mean" },
+                        c.people,
+                        day_words(c.formed)
+                    )
+                }
+                CoalitionFate::Founded => format!(
+                    "{them} founded {} in {}",
+                    place_name(sim, c.settlement),
+                    day_words(c.ended.unwrap_or(c.formed))
+                ),
+                CoalitionFate::Dissolved => format!(
+                    "{who} gave up its plan to found a settlement in {}",
+                    day_words(c.ended.unwrap_or(c.formed))
+                ),
+            }
+        })
+        .collect()
 }
 
 /// A settlement's name, or "beyond the map" for none (ADR-0018 §3).

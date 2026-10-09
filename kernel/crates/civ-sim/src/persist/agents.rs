@@ -109,8 +109,8 @@ use super::{
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
-    SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, finish, section, single_chunk,
-    unreadable,
+    SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -392,6 +392,8 @@ enum Schema {
     V53,
     /// Migration waves (M5a slice AN, step two).
     V54,
+    /// Coalitions gathered to found settlements (M5a slice AO).
+    V55,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -460,7 +462,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V51 => Schema::V51,
         SCHEMA_V52 => Schema::V52,
         SCHEMA_V53 => Schema::V53,
-        SAVE_SCHEMA_VERSION => Schema::V54,
+        SCHEMA_V54 => Schema::V54,
+        SAVE_SCHEMA_VERSION => Schema::V55,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -659,7 +662,15 @@ pub(super) fn decode<R: Read + Seek>(
             people.unmatched,
             people.leanings,
             people.review_due,
-        ) = (d.known, d.contacts, d.unmatched, d.leanings, d.due);
+            people.coalitions,
+        ) = (
+            d.known,
+            d.contacts,
+            d.unmatched,
+            d.leanings,
+            d.due,
+            d.coalitions,
+        );
     }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
     match standing {
@@ -2632,7 +2643,8 @@ fn carried(
         | Schema::V51
         | Schema::V52
         | Schema::V53
-        | Schema::V54 => {
+        | Schema::V54
+        | Schema::V55 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2796,7 +2808,8 @@ fn decode_households(
             | Schema::V51
             | Schema::V52
             | Schema::V53
-            | Schema::V54 => {
+            | Schema::V54
+            | Schema::V55 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3465,6 +3478,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Influence => 39,
         ChronicleKind::InfluenceTurned => 40,
         ChronicleKind::Moved => 41,
+        ChronicleKind::Coalition => 42,
     }
 }
 
@@ -3511,6 +3525,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         39 => Some(ChronicleKind::Influence),
         40 => Some(ChronicleKind::InfluenceTurned),
         41 => Some(ChronicleKind::Moved),
+        42 => Some(ChronicleKind::Coalition),
         _ => None,
     }
 }
@@ -6338,6 +6353,33 @@ fn encode_places(people: &Population) -> Vec<u8> {
     let leanings = fbb.create_vector(&leanings);
     let due: Vec<u64> = people.review_due.iter().map(|h| h.get()).collect();
     let due = fbb.create_vector(&due);
+    let coalitions: Vec<_> = people
+        .coalitions
+        .iter()
+        .map(|c| {
+            let members: Vec<u64> = c.members.iter().map(|h| h.get()).collect();
+            let members = fbb.create_vector(&members);
+            save::CoalitionSave::create(
+                &mut fbb,
+                &save::CoalitionSaveArgs {
+                    id: c.id,
+                    organizer: c.organizer.get(),
+                    from: c.from.get(),
+                    site: Some(&point(c.site)),
+                    formed: c.formed,
+                    reviews: c.reviews,
+                    members: Some(members),
+                    people: c.people,
+                    lacking: c.lacking as u8,
+                    fate: c.fate as u8,
+                    ended: c.ended.unwrap_or(-1),
+                    settlement: c.settlement.map_or(0, |s| s.get()),
+                    named: c.named.map_or(0, |p| p.get()),
+                },
+            )
+        })
+        .collect();
+    let coalitions = fbb.create_vector(&coalitions);
     let root = save::PlacesSave::create(
         &mut fbb,
         &save::PlacesSaveArgs {
@@ -6346,6 +6388,7 @@ fn encode_places(people: &Population) -> Vec<u8> {
             unmatched: Some(unmatched),
             leanings: Some(leanings),
             review_due: Some(due),
+            coalitions: Some(coalitions),
         },
     );
     finish(fbb, root)
@@ -6360,6 +6403,7 @@ struct PlacesDecoded {
     unmatched: BTreeMap<PermanentId, i64>,
     leanings: BTreeMap<PermanentId, civ_agents::places::Leaning>,
     due: std::collections::BTreeSet<PermanentId>,
+    coalitions: Vec<civ_agents::places::Coalition>,
 }
 
 fn decode_places(bytes: &[u8]) -> Result<PlacesDecoded, LoadError> {
@@ -6417,6 +6461,36 @@ fn decode_places(bytes: &[u8]) -> Result<PlacesDecoded, LoadError> {
         .flatten()
         .filter_map(PermanentId::from_raw)
         .collect();
+    let mut coalitions = Vec::new();
+    for c in root.coalitions().iter().flatten() {
+        use civ_agents::places::{Coalition, CoalitionFate, Lacking};
+        let site = c.site().map_or((0.0, 0.0), |p| (p.x(), p.y()));
+        let mut members = Vec::new();
+        for h in c.members().iter().flatten() {
+            members.push(required(h, "a coalition's household")?);
+        }
+        coalitions.push(Coalition {
+            id: c.id(),
+            organizer: required(c.organizer(), "a coalition's organizer")?,
+            named: PermanentId::from_raw(c.named()),
+            from: required(c.from(), "a coalition's settlement")?,
+            site,
+            formed: c.formed(),
+            reviews: c.reviews(),
+            members,
+            people: c.people(),
+            lacking: Lacking::from_code(c.lacking())
+                .ok_or_else(|| LoadError::Malformed(format!("unknown lack {}", c.lacking())))?,
+            fate: CoalitionFate::from_code(c.fate()).ok_or_else(|| {
+                LoadError::Malformed(format!("unknown fate of a coalition {}", c.fate()))
+            })?,
+            ended: (c.ended() >= 0).then_some(c.ended()),
+            settlement: PermanentId::from_raw(c.settlement()),
+        });
+    }
+    if coalitions.windows(2).any(|w| w[0].id >= w[1].id) {
+        return Err(LoadError::Malformed("coalitions out of order".to_owned()));
+    }
     let mut out = Places::default();
     for k in root.list().iter().flatten() {
         let id = |raw: u64, what: &str| {
@@ -6450,6 +6524,7 @@ fn decode_places(bytes: &[u8]) -> Result<PlacesDecoded, LoadError> {
         unmatched,
         leanings,
         due,
+        coalitions,
     })
 }
 

@@ -308,6 +308,10 @@ table SettlementBrief {
   // and this year so far, in words ("in year 2: 12 visits from Ashford, 7 hours at the hearth
   // here; 3 visits to Ashford"); empty when there were none.
   contacts: string (id: 11);
+  // Wire 1.53 (M5a slice AO): households of it gathered to found a settlement, still gathering or
+  // ended in the past year, each in words ("Ada's household gathers 2 more households, 14
+  // people, to found a settlement 3.1 km north, since the spring of year 2; lacks seed").
+  coalitions: [string] (id: 12);
 }
 
 table Snapshot {

@@ -171,6 +171,8 @@ pub struct WorldRun {
 pub struct Between {
     /// With their household, by its choice or in an emergency.
     pub moved: u32,
+    /// With their household and others, to found a settlement (M5a slice AO).
+    pub founded: u32,
     /// On marrying someone there.
     pub married: u32,
     /// Taken in by kin there.
@@ -194,6 +196,7 @@ impl Between {
                 }
                 match pair[1].why {
                     ResidenceWhy::Moved => out.moved += 1,
+                    ResidenceWhy::Founded => out.founded += 1,
                     ResidenceWhy::Married => out.married += 1,
                     ResidenceWhy::TakenIn => out.taken_in += 1,
                     ResidenceWhy::Exiled => out.exiled += 1,
@@ -206,7 +209,7 @@ impl Between {
 
     /// The moves not forced.
     pub fn peaceful(&self) -> u32 {
-        self.moved + self.married + self.taken_in
+        self.moved + self.founded + self.married + self.taken_in
     }
 }
 
@@ -764,9 +767,9 @@ fn moves(worlds: &[WorldRun]) -> Row {
             let net = 100.0 * (w.living() as f64 - w.founders as f64) / lived;
             let b = &w.between;
             format!(
-                "world {}: {rate:.1} ({} with their households, {} on marrying, {} taken in; \
-                 {} exiled not counted); turnover {turnover:.1}, net {net:+.1}",
-                w.seed, b.moved, b.married, b.taken_in, b.exiled
+                "world {}: {rate:.1} ({} with their households, {} founding, {} on marrying, {} \
+                 taken in; {} exiled not counted); turnover {turnover:.1}, net {net:+.1}",
+                w.seed, b.moved, b.founded, b.married, b.taken_in, b.exiled
             )
         })
         .collect();
@@ -1433,7 +1436,8 @@ mod tests {
         let mut w = world(1, &[100; 10]);
         w.founders = 100;
         w.between = Between {
-            moved: 12,
+            moved: 8,
+            founded: 4,
             married: 6,
             taken_in: 2,
             exiled: 40,

@@ -1380,6 +1380,9 @@ pub struct PeopleParams {
     pub places: crate::places::PlacesParams,
     /// What moving to another settlement is worth to a household (M5a slice AN, ADR-0018 §5).
     pub moving: crate::places::MovingParams,
+    /// What founding a settlement of its own is worth to a household, and what a coalition must
+    /// hold to go (M5a slice AO).
+    pub founding: crate::places::FoundingParams,
     /// Names.
     pub names: NameParams,
 }

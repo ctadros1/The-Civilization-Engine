@@ -46,6 +46,7 @@ mod digging;
 mod faction;
 mod firm;
 mod force;
+mod founding;
 mod ideology;
 mod influence;
 mod knowledge;
@@ -460,6 +461,8 @@ pub struct Population {
     pub leanings: BTreeMap<PermanentId, crate::places::Leaning>,
     /// Households that review where to live at the next midnight, an event having prompted it.
     pub review_due: BTreeSet<PermanentId>,
+    /// Every coalition gathered to found a settlement, in the order gathered (M5a slice AO).
+    pub coalitions: Vec<crate::places::Coalition>,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage

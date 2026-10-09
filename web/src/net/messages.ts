@@ -296,6 +296,9 @@ export interface SettlementBrief {
   /** Wire 1.51 (M5a slice AM): visits and marriages between it and other settlements last
    * year and this year so far, in the kernel's words; empty when there were none. */
   contacts: string;
+  /** Wire 1.53 (M5a slice AO): households of it gathered to found a settlement, still gathering
+   * or ended in the past year, each in the kernel's words. */
+  coalitions: string[];
 }
 
 export interface Snapshot {
@@ -2134,6 +2137,7 @@ function settlementBriefs(s: W.Snapshot): SettlementBrief[] {
       year: t.year() ?? "",
       abandonedMinute: Number(t.abandonedMinute()),
       contacts: t.contacts() ?? "",
+      coalitions: Array.from({ length: t.coalitionsLength() }, (_, k) => t.coalitions(k) ?? ""),
     });
   }
   return out;

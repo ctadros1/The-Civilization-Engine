@@ -473,11 +473,13 @@ pub enum ResidenceWhy {
     Exiled,
     /// Their household gave up and left the map.
     LeftMap,
+    /// Their household went with others to found it (M5a slice AO).
+    Founded,
 }
 
 impl ResidenceWhy {
     /// Every reason, in code order.
-    pub const ALL: [ResidenceWhy; 8] = [
+    pub const ALL: [ResidenceWhy; 9] = [
         ResidenceWhy::Born,
         ResidenceWhy::Founder,
         ResidenceWhy::Arrived,
@@ -486,6 +488,7 @@ impl ResidenceWhy {
         ResidenceWhy::TakenIn,
         ResidenceWhy::Exiled,
         ResidenceWhy::LeftMap,
+        ResidenceWhy::Founded,
     ];
 
     /// Its code in saves.
@@ -509,6 +512,7 @@ impl ResidenceWhy {
             ResidenceWhy::TakenIn => "taken in by kin there",
             ResidenceWhy::Exiled => "sent away by a finding",
             ResidenceWhy::LeftMap => "left with their household",
+            ResidenceWhy::Founded => "went with others to found it",
         }
     }
 }
@@ -665,6 +669,42 @@ pub enum ChronicleKind {
     /// members, eldest first as they were; `settlement` and `name` where it went; `number` how
     /// many.
     Moved,
+    /// Households gathered to found a settlement (M5a slice AO): `people` are the organizing
+    /// household's members; `settlement` the one they would leave, or for a founding the one
+    /// founded; `pos` the site; `number` what happened ([`CoalitionStep`]); `name` the settlement
+    /// left, for a founding, else empty.
+    Coalition,
+}
+
+/// What happened to a coalition, in a [`ChronicleKind::Coalition`] entry. Numeric in saves:
+/// append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CoalitionStep {
+    /// It began to gather households.
+    Began = 0,
+    /// Its time came and it lacked food to go.
+    LackedFood = 1,
+    /// Its time came and it lacked seed.
+    LackedSeed = 2,
+    /// Its organizer gave the plan up.
+    GaveUp = 3,
+    /// It went and founded its settlement.
+    Founded = 4,
+}
+
+impl CoalitionStep {
+    /// The step numbered `n`.
+    pub fn from_number(n: f64) -> Option<CoalitionStep> {
+        [
+            CoalitionStep::Began,
+            CoalitionStep::LackedFood,
+            CoalitionStep::LackedSeed,
+            CoalitionStep::GaveUp,
+            CoalitionStep::Founded,
+        ]
+        .get(n.round().max(0.0) as usize)
+        .copied()
+    }
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -823,6 +863,48 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             }
             spans.push(Span::Text(".".to_owned()));
             spans
+        }
+        ChronicleKind::Coalition => {
+            let who = person(0).unwrap_or_else(|| Span::Text("a household".to_owned()));
+            match CoalitionStep::from_number(event.number) {
+                Some(CoalitionStep::Began) => vec![
+                    Span::Text("The household of ".to_owned()),
+                    who,
+                    Span::Text(format!(
+                        " began gathering households to found a settlement{}",
+                        event.name
+                    )),
+                    settlement(event),
+                    Span::Text(".".to_owned()),
+                ],
+                Some(step @ (CoalitionStep::LackedFood | CoalitionStep::LackedSeed)) => vec![
+                    Span::Text("The households gathered by the household of ".to_owned()),
+                    who,
+                    Span::Text(format!(
+                        " held too little {} to go and found their settlement yet.",
+                        if step == CoalitionStep::LackedFood {
+                            "food"
+                        } else {
+                            "seed"
+                        }
+                    )),
+                ],
+                Some(CoalitionStep::GaveUp) => vec![
+                    Span::Text("The household of ".to_owned()),
+                    who,
+                    Span::Text(" gave up gathering households to found a settlement.".to_owned()),
+                ],
+                Some(CoalitionStep::Founded) => vec![
+                    Span::Text("The household of ".to_owned()),
+                    who,
+                    Span::Text(event.name.clone()),
+                    settlement(event),
+                    Span::Text(".".to_owned()),
+                ],
+                None => vec![Span::Text(
+                    "Households gathered to found a settlement.".to_owned(),
+                )],
+            }
         }
         ChronicleKind::Moved => {
             let Some(eldest) = person(0) else {

@@ -859,3 +859,26 @@ w_grievance = 3.0
 w_stake = 3.0
 cost = 2.0
 reviews = 2
+
+[founding]                       # founding a settlement of their own (M5a slice AO); design priors
+# At the same review, a household also weighs founding a settlement with others at a site a member
+# has walked (one of `candidates` drawn from the patches its people know, research 10-01 §2.3:
+# 16-64 bundles), on dry, gentle ground two field walks from every settlement lived in (so no field
+# counts for two) and at most `walk_hours` from home (05-06 §1.3: a daughter near its parent can
+# rely on it). In moving's points: `w_stake` for the share of the coalition's yearly need its
+# cropland there would bring at `yield_share` of the believed yield (10-01 §2.3: a 10th-30th
+# percentile forecast) less the share its own fields and the vacant cropland of home would bring;
+# `w_grievance` for its most keenly felt grievance; `w_kin` for each close kin of a member among
+# the households going; against moving's `cost` and `cost` here besides (breaking every field and
+# building where there is no hearth or neighbour) and the walk once. It recruits its kin's
+# households and those its members regard, each going only if founding with them beats its own
+# best plan, and goes when the plan has won moving's `reviews` reviews running, if the coalition
+# holds food for every member to its first harvest and `buffer_months` beyond (10-01 §2.3: 1-3
+# months) besides seed for the ground it needs; the first harvest is this year's if its adults,
+# at `work_h_per_day` each, can break that ground before sowing ends, else next year's.
+cost = 1.0
+yield_share = 0.7
+walk_hours = 2.0
+candidates = 16
+buffer_months = 2.0
+work_h_per_day = 6.0

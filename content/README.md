@@ -715,6 +715,15 @@ officeholder, and more adults than stand with the gathering, must stand with it 
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
 
+Content API 55 (M5a slice AO) brings founding a settlement of one's own: the people profile's
+`[founding]` table, with `cost` (points against breaking every field and building where there is
+no hearth, store or neighbour yet, besides `[moving]`'s `cost`), `yield_share` (the share of the
+believed yield a site is forecast at: research 10-01 §2.3's 10th–30th percentile), `walk_hours`
+(the farthest walk from home a site may lie), `candidates` (sites weighed at a review, of those a
+member has walked; 10-01 §2.3: 16–64), `buffer_months` (months of food beyond the first harvest a
+coalition must hold to go; 10-01 §2.3: 1–3) and `work_h_per_day` (hours a day an adult breaks new
+ground, for whether the first crop can be sown this year), all design priors.
+
 Content API 54 (M5a slice AN, step one) brings moving between settlements: the people profile's
 `[moving]` table, with `w_kin` (points for each close kin of a member living at the place, less
 each living at home outside the household), `w_ties` (at most this for those its members know

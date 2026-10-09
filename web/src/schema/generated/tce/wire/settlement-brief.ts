@@ -93,8 +93,20 @@ contacts(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+coalitions(index: number):string
+coalitions(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+coalitions(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 28);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+coalitionsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 28);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startSettlementBrief(builder:flatbuffers.Builder) {
-  builder.startObject(12);
+  builder.startObject(13);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -143,6 +155,22 @@ static addAbandonedMinute(builder:flatbuffers.Builder, abandonedMinute:bigint) {
 
 static addContacts(builder:flatbuffers.Builder, contactsOffset:flatbuffers.Offset) {
   builder.addFieldOffset(11, contactsOffset, 0);
+}
+
+static addCoalitions(builder:flatbuffers.Builder, coalitionsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(12, coalitionsOffset, 0);
+}
+
+static createCoalitionsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startCoalitionsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
 }
 
 static endSettlementBrief(builder:flatbuffers.Builder):flatbuffers.Offset {

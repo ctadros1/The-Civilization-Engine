@@ -93,7 +93,7 @@ pub struct Founded {
     pub households: Vec<PermanentId>,
 }
 
-struct Draws(Rng64);
+pub(crate) struct Draws(pub(crate) Rng64);
 
 impl Draws {
     fn unit(&mut self) -> f64 {
@@ -380,7 +380,7 @@ impl SiteGround {
 
 /// How far a field may lie from the hearth, metres: the content's longest walk to a field, off
 /// trail on the flat.
-fn field_reach_m(params: &PeopleParams) -> f32 {
+pub(crate) fn field_reach_m(params: &PeopleParams) -> f32 {
     (params.nav.tobler_ms(0.0) * params.nav.offtrail_factor * params.farm.max_walk_minutes * 60.0)
         as f32
 }
@@ -411,12 +411,61 @@ fn site_pool(
     cells
 }
 
+/// How much of each land patch could be cropped, 0–1: its arable ground, less by the work of
+/// clearing it before it is broken (research 10-01 §1.1).
+fn cropland_weights(ctx: &Ctx, params: &PeopleParams) -> Vec<f64> {
+    let break_h = ctx
+        .catalog
+        .crops
+        .get(params.farm.crop)
+        .map_or(1.0, |c| c.break_h_per_ha);
+    ctx.land
+        .patches
+        .class
+        .iter()
+        .map(|&c| match ctx.land_params.habitats.get(usize::from(c)) {
+            Some(h) if h.arable => break_h / (break_h + h.clear_h_per_ha).max(1e-6),
+            _ => 0.0,
+        })
+        .collect()
+}
+
+/// Hectares that could be cropped within a field walk of `at`, as [`site_scores`] counts them.
+pub(crate) fn cropland_ha(ctx: &Ctx, params: &PeopleParams, at: (f32, f32)) -> f64 {
+    let patches = &ctx.land.patches;
+    let reach = field_reach_m(params);
+    cropland_weights(ctx, params)
+        .iter()
+        .enumerate()
+        .filter(|&(p, &w)| {
+            let c = patches.centre_m(p);
+            w > 0.0 && (c.0 - at.0).hypot(c.1 - at.1) <= reach
+        })
+        .map(|(p, &w)| {
+            let dry = 1.0 - f64::from(patches.water.get(p).copied().unwrap_or(0.0));
+            patches.area_ha() * dry * w
+        })
+        .sum()
+}
+
+/// A cell's slope and height above drainage, measured on their own (no map-wide rasters).
+pub(crate) fn ground_at(ctx: &Ctx, cell: usize) -> (f32, f32) {
+    (
+        terrain::slope_at(ctx.map, cell),
+        terrain::hand_at(
+            ctx.map,
+            cell,
+            (ctx.land_params.channel_area_km2 * 1.0e6) as f32,
+        ),
+    )
+}
+
 /// Each of `cells` scored as a camp for a band of `size`: wild food near, cropland within a field
-/// walk, water, slope and floods.
-fn site_scores(
+/// walk, water, slope and floods. `ground` gives a cell's slope and its height above drainage.
+pub(crate) fn site_scores(
     ctx: &Ctx,
     params: &PeopleParams,
-    ground: &SiteGround,
+    ground: &dyn Fn(usize) -> (f32, f32),
     cells: &[usize],
     size: u32,
 ) -> Vec<f32> {
@@ -453,16 +502,8 @@ fn site_scores(
         let kcal = ctx.catalog.goods.get(c.good).map_or(0.0, |g| g.kcal_per_kg);
         farm::need_area_ha(size as usize, params, c, kcal, c.yield_kg_per_ha)
     });
-    let break_h = crop.map_or(1.0, |c| c.break_h_per_ha);
     let field_reach_m = field_reach_m(params);
-    let arable: Vec<f64> = patches
-        .class
-        .iter()
-        .map(|&c| match ctx.land_params.habitats.get(usize::from(c)) {
-            Some(h) if h.arable => break_h / (break_h + h.clear_h_per_ha).max(1e-6),
-            _ => 0.0,
-        })
-        .collect();
+    let arable = cropland_weights(ctx, params);
     let mut scores = Vec::with_capacity(cells.len());
     for &cell in cells {
         let at = cell_centre(map, cell);
@@ -506,13 +547,14 @@ fn site_scores(
         }
         // Eight hours a day of one person's work for a year, against the band's yearly needs.
         let food_years = food * 8.0 * 365.0 / year_need.max(1.0);
+        let (slope, hand) = ground(cell);
         let mut score = band.site_w_food * (1.0 + food_years).ln()
             - band.site_w_water_per_100m * water_m / 100.0
-            - band.site_w_slope_per_pct * f64::from(ground.slopes[cell]) * 100.0;
+            - band.site_w_slope_per_pct * f64::from(slope) * 100.0;
         if need_ha > 0.0 {
             score += band.site_w_arable * (1.0 + arable_ha / need_ha).ln();
         }
-        if f64::from(ground.hand[cell]) < band.site_flood_hand_m {
+        if f64::from(hand) < band.site_flood_hand_m {
             score -= band.site_w_flood;
         }
         scores.push(score as f32);
@@ -547,7 +589,10 @@ fn choose_sites(
     order.sort_by_key(|&g| std::cmp::Reverse(sizes[g]));
     let scores: Vec<Vec<f32>> = order
         .iter()
-        .map(|&g| site_scores(ctx, params, &ground, &pool, sizes[g]))
+        .map(|&g| {
+            let at = |c: usize| (ground.slopes[c], ground.hand[c]);
+            site_scores(ctx, params, &at, &pool, sizes[g])
+        })
         .collect();
     let apart = 2.0 * field_reach_m(params);
     let at: Vec<(f32, f32)> = pool.iter().map(|&c| cell_centre(ctx.map, c)).collect();
@@ -882,7 +927,7 @@ pub fn found_bands(
 /// Draws to name a new settlement until the name is none of `settlements`' on record, abandoned
 /// ones too: a draw that names no other place is the one a world has always drawn. After
 /// [`NAME_TRIES`] draws that all name one, the last is told apart by a number.
-fn place_name(
+pub(crate) fn place_name(
     params: &PeopleParams,
     d: &mut Draws,
     settlements: &[civ_land::Settlement],
@@ -1714,6 +1759,7 @@ pub(crate) mod tests {
             faction: crate::faction::FactionParams::core(),
             places: crate::places::PlacesParams::core(),
             moving: crate::places::MovingParams::core(),
+            founding: crate::places::FoundingParams::core(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

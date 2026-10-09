@@ -1,10 +1,10 @@
 <p align="center"><img src="assets/previews/civilization-engine-mark.svg" width="88" height="88" alt="The Civilization Engine mark"></p>
 <h1 align="center">The Civilization Engine</h1>
 <p align="center"><strong>A bottom-up simulation of how people build a civilization.</strong></p>
-<p align="center">Individuals make a living, form families, trade, learn, build and adapt. Their choices can grow settlements into cities and shape the societies around them.</p>
+<p align="center">People make a living, form families, trade, learn and build. Their choices shape the settlements and societies that emerge.</p>
 
 <p align="center">
-  <a href="#the-project">Project</a> · <a href="#current-build">Current build</a> · <a href="#technical-overview">Technical overview</a> · <a href="#run-it">Run it</a> · <a href="#documentation">Documentation</a>
+  <a href="#the-project">Project</a> · <a href="#current-status">Status</a> · <a href="#technical-overview">Technical overview</a> · <a href="#run-it">Run it</a> · <a href="#documentation">Documentation</a>
 </p>
 <p align="center">
   <img src="https://img.shields.io/badge/milestone-M5b%20in%20progress-9a6a36?style=flat-square" alt="Milestone: M5a several settlements implemented; M5b trade and diffusion in progress">
@@ -14,11 +14,11 @@
 
 ## The project
 
-The Civilization Engine (TCE) is a single-player simulation project about societies that grow from the everyday decisions of their people. Its long-term scope runs from early settlements to modern civilization. The guiding rule is **the engine authors the vocabulary, never the plot**: people act within a world of authored rules and possibilities; the simulation does not force a historical storyline or predetermined outcomes.
+The Civilization Engine (TCE) is a single-player simulation of societies growing from the everyday decisions of their people. Its long-term vision spans early settlements through modern civilization. The guiding principle is **the engine authors the vocabulary, never the plot**: it provides people, resources, institutions and rules, while the simulation decides what societies become.
 
-The project is actively developed. The working build is a Rust simulation viewed through a local web observer. It currently models an early farming village; modern civilization is a long-term goal, not an implemented feature. Unreal Engine support is planned, with the kernel's C interface in place and the Unreal client still to be built.
+The current build simulates an early farming society in a local web observer. Modern industry and cities are a longer-term ambition, not features of the current build or the planned v1 scope. Unreal Engine support is planned; the portable Rust kernel and its C interface are in place, while the Unreal client remains outstanding.
 
-**The M3a demo** lived one seed (2, the river valley) under each property regime, three runs each, since runs differ. A band of 40 lived ten years under both, and the regimes did not part: at the tenth year's end 47–51 people in 12 households, Ginis of goods 0.15–0.19 against 0.16–0.18 and of floor area 0.21–0.22 in both, 27–28 m² a house, the same prices (a sickle 3.6–4.4 hours of work), and no money. Only what tenure itself writes differed: under village fields the village held all 18 ha and no household held any, and under household fields a field was now and then let. With land plentiful, every household works what it needs under either rule. A village of hundreds (a band of 125 joined by 20 families, about 250 people by its fifth year) parted only in a famine. In its sixth year a harvest some 40% short brought hunger under both regimes. Under village fields 82–105 people died and few households left, so 154–175 were still there at the year's end, with goods more unequal (Gini 0.27–0.32). Under household fields 25–73 died but households left sooner (up to 229 people), leaving 12–189, with Ginis of 0.11–0.24, and up to 38 fields let for a share of the grain. In the seventh year every household of every run left the valley. The decision log has the numbers and two NUDGEs: the regimes part only under scarcity, and a village of hundreds made at once does not survive its first bad harvest.
+## Current status
 
 **Milestone M3c, Seasons and time, is implemented** ([plan §7](PROJECT_PLAN.md#7-milestones)), in five slices: the speeds and the day step, the fifty-year dashboard, weather and seasons, soils and fertility, and Accelerated mode's approximations with their consistency test. Each world lives its own weather, day by day; each field's water sets its harvest, and its soil remembers how it was cropped, rested and manured. The Accelerated speeds (60×, 600×, Max) live a day at a time, a village about 23 % faster than by the minute, with two declared approximations held to Detailed mode's results by a statistical test. **The M3c demo** lived one village through a dry year and a wet one: in the dry year its harvest halved, its grain stores fell and grain was asked about a fifth dearer, and nobody went short; then five worlds lived fifty years in Accelerated mode, and the sanity dashboard passed, four rows green and the Gini of goods amber (hoe farmers with land to spare are this equal). See [plan §9](PROJECT_PLAN.md#9-decision-log) for the runs.
 
@@ -119,9 +119,9 @@ The project is actively developed. The working build is a Rust simulation viewed
   - **The map's readout** says how each building was built and which building its builders' taste followed: "hut of 30 m², room for 5: finished; roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut". A frame building's says how far its eaves reach, too.
   - **The inspector** says how a person's household would build and which building moved its taste most: "Builds: roofs pitched 48°, walls 1.9 m to the eaves, eaves 0.5 m out; admiring Bo's hut". Wire 1.22.
 
-**The M3b demo** lived three river-valley worlds 25 years each, the observer bringing jointed timber framing to the eldest founder of each as it began (`civ-host run --introduce`). Two of the plan's three outcomes emerged, and the third is shown by a test. A craft found by one person, drying and smoking, was found once in the 75 village-years and lost the same year as households left. Framing passed only to children growing up with its knower, was never practised, and died with its last knower in all three. Every building begun after the first year was built after an admired one, a young couple's first home following what their families admired. No village built a frame, so no loft was loaded or failed. Huts lost their roofs in storms and villages remembered it, but a hut has nothing to build stronger; the test of slice P shows a loft giving way and a village building stronger for years. All three villages, grown to 52–59 people, emptied within a year as households left together. The decision log has the numbers and two NUDGEs, and `web/e2e/m3b-demo.spec.ts` takes the pictures.
+## Current build
 
-This is a screenshot from the running web observer: an early farming village with fields, people, trails and market data.
+This is the current web observer: a village with households, buildings, fields and the tools to inspect what people know and how they build.
 
 | Area | Status | What exists |
 | --- | --- | --- |
@@ -188,7 +188,7 @@ This is a screenshot from the running web observer: an early farming village wit
 | Kernel library (`civ-ffi`) | Implemented: ABI 1.0 | `tce_kernel`, the kernel as a library: one export hands back a versioned table of C functions to create a kernel, submit frames, poll ordered frames, copy the latest snapshot and serve the panels. A generated header, Rust tests through the table, a C harness that loads the library at run time, and a C++ host that reads its frames with the generated C++ readers and asks it for a world, as the plugin will ([ADR-0005](decisions/0005-kernel-c-interface.md)) |
 | Unreal client (`EngineBridge`, runtime terrain, building assembler) | Planned (M2, on the Windows PC) | |
 
-[Watch the M1 ten-year simulation demo](assets/m1/m1-demo.webm) · [See the M3a village and economy screenshots](assets/m3a/)
+[View the knowledge panel](assets/m3b/m3b-knowledge.jpg) · [Watch the M1 ten-year demo](assets/m1/m1-demo.webm) · [See the M3a economy screenshots](assets/m3a/)
 
 - **Terrain.** Erosion routes water along the grid's eight directions, which leaves occasional straight valleys and creases, visible in the hillshade up close. Valley-floor edges can look jagged at the 8 m cell scale.
 - **Lakes.** Lakes are rare in the humid presets, and closed basins use a single-lake approximation.
@@ -216,20 +216,22 @@ This is a screenshot from the running web observer: an early farming village wit
 - **Stone and flint are a stand-in.** People still gather them from fixed amounts per hectare by habitat. Every world now also has deposits of clay, stone and flint as bodies in the ground (M3b slice Q), and villages find those that show or that levelling cuts into. Clay is dug from them, and stone and flint once the loose stone and flint near a village are used up. Where they lie and how large they are are tuning values: the research describes them only in words.
 - **Simulation speed.** On the 4-core cloud CPU, a village of 40–50 people lives a good year in about 10 s (three years and three months in 30–33 s from the command line, seeds 1, 2, 11 and 19). Hungry years take about twice as long: long hunting trips to new places each need a route planned. Running ahead in the observer, with the map following, the demo's village of 50–60 lived nine years in about 140 s, some 15 s a year. Larger villages cost about in proportion to their people: a founding of 200 lives its first year in about 39 s, and one of 400 its first three months at about 215 ms a day (`civ-sim`'s `bench_village` example measures this). A village of 302, a founding of 125 joined by 40 families, lived its first four months at 235 ms a day, about 86 s a year. M3c's first speed work, which leaves every run exactly as it was, made a band of 40 about 26 % faster and one of 125 about 18 % faster (11.1 s and 30.9 s a simulated year, from 14.9 s and 37.6 s, each lived on from the same save). The Accelerated speeds (60×, 600×, Max) live a day at a time with two declared approximations ([ADR-0011](decisions/0011-execution-modes.md) §4): a village of 65 lived twenty years lives at Max in about 16 s a simulated year, against about 21 s by the minute (M3c slice W; the reuse of a settlement's walking times on its monthly refresh, which changes nothing, took Detailed mode from about 22 s).
 
-<p align="center"><img src="assets/previews/civilization-engine-modern.png" alt="Illustrative concept art of a modern river metropolis" width="760"></p>
+<p align="center">
+  <img src="assets/previews/civilization-engine-hero.png" alt="Illustrative concept art of a settlement growing into a historical city" width="48%">
+  <img src="assets/previews/civilization-engine-modern.png" alt="Illustrative concept art of a modern river metropolis" width="48%">
+</p>
 
 ## Technical overview
 
-| Area | Implementation |
+| Area | How it works |
 | --- | --- |
-| Simulation | Rust workspace; event-scheduled people plus minute-to-year system cadences |
-| World | Seeded terrain, drainage, lakes and rivers; 8 m simulation cells |
+| Kernel | Rust workspace with separate crates for world generation, land, people, content, simulation, hosting and the C interface |
+| World | Seeded terrain, drainage, lakes and rivers, refined to 8 m simulation cells; generation is reproducible per build and input |
+| Simulation | Event-scheduled activities plus calendar cadences; the kernel owns state and decisions, while observers render and forward commands |
 | Content | Strict TOML packs compiled and cross-validated before a world starts |
-| Observer | TypeScript, Vite and PixiJS; map and panels read kernel state and submit commands |
-| Boundaries | Versioned FlatBuffers payloads in a shared frame envelope; localhost WebSocket today, C ABI for future Unreal integration |
-| Saves | Checksummed, versioned snapshot generations with explicit schema migrations |
-
-The kernel owns simulation state. The observer renders it and forwards user commands. See the [technical docs](docs/development-journal/) for the data flow, simulation model, save format, interfaces, and design history.
+| Observer and boundary | TypeScript, Vite and PixiJS over localhost WebSocket; versioned FlatBuffers messages and a shared frame envelope; C ABI for future Unreal integration |
+| Saves | Checksummed, versioned snapshots with explicit migrations; the simulation is not intended to replay deterministically |
+| Evidence | Rust and browser checks, selected smoke worlds, and a five-world, fifty-year sanity dashboard |
 
 ## Run it
 
@@ -346,14 +348,14 @@ civ-core (ids, time, scheduler) ─► civ-world ───┼─► civ-sim (wor
 commons-wire, commons-persist (shared with other engines) ┘                                (CLI, WebSocket)   (PixiJS)
 ```
 
-On Windows, run `tools\run.ps1` in PowerShell. The host opens the local observer at <http://127.0.0.1:7420/>. For development commands, tests and troubleshooting, see [AGENTS.md](AGENTS.md).
+On Windows, run `tools\run.ps1` in PowerShell. The local observer opens at <http://127.0.0.1:7420/>. Development commands and change requirements are in [AGENTS.md](AGENTS.md).
 
 ## Documentation
 
-- [Development journal and technical guide](docs/development-journal/README.md)
-- [Project plan and milestone decisions](PROJECT_PLAN.md)
+- [Project plan and current milestone status](PROJECT_PLAN.md)
+- [Development journal and technical notes](docs/development-journal/README.md) (historical source snapshot; see the project plan for current status)
 - [Architecture decision records](decisions/README.md)
-- [Research index: 170 topics across 16 domains](research/README.md)
+- [Research index](research/README.md)
 - [Content authoring guide](content/README.md)
 - [Web observer guide](web/README.md)
 

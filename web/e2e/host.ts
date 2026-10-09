@@ -1,7 +1,7 @@
 // Starts and stops civ-host for end-to-end tests.
 
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,8 +22,27 @@ export function hostBinary(): string {
   return found;
 }
 
+/** Folders made by `tempSaves()` and not yet removed; only these are ever deleted by this file. */
+const ownedSaves = new Set<string>();
+
+function removeOwned(saves: string): void {
+  if (!ownedSaves.delete(saves)) return;
+  rmSync(saves, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+}
+
+// Safety net for folders whose host never started or was only killed.
+process.on("exit", () => {
+  for (const saves of [...ownedSaves]) removeOwned(saves);
+});
+
+/**
+ * A fresh saves folder in the system temp directory. `Host.stop()` removes it; anything left
+ * (a host that was only killed, a spec that failed before starting one) goes when the process exits.
+ */
 export function tempSaves(): string {
-  return mkdtempSync(path.join(tmpdir(), "tce-e2e-saves-"));
+  const saves = mkdtempSync(path.join(tmpdir(), "tce-e2e-saves-"));
+  ownedSaves.add(saves);
+  return saves;
 }
 
 /**
@@ -60,9 +79,9 @@ export interface Host {
   url: string;
   process: ChildProcess;
   output: () => string;
-  /** Stops the host cleanly (it saves and removes its session marker). */
+  /** Stops the host cleanly (it saves and removes its session marker), then removes `saves` if `tempSaves()` made it. */
   stop(): Promise<void>;
-  /** Kills the host without letting it clean up, like a crash or power cut. */
+  /** Kills the host without letting it clean up, like a crash or power cut. Keeps `saves`, so a test can restart on it. */
   kill(): Promise<void>;
 }
 
@@ -89,6 +108,7 @@ export function startHost(saves: string): Promise<Host> {
           stop: async () => {
             child.kill("SIGTERM");
             await exited;
+            removeOwned(saves);
           },
           kill: async () => {
             child.kill("SIGKILL");

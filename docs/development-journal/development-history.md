@@ -734,6 +734,22 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** slice AL, scale for several settlements. Whether groups know one another at the start moves to slice AM, which brings known places.
 
+## 2026-10-09 — M5a slice AL: scale for several settlements
+
+**Goal:** three settlements of 1,000 should cost about three times one, and a year of them should fit the plan's budget of ten minutes at Max (plan §7, ADR-0018 §7).
+
+**What changed:**
+
+- **Measured first:** from the same saved day three settlements cost 3.25 times one, but over a year nearly five times, the ratio rising as fields piled up. The excess was work that grew with the whole world.
+- **Searches kept local, exactly:** finding ground for a field looks only near its candidates, and its daily cache is keyed on the household's own ground and stamped with counts; company at the hearth is looked up per settlement; faded places are let go once a day; a household's fields come from an index kept by household. Each is checked against the scan it replaced in every test run.
+- **Landmark bounds for routes:** eight landmarks round the ground people walk, built on four threads after each monthly survey, cut the cells a route search expands to about a sixth, with the same route times.
+
+**Findings:** every step but the landmarks left the digests of a saved world unchanged; the landmarks change only which of two equally fast routes is taken. A year of three settlements of 1,000 now takes 1,179 s, one of 1,000 takes 273 s. The budget of 600 s is not met; what remains is spread over each person's decisions rather than over the settlements, and is recorded in plan §9. 8,000 people were measured over 30 days at 14.6 s a day.
+
+**Evidence:** digest comparisons of saved worlds at days 10, 30 and 245; 3,000 route pairs with and without landmarks; a new landmark test with hills, lakes, an island and cut-short bounds; the debug checks of each new index; the whole kernel suite, clippy and the ten smoke worlds.
+
+**Open:** slice AM, known places, visits and marriage between settlements.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

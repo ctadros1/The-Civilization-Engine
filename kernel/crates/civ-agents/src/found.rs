@@ -563,7 +563,8 @@ fn add_family(
         admired: None,
         midden: crate::person::Midden::begun(now),
     });
-    let couple = founding_couple(params, family, now, d);
+    // One who comes alone has no partner; a family's first two are its couple.
+    let couple = (family.len() >= 2).then(|| founding_couple(params, family, now, d));
     for (mi, m) in family.iter().enumerate() {
         let list = if m.sex == Sex::Male {
             &params.names.male
@@ -646,24 +647,22 @@ fn add_family(
             carrying: Load::default(),
             draws: 0,
             receipts: Default::default(),
-            partner: match mi {
-                0 => Some(ids[1]),
-                1 => Some(ids[0]),
+            partner: match (&couple, mi) {
+                (Some(_), 0) => Some(ids[1]),
+                (Some(_), 1) => Some(ids[0]),
                 _ => None,
             },
-            repro: if mi == 0 {
-                couple.repro(&ids)
-            } else {
-                Repro::Open
+            repro: match (&couple, mi) {
+                (Some(c), 0) => c.repro(&ids),
+                _ => Repro::Open,
             },
             fecundity: match m.sex {
                 Sex::Female => demography::fecundity(&params.fertility, &mut d.0),
                 Sex::Male => 1.0,
             },
-            nursing: if mi == 0 {
-                couple.nursing.map(|i| ids[i])
-            } else {
-                None
+            nursing: match (&couple, mi) {
+                (Some(c), 0) => c.nursing.map(|i| ids[i]),
+                _ => None,
             },
             skills: founder_skills(
                 &ctx.catalog.skills,
@@ -693,12 +692,14 @@ fn add_family(
         });
         people.push(id);
     }
-    pop.unions.push(Union {
-        woman: ids[0],
-        man: ids[1],
-        since: couple.since,
-        ended: None,
-    });
+    if let Some(c) = couple {
+        pop.unions.push(Union {
+            woman: ids[0],
+            man: ids[1],
+            since: c.since,
+            ended: None,
+        });
+    }
     (hh_id, people)
 }
 
@@ -841,7 +842,7 @@ pub fn spawn_families(
     count: u32,
 ) -> Result<Vec<Spawned>, String> {
     let count = count.clamp(1, MAX_SPAWN_FAMILIES) as usize;
-    let first = spawn_one(pop, ctx, at, 0, None, None)?;
+    let first = spawn_one(pop, ctx, at, 0, None, None, Sent::Family)?;
     let joining = Some((first.settlement, first.name.clone()));
     let band = Some(first.household);
     let mut out = vec![first];
@@ -857,7 +858,7 @@ pub fn spawn_families(
             at.0 + (r * angle.cos()) as f32,
             at.1 + (r * angle.sin()) as f32,
         );
-        if let Ok(spawned) = spawn_one(pop, ctx, p, k as u64, joining.clone(), band) {
+        if let Ok(spawned) = spawn_one(pop, ctx, p, k as u64, joining.clone(), band, Sent::Family) {
             out.push(spawned);
         }
     }
@@ -888,7 +889,65 @@ pub fn spawn_family(
     ctx: &mut Ctx,
     at: (f32, f32),
 ) -> Result<Spawned, String> {
-    spawn_one(pop, ctx, at, 0, None, None)
+    spawn_one(pop, ctx, at, 0, None, None, Sent::Family)
+}
+
+/// Whom the observer sends.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Sent {
+    /// A family, as a founding family is made.
+    Family,
+    /// One adult alone (M4c slice AJ's agitator).
+    Lone,
+}
+
+/// The observer's god tool (M4c slice AJ, ADR-0016 §5): one adult newcomer, holding ideology
+/// `ideology` (an index in the catalog's ideologies), arrives where the observer placed them, as
+/// a family is sent, in a household of their own. They are an ordinary person, bound by every law,
+/// and start with a stranger's ties: they know nobody. Returns what arrived and the
+/// intervention's number.
+pub fn send_agitator(
+    pop: &mut Population,
+    ctx: &mut Ctx,
+    at: (f32, f32),
+    ideology: u16,
+) -> Result<(Spawned, u32), String> {
+    let name = ctx
+        .catalog
+        .ideologies
+        .get(usize::from(ideology))
+        .map(|d| d.name.to_lowercase())
+        .ok_or_else(|| format!("there is no ideology {ideology}"))?;
+    let sent = spawn_one(pop, ctx, at, 0, None, None, Sent::Lone)?;
+    let Some(&id) = sent.people.first() else {
+        return Err("nobody arrived".to_owned());
+    };
+    let (now, day) = (ctx.now, ctx.now.day_index());
+    pop.ideologies.take_up(crate::ideology::Holding {
+        holder: id,
+        ideology,
+        since: day,
+        from: None,
+    });
+    let record = pop.influences.add(
+        now,
+        crate::influence::InfluenceKind::Agitator,
+        id,
+        u32::from(ideology),
+    );
+    if let Some(r) = pop.influences.list.last_mut() {
+        r.taken = Some(day);
+    }
+    pop.chronicle_push(
+        now,
+        ChronicleKind::Influence,
+        vec![id],
+        Some(sent.settlement),
+        pop.person(id).map(|p| p.pos),
+        f64::from(crate::influence::InfluenceKind::Agitator.code()),
+        format!(", who holds to {name}, to {}.", sent.name),
+    );
+    Ok((sent, record))
 }
 
 /// One family sent to `at`: the `index`th of those sent together (its own draws), joining
@@ -901,6 +960,7 @@ fn spawn_one(
     index: u64,
     joining: Option<(PermanentId, String)>,
     band: Option<PermanentId>,
+    sent: Sent,
 ) -> Result<Spawned, String> {
     let params = ctx.params;
     let now = ctx.now;
@@ -970,7 +1030,19 @@ fn spawn_one(
             (id, name, true)
         }
     };
-    let family = plan_family(params, &mut d);
+    let family = match sent {
+        Sent::Family => plan_family(params, &mut d),
+        Sent::Lone => vec![Member {
+            sex: if d.unit() < 0.5 {
+                Sex::Female
+            } else {
+                Sex::Male
+            },
+            age: d.range(20.0, 40.0),
+            mother: None,
+            father: None,
+        }],
+    };
     let mut used_names: Vec<String> = pop.people.iter().map(|(_, p)| p.given.clone()).collect();
     let (household, people) = add_family(
         pop,
@@ -985,15 +1057,18 @@ fn spawn_one(
     );
     // What the family brings that its settlement did not know is noted (ADR-0008 §2).
     pop.note_arrivals(ctx.catalog, now, settlement, &people);
-    pop.chronicle_push(
-        now,
-        ChronicleKind::FamilyArrived,
-        people.clone(),
-        Some(settlement),
-        Some(home),
-        people.len() as f64,
-        String::new(),
-    );
+    // One sent alone is told by whoever sent them.
+    if sent == Sent::Family {
+        pop.chronicle_push(
+            now,
+            ChronicleKind::FamilyArrived,
+            people.clone(),
+            Some(settlement),
+            Some(home),
+            people.len() as f64,
+            String::new(),
+        );
+    }
     if founded {
         pop.chronicle_push(
             now,

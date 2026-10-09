@@ -636,6 +636,94 @@ fn ideology_told_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
     said.join("; ")
 }
 
+/// What came of sending `p` as an agitator in `i`: whom they reached with what they hold.
+fn agitator_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
+    let pop = &sim.people;
+    let name = u16::try_from(i.subject).ok().and_then(|k| {
+        sim.rules
+            .catalog
+            .ideologies
+            .get(usize::from(k))
+            .map(|d| (k, d))
+    });
+    let Some((k, def)) = name else {
+        return "Sent here by the observer".to_owned();
+    };
+    let taught = pop
+        .ideologies
+        .held
+        .iter()
+        .filter(|h| h.ideology == k && h.from == Some(p))
+        .count();
+    let holds = if pop.ideologies.holds(p, k) {
+        "holds to it still"
+    } else {
+        "no longer holds to it"
+    };
+    let known = pop
+        .ties
+        .of(p)
+        .iter()
+        .filter(|t| t.known_at(sim.now().day_index(), &sim.rules.people.ties) > 0.0)
+        .count();
+    format!(
+        "Sent here by the observer holding to {}; {holds}; {} took it up from them; knows {} \
+         {} here now",
+        def.name.to_lowercase(),
+        others(taught),
+        known,
+        if known == 1 { "person" } else { "people" }
+    )
+}
+
+/// What a blessing or a curse in `i` is and what it turned.
+fn luck_words(sim: &Sim, i: &Influence) -> String {
+    let day = |d: i64| day_words(SimTime::from_minutes(d * DAY));
+    let bless = i.kind == InfluenceKind::Bless;
+    let luck = civ_agents::influence::Luck {
+        index: 0,
+        bless,
+        share: f64::from(i.share),
+    };
+    let what = if bless { "Blessed" } else { "Cursed" };
+    let times = if i.uses > 1 {
+        format!(" ({} times)", i.uses)
+    } else {
+        String::new()
+    };
+    let when = if sim.now().day_index() < i.until {
+        format!("until {}", day(i.until))
+    } else {
+        format!("to {}", day(i.until))
+    };
+    let turned = |n: u32, one: &str, many: &str| match n {
+        0 => None,
+        1 => Some(one.to_owned()),
+        n => Some(format!("{n} {many}")),
+    };
+    let mut said = vec![format!(
+        "{what}{times} {when}: of their own chances, illness or accident at {:.2} of what it was, \
+         finding things out at {:.2}",
+        luck.harm(),
+        luck.fortune()
+    )];
+    let deaths = if bless {
+        turned(i.deaths, "a death it spared them", "deaths it spared them")
+    } else {
+        turned(i.deaths, "a death it brought", "deaths it brought")
+    };
+    let finds = if bless {
+        turned(i.finds, "a find it brought", "finds it brought")
+    } else {
+        turned(i.finds, "a find it cost them", "finds it cost them")
+    };
+    match (deaths, finds) {
+        (None, None) => said.push("no draw of theirs has gone otherwise for it".to_owned()),
+        (d, f) => said.extend(d.into_iter().chain(f)),
+    }
+    said.join("; ")
+}
+
 /// The observer's interventions that reached `p`, newest first, with what came of each (wire
 /// 1.47, M4c slice AJ, ADR-0016 §5).
 pub fn influence_lines<'a>(
@@ -651,6 +739,8 @@ pub fn influence_lines<'a>(
             let words = match i.kind {
                 InfluenceKind::Whisper => whisper_words(sim, i, p.id),
                 InfluenceKind::Ideology => ideology_told_words(sim, i, p.id),
+                InfluenceKind::Agitator => agitator_words(sim, i, p.id),
+                InfluenceKind::Bless | InfluenceKind::Curse => luck_words(sim, i),
             };
             let what = fbb.create_string(&words);
             wire::InfluenceLine::create(

@@ -86,6 +86,17 @@ describe("builders", () => {
     const t = tell.body(new W.TellOfIdeology()) as W.TellOfIdeology;
     expect([t.person(), t.ideology()]).toEqual([42n, 2]);
   });
+
+  it("builds the observer's agitator and a blessing or curse", () => {
+    const sent = W.Command.getRootAsCommand(bb(M.sendAgitator(120, 340, 1)));
+    expect(sent.bodyType()).toBe(W.CommandBody.SendAgitator);
+    const a = sent.body(new W.SendAgitator()) as W.SendAgitator;
+    expect([a.at()?.x(), a.at()?.y(), a.ideology()]).toEqual([120, 340, 1]);
+    const cursed = W.Command.getRootAsCommand(bb(M.bless(42, true, 365, 0.25)));
+    expect(cursed.bodyType()).toBe(W.CommandBody.Bless);
+    const c = cursed.body(new W.Bless()) as W.Bless;
+    expect([c.person(), c.curse(), c.days(), c.share()]).toEqual([42n, true, 365, 0.25]);
+  });
 });
 
 function finish(b: flatbuffers.Builder, root: flatbuffers.Offset): Uint8Array {

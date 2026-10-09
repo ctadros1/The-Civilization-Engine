@@ -10,7 +10,7 @@
 
 use super::*;
 use crate::ideology::{Holding, adopt_chance, fit};
-use crate::influence::InfluenceKind;
+use crate::influence::{DAYS_RANGE, InfluenceKind, Luck, SHARE_RANGE};
 use crate::norm::id_key;
 
 /// Purpose tag for taking up an ideology heard of from the observer, keyed by person and ideology.
@@ -237,5 +237,147 @@ impl Population {
         for i in due {
             self.weigh_heard_ideology(ctx, i);
         }
+    }
+
+    /// The observer blesses `person`, or with `curse` curses them, for `days` days by `share`
+    /// (M4c slice AJ, ADR-0016 §5): their own draws for illness or accident and for finding
+    /// things out are moved their way, or against them, as [`Luck`] says. Never a decision's
+    /// draw, a vote, a tie, detection or punishment. One in force of the same kind is refreshed,
+    /// its period running from today if that is later, and never stacks; one of the other kind
+    /// ends today.
+    pub fn bless(
+        &mut self,
+        ctx: &mut Ctx,
+        person: PermanentId,
+        curse: bool,
+        days: u32,
+        share: f32,
+    ) -> Result<Reached, String> {
+        let p = self
+            .person(person)
+            .ok_or_else(|| format!("{person} is not alive here"))?;
+        let settlement = self.household(p.household).and_then(|x| x.settlement);
+        if !(DAYS_RANGE[0]..=DAYS_RANGE[1]).contains(&days) {
+            return Err(format!(
+                "a blessing lasts {} to {} days",
+                DAYS_RANGE[0], DAYS_RANGE[1]
+            ));
+        }
+        if !(SHARE_RANGE[0]..=SHARE_RANGE[1]).contains(&share) {
+            return Err(format!(
+                "a blessing moves a draw by {} to {} of its way",
+                SHARE_RANGE[0], SHARE_RANGE[1]
+            ));
+        }
+        let (now, day) = (ctx.now, ctx.now.day_index());
+        let until = day + i64::from(days);
+        if let Some(l) = self.influences.luck(person, day)
+            && l.bless == curse
+        {
+            self.influences.list[l.index].until = day;
+        }
+        if let Some(l) = self.influences.luck(person, day) {
+            let r = &mut self.influences.list[l.index];
+            r.until = r.until.max(until);
+            r.share = share;
+            r.last = now;
+            r.uses += 1;
+            return Ok(Reached {
+                id: r.id,
+                repeat: true,
+                holds: false,
+                fit: 0.0,
+                chance: 0.0,
+            });
+        }
+        let kind = if curse {
+            InfluenceKind::Curse
+        } else {
+            InfluenceKind::Bless
+        };
+        let id = self.influences.add(now, kind, person, 0);
+        if let Some(r) = self.influences.list.last_mut() {
+            r.until = until;
+            r.share = share;
+        }
+        let luck = Luck {
+            index: 0,
+            bless: !curse,
+            share: f64::from(share),
+        };
+        self.chronicle_push(
+            now,
+            ChronicleKind::Influence,
+            vec![person],
+            settlement,
+            None,
+            f64::from(kind.code()),
+            format!(
+                " for {days} days: of their own chances, that of illness or accident is {:.2} of \
+                 what it was, and that of finding things out {:.2}.",
+                luck.harm(),
+                luck.fortune()
+            ),
+        );
+        Ok(Reached {
+            id,
+            repeat: false,
+            holds: false,
+            fit: 0.0,
+            chance: 0.0,
+        })
+    }
+
+    /// A blessing or a curse turned one of `person`'s draws: a death by illness or accident
+    /// (`technique` none) or a find of `technique`. Its record counts it and the chronicle tells
+    /// it as one recorded influence.
+    pub(super) fn note_turned(
+        &mut self,
+        ctx: &Ctx,
+        person: PermanentId,
+        luck: Luck,
+        technique: Option<usize>,
+    ) {
+        let Some(r) = self.influences.list.get_mut(luck.index) else {
+            return;
+        };
+        let id = r.id;
+        match technique {
+            None => r.deaths += 1,
+            Some(_) => r.finds += 1,
+        }
+        let what = match (technique, luck.bless) {
+            (None, true) => " was spared a death by illness or accident: the observer's blessing \
+                              turned the draw."
+                .to_owned(),
+            (None, false) => {
+                " died of illness or accident by a draw the observer's curse turned.".to_owned()
+            }
+            (Some(t), bless) => {
+                let name = ctx
+                    .catalog
+                    .techniques
+                    .get(t)
+                    .map_or_else(|| "something".to_owned(), |d| d.name.to_lowercase());
+                if bless {
+                    format!(" found {name} by a draw the observer's blessing turned.")
+                } else {
+                    format!(" did not find {name}: the observer's curse turned the draw.")
+                }
+            }
+        };
+        let settlement = self
+            .person(person)
+            .and_then(|p| self.household(p.household))
+            .and_then(|x| x.settlement);
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::InfluenceTurned,
+            vec![person],
+            settlement,
+            None,
+            f64::from(id),
+            what,
+        );
     }
 }

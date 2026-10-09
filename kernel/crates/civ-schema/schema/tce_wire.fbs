@@ -443,7 +443,24 @@ table TellOfIdeology {
   ideology: uint (id: 1);
 }
 
-union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology }
+// Wire 1.48 (M4c slice AJ, step two; ADR-0016 §5): the observer sends one adult newcomer holding
+// an ideology (an index into Welcome.ideologies), placed as a family is (SpawnFamily).
+table SendAgitator {
+  at: Vec2 (id: 0);
+  ideology: uint (id: 1);
+}
+
+// Wire 1.48: the observer blesses a living person, or curses them, for `days` days (1-3650),
+// moving their own draws for illness or accident and for finding things out by `share` of their
+// way (0.05-0.5). One of the same kind in force is refreshed; one of the other kind ends.
+table Bless {
+  person: ulong (id: 0);
+  curse: bool (id: 1);
+  days: uint (id: 2);
+  share: float (id: 3);
+}
+
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless }
 
 table Command {
   body: CommandBody (id: 1);
@@ -795,7 +812,7 @@ table NewsLine {
 // of it, read from the records people keep.
 table InfluenceLine {
   id: uint (id: 0);
-  // 0 a whisper, 1 an ideology told of.
+  // 0 a whisper, 1 an ideology told of; wire 1.48: 2 an agitator sent, 3 a blessing, 4 a curse.
   kind: ubyte (id: 1);
   // When it was first used.
   minute: long (id: 2);

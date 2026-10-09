@@ -262,3 +262,164 @@ fn an_ideology_told_of_is_weighed_by_fit_and_telling_again_draws_nothing_new() {
     rules.catalog.ideologies[usize::from(k)].adopt = 0.3;
     saves_and_goes_on_alike(&mut sim, content(), DAY);
 }
+
+#[test]
+fn an_agitator_is_one_newcomer_holding_their_ideology_and_knowing_nobody() {
+    let mut sim = world_with(content(), 3);
+    sim.advance_minutes(DAY + 60).expect("advances");
+    let (hearth, village) = {
+        let s = &sim.land().settlements[0];
+        (s.hearth_m, s.name.clone())
+    };
+    let unions = sim.people().unions.len();
+    let k = sim
+        .rules()
+        .catalog
+        .ideologies
+        .iter()
+        .position(|d| d.id == "core:ideology/order_kept")
+        .expect("in core") as u16;
+    let (sent, record) = sim
+        .send_agitator(hearth, "core:ideology/order_kept")
+        .expect("sends");
+    assert!(!sent.founded, "placed at the hearth, they join it");
+    assert_eq!(sent.name, village);
+    assert_eq!(sent.people.len(), 1, "one adult, alone");
+    let id = sent.people[0];
+    {
+        let pop = sim.people();
+        let p = pop.person(id).expect("here");
+        assert!(p.age_years(sim.now()) >= 20.0);
+        assert_eq!(p.partner, None);
+        assert_eq!(pop.unions.len(), unions, "no couple came");
+        assert_eq!(
+            pop.household(p.household).map(|x| x.members.clone()),
+            Some(vec![id]),
+            "a household of their own"
+        );
+        let held = pop
+            .ideologies
+            .held_by(id)
+            .iter()
+            .find(|h| h.ideology == k)
+            .expect("holds it");
+        assert_eq!(held.from, None);
+        assert!(pop.ties.of(id).is_empty(), "they know nobody");
+        let r = pop.influences.list.last().expect("a record");
+        assert_eq!(
+            (r.id, r.kind, r.target, r.subject),
+            (record, InfluenceKind::Agitator, id, u32::from(k))
+        );
+        assert!(r.taken.is_some());
+        let e = pop.chronicle.last().expect("logged");
+        assert_eq!(e.kind, ChronicleKind::Influence);
+        let name = sim.rules().catalog.ideologies[usize::from(k)]
+            .name
+            .to_lowercase();
+        assert!(
+            e.name == format!(", who holds to {name}, to {village}."),
+            "{}",
+            e.name
+        );
+        assert!(
+            !pop.chronicle
+                .iter()
+                .rev()
+                .take(3)
+                .any(|e| e.kind == ChronicleKind::FamilyArrived),
+            "no family arrived"
+        );
+    }
+    // Into the water, nobody can be sent.
+    assert!(
+        sim.send_agitator((-5.0, -5.0), "core:ideology/order_kept")
+            .is_err()
+    );
+    assert!(sim.send_agitator(hearth, "core:ideology/none").is_err());
+    sim.advance_minutes(DAY).expect("advances");
+    assert!(sim.people().person(id).is_some(), "they live among them");
+    saves_and_goes_on_alike(&mut sim, content(), DAY);
+}
+
+#[test]
+fn a_blessing_spares_and_a_curse_brings_what_their_own_draws_would_not_have() {
+    let mut sim = world_with(content(), 3);
+    sim.advance_minutes(DAY + 60).expect("advances");
+    // Illness or accident comes often: by hand, so a few days show what the draws do.
+    let rules = sim.rules_mut_for_tests().expect("not yet shared");
+    let c = rules.people.mortality.siler.c;
+    rules.people.mortality.siler.c = 80.0;
+    let (_, adults) = adults(&sim);
+    let half = adults.len() / 2;
+    assert!(half >= 5, "{} adults", adults.len());
+    for &p in &adults[..half] {
+        assert!(!sim.bless(p, false, 30, 0.5).expect("blesses").repeat);
+    }
+    for &p in &adults[half..] {
+        assert!(!sim.bless(p, true, 30, 0.5).expect("curses").repeat);
+    }
+    // Out of range, or a second blessing: refused, or refreshed and never stacked.
+    assert!(sim.bless(adults[0], false, 30, 0.9).is_err());
+    assert!(sim.bless(adults[0], false, 0, 0.25).is_err());
+    assert!(
+        sim.bless(adults[0], false, 60, 0.5)
+            .expect("refreshes")
+            .repeat
+    );
+    assert_eq!(sim.people().influences.list.len(), adults.len());
+    sim.advance_minutes(10 * DAY).expect("advances");
+    {
+        let pop = sim.people();
+        let (mut spared, mut brought) = (0, 0);
+        for r in &pop.influences.list {
+            match r.kind {
+                InfluenceKind::Bless => spared += r.deaths,
+                InfluenceKind::Curse => brought += r.deaths,
+                _ => {}
+            }
+        }
+        assert!(
+            spared > 0 && brought > 0,
+            "{spared} spared, {brought} brought"
+        );
+        let told = pop
+            .chronicle
+            .iter()
+            .filter(|e| e.kind == ChronicleKind::InfluenceTurned)
+            .count() as u32;
+        let finds: u32 = pop.influences.list.iter().map(|r| r.finds).sum();
+        assert_eq!(told, spared + brought + finds, "every turned draw is told");
+        // Every death a curse brought was a death of the one cursed.
+        for e in pop
+            .chronicle
+            .iter()
+            .filter(|e| e.kind == ChronicleKind::InfluenceTurned && e.name.contains("curse"))
+        {
+            if e.name.contains("died") {
+                assert!(pop.person(e.people[0]).is_none(), "they died");
+            }
+        }
+    }
+    // A blessing given to one cursed ends the curse that day.
+    let cursed = adults[half..]
+        .iter()
+        .copied()
+        .find(|&p| sim.people().person(p).is_some());
+    if let Some(p) = cursed {
+        sim.bless(p, false, 5, 0.25).expect("blesses");
+        let day = sim.now().day_index();
+        let pop = sim.people();
+        let luck = pop.influences.luck(p, day).expect("blessed now");
+        assert!(luck.bless);
+        assert!(
+            pop.influences
+                .list
+                .iter()
+                .filter(|r| r.target == p && r.kind == InfluenceKind::Curse)
+                .all(|r| r.until == day)
+        );
+    }
+    let rules = sim.rules_mut_for_tests().expect("not yet shared");
+    rules.people.mortality.siler.c = c;
+    saves_and_goes_on_alike(&mut sim, content(), DAY);
+}

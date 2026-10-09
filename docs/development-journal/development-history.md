@@ -664,6 +664,23 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** step two (the agitator, blessings and curses) and step three (the regimes row and the M4 demo).
 
+## 2026-10-08 — M4c slice AJ, step two: the agitator, blessings and curses
+
+**Goal:** the last two god tools of M4: a newcomer holding an idea, and luck in a person's own material draws (ADR-0016 §5).
+
+**What changed:**
+
+- **The agitator:** a map tool sends one adult newcomer, in a household of their own, holding the ideology chosen and knowing nobody, where a family would go; the chronicle tells it as one recorded influence, and the inspector says how many took it up from them.
+- **Blessings and curses:** for a month to five years, a person's own chance of illness or accident (not hunger's) and of finding a technique out are scaled their way or against them, by up to half or double. The same draw is checked against the chance without it, so each death spared or brought and each find brought or cost is exact; it is counted on the record and told in the chronicle. A second blessing refreshes the first; a curse ends a blessing.
+- **A household of one:** a family's making now allows a lone adult, with no couple, partner or union.
+- **Boundary:** saves schema 49 (48 still loads), wire 1.48 (`SendAgitator`, `Bless`), no content API change.
+
+**Findings:** none in the build; the tests needed the ideology's own name from content ("order kept by all").
+
+**Evidence:** integration tests that an agitator joins the village alone, holding the ideology and knowing nobody, and that with a raised hazard blessings spared deaths and curses brought them, every turned draw told, and a blessing ending a curse; a schema-48 save loads; host tests decode and answer the commands; the end-to-end test blesses an adult and sends an agitator with the map tool. The kernel (624) and web (145) suites pass, with clippy and the format and schema checks clean. The end-to-end suite (17, 6 demos skipped) passes; the ten-year smoke passed all 10 worlds, and Gate B and the notables' gate passed.
+
+**Open:** step three (the regimes row and the M4 demo).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

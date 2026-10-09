@@ -2215,6 +2215,24 @@ fn a_schema_47_save_loads_with_no_influences() {
 }
 
 #[test]
+fn a_schema_48_save_loads_with_no_one_blessed() {
+    let sim = load_first();
+    // A schema-48 save, from before agitators, blessings and curses (M4c slice AJ, step two).
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V48;
+    let path = republish("slice-aj1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-48 save loads");
+    let day = loaded.now().day_index();
+    let pop = loaded.people();
+    assert!(
+        pop.people
+            .iter()
+            .all(|(_, p)| pop.influences.luck(p.id, day).is_none())
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn slice_q_saves_load_with_each_household_s_taste_drawn_as_its_band_s() {
     let mut sim = load_first();
     // Tastes no band would bring, which the migration replaces.

@@ -416,6 +416,13 @@ impl Engine {
             } => self.place_deposit(at, &good, radius_m, exposed),
             Request::Whisper { person, claim } => self.whisper(person, claim),
             Request::TellOfIdeology { person, ideology } => self.tell_of_ideology(person, ideology),
+            Request::SendAgitator { at, ideology } => self.send_agitator(at, ideology),
+            Request::Bless {
+                person,
+                curse,
+                days,
+                share,
+            } => self.bless(person, curse, days, share),
             Request::GetRaster(query) => match &self.world {
                 None => no_world(),
                 Some(w) => match frames::raster_response(
@@ -1100,6 +1107,81 @@ impl Engine {
         }
     }
 
+    /// The observer sends an agitator holding ideology `ideology` to `at` (M4c slice AJ).
+    fn send_agitator(&mut self, at: (f32, f32), ideology: u32) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        let Some(def) = world
+            .sim
+            .rules()
+            .catalog
+            .ideologies
+            .get(ideology as usize)
+            .cloned()
+        else {
+            return Reply::Error(
+                wire::ErrorCode::BadRequest,
+                format!("there is no ideology {ideology}"),
+            );
+        };
+        match world.sim.send_agitator(at, &def.id) {
+            Ok((sent, _)) => {
+                let name = sent
+                    .people
+                    .first()
+                    .map_or_else(String::new, |&p| world.sim.people().name_of(p));
+                let text = format!(
+                    "{name}, who holds to {}, {} {}",
+                    def.name.to_lowercase(),
+                    if sent.founded {
+                        "made camp at"
+                    } else {
+                        "came to"
+                    },
+                    sent.name
+                );
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
+    /// The observer blesses or curses `person` (M4c slice AJ).
+    fn bless(&mut self, person: u64, curse: bool, days: u32, share: f32) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        let Some(id) = civ_core::PermanentId::from_raw(person) else {
+            return Reply::Error(wire::ErrorCode::NotFound, "nobody has id 0".to_owned());
+        };
+        let name = world.sim.people().name_of(id);
+        match world.sim.bless(id, curse, days, share) {
+            Ok(r) => {
+                let what = if curse { "cursed" } else { "blessed" };
+                let text = if r.repeat {
+                    format!("{name} was {what} already; it holds at least {days} days from now")
+                } else {
+                    format!("{name} is {what} for {days} days")
+                };
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
     fn place_deposit(&mut self, at: (f32, f32), good: &str, radius_m: f32, exposed: bool) -> Reply {
         if let Some(busy) = self.busy() {
             return busy;
@@ -1729,6 +1811,49 @@ mod tests {
             })),
             Some(wire::ErrorCode::BadRequest)
         );
+        // A blessing, and an agitator sent to the hearth.
+        let Reply::Response(_) = h.ask(Request::Bless {
+            person,
+            curse: false,
+            days: 30,
+            share: 0.25,
+        }) else {
+            panic!("blessed");
+        };
+        assert_eq!(
+            error_code(&h.ask(Request::Bless {
+                person,
+                curse: true,
+                days: 30,
+                share: 0.75,
+            })),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        let hearth = h
+            .engine
+            .world
+            .as_ref()
+            .expect("a world")
+            .sim
+            .land()
+            .settlements[0]
+            .hearth_m;
+        let reply = h.ask(Request::SendAgitator {
+            at: hearth,
+            ideology: 0,
+        });
+        let Reply::Response(ack) = reply else {
+            panic!("sent: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert!(message.contains("who holds to"), "{message}");
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        assert_eq!(sim.people().influences.list.len(), 3);
     }
 
     #[test]

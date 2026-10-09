@@ -106,8 +106,8 @@ use super::{
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
-    SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, finish,
-    section, single_chunk, unreadable,
+    SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
+    finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -372,6 +372,8 @@ enum Schema {
     V47,
     /// The observer's interventions (M4c slice AJ).
     V48,
+    /// Agitators, blessings and curses (M4c slice AJ, step two).
+    V49,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -434,7 +436,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V45 => Schema::V45,
         SCHEMA_V46 => Schema::V46,
         SCHEMA_V47 => Schema::V47,
-        SAVE_SCHEMA_VERSION => Schema::V48,
+        SCHEMA_V48 => Schema::V48,
+        SAVE_SCHEMA_VERSION => Schema::V49,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2530,7 +2533,8 @@ fn carried(
         | Schema::V45
         | Schema::V46
         | Schema::V47
-        | Schema::V48 => {
+        | Schema::V48
+        | Schema::V49 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2688,7 +2692,8 @@ fn decode_households(
             | Schema::V45
             | Schema::V46
             | Schema::V47
-            | Schema::V48 => {
+            | Schema::V48
+            | Schema::V49 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3355,6 +3360,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::CoupFailed => 37,
         ChronicleKind::Encounter => 38,
         ChronicleKind::Influence => 39,
+        ChronicleKind::InfluenceTurned => 40,
     }
 }
 
@@ -3399,6 +3405,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         37 => Some(ChronicleKind::CoupFailed),
         38 => Some(ChronicleKind::Encounter),
         39 => Some(ChronicleKind::Influence),
+        40 => Some(ChronicleKind::InfluenceTurned),
         _ => None,
     }
 }
@@ -6122,6 +6129,10 @@ fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> 
                     subject: i.subject,
                     taken: i.taken.unwrap_or(-1),
                     weighed: i.weighed,
+                    until: i.until,
+                    share: i.share,
+                    deaths: i.deaths,
+                    finds: i.finds,
                 },
             )
         })
@@ -6169,11 +6180,13 @@ fn decode_influences(
             LoadError::Malformed(format!("unknown kind of influence {}", i.kind()))
         })?;
         let subject = match kind {
-            InfluenceKind::Whisper => i.subject(),
-            InfluenceKind::Ideology => match map.get(i.subject() as usize) {
-                Some(Some(k)) => *k,
-                _ => continue,
-            },
+            InfluenceKind::Whisper | InfluenceKind::Bless | InfluenceKind::Curse => i.subject(),
+            InfluenceKind::Ideology | InfluenceKind::Agitator => {
+                match map.get(i.subject() as usize) {
+                    Some(Some(k)) => *k,
+                    _ => continue,
+                }
+            }
         };
         list.push(Influence {
             id: i.id(),
@@ -6185,6 +6198,10 @@ fn decode_influences(
             subject,
             taken: (i.taken() >= 0).then_some(i.taken()),
             weighed: i.weighed(),
+            until: i.until(),
+            share: i.share(),
+            deaths: i.deaths(),
+            finds: i.finds(),
         });
     }
     if list.windows(2).any(|w| w[0].id >= w[1].id) {

@@ -1653,7 +1653,8 @@ table PendingEvents {
 // the order used: each one's number, the minutes it was first and last used, how often, its kind
 // (0 a whisper, 1 an ideology told of), whom it reached and what it submitted (a claim's number;
 // an ideology's index in `InfluencesSave.ideologies`), and for an ideology the day it was taken
-// up (-1: not taken up) and how often it was weighed.
+// up (-1: not taken up) and how often it was weighed; for an agitator (schema 49) the newcomer,
+// the ideology they hold and the day they came.
 table InfluenceSave {
   id: uint (id: 0);
   at: long (id: 1);
@@ -1664,6 +1665,13 @@ table InfluenceSave {
   subject: uint (id: 6);
   taken: long = -1 (id: 7);
   weighed: uint (id: 8);
+  // Schema 49 (M4c slice AJ, step two): kinds 2 an agitator, 3 a blessing, 4 a curse; for the
+  // last two, the first day it no longer holds, the share of their way it moves a draw, and the
+  // deaths and finds it turned.
+  until: long (id: 9);
+  share: float (id: 10);
+  deaths: uint (id: 11);
+  finds: uint (id: 12);
 }
 
 table InfluencesSave {

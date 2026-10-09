@@ -778,6 +778,38 @@ impl Sim {
         self.influence(|people, ctx| people.tell_of_ideology(ctx, person, k))
     }
 
+    /// The observer sends an agitator (god tool, M4c slice AJ, ADR-0016 §5): one adult newcomer
+    /// holding ideology `ideology` (by content id) arrives at `at`, metres, as a family is sent.
+    /// Returns what arrived and the intervention's number.
+    pub fn send_agitator(
+        &mut self,
+        at: (f32, f32),
+        ideology: &str,
+    ) -> Result<(Spawned, u32), String> {
+        let k = self
+            .rules
+            .catalog
+            .ideologies
+            .iter()
+            .position(|d| d.id == ideology)
+            .and_then(|k| u16::try_from(k).ok())
+            .ok_or_else(|| format!("there is no ideology `{ideology}`"))?;
+        self.influence(|people, ctx| civ_agents::send_agitator(people, ctx, at, k))
+    }
+
+    /// The observer blesses `person`, or with `curse` curses them, for `days` days moving their
+    /// own draws for illness or accident and for finding things out by `share` of their way (god
+    /// tool, M4c slice AJ, ADR-0016 §5).
+    pub fn bless(
+        &mut self,
+        person: civ_core::PermanentId,
+        curse: bool,
+        days: u32,
+        share: f32,
+    ) -> Result<civ_agents::population::Reached, String> {
+        self.influence(|people, ctx| people.bless(ctx, person, curse, days, share))
+    }
+
     /// Runs god tool `tool` on the people with a context for now, then schedules what it planned.
     fn influence<T>(
         &mut self,

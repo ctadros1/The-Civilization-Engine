@@ -374,7 +374,26 @@ impl Population {
             };
             let (age, d) = (p.age_years(now), depleted(p, now, params));
             let u = life_rng(ctx.seed, id, day, Draw::Death).next_f64();
-            if let Some(cause) = death_today(&params.mortality, age, d, u) {
+            let natural = death_today(&params.mortality, age, d, u);
+            // A blessing or a curse moves their own chance of illness or accident (M4c slice AJ):
+            // the same draw against it, and what it turned is noted.
+            let cause = match self.influences.luck(id, day) {
+                None => natural,
+                Some(luck) => {
+                    let moved = crate::demography::death_today_scaled(
+                        &params.mortality,
+                        age,
+                        d,
+                        u,
+                        luck.harm(),
+                    );
+                    if moved.is_some() != natural.is_some() {
+                        self.note_turned(ctx, id, luck, None);
+                    }
+                    moved
+                }
+            };
+            if let Some(cause) = cause {
                 self.die(ctx, id, cause);
             }
         }

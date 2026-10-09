@@ -665,10 +665,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_COMMAND_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_COMMAND_BODY: u8 = 12;
+pub const ENUM_MAX_COMMAND_BODY: u8 = 14;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 13] = [
+pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 15] = [
   CommandBody::NONE,
   CommandBody::NewWorld,
   CommandBody::SaveWorld,
@@ -682,6 +682,8 @@ pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 13] = [
   CommandBody::PlaceDeposit,
   CommandBody::Whisper,
   CommandBody::TellOfIdeology,
+  CommandBody::SendAgitator,
+  CommandBody::Bless,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -702,9 +704,11 @@ impl CommandBody {
   pub const PlaceDeposit: Self = Self(10);
   pub const Whisper: Self = Self(11);
   pub const TellOfIdeology: Self = Self(12);
+  pub const SendAgitator: Self = Self(13);
+  pub const Bless: Self = Self(14);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 12;
+  pub const ENUM_MAX: u8 = 14;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::NewWorld,
@@ -719,6 +723,8 @@ impl CommandBody {
     Self::PlaceDeposit,
     Self::Whisper,
     Self::TellOfIdeology,
+    Self::SendAgitator,
+    Self::Bless,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -736,6 +742,8 @@ impl CommandBody {
       Self::PlaceDeposit => Some("PlaceDeposit"),
       Self::Whisper => Some("Whisper"),
       Self::TellOfIdeology => Some("TellOfIdeology"),
+      Self::SendAgitator => Some("SendAgitator"),
+      Self::Bless => Some("Bless"),
       _ => None,
     }
   }
@@ -8242,6 +8250,266 @@ impl ::core::fmt::Debug for TellOfIdeology<'_> {
       ds.finish()
   }
 }
+pub enum SendAgitatorOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SendAgitator<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for SendAgitator<'a> {
+  type Inner = SendAgitator<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> SendAgitator<'a> {
+  pub const VT_AT: ::flatbuffers::VOffsetT = 4;
+  pub const VT_IDEOLOGY: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    SendAgitator { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SendAgitatorArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<SendAgitator<'bldr>> {
+    let mut builder = SendAgitatorBuilder::new(_fbb);
+    builder.add_ideology(args.ideology);
+    if let Some(x) = args.at { builder.add_at(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn at(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(SendAgitator::VT_AT, None)}
+  }
+  #[inline]
+  pub fn ideology(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SendAgitator::VT_IDEOLOGY, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for SendAgitator<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<Vec2>("at", Self::VT_AT, false)?
+     .visit_field::<u32>("ideology", Self::VT_IDEOLOGY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SendAgitatorArgs<'a> {
+    pub at: Option<&'a Vec2>,
+    pub ideology: u32,
+}
+impl<'a> Default for SendAgitatorArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SendAgitatorArgs {
+      at: None,
+      ideology: 0,
+    }
+  }
+}
+
+pub struct SendAgitatorBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SendAgitatorBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_at(&mut self, at: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(SendAgitator::VT_AT, at);
+  }
+  #[inline]
+  pub fn add_ideology(&mut self, ideology: u32) {
+    self.fbb_.push_slot::<u32>(SendAgitator::VT_IDEOLOGY, ideology, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SendAgitatorBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SendAgitatorBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<SendAgitator<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for SendAgitator<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("SendAgitator");
+      ds.field("at", &self.at());
+      ds.field("ideology", &self.ideology());
+      ds.finish()
+  }
+}
+pub enum BlessOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Bless<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Bless<'a> {
+  type Inner = Bless<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Bless<'a> {
+  pub const VT_PERSON: ::flatbuffers::VOffsetT = 4;
+  pub const VT_CURSE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_DAYS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_SHARE: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Bless { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args BlessArgs
+  ) -> ::flatbuffers::WIPOffset<Bless<'bldr>> {
+    let mut builder = BlessBuilder::new(_fbb);
+    builder.add_person(args.person);
+    builder.add_share(args.share);
+    builder.add_days(args.days);
+    builder.add_curse(args.curse);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Bless::VT_PERSON, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn curse(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(Bless::VT_CURSE, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn days(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Bless::VT_DAYS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn share(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Bless::VT_SHARE, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Bless<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("person", Self::VT_PERSON, false)?
+     .visit_field::<bool>("curse", Self::VT_CURSE, false)?
+     .visit_field::<u32>("days", Self::VT_DAYS, false)?
+     .visit_field::<f32>("share", Self::VT_SHARE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct BlessArgs {
+    pub person: u64,
+    pub curse: bool,
+    pub days: u32,
+    pub share: f32,
+}
+impl<'a> Default for BlessArgs {
+  #[inline]
+  fn default() -> Self {
+    BlessArgs {
+      person: 0,
+      curse: false,
+      days: 0,
+      share: 0.0,
+    }
+  }
+}
+
+pub struct BlessBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BlessBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_person(&mut self, person: u64) {
+    self.fbb_.push_slot::<u64>(Bless::VT_PERSON, person, 0);
+  }
+  #[inline]
+  pub fn add_curse(&mut self, curse: bool) {
+    self.fbb_.push_slot::<bool>(Bless::VT_CURSE, curse, false);
+  }
+  #[inline]
+  pub fn add_days(&mut self, days: u32) {
+    self.fbb_.push_slot::<u32>(Bless::VT_DAYS, days, 0);
+  }
+  #[inline]
+  pub fn add_share(&mut self, share: f32) {
+    self.fbb_.push_slot::<f32>(Bless::VT_SHARE, share, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BlessBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    BlessBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Bless<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Bless<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Bless");
+      ds.field("person", &self.person());
+      ds.field("curse", &self.curse());
+      ds.field("days", &self.days());
+      ds.field("share", &self.share());
+      ds.finish()
+  }
+}
 pub enum CommandOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -8471,6 +8739,36 @@ impl<'a> Command<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_send_agitator(&self) -> Option<SendAgitator<'a>> {
+    if self.body_type() == CommandBody::SendAgitator {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { SendAgitator::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_bless(&self) -> Option<Bless<'a>> {
+    if self.body_type() == CommandBody::Bless {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Bless::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Command<'_> {
@@ -8493,6 +8791,8 @@ impl ::flatbuffers::Verifiable for Command<'_> {
           CommandBody::PlaceDeposit => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<PlaceDeposit>>("CommandBody::PlaceDeposit", pos),
           CommandBody::Whisper => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Whisper>>("CommandBody::Whisper", pos),
           CommandBody::TellOfIdeology => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<TellOfIdeology>>("CommandBody::TellOfIdeology", pos),
+          CommandBody::SendAgitator => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SendAgitator>>("CommandBody::SendAgitator", pos),
+          CommandBody::Bless => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Bless>>("CommandBody::Bless", pos),
           _ => Ok(()),
         }
      })?
@@ -8626,6 +8926,20 @@ impl ::core::fmt::Debug for Command<'_> {
         },
         CommandBody::TellOfIdeology => {
           if let Some(x) = self.body_as_tell_of_ideology() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::SendAgitator => {
+          if let Some(x) = self.body_as_send_agitator() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::Bless => {
+          if let Some(x) = self.body_as_bless() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

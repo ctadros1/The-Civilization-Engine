@@ -119,6 +119,12 @@ struct WhisperBuilder;
 struct TellOfIdeology;
 struct TellOfIdeologyBuilder;
 
+struct SendAgitator;
+struct SendAgitatorBuilder;
+
+struct Bless;
+struct BlessBuilder;
+
 struct Command;
 struct CommandBuilder;
 
@@ -685,11 +691,13 @@ enum class CommandBody : uint8_t {
   PlaceDeposit = 10,
   Whisper = 11,
   TellOfIdeology = 12,
+  SendAgitator = 13,
+  Bless = 14,
   MIN = NONE,
-  MAX = TellOfIdeology
+  MAX = Bless
 };
 
-inline const CommandBody (&EnumValuesCommandBody())[13] {
+inline const CommandBody (&EnumValuesCommandBody())[15] {
   static const CommandBody values[] = {
     CommandBody::NONE,
     CommandBody::NewWorld,
@@ -703,13 +711,15 @@ inline const CommandBody (&EnumValuesCommandBody())[13] {
     CommandBody::IntroduceTechnique,
     CommandBody::PlaceDeposit,
     CommandBody::Whisper,
-    CommandBody::TellOfIdeology
+    CommandBody::TellOfIdeology,
+    CommandBody::SendAgitator,
+    CommandBody::Bless
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandBody() {
-  static const char * const names[14] = {
+  static const char * const names[16] = {
     "NONE",
     "NewWorld",
     "SaveWorld",
@@ -723,13 +733,15 @@ inline const char * const *EnumNamesCommandBody() {
     "PlaceDeposit",
     "Whisper",
     "TellOfIdeology",
+    "SendAgitator",
+    "Bless",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandBody(CommandBody e) {
-  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::TellOfIdeology)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::Bless)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandBody()[index];
 }
@@ -784,6 +796,14 @@ template<> struct CommandBodyTraits<tce::wire::Whisper> {
 
 template<> struct CommandBodyTraits<tce::wire::TellOfIdeology> {
   static const CommandBody enum_value = CommandBody::TellOfIdeology;
+};
+
+template<> struct CommandBodyTraits<tce::wire::SendAgitator> {
+  static const CommandBody enum_value = CommandBody::SendAgitator;
+};
+
+template<> struct CommandBodyTraits<tce::wire::Bless> {
+  static const CommandBody enum_value = CommandBody::Bless;
 };
 
 template <bool B = false>
@@ -5192,6 +5212,142 @@ struct TellOfIdeology::Traits {
   static auto constexpr Create = CreateTellOfIdeology;
 };
 
+struct SendAgitator FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef SendAgitatorBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_AT = 4,
+    VT_IDEOLOGY = 6
+  };
+  const tce::wire::Vec2 *at() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_AT);
+  }
+  uint32_t ideology() const {
+    return GetField<uint32_t>(VT_IDEOLOGY, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_AT, 4) &&
+           VerifyField<uint32_t>(verifier, VT_IDEOLOGY, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct SendAgitatorBuilder {
+  typedef SendAgitator Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_at(const tce::wire::Vec2 *at) {
+    fbb_.AddStruct(SendAgitator::VT_AT, at);
+  }
+  void add_ideology(uint32_t ideology) {
+    fbb_.AddElement<uint32_t>(SendAgitator::VT_IDEOLOGY, ideology, 0);
+  }
+  explicit SendAgitatorBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<SendAgitator> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<SendAgitator>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<SendAgitator> CreateSendAgitator(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const tce::wire::Vec2 *at = nullptr,
+    uint32_t ideology = 0) {
+  SendAgitatorBuilder builder_(_fbb);
+  builder_.add_ideology(ideology);
+  builder_.add_at(at);
+  return builder_.Finish();
+}
+
+struct SendAgitator::Traits {
+  using type = SendAgitator;
+  static auto constexpr Create = CreateSendAgitator;
+};
+
+struct Bless FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef BlessBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_PERSON = 4,
+    VT_CURSE = 6,
+    VT_DAYS = 8,
+    VT_SHARE = 10
+  };
+  uint64_t person() const {
+    return GetField<uint64_t>(VT_PERSON, 0);
+  }
+  bool curse() const {
+    return GetField<uint8_t>(VT_CURSE, 0) != 0;
+  }
+  uint32_t days() const {
+    return GetField<uint32_t>(VT_DAYS, 0);
+  }
+  float share() const {
+    return GetField<float>(VT_SHARE, 0.0f);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_PERSON, 8) &&
+           VerifyField<uint8_t>(verifier, VT_CURSE, 1) &&
+           VerifyField<uint32_t>(verifier, VT_DAYS, 4) &&
+           VerifyField<float>(verifier, VT_SHARE, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct BlessBuilder {
+  typedef Bless Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_person(uint64_t person) {
+    fbb_.AddElement<uint64_t>(Bless::VT_PERSON, person, 0);
+  }
+  void add_curse(bool curse) {
+    fbb_.AddElement<uint8_t>(Bless::VT_CURSE, static_cast<uint8_t>(curse), 0);
+  }
+  void add_days(uint32_t days) {
+    fbb_.AddElement<uint32_t>(Bless::VT_DAYS, days, 0);
+  }
+  void add_share(float share) {
+    fbb_.AddElement<float>(Bless::VT_SHARE, share, 0.0f);
+  }
+  explicit BlessBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Bless> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Bless>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Bless> CreateBless(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t person = 0,
+    bool curse = false,
+    uint32_t days = 0,
+    float share = 0.0f) {
+  BlessBuilder builder_(_fbb);
+  builder_.add_person(person);
+  builder_.add_share(share);
+  builder_.add_days(days);
+  builder_.add_curse(curse);
+  return builder_.Finish();
+}
+
+struct Bless::Traits {
+  using type = Bless;
+  static auto constexpr Create = CreateBless;
+};
+
 struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef CommandBuilder Builder;
   struct Traits;
@@ -5241,6 +5397,12 @@ struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::TellOfIdeology *body_as_TellOfIdeology() const {
     return body_type() == tce::wire::CommandBody::TellOfIdeology ? static_cast<const tce::wire::TellOfIdeology *>(body()) : nullptr;
+  }
+  const tce::wire::SendAgitator *body_as_SendAgitator() const {
+    return body_type() == tce::wire::CommandBody::SendAgitator ? static_cast<const tce::wire::SendAgitator *>(body()) : nullptr;
+  }
+  const tce::wire::Bless *body_as_Bless() const {
+    return body_type() == tce::wire::CommandBody::Bless ? static_cast<const tce::wire::Bless *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -5298,6 +5460,14 @@ template<> inline const tce::wire::Whisper *Command::body_as<tce::wire::Whisper>
 
 template<> inline const tce::wire::TellOfIdeology *Command::body_as<tce::wire::TellOfIdeology>() const {
   return body_as_TellOfIdeology();
+}
+
+template<> inline const tce::wire::SendAgitator *Command::body_as<tce::wire::SendAgitator>() const {
+  return body_as_SendAgitator();
+}
+
+template<> inline const tce::wire::Bless *Command::body_as<tce::wire::Bless>() const {
+  return body_as_Bless();
 }
 
 struct CommandBuilder {
@@ -17235,6 +17405,14 @@ inline bool VerifyCommandBody(::flatbuffers::VerifierTemplate<B> &verifier, cons
     }
     case CommandBody::TellOfIdeology: {
       auto ptr = reinterpret_cast<const tce::wire::TellOfIdeology *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case CommandBody::SendAgitator: {
+      auto ptr = reinterpret_cast<const tce::wire::SendAgitator *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case CommandBody::Bless: {
+      auto ptr = reinterpret_cast<const tce::wire::Bless *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

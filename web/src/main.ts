@@ -747,6 +747,8 @@ async function influence(payload: Uint8Array, fallback: string): Promise<void> {
 
 const whisper = (person: number, claim: number): Promise<void> =>
   influence(M.whisper(person, claim), "Whispered");
+const bless = (person: number, curse: boolean, days: number, share: number): Promise<void> =>
+  influence(M.bless(person, curse, days, share), curse ? "Cursed" : "Blessed");
 const tellOfIdeology = (person: number, ideology: number): Promise<void> =>
   influence(M.tellOfIdeology(person, ideology), "Told");
 
@@ -906,6 +908,8 @@ bindUi(store, {
   introduceTechnique,
   whisper,
   tellOfIdeology,
+  bless,
+  setPlacingAgitator,
 });
 
 /**
@@ -913,7 +917,16 @@ bindUi(store, {
  * come together.
  */
 function setPlacing(on: boolean, families = store.state.placeFamilies): void {
-  store.update({ placing: on, placeFamilies: families, placingDeposit: false });
+  store.update({ placing: on, placeFamilies: families, placingDeposit: false, placingAgitator: false });
+  map.setPlacing(on);
+}
+
+/**
+ * Arms or disarms the map tool that sends an agitator holding `ideology` (an index into
+ * Welcome.ideologies) where the map is clicked (M4c slice AJ).
+ */
+function setPlacingAgitator(on: boolean, ideology: number): void {
+  store.update({ placingAgitator: on, agitatorIdeology: ideology, placing: false, placingDeposit: false });
   map.setPlacing(on);
 }
 
@@ -922,7 +935,7 @@ function setPlacing(on: boolean, families = store.state.placeFamilies): void {
  * clicked, showing at the surface or buried (M3b slice Q).
  */
 function setPlacingDeposit(on: boolean, good: string, exposed: boolean): void {
-  store.update({ placingDeposit: on, depositGood: good, depositExposed: exposed, placing: false });
+  store.update({ placingDeposit: on, depositGood: good, depositExposed: exposed, placing: false, placingAgitator: false });
   map.setPlacing(on);
 }
 
@@ -930,6 +943,12 @@ function setPlacingDeposit(on: boolean, good: string, exposed: boolean): void {
 const PLACED_DEPOSIT_RADIUS_M = 10;
 
 map.onPlace = (xM, yM) => {
+  if (store.state.placingAgitator) {
+    const ideology = store.state.agitatorIdeology;
+    setPlacingAgitator(false, ideology);
+    void influence(M.sendAgitator(xM, yM, ideology), "An agitator was sent");
+    return;
+  }
   if (store.state.placingDeposit) {
     const { depositGood, depositExposed } = store.state;
     setPlacingDeposit(false, depositGood, depositExposed);
@@ -964,6 +983,9 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && store.state.placing) setPlacing(false);
   if (event.key === "Escape" && store.state.placingDeposit) {
     setPlacingDeposit(false, store.state.depositGood, store.state.depositExposed);
+  }
+  if (event.key === "Escape" && store.state.placingAgitator) {
+    setPlacingAgitator(false, store.state.agitatorIdeology);
   }
 });
 
@@ -1153,6 +1175,8 @@ const hooks = {
   },
   /** Whispers a claim to a person (god tool). */
   whisper: (person: number, claim: number) => whisper(person, claim),
+  /** Blesses or curses a person (god tool). */
+  bless: (person: number, curse: boolean, days: number, share: number) => bless(person, curse, days, share),
   map: () => map.debugState(),
   pointerAt: (x: number, y: number) => map.pointerInfo(x, y),
   panBy: (dx: number, dy: number) => map.panBy(dx, dy),

@@ -29586,6 +29586,10 @@ impl<'a> InfluenceSave<'a> {
   pub const VT_SUBJECT: ::flatbuffers::VOffsetT = 16;
   pub const VT_TAKEN: ::flatbuffers::VOffsetT = 18;
   pub const VT_WEIGHED: ::flatbuffers::VOffsetT = 20;
+  pub const VT_UNTIL: ::flatbuffers::VOffsetT = 22;
+  pub const VT_SHARE: ::flatbuffers::VOffsetT = 24;
+  pub const VT_DEATHS: ::flatbuffers::VOffsetT = 26;
+  pub const VT_FINDS: ::flatbuffers::VOffsetT = 28;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -29597,10 +29601,14 @@ impl<'a> InfluenceSave<'a> {
     args: &'args InfluenceSaveArgs
   ) -> ::flatbuffers::WIPOffset<InfluenceSave<'bldr>> {
     let mut builder = InfluenceSaveBuilder::new(_fbb);
+    builder.add_until(args.until);
     builder.add_taken(args.taken);
     builder.add_target(args.target);
     builder.add_last(args.last);
     builder.add_at(args.at);
+    builder.add_finds(args.finds);
+    builder.add_deaths(args.deaths);
+    builder.add_share(args.share);
     builder.add_weighed(args.weighed);
     builder.add_subject(args.subject);
     builder.add_uses(args.uses);
@@ -29673,6 +29681,34 @@ impl<'a> InfluenceSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(InfluenceSave::VT_WEIGHED, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn until(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(InfluenceSave::VT_UNTIL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn share(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(InfluenceSave::VT_SHARE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn deaths(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(InfluenceSave::VT_DEATHS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn finds(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(InfluenceSave::VT_FINDS, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for InfluenceSave<'_> {
@@ -29690,6 +29726,10 @@ impl ::flatbuffers::Verifiable for InfluenceSave<'_> {
      .visit_field::<u32>("subject", Self::VT_SUBJECT, false)?
      .visit_field::<i64>("taken", Self::VT_TAKEN, false)?
      .visit_field::<u32>("weighed", Self::VT_WEIGHED, false)?
+     .visit_field::<i64>("until", Self::VT_UNTIL, false)?
+     .visit_field::<f32>("share", Self::VT_SHARE, false)?
+     .visit_field::<u32>("deaths", Self::VT_DEATHS, false)?
+     .visit_field::<u32>("finds", Self::VT_FINDS, false)?
      .finish();
     Ok(())
   }
@@ -29704,6 +29744,10 @@ pub struct InfluenceSaveArgs {
     pub subject: u32,
     pub taken: i64,
     pub weighed: u32,
+    pub until: i64,
+    pub share: f32,
+    pub deaths: u32,
+    pub finds: u32,
 }
 impl<'a> Default for InfluenceSaveArgs {
   #[inline]
@@ -29718,6 +29762,10 @@ impl<'a> Default for InfluenceSaveArgs {
       subject: 0,
       taken: -1,
       weighed: 0,
+      until: 0,
+      share: 0.0,
+      deaths: 0,
+      finds: 0,
     }
   }
 }
@@ -29764,6 +29812,22 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> InfluenceSaveBuilder<'a, 'b, 
     self.fbb_.push_slot::<u32>(InfluenceSave::VT_WEIGHED, weighed, 0);
   }
   #[inline]
+  pub fn add_until(&mut self, until: i64) {
+    self.fbb_.push_slot::<i64>(InfluenceSave::VT_UNTIL, until, 0);
+  }
+  #[inline]
+  pub fn add_share(&mut self, share: f32) {
+    self.fbb_.push_slot::<f32>(InfluenceSave::VT_SHARE, share, 0.0);
+  }
+  #[inline]
+  pub fn add_deaths(&mut self, deaths: u32) {
+    self.fbb_.push_slot::<u32>(InfluenceSave::VT_DEATHS, deaths, 0);
+  }
+  #[inline]
+  pub fn add_finds(&mut self, finds: u32) {
+    self.fbb_.push_slot::<u32>(InfluenceSave::VT_FINDS, finds, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> InfluenceSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     InfluenceSaveBuilder {
@@ -29790,6 +29854,10 @@ impl ::core::fmt::Debug for InfluenceSave<'_> {
       ds.field("subject", &self.subject());
       ds.field("taken", &self.taken());
       ds.field("weighed", &self.weighed());
+      ds.field("until", &self.until());
+      ds.field("share", &self.share());
+      ds.field("deaths", &self.deaths());
+      ds.field("finds", &self.finds());
       ds.finish()
   }
 }

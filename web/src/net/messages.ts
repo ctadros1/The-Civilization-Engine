@@ -1620,6 +1620,29 @@ export function tellOfIdeology(person: number, ideology: number): Uint8Array {
   return command(b, W.CommandBody.TellOfIdeology, body);
 }
 
+/**
+ * The observer sends an agitator (god tool, M4c slice AJ, ADR-0016 §5): one adult newcomer
+ * holding an ideology (an index into Welcome.ideologies) arrives where a family would.
+ */
+export function sendAgitator(xM: number, yM: number, ideology: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  W.SendAgitator.startSendAgitator(b);
+  W.SendAgitator.addAt(b, W.Vec2.createVec2(b, xM, yM));
+  W.SendAgitator.addIdeology(b, ideology);
+  return command(b, W.CommandBody.SendAgitator, W.SendAgitator.endSendAgitator(b));
+}
+
+/**
+ * The observer blesses a living person, or with `curse` curses them, for `days` days, moving
+ * their own draws for illness or accident and for finding things out by `share` of their way
+ * (god tool, M4c slice AJ, ADR-0016 §5).
+ */
+export function bless(person: number, curse: boolean, days: number, share: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  const body = W.Bless.createBless(b, BigInt(person), curse, days, share);
+  return command(b, W.CommandBody.Bless, body);
+}
+
 /** Runs ahead to a simulation minute, unpaced and in full detail. */
 export function runUntil(minute: number): Uint8Array {
   const b = new flatbuffers.Builder(32);

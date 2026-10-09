@@ -2,6 +2,7 @@
 
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 
+import { Bless } from '../../tce/wire/bless.js';
 import { CancelTask } from '../../tce/wire/cancel-task.js';
 import { IntroduceTechnique } from '../../tce/wire/introduce-technique.js';
 import { LoadWorld } from '../../tce/wire/load-world.js';
@@ -10,6 +11,7 @@ import { PlaceDeposit } from '../../tce/wire/place-deposit.js';
 import { RecoverWorld } from '../../tce/wire/recover-world.js';
 import { RunUntil } from '../../tce/wire/run-until.js';
 import { SaveWorld } from '../../tce/wire/save-world.js';
+import { SendAgitator } from '../../tce/wire/send-agitator.js';
 import { SetClock } from '../../tce/wire/set-clock.js';
 import { SpawnFamily } from '../../tce/wire/spawn-family.js';
 import { TellOfIdeology } from '../../tce/wire/tell-of-ideology.js';
@@ -29,13 +31,15 @@ export enum CommandBody {
   IntroduceTechnique = 9,
   PlaceDeposit = 10,
   Whisper = 11,
-  TellOfIdeology = 12
+  TellOfIdeology = 12,
+  SendAgitator = 13,
+  Bless = 14
 }
 
 export function unionToCommandBody(
   type: CommandBody,
-  accessor: (obj:CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|TellOfIdeology|Whisper) => CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|TellOfIdeology|Whisper|null
-): CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|TellOfIdeology|Whisper|null {
+  accessor: (obj:Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SetClock|SpawnFamily|TellOfIdeology|Whisper) => Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SetClock|SpawnFamily|TellOfIdeology|Whisper|null
+): Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SetClock|SpawnFamily|TellOfIdeology|Whisper|null {
   switch(CommandBody[type]) {
     case 'NONE': return null; 
     case 'NewWorld': return accessor(new NewWorld())! as NewWorld;
@@ -50,15 +54,17 @@ export function unionToCommandBody(
     case 'PlaceDeposit': return accessor(new PlaceDeposit())! as PlaceDeposit;
     case 'Whisper': return accessor(new Whisper())! as Whisper;
     case 'TellOfIdeology': return accessor(new TellOfIdeology())! as TellOfIdeology;
+    case 'SendAgitator': return accessor(new SendAgitator())! as SendAgitator;
+    case 'Bless': return accessor(new Bless())! as Bless;
     default: return null;
   }
 }
 
 export function unionListToCommandBody(
   type: CommandBody, 
-  accessor: (index: number, obj:CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|TellOfIdeology|Whisper) => CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|TellOfIdeology|Whisper|null, 
+  accessor: (index: number, obj:Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SetClock|SpawnFamily|TellOfIdeology|Whisper) => Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SetClock|SpawnFamily|TellOfIdeology|Whisper|null, 
   index: number
-): CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SetClock|SpawnFamily|TellOfIdeology|Whisper|null {
+): Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SetClock|SpawnFamily|TellOfIdeology|Whisper|null {
   switch(CommandBody[type]) {
     case 'NONE': return null; 
     case 'NewWorld': return accessor(index, new NewWorld())! as NewWorld;
@@ -73,6 +79,8 @@ export function unionListToCommandBody(
     case 'PlaceDeposit': return accessor(index, new PlaceDeposit())! as PlaceDeposit;
     case 'Whisper': return accessor(index, new Whisper())! as Whisper;
     case 'TellOfIdeology': return accessor(index, new TellOfIdeology())! as TellOfIdeology;
+    case 'SendAgitator': return accessor(index, new SendAgitator())! as SendAgitator;
+    case 'Bless': return accessor(index, new Bless())! as Bless;
     default: return null;
   }
 }

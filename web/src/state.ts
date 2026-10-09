@@ -66,6 +66,10 @@ export interface AppState {
    * shows at the surface. */
   depositGood: string;
   depositExposed: boolean;
+  /** The map tool that sends an agitator where the map is clicked is armed (M4c slice AJ), and
+   * the ideology they hold: an index into Welcome.ideologies. */
+  placingAgitator: boolean;
+  agitatorIdeology: number;
   /** The chronicle of the world on show, oldest first. */
   chronicle: ChronicleEntry[];
   /** The markets of the world on show (null = not read yet). */
@@ -123,6 +127,8 @@ export function initialState(): AppState {
     placingDeposit: false,
     depositGood: "",
     depositExposed: true,
+    placingAgitator: false,
+    agitatorIdeology: 0,
     chronicle: [],
     markets: null,
     marketsError: null,

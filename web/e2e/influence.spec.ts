@@ -60,6 +60,30 @@ test("the observer tells someone of an ideology, and a repeat adds nothing", asy
     await inspector.getByRole("button", { name: "Tell them" }).click();
     await expect(told).toHaveCount(1);
     await expect(told).toContainText("Told of common provision (2 times); weighed it once");
+
+    // A blessing for a year, a quarter of the way.
+    await inspector.getByRole("button", { name: "Bless" }).click();
+    const lines = inspector.locator(".observer-hand .influences li");
+    await expect(lines).toHaveCount(2);
+    await expect(lines.first()).toContainText("Blessed until");
+    await expect(lines.first()).toContainText("illness or accident at 0.75 of what it was");
+    await expect(page.locator("#chronicle")).toContainText(`One recorded influence: the observer blessed ${name} for 365 days`);
+
+    // An agitator, sent with the map tool to the village.
+    // The settlement's link, the chronicle's first, centres the map on its hearth.
+    await page.locator("#chronicle").getByRole("button").first().click();
+    await page.getByLabel("The ideology the agitator holds").selectOption({ label: "Order kept by all" });
+    await page.getByRole("button", { name: "Send an agitator" }).click();
+    await expect(page.getByRole("button", { name: "Send an agitator" })).toHaveAttribute("aria-pressed", "true");
+    const village = await page.evaluate(() => window.__TCE__.state().world?.name ?? "");
+    expect(village).toBe("Whispering Valley");
+    const box = await page.locator("#map canvas").boundingBox();
+    if (!box) throw new Error("no map canvas");
+    const people = await page.evaluate(() => window.__TCE__.state().people);
+    await page.mouse.click(box.x + box.width / 2 + 25, box.y + box.height / 2 + 15);
+    await page.waitForFunction((n) => window.__TCE__.state().people > n, people, { timeout: 30_000 });
+    await expect(page.getByRole("button", { name: "Send an agitator" })).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator("#chronicle")).toContainText(/One recorded influence: the observer sent \w+, who holds to order kept by all, to /);
   } finally {
     await host.stop();
   }

@@ -138,6 +138,11 @@ export interface Actions {
   /** Tell a living adult of an ideology (god tool, M4c slice AJ): an index into
    * Welcome.ideologies. */
   tellOfIdeology(person: number, ideology: number): Promise<void>;
+  /** Bless a living person, or with `curse` curse them, for `days` days by `share` (god tool). */
+  bless(person: number, curse: boolean, days: number, share: number): Promise<void>;
+  /** Arms or disarms the tool that sends an agitator holding ideology `ideology` where the map is
+   * clicked (M4c slice AJ). */
+  setPlacingAgitator(on: boolean, ideology: number): void;
 }
 
 const MAX_SEED = (1n << 64n) - 1n;
@@ -485,6 +490,11 @@ export function bindUi(store: Store, actions: Actions): void {
   addDeposit.addEventListener("click", () => armDeposit(addDeposit.getAttribute("aria-pressed") !== "true"));
   depositGood.addEventListener("change", () => armDeposit(addDeposit.getAttribute("aria-pressed") === "true"));
   depositExposed.addEventListener("change", () => armDeposit(addDeposit.getAttribute("aria-pressed") === "true"));
+  const addAgitator = $<HTMLButtonElement>("add-agitator");
+  const agitatorIdeology = $<HTMLSelectElement>("agitator-ideology");
+  const armAgitator = (on: boolean): void => actions.setPlacingAgitator(on, Number(agitatorIdeology.value) || 0);
+  addAgitator.addEventListener("click", () => armAgitator(addAgitator.getAttribute("aria-pressed") !== "true"));
+  agitatorIdeology.addEventListener("change", () => armAgitator(addAgitator.getAttribute("aria-pressed") === "true"));
   document.addEventListener("keydown", (event) => {
     if (event.key !== " " || isTyping(event.target)) return;
     if (document.querySelector("dialog[open]")) return;
@@ -1083,6 +1093,58 @@ export function bindUi(store: Store, actions: Actions): void {
         void actions.tellOfIdeology(p.id, Number(select.value));
       });
       observerSelects.push(select);
+      box.append(form);
+    }
+    // A blessing or a curse on their own luck in material things (M4c slice AJ).
+    {
+      const period = el("select");
+      period.id = "bless-days";
+      for (const [days, text] of [
+        [30, "a month"],
+        [90, "a season"],
+        [365, "a year"],
+        [1825, "five years"],
+      ] as const) {
+        const option = el("option", { text });
+        option.value = String(days);
+        period.append(option);
+      }
+      period.value = "365";
+      const strength = el("select");
+      strength.id = "bless-share";
+      strength.setAttribute("aria-label", "How far it moves their draws");
+      for (const [share, text] of [
+        [0.1, "a little"],
+        [0.25, "a quarter of the way"],
+        [0.5, "half the way"],
+      ] as const) {
+        const option = el("option", { text });
+        option.value = String(share);
+        strength.append(option);
+      }
+      strength.value = "0.25";
+      const label = el("label", { text: "For" });
+      label.htmlFor = period.id;
+      const blessButton = el("button", { text: "Bless" });
+      blessButton.type = "submit";
+      blessButton.id = "bless-go";
+      blessButton.title = "Their own chances of illness or accident fall, and of finding things out rise (god tool)";
+      const curseButton = el("button", { text: "Curse" });
+      curseButton.type = "button";
+      curseButton.id = "curse-go";
+      curseButton.title = "Their own chances of illness or accident rise, and of finding things out fall (god tool)";
+      const form = el("form", { className: "bless" }, label, period, strength, blessButton, curseButton);
+      const go = (curse: boolean) => {
+        blessButton.disabled = true;
+        curseButton.disabled = true;
+        void actions.bless(p.id, curse, Number(period.value), Number(strength.value));
+      };
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        go(false);
+      });
+      curseButton.addEventListener("click", () => go(true));
+      observerSelects.push(period, strength);
       box.append(form);
     }
     return box;
@@ -2491,6 +2553,29 @@ export function bindUi(store: Store, actions: Actions): void {
     $<HTMLInputElement>("deposit-exposed").disabled = deposit.disabled;
     deposit.setAttribute("aria-pressed", String(state.placingDeposit));
     deposit.classList.toggle("active", state.placingDeposit);
+    // The agitator tool (M4c slice AJ): one newcomer holding the ideology chosen.
+    const agitator = $<HTMLButtonElement>("add-agitator");
+    const ideaSelect = $<HTMLSelectElement>("agitator-ideology");
+    const ideas = state.welcome?.ideologies ?? [];
+    const ideasKey = ideas.map((d) => d.id).join(",");
+    if (ideaSelect.dataset.ideas !== ideasKey) {
+      ideaSelect.dataset.ideas = ideasKey;
+      ideaSelect.replaceChildren(
+        ...ideas.map((d, k) => {
+          const option = el("option", { text: d.name });
+          option.value = String(k);
+          option.title = d.legitimacy;
+          return option;
+        }),
+      );
+    }
+    if (ideaSelect.value !== String(state.agitatorIdeology) && ideas.length > state.agitatorIdeology) {
+      ideaSelect.value = String(state.agitatorIdeology);
+    }
+    agitator.disabled = !open || !world || ideas.length === 0;
+    ideaSelect.disabled = agitator.disabled;
+    agitator.setAttribute("aria-pressed", String(state.placingAgitator));
+    agitator.classList.toggle("active", state.placingAgitator);
     renderSpeeds(state);
     renderConnection(state);
     renderBanner(state);

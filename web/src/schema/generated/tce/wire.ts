@@ -4,6 +4,7 @@
 
 export { Ack } from './wire/ack.js';
 export { ActivityInfo } from './wire/activity-info.js';
+export { Bless } from './wire/bless.js';
 export { BookEntryInfo } from './wire/book-entry-info.js';
 export { BookKind } from './wire/book-kind.js';
 export { BookLine } from './wire/book-line.js';
@@ -114,6 +115,7 @@ export { SaveEntry } from './wire/save-entry.js';
 export { SaveList } from './wire/save-list.js';
 export { SaveWorld } from './wire/save-world.js';
 export { ScoredOption } from './wire/scored-option.js';
+export { SendAgitator } from './wire/send-agitator.js';
 export { SetClock } from './wire/set-clock.js';
 export { SettlementBrief } from './wire/settlement-brief.js';
 export { SettlementKnowledge } from './wire/settlement-knowledge.js';

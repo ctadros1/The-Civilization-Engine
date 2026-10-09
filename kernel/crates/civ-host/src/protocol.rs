@@ -79,6 +79,24 @@ pub enum Request {
         /// Index into the welcome's ideologies.
         ideology: u32,
     },
+    /// Send one adult newcomer holding an ideology (god tool, M4c slice AJ, ADR-0016 §5).
+    SendAgitator {
+        /// Metres from the map's north-west corner.
+        at: (f32, f32),
+        /// Index into the welcome's ideologies.
+        ideology: u32,
+    },
+    /// Bless or curse a living person for a while (god tool, M4c slice AJ, ADR-0016 §5).
+    Bless {
+        /// Permanent id.
+        person: u64,
+        /// A curse, not a blessing.
+        curse: bool,
+        /// How many days it holds.
+        days: u32,
+        /// The share of their way it moves a draw.
+        share: f32,
+    },
     /// Lay down a deposit (god tool, ADR-0010 §1).
     PlaceDeposit {
         /// Metres from the map's north-west corner.
@@ -430,6 +448,25 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                     Ok(Request::TellOfIdeology {
                         person: b.person(),
                         ideology: b.ideology(),
+                    })
+                }
+                wire::CommandBody::SendAgitator => {
+                    let b = command
+                        .body_as_send_agitator()
+                        .ok_or_else(|| missing("command"))?;
+                    let at = b.at().ok_or_else(|| missing("where to send them"))?;
+                    Ok(Request::SendAgitator {
+                        at: (at.x(), at.y()),
+                        ideology: b.ideology(),
+                    })
+                }
+                wire::CommandBody::Bless => {
+                    let b = command.body_as_bless().ok_or_else(|| missing("command"))?;
+                    Ok(Request::Bless {
+                        person: b.person(),
+                        curse: b.curse(),
+                        days: b.days(),
+                        share: b.share(),
                     })
                 }
                 other => Err(format!("unknown command {}", other.0)),
@@ -1017,6 +1054,55 @@ mod tests {
             Ok(Request::TellOfIdeology {
                 person: 12,
                 ideology: 1
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let at = wire::Vec2::new(40.0, 50.0);
+        let body = wire::SendAgitator::create(
+            &mut fbb,
+            &wire::SendAgitatorArgs {
+                at: Some(&at),
+                ideology: 2,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::SendAgitator,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::SendAgitator {
+                at: (40.0, 50.0),
+                ideology: 2
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::Bless::create(
+            &mut fbb,
+            &wire::BlessArgs {
+                person: 12,
+                curse: true,
+                days: 365,
+                share: 0.25,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::Bless,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::Bless {
+                person: 12,
+                curse: true,
+                days: 365,
+                share: 0.25
             })
         );
     }

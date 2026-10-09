@@ -178,6 +178,9 @@ pub const SCHEMA_V46: u32 = 46;
 /// The schema version of M4c slice AI's fourth step: force, before the observer's interventions
 /// (see [`agents`]).
 pub const SCHEMA_V47: u32 = 47;
+/// The schema version of M4c slice AJ's first step: whispers and ideologies told of, before
+/// agitators, blessings and curses (see [`agents`]).
+pub const SCHEMA_V48: u32 = 48;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

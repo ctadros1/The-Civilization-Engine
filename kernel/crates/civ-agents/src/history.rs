@@ -561,6 +561,10 @@ pub enum ChronicleKind {
     /// code; `name` what followed their name, in words (" that a gathering meets …", " of common
     /// provision.").
     Influence,
+    /// A draw a blessing or a curse turned (M4c slice AJ): `people` is whose draw it was;
+    /// `number` the influence's number; `name` what followed their name, in words (" was spared
+    /// a death by illness or accident: the observer's blessing turned the draw.").
+    InfluenceTurned,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -939,9 +943,19 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             {
                 Some(crate::influence::InfluenceKind::Whisper) => "whispered to ",
                 Some(crate::influence::InfluenceKind::Ideology) => "told ",
+                Some(crate::influence::InfluenceKind::Agitator) => "sent ",
+                Some(crate::influence::InfluenceKind::Bless) => "blessed ",
+                Some(crate::influence::InfluenceKind::Curse) => "cursed ",
                 None => "reached ",
             };
             let lead = format!("One recorded influence: the observer {verb}");
+            match person(0) {
+                Some(who) => vec![Span::Text(lead), who, Span::Text(event.name.clone())],
+                None => vec![Span::Text(format!("{lead}someone{}", event.name))],
+            }
+        }
+        ChronicleKind::InfluenceTurned => {
+            let lead = "One recorded influence: ".to_owned();
             match person(0) {
                 Some(who) => vec![Span::Text(lead), who, Span::Text(event.name.clone())],
                 None => vec![Span::Text(format!("{lead}someone{}", event.name))],

@@ -69,7 +69,20 @@ pub fn daily_from_monthly(per_month: f64) -> f64 {
 /// on the draw `u`, and of what: the day's chance is split between the baseline and hunger in
 /// proportion to their hazards (competing risks, research 05-01 §1.3).
 pub fn death_today(params: &MortalityParams, age: f64, depleted: f64, u: f64) -> Option<Cause> {
+    death_today_scaled(params, age, depleted, u, 1.0)
+}
+
+/// [`death_today`] with the baseline hazard, illness or accident, multiplied by `base_factor`
+/// (an observer's blessing or curse, M4c slice AJ): hunger's part is the body's, never luck's.
+pub fn death_today_scaled(
+    params: &MortalityParams,
+    age: f64,
+    depleted: f64,
+    u: f64,
+    base_factor: f64,
+) -> Option<Cause> {
     let (base, hunger) = params.hazards(age, depleted);
+    let base = base * base_factor;
     let total = base + hunger;
     let p = chance_per_day(total);
     if total <= 0.0 || u >= p {

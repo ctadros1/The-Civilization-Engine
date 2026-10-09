@@ -668,6 +668,30 @@ pub fn breakable_in_reach(
     cells
 }
 
+/// The ground [`find_site`] looks at for a field on one of `cells`: the box around every field it
+/// could mark out there, widened by the gap kept between fields. Fields, plots and earthworks
+/// outside it cannot change what it finds (M5a slice AL). `None` when there are no cells.
+pub fn site_ground(map: &WorldMap, cells: &[(u32, f32)], params: &PeopleParams) -> Option<RectCm> {
+    let w = map.width as usize;
+    let side_cm = (params.farm.field_m * 100.0).round() as i32;
+    let cell_cm = (map.cell_size_m * 100.0).round() as i32;
+    let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
+    for &(cell, _) in cells {
+        let (cx, cy) = ((cell as usize % w) as i32, (cell as usize / w) as i32);
+        (x0, x1) = (x0.min(cx), x1.max(cx));
+        (y0, y1) = (y0.min(cy), y1.max(cy));
+    }
+    (x0 <= x1).then(|| {
+        let corner = |c: i32| c * cell_cm + cell_cm / 2 - side_cm / 2 - FIELD_GAP_CM;
+        RectCm {
+            x: corner(x0),
+            y: corner(y0),
+            w: (x1 - x0) * cell_cm + side_cm + 2 * FIELD_GAP_CM,
+            h: (y1 - y0) * cell_cm + side_cm + 2 * FIELD_GAP_CM,
+        }
+    })
+}
+
 /// Looks for new ground for a field of side `params.farm.field_m` among `cells`, the breakable
 /// cells within the farthest field walk of a home ([`breakable_in_reach`]), clear of other fields
 /// and of `homes`: samples `params.farm.site_candidates` of them with a draw keyed by `key`, and
@@ -700,34 +724,68 @@ pub fn find_site(
     let side_cm = (params.farm.field_m * 100.0).round() as i32;
     let cell_cm = (map.cell_size_m * 100.0).round() as i32;
     let (map_w_cm, map_h_cm) = (map.width as i32 * cell_cm, map.height as i32 * cell_cm);
+    // Every candidate is drawn first, one draw each as ever; then only the fields, plots,
+    // earthworks and homes that could lie near one of them are kept to check against. Whatever
+    // is near a candidate is near the box around them all, so the checks find what they would
+    // against the whole world, at the cost of the neighbourhood (M5a slice AL).
     let mut rng = Rng64::from_key(key);
+    let picks: Vec<(RectCm, f32)> = (0..params.farm.site_candidates)
+        .filter_map(|_| {
+            let (cell, secs) = cells[(rng.next_u64() % cells.len() as u64) as usize];
+            let (cx, cy) = ((cell as usize % w) as i32, (cell as usize / w) as i32);
+            let rect = RectCm {
+                x: cx * cell_cm + cell_cm / 2 - side_cm / 2,
+                y: cy * cell_cm + cell_cm / 2 - side_cm / 2,
+                w: side_cm,
+                h: side_cm,
+            };
+            let inside = rect.x >= 0
+                && rect.y >= 0
+                && rect.x + rect.w <= map_w_cm
+                && rect.y + rect.h <= map_h_cm;
+            inside.then_some((rect, secs))
+        })
+        .collect();
+    let around = picks.iter().map(|&(r, _)| r).reduce(|a, b| {
+        let (x, y) = (a.x.min(b.x), a.y.min(b.y));
+        RectCm {
+            x,
+            y,
+            w: (a.x + a.w).max(b.x + b.w) - x,
+            h: (a.y + a.h).max(b.y + b.h) - y,
+        }
+    })?;
+    let home_gap = |rect: &RectCm, (hx, hy): (f32, f32)| {
+        let x = (hx * 100.0) as i32;
+        let y = (hy * 100.0) as i32;
+        let dx = (rect.x - x).max(x - (rect.x + rect.w)).max(0) as f32 / 100.0;
+        let dy = (rect.y - y).max(y - (rect.y + rect.h)).max(0) as f32 / 100.0;
+        dx.hypot(dy)
+    };
+    let taken: Vec<RectCm> = land
+        .fields
+        .iter()
+        .map(|f| f.rect)
+        .chain(land.plots.iter().map(|p| p.rect))
+        .chain(
+            land.earthworks
+                .iter()
+                .filter(|e| e.kind != civ_land::earth::EarthKind::Platform)
+                .map(|e| e.rect),
+        )
+        .filter(|r| r.near(&around, FIELD_GAP_CM))
+        .collect();
+    let near_homes: Vec<(f32, f32)> = homes
+        .iter()
+        .copied()
+        .filter(|&h| home_gap(&around, h) < HOME_GAP_M)
+        .collect();
     let mut best: Option<(f64, Site)> = None;
-    for _ in 0..params.farm.site_candidates {
-        let (cell, secs) = cells[(rng.next_u64() % cells.len() as u64) as usize];
-        let (cx, cy) = ((cell as usize % w) as i32, (cell as usize / w) as i32);
-        let rect = RectCm {
-            x: cx * cell_cm + cell_cm / 2 - side_cm / 2,
-            y: cy * cell_cm + cell_cm / 2 - side_cm / 2,
-            w: side_cm,
-            h: side_cm,
-        };
-        if rect.x < 0 || rect.y < 0 || rect.x + rect.w > map_w_cm || rect.y + rect.h > map_h_cm {
+    for (rect, secs) in picks {
+        if taken.iter().any(|r| r.near(&rect, FIELD_GAP_CM)) {
             continue;
         }
-        if land.fields.iter().any(|f| f.rect.near(&rect, FIELD_GAP_CM))
-            || land.plots.iter().any(|p| p.rect.near(&rect, FIELD_GAP_CM))
-            || civ_land::earth::dug_near(&land.earthworks, &rect, FIELD_GAP_CM)
-        {
-            continue;
-        }
-        let clear_of_homes = homes.iter().all(|&(hx, hy)| {
-            let x = (hx * 100.0) as i32;
-            let y = (hy * 100.0) as i32;
-            let dx = (rect.x - x).max(x - (rect.x + rect.w)).max(0) as f32 / 100.0;
-            let dy = (rect.y - y).max(y - (rect.y + rect.h)).max(0) as f32 / 100.0;
-            dx.hypot(dy) >= HOME_GAP_M
-        });
-        if !clear_of_homes {
+        if !near_homes.iter().all(|&h| home_gap(&rect, h) >= HOME_GAP_M) {
             continue;
         }
         // Every cell under it must be arable dry ground; its ground is their patches' richness.

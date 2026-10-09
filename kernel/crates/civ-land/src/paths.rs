@@ -456,6 +456,25 @@ impl Wear {
         })
     }
 
+    /// The cells people have walked as last surveyed, as the north-west and south-east corner
+    /// cells of the tiles around them, if they have walked anywhere.
+    pub fn walked_area(&self) -> Option<((usize, usize), (usize, usize))> {
+        let (tx, tile) = (self.tiles_x as usize, TILE as usize);
+        let (mut x0, mut y0, mut x1, mut y1) = (usize::MAX, usize::MAX, 0, 0);
+        for &index in &self.view_index {
+            let (x, y) = (index as usize % tx, index as usize / tx);
+            (x0, x1) = (x0.min(x), x1.max(x));
+            (y0, y1) = (y0.min(y), y1.max(y));
+        }
+        let (w, h) = (self.width as usize, self.height as usize);
+        (x0 <= x1).then(|| {
+            (
+                (x0 * tile, y0 * tile),
+                (((x1 + 1) * tile).min(w) - 1, ((y1 + 1) * tile).min(h) - 1),
+            )
+        })
+    }
+
     /// What is wrong with saved wear for its map, if anything.
     pub fn problems(&self) -> Vec<String> {
         let mut out = Vec::new();

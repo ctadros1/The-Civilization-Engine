@@ -79,42 +79,53 @@ impl Population {
 
     /// Those keeping company at `hearth` now other than `me`, in id order. Each settlement's
     /// hearth is its own (the target names it), and company there is whoever is present
-    /// (ADR-0018 §2).
+    /// (ADR-0018 §2). Only those who set to it since the last look, or were there then, are
+    /// looked at: nobody comes to be there without setting to it (M5a slice AL).
     pub(crate) fn hearth_company(
-        &self,
+        &mut self,
         ctx: &Ctx,
         me: PermanentId,
         hearth: Target,
     ) -> Vec<PermanentId> {
-        if !matches!(hearth, Target::Hearth(_)) {
+        let Target::Hearth(s) = hearth else {
             return Vec::new();
-        }
-        let mut out: Vec<PermanentId> = self
-            .people
-            .iter()
-            .filter(|(_, q)| {
-                q.id != me
-                    && q.act.target == hearth
-                    && q.trip.is_none()
-                    && matches!(
-                        q.act.steps.get(q.act.step as usize),
-                        Some(Step::Work { .. })
-                    )
-                    && ctx
-                        .catalog
-                        .activities
-                        .get(q.act.def as usize)
-                        .is_some_and(|a| {
-                            matches!(
-                                a.behavior,
-                                Behavior::Socialize | Behavior::Attend | Behavior::Petition
-                            )
-                        })
-            })
-            .map(|(_, q)| q.id)
-            .collect();
-        out.sort_unstable();
-        out
+        };
+        let present = |q: &Person| {
+            q.trip.is_none()
+                && matches!(
+                    q.act.steps.get(q.act.step as usize),
+                    Some(Step::Work { .. })
+                )
+                && ctx
+                    .catalog
+                    .activities
+                    .get(q.act.def as usize)
+                    .is_some_and(|a| is_company(a.behavior))
+        };
+        let at = self.at_hearth.get_or_insert_with(|| {
+            let mut at: FastMap<PermanentId, AtHearth> = FastMap::default();
+            for (h, q) in self.people.iter() {
+                if let Target::Hearth(t) = q.act.target
+                    && present(q)
+                {
+                    at.entry(t).or_default().push((q.id, h));
+                }
+            }
+            for there in at.values_mut() {
+                there.sort_unstable_by_key(|&(q, _)| q);
+            }
+            at
+        });
+        let Some(there) = at.get_mut(&s) else {
+            return Vec::new();
+        };
+        let people = &self.people;
+        there.retain(|&(_, h)| {
+            people
+                .get(h)
+                .is_some_and(|q| q.act.target == hearth && present(q))
+        });
+        there.iter().map(|&(q, _)| q).filter(|&q| q != me).collect()
     }
 
     /// `me` keeps company at the hearth for `minutes` with `present` there: a few of them, drawn

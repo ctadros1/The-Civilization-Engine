@@ -102,6 +102,9 @@ const ROUTE_BUDGET: usize = 600_000;
 const FIELD_REFRESH_DAYS: i64 = 30;
 /// Minutes a person waits before deciding again when a walk cannot be routed.
 const WAIT_AFTER_FAILURE_MIN: u32 = 10;
+/// Cells beyond the ground people have walked that route searches are bounded by landmarks
+/// over ([`civ_world::nav::NavGrid::landmarks`]): half a wear tile, 256 m on 8 m cells.
+const LANDMARK_MARGIN_CELLS: usize = 32;
 /// Most routes the route cache keeps in each of its two generations: when the newer is full it
 /// becomes the older, and the older is let go.
 const ROUTE_CACHE_MAX: usize = 50_000;
@@ -115,6 +118,9 @@ const MIN_BATCH_DAYS: f64 = 0.25;
 pub const FIRST_TRAIL_M: f32 = 150.0;
 /// ...and passing within this of the settlement's hearth, metres.
 pub const FIRST_TRAIL_NEAR_M: f32 = 80.0;
+
+/// Who may be keeping company at a settlement's hearth, in id order (`Population::at_hearth`).
+type AtHearth = Vec<(PermanentId, Handle<Person>)>;
 
 /// A route at standard walking speed, pulled straight across open ground: vertices (cell centres)
 /// and seconds to each.
@@ -226,6 +232,8 @@ struct HomeField {
     reach: TravelField,
     /// The cells in reach where new ground could be broken, in cell order ([`farm::find_site`]).
     breakable: Vec<(u32, f32)>,
+    /// The ground a search for a field among them looks at ([`farm::site_ground`]).
+    site_ground: Option<civ_land::RectCm>,
 }
 
 /// What a household's members weigh at a decision whatever the person: the purchase it would
@@ -348,6 +356,9 @@ pub struct Population {
     routes_old: FastMap<(u32, u32), Option<CachedRoute>>,
     /// The paths survey the routes were planned on ([`civ_land::Wear::rev`]).
     routes_rev: u32,
+    /// Lower bounds for route searches on the paths as surveyed ([`NavGrid::landmarks`]),
+    /// built at the first search after a survey once people have walked anywhere. Derived.
+    landmarks: Option<Option<std::sync::Arc<civ_world::nav::Landmarks>>>,
     /// Per activity, what a trip is expected to bring from each patch today.
     priors: Vec<Prior>,
     /// Per household, the new ground it would mark out for a field, as found on a day against the
@@ -367,6 +378,14 @@ pub struct Population {
     /// People in a leisure block that ends by their choosing something else, with the version of
     /// that activity and its activity (ADR-0011 §4). Kept only until the next midnight.
     switched: FastMap<PermanentId, (u32, u16)>,
+    /// Per settlement, who has set to keeping company at its hearth since it was last looked at,
+    /// and who was there then, in id order: everyone there now, and some who have left
+    /// ([`Self::hearth_company`]). Derived: built at the first look after a load.
+    at_hearth: Option<FastMap<PermanentId, AtHearth>>,
+    /// Per household and resource, the day its known places of that resource were last cleared
+    /// of what has faded ([`Self::remember_patch`]): cleared again that day, they would lose
+    /// nothing. Derived; forgotten when the household's places come from elsewhere.
+    known_pruned: FastMap<(PermanentId, u16), i64>,
     /// What became of the goods of households that are no more (counters, not saved).
     pub flows_gone: Flows,
     /// What moved between households, by channel (counters, not saved).
@@ -438,32 +457,34 @@ struct HomePlan {
 }
 
 /// What finding new ground for a field reads that can change within a day, as one number: the
-/// fields, plots and earthworks laid out and the homes and hearth it keeps clear of. A site found
-/// earlier in the day is kept only while this is the same, so a world saved and loaded within a
-/// day finds the same ground as one lived straight on (ADR-0011 §5; a site kept from before a
-/// neighbour's field was marked out made the two differ about one world in a hundred).
-fn site_inputs(land: &civ_land::Land, homes: &[(f32, f32)]) -> u64 {
+/// fields, plots and earthworks laid out on `ground` (the ground the search looks at,
+/// [`farm::site_ground`]; elsewhere they cannot change what it finds) and the homes and hearth it
+/// keeps clear of. A site found earlier in the day is kept only while this is the same, so a world
+/// saved and loaded within a day finds the same ground as one lived straight on (ADR-0011 §5; a
+/// site kept from before a neighbour's field was marked out made the two differ about one world
+/// in a hundred).
+fn site_inputs(
+    land: &civ_land::Land,
+    ground: Option<civ_land::RectCm>,
+    homes: &[(f32, f32)],
+) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     let mut mix = |v: u64| {
         h ^= v;
         h = h.wrapping_mul(0x0100_0000_01b3);
     };
     let pair = |a: i32, b: i32| u64::from(a as u32) | (u64::from(b as u32) << 32);
-    for (n, rects) in [
-        (
-            land.fields.len(),
-            land.fields.iter().map(|f| f.rect).collect::<Vec<_>>(),
-        ),
-        (
-            land.plots.len(),
-            land.plots.iter().map(|p| p.rect).collect(),
-        ),
-        (
-            land.earthworks.len(),
-            land.earthworks.iter().map(|w| w.rect).collect(),
-        ),
+    let on = |r: &civ_land::RectCm| ground.is_some_and(|g| r.near(&g, 0));
+    let fields = land.fields.iter().map(|f| f.rect).filter(on);
+    let plots = land.plots.iter().map(|p| p.rect).filter(on);
+    let works = land.earthworks.iter().map(|w| w.rect).filter(on);
+    for (list, rects) in [
+        (1u64, fields.collect::<Vec<_>>()),
+        (2, plots.collect()),
+        (3, works.collect()),
     ] {
-        mix(n as u64);
+        mix(list);
+        mix(rects.len() as u64);
         for r in rects {
             mix(pair(r.x, r.y));
             mix(pair(r.w, r.h));
@@ -503,6 +524,14 @@ fn peak_ratio(params: &PeopleParams) -> f64 {
 }
 
 /// Why the weather keeps people off the ground today, as a reason.
+/// Whether `b` is done in company at the hearth (ADR-0014 §2).
+fn is_company(b: Behavior) -> bool {
+    matches!(
+        b,
+        Behavior::Socialize | Behavior::Attend | Behavior::Petition
+    )
+}
+
 fn unworkable_reason(why: civ_land::Unworkable) -> Reason {
     match why {
         civ_land::Unworkable::Wet => Reason::WetGround,
@@ -829,6 +858,9 @@ impl Population {
         self.home_sites.clear();
         self.stage_needs.clear();
         self.expansions.clear();
+        self.at_hearth = None;
+        self.known_pruned.clear();
+        self.landmarks = None;
     }
 
     /// Gives people and households of a world saved before tools and skills (save schema 8 and
@@ -1449,6 +1481,7 @@ impl Population {
                 water,
                 places,
                 reach: field,
+                site_ground: farm::site_ground(ctx.map, &breakable, ctx.params),
                 breakable,
             },
         );
@@ -1463,7 +1496,8 @@ impl Population {
         crop: &CropParams,
     ) -> Option<Site> {
         let day = ctx.now.day_index();
-        let breakable = &self.homes.get(&field_key)?.breakable;
+        let home = self.homes.get(&field_key)?;
+        let (breakable, ground) = (&home.breakable, home.site_ground);
         // Clear of every home of the settlement and of its hearth.
         let mut homes: Vec<(f32, f32)> = self
             .households
@@ -1480,7 +1514,7 @@ impl Population {
                 .filter(|s| Some(s.id) == hh.settlement)
                 .map(|s| s.hearth_m),
         );
-        let inputs = site_inputs(ctx.land, &homes);
+        let inputs = site_inputs(ctx.land, ground, &homes);
         if let Some(&(seen, at, site)) = self.sites.get(&hh.id)
             && seen == day
             && at == inputs
@@ -3458,6 +3492,7 @@ impl Population {
         if wear.rev() != self.routes_rev {
             self.routes.clear();
             self.routes_old.clear();
+            self.landmarks = None;
             self.routes_rev = wear.rev();
         }
         let (points, minutes): (Vec<(f32, f32)>, Vec<f32>) = if from_cell == to_cell {
@@ -3476,14 +3511,32 @@ impl Population {
                 Some(known) => known.clone(),
                 None => {
                     // Planned on the paths as last surveyed; with no worn ground the search can
-                    // assume off-trail walking everywhere and stays tight.
-                    let routed = ctx.nav.route_bounded(
+                    // assume off-trail walking everywhere and stays tight. Where people walk,
+                    // landmarks bound it more tightly still (M5a slice AL).
+                    let landmarks = self
+                        .landmarks
+                        .get_or_insert_with(|| {
+                            let ((x0, y0), (x1, y1)) = wear.walked_area()?;
+                            let m = LANDMARK_MARGIN_CELLS;
+                            let area = (
+                                (x0.saturating_sub(m), y0.saturating_sub(m)),
+                                (x1 + m, y1 + m),
+                            );
+                            let trail = |c| wear.factor(c);
+                            Some(std::sync::Arc::new(ctx.nav.landmarks(
+                                &ctx.map.elevation,
+                                &trail,
+                                area,
+                            )))
+                        })
+                        .as_deref();
+                    let routed = ctx.nav.route_with(
                         &ctx.map.elevation,
-                        from_cell,
-                        to_cell,
+                        (from_cell, to_cell),
                         &|c| wear.factor(c),
                         wear.max_factor(),
                         ROUTE_BUDGET,
+                        landmarks,
                     );
                     let found = match routed {
                         RouteResult::Found(route) => Some(std::sync::Arc::new(ctx.nav.straighten(
@@ -3550,6 +3603,16 @@ impl Population {
             }
             _ => Vec::new(),
         };
+        if let (Some(b), Some(p)) = (behavior, self.people.get(h))
+            && is_company(b)
+            && let Target::Hearth(s) = p.act.target
+            && let Some(at) = &mut self.at_hearth
+        {
+            let there = at.entry(s).or_default();
+            if let Err(i) = there.binary_search_by_key(&p.id, |&(q, _)| q) {
+                there.insert(i, (p.id, h));
+            }
+        }
         // Someone come to the gathering takes their place there (ADR-0013 §1).
         if let (Some(Behavior::Attend), Some(p)) = (behavior, self.people.get(h)) {
             let me = p.id;
@@ -3919,9 +3982,14 @@ impl Population {
             if hh.id != household && (settlement.is_none() || hh.settlement != settlement) {
                 continue;
             }
-            hh.known.retain(|k| {
-                k.resource != resource || k.weight(day, renewal_days) >= 0.05 * f64::from(k.hours)
-            });
+            // What has faded is let go, once a day: a place seen since was seen that day, and
+            // has not faded (M5a slice AL).
+            if self.known_pruned.insert((hh.id, resource), day) != Some(day) {
+                hh.known.retain(|k| {
+                    k.resource != resource
+                        || k.weight(day, renewal_days) >= 0.05 * f64::from(k.hours)
+                });
+            }
             match hh
                 .known
                 .iter_mut()

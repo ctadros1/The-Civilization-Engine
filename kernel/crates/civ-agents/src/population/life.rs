@@ -1006,6 +1006,7 @@ impl Population {
             }
             self.note_residence(*m, settlement, ctx.now, why);
         }
+        self.known_pruned.retain(|&(h, _), _| h != to);
         if let Some(x) = self.household_mut(to) {
             x.members.extend(gone.members.iter().copied());
             x.water_l += gone.water_l;
@@ -1415,6 +1416,7 @@ impl Population {
             x.members.retain(|m| !people.contains(m));
             known = x.known.clone();
         }
+        self.known_pruned.retain(|&(h, _), _| h != to);
         if let Some(x) = self.household_mut(to) {
             x.water_l += water;
             x.members.extend(people.iter().copied());

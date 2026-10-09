@@ -698,6 +698,24 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** M5 (neighbours). Keeping a seized store and damage to property remain designed and not built.
 
+## 2026-10-09 — M5 design: several settlements first
+
+**Goal:** design M5 (neighbours) from the research before building any of it (plan §7).
+
+**What changed:**
+
+- **Four briefs** (`docs/briefs/m5-*.md`): settlements and movement, trade, diffusion, and relations between polities, each read from the reports in full, with key citations checked against them.
+- **M5 split in three:** M5a, several settlements; M5b, trade and diffusion; M5c, relations and works (treaties, tribute, bridges, enclosures). Each has its own demo.
+- **One ADR,** ADR-0018: settlements are permanent records with one polity each; residence is the household's settlement and presence is where one is; people are conserved, with off the map as an account rather than a place; households know places only by contact; where to live is a household's choice among plans it knows; founding groups at setup are placed together so the order of listing cannot choose; searches stay within a settlement and detail stays whole.
+- **M5a's five slices,** AK to AO: settlements at setup, scale, known places and visits, moving, and splinter founding with the M5a demo.
+- **A fix first:** company at the hearth gathered people of every settlement at once. A test showed hearth ties between a village and a camp 1,500 m away; company is now kept to one's own settlement.
+
+**Findings:** 3,000 people in one village lived their first ten days at 4.1 s a day, 5.2 times what 1,000 cost over the same days. Three settlements of 1,000 should cost about three times one if each household searches only its own, which would still be about 24 minutes a simulated year; M5a's budget is ten.
+
+**Evidence:** the hearth test failing before the fix and passing after; the whole kernel suite and clippy; the benchmark logs.
+
+**Open:** M5a slice AK. M5b and M5c are designed when reached. Per-polity currencies wait for something to mint.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

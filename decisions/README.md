@@ -24,6 +24,7 @@ the milestone is too big and gets split.
 | [0015](0015-incidents-cases-obligations.md) | Incidents, cases and obligations | Accepted | M4b |
 | [0016](0016-grievances-claims-opinions.md) | Grievances, claims and opinions, and the interventions that touch them | Accepted | M4c |
 | [0017](0017-factions-episodes-regime-change.md) | Factions, episodes and changes of regime | Accepted | M4c |
+| [0018](0018-settlements-residence-movement.md) | Several settlements: identities, residence and movement | Accepted | M5a |
 
 ## Template
 

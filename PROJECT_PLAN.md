@@ -20,7 +20,9 @@ dashboard and its baseline), U (weather and seasons), V (soils and fertility) an
 Councils, law and crime** is split in three (§7, §9): M4a (standing and the first council, slices
 X to Z), M4b (crime and order, slices AA to AD) and M4c (factions and unrest, slices AE to AJ,
 with the god tools, the regimes row and the M4 demo) are implemented (2026-10-09). The fifty-year
-dashboard after M4c failed one row, food prices in one world (§9); M5 (neighbours) is next.
+dashboard after M4c failed one row, food prices in one world (§9). **M5 Neighbors** is split in
+three (§7, §9): M5a (several settlements, slices AK to AO), M5b (trade and diffusion) and M5c
+(relations and works); M5a is designed and next.
 The README lists what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
 (i9 13th gen, RTX 4070 Ti with 12 GB VRAM, 64 GB DDR5).
@@ -1624,23 +1626,120 @@ polities.
     oligarchy. The dashboard's food prices row was red in one world (§9). A decision's tally now
     names the members of the body that decided it.
 
-**M5: Neighbors.**
+**M5: Neighbors**, split (2026-10-09, §9) into three milestones, each meeting the usable bar
+with its own demo. M5's original contents were:
+- 2–3 settlements: world-setup founding groups plus **splinter founding**.
+- Inter-settlement roads, merchants and caravans.
+- Per-polity currencies once minting exists.
+- Diffusion of technology and style through contact.
+- Diplomacy states and treaties with ratification.
+- Tributary relations.
+- Fortification kit.
+- **Bridges** on the new roads, with span and load limits per technique
+  (timber beam, rope, truss; the stone arch once discovered).
+- God tool: migration wave.
+
+Its demo (two settlements trade, their prices converge, one adopts the other's roof style, and a
+treaty fails ratification) is shared: M5b's shows the first three parts and M5c's the treaty. It
+*proves* multi-settlement simulation within budget (M5a) and diplomacy through each side's own
+institutions (M5c), and *defers* war and sovereignty changes.
+
+**M5a: Several settlements.**
 - *Contents:*
-  - 2–3 settlements: world-setup founding groups plus **splinter founding**.
-  - Inter-settlement roads, merchants and caravans.
-  - Per-polity currencies once minting exists.
-  - Diffusion of technology and style through contact.
-  - Diplomacy states and treaties with ratification.
-  - Tributary relations.
-  - Fortification kit.
-  - **Bridges** on the new roads, with span and load limits per technique
-    (timber beam, rope, truss; the stone arch once discovered).
+  - 2–3 settlements founded at setup, placed together so that order cannot choose; settlement and
+    polity identities; each settlement's hearth its own.
+  - Residence histories, the migration accounts and the off-map account.
+  - Knowing other places by contact; visits; marriage between settlements.
+  - Moving between settlements: leaving becomes a choice of destination.
+  - Splinter founding as a coalition's staged project.
   - God tool: migration wave.
-- *Demo:* two settlements trade, their prices converge, one adopts the
-  other's roof style, and a treaty fails ratification.
-- *Proves:* multi-settlement simulation within budget; diplomacy through each
-  side's own institutions.
-- *Defers:* war and sovereignty changes.
+  - Scale: 3,000 people in three settlements.
+- *Demo:* three founding groups settle apart and live thirty years. People visit, marry and move
+  between them, each move on record with its reason, and every settlement's accounts balance. A
+  wave arrives and its households choose where to go. A splinter founding, if one happens, is
+  inspectable from its first recruit to its fate; if none happens, that is reported.
+- *Design (2026-10-09):* one ADR, [ADR-0018](decisions/0018-settlements-residence-movement.md)
+  (several settlements: identities, residence and movement), from the four M5 briefs
+  (`docs/briefs/m5-*.md`). Five slices:
+  - **AK**: several settlements at setup. A new world takes 1–3 founding groups, each a band of
+    its own (its own founding way of building, kin only within it), their sites drawn jointly
+    over assignments whose fields' reaches do not overlap; whether they know one another's sites
+    is a setup choice. The settlement record gains its parent, how it was founded and when it was
+    abandoned; the hearth target names its settlement; each person's residence history, written
+    by births, founding, leaving, exile, kin taking in children, sent families and the agitator;
+    each settlement's yearly accounts (births, deaths, arrivals by origin, departures by
+    destination) and the off-map account, derived from those histories. Every per-settlement path (the gathering, the market, asking, land, the watch,
+    factions, word) checked with two settlements: nothing crosses without contact over ten
+    years. The dashboard founds 2–3 groups a world, with a population-accounting row (a hard
+    check) and settlement sizes reported, not graded (10-01 §4; 10-02 §5). Gate A follows a
+    second settlement byte-identically.
+  - **AL**: scale for several settlements. Measured first: three settlements of 1,000 against
+    one of 1,000 and one of 3,000. Then, exactly where possible: per-household searches within
+    the settlement; the route cache sized by population; landmark lower bounds for route
+    searches (01-08 §2A), rebuilt at each monthly survey, with a one-time change of digests
+    checked for equal route times; parallel preparation (01-03 §4.4) only if exact and only after
+    the rest. *Budget (a design prior):* a year of 3,000 people in three settlements in at most
+    ten minutes at Max on the development container; 8,000 measured, not targeted. If it is not
+    met, that is recorded, as slice X's was.
+  - **AM**: knowing other places, and visits. Each household's known places (founded together,
+    seen within sight on a walk, kin there, visited, told), with impressions only from what a
+    member saw or heard. A visit is a leisure choice to keep company at a known settlement's
+    hearth, worth what ties and kin there and loneliness make it, costing the walk, there and
+    back within a day (a tuning value); visitors are company like anyone, and carry claims,
+    ties, opinions, norms and ideologies by the existing paths. Partner search includes
+    unpartnered adults of other settlements the person holds a tie with; where the couple's
+    household lives follows the two households' land and room, never sex. Contacts per pair of
+    settlements a year (visits, person-days, marriages) are counted.
+  - **AN**: moving between settlements. Leaving becomes a choice among the settlements a
+    household knows and the map's edge, still reviewed daily when out of food; a yearly review on
+    a keyed day and at events compares staying with joining a known settlement in the household's
+    own units, the advantage holding over two reviews outside an emergency (10-01 §2.3 gives
+    1–3; a tuning value). Arrivals camp and build as sent families do and get land through the
+    property regime; an exile goes where they choose. The migration wave: 5–50 households of one
+    band walk in from the nearest map edge over 1–7 days, sharing a way of building and kin,
+    carrying stated months of provisions and knowing the settlements near where they are sent;
+    one intervention record (ADR-0016 §5); ordinary people once there. The dashboard gains moves
+    per 100 residents a year (amber outside 0.5–10, never red: 05-06 §5.4's output benchmark)
+    and turnover beside net change; Gate B gains moves.
+  - **AO**: splinter founding, and the M5a demo. A household whose plan to found passes its
+    threshold becomes an organizer and recruits kin and households it regards, and a faction's
+    organizer gains "leave together" beside petitioning. A coalition goes only if it holds food
+    and seed to its first harvest plus 1–3 months (10-01 §2.3), tools, and adults enough to break
+    its land; its site is one a member has seen or heard of, clear of others' land, with yields
+    forecast at a low percentile (10-01 §2.3). It moves in stages and can fail; its settlement
+    founds a polity under a copy of the founders' constitution. *Time box:* splinter founding is
+    expected to be rare at village sizes (05-06 §1.3's arithmetic); after a week without one,
+    nudge a prior and log a `NUDGE:`, never script one.
+
+**M5b: Trade and diffusion.**
+- *Contents:*
+  - Goods carried between settlements: buyers fetching for themselves, households fetching to
+    resell, then merchant firms; caravans as a view of trips that share a route and a day.
+  - Price reports as households' dated beliefs; the price convergence row.
+  - Diffusion of techniques and style through contact: buildings seen elsewhere, awareness by
+    sight, provenance that crosses settlements, and a neighbours row.
+- *Demo:* M5's first three parts. Two settlements trade and their prices close to a band, set
+  against a twin of the same save with purchases between settlements switched off as a test
+  harness; one settlement adopts the other's roof style by the diffusion brief's definition (§3.4:
+  the mean pitch of its new buildings nearer the other's founding way, a followed link that
+  crosses, and the contact that carried it on record). What does not happen is reported.
+- *Design:* when M5a is done, from `docs/briefs/m5-trade.md` and `m5-diffusion.md`, with one ADR
+  expected (exchange between settlements: reach by reports, goods in transit, trades tallied where
+  they settle). **Per-polity currencies wait for minting,** and core content has nothing to mint:
+  not built in M5 unless metal content arrives (the trade brief, §1.8).
+
+**M5c: Relations and works.**
+- *Contents:*
+  - Views of another polity, grievances across the boundary, and claims over wild ground.
+  - Agreements from a library of clauses, each ratified as a law in each polity by its own custom;
+    tribute as a ratified one-way transfer, short of conquest.
+  - Works that households or a polity's law decide: crossings (bridges by system and span, their
+    load computed per bridge) and enclosures (ditch, bank, palisade and gates).
+- *Demo:* M5's fourth part: a treaty fails ratification, by who came and what they held, with both
+  sides' law histories side by side.
+- *Design:* when M5b is done, from `docs/briefs/m5-relations.md` and the settlements brief
+  (§1.6–1.7), with one ADR expected (relations between polities), and crossings and enclosures
+  amending ADR-0004 and ADR-0009. Plan §5.5's relation states become labels that nothing reads.
 
 **M6: Towns & their troubles.**
 - *Contents:*
@@ -2194,6 +2293,24 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **The agitator, blessings and curses, as built (2026-10-08, M4c slice AJ step two, ADR-0016 §5):** no new ADR. **The agitator** (ADR-0016 §5: a newcomer holding an ideology, sent by the path that sends a family, an ordinary person bound by every law, starting with a stranger's ties; settled in the M4a design that an agitator is not a person rewritten): the map tool sends one adult, 20 to 40 years old, with a household of their own and a newcomer's provisions, where a family would go (joining a settlement within reach, else making camp). They hold the ideology chosen from the day they come, as one who brought it (and, like any newcomer, whatever else the content's founders' shares give them that midnight), know nobody, and are moved by no special disposition: whether anyone takes it up from them is the hearth's ordinary telling and trust, which a stranger has none of. The chronicle tells it as one recorded influence ("…the observer sent Sela, who holds to order kept by all, to Hazelford.") in place of a family's arrival, and the inspector says how many took it up from them and how many they know there now. A family's making is unchanged; a household of one has no couple, partner or union. **A blessing or a curse** (the brief's proposal, research 15-05 being silent on luck: for a stated period, the target's own keyed draws for named material purposes): for 30, 90, 365 or 1,825 days, the person's own chance of illness or accident (the baseline hazard; hunger's part is the body's, never luck's) is scaled by `1 − share` for a blessing and by `1 / (1 − share)` for a curse, and their chance of finding a technique out the other way about, at most 1; the share is a little (0.1), a quarter or a half (0.05 to 0.5 accepted, so a chance is at most halved or doubled). The draw itself is unchanged and nothing else is drawn, so what it turned is exact: the same draw against the chance without it. Each death it spared or brought, and each find it brought or cost, is counted on its record and told in the chronicle ("One recorded influence: Arrel was spared a death by illness or accident: the observer's blessing turned the draw."). It never touches a decision's draw, a vote, a tie, detection or punishment, nor food, harvests or buildings: those draws are not the person's own (a building's quality is drawn for the building, and spoilage and making are not drawn at all). A blessing of one already blessed refreshes it (its period at least the new one from today) and never stacks; a curse ends a blessing that day, and the other way about. A child may be blessed; the whisper and the ideology reach adults only. **Tests:** an agitator sent to the hearth joins the village alone, an adult with no partner or union, holding the ideology from no one and knowing nobody, logged once and not as a family; sent into the water or with no such ideology, refused; it saves and loads exactly. With the constant adult hazard raised by hand (80 a year), half a village's adults blessed and half cursed at half the way for 30 days: within 10 days blessings had spared deaths and curses brought them, every turned draw had its chronicle entry, a share out of range or a period of none was refused, a second blessing refreshed the first, and a blessing given to one cursed ended the curse that day; a schema-48 save loads with no one blessed; the end-to-end test blesses an adult from the inspector and sends an agitator with the map tool. **The ten-year smoke passed all 10 worlds** (it uses no god tool). **Boundary:** saves schema 49 (an influence's period, share and what it turned; 48 still loads), wire 1.48 (the commands `SendAgitator` and `Bless`), no content API change. **Gates:** Gate B and the notables' gate passed. **Not built:** a blessing of a household's or a firm's fortunes (harvests, spoilage, a building's quality: draws that are not a person's own, or not drawn), and an agitator with an organizer's disposition (the M4 factions brief's proposal; ADR-0016 §5 makes them ordinary).
 - **The regimes row and the M4 demo, as built (2026-10-09, M4c slice AJ step three):** no new ADR. **The regimes row** (plan §4.7: "two seeds differ"; the M4 observer brief: "differ" only where the label's reasons name a structural difference, the classifier frozen before the first run, no reference rate of divergence): each world's polity is graded by its label's principal name without the person it names ("Council community", "Oligarchy — big-man leadership"), which says who may decide and who leads, with the first of its reasons; green when two worlds end under different names, amber when they do not ("reported and not forced"), grey with fewer than two worlds labelled. The row also shows each tenth year's names where they changed. The classifier (ADR-0013 §6, M4a slice Z) was not touched for it, and it does not read the property regime, which the worlds take in turn. **The M4 demo** (`web/e2e/m4-demo.spec.ts`, run with `TCE_DEMO=1`): the dashboard keeps each world's save at every tenth year's end (`--keep-saves`), each world in a folder of its own, so the folder it kept them in is a saves folder the observer opens; the demo loads each world's save of year 40, shows the Government panel (the custom, what it would be called and why, its laws), opens the oldest decided law of the world whose gathering decided the most to its whole history, and logs them side by side with the number of regimes. A world whose regime changed after year 40, by the dashboard's report, is shown again at year 50 with the newest law its body decided opened: a coda past the demo's forty years, labelled so. Without kept saves, the demo runs the dashboard for forty years first. **A display fault, found by the demo and fixed:** the Government panel told every decision's tally with the members of the body now ("34 of 40 elders came" for an amendment the adults decided before it made the elders the body); a decision is now told under the version of the custom in force before it (`Polity::body_at`), so that one reads "34 of 40 adults came". **Tests:** the row is amber for one regime, green for two with the decade it changed, grey for one world; a decision is told under the body that decided it, the amendment that changed the body under the one before. **The run and what it showed:** the next entry.
 - **The M4 demo and the dashboard after M4c (2026-10-09):** `civ-host dashboard --keep-saves`, the five river-valley worlds (seeds 1 to 5, 1024 cells, household fields and village fields in turn) lived fifty years on four cores in 2,237 s, every world's yearly checks passing; 77, 82, 79, 50 and 78 people at the end. **At forty years** (the demo, from the kept saves): all five were council communities under the founding custom, each with a common store at a twentieth and a keeper (the office passing from holder to holder by new laws in three), the levy 86–91 % paid, no relief ever given, no faction, petition, refusal, revolt or coup, and nothing decided in the last two years: one regime, which is what the demo reports. Thorndale (world 1) had decided the most; its oldest decision, opened: Davor proposed a common store at a fifth on 31 July of year 3 "because food would not last until the harvest", and it was turned down two days later, 1 for and 13 against, 19 of 20 adults coming, most against because their household stood to lose though they thought well of the sponsor, talk at the hearth having drawn many of them toward it. **By fifty years one world parted:** Hazelstead (world 4) ran short of food in its fiftieth year; its store gave 12 t of relief in 8,018 asks and fell to 557 kg; 11 died and households left (82 people to 50). In its last two years its gathering decided ten matters, all in the fiftieth: a law against taking, two laws naming keepers of the watch, a curfew; Talia's faction (39 members, against Ferrin as keeper of the store) petitioned for Marek in Ferrin's place, which the gathering granted (35 came); and Marek proposed that the households' elders decide, "because the gathering had decided against them", carried 33 to 0 with 34 of 40 adults coming. Under elders, 19 of its 41 adults may decide: an oligarchy by the classifier's 50 % line, with big-man leadership, Delia having put forward 4 of the 6 laws that passed and all 130 who backed them doing so more for their regard of Delia than for their households. So the regimes row is green, two regimes; the other four stayed council communities. Divergence came late, in one world of five and from a famine, not by year 40; that is what happened. **Rows:** population green (5 of 5 keep 10; the most growth 2.1 times the founders), firm sizes green, structural failures green (1.12 per 1,000 building-years), the Gini of goods amber (0.26–0.41), crime grey (21 attempts, 30 needed), settlement sizes and epidemics grey, regimes green, and **food prices red**: in Hazelstead grain was asked only 1 log point more before the harvest than after, over 40 harvests, against the row's 2 (the other worlds 5 to 8; earlier dashboards 2 to 9; the research's markets 17 to 61). **The red row, probed (time-boxed, not rerun: research 16-03 §4.7):** the gap is a mean over all 40 harvests, and to year 40 Hazelstead's institutions matched the others' (the same custom, store, share and keeper, no relief given), so nothing found ties it to M4c; the row's threshold is a tuning value and every world's gap sits far below the research's range, as it has since slice L. Not tuned toward a pass. **Not built:** a regimes row that weighs the restricted council (50–90 % admitted) apart from the broad one, which the frozen classifier calls one name with a modifier.
+- **M5 design (2026-10-09, plan §7):** from four briefs (`docs/briefs/m5-settlements.md`, `m5-diffusion.md`, `m5-trade.md`, `m5-relations.md`), their key citations checked against the reports: 10-01 §5.5 (entity update order must not decide who gets the best land) and its founding buffer (the time to dependable production plus 1–3 months); 05-06 §1.1 (an off-map reservoir must be explicit) and its table of priors (a review every 6 months, 12 destinations, about 2 completed moves per 100 residents a year as an output benchmark, not a quota); 10-02's 0.05–0.20 reconsiderations per household-year ("reconsideration is not migration"); 01-03's one authoritative model; 09-16 §1.2 (a message "is stationary until departure"); 13-01 §1.4 (a council's approval and a ruler's oath "need not be interchangeable"); 08-05 §1.7 (the no-arbitrage band and its 100/130/25 example); 11-02 §2.3 (39 % of the stock after fifty years); 07-02 §1.2 (buying a steel tool does not teach steelmaking). **M5 is split in three** (§7) because its contents are three kinds of work, each with a demo of its own: M5a, several settlements (identities, residence, movement and scale); M5b, trade and diffusion (the demo's prices and roof); M5c, relations and works (treaties, tribute, bridges and enclosures; the demo's failed ratification). **One ADR now,** [ADR-0018](decisions/0018-settlements-residence-movement.md); M5b and M5c are designed when reached, from the same briefs, with one ADR each expected. **The open questions, answered:**
+  - **Every daughter founds its own polity** (one to one, ADR-0013 §1). A polity over several settlements waits for M6's conquest, federation and secession.
+  - **Leaving the map** keeps its M4a meaning and prior; the off-map account keeps the books, and nobody returns from it.
+  - **Reviews:** yearly on a keyed day and at events, and daily when out of food. 05-06's six months and 10-02's 0.05–0.20 a household-year disagree; once a year lies between them (a design prior).
+  - **Roads:** M5 builds only crossings. A worn trail already gives full walking speed, so a kept way changes nothing people notice until carts (M8).
+  - **World size:** the new-world dialog offers no worlds of thousands until the scale budget is met; benchmarks build them.
+  - **Setup groups:** each a band of its own, with its own way of building (so a roof style has somewhere to cross from) and kin only within it. Whether they know one another's sites is a setup choice.
+  - **Budget:** a year of 3,000 people in three settlements in at most ten minutes at Max (a design prior); 8,000 measured, not targeted.
+  - **Settlement sizes** are reported, not graded, until M9 (10-01 §4 and 10-02 §5 warn against fitting distributions to a few towns).
+  - **Climate** stays one series a world: neighbours a few kilometres apart share their weather and lean years, which is also why trade between them may buffer little (08-12 §4).
+  - **An exile** goes where they choose, as any leaver does; nothing keeps them out, since no polity yet decides who settles.
+  - **The wave:** 5–50 households of one band, walking in from the nearest edge and knowing the settlements near where they are sent.
+  - **Marriage between settlements is in** (the diffusion brief expects it to be the commonest carrier at village sizes), the couple placed by land and room, never by sex. **Visits are a behaviour of their own** (company at a known settlement's hearth), besides trade's trips.
+  - **Cultures stay derived;** no conformity term is added; esteem replaces goods in admiration only for buildings elsewhere (M5b), so M3b's behaviour at home is unchanged.
+  - **Metal:** M5 adds none, so per-polity currencies are not built in M5 (§7).
+  - The trade brief's remaining questions (the procurement anchor, scarcity in grain asks, goods in transit, the food-prices row, the demo's twin) and the relations brief's eleven wait for M5b's and M5c's designs.
+
+  **The hearth was everyone's (fixed before the design, `98c9b52`):** `hearth_company` gathered everyone whose target was "the hearth", whichever settlement's hearth they sat at, so with two settlements ties, word, opinions, norms and ideologies passed between people kilometres apart. The diffusion brief found it; a test showed it (a camp of ten families 1,500 m from the village, lived twenty days: hearth ties across the two before the fix, none after); company is now kept with one's own settlement. Worlds of one settlement are unchanged. **Scale, measured (2026-10-09, `bench_village`, seed 2 on 768 cells, on the development container):** 1,000 people lived their first thirty days at 691 ms a day (252 s a year at that rate; slice X's whole year, with its harvest weeks, was 485 s); 3,000 in one village lived their first ten days at 4,105 ms a day, 5.2 times the 1,000's first ten days (785 ms) for three times the people. Three settlements of 1,000 should cost about three times one if searches stay within each (ADR-0018 §7): about 24 minutes a year at slice X's rate, so slice AL needs a further factor of about 2.4. **What would be plot, and is not built:** no settlement size, rate of moves or founding is a target; no timer splits a village or sends a wave; nobody's destination is chosen for them.
 - **The save-and-load flake, found (2026-10-08):** a rare failure of the save-and-load continuation tests (about 1 run in 100, first seen in `tests/values.rs` during slice AH) was reproduced by living one world (river valley, seed 3, 512 cells) forty days from 200 fixed identities: two continued differently a day after a load, and only in decision receipts. Traced, one step at a time: the chosen option and every listed total matched, but the chosen option's probability did not; of all the options, breaking new ground scored differently, at another site. A household's candidate new ground is found once a day and kept in a cache the save does not hold. A world lived straight on reused the site found earlier in the day; one loaded found it afresh after a neighbour had marked out a field or plot, so its search saw other land. The cached site is now kept only while what the search reads (the fields, plots and earthworks laid out, and the homes and hearth it keeps clear of) is unchanged. A household therefore also no longer holds to a site that a neighbour's new field has since covered. Afterwards 600 identities (400 of seed 3, 200 of seed 4) continued alike. **Recorded, not changed:** the cache of the building a household would begin (`home_sites`) has the same shape and also reads the household's stores, which change all day; no world showed it, and keying it on its inputs would undo the cache.
 - **Revolts, as built (2026-10-08, M4c slice AI step one, ADR-0017 §4):** no new ADR (ADR-0017 §4 decided that a revolt replaces the body through officeholders' own choices and has no roll). **The program:** a faction whose members blame the gathering holds one: of the bodies the content's amendment templates offer that differ from the custom and admit its organizer, the one under which the decisions its members' households were at, under the present custom, would have gone most their way, at each household's stake in each decision (slice AF's test, research 09-02 §3.7; a faction with nothing to gain from any body has no program). Unlike an amendment it may be any body, not only one change away. **Calling** (ADR-0017 §4): at the organizer's monthly review, when neither a petition nor a refusal is called, and when nothing of the faction's own waits or stands, no revolt stands at its settlement and none of its own was called within `petition_days`, its organizer weighs calling on everyone to stand with that body in place of the gathering's. It is worth what a petition is, less `revolt_cost` 0.75 and less what the norms the organizer holds weigh, since the custom itself is what it breaks. **Word** goes from the organizer to its members, then by word of mouth (a fifth claim kind, `revolt`, let go when it ends), and the chronicle records the call. **Sides** (research 04-10 §5.3, 09-11 §2.5: in a crisis people decide daily): each midnight, each adult of the settlement who has heard of it takes a side: with it, with the gathering, or with neither, from their grievance against the gathering, belonging to the faction or else regard for its organizer, the share of those they know who stood with it the day before (for some, more adds less), less what the norms they hold weigh and `w_exclusion` 1.0 for one the new body would leave out (09-11 §1.6); a side needs the points past the gathering's stance margin. **Holding** (09-11 §1.5, §2.2): it holds once the store's keeper and the watch, if any, stand with it and more adults stand with it than with the gathering, for `hold_days` 7 together; then its body decides from now on, a version of the custom *taken* (its `seized_by` names the organizer, no law made it), any amendment in force is superseded, and the chronicle says those who stood with the organizer took the deciding from the gathering, not by its procedure. It comes to nothing when its organizer or faction is gone, or after `revolt_days` 60. Losers keep their wealth, ties and grievances; nothing else changes hands. **The first prior was wrong, as the refusal's was:** with `revolt_cost` 1.0 an organizer all of whose members held the grievance fully, where nobody held the norm, was 0.65 against a threshold of 0.78; at 0.75 (above a refusal's 0.5) it is 0.82. **A finding from the test:** the first test village, with a decision lately gone against the faction, amended its custom by its own procedure (to two-thirds) before the organizer's review, and the old decision then no longer counted, so no revolt was called: the legal route came first, as it should. The test instead gives the village an elders' custom, under which no body one change away would have decided otherwise; there the organizer called a revolt, every one of the 27 who heard of it stood with it, and it held a week later, making a gathering of all the adults, half of whom must come. A second test lets a revolt's time run out: it comes to nothing and the elders' custom stands. Both save and load exactly. **The ten-year smoke passed all 10 worlds** on the first run, with no revolt called: the gathering binds is held about 0.55 on average there, and of the three villages with factions, all petitioned (four petitions, all granted). **Boundary:** saves schema 44 (each custom version's `seized_by`; revolts with their sides in `factions`; 43 still loads), wire 1.43 (each polity's revolts in the Government panel, in kernel words; a version of the custom taken is told so in its history), content API 48 (`revolt_cost`, `revolt_days`, `hold_days`, `w_exclusion`). **Gates:** Gate B and the notables' gate passed. **Not built:** founding after a revolt (the new body deciding which laws and offices stand: step two), a watch of several and coups (step three), and force, damage and violence (step four); an organizer weighing whether others will stand with it before calling (they weigh only their faction's grievance and belonging).
 - **M4b design (2026-10-08, plan §7):** from the M4 crime brief, its citations checked against 04-09, 12-04, 09-07 and 09-09. One ADR, [ADR-0015](decisions/0015-incidents-cases-obligations.md): incidents (the kernel's truth), cases (what a polity knows) and beliefs (what people know) are kept and saved apart, and no choice reads an incident; taking is a scored choice behind a moral filter; every sanction is an obligation with a debtor, a beneficiary and a default rule. Four slices, AA to AD (§7). The brief's open questions, answered: **a summary decision by the gathering or an office counts as "no courts"** (plan §7; cases are shaped so that M7 can put a forum between identified and sanctioned). **No corporal punishment or execution** in v0 (settled in the M4a design). **The watch is an office named by a law**, as the storekeeper is: its holders keep watch unpaid, since office pay is not built; a rotating household duty waits for it. **Releasing the store's grain** is relief, built in M4a. **People take only from other households' stores** in v0: not from their own household, standing crops or workshops; whether kin are spared is left to the objection and regard, not a rule. **Sanctions are weighed in days of the household's food**, the scale `Ask` and the levy already use. **A prohibition needs no new good:** a law can close a place or an activity, such as a grove for firewood (AD). The briefs are now kept in the repository (`docs/briefs/`), since the scratch copies were the only ones.

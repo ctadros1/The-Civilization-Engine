@@ -297,7 +297,13 @@ mod tests {
             good: 0,
             amount,
         };
-        assert!(pop.transfer(SimTime::ZERO, &params, &goods, &[leg(posted)], Channel::Sale));
+        assert!(pop.transfer(
+            SimTime::ZERO,
+            &params,
+            &goods,
+            &[leg(posted)],
+            Channel::Sale
+        ));
         // What moves is what it held, no more: goods are conserved.
         assert_eq!(held(&pop, 1)[0], 0.0);
         assert_eq!(held(&pop, 2)[0], stock);

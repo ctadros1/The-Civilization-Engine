@@ -879,6 +879,38 @@ pub fn found_bands(
         .collect())
 }
 
+/// Draws to name a new settlement until the name is none of `settlements`' on record, abandoned
+/// ones too: a draw that names no other place is the one a world has always drawn. After
+/// [`NAME_TRIES`] draws that all name one, the last is told apart by a number.
+fn place_name(
+    params: &PeopleParams,
+    d: &mut Draws,
+    settlements: &[civ_land::Settlement],
+) -> String {
+    let taken = |n: &str| settlements.iter().any(|s| s.name == n);
+    let mut name = String::new();
+    for _ in 0..NAME_TRIES {
+        name = match (
+            d.pick(&params.names.place_first).cloned(),
+            d.pick(&params.names.place_second).cloned(),
+        ) {
+            (Some(a), Some(b)) => format!("{a}{b}"),
+            (Some(a), None) => a,
+            _ => "the camp".to_owned(),
+        };
+        if !taken(&name) {
+            return name;
+        }
+    }
+    (2..)
+        .map(|k| format!("{name} {k}"))
+        .find(|n| !taken(n))
+        .unwrap_or(name)
+}
+
+/// Draws of a name a new settlement makes before telling a taken one apart by a number.
+const NAME_TRIES: usize = 16;
+
 /// A founding band of `size` people camps at `cell`: their settlement is founded and named,
 /// their families placed around its hearth, the chronicle told, and everyone decides what to do
 /// first.
@@ -892,14 +924,7 @@ fn settle_band(
     let params = ctx.params;
     let now = ctx.now;
     let hearth = cell_centre(ctx.map, cell);
-    let name = match (
-        d.pick(&params.names.place_first).cloned(),
-        d.pick(&params.names.place_second).cloned(),
-    ) {
-        (Some(a), Some(b)) => format!("{a}{b}"),
-        (Some(a), None) => a,
-        _ => "the camp".to_owned(),
-    };
+    let name = place_name(params, d, &ctx.land.settlements);
     let settlement = ctx.ids.allocate();
     ctx.land.settlements.push(civ_land::Settlement {
         id: settlement,
@@ -1384,14 +1409,7 @@ fn spawn_one(
     let (settlement, name, founded) = match near {
         Some((id, name)) => (id, name, false),
         None => {
-            let name = match (
-                d.pick(&params.names.place_first).cloned(),
-                d.pick(&params.names.place_second).cloned(),
-            ) {
-                (Some(a), Some(b)) => format!("{a}{b}"),
-                (Some(a), None) => a,
-                _ => "the camp".to_owned(),
-            };
+            let name = place_name(params, &mut d, &ctx.land.settlements);
             let id = ctx.ids.allocate();
             ctx.land.settlements.push(civ_land::Settlement {
                 id,
@@ -1727,6 +1745,45 @@ pub(crate) mod tests {
                 },
             },
         }
+    }
+
+    #[test]
+    fn a_new_settlement_is_never_named_as_one_on_record() {
+        let mut p = params();
+        p.names.place_first = vec!["Ash".to_owned(), "Elm".to_owned()];
+        p.names.place_second = vec!["ford".to_owned()];
+        let place = |name: &str, id: u64| civ_land::Settlement {
+            id: PermanentId::from_raw(id).expect("an id"),
+            name: name.to_owned(),
+            founded: SimTime::ZERO,
+            hearth_m: (0.0, 0.0),
+            food_short: false,
+            harvest_kg: 0.0,
+            parent: None,
+            founding: civ_land::Founding::Setup,
+            abandoned: Some(SimTime::ZERO),
+        };
+        let mut d = Draws(Rng64::from_key(&[1]));
+        let first = place_name(&p, &mut d, &[]);
+        assert!(first == "Ashford" || first == "Elmford", "{first}");
+        // With one of the two taken, abandoned or not, the other is drawn.
+        let other = if first == "Ashford" {
+            "Elmford"
+        } else {
+            "Ashford"
+        };
+        for seed in 0..20 {
+            let mut d = Draws(Rng64::from_key(&[seed]));
+            assert_eq!(place_name(&p, &mut d, &[place(&first, 1)]), other);
+        }
+        // With both taken, a number tells the new one apart.
+        let both = [
+            place("Ashford", 1),
+            place("Elmford", 2),
+            place("Elmford 2", 3),
+        ];
+        let named = place_name(&p, &mut Draws(Rng64::from_key(&[3])), &both);
+        assert!(named == "Ashford 2" || named == "Elmford 3", "{named}");
     }
 
     #[test]

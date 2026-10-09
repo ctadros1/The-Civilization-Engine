@@ -47,6 +47,21 @@ impl Population {
             .position(|c| c.organizer == household && c.fate == CoalitionFate::Gathering)
     }
 
+    /// Whether `household` is counted among those going with a coalition still gathering that a
+    /// household other than `organizer` organizes (an organizer is first among its own): it goes
+    /// with that one, and neither organizes another nor is asked to one (M5a slice AO).
+    pub(super) fn going_with_another(
+        &self,
+        household: PermanentId,
+        organizer: PermanentId,
+    ) -> bool {
+        self.coalitions.iter().any(|c| {
+            c.fate == CoalitionFate::Gathering
+                && c.organizer != organizer
+                && c.members.contains(&household)
+        })
+    }
+
     /// `household`'s best plan to found, if it has a site to weigh: at the site its people know
     /// that would suit them best, the households that would go with it and what that is worth to
     /// it. `best_move` is what its best other plan is worth (at least staying's 0); kin who might
@@ -274,12 +289,6 @@ impl Population {
         ground: &Ground,
     ) -> (Vec<PermanentId>, u32) {
         let day = ctx.now.day_index();
-        let organizing: Vec<PermanentId> = self
-            .coalitions
-            .iter()
-            .filter(|c| c.fate == CoalitionFate::Gathering)
-            .map(|c| c.organizer)
-            .collect();
         let mut candidates: Vec<PermanentId> = self
             .households
             .iter()
@@ -287,7 +296,7 @@ impl Population {
                 x.settlement == Some(home)
                     && !x.members.is_empty()
                     && x.id != organizer
-                    && !organizing.contains(&x.id)
+                    && !self.going_with_another(x.id, organizer)
             })
             .map(|(_, x)| x.id)
             .collect();
@@ -299,24 +308,57 @@ impl Population {
         let mut gone_people: Vec<PermanentId> = self
             .household(organizer)
             .map_or_else(Vec::new, |x| x.members.clone());
+        // The factions a member of the organizing household organizes: their members leave
+        // together with it (M5a slice AO; a faction's organizer's "leave together").
+        let led: Vec<PermanentId> = gone_people
+            .iter()
+            .filter_map(|&m| self.factions.membership(m).map(|x| x.faction))
+            .filter(|&f| {
+                self.factions
+                    .get(f)
+                    .is_some_and(|x| gone_people.contains(&x.organizer))
+            })
+            .collect();
+        // How a household is tied to those going: close kin of theirs (0), in a faction one of
+        // them organizes (1), or regarded by one of them (2); none if it is not.
+        let tie = |x: &crate::person::Household, gone: &[PermanentId]| -> Option<u8> {
+            let kin = |m: PermanentId| self.close_kin(m).iter().any(|q| gone.contains(q));
+            let faction = |m: PermanentId| {
+                self.factions
+                    .membership(m)
+                    .is_some_and(|ms| led.contains(&ms.faction))
+            };
+            let regarded = |m: PermanentId| {
+                gone.iter()
+                    .any(|&g| self.ties.regard(g, m, day, &ctx.params.ties) > 0.0)
+            };
+            if x.members.iter().any(|&m| kin(m)) {
+                Some(0)
+            } else if x.members.iter().any(|&m| faction(m)) {
+                Some(1)
+            } else if x.members.iter().any(|&m| regarded(m)) {
+                Some(2)
+            } else {
+                None
+            }
+        };
         for _ in 0..RECRUIT_PASSES {
             let mut joined = false;
-            for &c in &candidates {
-                if going.contains(&c) {
-                    continue;
-                }
+            // The closest tied are asked first, so who goes is not decided by the order
+            // households were made in where not all can (10-01 §5.5).
+            let mut asked: Vec<(u8, PermanentId)> = candidates
+                .iter()
+                .filter(|c| !going.contains(c))
+                .filter_map(|&c| {
+                    let x = self.household(c)?;
+                    tie(x, &gone_people).map(|t| (t, c))
+                })
+                .collect();
+            asked.sort_unstable();
+            for (_, c) in asked {
                 let Some(x) = self.household(c) else {
                     continue;
                 };
-                let tied = x.members.iter().any(|&m| {
-                    self.close_kin(m).iter().any(|q| gone_people.contains(q))
-                        || gone_people
-                            .iter()
-                            .any(|&g| self.ties.regard(g, m, day, &ctx.params.ties) > 0.0)
-                });
-                if !tied {
-                    continue;
-                }
                 let mut with = going.clone();
                 with.push(c);
                 let n = people + x.members.len() as u32;
@@ -326,7 +368,10 @@ impl Population {
                     .into_iter()
                     .map(|(_, v)| v)
                     .fold(0.0, f64::max);
-                if worth > own {
+                // It goes if founding with them is worth more to it than its own best plan, and
+                // only if they would still hold food and seed enough to go with it (10-01 §2.3):
+                // a household that would leave them short is not asked.
+                if worth > own && self.lacking(ctx, &with) == Lacking::Nothing {
                     going.push(c);
                     people = n;
                     gone_people.extend_from_slice(&x.members);

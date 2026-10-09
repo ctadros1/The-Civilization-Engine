@@ -1624,6 +1624,12 @@ impl Population {
                     // those who came (04-10 §3: failed petitioning is a precursor).
                     let polity = self.polities[pi].id;
                     let came = self.factions.petitions[i].came.clone();
+                    // Its organizer's household weighs leaving together (M5a slice AO; 10-01
+                    // §1.5: leaving beside negotiating), when the reviews are made this midnight.
+                    let organizer = self.factions.petitions[i].organizer;
+                    if let Some(h) = self.person(organizer).map(|p| p.household) {
+                        self.review_due.insert(h);
+                    }
                     let harm = ctx.params.faction.refused_days;
                     for q in came {
                         if self.person(q).is_some() {

@@ -72,8 +72,10 @@ impl Population {
             .filter(|&(_, v)| v > 0.0)
             .max_by(|a, b| a.1.total_cmp(&b.1).then(b.0.cmp(&a.0)));
         let best_move = best.map_or(0.0, |b| b.1);
-        if let Some(plan) = self
-            .founding_plan(ctx, household, best_move)
+        // A household going with another's coalition weighs no plan of its own to found.
+        if let Some(plan) = (!self.going_with_another(household, household))
+            .then(|| self.founding_plan(ctx, household, best_move))
+            .flatten()
             .filter(|p| p.worth > best_move)
         {
             self.leanings.remove(&household);

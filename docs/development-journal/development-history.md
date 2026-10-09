@@ -781,6 +781,21 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** moves in Gate B, which needs fixtures of several settlements; slice AO, splinter founding and the M5a demo.
 
+## 2026-10-09 — M5a slice AO: splinter founding, leaving together and the M5a demo
+
+**Goal:** households should be able to leave together and found a settlement of their own, a faction whose petition fails should be able to weigh leaving, and the milestone's demo should show several settlements living thirty years with every move on record (plan §7, ADR-0018 §1, §5; research 10-01 §1.5, §2.3).
+
+**What changed, in two steps:**
+
+- **Splinter founding** (`1903cca`): at its yearly review a household weighs founding a settlement with others beside staying and moving: the cropland a walked site two field walks out would give them against what home has left, their grievances and the kin going. The household whose plan wins gathers a coalition of its kin's households and those it regards; when the plan has won two reviews they go if they hold food to their first harvest and two months beyond, and seed, and else wait. The settlement is written with its parent and founds its polity under a copy of its founders' body.
+- **Leaving together, coalitions that can go, and the demo:** a petition the gathering turns down has its organizer's household weigh leaving that midnight, and a faction's members count as tied to the household whose member organizes it. A household joins a coalition only if the coalition with it would still hold enough to go, the closest tied asked first, and a household going with one coalition joins no other. `civ-host neighbours` lives three groups that know where the others camped thirty years with a wave sent among them at year 10, checking and reporting every year; `web/e2e/m5a-demo.spec.ts` shows its saves in the observer.
+
+**Findings:** the demo found the coalition rules wanting twice. Its first run gathered 22 coalitions in one settlement in a single year, each counting mostly the same households; its second, with one coalition a household, held fifteen households in a coalition that lacked seed for fifteen years and never went. Both came from asking everyone tied regardless of what they held; sized to what its households hold, a coalition is one that could go. In the run of record a coalition of 13 households founded Fernfield in year 13; the room its founders left drew a famine-struck neighbour's households in the next year; Fernfield itself starved in year 26 and its people went back. The wave's households founded a settlement of their own and within a year had all moved to a neighbour. Every year's accounts balanced; moves between settlements came to 4.3 per 100 residents a year, inside the research's range, unforced.
+
+**Evidence:** digest comparisons with the build before (one settlement of 1,000 for 30 days and three of 1,000 for 10, identical); integration tests for the refused petition, faction ties, one coalition a household and coalitions sized to what they hold, each failing without its rule; the host's unit test of where the wave is sent; the whole kernel suite, clippy, the smoke, the web suites and the demo's observer spec.
+
+**Open:** moves in Gate B, which the demo's worlds can now calibrate; scouting and moving in stages; bargaining within a coalition. M5a is complete; M5b, trade and diffusion, is next.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

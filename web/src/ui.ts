@@ -1409,7 +1409,9 @@ export function bindUi(store: Store, actions: Actions): void {
         link(s.name, () => actions.focusSettlement(s.id)),
         ` · ${s.population} people · food for ${formatDays(s.foodDays)}`,
         s.harvestKg > 0 ? ` · harvest so far ${formatKg(s.harvestKg)}` : "",
-        s.foodShort ? el("span", { className: "badge warn", text: "short of food" }) : "",
+        s.foodShort && s.abandonedMinute < 0
+          ? el("span", { className: "badge warn", text: "short of food" })
+          : "",
         s.abandonedMinute >= 0
           ? el("span", {
               className: "badge",

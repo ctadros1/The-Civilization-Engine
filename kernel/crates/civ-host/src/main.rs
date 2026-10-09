@@ -55,6 +55,48 @@ enum Command {
     Run(RunArgs),
     /// Report a world's weather on the valley floor, year by year, as its seed draws it.
     Weather(WeatherArgs),
+    /// The M5a demo: founding groups that know of one another live thirty years, a migration
+    /// wave comes among them, and the moves, accounts, wave and coalitions are reported.
+    Neighbours(NeighboursArgs),
+}
+
+#[derive(Args, Clone)]
+struct NeighboursArgs {
+    #[command(flatten)]
+    folders: Folders,
+    /// World seed.
+    #[arg(long, default_value_t = 1)]
+    seed: u64,
+    /// World-generation preset id [default: the dashboard's river valley].
+    #[arg(long)]
+    preset: Option<String>,
+    /// Map side, cells.
+    #[arg(long, default_value_t = 1024)]
+    size: u32,
+    /// Founding groups, each a band of the content's default size.
+    #[arg(long, default_value_t = civ_host::neighbours::GROUPS)]
+    groups: u32,
+    /// The groups do not know where one another camped.
+    #[arg(long)]
+    unknown: bool,
+    /// Years to live after the first month.
+    #[arg(long, default_value_t = civ_host::neighbours::YEARS)]
+    years: u32,
+    /// The year at whose end the wave is sent (0: none).
+    #[arg(long, default_value_t = civ_host::neighbours::WAVE_YEAR)]
+    wave_year: u32,
+    /// The wave's households.
+    #[arg(long, default_value_t = civ_host::neighbours::WAVE_HOUSEHOLDS)]
+    wave_households: u32,
+    /// The days over which the wave's households come.
+    #[arg(long, default_value_t = civ_host::neighbours::WAVE_DAYS)]
+    wave_days: u32,
+    /// The months of food each of the wave's households carries.
+    #[arg(long, default_value_t = civ_host::neighbours::WAVE_MONTHS)]
+    wave_months: u32,
+    /// Keep the world's saves at every tenth year's end, and the last, in this folder.
+    #[arg(long)]
+    keep_saves: Option<PathBuf>,
 }
 
 #[derive(Args, Clone)]
@@ -305,6 +347,7 @@ fn main() -> ExitCode {
         Command::Notables(args) => run_notables(args),
         Command::Run(args) => run_world(args),
         Command::Weather(args) => weather(args),
+        Command::Neighbours(args) => run_neighbours(args),
     };
     match result {
         Ok(code) => code,
@@ -330,6 +373,30 @@ fn run_world(args: RunArgs) -> anyhow::Result<ExitCode> {
     };
     civ_host::report::run(&content, &options, &mut std::io::stdout().lock())?;
     Ok(ExitCode::SUCCESS)
+}
+
+fn run_neighbours(args: NeighboursArgs) -> anyhow::Result<ExitCode> {
+    let layout = paths::locate(args.folders.content, None, None)?;
+    let content = commands::load_content(&layout.content)?;
+    let options = civ_host::neighbours::NeighboursOptions {
+        preset: args.preset,
+        seed: args.seed,
+        size: args.size,
+        groups: args.groups,
+        known: !args.unknown,
+        years: args.years,
+        wave_year: args.wave_year,
+        wave_households: args.wave_households,
+        wave_days: args.wave_days,
+        wave_months: args.wave_months,
+        keep_saves: args.keep_saves,
+    };
+    let outcome = civ_host::neighbours::run(&content, &options, &mut std::io::stdout().lock())?;
+    Ok(if outcome.failures.is_empty() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    })
 }
 
 fn weather(args: WeatherArgs) -> anyhow::Result<ExitCode> {

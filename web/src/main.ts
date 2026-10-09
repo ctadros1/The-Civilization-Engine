@@ -1040,7 +1040,16 @@ const hooks = {
       lastError: s.snapshot?.lastError ?? null,
       events: s.events.map((e) => ({ kind: e.kind, text: e.text })),
       people: s.snapshot?.people.length ?? 0,
-      settlements: s.snapshot?.settlements.map((x) => ({ name: x.name, population: x.population })) ?? [],
+      settlements:
+        s.snapshot?.settlements.map((x) => ({
+          name: x.name,
+          population: x.population,
+          founding: x.founding,
+          abandoned: x.abandonedMinute >= 0,
+          year: x.year,
+          contacts: x.contacts,
+          coalitions: x.coalitions,
+        })) ?? [],
       fieldsRev: s.snapshot?.fieldsRev ?? 0,
       buildingsRev: s.snapshot?.buildingsRev ?? 0,
       marketsRev: s.snapshot?.marketsRev ?? 0,
@@ -1188,6 +1197,8 @@ const hooks = {
             name: s.selected.info?.name ?? null,
             doing: s.selected.info?.doing ?? null,
             untilMinute: s.selected.info?.untilMinute ?? null,
+            residence: s.selected.info?.residence ?? null,
+            error: s.selected.error,
             knows:
               s.selected.info?.knows.map((k) => ({
                 id: s.welcome?.techniques[k.technique]?.id ?? "",

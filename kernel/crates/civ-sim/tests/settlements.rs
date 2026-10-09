@@ -944,17 +944,24 @@ fn a_migration_wave_comes_over_its_days_as_kin_of_one_band_knowing_what_lies_nea
 #[test]
 fn a_household_gathers_its_kin_and_founds_a_settlement_when_they_hold_enough_to_go() {
     // One village. A household's member has adult children in four other households of it, and
-    // its people have walked land two field walks out. With moving's and founding's costs set to
-    // nothing (so kin coming are reason enough), the household gathers them; when its plan has
-    // won two reviews they go if they hold food past their first harvest, and else wait
-    // (M5a slice AO; research 05-06 §1.3, 10-01 §2.3).
+    // its people have walked land two field walks out. With founding made worth something to it
+    // alone (moving's cost below nothing, founding's nothing, the walk free), it gathers; its
+    // kin's households
+    // join only once they would hold food and seed enough to go with it, and when its plan has
+    // won two reviews they go if they hold enough, and else wait (M5a slice AO; research 05-06
+    // §1.3, 10-01 §2.3).
     use civ_agents::places::{CoalitionFate, Lacking};
     let mut sim = world(3, 50, &[]).expect("generates");
     sim.advance_minutes(30 * 24 * 60).expect("lives");
+    let content_rules = {
+        let p = &sim.rules().people;
+        (p.moving.cost, p.founding.cost, p.decision.w_walk_hour)
+    };
     {
         let rules = sim.rules_mut_for_tests().expect("rules of its own");
-        rules.people.moving.cost = 0.0;
+        rules.people.moving.cost = -1.0;
         rules.people.founding.cost = 0.0;
+        rules.people.decision.w_walk_hour = 0.0;
     }
     let a = sim.land().settlements[0].id;
     let hearth = sim.land().settlements[0].hearth_m;
@@ -1023,11 +1030,9 @@ fn a_household_gathers_its_kin_and_founds_a_settlement_when_they_hold_enough_to_
         .iter()
         .filter_map(|&q| sim.people().person(q).map(|p| p.household))
         .collect();
-    assert!(
-        kin_households.iter().any(|h| c.members.contains(h)),
-        "kin's households join: {:?}",
-        c.members
-    );
+    // With what a band brought sown or eaten, they would hold too little to go: nobody who would
+    // leave it short is asked, and it gathers alone.
+    assert_eq!(c.members, vec![organizer], "{c:?}");
     assert!(
         sim.people()
             .chronicle
@@ -1054,13 +1059,20 @@ fn a_household_gathers_its_kin_and_founds_a_settlement_when_they_hold_enough_to_
     assert!(sim.people().chronicle.iter().any(|e| {
         e.kind == civ_agents::ChronicleKind::Coalition && (e.number == 1.0 || e.number == 2.0)
     }));
-    // With grain enough laid by, to eat and to sow, the next review sends them.
+    // With grain enough laid by in its own and its kin's households, to eat and to sow, the
+    // next review takes its kin on and sends them.
+    let ours = sim
+        .people()
+        .household(organizer)
+        .expect("lives")
+        .members
+        .clone();
     {
         let rules = sim.rules().clone();
         let crop = &rules.catalog.crops[rules.people.farm.crop];
         let pop = sim.people_mut_for_tests();
         for (_, x) in pop.households.iter_mut() {
-            if c.members.contains(&x.id) {
+            if x.id == organizer || kin_households.contains(&x.id) {
                 for (good, kg) in [(crop.good, 2_000.0), (crop.seed_good, 200.0)] {
                     x.stores[good] += kg;
                     x.flows.add(civ_agents::person::Flow::Brought, good, kg);
@@ -1069,8 +1081,7 @@ fn a_household_gathers_its_kin_and_founds_a_settlement_when_they_hold_enough_to_
         }
         pop.review_due.insert(organizer);
     }
-    let going: Vec<_> = c
-        .members
+    let kin_people: Vec<_> = kin_households
         .iter()
         .flat_map(|&h| sim.people().household(h).expect("lives").members.clone())
         .collect();
@@ -1078,6 +1089,7 @@ fn a_household_gathers_its_kin_and_founds_a_settlement_when_they_hold_enough_to_
     let pop = sim.people();
     let c = pop.coalitions.last().cloned().expect("on record");
     assert_eq!(c.fate, CoalitionFate::Founded, "{c:?}");
+    assert!(c.members.len() > 1, "kin's households join: {c:?}");
     let new = c.settlement.expect("its settlement");
     let s = sim
         .land()
@@ -1089,14 +1101,16 @@ fn a_household_gathers_its_kin_and_founds_a_settlement_when_they_hold_enough_to_
         (s.parent, s.founding),
         (Some(a), civ_land::Founding::Coalition)
     );
-    assert_eq!(c.people as usize, going.len());
-    for &q in &going {
-        let last = pop.records[&q].residence.last().expect("a stay");
-        assert_eq!(
-            (last.settlement, last.why),
-            (Some(new), ResidenceWhy::Founded)
-        );
-    }
+    let went = |q: &civ_core::PermanentId| {
+        pop.records[q]
+            .residence
+            .last()
+            .is_some_and(|x| (x.settlement, x.why) == (Some(new), ResidenceWhy::Founded))
+    };
+    let going = pop.records.keys().filter(|q| went(q)).count();
+    assert_eq!(c.people as usize, going);
+    assert!(ours.iter().all(went));
+    assert!(kin_people.iter().any(went));
     // Its polity lives under the body its founders knew, with no law of the parent's.
     let parent_body = pop
         .polities
@@ -1134,6 +1148,269 @@ fn a_household_gathers_its_kin_and_founds_a_settlement_when_they_hold_enough_to_
             .any(|w| w.contains(&format!("founded {}", s.name))),
         "{words:?}"
     );
-    // Saved and loaded with a settlement founded, a world goes on alike.
+    // Saved and loaded with a settlement founded, a world goes on alike (under the content's
+    // rules, which a save keeps).
+    {
+        let rules = sim.rules_mut_for_tests().expect("rules of its own");
+        let p = &mut rules.people;
+        (p.moving.cost, p.founding.cost, p.decision.w_walk_hour) = content_rules;
+    }
     saves_and_goes_on_alike(&mut sim, 24 * 60);
+}
+
+#[test]
+fn a_refused_petition_has_its_organizer_weigh_leaving_together_with_its_faction() {
+    // When the gathering turns down a faction's petition, its organizer's household weighs
+    // leaving that midnight, and founds with its members (M5a slice AO, "leave together"; 10-01
+    // §1.5): a household tied to it only by belonging to its faction is among those who would go,
+    // while one tied to it by nothing is not. Founding is made worth something to every household
+    // here (moving's cost set below nothing, the walk free), and the organizing household and the
+    // one in its faction are made to forget whom they regard just before midnight (recruiting goes
+    // on through those who join), so only kin and the faction decide who is asked.
+    use civ_agents::faction::{Faction, Member, Petition};
+    use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome, PolicyKind};
+    use civ_agents::word::Blamed;
+    use civ_core::PermanentId;
+    let mut sim = world(3, 50, &[]).expect("generates");
+    sim.advance_minutes(24 * 60).expect("lives");
+    {
+        let rules = sim.rules_mut_for_tests().expect("rules of its own");
+        rules.people.moving.cost = -1.0;
+        rules.people.founding.cost = 0.0;
+        rules.people.decision.w_walk_hour = 0.0;
+    }
+    // To a minute before midnight, when the reviews are made.
+    let to_midnight = 24 * 60 - sim.now().minute_of_day();
+    sim.advance_minutes(to_midnight - 1).expect("lives");
+    let a = sim.land().settlements[0].id;
+    let hearth = sim.land().settlements[0].hearth_m;
+    let (organizer, leader) = household_of(&sim, a);
+    let day = sim.now().day_index();
+    // Households with no close kin among the organizer's (parent, child or sibling).
+    let pop = sim.people();
+    let ours = pop.household(organizer).expect("lives").members.clone();
+    let parents = |q: PermanentId| {
+        pop.records
+            .get(&q)
+            .map_or([None, None], |r| [r.mother, r.father])
+    };
+    let kin = |p: PermanentId, q: PermanentId| {
+        let (pp, pq) = (parents(p), parents(q));
+        pp.contains(&Some(q))
+            || pq.contains(&Some(p))
+            || pp.iter().flatten().any(|x| pq.contains(&Some(*x)))
+    };
+    let unrelated = |them: &[PermanentId], to: &[PermanentId]| {
+        them.iter().all(|&g| to.iter().all(|&m| !kin(g, m)))
+    };
+    let mut apart: Vec<_> = pop
+        .households
+        .iter()
+        .filter(|(_, x)| x.id != organizer && x.settlement == Some(a) && !x.members.is_empty())
+        .filter(|(_, x)| unrelated(&ours, &x.members))
+        .map(|(_, x)| (x.id, x.members.clone()))
+        .collect();
+    apart.sort();
+    let (joined, joined_members) = apart.first().cloned().expect("a household apart");
+    let (other, _) = apart
+        .iter()
+        .skip(1)
+        .find(|(_, m)| unrelated(&joined_members, m))
+        .cloned()
+        .expect("another household apart from both");
+    let polity = pop.polities[0].id;
+    // Dry, gentle land two field walks out, which the organizing household knows of.
+    let reach = field_reach_m(&sim) as f32;
+    let patches = &sim.land().patches;
+    let site = (0..patches.class.len())
+        .find(|&p| {
+            let c = patches.centre_m(p);
+            let d = (c.0 - hearth.0).hypot(c.1 - hearth.1);
+            let cell = civ_agents::population::cell_of(sim.map(), c);
+            d > 2.0 * reach + 100.0
+                && d < 2.0 * reach + 1500.0
+                && sim.map().water[cell] == civ_world::WATER_LAND
+                && sim.nav().walkable(cell)
+                && f64::from(civ_world::terrain::slope_at(sim.map(), cell))
+                    <= sim.rules().people.band.site_max_slope
+        })
+        .expect("dry, gentle land two field walks out");
+    // The organizer's member leads a faction against the gathering; one of `joined` belongs.
+    let (grain, seed) = {
+        let rules = sim.rules();
+        let crop = &rules.catalog.crops[rules.people.farm.crop];
+        (crop.good, crop.seed_good)
+    };
+    let store = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|p| p.kind == PolicyKind::CommonStore)
+        .expect("in core") as u16;
+    let now = sim.now();
+    let (fid, law, asked) = (
+        sim.allocate_id_for_tests(),
+        sim.allocate_id_for_tests(),
+        sim.allocate_id_for_tests(),
+    );
+    let pop = sim.people_mut_for_tests();
+    pop.factions
+        .list
+        .push(Faction::found(fid, a, Blamed::Body(polity), leader, now));
+    for p in [leader, joined_members[0]] {
+        pop.factions.join(Member {
+            person: p,
+            faction: fid,
+            since: day,
+            why: Default::default(),
+        });
+    }
+    for m in ours.iter().chain(&joined_members) {
+        pop.ties.forget_holder(*m);
+    }
+    for (_, x) in pop.households.iter_mut() {
+        if x.id == organizer {
+            x.known.push(civ_agents::person::KnownPatch {
+                resource: 0,
+                patch: site as u32,
+                rate: 1.0,
+                hours: 1.0,
+                seen_day: day,
+            });
+        }
+        // Each holds grain enough to eat and to sow, so none would leave a coalition short.
+        for (good, kg) in [(grain, 2_000.0), (seed, 200.0)] {
+            x.stores[good] += kg;
+            x.flows.add(civ_agents::person::Flow::Brought, good, kg);
+        }
+    }
+    // Yesterday the faction petitioned the gathering, which has since turned it down.
+    pop.polities[0].laws.push(Law {
+        id: law,
+        policy: store,
+        kind: PolicyKind::CommonStore,
+        levy_share: 0.0,
+        holder: None,
+        relief_days: 5.0,
+        sanction: Default::default(),
+        hours: (0, 0),
+        status: LawStatus::Rejected,
+        sponsor: leader,
+        proposed: now,
+        issue: IssueKind::Petition,
+        meets_day: day,
+        decided: Some(now),
+        outcome: Some(Outcome::Failed),
+        eligible: 0,
+        stances: Vec::new(),
+        known: Vec::new(),
+        compliance: Default::default(),
+        watch: Default::default(),
+        body: None,
+        ends: None,
+    });
+    pop.factions.petitions.push(Petition {
+        id: asked,
+        faction: fid,
+        settlement: a,
+        organizer: leader,
+        called: now,
+        day: day - 1,
+        policy: store,
+        levy_share: 0.0,
+        nominee: None,
+        ends: law,
+        came: vec![leader, joined_members[0]],
+        law: Some(law),
+        answered: false,
+    });
+    assert!(!pop.review_due.contains(&organizer));
+    sim.advance_minutes(2).expect("lives");
+    assert!(sim.people().factions.petitions[0].answered);
+    let c = sim
+        .people()
+        .coalitions
+        .iter()
+        .find(|c| c.organizer == organizer)
+        .cloned()
+        .expect("it began to gather");
+    assert!(c.members.contains(&joined), "{c:?}");
+    assert!(!c.members.contains(&other), "{c:?}");
+}
+
+#[test]
+fn a_household_going_with_anothers_coalition_gathers_none_of_its_own() {
+    // Households counted among those going with a coalition go with it (M5a slice AO): at their
+    // own reviews they weigh no plan of their own to found, so no second coalition of the same
+    // households gathers beside the first. Founding is made worth something to every household
+    // here, and every household knows the same site.
+    let mut sim = world(3, 50, &[]).expect("generates");
+    sim.advance_minutes(24 * 60).expect("lives");
+    {
+        let rules = sim.rules_mut_for_tests().expect("rules of its own");
+        rules.people.moving.cost = -1.0;
+        rules.people.founding.cost = 0.0;
+        rules.people.decision.w_walk_hour = 0.0;
+    }
+    let to_midnight = 24 * 60 - sim.now().minute_of_day();
+    sim.advance_minutes(to_midnight - 1).expect("lives");
+    let a = sim.land().settlements[0].id;
+    let hearth = sim.land().settlements[0].hearth_m;
+    let (organizer, _) = household_of(&sim, a);
+    let day = sim.now().day_index();
+    let reach = field_reach_m(&sim) as f32;
+    let patches = &sim.land().patches;
+    let site = (0..patches.class.len())
+        .find(|&p| {
+            let c = patches.centre_m(p);
+            let d = (c.0 - hearth.0).hypot(c.1 - hearth.1);
+            let cell = civ_agents::population::cell_of(sim.map(), c);
+            d > 2.0 * reach + 100.0
+                && d < 2.0 * reach + 1500.0
+                && sim.map().water[cell] == civ_world::WATER_LAND
+                && sim.nav().walkable(cell)
+                && f64::from(civ_world::terrain::slope_at(sim.map(), cell))
+                    <= sim.rules().people.band.site_max_slope
+        })
+        .expect("dry, gentle land two field walks out");
+    let (grain, seed) = {
+        let rules = sim.rules();
+        let crop = &rules.catalog.crops[rules.people.farm.crop];
+        (crop.good, crop.seed_good)
+    };
+    let pop = sim.people_mut_for_tests();
+    for (_, x) in pop.households.iter_mut() {
+        x.known.push(civ_agents::person::KnownPatch {
+            resource: 0,
+            patch: site as u32,
+            rate: 1.0,
+            hours: 1.0,
+            seen_day: day,
+        });
+        // Each holds grain enough to eat and to sow, so none would leave a coalition short.
+        for (good, kg) in [(grain, 2_000.0), (seed, 200.0)] {
+            x.stores[good] += kg;
+            x.flows.add(civ_agents::person::Flow::Brought, good, kg);
+        }
+    }
+    pop.review_due.insert(organizer);
+    sim.advance_minutes(2).expect("lives");
+    let first = sim
+        .people()
+        .coalitions
+        .iter()
+        .find(|c| c.organizer == organizer)
+        .cloned()
+        .expect("it began to gather");
+    assert!(first.members.len() > 2, "{first:?}");
+    // The next midnight, every other household going with it reviews.
+    sim.advance_minutes(24 * 60 - 2).expect("lives");
+    let pop = sim.people_mut_for_tests();
+    for &h in first.members.iter().skip(1) {
+        pop.review_due.insert(h);
+    }
+    sim.advance_minutes(2).expect("lives");
+    let coalitions = &sim.people().coalitions;
+    assert_eq!(coalitions.len(), 1, "{coalitions:?}");
 }

@@ -14076,6 +14076,7 @@ impl<'a> PersonInfo<'a> {
   pub const VT_RESIDENCE: ::flatbuffers::VOffsetT = 106;
   pub const VT_PLACES: ::flatbuffers::VOffsetT = 108;
   pub const VT_REPORTS: ::flatbuffers::VOffsetT = 110;
+  pub const VT_ERRAND: ::flatbuffers::VOffsetT = 112;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -14097,6 +14098,7 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.errand { builder.add_errand(x); }
     if let Some(x) = args.reports { builder.add_reports(x); }
     if let Some(x) = args.places { builder.add_places(x); }
     if let Some(x) = args.residence { builder.add_residence(x); }
@@ -14523,6 +14525,13 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PersonInfo::VT_REPORTS, None)}
   }
+  #[inline]
+  pub fn errand(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PersonInfo::VT_ERRAND, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -14585,6 +14594,7 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("residence", Self::VT_RESIDENCE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("places", Self::VT_PLACES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("reports", Self::VT_REPORTS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("errand", Self::VT_ERRAND, false)?
      .finish();
     Ok(())
   }
@@ -14644,6 +14654,7 @@ pub struct PersonInfoArgs<'a> {
     pub residence: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub places: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub reports: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub errand: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -14703,6 +14714,7 @@ impl<'a> Default for PersonInfoArgs<'a> {
       residence: None,
       places: None,
       reports: None,
+      errand: None,
     }
   }
 }
@@ -14929,6 +14941,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_REPORTS, reports);
   }
   #[inline]
+  pub fn add_errand(&mut self, errand: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_ERRAND, errand);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -15000,6 +15016,7 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("residence", &self.residence());
       ds.field("places", &self.places());
       ds.field("reports", &self.reports());
+      ds.field("errand", &self.errand());
       ds.finish()
   }
 }
@@ -20128,6 +20145,8 @@ impl<'a> MarketInfo<'a> {
   pub const VT_RECENT: ::flatbuffers::VOffsetT = 20;
   pub const VT_HISTORY: ::flatbuffers::VOffsetT = 22;
   pub const VT_OUTSIDERS: ::flatbuffers::VOffsetT = 24;
+  pub const VT_BETWEEN: ::flatbuffers::VOffsetT = 26;
+  pub const VT_ON_THE_WAY: ::flatbuffers::VOffsetT = 28;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -20140,6 +20159,8 @@ impl<'a> MarketInfo<'a> {
   ) -> ::flatbuffers::WIPOffset<MarketInfo<'bldr>> {
     let mut builder = MarketInfoBuilder::new(_fbb);
     builder.add_settlement(args.settlement);
+    if let Some(x) = args.on_the_way { builder.add_on_the_way(x); }
+    if let Some(x) = args.between { builder.add_between(x); }
     if let Some(x) = args.outsiders { builder.add_outsiders(x); }
     if let Some(x) = args.history { builder.add_history(x); }
     if let Some(x) = args.recent { builder.add_recent(x); }
@@ -20231,6 +20252,20 @@ impl<'a> MarketInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(MarketInfo::VT_OUTSIDERS, None)}
   }
+  #[inline]
+  pub fn between(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(MarketInfo::VT_BETWEEN, None)}
+  }
+  #[inline]
+  pub fn on_the_way(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(MarketInfo::VT_ON_THE_WAY, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for MarketInfo<'_> {
@@ -20250,6 +20285,8 @@ impl ::flatbuffers::Verifiable for MarketInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TradeInfo>>>>("recent", Self::VT_RECENT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, MonthOfTrade>>>("history", Self::VT_HISTORY, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("outsiders", Self::VT_OUTSIDERS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("between", Self::VT_BETWEEN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("on_the_way", Self::VT_ON_THE_WAY, false)?
      .finish();
     Ok(())
   }
@@ -20266,6 +20303,8 @@ pub struct MarketInfoArgs<'a> {
     pub recent: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TradeInfo<'a>>>>>,
     pub history: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, MonthOfTrade>>>,
     pub outsiders: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub between: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub on_the_way: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for MarketInfoArgs<'a> {
   #[inline]
@@ -20282,6 +20321,8 @@ impl<'a> Default for MarketInfoArgs<'a> {
       recent: None,
       history: None,
       outsiders: None,
+      between: None,
+      on_the_way: None,
     }
   }
 }
@@ -20336,6 +20377,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MarketInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(MarketInfo::VT_OUTSIDERS, outsiders);
   }
   #[inline]
+  pub fn add_between(&mut self, between: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(MarketInfo::VT_BETWEEN, between);
+  }
+  #[inline]
+  pub fn add_on_the_way(&mut self, on_the_way: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(MarketInfo::VT_ON_THE_WAY, on_the_way);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> MarketInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     MarketInfoBuilder {
@@ -20364,6 +20413,8 @@ impl ::core::fmt::Debug for MarketInfo<'_> {
       ds.field("recent", &self.recent());
       ds.field("history", &self.history());
       ds.field("outsiders", &self.outsiders());
+      ds.field("between", &self.between());
+      ds.field("on_the_way", &self.on_the_way());
       ds.finish()
   }
 }

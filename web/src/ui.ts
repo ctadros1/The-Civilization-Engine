@@ -1340,6 +1340,10 @@ export function bindUi(store: Store, actions: Actions): void {
         ),
       );
     }
+    // The errand their household means to run (wire 1.55, ADR-0019 §6).
+    if (p.alive && p.errand) {
+      nodes.push(el("p", { className: "errand", text: `${p.errand}.` }));
+    }
     if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p), opinionBlock(p));
     if (p.alive) nodes.push(observerBlock(welcome, p));
     if (p.kin.length > 0 || p.family.length > 0) {
@@ -1575,6 +1579,19 @@ export function bindUi(store: Store, actions: Actions): void {
     // Buyers from other settlements (wire 1.54, M5b slice AP).
     if (m.outsiders) {
       nodes.push(el("p", { className: "since market-outsiders", text: `From elsewhere: ${m.outsiders}.` }));
+    }
+    // Trade with each other settlement, and who is on the road to buy here today (wire 1.55).
+    if (m.between.length > 0) {
+      nodes.push(
+        el(
+          "ul",
+          { className: "market-between" },
+          ...m.between.map((line) => el("li", { text: `${line}.` })),
+        ),
+      );
+    }
+    if (m.onTheWay) {
+      nodes.push(el("p", { className: "since market-on-the-way", text: `${m.onTheWay}.` }));
     }
     const paid = paymentsText(goods, m);
     if (paid) nodes.push(el("p", { className: "aside", text: `Paid in: ${paid}.` }));

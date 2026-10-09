@@ -754,6 +754,10 @@ export interface PersonInfo {
    * sellers offer, a line a seller and good, in the kernel's words ("At Elmhollow, Bran's
    * household: a sickle for 2.3 kg of grain, 8.5 sickles to be had; seen 3 days ago"). */
   reports: string[];
+  /** Wire 1.55 (M5b slice AQ, ADR-0019 §6): the errand their household means to run, in the
+   * kernel's words ("Their household means to fetch 3.6 sickles from Bran's household at
+   * Elmhollow to sell at home; planned 2 days ago"); empty when it means none. */
+  errand: string;
 }
 
 /** A claim the observer may whisper (wire 1.47). */
@@ -1209,6 +1213,13 @@ export interface MarketInfo {
   /** Wire 1.54 (M5b slice AP): what people of other settlements bought here last year and this
    * year so far, in the kernel's words; empty when none did. */
   outsiders: string;
+  /** Wire 1.55 (M5b slice AQ, ADR-0019 §7): trade with each other settlement, a line each, in the
+   * kernel's words ("With Elmhollow last month: a sickle 4.2 hours here and 3.1 there (30 points
+   * apart); people of here carried home 3.0 sickles from there in 4 trips"). */
+  between: string[];
+  /** Wire 1.55: who is on the road to buy here today, by settlement ("On the road to buy here
+   * today: 3 people of Oakholt, together"); empty when nobody is. */
+  onTheWay: string;
 }
 
 /** What a line of a workshop's books records (M3a slice J). */
@@ -2652,6 +2663,8 @@ function marketInfo(m: W.MarketInfo): MarketInfo {
     recent,
     history,
     outsiders: m.outsiders() ?? "",
+    between: Array.from({ length: m.betweenLength() }, (_, k) => m.between(k) ?? ""),
+    onTheWay: m.onTheWay() ?? "",
   };
 }
 
@@ -3141,6 +3154,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     residence,
     places,
     reports,
+    errand: p.errand() ?? "",
   };
 }
 

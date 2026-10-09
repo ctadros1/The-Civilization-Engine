@@ -1,6 +1,7 @@
 // M5b slice AP, step two, end to end (ADR-0019 §1): a household knows another settlement's
 // offers only by what its people saw or were told, and the inspector says what it holds, of
-// which seller, on what terms, and since when and from whom.
+// which seller, on what terms, and since when and from whom. And slice AQ, step three (ADR-0019
+// §7): each market says how its asks stand against the other settlement's, month by month.
 
 import { expect, test } from "@playwright/test";
 
@@ -63,6 +64,24 @@ test("the inspector lists the prices a household has heard of in another settlem
     const block = page.locator("#people-body .reports");
     await expect(block).toContainText("Prices their household has heard of elsewhere");
     await expect(block).toContainText(heard[0]!);
+
+    // M5b slice AQ, step three (wire 1.55): each market's trade with the other settlement, from
+    // the monthly convergence record, in the market panel.
+    await page.waitForFunction(
+      () => (window.__TCE__.state().markets ?? []).some((m) => m.between.length > 0),
+      undefined,
+      { timeout: 60_000 },
+    );
+    const markets = await page.evaluate(() => window.__TCE__.state().markets ?? []);
+    console.log(`between: ${JSON.stringify(markets.map((m) => [m.settlement, m.between, m.onTheWay]))}`);
+    for (const m of markets) {
+      for (const line of m.between) {
+        // "With Elmhollow last month: a sickle 4.2 hours here and 3.1 there (30 points apart)"
+        expect(line).toMatch(/^With .+ (last month|this month|in month \d+ of year \d+): .+$/);
+        expect(names.some((n) => n !== m.settlement && line.startsWith(`With ${n} `))).toBe(true);
+      }
+    }
+    await expect(page.locator("#market-body .market-between li").first()).toBeVisible();
   } finally {
     await host.stop();
   }

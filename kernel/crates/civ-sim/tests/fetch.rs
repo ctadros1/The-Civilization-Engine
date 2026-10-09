@@ -336,6 +336,35 @@ fn a_household_buys_from_a_neighbour_by_report_and_the_trade_is_tallied_where_it
     }
     assert_eq!(went, 1, "someone was seen on the way");
     let trade = trade.expect("the buyer fetched a sickle from the seller's door");
+    // The seller's market shows who is on the road to buy there today (wire 1.55): the buyer, on
+    // the way home.
+    let on_the_way = {
+        let payload = civ_sim::frames::markets::markets_response(&sim);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("a response");
+        response
+            .body_as_markets()
+            .expect("markets")
+            .markets()
+            .expect("a list")
+            .iter()
+            .find(|m| m.settlement() == b.get())
+            .expect("the seller's market")
+            .on_the_way()
+            .unwrap_or_default()
+            .to_owned()
+    };
+    let from = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|x| x.id == a)
+        .expect("the buyer's settlement")
+        .name
+        .clone();
+    assert_eq!(
+        on_the_way,
+        format!("On the road to buy here today: 1 person of {from}")
+    );
     assert_eq!((trade.seller, usize::from(trade.good)), (seller, sickle));
     assert!(trade.units >= 1.0 - 1e-6 && trade.paid > 0.0);
     let pop = sim.people();
@@ -871,6 +900,36 @@ fn a_month_of_trade_between_settlements_is_kept_on_record() {
         assert!(g.paid_h.iter().all(|&x| x == -1.0 || x > 0.0), "{g:?}");
     }
     assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+    // The market panel says so (wire 1.55): in the first settlement's market, the asks there and
+    // here of what both offered last month, and what people of here carried home from there.
+    let name = |s: PermanentId| {
+        sim.land()
+            .settlements
+            .iter()
+            .find(|x| x.id == s)
+            .expect("a settlement")
+            .name
+            .clone()
+    };
+    let payload = civ_sim::frames::markets::markets_response(&sim);
+    let response = flatbuffers::root::<wire::Response>(&payload).expect("a response");
+    let markets = response.body_as_markets().expect("markets");
+    let here = markets
+        .markets()
+        .expect("a list")
+        .iter()
+        .find(|m| m.settlement() == a.get())
+        .expect("the buyer's market");
+    let lines: Vec<&str> = here.between().expect("lines").iter().collect();
+    let line = lines
+        .iter()
+        .find(|l| l.starts_with(&format!("With {} last month: ", name(b))))
+        .unwrap_or_else(|| panic!("{lines:?}"));
+    assert!(line.contains(" points apart"), "{line}");
+    assert!(
+        line.contains("people of here carried home ") && line.contains(" from there in "),
+        "{line}"
+    );
     sim.rules_mut_for_tests()
         .expect("rules of its own")
         .people
@@ -1059,6 +1118,29 @@ fn a_household_fetches_to_sell_at_home_what_its_neighbours_want_and_nobody_offer
     );
     assert!(errand.share > 0.0 && errand.share <= 1.0, "{errand:?}");
     assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+    // The inspector says what the household means to do (wire 1.55).
+    let member = sim.people().household(buyer).expect("buyer").members[0];
+    let payload = civ_sim::frames::people::person_response(&sim, member.get(), 0).expect("alive");
+    let response = flatbuffers::root::<wire::Response>(&payload).expect("a response");
+    let words = response
+        .body_as_person_info()
+        .expect("a person")
+        .errand()
+        .unwrap_or_default()
+        .to_owned();
+    let there = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|x| x.id == b)
+        .expect("the seller's settlement")
+        .name
+        .clone();
+    assert!(
+        words.starts_with("Their household means to fetch ")
+            && words.contains(&format!(" at {there} to sell at home; planned today")),
+        "{words}"
+    );
     restock(&mut sim, seller, buyer, sickle, 20.0);
     // Saved and loaded, it is the same errand, and the world goes on alike.
     saves_and_goes_on_alike(&mut sim, 60);

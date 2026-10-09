@@ -1190,6 +1190,8 @@ const hooks = {
           offers: m.offers.length,
           trades: m.recent.length,
           outsiders: m.outsiders,
+          between: m.between,
+          onTheWay: m.onTheWay,
           fromElsewhere: m.recent.filter((t) => t.from !== 0).map((t) => t.text),
         })) ?? null,
       chronicle: s.chronicle.map((e) => e.spans.map((x) => x.text).join("")),
@@ -1201,6 +1203,7 @@ const hooks = {
             untilMinute: s.selected.info?.untilMinute ?? null,
             residence: s.selected.info?.residence ?? null,
             reports: s.selected.info?.reports ?? null,
+            errand: s.selected.info?.errand ?? null,
             error: s.selected.error,
             knows:
               s.selected.info?.knows.map((k) => ({

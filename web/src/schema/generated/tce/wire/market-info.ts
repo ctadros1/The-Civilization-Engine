@@ -109,8 +109,27 @@ outsiders(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+between(index: number):string
+between(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+between(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 26);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+betweenLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 26);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+onTheWay():string|null
+onTheWay(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+onTheWay(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 28);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startMarketInfo(builder:flatbuffers.Builder) {
-  builder.startObject(11);
+  builder.startObject(13);
 }
 
 static addSettlement(builder:flatbuffers.Builder, settlement:bigint) {
@@ -197,12 +216,32 @@ static addOutsiders(builder:flatbuffers.Builder, outsidersOffset:flatbuffers.Off
   builder.addFieldOffset(10, outsidersOffset, 0);
 }
 
+static addBetween(builder:flatbuffers.Builder, betweenOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(11, betweenOffset, 0);
+}
+
+static createBetweenVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startBetweenVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addOnTheWay(builder:flatbuffers.Builder, onTheWayOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(12, onTheWayOffset, 0);
+}
+
 static endMarketInfo(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createMarketInfo(builder:flatbuffers.Builder, settlement:bigint, settlementNameOffset:flatbuffers.Offset, money:number, summaryOffset:flatbuffers.Offset, trades:number, memoryDays:number, goodsOffset:flatbuffers.Offset, offersOffset:flatbuffers.Offset, recentOffset:flatbuffers.Offset, historyOffset:flatbuffers.Offset, outsidersOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createMarketInfo(builder:flatbuffers.Builder, settlement:bigint, settlementNameOffset:flatbuffers.Offset, money:number, summaryOffset:flatbuffers.Offset, trades:number, memoryDays:number, goodsOffset:flatbuffers.Offset, offersOffset:flatbuffers.Offset, recentOffset:flatbuffers.Offset, historyOffset:flatbuffers.Offset, outsidersOffset:flatbuffers.Offset, betweenOffset:flatbuffers.Offset, onTheWayOffset:flatbuffers.Offset):flatbuffers.Offset {
   MarketInfo.startMarketInfo(builder);
   MarketInfo.addSettlement(builder, settlement);
   MarketInfo.addSettlementName(builder, settlementNameOffset);
@@ -215,6 +254,8 @@ static createMarketInfo(builder:flatbuffers.Builder, settlement:bigint, settleme
   MarketInfo.addRecent(builder, recentOffset);
   MarketInfo.addHistory(builder, historyOffset);
   MarketInfo.addOutsiders(builder, outsidersOffset);
+  MarketInfo.addBetween(builder, betweenOffset);
+  MarketInfo.addOnTheWay(builder, onTheWayOffset);
   return MarketInfo.endMarketInfo(builder);
 }
 }

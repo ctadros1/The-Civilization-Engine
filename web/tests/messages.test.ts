@@ -326,6 +326,10 @@ describe("decoders", () => {
     const name = b.createString("Hearth");
     const summary = b.createString("Barter: no good settles most of what is paid; grain settles 60%.");
     const outsiders = b.createString("in year 2 so far: 1 purchase by people of Oakholt");
+    const between = W.MarketInfo.createBetweenVector(b, [
+      b.createString("With Elmhollow last month: a sickle 4.2 hours here and 3.1 there (30 points apart)"),
+    ]);
+    const onTheWay = b.createString("On the road to buy here today: 3 people of Oakholt, together");
     const info = W.MarketInfo.createMarketInfo(
       b,
       3n,
@@ -339,6 +343,8 @@ describe("decoders", () => {
       recent,
       history,
       outsiders,
+      between,
+      onTheWay,
     );
     const list = W.Markets.createMarketsVector(b, [info]);
     const markets = W.Markets.createMarkets(b, 41n, list);
@@ -358,6 +364,10 @@ describe("decoders", () => {
     ]);
     expect(m.summary).toContain("Barter");
     expect(m.outsiders).toBe("in year 2 so far: 1 purchase by people of Oakholt");
+    expect(m.between).toEqual([
+      "With Elmhollow last month: a sickle 4.2 hours here and 3.1 there (30 points apart)",
+    ]);
+    expect(m.onTheWay).toBe("On the road to buy here today: 3 people of Oakholt, together");
     expect(m.goods).toEqual([
       {
         good: 4,

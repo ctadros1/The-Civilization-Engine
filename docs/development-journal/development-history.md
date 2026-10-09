@@ -856,6 +856,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** the observer's view of the record and caravans (step three, second part); the demo (AS).
 
+## 2026-10-09 — M5b slice AQ, step three, second part: trade between settlements in the observer
+
+**Goal:** let the observer see what the convergence record holds and who is on the road to buy, without the observer computing anything (ADR-0019 §7; the M5 trade brief's caravans as a view).
+
+**What changed:** wire 1.55. The market panel has a line per other settlement: the latest month's asks there and here of goods offered in both, how far apart, and what each side carried home. It also says who is on the road to buy there today, those of one settlement together. The inspector shows the household's errand. The markets revision follows the record and the trips.
+
+**Findings:** in a world of two groups 100 days old, both markets already list hoes and provisions asked in both (hoes 19 points apart, provisions level). Slice AQ is complete but for errands run through a firm.
+
+**Evidence:** the fetch integration tests (the words on the road, for an errand and for a month); the web decoder's unit test; the reports end-to-end test extended to the market panel; the full Rust and end-to-end suites.
+
+**Open:** errands through a firm; the demo (AS) and the weight of the walk on goods trips; diffusion through contact (AR).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

@@ -8380,7 +8380,8 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_INFLUENCES = 104,
     VT_RESIDENCE = 106,
     VT_PLACES = 108,
-    VT_REPORTS = 110
+    VT_REPORTS = 110,
+    VT_ERRAND = 112
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -8544,6 +8545,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *reports() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_REPORTS);
   }
+  const ::flatbuffers::String *errand() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_ERRAND);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -8644,6 +8648,8 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_REPORTS) &&
            verifier.VerifyVector(reports()) &&
            verifier.VerifyVectorOfStrings(reports()) &&
+           VerifyOffset(verifier, VT_ERRAND) &&
+           verifier.VerifyString(errand()) &&
            verifier.EndTable();
   }
 };
@@ -8814,6 +8820,9 @@ struct PersonInfoBuilder {
   void add_reports(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> reports) {
     fbb_.AddOffset(PersonInfo::VT_REPORTS, reports);
   }
+  void add_errand(::flatbuffers::Offset<::flatbuffers::String> errand) {
+    fbb_.AddOffset(PersonInfo::VT_ERRAND, errand);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8880,7 +8889,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::InfluenceLine>>> influences = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> residence = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> places = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> reports = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> reports = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> errand = 0) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
@@ -8892,6 +8902,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_errand(errand);
   builder_.add_reports(reports);
   builder_.add_places(places);
   builder_.add_residence(residence);
@@ -8999,7 +9010,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::InfluenceLine>> *influences = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *residence = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *places = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *reports = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *reports = nullptr,
+    const char *errand = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -9025,6 +9037,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto residence__ = residence ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*residence) : 0;
   auto places__ = places ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*places) : 0;
   auto reports__ = reports ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*reports) : 0;
+  auto errand__ = errand ? _fbb.CreateString(errand) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -9080,7 +9093,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       influences__,
       residence__,
       places__,
-      reports__);
+      reports__,
+      errand__);
 }
 
 struct NewsLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -12516,7 +12530,9 @@ struct MarketInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_OFFERS = 18,
     VT_RECENT = 20,
     VT_HISTORY = 22,
-    VT_OUTSIDERS = 24
+    VT_OUTSIDERS = 24,
+    VT_BETWEEN = 26,
+    VT_ON_THE_WAY = 28
   };
   uint64_t settlement() const {
     return GetField<uint64_t>(VT_SETTLEMENT, 0);
@@ -12551,6 +12567,12 @@ struct MarketInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *outsiders() const {
     return GetPointer<const ::flatbuffers::String *>(VT_OUTSIDERS);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *between() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_BETWEEN);
+  }
+  const ::flatbuffers::String *on_the_way() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_ON_THE_WAY);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -12575,6 +12597,11 @@ struct MarketInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVector(history()) &&
            VerifyOffset(verifier, VT_OUTSIDERS) &&
            verifier.VerifyString(outsiders()) &&
+           VerifyOffset(verifier, VT_BETWEEN) &&
+           verifier.VerifyVector(between()) &&
+           verifier.VerifyVectorOfStrings(between()) &&
+           VerifyOffset(verifier, VT_ON_THE_WAY) &&
+           verifier.VerifyString(on_the_way()) &&
            verifier.EndTable();
   }
 };
@@ -12616,6 +12643,12 @@ struct MarketInfoBuilder {
   void add_outsiders(::flatbuffers::Offset<::flatbuffers::String> outsiders) {
     fbb_.AddOffset(MarketInfo::VT_OUTSIDERS, outsiders);
   }
+  void add_between(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> between) {
+    fbb_.AddOffset(MarketInfo::VT_BETWEEN, between);
+  }
+  void add_on_the_way(::flatbuffers::Offset<::flatbuffers::String> on_the_way) {
+    fbb_.AddOffset(MarketInfo::VT_ON_THE_WAY, on_the_way);
+  }
   explicit MarketInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -12639,9 +12672,13 @@ inline ::flatbuffers::Offset<MarketInfo> CreateMarketInfo(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OfferInfo>>> offers = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TradeInfo>>> recent = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::MonthOfTrade *>> history = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> outsiders = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> outsiders = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> between = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> on_the_way = 0) {
   MarketInfoBuilder builder_(_fbb);
   builder_.add_settlement(settlement);
+  builder_.add_on_the_way(on_the_way);
+  builder_.add_between(between);
   builder_.add_outsiders(outsiders);
   builder_.add_history(history);
   builder_.add_recent(recent);
@@ -12672,7 +12709,9 @@ inline ::flatbuffers::Offset<MarketInfo> CreateMarketInfoDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::OfferInfo>> *offers = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::TradeInfo>> *recent = nullptr,
     const std::vector<tce::wire::MonthOfTrade> *history = nullptr,
-    const char *outsiders = nullptr) {
+    const char *outsiders = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *between = nullptr,
+    const char *on_the_way = nullptr) {
   auto settlement_name__ = settlement_name ? _fbb.CreateString(settlement_name) : 0;
   auto summary__ = summary ? _fbb.CreateString(summary) : 0;
   auto goods__ = goods ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::MarketGood>>(*goods) : 0;
@@ -12680,6 +12719,8 @@ inline ::flatbuffers::Offset<MarketInfo> CreateMarketInfoDirect(
   auto recent__ = recent ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::TradeInfo>>(*recent) : 0;
   auto history__ = history ? _fbb.CreateVectorOfStructs<tce::wire::MonthOfTrade>(*history) : 0;
   auto outsiders__ = outsiders ? _fbb.CreateString(outsiders) : 0;
+  auto between__ = between ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*between) : 0;
+  auto on_the_way__ = on_the_way ? _fbb.CreateString(on_the_way) : 0;
   return tce::wire::CreateMarketInfo(
       _fbb,
       settlement,
@@ -12692,7 +12733,9 @@ inline ::flatbuffers::Offset<MarketInfo> CreateMarketInfoDirect(
       offers__,
       recent__,
       history__,
-      outsiders__);
+      outsiders__,
+      between__,
+      on_the_way__);
 }
 
 struct Markets FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

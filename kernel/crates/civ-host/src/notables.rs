@@ -171,6 +171,7 @@ fn fixture(content: &ContentRegistry, dir: &Path, index: usize) -> Made {
             size_cells: SIZE,
             band_size: 0,
             neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: String::new(),
         },
         content,

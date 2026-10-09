@@ -58,6 +58,8 @@ pub(crate) struct PeopleFile {
     pub opinion: OpinionFile,
     /// How factions are founded, joined and kept (M4c slice AH; content API 45).
     pub faction: FactionFile,
+    /// How households come to know other places (M5a slice AM; content API 52).
+    pub places: PlacesFile,
 }
 
 /// Factions, their petitions, refusals and revolts (M4c slices AH-AI, ADR-0017 §2-4; content API
@@ -266,6 +268,15 @@ impl OpinionFile {
             }
         }
     }
+}
+
+/// How households come to know other places (M5a slice AM, ADR-0018 §4; content API 52). See
+/// [`civ_agents::places::PlacesParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PlacesFile {
+    pub sight_m: f32,
+    pub share_told: f64,
 }
 
 /// Word of mouth and grievances (M4c slice AE, ADR-0016; content API 39). See
@@ -1465,6 +1476,10 @@ impl PeopleFile {
             word: self.word.params(),
             opinion: self.opinion.params(),
             faction: self.faction.params(),
+            places: civ_agents::places::PlacesParams {
+                sight_m: self.places.sight_m,
+                share_told: self.places.share_told,
+            },
             names,
         }
     }
@@ -1477,6 +1492,18 @@ impl PeopleFile {
         self.polity.problems(&mut p);
         self.crime.problems(&mut p);
         self.word.problems(&mut p);
+        if !(self.places.sight_m.is_finite() && (0.0..=10_000.0).contains(&self.places.sight_m)) {
+            p.push(format!(
+                "`places.sight_m` must be between 0 and 10000 (got {})",
+                self.places.sight_m
+            ));
+        }
+        if !(self.places.share_told.is_finite() && (0.0..=1.0).contains(&self.places.share_told)) {
+            p.push(format!(
+                "`places.share_told` must be between 0 and 1 (got {})",
+                self.places.share_told
+            ));
+        }
         self.opinion.problems(&mut p);
         self.faction.problems(&mut p);
         let st = &self.standing;

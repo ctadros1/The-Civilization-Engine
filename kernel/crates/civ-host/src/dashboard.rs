@@ -445,6 +445,7 @@ fn run_one(
             size_cells: options.size,
             band_size: 0,
             neighbours: vec![0; options.groups.saturating_sub(1) as usize],
+            neighbours_known: false,
             regime_id: regime.0,
         },
         content,

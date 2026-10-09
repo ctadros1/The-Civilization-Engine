@@ -109,7 +109,7 @@ use super::{
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
-    SCHEMA_V49, finish, section, single_chunk, unreadable,
+    SCHEMA_V49, SCHEMA_V50, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -170,6 +170,8 @@ pub const SECTION_IDEOLOGIES: SectionTag = SectionTag::new("creeds");
 pub const SECTION_FACTIONS: SectionTag = SectionTag::new("factions");
 /// Section: the observer's interventions (schema 48, M4c slice AJ, ADR-0016 §5).
 pub const SECTION_INFLUENCE: SectionTag = SectionTag::new("influenc");
+/// Section: the places households know (schema 51, M5a slice AM).
+pub const SECTION_PLACES: SectionTag = SectionTag::new("places");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -260,6 +262,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             0,
             encode_influences(&sim.people.influences, rules),
         ),
+        section(SECTION_PLACES, 0, encode_places(&sim.people.known_places)),
     ]
 }
 
@@ -379,6 +382,8 @@ enum Schema {
     /// Several settlements: how each was founded, residence histories, hearths that name their
     /// settlement (M5a slice AK, ADR-0018).
     V50,
+    /// The places households know (M5a slice AM, ADR-0018 §4).
+    V51,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -443,7 +448,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V47 => Schema::V47,
         SCHEMA_V48 => Schema::V48,
         SCHEMA_V49 => Schema::V49,
-        SAVE_SCHEMA_VERSION => Schema::V50,
+        SCHEMA_V50 => Schema::V50,
+        SAVE_SCHEMA_VERSION => Schema::V51,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -632,6 +638,11 @@ pub(super) fn decode<R: Read + Seek>(
         let bytes = single_chunk(reader, SECTION_INFLUENCE)?;
         people.influences = decode_influences(&bytes, rules)?;
     }
+    // The places households know (schema 51); before them a household knew none but its own.
+    if schema >= Schema::V51 {
+        let bytes = single_chunk(reader, SECTION_PLACES)?;
+        people.known_places = decode_places(&bytes)?;
+    }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
     match standing {
         Some(table) => people.standing = table,
@@ -641,6 +652,16 @@ pub(super) fn decode<R: Read + Seek>(
     let mut problems = land.problems(map, rules.land.habitats.len(), next_id);
     problems.extend(land.wear.problems());
     problems.extend(people.problems(next_id, rules.catalog.activities.len()));
+    for (h, list) in &people.known_places.known {
+        for k in list {
+            if !land.settlements.iter().any(|s| s.id == k.settlement) {
+                problems.push(format!(
+                    "household {h} knows a missing settlement {}",
+                    k.settlement
+                ));
+            }
+        }
+    }
     for b in &land.buildings {
         if let Some(f) = b.firm
             && people.firm(f).is_none()
@@ -2589,7 +2610,8 @@ fn carried(
         | Schema::V47
         | Schema::V48
         | Schema::V49
-        | Schema::V50 => {
+        | Schema::V50
+        | Schema::V51 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2749,7 +2771,8 @@ fn decode_households(
             | Schema::V47
             | Schema::V48
             | Schema::V49
-            | Schema::V50 => {
+            | Schema::V50
+            | Schema::V51 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -6212,6 +6235,65 @@ fn decode_factions(
 }
 
 // ---- the observer's interventions (M4c slice AJ, ADR-0016 §5) -----------------------------------
+
+fn encode_places(places: &civ_agents::places::Places) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let list: Vec<_> = places
+        .known
+        .iter()
+        .flat_map(|(&h, list)| list.iter().map(move |k| (h, k)))
+        .map(|(h, k)| {
+            save::KnownPlaceSave::create(
+                &mut fbb,
+                &save::KnownPlaceSaveArgs {
+                    household: h.get(),
+                    settlement: k.settlement.get(),
+                    how: k.how.code(),
+                    from: k.from.map_or(0, PermanentId::get),
+                    first: k.first,
+                    last: k.last,
+                    food: k.food.unwrap_or(-1.0),
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let root = save::PlacesSave::create(&mut fbb, &save::PlacesSaveArgs { list: Some(list) });
+    finish(fbb, root)
+}
+
+fn decode_places(bytes: &[u8]) -> Result<civ_agents::places::Places, LoadError> {
+    use civ_agents::places::{KnownPlace, PlaceHow, Places};
+    let root =
+        flatbuffers::root::<save::PlacesSave>(bytes).map_err(|e| unreadable(SECTION_PLACES, &e))?;
+    let mut out = Places::default();
+    for k in root.list().iter().flatten() {
+        let id = |raw: u64, what: &str| {
+            PermanentId::from_raw(raw)
+                .ok_or_else(|| LoadError::Malformed(format!("a known place with no {what}")))
+        };
+        let how = PlaceHow::from_code(k.how()).ok_or_else(|| {
+            LoadError::Malformed(format!("unknown way of knowing a place {}", k.how()))
+        })?;
+        let list = out
+            .known
+            .entry(id(k.household(), "household")?)
+            .or_default();
+        let settlement = id(k.settlement(), "settlement")?;
+        if list.last().is_some_and(|x| x.settlement >= settlement) {
+            return Err(LoadError::Malformed("known places out of order".to_owned()));
+        }
+        list.push(KnownPlace {
+            settlement,
+            how,
+            from: PermanentId::from_raw(k.from()),
+            first: k.first(),
+            last: k.last(),
+            food: (k.food() >= 0.0).then_some(k.food()),
+        });
+    }
+    Ok(out)
+}
 
 fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();

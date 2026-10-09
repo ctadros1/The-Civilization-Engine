@@ -129,6 +129,7 @@ pub fn new_world(
             size_cells: options.size,
             band_size: options.band,
             neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: options.regime.clone().unwrap_or_default(),
         },
         content,

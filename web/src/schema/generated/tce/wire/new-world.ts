@@ -73,8 +73,13 @@ neighboursArray():Uint32Array|null {
   return offset ? new Uint32Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
 }
 
+neighboursKnown():boolean {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+}
+
 static startNewWorld(builder:flatbuffers.Builder) {
-  builder.startObject(7);
+  builder.startObject(8);
 }
 
 static addSeed(builder:flatbuffers.Builder, seed:bigint) {
@@ -122,12 +127,16 @@ static startNeighboursVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addNeighboursKnown(builder:flatbuffers.Builder, neighboursKnown:boolean) {
+  builder.addFieldInt8(7, +neighboursKnown, +false);
+}
+
 static endNewWorld(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createNewWorld(builder:flatbuffers.Builder, seed:bigint, presetIdOffset:flatbuffers.Offset, sizeCells:number, nameOffset:flatbuffers.Offset, bandSize:number, regimeIdOffset:flatbuffers.Offset, neighboursOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createNewWorld(builder:flatbuffers.Builder, seed:bigint, presetIdOffset:flatbuffers.Offset, sizeCells:number, nameOffset:flatbuffers.Offset, bandSize:number, regimeIdOffset:flatbuffers.Offset, neighboursOffset:flatbuffers.Offset, neighboursKnown:boolean):flatbuffers.Offset {
   NewWorld.startNewWorld(builder);
   NewWorld.addSeed(builder, seed);
   NewWorld.addPresetId(builder, presetIdOffset);
@@ -136,6 +145,7 @@ static createNewWorld(builder:flatbuffers.Builder, seed:bigint, presetIdOffset:f
   NewWorld.addBandSize(builder, bandSize);
   NewWorld.addRegimeId(builder, regimeIdOffset);
   NewWorld.addNeighbours(builder, neighboursOffset);
+  NewWorld.addNeighboursKnown(builder, neighboursKnown);
   return NewWorld.endNewWorld(builder);
 }
 }

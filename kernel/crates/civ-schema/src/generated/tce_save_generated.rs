@@ -30189,6 +30189,300 @@ impl ::core::fmt::Debug for InfluencesSave<'_> {
       ds.finish()
   }
 }
+pub enum KnownPlaceSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct KnownPlaceSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for KnownPlaceSave<'a> {
+  type Inner = KnownPlaceSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> KnownPlaceSave<'a> {
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_HOW: ::flatbuffers::VOffsetT = 8;
+  pub const VT_FROM: ::flatbuffers::VOffsetT = 10;
+  pub const VT_FIRST: ::flatbuffers::VOffsetT = 12;
+  pub const VT_LAST: ::flatbuffers::VOffsetT = 14;
+  pub const VT_FOOD: ::flatbuffers::VOffsetT = 16;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    KnownPlaceSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args KnownPlaceSaveArgs
+  ) -> ::flatbuffers::WIPOffset<KnownPlaceSave<'bldr>> {
+    let mut builder = KnownPlaceSaveBuilder::new(_fbb);
+    builder.add_last(args.last);
+    builder.add_first(args.first);
+    builder.add_from(args.from);
+    builder.add_settlement(args.settlement);
+    builder.add_household(args.household);
+    builder.add_food(args.food);
+    builder.add_how(args.how);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(KnownPlaceSave::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(KnownPlaceSave::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn how(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(KnownPlaceSave::VT_HOW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn from(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(KnownPlaceSave::VT_FROM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn first(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(KnownPlaceSave::VT_FIRST, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn last(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(KnownPlaceSave::VT_LAST, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn food(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(KnownPlaceSave::VT_FOOD, Some(-1.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for KnownPlaceSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<u8>("how", Self::VT_HOW, false)?
+     .visit_field::<u64>("from", Self::VT_FROM, false)?
+     .visit_field::<i64>("first", Self::VT_FIRST, false)?
+     .visit_field::<i64>("last", Self::VT_LAST, false)?
+     .visit_field::<f32>("food", Self::VT_FOOD, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct KnownPlaceSaveArgs {
+    pub household: u64,
+    pub settlement: u64,
+    pub how: u8,
+    pub from: u64,
+    pub first: i64,
+    pub last: i64,
+    pub food: f32,
+}
+impl<'a> Default for KnownPlaceSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    KnownPlaceSaveArgs {
+      household: 0,
+      settlement: 0,
+      how: 0,
+      from: 0,
+      first: 0,
+      last: 0,
+      food: -1.0,
+    }
+  }
+}
+
+pub struct KnownPlaceSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> KnownPlaceSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(KnownPlaceSave::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(KnownPlaceSave::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_how(&mut self, how: u8) {
+    self.fbb_.push_slot::<u8>(KnownPlaceSave::VT_HOW, how, 0);
+  }
+  #[inline]
+  pub fn add_from(&mut self, from: u64) {
+    self.fbb_.push_slot::<u64>(KnownPlaceSave::VT_FROM, from, 0);
+  }
+  #[inline]
+  pub fn add_first(&mut self, first: i64) {
+    self.fbb_.push_slot::<i64>(KnownPlaceSave::VT_FIRST, first, 0);
+  }
+  #[inline]
+  pub fn add_last(&mut self, last: i64) {
+    self.fbb_.push_slot::<i64>(KnownPlaceSave::VT_LAST, last, 0);
+  }
+  #[inline]
+  pub fn add_food(&mut self, food: f32) {
+    self.fbb_.push_slot::<f32>(KnownPlaceSave::VT_FOOD, food, -1.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> KnownPlaceSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    KnownPlaceSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<KnownPlaceSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for KnownPlaceSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("KnownPlaceSave");
+      ds.field("household", &self.household());
+      ds.field("settlement", &self.settlement());
+      ds.field("how", &self.how());
+      ds.field("from", &self.from());
+      ds.field("first", &self.first());
+      ds.field("last", &self.last());
+      ds.field("food", &self.food());
+      ds.finish()
+  }
+}
+pub enum PlacesSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct PlacesSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for PlacesSave<'a> {
+  type Inner = PlacesSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> PlacesSave<'a> {
+  pub const VT_LIST: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    PlacesSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args PlacesSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<PlacesSave<'bldr>> {
+    let mut builder = PlacesSaveBuilder::new(_fbb);
+    if let Some(x) = args.list { builder.add_list(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn list(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KnownPlaceSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KnownPlaceSave>>>>(PlacesSave::VT_LIST, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for PlacesSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<KnownPlaceSave>>>>("list", Self::VT_LIST, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct PlacesSaveArgs<'a> {
+    pub list: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KnownPlaceSave<'a>>>>>,
+}
+impl<'a> Default for PlacesSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    PlacesSaveArgs {
+      list: None,
+    }
+  }
+}
+
+pub struct PlacesSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlacesSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_list(&mut self, list: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<KnownPlaceSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_LIST, list);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlacesSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    PlacesSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<PlacesSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for PlacesSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("PlacesSave");
+      ds.field("list", &self.list());
+      ds.finish()
+  }
+}
 }  // pub mod save
 }  // pub mod tce
 

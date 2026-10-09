@@ -196,6 +196,30 @@ pub fn residence_words(sim: &Sim, id: PermanentId) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// The other settlements household `household` knows, each in words (ADR-0018 §4): "Elmhollow:
+/// seen on a walk in the spring of year 1", with who told of it, if anyone.
+pub fn places_words(sim: &Sim, household: PermanentId) -> Vec<String> {
+    sim.people
+        .known_places
+        .of(household)
+        .iter()
+        .map(|k| {
+            let since = SimTime::from_minutes(k.first * civ_core::time::MINUTES_PER_DAY);
+            let by = k
+                .from
+                .filter(|_| k.how == civ_agents::places::PlaceHow::Told)
+                .map(|f| format!(" by {}", sim.people.name_of(f)))
+                .unwrap_or_default();
+            format!(
+                "{}: {}{by} in {}",
+                place_name(sim, Some(k.settlement)),
+                k.how.words(),
+                season_words(since)
+            )
+        })
+        .collect()
+}
+
 /// The newest chronicle entry's sequence number (0 = none).
 pub fn chronicle_head(sim: &Sim) -> u64 {
     sim.people.chronicle.last().map_or(0, |e| e.seq)
@@ -967,6 +991,11 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
             .map(|w| fbb.create_string(w))
             .collect();
         args.residence = Some(fbb.create_vector(&residence));
+        let places: Vec<_> = places_words(sim, p.household)
+            .iter()
+            .map(|w| fbb.create_string(w))
+            .collect();
+        args.places = Some(fbb.create_vector(&places));
     }
     let body = wire::PersonInfo::create(&mut fbb, &args);
     Ok(response(fbb, wire::ResponseBody::PersonInfo, body))

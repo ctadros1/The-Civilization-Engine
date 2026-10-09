@@ -34,6 +34,7 @@ fn cropped_fields_keep_their_soil_and_harvests_across_the_years_and_a_save() {
             size_cells: 512,
             band_size: 0,
             neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: String::new(),
         },
         content(),

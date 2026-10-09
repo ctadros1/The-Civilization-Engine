@@ -54,6 +54,7 @@ fn make(saves: &Path) -> Result<String, String> {
             size_cells: 512,
             band_size: 0,
             neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: String::new(),
         },
         &content,

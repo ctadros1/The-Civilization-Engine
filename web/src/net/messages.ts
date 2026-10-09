@@ -741,6 +741,9 @@ export interface PersonInfo {
   influences: InfluenceLine[];
   /** Wire 1.49 (ADR-0018 §2): where they have lived, oldest first, in the kernel's words. */
   residence: string[];
+  /** Wire 1.50 (ADR-0018 §4): the other settlements their household knows, and how, in the
+   * kernel's words ("Ashford: told of it by Wren in spring of year 2"). */
+  places: string[];
 }
 
 /** A claim the observer may whisper (wire 1.47). */
@@ -1543,6 +1546,8 @@ export function newWorld(args: {
   regimeId?: string;
   /** People in each further founding group (wire 1.49); 0 = the content's default. */
   neighbours?: number[];
+  /** The founding groups know where each other camped (wire 1.50, ADR-0018 §6). */
+  neighboursKnown?: boolean;
 }): Uint8Array {
   const b = new flatbuffers.Builder(128);
   const preset = b.createString(args.presetId);
@@ -1558,6 +1563,7 @@ export function newWorld(args: {
     args.bandSize ?? 0,
     regime,
     neighbours,
+    args.neighboursKnown ?? false,
   );
   return command(b, W.CommandBody.NewWorld, body);
 }
@@ -3021,6 +3027,10 @@ function personInfo(p: W.PersonInfo): PersonInfo {
   for (let k = 0; k < p.residenceLength(); k++) {
     residence.push(p.residence(k) ?? "");
   }
+  const places: string[] = [];
+  for (let k = 0; k < p.placesLength(); k++) {
+    places.push(p.places(k) ?? "");
+  }
   const f = p.faction();
   const faction: FactionLine | null = f
     ? {
@@ -3089,6 +3099,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     news,
     influences,
     residence,
+    places,
   };
 }
 

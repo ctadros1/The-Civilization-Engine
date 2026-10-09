@@ -1485,6 +1485,7 @@ mod tests {
                 size_cells: 256,
                 band_size: 0,
                 neighbours: Vec::new(),
+                neighbours_known: false,
                 regime_id: String::new(),
             }));
             assert!(matches!(reply, Reply::Response(_)), "{reply:?}");
@@ -1935,6 +1936,7 @@ mod tests {
             size_cells: 300,
             band_size: 0,
             neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: String::new(),
         };
         assert_eq!(
@@ -1983,6 +1985,7 @@ mod tests {
                 size_cells: 2048,
                 band_size: 0,
                 neighbours: Vec::new(),
+                neighbours_known: false,
                 regime_id: String::new(),
             })),
             Reply::Response(_)

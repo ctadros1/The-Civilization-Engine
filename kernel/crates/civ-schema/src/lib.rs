@@ -55,7 +55,7 @@ use commons_wire::SchemaId;
 /// Major version of the wire schema. Peers with a different major cannot talk.
 pub const WIRE_SCHEMA_MAJOR: u16 = 1;
 /// Minor version of the wire schema: bumped by additive changes.
-pub const WIRE_SCHEMA_MINOR: u16 = 49;
+pub const WIRE_SCHEMA_MINOR: u16 = 50;
 /// The identity carried in every frame header.
 pub const WIRE_SCHEMA: SchemaId = SchemaId::new(*b"TCE\0", WIRE_SCHEMA_MAJOR, WIRE_SCHEMA_MINOR);
 
@@ -63,7 +63,7 @@ pub const WIRE_SCHEMA: SchemaId = SchemaId::new(*b"TCE\0", WIRE_SCHEMA_MAJOR, WI
 pub const SAVE_ENGINE_TAG: [u8; 8] = *b"TCE\0\0\0\0\0";
 /// World-state schema version written into save headers. Bump it, and add a migration, whenever a
 /// section's meaning changes.
-pub const SAVE_SCHEMA_VERSION: u32 = 50;
+pub const SAVE_SCHEMA_VERSION: u32 = 51;
 /// File extension of save generations.
 pub const SAVE_EXTENSION: &str = "tcesave";
 
@@ -87,6 +87,7 @@ mod tests {
                 band_size: 30,
                 regime_id: None,
                 neighbours: None,
+                neighbours_known: false,
             },
         );
         let command = wire::Command::create(
@@ -114,6 +115,6 @@ mod tests {
 
     #[test]
     fn schema_identity_is_tce() {
-        assert_eq!(WIRE_SCHEMA.to_string(), "TCE 1.49");
+        assert_eq!(WIRE_SCHEMA.to_string(), "TCE 1.50");
     }
 }

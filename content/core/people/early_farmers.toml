@@ -809,3 +809,13 @@ w_exclusion = 1.0
 # the day before; it holds once more stand with it than with the gathering for `hold_days`, and
 # fails after `revolt_days`. A design prior, as a revolt's.
 coup_cost = 0.75
+
+[places]                         # knowing other settlements (M5a slice AM, ADR-0018 §4); design priors
+# Another settlement is known only by contact (research 13-01 §1.1; 09-16 §1.2): founded alongside
+# it (a new-world choice), seen when a walk passes within `sight_m` metres of its hearth, kin
+# there, visited, or told of at the hearth. Someone from elsewhere always says where they are
+# from; a place one's household knows is told to a companion whose household does not with
+# `share_told` (09-16 §2.2: 0.05-0.25 for routine news). The research gives no distance at which a
+# village of huts and hearth smoke is seen; 500 m is a design prior.
+sight_m = 500.0
+share_told = 0.15

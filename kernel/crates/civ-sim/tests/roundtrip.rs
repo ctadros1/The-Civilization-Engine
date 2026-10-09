@@ -102,6 +102,7 @@ fn fixture() -> &'static Fixture {
                 size_cells: SIDE,
                 band_size: 0,
                 neighbours: Vec::new(),
+                neighbours_known: false,
                 regime_id: String::new(),
             },
             content(),
@@ -183,10 +184,10 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 27 land, field, plot, building,
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 28 land, field, plot, building,
     // wear, market, firm, wealth, knowledge, deposits, earth, ties, polity, order, word, opinion,
-    // norms, values, creeds, factions, influence and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 27);
+    // norms, values, creeds, factions, influence, places and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 28);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -210,6 +211,7 @@ fn a_loaded_map_equals_a_regenerated_one() {
             size_cells: SIDE,
             band_size: 0,
             neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: String::new(),
         },
         content(),
@@ -1180,6 +1182,7 @@ fn worn_ground_and_its_trails_survive_a_save_and_load() {
             size_cells: SIDE,
             band_size: 0,
             neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: String::new(),
         },
         content(),
@@ -1757,6 +1760,7 @@ fn unknown_presets_are_refused() {
             size_cells: 256,
             band_size: 0,
             neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: String::new(),
         },
         content(),
@@ -2233,6 +2237,18 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
             .iter()
             .all(|(_, p)| pop.influences.luck(p.id, day).is_none())
     );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_50_save_loads_knowing_no_other_place() {
+    // A schema-50 save, from before the places households know (M5a slice AM, ADR-0018 §4).
+    let sim = load_first();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V50;
+    let path = republish("slice-ak", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-50 save loads");
+    assert!(loaded.people().known_places.known.is_empty());
     loaded.advance_minutes(24 * 60).expect("goes on");
 }
 

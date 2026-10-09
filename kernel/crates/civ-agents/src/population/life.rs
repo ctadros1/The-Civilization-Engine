@@ -765,6 +765,7 @@ impl Population {
             && let Some(mut gone) = self.households.remove(hd)
         {
             self.homes_moved += 1;
+            self.known_places.forget(household);
             for (g, kg) in gone.stores.iter().enumerate() {
                 gone.flows.add(Flow::Departed, g, kg.max(0.0));
             }
@@ -993,6 +994,10 @@ impl Population {
             &legs,
             Channel::Inherit,
         );
+        // What its people knew of other places goes with them (ADR-0018 §4).
+        let home = self.household(to).and_then(|x| x.settlement);
+        self.known_places.bring(from, to, home);
+        self.known_places.forget(from);
         let Some(hd) = self.hh_index.remove(&from) else {
             return;
         };
@@ -1100,6 +1105,7 @@ impl Population {
                     && let Some(mut gone) = self.households.remove(hd)
                 {
                     self.homes_moved += 1;
+                    self.known_places.forget(household);
                     // What nobody is left to keep is left behind.
                     for (g, kg) in gone.stores.iter().enumerate() {
                         gone.flows.add(Flow::Departed, g, kg.max(0.0));
@@ -1378,6 +1384,9 @@ impl Population {
         let Some(before) = self.household(from).map(|x| x.members.len()) else {
             return;
         };
+        // What they knew of other places goes with them (ADR-0018 §4).
+        let home = self.household(to).and_then(|x| x.settlement);
+        self.known_places.bring(from, to, home);
         if people.len() >= before {
             self.merge_household(ctx, from, to, true, why);
             return;

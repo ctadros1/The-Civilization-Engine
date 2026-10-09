@@ -55,6 +55,7 @@ mod loads;
 mod market;
 mod norm;
 mod opinion;
+mod places;
 mod polity;
 mod residence;
 mod values;
@@ -442,6 +443,8 @@ pub struct Population {
     pub factions: crate::faction::Factions,
     /// The observer's interventions (M4c slice AJ, ADR-0016 §5).
     pub influences: crate::influence::Influences,
+    /// The other settlements each household knows (M5a slice AM, ADR-0018 §4).
+    pub known_places: crate::places::Places,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -1066,7 +1069,9 @@ impl Population {
     /// out of range, malformed trips. A save holding any of these is refused (ADR-0002).
     /// `next_id` is the permanent-id counter; `catalog_len` the number of activities.
     pub fn problems(&self, next_id: u64, catalog_len: usize) -> Vec<String> {
-        let mut out = Vec::new();
+        let mut out = self
+            .known_places
+            .problems(|h| self.household(h).map(|x| x.settlement), |_| true);
         let mut ids = std::collections::HashSet::new();
         for (_, p) in self.people.iter() {
             if !ids.insert(p.id) || p.id.get() >= next_id {
@@ -3663,6 +3668,8 @@ impl Population {
             (pts, mins)
         };
         let duration = minutes.last().copied().unwrap_or(0.0).ceil().max(1.0);
+        // What the walk passes within sight of (ADR-0018 §4).
+        let seen = (ctx.land.settlements.len() > 1).then(|| (p.household, points.clone()));
         self.next_trip += 1;
         let trip = Trip {
             id: self.next_trip,
@@ -3680,6 +3687,9 @@ impl Population {
         p.act.step_ends = now.plus_minutes(duration as i64);
         let (id, version, ends) = (p.id, p.act.version, p.act.step_ends);
         ctx.schedule_step(ends, id, version);
+        if let Some((household, points)) = seen {
+            self.see_places(ctx, household, &points);
+        }
         true
     }
 

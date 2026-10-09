@@ -1698,3 +1698,20 @@ table InfluencesSave {
   // Ideology content ids at save time.
   ideologies: [string] (id: 1);
 }
+
+// Schema 51 (M5a slice AM, ADR-0018 §4): a place a household knows. `how`: 0 founded alongside,
+// 1 seen, 2 kin there, 3 visited, 4 told; `from` 0 when no one; `food` below 0 when unknown.
+table KnownPlaceSave {
+  household: ulong (id: 0);
+  settlement: ulong (id: 1);
+  how: ubyte (id: 2);
+  from: ulong (id: 3);
+  first: long (id: 4);
+  last: long (id: 5);
+  food: float = -1 (id: 6);
+}
+
+// Schema 51: every household's known places, by household and then settlement.
+table PlacesSave {
+  list: [KnownPlaceSave] (id: 0);
+}

@@ -34,6 +34,7 @@ fn new_world(seed: u64) -> Sim {
             size_cells: 512,
             band_size: 0,
             neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: String::new(),
         },
         content(),
@@ -113,6 +114,7 @@ fn two_settlements_live_the_same_however_saved_or_cut() {
             size_cells: 768,
             band_size: 0,
             neighbours: vec![0],
+            neighbours_known: true,
             regime_id: String::new(),
         },
         content(),
@@ -120,6 +122,10 @@ fn two_settlements_live_the_same_however_saved_or_cut() {
     )
     .expect("generates");
     assert_eq!(sim.land().settlements.len(), 2);
+    assert!(
+        !sim.people().known_places.known.is_empty(),
+        "each knows the other"
+    );
     sim.advance_minutes(10 * MINUTES_PER_DAY).expect("advances");
     sim.advance_to_midnight().expect("advances");
     let start = save(&mut sim, dir.path(), "founded");

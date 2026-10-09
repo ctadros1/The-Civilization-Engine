@@ -200,6 +200,8 @@ impl Population {
             self.share_norms(ctx, me, q);
             // And of the ideologies they hold (M4c slice AG, ADR-0016 §4).
             self.share_ideologies(ctx, me, q);
+            // And of the other settlements they know (M5a slice AM, ADR-0018 §4).
+            self.share_places(ctx, me, q);
         }
     }
 

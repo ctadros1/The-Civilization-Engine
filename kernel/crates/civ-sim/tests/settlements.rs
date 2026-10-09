@@ -26,6 +26,11 @@ fn content() -> &'static ContentRegistry {
 /// World `seed` with a fixed identity, so it lives the same life every run (its identity orders
 /// the events of an instant).
 fn world(seed: u64, band: u32, neighbours: &[u32]) -> Result<Sim, SimError> {
+    world_knowing(seed, band, neighbours, false)
+}
+
+/// [`world`], its founding groups knowing where each other camped if `known`.
+fn world_knowing(seed: u64, band: u32, neighbours: &[u32], known: bool) -> Result<Sim, SimError> {
     Sim::create_for_tests(
         &NewWorld {
             name: "Neighbours".to_owned(),
@@ -34,6 +39,7 @@ fn world(seed: u64, band: u32, neighbours: &[u32]) -> Result<Sim, SimError> {
             size_cells: 768,
             band_size: band,
             neighbours: neighbours.to_vec(),
+            neighbours_known: known,
             regime_id: String::new(),
         },
         content(),
@@ -287,5 +293,75 @@ fn nothing_passes_between_settlements_that_have_no_contact() {
             .filter(|&h| home(h) == Some(s.id))
             .count();
         assert!(ties > 0, "{}: nobody holds a tie", s.name);
+    }
+}
+
+#[test]
+fn founding_groups_that_know_each_other_know_where_each_camped_and_no_more() {
+    use civ_agents::places::PlaceHow;
+    let strangers = world(3, 50, &[30]).expect("generates");
+    assert!(
+        strangers
+            .people()
+            .known_places
+            .known
+            .values()
+            .all(Vec::is_empty),
+        "strangers know no place but their own"
+    );
+    let sim = world_knowing(3, 50, &[30], true).expect("generates");
+    let pop = sim.people();
+    let land = sim.land();
+    for (_, h) in pop.households.iter() {
+        let known = pop.known_places.of(h.id);
+        assert_eq!(known.len(), 1, "household {} knows the other camp", h.id);
+        assert_ne!(Some(known[0].settlement), h.settlement, "never its own");
+        assert!(land.settlements.iter().any(|s| s.id == known[0].settlement));
+        assert_eq!(known[0].how, PlaceHow::Founded);
+    }
+    assert!(
+        pop.problems(sim.ids().peek_next(), sim.rules().catalog.activities.len())
+            .is_empty()
+    );
+}
+
+#[test]
+fn a_walk_in_sight_of_another_settlement_makes_it_known_and_word_of_it_goes_round() {
+    use civ_agents::places::PlaceHow;
+    let mut sim = world(3, 50, &[30]).expect("generates");
+    // Bring the second camp's hearth to 900 m east of the first's, so that some of the first's
+    // walks pass within sight of it and others do not.
+    let first = sim.land().settlements[0].clone();
+    let near = (first.hearth_m.0 + 900.0, first.hearth_m.1);
+    sim.land_mut_for_tests().settlements[1].hearth_m = near;
+    let other = sim.land().settlements[1].id;
+    sim.advance_minutes(40 * 24 * 60).expect("lives");
+    let pop = sim.people();
+    let ours: Vec<_> = pop
+        .households
+        .iter()
+        .filter(|(_, h)| h.settlement == Some(first.id))
+        .map(|(_, h)| h.id)
+        .collect();
+    let how = |how: PlaceHow| {
+        ours.iter()
+            .filter(|&&h| {
+                pop.known_places
+                    .of(h)
+                    .iter()
+                    .any(|k| k.settlement == other && k.how == how)
+            })
+            .count()
+    };
+    let (seen, told) = (how(PlaceHow::Seen), how(PlaceHow::Told));
+    assert!(seen > 0, "nobody walked within sight of it");
+    assert!(told > 0, "nobody was told of it ({seen} saw it)");
+    for &h in &ours {
+        for k in pop.known_places.of(h) {
+            if k.how == PlaceHow::Told {
+                let teller = k.from.expect("someone told them");
+                assert!(pop.records.contains_key(&teller));
+            }
+        }
     }
 }

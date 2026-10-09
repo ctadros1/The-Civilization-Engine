@@ -360,6 +360,7 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                             .neighbours()
                             .map(|v| v.iter().collect())
                             .unwrap_or_default(),
+                        neighbours_known: b.neighbours_known(),
                         regime_id: b.regime_id().unwrap_or_default().to_owned(),
                     }))
                 }

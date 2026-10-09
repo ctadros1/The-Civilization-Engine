@@ -408,8 +408,20 @@ residenceLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+places(index: number):string
+places(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+places(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 108);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+placesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 108);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(52);
+  builder.startObject(53);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -810,6 +822,22 @@ static createResidenceVector(builder:flatbuffers.Builder, data:flatbuffers.Offse
 }
 
 static startResidenceVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addPlaces(builder:flatbuffers.Builder, placesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(52, placesOffset, 0);
+}
+
+static createPlacesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startPlacesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 

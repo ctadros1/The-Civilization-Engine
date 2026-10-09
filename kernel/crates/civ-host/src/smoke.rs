@@ -1625,6 +1625,7 @@ fn run_one(
             size_cells: options.size,
             band_size: 0,
             neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: regime.0,
         },
         content,

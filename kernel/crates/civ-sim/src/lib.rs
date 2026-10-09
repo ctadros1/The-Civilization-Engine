@@ -102,6 +102,9 @@ pub struct NewWorld {
     /// together with the first's (ADR-0018 §6); 0 means the default. At most
     /// [`civ_agents::MAX_FOUNDING_GROUPS`] groups in all.
     pub neighbours: Vec<u32>,
+    /// Whether the founding groups know where each other camped when they arrive (ADR-0018 §6,
+    /// M5a slice AM); otherwise each finds the others only by contact.
+    pub neighbours_known: bool,
     /// Content id of the property regime (ADR-0007); empty means the content's default.
     pub regime_id: String,
 }
@@ -518,8 +521,18 @@ impl Sim {
         let mut placed = sizes.len();
         while placed > 0 {
             match sim.found_bands(&sizes[..placed]) {
-                Ok(_) if placed == sizes.len() => break,
-                Ok(_) => {
+                Ok(founded) if placed == sizes.len() => {
+                    if request.neighbours_known {
+                        let day = sim.now().day_index();
+                        sim.people.know_each_other(&founded, day);
+                    }
+                    break;
+                }
+                Ok(founded) => {
+                    if request.neighbours_known {
+                        let day = sim.now().day_index();
+                        sim.people.know_each_other(&founded, day);
+                    }
                     sim.founding_problem = Some(format!(
                         "only {placed} of {} founding groups found room for fields apart",
                         sizes.len()

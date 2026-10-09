@@ -4498,7 +4498,8 @@ struct NewWorld FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_NAME = 10,
     VT_BAND_SIZE = 12,
     VT_REGIME_ID = 14,
-    VT_NEIGHBOURS = 16
+    VT_NEIGHBOURS = 16,
+    VT_NEIGHBOURS_KNOWN = 18
   };
   uint64_t seed() const {
     return GetField<uint64_t>(VT_SEED, 0);
@@ -4521,6 +4522,9 @@ struct NewWorld FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<uint32_t> *neighbours() const {
     return GetPointer<const ::flatbuffers::Vector<uint32_t> *>(VT_NEIGHBOURS);
   }
+  bool neighbours_known() const {
+    return GetField<uint8_t>(VT_NEIGHBOURS_KNOWN, 0) != 0;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -4535,6 +4539,7 @@ struct NewWorld FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyString(regime_id()) &&
            VerifyOffset(verifier, VT_NEIGHBOURS) &&
            verifier.VerifyVector(neighbours()) &&
+           VerifyField<uint8_t>(verifier, VT_NEIGHBOURS_KNOWN, 1) &&
            verifier.EndTable();
   }
 };
@@ -4564,6 +4569,9 @@ struct NewWorldBuilder {
   void add_neighbours(::flatbuffers::Offset<::flatbuffers::Vector<uint32_t>> neighbours) {
     fbb_.AddOffset(NewWorld::VT_NEIGHBOURS, neighbours);
   }
+  void add_neighbours_known(bool neighbours_known) {
+    fbb_.AddElement<uint8_t>(NewWorld::VT_NEIGHBOURS_KNOWN, static_cast<uint8_t>(neighbours_known), 0);
+  }
   explicit NewWorldBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -4583,7 +4591,8 @@ inline ::flatbuffers::Offset<NewWorld> CreateNewWorld(
     ::flatbuffers::Offset<::flatbuffers::String> name = 0,
     uint32_t band_size = 0,
     ::flatbuffers::Offset<::flatbuffers::String> regime_id = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<uint32_t>> neighbours = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<uint32_t>> neighbours = 0,
+    bool neighbours_known = false) {
   NewWorldBuilder builder_(_fbb);
   builder_.add_seed(seed);
   builder_.add_neighbours(neighbours);
@@ -4592,6 +4601,7 @@ inline ::flatbuffers::Offset<NewWorld> CreateNewWorld(
   builder_.add_name(name);
   builder_.add_size_cells(size_cells);
   builder_.add_preset_id(preset_id);
+  builder_.add_neighbours_known(neighbours_known);
   return builder_.Finish();
 }
 
@@ -4608,7 +4618,8 @@ inline ::flatbuffers::Offset<NewWorld> CreateNewWorldDirect(
     const char *name = nullptr,
     uint32_t band_size = 0,
     const char *regime_id = nullptr,
-    const std::vector<uint32_t> *neighbours = nullptr) {
+    const std::vector<uint32_t> *neighbours = nullptr,
+    bool neighbours_known = false) {
   auto preset_id__ = preset_id ? _fbb.CreateString(preset_id) : 0;
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto regime_id__ = regime_id ? _fbb.CreateString(regime_id) : 0;
@@ -4621,7 +4632,8 @@ inline ::flatbuffers::Offset<NewWorld> CreateNewWorldDirect(
       name__,
       band_size,
       regime_id__,
-      neighbours__);
+      neighbours__,
+      neighbours_known);
 }
 
 struct SaveWorld FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -8242,7 +8254,8 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_FACTION = 100,
     VT_NEWS = 102,
     VT_INFLUENCES = 104,
-    VT_RESIDENCE = 106
+    VT_RESIDENCE = 106,
+    VT_PLACES = 108
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -8400,6 +8413,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *residence() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_RESIDENCE);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *places() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_PLACES);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -8494,6 +8510,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_RESIDENCE) &&
            verifier.VerifyVector(residence()) &&
            verifier.VerifyVectorOfStrings(residence()) &&
+           VerifyOffset(verifier, VT_PLACES) &&
+           verifier.VerifyVector(places()) &&
+           verifier.VerifyVectorOfStrings(places()) &&
            verifier.EndTable();
   }
 };
@@ -8658,6 +8677,9 @@ struct PersonInfoBuilder {
   void add_residence(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> residence) {
     fbb_.AddOffset(PersonInfo::VT_RESIDENCE, residence);
   }
+  void add_places(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> places) {
+    fbb_.AddOffset(PersonInfo::VT_PLACES, places);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8722,7 +8744,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     ::flatbuffers::Offset<tce::wire::FactionLine> faction = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::NewsLine>>> news = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::InfluenceLine>>> influences = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> residence = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> residence = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> places = 0) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
@@ -8734,6 +8757,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_places(places);
   builder_.add_residence(residence);
   builder_.add_influences(influences);
   builder_.add_news(news);
@@ -8837,7 +8861,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     ::flatbuffers::Offset<tce::wire::FactionLine> faction = 0,
     const std::vector<::flatbuffers::Offset<tce::wire::NewsLine>> *news = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::InfluenceLine>> *influences = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *residence = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *residence = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *places = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -8861,6 +8886,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto news__ = news ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::NewsLine>>(*news) : 0;
   auto influences__ = influences ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::InfluenceLine>>(*influences) : 0;
   auto residence__ = residence ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*residence) : 0;
+  auto places__ = places ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*places) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -8914,7 +8940,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       faction,
       news__,
       influences__,
-      residence__);
+      residence__,
+      places__);
 }
 
 struct NewsLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

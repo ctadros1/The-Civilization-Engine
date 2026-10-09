@@ -1371,6 +1371,8 @@ pub struct PeopleParams {
     pub opinion: crate::opinion::OpinionParams,
     /// How factions are founded, joined and kept (M4c slice AH, ADR-0017 §2).
     pub faction: crate::faction::FactionParams,
+    /// How households come to know other places (M5a slice AM, ADR-0018 §4).
+    pub places: crate::places::PlacesParams,
     /// Names.
     pub names: NameParams,
 }

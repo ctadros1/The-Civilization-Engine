@@ -47,6 +47,20 @@ describe("builders", () => {
       ),
     ).body(new W.NewWorld()) as W.NewWorld;
     expect(Array.from(neighbours.neighboursArray() ?? [])).toEqual([40, 30]);
+    expect(neighbours.neighboursKnown()).toBe(false);
+    const known = W.Command.getRootAsCommand(
+      bb(
+        M.newWorld({
+          seed: 1n,
+          presetId: "core:worldgen/river_valley",
+          sizeCells: 768,
+          name: "",
+          neighbours: [40],
+          neighboursKnown: true,
+        }),
+      ),
+    ).body(new W.NewWorld()) as W.NewWorld;
+    expect(known.neighboursKnown()).toBe(true);
   });
 
   it("builds clock and raster requests", () => {

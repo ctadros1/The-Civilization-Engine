@@ -715,6 +715,15 @@ officeholder, and more adults than stand with the gathering, must stand with it 
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
 
+Content API 52 (M5a slice AM, step one) brings known places: the people profile's `[places]`
+table, with `sight_m` (metres from another settlement's hearth within which a walk passes in
+sight of its homes, so the walker's household knows it) and `share_told` (the chance someone at
+the hearth tells a companion of a place their household knows and the companion's does not;
+someone from another settlement always says where they are from), both design priors (research
+13-01 §1.1 says awareness of other places comes by traders, migrants, kin and travellers, 09-16
+§2.2 gives 0.05–0.25 for passing on routine news, and nothing gives a distance at which a village
+is seen).
+
 Content API 51 (M4c slice AI, step four) brings force: the `[crime]` keys `w_collect` (points
 toward going to take what a refused finding owed, for one who keeps the watch, beside the norms
 they hold), `w_harm` (points against taking it by force for each at the household who resisted),

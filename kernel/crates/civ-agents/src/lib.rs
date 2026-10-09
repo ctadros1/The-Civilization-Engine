@@ -47,6 +47,7 @@ pub mod norm;
 pub mod opinion;
 pub mod params;
 pub mod person;
+pub mod places;
 pub mod polity;
 pub mod population;
 pub mod standing;

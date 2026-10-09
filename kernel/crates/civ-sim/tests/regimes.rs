@@ -35,6 +35,7 @@ fn create(seed: u64, regime: &str) -> Result<Sim, SimError> {
             size_cells: 512,
             band_size: 0,
             neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: regime.to_owned(),
         },
         content(),

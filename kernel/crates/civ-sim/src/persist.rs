@@ -184,6 +184,9 @@ pub const SCHEMA_V48: u32 = 48;
 /// The schema version of M4c slice AJ's second step: agitators, blessings and curses, before
 /// several settlements (see [`agents`]).
 pub const SCHEMA_V49: u32 = 49;
+/// The schema version of M5a slice AK: several settlements, before the places households know
+/// (see [`agents`]).
+pub const SCHEMA_V50: u32 = 50;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

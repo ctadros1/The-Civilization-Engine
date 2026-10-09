@@ -126,6 +126,7 @@ fn main() {
                 size_cells: a.size,
                 band_size: a.people,
                 neighbours: vec![a.people; a.groups.saturating_sub(1) as usize],
+                neighbours_known: false,
                 regime_id: a.regime.clone(),
             },
             &content,

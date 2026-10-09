@@ -268,6 +268,27 @@ describe("people payloads", () => {
     ]);
     expect([nobody.person.partner, nobody.person.family]).toEqual([0, []]);
     expect([nobody.person.householdTaste, nobody.person.householdAdmired]).toEqual(["", 0]);
+    expect(nobody.person.places).toEqual([]);
+  });
+
+  it("decode the places a person's household knows, in the kernel's words", () => {
+    const b = new flatbuffers.Builder(256);
+    const lines = [
+      "Ashford: seen on a walk in spring of year 1",
+      "Brook: told of it by Wren in summer of year 1",
+    ];
+    const places = W.PersonInfo.createPlacesVector(
+      b,
+      lines.map((l) => b.createString(l)),
+    );
+    W.PersonInfo.startPersonInfo(b);
+    W.PersonInfo.addId(b, 14n);
+    W.PersonInfo.addPlaces(b, places);
+    const body = W.PersonInfo.endPersonInfo(b);
+    b.finish(W.Response.createResponse(b, W.ResponseBody.PersonInfo, body));
+    const r = M.decodeResponse(b.asUint8Array());
+    if (r.kind !== "person") throw new Error(r.kind);
+    expect(r.person.places).toEqual(lines);
   });
 
   it("decode a person's partner and the kernel's sentences about their family", () => {

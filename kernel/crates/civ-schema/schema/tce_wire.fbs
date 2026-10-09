@@ -382,6 +382,9 @@ table NewWorld {
   // People in each further founding group, a band of its own placed together with the first
   // (wire 1.49, ADR-0018 §6); 0 = the content's default. At most two.
   neighbours: [uint] (id: 6);
+  // Whether the founding groups know where each other camped when they arrive (wire 1.50,
+  // ADR-0018 §6); otherwise each finds the others only by contact.
+  neighbours_known: bool (id: 7);
 }
 
 table SaveWorld {
@@ -813,6 +816,9 @@ table PersonInfo {
   // Where they have lived, oldest first, each in words (wire 1.49, ADR-0018 §2): "Ashford, from
   // the spring of year 1: came with a founding group".
   residence: [string] (id: 51);
+  // The other settlements their household knows, each in words (wire 1.50, ADR-0018 §4):
+  // "Elmhollow: seen on a walk in the spring of year 1".
+  places: [string] (id: 52);
 }
 
 // Wire 1.47 (M4c slice AJ): a claim that may be whispered.

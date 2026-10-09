@@ -106,6 +106,8 @@ export interface Actions {
     regimeId: string;
     /** People in each further founding group, placed together with the first (ADR-0018). */
     neighbours: number[];
+    /** The founding groups know where each other camped (ADR-0018 §6). */
+    neighboursKnown: boolean;
   }): Promise<void>;
   save(label: string): Promise<void>;
   listSaves(): Promise<SaveEntry[]>;
@@ -220,6 +222,11 @@ export function bindUi(store: Store, actions: Actions): void {
   const nwSeed = $<HTMLInputElement>("nw-seed");
   const nwBand = $<HTMLInputElement>("nw-band");
   const nwNeighbours = $<HTMLInputElement>("nw-neighbours");
+  const nwKnown = $<HTMLInputElement>("nw-neighbours-known");
+  const knownApplies = () => {
+    nwKnown.disabled = nwNeighbours.value.trim() === "";
+  };
+  nwNeighbours.addEventListener("input", knownApplies);
   const nwRegime = $<HTMLSelectElement>("nw-regime");
   const nwError = $("nw-error");
   const nwCreate = $<HTMLButtonElement>("nw-create");
@@ -290,6 +297,8 @@ export function bindUi(store: Store, actions: Actions): void {
     nwSeed.value = randomSeed().toString();
     nwBand.value = String(welcome.bandSizeDefault);
     nwNeighbours.value = "";
+    nwKnown.checked = false;
+    knownApplies();
     nwError.hidden = true;
     nwCreate.disabled = false;
     nwDialog.showModal();
@@ -330,6 +339,7 @@ export function bindUi(store: Store, actions: Actions): void {
         bandSize: welcome ? band : 0,
         regimeId: nwRegime.value,
         neighbours,
+        neighboursKnown: neighbours.length > 0 && nwKnown.checked,
       })
       .then(() => nwDialog.close())
       .catch((e: unknown) => {
@@ -1293,6 +1303,16 @@ export function bindUi(store: Store, actions: Actions): void {
           { className: "residence" },
           el("h4", { text: p.residence.length > 1 ? "Where they have lived" : "Where they live" }),
           el("ul", {}, ...p.residence.map((line) => el("li", { text: line }))),
+        ),
+      );
+    }
+    if (p.alive && p.places.length > 0) {
+      nodes.push(
+        el(
+          "div",
+          { className: "places" },
+          el("h4", { text: "Places their household knows" }),
+          el("ul", {}, ...p.places.map((line) => el("li", { text: line }))),
         ),
       );
     }

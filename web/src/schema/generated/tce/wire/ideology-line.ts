@@ -53,8 +53,13 @@ fromName(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+influence():number {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
 static startIdeologyLine(builder:flatbuffers.Builder) {
-  builder.startObject(5);
+  builder.startObject(6);
 }
 
 static addName(builder:flatbuffers.Builder, nameOffset:flatbuffers.Offset) {
@@ -77,18 +82,23 @@ static addFromName(builder:flatbuffers.Builder, fromNameOffset:flatbuffers.Offse
   builder.addFieldOffset(4, fromNameOffset, 0);
 }
 
+static addInfluence(builder:flatbuffers.Builder, influence:number) {
+  builder.addFieldInt32(5, influence, 0);
+}
+
 static endIdeologyLine(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createIdeologyLine(builder:flatbuffers.Builder, nameOffset:flatbuffers.Offset, legitimacyOffset:flatbuffers.Offset, sinceMinute:bigint, from:bigint, fromNameOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createIdeologyLine(builder:flatbuffers.Builder, nameOffset:flatbuffers.Offset, legitimacyOffset:flatbuffers.Offset, sinceMinute:bigint, from:bigint, fromNameOffset:flatbuffers.Offset, influence:number):flatbuffers.Offset {
   IdeologyLine.startIdeologyLine(builder);
   IdeologyLine.addName(builder, nameOffset);
   IdeologyLine.addLegitimacy(builder, legitimacyOffset);
   IdeologyLine.addSinceMinute(builder, sinceMinute);
   IdeologyLine.addFrom(builder, from);
   IdeologyLine.addFromName(builder, fromNameOffset);
+  IdeologyLine.addInfluence(builder, influence);
   return IdeologyLine.endIdeologyLine(builder);
 }
 }

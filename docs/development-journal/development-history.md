@@ -646,6 +646,24 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** keeping a seized store, damage to property, fear from a blow; slice AJ (the god tools, the regimes row and the M4 demo).
 
+## 2026-10-08 — M4c slice AJ, step one: a whisper and an ideology heard of
+
+**Goal:** the first god tools of M4, which reach people only through what they could perceive (ADR-0016 §5; research 15-05 §4.2, §4.5, §6).
+
+**What changed:**
+
+- **Intervention records:** each use of a god tool is one record with its number, target and what it submitted; a repeat refreshes it and never adds another, and the chronicle logs each as one recorded influence.
+- **The whisper:** a true claim the adult's settlement's word holds and they have not heard (a call still to come, or another's grievance) is placed in their hearing from no one; what they do with it is what anyone who heard it would do, and it lapses as news does.
+- **An ideology heard of:** the adult weighs it by how well it fits what they hold dear, by a draw keyed to them and the ideology alone, and again at their monthly reviews while it is fresh, so only a change in them can change the answer.
+- **The observer's hand:** the inspector lists each influence on a person with what came of it (heard, told to others, came, joined, stood, weighed, taken up), read from the records people keep, and offers the news and ideologies to whisper and tell.
+- **Boundary:** saves schema 48 (47 still loads), wire 1.47 (two commands, the welcome's ideologies, a person's news and influences), no content API change.
+
+**Findings:** a save-and-load test counts the save's sections and needed the new one. The first inspector form's "Tell of it" button shared its name with the technique form's; the ideology one is now "Tell them".
+
+**Evidence:** integration tests that a whisper is heard from no one and a hundred repeats are one record and one chronicle entry, that it writes nothing but the hearing, that an ideology told of is taken up only where it fits and repeats draw nothing new, and that a change in what someone holds dear lets them take it up at a later review; a schema-47 save loads; host tests decode the commands and answer them; an end-to-end test tells an adult of an ideology from the inspector. The kernel (620), web (144) and end-to-end (17, 6 demos skipped) suites pass, with clippy and the format and schema checks clean. The ten-year smoke passed all 10 worlds, and Gate B and the notables' gate passed.
+
+**Open:** step two (the agitator, blessings and curses) and step three (the regimes row and the M4 demo).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

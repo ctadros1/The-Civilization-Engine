@@ -106,8 +106,8 @@ use super::{
     SCHEMA_V17, SCHEMA_V18, SCHEMA_V19, SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24,
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
-    SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, finish, section,
-    single_chunk, unreadable,
+    SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, finish,
+    section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -166,6 +166,8 @@ pub const SECTION_IDEOLOGIES: SectionTag = SectionTag::new("creeds");
 /// Section: factions, their stores and histories, and who belongs to each (schema 41, M4c slice
 /// AH).
 pub const SECTION_FACTIONS: SectionTag = SectionTag::new("factions");
+/// Section: the observer's interventions (schema 48, M4c slice AJ, ADR-0016 §5).
+pub const SECTION_INFLUENCE: SectionTag = SectionTag::new("influenc");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -250,6 +252,11 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             SECTION_FACTIONS,
             0,
             encode_factions(&sim.people.factions, &sim.rules, &goods),
+        ),
+        section(
+            SECTION_INFLUENCE,
+            0,
+            encode_influences(&sim.people.influences, rules),
         ),
     ]
 }
@@ -363,6 +370,8 @@ enum Schema {
     V46,
     /// Encounters, blows and deaths by violence (M4c slice AI, step four).
     V47,
+    /// The observer's interventions (M4c slice AJ).
+    V48,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -424,7 +433,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V44 => Schema::V44,
         SCHEMA_V45 => Schema::V45,
         SCHEMA_V46 => Schema::V46,
-        SAVE_SCHEMA_VERSION => Schema::V47,
+        SCHEMA_V47 => Schema::V47,
+        SAVE_SCHEMA_VERSION => Schema::V48,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -602,6 +612,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V41 {
         let bytes = single_chunk(reader, SECTION_FACTIONS)?;
         people.factions = decode_factions(&bytes, rules)?;
+    }
+    // The observer's interventions (schema 48); before them the observer had reached nobody so.
+    if schema >= Schema::V48 {
+        let bytes = single_chunk(reader, SECTION_INFLUENCE)?;
+        people.influences = decode_influences(&bytes, rules)?;
     }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
     match standing {
@@ -2514,7 +2529,8 @@ fn carried(
         | Schema::V44
         | Schema::V45
         | Schema::V46
-        | Schema::V47 => {
+        | Schema::V47
+        | Schema::V48 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2671,7 +2687,8 @@ fn decode_households(
             | Schema::V44
             | Schema::V45
             | Schema::V46
-            | Schema::V47 => {
+            | Schema::V47
+            | Schema::V48 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3337,6 +3354,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::CoupCalled => 36,
         ChronicleKind::CoupFailed => 37,
         ChronicleKind::Encounter => 38,
+        ChronicleKind::Influence => 39,
     }
 }
 
@@ -3380,6 +3398,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         36 => Some(ChronicleKind::CoupCalled),
         37 => Some(ChronicleKind::CoupFailed),
         38 => Some(ChronicleKind::Encounter),
+        39 => Some(ChronicleKind::Influence),
         _ => None,
     }
 }
@@ -6081,6 +6100,97 @@ fn decode_factions(
         joined: root.joined(),
         left: root.left(),
     })
+}
+
+// ---- the observer's interventions (M4c slice AJ, ADR-0016 §5) -----------------------------------
+
+fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let list: Vec<_> = inf
+        .list
+        .iter()
+        .map(|i| {
+            save::InfluenceSave::create(
+                &mut fbb,
+                &save::InfluenceSaveArgs {
+                    id: i.id,
+                    at: i.at.minutes(),
+                    last: i.last.minutes(),
+                    uses: i.uses,
+                    kind: i.kind.code(),
+                    target: i.target.get(),
+                    subject: i.subject,
+                    taken: i.taken.unwrap_or(-1),
+                    weighed: i.weighed,
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let ids: Vec<_> = rules
+        .catalog
+        .ideologies
+        .iter()
+        .map(|d| fbb.create_string(&d.id))
+        .collect();
+    let ids = fbb.create_vector(&ids);
+    let root = save::InfluencesSave::create(
+        &mut fbb,
+        &save::InfluencesSaveArgs {
+            list: Some(list),
+            ideologies: Some(ids),
+        },
+    );
+    finish(fbb, root)
+}
+
+/// An ideology told of that the loaded content no longer names is let go, as its holdings are.
+fn decode_influences(
+    bytes: &[u8],
+    rules: &Rules,
+) -> Result<civ_agents::influence::Influences, LoadError> {
+    use civ_agents::influence::{Influence, InfluenceKind, Influences};
+    let root = flatbuffers::root::<save::InfluencesSave>(bytes)
+        .map_err(|e| unreadable(SECTION_INFLUENCE, &e))?;
+    let map: Vec<Option<u32>> = read_strings(root.ideologies())
+        .iter()
+        .map(|id| {
+            rules
+                .catalog
+                .ideologies
+                .iter()
+                .position(|d| &d.id == id)
+                .and_then(|i| u32::try_from(i).ok())
+        })
+        .collect();
+    let mut list = Vec::new();
+    for i in root.list().iter().flatten() {
+        let kind = InfluenceKind::from_code(i.kind()).ok_or_else(|| {
+            LoadError::Malformed(format!("unknown kind of influence {}", i.kind()))
+        })?;
+        let subject = match kind {
+            InfluenceKind::Whisper => i.subject(),
+            InfluenceKind::Ideology => match map.get(i.subject() as usize) {
+                Some(Some(k)) => *k,
+                _ => continue,
+            },
+        };
+        list.push(Influence {
+            id: i.id(),
+            at: SimTime::from_minutes(i.at()),
+            last: SimTime::from_minutes(i.last()),
+            uses: i.uses(),
+            kind,
+            target: required(i.target(), "an influence's target")?,
+            subject,
+            taken: (i.taken() >= 0).then_some(i.taken()),
+            weighed: i.weighed(),
+        });
+    }
+    if list.windows(2).any(|w| w[0].id >= w[1].id) {
+        return Err(LoadError::Malformed("influences out of order".to_owned()));
+    }
+    Ok(Influences { list })
 }
 
 #[cfg(test)]

@@ -42,6 +42,7 @@ function heard(over: Partial<HeardLine> = {}): HeardLine {
     origin: 3,
     firstMinute: 62 * DAY,
     lastMinute: 62 * DAY,
+    influence: 0,
     ...over,
   };
 }
@@ -145,12 +146,25 @@ describe("grievances and news in words", () => {
       sinceMinute: 62 * DAY,
       from: 0,
       fromName: "",
+      influence: 0,
       ...over,
     });
     expect(ideologyText(d())).toBe(
       "'what the village gathers, the village keeps against a lean year'; brought with them",
     );
     expect(ideologyText(d({ from: 7, fromName: "Wren" }))).toMatch(/; from Wren since \d+ \w+ of year \d+$/);
+    expect(ideologyText(d({ influence: 2 }))).toMatch(
+      /; heard of from the observer, taken up on \d+ \w+ of year \d+: one recorded influence$/,
+    );
+  });
+});
+
+describe("a whisper in the news", () => {
+  it("says the observer whispered it, as one recorded influence", () => {
+    expect(heardHow(heard({ from: 0, origin: 0, influence: 3 }))).toMatch(
+      /^whispered by the observer on \d+ \w+ of year \d+: one recorded influence$/,
+    );
+    expect(heardHow(heard({ from: 0, origin: 0 }))).toMatch(/^they knew it first, on /);
   });
 });
 

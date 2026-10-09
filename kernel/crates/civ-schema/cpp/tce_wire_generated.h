@@ -38,6 +38,9 @@ struct SkillLine;
 struct CropInfo;
 struct CropInfoBuilder;
 
+struct IdeologyInfo;
+struct IdeologyInfoBuilder;
+
 struct TechniqueInfo;
 struct TechniqueInfoBuilder;
 
@@ -109,6 +112,12 @@ struct IntroduceTechniqueBuilder;
 
 struct PlaceDeposit;
 struct PlaceDepositBuilder;
+
+struct Whisper;
+struct WhisperBuilder;
+
+struct TellOfIdeology;
+struct TellOfIdeologyBuilder;
 
 struct Command;
 struct CommandBuilder;
@@ -229,6 +238,12 @@ struct StoreLine;
 
 struct PersonInfo;
 struct PersonInfoBuilder;
+
+struct NewsLine;
+struct NewsLineBuilder;
+
+struct InfluenceLine;
+struct InfluenceLineBuilder;
 
 struct FactionLine;
 struct FactionLineBuilder;
@@ -668,11 +683,13 @@ enum class CommandBody : uint8_t {
   RunUntil = 8,
   IntroduceTechnique = 9,
   PlaceDeposit = 10,
+  Whisper = 11,
+  TellOfIdeology = 12,
   MIN = NONE,
-  MAX = PlaceDeposit
+  MAX = TellOfIdeology
 };
 
-inline const CommandBody (&EnumValuesCommandBody())[11] {
+inline const CommandBody (&EnumValuesCommandBody())[13] {
   static const CommandBody values[] = {
     CommandBody::NONE,
     CommandBody::NewWorld,
@@ -684,13 +701,15 @@ inline const CommandBody (&EnumValuesCommandBody())[11] {
     CommandBody::SpawnFamily,
     CommandBody::RunUntil,
     CommandBody::IntroduceTechnique,
-    CommandBody::PlaceDeposit
+    CommandBody::PlaceDeposit,
+    CommandBody::Whisper,
+    CommandBody::TellOfIdeology
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandBody() {
-  static const char * const names[12] = {
+  static const char * const names[14] = {
     "NONE",
     "NewWorld",
     "SaveWorld",
@@ -702,13 +721,15 @@ inline const char * const *EnumNamesCommandBody() {
     "RunUntil",
     "IntroduceTechnique",
     "PlaceDeposit",
+    "Whisper",
+    "TellOfIdeology",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandBody(CommandBody e) {
-  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::PlaceDeposit)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::TellOfIdeology)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandBody()[index];
 }
@@ -755,6 +776,14 @@ template<> struct CommandBodyTraits<tce::wire::IntroduceTechnique> {
 
 template<> struct CommandBodyTraits<tce::wire::PlaceDeposit> {
   static const CommandBody enum_value = CommandBody::PlaceDeposit;
+};
+
+template<> struct CommandBodyTraits<tce::wire::Whisper> {
+  static const CommandBody enum_value = CommandBody::Whisper;
+};
+
+template<> struct CommandBodyTraits<tce::wire::TellOfIdeology> {
+  static const CommandBody enum_value = CommandBody::TellOfIdeology;
 };
 
 template <bool B = false>
@@ -2081,6 +2110,92 @@ inline ::flatbuffers::Offset<CropInfo> CreateCropInfoDirect(
       seed_good);
 }
 
+struct IdeologyInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef IdeologyInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_NAME = 6,
+    VT_LEGITIMACY = 8
+  };
+  const ::flatbuffers::String *id() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_ID);
+  }
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  const ::flatbuffers::String *legitimacy() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_LEGITIMACY);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ID) &&
+           verifier.VerifyString(id()) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyOffset(verifier, VT_LEGITIMACY) &&
+           verifier.VerifyString(legitimacy()) &&
+           verifier.EndTable();
+  }
+};
+
+struct IdeologyInfoBuilder {
+  typedef IdeologyInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(::flatbuffers::Offset<::flatbuffers::String> id) {
+    fbb_.AddOffset(IdeologyInfo::VT_ID, id);
+  }
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(IdeologyInfo::VT_NAME, name);
+  }
+  void add_legitimacy(::flatbuffers::Offset<::flatbuffers::String> legitimacy) {
+    fbb_.AddOffset(IdeologyInfo::VT_LEGITIMACY, legitimacy);
+  }
+  explicit IdeologyInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<IdeologyInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<IdeologyInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<IdeologyInfo> CreateIdeologyInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::String> id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> legitimacy = 0) {
+  IdeologyInfoBuilder builder_(_fbb);
+  builder_.add_legitimacy(legitimacy);
+  builder_.add_name(name);
+  builder_.add_id(id);
+  return builder_.Finish();
+}
+
+struct IdeologyInfo::Traits {
+  using type = IdeologyInfo;
+  static auto constexpr Create = CreateIdeologyInfo;
+};
+
+inline ::flatbuffers::Offset<IdeologyInfo> CreateIdeologyInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const char *id = nullptr,
+    const char *name = nullptr,
+    const char *legitimacy = nullptr) {
+  auto id__ = id ? _fbb.CreateString(id) : 0;
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto legitimacy__ = legitimacy ? _fbb.CreateString(legitimacy) : 0;
+  return tce::wire::CreateIdeologyInfo(
+      _fbb,
+      id__,
+      name__,
+      legitimacy__);
+}
+
 struct TechniqueInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef TechniqueInfoBuilder Builder;
   struct Traits;
@@ -2423,7 +2538,8 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_SKILLS = 36,
     VT_REGIMES = 38,
     VT_TECHNIQUES = 40,
-    VT_ACCELERATED_MULTIPLIERS = 42
+    VT_ACCELERATED_MULTIPLIERS = 42,
+    VT_IDEOLOGIES = 44
   };
   const ::flatbuffers::String *host() const {
     return GetPointer<const ::flatbuffers::String *>(VT_HOST);
@@ -2485,6 +2601,9 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<float> *accelerated_multipliers() const {
     return GetPointer<const ::flatbuffers::Vector<float> *>(VT_ACCELERATED_MULTIPLIERS);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IdeologyInfo>> *ideologies() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IdeologyInfo>> *>(VT_IDEOLOGIES);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -2530,6 +2649,9 @@ struct Welcome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVectorOfTables(techniques()) &&
            VerifyOffset(verifier, VT_ACCELERATED_MULTIPLIERS) &&
            verifier.VerifyVector(accelerated_multipliers()) &&
+           VerifyOffset(verifier, VT_IDEOLOGIES) &&
+           verifier.VerifyVector(ideologies()) &&
+           verifier.VerifyVectorOfTables(ideologies()) &&
            verifier.EndTable();
   }
 };
@@ -2598,6 +2720,9 @@ struct WelcomeBuilder {
   void add_accelerated_multipliers(::flatbuffers::Offset<::flatbuffers::Vector<float>> accelerated_multipliers) {
     fbb_.AddOffset(Welcome::VT_ACCELERATED_MULTIPLIERS, accelerated_multipliers);
   }
+  void add_ideologies(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IdeologyInfo>>> ideologies) {
+    fbb_.AddOffset(Welcome::VT_IDEOLOGIES, ideologies);
+  }
   explicit WelcomeBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -2630,8 +2755,10 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcome(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SkillInfo>>> skills = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RegimeInfo>>> regimes = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>>> techniques = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<float>> accelerated_multipliers = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<float>> accelerated_multipliers = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IdeologyInfo>>> ideologies = 0) {
   WelcomeBuilder builder_(_fbb);
+  builder_.add_ideologies(ideologies);
   builder_.add_accelerated_multipliers(accelerated_multipliers);
   builder_.add_techniques(techniques);
   builder_.add_regimes(regimes);
@@ -2681,7 +2808,8 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::SkillInfo>> *skills = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::RegimeInfo>> *regimes = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::TechniqueInfo>> *techniques = nullptr,
-    const std::vector<float> *accelerated_multipliers = nullptr) {
+    const std::vector<float> *accelerated_multipliers = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::IdeologyInfo>> *ideologies = nullptr) {
   auto host__ = host ? _fbb.CreateString(host) : 0;
   auto version__ = version ? _fbb.CreateString(version) : 0;
   auto presets__ = presets ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PresetInfo>>(*presets) : 0;
@@ -2696,6 +2824,7 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
   auto regimes__ = regimes ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::RegimeInfo>>(*regimes) : 0;
   auto techniques__ = techniques ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::TechniqueInfo>>(*techniques) : 0;
   auto accelerated_multipliers__ = accelerated_multipliers ? _fbb.CreateVector<float>(*accelerated_multipliers) : 0;
+  auto ideologies__ = ideologies ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::IdeologyInfo>>(*ideologies) : 0;
   return tce::wire::CreateWelcome(
       _fbb,
       host__,
@@ -2717,7 +2846,8 @@ inline ::flatbuffers::Offset<Welcome> CreateWelcomeDirect(
       skills__,
       regimes__,
       techniques__,
-      accelerated_multipliers__);
+      accelerated_multipliers__,
+      ideologies__);
 }
 
 struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -4946,6 +5076,122 @@ inline ::flatbuffers::Offset<PlaceDeposit> CreatePlaceDepositDirect(
       exposed);
 }
 
+struct Whisper FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef WhisperBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_PERSON = 4,
+    VT_CLAIM = 6
+  };
+  uint64_t person() const {
+    return GetField<uint64_t>(VT_PERSON, 0);
+  }
+  uint32_t claim() const {
+    return GetField<uint32_t>(VT_CLAIM, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_PERSON, 8) &&
+           VerifyField<uint32_t>(verifier, VT_CLAIM, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct WhisperBuilder {
+  typedef Whisper Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_person(uint64_t person) {
+    fbb_.AddElement<uint64_t>(Whisper::VT_PERSON, person, 0);
+  }
+  void add_claim(uint32_t claim) {
+    fbb_.AddElement<uint32_t>(Whisper::VT_CLAIM, claim, 0);
+  }
+  explicit WhisperBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Whisper> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Whisper>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Whisper> CreateWhisper(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t person = 0,
+    uint32_t claim = 0) {
+  WhisperBuilder builder_(_fbb);
+  builder_.add_person(person);
+  builder_.add_claim(claim);
+  return builder_.Finish();
+}
+
+struct Whisper::Traits {
+  using type = Whisper;
+  static auto constexpr Create = CreateWhisper;
+};
+
+struct TellOfIdeology FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef TellOfIdeologyBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_PERSON = 4,
+    VT_IDEOLOGY = 6
+  };
+  uint64_t person() const {
+    return GetField<uint64_t>(VT_PERSON, 0);
+  }
+  uint32_t ideology() const {
+    return GetField<uint32_t>(VT_IDEOLOGY, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_PERSON, 8) &&
+           VerifyField<uint32_t>(verifier, VT_IDEOLOGY, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct TellOfIdeologyBuilder {
+  typedef TellOfIdeology Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_person(uint64_t person) {
+    fbb_.AddElement<uint64_t>(TellOfIdeology::VT_PERSON, person, 0);
+  }
+  void add_ideology(uint32_t ideology) {
+    fbb_.AddElement<uint32_t>(TellOfIdeology::VT_IDEOLOGY, ideology, 0);
+  }
+  explicit TellOfIdeologyBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<TellOfIdeology> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<TellOfIdeology>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<TellOfIdeology> CreateTellOfIdeology(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t person = 0,
+    uint32_t ideology = 0) {
+  TellOfIdeologyBuilder builder_(_fbb);
+  builder_.add_person(person);
+  builder_.add_ideology(ideology);
+  return builder_.Finish();
+}
+
+struct TellOfIdeology::Traits {
+  using type = TellOfIdeology;
+  static auto constexpr Create = CreateTellOfIdeology;
+};
+
 struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef CommandBuilder Builder;
   struct Traits;
@@ -4989,6 +5235,12 @@ struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::PlaceDeposit *body_as_PlaceDeposit() const {
     return body_type() == tce::wire::CommandBody::PlaceDeposit ? static_cast<const tce::wire::PlaceDeposit *>(body()) : nullptr;
+  }
+  const tce::wire::Whisper *body_as_Whisper() const {
+    return body_type() == tce::wire::CommandBody::Whisper ? static_cast<const tce::wire::Whisper *>(body()) : nullptr;
+  }
+  const tce::wire::TellOfIdeology *body_as_TellOfIdeology() const {
+    return body_type() == tce::wire::CommandBody::TellOfIdeology ? static_cast<const tce::wire::TellOfIdeology *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -5038,6 +5290,14 @@ template<> inline const tce::wire::IntroduceTechnique *Command::body_as<tce::wir
 
 template<> inline const tce::wire::PlaceDeposit *Command::body_as<tce::wire::PlaceDeposit>() const {
   return body_as_PlaceDeposit();
+}
+
+template<> inline const tce::wire::Whisper *Command::body_as<tce::wire::Whisper>() const {
+  return body_as_Whisper();
+}
+
+template<> inline const tce::wire::TellOfIdeology *Command::body_as<tce::wire::TellOfIdeology>() const {
+  return body_as_TellOfIdeology();
 }
 
 struct CommandBuilder {
@@ -7755,7 +8015,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_NORMS = 94,
     VT_VALUES = 96,
     VT_IDEOLOGIES = 98,
-    VT_FACTION = 100
+    VT_FACTION = 100,
+    VT_NEWS = 102,
+    VT_INFLUENCES = 104
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -7904,6 +8166,12 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const tce::wire::FactionLine *faction() const {
     return GetPointer<const tce::wire::FactionLine *>(VT_FACTION);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::NewsLine>> *news() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::NewsLine>> *>(VT_NEWS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::InfluenceLine>> *influences() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::InfluenceLine>> *>(VT_INFLUENCES);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -7989,6 +8257,12 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVectorOfTables(ideologies()) &&
            VerifyOffset(verifier, VT_FACTION) &&
            verifier.VerifyTable(faction()) &&
+           VerifyOffset(verifier, VT_NEWS) &&
+           verifier.VerifyVector(news()) &&
+           verifier.VerifyVectorOfTables(news()) &&
+           VerifyOffset(verifier, VT_INFLUENCES) &&
+           verifier.VerifyVector(influences()) &&
+           verifier.VerifyVectorOfTables(influences()) &&
            verifier.EndTable();
   }
 };
@@ -8144,6 +8418,12 @@ struct PersonInfoBuilder {
   void add_faction(::flatbuffers::Offset<tce::wire::FactionLine> faction) {
     fbb_.AddOffset(PersonInfo::VT_FACTION, faction);
   }
+  void add_news(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::NewsLine>>> news) {
+    fbb_.AddOffset(PersonInfo::VT_NEWS, news);
+  }
+  void add_influences(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::InfluenceLine>>> influences) {
+    fbb_.AddOffset(PersonInfo::VT_INFLUENCES, influences);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8205,7 +8485,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::NormLine>>> norms = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::ValueLine>>> values = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IdeologyLine>>> ideologies = 0,
-    ::flatbuffers::Offset<tce::wire::FactionLine> faction = 0) {
+    ::flatbuffers::Offset<tce::wire::FactionLine> faction = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::NewsLine>>> news = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::InfluenceLine>>> influences = 0) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
@@ -8217,6 +8499,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_influences(influences);
+  builder_.add_news(news);
   builder_.add_faction(faction);
   builder_.add_ideologies(ideologies);
   builder_.add_values(values);
@@ -8314,7 +8598,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::NormLine>> *norms = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::ValueLine>> *values = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::IdeologyLine>> *ideologies = nullptr,
-    ::flatbuffers::Offset<tce::wire::FactionLine> faction = 0) {
+    ::flatbuffers::Offset<tce::wire::FactionLine> faction = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::NewsLine>> *news = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::InfluenceLine>> *influences = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -8335,6 +8621,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto norms__ = norms ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::NormLine>>(*norms) : 0;
   auto values__ = values ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::ValueLine>>(*values) : 0;
   auto ideologies__ = ideologies ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::IdeologyLine>>(*ideologies) : 0;
+  auto news__ = news ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::NewsLine>>(*news) : 0;
+  auto influences__ = influences ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::InfluenceLine>>(*influences) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -8385,7 +8673,173 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       norms__,
       values__,
       ideologies__,
-      faction);
+      faction,
+      news__,
+      influences__);
+}
+
+struct NewsLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef NewsLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_CLAIM = 4,
+    VT_WHAT = 6
+  };
+  uint32_t claim() const {
+    return GetField<uint32_t>(VT_CLAIM, 0);
+  }
+  const ::flatbuffers::String *what() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WHAT);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_CLAIM, 4) &&
+           VerifyOffset(verifier, VT_WHAT) &&
+           verifier.VerifyString(what()) &&
+           verifier.EndTable();
+  }
+};
+
+struct NewsLineBuilder {
+  typedef NewsLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_claim(uint32_t claim) {
+    fbb_.AddElement<uint32_t>(NewsLine::VT_CLAIM, claim, 0);
+  }
+  void add_what(::flatbuffers::Offset<::flatbuffers::String> what) {
+    fbb_.AddOffset(NewsLine::VT_WHAT, what);
+  }
+  explicit NewsLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<NewsLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<NewsLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<NewsLine> CreateNewsLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t claim = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> what = 0) {
+  NewsLineBuilder builder_(_fbb);
+  builder_.add_what(what);
+  builder_.add_claim(claim);
+  return builder_.Finish();
+}
+
+struct NewsLine::Traits {
+  using type = NewsLine;
+  static auto constexpr Create = CreateNewsLine;
+};
+
+inline ::flatbuffers::Offset<NewsLine> CreateNewsLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t claim = 0,
+    const char *what = nullptr) {
+  auto what__ = what ? _fbb.CreateString(what) : 0;
+  return tce::wire::CreateNewsLine(
+      _fbb,
+      claim,
+      what__);
+}
+
+struct InfluenceLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef InfluenceLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_KIND = 6,
+    VT_MINUTE = 8,
+    VT_WHAT = 10
+  };
+  uint32_t id() const {
+    return GetField<uint32_t>(VT_ID, 0);
+  }
+  uint8_t kind() const {
+    return GetField<uint8_t>(VT_KIND, 0);
+  }
+  int64_t minute() const {
+    return GetField<int64_t>(VT_MINUTE, 0);
+  }
+  const ::flatbuffers::String *what() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WHAT);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ID, 4) &&
+           VerifyField<uint8_t>(verifier, VT_KIND, 1) &&
+           VerifyField<int64_t>(verifier, VT_MINUTE, 8) &&
+           VerifyOffset(verifier, VT_WHAT) &&
+           verifier.VerifyString(what()) &&
+           verifier.EndTable();
+  }
+};
+
+struct InfluenceLineBuilder {
+  typedef InfluenceLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint32_t id) {
+    fbb_.AddElement<uint32_t>(InfluenceLine::VT_ID, id, 0);
+  }
+  void add_kind(uint8_t kind) {
+    fbb_.AddElement<uint8_t>(InfluenceLine::VT_KIND, kind, 0);
+  }
+  void add_minute(int64_t minute) {
+    fbb_.AddElement<int64_t>(InfluenceLine::VT_MINUTE, minute, 0);
+  }
+  void add_what(::flatbuffers::Offset<::flatbuffers::String> what) {
+    fbb_.AddOffset(InfluenceLine::VT_WHAT, what);
+  }
+  explicit InfluenceLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<InfluenceLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<InfluenceLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<InfluenceLine> CreateInfluenceLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    uint8_t kind = 0,
+    int64_t minute = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> what = 0) {
+  InfluenceLineBuilder builder_(_fbb);
+  builder_.add_minute(minute);
+  builder_.add_what(what);
+  builder_.add_id(id);
+  builder_.add_kind(kind);
+  return builder_.Finish();
+}
+
+struct InfluenceLine::Traits {
+  using type = InfluenceLine;
+  static auto constexpr Create = CreateInfluenceLine;
+};
+
+inline ::flatbuffers::Offset<InfluenceLine> CreateInfluenceLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    uint8_t kind = 0,
+    int64_t minute = 0,
+    const char *what = nullptr) {
+  auto what__ = what ? _fbb.CreateString(what) : 0;
+  return tce::wire::CreateInfluenceLine(
+      _fbb,
+      id,
+      kind,
+      minute,
+      what__);
 }
 
 struct FactionLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -8532,7 +8986,8 @@ struct IdeologyLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_LEGITIMACY = 6,
     VT_SINCE_MINUTE = 8,
     VT_FROM = 10,
-    VT_FROM_NAME = 12
+    VT_FROM_NAME = 12,
+    VT_INFLUENCE = 14
   };
   const ::flatbuffers::String *name() const {
     return GetPointer<const ::flatbuffers::String *>(VT_NAME);
@@ -8549,6 +9004,9 @@ struct IdeologyLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *from_name() const {
     return GetPointer<const ::flatbuffers::String *>(VT_FROM_NAME);
   }
+  uint32_t influence() const {
+    return GetField<uint32_t>(VT_INFLUENCE, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -8560,6 +9018,7 @@ struct IdeologyLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_FROM, 8) &&
            VerifyOffset(verifier, VT_FROM_NAME) &&
            verifier.VerifyString(from_name()) &&
+           VerifyField<uint32_t>(verifier, VT_INFLUENCE, 4) &&
            verifier.EndTable();
   }
 };
@@ -8583,6 +9042,9 @@ struct IdeologyLineBuilder {
   void add_from_name(::flatbuffers::Offset<::flatbuffers::String> from_name) {
     fbb_.AddOffset(IdeologyLine::VT_FROM_NAME, from_name);
   }
+  void add_influence(uint32_t influence) {
+    fbb_.AddElement<uint32_t>(IdeologyLine::VT_INFLUENCE, influence, 0);
+  }
   explicit IdeologyLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8600,10 +9062,12 @@ inline ::flatbuffers::Offset<IdeologyLine> CreateIdeologyLine(
     ::flatbuffers::Offset<::flatbuffers::String> legitimacy = 0,
     int64_t since_minute = 0,
     uint64_t from = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> from_name = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> from_name = 0,
+    uint32_t influence = 0) {
   IdeologyLineBuilder builder_(_fbb);
   builder_.add_from(from);
   builder_.add_since_minute(since_minute);
+  builder_.add_influence(influence);
   builder_.add_from_name(from_name);
   builder_.add_legitimacy(legitimacy);
   builder_.add_name(name);
@@ -8621,7 +9085,8 @@ inline ::flatbuffers::Offset<IdeologyLine> CreateIdeologyLineDirect(
     const char *legitimacy = nullptr,
     int64_t since_minute = 0,
     uint64_t from = 0,
-    const char *from_name = nullptr) {
+    const char *from_name = nullptr,
+    uint32_t influence = 0) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto legitimacy__ = legitimacy ? _fbb.CreateString(legitimacy) : 0;
   auto from_name__ = from_name ? _fbb.CreateString(from_name) : 0;
@@ -8631,7 +9096,8 @@ inline ::flatbuffers::Offset<IdeologyLine> CreateIdeologyLineDirect(
       legitimacy__,
       since_minute,
       from,
-      from_name__);
+      from_name__,
+      influence);
 }
 
 struct ValueLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -9164,7 +9630,8 @@ struct HeardLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_FROM_NAME = 10,
     VT_ORIGIN = 12,
     VT_FIRST_MINUTE = 14,
-    VT_LAST_MINUTE = 16
+    VT_LAST_MINUTE = 16,
+    VT_INFLUENCE = 18
   };
   uint8_t kind() const {
     return GetField<uint8_t>(VT_KIND, 0);
@@ -9187,6 +9654,9 @@ struct HeardLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   int64_t last_minute() const {
     return GetField<int64_t>(VT_LAST_MINUTE, 0);
   }
+  uint32_t influence() const {
+    return GetField<uint32_t>(VT_INFLUENCE, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -9199,6 +9669,7 @@ struct HeardLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_ORIGIN, 8) &&
            VerifyField<int64_t>(verifier, VT_FIRST_MINUTE, 8) &&
            VerifyField<int64_t>(verifier, VT_LAST_MINUTE, 8) &&
+           VerifyField<uint32_t>(verifier, VT_INFLUENCE, 4) &&
            verifier.EndTable();
   }
 };
@@ -9228,6 +9699,9 @@ struct HeardLineBuilder {
   void add_last_minute(int64_t last_minute) {
     fbb_.AddElement<int64_t>(HeardLine::VT_LAST_MINUTE, last_minute, 0);
   }
+  void add_influence(uint32_t influence) {
+    fbb_.AddElement<uint32_t>(HeardLine::VT_INFLUENCE, influence, 0);
+  }
   explicit HeardLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -9247,12 +9721,14 @@ inline ::flatbuffers::Offset<HeardLine> CreateHeardLine(
     ::flatbuffers::Offset<::flatbuffers::String> from_name = 0,
     uint64_t origin = 0,
     int64_t first_minute = 0,
-    int64_t last_minute = 0) {
+    int64_t last_minute = 0,
+    uint32_t influence = 0) {
   HeardLineBuilder builder_(_fbb);
   builder_.add_last_minute(last_minute);
   builder_.add_first_minute(first_minute);
   builder_.add_origin(origin);
   builder_.add_from(from);
+  builder_.add_influence(influence);
   builder_.add_from_name(from_name);
   builder_.add_what(what);
   builder_.add_kind(kind);
@@ -9272,7 +9748,8 @@ inline ::flatbuffers::Offset<HeardLine> CreateHeardLineDirect(
     const char *from_name = nullptr,
     uint64_t origin = 0,
     int64_t first_minute = 0,
-    int64_t last_minute = 0) {
+    int64_t last_minute = 0,
+    uint32_t influence = 0) {
   auto what__ = what ? _fbb.CreateString(what) : 0;
   auto from_name__ = from_name ? _fbb.CreateString(from_name) : 0;
   return tce::wire::CreateHeardLine(
@@ -9283,7 +9760,8 @@ inline ::flatbuffers::Offset<HeardLine> CreateHeardLineDirect(
       from_name__,
       origin,
       first_minute,
-      last_minute);
+      last_minute,
+      influence);
 }
 
 struct TieLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -16749,6 +17227,14 @@ inline bool VerifyCommandBody(::flatbuffers::VerifierTemplate<B> &verifier, cons
     }
     case CommandBody::PlaceDeposit: {
       auto ptr = reinterpret_cast<const tce::wire::PlaceDeposit *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case CommandBody::Whisper: {
+      auto ptr = reinterpret_cast<const tce::wire::Whisper *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case CommandBody::TellOfIdeology: {
+      auto ptr = reinterpret_cast<const tce::wire::TellOfIdeology *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

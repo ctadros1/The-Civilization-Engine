@@ -9,8 +9,10 @@ import { FactionLine } from '../../tce/wire/faction-line.js';
 import { GrievanceLine } from '../../tce/wire/grievance-line.js';
 import { HeardLine } from '../../tce/wire/heard-line.js';
 import { IdeologyLine } from '../../tce/wire/ideology-line.js';
+import { InfluenceLine } from '../../tce/wire/influence-line.js';
 import { KinLink } from '../../tce/wire/kin-link.js';
 import { KnowLine } from '../../tce/wire/know-line.js';
+import { NewsLine } from '../../tce/wire/news-line.js';
 import { NormLine } from '../../tce/wire/norm-line.js';
 import { PositionLine } from '../../tce/wire/position-line.js';
 import { Sex } from '../../tce/wire/sex.js';
@@ -374,8 +376,28 @@ faction(obj?:FactionLine):FactionLine|null {
   return offset ? (obj || new FactionLine()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
+news(index: number, obj?:NewsLine):NewsLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 102);
+  return offset ? (obj || new NewsLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+newsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 102);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+influences(index: number, obj?:InfluenceLine):InfluenceLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 104);
+  return offset ? (obj || new InfluenceLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+influencesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 104);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(49);
+  builder.startObject(51);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -729,6 +751,38 @@ static startIdeologiesVector(builder:flatbuffers.Builder, numElems:number) {
 
 static addFaction(builder:flatbuffers.Builder, factionOffset:flatbuffers.Offset) {
   builder.addFieldOffset(48, factionOffset, 0);
+}
+
+static addNews(builder:flatbuffers.Builder, newsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(49, newsOffset, 0);
+}
+
+static createNewsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startNewsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addInfluences(builder:flatbuffers.Builder, influencesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(50, influencesOffset, 0);
+}
+
+static createInfluencesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startInfluencesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
 }
 
 static endPersonInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

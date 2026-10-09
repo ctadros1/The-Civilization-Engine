@@ -133,6 +133,11 @@ export interface Actions {
    * `awareOnly` only hear of it. `technique` is an index into Welcome.techniques.
    */
   introduceTechnique(person: number, technique: number, awareOnly: boolean): Promise<void>;
+  /** Whisper a true claim to a living adult (god tool, M4c slice AJ): a number from their news. */
+  whisper(person: number, claim: number): Promise<void>;
+  /** Tell a living adult of an ideology (god tool, M4c slice AJ): an index into
+   * Welcome.ideologies. */
+  tellOfIdeology(person: number, ideology: number): Promise<void>;
 }
 
 const MAX_SEED = (1n << 64n) - 1n;
@@ -1007,6 +1012,81 @@ export function bindUi(store: Store, actions: Actions): void {
     box.append(form);
     return box;
   };
+  /** The observer's hand on one person (M4c slice AJ, ADR-0016 §5): what the observer has done
+   * to them and what came of it, and the two god tools that reach them, a whisper of news they
+   * have not heard and an ideology to hear of. Nothing here chooses for them. */
+  let observerSelects: HTMLSelectElement[] = [];
+  const observerBlock = (welcome: Welcome | null, p: PersonInfo): Node => {
+    const box = el("div", { className: "observer-hand" }, el("h4", { text: "The observer's hand" }));
+    observerSelects = [];
+    if (p.influences.length === 0) {
+      box.append(el("p", { className: "empty", text: "The observer has not reached them." }));
+    } else {
+      box.append(
+        el(
+          "ul",
+          { className: "influences" },
+          ...p.influences.map((i) =>
+            el(
+              "li",
+              {},
+              el("span", { text: `${i.what}. ` }),
+              el("span", { className: "aside", text: `(${lawDayText(i.minute)}; one recorded influence)` }),
+            ),
+          ),
+        ),
+      );
+    }
+    if (p.news.length > 0) {
+      const select = el("select");
+      select.id = "whisper-claim";
+      for (const n of p.news) {
+        const option = el("option", { text: claimText(n) });
+        option.value = String(n.claim);
+        select.append(option);
+      }
+      const label = el("label", { text: "Whisper" });
+      label.htmlFor = select.id;
+      const go = el("button", { text: "Whisper" });
+      go.type = "submit";
+      go.id = "whisper-go";
+      go.title = "They hear it, from no one; what they do with it is theirs (god tool)";
+      const form = el("form", { className: "whisper" }, label, select, go);
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        go.disabled = true;
+        void actions.whisper(p.id, Number(select.value));
+      });
+      observerSelects.push(select);
+      box.append(form);
+    }
+    const ideologies = welcome?.ideologies ?? [];
+    if (ideologies.length > 0) {
+      const select = el("select");
+      select.id = "tell-ideology";
+      ideologies.forEach((d, k) => {
+        const option = el("option", { text: d.name });
+        option.value = String(k);
+        option.title = d.legitimacy;
+        select.append(option);
+      });
+      const label = el("label", { text: "Tell of" });
+      label.htmlFor = select.id;
+      const go = el("button", { text: "Tell them" });
+      go.type = "submit";
+      go.id = "tell-ideology-go";
+      go.title = "They hear of it from no one and weigh it by what they hold dear (god tool)";
+      const form = el("form", { className: "tell-ideology" }, label, select, go);
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        go.disabled = true;
+        void actions.tellOfIdeology(p.id, Number(select.value));
+      });
+      observerSelects.push(select);
+      box.append(form);
+    }
+    return box;
+  };
   const inspector = (state: AppState, sel: Selection): Node[] => {
     const welcome = state.welcome;
     const close = el("button", { className: "icon", text: "×" });
@@ -1128,6 +1208,7 @@ export function bindUi(store: Store, actions: Actions): void {
     }
     nodes.push(knowsBlock(welcome, p));
     if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p), opinionBlock(p));
+    if (p.alive) nodes.push(observerBlock(welcome, p));
     if (p.kin.length > 0 || p.family.length > 0) {
       nodes.push(
         el(
@@ -1159,6 +1240,7 @@ export function bindUi(store: Store, actions: Actions): void {
       if (renderedSelection === sel) return;
       // Not while a technique is being chosen: the list would be replaced under the pointer.
       if (introSelect?.isConnected && document.activeElement === introSelect) return;
+      if (observerSelects.some((x) => x.isConnected && document.activeElement === x)) return;
       renderedSelection = sel;
       peopleKey = "";
       peopleBody.replaceChildren(...inspector(state, sel));

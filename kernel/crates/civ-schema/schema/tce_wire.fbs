@@ -101,6 +101,15 @@ table CropInfo {
 
 // A technique people know, learn and can lose (M3b slice M; ADR-0008). PersonInfo.knows and
 // Knowledge refer to techniques by their index in Welcome.techniques.
+// Wire 1.47 (M4c slice AJ): an ideology content names, for the observer's god tool.
+table IdeologyInfo {
+  id: string (id: 0);
+  // "Common provision".
+  name: string (id: 1);
+  // Its legitimacy story in words.
+  legitimacy: string (id: 2);
+}
+
 table TechniqueInfo {
   id: string (id: 0);
   // "Shaping stone".
@@ -168,6 +177,8 @@ table Welcome {
   // Wire 1.23 (M3c slice S): the Accelerated speeds as multiples of 1x, after the Detailed ones in
   // speed_multipliers: 60, 600 and Max, which is infinite.
   accelerated_multipliers: [float] (id: 19);
+  // Wire 1.47 (M4c slice AJ): the ideologies, which the observer may tell someone of.
+  ideologies: [IdeologyInfo] (id: 20);
 }
 
 // ---- Snapshot: replaceable host and world state --------------------------------------------
@@ -418,7 +429,21 @@ table PlaceDeposit {
   exposed: bool (id: 3);
 }
 
-union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit }
+// Wire 1.47 (M4c slice AJ, ADR-0016 §5): the observer whispers a true claim to a person: one
+// their settlement's word holds and they have not heard (PersonInfo.news). A repeat refreshes it.
+table Whisper {
+  person: ulong (id: 0);
+  claim: uint (id: 1);
+}
+
+// Wire 1.47 (M4c slice AJ, ADR-0016 §5): the observer tells a person of an ideology (an index
+// into Welcome.ideologies); they weigh it as one heard of from no one. A repeat draws nothing new.
+table TellOfIdeology {
+  person: ulong (id: 0);
+  ideology: uint (id: 1);
+}
+
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology }
 
 table Command {
   body: CommandBody (id: 1);
@@ -751,6 +776,32 @@ table PersonInfo {
   ideologies: [IdeologyLine] (id: 47);
   // Wire 1.40 (M4c slice AH, ADR-0017 §2): the faction they belong to, if any.
   faction: FactionLine (id: 48);
+  // Wire 1.47 (M4c slice AJ, ADR-0016 §5): the true claims their settlement's word holds that
+  // they have not heard, which the observer may whisper to them, newest first.
+  news: [NewsLine] (id: 49);
+  // Wire 1.47: the observer's interventions that reached them, newest first, with what came of
+  // each.
+  influences: [InfluenceLine] (id: 50);
+}
+
+// Wire 1.47 (M4c slice AJ): a claim that may be whispered.
+table NewsLine {
+  claim: uint (id: 0);
+  // What it says, in the kernel's words.
+  what: string (id: 1);
+}
+
+// Wire 1.47 (M4c slice AJ, ADR-0016 §5; research 15-05 §6): one recorded influence and what came
+// of it, read from the records people keep.
+table InfluenceLine {
+  id: uint (id: 0);
+  // 0 a whisper, 1 an ideology told of.
+  kind: ubyte (id: 1);
+  // When it was first used.
+  minute: long (id: 2);
+  // What it submitted and what came of it, in the kernel's words ("Whispered that Bo holds a
+  // grievance against the gathering over a levy: heard; told no one since").
+  what: string (id: 3);
 }
 
 // The faction someone belongs to (wire 1.40, ADR-0017 §2, §6).
@@ -777,6 +828,9 @@ table IdeologyLine {
   since_minute: long (id: 2);
   from: ulong (id: 3);
   from_name: string (id: 4);
+  // Wire 1.47 (M4c slice AJ): the observer's intervention they took it up by, having heard of it
+  // from no one (0: none).
+  influence: uint (id: 5);
 }
 
 // What someone holds of a value (wire 1.38, ADR-0016 §4; research 06-04 §1.1).
@@ -860,6 +914,9 @@ table HeardLine {
   origin: ulong (id: 4);
   first_minute: long (id: 5);
   last_minute: long (id: 6);
+  // Wire 1.47 (M4c slice AJ): the observer's intervention that placed it in their hearing (0:
+  // none).
+  influence: uint (id: 7);
 }
 
 // One person's view of another (wire 1.26, ADR-0014 §1).

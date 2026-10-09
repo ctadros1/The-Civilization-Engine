@@ -37,6 +37,7 @@ pub mod firm;
 pub mod found;
 pub mod history;
 pub mod ideology;
+pub mod influence;
 pub mod knowledge;
 pub mod ledger;
 pub mod make;

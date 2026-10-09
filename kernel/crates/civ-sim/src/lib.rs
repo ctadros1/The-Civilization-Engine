@@ -742,6 +742,79 @@ impl Sim {
         done
     }
 
+    /// The observer whispers claim `claim` to `person` (god tool, M4c slice AJ, ADR-0016 §5): a
+    /// true claim their settlement's word holds, placed in their hearing as if heard. The
+    /// chronicle records it as one recorded influence.
+    pub fn whisper(
+        &mut self,
+        person: civ_core::PermanentId,
+        claim: u32,
+    ) -> Result<civ_agents::population::Reached, String> {
+        let words = self
+            .people
+            .word
+            .claim(claim)
+            .map(|c| frames::word::claim_words(self, c))
+            .ok_or_else(|| format!("there is no news {claim} to whisper"))?;
+        self.influence(|people, ctx| people.whisper(ctx, person, claim, &words))
+    }
+
+    /// The observer tells `person` of ideology `ideology` (by content id; god tool, M4c slice AJ,
+    /// ADR-0016 §5): they weigh it as one heard of from no one. The chronicle records it as one
+    /// recorded influence.
+    pub fn tell_of_ideology(
+        &mut self,
+        person: civ_core::PermanentId,
+        ideology: &str,
+    ) -> Result<civ_agents::population::Reached, String> {
+        let k = self
+            .rules
+            .catalog
+            .ideologies
+            .iter()
+            .position(|d| d.id == ideology)
+            .and_then(|k| u16::try_from(k).ok())
+            .ok_or_else(|| format!("there is no ideology `{ideology}`"))?;
+        self.influence(|people, ctx| people.tell_of_ideology(ctx, person, k))
+    }
+
+    /// Runs god tool `tool` on the people with a context for now, then schedules what it planned.
+    fn influence<T>(
+        &mut self,
+        tool: impl FnOnce(&mut Population, &mut Ctx) -> Result<T, String>,
+    ) -> Result<T, String> {
+        let now = self.now();
+        let approx = self.approximations_now();
+        let mut pending = Vec::new();
+        let done = {
+            let mut ctx = Ctx {
+                now,
+                seed: self.meta.seed,
+                map: &self.map,
+                nav: &self.nav,
+                land: &mut self.land,
+                land_params: &self.rules.land,
+                params: &self.rules.people,
+                catalog: &self.rules.catalog,
+                regime: &self.regime,
+                ids: &mut self.ids,
+                schedule: &mut pending,
+                approx,
+            };
+            tool(&mut self.people, &mut ctx)
+        };
+        for (when, event) in pending {
+            let _ = self
+                .scheduler
+                .schedule(when, PHASE_AGENT, SimEvent::Agent(event));
+        }
+        if done.is_ok() {
+            self.people.forget_views();
+            self.dirty = true;
+        }
+        done
+    }
+
     /// Puts a world together from its parts, paused at 1x and never saved.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn assemble(

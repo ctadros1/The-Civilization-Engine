@@ -131,6 +131,15 @@ export interface Welcome {
   regimes: RegimeInfo[];
   /** The techniques, in the order people's knowledge refers to. */
   techniques: TechniqueInfo[];
+  /** Wire 1.47 (M4c slice AJ): the ideologies, which the observer may tell someone of. */
+  ideologies: IdeologyInfo[];
+}
+
+/** An ideology content names (wire 1.47). */
+export interface IdeologyInfo {
+  id: string;
+  name: string;
+  legitimacy: string;
 }
 
 export interface WorldInfo {
@@ -718,6 +727,27 @@ export interface PersonInfo {
   ideologies: IdeologyLine[];
   /** Wire 1.40 (M4c slice AH): the faction they belong to, if any. */
   faction: FactionLine | null;
+  /** Wire 1.47 (M4c slice AJ, ADR-0016 §5): true claims their settlement's word holds that they
+   * have not heard, which the observer may whisper to them, newest first. */
+  news: NewsLine[];
+  /** Wire 1.47: the observer's interventions that reached them, newest first, with what came of
+   * each, in the kernel's words. */
+  influences: InfluenceLine[];
+}
+
+/** A claim the observer may whisper (wire 1.47). */
+export interface NewsLine {
+  claim: number;
+  what: string;
+}
+
+/** One recorded influence and what came of it (wire 1.47, research 15-05 §6). */
+export interface InfluenceLine {
+  id: number;
+  /** 0 a whisper, 1 an ideology told of. */
+  kind: number;
+  minute: number;
+  what: string;
 }
 
 /** The faction someone belongs to (wire 1.40, ADR-0017 §2, §6). */
@@ -743,6 +773,8 @@ export interface IdeologyLine {
   sinceMinute: number;
   from: number;
   fromName: string;
+  /** Wire 1.47: the observer's intervention they took it up by (0: none). */
+  influence: number;
 }
 
 /** What someone holds of a value (wire 1.38, ADR-0016 §4). */
@@ -816,6 +848,8 @@ export interface HeardLine {
   origin: number;
   firstMinute: number;
   lastMinute: number;
+  /** Wire 1.47: the observer's intervention that placed it in their hearing (0: none). */
+  influence: number;
 }
 
 /** One person's view of another (wire 1.26, ADR-0014). */
@@ -1566,6 +1600,26 @@ export function introduceTechnique(person: number, technique: number, awareOnly:
   return command(b, W.CommandBody.IntroduceTechnique, body);
 }
 
+/**
+ * The observer whispers a true claim to a living adult (god tool, M4c slice AJ, ADR-0016 §5):
+ * `claim` is a number from their PersonInfo.news. A repeat refreshes it and adds nothing.
+ */
+export function whisper(person: number, claim: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  const body = W.Whisper.createWhisper(b, BigInt(person), claim);
+  return command(b, W.CommandBody.Whisper, body);
+}
+
+/**
+ * The observer tells a living adult of an ideology (god tool, M4c slice AJ, ADR-0016 §5):
+ * `ideology` is an index into Welcome.ideologies. They weigh it as one heard of from no one.
+ */
+export function tellOfIdeology(person: number, ideology: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  const body = W.TellOfIdeology.createTellOfIdeology(b, BigInt(person), ideology);
+  return command(b, W.CommandBody.TellOfIdeology, body);
+}
+
 /** Runs ahead to a simulation minute, unpaced and in full detail. */
 export function runUntil(minute: number): Uint8Array {
   const b = new flatbuffers.Builder(32);
@@ -1796,6 +1850,12 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
       upbringing: t.upbringing(),
     });
   }
+  const ideologies: IdeologyInfo[] = [];
+  for (let i = 0; i < w.ideologiesLength(); i++) {
+    const d = w.ideologies(i);
+    if (!d) continue;
+    ideologies.push({ id: d.id() ?? "", name: d.name() ?? "", legitimacy: d.legitimacy() ?? "" });
+  }
   const reasons: Record<number, string> = {};
   for (let i = 0; i < w.reasonsLength(); i++) {
     const r = w.reasons(i);
@@ -1822,6 +1882,7 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
     skills,
     regimes,
     techniques,
+    ideologies,
   };
 }
 
@@ -2851,6 +2912,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
       origin: Number(h.origin()),
       firstMinute: Number(h.firstMinute()),
       lastMinute: Number(h.lastMinute()),
+      influence: h.influence(),
     });
   }
   const positions: PositionLine[] = [];
@@ -2897,6 +2959,24 @@ function personInfo(p: W.PersonInfo): PersonInfo {
       sinceMinute: Number(d.sinceMinute()),
       from: Number(d.from()),
       fromName: d.fromName() ?? "",
+      influence: d.influence(),
+    });
+  }
+  const news: NewsLine[] = [];
+  for (let k = 0; k < p.newsLength(); k++) {
+    const n = p.news(k);
+    if (!n) continue;
+    news.push({ claim: n.claim(), what: n.what() ?? "" });
+  }
+  const influences: InfluenceLine[] = [];
+  for (let k = 0; k < p.influencesLength(); k++) {
+    const i = p.influences(k);
+    if (!i) continue;
+    influences.push({
+      id: i.id(),
+      kind: i.kind(),
+      minute: Number(i.minute()),
+      what: i.what() ?? "",
     });
   }
   const f = p.faction();
@@ -2964,6 +3044,8 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     values,
     ideologies,
     faction,
+    news,
+    influences,
   };
 }
 

@@ -47,6 +47,7 @@ mod faction;
 mod firm;
 mod force;
 mod ideology;
+mod influence;
 mod knowledge;
 mod land;
 mod life;
@@ -60,6 +61,7 @@ mod watch;
 mod word;
 
 pub use deposits::{DepositKnown, FIND_M};
+pub use influence::{PURPOSE_IDEOLOGY_HEARD, Reached};
 pub use loads::{
     DIES_IN_RUIN, DIES_UNDER_FLOOR, DIES_UNDER_ROOF, LIVE_PA, SNOW_TOLD_PA, SPILLED,
     snow_on_roof_pa, storm_pa,
@@ -409,6 +411,8 @@ pub struct Population {
     pub ideologies: crate::ideology::Ideologies,
     /// Factions and who belongs to each (M4c slice AH, ADR-0017 §2).
     pub factions: crate::faction::Factions,
+    /// The observer's interventions (M4c slice AJ, ADR-0016 §5).
+    pub influences: crate::influence::Influences,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage

@@ -65,6 +65,20 @@ pub enum Request {
         /// They only hear of it.
         aware_only: bool,
     },
+    /// Whisper a true claim to a living adult (god tool, M4c slice AJ, ADR-0016 §5).
+    Whisper {
+        /// Permanent id.
+        person: u64,
+        /// The claim's number.
+        claim: u32,
+    },
+    /// Tell a living adult of an ideology (god tool, M4c slice AJ, ADR-0016 §5).
+    TellOfIdeology {
+        /// Permanent id.
+        person: u64,
+        /// Index into the welcome's ideologies.
+        ideology: u32,
+    },
     /// Lay down a deposit (god tool, ADR-0010 §1).
     PlaceDeposit {
         /// Metres from the map's north-west corner.
@@ -400,6 +414,24 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         exposed: b.exposed(),
                     })
                 }
+                wire::CommandBody::Whisper => {
+                    let b = command
+                        .body_as_whisper()
+                        .ok_or_else(|| missing("command"))?;
+                    Ok(Request::Whisper {
+                        person: b.person(),
+                        claim: b.claim(),
+                    })
+                }
+                wire::CommandBody::TellOfIdeology => {
+                    let b = command
+                        .body_as_tell_of_ideology()
+                        .ok_or_else(|| missing("command"))?;
+                    Ok(Request::TellOfIdeology {
+                        person: b.person(),
+                        ideology: b.ideology(),
+                    })
+                }
                 other => Err(format!("unknown command {}", other.0)),
             }
         }
@@ -553,6 +585,7 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
         .collect();
     let skills = fbb.create_vector(&skills);
     let techniques = civ_sim::frames::knowledge::technique_infos(&mut fbb, &content.catalog);
+    let ideologies = civ_sim::frames::word::ideology_infos(&mut fbb, &content.catalog);
     let regimes: Vec<_> = content
         .catalog
         .regimes
@@ -642,6 +675,7 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
             regimes: Some(regimes),
             techniques: Some(techniques),
             accelerated_multipliers: Some(accelerated),
+            ideologies: Some(ideologies),
         },
     );
     finish(fbb, root)
@@ -940,6 +974,50 @@ mod tests {
         assert_eq!(
             decode_request(FrameKind::Command, &finish(fbb, root)),
             Ok(Request::RunUntil { minute: 525_600 })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::Whisper::create(
+            &mut fbb,
+            &wire::WhisperArgs {
+                person: 12,
+                claim: 3,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::Whisper,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::Whisper {
+                person: 12,
+                claim: 3
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::TellOfIdeology::create(
+            &mut fbb,
+            &wire::TellOfIdeologyArgs {
+                person: 12,
+                ideology: 1,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::TellOfIdeology,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::TellOfIdeology {
+                person: 12,
+                ideology: 1
+            })
         );
     }
 

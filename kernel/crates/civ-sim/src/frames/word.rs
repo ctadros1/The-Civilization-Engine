@@ -4,6 +4,8 @@
 //! the observer only shows them.
 
 use civ_agents::Person;
+use civ_agents::influence::{Influence, InfluenceKind};
+use civ_agents::params::Catalog;
 use civ_agents::polity::{day_words, law_words};
 use civ_agents::word::{Blamed, Claim, ClaimKind};
 use civ_core::{PermanentId, SimTime};
@@ -14,6 +16,8 @@ use crate::Sim;
 
 /// The most claims heard the inspector is sent for one person.
 pub const MAX_HEARD_SHOWN: usize = 12;
+/// The most claims the inspector offers to whisper to one person (M4c slice AJ).
+pub const MAX_NEWS_SHOWN: usize = 12;
 
 const DAY: i64 = 24 * 60;
 
@@ -295,6 +299,16 @@ pub fn ideology_lines<'a>(
                     since_minute: h.since * DAY,
                     from: h.from.map_or(0, PermanentId::get),
                     from_name,
+                    influence: sim
+                        .people
+                        .influences
+                        .on(p.id)
+                        .find(|i| {
+                            i.kind == InfluenceKind::Ideology
+                                && i.subject == u32::from(h.ideology)
+                                && i.taken.is_some()
+                        })
+                        .map_or(0, |i| i.id),
                 },
             )
         })
@@ -399,6 +413,253 @@ pub fn heard_lines<'a>(
                     origin: h.origin.map_or(0, PermanentId::get),
                     first_minute: h.first * DAY,
                     last_minute: h.last * DAY,
+                    influence: sim
+                        .people
+                        .influences
+                        .find(InfluenceKind::Whisper, p.id, h.claim)
+                        .map_or(0, |i| sim.people.influences.list[i].id),
+                },
+            )
+        })
+        .collect();
+    fbb.create_vector(&lines)
+}
+
+/// The welcome's ideologies, which the observer may tell someone of (wire 1.47, M4c slice AJ).
+pub fn ideology_infos<'a>(
+    fbb: &mut FlatBufferBuilder<'a>,
+    catalog: &Catalog,
+) -> WIPOffset<Vector<'a, ForwardsUOffset<wire::IdeologyInfo<'a>>>> {
+    let list: Vec<_> = catalog
+        .ideologies
+        .iter()
+        .map(|d| {
+            let id = fbb.create_string(&d.id);
+            let mut name = d.name.clone();
+            if let Some(first) = name.get_mut(0..1) {
+                first.make_ascii_uppercase();
+            }
+            let name = fbb.create_string(&name);
+            let legitimacy = fbb.create_string(&d.legitimacy);
+            wire::IdeologyInfo::create(
+                fbb,
+                &wire::IdeologyInfoArgs {
+                    id: Some(id),
+                    name: Some(name),
+                    legitimacy: Some(legitimacy),
+                },
+            )
+        })
+        .collect();
+    fbb.create_vector(&list)
+}
+
+/// The true claims `p`'s settlement's word holds that they have not heard and the observer may
+/// whisper to them (wire 1.47, M4c slice AJ, ADR-0016 §5), newest first: calls still to come, and
+/// grievances someone else holds and has told.
+pub fn news_lines<'a>(
+    fbb: &mut FlatBufferBuilder<'a>,
+    sim: &Sim,
+    p: &Person,
+) -> WIPOffset<Vector<'a, ForwardsUOffset<wire::NewsLine<'a>>>> {
+    let pop = &sim.people;
+    let today = sim.now().day_index();
+    let settlement = pop.household(p.household).and_then(|x| x.settlement);
+    let grown = p.age_years(sim.now()) >= sim.rules.people.family.independent_age;
+    let lines: Vec<_> = pop
+        .word
+        .claims
+        .iter()
+        .rev()
+        .filter(|_| grown)
+        .filter(|c| Some(c.settlement) == settlement)
+        .filter(|c| !pop.word.has_heard(p.id, c.id))
+        .filter(|c| match c.kind {
+            ClaimKind::Grievance => c.subject.is_some_and(|s| s != p.id),
+            _ => c.day >= today,
+        })
+        .take(MAX_NEWS_SHOWN)
+        .map(|c| {
+            let what = fbb.create_string(&claim_words(sim, c));
+            wire::NewsLine::create(
+                fbb,
+                &wire::NewsLineArgs {
+                    claim: c.id,
+                    what: Some(what),
+                },
+            )
+        })
+        .collect();
+    fbb.create_vector(&lines)
+}
+
+/// "no one", "1 other", "3 others".
+fn others(n: usize) -> String {
+    match n {
+        0 => "no one".to_owned(),
+        1 => "1 other".to_owned(),
+        n => format!("{n} others"),
+    }
+}
+
+/// What came of whisper `i` to `p`, read from the records people keep (15-05 §6: perceived,
+/// acted on, passed on; never what it was meant to do).
+fn whisper_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
+    let pop = &sim.people;
+    let day = |d: i64| day_words(SimTime::from_minutes(d * DAY));
+    let times = if i.uses > 1 {
+        format!(" ({} times)", i.uses)
+    } else {
+        String::new()
+    };
+    let Some(c) = pop.word.claim(i.subject) else {
+        return format!("Whispered news{times} that is no longer told: it was heard");
+    };
+    let mut said = vec![format!("Whispered that {}{times}", claim_words(sim, c))];
+    match pop.word.heard_by(p).iter().find(|h| h.claim == c.id) {
+        Some(h) => said.push(format!("heard on {}", day(h.first))),
+        None => said.push("heard, and let go as news is".to_owned()),
+    }
+    let told = pop
+        .word
+        .heard
+        .iter()
+        .filter(|h| h.claim == c.id && h.from == Some(p))
+        .count();
+    said.push(format!("told {} since", others(told)));
+    let since = i.at.day_index();
+    let acted = match c.kind {
+        ClaimKind::Gathering => c.subject.and_then(|law| {
+            let l = pop
+                .polities
+                .iter()
+                .flat_map(|q| &q.laws)
+                .find(|l| l.id == law)?;
+            l.decided?;
+            Some(if l.stances.iter().any(|s| s.person == p) {
+                "came to the gathering".to_owned()
+            } else {
+                "did not come to the gathering".to_owned()
+            })
+        }),
+        ClaimKind::Petition => c.subject.and_then(|id| {
+            let q = pop.factions.petitions.iter().find(|q| q.id == id)?;
+            (q.day < sim.now().day_index() || q.answered).then(|| {
+                if q.came.contains(&p) {
+                    "came to the petition".to_owned()
+                } else {
+                    "did not come to the petition".to_owned()
+                }
+            })
+        }),
+        ClaimKind::Refusal => c.subject.and_then(|id| {
+            let r = pop.factions.refusals.iter().find(|r| r.id == id)?;
+            let household = pop.person(p).map(|q| q.household)?;
+            r.kept
+                .contains(&household)
+                .then(|| "their household kept back its levy with it".to_owned())
+        }),
+        ClaimKind::Revolt => c.subject.and_then(|id| {
+            let r = pop.factions.revolts.iter().find(|r| r.id == id)?;
+            r.sides.iter().find(|s| s.0 == p).map(|s| {
+                match s.1 {
+                    civ_agents::faction::Side::With => "stood with it",
+                    civ_agents::faction::Side::Gathering => "stood with the gathering",
+                    civ_agents::faction::Side::Neither => "stood with neither",
+                }
+                .to_owned()
+            })
+        }),
+        ClaimKind::Grievance => {
+            let against = c.grievance.map(|g| g.0);
+            let m = pop.factions.membership(p).copied();
+            m.and_then(|m| {
+                let f = pop.factions.get(m.faction)?;
+                (Some(f.against) == against && m.since >= since).then(|| {
+                    if f.founder == p {
+                        format!("founded {}", faction_name(sim, f))
+                    } else {
+                        format!("joined {}", faction_name(sim, f))
+                    }
+                })
+            })
+        }
+    };
+    if let Some(a) = acted {
+        said.push(a);
+    }
+    said.join("; ")
+}
+
+/// What came of telling `p` of an ideology in `i`.
+fn ideology_told_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
+    let pop = &sim.people;
+    let catalog = &sim.rules.catalog;
+    let Some(k) = u16::try_from(i.subject).ok() else {
+        return "Told of an ideology".to_owned();
+    };
+    let Some(def) = catalog.ideologies.get(usize::from(k)) else {
+        return "Told of an ideology the content no longer names".to_owned();
+    };
+    let day = |d: i64| day_words(SimTime::from_minutes(d * DAY));
+    let times = if i.uses > 1 {
+        format!(" ({} times)", i.uses)
+    } else {
+        String::new()
+    };
+    let mut said = vec![format!("Told of {}{times}", def.name.to_lowercase())];
+    said.push(match i.weighed {
+        1 => "weighed it once".to_owned(),
+        n => format!("weighed it {n} times"),
+    });
+    match i.taken {
+        Some(d) => said.push(format!("took it up on {}", day(d))),
+        None if pop.ideologies.holds(p, k) => said.push("holds it, from another".to_owned()),
+        None => {
+            let (fit, chance) = sim.people.ideology_chance(catalog, p, k);
+            said.push(format!(
+                "has not taken it up: it fits what they hold dear by {fit:+.2}, a {:.0}\u{a0}% \
+                 chance",
+                100.0 * chance
+            ));
+        }
+    }
+    let taught = pop
+        .ideologies
+        .held
+        .iter()
+        .filter(|h| h.ideology == k && h.from == Some(p))
+        .count();
+    if i.taken.is_some() || pop.ideologies.holds(p, k) {
+        said.push(format!("{} took it up from them", others(taught)));
+    }
+    said.join("; ")
+}
+
+/// The observer's interventions that reached `p`, newest first, with what came of each (wire
+/// 1.47, M4c slice AJ, ADR-0016 §5).
+pub fn influence_lines<'a>(
+    fbb: &mut FlatBufferBuilder<'a>,
+    sim: &Sim,
+    p: &Person,
+) -> WIPOffset<Vector<'a, ForwardsUOffset<wire::InfluenceLine<'a>>>> {
+    let mut on: Vec<&Influence> = sim.people.influences.on(p.id).collect();
+    on.reverse();
+    let lines: Vec<_> = on
+        .into_iter()
+        .map(|i| {
+            let words = match i.kind {
+                InfluenceKind::Whisper => whisper_words(sim, i, p.id),
+                InfluenceKind::Ideology => ideology_told_words(sim, i, p.id),
+            };
+            let what = fbb.create_string(&words);
+            wire::InfluenceLine::create(
+                fbb,
+                &wire::InfluenceLineArgs {
+                    id: i.id,
+                    kind: i.kind.code(),
+                    minute: i.at.minutes(),
+                    what: Some(what),
                 },
             )
         })

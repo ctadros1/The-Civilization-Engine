@@ -556,6 +556,11 @@ pub enum ChronicleKind {
     /// research 06-10 §4.C): `people` is the watcher, then the household's elder; `number` the
     /// food taken, kcal; `name` the whole of it in words, who met them how and every blow.
     Encounter,
+    /// One recorded influence (M4c slice AJ, ADR-0016 §5): the observer reached someone by a god
+    /// tool. `people` is whom it reached; `number` the tool, by [`crate::influence::InfluenceKind`]
+    /// code; `name` what followed their name, in words (" that a gathering meets …", " of common
+    /// provision.").
+    Influence,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -928,6 +933,19 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 "The observer laid down {}.",
                 event.name
             ))]
+        }
+        ChronicleKind::Influence => {
+            let verb = match crate::influence::InfluenceKind::from_code(event.number.round() as u8)
+            {
+                Some(crate::influence::InfluenceKind::Whisper) => "whispered to ",
+                Some(crate::influence::InfluenceKind::Ideology) => "told ",
+                None => "reached ",
+            };
+            let lead = format!("One recorded influence: the observer {verb}");
+            match person(0) {
+                Some(who) => vec![Span::Text(lead), who, Span::Text(event.name.clone())],
+                None => vec![Span::Text(format!("{lead}someone{}", event.name))],
+            }
         }
         ChronicleKind::Weather => vec![Span::Text(event.name.clone())],
         ChronicleKind::LawProposed => match person(0) {

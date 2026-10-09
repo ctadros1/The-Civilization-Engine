@@ -730,6 +730,26 @@ async function introduceTechnique(
   void refreshPerson(true);
 }
 
+/**
+ * The observer whispers a true claim to someone, or tells them of an ideology (god tools, M4c
+ * slice AJ, ADR-0016 §5). The kernel's reply says what reached them; the inspector is asked again.
+ */
+async function influence(payload: Uint8Array, fallback: string): Promise<void> {
+  try {
+    const body = await client.command(payload);
+    const text = body.kind === "ack" && body.message ? body.message : fallback;
+    store.update({ notice: { kind: "info", text } });
+  } catch (e) {
+    store.update({ notice: { kind: "error", text: errorText(e) } });
+  }
+  void refreshPerson(true);
+}
+
+const whisper = (person: number, claim: number): Promise<void> =>
+  influence(M.whisper(person, claim), "Whispered");
+const tellOfIdeology = (person: number, ideology: number): Promise<void> =>
+  influence(M.tellOfIdeology(person, ideology), "Told");
+
 /** Opens workshop `id`'s page in the workshops panel, or goes back to the list. */
 function openFirm(id: number | null): void {
   store.update({ firm: id === null ? null : { id, info: null, error: null } });
@@ -884,6 +904,8 @@ bindUi(store, {
   setPlacing,
   setPlacingDeposit,
   introduceTechnique,
+  whisper,
+  tellOfIdeology,
 });
 
 /**
@@ -1124,6 +1146,13 @@ const hooks = {
     const technique = store.state.welcome?.techniques.findIndex((t) => t.id === id) ?? -1;
     return introduceTechnique(person, technique < 0 ? 0xffff : technique, awareOnly);
   },
+  /** Tells a person of an ideology, by content id (god tool). */
+  tellOfIdeology: (person: number, id: string) => {
+    const k = store.state.welcome?.ideologies.findIndex((d) => d.id === id) ?? -1;
+    return tellOfIdeology(person, k < 0 ? 0xffff : k);
+  },
+  /** Whispers a claim to a person (god tool). */
+  whisper: (person: number, claim: number) => whisper(person, claim),
   map: () => map.debugState(),
   pointerAt: (x: number, y: number) => map.pointerInfo(x, y),
   panBy: (dx: number, dy: number) => map.panBy(dx, dy),

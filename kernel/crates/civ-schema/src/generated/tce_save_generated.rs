@@ -29561,6 +29561,351 @@ impl ::core::fmt::Debug for PendingEvents<'_> {
       ds.finish()
   }
 }
+pub enum InfluenceSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct InfluenceSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for InfluenceSave<'a> {
+  type Inner = InfluenceSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> InfluenceSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_AT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_LAST: ::flatbuffers::VOffsetT = 8;
+  pub const VT_USES: ::flatbuffers::VOffsetT = 10;
+  pub const VT_KIND: ::flatbuffers::VOffsetT = 12;
+  pub const VT_TARGET: ::flatbuffers::VOffsetT = 14;
+  pub const VT_SUBJECT: ::flatbuffers::VOffsetT = 16;
+  pub const VT_TAKEN: ::flatbuffers::VOffsetT = 18;
+  pub const VT_WEIGHED: ::flatbuffers::VOffsetT = 20;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    InfluenceSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args InfluenceSaveArgs
+  ) -> ::flatbuffers::WIPOffset<InfluenceSave<'bldr>> {
+    let mut builder = InfluenceSaveBuilder::new(_fbb);
+    builder.add_taken(args.taken);
+    builder.add_target(args.target);
+    builder.add_last(args.last);
+    builder.add_at(args.at);
+    builder.add_weighed(args.weighed);
+    builder.add_subject(args.subject);
+    builder.add_uses(args.uses);
+    builder.add_id(args.id);
+    builder.add_kind(args.kind);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(InfluenceSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(InfluenceSave::VT_AT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn last(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(InfluenceSave::VT_LAST, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn uses(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(InfluenceSave::VT_USES, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn kind(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(InfluenceSave::VT_KIND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn target(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(InfluenceSave::VT_TARGET, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn subject(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(InfluenceSave::VT_SUBJECT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn taken(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(InfluenceSave::VT_TAKEN, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn weighed(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(InfluenceSave::VT_WEIGHED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for InfluenceSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .visit_field::<i64>("at", Self::VT_AT, false)?
+     .visit_field::<i64>("last", Self::VT_LAST, false)?
+     .visit_field::<u32>("uses", Self::VT_USES, false)?
+     .visit_field::<u8>("kind", Self::VT_KIND, false)?
+     .visit_field::<u64>("target", Self::VT_TARGET, false)?
+     .visit_field::<u32>("subject", Self::VT_SUBJECT, false)?
+     .visit_field::<i64>("taken", Self::VT_TAKEN, false)?
+     .visit_field::<u32>("weighed", Self::VT_WEIGHED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct InfluenceSaveArgs {
+    pub id: u32,
+    pub at: i64,
+    pub last: i64,
+    pub uses: u32,
+    pub kind: u8,
+    pub target: u64,
+    pub subject: u32,
+    pub taken: i64,
+    pub weighed: u32,
+}
+impl<'a> Default for InfluenceSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    InfluenceSaveArgs {
+      id: 0,
+      at: 0,
+      last: 0,
+      uses: 0,
+      kind: 0,
+      target: 0,
+      subject: 0,
+      taken: -1,
+      weighed: 0,
+    }
+  }
+}
+
+pub struct InfluenceSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> InfluenceSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(InfluenceSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_at(&mut self, at: i64) {
+    self.fbb_.push_slot::<i64>(InfluenceSave::VT_AT, at, 0);
+  }
+  #[inline]
+  pub fn add_last(&mut self, last: i64) {
+    self.fbb_.push_slot::<i64>(InfluenceSave::VT_LAST, last, 0);
+  }
+  #[inline]
+  pub fn add_uses(&mut self, uses: u32) {
+    self.fbb_.push_slot::<u32>(InfluenceSave::VT_USES, uses, 0);
+  }
+  #[inline]
+  pub fn add_kind(&mut self, kind: u8) {
+    self.fbb_.push_slot::<u8>(InfluenceSave::VT_KIND, kind, 0);
+  }
+  #[inline]
+  pub fn add_target(&mut self, target: u64) {
+    self.fbb_.push_slot::<u64>(InfluenceSave::VT_TARGET, target, 0);
+  }
+  #[inline]
+  pub fn add_subject(&mut self, subject: u32) {
+    self.fbb_.push_slot::<u32>(InfluenceSave::VT_SUBJECT, subject, 0);
+  }
+  #[inline]
+  pub fn add_taken(&mut self, taken: i64) {
+    self.fbb_.push_slot::<i64>(InfluenceSave::VT_TAKEN, taken, -1);
+  }
+  #[inline]
+  pub fn add_weighed(&mut self, weighed: u32) {
+    self.fbb_.push_slot::<u32>(InfluenceSave::VT_WEIGHED, weighed, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> InfluenceSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    InfluenceSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<InfluenceSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for InfluenceSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("InfluenceSave");
+      ds.field("id", &self.id());
+      ds.field("at", &self.at());
+      ds.field("last", &self.last());
+      ds.field("uses", &self.uses());
+      ds.field("kind", &self.kind());
+      ds.field("target", &self.target());
+      ds.field("subject", &self.subject());
+      ds.field("taken", &self.taken());
+      ds.field("weighed", &self.weighed());
+      ds.finish()
+  }
+}
+pub enum InfluencesSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct InfluencesSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for InfluencesSave<'a> {
+  type Inner = InfluencesSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> InfluencesSave<'a> {
+  pub const VT_LIST: ::flatbuffers::VOffsetT = 4;
+  pub const VT_IDEOLOGIES: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    InfluencesSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args InfluencesSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<InfluencesSave<'bldr>> {
+    let mut builder = InfluencesSaveBuilder::new(_fbb);
+    if let Some(x) = args.ideologies { builder.add_ideologies(x); }
+    if let Some(x) = args.list { builder.add_list(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn list(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<InfluenceSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<InfluenceSave>>>>(InfluencesSave::VT_LIST, None)}
+  }
+  #[inline]
+  pub fn ideologies(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(InfluencesSave::VT_IDEOLOGIES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for InfluencesSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<InfluenceSave>>>>("list", Self::VT_LIST, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("ideologies", Self::VT_IDEOLOGIES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct InfluencesSaveArgs<'a> {
+    pub list: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<InfluenceSave<'a>>>>>,
+    pub ideologies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+}
+impl<'a> Default for InfluencesSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    InfluencesSaveArgs {
+      list: None,
+      ideologies: None,
+    }
+  }
+}
+
+pub struct InfluencesSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> InfluencesSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_list(&mut self, list: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<InfluenceSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(InfluencesSave::VT_LIST, list);
+  }
+  #[inline]
+  pub fn add_ideologies(&mut self, ideologies: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(InfluencesSave::VT_IDEOLOGIES, ideologies);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> InfluencesSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    InfluencesSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<InfluencesSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for InfluencesSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("InfluencesSave");
+      ds.field("list", &self.list());
+      ds.field("ideologies", &self.ideologies());
+      ds.finish()
+  }
+}
 }  // pub mod save
 }  // pub mod tce
 

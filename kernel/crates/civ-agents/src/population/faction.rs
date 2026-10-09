@@ -217,6 +217,8 @@ impl Population {
         let (now, day) = (ctx.now, ctx.now.day_index());
         let u = Rng64::from_key(&[ctx.seed, PURPOSE_FACTION_THRESHOLD, person.get()]).next_f64();
         let threshold = fp.threshold_at(u);
+        // An ideology the observer told them of is weighed again while it is fresh (M4c slice AJ).
+        self.weigh_heard_ideologies(ctx, person);
         // One who keeps the watch beside others weighs taking the deciding for it (M4c slice AI,
         // step three).
         if self.keeps_a_watch(person) {

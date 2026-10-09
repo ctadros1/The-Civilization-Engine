@@ -182,10 +182,10 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 26 land, field, plot, building,
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 27 land, field, plot, building,
     // wear, market, firm, wealth, knowledge, deposits, earth, ties, polity, order, word, opinion,
-    // norms, values, creeds, factions and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 26);
+    // norms, values, creeds, factions, influence and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 27);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -2198,6 +2198,19 @@ fn a_schema_46_save_loads_with_no_encounters() {
     let path = republish("slice-ai3", &info, &persist::encode_sections(&sim));
     let mut loaded = persist::load(&path, content()).expect("a schema-46 save loads");
     assert!(loaded.people().order.encounters.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_47_save_loads_with_no_influences() {
+    let sim = load_first();
+    // A schema-47 save, from before the observer's interventions (M4c slice AJ): the observer had
+    // whispered to nobody and told nobody of an ideology.
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V47;
+    let path = republish("slice-ai4", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-47 save loads");
+    assert!(loaded.people().influences.list.is_empty());
     loaded.advance_minutes(24 * 60).expect("goes on");
 }
 

@@ -1203,6 +1203,47 @@ ul.rules li {
   max-width: 180px;
 }
 
+/* The observer's hand on one person: recorded influences and the whisper and ideology tools
+   (M4c slice AJ) */
+.observer-hand {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+.observer-hand ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+}
+
+.observer-hand li {
+  padding: 1px 0;
+}
+
+.observer-hand .aside,
+.observer-hand .empty {
+  color: var(--muted);
+}
+
+.observer-hand form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.observer-hand form label {
+  color: var(--muted);
+}
+
+.observer-hand form select {
+  max-width: 220px;
+}
+
 button.link {
   background: none;
   border: none;

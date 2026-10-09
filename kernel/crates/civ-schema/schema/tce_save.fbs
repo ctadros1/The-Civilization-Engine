@@ -1648,3 +1648,26 @@ table PendingEvent {
 table PendingEvents {
   events: [PendingEvent] (id: 0);
 }
+
+// Section "influenc" (schema 48, M4c slice AJ, ADR-0016 §5): the observer's interventions, in
+// the order used: each one's number, the minutes it was first and last used, how often, its kind
+// (0 a whisper, 1 an ideology told of), whom it reached and what it submitted (a claim's number;
+// an ideology's index in `InfluencesSave.ideologies`), and for an ideology the day it was taken
+// up (-1: not taken up) and how often it was weighed.
+table InfluenceSave {
+  id: uint (id: 0);
+  at: long (id: 1);
+  last: long (id: 2);
+  uses: uint (id: 3);
+  kind: ubyte (id: 4);
+  target: ulong (id: 5);
+  subject: uint (id: 6);
+  taken: long = -1 (id: 7);
+  weighed: uint (id: 8);
+}
+
+table InfluencesSave {
+  list: [InfluenceSave] (id: 0);
+  // Ideology content ids at save time.
+  ideologies: [string] (id: 1);
+}

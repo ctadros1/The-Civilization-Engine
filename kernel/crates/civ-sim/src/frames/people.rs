@@ -876,6 +876,8 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.values = Some(super::word::value_lines(&mut fbb, sim, p));
         args.ideologies = Some(super::word::ideology_lines(&mut fbb, sim, p));
         args.faction = super::word::faction_line(&mut fbb, sim, p);
+        args.news = Some(super::word::news_lines(&mut fbb, sim, p));
+        args.influences = Some(super::word::influence_lines(&mut fbb, sim, p));
     }
     let body = wire::PersonInfo::create(&mut fbb, &args);
     Ok(response(fbb, wire::ResponseBody::PersonInfo, body))

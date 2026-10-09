@@ -75,6 +75,17 @@ describe("builders", () => {
     const body = command.body(new W.IntroduceTechnique()) as W.IntroduceTechnique;
     expect([body.person(), body.technique(), body.awareOnly()]).toEqual([42n, 3, true]);
   });
+
+  it("builds the observer's whisper and an ideology told of", () => {
+    const whisper = W.Command.getRootAsCommand(bb(M.whisper(42, 7)));
+    expect(whisper.bodyType()).toBe(W.CommandBody.Whisper);
+    const w = whisper.body(new W.Whisper()) as W.Whisper;
+    expect([w.person(), w.claim()]).toEqual([42n, 7]);
+    const tell = W.Command.getRootAsCommand(bb(M.tellOfIdeology(42, 2)));
+    expect(tell.bodyType()).toBe(W.CommandBody.TellOfIdeology);
+    const t = tell.body(new W.TellOfIdeology()) as W.TellOfIdeology;
+    expect([t.person(), t.ideology()]).toEqual([42n, 2]);
+  });
 });
 
 function finish(b: flatbuffers.Builder, root: flatbuffers.Offset): Uint8Array {

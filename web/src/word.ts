@@ -58,6 +58,9 @@ export function heardWhen(h: Pick<HeardLine, "firstMinute" | "lastMinute">): str
 /** How they heard a claim: "told by Wren on 3 May of year 2", "they knew it first, on 3 May of
  * year 2". */
 export function heardHow(h: HeardLine): string {
+  if (h.from === 0 && h.influence > 0) {
+    return `whispered by the observer ${heardWhen(h)}: one recorded influence`;
+  }
   return h.from === 0 ? `they knew it first, ${heardWhen(h)}` : `told by ${h.fromName} ${heardWhen(h)}`;
 }
 
@@ -107,7 +110,12 @@ export function valuesText(vs: ValueLine[]): string {
 /** An ideology someone holds, after its name: "'what the village gathers, the village keeps
  * against a lean year'; brought with them", or "...; from Wren since 9 May of year 2". */
 export function ideologyText(d: IdeologyLine): string {
-  const how = d.from === 0 ? "brought with them" : `from ${d.fromName} since ${lawDayText(d.sinceMinute)}`;
+  const how =
+    d.influence > 0
+      ? `heard of from the observer, taken up on ${lawDayText(d.sinceMinute)}: one recorded influence`
+      : d.from === 0
+        ? "brought with them"
+        : `from ${d.fromName} since ${lawDayText(d.sinceMinute)}`;
   return `'${d.legitimacy}'; ${how}`;
 }
 

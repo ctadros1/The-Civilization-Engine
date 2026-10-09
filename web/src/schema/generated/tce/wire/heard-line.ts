@@ -61,8 +61,13 @@ lastMinute():bigint {
   return offset ? this.bb!.readInt64(this.bb_pos + offset) : BigInt('0');
 }
 
+influence():number {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
 static startHeardLine(builder:flatbuffers.Builder) {
-  builder.startObject(7);
+  builder.startObject(8);
 }
 
 static addKind(builder:flatbuffers.Builder, kind:number) {
@@ -93,12 +98,16 @@ static addLastMinute(builder:flatbuffers.Builder, lastMinute:bigint) {
   builder.addFieldInt64(6, lastMinute, BigInt('0'));
 }
 
+static addInfluence(builder:flatbuffers.Builder, influence:number) {
+  builder.addFieldInt32(7, influence, 0);
+}
+
 static endHeardLine(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createHeardLine(builder:flatbuffers.Builder, kind:number, whatOffset:flatbuffers.Offset, from:bigint, fromNameOffset:flatbuffers.Offset, origin:bigint, firstMinute:bigint, lastMinute:bigint):flatbuffers.Offset {
+static createHeardLine(builder:flatbuffers.Builder, kind:number, whatOffset:flatbuffers.Offset, from:bigint, fromNameOffset:flatbuffers.Offset, origin:bigint, firstMinute:bigint, lastMinute:bigint, influence:number):flatbuffers.Offset {
   HeardLine.startHeardLine(builder);
   HeardLine.addKind(builder, kind);
   HeardLine.addWhat(builder, whatOffset);
@@ -107,6 +116,7 @@ static createHeardLine(builder:flatbuffers.Builder, kind:number, whatOffset:flat
   HeardLine.addOrigin(builder, origin);
   HeardLine.addFirstMinute(builder, firstMinute);
   HeardLine.addLastMinute(builder, lastMinute);
+  HeardLine.addInfluence(builder, influence);
   return HeardLine.endHeardLine(builder);
 }
 }

@@ -665,10 +665,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_COMMAND_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_COMMAND_BODY: u8 = 10;
+pub const ENUM_MAX_COMMAND_BODY: u8 = 12;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 11] = [
+pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 13] = [
   CommandBody::NONE,
   CommandBody::NewWorld,
   CommandBody::SaveWorld,
@@ -680,6 +680,8 @@ pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 11] = [
   CommandBody::RunUntil,
   CommandBody::IntroduceTechnique,
   CommandBody::PlaceDeposit,
+  CommandBody::Whisper,
+  CommandBody::TellOfIdeology,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -698,9 +700,11 @@ impl CommandBody {
   pub const RunUntil: Self = Self(8);
   pub const IntroduceTechnique: Self = Self(9);
   pub const PlaceDeposit: Self = Self(10);
+  pub const Whisper: Self = Self(11);
+  pub const TellOfIdeology: Self = Self(12);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 10;
+  pub const ENUM_MAX: u8 = 12;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::NewWorld,
@@ -713,6 +717,8 @@ impl CommandBody {
     Self::RunUntil,
     Self::IntroduceTechnique,
     Self::PlaceDeposit,
+    Self::Whisper,
+    Self::TellOfIdeology,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -728,6 +734,8 @@ impl CommandBody {
       Self::RunUntil => Some("RunUntil"),
       Self::IntroduceTechnique => Some("IntroduceTechnique"),
       Self::PlaceDeposit => Some("PlaceDeposit"),
+      Self::Whisper => Some("Whisper"),
+      Self::TellOfIdeology => Some("TellOfIdeology"),
       _ => None,
     }
   }
@@ -3450,6 +3458,136 @@ impl ::core::fmt::Debug for CropInfo<'_> {
       ds.finish()
   }
 }
+pub enum IdeologyInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct IdeologyInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for IdeologyInfo<'a> {
+  type Inner = IdeologyInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> IdeologyInfo<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_LEGITIMACY: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    IdeologyInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args IdeologyInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<IdeologyInfo<'bldr>> {
+    let mut builder = IdeologyInfoBuilder::new(_fbb);
+    if let Some(x) = args.legitimacy { builder.add_legitimacy(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    if let Some(x) = args.id { builder.add_id(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(IdeologyInfo::VT_ID, None)}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(IdeologyInfo::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn legitimacy(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(IdeologyInfo::VT_LEGITIMACY, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for IdeologyInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("id", Self::VT_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("legitimacy", Self::VT_LEGITIMACY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct IdeologyInfoArgs<'a> {
+    pub id: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub legitimacy: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for IdeologyInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    IdeologyInfoArgs {
+      id: None,
+      name: None,
+      legitimacy: None,
+    }
+  }
+}
+
+pub struct IdeologyInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> IdeologyInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(IdeologyInfo::VT_ID, id);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(IdeologyInfo::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_legitimacy(&mut self, legitimacy: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(IdeologyInfo::VT_LEGITIMACY, legitimacy);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> IdeologyInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    IdeologyInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<IdeologyInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for IdeologyInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("IdeologyInfo");
+      ds.field("id", &self.id());
+      ds.field("name", &self.name());
+      ds.field("legitimacy", &self.legitimacy());
+      ds.finish()
+  }
+}
 pub enum TechniqueInfoOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -3961,6 +4099,7 @@ impl<'a> Welcome<'a> {
   pub const VT_REGIMES: ::flatbuffers::VOffsetT = 38;
   pub const VT_TECHNIQUES: ::flatbuffers::VOffsetT = 40;
   pub const VT_ACCELERATED_MULTIPLIERS: ::flatbuffers::VOffsetT = 42;
+  pub const VT_IDEOLOGIES: ::flatbuffers::VOffsetT = 44;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -3972,6 +4111,7 @@ impl<'a> Welcome<'a> {
     args: &'args WelcomeArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Welcome<'bldr>> {
     let mut builder = WelcomeBuilder::new(_fbb);
+    if let Some(x) = args.ideologies { builder.add_ideologies(x); }
     if let Some(x) = args.accelerated_multipliers { builder.add_accelerated_multipliers(x); }
     if let Some(x) = args.techniques { builder.add_techniques(x); }
     if let Some(x) = args.regimes { builder.add_regimes(x); }
@@ -4136,6 +4276,13 @@ impl<'a> Welcome<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(Welcome::VT_ACCELERATED_MULTIPLIERS, None)}
   }
+  #[inline]
+  pub fn ideologies(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IdeologyInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IdeologyInfo>>>>(Welcome::VT_IDEOLOGIES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Welcome<'_> {
@@ -4164,6 +4311,7 @@ impl ::flatbuffers::Verifiable for Welcome<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RegimeInfo>>>>("regimes", Self::VT_REGIMES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TechniqueInfo>>>>("techniques", Self::VT_TECHNIQUES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("accelerated_multipliers", Self::VT_ACCELERATED_MULTIPLIERS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<IdeologyInfo>>>>("ideologies", Self::VT_IDEOLOGIES, false)?
      .finish();
     Ok(())
   }
@@ -4189,6 +4337,7 @@ pub struct WelcomeArgs<'a> {
     pub regimes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RegimeInfo<'a>>>>>,
     pub techniques: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TechniqueInfo<'a>>>>>,
     pub accelerated_multipliers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub ideologies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IdeologyInfo<'a>>>>>,
 }
 impl<'a> Default for WelcomeArgs<'a> {
   #[inline]
@@ -4214,6 +4363,7 @@ impl<'a> Default for WelcomeArgs<'a> {
       regimes: None,
       techniques: None,
       accelerated_multipliers: None,
+      ideologies: None,
     }
   }
 }
@@ -4304,6 +4454,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WelcomeBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Welcome::VT_ACCELERATED_MULTIPLIERS, accelerated_multipliers);
   }
   #[inline]
+  pub fn add_ideologies(&mut self, ideologies: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<IdeologyInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Welcome::VT_IDEOLOGIES, ideologies);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WelcomeBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WelcomeBuilder {
@@ -4341,6 +4495,7 @@ impl ::core::fmt::Debug for Welcome<'_> {
       ds.field("regimes", &self.regimes());
       ds.field("techniques", &self.techniques());
       ds.field("accelerated_multipliers", &self.accelerated_multipliers());
+      ds.field("ideologies", &self.ideologies());
       ds.finish()
   }
 }
@@ -7861,6 +8016,232 @@ impl ::core::fmt::Debug for PlaceDeposit<'_> {
       ds.finish()
   }
 }
+pub enum WhisperOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Whisper<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Whisper<'a> {
+  type Inner = Whisper<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Whisper<'a> {
+  pub const VT_PERSON: ::flatbuffers::VOffsetT = 4;
+  pub const VT_CLAIM: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Whisper { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WhisperArgs
+  ) -> ::flatbuffers::WIPOffset<Whisper<'bldr>> {
+    let mut builder = WhisperBuilder::new(_fbb);
+    builder.add_person(args.person);
+    builder.add_claim(args.claim);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Whisper::VT_PERSON, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn claim(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Whisper::VT_CLAIM, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Whisper<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("person", Self::VT_PERSON, false)?
+     .visit_field::<u32>("claim", Self::VT_CLAIM, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WhisperArgs {
+    pub person: u64,
+    pub claim: u32,
+}
+impl<'a> Default for WhisperArgs {
+  #[inline]
+  fn default() -> Self {
+    WhisperArgs {
+      person: 0,
+      claim: 0,
+    }
+  }
+}
+
+pub struct WhisperBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WhisperBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_person(&mut self, person: u64) {
+    self.fbb_.push_slot::<u64>(Whisper::VT_PERSON, person, 0);
+  }
+  #[inline]
+  pub fn add_claim(&mut self, claim: u32) {
+    self.fbb_.push_slot::<u32>(Whisper::VT_CLAIM, claim, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WhisperBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WhisperBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Whisper<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Whisper<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Whisper");
+      ds.field("person", &self.person());
+      ds.field("claim", &self.claim());
+      ds.finish()
+  }
+}
+pub enum TellOfIdeologyOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TellOfIdeology<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for TellOfIdeology<'a> {
+  type Inner = TellOfIdeology<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> TellOfIdeology<'a> {
+  pub const VT_PERSON: ::flatbuffers::VOffsetT = 4;
+  pub const VT_IDEOLOGY: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    TellOfIdeology { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args TellOfIdeologyArgs
+  ) -> ::flatbuffers::WIPOffset<TellOfIdeology<'bldr>> {
+    let mut builder = TellOfIdeologyBuilder::new(_fbb);
+    builder.add_person(args.person);
+    builder.add_ideology(args.ideology);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TellOfIdeology::VT_PERSON, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ideology(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(TellOfIdeology::VT_IDEOLOGY, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for TellOfIdeology<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("person", Self::VT_PERSON, false)?
+     .visit_field::<u32>("ideology", Self::VT_IDEOLOGY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TellOfIdeologyArgs {
+    pub person: u64,
+    pub ideology: u32,
+}
+impl<'a> Default for TellOfIdeologyArgs {
+  #[inline]
+  fn default() -> Self {
+    TellOfIdeologyArgs {
+      person: 0,
+      ideology: 0,
+    }
+  }
+}
+
+pub struct TellOfIdeologyBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TellOfIdeologyBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_person(&mut self, person: u64) {
+    self.fbb_.push_slot::<u64>(TellOfIdeology::VT_PERSON, person, 0);
+  }
+  #[inline]
+  pub fn add_ideology(&mut self, ideology: u32) {
+    self.fbb_.push_slot::<u32>(TellOfIdeology::VT_IDEOLOGY, ideology, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TellOfIdeologyBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    TellOfIdeologyBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<TellOfIdeology<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for TellOfIdeology<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("TellOfIdeology");
+      ds.field("person", &self.person());
+      ds.field("ideology", &self.ideology());
+      ds.finish()
+  }
+}
 pub enum CommandOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -8060,6 +8441,36 @@ impl<'a> Command<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_whisper(&self) -> Option<Whisper<'a>> {
+    if self.body_type() == CommandBody::Whisper {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Whisper::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_tell_of_ideology(&self) -> Option<TellOfIdeology<'a>> {
+    if self.body_type() == CommandBody::TellOfIdeology {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { TellOfIdeology::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Command<'_> {
@@ -8080,6 +8491,8 @@ impl ::flatbuffers::Verifiable for Command<'_> {
           CommandBody::RunUntil => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<RunUntil>>("CommandBody::RunUntil", pos),
           CommandBody::IntroduceTechnique => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<IntroduceTechnique>>("CommandBody::IntroduceTechnique", pos),
           CommandBody::PlaceDeposit => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<PlaceDeposit>>("CommandBody::PlaceDeposit", pos),
+          CommandBody::Whisper => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Whisper>>("CommandBody::Whisper", pos),
+          CommandBody::TellOfIdeology => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<TellOfIdeology>>("CommandBody::TellOfIdeology", pos),
           _ => Ok(()),
         }
      })?
@@ -8199,6 +8612,20 @@ impl ::core::fmt::Debug for Command<'_> {
         },
         CommandBody::PlaceDeposit => {
           if let Some(x) = self.body_as_place_deposit() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::Whisper => {
+          if let Some(x) = self.body_as_whisper() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::TellOfIdeology => {
+          if let Some(x) = self.body_as_tell_of_ideology() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -13037,6 +13464,8 @@ impl<'a> PersonInfo<'a> {
   pub const VT_VALUES: ::flatbuffers::VOffsetT = 96;
   pub const VT_IDEOLOGIES: ::flatbuffers::VOffsetT = 98;
   pub const VT_FACTION: ::flatbuffers::VOffsetT = 100;
+  pub const VT_NEWS: ::flatbuffers::VOffsetT = 102;
+  pub const VT_INFLUENCES: ::flatbuffers::VOffsetT = 104;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -13058,6 +13487,8 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.influences { builder.add_influences(x); }
+    if let Some(x) = args.news { builder.add_news(x); }
     if let Some(x) = args.faction { builder.add_faction(x); }
     if let Some(x) = args.ideologies { builder.add_ideologies(x); }
     if let Some(x) = args.values { builder.add_values(x); }
@@ -13444,6 +13875,20 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<FactionLine>>(PersonInfo::VT_FACTION, None)}
   }
+  #[inline]
+  pub fn news(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NewsLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NewsLine>>>>(PersonInfo::VT_NEWS, None)}
+  }
+  #[inline]
+  pub fn influences(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<InfluenceLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<InfluenceLine>>>>(PersonInfo::VT_INFLUENCES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -13501,6 +13946,8 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ValueLine>>>>("values", Self::VT_VALUES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<IdeologyLine>>>>("ideologies", Self::VT_IDEOLOGIES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<FactionLine>>("faction", Self::VT_FACTION, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<NewsLine>>>>("news", Self::VT_NEWS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<InfluenceLine>>>>("influences", Self::VT_INFLUENCES, false)?
      .finish();
     Ok(())
   }
@@ -13555,6 +14002,8 @@ pub struct PersonInfoArgs<'a> {
     pub values: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ValueLine<'a>>>>>,
     pub ideologies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IdeologyLine<'a>>>>>,
     pub faction: Option<::flatbuffers::WIPOffset<FactionLine<'a>>>,
+    pub news: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NewsLine<'a>>>>>,
+    pub influences: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<InfluenceLine<'a>>>>>,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -13609,6 +14058,8 @@ impl<'a> Default for PersonInfoArgs<'a> {
       values: None,
       ideologies: None,
       faction: None,
+      news: None,
+      influences: None,
     }
   }
 }
@@ -13815,6 +14266,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<FactionLine>>(PersonInfo::VT_FACTION, faction);
   }
   #[inline]
+  pub fn add_news(&mut self, news: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<NewsLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_NEWS, news);
+  }
+  #[inline]
+  pub fn add_influences(&mut self, influences: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<InfluenceLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_INFLUENCES, influences);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -13881,6 +14340,268 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("values", &self.values());
       ds.field("ideologies", &self.ideologies());
       ds.field("faction", &self.faction());
+      ds.field("news", &self.news());
+      ds.field("influences", &self.influences());
+      ds.finish()
+  }
+}
+pub enum NewsLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct NewsLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for NewsLine<'a> {
+  type Inner = NewsLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> NewsLine<'a> {
+  pub const VT_CLAIM: ::flatbuffers::VOffsetT = 4;
+  pub const VT_WHAT: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    NewsLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args NewsLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<NewsLine<'bldr>> {
+    let mut builder = NewsLineBuilder::new(_fbb);
+    if let Some(x) = args.what { builder.add_what(x); }
+    builder.add_claim(args.claim);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn claim(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(NewsLine::VT_CLAIM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn what(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(NewsLine::VT_WHAT, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for NewsLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("claim", Self::VT_CLAIM, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("what", Self::VT_WHAT, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct NewsLineArgs<'a> {
+    pub claim: u32,
+    pub what: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for NewsLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    NewsLineArgs {
+      claim: 0,
+      what: None,
+    }
+  }
+}
+
+pub struct NewsLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> NewsLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_claim(&mut self, claim: u32) {
+    self.fbb_.push_slot::<u32>(NewsLine::VT_CLAIM, claim, 0);
+  }
+  #[inline]
+  pub fn add_what(&mut self, what: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(NewsLine::VT_WHAT, what);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> NewsLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    NewsLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<NewsLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for NewsLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("NewsLine");
+      ds.field("claim", &self.claim());
+      ds.field("what", &self.what());
+      ds.finish()
+  }
+}
+pub enum InfluenceLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct InfluenceLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for InfluenceLine<'a> {
+  type Inner = InfluenceLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> InfluenceLine<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_KIND: ::flatbuffers::VOffsetT = 6;
+  pub const VT_MINUTE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_WHAT: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    InfluenceLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args InfluenceLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<InfluenceLine<'bldr>> {
+    let mut builder = InfluenceLineBuilder::new(_fbb);
+    builder.add_minute(args.minute);
+    if let Some(x) = args.what { builder.add_what(x); }
+    builder.add_id(args.id);
+    builder.add_kind(args.kind);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(InfluenceLine::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn kind(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(InfluenceLine::VT_KIND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(InfluenceLine::VT_MINUTE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn what(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(InfluenceLine::VT_WHAT, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for InfluenceLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .visit_field::<u8>("kind", Self::VT_KIND, false)?
+     .visit_field::<i64>("minute", Self::VT_MINUTE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("what", Self::VT_WHAT, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct InfluenceLineArgs<'a> {
+    pub id: u32,
+    pub kind: u8,
+    pub minute: i64,
+    pub what: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for InfluenceLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    InfluenceLineArgs {
+      id: 0,
+      kind: 0,
+      minute: 0,
+      what: None,
+    }
+  }
+}
+
+pub struct InfluenceLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> InfluenceLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(InfluenceLine::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_kind(&mut self, kind: u8) {
+    self.fbb_.push_slot::<u8>(InfluenceLine::VT_KIND, kind, 0);
+  }
+  #[inline]
+  pub fn add_minute(&mut self, minute: i64) {
+    self.fbb_.push_slot::<i64>(InfluenceLine::VT_MINUTE, minute, 0);
+  }
+  #[inline]
+  pub fn add_what(&mut self, what: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(InfluenceLine::VT_WHAT, what);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> InfluenceLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    InfluenceLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<InfluenceLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for InfluenceLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("InfluenceLine");
+      ds.field("id", &self.id());
+      ds.field("kind", &self.kind());
+      ds.field("minute", &self.minute());
+      ds.field("what", &self.what());
       ds.finish()
   }
 }
@@ -14103,6 +14824,7 @@ impl<'a> IdeologyLine<'a> {
   pub const VT_SINCE_MINUTE: ::flatbuffers::VOffsetT = 8;
   pub const VT_FROM: ::flatbuffers::VOffsetT = 10;
   pub const VT_FROM_NAME: ::flatbuffers::VOffsetT = 12;
+  pub const VT_INFLUENCE: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -14116,6 +14838,7 @@ impl<'a> IdeologyLine<'a> {
     let mut builder = IdeologyLineBuilder::new(_fbb);
     builder.add_from(args.from);
     builder.add_since_minute(args.since_minute);
+    builder.add_influence(args.influence);
     if let Some(x) = args.from_name { builder.add_from_name(x); }
     if let Some(x) = args.legitimacy { builder.add_legitimacy(x); }
     if let Some(x) = args.name { builder.add_name(x); }
@@ -14158,6 +14881,13 @@ impl<'a> IdeologyLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(IdeologyLine::VT_FROM_NAME, None)}
   }
+  #[inline]
+  pub fn influence(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(IdeologyLine::VT_INFLUENCE, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for IdeologyLine<'_> {
@@ -14171,6 +14901,7 @@ impl ::flatbuffers::Verifiable for IdeologyLine<'_> {
      .visit_field::<i64>("since_minute", Self::VT_SINCE_MINUTE, false)?
      .visit_field::<u64>("from", Self::VT_FROM, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("from_name", Self::VT_FROM_NAME, false)?
+     .visit_field::<u32>("influence", Self::VT_INFLUENCE, false)?
      .finish();
     Ok(())
   }
@@ -14181,6 +14912,7 @@ pub struct IdeologyLineArgs<'a> {
     pub since_minute: i64,
     pub from: u64,
     pub from_name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub influence: u32,
 }
 impl<'a> Default for IdeologyLineArgs<'a> {
   #[inline]
@@ -14191,6 +14923,7 @@ impl<'a> Default for IdeologyLineArgs<'a> {
       since_minute: 0,
       from: 0,
       from_name: None,
+      influence: 0,
     }
   }
 }
@@ -14221,6 +14954,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> IdeologyLineBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(IdeologyLine::VT_FROM_NAME, from_name);
   }
   #[inline]
+  pub fn add_influence(&mut self, influence: u32) {
+    self.fbb_.push_slot::<u32>(IdeologyLine::VT_INFLUENCE, influence, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> IdeologyLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     IdeologyLineBuilder {
@@ -14243,6 +14980,7 @@ impl ::core::fmt::Debug for IdeologyLine<'_> {
       ds.field("since_minute", &self.since_minute());
       ds.field("from", &self.from());
       ds.field("from_name", &self.from_name());
+      ds.field("influence", &self.influence());
       ds.finish()
   }
 }
@@ -15044,6 +15782,7 @@ impl<'a> HeardLine<'a> {
   pub const VT_ORIGIN: ::flatbuffers::VOffsetT = 12;
   pub const VT_FIRST_MINUTE: ::flatbuffers::VOffsetT = 14;
   pub const VT_LAST_MINUTE: ::flatbuffers::VOffsetT = 16;
+  pub const VT_INFLUENCE: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -15059,6 +15798,7 @@ impl<'a> HeardLine<'a> {
     builder.add_first_minute(args.first_minute);
     builder.add_origin(args.origin);
     builder.add_from(args.from);
+    builder.add_influence(args.influence);
     if let Some(x) = args.from_name { builder.add_from_name(x); }
     if let Some(x) = args.what { builder.add_what(x); }
     builder.add_kind(args.kind);
@@ -15115,6 +15855,13 @@ impl<'a> HeardLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(HeardLine::VT_LAST_MINUTE, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn influence(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(HeardLine::VT_INFLUENCE, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for HeardLine<'_> {
@@ -15130,6 +15877,7 @@ impl ::flatbuffers::Verifiable for HeardLine<'_> {
      .visit_field::<u64>("origin", Self::VT_ORIGIN, false)?
      .visit_field::<i64>("first_minute", Self::VT_FIRST_MINUTE, false)?
      .visit_field::<i64>("last_minute", Self::VT_LAST_MINUTE, false)?
+     .visit_field::<u32>("influence", Self::VT_INFLUENCE, false)?
      .finish();
     Ok(())
   }
@@ -15142,6 +15890,7 @@ pub struct HeardLineArgs<'a> {
     pub origin: u64,
     pub first_minute: i64,
     pub last_minute: i64,
+    pub influence: u32,
 }
 impl<'a> Default for HeardLineArgs<'a> {
   #[inline]
@@ -15154,6 +15903,7 @@ impl<'a> Default for HeardLineArgs<'a> {
       origin: 0,
       first_minute: 0,
       last_minute: 0,
+      influence: 0,
     }
   }
 }
@@ -15192,6 +15942,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HeardLineBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<i64>(HeardLine::VT_LAST_MINUTE, last_minute, 0);
   }
   #[inline]
+  pub fn add_influence(&mut self, influence: u32) {
+    self.fbb_.push_slot::<u32>(HeardLine::VT_INFLUENCE, influence, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HeardLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HeardLineBuilder {
@@ -15216,6 +15970,7 @@ impl ::core::fmt::Debug for HeardLine<'_> {
       ds.field("origin", &self.origin());
       ds.field("first_minute", &self.first_minute());
       ds.field("last_minute", &self.last_minute());
+      ds.field("influence", &self.influence());
       ds.finish()
   }
 }

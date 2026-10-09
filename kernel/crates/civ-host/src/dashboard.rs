@@ -163,6 +163,9 @@ pub struct WorldRun {
     pub contacts: (u32, f64, u32),
     /// People who came to live in another of its settlements over the run, by why (slice AN).
     pub between: Between,
+    /// Each pair of its settlements, by name, as the price convergence row judges it (M5b slice
+    /// AQ, ADR-0019 §7).
+    pub trade: Vec<(String, String, crate::trade::PairSeen)>,
 }
 
 /// People who came to live in one settlement from another, by why: the moves 05-06 §5.4 counts,
@@ -618,6 +621,17 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
             (v + c.visits, h + c.minutes as f64 / 60.0, m + c.marriages)
         });
     world.between = Between::of(sim);
+    let name = |id| {
+        sim.land()
+            .settlements
+            .iter()
+            .find(|x| x.id == id)
+            .map_or_else(|| format!("settlement {id}"), |x| x.name.clone())
+    };
+    world.trade = crate::trade::pairs(&sim.people().convergence, &sim.people().contacts)
+        .into_iter()
+        .map(|p| (name(p.a), name(p.b), p))
+        .collect();
     world.labels = sim
         .people()
         .polities
@@ -654,6 +668,7 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
         settlement_sizes(worlds),
         contacts(worlds, years),
         moves(worlds),
+        convergence(worlds),
         accounting(worlds),
         crime(worlds),
         Row::new(
@@ -780,6 +795,54 @@ fn moves(worlds: &[WorldRun]) -> Row {
         if outside { Grade::Amber } else { Grade::Green },
         seen.join("; "),
     )
+}
+
+/// Price convergence between settlements (M5b slice AQ, ADR-0019 §7; the M5 trade brief's
+/// proposal, see [`crate::trade`]): per pair, the goods traded between them, each against the band
+/// what carrying it costs would leave; red only for a good flowing the wrong way beyond the band.
+/// Grey for a pair with fewer than 30 purchases between them, and for a world of one settlement.
+/// What was carried, the trips and their hours are shown, not graded.
+fn convergence(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Price convergence",
+        "the gap between settlements' asks of each good traded between them",
+        "within its band, or closer than before trade",
+    )
+    .source("08-05 §1.7; 08-12 §4; ADR-0019 §7");
+    // The worst grade of the pairs the row applies to.
+    let mut grade: Option<Grade> = None;
+    let mut seen = Vec::new();
+    for w in worlds {
+        for (a, b, p) in &w.trade {
+            let (g, why) = p.grade();
+            if g != Grade::Gray {
+                grade = Some(grade.map_or(g, |x| x.max(g)));
+            }
+            let judged: Vec<String> = p
+                .judged()
+                .map(|x| format!("gap {:.0} against a band of {:.0}", x.gap, x.band))
+                .collect();
+            seen.push(format!(
+                "world {} {a}–{b}: {} ({why}; {} trades, {} trips, {:.0} hours walked{})",
+                w.seed,
+                g.word(),
+                p.trades,
+                p.trips,
+                p.walk_h,
+                if judged.is_empty() {
+                    String::new()
+                } else {
+                    format!("; {}", judged.join(", "))
+                }
+            ));
+        }
+    }
+    let text = if seen.is_empty() {
+        "no world of several settlements lived".to_owned()
+    } else {
+        seen.join("; ")
+    };
+    row.graded(grade.unwrap_or(Grade::Gray), text)
 }
 
 /// Every settlement's accounts balance every year (ADR-0018 §3): a hard check. Shown with the
@@ -1269,6 +1332,54 @@ mod tests {
     }
 
     #[test]
+    fn the_price_convergence_row_is_grey_without_enough_trade_and_takes_the_worst_pair() {
+        use crate::trade::{GoodSeen, PairSeen};
+        let id = |n| civ_core::PermanentId::from_raw(n).expect("non-zero");
+        let pair = |trades, gap, band, wrong_way| PairSeen {
+            a: id(1),
+            b: id(2),
+            trades,
+            trips: trades,
+            walk_h: 10.0,
+            goods: vec![GoodSeen {
+                good: 3,
+                months: 36,
+                gap,
+                before: None,
+                band,
+                carried: 12.0,
+                wrong_way,
+            }],
+        };
+        let named = |p| ("Oakholt".to_owned(), "Elmhollow".to_owned(), p);
+        let mut w = world(1, &[40]);
+        assert_eq!(
+            convergence(&[w.clone()]).grade,
+            Grade::Gray,
+            "one settlement"
+        );
+        w.trade = vec![named(pair(5, 40.0, 10.0, 0))];
+        assert_eq!(
+            convergence(&[w.clone()]).grade,
+            Grade::Gray,
+            "too few trades"
+        );
+        w.trade = vec![named(pair(40, 8.0, 10.0, 0))];
+        assert_eq!(convergence(&[w.clone()]).grade, Grade::Green);
+        let mut v = world(2, &[40]);
+        v.trade = vec![named(pair(40, 40.0, 10.0, 0))];
+        assert_eq!(convergence(&[w.clone(), v.clone()]).grade, Grade::Amber);
+        v.trade = vec![named(pair(40, 40.0, 10.0, 1))];
+        let row = convergence(&[w, v]);
+        assert_eq!(row.grade, Grade::Red);
+        assert!(
+            row.text.contains("world 2 Oakholt–Elmhollow: RED"),
+            "{}",
+            row.text
+        );
+    }
+
+    #[test]
     fn the_gini_is_judged_over_years_lived_in_and_banded() {
         let mut w = world(1, &[40]);
         // Years 26-50 at 0.25, but only four with ten people or more: too few to judge.
@@ -1350,6 +1461,7 @@ mod tests {
             "Settlement sizes",
             "Contacts",
             "Moves",
+            "Price convergence",
             "Crime and poverty",
             "Epidemics",
             "Regimes",
@@ -1375,7 +1487,7 @@ mod tests {
         // Only population and the accounts are graded, both worlds keep their bands and no
         // settlement's accounts failed: a pass, but no grey row counts as one.
         assert!(dashboard.passed());
-        assert_eq!(dashboard.summary(), "2 passed, 10 not yet applicable");
+        assert_eq!(dashboard.summary(), "2 passed, 11 not yet applicable");
     }
 
     #[test]

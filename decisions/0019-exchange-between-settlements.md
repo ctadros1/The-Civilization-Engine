@@ -138,6 +138,16 @@ brief (`docs/briefs/m5-trade.md`). Their main points:
   and the realised prices; and the units and kilograms carried, the trips and their walking
   hours. Saved, because tallies fade and offers change; the dashboard's price convergence row and
   the demo read it.
+- As built (slice AQ, step three): the row is the M5 trade brief's proposal, its thresholds tuning
+  values. A pair is judged once there are 30 purchases between its settlements. Each traded good
+  with 24 months of asks on both sides is judged by its median monthly gap over the last ten years
+  (100 × |ln(ask ÷ ask)|) against a band of 100 × ln(1 + carrying hours a unit ÷ its median ask)
+  plus 5 points. The carrying hours a unit are the hours walked between the pair over the units
+  carried, all goods together, since the record does not split the walk by good. Green when every
+  traded good is within its band or closer than in the year before the pair first traded it; amber
+  otherwise; red only for a good flowing on net from the dearer settlement to the cheaper in a
+  year whose gap exceeded the band. `civ-host twin` lives a save as it is and as the twin (§8) and
+  judges both.
 
 ### 8. The demo's twin is a harness, not a rule
 

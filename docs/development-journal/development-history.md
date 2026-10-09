@@ -844,6 +844,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Evidence:** a unit test of the ledger (a whole stock given as its `f32` posting reads it; a real shortfall refused); the full test suite; the ten-year smoke (all ten worlds passed).
 
+## 2026-10-09 — M5b slice AQ, step three, first part: the price convergence row and the twin
+
+**Goal:** judge whether trade closes the gaps between settlements' prices, against what carrying a good costs and against a twin that lives the same world without trade (ADR-0019 §7, §8; the M5 trade brief's row; research 08-05 §1.7, 08-12 §4).
+
+**What changed:** a measure in `civ-host` that reads the convergence record per pair (each good's median gap, its band, the gap before trade, what was carried, and any year it flowed the wrong way), the dashboard's "Price convergence" row on it, and `civ-host twin`, which lives a save as it is and as the twin side by side and judges both.
+
+**Findings:** two years of the M5a demo's world gave 12 purchases between settlements with trade and none as the twin; no pair reached the 30 purchases the row asks for, so it stays grey. The band is computed from the hours walked per unit carried over all goods, since the record does not split the walk by good.
+
+**Evidence:** unit tests of the grading and of the dashboard row; the twin command run on the demo save.
+
+**Open:** the observer's view of the record and caravans (step three, second part); the demo (AS).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

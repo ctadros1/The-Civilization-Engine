@@ -23,4 +23,6 @@ pub mod report;
 pub mod server;
 pub mod session;
 pub mod smoke;
+pub mod trade;
+pub mod twin;
 pub mod weather;

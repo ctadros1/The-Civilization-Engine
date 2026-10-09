@@ -1036,6 +1036,11 @@ const hooks = {
               labelWhy: p.labelWhy,
               gatheringLaw: p.gatheringLaw,
               gatheringCases: p.gatheringCases,
+              customHistory: p.customHistory,
+              revolts: p.revolts,
+              coups: p.coups,
+              petitions: p.petitions,
+              refusals: p.refusals,
               laws: p.laws.map((l) => ({
                 what: l.what,
                 status: l.status,

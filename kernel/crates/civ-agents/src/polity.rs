@@ -1129,6 +1129,17 @@ pub struct CustomVersion {
 }
 
 impl Polity {
+    /// The body that decided what it decided at `t`: the version of the custom in force before
+    /// then (one that began at `t` was made by what was decided then, under the one before).
+    pub fn body_at(&self, t: SimTime) -> &Body {
+        self.versions
+            .iter()
+            .rev()
+            .find(|v| v.since < t)
+            .or_else(|| self.versions.first())
+            .map_or(&self.body, |v| &v.body)
+    }
+
     /// A new polity for `settlement` under the founding custom.
     pub fn found(
         id: PermanentId,
@@ -1475,6 +1486,31 @@ pub(crate) mod tests {
 
     fn pid(n: u64) -> PermanentId {
         PermanentId::from_raw(n).expect("non-zero")
+    }
+
+    #[test]
+    fn what_was_decided_is_told_under_the_body_that_decided_it() {
+        let t = |day: i64| SimTime::from_minutes(day * 24 * 60);
+        let mut polity = Polity::found(pid(1), pid(2), t(0), &params());
+        let elders = Body {
+            members: Membership::Elders,
+            ..polity.body
+        };
+        // An amendment decided on day 100 makes the elders the body from then.
+        polity.versions.push(CustomVersion {
+            body: elders,
+            since: t(100),
+            law: Some(pid(9)),
+            seized_by: None,
+        });
+        polity.body = elders;
+        assert_eq!(polity.body_at(t(50)).members, Membership::Adults);
+        assert_eq!(
+            polity.body_at(t(100)).members,
+            Membership::Adults,
+            "the amendment itself was decided by the adults"
+        );
+        assert_eq!(polity.body_at(t(101)).members, Membership::Elders);
     }
 
     #[test]

@@ -85,7 +85,9 @@ fn law_line<'a>(
         .map(|d| format!(", as one who holds to {}", d.name))
         .unwrap_or_default();
     let issue = fbb.create_string(&format!("{}{creed}", law.issue.words()));
-    let decision = decision_words(law, &polity.body).map(|w| fbb.create_string(&w));
+    // Under the body that decided it, which an amendment since may have changed.
+    let body = law.decided.map_or(&polity.body, |t| polity.body_at(t));
+    let decision = decision_words(law, body).map(|w| fbb.create_string(&w));
     let known = law
         .known
         .iter()

@@ -681,6 +681,23 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** step three (the regimes row and the M4 demo).
 
+## 2026-10-09 — M4c slice AJ, step three: the regimes row and the M4 demo
+
+**Goal:** close M4: grade whether worlds of one start diverge in who rules, and show five of them side by side with one law's full history (plan §7).
+
+**What changed:**
+
+- **The regimes row:** the dashboard grades each world's polity by its label's principal name (who may decide, who leads) at the end, and shows each tenth year's; two names are green, one is amber, reported and not forced. The classifier was left as it was.
+- **Kept saves as a saves folder:** the dashboard's kept saves open in the observer, one world to a folder.
+- **The M4 demo:** loads each world's save of year 40, shows its Government panel, opens one law to its whole history, and shows again at year 50 any world whose regime changed after.
+- **A display fault fixed:** a decision's tally named the members of the body now, not of the body that decided it.
+
+**Findings:** at forty years all five worlds were council communities under the founding custom, each with a kept store and nothing decided for two years: one regime. By fifty, one world ran short of food, emptied its store, lost 32 of 82 people, replaced its keeper on a faction's petition and amended its custom so that households' elders decide: an oligarchy with big-man leadership. The fifty-year dashboard failed one row: in that world grain was asked only 1 log point more before the harvest than after, over 40 harvests, against 2; a time-boxed probe found its institutions matched the others' to year 40. Recorded, not rerun.
+
+**Evidence:** unit tests of the row and of telling a decision under the body that decided it; the dashboard (2,237 s, every world's checks passing, four rows green, one amber, three grey, one red); the demo run against its kept saves. The kernel (626), web (145) and end-to-end (17, 7 demos skipped) suites pass, with clippy and the format and schema checks clean. Nothing in step three changes what a world does, so the gates were not run again.
+
+**Open:** M5 (neighbours). Keeping a seized store and damage to property remain designed and not built.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

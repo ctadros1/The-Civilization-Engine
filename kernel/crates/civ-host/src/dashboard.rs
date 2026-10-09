@@ -18,6 +18,10 @@
 //!   hours above the median.
 //! - **Structural failures:** failures of buildings lived in, per 1,000 years they stood lived
 //!   in, at most [`MAX_FAILURES_PER_1000`]. Those of buildings nobody lives in are counted apart.
+//! - **Regimes** (M4c slice AJ): whether two worlds' polities ended under labels that differ in
+//!   who may decide or who leads, by the label's principal name, which its reasons name (the M4
+//!   observer brief: "differ" only where the why names a structural difference). Fewer than two is
+//!   amber, reported and never forced; the classifier does not read the property regime.
 //! - **Crime and poverty** (M4b slice AD): over all the worlds' attempts to take, where each
 //!   taker's household stood among its settlement's by food when they came, graded by direction
 //!   only: more of their neighbours held more than held less, once there are [`MIN_ATTEMPTS`].
@@ -129,6 +133,11 @@ pub struct WorldRun {
     /// What each settlement's polity would be called at the end, with what qualifies it
     /// (ADR-0013 §6).
     pub labels: Vec<String>,
+    /// Each polity's regime at the end, by its label's principal name without the person it names
+    /// ("Council community — led by its proposer"), with the reason its body is what it is.
+    pub regimes: Vec<(String, String)>,
+    /// The same at each tenth year's end: (year, each polity's principal name).
+    pub regimes_by_decade: Vec<(u32, Vec<String>)>,
     /// Its attempts to take, by where the taker's household stood by food.
     pub crime: CrimeSeen,
 }
@@ -473,6 +482,12 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
         if living < KEEP && world.ended.is_none() {
             world.ended = Some(format!("fell to {living} in year {y}, from {most} at most"));
         }
+        if y % 10 == 0 {
+            world.regimes_by_decade.push((
+                y,
+                regimes_of(sim).into_iter().map(|(name, _)| name).collect(),
+            ));
+        }
         if y % 10 == 0
             && let Some(dir) = &dir
         {
@@ -526,6 +541,7 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
             }
         })
         .collect();
+    world.regimes = regimes_of(sim);
     for c in run.economy.grade(sim) {
         let seen = Some((c.grade, c.text.clone()));
         match c.name {
@@ -565,30 +581,93 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
     ]
 }
 
-/// The labels the worlds' polities ended with (ADR-0013 §6). Every world keeps the one founding
-/// custom, which nothing can yet amend or seize (M4c), so labels that differ would show offices
-/// and evidence, not who rules: the row reports them and is not graded until then.
-fn regimes(worlds: &[WorldRun]) -> Row {
-    let seen: Vec<String> = worlds
+/// Each polity of `sim`'s regime now: its label's principal name without the person it names
+/// ("Council community — big-man leadership"), and the first of its reasons, which says who may
+/// decide (ADR-0013 §6; the classifier is frozen for M4's demo, research 16-03 §2.2).
+fn regimes_of(sim: &Sim) -> Vec<(String, String)> {
+    sim.people()
+        .polities
         .iter()
-        .filter(|w| !w.labels.is_empty())
-        .map(|w| format!("world {}: {}", w.seed, w.labels.join(", ")))
-        .collect();
-    let why = "every world keeps its founding custom, which none can yet amend or seize (M4c), \
-               so differing labels would show offices and evidence, not who rules";
-    Row::new(
+        .map(|p| {
+            let l = civ_sim::labels::label_of(sim, p);
+            let name = l.name.split(" (").next().unwrap_or(&l.name).to_owned();
+            (name, l.why.first().cloned().unwrap_or_default())
+        })
+        .collect()
+}
+
+/// The regimes the worlds' polities ended under (M4c slice AJ; plan §4.7: "two seeds differ").
+/// Two worlds differ only where their labels' principal names do, and those name who may decide
+/// and who leads, as their reasons say. Fewer than two regimes is amber: reported, never forced
+/// (research 16-03 §2.2: no reference rate of divergence is known, and none is tuned toward).
+fn regimes(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
         "Regimes",
-        "labels inferred from how worlds are run",
-        "two seeds differ",
+        "each world's polity at the end, by its label's principal name",
+        "two worlds differ in who may decide or who leads",
     )
-    .graded(
-        Grade::Gray,
-        if seen.is_empty() {
-            format!("no polity to label; {why}")
-        } else {
-            format!("{} / {why}", seen.join(" / "))
-        },
-    )
+    .source("the M4 observer brief; ADR-0013 §6");
+    let labelled: Vec<&WorldRun> = worlds.iter().filter(|w| !w.regimes.is_empty()).collect();
+    let seen: Vec<String> = labelled
+        .iter()
+        .map(|w| {
+            let mut s = format!(
+                "world {}: {}",
+                w.seed,
+                w.regimes
+                    .iter()
+                    .map(|(name, why)| format!("{} ({})", name.to_lowercase(), why))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            );
+            let changes: Vec<String> = w
+                .regimes_by_decade
+                .windows(2)
+                .filter(|p| p[0].1 != p[1].1)
+                .map(|p| format!("by year {}: {}", p[1].0, p[1].1.join(", ").to_lowercase()))
+                .collect();
+            if !changes.is_empty() {
+                s.push_str(&format!(" [{}]", changes.join("; ")));
+            }
+            s
+        })
+        .collect();
+    if labelled.len() < 2 {
+        return row.graded(
+            Grade::Gray,
+            format!(
+                "fewer than two worlds with a polity to label{}",
+                if seen.is_empty() {
+                    String::new()
+                } else {
+                    format!(": {}", seen.join(" / "))
+                }
+            ),
+        );
+    }
+    let mut kinds: Vec<&str> = labelled
+        .iter()
+        .flat_map(|w| w.regimes.iter().map(|(name, _)| name.as_str()))
+        .collect();
+    kinds.sort_unstable();
+    kinds.dedup();
+    let note = "the classifier does not read the property regime";
+    if kinds.len() >= 2 {
+        row.graded(
+            Grade::Green,
+            format!("{} regimes: {} / {note}", kinds.len(), seen.join(" / ")),
+        )
+    } else {
+        row.graded(
+            Grade::Amber,
+            format!(
+                "every world ended as a {}: fewer than two regimes arose, reported and not forced: \
+                 {} / {note}",
+                kinds.first().map_or("polity", |k| k).to_lowercase(),
+                seen.join(" / ")
+            ),
+        )
+    }
 }
 
 /// Crime against poverty (plan §4.7; M4b slice AD): every attempt to take, all worlds together,
@@ -980,6 +1059,33 @@ mod tests {
         a.lived_failures = 3;
         assert_eq!(failures(&[a, b]).grade, Grade::Red);
         assert_eq!(failures(&[world(3, &[0])]).grade, Grade::Gray);
+    }
+
+    #[test]
+    fn regimes_differ_only_by_who_decides_or_leads_and_one_regime_is_reported_not_failed() {
+        let mut a = world(1, &[40]);
+        let mut b = world(2, &[40]);
+        let council = (
+            "Council community".to_owned(),
+            "All its adults may come and decide.".to_owned(),
+        );
+        a.regimes = vec![council.clone()];
+        b.regimes = vec![council.clone()];
+        let one = regimes(&[a.clone(), b.clone()]);
+        assert_eq!(one.grade, Grade::Amber, "{}", one.text);
+        assert!(one.text.contains("fewer than two regimes arose"));
+        b.regimes = vec![(
+            "Oligarchy".to_owned(),
+            "Only 20 % of its adults may decide.".to_owned(),
+        )];
+        b.regimes_by_decade = vec![
+            (10, vec!["Council community".to_owned()]),
+            (20, vec!["Oligarchy".to_owned()]),
+        ];
+        let two = regimes(&[a.clone(), b]);
+        assert_eq!(two.grade, Grade::Green, "{}", two.text);
+        assert!(two.text.contains("by year 20: oligarchy"), "{}", two.text);
+        assert_eq!(regimes(&[a]).grade, Grade::Gray, "one world cannot differ");
     }
 
     #[test]

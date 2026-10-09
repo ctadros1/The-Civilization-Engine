@@ -304,6 +304,10 @@ table SettlementBrief {
   year: string (id: 9);
   // When its last resident died or left (-1: it is lived in).
   abandoned_minute: long = -1 (id: 10);
+  // Wire 1.51 (M5a slice AM): visits and marriages between it and other settlements last year
+  // and this year so far, in words ("in year 2: 12 visits from Ashford, 7 hours at the hearth
+  // here; 3 visits to Ashford"); empty when there were none.
+  contacts: string (id: 11);
 }
 
 table Snapshot {

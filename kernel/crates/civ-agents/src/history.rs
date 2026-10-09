@@ -147,11 +147,18 @@ pub enum Reason {
     NoPetition = 133,
     /// Excluded: a blow keeps them from work (M4c slice AI, step four).
     Hurt = 134,
+    /// Those they would see at another settlement's hearth (M5a slice AM): kin living there,
+    /// those they know there, and, for one who found no partner at home, the hope of meeting
+    /// someone.
+    Company = 31,
+    /// Excluded: no other settlement their household knows lies within a day's walk there and
+    /// back, in daylight.
+    NoPlaceToVisit = 135,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 65] = [
+    pub const ALL: [Reason; 67] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -217,6 +224,8 @@ impl Reason {
         Reason::Petition,
         Reason::NoPetition,
         Reason::Hurt,
+        Reason::Company,
+        Reason::NoPlaceToVisit,
     ];
 
     /// The reason with this code.
@@ -292,6 +301,8 @@ impl Reason {
             Reason::Petition => "the petition at the hearth",
             Reason::NoPetition => "no petition they heard of sits now",
             Reason::Hurt => "a blow keeps them from work",
+            Reason::Company => "those they would see there",
+            Reason::NoPlaceToVisit => "no settlement they know within a day's walk",
         }
     }
 }

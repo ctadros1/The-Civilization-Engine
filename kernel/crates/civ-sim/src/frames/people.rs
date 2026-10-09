@@ -103,6 +103,7 @@ pub fn settlement_briefs<'a>(
             );
             let founding = fbb.create_string(&founding_words(sim, s));
             let year = fbb.create_string(&year_words(sim, s.id));
+            let contacts = fbb.create_string(&contacts_words(sim, s.id));
             wire::SettlementBrief::create(
                 fbb,
                 &wire::SettlementBriefArgs {
@@ -117,6 +118,7 @@ pub fn settlement_briefs<'a>(
                     founding: Some(founding),
                     year: Some(year),
                     abandoned_minute: s.abandoned.map_or(-1, |t| t.minutes()),
+                    contacts: Some(contacts),
                 },
             )
         })
@@ -174,6 +176,64 @@ pub fn year_words(sim: &Sim, s: PermanentId) -> String {
     parts.join(", ")
 }
 
+/// What passed between settlement `s` and others last year and this year so far, in words (M5a
+/// slice AM): "in year 2: 12 visits from Ashford, 7 hours at the hearth here; 3 visits to
+/// Ashford"; empty when nothing did.
+pub fn contacts_words(sim: &Sim, s: PermanentId) -> String {
+    let this = sim.now().date().year - 1;
+    let count = |n: u32, one: &str, many: &str| {
+        if n == 1 {
+            format!("1 {one}")
+        } else {
+            format!("{n} {many}")
+        }
+    };
+    let mut parts = Vec::new();
+    for year in [this - 1, this] {
+        let mut lines = Vec::new();
+        for (from, to, c) in sim.people.contacts.of_year(year) {
+            if to == s && c.visits > 0 {
+                lines.push(format!(
+                    "{} from {}, {:.0} hours at the hearth here",
+                    count(c.visits, "visit", "visits"),
+                    place_name(sim, Some(from)),
+                    c.minutes as f64 / 60.0
+                ));
+            }
+            if from == s && c.visits > 0 {
+                lines.push(format!(
+                    "{} to {}",
+                    count(c.visits, "visit", "visits"),
+                    place_name(sim, Some(to))
+                ));
+            }
+            if to == s && c.marriages > 0 {
+                lines.push(format!(
+                    "{} from {}",
+                    count(c.marriages, "marriage", "marriages"),
+                    place_name(sim, Some(from))
+                ));
+            }
+            if from == s && c.marriages > 0 {
+                lines.push(format!(
+                    "{} into {}",
+                    count(c.marriages, "marriage", "marriages"),
+                    place_name(sim, Some(to))
+                ));
+            }
+        }
+        if !lines.is_empty() {
+            let when = if year == this {
+                format!("in year {} so far", year + 1)
+            } else {
+                format!("in year {}", year + 1)
+            };
+            parts.push(format!("{when}: {}", lines.join("; ")));
+        }
+    }
+    parts.join(". ")
+}
+
 /// Where person `id` has lived, oldest first, each in words (ADR-0018 §2): "Ashford, from the
 /// spring of year 1: came with a founding group".
 pub fn residence_words(sim: &Sim, id: PermanentId) -> Vec<String> {
@@ -210,8 +270,19 @@ pub fn places_words(sim: &Sim, household: PermanentId) -> Vec<String> {
                 .filter(|_| k.how == civ_agents::places::PlaceHow::Told)
                 .map(|f| format!(" by {}", sim.people.name_of(f)))
                 .unwrap_or_default();
+            // What a member saw of its food when last there (M5a slice AM, visits).
+            let food = k.food.map_or_else(String::new, |fed| {
+                let seen = if fed >= 0.9 {
+                    "nobody they met going hungry"
+                } else if fed >= 0.5 {
+                    "some they met going hungry"
+                } else {
+                    "most they met going hungry"
+                };
+                format!("; when a member was last there, {seen}")
+            });
             format!(
-                "{}: {}{by} in {}",
+                "{}: {}{by} in {}{food}",
                 place_name(sim, Some(k.settlement)),
                 k.how.words(),
                 season_words(since)
@@ -565,6 +636,12 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
                     format!("{what}, {place}")
                 }
                 Target::Household(_) | Target::Deposit(_) => format!("{what} at {place}"),
+                // Another settlement's hearth (M5a slice AM): "visiting the hearth of Ashford".
+                Target::Hearth(_)
+                    if def.is_some_and(|d| d.behavior == civ_agents::Behavior::Visit) =>
+                {
+                    format!("{what} {place}")
+                }
                 Target::Building(id) => {
                     match sim
                         .land

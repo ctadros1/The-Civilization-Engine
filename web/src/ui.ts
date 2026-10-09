@@ -1369,6 +1369,7 @@ export function bindUi(store: Store, actions: Actions): void {
         Math.round(s.harvestKg / 100),
         s.year,
         s.abandonedMinute,
+        s.contacts,
       ]),
       state.welcome?.activities.length ?? 0,
     ]);
@@ -1406,6 +1407,9 @@ export function bindUi(store: Store, actions: Actions): void {
           text: `founded ${formatSimMinute(s.foundedMinute)}${s.founding ? `, ${s.founding}` : ""}`,
         }),
         s.year ? el("span", { className: "since", text: `In the past year: ${s.year}.` }) : "",
+        s.contacts
+          ? el("span", { className: "since contacts", text: `Between settlements, ${s.contacts}.` })
+          : "",
       ),
     );
     nodes.push(

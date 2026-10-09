@@ -293,6 +293,9 @@ export interface SettlementBrief {
   year: string;
   /** When its last resident died or left; -1 while it is lived in. */
   abandonedMinute: number;
+  /** Wire 1.51 (M5a slice AM): visits and marriages between it and other settlements last
+   * year and this year so far, in the kernel's words; empty when there were none. */
+  contacts: string;
 }
 
 export interface Snapshot {
@@ -2114,6 +2117,7 @@ function settlementBriefs(s: W.Snapshot): SettlementBrief[] {
       founding: t.founding() ?? "",
       year: t.year() ?? "",
       abandonedMinute: Number(t.abandonedMinute()),
+      contacts: t.contacts() ?? "",
     });
   }
   return out;

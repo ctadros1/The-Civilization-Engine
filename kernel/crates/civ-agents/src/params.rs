@@ -52,11 +52,14 @@ pub enum Behavior {
     /// Go to the hearth to join a petition a faction has called there (M4c slice AH, ADR-0017
     /// §3): only for those who heard of it.
     Petition,
+    /// Walk to the hearth of another settlement the household knows, keep company there and
+    /// walk home within the day (M5a slice AM, ADR-0018 §2: presence, never residence).
+    Visit,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 19] = [
+    pub const ALL: [Behavior; 20] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -76,6 +79,7 @@ impl Behavior {
         Behavior::Take,
         Behavior::Watch,
         Behavior::Petition,
+        Behavior::Visit,
     ];
 
     /// The authored name of a behavior.
@@ -100,6 +104,7 @@ impl Behavior {
             Behavior::Take => "take",
             Behavior::Watch => "watch",
             Behavior::Petition => "petition",
+            Behavior::Visit => "visit",
         }
     }
 

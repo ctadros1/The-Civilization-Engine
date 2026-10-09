@@ -18,7 +18,8 @@
 //! `--max` lives the days at Max, in Accelerated mode from the first midnight with the
 //! approximations it declares (ADR-0011 §4); `--exact` with it switches them off, and `--only
 //! leisure` or `--only view` keeps one. `--digest` also prints how people spent their time.
-//! `--groups N` founds N groups of `--people` each, their sites chosen together (ADR-0018 §6).
+//! `--groups N` founds N groups of `--people` each, their sites chosen together (ADR-0018 §6);
+//! `--known` has them know where each other camped.
 
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
@@ -44,6 +45,7 @@ struct Args {
     exact: bool,
     only: String,
     groups: u32,
+    known: bool,
 }
 
 fn args() -> Args {
@@ -63,6 +65,7 @@ fn args() -> Args {
         exact: false,
         only: String::new(),
         groups: 1,
+        known: false,
     };
     let mut it = std::env::args().skip(1);
     while let Some(flag) = it.next() {
@@ -76,6 +79,10 @@ fn args() -> Args {
         }
         if flag == "--exact" {
             a.exact = true;
+            continue;
+        }
+        if flag == "--known" {
+            a.known = true;
             continue;
         }
         let value = it.next().unwrap_or_default();
@@ -126,7 +133,7 @@ fn main() {
                 size_cells: a.size,
                 band_size: a.people,
                 neighbours: vec![a.people; a.groups.saturating_sub(1) as usize],
-                neighbours_known: false,
+                neighbours_known: a.known,
                 regime_id: a.regime.clone(),
             },
             &content,
@@ -230,6 +237,17 @@ fn main() {
             "{line} walking {:.3} waiting {:.3}",
             h(t.walking),
             h(t.waiting)
+        );
+        // Visits between settlements (M5a slice AM).
+        let (visits, minutes) = sim
+            .people()
+            .contacts
+            .years
+            .values()
+            .fold((0u32, 0u64), |(v, m), c| (v + c.visits, m + c.minutes));
+        println!(
+            "contacts: {visits} visits, {:.0} hours at others' hearths",
+            minutes as f64 / 60.0
         );
         // Ties (ADR-0014): how many, and what last moved them.
         let ties = &sim.people().ties;

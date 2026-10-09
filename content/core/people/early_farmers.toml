@@ -819,3 +819,19 @@ coup_cost = 0.75
 # village of huts and hearth smoke is seen; 500 m is a design prior.
 sight_m = 500.0
 share_told = 0.15
+# What a visit to another settlement's hearth is worth (content API 53), beside the company it
+# gives as any hearth does and against the walk there and back (`decision.w_walk_hour`, 2 points
+# an hour): points for each parent, child, brother or sister living there; at most `w_ties` for
+# those the visitor knows there (half of it for familiarity and warmth summing to 1); and
+# `w_seek` for an unpartnered adult who looked for a partner at home within `seek_days` and found
+# nobody (research 04-08 §1.1: partners come from those one meets, neighbouring settlements among
+# them; 04-04 §3.1: visitors, marriage partners and kin are the ties that bridge villages). After
+# a member of the household was there, the wish to go again grows back over `revisit_days`. The
+# research gives no values; all are design priors. Hearths lie at least about 3 km apart (the
+# founding groups' fields do not overlap), an hour or so each way, so the walk costs about 4
+# points: one close kin there or a failed search at home outweighs it; loneliness alone does not.
+w_kin = 6.0
+w_ties = 4.0
+w_seek = 6.0
+seek_days = 180
+revisit_days = 30.0

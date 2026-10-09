@@ -6028,6 +6028,7 @@ impl<'a> SettlementBrief<'a> {
   pub const VT_FOUNDING: ::flatbuffers::VOffsetT = 20;
   pub const VT_YEAR: ::flatbuffers::VOffsetT = 22;
   pub const VT_ABANDONED_MINUTE: ::flatbuffers::VOffsetT = 24;
+  pub const VT_CONTACTS: ::flatbuffers::VOffsetT = 26;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6042,6 +6043,7 @@ impl<'a> SettlementBrief<'a> {
     builder.add_abandoned_minute(args.abandoned_minute);
     builder.add_founded_minute(args.founded_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.contacts { builder.add_contacts(x); }
     if let Some(x) = args.year { builder.add_year(x); }
     if let Some(x) = args.founding { builder.add_founding(x); }
     builder.add_harvest_kg(args.harvest_kg);
@@ -6131,6 +6133,13 @@ impl<'a> SettlementBrief<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(SettlementBrief::VT_ABANDONED_MINUTE, Some(-1)).unwrap()}
   }
+  #[inline]
+  pub fn contacts(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(SettlementBrief::VT_CONTACTS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for SettlementBrief<'_> {
@@ -6150,6 +6159,7 @@ impl ::flatbuffers::Verifiable for SettlementBrief<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("founding", Self::VT_FOUNDING, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("year", Self::VT_YEAR, false)?
      .visit_field::<i64>("abandoned_minute", Self::VT_ABANDONED_MINUTE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("contacts", Self::VT_CONTACTS, false)?
      .finish();
     Ok(())
   }
@@ -6166,6 +6176,7 @@ pub struct SettlementBriefArgs<'a> {
     pub founding: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub year: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub abandoned_minute: i64,
+    pub contacts: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for SettlementBriefArgs<'a> {
   #[inline]
@@ -6182,6 +6193,7 @@ impl<'a> Default for SettlementBriefArgs<'a> {
       founding: None,
       year: None,
       abandoned_minute: -1,
+      contacts: None,
     }
   }
 }
@@ -6236,6 +6248,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SettlementBriefBuilder<'a, 'b
     self.fbb_.push_slot::<i64>(SettlementBrief::VT_ABANDONED_MINUTE, abandoned_minute, -1);
   }
   #[inline]
+  pub fn add_contacts(&mut self, contacts: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SettlementBrief::VT_CONTACTS, contacts);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SettlementBriefBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SettlementBriefBuilder {
@@ -6264,6 +6280,7 @@ impl ::core::fmt::Debug for SettlementBrief<'_> {
       ds.field("founding", &self.founding());
       ds.field("year", &self.year());
       ds.field("abandoned_minute", &self.abandoned_minute());
+      ds.field("contacts", &self.contacts());
       ds.finish()
   }
 }

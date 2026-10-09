@@ -1,8 +1,13 @@
 //! How households come to know other settlements (ADR-0018 §4; M5a slice AM): by walking within
-//! sight of them (in `start_walk`), by being told at the hearth, and by founding alongside them.
+//! sight of them (in `start_walk`), by being told at the hearth, by founding alongside them, and
+//! by going there. A visit is presence, never residence (ADR-0018 §2): the visitor keeps their
+//! household and settlement, keeps company at the other hearth like anyone there, and walks home
+//! the same day.
 
 use super::*;
+use crate::decide::VisitOption;
 use crate::places::PlaceHow;
+use civ_core::time::DAYS_PER_YEAR;
 
 /// Purpose tag for the draw of whether a place is told at the hearth.
 pub const PURPOSE_PLACE: u64 = 0x706c_6163_6530_3031; // "place001"
@@ -82,5 +87,185 @@ impl Population {
                     .learn(household, s.id, day, PlaceHow::Seen, None);
             }
         }
+    }
+
+    /// The other settlements `person` of `household` could visit, from their settlement's
+    /// travel field `field_key`: those their household knows that are lived in and lie within
+    /// `max_walk_min` of their hearth, each with what those they would see there are worth to
+    /// them (kin, those they know, the hope of meeting someone). Empty in the dark.
+    pub(crate) fn visit_options(
+        &self,
+        ctx: &Ctx,
+        person: PermanentId,
+        household: PermanentId,
+        field_key: PermanentId,
+        max_walk_min: f64,
+        dark: bool,
+    ) -> Vec<VisitOption> {
+        let known = self.known_places.of(household);
+        if dark || known.is_empty() {
+            return Vec::new();
+        }
+        let Some(home) = self.household(household).and_then(|x| x.settlement) else {
+            return Vec::new();
+        };
+        let Some(reach) = self.homes.get(&field_key).map(|f| &f.reach) else {
+            return Vec::new();
+        };
+        let mut out: Vec<(VisitOption, Option<i64>)> = Vec::new();
+        for k in known {
+            let Some(s) = ctx
+                .land
+                .settlements
+                .iter()
+                .find(|x| x.id == k.settlement && x.abandoned.is_none())
+            else {
+                continue;
+            };
+            let Some(secs) = reach.seconds_to(cell_of(ctx.map, s.hearth_m)) else {
+                continue;
+            };
+            let walk_min = f64::from(secs) / 60.0;
+            if walk_min <= max_walk_min {
+                out.push((
+                    VisitOption {
+                        settlement: s.id,
+                        hearth: s.hearth_m,
+                        walk_min,
+                        points: 0.0,
+                    },
+                    k.visited,
+                ));
+            }
+        }
+        if out.is_empty() {
+            return Vec::new();
+        }
+        let pp = &ctx.params.places;
+        let day = ctx.now.day_index();
+        let seeking = self.seeks_elsewhere(ctx, person);
+        let kin = self.close_kin(person);
+        let lives_in = |q: PermanentId| {
+            self.person(q)
+                .and_then(|p| self.household(p.household))
+                .and_then(|x| x.settlement)
+        };
+        let mut known_in: Vec<(PermanentId, f64)> = Vec::new();
+        for t in self.ties.of(person) {
+            let Some(s) = lives_in(t.to).filter(|&s| s != home) else {
+                continue;
+            };
+            let k = t.known_at(day, &ctx.params.ties);
+            match known_in.iter_mut().find(|(x, _)| *x == s) {
+                Some(e) => e.1 += k,
+                None => known_in.push((s, k)),
+            }
+        }
+        out.into_iter()
+            .map(|(mut v, visited)| {
+                let kin_there = kin
+                    .iter()
+                    .filter(|&&q| lives_in(q) == Some(v.settlement))
+                    .count();
+                let known = known_in
+                    .iter()
+                    .find(|(s, _)| *s == v.settlement)
+                    .map_or(0.0, |e| e.1);
+                let since = visited.map(|d| day - d);
+                v.points = pp.company_points(kin_there, known, seeking, since);
+                v
+            })
+            .collect()
+    }
+
+    /// Whether `person` is an unpartnered adult who looked for a partner at home within the
+    /// content's days and found nobody (research 04-08 §1.1).
+    pub(crate) fn seeks_elsewhere(&self, ctx: &Ctx, person: PermanentId) -> bool {
+        let Some(p) = self.person(person) else {
+            return false;
+        };
+        p.partner.is_none()
+            && ctx.params.family.seeks_at(p.sex, p.age_years(ctx.now))
+            && self
+                .unmatched
+                .get(&person)
+                .is_some_and(|&d| ctx.now.day_index() - d <= ctx.params.places.seek_days)
+    }
+
+    /// The living parents, children, brothers and sisters of `person`, from the records of
+    /// everyone who has lived (children through the index [`Self::refresh_kin`] keeps).
+    pub(crate) fn close_kin(&self, person: PermanentId) -> Vec<PermanentId> {
+        let Some(r) = self.records.get(&person) else {
+            return Vec::new();
+        };
+        let children = |q: PermanentId| self.children.get(&q).map_or(&[][..], Vec::as_slice);
+        let mut out: Vec<PermanentId> = Vec::new();
+        for parent in [r.mother, r.father].into_iter().flatten() {
+            out.push(parent);
+            out.extend(children(parent).iter().copied().filter(|&c| c != person));
+        }
+        out.extend_from_slice(children(person));
+        out.sort_unstable();
+        out.dedup();
+        out.retain(|&q| self.person(q).is_some());
+        out
+    }
+
+    /// Brings the index of everyone's children up to date with the records (derived; rebuilt
+    /// whenever the records have grown).
+    pub(crate) fn refresh_kin(&mut self) {
+        if self.children_indexed == self.records.len() {
+            return;
+        }
+        self.children.clear();
+        for (&id, r) in &self.records {
+            for parent in [r.mother, r.father].into_iter().flatten() {
+                self.children.entry(parent).or_default().push(id);
+            }
+        }
+        self.children_indexed = self.records.len();
+    }
+
+    /// `me` came to the hearth of `settlement`, where `present` are, for `minutes` (M5a slice
+    /// AM): their household knows it as of today, and what they saw of its food (the share of
+    /// those of it there who were not going hungry, if any were), and the visit is counted.
+    pub(crate) fn visited(
+        &mut self,
+        ctx: &Ctx,
+        me: PermanentId,
+        settlement: PermanentId,
+        present: &[PermanentId],
+        minutes: u32,
+    ) {
+        let Some((household, home)) = self
+            .person(me)
+            .and_then(|p| Some((p.household, self.household(p.household)?.settlement?)))
+        else {
+            return;
+        };
+        if home == settlement {
+            return;
+        }
+        let (now, params) = (ctx.now, ctx.params);
+        let day = now.day_index();
+        let (mut met, mut fed) = (0u32, 0u32);
+        for q in present.iter().filter_map(|&q| self.person(q)) {
+            if self.household(q.household).and_then(|x| x.settlement) == Some(settlement) {
+                met += 1;
+                if !may_eat_reserve(q, now, params) {
+                    fed += 1;
+                }
+            }
+        }
+        self.known_places
+            .learn(household, settlement, day, PlaceHow::Visited, None);
+        self.known_places.went(
+            household,
+            settlement,
+            day,
+            (met > 0).then(|| fed as f32 / met as f32),
+        );
+        self.contacts
+            .visit(day.div_euclid(DAYS_PER_YEAR), home, settlement, minutes);
     }
 }

@@ -56,8 +56,9 @@ impl PlaceHow {
     }
 }
 
-/// How households come to know other places (the people profile's `[places]` table; content
-/// API 52). Design priors: the research gives no distance at which a village is seen.
+/// How households come to know other places, and what a visit to one is worth (the people
+/// profile's `[places]` table; content API 52, the visit's terms 53). Design priors: the
+/// research gives no distance at which a village is seen, nor how much people value a visit.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PlacesParams {
     /// Metres from a settlement's hearth within which a walk passes in sight of its homes.
@@ -66,6 +67,21 @@ pub struct PlacesParams {
     /// the companion's does not (research 09-16 §2.2: 0.05–0.25 for routine news). Someone from
     /// another settlement always says where they are from.
     pub share_told: f64,
+    /// Points a visit to a settlement is worth for each parent, child, brother or sister living
+    /// there.
+    pub w_kin: f64,
+    /// Points a visit is worth at most for those the visitor knows there: `w_ties · s / (1 + s)`
+    /// for `s` their familiarity and warmth with them, summed.
+    pub w_ties: f64,
+    /// Points a visit is worth to an unpartnered adult who looked for a partner at home within
+    /// `seek_days` and found nobody (research 04-08 §1.1: partners come from those one meets,
+    /// neighbouring settlements among them).
+    pub w_seek: f64,
+    /// Days a search at home that found nobody stays a reason to look elsewhere.
+    pub seek_days: i64,
+    /// Days after a member of the household was there over which the wish to go again grows
+    /// back to the whole of what those there are worth.
+    pub revisit_days: f64,
 }
 
 impl PlacesParams {
@@ -74,7 +90,27 @@ impl PlacesParams {
         PlacesParams {
             sight_m: 500.0,
             share_told: 0.15,
+            w_kin: 6.0,
+            w_ties: 4.0,
+            w_seek: 6.0,
+            seek_days: 180,
+            revisit_days: 30.0,
         }
+    }
+
+    /// What those `person` would see at a settlement are worth to them: `kin` close kin living
+    /// there, `known` their familiarity and warmth with those they know there, summed, and
+    /// whether they look for a partner there; `since` days after a member of their household
+    /// was last there (None: never), the wish to go again having grown back that far.
+    pub fn company_points(&self, kin: usize, known: f64, seeking: bool, since: Option<i64>) -> f64 {
+        let known = known.max(0.0);
+        let again = since.map_or(1.0, |d| {
+            (d as f64 / self.revisit_days.max(1e-9)).clamp(0.0, 1.0)
+        });
+        again
+            * (self.w_kin * kin as f64
+                + self.w_ties * known / (1.0 + known)
+                + if seeking { self.w_seek } else { 0.0 })
     }
 }
 
@@ -94,6 +130,8 @@ pub struct KnownPlace {
     /// What a member last saw of its food there: the share of those they met who were not
     /// going hungry. None until a member has been there (slice AM, visits).
     pub food: Option<f32>,
+    /// The day a member was last there (slice AM, visits).
+    pub visited: Option<i64>,
 }
 
 /// Every household's known places, each household's in settlement order.
@@ -143,9 +181,29 @@ impl Places {
                         first: day,
                         last: day,
                         food: None,
+                        visited: None,
                     },
                 );
                 true
+            }
+        }
+    }
+
+    /// A member of `household` went to `settlement` on `day` and saw that a share `fed` of
+    /// those of it they met were not going hungry (None: they met none of them).
+    pub fn went(
+        &mut self,
+        household: PermanentId,
+        settlement: PermanentId,
+        day: i64,
+        fed: Option<f32>,
+    ) {
+        if let Some(list) = self.known.get_mut(&household)
+            && let Ok(i) = list.binary_search_by_key(&settlement, |k| k.settlement)
+        {
+            list[i].visited = Some(day);
+            if let Some(fed) = fed {
+                list[i].food = Some(fed.clamp(0.0, 1.0));
             }
         }
     }
@@ -165,7 +223,10 @@ impl Places {
         let list = self.known.entry(to).or_default();
         for k in brought {
             match list.binary_search_by_key(&k.settlement, |x| x.settlement) {
-                Ok(i) => list[i].last = list[i].last.max(k.last),
+                Ok(i) => {
+                    list[i].last = list[i].last.max(k.last);
+                    list[i].visited = list[i].visited.max(k.visited);
+                }
                 Err(i) => list.insert(i, k),
             }
         }
@@ -213,6 +274,48 @@ impl Places {
             }
         }
         out
+    }
+}
+
+/// What passed between one settlement and another in a year (M5a slice AM): counted as it
+/// happens, kept forever (a few numbers a pair a year).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Contact {
+    /// Visits by people of the first to the hearth of the second.
+    pub visits: u32,
+    /// Minutes they spent at it.
+    pub minutes: u64,
+    /// Marriages that took someone of the first to live in the second (slice AM, step three).
+    pub marriages: u32,
+}
+
+/// Contacts between settlements, by year (from 0), from-settlement and to-settlement.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Contacts {
+    /// By `(year, from, to)`.
+    pub years: BTreeMap<(i64, PermanentId, PermanentId), Contact>,
+}
+
+impl Contacts {
+    /// Someone of `from` spent `minutes` at `to`'s hearth in `year`.
+    pub fn visit(&mut self, year: i64, from: PermanentId, to: PermanentId, minutes: u32) {
+        let c = self.years.entry((year, from, to)).or_default();
+        c.visits += 1;
+        c.minutes += u64::from(minutes);
+    }
+
+    /// Someone of `from` married into `to` in `year`.
+    pub fn marriage(&mut self, year: i64, from: PermanentId, to: PermanentId) {
+        self.years.entry((year, from, to)).or_default().marriages += 1;
+    }
+
+    /// The contacts of `year`, in `(from, to)` order.
+    pub fn of_year(&self, year: i64) -> impl Iterator<Item = (PermanentId, PermanentId, Contact)> {
+        let lo = PermanentId::from_raw(1).expect("non-zero");
+        self.years
+            .range((year, lo, lo)..)
+            .take_while(move |((y, _, _), _)| *y == year)
+            .map(|(&(_, a, b), &c)| (a, b, c))
     }
 }
 
@@ -274,6 +377,40 @@ mod tests {
         assert!(p.of(pid(1)).is_empty());
         let home = |h| (h == pid(2)).then_some(Some(pid(20)));
         assert!(!p.problems(home, |_| true).is_empty());
+    }
+
+    #[test]
+    fn a_visit_is_worth_kin_and_those_known_there_and_less_soon_after_the_last() {
+        let pp = PlacesParams::core();
+        assert_eq!(pp.company_points(0, 0.0, false, None), 0.0);
+        assert_eq!(pp.company_points(2, 0.0, false, None), 2.0 * pp.w_kin);
+        // Those known there saturate: half of `w_ties` at familiarity and warmth summing to 1.
+        assert_eq!(pp.company_points(0, 1.0, false, None), pp.w_ties / 2.0);
+        assert!(pp.company_points(0, 100.0, false, None) < pp.w_ties);
+        assert_eq!(pp.company_points(0, 0.0, true, None), pp.w_seek);
+        // The wish to go again grows back over `revisit_days`.
+        let half = (pp.revisit_days / 2.0) as i64;
+        let full = pp.company_points(1, 0.0, false, None);
+        assert_eq!(pp.company_points(1, 0.0, false, Some(0)), 0.0);
+        assert!((pp.company_points(1, 0.0, false, Some(half)) - full / 2.0).abs() < 1e-9);
+        assert_eq!(pp.company_points(1, 0.0, false, Some(365)), full);
+    }
+
+    #[test]
+    fn contacts_are_counted_by_year_and_direction() {
+        let mut c = Contacts::default();
+        c.visit(1, pid(10), pid(20), 90);
+        c.visit(1, pid(10), pid(20), 60);
+        c.visit(1, pid(20), pid(10), 90);
+        c.visit(2, pid(10), pid(20), 90);
+        c.marriage(1, pid(20), pid(10));
+        let year: Vec<_> = c.of_year(1).collect();
+        assert_eq!(year.len(), 2);
+        assert_eq!((year[0].0, year[0].1), (pid(10), pid(20)));
+        assert_eq!((year[0].2.visits, year[0].2.minutes), (2, 150));
+        assert_eq!((year[1].2.visits, year[1].2.marriages), (1, 1));
+        assert_eq!(c.of_year(2).count(), 1);
+        assert_eq!(c.of_year(3).count(), 0);
     }
 
     #[test]

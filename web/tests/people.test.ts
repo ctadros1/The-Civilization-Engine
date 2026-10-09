@@ -146,6 +146,7 @@ describe("people payloads", () => {
     const name = b.createString("Alderford");
     const founding = b.createString("one of the groups the world began with");
     const year = b.createString("2 born, 1 died");
+    const contacts = b.createString("in year 2: 3 visits from Brook, 4 hours at the hearth here");
     W.SettlementBrief.startSettlementBrief(b);
     W.SettlementBrief.addId(b, 3n);
     W.SettlementBrief.addName(b, name);
@@ -156,6 +157,7 @@ describe("people payloads", () => {
     W.SettlementBrief.addFoodShort(b, true);
     W.SettlementBrief.addFounding(b, founding);
     W.SettlementBrief.addYear(b, year);
+    W.SettlementBrief.addContacts(b, contacts);
     const settlement = W.SettlementBrief.endSettlementBrief(b);
     const settlements = W.Snapshot.createSettlementsVector(b, [settlement]);
     W.Snapshot.startSnapshot(b);
@@ -192,6 +194,7 @@ describe("people payloads", () => {
         founding: "one of the groups the world began with",
         year: "2 born, 1 died",
         abandonedMinute: -1,
+        contacts: "in year 2: 3 visits from Brook, 4 hours at the hearth here",
       },
     ]);
     expect(s.chronicleHead).toBe(2);

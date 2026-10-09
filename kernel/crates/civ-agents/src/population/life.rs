@@ -1178,8 +1178,12 @@ impl Population {
                 continue;
             }
             let Some(other) = self.find_partner(ctx, id, &mut rng) else {
+                // They looked and found nobody (M5a slice AM): a reason to look elsewhere.
+                self.unmatched.insert(id, day);
                 continue;
             };
+            self.unmatched.remove(&id);
+            self.unmatched.remove(&other);
             let (woman, man) = if sex == Sex::Female {
                 (id, other)
             } else {

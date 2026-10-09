@@ -189,6 +189,20 @@ pub struct GiverOption {
     pub kcal: f64,
 }
 
+/// Another settlement's hearth someone could visit (M5a slice AM): which, where, the walk one
+/// way and what those they would see there are worth to them.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct VisitOption {
+    /// The settlement.
+    pub settlement: PermanentId,
+    /// Its hearth, metres.
+    pub hearth: (f32, f32),
+    /// One-way walk, minutes.
+    pub walk_min: f64,
+    /// Points: kin there, those they know there, and the hope of meeting someone.
+    pub points: f64,
+}
+
 /// A household whose store someone could take from (M4b slice AA, ADR-0015 §2), with what
 /// weighs against it for this person, in points: their objection, the chance they believe they
 /// run of being seen times what that would cost them, and their household's regard for the one
@@ -504,6 +518,7 @@ pub fn candidates(
     shop: &Workshop,
     trying: &dyn Fn() -> Result<TryOption, Reason>,
     take: &dyn Fn() -> Result<TakeOption, Reason>,
+    visits: &dyn Fn() -> Vec<VisitOption>,
 ) -> (Vec<Candidate>, Vec<(u16, Reason)>) {
     let mut out: Vec<Candidate> = Vec::new();
     let mut excluded = Vec::new();
@@ -1184,6 +1199,42 @@ pub fn candidates(
                 ];
                 out.push(finish(id, Target::Hearth(settlement), terms, steps));
             }
+            Behavior::Visit => {
+                // Company at another settlement's hearth (M5a slice AM): reached before dark,
+                // home again the same day. Its company is worth what being alone makes it, as
+                // at home, and what those they would see there are to them; the walk there and
+                // back is its cost.
+                let mut any = false;
+                for v in visits() {
+                    if f.daylight_left_min < v.walk_min {
+                        continue;
+                    }
+                    any = true;
+                    let mut terms = Vec::new();
+                    term(
+                        &mut terms,
+                        Reason::Loneliness,
+                        w.w_social * f.loneliness * f.evening.max(0.25),
+                    );
+                    term(&mut terms, Reason::Company, v.points);
+                    term(
+                        &mut terms,
+                        Reason::Walking,
+                        -w.w_walk_hour * 2.0 * v.walk_min / 60.0,
+                    );
+                    let steps = vec![
+                        Step::Walk { to: v.hearth },
+                        Step::Work {
+                            minutes: def.min_minutes.max(1),
+                        },
+                        Step::Walk { to: f.home },
+                    ];
+                    out.push(finish(id, Target::Hearth(v.settlement), terms, steps));
+                }
+                if !any {
+                    excluded.push((id, Reason::NoPlaceToVisit));
+                }
+            }
             Behavior::Watch => {
                 // A round of the watch (M4b slice AC, ADR-0015 §6): a stand at each home on it,
                 // the activity's least minutes each.
@@ -1572,7 +1623,75 @@ mod tests {
             &shop,
             &|| Err(Reason::NoProblem),
             &|| Err(Reason::WouldNotTake),
+            &Vec::new,
         )
+    }
+
+    #[test]
+    fn a_visit_is_worth_those_there_less_the_walk_and_needs_daylight_to_get_there() {
+        let mut def = activity("visit", Behavior::Visit, Vec::new(), 1.0);
+        def.daylight_only = false;
+        def.min_minutes = 90;
+        let defs = vec![def];
+        let w = weights();
+        let shop = Workshop {
+            free_tools: &[],
+            held_tools: &[],
+            best_make: &|_, _| Err((Reason::NoMaterials, None)),
+            makes_tool: &|_| false,
+            knows: &|_| true,
+        };
+        let there = |walk_min: f64, points: f64| VisitOption {
+            settlement: PermanentId::from_raw(9).expect("id"),
+            hearth: (3000.0, 0.0),
+            walk_min,
+            points,
+        };
+        let run = |f: &Facts, options: Vec<VisitOption>| {
+            candidates(
+                &defs,
+                &w,
+                f,
+                &limits(),
+                &|_| None,
+                &|_| Ok(field()),
+                None,
+                &|| None,
+                &|| None,
+                &|| None,
+                Err(Reason::Built),
+                &shop,
+                &|| Err(Reason::NoProblem),
+                &|| Err(Reason::WouldNotTake),
+                &|| options.clone(),
+            )
+        };
+        let f = facts();
+        let (cands, _) = run(&f, vec![there(60.0, 6.0)]);
+        let c = &cands[0];
+        assert_eq!(c.scored.target, Target::Hearth(there(0.0, 0.0).settlement));
+        let term = |r: Reason| {
+            c.scored
+                .terms
+                .iter()
+                .find(|t| t.reason == r)
+                .map(|t| t.points)
+        };
+        assert_eq!(term(Reason::Company), Some(6.0));
+        // The walk there and back, an hour each way.
+        assert_eq!(term(Reason::Walking), Some((-2.0 * w.w_walk_hour) as f32));
+        // There, a session at the hearth, and home the same day.
+        assert!(matches!(c.steps.last(), Some(Step::Walk { to }) if *to == f.home));
+        // Not set out on when dark would fall before they got there, nor with nowhere to go.
+        let dusk = Facts {
+            daylight_left_min: 50.0,
+            ..facts()
+        };
+        let (cands, excluded) = run(&dusk, vec![there(60.0, 6.0)]);
+        assert!(cands.is_empty());
+        assert!(excluded.contains(&(0, Reason::NoPlaceToVisit)));
+        let (cands, excluded) = run(&f, Vec::new());
+        assert!(cands.is_empty() && excluded.contains(&(0, Reason::NoPlaceToVisit)));
     }
 
     #[test]
@@ -1674,6 +1793,7 @@ mod tests {
                 &shop,
                 &|| Err(Reason::NoProblem),
                 &|| Err(Reason::WouldNotTake),
+                &Vec::new,
             )
         };
         // With an axe free, wood is cut with it and not by hand.
@@ -1817,6 +1937,7 @@ mod tests {
                 &shop,
                 &|| Err(Reason::NoProblem),
                 &|| Err(Reason::WouldNotTake),
+                &Vec::new,
             );
             let total = |d: u16| {
                 cands

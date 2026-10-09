@@ -187,6 +187,9 @@ pub const SCHEMA_V49: u32 = 49;
 /// The schema version of M5a slice AK: several settlements, before the places households know
 /// (see [`agents`]).
 pub const SCHEMA_V50: u32 = 50;
+/// The schema version of M5a slice AM, step one: the places households know, before visits and
+/// the contacts between settlements (see [`agents`]).
+pub const SCHEMA_V51: u32 = 51;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

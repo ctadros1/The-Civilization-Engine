@@ -350,7 +350,7 @@ decided by people at run time.
 
 | Field | Meaning |
 |---|---|
-| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b), `attend` (M4a: going to the gathering called at the hearth, while it sits, for the settlement's adults), `take` (M4b: going to another household's home to take food from its store, when short; ADR-0015 §2), `watch` (M4b: the watch's rounds at night, for whoever holds the office), `petition` (M4c: going to the hearth on the evening a faction's petition sits, for an adult who has heard of it; ADR-0017 §3). |
+| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b), `attend` (M4a: going to the gathering called at the hearth, while it sits, for the settlement's adults), `take` (M4b: going to another household's home to take food from its store, when short; ADR-0015 §2), `watch` (M4b: the watch's rounds at night, for whoever holds the office), `petition` (M4c: going to the hearth on the evening a faction's petition sits, for an adult who has heard of it; ADR-0017 §3), `visit` (M5a: going to the hearth of another settlement the household knows and home the same day; ADR-0018 §2). |
 | `resource` | For `gather` only: the land resource gathered (hunting, fishing, collecting firewood and cutting building materials are gathering too). A trip works until its load is full or its time runs out. |
 | `task` | For `farm` only: the field work, one of `prepare`, `sow`, `tend`, `reap`, `thresh`. |
 | `recipe` | For `make` only: the recipe worked, at home. |
@@ -714,6 +714,18 @@ norms they hold weigh), `revolt_days` (how long the call stands), `hold_days` (h
 officeholder, and more adults than stand with the gathering, must stand with it before it holds)
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
+
+Content API 53 (M5a slice AM, step two) brings visits: the behaviour `visit` (going to the
+hearth of another settlement the household knows, keeping company there and walking home the same
+day; chosen only in daylight that lasts the walk there), the core pack's `core:activity/visit`
+(its `max_walk_minutes`, 120, is a day's range there and back), and the `[places]` keys `w_kin`
+(points a visit is worth for each parent, child, brother or sister living there), `w_ties` (at
+most this for those the visitor knows there), `w_seek` (for an unpartnered adult who looked for a
+partner at home within `seek_days` and found nobody) and `revisit_days` (the days over which the
+wish to go again grows back after a member of the household was there), all design priors
+(research 04-08 §1.1: partners come from those one meets, neighbouring settlements among them;
+04-04 §3.1: visitors, marriage partners and kin are the ties that bridge villages; no study gives
+values).
 
 Content API 52 (M5a slice AM, step one) brings known places: the people profile's `[places]`
 table, with `sight_m` (metres from another settlement's hearth within which a walk passes in

@@ -153,6 +153,9 @@ pub struct WorldRun {
     pub accounting: Vec<String>,
     /// Its settlements' accounts over the run, summed.
     pub moves: smoke::Moves,
+    /// Visits between its settlements over the run, the hours visitors spent at the hearths they
+    /// went to, and marriages between them (M5a slice AM).
+    pub contacts: (u32, f64, u32),
 }
 
 impl WorldRun {
@@ -551,6 +554,14 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
         .collect();
     world.accounting = run.accounting.clone();
     world.moves = run.moves;
+    world.contacts = sim
+        .people()
+        .contacts
+        .years
+        .values()
+        .fold((0, 0.0, 0), |(v, h, m), c| {
+            (v + c.visits, h + c.minutes as f64 / 60.0, m + c.marriages)
+        });
     world.labels = sim
         .people()
         .polities
@@ -585,6 +596,7 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
         firm_sizes(worlds),
         failures(worlds),
         settlement_sizes(worlds),
+        contacts(worlds, years),
         accounting(worlds),
         crime(worlds),
         Row::new(
@@ -625,6 +637,39 @@ fn settlement_sizes(worlds: &[WorldRun]) -> Row {
             "reported, not graded until there are many (M9): {}",
             seen.join("; ")
         )
+    };
+    row.graded(Grade::Gray, text)
+}
+
+/// Contacts between settlements, reported and not graded (M5a slice AM): the research gives no
+/// rate of visiting between neighbouring villages to hold them to (05-06 §5.4 grades moves, which
+/// slice AN brings).
+fn contacts(worlds: &[WorldRun], years: u32) -> Row {
+    let row = Row::new(
+        "Contacts",
+        "visits and marriages between settlements a year",
+        "reported",
+    )
+    .source("ADR-0018 §4");
+    let years = f64::from(years.max(1));
+    let seen: Vec<String> = worlds
+        .iter()
+        .filter(|w| w.settlements.len() > 1)
+        .map(|w| {
+            let (visits, hours, marriages) = w.contacts;
+            format!(
+                "world {}: {:.1} visits a year ({:.0} hours at others' hearths), {:.1} marriages",
+                w.seed,
+                f64::from(visits) / years,
+                hours / years,
+                f64::from(marriages) / years
+            )
+        })
+        .collect();
+    let text = if seen.is_empty() {
+        "no world of several settlements lived".to_owned()
+    } else {
+        format!("reported, not graded: {}", seen.join("; "))
     };
     row.graded(Grade::Gray, text)
 }
@@ -1195,6 +1240,7 @@ mod tests {
             "Firm sizes",
             "Structural failures",
             "Settlement sizes",
+            "Contacts",
             "Crime and poverty",
             "Epidemics",
             "Regimes",
@@ -1220,7 +1266,7 @@ mod tests {
         // Only population and the accounts are graded, both worlds keep their bands and no
         // settlement's accounts failed: a pass, but no grey row counts as one.
         assert!(dashboard.passed());
-        assert_eq!(dashboard.summary(), "2 passed, 8 not yet applicable");
+        assert_eq!(dashboard.summary(), "2 passed, 9 not yet applicable");
     }
 
     #[test]

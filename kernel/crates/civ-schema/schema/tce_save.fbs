@@ -1709,9 +1709,31 @@ table KnownPlaceSave {
   first: long (id: 4);
   last: long (id: 5);
   food: float = -1 (id: 6);
+  // Schema 52: the day a member was last there (-1: never).
+  visited: long = -1 (id: 7);
 }
 
-// Schema 51: every household's known places, by household and then settlement.
+// Schema 52 (M5a slice AM, visits): what passed in a year (from 0) between people of `from` and
+// the settlement `to`: visits to its hearth, the minutes spent there, marriages into it.
+table ContactSave {
+  year: long (id: 0);
+  from: ulong (id: 1);
+  to: ulong (id: 2);
+  visits: uint (id: 3);
+  minutes: ulong (id: 4);
+  marriages: uint (id: 5);
+}
+
+// Schema 52: someone unpartnered who looked for a partner at home and found nobody, and the day.
+table UnmatchedSave {
+  person: ulong (id: 0);
+  day: long (id: 1);
+}
+
+// Schema 51: every household's known places, by household and then settlement; from schema 52
+// the contacts between settlements, by year, from and to, and the failed searches, by person.
 table PlacesSave {
   list: [KnownPlaceSave] (id: 0);
+  contacts: [ContactSave] (id: 1);
+  unmatched: [UnmatchedSave] (id: 2);
 }

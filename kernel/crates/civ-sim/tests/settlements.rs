@@ -365,3 +365,106 @@ fn a_walk_in_sight_of_another_settlement_makes_it_known_and_word_of_it_goes_roun
         }
     }
 }
+
+/// The adults (16 and over) living in settlement `s`, in id order, with their sex.
+fn adults_of(sim: &Sim, s: civ_core::PermanentId) -> Vec<(civ_core::PermanentId, civ_agents::Sex)> {
+    let pop = sim.people();
+    let mut out: Vec<_> = pop
+        .people
+        .iter()
+        .filter(|(_, p)| p.age_years(sim.now()) >= 16.0)
+        .filter(|(_, p)| pop.household(p.household).and_then(|h| h.settlement) == Some(s))
+        .map(|(_, p)| (p.id, p.sex))
+        .collect();
+    out.sort_by_key(|&(id, _)| id);
+    out
+}
+
+/// Visits people of `from` made to the hearth of `to`, all years.
+fn visits(sim: &Sim, from: civ_core::PermanentId, to: civ_core::PermanentId) -> u32 {
+    sim.people()
+        .contacts
+        .years
+        .iter()
+        .filter(|((_, f, t), _)| *f == from && *t == to)
+        .map(|(_, c)| c.visits)
+        .sum()
+}
+
+#[test]
+fn kin_living_in_another_settlement_are_visited_and_each_visit_is_counted() {
+    // Two settlements that know where each other camped. A woman of the first is made the mother
+    // of an adult of the second, as if they had married away: the visit is worth her company to
+    // him and his to her, against the walk there and back (M5a slice AM).
+    let mut sim = world_knowing(3, 30, &[30], true).expect("generates");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let mother = adults_of(&sim, a)
+        .into_iter()
+        .find(|&(_, sex)| sex == civ_agents::Sex::Female)
+        .map(|(id, _)| id)
+        .expect("a woman in the first settlement");
+    let son = adults_of(&sim, b)[0].0;
+    sim.people_mut_for_tests()
+        .records
+        .get_mut(&son)
+        .expect("on record")
+        .mother = Some(mother);
+    sim.advance_minutes(60 * 24 * 60).expect("lives");
+
+    let (there, back) = (visits(&sim, a, b), visits(&sim, b, a));
+    assert!(there + back > 0, "kin visit: {there} there, {back} back");
+    let pop = sim.people();
+    // A visitor's household knows the place it went to, and what its member saw of its food.
+    let visited: Vec<_> = pop
+        .known_places
+        .known
+        .values()
+        .flatten()
+        .filter(|k| k.food.is_some())
+        .collect();
+    assert!(!visited.is_empty(), "a visitor saw how the place was fed");
+    // A visit is presence, never residence: everyone still lives where they were founded.
+    for r in pop.records.values() {
+        assert_eq!(r.residence.len(), 1, "{:?}", r.residence);
+    }
+    // Laws are told only among those they bind: nobody knows a law of another polity.
+    for polity in &pop.polities {
+        for law in &polity.laws {
+            for &(p, _) in &law.known {
+                let home = pop
+                    .person(p)
+                    .and_then(|q| pop.household(q.household))
+                    .and_then(|h| h.settlement);
+                assert!(
+                    home.is_none() || home == Some(polity.settlement),
+                    "{p} knows a law of another polity"
+                );
+            }
+        }
+    }
+    assert!(pop.problems(u64::MAX, usize::MAX).is_empty());
+
+    // The visits are saved and shown.
+    let words = civ_sim::frames::people::contacts_words(&sim, b);
+    assert!(words.contains("visit"), "{words}");
+}
+
+#[test]
+fn someone_who_found_no_partner_at_home_goes_to_look_elsewhere() {
+    // Every unpartnered adult of the first settlement looked for a partner at home today and found
+    // nobody: the hope of meeting someone is a reason to go to the other settlement's hearth.
+    let mut sim = world_knowing(3, 30, &[30], true).expect("generates");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let today = sim.now().day_index();
+    let seekers: Vec<_> = adults_of(&sim, a)
+        .into_iter()
+        .filter(|&(id, _)| sim.people().person(id).is_some_and(|p| p.partner.is_none()))
+        .map(|(id, _)| id)
+        .collect();
+    assert!(!seekers.is_empty());
+    for &id in &seekers {
+        sim.people_mut_for_tests().unmatched.insert(id, today);
+    }
+    sim.advance_minutes(30 * 24 * 60).expect("lives");
+    assert!(visits(&sim, a, b) > 0, "nobody went to look");
+}

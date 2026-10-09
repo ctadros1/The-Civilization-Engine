@@ -270,13 +270,19 @@ impl OpinionFile {
     }
 }
 
-/// How households come to know other places (M5a slice AM, ADR-0018 §4; content API 52). See
-/// [`civ_agents::places::PlacesParams`] for what each means.
+/// How households come to know other places (M5a slice AM, ADR-0018 §4; content API 52), and
+/// what a visit to one is worth (content API 53). See [`civ_agents::places::PlacesParams`] for
+/// what each means.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct PlacesFile {
     pub sight_m: f32,
     pub share_told: f64,
+    pub w_kin: f64,
+    pub w_ties: f64,
+    pub w_seek: f64,
+    pub seek_days: i64,
+    pub revisit_days: f64,
 }
 
 /// Word of mouth and grievances (M4c slice AE, ADR-0016; content API 39). See
@@ -1479,6 +1485,11 @@ impl PeopleFile {
             places: civ_agents::places::PlacesParams {
                 sight_m: self.places.sight_m,
                 share_told: self.places.share_told,
+                w_kin: self.places.w_kin,
+                w_ties: self.places.w_ties,
+                w_seek: self.places.w_seek,
+                seek_days: self.places.seek_days,
+                revisit_days: self.places.revisit_days,
             },
             names,
         }
@@ -1502,6 +1513,29 @@ impl PeopleFile {
             p.push(format!(
                 "`places.share_told` must be between 0 and 1 (got {})",
                 self.places.share_told
+            ));
+        }
+        for (key, v) in [
+            ("places.w_kin", self.places.w_kin),
+            ("places.w_ties", self.places.w_ties),
+            ("places.w_seek", self.places.w_seek),
+        ] {
+            if !(v.is_finite() && (0.0..=100.0).contains(&v)) {
+                p.push(format!("`{key}` must be between 0 and 100 (got {v})"));
+            }
+        }
+        if !(self.places.revisit_days.is_finite()
+            && (1.0..=3650.0).contains(&self.places.revisit_days))
+        {
+            p.push(format!(
+                "`places.revisit_days` must be between 1 and 3650 (got {})",
+                self.places.revisit_days
+            ));
+        }
+        if !(0..=3650).contains(&self.places.seek_days) {
+            p.push(format!(
+                "`places.seek_days` must be between 0 and 3650 (got {})",
+                self.places.seek_days
             ));
         }
         self.opinion.problems(&mut p);

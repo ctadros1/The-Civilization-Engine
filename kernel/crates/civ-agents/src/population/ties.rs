@@ -170,6 +170,12 @@ impl Population {
             }
         }
         let hours = f64::from(minutes) / 60.0 / f64::from(sessions);
+        let home_of = |p: &Population, q: PermanentId| {
+            p.person(q)
+                .and_then(|x| p.household(x.household))
+                .and_then(|x| x.settlement)
+        };
+        let my_home = home_of(self, me);
         for _ in 0..want {
             let pick_new = !new.is_empty() && (known.is_empty() || rng.next_f64() < tp.new_share);
             let q = if pick_new {
@@ -188,16 +194,24 @@ impl Population {
                 known.remove(k).1
             };
             self.note_tie(ctx, me, q, Act::Hearth, hours, 0.0);
-            // Word of the laws in force goes round at the hearth (ADR-0013 §3, stage 4).
-            self.share_laws(me, q, day);
+            // Word of the laws in force goes round at the hearth among those they bind
+            // (ADR-0013 §3, stage 4); with someone from elsewhere, it is talk of another
+            // settlement's laws, which nothing here carries yet (M5c).
+            let neighbours = my_home.is_some() && home_of(self, q) == my_home;
+            if neighbours {
+                self.share_laws(me, q, day);
+            }
             // So does word of who took from whom (ADR-0015 §1).
             self.share_takings(ctx, me, q);
             // And of gatherings called (M4c slice AE, ADR-0016 §3).
             self.share_word(ctx, me, q);
             // And where they stand on the questions of the day (M4c slice AG, ADR-0016 §4).
             self.share_opinion(ctx, me, q);
-            // And whether their household paid its last levy (M4c slice AG, ADR-0016 §4).
-            self.share_norms(ctx, me, q);
+            // And whether their household paid its last levy (M4c slice AG, ADR-0016 §4): what
+            // households of their own settlement do.
+            if neighbours {
+                self.share_norms(ctx, me, q);
+            }
             // And of the ideologies they hold (M4c slice AG, ADR-0016 §4).
             self.share_ideologies(ctx, me, q);
             // And of the other settlements they know (M5a slice AM, ADR-0018 §4).
@@ -235,5 +249,7 @@ impl Population {
             }
         }
         self.ties.prune(|to| here.contains(&to));
+        // And of failed searches for a partner by those no longer here (M5a slice AM).
+        self.unmatched.retain(|id, _| here.contains(id));
     }
 }

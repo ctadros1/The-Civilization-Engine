@@ -2241,6 +2241,21 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
 }
 
 #[test]
+fn a_schema_51_save_loads_with_no_visit_or_search_on_record() {
+    // A schema-51 save, from before visits (M5a slice AM, step two): no contacts between
+    // settlements and no failed search for a partner were kept.
+    let mut sim = load_first();
+    sim.people_mut_for_tests().unmatched.clear();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V51;
+    let path = republish("slice-am1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-51 save loads");
+    assert!(loaded.people().contacts.years.is_empty());
+    assert!(loaded.people().unmatched.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_50_save_loads_knowing_no_other_place() {
     // A schema-50 save, from before the places households know (M5a slice AM, ADR-0018 §4).
     let sim = load_first();

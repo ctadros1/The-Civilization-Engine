@@ -30212,6 +30212,7 @@ impl<'a> KnownPlaceSave<'a> {
   pub const VT_FIRST: ::flatbuffers::VOffsetT = 12;
   pub const VT_LAST: ::flatbuffers::VOffsetT = 14;
   pub const VT_FOOD: ::flatbuffers::VOffsetT = 16;
+  pub const VT_VISITED: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -30223,6 +30224,7 @@ impl<'a> KnownPlaceSave<'a> {
     args: &'args KnownPlaceSaveArgs
   ) -> ::flatbuffers::WIPOffset<KnownPlaceSave<'bldr>> {
     let mut builder = KnownPlaceSaveBuilder::new(_fbb);
+    builder.add_visited(args.visited);
     builder.add_last(args.last);
     builder.add_first(args.first);
     builder.add_from(args.from);
@@ -30283,6 +30285,13 @@ impl<'a> KnownPlaceSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(KnownPlaceSave::VT_FOOD, Some(-1.0)).unwrap()}
   }
+  #[inline]
+  pub fn visited(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(KnownPlaceSave::VT_VISITED, Some(-1)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for KnownPlaceSave<'_> {
@@ -30298,6 +30307,7 @@ impl ::flatbuffers::Verifiable for KnownPlaceSave<'_> {
      .visit_field::<i64>("first", Self::VT_FIRST, false)?
      .visit_field::<i64>("last", Self::VT_LAST, false)?
      .visit_field::<f32>("food", Self::VT_FOOD, false)?
+     .visit_field::<i64>("visited", Self::VT_VISITED, false)?
      .finish();
     Ok(())
   }
@@ -30310,6 +30320,7 @@ pub struct KnownPlaceSaveArgs {
     pub first: i64,
     pub last: i64,
     pub food: f32,
+    pub visited: i64,
 }
 impl<'a> Default for KnownPlaceSaveArgs {
   #[inline]
@@ -30322,6 +30333,7 @@ impl<'a> Default for KnownPlaceSaveArgs {
       first: 0,
       last: 0,
       food: -1.0,
+      visited: -1,
     }
   }
 }
@@ -30360,6 +30372,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> KnownPlaceSaveBuilder<'a, 'b,
     self.fbb_.push_slot::<f32>(KnownPlaceSave::VT_FOOD, food, -1.0);
   }
   #[inline]
+  pub fn add_visited(&mut self, visited: i64) {
+    self.fbb_.push_slot::<i64>(KnownPlaceSave::VT_VISITED, visited, -1);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> KnownPlaceSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     KnownPlaceSaveBuilder {
@@ -30384,6 +30400,301 @@ impl ::core::fmt::Debug for KnownPlaceSave<'_> {
       ds.field("first", &self.first());
       ds.field("last", &self.last());
       ds.field("food", &self.food());
+      ds.field("visited", &self.visited());
+      ds.finish()
+  }
+}
+pub enum ContactSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ContactSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for ContactSave<'a> {
+  type Inner = ContactSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> ContactSave<'a> {
+  pub const VT_YEAR: ::flatbuffers::VOffsetT = 4;
+  pub const VT_FROM: ::flatbuffers::VOffsetT = 6;
+  pub const VT_TO: ::flatbuffers::VOffsetT = 8;
+  pub const VT_VISITS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_MINUTES: ::flatbuffers::VOffsetT = 12;
+  pub const VT_MARRIAGES: ::flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    ContactSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ContactSaveArgs
+  ) -> ::flatbuffers::WIPOffset<ContactSave<'bldr>> {
+    let mut builder = ContactSaveBuilder::new(_fbb);
+    builder.add_minutes(args.minutes);
+    builder.add_to(args.to);
+    builder.add_from(args.from);
+    builder.add_year(args.year);
+    builder.add_marriages(args.marriages);
+    builder.add_visits(args.visits);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn year(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(ContactSave::VT_YEAR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn from(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ContactSave::VT_FROM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn to(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ContactSave::VT_TO, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn visits(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ContactSave::VT_VISITS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn minutes(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ContactSave::VT_MINUTES, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn marriages(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ContactSave::VT_MARRIAGES, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for ContactSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("year", Self::VT_YEAR, false)?
+     .visit_field::<u64>("from", Self::VT_FROM, false)?
+     .visit_field::<u64>("to", Self::VT_TO, false)?
+     .visit_field::<u32>("visits", Self::VT_VISITS, false)?
+     .visit_field::<u64>("minutes", Self::VT_MINUTES, false)?
+     .visit_field::<u32>("marriages", Self::VT_MARRIAGES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ContactSaveArgs {
+    pub year: i64,
+    pub from: u64,
+    pub to: u64,
+    pub visits: u32,
+    pub minutes: u64,
+    pub marriages: u32,
+}
+impl<'a> Default for ContactSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    ContactSaveArgs {
+      year: 0,
+      from: 0,
+      to: 0,
+      visits: 0,
+      minutes: 0,
+      marriages: 0,
+    }
+  }
+}
+
+pub struct ContactSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ContactSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_year(&mut self, year: i64) {
+    self.fbb_.push_slot::<i64>(ContactSave::VT_YEAR, year, 0);
+  }
+  #[inline]
+  pub fn add_from(&mut self, from: u64) {
+    self.fbb_.push_slot::<u64>(ContactSave::VT_FROM, from, 0);
+  }
+  #[inline]
+  pub fn add_to(&mut self, to: u64) {
+    self.fbb_.push_slot::<u64>(ContactSave::VT_TO, to, 0);
+  }
+  #[inline]
+  pub fn add_visits(&mut self, visits: u32) {
+    self.fbb_.push_slot::<u32>(ContactSave::VT_VISITS, visits, 0);
+  }
+  #[inline]
+  pub fn add_minutes(&mut self, minutes: u64) {
+    self.fbb_.push_slot::<u64>(ContactSave::VT_MINUTES, minutes, 0);
+  }
+  #[inline]
+  pub fn add_marriages(&mut self, marriages: u32) {
+    self.fbb_.push_slot::<u32>(ContactSave::VT_MARRIAGES, marriages, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ContactSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ContactSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<ContactSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for ContactSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("ContactSave");
+      ds.field("year", &self.year());
+      ds.field("from", &self.from());
+      ds.field("to", &self.to());
+      ds.field("visits", &self.visits());
+      ds.field("minutes", &self.minutes());
+      ds.field("marriages", &self.marriages());
+      ds.finish()
+  }
+}
+pub enum UnmatchedSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct UnmatchedSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for UnmatchedSave<'a> {
+  type Inner = UnmatchedSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> UnmatchedSave<'a> {
+  pub const VT_PERSON: ::flatbuffers::VOffsetT = 4;
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    UnmatchedSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args UnmatchedSaveArgs
+  ) -> ::flatbuffers::WIPOffset<UnmatchedSave<'bldr>> {
+    let mut builder = UnmatchedSaveBuilder::new(_fbb);
+    builder.add_day(args.day);
+    builder.add_person(args.person);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(UnmatchedSave::VT_PERSON, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(UnmatchedSave::VT_DAY, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for UnmatchedSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("person", Self::VT_PERSON, false)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct UnmatchedSaveArgs {
+    pub person: u64,
+    pub day: i64,
+}
+impl<'a> Default for UnmatchedSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    UnmatchedSaveArgs {
+      person: 0,
+      day: 0,
+    }
+  }
+}
+
+pub struct UnmatchedSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> UnmatchedSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_person(&mut self, person: u64) {
+    self.fbb_.push_slot::<u64>(UnmatchedSave::VT_PERSON, person, 0);
+  }
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(UnmatchedSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> UnmatchedSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    UnmatchedSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<UnmatchedSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for UnmatchedSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("UnmatchedSave");
+      ds.field("person", &self.person());
+      ds.field("day", &self.day());
       ds.finish()
   }
 }
@@ -30404,6 +30715,8 @@ impl<'a> ::flatbuffers::Follow<'a> for PlacesSave<'a> {
 
 impl<'a> PlacesSave<'a> {
   pub const VT_LIST: ::flatbuffers::VOffsetT = 4;
+  pub const VT_CONTACTS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_UNMATCHED: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -30415,6 +30728,8 @@ impl<'a> PlacesSave<'a> {
     args: &'args PlacesSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<PlacesSave<'bldr>> {
     let mut builder = PlacesSaveBuilder::new(_fbb);
+    if let Some(x) = args.unmatched { builder.add_unmatched(x); }
+    if let Some(x) = args.contacts { builder.add_contacts(x); }
     if let Some(x) = args.list { builder.add_list(x); }
     builder.finish()
   }
@@ -30427,6 +30742,20 @@ impl<'a> PlacesSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KnownPlaceSave>>>>(PlacesSave::VT_LIST, None)}
   }
+  #[inline]
+  pub fn contacts(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ContactSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ContactSave>>>>(PlacesSave::VT_CONTACTS, None)}
+  }
+  #[inline]
+  pub fn unmatched(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<UnmatchedSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<UnmatchedSave>>>>(PlacesSave::VT_UNMATCHED, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PlacesSave<'_> {
@@ -30436,18 +30765,24 @@ impl ::flatbuffers::Verifiable for PlacesSave<'_> {
   ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<KnownPlaceSave>>>>("list", Self::VT_LIST, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ContactSave>>>>("contacts", Self::VT_CONTACTS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<UnmatchedSave>>>>("unmatched", Self::VT_UNMATCHED, false)?
      .finish();
     Ok(())
   }
 }
 pub struct PlacesSaveArgs<'a> {
     pub list: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KnownPlaceSave<'a>>>>>,
+    pub contacts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ContactSave<'a>>>>>,
+    pub unmatched: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<UnmatchedSave<'a>>>>>,
 }
 impl<'a> Default for PlacesSaveArgs<'a> {
   #[inline]
   fn default() -> Self {
     PlacesSaveArgs {
       list: None,
+      contacts: None,
+      unmatched: None,
     }
   }
 }
@@ -30460,6 +30795,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlacesSaveBuilder<'a, 'b, A> 
   #[inline]
   pub fn add_list(&mut self, list: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<KnownPlaceSave<'b >>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_LIST, list);
+  }
+  #[inline]
+  pub fn add_contacts(&mut self, contacts: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<ContactSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_CONTACTS, contacts);
+  }
+  #[inline]
+  pub fn add_unmatched(&mut self, unmatched: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<UnmatchedSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_UNMATCHED, unmatched);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlacesSaveBuilder<'a, 'b, A> {
@@ -30480,6 +30823,8 @@ impl ::core::fmt::Debug for PlacesSave<'_> {
   fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
     let mut ds = f.debug_struct("PlacesSave");
       ds.field("list", &self.list());
+      ds.field("contacts", &self.contacts());
+      ds.field("unmatched", &self.unmatched());
       ds.finish()
   }
 }

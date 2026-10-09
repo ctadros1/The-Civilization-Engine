@@ -395,6 +395,10 @@ pub struct Population {
     /// emptied when a field changes hands. Derived.
     field_index: FastMap<PermanentId, Vec<u32>>,
     fields_indexed: usize,
+    /// Everyone's children on record, in id order, as of the first `children_indexed` records
+    /// ([`Self::refresh_kin`]). Derived.
+    children: FastMap<PermanentId, Vec<PermanentId>>,
+    children_indexed: usize,
     /// What became of the goods of households that are no more (counters, not saved).
     pub flows_gone: Flows,
     /// What moved between households, by channel (counters, not saved).
@@ -445,6 +449,11 @@ pub struct Population {
     pub influences: crate::influence::Influences,
     /// The other settlements each household knows (M5a slice AM, ADR-0018 §4).
     pub known_places: crate::places::Places,
+    /// Visits and marriages between settlements, by year (M5a slice AM).
+    pub contacts: crate::places::Contacts,
+    /// The unpartnered who looked for a partner at home and found nobody, and the day they last
+    /// did (M5a slice AM; research 04-08 §1.1).
+    pub unmatched: BTreeMap<PermanentId, i64>,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -544,7 +553,7 @@ fn peak_ratio(params: &PeopleParams) -> f64 {
 fn is_company(b: Behavior) -> bool {
     matches!(
         b,
-        Behavior::Socialize | Behavior::Attend | Behavior::Petition
+        Behavior::Socialize | Behavior::Attend | Behavior::Petition | Behavior::Visit
     )
 }
 
@@ -1072,6 +1081,20 @@ impl Population {
         let mut out = self
             .known_places
             .problems(|h| self.household(h).map(|x| x.settlement), |_| true);
+        for &(year, from, to) in self.contacts.years.keys() {
+            if from == to || year < 0 {
+                out.push(format!(
+                    "contacts of {from} with itself or before the first year"
+                ));
+            }
+        }
+        for id in self.unmatched.keys() {
+            if !self.records.contains_key(id) {
+                out.push(format!(
+                    "person {id} looked for a partner and is on no record"
+                ));
+            }
+        }
         let mut ids = std::collections::HashSet::new();
         for (_, p) in self.people.iter() {
             if !ids.insert(p.id) || p.id.get() >= next_id {
@@ -1368,6 +1391,7 @@ impl Population {
         self.at_hearth = None;
         self.known_pruned.clear();
         self.fields_moved();
+        self.children_indexed = usize::MAX;
     }
 
     /// Starts a person's life in the simulation: they decide what to do first.
@@ -2369,6 +2393,7 @@ impl Population {
             _ => hh_id,
         };
         self.home_field(ctx, field_key, hearth.unwrap_or(hh.home));
+        self.refresh_kin();
         let goods = &ctx.catalog.goods;
         let member_count = hh.members.len().max(1);
         let members = member_count as f64;
@@ -3213,6 +3238,18 @@ impl Population {
                 .get_or_init(|| self.take_target(ctx, &hh, field_key, kcal_day, stock));
             Population::take_option(p, target, params)
         };
+        // Another settlement's hearth (M5a slice AM): those the household knows within a day's
+        // walk there and back.
+        let visit_max_min = catalog
+            .activities
+            .iter()
+            .filter(|a| a.behavior == Behavior::Visit)
+            .map(|a| f64::from(a.max_walk_minutes))
+            .fold(0.0, f64::max);
+        let visits = || match me {
+            Some(me) => self.visit_options(ctx, me, hh_id, field_key, visit_max_min, dark),
+            None => Vec::new(),
+        };
         let (cands, excluded) = decide::candidates(
             &catalog.activities,
             &params.decision,
@@ -3228,6 +3265,7 @@ impl Population {
             &shop,
             &trying,
             &take,
+            &visits,
         );
         if ctx.approx.household_view {
             self.views.insert(hh_id, hh_view.kept());
@@ -3703,11 +3741,19 @@ impl Population {
         let now = ctx.now;
         let params = ctx.params;
         let present = match (behavior, self.people.get(h)) {
-            (Some(Behavior::Socialize | Behavior::Attend | Behavior::Petition), Some(p)) => {
-                self.hearth_company(ctx, p.id, p.act.target)
-            }
+            (
+                Some(Behavior::Socialize | Behavior::Attend | Behavior::Petition | Behavior::Visit),
+                Some(p),
+            ) => self.hearth_company(ctx, p.id, p.act.target),
             _ => Vec::new(),
         };
+        // Someone come to another settlement's hearth sees it and is counted (M5a slice AM).
+        if let (Some(Behavior::Visit), Some(p)) = (behavior, self.people.get(h))
+            && let Target::Hearth(s) = p.act.target
+        {
+            let me = p.id;
+            self.visited(ctx, me, s, &present, minutes);
+        }
         if let (Some(b), Some(p)) = (behavior, self.people.get(h))
             && is_company(b)
             && let Target::Hearth(s) = p.act.target
@@ -3752,11 +3798,13 @@ impl Population {
             .map_or(params.energy.idle_par, |a| a.par);
         let (par, asleep, company) = match behavior {
             Some(Behavior::Sleep) => (def_par, true, params.social.household_quality),
-            Some(Behavior::Socialize | Behavior::Attend | Behavior::Petition) => (
-                def_par,
-                false,
-                (params.social.quality_per_companion * companions as f64).min(1.0),
-            ),
+            Some(Behavior::Socialize | Behavior::Attend | Behavior::Petition | Behavior::Visit) => {
+                (
+                    def_par,
+                    false,
+                    (params.social.quality_per_companion * companions as f64).min(1.0),
+                )
+            }
             // Work at home is done among the household.
             Some(
                 Behavior::Eat | Behavior::Rest | Behavior::Play | Behavior::Make | Behavior::Try,

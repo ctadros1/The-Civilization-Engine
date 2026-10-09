@@ -1076,3 +1076,47 @@ fn people_who_keep_company_at_the_hearth_come_to_know_one_another() {
     }
     assert!(from_hearth > 0, "company at the hearth made ties");
 }
+
+#[test]
+fn company_at_the_hearth_is_kept_only_with_those_of_ones_own_settlement() {
+    let mut sim = new_world(3, 0);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let village = sim.land().settlements[0].clone();
+    let far = land_near(&sim, village.hearth_m, 1500.0).expect("dry ground far away");
+    let camp = sim.spawn_families(far, 10).expect("the families arrive");
+    assert_eq!(
+        sim.land().settlements.len(),
+        2,
+        "a camp apart from the village"
+    );
+    sim.advance_minutes(20 * 24 * 60)
+        .expect("the world goes on");
+
+    let people = sim.people();
+    let settlement_of = |id: PermanentId| {
+        let household = people.person(id)?.household;
+        people.household(household)?.settlement
+    };
+    let (mut at_home, mut across) = (0, Vec::new());
+    for h in people.ties.holders() {
+        let Some(mine) = settlement_of(h) else {
+            continue;
+        };
+        for t in people.ties.of(h) {
+            if t.reason.map(|r| r.act) != Some(civ_agents::ties::Act::Hearth) {
+                continue;
+            }
+            match settlement_of(t.to) {
+                Some(theirs) if theirs == mine => at_home += 1,
+                Some(theirs) => across.push((h, t.to, mine, theirs)),
+                None => {}
+            }
+        }
+    }
+    assert!(at_home > 0, "company at each hearth made ties");
+    assert!(
+        across.is_empty(),
+        "nobody keeps company at another settlement's hearth: {across:?} (camp {})",
+        camp[0].settlement
+    );
+}

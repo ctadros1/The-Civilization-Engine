@@ -77,19 +77,25 @@ impl Population {
         self.note_tie(ctx, theirs, mine, seen_by_b, 1.0, -help_h);
     }
 
-    /// Those keeping company at `hearth` now other than `me`, in id order.
+    /// Those keeping company at `hearth` now other than `me`, in id order. The hearth is each
+    /// settlement's own, so only those of `me`'s settlement are there.
     pub(crate) fn hearth_company(
         &self,
         ctx: &Ctx,
         me: PermanentId,
         hearth: Target,
     ) -> Vec<PermanentId> {
+        let settlement_of = |household| self.household(household).and_then(|x| x.settlement);
+        let Some(mine) = self.person(me).and_then(|p| settlement_of(p.household)) else {
+            return Vec::new();
+        };
         let mut out: Vec<PermanentId> = self
             .people
             .iter()
             .filter(|(_, q)| {
                 q.id != me
                     && q.act.target == hearth
+                    && settlement_of(q.household) == Some(mine)
                     && q.trip.is_none()
                     && matches!(
                         q.act.steps.get(q.act.step as usize),

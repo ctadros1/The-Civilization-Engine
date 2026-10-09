@@ -356,7 +356,7 @@ impl Population {
         let need_day = x.members.len() as f64 * params.household.daily_kcal_per_person;
         let held = stock_kcal(&stores_now(x, now, params, goods), goods);
         let harvest = ctx.catalog.crops.get(params.farm.crop).map_or(0.0, |crop| {
-            let fields = || ctx.land.fields.iter().filter(|f| f.household == household);
+            let fields = || self.fields_of(ctx.land, household);
             let area: f64 = fields().map(Field::area_ha).sum();
             if area <= 0.0 {
                 return 0.0;
@@ -411,11 +411,7 @@ impl Population {
         let need = x.members.len() as f64 * params.household.daily_kcal_per_person;
         let days = stock_kcal(&stores_now(x, now, params, goods), goods) / need.max(1.0);
         let to_harvest = ctx.catalog.crops.get(params.farm.crop).map_or(0.0, |crop| {
-            farm::days_to_harvest(
-                crop,
-                ctx.land.fields.iter().filter(|f| f.household == household),
-                now.day_index(),
-            )
+            farm::days_to_harvest(crop, self.fields_of(ctx.land, household), now.day_index())
         });
         days < to_harvest || days < params.household.short_food_days
     }

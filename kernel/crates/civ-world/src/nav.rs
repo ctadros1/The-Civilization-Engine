@@ -127,26 +127,49 @@ impl Landmarks {
     /// A cell's times, from and to each landmark in turn, if it lies in the area.
     fn at(&self, cell: usize) -> Option<&[f32]> {
         let (x, y) = (cell % self.map_width, cell / self.map_width);
-        if x < self.x0 || y < self.y0 || x >= self.x0 + self.w || y >= self.y0 + self.h {
+        self.at_xy(x as i64, y as i64)
+    }
+
+    /// [`Landmarks::at`] by the cell's column and row.
+    #[inline]
+    fn at_xy(&self, x: i64, y: i64) -> Option<&[f32]> {
+        let (cx, cy) = (x - self.x0 as i64, y - self.y0 as i64);
+        if cx < 0 || cy < 0 || cx >= self.w as i64 || cy >= self.h as i64 {
             return None;
         }
-        let k = (y - self.y0) * self.w + (x - self.x0);
+        let k = cy as usize * self.w + cx as usize;
         Some(&self.seconds[k * 2 * self.count..(k + 1) * 2 * self.count])
     }
 
-    /// The least time from the cell whose times are `v` to the one whose times are `t`
+    /// A target's times, `t`, as what a search compares each cell with: for each landmark, at
+    /// least the time from it to the target (a time's magnitude, in the share that is sure),
+    /// and at most the time from the target to it (a time worked out, or no limit).
+    fn aim(t: &[f32]) -> Vec<(f32, f32)> {
+        t.chunks_exact(2)
+            .map(|t| {
+                let most = if t[1] < 0.0 { f32::INFINITY } else { t[1] };
+                (t[0].abs() * Self::SURE, most)
+            })
+            .collect()
+    }
+
+    /// The least time from the cell whose times are `v` to the target `aim` was made for
     /// (infinite when a landmark shows there is no way; 0 when none says more).
-    fn bound(v: &[f32], t: &[f32]) -> f32 {
-        // At least: a time's magnitude. At most: a time worked out, or no limit.
-        let least = |x: f32| x.abs();
-        let most = |x: f32| if x < 0.0 { f32::INFINITY } else { x };
+    #[inline]
+    fn bound(v: &[f32], aim: &[(f32, f32)]) -> f32 {
         let mut out = 0.0f32;
-        for (v, t) in v.chunks_exact(2).zip(t.chunks_exact(2)) {
+        for (v, &(to_target, from_target)) in v.chunks_exact(2).zip(aim) {
             // From the landmark, d(L,t) - d(L,v); to it, d(v,L) - d(t,L). Infinite less
-            // infinite says nothing (NaN, which `max` passes over).
-            let from = least(t[0]) * Self::SURE - most(v[0]);
-            let to = least(v[1]) * Self::SURE - most(t[1]);
-            out = out.max(from).max(to);
+            // infinite says nothing: NaN, never greater.
+            let to_v = if v[0] < 0.0 { f32::INFINITY } else { v[0] };
+            let from = to_target - to_v;
+            let to = v[1].abs() * Self::SURE - from_target;
+            if from > out {
+                out = from;
+            }
+            if to > out {
+                out = to;
+            }
         }
         out
     }
@@ -523,10 +546,9 @@ impl NavGrid {
     /// Seconds to walk straight from `from` to `to` at `speed`, an underestimate of any route
     /// when `speed` is the fastest any step can be walked.
     #[inline]
-    fn heuristic(&self, from: usize, to: usize, speed: f64) -> f32 {
-        let (fx, fy) = ((from % self.width) as f64, (from / self.width) as f64);
-        let (tx, ty) = ((to % self.width) as f64, (to / self.width) as f64);
-        let dist = ((fx - tx).powi(2) + (fy - ty).powi(2)).sqrt() * self.cell_m;
+    fn heuristic(&self, (fx, fy): (i64, i64), (tx, ty): (i64, i64), speed: f64) -> f32 {
+        let (dx, dy) = ((fx - tx) as f64, (fy - ty) as f64);
+        let dist = (dx.powi(2) + dy.powi(2)).sqrt() * self.cell_m;
         (dist / speed) as f32
     }
 
@@ -629,17 +651,22 @@ impl NavGrid {
         let (w, h) = (self.width as i64, self.height as i64);
         // The least time from a cell to `to`: the straight line at the top speed, or what the
         // landmarks show, whichever is more.
-        let target = landmarks.and_then(|l| Some((l, l.at(to)?)));
-        let bound = |j: usize| {
-            let line = self.heuristic(j, to, fastest);
-            match target.and_then(|(l, t)| Some((l.at(j)?, t))) {
-                Some((v, t)) => line.max(Landmarks::bound(v, t)),
+        let target = landmarks.and_then(|l| Some((l, Landmarks::aim(l.at(to)?))));
+        let (tx, ty) = ((to % self.width) as i64, (to / self.width) as i64);
+        let bound = |x: i64, y: i64| {
+            let line = self.heuristic((x, y), (tx, ty), fastest);
+            match target
+                .as_ref()
+                .and_then(|(l, aim)| Some((l.at_xy(x, y)?, aim)))
+            {
+                Some((v, aim)) => line.max(Landmarks::bound(v, aim)),
                 None => line,
             }
         };
         let mut open = BinaryHeap::new();
         best.set(from as u32, 0.0, u32::MAX);
-        open.push(Open::new(bound(from), 0.0, from as u32));
+        let (fx, fy) = ((from % self.width) as i64, (from / self.width) as i64);
+        open.push(Open::new(bound(fx, fy), 0.0, from as u32));
         let mut expanded = 0usize;
         while let Some(next) = open.pop() {
             let (g, cell) = (next.g(), next.cell());
@@ -670,7 +697,7 @@ impl NavGrid {
                 let better = best.get(j as u32).is_none_or(|(bg, _)| ng < bg);
                 if better {
                     best.set(j as u32, ng, cell);
-                    let f = ng + bound(j);
+                    let f = ng + bound(nx, ny);
                     // A cell the landmarks show cannot reach `to` is not worth a visit.
                     if f.is_finite() {
                         open.push(Open::new(f, ng, j as u32));

@@ -202,11 +202,8 @@ impl Population {
         let members = hh.members.len().max(1);
         let kcal_day = members as f64 * params.household.daily_kcal_per_person;
         let outlook = catalog.crops.get(params.farm.crop).map_or(0.0, |c| {
-            farm::days_to_harvest(
-                c,
-                ctx.land.fields.iter().filter(|f| f.household == hh.id),
-                ctx.now.day_index(),
-            ) + params.household.harvest_margin_days
+            farm::days_to_harvest(c, self.fields_of(ctx.land, hh.id), ctx.now.day_index())
+                + params.household.harvest_margin_days
         });
         let food_keep = outlook * kcal_day * (1.0 + FOOD_KEEP_MARGIN);
         let food = stock_kcal(stores, goods);

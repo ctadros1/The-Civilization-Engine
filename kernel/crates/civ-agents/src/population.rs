@@ -362,8 +362,11 @@ pub struct Population {
     /// Per activity, what a trip is expected to bring from each patch today.
     priors: Vec<Prior>,
     /// Per household, the new ground it would mark out for a field, as found on a day against the
-    /// land as it then stood ([`site_inputs`]).
-    sites: FastMap<PermanentId, (i64, u64, Option<Site>)>,
+    /// land as it then stood ([`site_inputs`]), with what that was read against ([`SiteStamp`]).
+    sites: FastMap<PermanentId, (i64, u64, Option<Site>, SiteStamp)>,
+    /// Counts every change to where households' homes stand: one founded or gone, or a home
+    /// moved ([`SiteStamp`]). Derived.
+    homes_moved: u64,
     /// Per household with nothing under way, the building it would begin and where (a home, or a
     /// store or a workshop beside it), as found on a day.
     home_sites: FastMap<PermanentId, (i64, Option<NewHome>)>,
@@ -386,6 +389,11 @@ pub struct Population {
     /// of what has faded ([`Self::remember_patch`]): cleared again that day, they would lose
     /// nothing. Derived; forgotten when the household's places come from elsewhere.
     known_pruned: FastMap<(PermanentId, u16), i64>,
+    /// The fields each household works, by index into the land's fields, in order, for the
+    /// first `fields_indexed` of them ([`Self::fields_of`]). Brought up to date at midnight;
+    /// emptied when a field changes hands. Derived.
+    field_index: FastMap<PermanentId, Vec<u32>>,
+    fields_indexed: usize,
     /// What became of the goods of households that are no more (counters, not saved).
     pub flows_gone: Flows,
     /// What moved between households, by channel (counters, not saved).
@@ -455,6 +463,11 @@ struct HomePlan {
     def: usize,
     deadline: i64,
 }
+
+/// Whether what [`site_inputs`] reads may have changed, cheaply: fields, plots and earthworks are
+/// only ever added, and none is moved, so their counts say whether any has been; and the count
+/// of moves of households' homes. While these stand, a site found earlier in the day stands.
+type SiteStamp = (usize, usize, usize, u64);
 
 /// What finding new ground for a field reads that can change within a day, as one number: the
 /// fields, plots and earthworks laid out on `ground` (the ground the search looks at,
@@ -831,6 +844,7 @@ impl Population {
 
     /// Adds a household.
     pub fn insert_household(&mut self, h: Household) -> Handle<Household> {
+        self.homes_moved += 1;
         let id = h.id;
         let handle = self.households.insert(h);
         self.hh_index.insert(id, handle);
@@ -861,6 +875,7 @@ impl Population {
         self.at_hearth = None;
         self.known_pruned.clear();
         self.landmarks = None;
+        self.fields_moved();
     }
 
     /// Gives people and households of a world saved before tools and skills (save schema 8 and
@@ -1338,6 +1353,18 @@ impl Population {
         self.switched.clear();
     }
 
+    /// Forgets what is kept to find things faster (field sites, who is at each hearth, the
+    /// fields by household, faded places let go): after people, households or land were changed
+    /// by hand, as tests do. Each is worked out again when next needed, the same as it would
+    /// have been, so nothing that happens changes.
+    pub fn forget_derived(&mut self) {
+        self.sites.clear();
+        self.homes_moved += 1;
+        self.at_hearth = None;
+        self.known_pruned.clear();
+        self.fields_moved();
+    }
+
     /// Starts a person's life in the simulation: they decide what to do first.
     pub fn begin(&mut self, ctx: &mut Ctx, id: PermanentId) {
         if let Some(&h) = self.index.get(&id) {
@@ -1498,27 +1525,34 @@ impl Population {
         let day = ctx.now.day_index();
         let home = self.homes.get(&field_key)?;
         let (breakable, ground) = (&home.breakable, home.site_ground);
-        // Clear of every home of the settlement and of its hearth.
-        let mut homes: Vec<(f32, f32)> = self
-            .households
-            .iter()
-            .filter(|(_, x)| {
-                x.id == hh.id || (hh.settlement.is_some() && x.settlement == hh.settlement)
-            })
-            .map(|(_, x)| x.home)
-            .collect();
-        homes.extend(
-            ctx.land
-                .settlements
-                .iter()
-                .filter(|s| Some(s.id) == hh.settlement)
-                .map(|s| s.hearth_m),
+        let land: &civ_land::Land = ctx.land;
+        let stamp = (
+            land.fields.len(),
+            land.plots.len(),
+            land.earthworks.len(),
+            self.homes_moved,
         );
+        let kept = self
+            .sites
+            .get(&hh.id)
+            .filter(|&&(seen, ..)| seen == day)
+            .copied();
+        if let Some((_, read, site, at)) = kept
+            && at == stamp
+        {
+            debug_assert_eq!(
+                read,
+                site_inputs(land, ground, &self.site_homes(land, hh)),
+                "what a field site is found against changed without its stamp"
+            );
+            return site;
+        }
+        let homes = self.site_homes(land, hh);
         let inputs = site_inputs(ctx.land, ground, &homes);
-        if let Some(&(seen, at, site)) = self.sites.get(&hh.id)
-            && seen == day
+        if let Some((_, at, site, _)) = kept
             && at == inputs
         {
+            self.sites.insert(hh.id, (day, inputs, site, stamp));
             return site;
         }
         let site = farm::find_site(
@@ -1533,8 +1567,79 @@ impl Population {
             &[ctx.seed, farm::PURPOSE_SITE, hh.id.get(), day as u64],
             hh.id,
         );
-        self.sites.insert(hh.id, (day, inputs, site));
+        self.sites.insert(hh.id, (day, inputs, site, stamp));
         site
+    }
+
+    /// The fields household `household` works, in the land's order: those indexed, then any
+    /// marked out since, found by looking at those alone (M5a slice AL).
+    pub(crate) fn fields_of<'s, 'l>(
+        &'s self,
+        land: &'l civ_land::Land,
+        household: PermanentId,
+    ) -> impl Iterator<Item = &'l Field> + Clone + use<'s, 'l> {
+        let indexed = self.fields_indexed.min(land.fields.len());
+        let head = if indexed == 0 {
+            &[][..]
+        } else {
+            self.field_index
+                .get(&household)
+                .map_or(&[][..], Vec::as_slice)
+        };
+        debug_assert!(
+            head.iter()
+                .all(|&i| land.fields[i as usize].household == household)
+                && head.len()
+                    == land.fields[..indexed]
+                        .iter()
+                        .filter(|f| f.household == household)
+                        .count(),
+            "a field changed hands without the index knowing"
+        );
+        head.iter().map(|&i| &land.fields[i as usize]).chain(
+            land.fields[indexed..]
+                .iter()
+                .filter(move |f| f.household == household),
+        )
+    }
+
+    /// Brings [`Self::fields_of`]'s index up to the fields marked out so far.
+    fn index_fields(&mut self, land: &civ_land::Land) {
+        for (i, f) in land.fields.iter().enumerate().skip(self.fields_indexed) {
+            self.field_index
+                .entry(f.household)
+                .or_default()
+                .push(i as u32);
+        }
+        self.fields_indexed = land.fields.len();
+    }
+
+    /// A field has changed hands: [`Self::fields_of`] looks at every field until midnight.
+    pub(crate) fn fields_moved(&mut self) {
+        if self.fields_indexed > 0 {
+            self.field_index.clear();
+            self.fields_indexed = 0;
+        }
+    }
+
+    /// Where a new field for household `hh` keeps clear of: every home of its settlement (its
+    /// own if it has none) and the settlement's hearth.
+    fn site_homes(&self, land: &civ_land::Land, hh: &Household) -> Vec<(f32, f32)> {
+        let mut homes: Vec<(f32, f32)> = self
+            .households
+            .iter()
+            .filter(|(_, x)| {
+                x.id == hh.id || (hh.settlement.is_some() && x.settlement == hh.settlement)
+            })
+            .map(|(_, x)| x.home)
+            .collect();
+        homes.extend(
+            land.settlements
+                .iter()
+                .filter(|s| Some(s.id) == hh.settlement)
+                .map(|s| s.hearth_m),
+        );
+        homes
     }
 
     /// What each stage of `building` needs (expanded once per building), its first stage also
@@ -2143,6 +2248,7 @@ impl Population {
             && let Some(x) = self.households.get_mut(hd)
         {
             x.home = at;
+            self.homes_moved += 1;
         }
         Some(id)
     }
@@ -2273,10 +2379,7 @@ impl Population {
             .people
             .get(h)
             .is_some_and(|p| may_eat_reserve(p, now, params));
-        let protected = farm::protected_seed(
-            ctx.land.fields.iter().filter(|f| f.household == hh_id),
-            &ctx.catalog.crops,
-        );
+        let protected = farm::protected_seed(self.fields_of(ctx.land, hh_id), &ctx.catalog.crops);
         let seed_kcal = if reserve_ok {
             let mut spare = stores.clone();
             if let Some((g, kg)) = protected
@@ -2312,11 +2415,8 @@ impl Population {
         // The food that would see the household through to its next harvest, with a margin
         // (research 08-01 §2.3: a seasonal reserve until the next reliable food, plus 0-90 days).
         let food_outlook_days = ctx.catalog.crops.get(params.farm.crop).map_or(0.0, |c| {
-            farm::days_to_harvest(
-                c,
-                ctx.land.fields.iter().filter(|f| f.household == hh_id),
-                now.day_index(),
-            ) + params.household.harvest_margin_days
+            farm::days_to_harvest(c, self.fields_of(ctx.land, hh_id), now.day_index())
+                + params.household.harvest_margin_days
         });
         let Some(p) = self.people.get(h) else {
             return;
@@ -2414,12 +2514,7 @@ impl Population {
         let farm_view = crop.map(|c| FarmView {
             crop: c,
             kcal_per_kg: grain_kcal,
-            fields: ctx
-                .land
-                .fields
-                .iter()
-                .filter(|f| f.household == hh_id)
-                .collect(),
+            fields: self.fields_of(ctx.land, hh_id).collect(),
             day: today,
             labour_per_day,
             seed_kg,
@@ -3931,10 +4026,8 @@ impl Population {
             * def.rate;
         let quality = skill.map_or(1.0, |(_, s)| interpolate(&s.quality, level));
         let reserve_ok = may_eat_reserve(p, now, params);
-        let protected = farm::protected_seed(
-            ctx.land.fields.iter().filter(|f| f.household == household),
-            &ctx.catalog.crops,
-        );
+        let protected =
+            farm::protected_seed(self.fields_of(ctx.land, household), &ctx.catalog.crops);
         let hours = f64::from(minutes) / 60.0;
         let units = make::units_in(recipe, f64::from(minutes), speed);
         if let Some(x) = self
@@ -4183,11 +4276,8 @@ impl Population {
             self.manure_field(ctx, hh, fi, hours);
             return;
         }
-        let area: f64 = ctx
-            .land
-            .fields
-            .iter()
-            .filter(|f| f.household == household)
+        let area: f64 = self
+            .fields_of(ctx.land, household)
             .map(Field::area_ha)
             .sum();
         // Seed for the coming season is set aside before any grain is eaten.
@@ -4197,7 +4287,7 @@ impl Population {
             };
             let kcal = goods.get(crop.good).map_or(0.0, |g| g.kcal_per_kg);
             let expected = farm::expected_yield_kg_ha(
-                ctx.land.fields.iter().filter(|f| f.household == household),
+                self.fields_of(ctx.land, household),
                 crop,
                 now.day_index(),
             );
@@ -4562,6 +4652,7 @@ impl Population {
             .collect();
         if old.iter().any(|&(_, _, home)| home) {
             x.home = build::centre_m(&ctx.land.buildings[bi].spec);
+            self.homes_moved += 1;
         }
         if !old.is_empty() {
             ctx.land
@@ -4655,10 +4746,8 @@ impl Population {
         let want =
             (-f64::from(p.energy_kcal)).max(0.0) + day_kcal / 24.0 * params.energy.satiety_hours;
         let reserve_ok = may_eat_reserve(p, now, params);
-        let protected = farm::protected_seed(
-            ctx.land.fields.iter().filter(|f| f.household == household),
-            &ctx.catalog.crops,
-        );
+        let protected =
+            farm::protected_seed(self.fields_of(ctx.land, household), &ctx.catalog.crops);
         let Some(&hh) = self.hh_index.get(&household) else {
             return;
         };
@@ -4849,6 +4938,7 @@ impl Population {
         // day of work and the day's first event, so a save there loses nothing.
         self.views.clear();
         self.switched.clear();
+        self.index_fields(ctx.land);
         // On the first of each month, ties to those no longer here are let go and standing is
         // worked out afresh (ADR-0014 §1, §3).
         if now.date().day == 1 {

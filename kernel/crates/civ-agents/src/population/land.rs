@@ -144,7 +144,7 @@ impl Population {
             .goods
             .get(crop.good)
             .map_or(0.0, |g| g.kcal_per_kg);
-        let fields = ctx.land.fields.iter().filter(|f| f.household == household);
+        let fields = self.fields_of(ctx.land, household);
         let expected = farm::expected_yield_kg_ha(fields, crop, ctx.now.day_index());
         farm::need_area_ha(members, ctx.params, crop, kcal, expected)
     }
@@ -190,6 +190,7 @@ impl Population {
             {
                 f.household = holder;
                 f.lease = None;
+                self.fields_moved();
             }
         }
         // Households of the settlement: their home, need and the area they work.
@@ -240,6 +241,7 @@ impl Population {
                 _ => {
                     f.household = holder;
                     f.lease = None;
+                    self.fields_moved();
                     for x in households.iter_mut() {
                         if x.0 == tenant {
                             x.3 -= area;
@@ -327,6 +329,7 @@ impl Population {
                 giver.3 -= area;
             }
             f.household = taker;
+            self.fields_moved();
             match (regime_use, vacant, lease_rules) {
                 // Ground nobody holds is the taker's to hold.
                 (LandUse::Holder, true, _) => f.holder = Party::Household(taker),
@@ -392,6 +395,7 @@ impl Population {
             let f = &mut ctx.land.fields[own[k]];
             f.holder = Party::Household(to);
             f.household = to;
+            self.fields_moved();
         }
     }
 
@@ -430,6 +434,7 @@ impl Population {
                     f.holder = Party::Household(heirs[k]);
                     if f.household == from {
                         f.household = heirs[k];
+                        self.fields_moved();
                     }
                     // A tenant that inherits its field holds it now.
                     if f.holder == Party::Household(f.household) {

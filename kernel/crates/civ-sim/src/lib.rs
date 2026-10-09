@@ -1074,12 +1074,14 @@ impl Sim {
     /// commands.
     #[doc(hidden)]
     pub fn people_mut_for_tests(&mut self) -> &mut Population {
+        self.people.forget_derived();
         &mut self.people
     }
 
     /// Land, to set up a situation in a test.
     #[doc(hidden)]
     pub fn land_mut_for_tests(&mut self) -> &mut Land {
+        self.people.forget_derived();
         &mut self.land
     }
 

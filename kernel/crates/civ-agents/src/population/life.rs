@@ -647,7 +647,7 @@ impl Population {
             if worn < h.leave_at_depletion {
                 continue;
             }
-            let fields = || ctx.land.fields.iter().filter(|f| f.household == household);
+            let fields = || self.fields_of(ctx.land, household);
             let coming = crop.is_some_and(|c| {
                 fields().any(|f| match f.stage {
                     FieldStage::Sown => {
@@ -764,6 +764,7 @@ impl Population {
         if let Some(hd) = self.hh_index.remove(&household)
             && let Some(mut gone) = self.households.remove(hd)
         {
+            self.homes_moved += 1;
             for (g, kg) in gone.stores.iter().enumerate() {
                 gone.flows.add(Flow::Departed, g, kg.max(0.0));
             }
@@ -998,6 +999,7 @@ impl Population {
         let Some(gone) = self.households.remove(hd) else {
             return;
         };
+        self.homes_moved += 1;
         self.flows_gone.absorb(&gone.flows);
         let settlement = self.household(to).and_then(|x| x.settlement);
         for m in &gone.members {
@@ -1048,6 +1050,7 @@ impl Population {
             for f in &mut ctx.land.fields {
                 if f.household == from {
                     f.household = to;
+                    self.fields_moved();
                 }
                 if f.holder == Party::Household(from) {
                     f.holder = Party::Household(to);
@@ -1096,6 +1099,7 @@ impl Population {
                 if let Some(hd) = self.hh_index.remove(&household)
                     && let Some(mut gone) = self.households.remove(hd)
                 {
+                    self.homes_moved += 1;
                     // What nobody is left to keep is left behind.
                     for (g, kg) in gone.stores.iter().enumerate() {
                         gone.flows.add(Flow::Departed, g, kg.max(0.0));

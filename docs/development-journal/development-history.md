@@ -750,6 +750,22 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** slice AM, known places, visits and marriage between settlements.
 
+## 2026-10-09 — M5a slice AM: known places, visits and marriage between settlements
+
+**Goal:** settlements founded apart should come into contact only through people: a household knows another place only by contact, visits it for reasons of its own, and may marry into it (plan §7, ADR-0018 §2, §4, §5).
+
+**What changed, in three steps:**
+
+- **Known places** (`7c323b8`): each household keeps the other settlements it knows and how (founded alongside, seen on a walk within 500 m of a hearth, told at the hearth, visited, kin there). The new-world dialog can have the founding groups know each other. Nothing acted on this yet, and a saved world's digests stayed the same outside the new section.
+- **Visits** (`bf617b2`): an adult may walk to a known settlement's hearth within two hours, keep company and walk home the same day. It is worth the company any hearth gives and those there: kin, people they know and, for someone who found no partner at home, the hope of meeting one; the wish to go again grows back over a month after a member of the household went. Visitors are company like anyone; laws and levies are talked of only among neighbours. Visits are counted per pair of settlements a year and shown.
+- **Marriage between settlements:** the partner search takes in people of another settlement the seeker holds a tie with. A couple of two settlements settles beside the household with more land worked per member, then the better housed, then by lot, never by sex. Each such marriage is counted, makes both households know the other place as where kin live, and is named in the chronicle.
+
+**Findings:** the first visit weights (3 points) were too small for the hour's walk between hearths founded at least 3 km apart, so nobody went; they were raised, with damping after a visit. Visiting needs a reason: strangers would never go where they know nobody, so a failed search for a partner at home is the opening (research 04-08 §1.1). Over five years, two bands of 30 that knew each other made 78, 0 and 370 visits and 1, 0 and 0 marriages across. Computing visit options costs about 1.3 % of a day at 3,000 people. A world of one settlement lives exactly as before each step.
+
+**Evidence:** digest comparisons with the build before each step; unit tests of the places, the visit's terms and the land-and-room rule; integration tests for seeing and telling, kin visits, partner-seeking visits and a marriage across; the old-save tests for schemas 50 and 51; the whole kernel suite, clippy, the ten smoke worlds and the web suites.
+
+**Open:** slice AN, moving between settlements and the migration wave.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

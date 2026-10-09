@@ -468,3 +468,105 @@ fn someone_who_found_no_partner_at_home_goes_to_look_elsewhere() {
     sim.advance_minutes(30 * 24 * 60).expect("lives");
     assert!(visits(&sim, a, b) > 0, "nobody went to look");
 }
+
+#[test]
+fn a_tie_across_settlements_can_become_a_marriage_counted_and_known_as_kin() {
+    // Two bands that know where each other camped. Every unpartnered adult of each holds warm ties
+    // with those of the other sex in the other, as if they had met at visits, and all look for a
+    // partner about daily. Those of the first are brothers and sisters, so none may marry another
+    // at home: they find partners across (M5a slice AM; research 04-08 §1.1).
+    let mut sim = world_knowing(3, 50, &[50], true).expect("generates");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let now = sim.now();
+    let seeking = |sim: &Sim, s| -> Vec<(civ_core::PermanentId, civ_agents::Sex)> {
+        let family = &sim.rules().people.family;
+        adults_of(sim, s)
+            .into_iter()
+            .filter(|&(id, sex)| {
+                sim.people()
+                    .person(id)
+                    .is_some_and(|p| p.partner.is_none() && family.seeks_at(sex, p.age_years(now)))
+            })
+            .collect()
+    };
+    let (here, there) = (seeking(&sim, a), seeking(&sim, b));
+    assert!(!here.is_empty() && !there.is_empty());
+    let ties = sim.rules().people.ties.clone();
+    let mother = adults_of(&sim, a)
+        .into_iter()
+        .find(|&(id, sex)| sex == civ_agents::Sex::Female && here.iter().all(|h| h.0 != id))
+        .map(|(id, _)| id)
+        .expect("an older woman");
+    {
+        let day = now.day_index();
+        let pop = sim.people_mut_for_tests();
+        for &(x, _) in &here {
+            pop.records.get_mut(&x).expect("on record").mother = Some(mother);
+        }
+        for &(x, sx) in &here {
+            for &(y, sy) in &there {
+                if sx == sy {
+                    continue;
+                }
+                for _ in 0..10 {
+                    pop.ties
+                        .record(x, y, civ_agents::ties::Act::Hearth, 1.0, 0.0, day, &ties);
+                    pop.ties
+                        .record(y, x, civ_agents::ties::Act::Hearth, 1.0, 0.0, day, &ties);
+                }
+            }
+        }
+    }
+    sim.rules_mut_for_tests()
+        .expect("the rules are held once")
+        .people
+        .family
+        .seek_per_month = [1.0, 1.0];
+    sim.advance_minutes(30 * 24 * 60).expect("lives");
+
+    let pop = sim.people();
+    let marriages: u32 = pop.contacts.years.values().map(|c| c.marriages).sum();
+    assert!(marriages > 0, "no marriage across");
+    // Each who married into the other settlement lives there now, by marriage, and the couple's
+    // household knows where they came from as where kin live.
+    let mut moved = 0;
+    for r in pop.records.values() {
+        let [.., before, last] = r.residence.as_slice() else {
+            continue;
+        };
+        if last.why != ResidenceWhy::Married || before.settlement == last.settlement {
+            continue;
+        }
+        moved += 1;
+        let Some(p) = pop.person(r.id) else {
+            continue;
+        };
+        let kin = pop
+            .known_places
+            .of(p.household)
+            .iter()
+            .find(|k| Some(k.settlement) == before.settlement)
+            .expect("the couple's household knows where the mover came from");
+        assert!(matches!(
+            kin.how,
+            civ_agents::places::PlaceHow::Kin | civ_agents::places::PlaceHow::Founded
+        ));
+    }
+    assert_eq!(moved, marriages, "every marriage across moved someone");
+    // The chronicle says where they settled.
+    let named = pop
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == civ_agents::ChronicleKind::Paired && !e.name.is_empty())
+        .count();
+    assert_eq!(named as u32, marriages);
+    assert!(
+        pop.residence_problems().is_empty(),
+        "{:?}",
+        pop.residence_problems()
+    );
+    assert!(pop.problems(u64::MAX, usize::MAX).is_empty());
+    let words = civ_sim::frames::people::contacts_words(&sim, a)
+        + &civ_sim::frames::people::contacts_words(&sim, b);
+    assert!(words.contains("marriage"), "{words}");
+}

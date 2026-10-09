@@ -319,6 +319,20 @@ impl Contacts {
     }
 }
 
+/// Whether a couple from two settlements settles with or beside household `a` rather than `b`
+/// (M5a slice AM; ADR-0018 §5: where to live follows land and room, never sex): the one with
+/// more land worked per member, then the better housed (its best dwelling's stage, roofed ones
+/// first), then by `draw` (0–1) between households alike.
+pub fn settles_with_first(a: (f64, u8), b: (f64, u8), draw: f64) -> bool {
+    if a.0 != b.0 {
+        return a.0 > b.0;
+    }
+    if a.1 != b.1 {
+        return a.1 > b.1;
+    }
+    draw < 0.5
+}
+
 /// The least distance from `p` to the walk through `points`, metres.
 pub fn distance_to_walk(points: &[(f32, f32)], p: (f32, f32)) -> f32 {
     let along = |a: (f32, f32), b: (f32, f32)| {
@@ -394,6 +408,18 @@ mod tests {
         assert_eq!(pp.company_points(1, 0.0, false, Some(0)), 0.0);
         assert!((pp.company_points(1, 0.0, false, Some(half)) - full / 2.0).abs() < 1e-9);
         assert_eq!(pp.company_points(1, 0.0, false, Some(365)), full);
+    }
+
+    #[test]
+    fn a_couple_from_two_settlements_goes_where_there_is_land_then_room_then_by_lot() {
+        // More land a member wins over a better home.
+        assert!(settles_with_first((0.4, 1), (0.2, 15), 0.9));
+        assert!(!settles_with_first((0.2, 15), (0.4, 1), 0.1));
+        // Alike in land, the better housed.
+        assert!(settles_with_first((0.3, 15), (0.3, 3), 0.9));
+        // Alike in both, the lot.
+        assert!(settles_with_first((0.3, 3), (0.3, 3), 0.2));
+        assert!(!settles_with_first((0.3, 3), (0.3, 3), 0.7));
     }
 
     #[test]

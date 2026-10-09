@@ -798,20 +798,26 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             ];
             match Moved::from_number(event.number) {
                 Moved::NewHousehold => spans.push(Span::Text(
-                    " and set up a household of their own.".to_owned(),
+                    " and set up a household of their own".to_owned(),
                 )),
                 Moved::HerToHis => {
                     spans.push(Span::Text("; ".to_owned()));
                     spans.push(woman);
-                    spans.push(Span::Text(" moved into his household.".to_owned()));
+                    spans.push(Span::Text(" moved into his household".to_owned()));
                 }
                 Moved::HisToHers => {
                     spans.push(Span::Text("; ".to_owned()));
                     spans.push(man);
-                    spans.push(Span::Text(" moved into her household.".to_owned()));
+                    spans.push(Span::Text(" moved into her household".to_owned()));
                 }
-                Moved::Stayed => spans.push(Span::Text(".".to_owned())),
+                Moved::Stayed => {}
             }
+            // Partners of two settlements (M5a slice AM): where they settled is named.
+            if !event.name.is_empty() {
+                spans.push(Span::Text(" in ".to_owned()));
+                spans.push(settlement(event));
+            }
+            spans.push(Span::Text(".".to_owned()));
             spans
         }
         ChronicleKind::Left => {

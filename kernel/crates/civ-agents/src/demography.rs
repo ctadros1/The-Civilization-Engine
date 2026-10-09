@@ -40,6 +40,8 @@ pub enum Draw {
     Leave = 7,
     /// A person's objection to taking, at birth (M4b slice AA).
     Objection = 8,
+    /// Where a couple from two settlements settles, between households alike (M5a slice AM).
+    Settle = 9,
 }
 
 /// The generator for `person`'s draw of `what` on `day`.

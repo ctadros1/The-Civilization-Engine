@@ -1193,22 +1193,30 @@ impl Population {
         }
     }
 
-    /// Whom `id` finds: an unpartnered adult of the other sex in their settlement, of an age
-    /// either would accept and not close kin (research 04-08 §1.1: eligibility, then
-    /// acceptance; 06-01 §2.4), weighed by the age gap people look for.
+    /// Whom `id` finds: an unpartnered adult of the other sex in their settlement, or in another
+    /// whom they hold a tie with, of an age either would accept and not close kin (research 04-08
+    /// §1.1: eligibility, then acceptance; 06-01 §2.4), weighed by the age gap people look for.
     fn find_partner(&self, ctx: &Ctx, id: PermanentId, rng: &mut Rng64) -> Option<PermanentId> {
         let (now, fam) = (ctx.now, &ctx.params.family);
         let me = self.person(id)?;
         let settlement = self.household(me.household)?.settlement;
         let my_age = me.age_years(now);
+        let day = now.day_index();
         let mut candidates: Vec<(PermanentId, f64)> = Vec::new();
         for (_, q) in self.people.iter() {
             if q.sex == me.sex || q.partner.is_some() {
                 continue;
             }
             let age = q.age_years(now);
-            if !fam.seeks_at(q.sex, age)
-                || self.household(q.household).map(|x| x.settlement) != Some(settlement)
+            if !fam.seeks_at(q.sex, age) {
+                continue;
+            }
+            // Those of their own settlement, and of another the one they hold a tie with (M5a
+            // slice AM; research 04-08 §1.1: the pool is those one has met).
+            let theirs = self.household(q.household).map(|x| x.settlement);
+            if theirs != Some(settlement)
+                && (theirs.flatten().is_none()
+                    || self.ties.known(id, q.id, day, &ctx.params.ties) <= 0.0)
             {
                 continue;
             }
@@ -1304,8 +1312,66 @@ impl Population {
             return;
         };
         let rule = ctx.params.family.residence;
+        // Partners of two settlements (M5a slice AM; ADR-0018 §5): they settle with or beside
+        // the household with more land worked per member, then the better housed, then by lot,
+        // never by who is the woman or the man.
+        let settlement_of =
+            |p: &Population, h: PermanentId| p.household(h).and_then(|x| x.settlement);
+        let before = (settlement_of(self, hw), settlement_of(self, hm));
+        let across = matches!(before, (Some(a), Some(b)) if a != b);
+        let to_hers_across = across.then(|| {
+            let side = |h: PermanentId| {
+                let members = self.household(h).map_or(1, |x| x.members.len().max(1));
+                let ha: f64 = self.fields_of(ctx.land, h).map(|f| f.area_ha()).sum();
+                (ha / members as f64, self.home_built(ctx, h))
+            };
+            let (first, second) = if hw < hm { (hw, hm) } else { (hm, hw) };
+            let draw = life_rng(ctx.seed, woman.min(man), now.day_index(), Draw::Settle).next_f64();
+            let first_wins = crate::places::settles_with_first(side(first), side(second), draw);
+            (first == hw) == first_wins
+        });
         let moved = if hw == hm {
             Moved::Stayed
+        } else if let Some(to_hers) = to_hers_across {
+            match (
+                self.keeps_household(ctx, woman),
+                self.keeps_household(ctx, man),
+            ) {
+                (true, true) if to_hers => {
+                    self.merge_household(ctx, hm, hw, true, ResidenceWhy::Married);
+                    Moved::HisToHers
+                }
+                (true, true) => {
+                    self.merge_household(ctx, hw, hm, true, ResidenceWhy::Married);
+                    Moved::HerToHis
+                }
+                (true, false) => {
+                    let group = self.with_dependants(ctx, man);
+                    self.move_people(ctx, &group, hm, hw, ResidenceWhy::Married);
+                    Moved::HisToHers
+                }
+                (false, true) => {
+                    let group = self.with_dependants(ctx, woman);
+                    self.move_people(ctx, &group, hw, hm, ResidenceWhy::Married);
+                    Moved::HerToHis
+                }
+                (false, false) => match rule {
+                    Residence::NewHousehold => {
+                        self.new_household(ctx, woman, man, if to_hers { hw } else { hm });
+                        Moved::NewHousehold
+                    }
+                    Residence::HisHousehold | Residence::HerHousehold if to_hers => {
+                        let group = self.with_dependants(ctx, man);
+                        self.move_people(ctx, &group, hm, hw, ResidenceWhy::Married);
+                        Moved::HisToHers
+                    }
+                    Residence::HisHousehold | Residence::HerHousehold => {
+                        let group = self.with_dependants(ctx, woman);
+                        self.move_people(ctx, &group, hw, hm, ResidenceWhy::Married);
+                        Moved::HerToHis
+                    }
+                },
+            }
         } else {
             match (
                 self.keeps_household(ctx, woman),
@@ -1339,7 +1405,7 @@ impl Population {
                 }
                 (false, false) => match rule {
                     Residence::NewHousehold => {
-                        self.new_household(ctx, woman, man);
+                        self.new_household(ctx, woman, man, hw);
                         Moved::NewHousehold
                     }
                     Residence::HisHousehold => {
@@ -1360,6 +1426,37 @@ impl Population {
         let settlement = household
             .and_then(|h| self.household(h))
             .and_then(|x| x.settlement);
+        // A marriage between settlements (M5a slice AM): counted, and each household knows the
+        // other's settlement as where kin live (ADR-0018 §4); the chronicle names where they
+        // settled.
+        let named = if across {
+            settlement
+                .and_then(|s| ctx.land.settlements.iter().find(|x| x.id == s))
+                .map_or_else(String::new, |s| s.name.clone())
+        } else {
+            String::new()
+        };
+        if let (true, Some(couple), Some(after)) = (across, household, settlement) {
+            let day = now.day_index();
+            for (who, natal, from) in [(woman, hw, before.0), (man, hm, before.1)] {
+                let Some(from) = from.filter(|&f| f != after) else {
+                    continue;
+                };
+                self.contacts
+                    .marriage(day.div_euclid(civ_core::time::DAYS_PER_YEAR), from, after);
+                if self.household(natal).is_some() {
+                    self.known_places.learn(
+                        natal,
+                        after,
+                        day,
+                        crate::places::PlaceHow::Kin,
+                        Some(who),
+                    );
+                }
+                self.known_places
+                    .learn(couple, from, day, crate::places::PlaceHow::Kin, None);
+            }
+        }
         self.chronicle_push(
             now,
             ChronicleKind::Paired,
@@ -1367,7 +1464,7 @@ impl Population {
             settlement,
             place,
             f64::from(moved as u8),
-            String::new(),
+            named,
         );
     }
 
@@ -1454,11 +1551,16 @@ impl Population {
     /// A couple sets up a household of their own: near the woman's household, a little farther
     /// from the hearth, each bringing a member's share of what their household holds and any
     /// children too young to stay behind.
-    fn new_household(&mut self, ctx: &mut Ctx, woman: PermanentId, man: PermanentId) {
-        let Some(hw) = self.person(woman).map(|p| p.household) else {
-            return;
-        };
-        let Some(natal) = self.household(hw).cloned() else {
+    /// A couple sets up a household of its own beside household `beside`, one of theirs (its
+    /// settlement's, and its home's neighbour).
+    fn new_household(
+        &mut self,
+        ctx: &mut Ctx,
+        woman: PermanentId,
+        man: PermanentId,
+        beside: PermanentId,
+    ) {
+        let Some(natal) = self.household(beside).cloned() else {
             return;
         };
         let hearth = natal.settlement.and_then(|s| {
@@ -1472,12 +1574,13 @@ impl Population {
         let home = self.new_home_site(ctx, natal.home, hearth, id);
         // They build as the households they grew up in did, halfway between the two, and after
         // the building that had moved hers most, else his (M3b slice R).
-        let his = self
-            .person(man)
-            .and_then(|p| self.household(p.household))
-            .map_or((natal.taste, natal.admired), |h| (h.taste, h.admired));
-        let (taste, admired) =
-            crate::style::couple_taste((&natal.taste, natal.admired), (&his.0, his.1));
+        let of = |who: PermanentId| {
+            self.person(who)
+                .and_then(|p| self.household(p.household))
+                .map_or((natal.taste, natal.admired), |h| (h.taste, h.admired))
+        };
+        let (hers, his) = (of(woman), of(man));
+        let (taste, admired) = crate::style::couple_taste((&hers.0, hers.1), (&his.0, his.1));
         self.insert_household(Household {
             id,
             members: Vec::new(),

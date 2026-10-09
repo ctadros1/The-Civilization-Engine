@@ -2241,6 +2241,21 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
 }
 
 #[test]
+fn a_schema_52_save_loads_with_no_household_leaning_to_move() {
+    // A schema-52 save, from before households moved between settlements (M5a slice AN): no
+    // leanings and no reviews prompted were kept.
+    let mut sim = load_first();
+    sim.people_mut_for_tests().review_due.clear();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V52;
+    let path = republish("slice-am3", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-52 save loads");
+    assert!(loaded.people().leanings.is_empty());
+    assert!(loaded.people().review_due.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_51_save_loads_with_no_visit_or_search_on_record() {
     // A schema-51 save, from before visits (M5a slice AM, step two): no contacts between
     // settlements and no failed search for a partner were kept.

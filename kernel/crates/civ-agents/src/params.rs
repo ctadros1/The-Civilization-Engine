@@ -1378,6 +1378,8 @@ pub struct PeopleParams {
     pub faction: crate::faction::FactionParams,
     /// How households come to know other places (M5a slice AM, ADR-0018 §4).
     pub places: crate::places::PlacesParams,
+    /// What moving to another settlement is worth to a household (M5a slice AN, ADR-0018 §5).
+    pub moving: crate::places::MovingParams,
     /// Names.
     pub names: NameParams,
 }

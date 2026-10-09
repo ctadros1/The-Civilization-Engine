@@ -22,16 +22,19 @@ pub enum PlaceHow {
     Visited = 3,
     /// Someone at the hearth told a member of it.
     Told = 4,
+    /// The household lived there before it moved (M5a slice AN).
+    Lived = 5,
 }
 
 impl PlaceHow {
     /// Every way, in code order.
-    pub const ALL: [PlaceHow; 5] = [
+    pub const ALL: [PlaceHow; 6] = [
         PlaceHow::Founded,
         PlaceHow::Seen,
         PlaceHow::Kin,
         PlaceHow::Visited,
         PlaceHow::Told,
+        PlaceHow::Lived,
     ];
 
     /// Its number in saves.
@@ -52,6 +55,7 @@ impl PlaceHow {
             PlaceHow::Kin => "kin live there",
             PlaceHow::Visited => "visited",
             PlaceHow::Told => "told of it",
+            PlaceHow::Lived => "lived there",
         }
     }
 }
@@ -287,6 +291,8 @@ pub struct Contact {
     pub minutes: u64,
     /// Marriages that took someone of the first to live in the second (slice AM, step three).
     pub marriages: u32,
+    /// People who moved from the first to live in the second with their household (slice AN).
+    pub moved: u32,
 }
 
 /// Contacts between settlements, by year (from 0), from-settlement and to-settlement.
@@ -309,6 +315,11 @@ impl Contacts {
         self.years.entry((year, from, to)).or_default().marriages += 1;
     }
 
+    /// A household of `people` moved from `from` to `to` in `year`.
+    pub fn moved(&mut self, year: i64, from: PermanentId, to: PermanentId, people: u32) {
+        self.years.entry((year, from, to)).or_default().moved += people;
+    }
+
     /// The contacts of `year`, in `(from, to)` order.
     pub fn of_year(&self, year: i64) -> impl Iterator<Item = (PermanentId, PermanentId, Contact)> {
         let lo = PermanentId::from_raw(1).expect("non-zero");
@@ -317,6 +328,60 @@ impl Contacts {
             .take_while(move |((y, _, _), _)| *y == year)
             .map(|(&(_, a, b), &c)| (a, b, c))
     }
+}
+
+/// What moving to another settlement is worth to a household, against staying (the people
+/// profile's `[moving]` table; content API 54; ADR-0018 §5). Each term is in points, as the
+/// household's other choices are; all are design priors (research 05-06 §5.1 gives the terms and
+/// no values).
+#[derive(Clone, Debug, PartialEq)]
+pub struct MovingParams {
+    /// For each close kin of a member living there, less each living at home (outside the
+    /// household).
+    pub w_kin: f64,
+    /// At most this for those its members know there, less the same for those they know at home
+    /// (`w_ties · s / (1 + s)` of each sum).
+    pub w_ties: f64,
+    /// For the share of those of the place a member last saw not going hungry, less the share at
+    /// home now.
+    pub w_fed: f64,
+    /// For the most keenly felt grievance a member holds (0–1).
+    pub w_grievance: f64,
+    /// Against the harvest its fields here should bring, over a year's need (0–1): what it gives
+    /// up.
+    pub w_stake: f64,
+    /// Against the work of making a new home and breaking new ground before the first harvest.
+    pub cost: f64,
+    /// Reviews running a place must win before the household moves there (research 10-01 §2.3:
+    /// 1–3), outside an emergency.
+    pub reviews: u32,
+}
+
+impl MovingParams {
+    /// The core content's values, for tests.
+    pub fn core() -> Self {
+        MovingParams {
+            w_kin: 2.0,
+            w_ties: 2.0,
+            w_fed: 4.0,
+            w_grievance: 3.0,
+            w_stake: 3.0,
+            cost: 2.0,
+            reviews: 2,
+        }
+    }
+}
+
+/// A household's leaning toward moving: the place that last won its review, and how many
+/// reviews running it has won.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Leaning {
+    /// The settlement.
+    pub settlement: PermanentId,
+    /// Reviews running it has won.
+    pub reviews: u32,
+    /// The day of the last of them.
+    pub day: i64,
 }
 
 /// Whether a couple from two settlements settles with or beside household `a` rather than `b`

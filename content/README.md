@@ -715,6 +715,17 @@ officeholder, and more adults than stand with the gathering, must stand with it 
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
 
+Content API 54 (M5a slice AN, step one) brings moving between settlements: the people profile's
+`[moving]` table, with `w_kin` (points for each close kin of a member living at the place, less
+each living at home outside the household), `w_ties` (at most this for those its members know
+there, less the same at home), `w_fed` (for the share of the place's people a member last saw not
+going hungry, less the share at home now), `w_grievance` (for the most keenly felt grievance a
+member holds), `w_stake` (against the harvest the household's fields here should bring over a
+year's need), `cost` (against the work of a new home and new ground before the first harvest) and
+`reviews` (how many of the household's yearly reviews running a place must win before it moves
+there; research 10-01 §2.3 gives 1–3), all design priors (05-06 §5.1 gives the terms and no
+values).
+
 Content API 53 (M5a slice AM, step two) brings visits: the behaviour `visit` (going to the
 hearth of another settlement the household knows, keeping company there and walking home the same
 day; chosen only in daylight that lasts the walk there), the core pack's `core:activity/visit`

@@ -1722,6 +1722,17 @@ table ContactSave {
   visits: uint (id: 3);
   minutes: ulong (id: 4);
   marriages: uint (id: 5);
+  // Schema 53 (M5a slice AN): people who moved from `from` to live in `to` with their household.
+  moved: uint (id: 6);
+}
+
+// Schema 53 (M5a slice AN, ADR-0018 §5): a household's leaning toward moving to `settlement`,
+// which has won `reviews` of its reviews running, the last on `day`.
+table LeaningSave {
+  household: ulong (id: 0);
+  settlement: ulong (id: 1);
+  reviews: uint (id: 2);
+  day: long (id: 3);
 }
 
 // Schema 52: someone unpartnered who looked for a partner at home and found nobody, and the day.
@@ -1736,4 +1747,8 @@ table PlacesSave {
   list: [KnownPlaceSave] (id: 0);
   contacts: [ContactSave] (id: 1);
   unmatched: [UnmatchedSave] (id: 2);
+  // Schema 53: households' leanings toward moving, by household, and those an event prompted to
+  // review where they live at the next midnight.
+  leanings: [LeaningSave] (id: 3);
+  review_due: [ulong] (id: 4);
 }

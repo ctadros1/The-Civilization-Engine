@@ -570,3 +570,173 @@ fn a_tie_across_settlements_can_become_a_marriage_counted_and_known_as_kin() {
         + &civ_sim::frames::people::contacts_words(&sim, b);
     assert!(words.contains("marriage"), "{words}");
 }
+
+/// Makes `n` adults of settlement `s` children of `parent`, as if they had moved there.
+fn kin_in(sim: &mut Sim, parent: civ_core::PermanentId, s: civ_core::PermanentId, n: usize) {
+    let female = sim
+        .people()
+        .person(parent)
+        .is_some_and(|p| p.sex == civ_agents::Sex::Female);
+    let children: Vec<_> = adults_of(sim, s).into_iter().take(n).map(|x| x.0).collect();
+    let pop = sim.people_mut_for_tests();
+    for c in children {
+        let r = pop.records.get_mut(&c).expect("on record");
+        if female {
+            r.mother = Some(parent);
+        } else {
+            r.father = Some(parent);
+        }
+    }
+}
+
+/// A household of settlement `s` with an adult and others, and that adult.
+fn household_of(
+    sim: &Sim,
+    s: civ_core::PermanentId,
+) -> (civ_core::PermanentId, civ_core::PermanentId) {
+    let pop = sim.people();
+    let mut found: Vec<_> = pop
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(s) && x.members.len() >= 3)
+        .map(|(_, x)| (x.id, x.members[0]))
+        .collect();
+    found.sort();
+    found[0]
+}
+
+#[test]
+fn a_household_drawn_by_kin_elsewhere_moves_there_after_two_reviews() {
+    // Five adults of the second settlement are children of a member of a household of the first:
+    // once two of its reviews running find it worth more to live near them, it moves (M5a slice
+    // AN, ADR-0018 §5).
+    let mut sim = world_knowing(3, 50, &[50], true).expect("generates");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let (household, parent) = household_of(&sim, a);
+    kin_in(&mut sim, parent, b, 5);
+    let members = sim
+        .people()
+        .household(household)
+        .expect("lives")
+        .members
+        .clone();
+    sim.people_mut_for_tests().review_due.insert(household);
+    sim.advance_minutes(24 * 60).expect("lives");
+    assert!(
+        sim.people().household(household).is_some(),
+        "one review is not enough"
+    );
+    assert_eq!(
+        sim.people()
+            .leanings
+            .get(&household)
+            .map(|l| (l.settlement, l.reviews)),
+        Some((b, 1))
+    );
+    sim.people_mut_for_tests().review_due.insert(household);
+    sim.advance_minutes(24 * 60).expect("lives");
+
+    let pop = sim.people();
+    assert!(
+        pop.household(household).is_none(),
+        "the household it was is no more"
+    );
+    let moved: Vec<_> = members.iter().filter_map(|&m| pop.person(m)).collect();
+    assert!(!moved.is_empty());
+    let new = moved[0].household;
+    for p in &moved {
+        assert_eq!(p.household, new, "they moved together");
+        let last = pop.records[&p.id].residence.last().expect("a stay");
+        assert_eq!((last.settlement, last.why), (Some(b), ResidenceWhy::Moved));
+    }
+    assert_eq!(pop.household(new).and_then(|x| x.settlement), Some(b));
+    let lived = pop.known_places.of(new).iter().find(|k| k.settlement == a);
+    assert_eq!(
+        lived.map(|k| k.how),
+        Some(civ_agents::places::PlaceHow::Lived)
+    );
+    let people: u32 = pop.contacts.years.values().map(|c| c.moved).sum();
+    assert_eq!(people as usize, members.len());
+    assert!(
+        pop.chronicle
+            .iter()
+            .any(|e| e.kind == civ_agents::ChronicleKind::Moved && e.settlement == Some(b))
+    );
+    assert!(
+        pop.residence_problems().is_empty(),
+        "{:?}",
+        pop.residence_problems()
+    );
+    assert!(pop.problems(u64::MAX, usize::MAX).is_empty());
+    let words = civ_sim::frames::people::contacts_words(&sim, b);
+    assert!(words.contains("moved here from"), "{words}");
+}
+
+#[test]
+fn a_household_out_of_food_goes_where_its_kin_are_and_its_kin_follow() {
+    // Just before midnight the whole first settlement is out of food and worn down, and gives up
+    // at the first chance. The household with kin in the second goes there, and the households of
+    // the band, kin of those who just went, follow them, one after another (research 05-06 §1.2:
+    // chain migration); none is drawn beyond the map while kin are a walk away (M5a slice AN,
+    // ADR-0018 §3, §5).
+    let mut sim = world_knowing(3, 50, &[50], true).expect("generates");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let (household, parent) = household_of(&sim, a);
+    kin_in(&mut sim, parent, b, 5);
+    let to_midnight = 24 * 60 - sim.now().minutes().rem_euclid(24 * 60) - 10;
+    sim.advance_minutes(to_midnight).expect("lives");
+    let now = sim.now();
+    let members = sim
+        .people()
+        .household(household)
+        .expect("lives")
+        .members
+        .clone();
+    sim.rules_mut_for_tests()
+        .expect("the rules are held once")
+        .people
+        .household
+        .leave_per_day = 1.0;
+    {
+        let pop = sim.people_mut_for_tests();
+        let mut starving = Vec::new();
+        for (_, x) in pop.households.iter_mut() {
+            if x.settlement == Some(a) {
+                x.stores.iter_mut().for_each(|kg| *kg = 0.0);
+                x.stores_at = now;
+                starving.extend(x.members.iter().copied());
+            }
+        }
+        for (_, p) in pop.people.iter_mut() {
+            if starving.contains(&p.id) {
+                p.energy_kcal = -1.0e7;
+                p.burn_kcal_min = 0.0;
+                p.needs_at = now;
+            }
+        }
+    }
+    sim.advance_minutes(20).expect("lives");
+
+    let pop = sim.people();
+    let p = pop.person(members[0]).expect("still in the world");
+    assert_eq!(
+        pop.household(p.household).and_then(|x| x.settlement),
+        Some(b),
+        "they went to their kin"
+    );
+    assert!(pop.records[&members[0]].left.is_none());
+    let moved: Vec<_> = pop
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == civ_agents::ChronicleKind::Moved)
+        .collect();
+    assert!(moved.len() > 1, "kin followed");
+    assert!(moved.iter().all(|e| e.settlement == Some(b)));
+    let left = pop.records.values().filter(|r| r.left.is_some()).count();
+    assert_eq!(left, 0, "nobody went beyond the map");
+    assert!(
+        pop.residence_problems().is_empty(),
+        "{:?}",
+        pop.residence_problems()
+    );
+}

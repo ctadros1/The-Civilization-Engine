@@ -239,16 +239,23 @@ fn main() {
             h(t.waiting)
         );
         // Visits between settlements (M5a slice AM).
-        let (visits, minutes, marriages) = sim
+        let (visits, minutes, marriages, moved) = sim
             .people()
             .contacts
             .years
             .values()
-            .fold((0u32, 0u64, 0u32), |(v, m, w), c| {
-                (v + c.visits, m + c.minutes, w + c.marriages)
+            .fold((0u32, 0u64, 0u32, 0u32), |(v, m, w, d), c| {
+                (v + c.visits, m + c.minutes, w + c.marriages, d + c.moved)
             });
+        let left = sim
+            .people()
+            .records
+            .values()
+            .filter(|r| r.left.is_some())
+            .count();
         println!(
-            "contacts: {visits} visits, {:.0} hours at others' hearths, {marriages} marriages",
+            "contacts: {visits} visits, {:.0} hours at others' hearths, {marriages} marriages, \
+             {moved} people moved between settlements, {left} left the map",
             minutes as f64 / 60.0
         );
         // Ties (ADR-0014): how many, and what last moved them.

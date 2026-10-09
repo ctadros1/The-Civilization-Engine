@@ -136,6 +136,7 @@ impl Population {
         self.mortality(ctx, day);
         self.care_for_households(ctx);
         self.departures(ctx, day);
+        self.residence_reviews(ctx, day);
         self.conceptions(ctx, day);
         self.partnering(ctx, day);
         self.emptied.clear();
@@ -149,19 +150,19 @@ impl Population {
         ids
     }
 
-    fn person_mut(&mut self, id: PermanentId) -> Option<&mut Person> {
+    pub(super) fn person_mut(&mut self, id: PermanentId) -> Option<&mut Person> {
         let h = *self.index.get(&id)?;
         self.people.get_mut(h)
     }
 
-    fn household_mut(&mut self, id: PermanentId) -> Option<&mut Household> {
+    pub(super) fn household_mut(&mut self, id: PermanentId) -> Option<&mut Household> {
         let h = *self.hh_index.get(&id)?;
         self.households.get_mut(h)
     }
 
     /// Brings a household's stores and water up to now at its present number of members (before
     /// that number changes).
-    fn settle_household(&mut self, ctx: &Ctx, id: PermanentId) {
+    pub(super) fn settle_household(&mut self, ctx: &Ctx, id: PermanentId) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         if let Some(x) = self.household_mut(id) {
             let members = x.members.len();
@@ -176,7 +177,7 @@ impl Population {
     }
 
     /// Keeps a household's members oldest first.
-    fn sort_members(&mut self, id: PermanentId) {
+    pub(super) fn sort_members(&mut self, id: PermanentId) {
         let Some(&hd) = self.hh_index.get(&id) else {
             return;
         };
@@ -702,7 +703,12 @@ impl Population {
             if life_rng(ctx.seed, household, day, Draw::Leave).next_f64() >= chance {
                 continue;
             }
-            self.leave(ctx, household);
+            // They go to a settlement they know that draws them, if one does (M5a slice AN),
+            // and else beyond the map.
+            match self.refuge(ctx, household) {
+                Some(to) => self.relocate(ctx, household, to),
+                None => self.leave(ctx, household),
+            }
         }
     }
 
@@ -1036,7 +1042,7 @@ impl Population {
     /// The land of household `from` passes to `to`, or, with no one to take it, stays as it is
     /// (fields fall fallow, huts stand empty): its plots and buildings, and with `fields` the
     /// fields it holds and works.
-    fn hand_over_land(
+    pub(super) fn hand_over_land(
         &mut self,
         ctx: &mut Ctx,
         from: PermanentId,
@@ -1615,12 +1621,14 @@ impl Population {
         if let Some(s) = natal.settlement {
             self.review_land(ctx, s);
         }
+        // A household formed reviews where to live (M5a slice AN, ADR-0018 §5).
+        self.review_due.insert(id);
     }
 
     /// Where a new household's home goes: `near`, moved a little away from the hearth, on dry
     /// ground a short walk from it (the hut is then sited on clear ground nearby, as every
     /// household's is).
-    fn new_home_site(
+    pub(super) fn new_home_site(
         &self,
         ctx: &Ctx,
         near: (f32, f32),

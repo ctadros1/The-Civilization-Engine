@@ -1441,6 +1441,7 @@ pub(crate) mod tests {
             opinion: crate::opinion::OpinionParams::core(),
             faction: crate::faction::FactionParams::core(),
             places: crate::places::PlacesParams::core(),
+            moving: crate::places::MovingParams::core(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

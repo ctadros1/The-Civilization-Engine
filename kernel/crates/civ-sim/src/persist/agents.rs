@@ -109,7 +109,7 @@ use super::{
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
-    SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, finish, section, single_chunk, unreadable,
+    SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -387,6 +387,8 @@ enum Schema {
     /// Visits: contacts between settlements and failed searches for a partner (M5a slice AM,
     /// step two).
     V52,
+    /// Moving between settlements: leanings, reviews prompted, people moved (M5a slice AN).
+    V53,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -453,7 +455,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V49 => Schema::V49,
         SCHEMA_V50 => Schema::V50,
         SCHEMA_V51 => Schema::V51,
-        SAVE_SCHEMA_VERSION => Schema::V52,
+        SCHEMA_V52 => Schema::V52,
+        SAVE_SCHEMA_VERSION => Schema::V53,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -645,7 +648,14 @@ pub(super) fn decode<R: Read + Seek>(
     // The places households know (schema 51); before them a household knew none but its own.
     if schema >= Schema::V51 {
         let bytes = single_chunk(reader, SECTION_PLACES)?;
-        (people.known_places, people.contacts, people.unmatched) = decode_places(&bytes)?;
+        let d = decode_places(&bytes)?;
+        (
+            people.known_places,
+            people.contacts,
+            people.unmatched,
+            people.leanings,
+            people.review_due,
+        ) = (d.known, d.contacts, d.unmatched, d.leanings, d.due);
     }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
     match standing {
@@ -2616,7 +2626,8 @@ fn carried(
         | Schema::V49
         | Schema::V50
         | Schema::V51
-        | Schema::V52 => {
+        | Schema::V52
+        | Schema::V53 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2778,7 +2789,8 @@ fn decode_households(
             | Schema::V49
             | Schema::V50
             | Schema::V51
-            | Schema::V52 => {
+            | Schema::V52
+            | Schema::V53 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3446,6 +3458,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Encounter => 38,
         ChronicleKind::Influence => 39,
         ChronicleKind::InfluenceTurned => 40,
+        ChronicleKind::Moved => 41,
     }
 }
 
@@ -3491,6 +3504,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         38 => Some(ChronicleKind::Encounter),
         39 => Some(ChronicleKind::Influence),
         40 => Some(ChronicleKind::InfluenceTurned),
+        41 => Some(ChronicleKind::Moved),
         _ => None,
     }
 }
@@ -6280,6 +6294,7 @@ fn encode_places(people: &Population) -> Vec<u8> {
                     visits: c.visits,
                     minutes: c.minutes,
                     marriages: c.marriages,
+                    moved: c.moved,
                 },
             )
         })
@@ -6299,24 +6314,47 @@ fn encode_places(people: &Population) -> Vec<u8> {
         })
         .collect();
     let unmatched = fbb.create_vector(&unmatched);
+    let leanings: Vec<_> = people
+        .leanings
+        .iter()
+        .map(|(&household, l)| {
+            save::LeaningSave::create(
+                &mut fbb,
+                &save::LeaningSaveArgs {
+                    household: household.get(),
+                    settlement: l.settlement.get(),
+                    reviews: l.reviews,
+                    day: l.day,
+                },
+            )
+        })
+        .collect();
+    let leanings = fbb.create_vector(&leanings);
+    let due: Vec<u64> = people.review_due.iter().map(|h| h.get()).collect();
+    let due = fbb.create_vector(&due);
     let root = save::PlacesSave::create(
         &mut fbb,
         &save::PlacesSaveArgs {
             list: Some(list),
             contacts: Some(contacts),
             unmatched: Some(unmatched),
+            leanings: Some(leanings),
+            review_due: Some(due),
         },
     );
     finish(fbb, root)
 }
 
-/// What the places section holds: the places households know, and from schema 52 the contacts
-/// between settlements and the failed searches for a partner.
-type PlacesDecoded = (
-    civ_agents::places::Places,
-    civ_agents::places::Contacts,
-    BTreeMap<PermanentId, i64>,
-);
+/// What the places section holds: the places households know, from schema 52 the contacts
+/// between settlements and the failed searches for a partner, and from schema 53 the leanings
+/// toward moving and the reviews prompted.
+struct PlacesDecoded {
+    known: civ_agents::places::Places,
+    contacts: civ_agents::places::Contacts,
+    unmatched: BTreeMap<PermanentId, i64>,
+    leanings: BTreeMap<PermanentId, civ_agents::places::Leaning>,
+    due: std::collections::BTreeSet<PermanentId>,
+}
 
 fn decode_places(bytes: &[u8]) -> Result<PlacesDecoded, LoadError> {
     use civ_agents::places::{Contact, Contacts, KnownPlace, PlaceHow, Places};
@@ -6338,6 +6376,7 @@ fn decode_places(bytes: &[u8]) -> Result<PlacesDecoded, LoadError> {
                 visits: c.visits(),
                 minutes: c.minutes(),
                 marriages: c.marriages(),
+                moved: c.moved(),
             },
         );
     }
@@ -6347,6 +6386,31 @@ fn decode_places(bytes: &[u8]) -> Result<PlacesDecoded, LoadError> {
             .ok_or_else(|| LoadError::Malformed("a search for a partner by no one".to_owned()))?;
         unmatched.insert(person, u.day());
     }
+    let mut leanings = BTreeMap::new();
+    for l in root.leanings().iter().flatten() {
+        let (Some(h), Some(s)) = (
+            PermanentId::from_raw(l.household()),
+            PermanentId::from_raw(l.settlement()),
+        ) else {
+            return Err(LoadError::Malformed(
+                "a leaning with no household or place".to_owned(),
+            ));
+        };
+        leanings.insert(
+            h,
+            civ_agents::places::Leaning {
+                settlement: s,
+                reviews: l.reviews(),
+                day: l.day(),
+            },
+        );
+    }
+    let due = root
+        .review_due()
+        .iter()
+        .flatten()
+        .filter_map(PermanentId::from_raw)
+        .collect();
     let mut out = Places::default();
     for k in root.list().iter().flatten() {
         let id = |raw: u64, what: &str| {
@@ -6374,7 +6438,13 @@ fn decode_places(bytes: &[u8]) -> Result<PlacesDecoded, LoadError> {
             visited: (k.visited() >= 0).then_some(k.visited()),
         });
     }
-    Ok((out, contacts, unmatched))
+    Ok(PlacesDecoded {
+        known: out,
+        contacts,
+        unmatched,
+        leanings,
+        due,
+    })
 }
 
 fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> Vec<u8> {

@@ -661,6 +661,10 @@ pub enum ChronicleKind {
     /// `number` the influence's number; `name` what followed their name, in words (" was spared
     /// a death by illness or accident: the observer's blessing turned the draw.").
     InfluenceTurned,
+    /// A household moved to another settlement (M5a slice AN, ADR-0018 §5): `people` are its
+    /// members, eldest first as they were; `settlement` and `name` where it went; `number` how
+    /// many.
+    Moved,
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -817,6 +821,21 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 spans.push(Span::Text(" in ".to_owned()));
                 spans.push(settlement(event));
             }
+            spans.push(Span::Text(".".to_owned()));
+            spans
+        }
+        ChronicleKind::Moved => {
+            let Some(eldest) = person(0) else {
+                return vec![Span::Text("A household moved away.".to_owned())];
+            };
+            let n = event.number.round() as i64;
+            let mut spans = vec![Span::Text("The household of ".to_owned()), eldest];
+            spans.push(Span::Text(if n > 1 {
+                format!(" ({n} people) moved to ")
+            } else {
+                " moved to ".to_owned()
+            }));
+            spans.push(settlement(event));
             spans.push(Span::Text(".".to_owned()));
             spans
         }

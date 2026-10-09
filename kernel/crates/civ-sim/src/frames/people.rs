@@ -177,8 +177,8 @@ pub fn year_words(sim: &Sim, s: PermanentId) -> String {
 }
 
 /// What passed between settlement `s` and others last year and this year so far, in words (M5a
-/// slice AM): "in year 2: 12 visits from Ashford, 7 hours at the hearth here; 3 visits to
-/// Ashford"; empty when nothing did.
+/// slices AM and AN): "in year 2: 12 visits from Ashford, 7 hours at the hearth here; 3 visits to
+/// Ashford; 5 people moved here from Ashford"; empty when nothing did.
 pub fn contacts_words(sim: &Sim, s: PermanentId) -> String {
     let this = sim.now().date().year - 1;
     let count = |n: u32, one: &str, many: &str| {
@@ -218,6 +218,21 @@ pub fn contacts_words(sim: &Sim, s: PermanentId) -> String {
                 lines.push(format!(
                     "{} into {}",
                     count(c.marriages, "marriage", "marriages"),
+                    place_name(sim, Some(to))
+                ));
+            }
+            // Households that moved (M5a slice AN).
+            if to == s && c.moved > 0 {
+                lines.push(format!(
+                    "{} moved here from {}",
+                    count(c.moved, "person", "people"),
+                    place_name(sim, Some(from))
+                ));
+            }
+            if from == s && c.moved > 0 {
+                lines.push(format!(
+                    "{} moved to {}",
+                    count(c.moved, "person", "people"),
                     place_name(sim, Some(to))
                 ));
             }

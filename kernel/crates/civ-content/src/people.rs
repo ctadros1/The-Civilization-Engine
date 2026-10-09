@@ -60,6 +60,7 @@ pub(crate) struct PeopleFile {
     pub faction: FactionFile,
     /// How households come to know other places (M5a slice AM; content API 52).
     pub places: PlacesFile,
+    pub moving: MovingFile,
 }
 
 /// Factions, their petitions, refusals and revolts (M4c slices AH-AI, ADR-0017 §2-4; content API
@@ -283,6 +284,20 @@ pub(crate) struct PlacesFile {
     pub w_seek: f64,
     pub seek_days: i64,
     pub revisit_days: f64,
+}
+
+/// What moving to another settlement is worth to a household (M5a slice AN, ADR-0018 §5; content
+/// API 54). See [`civ_agents::places::MovingParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct MovingFile {
+    pub w_kin: f64,
+    pub w_ties: f64,
+    pub w_fed: f64,
+    pub w_grievance: f64,
+    pub w_stake: f64,
+    pub cost: f64,
+    pub reviews: u32,
 }
 
 /// Word of mouth and grievances (M4c slice AE, ADR-0016; content API 39). See
@@ -1491,6 +1506,15 @@ impl PeopleFile {
                 seek_days: self.places.seek_days,
                 revisit_days: self.places.revisit_days,
             },
+            moving: civ_agents::places::MovingParams {
+                w_kin: self.moving.w_kin,
+                w_ties: self.moving.w_ties,
+                w_fed: self.moving.w_fed,
+                w_grievance: self.moving.w_grievance,
+                w_stake: self.moving.w_stake,
+                cost: self.moving.cost,
+                reviews: self.moving.reviews,
+            },
             names,
         }
     }
@@ -1530,6 +1554,24 @@ impl PeopleFile {
             p.push(format!(
                 "`places.revisit_days` must be between 1 and 3650 (got {})",
                 self.places.revisit_days
+            ));
+        }
+        for (key, v) in [
+            ("moving.w_kin", self.moving.w_kin),
+            ("moving.w_ties", self.moving.w_ties),
+            ("moving.w_fed", self.moving.w_fed),
+            ("moving.w_grievance", self.moving.w_grievance),
+            ("moving.w_stake", self.moving.w_stake),
+            ("moving.cost", self.moving.cost),
+        ] {
+            if !(v.is_finite() && (0.0..=100.0).contains(&v)) {
+                p.push(format!("`{key}` must be between 0 and 100 (got {v})"));
+            }
+        }
+        if !(1..=10).contains(&self.moving.reviews) {
+            p.push(format!(
+                "`moving.reviews` must be between 1 and 10 (got {})",
+                self.moving.reviews
             ));
         }
         if !(0..=3650).contains(&self.places.seek_days) {

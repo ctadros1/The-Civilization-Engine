@@ -835,3 +835,27 @@ w_ties = 4.0
 w_seek = 6.0
 seek_days = 180
 revisit_days = 30.0
+
+[moving]                         # moving to another settlement (M5a slice AN, ADR-0018 §5); design priors
+# Once a year on a day of its own, and when it forms, a household weighs joining each settlement it
+# knows against staying (research 05-06 §5.1: expected livelihood, support, safety and the cost of
+# switching; no values). In points: `w_kin` for each close kin of a member living there less each
+# at home (outside the household); `w_ties` at most for those its members know there less those
+# they know at home (half of it for familiarity and warmth summing to 1); `w_fed` for the share of
+# a place's people a member last saw not going hungry less the share at home now (no impression,
+# no difference); `w_grievance` for the most keenly felt grievance a member holds (0-1); against
+# `w_stake` for the harvest its fields here should bring over a year's need (0-1), `cost` for the
+# work of a new home and new ground before the first harvest, and the walk there once at
+# `decision.w_walk_hour`. A place must win `reviews` reviews running before it moves there
+# (10-01 §2.3: 1-3 seasonal reviews; a year apart here). A household out of food that gives up goes
+# to the known place whose kin, ties and fed look draw it most, if any does, and beyond the map
+# otherwise. With these values, to a place an hour's walk away (2 points), a household whose fields
+# will bring nothing moves for three close kin more there, or for one and a grievance felt fully;
+# one with a full harvest coming needs three more points besides.
+w_kin = 2.0
+w_ties = 2.0
+w_fed = 4.0
+w_grievance = 3.0
+w_stake = 3.0
+cost = 2.0
+reviews = 2

@@ -30426,6 +30426,7 @@ impl<'a> ContactSave<'a> {
   pub const VT_VISITS: ::flatbuffers::VOffsetT = 10;
   pub const VT_MINUTES: ::flatbuffers::VOffsetT = 12;
   pub const VT_MARRIAGES: ::flatbuffers::VOffsetT = 14;
+  pub const VT_MOVED: ::flatbuffers::VOffsetT = 16;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -30441,6 +30442,7 @@ impl<'a> ContactSave<'a> {
     builder.add_to(args.to);
     builder.add_from(args.from);
     builder.add_year(args.year);
+    builder.add_moved(args.moved);
     builder.add_marriages(args.marriages);
     builder.add_visits(args.visits);
     builder.finish()
@@ -30489,6 +30491,13 @@ impl<'a> ContactSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(ContactSave::VT_MARRIAGES, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn moved(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ContactSave::VT_MOVED, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ContactSave<'_> {
@@ -30503,6 +30512,7 @@ impl ::flatbuffers::Verifiable for ContactSave<'_> {
      .visit_field::<u32>("visits", Self::VT_VISITS, false)?
      .visit_field::<u64>("minutes", Self::VT_MINUTES, false)?
      .visit_field::<u32>("marriages", Self::VT_MARRIAGES, false)?
+     .visit_field::<u32>("moved", Self::VT_MOVED, false)?
      .finish();
     Ok(())
   }
@@ -30514,6 +30524,7 @@ pub struct ContactSaveArgs {
     pub visits: u32,
     pub minutes: u64,
     pub marriages: u32,
+    pub moved: u32,
 }
 impl<'a> Default for ContactSaveArgs {
   #[inline]
@@ -30525,6 +30536,7 @@ impl<'a> Default for ContactSaveArgs {
       visits: 0,
       minutes: 0,
       marriages: 0,
+      moved: 0,
     }
   }
 }
@@ -30559,6 +30571,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ContactSaveBuilder<'a, 'b, A>
     self.fbb_.push_slot::<u32>(ContactSave::VT_MARRIAGES, marriages, 0);
   }
   #[inline]
+  pub fn add_moved(&mut self, moved: u32) {
+    self.fbb_.push_slot::<u32>(ContactSave::VT_MOVED, moved, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ContactSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ContactSaveBuilder {
@@ -30582,6 +30598,154 @@ impl ::core::fmt::Debug for ContactSave<'_> {
       ds.field("visits", &self.visits());
       ds.field("minutes", &self.minutes());
       ds.field("marriages", &self.marriages());
+      ds.field("moved", &self.moved());
+      ds.finish()
+  }
+}
+pub enum LeaningSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct LeaningSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for LeaningSave<'a> {
+  type Inner = LeaningSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> LeaningSave<'a> {
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_REVIEWS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    LeaningSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args LeaningSaveArgs
+  ) -> ::flatbuffers::WIPOffset<LeaningSave<'bldr>> {
+    let mut builder = LeaningSaveBuilder::new(_fbb);
+    builder.add_day(args.day);
+    builder.add_settlement(args.settlement);
+    builder.add_household(args.household);
+    builder.add_reviews(args.reviews);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LeaningSave::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LeaningSave::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn reviews(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(LeaningSave::VT_REVIEWS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(LeaningSave::VT_DAY, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for LeaningSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<u32>("reviews", Self::VT_REVIEWS, false)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct LeaningSaveArgs {
+    pub household: u64,
+    pub settlement: u64,
+    pub reviews: u32,
+    pub day: i64,
+}
+impl<'a> Default for LeaningSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    LeaningSaveArgs {
+      household: 0,
+      settlement: 0,
+      reviews: 0,
+      day: 0,
+    }
+  }
+}
+
+pub struct LeaningSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LeaningSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(LeaningSave::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(LeaningSave::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_reviews(&mut self, reviews: u32) {
+    self.fbb_.push_slot::<u32>(LeaningSave::VT_REVIEWS, reviews, 0);
+  }
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(LeaningSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LeaningSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    LeaningSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<LeaningSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for LeaningSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("LeaningSave");
+      ds.field("household", &self.household());
+      ds.field("settlement", &self.settlement());
+      ds.field("reviews", &self.reviews());
+      ds.field("day", &self.day());
       ds.finish()
   }
 }
@@ -30717,6 +30881,8 @@ impl<'a> PlacesSave<'a> {
   pub const VT_LIST: ::flatbuffers::VOffsetT = 4;
   pub const VT_CONTACTS: ::flatbuffers::VOffsetT = 6;
   pub const VT_UNMATCHED: ::flatbuffers::VOffsetT = 8;
+  pub const VT_LEANINGS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_REVIEW_DUE: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -30728,6 +30894,8 @@ impl<'a> PlacesSave<'a> {
     args: &'args PlacesSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<PlacesSave<'bldr>> {
     let mut builder = PlacesSaveBuilder::new(_fbb);
+    if let Some(x) = args.review_due { builder.add_review_due(x); }
+    if let Some(x) = args.leanings { builder.add_leanings(x); }
     if let Some(x) = args.unmatched { builder.add_unmatched(x); }
     if let Some(x) = args.contacts { builder.add_contacts(x); }
     if let Some(x) = args.list { builder.add_list(x); }
@@ -30756,6 +30924,20 @@ impl<'a> PlacesSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<UnmatchedSave>>>>(PlacesSave::VT_UNMATCHED, None)}
   }
+  #[inline]
+  pub fn leanings(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LeaningSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LeaningSave>>>>(PlacesSave::VT_LEANINGS, None)}
+  }
+  #[inline]
+  pub fn review_due(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(PlacesSave::VT_REVIEW_DUE, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PlacesSave<'_> {
@@ -30767,6 +30949,8 @@ impl ::flatbuffers::Verifiable for PlacesSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<KnownPlaceSave>>>>("list", Self::VT_LIST, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ContactSave>>>>("contacts", Self::VT_CONTACTS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<UnmatchedSave>>>>("unmatched", Self::VT_UNMATCHED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<LeaningSave>>>>("leanings", Self::VT_LEANINGS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("review_due", Self::VT_REVIEW_DUE, false)?
      .finish();
     Ok(())
   }
@@ -30775,6 +30959,8 @@ pub struct PlacesSaveArgs<'a> {
     pub list: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KnownPlaceSave<'a>>>>>,
     pub contacts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ContactSave<'a>>>>>,
     pub unmatched: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<UnmatchedSave<'a>>>>>,
+    pub leanings: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LeaningSave<'a>>>>>,
+    pub review_due: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
 }
 impl<'a> Default for PlacesSaveArgs<'a> {
   #[inline]
@@ -30783,6 +30969,8 @@ impl<'a> Default for PlacesSaveArgs<'a> {
       list: None,
       contacts: None,
       unmatched: None,
+      leanings: None,
+      review_due: None,
     }
   }
 }
@@ -30805,6 +30993,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlacesSaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_UNMATCHED, unmatched);
   }
   #[inline]
+  pub fn add_leanings(&mut self, leanings: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<LeaningSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_LEANINGS, leanings);
+  }
+  #[inline]
+  pub fn add_review_due(&mut self, review_due: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_REVIEW_DUE, review_due);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlacesSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PlacesSaveBuilder {
@@ -30825,6 +31021,8 @@ impl ::core::fmt::Debug for PlacesSave<'_> {
       ds.field("list", &self.list());
       ds.field("contacts", &self.contacts());
       ds.field("unmatched", &self.unmatched());
+      ds.field("leanings", &self.leanings());
+      ds.field("review_due", &self.review_due());
       ds.finish()
   }
 }

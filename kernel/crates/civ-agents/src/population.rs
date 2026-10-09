@@ -6,7 +6,7 @@
 //! decides what to do next. Needs are brought up to date only at step boundaries.
 
 use std::cell::OnceCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 
 use civ_core::time::{DAYS_PER_YEAR, MINUTES_PER_DAY};
@@ -53,6 +53,7 @@ mod land;
 mod life;
 mod loads;
 mod market;
+mod moving;
 mod norm;
 mod opinion;
 mod places;
@@ -454,6 +455,11 @@ pub struct Population {
     /// The unpartnered who looked for a partner at home and found nobody, and the day they last
     /// did (M5a slice AM; research 04-08 §1.1).
     pub unmatched: BTreeMap<PermanentId, i64>,
+    /// Each household's leaning toward moving: the place that won its last reviews (M5a slice
+    /// AN, ADR-0018 §5).
+    pub leanings: BTreeMap<PermanentId, crate::places::Leaning>,
+    /// Households that review where to live at the next midnight, an event having prompted it.
+    pub review_due: BTreeSet<PermanentId>,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage

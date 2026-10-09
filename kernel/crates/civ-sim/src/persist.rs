@@ -190,6 +190,9 @@ pub const SCHEMA_V50: u32 = 50;
 /// The schema version of M5a slice AM, step one: the places households know, before visits and
 /// the contacts between settlements (see [`agents`]).
 pub const SCHEMA_V51: u32 = 51;
+/// The schema version of M5a slice AM, step two: visits and marriages between settlements,
+/// before households moved between them (see [`agents`]).
+pub const SCHEMA_V52: u32 = 52;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

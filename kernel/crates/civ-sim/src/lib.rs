@@ -1034,6 +1034,19 @@ impl Sim {
         self.people.forget_views();
     }
 
+    /// The demo's twin harness (ADR-0019 §8): stops purchases between settlements, or lets them
+    /// be again. A setting, never saved and never content's: a loaded world buys as it may.
+    pub fn stop_trade_between(&mut self, stop: bool) {
+        // Read at each choice, outside any cached view: nothing else changes until the first
+        // purchase it stops.
+        self.people.stop_trade_between = stop;
+    }
+
+    /// Whether purchases between settlements are stopped (the twin harness).
+    pub fn trade_between_stopped(&self) -> bool {
+        self.people.stop_trade_between
+    }
+
     /// Whether the notables' tier is on (ADR-0014 §4): only the notables and those an issue
     /// reaches weigh institutional moves at the weekly review.
     pub fn notable_tier(&self) -> bool {

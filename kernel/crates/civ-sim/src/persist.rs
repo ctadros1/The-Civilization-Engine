@@ -202,6 +202,9 @@ pub const SCHEMA_V54: u32 = 54;
 /// The schema version of M5a slice AO: coalitions to found settlements, before price reports
 /// and purchases between settlements (see [`agents`]).
 pub const SCHEMA_V55: u32 = 55;
+/// The schema version of M5b slice AP: price reports and purchases between settlements, before
+/// the convergence record (see [`agents`]).
+pub const SCHEMA_V56: u32 = 56;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

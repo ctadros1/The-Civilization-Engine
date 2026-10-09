@@ -470,6 +470,12 @@ pub struct Population {
     /// What each household believes other settlements' sellers offer (M5b slice AP, ADR-0019
     /// §1).
     pub reports: crate::reports::PriceReports,
+    /// Monthly, per pair of settlements, the asks of goods offered in both and what each
+    /// carried home from the other (M5b slice AQ, ADR-0019 §7).
+    pub convergence: crate::convergence::Convergence,
+    /// The demo's twin harness (ADR-0019 §8): purchases between settlements are stopped. Set in
+    /// memory by a host command or a test, never by content or a save.
+    pub stop_trade_between: bool,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -1101,6 +1107,7 @@ impl Population {
             self.reports
                 .problems(|h| self.household(h).map(|x| x.settlement)),
         );
+        out.extend(self.convergence.problems());
         for &(year, from, to) in self.contacts.years.keys() {
             if from == to || year < 0 {
                 out.push(format!(
@@ -2981,6 +2988,9 @@ impl Population {
                         .get(q.act.def as usize)
                         .is_some_and(|a| a.behavior == Behavior::Fetch)
                 });
+            if self.stop_trade_between {
+                return Err(Reason::Stopped);
+            }
             if another {
                 return Err(Reason::AnotherGoes);
             }
@@ -5153,6 +5163,8 @@ impl Population {
             }
         }
         self.check_buildings(ctx);
+        // A month ended: its asks and prices per pair of settlements are recorded (M5b slice AQ).
+        self.record_convergence(ctx);
         // Households whose day it is review what they offer and on what terms.
         self.review_offers(ctx, day);
         // A workshop whose firm closed goes to another firm of its household that has none.

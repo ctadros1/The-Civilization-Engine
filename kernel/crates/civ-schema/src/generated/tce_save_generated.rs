@@ -31554,6 +31554,8 @@ impl<'a> PlacesSave<'a> {
   pub const VT_COALITIONS: ::flatbuffers::VOffsetT = 14;
   pub const VT_REPORTS: ::flatbuffers::VOffsetT = 16;
   pub const VT_GOODS: ::flatbuffers::VOffsetT = 18;
+  pub const VT_GAPS: ::flatbuffers::VOffsetT = 20;
+  pub const VT_CARRIED: ::flatbuffers::VOffsetT = 22;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -31565,6 +31567,8 @@ impl<'a> PlacesSave<'a> {
     args: &'args PlacesSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<PlacesSave<'bldr>> {
     let mut builder = PlacesSaveBuilder::new(_fbb);
+    if let Some(x) = args.carried { builder.add_carried(x); }
+    if let Some(x) = args.gaps { builder.add_gaps(x); }
     if let Some(x) = args.goods { builder.add_goods(x); }
     if let Some(x) = args.reports { builder.add_reports(x); }
     if let Some(x) = args.coalitions { builder.add_coalitions(x); }
@@ -31633,6 +31637,20 @@ impl<'a> PlacesSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PlacesSave::VT_GOODS, None)}
   }
+  #[inline]
+  pub fn gaps(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GapSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GapSave>>>>(PlacesSave::VT_GAPS, None)}
+  }
+  #[inline]
+  pub fn carried(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CarriedSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CarriedSave>>>>(PlacesSave::VT_CARRIED, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PlacesSave<'_> {
@@ -31649,6 +31667,8 @@ impl ::flatbuffers::Verifiable for PlacesSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CoalitionSave>>>>("coalitions", Self::VT_COALITIONS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PriceReportSave>>>>("reports", Self::VT_REPORTS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("goods", Self::VT_GOODS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GapSave>>>>("gaps", Self::VT_GAPS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CarriedSave>>>>("carried", Self::VT_CARRIED, false)?
      .finish();
     Ok(())
   }
@@ -31662,6 +31682,8 @@ pub struct PlacesSaveArgs<'a> {
     pub coalitions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CoalitionSave<'a>>>>>,
     pub reports: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PriceReportSave<'a>>>>>,
     pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub gaps: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GapSave<'a>>>>>,
+    pub carried: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CarriedSave<'a>>>>>,
 }
 impl<'a> Default for PlacesSaveArgs<'a> {
   #[inline]
@@ -31675,6 +31697,8 @@ impl<'a> Default for PlacesSaveArgs<'a> {
       coalitions: None,
       reports: None,
       goods: None,
+      gaps: None,
+      carried: None,
     }
   }
 }
@@ -31717,6 +31741,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlacesSaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_GOODS, goods);
   }
   #[inline]
+  pub fn add_gaps(&mut self, gaps: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<GapSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_GAPS, gaps);
+  }
+  #[inline]
+  pub fn add_carried(&mut self, carried: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<CarriedSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_CARRIED, carried);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlacesSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PlacesSaveBuilder {
@@ -31742,6 +31774,421 @@ impl ::core::fmt::Debug for PlacesSave<'_> {
       ds.field("coalitions", &self.coalitions());
       ds.field("reports", &self.reports());
       ds.field("goods", &self.goods());
+      ds.field("gaps", &self.gaps());
+      ds.field("carried", &self.carried());
+      ds.finish()
+  }
+}
+pub enum GapSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GapSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GapSave<'a> {
+  type Inner = GapSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GapSave<'a> {
+  pub const VT_MONTH: ::flatbuffers::VOffsetT = 4;
+  pub const VT_A: ::flatbuffers::VOffsetT = 6;
+  pub const VT_B: ::flatbuffers::VOffsetT = 8;
+  pub const VT_GOOD: ::flatbuffers::VOffsetT = 10;
+  pub const VT_ASK_A: ::flatbuffers::VOffsetT = 12;
+  pub const VT_ASK_B: ::flatbuffers::VOffsetT = 14;
+  pub const VT_PAID_A: ::flatbuffers::VOffsetT = 16;
+  pub const VT_PAID_B: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GapSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GapSaveArgs
+  ) -> ::flatbuffers::WIPOffset<GapSave<'bldr>> {
+    let mut builder = GapSaveBuilder::new(_fbb);
+    builder.add_b(args.b);
+    builder.add_a(args.a);
+    builder.add_paid_b(args.paid_b);
+    builder.add_paid_a(args.paid_a);
+    builder.add_ask_b(args.ask_b);
+    builder.add_ask_a(args.ask_a);
+    builder.add_good(args.good);
+    builder.add_month(args.month);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn month(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GapSave::VT_MONTH, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn a(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(GapSave::VT_A, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn b(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(GapSave::VT_B, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn good(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GapSave::VT_GOOD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ask_a(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GapSave::VT_ASK_A, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn ask_b(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GapSave::VT_ASK_B, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn paid_a(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GapSave::VT_PAID_A, Some(-1.0)).unwrap()}
+  }
+  #[inline]
+  pub fn paid_b(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GapSave::VT_PAID_B, Some(-1.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for GapSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("month", Self::VT_MONTH, false)?
+     .visit_field::<u64>("a", Self::VT_A, false)?
+     .visit_field::<u64>("b", Self::VT_B, false)?
+     .visit_field::<u32>("good", Self::VT_GOOD, false)?
+     .visit_field::<f32>("ask_a", Self::VT_ASK_A, false)?
+     .visit_field::<f32>("ask_b", Self::VT_ASK_B, false)?
+     .visit_field::<f32>("paid_a", Self::VT_PAID_A, false)?
+     .visit_field::<f32>("paid_b", Self::VT_PAID_B, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GapSaveArgs {
+    pub month: u32,
+    pub a: u64,
+    pub b: u64,
+    pub good: u32,
+    pub ask_a: f32,
+    pub ask_b: f32,
+    pub paid_a: f32,
+    pub paid_b: f32,
+}
+impl<'a> Default for GapSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    GapSaveArgs {
+      month: 0,
+      a: 0,
+      b: 0,
+      good: 0,
+      ask_a: 0.0,
+      ask_b: 0.0,
+      paid_a: -1.0,
+      paid_b: -1.0,
+    }
+  }
+}
+
+pub struct GapSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GapSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_month(&mut self, month: u32) {
+    self.fbb_.push_slot::<u32>(GapSave::VT_MONTH, month, 0);
+  }
+  #[inline]
+  pub fn add_a(&mut self, a: u64) {
+    self.fbb_.push_slot::<u64>(GapSave::VT_A, a, 0);
+  }
+  #[inline]
+  pub fn add_b(&mut self, b: u64) {
+    self.fbb_.push_slot::<u64>(GapSave::VT_B, b, 0);
+  }
+  #[inline]
+  pub fn add_good(&mut self, good: u32) {
+    self.fbb_.push_slot::<u32>(GapSave::VT_GOOD, good, 0);
+  }
+  #[inline]
+  pub fn add_ask_a(&mut self, ask_a: f32) {
+    self.fbb_.push_slot::<f32>(GapSave::VT_ASK_A, ask_a, 0.0);
+  }
+  #[inline]
+  pub fn add_ask_b(&mut self, ask_b: f32) {
+    self.fbb_.push_slot::<f32>(GapSave::VT_ASK_B, ask_b, 0.0);
+  }
+  #[inline]
+  pub fn add_paid_a(&mut self, paid_a: f32) {
+    self.fbb_.push_slot::<f32>(GapSave::VT_PAID_A, paid_a, -1.0);
+  }
+  #[inline]
+  pub fn add_paid_b(&mut self, paid_b: f32) {
+    self.fbb_.push_slot::<f32>(GapSave::VT_PAID_B, paid_b, -1.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GapSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GapSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GapSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GapSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GapSave");
+      ds.field("month", &self.month());
+      ds.field("a", &self.a());
+      ds.field("b", &self.b());
+      ds.field("good", &self.good());
+      ds.field("ask_a", &self.ask_a());
+      ds.field("ask_b", &self.ask_b());
+      ds.field("paid_a", &self.paid_a());
+      ds.field("paid_b", &self.paid_b());
+      ds.finish()
+  }
+}
+pub enum CarriedSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct CarriedSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for CarriedSave<'a> {
+  type Inner = CarriedSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> CarriedSave<'a> {
+  pub const VT_MONTH: ::flatbuffers::VOffsetT = 4;
+  pub const VT_FROM: ::flatbuffers::VOffsetT = 6;
+  pub const VT_TO: ::flatbuffers::VOffsetT = 8;
+  pub const VT_TRIPS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_WALK_H: ::flatbuffers::VOffsetT = 12;
+  pub const VT_GOODS: ::flatbuffers::VOffsetT = 14;
+  pub const VT_UNITS: ::flatbuffers::VOffsetT = 16;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    CarriedSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CarriedSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<CarriedSave<'bldr>> {
+    let mut builder = CarriedSaveBuilder::new(_fbb);
+    builder.add_to(args.to);
+    builder.add_from(args.from);
+    if let Some(x) = args.units { builder.add_units(x); }
+    if let Some(x) = args.goods { builder.add_goods(x); }
+    builder.add_walk_h(args.walk_h);
+    builder.add_trips(args.trips);
+    builder.add_month(args.month);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn month(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CarriedSave::VT_MONTH, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn from(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CarriedSave::VT_FROM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn to(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CarriedSave::VT_TO, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn trips(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CarriedSave::VT_TRIPS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn walk_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CarriedSave::VT_WALK_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn goods(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(CarriedSave::VT_GOODS, None)}
+  }
+  #[inline]
+  pub fn units(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(CarriedSave::VT_UNITS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for CarriedSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("month", Self::VT_MONTH, false)?
+     .visit_field::<u64>("from", Self::VT_FROM, false)?
+     .visit_field::<u64>("to", Self::VT_TO, false)?
+     .visit_field::<u32>("trips", Self::VT_TRIPS, false)?
+     .visit_field::<f32>("walk_h", Self::VT_WALK_H, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("goods", Self::VT_GOODS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("units", Self::VT_UNITS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CarriedSaveArgs<'a> {
+    pub month: u32,
+    pub from: u64,
+    pub to: u64,
+    pub trips: u32,
+    pub walk_h: f32,
+    pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub units: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+}
+impl<'a> Default for CarriedSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CarriedSaveArgs {
+      month: 0,
+      from: 0,
+      to: 0,
+      trips: 0,
+      walk_h: 0.0,
+      goods: None,
+      units: None,
+    }
+  }
+}
+
+pub struct CarriedSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CarriedSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_month(&mut self, month: u32) {
+    self.fbb_.push_slot::<u32>(CarriedSave::VT_MONTH, month, 0);
+  }
+  #[inline]
+  pub fn add_from(&mut self, from: u64) {
+    self.fbb_.push_slot::<u64>(CarriedSave::VT_FROM, from, 0);
+  }
+  #[inline]
+  pub fn add_to(&mut self, to: u64) {
+    self.fbb_.push_slot::<u64>(CarriedSave::VT_TO, to, 0);
+  }
+  #[inline]
+  pub fn add_trips(&mut self, trips: u32) {
+    self.fbb_.push_slot::<u32>(CarriedSave::VT_TRIPS, trips, 0);
+  }
+  #[inline]
+  pub fn add_walk_h(&mut self, walk_h: f32) {
+    self.fbb_.push_slot::<f32>(CarriedSave::VT_WALK_H, walk_h, 0.0);
+  }
+  #[inline]
+  pub fn add_goods(&mut self, goods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CarriedSave::VT_GOODS, goods);
+  }
+  #[inline]
+  pub fn add_units(&mut self, units: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CarriedSave::VT_UNITS, units);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CarriedSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CarriedSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<CarriedSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for CarriedSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("CarriedSave");
+      ds.field("month", &self.month());
+      ds.field("from", &self.from());
+      ds.field("to", &self.to());
+      ds.field("trips", &self.trips());
+      ds.field("walk_h", &self.walk_h());
+      ds.field("goods", &self.goods());
+      ds.field("units", &self.units());
       ds.finish()
   }
 }

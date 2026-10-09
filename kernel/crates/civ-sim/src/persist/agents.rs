@@ -109,8 +109,8 @@ use super::{
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
-    SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, finish,
-    section, single_chunk, unreadable,
+    SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
+    finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -396,6 +396,8 @@ enum Schema {
     V55,
     /// Price reports and purchases between settlements (M5b slice AP).
     V56,
+    /// The convergence record (M5b slice AQ).
+    V57,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -466,7 +468,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V53 => Schema::V53,
         SCHEMA_V54 => Schema::V54,
         SCHEMA_V55 => Schema::V55,
-        SAVE_SCHEMA_VERSION => Schema::V56,
+        SCHEMA_V56 => Schema::V56,
+        SAVE_SCHEMA_VERSION => Schema::V57,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -667,6 +670,7 @@ pub(super) fn decode<R: Read + Seek>(
             people.review_due,
             people.coalitions,
             people.reports,
+            people.convergence,
         ) = (
             d.known,
             d.contacts,
@@ -675,6 +679,7 @@ pub(super) fn decode<R: Read + Seek>(
             d.due,
             d.coalitions,
             d.reports,
+            d.convergence,
         );
     }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
@@ -2650,7 +2655,8 @@ fn carried(
         | Schema::V53
         | Schema::V54
         | Schema::V55
-        | Schema::V56 => {
+        | Schema::V56
+        | Schema::V57 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2816,7 +2822,8 @@ fn decode_households(
             | Schema::V53
             | Schema::V54
             | Schema::V55
-            | Schema::V56 => {
+            | Schema::V56
+            | Schema::V57 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -6288,9 +6295,12 @@ fn decode_factions(
 
 fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
-    // The goods the price reports name, written only with reports to read them by (a world with
-    // none saves its places as before schema 56).
-    let good_dictionary = (!people.reports.held.is_empty()).then(|| strings(&mut fbb, goods));
+    // The goods the price reports and the convergence record name, written only with those to
+    // read them by (a world with none saves its places as before schema 56).
+    let conv = &people.convergence;
+    let good_dictionary =
+        (!people.reports.held.is_empty() || !conv.gaps.is_empty() || !conv.carried.is_empty())
+            .then(|| strings(&mut fbb, goods));
     let list: Vec<_> = people
         .known_places
         .known
@@ -6425,6 +6435,51 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let reports = (!reports.is_empty()).then(|| fbb.create_vector(&reports));
+    // The convergence record (schema 57).
+    let gaps: Vec<_> = conv
+        .gaps
+        .iter()
+        .flat_map(|(&(month, a, b), list)| list.iter().map(move |g| (month, a, b, g)))
+        .map(|(month, a, b, g)| {
+            save::GapSave::create(
+                &mut fbb,
+                &save::GapSaveArgs {
+                    month,
+                    a: a.get(),
+                    b: b.get(),
+                    good: u32::from(g.good),
+                    ask_a: g.ask_h[0],
+                    ask_b: g.ask_h[1],
+                    paid_a: g.paid_h[0],
+                    paid_b: g.paid_h[1],
+                },
+            )
+        })
+        .collect();
+    let gaps = (!gaps.is_empty()).then(|| fbb.create_vector(&gaps));
+    let carried: Vec<_> = conv
+        .carried
+        .iter()
+        .map(|(&(month, from, to), c)| {
+            let ids: Vec<u32> = c.goods.iter().map(|&(g, _)| u32::from(g)).collect();
+            let units: Vec<f32> = c.goods.iter().map(|&(_, u)| u).collect();
+            let ids = fbb.create_vector(&ids);
+            let units = fbb.create_vector(&units);
+            save::CarriedSave::create(
+                &mut fbb,
+                &save::CarriedSaveArgs {
+                    month,
+                    from: from.get(),
+                    to: to.get(),
+                    trips: c.trips,
+                    walk_h: c.walk_h,
+                    goods: Some(ids),
+                    units: Some(units),
+                },
+            )
+        })
+        .collect();
+    let carried = (!carried.is_empty()).then(|| fbb.create_vector(&carried));
     let root = save::PlacesSave::create(
         &mut fbb,
         &save::PlacesSaveArgs {
@@ -6436,6 +6491,8 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
             coalitions: Some(coalitions),
             reports,
             goods: good_dictionary,
+            gaps,
+            carried,
         },
     );
     finish(fbb, root)
@@ -6452,6 +6509,7 @@ struct PlacesDecoded {
     due: std::collections::BTreeSet<PermanentId>,
     coalitions: Vec<civ_agents::places::Coalition>,
     reports: civ_agents::reports::PriceReports,
+    convergence: civ_agents::convergence::Convergence,
 }
 
 fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError> {
@@ -6606,6 +6664,60 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
             visited: (k.visited() >= 0).then_some(k.visited()),
         });
     }
+    // The convergence record (schema 57): what names a good the content no longer has is let go.
+    let mut convergence = civ_agents::convergence::Convergence::default();
+    for g in root.gaps().iter().flatten() {
+        let what = || format!("a month {} gap", g.month());
+        let Some(good) = saved_good(&report_goods, g.good(), what)? else {
+            continue;
+        };
+        let pair = (
+            g.month(),
+            required(g.a(), "a gap's settlement")?,
+            required(g.b(), "a gap's settlement")?,
+        );
+        convergence
+            .gaps
+            .entry(pair)
+            .or_default()
+            .push(civ_agents::convergence::GoodGap {
+                good,
+                ask_h: [g.ask_a(), g.ask_b()],
+                paid_h: [g.paid_a(), g.paid_b()],
+            });
+    }
+    for list in convergence.gaps.values_mut() {
+        list.sort_by_key(|g| g.good);
+    }
+    for c in root.carried().iter().flatten() {
+        let ids: Vec<u32> = c.goods().map(|v| v.iter().collect()).unwrap_or_default();
+        let units: Vec<f32> = c.units().map(|v| v.iter().collect()).unwrap_or_default();
+        if ids.len() != units.len() {
+            return Err(LoadError::Malformed(
+                "goods carried without their units".to_owned(),
+            ));
+        }
+        let mut goods = Vec::new();
+        for (i, u) in ids.into_iter().zip(units) {
+            let what = || format!("month {} goods carried", c.month());
+            if let Some(g) = saved_good(&report_goods, i, what)? {
+                goods.push((g, u));
+            }
+        }
+        goods.sort_by_key(|&(g, _)| g);
+        convergence.carried.insert(
+            (
+                c.month(),
+                required(c.from(), "a trip's settlement")?,
+                required(c.to(), "a trip's settlement")?,
+            ),
+            civ_agents::convergence::Carried {
+                trips: c.trips(),
+                walk_h: c.walk_h(),
+                goods,
+            },
+        );
+    }
     Ok(PlacesDecoded {
         known: out,
         contacts,
@@ -6614,6 +6726,7 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
         due,
         coalitions,
         reports,
+        convergence,
     })
 }
 

@@ -47,6 +47,7 @@ struct Args {
     only: String,
     groups: u32,
     known: bool,
+    stop_trade: bool,
 }
 
 fn args() -> Args {
@@ -67,6 +68,7 @@ fn args() -> Args {
         only: String::new(),
         groups: 1,
         known: false,
+        stop_trade: false,
     };
     let mut it = std::env::args().skip(1);
     while let Some(flag) = it.next() {
@@ -84,6 +86,10 @@ fn args() -> Args {
         }
         if flag == "--known" {
             a.known = true;
+            continue;
+        }
+        if flag == "--stop-trade" {
+            a.stop_trade = true;
             continue;
         }
         let value = it.next().unwrap_or_default();
@@ -151,6 +157,9 @@ fn main() {
     }
     if a.exact {
         sim.set_approximations(civ_sim::Approximations::NONE);
+    }
+    if a.stop_trade {
+        sim.stop_trade_between(true);
     }
     match a.only.as_str() {
         "" => {}
@@ -292,6 +301,42 @@ fn main() {
             *from_elsewhere.entry(id.as_str()).or_default() += 1;
         }
         println!("bought by people of other settlements, latest trades: {from_elsewhere:?}");
+        // The convergence record (M5b slice AQ): per pair, the goods offered in both and the mean
+        // of |log(ask there / ask here)| over them, in the first and last months recorded.
+        // By pair: (month, goods offered in both, the mean gap) for each month on record.
+        type Months = Vec<(u32, usize, f64)>;
+        let mut pairs: BTreeMap<(u64, u64), Months> = BTreeMap::new();
+        for (&(month, x, y), gaps) in &pop.convergence.gaps {
+            let mean = gaps
+                .iter()
+                .map(|g| (f64::from(g.ask_h[0]) / f64::from(g.ask_h[1])).ln().abs())
+                .sum::<f64>()
+                / gaps.len().max(1) as f64;
+            pairs
+                .entry((x.get(), y.get()))
+                .or_default()
+                .push((month, gaps.len(), mean));
+        }
+        for ((x, y), months) in &pairs {
+            let first: Vec<String> = months
+                .iter()
+                .take(3)
+                .map(|(m, n, g)| format!("m{m} {n} goods {g:.3}"))
+                .collect();
+            let last: Vec<String> = months
+                .iter()
+                .rev()
+                .take(3)
+                .rev()
+                .map(|(m, n, g)| format!("m{m} {n} goods {g:.3}"))
+                .collect();
+            println!(
+                "convergence {x}-{y}: {} months; first {}; last {}",
+                months.len(),
+                first.join(", "),
+                last.join(", ")
+            );
+        }
         // Ties (ADR-0014): how many, and what last moved them.
         let ties = &sim.people().ties;
         let holders = ties.holders();

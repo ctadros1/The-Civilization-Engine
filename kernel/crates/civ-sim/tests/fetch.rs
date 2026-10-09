@@ -694,3 +694,156 @@ fn in_a_world_of_one_settlement_nobody_holds_a_report_or_buys_elsewhere() {
     );
     assert!(pop.contacts.years.is_empty());
 }
+
+#[test]
+fn an_ask_anchors_on_what_replacing_the_good_from_elsewhere_would_cost() {
+    // Two worlds alike in all but one belief (ADR-0019 §5): a household of the first settlement
+    // in one of them holds a fresh report of a seller in the second that offers what the
+    // household sells, for next to nothing. At its next review of what it offers, its ask falls
+    // toward what replacing the good from there would cost it; in the other world it does not.
+    let mut worlds = [world(3, 30, &[30]), world(3, 30, &[30])];
+    for sim in &mut worlds {
+        sim.advance_minutes(2 * DAY).expect("advances");
+    }
+    let (a, b) = (
+        worlds[0].land().settlements[0].id,
+        worlds[0].land().settlements[1].id,
+    );
+    let (seller, offer) = households_of(&worlds[0], a)
+        .into_iter()
+        .find_map(|h| {
+            let o = *worlds[0].people().household(h)?.offers.first()?;
+            Some((h, o))
+        })
+        .expect("a household of the first settlement offers something");
+    let elsewhere = households_of(&worlds[0], b)[0];
+    let day = worlds[0].now().day_index();
+    for (i, sim) in worlds.iter_mut().enumerate() {
+        let pop = sim.people_mut_for_tests();
+        if i == 0 {
+            pop.reports.note(
+                seller,
+                PriceReport {
+                    market: b,
+                    seller: elsewhere,
+                    firm: false,
+                    good: offer.good,
+                    payment: offer.payment,
+                    price: offer.price * 0.01,
+                    ask_h: offer.ask_h * 0.01,
+                    units: 50.0,
+                    day,
+                    how: ReportHow::Seen,
+                    from: None,
+                },
+            );
+        }
+    }
+    let review = i64::from(worlds[0].rules().people.market.review_days);
+    let ask = |sim: &Sim| {
+        sim.people()
+            .household(seller)
+            .and_then(|h| h.offers.iter().find(|o| o.good == offer.good))
+            .map(|o| o.ask_h)
+    };
+    for sim in &mut worlds {
+        sim.advance_minutes((review + 1) * DAY).expect("advances");
+    }
+    let (believed, unaware) = (ask(&worlds[0]), ask(&worlds[1]));
+    let (Some(believed), Some(unaware)) = (believed, unaware) else {
+        panic!("the good is still offered in both: {believed:?}, {unaware:?}");
+    };
+    assert!(
+        believed < unaware * 0.99,
+        "asked {believed} h knowing it could be had elsewhere, {unaware} h not knowing"
+    );
+}
+
+#[test]
+fn a_month_of_trade_between_settlements_is_kept_on_record() {
+    // ADR-0019 §7: at a month's end, the median asks of each good offered in both settlements and
+    // what it fetched in each; through the month, the trips people made to the other's sellers,
+    // their walking hours and what they carried home.
+    let Scene {
+        mut sim,
+        a,
+        b,
+        seller,
+        buyer,
+        sickle,
+        ..
+    } = scene();
+    plant_reports(&mut sim, buyer, seller, sickle);
+    let mut trade = None;
+    for _ in 0..10 {
+        sim.advance_minutes(DAY).expect("advances");
+        trade = bought_by(&sim, b, a).into_iter().find(|t| t.buyer == buyer);
+        if trade.is_some() {
+            break;
+        }
+    }
+    let trade = trade.expect("a purchase");
+    let month = civ_agents::market::month_of(trade.at);
+    let carried = sim
+        .people()
+        .convergence
+        .carried
+        .get(&(month, a, b))
+        .cloned()
+        .expect("the month's trips from the first settlement to the second");
+    assert!(carried.trips >= 1 && carried.walk_h > 1.0, "{carried:?}");
+    assert!(
+        carried
+            .goods
+            .iter()
+            .any(|&(g, u)| usize::from(g) == sickle && u >= 1.0),
+        "{carried:?}"
+    );
+    // On the next month's first day the month is closed.
+    while civ_agents::market::month_of(sim.now()) == month {
+        sim.advance_minutes(DAY).expect("advances");
+    }
+    sim.advance_minutes(DAY).expect("advances");
+    let pair = (month, a.min(b), a.max(b));
+    let gaps = sim
+        .people()
+        .convergence
+        .gaps
+        .get(&pair)
+        .cloned()
+        .expect("goods offered in both are on record");
+    assert!(!gaps.is_empty());
+    for g in &gaps {
+        assert!(g.ask_h.iter().all(|&x| x > 0.0), "{g:?}");
+        assert!(g.paid_h.iter().all(|&x| x == -1.0 || x > 0.0), "{g:?}");
+    }
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+    sim.rules_mut_for_tests()
+        .expect("rules of its own")
+        .people
+        .decision
+        .w_walk_hour = 2.0;
+    saves_and_goes_on_alike(&mut sim, DAY / 2);
+}
+
+#[test]
+fn the_twin_harness_stops_purchases_between_settlements() {
+    // ADR-0019 §8: the demo's twin. Set in memory, never in content or a save: nobody buys from a
+    // seller in another settlement, whatever they know of it.
+    let Scene {
+        mut sim,
+        a,
+        b,
+        seller,
+        buyer,
+        sickle,
+        ..
+    } = scene();
+    plant_reports(&mut sim, buyer, seller, sickle);
+    sim.people_mut_for_tests().stop_trade_between = true;
+    sim.advance_minutes(10 * DAY).expect("advances");
+    assert!(bought_by(&sim, b, a).is_empty(), "nothing was bought");
+    assert_eq!(contact(&sim, a, b).0, 0);
+    // Nobody even set out: the trip is left out of the choice, not cut short at the door.
+    assert!(sim.people().convergence.carried.is_empty(), "nobody went");
+}

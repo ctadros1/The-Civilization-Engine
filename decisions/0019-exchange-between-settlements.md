@@ -100,6 +100,10 @@ brief (`docs/briefs/m5-trade.md`). Their main points:
   and back over a load) (08-05 §1.5).
 - Only reports of other markets enter. Neighbours' offers within one's settlement do not, so a
   world of one settlement keeps its asks exactly as tuned.
+- As built (slice AQ): each report is believed by its weight, what is not believed falling back
+  on the household's own cost; the walk is estimated from the distance at its pace off the
+  trails (a belief, and the same after a save and load); a seller beyond the fetch walk does not
+  count, and content with no `fetch` activity has no replacement at all.
 
 ### 6. Fetching to resell is making to sell
 
@@ -121,10 +125,11 @@ brief (`docs/briefs/m5-trade.md`). Their main points:
 
 ### 8. The demo's twin is a harness, not a rule
 
-- A switch in the rules, set in memory by a host command or a test and never in content or a
-  save, stops purchases across settlements. A world lives identically with it until the first
-  purchase it stops, so a save lived twice gives the comparison the shared weather requires
-  (08-12 §4).
+- A switch, set in memory by a host command or a test and never in content or a save, stops
+  purchases across settlements: a trip to buy elsewhere is left out of every choice. A world
+  lives identically with it until the first choice that trip would have been part of (not quite
+  the first purchase it stops: leaving an option out changes the draw among the rest), so a
+  save lived twice gives the comparison the shared weather requires (08-12 §4).
 
 ## Consequences
 

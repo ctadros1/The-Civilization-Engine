@@ -810,6 +810,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** fetching to resell, the replacement anchor and the convergence record (AQ).
 
+## 2026-10-09 — M5b slice AQ, step one: asks anchored on replacement, the convergence record and the twin
+
+**Goal:** a seller should price what it can get elsewhere as what replacing it would cost, the world should record how far two settlements' prices stand apart month by month, and the demo should be able to live a save twice, with and without trade between settlements (ADR-0019 §5, §7, §8; research 08-05 §1.5, 08-12 §4).
+
+**What changed:** the replacement anchor at a household's review of its offers (by its reports, each believed by its age; only where people can fetch); the monthly convergence record per pair of settlements, saved (schema 57); and an in-memory switch that leaves trips to buy elsewhere out of every choice.
+
+**Findings:** the twin and the world with trade start identically, as the harness must. Over two years of the M5a demo's world the gaps between settlements' median asks stayed about 0.1–0.3 log points with or without trade: eight purchases do not close them. Fetching to resell is the mechanism expected to, and is next. The first mutation check of the harness passed when it should not have, because the trip was not recorded once stopped; recording it made the test see the difference.
+
+**Evidence:** digest comparisons without `fetch` (identical but for the content and the record itself); three integration tests, each checked by mutation; the roundtrip of a schema-56 save.
+
+**Open:** fetching to resell (step two); the convergence row, caravans and the wire (step three).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

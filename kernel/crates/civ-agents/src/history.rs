@@ -158,11 +158,14 @@ pub enum Reason {
     /// Excluded: someone of their household is already on the way to buy elsewhere (M5b slice
     /// AP).
     AnotherGoes = 137,
+    /// Excluded: the observer has stopped purchases between settlements (the demo's twin, M5b
+    /// slice AQ).
+    Stopped = 138,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 69] = [
+    pub const ALL: [Reason; 70] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -232,6 +235,7 @@ impl Reason {
         Reason::NoPlaceToVisit,
         Reason::NoReport,
         Reason::AnotherGoes,
+        Reason::Stopped,
     ];
 
     /// The reason with this code.
@@ -313,6 +317,7 @@ impl Reason {
             Reason::AnotherGoes => {
                 "someone of their household is already on the way to buy elsewhere"
             }
+            Reason::Stopped => "the observer has stopped purchases between settlements",
         }
     }
 }

@@ -1804,6 +1804,36 @@ table PlacesSave {
   // and the goods they name, by content id.
   reports: [PriceReportSave] (id: 6);
   goods: [string] (id: 7);
+  // Schema 57 (M5b slice AQ, ADR-0019 §7): the convergence record, its goods named in `goods`.
+  gaps: [GapSave] (id: 8);
+  carried: [CarriedSave] (id: 9);
+}
+
+// A good offered in both of a pair of settlements at a month's end (schema 57).
+table GapSave {
+  month: uint (id: 0);
+  a: ulong (id: 1);
+  b: ulong (id: 2);
+  // Index into PlacesSave.goods.
+  good: uint (id: 3);
+  // Median asks in each, hours a unit.
+  ask_a: float (id: 4);
+  ask_b: float (id: 5);
+  // What a unit fetched in each that month, hours (-1: none sold).
+  paid_a: float = -1 (id: 6);
+  paid_b: float = -1 (id: 7);
+}
+
+// What people of one settlement carried home from another's market in a month (schema 57).
+table CarriedSave {
+  month: uint (id: 0);
+  from: ulong (id: 1);
+  to: ulong (id: 2);
+  trips: uint (id: 3);
+  walk_h: float (id: 4);
+  // Indices into PlacesSave.goods, and the units of each bought.
+  goods: [uint] (id: 5);
+  units: [float] (id: 6);
 }
 
 // Schema 55 (M5a slice AO): households gathered to found a settlement. `lacking`: 0 nothing,

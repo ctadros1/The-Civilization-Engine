@@ -409,7 +409,7 @@ impl Population {
             .collect();
         let old = f.offers.clone();
         let rows = match settlement {
-            Some(s) => self.post_terms(ctx, s, &costs, &holding, &stock, &old),
+            Some(s) => self.post_terms(ctx, s, &costs, &costs, &holding, &stock, &old),
             None => Vec::new(),
         };
         let worth: f64 = stock

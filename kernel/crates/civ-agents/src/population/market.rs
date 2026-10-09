@@ -3,6 +3,8 @@
 //! hours of its own work, the walk included; and the trade settles through the ledger when the
 //! buyer arrives.
 
+use std::collections::BTreeMap;
+
 use civ_core::PermanentId;
 use civ_core::time::{DAYS_PER_YEAR, SimTime};
 use civ_land::LandParams;
@@ -348,7 +350,32 @@ impl Population {
                 }
             }
             let old = hh.offers.clone();
-            let rows = self.post_terms(ctx, settlement, &costs, &holding, &offered, &old);
+            // Asks may anchor on what replacing a good from another settlement would cost
+            // (M5b slice AQ, ADR-0019 §5).
+            let anchors: Option<Vec<Option<f64>>> = (!self.reports.of(id).is_empty()).then(|| {
+                costs
+                    .iter()
+                    .enumerate()
+                    .map(|(g, &own)| {
+                        if !offered.iter().any(|&(o, _)| o == g) {
+                            return own;
+                        }
+                        match (own, self.replacement_cost(ctx, hh, g, own, &costs)) {
+                            (Some(own), Some(r)) => Some(own.min(r)),
+                            (own, r) => own.or(r),
+                        }
+                    })
+                    .collect()
+            });
+            let rows = self.post_terms(
+                ctx,
+                settlement,
+                &costs,
+                anchors.as_deref().unwrap_or(&costs),
+                &holding,
+                &offered,
+                &old,
+            );
             // The tools it needs and nobody in its settlement offers: demand on record, as much
             // as it needs, weighted so that a want recorded at every review adds up, as the
             // market forgets, to the want itself (a level, not a count of reviews).
@@ -407,11 +434,13 @@ impl Population {
     /// it wants (`holding`) or its settlement's money: those it is shortest of first, then what
     /// its neighbours already pay in, what keeps longest and what is worth most for its weight
     /// (research 08-06 §1.3: acceptance follows familiarity, durability and portability).
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn post_terms(
         &self,
         ctx: &Ctx,
         settlement: PermanentId,
         costs: &[Option<f64>],
+        anchors: &[Option<f64>],
         holding: &Holding,
         offered: &[(usize, f64)],
         old: &[Offer],
@@ -477,7 +506,7 @@ impl Population {
             } else {
                 0.0
             };
-            let anchor = costs
+            let anchor = anchors
                 .get(g)
                 .copied()
                 .flatten()
@@ -780,6 +809,19 @@ impl Population {
         let stores = stores_now(hh, now, params, goods);
         let deal = self.find_deal(ctx, hh, &stores, &|_| Some(0.0), Some(seller));
         let year = now.day_index().div_euclid(DAYS_PER_YEAR);
+        // The walk there, by when the buyer set off; the walk home is as long (ADR-0019 §7).
+        let month = crate::market::month_of(now);
+        let walk_h = self.person(who).map_or(0.0, |p| {
+            2.0 * (now.minutes() - p.act.started.minutes()).max(0) as f64 / 60.0
+        });
+        if away {
+            self.convergence.trip(month, settlement, market, walk_h);
+            // The demo's twin: purchases between settlements are stopped (ADR-0019 §8), here
+            // for one who set out before they were.
+            if self.stop_trade_between {
+                return;
+            }
+        }
         let Some(d) = deal else {
             if away {
                 let why = self.missed_why(ctx, buyer, market, seller, &stores);
@@ -875,8 +917,166 @@ impl Population {
         m.record_trade(trade, d.ask_h * d.units, mp.recent_trades);
         if away {
             self.contacts.bought(year, settlement, market);
+            self.convergence
+                .carry(month, settlement, market, d.good as u16, d.units);
             self.note_seen(buyer, market, seller, now.day_index());
         }
+    }
+
+    /// What household `hh` believes replacing a unit of good `g` would cost it, hours of its own
+    /// work, by the price reports it holds of other settlements' markets (M5b slice AQ, ADR-0019
+    /// §5; research 08-05 §1.5: a reference price incorporates procurement and carrying): the
+    /// reported price, valued at its own cost of the payment good (`costs`), and the walk there
+    /// and back and the trading spread over a load, at its walking pace off the trails. Each
+    /// report is believed by its weight, what it does not believe falling back on its own cost
+    /// (`own`), and the best is taken. None without a way to fetch it (content with no `fetch`
+    /// activity, or every seller beyond its walk) or a report of the good.
+    fn replacement_cost(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        g: usize,
+        own: Option<f64>,
+        costs: &[Option<f64>],
+    ) -> Option<f64> {
+        let fetch = ctx
+            .catalog
+            .activities
+            .iter()
+            .find(|a| a.behavior == crate::params::Behavior::Fetch)?;
+        let home = hh.settlement?;
+        let (params, goods) = (ctx.params, &ctx.catalog.goods);
+        let pace = params.nav.tobler_ms(0.0) * params.nav.offtrail_factor;
+        if pace <= 0.0 {
+            return None;
+        }
+        let trade_h = f64::from(fetch.min_minutes) / 60.0;
+        let (day, half) = (ctx.now.day_index(), params.reports.half_life_days);
+        let tool = goods.get(g).is_some_and(|d| d.tool.is_some());
+        let mut best: Option<f64> = None;
+        for r in self
+            .reports
+            .of(hh.id)
+            .iter()
+            .filter(|r| usize::from(r.good) == g && r.market != home && r.units > 0.0)
+        {
+            let Some(pay) = costs.get(usize::from(r.payment)).copied().flatten() else {
+                continue;
+            };
+            let at = if r.firm {
+                self.firm(r.seller)
+                    .and_then(|f| self.household(f.owner))
+                    .map(|x| x.home)
+            } else {
+                self.household(r.seller).map(|x| x.home)
+            };
+            let Some(at) = at else {
+                continue;
+            };
+            let walk_h = f64::from((at.0 - hh.home.0).hypot(at.1 - hh.home.1)) / pace / 3600.0;
+            if walk_h * 60.0 > f64::from(fetch.max_walk_minutes) {
+                continue;
+            }
+            let units = f64::from(r.units);
+            let load = if tool {
+                units
+            } else {
+                units.min(params.household.carry_kg)
+            };
+            if load <= 0.0 {
+                continue;
+            }
+            let cost = f64::from(r.price) * pay + (2.0 * walk_h + trade_h) / load;
+            let w = r.weight(day, half);
+            let believed = match own {
+                Some(o) => o - w * (o - cost).max(0.0),
+                None => cost,
+            };
+            best = Some(best.map_or(believed, |b: f64| b.min(believed)));
+        }
+        best
+    }
+
+    /// On a month's first day, what the month before left on record per pair of settlements
+    /// lived in (M5b slice AQ, ADR-0019 §7): for each good offered in both, the median of its
+    /// sellers' asks in each, hours a unit, and what a unit fetched there that month.
+    pub(super) fn record_convergence(&mut self, ctx: &Ctx) {
+        let now = ctx.now;
+        if now.date().day != 1 {
+            return;
+        }
+        let Some(month) = crate::market::month_of(now).checked_sub(1) else {
+            return;
+        };
+        let lived: Vec<PermanentId> = ctx
+            .land
+            .settlements
+            .iter()
+            .filter(|s| self.residents(s.id) > 0)
+            .map(|s| s.id)
+            .collect();
+        if lived.len() < 2 {
+            return;
+        }
+        // Each seller's ask of each good it offers, by settlement and good.
+        let mut asks: BTreeMap<(PermanentId, u16), Vec<f64>> = BTreeMap::new();
+        let mut note = |s: PermanentId, offers: &[Offer]| {
+            let mut seen: Vec<u16> = Vec::new();
+            for o in offers {
+                if !seen.contains(&o.good) {
+                    seen.push(o.good);
+                    asks.entry((s, o.good))
+                        .or_default()
+                        .push(f64::from(o.ask_h));
+                }
+            }
+        };
+        for (_, h) in self.households.iter() {
+            if let Some(s) = h.settlement.filter(|_| !h.members.is_empty()) {
+                note(s, &h.offers);
+            }
+        }
+        for f in self.firms.iter().filter(|f| f.is_open()) {
+            if let Some(s) = f.settlement {
+                note(s, &f.offers);
+            }
+        }
+        let median: BTreeMap<(PermanentId, u16), f64> = asks
+            .into_iter()
+            .map(|(k, mut v)| (k, crate::convergence::median(&mut v)))
+            .collect();
+        let paid = |s: PermanentId, g: u16| -> f32 {
+            self.market(s)
+                .and_then(|m| {
+                    m.history
+                        .iter()
+                        .find(|h| h.month == month && h.good == g && h.units > 0.0)
+                })
+                .map_or(-1.0, |h| h.paid_h / h.units)
+        };
+        let mut found = Vec::new();
+        for (i, &a) in lived.iter().enumerate() {
+            for &b in &lived[i + 1..] {
+                let (a, b) = (a.min(b), a.max(b));
+                let gaps: Vec<crate::convergence::GoodGap> = median
+                    .iter()
+                    .filter(|((s, _), _)| *s == a)
+                    .filter_map(|(&(_, g), &ask_a)| {
+                        let ask_b = *median.get(&(b, g))?;
+                        Some(crate::convergence::GoodGap {
+                            good: g,
+                            ask_h: [ask_a as f32, ask_b as f32],
+                            paid_h: [paid(a, g), paid(b, g)],
+                        })
+                    })
+                    .filter(|g| g.ask_h.iter().all(|x| x.is_finite() && *x > 0.0))
+                    .collect();
+                if !gaps.is_empty() {
+                    found.push(((month, a, b), gaps));
+                }
+            }
+        }
+        self.convergence.gaps.extend(found);
     }
 
     /// Household `household` saw at the door of `seller`, of `market`, on `day` what it offers

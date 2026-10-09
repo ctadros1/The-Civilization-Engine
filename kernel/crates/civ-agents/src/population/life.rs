@@ -415,6 +415,15 @@ impl Population {
         self.emptied.clear();
     }
 
+    /// Someone is exiled now, as a gathering's finding would send them: for tests that need an
+    /// exile on a given day. Exiles in a world come from cases (M4b slice AB).
+    #[doc(hidden)]
+    pub fn exile_for_tests(&mut self, ctx: &mut Ctx, id: PermanentId) {
+        self.exile(ctx, id);
+        self.care_for_households(ctx);
+        self.emptied.clear();
+    }
+
     /// Someone dies: they leave their household (what they carried stays with it), their partner
     /// is widowed, a mother nursing them can conceive again soon, and the chronicle notes it.
     pub(crate) fn die(&mut self, ctx: &mut Ctx, id: PermanentId, cause: Cause) {
@@ -525,11 +534,20 @@ impl Population {
         if emptied {
             self.emptied.push((household, id));
         }
-        if let Some(r) = self.records.get_mut(&id) {
-            r.left = Some(now);
+        // Where they go is theirs to choose (M5a slice AN): a settlement their household knows
+        // where kin or those they know live, or that a member saw fed, and else beyond the map
+        // (ADR-0018 §3).
+        self.refresh_kin();
+        let refuge = settlement.and_then(|s| self.exile_refuge(ctx, id, household, s));
+        match refuge {
+            Some(to) => self.exile_to(ctx, id, &p, household, to),
+            None => {
+                if let Some(r) = self.records.get_mut(&id) {
+                    r.left = Some(now);
+                }
+                self.note_residence(id, None, now, ResidenceWhy::Exiled);
+            }
         }
-        // Off the map: nobody yet decides where an exile goes (ADR-0018 §3).
-        self.note_residence(id, None, now, ResidenceWhy::Exiled);
         if let Some(q) = p.partner {
             if let Some(partner) = self.person_mut(q) {
                 partner.partner = None;
@@ -540,19 +558,21 @@ impl Population {
                 }
             }
         }
-        let left = settlement
-            .and_then(|s| ctx.land.settlements.iter().find(|x| x.id == s))
-            .map(|x| x.name.clone())
-            .unwrap_or_default();
-        self.chronicle_push(
-            now,
-            ChronicleKind::Left,
-            vec![id],
-            settlement,
-            Some(at),
-            1.0,
-            left,
-        );
+        if refuge.is_none() {
+            let left = settlement
+                .and_then(|s| ctx.land.settlements.iter().find(|x| x.id == s))
+                .map(|x| x.name.clone())
+                .unwrap_or_default();
+            self.chronicle_push(
+                now,
+                ChronicleKind::Left,
+                vec![id],
+                settlement,
+                Some(at),
+                1.0,
+                left,
+            );
+        }
         // What only they knew there leaves with them (ADR-0008 §5).
         self.check_loss(ctx, settlement, &[(id, p.knows)], None);
     }
@@ -705,6 +725,7 @@ impl Population {
             }
             // They go to a settlement they know that draws them, if one does (M5a slice AN),
             // and else beyond the map.
+            self.refresh_kin();
             match self.refuge(ctx, household) {
                 Some(to) => self.relocate(ctx, household, to),
                 None => self.leave(ctx, household),

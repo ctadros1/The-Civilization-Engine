@@ -754,10 +754,11 @@ fn kin(sim: &Sim, id: PermanentId) -> Vec<(PermanentId, &'static str)> {
         return Vec::new();
     };
     let mut out = Vec::new();
-    if let Some(m) = me.mother {
+    // Parents who never lived on the map (a wave's, who stayed behind) have no record to show.
+    if let Some(m) = me.mother.filter(|m| records.contains_key(m)) {
         out.push((m, "mother"));
     }
-    if let Some(f) = me.father {
+    if let Some(f) = me.father.filter(|f| records.contains_key(f)) {
         out.push((f, "father"));
     }
     // Partners from the unions they were in; for a world older than unions, the other parent of

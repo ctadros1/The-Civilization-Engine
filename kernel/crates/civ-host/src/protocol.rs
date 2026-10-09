@@ -86,6 +86,17 @@ pub enum Request {
         /// Index into the welcome's ideologies.
         ideology: u32,
     },
+    /// Send a migration wave (god tool, M5a slice AN, ADR-0016 §5).
+    SendWave {
+        /// Metres from the map's north-west corner.
+        at: (f32, f32),
+        /// Households it brings (5–50).
+        households: u32,
+        /// Days over which they come (1–7).
+        days: u32,
+        /// Months of food each carries (0–12).
+        months: u32,
+    },
     /// Bless or curse a living person for a while (god tool, M4c slice AJ, ADR-0016 §5).
     Bless {
         /// Permanent id.
@@ -463,6 +474,18 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                     Ok(Request::SendAgitator {
                         at: (at.x(), at.y()),
                         ideology: b.ideology(),
+                    })
+                }
+                wire::CommandBody::SendWave => {
+                    let b = command
+                        .body_as_send_wave()
+                        .ok_or_else(|| missing("command"))?;
+                    let at = b.at().ok_or_else(|| missing("where to send it"))?;
+                    Ok(Request::SendWave {
+                        at: (at.x(), at.y()),
+                        households: b.households(),
+                        days: b.days(),
+                        months: b.months(),
                     })
                 }
                 wire::CommandBody::Bless => {
@@ -1082,6 +1105,32 @@ mod tests {
             Ok(Request::SendAgitator {
                 at: (40.0, 50.0),
                 ideology: 2
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::SendWave::create(
+            &mut fbb,
+            &wire::SendWaveArgs {
+                at: Some(&at),
+                households: 12,
+                days: 3,
+                months: 6,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::SendWave,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::SendWave {
+                at: (40.0, 50.0),
+                households: 12,
+                days: 3,
+                months: 6
             })
         );
         let mut fbb = FlatBufferBuilder::new();

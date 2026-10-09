@@ -665,10 +665,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_COMMAND_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_COMMAND_BODY: u8 = 14;
+pub const ENUM_MAX_COMMAND_BODY: u8 = 15;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 15] = [
+pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 16] = [
   CommandBody::NONE,
   CommandBody::NewWorld,
   CommandBody::SaveWorld,
@@ -684,6 +684,7 @@ pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 15] = [
   CommandBody::TellOfIdeology,
   CommandBody::SendAgitator,
   CommandBody::Bless,
+  CommandBody::SendWave,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -706,9 +707,10 @@ impl CommandBody {
   pub const TellOfIdeology: Self = Self(12);
   pub const SendAgitator: Self = Self(13);
   pub const Bless: Self = Self(14);
+  pub const SendWave: Self = Self(15);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 14;
+  pub const ENUM_MAX: u8 = 15;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::NewWorld,
@@ -725,6 +727,7 @@ impl CommandBody {
     Self::TellOfIdeology,
     Self::SendAgitator,
     Self::Bless,
+    Self::SendWave,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -744,6 +747,7 @@ impl CommandBody {
       Self::TellOfIdeology => Some("TellOfIdeology"),
       Self::SendAgitator => Some("SendAgitator"),
       Self::Bless => Some("Bless"),
+      Self::SendWave => Some("SendWave"),
       _ => None,
     }
   }
@@ -8612,6 +8616,153 @@ impl ::core::fmt::Debug for Bless<'_> {
       ds.finish()
   }
 }
+pub enum SendWaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SendWave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for SendWave<'a> {
+  type Inner = SendWave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> SendWave<'a> {
+  pub const VT_AT: ::flatbuffers::VOffsetT = 4;
+  pub const VT_HOUSEHOLDS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_DAYS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_MONTHS: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    SendWave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SendWaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<SendWave<'bldr>> {
+    let mut builder = SendWaveBuilder::new(_fbb);
+    builder.add_months(args.months);
+    builder.add_days(args.days);
+    builder.add_households(args.households);
+    if let Some(x) = args.at { builder.add_at(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn at(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(SendWave::VT_AT, None)}
+  }
+  #[inline]
+  pub fn households(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SendWave::VT_HOUSEHOLDS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn days(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SendWave::VT_DAYS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn months(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SendWave::VT_MONTHS, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for SendWave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<Vec2>("at", Self::VT_AT, false)?
+     .visit_field::<u32>("households", Self::VT_HOUSEHOLDS, false)?
+     .visit_field::<u32>("days", Self::VT_DAYS, false)?
+     .visit_field::<u32>("months", Self::VT_MONTHS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SendWaveArgs<'a> {
+    pub at: Option<&'a Vec2>,
+    pub households: u32,
+    pub days: u32,
+    pub months: u32,
+}
+impl<'a> Default for SendWaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SendWaveArgs {
+      at: None,
+      households: 0,
+      days: 0,
+      months: 0,
+    }
+  }
+}
+
+pub struct SendWaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SendWaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_at(&mut self, at: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(SendWave::VT_AT, at);
+  }
+  #[inline]
+  pub fn add_households(&mut self, households: u32) {
+    self.fbb_.push_slot::<u32>(SendWave::VT_HOUSEHOLDS, households, 0);
+  }
+  #[inline]
+  pub fn add_days(&mut self, days: u32) {
+    self.fbb_.push_slot::<u32>(SendWave::VT_DAYS, days, 0);
+  }
+  #[inline]
+  pub fn add_months(&mut self, months: u32) {
+    self.fbb_.push_slot::<u32>(SendWave::VT_MONTHS, months, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SendWaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SendWaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<SendWave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for SendWave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("SendWave");
+      ds.field("at", &self.at());
+      ds.field("households", &self.households());
+      ds.field("days", &self.days());
+      ds.field("months", &self.months());
+      ds.finish()
+  }
+}
 pub enum CommandOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -8871,6 +9022,21 @@ impl<'a> Command<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_send_wave(&self) -> Option<SendWave<'a>> {
+    if self.body_type() == CommandBody::SendWave {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { SendWave::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Command<'_> {
@@ -8895,6 +9061,7 @@ impl ::flatbuffers::Verifiable for Command<'_> {
           CommandBody::TellOfIdeology => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<TellOfIdeology>>("CommandBody::TellOfIdeology", pos),
           CommandBody::SendAgitator => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SendAgitator>>("CommandBody::SendAgitator", pos),
           CommandBody::Bless => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Bless>>("CommandBody::Bless", pos),
+          CommandBody::SendWave => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SendWave>>("CommandBody::SendWave", pos),
           _ => Ok(()),
         }
      })?
@@ -9042,6 +9209,13 @@ impl ::core::fmt::Debug for Command<'_> {
         },
         CommandBody::Bless => {
           if let Some(x) = self.body_as_bless() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::SendWave => {
+          if let Some(x) = self.body_as_send_wave() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

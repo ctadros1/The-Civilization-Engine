@@ -116,6 +116,7 @@ export { SaveList } from './wire/save-list.js';
 export { SaveWorld } from './wire/save-world.js';
 export { ScoredOption } from './wire/scored-option.js';
 export { SendAgitator } from './wire/send-agitator.js';
+export { SendWave } from './wire/send-wave.js';
 export { SetClock } from './wire/set-clock.js';
 export { SettlementBrief } from './wire/settlement-brief.js';
 export { SettlementKnowledge } from './wire/settlement-knowledge.js';

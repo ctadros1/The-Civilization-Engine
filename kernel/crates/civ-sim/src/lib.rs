@@ -850,6 +850,22 @@ impl Sim {
         self.influence(|people, ctx| civ_agents::send_agitator(people, ctx, at, k))
     }
 
+    /// The observer sends a migration wave (god tool, M5a slice AN, ADR-0016 §5): `households`
+    /// households of one band come to `at`, metres, from the map's edge nearest it over `days`
+    /// days, each carrying `months` months of food (see [`civ_agents::send_wave`]). Returns the
+    /// intervention's number and the households that came at once.
+    pub fn send_wave(
+        &mut self,
+        at: (f32, f32),
+        households: u32,
+        days: u32,
+        months: u32,
+    ) -> Result<(u32, Vec<Spawned>), String> {
+        self.influence(|people, ctx| {
+            civ_agents::send_wave(people, ctx, at, households, days, months)
+        })
+    }
+
     /// The observer blesses `person`, or with `curse` curses them, for `days` days moving their
     /// own draws for illness or accident and for finding things out by `share` of their way (god
     /// tool, M4c slice AJ, ADR-0016 §5).
@@ -1191,6 +1207,38 @@ impl Sim {
                 approx,
             };
             self.people.die_for_tests(&mut ctx, person);
+        }
+        for (at, event) in pending {
+            let _ = self
+                .scheduler
+                .schedule(at, PHASE_AGENT, SimEvent::Agent(event));
+        }
+        self.dirty = true;
+    }
+
+    /// Someone is exiled now (for a test that needs an exile on a given day; see
+    /// [`Population::exile_for_tests`]).
+    #[doc(hidden)]
+    pub fn exile_for_tests(&mut self, person: civ_core::PermanentId) {
+        let now = self.now();
+        let approx = self.approximations_now();
+        let mut pending = Vec::new();
+        {
+            let mut ctx = Ctx {
+                now,
+                seed: self.meta.seed,
+                map: &self.map,
+                nav: &self.nav,
+                land: &mut self.land,
+                land_params: &self.rules.land,
+                params: &self.rules.people,
+                catalog: &self.rules.catalog,
+                regime: &self.regime,
+                ids: &mut self.ids,
+                schedule: &mut pending,
+                approx,
+            };
+            self.people.exile_for_tests(&mut ctx, person);
         }
         for (at, event) in pending {
             let _ = self

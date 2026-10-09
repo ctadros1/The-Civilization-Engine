@@ -71,6 +71,24 @@
               <label class="toggle" title="Whether it shows at the surface, where people walking by can find it"><input type="checkbox" id="deposit-exposed" checked disabled /> Showing</label>
               <button id="add-agitator" type="button" aria-pressed="false" title="Send an agitator: one newcomer holding an ideology; click where they should come (Esc cancels)" disabled>Send an agitator</button>
               <select id="agitator-ideology" aria-label="The ideology the agitator holds" title="The ideology the agitator holds" disabled></select>
+              <button id="add-wave" type="button" aria-pressed="false" title="Send a migration wave: households of one band come in from the nearest edge of the map; click where they should come (Esc cancels)" disabled>Send a wave</button>
+              <select id="wave-households" aria-label="Households the wave brings" title="Households the wave brings" disabled>
+                <option value="5">5 households</option>
+                <option value="10" selected>10 households</option>
+                <option value="20">20 households</option>
+                <option value="50">50 households</option>
+              </select>
+              <select id="wave-days" aria-label="Days over which they come" title="Days over which they come" disabled>
+                <option value="1">in a day</option>
+                <option value="3" selected>over 3 days</option>
+                <option value="7">over 7 days</option>
+              </select>
+              <select id="wave-months" aria-label="Months of food each household carries" title="Months of food each household carries" disabled>
+                <option value="0">no food</option>
+                <option value="3">3 months' food</option>
+                <option value="6" selected>6 months' food</option>
+                <option value="12">12 months' food</option>
+              </select>
               <label class="toggle"><input type="checkbox" id="show-rivers" checked /> Rivers</label>
             </div>
           </div>

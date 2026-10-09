@@ -478,7 +478,17 @@ table Bless {
   share: float (id: 3);
 }
 
-union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless }
+// Wire 1.52 (M5a slice AN, ADR-0016 §5): the observer sends a migration wave: `households`
+// households (5-50) of one band come to `at` from the map's edge nearest it over `days` days (1-7),
+// each carrying `months` months of food (0-12).
+table SendWave {
+  at: Vec2 (id: 0);
+  households: uint (id: 1);
+  days: uint (id: 2);
+  months: uint (id: 3);
+}
+
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave }
 
 table Command {
   body: CommandBody (id: 1);
@@ -836,7 +846,8 @@ table NewsLine {
 // of it, read from the records people keep.
 table InfluenceLine {
   id: uint (id: 0);
-  // 0 a whisper, 1 an ideology told of; wire 1.48: 2 an agitator sent, 3 a blessing, 4 a curse.
+  // 0 a whisper, 1 an ideology told of; wire 1.48: 2 an agitator sent, 3 a blessing, 4 a curse;
+  // wire 1.52: 5 a migration wave they came with.
   kind: ubyte (id: 1);
   // When it was first used.
   minute: long (id: 2);

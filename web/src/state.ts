@@ -70,6 +70,13 @@ export interface AppState {
    * the ideology they hold: an index into Welcome.ideologies. */
   placingAgitator: boolean;
   agitatorIdeology: number;
+  /** The map tool that sends a migration wave where the map is clicked is armed (M5a slice AN),
+   * with the households it brings, the days over which they come and the months of food each
+   * carries. */
+  placingWave: boolean;
+  waveHouseholds: number;
+  waveDays: number;
+  waveMonths: number;
   /** The chronicle of the world on show, oldest first. */
   chronicle: ChronicleEntry[];
   /** The markets of the world on show (null = not read yet). */
@@ -129,6 +136,10 @@ export function initialState(): AppState {
     depositExposed: true,
     placingAgitator: false,
     agitatorIdeology: 0,
+    placingWave: false,
+    waveHouseholds: 10,
+    waveDays: 3,
+    waveMonths: 6,
     chronicle: [],
     markets: null,
     marketsError: null,

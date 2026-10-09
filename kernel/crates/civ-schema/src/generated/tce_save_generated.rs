@@ -30094,6 +30094,7 @@ impl<'a> ::flatbuffers::Follow<'a> for InfluencesSave<'a> {
 impl<'a> InfluencesSave<'a> {
   pub const VT_LIST: ::flatbuffers::VOffsetT = 4;
   pub const VT_IDEOLOGIES: ::flatbuffers::VOffsetT = 6;
+  pub const VT_WAVES: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -30105,6 +30106,7 @@ impl<'a> InfluencesSave<'a> {
     args: &'args InfluencesSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<InfluencesSave<'bldr>> {
     let mut builder = InfluencesSaveBuilder::new(_fbb);
+    if let Some(x) = args.waves { builder.add_waves(x); }
     if let Some(x) = args.ideologies { builder.add_ideologies(x); }
     if let Some(x) = args.list { builder.add_list(x); }
     builder.finish()
@@ -30125,6 +30127,13 @@ impl<'a> InfluencesSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(InfluencesSave::VT_IDEOLOGIES, None)}
   }
+  #[inline]
+  pub fn waves(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WaveSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WaveSave>>>>(InfluencesSave::VT_WAVES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for InfluencesSave<'_> {
@@ -30135,6 +30144,7 @@ impl ::flatbuffers::Verifiable for InfluencesSave<'_> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<InfluenceSave>>>>("list", Self::VT_LIST, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("ideologies", Self::VT_IDEOLOGIES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WaveSave>>>>("waves", Self::VT_WAVES, false)?
      .finish();
     Ok(())
   }
@@ -30142,6 +30152,7 @@ impl ::flatbuffers::Verifiable for InfluencesSave<'_> {
 pub struct InfluencesSaveArgs<'a> {
     pub list: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<InfluenceSave<'a>>>>>,
     pub ideologies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub waves: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WaveSave<'a>>>>>,
 }
 impl<'a> Default for InfluencesSaveArgs<'a> {
   #[inline]
@@ -30149,6 +30160,7 @@ impl<'a> Default for InfluencesSaveArgs<'a> {
     InfluencesSaveArgs {
       list: None,
       ideologies: None,
+      waves: None,
     }
   }
 }
@@ -30165,6 +30177,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> InfluencesSaveBuilder<'a, 'b,
   #[inline]
   pub fn add_ideologies(&mut self, ideologies: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(InfluencesSave::VT_IDEOLOGIES, ideologies);
+  }
+  #[inline]
+  pub fn add_waves(&mut self, waves: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WaveSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(InfluencesSave::VT_WAVES, waves);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> InfluencesSaveBuilder<'a, 'b, A> {
@@ -30186,6 +30202,324 @@ impl ::core::fmt::Debug for InfluencesSave<'_> {
     let mut ds = f.debug_struct("InfluencesSave");
       ds.field("list", &self.list());
       ds.field("ideologies", &self.ideologies());
+      ds.field("waves", &self.waves());
+      ds.finish()
+  }
+}
+pub enum WaveSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WaveSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WaveSave<'a> {
+  type Inner = WaveSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WaveSave<'a> {
+  pub const VT_RECORD: ::flatbuffers::VOffsetT = 4;
+  pub const VT_AT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_EDGE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 10;
+  pub const VT_HOUSEHOLDS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_DAYS: ::flatbuffers::VOffsetT = 14;
+  pub const VT_PROVISIONS_DAYS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_ARRIVED: ::flatbuffers::VOffsetT = 18;
+  pub const VT_CAME: ::flatbuffers::VOffsetT = 20;
+  pub const VT_NEXT: ::flatbuffers::VOffsetT = 22;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 24;
+  pub const VT_BAND: ::flatbuffers::VOffsetT = 26;
+  pub const VT_PARENTS: ::flatbuffers::VOffsetT = 28;
+  pub const VT_PEOPLE: ::flatbuffers::VOffsetT = 30;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WaveSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WaveSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<WaveSave<'bldr>> {
+    let mut builder = WaveSaveBuilder::new(_fbb);
+    builder.add_band(args.band);
+    builder.add_settlement(args.settlement);
+    builder.add_day(args.day);
+    if let Some(x) = args.people { builder.add_people(x); }
+    if let Some(x) = args.parents { builder.add_parents(x); }
+    builder.add_next(args.next);
+    builder.add_came(args.came);
+    builder.add_arrived(args.arrived);
+    builder.add_provisions_days(args.provisions_days);
+    builder.add_days(args.days);
+    builder.add_households(args.households);
+    if let Some(x) = args.edge { builder.add_edge(x); }
+    if let Some(x) = args.at { builder.add_at(x); }
+    builder.add_record(args.record);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn record(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WaveSave::VT_RECORD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn at(&self) -> Option<&'a Point> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Point>(WaveSave::VT_AT, None)}
+  }
+  #[inline]
+  pub fn edge(&self) -> Option<&'a Point> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Point>(WaveSave::VT_EDGE, None)}
+  }
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(WaveSave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn households(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WaveSave::VT_HOUSEHOLDS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn days(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WaveSave::VT_DAYS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn provisions_days(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WaveSave::VT_PROVISIONS_DAYS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn arrived(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WaveSave::VT_ARRIVED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn came(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WaveSave::VT_CAME, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn next(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WaveSave::VT_NEXT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WaveSave::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn band(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WaveSave::VT_BAND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn parents(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(WaveSave::VT_PARENTS, None)}
+  }
+  #[inline]
+  pub fn people(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(WaveSave::VT_PEOPLE, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WaveSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("record", Self::VT_RECORD, false)?
+     .visit_field::<Point>("at", Self::VT_AT, false)?
+     .visit_field::<Point>("edge", Self::VT_EDGE, false)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<u32>("households", Self::VT_HOUSEHOLDS, false)?
+     .visit_field::<u32>("days", Self::VT_DAYS, false)?
+     .visit_field::<u32>("provisions_days", Self::VT_PROVISIONS_DAYS, false)?
+     .visit_field::<u32>("arrived", Self::VT_ARRIVED, false)?
+     .visit_field::<u32>("came", Self::VT_CAME, false)?
+     .visit_field::<u32>("next", Self::VT_NEXT, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<u64>("band", Self::VT_BAND, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("parents", Self::VT_PARENTS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("people", Self::VT_PEOPLE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WaveSaveArgs<'a> {
+    pub record: u32,
+    pub at: Option<&'a Point>,
+    pub edge: Option<&'a Point>,
+    pub day: i64,
+    pub households: u32,
+    pub days: u32,
+    pub provisions_days: u32,
+    pub arrived: u32,
+    pub came: u32,
+    pub next: u32,
+    pub settlement: u64,
+    pub band: u64,
+    pub parents: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub people: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+}
+impl<'a> Default for WaveSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WaveSaveArgs {
+      record: 0,
+      at: None,
+      edge: None,
+      day: 0,
+      households: 0,
+      days: 0,
+      provisions_days: 0,
+      arrived: 0,
+      came: 0,
+      next: 0,
+      settlement: 0,
+      band: 0,
+      parents: None,
+      people: None,
+    }
+  }
+}
+
+pub struct WaveSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WaveSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_record(&mut self, record: u32) {
+    self.fbb_.push_slot::<u32>(WaveSave::VT_RECORD, record, 0);
+  }
+  #[inline]
+  pub fn add_at(&mut self, at: &Point) {
+    self.fbb_.push_slot_always::<&Point>(WaveSave::VT_AT, at);
+  }
+  #[inline]
+  pub fn add_edge(&mut self, edge: &Point) {
+    self.fbb_.push_slot_always::<&Point>(WaveSave::VT_EDGE, edge);
+  }
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(WaveSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_households(&mut self, households: u32) {
+    self.fbb_.push_slot::<u32>(WaveSave::VT_HOUSEHOLDS, households, 0);
+  }
+  #[inline]
+  pub fn add_days(&mut self, days: u32) {
+    self.fbb_.push_slot::<u32>(WaveSave::VT_DAYS, days, 0);
+  }
+  #[inline]
+  pub fn add_provisions_days(&mut self, provisions_days: u32) {
+    self.fbb_.push_slot::<u32>(WaveSave::VT_PROVISIONS_DAYS, provisions_days, 0);
+  }
+  #[inline]
+  pub fn add_arrived(&mut self, arrived: u32) {
+    self.fbb_.push_slot::<u32>(WaveSave::VT_ARRIVED, arrived, 0);
+  }
+  #[inline]
+  pub fn add_came(&mut self, came: u32) {
+    self.fbb_.push_slot::<u32>(WaveSave::VT_CAME, came, 0);
+  }
+  #[inline]
+  pub fn add_next(&mut self, next: u32) {
+    self.fbb_.push_slot::<u32>(WaveSave::VT_NEXT, next, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(WaveSave::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_band(&mut self, band: u64) {
+    self.fbb_.push_slot::<u64>(WaveSave::VT_BAND, band, 0);
+  }
+  #[inline]
+  pub fn add_parents(&mut self, parents: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WaveSave::VT_PARENTS, parents);
+  }
+  #[inline]
+  pub fn add_people(&mut self, people: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WaveSave::VT_PEOPLE, people);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WaveSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WaveSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WaveSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WaveSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WaveSave");
+      ds.field("record", &self.record());
+      ds.field("at", &self.at());
+      ds.field("edge", &self.edge());
+      ds.field("day", &self.day());
+      ds.field("households", &self.households());
+      ds.field("days", &self.days());
+      ds.field("provisions_days", &self.provisions_days());
+      ds.field("arrived", &self.arrived());
+      ds.field("came", &self.came());
+      ds.field("next", &self.next());
+      ds.field("settlement", &self.settlement());
+      ds.field("band", &self.band());
+      ds.field("parents", &self.parents());
+      ds.field("people", &self.people());
       ds.finish()
   }
 }

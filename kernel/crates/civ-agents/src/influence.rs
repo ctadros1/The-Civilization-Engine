@@ -1,6 +1,7 @@
 //! The observer's interventions (M4c slice AJ, ADR-0016 §5; research 15-05 §4.2, §4.5, §6).
 //! A god tool submits only a perceptible event or a physical change: a true claim heard, an
-//! ideology heard of, a newcomer sent, a person's own luck in material things shifted for a while.
+//! ideology heard of, a newcomer or a wave of households sent, a person's own luck in material
+//! things shifted for a while.
 //! None chooses an action, passes or blocks a law, sets an allegiance or writes
 //! a grievance, a position or a vote. Each use is one record, kept with its number, its target and
 //! what it submitted; a repeat of the same thing to the same person refreshes that record and never
@@ -23,16 +24,20 @@ pub enum InfluenceKind {
     Bless = 3,
     /// The same moved against them.
     Curse = 4,
+    /// A migration wave (M5a slice AN): the target is its first arrival, the subject the
+    /// households it brings; [`Wave`] holds the rest.
+    Wave = 5,
 }
 
 impl InfluenceKind {
     /// Every kind, in code order.
-    pub const ALL: [InfluenceKind; 5] = [
+    pub const ALL: [InfluenceKind; 6] = [
         InfluenceKind::Whisper,
         InfluenceKind::Ideology,
         InfluenceKind::Agitator,
         InfluenceKind::Bless,
         InfluenceKind::Curse,
+        InfluenceKind::Wave,
     ];
 
     /// Its number in saves.
@@ -110,10 +115,70 @@ const MIN_KEEP: f64 = 0.5;
 pub const SHARE_RANGE: [f32; 2] = [0.05, 0.5];
 pub const DAYS_RANGE: [u32; 2] = [1, 3650];
 
+/// The households a wave may bring, and the days over which they may come (M5a slice AN; the
+/// plan's range, design priors).
+pub const WAVE_HOUSEHOLDS: [u32; 2] = [5, 50];
+pub const WAVE_DAYS: [u32; 2] = [1, 7];
+/// The months of food a wave's households may carry (a design prior: 05-06 §5.4 tests 6–12
+/// months for an isolated crop-dependent founding; none lets the observer send them hungry).
+pub const WAVE_MONTHS: [u32; 2] = [0, 12];
+
+/// A migration wave the observer sent (M5a slice AN, ADR-0016 §5, ADR-0018 §3): households of
+/// one band, new people from off the map, who come to where it was sent from the map's edge
+/// nearest it, the first at once and the rest at the midnights of the days after. Once there they
+/// are ordinary people; nothing here chooses where they go next.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Wave {
+    /// Its influence record's number.
+    pub record: u32,
+    /// Where it was sent, and where it came onto the map, in metres.
+    pub at: (f32, f32),
+    pub edge: (f32, f32),
+    /// The day it was sent.
+    pub day: i64,
+    /// The households it brings, and the days over which they come.
+    pub households: u32,
+    pub days: u32,
+    /// The days of food each household carries for its people.
+    pub provisions_days: u32,
+    /// The households whose day has come, those of them that found room to camp (one that finds
+    /// none goes on, off the map, and never comes), and the next point of the spiral around `at`
+    /// to try.
+    pub arrived: u32,
+    pub came: u32,
+    pub next: u32,
+    /// The settlement its first household joined or founded, and that household, whose band's
+    /// way of building every household of the wave shares.
+    pub settlement: Option<PermanentId>,
+    pub band: Option<PermanentId>,
+    /// For each run of [`WAVE_SIBLINGS`] households, the parents (who stayed behind, off the map,
+    /// with no record) of one adult of each: so its households come as brothers and sisters.
+    pub parents: Vec<(PermanentId, PermanentId)>,
+    /// Everyone it brought, in the order they came.
+    pub people: Vec<PermanentId>,
+}
+
+/// Households of a wave whose adults are brothers and sisters (a design prior).
+pub const WAVE_SIBLINGS: u32 = 3;
+
+impl Wave {
+    /// The day its `i`th household (from 0) comes: the households spread evenly over its days.
+    pub fn due(&self, i: u32) -> i64 {
+        self.day + i64::from(i * self.days.max(1) / self.households.max(1))
+    }
+
+    /// Whether every household has come.
+    pub fn done(&self) -> bool {
+        self.arrived >= self.households
+    }
+}
+
 /// Every intervention, in the order used.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Influences {
     pub list: Vec<Influence>,
+    /// The migration waves sent, in the order sent (M5a slice AN).
+    pub waves: Vec<Wave>,
 }
 
 impl Influences {
@@ -146,9 +211,19 @@ impl Influences {
             })
     }
 
-    /// The interventions that reached `target`, in the order used.
+    /// The interventions that reached `target`, in the order used: a wave reached everyone it
+    /// brought.
     pub fn on(&self, target: PermanentId) -> impl Iterator<Item = &Influence> {
-        self.list.iter().filter(move |i| i.target == target)
+        self.list.iter().filter(move |i| {
+            i.target == target
+                || (i.kind == InfluenceKind::Wave
+                    && self.wave(i.id).is_some_and(|w| w.people.contains(&target)))
+        })
+    }
+
+    /// The wave recorded as number `record`.
+    pub fn wave(&self, record: u32) -> Option<&Wave> {
+        self.waves.iter().find(|w| w.record == record)
     }
 
     /// Records a new use, numbered here, and returns its number.
@@ -196,6 +271,32 @@ mod tests {
         for k in InfluenceKind::ALL {
             assert_eq!(InfluenceKind::from_code(k.code()), Some(k));
         }
+    }
+
+    #[test]
+    fn a_waves_households_come_spread_over_its_days() {
+        let mut w = Wave {
+            record: 1,
+            at: (0.0, 0.0),
+            edge: (0.0, 0.0),
+            day: 100,
+            households: 10,
+            days: 7,
+            provisions_days: 90,
+            arrived: 0,
+            came: 0,
+            next: 0,
+            settlement: None,
+            band: None,
+            parents: Vec::new(),
+            people: Vec::new(),
+        };
+        let days: Vec<i64> = (0..10).map(|i| w.due(i) - 100).collect();
+        assert_eq!(days, vec![0, 0, 1, 2, 2, 3, 4, 4, 5, 6]);
+        w.days = 1;
+        assert!((0..10).all(|i| w.due(i) == 100), "all at once");
+        w.arrived = 10;
+        assert!(w.done());
     }
 
     #[test]

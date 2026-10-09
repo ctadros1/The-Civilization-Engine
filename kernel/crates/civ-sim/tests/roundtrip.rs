@@ -2241,6 +2241,19 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
 }
 
 #[test]
+fn a_schema_53_save_loads_with_no_wave_sent() {
+    // A schema-53 save, from before migration waves (M5a slice AN, step two).
+    let sim = load_first();
+    assert!(sim.people().influences.waves.is_empty());
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V53;
+    let path = republish("slice-an1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-53 save loads");
+    assert!(loaded.people().influences.waves.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_52_save_loads_with_no_household_leaning_to_move() {
     // A schema-52 save, from before households moved between settlements (M5a slice AN): no
     // leanings and no reviews prompted were kept.

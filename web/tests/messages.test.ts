@@ -124,6 +124,13 @@ describe("builders", () => {
     const c = cursed.body(new W.Bless()) as W.Bless;
     expect([c.person(), c.curse(), c.days(), c.share()]).toEqual([42n, true, 365, 0.25]);
   });
+
+  it("builds the observer's migration wave", () => {
+    const sent = W.Command.getRootAsCommand(bb(M.sendWave(120, 340, 20, 3, 6)));
+    expect(sent.bodyType()).toBe(W.CommandBody.SendWave);
+    const w = sent.body(new W.SendWave()) as W.SendWave;
+    expect([w.at()?.x(), w.at()?.y(), w.households(), w.days(), w.months()]).toEqual([120, 340, 20, 3, 6]);
+  });
 });
 
 function finish(b: flatbuffers.Builder, root: flatbuffers.Offset): Uint8Array {

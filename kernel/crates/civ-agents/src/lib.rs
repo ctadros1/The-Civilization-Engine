@@ -60,8 +60,8 @@ pub mod wealth;
 pub mod word;
 
 pub use found::{
-    Founded, MAX_FOUNDING_GROUPS, MAX_SPAWN_FAMILIES, Spawned, found_band, found_bands,
-    send_agitator, spawn_families, spawn_family,
+    Founded, MAX_FOUNDING_GROUPS, MAX_SPAWN_FAMILIES, Spawned, WAVE_KNOWN_M, found_band,
+    found_bands, send_agitator, send_wave, spawn_families, spawn_family,
 };
 pub use history::{
     Cause, ChronicleEvent, ChronicleKind, Moved, Origin, PersonRecord, Reason, Receipt,

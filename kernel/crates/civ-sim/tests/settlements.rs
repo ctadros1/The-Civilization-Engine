@@ -740,3 +740,203 @@ fn a_household_out_of_food_goes_where_its_kin_are_and_its_kin_follow() {
         pop.residence_problems()
     );
 }
+
+#[test]
+fn an_exile_goes_where_kin_live_and_one_drawn_nowhere_leaves_the_map() {
+    // Two settlements that know where each other camped. One adult of the first has kin in the
+    // second; another has none there. Exiled, the first lives on near their kin; the second goes
+    // beyond the map, as exiles did before (M5a slice AN; ADR-0015 §5, ADR-0018 §3).
+    let mut sim = world_knowing(3, 50, &[50], true).expect("generates");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let (_, parent) = household_of(&sim, a);
+    kin_in(&mut sim, parent, b, 3);
+    let kinless = {
+        let pop = sim.people();
+        let parents_kin = pop.records[&parent].mother;
+        adults_of(&sim, a)
+            .into_iter()
+            .map(|x| x.0)
+            .find(|&x| {
+                x != parent
+                    && pop.records[&x].mother != parents_kin
+                    && pop.records[&x].mother != Some(parent)
+                    && pop.records[&x].father != Some(parent)
+            })
+            .expect("someone with no kin there")
+    };
+    sim.exile_for_tests(parent);
+    sim.exile_for_tests(kinless);
+    sim.advance_minutes(60).expect("goes on");
+
+    let pop = sim.people();
+    let p = pop.person(parent).expect("still in the world");
+    let home = pop
+        .household(p.household)
+        .expect("a household of their own");
+    assert_eq!((home.settlement, home.members.len()), (Some(b), 1));
+    let last = pop.records[&parent].residence.last().expect("a stay");
+    assert_eq!((last.settlement, last.why), (Some(b), ResidenceWhy::Exiled));
+    assert!(pop.records[&parent].left.is_none());
+    assert!(
+        pop.person(kinless).is_none(),
+        "drawn nowhere, they left the map"
+    );
+    assert!(pop.records[&kinless].left.is_some());
+    let moved: u32 = pop.contacts.years.values().map(|c| c.moved).sum();
+    assert_eq!(moved, 1);
+    assert!(
+        pop.residence_problems().is_empty(),
+        "{:?}",
+        pop.residence_problems()
+    );
+    assert!(pop.problems(u64::MAX, usize::MAX).is_empty());
+}
+
+/// Saves `sim`, loads it, and checks every section of the loaded world is the same, and that the
+/// two go on alike for `minutes`.
+fn saves_and_goes_on_alike(sim: &mut Sim, minutes: i64) {
+    use civ_sim::persist;
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(sim, &saves, commons_persist::SaveKind::Manual, "wave").expect("saves");
+    let mut loaded = persist::load(&saved.path, content()).expect("loads");
+    let same = |a: &Sim, b: &Sim| {
+        let (a, b) = (persist::encode_sections(a), persist::encode_sections(b));
+        assert_eq!(a.len(), b.len());
+        for (x, y) in a.iter().zip(&b) {
+            assert!(x.bytes == y.bytes, "section `{}` differs", x.tag);
+        }
+    };
+    same(sim, &loaded);
+    sim.advance_minutes(minutes).expect("advances");
+    loaded.advance_minutes(minutes).expect("advances");
+    same(sim, &loaded);
+}
+
+#[test]
+fn a_migration_wave_comes_over_its_days_as_kin_of_one_band_knowing_what_lies_near() {
+    use civ_agents::influence::InfluenceKind;
+    let mut sim = world(3, 30, &[30]).expect("generates");
+    sim.advance_minutes(10 * 24 * 60).expect("lives");
+    let start = sim.now();
+    let far = dry_ground_apart(&sim, 1200.0).expect("dry ground far from both camps");
+    assert!(
+        sim.send_wave(far, 4, 3, 6).is_err(),
+        "fewer than five households"
+    );
+    assert!(sim.send_wave(far, 10, 8, 6).is_err(), "more than a week");
+    assert!(
+        sim.send_wave(far, 10, 3, 13).is_err(),
+        "more than a year's food"
+    );
+    let (record, came) = sim.send_wave(far, 10, 3, 6).expect("a wave comes");
+    // Ten households over three days: four at once, the rest at the next two midnights.
+    assert_eq!(came.len(), 4);
+    assert!(came[0].founded, "far from both camps it makes its own");
+    assert!(
+        came[1..]
+            .iter()
+            .all(|s| !s.founded && s.settlement == came[0].settlement)
+    );
+    let camp = came[0].settlement;
+    assert_eq!(
+        sim.land()
+            .settlements
+            .iter()
+            .find(|s| s.id == camp)
+            .map(|s| s.founding),
+        Some(Founding::Wave)
+    );
+    let pop = sim.people();
+    let i = pop
+        .influences
+        .list
+        .iter()
+        .find(|i| i.id == record)
+        .expect("one record");
+    assert_eq!((i.kind, i.subject), (InfluenceKind::Wave, 10));
+    assert_eq!(i.target, came[0].people[0]);
+    assert!(
+        pop.chronicle
+            .iter()
+            .any(|e| e.name.contains("the first of a wave of 10 households")),
+        "the chronicle tells it once"
+    );
+    let wave = pop.influences.wave(record).expect("its wave").clone();
+    assert_eq!((wave.arrived, wave.came), (4, 4));
+    assert!(!wave.done());
+    // Each household carries six months' food for its people, and seed besides.
+    let people = &sim.rules().people;
+    let good = people.band.provisions_good;
+    let kcal = sim.rules().catalog.goods[good].kcal_per_kg;
+    for s in &came {
+        let h = pop.household(s.household).expect("its household");
+        let n = h.members.len() as f64;
+        let food = n * people.household.daily_kcal_per_person * 182.0 / kcal;
+        let held = h.stores[good];
+        assert!(
+            held >= food - 1e-6 && held <= food + n * people.band.seed_kg_per_person + 1e-6,
+            "{held} kg against {food} kg of food"
+        );
+    }
+    // In each run of three households one of each couple is a child of the same parents, who
+    // stayed behind: brothers and sisters.
+    let child_of = |s: &civ_agents::Spawned,
+                    (m, f): (civ_core::PermanentId, civ_core::PermanentId)| {
+        s.people.iter().any(|q| {
+            let r = &pop.records[q];
+            r.mother == Some(m) && r.father == Some(f)
+        })
+    };
+    assert!(came[..3].iter().all(|s| child_of(s, wave.parents[0])));
+    assert!(child_of(&came[3], wave.parents[1]));
+    assert!(!child_of(&came[3], wave.parents[0]));
+    // They know the settlements near where they were sent, and those they passed in sight of.
+    let mut told = 0;
+    for s in &sim.land().settlements {
+        if s.id == camp {
+            continue;
+        }
+        let near = (s.hearth_m.0 - far.0).hypot(s.hearth_m.1 - far.1) <= civ_agents::WAVE_KNOWN_M;
+        let seen = civ_agents::places::distance_to_walk(&[wave.edge, far], s.hearth_m)
+            <= people.places.sight_m;
+        for h in &came {
+            let known = pop
+                .known_places
+                .of(h.household)
+                .iter()
+                .any(|k| k.settlement == s.id);
+            assert_eq!(known, near || seen, "{}", s.name);
+        }
+        told += usize::from(near && !seen);
+    }
+    assert!(
+        told > 0,
+        "this world has settlements near enough to be told of"
+    );
+    // Saved with households still to come, a world goes on alike: they come all the same.
+    sim.advance_minutes(24 * 60).expect("lives");
+    let w = sim.people().influences.wave(record).expect("its wave");
+    assert_eq!(w.arrived, 7, "three more at the first midnight");
+    saves_and_goes_on_alike(&mut sim, 2 * 24 * 60);
+    let pop = sim.people();
+    let w = pop.influences.wave(record).expect("its wave");
+    assert!(w.done());
+    assert_eq!(w.came, 10, "all found room");
+    // Everyone it brought came from off the map to the camp; the accounts balance.
+    let now = sim.now().plus_minutes(1);
+    let a = pop.accounts(camp, start, now);
+    assert!(a.balance(), "{a:?}");
+    assert_eq!(a.arrivals.get(&None).copied(), Some(w.people.len() as u32));
+    assert!(
+        w.people
+            .iter()
+            .all(|p| pop.records[p].residence[0].why == ResidenceWhy::Arrived)
+    );
+    assert!(
+        pop.problems(sim.ids().peek_next(), sim.rules().catalog.activities.len())
+            .is_empty()
+    );
+}

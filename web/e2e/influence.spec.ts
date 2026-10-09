@@ -1,6 +1,7 @@
 // M4c slice AJ, end to end (ADR-0016 §5): the observer tells an adult of an ideology from the
 // inspector; they weigh it by what they hold dear, the inspector says what came of it as one
-// recorded influence, the chronicle records it, and telling them again adds nothing.
+// recorded influence, the chronicle records it, and telling them again adds nothing. Then a
+// blessing, an agitator and a migration wave (M5a slice AN).
 
 import { expect, test } from "@playwright/test";
 
@@ -84,6 +85,20 @@ test("the observer tells someone of an ideology, and a repeat adds nothing", asy
     await page.waitForFunction((n) => window.__TCE__.state().people > n, people, { timeout: 30_000 });
     await expect(page.getByRole("button", { name: "Send an agitator" })).toHaveAttribute("aria-pressed", "false");
     await expect(page.locator("#chronicle")).toContainText(/One recorded influence: the observer sent \w+, who holds to order kept by all, to /);
+
+    // A migration wave of five households over three days, sent with the map tool to the village
+    // (M5a slice AN): the first come at once, the rest at the midnights after.
+    await page.getByLabel("Households the wave brings").selectOption("5");
+    await page.getByLabel("Days over which they come").selectOption("3");
+    await page.getByRole("button", { name: "Send a wave" }).click();
+    await expect(page.getByRole("button", { name: "Send a wave" })).toHaveAttribute("aria-pressed", "true");
+    const before = await page.evaluate(() => window.__TCE__.state().people);
+    await page.mouse.click(box.x + box.width / 2 - 25, box.y + box.height / 2 - 15);
+    await page.waitForFunction((n) => window.__TCE__.state().people > n, before, { timeout: 30_000 });
+    await expect(page.getByRole("button", { name: "Send a wave" })).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator("#chronicle")).toContainText(
+      /One recorded influence: the observer sent \w+'s household, the first of a wave of 5 households from the \w+, to /,
+    );
   } finally {
     await host.stop();
   }

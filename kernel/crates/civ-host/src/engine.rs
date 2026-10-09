@@ -417,6 +417,12 @@ impl Engine {
             Request::Whisper { person, claim } => self.whisper(person, claim),
             Request::TellOfIdeology { person, ideology } => self.tell_of_ideology(person, ideology),
             Request::SendAgitator { at, ideology } => self.send_agitator(at, ideology),
+            Request::SendWave {
+                at,
+                households,
+                days,
+                months,
+            } => self.send_wave(at, households, days, months),
             Request::Bless {
                 person,
                 curse,
@@ -1153,6 +1159,47 @@ impl Engine {
         }
     }
 
+    /// The observer sends a migration wave to `at` (M5a slice AN).
+    fn send_wave(&mut self, at: (f32, f32), households: u32, days: u32, months: u32) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        match world.sim.send_wave(at, households, days, months) {
+            Ok((_, came)) => {
+                let Some(first) = came.first() else {
+                    return Reply::Error(
+                        wire::ErrorCode::BadRequest,
+                        "no household of the wave came".to_owned(),
+                    );
+                };
+                let people: usize = came.iter().map(|s| s.people.len()).sum();
+                let rest = households as usize - came.len();
+                let text = format!(
+                    "A wave of {households} households: {} ({people} people) {} {}{}",
+                    came.len(),
+                    if first.founded {
+                        "made camp at"
+                    } else {
+                        "came to"
+                    },
+                    first.name,
+                    match rest {
+                        0 => String::new(),
+                        n => format!(", {n} more to come in the days after"),
+                    }
+                );
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
     /// The observer blesses or curses `person` (M4c slice AJ).
     fn bless(&mut self, person: u64, curse: bool, days: u32, share: f32) -> Reply {
         if let Some(busy) = self.busy() {
@@ -1856,6 +1903,38 @@ mod tests {
         assert!(message.contains("who holds to"), "{message}");
         let sim = &h.engine.world.as_ref().expect("a world").sim;
         assert_eq!(sim.people().influences.list.len(), 3);
+        // A migration wave to the hearth: refused outside its ranges, else the first come at once.
+        assert_eq!(
+            error_code(&h.ask(Request::SendWave {
+                at: hearth,
+                households: 51,
+                days: 1,
+                months: 6,
+            })),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        let reply = h.ask(Request::SendWave {
+            at: hearth,
+            households: 6,
+            days: 2,
+            months: 6,
+        });
+        let Reply::Response(ack) = reply else {
+            panic!("sent: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert!(
+            message.starts_with("A wave of 6 households: 3 ") && message.contains("3 more"),
+            "{message}"
+        );
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        assert_eq!(sim.people().influences.list.len(), 4);
+        assert_eq!(sim.people().influences.waves.len(), 1);
     }
 
     #[test]

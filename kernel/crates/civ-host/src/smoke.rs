@@ -189,7 +189,15 @@ pub(crate) fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<Stri
     if let Some(why) = sim.founding_problem() {
         return vec![format!("the founding band could not settle: {why}")];
     }
-    let band = content.people.params.band.default_size as usize;
+    // A band of the content's default size for each founding group that settled (ADR-0018 §6).
+    let groups = sim
+        .land()
+        .settlements
+        .iter()
+        .filter(|s| s.founding == civ_land::Founding::Setup)
+        .count()
+        .max(1);
+    let band = content.people.params.band.default_size as usize * groups;
     if sim.people().living() != band {
         failures.push(format!(
             "{} people arrived instead of {band}",

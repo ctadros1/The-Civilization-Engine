@@ -148,6 +148,9 @@ export interface Actions {
   /** Arms or disarms the tool that sends an agitator holding ideology `ideology` where the map is
    * clicked (M4c slice AJ). */
   setPlacingAgitator(on: boolean, ideology: number): void;
+  /** Arms or disarms the tool that sends a migration wave of `households` households over `days`
+   * days, each carrying `months` months of food, where the map is clicked (M5a slice AN). */
+  setPlacingWave(on: boolean, households: number, days: number, months: number): void;
 }
 
 const MAX_SEED = (1n << 64n) - 1n;
@@ -522,6 +525,16 @@ export function bindUi(store: Store, actions: Actions): void {
   const armAgitator = (on: boolean): void => actions.setPlacingAgitator(on, Number(agitatorIdeology.value) || 0);
   addAgitator.addEventListener("click", () => armAgitator(addAgitator.getAttribute("aria-pressed") !== "true"));
   agitatorIdeology.addEventListener("change", () => armAgitator(addAgitator.getAttribute("aria-pressed") === "true"));
+  const addWave = $<HTMLButtonElement>("add-wave");
+  const waveChoices = ["wave-households", "wave-days", "wave-months"].map((id) => $<HTMLSelectElement>(id));
+  const armWave = (on: boolean): void => {
+    const [households, days, months] = waveChoices.map((s) => Number(s.value));
+    actions.setPlacingWave(on, households || 10, days || 1, months || 0);
+  };
+  addWave.addEventListener("click", () => armWave(addWave.getAttribute("aria-pressed") !== "true"));
+  for (const s of waveChoices) {
+    s.addEventListener("change", () => armWave(addWave.getAttribute("aria-pressed") === "true"));
+  }
   document.addEventListener("keydown", (event) => {
     if (event.key !== " " || isTyping(event.target)) return;
     if (document.querySelector("dialog[open]")) return;
@@ -2639,6 +2652,12 @@ export function bindUi(store: Store, actions: Actions): void {
     ideaSelect.disabled = agitator.disabled;
     agitator.setAttribute("aria-pressed", String(state.placingAgitator));
     agitator.classList.toggle("active", state.placingAgitator);
+    // The migration wave (M5a slice AN).
+    const wave = $<HTMLButtonElement>("add-wave");
+    wave.disabled = !open || !world;
+    for (const id of ["wave-households", "wave-days", "wave-months"]) $<HTMLSelectElement>(id).disabled = wave.disabled;
+    wave.setAttribute("aria-pressed", String(state.placingWave));
+    wave.classList.toggle("active", state.placingWave);
     renderSpeeds(state);
     renderConnection(state);
     renderBanner(state);

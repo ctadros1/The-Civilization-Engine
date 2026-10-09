@@ -356,4 +356,136 @@ impl Population {
             name,
         );
     }
+
+    /// Where `id`, exiled from `home` and of household `household`, goes (M5a slice AN): the
+    /// settlement their household knows whose kin, those they know and fed look draw them most,
+    /// if any does.
+    pub(super) fn exile_refuge(
+        &self,
+        ctx: &Ctx,
+        id: PermanentId,
+        household: PermanentId,
+        home: PermanentId,
+    ) -> Option<PermanentId> {
+        let mp = &ctx.params.moving;
+        let day = ctx.now.day_index();
+        let fed_here = self.fed_share(ctx, home);
+        let lives_in = |q: PermanentId| {
+            self.person(q)
+                .and_then(|p| self.household(p.household))
+                .and_then(|h| h.settlement)
+        };
+        let kin = self.close_kin(id);
+        let sat = |s: f64| s / (1.0 + s);
+        self.known_places
+            .of(household)
+            .iter()
+            .filter(|k| {
+                k.settlement != home
+                    && ctx
+                        .land
+                        .settlements
+                        .iter()
+                        .any(|s| s.id == k.settlement && s.abandoned.is_none())
+            })
+            .map(|k| {
+                let kin_there = kin
+                    .iter()
+                    .filter(|&&q| lives_in(q) == Some(k.settlement))
+                    .count();
+                let known: f64 = self
+                    .ties
+                    .of(id)
+                    .iter()
+                    .filter(|t| lives_in(t.to) == Some(k.settlement))
+                    .map(|t| t.known_at(day, &ctx.params.ties))
+                    .sum();
+                let fed = k.food.map_or(0.0, |f| f64::from(f) - fed_here);
+                let pull = mp.w_kin * kin_there as f64 + mp.w_ties * sat(known) + mp.w_fed * fed;
+                (k.settlement, pull)
+            })
+            .filter(|&(_, pull)| pull > 0.0)
+            .max_by(|a, b| a.1.total_cmp(&b.1).then(b.0.cmp(&a.0)))
+            .map(|(s, _)| s)
+    }
+
+    /// `id`, exiled from household `from` (already out of the world's tables, as `p`), lives on
+    /// in settlement `to` in a household of their own beside its hearth, with nothing but what
+    /// their household knew of other places.
+    pub(super) fn exile_to(
+        &mut self,
+        ctx: &mut Ctx,
+        id: PermanentId,
+        p: &Person,
+        from: PermanentId,
+        to: PermanentId,
+    ) {
+        let now = ctx.now;
+        let Some(hearth) = ctx
+            .land
+            .settlements
+            .iter()
+            .find(|s| s.id == to)
+            .map(|s| s.hearth_m)
+        else {
+            return;
+        };
+        let left = self.household(from).and_then(|x| x.settlement);
+        let (taste, admired) = self
+            .household(from)
+            .map_or((Default::default(), None), |x| (x.taste, x.admired));
+        let hh = ctx.ids.allocate();
+        let home = self.new_home_site(ctx, hearth, Some(hearth), hh);
+        self.insert_household(Household {
+            id: hh,
+            members: vec![id],
+            home,
+            settlement: Some(to),
+            stores: vec![0.0; ctx.catalog.goods.len()],
+            stores_at: now,
+            water_l: 0.0,
+            water_at: now,
+            known: Vec::new(),
+            sheltered: false,
+            keeping: crate::person::Keeping::default(),
+            flows: Flows::default(),
+            offers: Vec::new(),
+            taste,
+            admired,
+            midden: crate::person::Midden::begun(now),
+        });
+        let mut person = p.clone();
+        person.household = hh;
+        person.partner = None;
+        person.carrying = Default::default();
+        person.pos = p.position_at(now.minutes() as f64);
+        person.trip = None;
+        self.insert_person(person);
+        self.note_residence(id, Some(to), now, ResidenceWhy::Exiled);
+        self.known_places.bring(from, hh, Some(to));
+        let day = now.day_index();
+        if let Some(left) = left {
+            self.known_places
+                .learn(hh, left, day, PlaceHow::Lived, None);
+            self.contacts
+                .moved(day.div_euclid(DAYS_PER_YEAR), left, to, 1);
+        }
+        let name = ctx
+            .land
+            .settlements
+            .iter()
+            .find(|s| s.id == to)
+            .map_or_else(String::new, |s| s.name.clone());
+        self.chronicle_push(
+            now,
+            ChronicleKind::Moved,
+            vec![id],
+            Some(to),
+            Some(home),
+            1.0,
+            name,
+        );
+        // They set out from where they stand, deciding afresh what to do.
+        self.begin(ctx, id);
+    }
 }

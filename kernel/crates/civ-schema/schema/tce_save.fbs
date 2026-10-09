@@ -1697,6 +1697,28 @@ table InfluencesSave {
   list: [InfluenceSave] (id: 0);
   // Ideology content ids at save time.
   ideologies: [string] (id: 1);
+  // Schema 54 (M5a slice AN): the migration waves sent (influence kind 5), in the order sent;
+  // absent before.
+  waves: [WaveSave] (id: 2);
+}
+
+// Schema 54 (M5a slice AN): a migration wave. `parents` holds two ids for each run of three
+// households (mother, father); `settlement` and `band` 0 when none.
+table WaveSave {
+  record: uint (id: 0);
+  at: Point (id: 1);
+  edge: Point (id: 2);
+  day: long (id: 3);
+  households: uint (id: 4);
+  days: uint (id: 5);
+  provisions_days: uint (id: 6);
+  arrived: uint (id: 7);
+  came: uint (id: 8);
+  next: uint (id: 9);
+  settlement: ulong (id: 10);
+  band: ulong (id: 11);
+  parents: [ulong] (id: 12);
+  people: [ulong] (id: 13);
 }
 
 // Schema 51 (M5a slice AM, ADR-0018 §4): a place a household knows. `how`: 0 founded alongside,

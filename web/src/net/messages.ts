@@ -758,7 +758,8 @@ export interface NewsLine {
 /** One recorded influence and what came of it (wire 1.47, research 15-05 §6). */
 export interface InfluenceLine {
   id: number;
-  /** 0 a whisper, 1 an ideology told of. */
+  /** 0 a whisper, 1 an ideology told of, 2 an agitator, 3 a blessing, 4 a curse, 5 a migration
+   * wave they came with (wire 1.52). */
   kind: number;
   minute: number;
   what: string;
@@ -1651,6 +1652,21 @@ export function sendAgitator(xM: number, yM: number, ideology: number): Uint8Arr
   W.SendAgitator.addAt(b, W.Vec2.createVec2(b, xM, yM));
   W.SendAgitator.addIdeology(b, ideology);
   return command(b, W.CommandBody.SendAgitator, W.SendAgitator.endSendAgitator(b));
+}
+
+/**
+ * The observer sends a migration wave (god tool, M5a slice AN, ADR-0016 §5): `households`
+ * households (5–50) of one band come to where the map was clicked from its nearest edge over `days`
+ * days (1–7), each carrying `months` months of food (0–12).
+ */
+export function sendWave(xM: number, yM: number, households: number, days: number, months: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  W.SendWave.startSendWave(b);
+  W.SendWave.addAt(b, W.Vec2.createVec2(b, xM, yM));
+  W.SendWave.addHouseholds(b, households);
+  W.SendWave.addDays(b, days);
+  W.SendWave.addMonths(b, months);
+  return command(b, W.CommandBody.SendWave, W.SendWave.endSendWave(b));
 }
 
 /**

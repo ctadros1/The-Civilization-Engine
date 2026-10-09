@@ -125,6 +125,9 @@ struct SendAgitatorBuilder;
 struct Bless;
 struct BlessBuilder;
 
+struct SendWave;
+struct SendWaveBuilder;
+
 struct Command;
 struct CommandBuilder;
 
@@ -693,11 +696,12 @@ enum class CommandBody : uint8_t {
   TellOfIdeology = 12,
   SendAgitator = 13,
   Bless = 14,
+  SendWave = 15,
   MIN = NONE,
-  MAX = Bless
+  MAX = SendWave
 };
 
-inline const CommandBody (&EnumValuesCommandBody())[15] {
+inline const CommandBody (&EnumValuesCommandBody())[16] {
   static const CommandBody values[] = {
     CommandBody::NONE,
     CommandBody::NewWorld,
@@ -713,13 +717,14 @@ inline const CommandBody (&EnumValuesCommandBody())[15] {
     CommandBody::Whisper,
     CommandBody::TellOfIdeology,
     CommandBody::SendAgitator,
-    CommandBody::Bless
+    CommandBody::Bless,
+    CommandBody::SendWave
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandBody() {
-  static const char * const names[16] = {
+  static const char * const names[17] = {
     "NONE",
     "NewWorld",
     "SaveWorld",
@@ -735,13 +740,14 @@ inline const char * const *EnumNamesCommandBody() {
     "TellOfIdeology",
     "SendAgitator",
     "Bless",
+    "SendWave",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandBody(CommandBody e) {
-  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::Bless)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::SendWave)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandBody()[index];
 }
@@ -804,6 +810,10 @@ template<> struct CommandBodyTraits<tce::wire::SendAgitator> {
 
 template<> struct CommandBodyTraits<tce::wire::Bless> {
   static const CommandBody enum_value = CommandBody::Bless;
+};
+
+template<> struct CommandBodyTraits<tce::wire::SendWave> {
+  static const CommandBody enum_value = CommandBody::SendWave;
 };
 
 template <bool B = false>
@@ -5428,6 +5438,84 @@ struct Bless::Traits {
   static auto constexpr Create = CreateBless;
 };
 
+struct SendWave FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef SendWaveBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_AT = 4,
+    VT_HOUSEHOLDS = 6,
+    VT_DAYS = 8,
+    VT_MONTHS = 10
+  };
+  const tce::wire::Vec2 *at() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_AT);
+  }
+  uint32_t households() const {
+    return GetField<uint32_t>(VT_HOUSEHOLDS, 0);
+  }
+  uint32_t days() const {
+    return GetField<uint32_t>(VT_DAYS, 0);
+  }
+  uint32_t months() const {
+    return GetField<uint32_t>(VT_MONTHS, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_AT, 4) &&
+           VerifyField<uint32_t>(verifier, VT_HOUSEHOLDS, 4) &&
+           VerifyField<uint32_t>(verifier, VT_DAYS, 4) &&
+           VerifyField<uint32_t>(verifier, VT_MONTHS, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct SendWaveBuilder {
+  typedef SendWave Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_at(const tce::wire::Vec2 *at) {
+    fbb_.AddStruct(SendWave::VT_AT, at);
+  }
+  void add_households(uint32_t households) {
+    fbb_.AddElement<uint32_t>(SendWave::VT_HOUSEHOLDS, households, 0);
+  }
+  void add_days(uint32_t days) {
+    fbb_.AddElement<uint32_t>(SendWave::VT_DAYS, days, 0);
+  }
+  void add_months(uint32_t months) {
+    fbb_.AddElement<uint32_t>(SendWave::VT_MONTHS, months, 0);
+  }
+  explicit SendWaveBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<SendWave> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<SendWave>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<SendWave> CreateSendWave(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const tce::wire::Vec2 *at = nullptr,
+    uint32_t households = 0,
+    uint32_t days = 0,
+    uint32_t months = 0) {
+  SendWaveBuilder builder_(_fbb);
+  builder_.add_months(months);
+  builder_.add_days(days);
+  builder_.add_households(households);
+  builder_.add_at(at);
+  return builder_.Finish();
+}
+
+struct SendWave::Traits {
+  using type = SendWave;
+  static auto constexpr Create = CreateSendWave;
+};
+
 struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef CommandBuilder Builder;
   struct Traits;
@@ -5483,6 +5571,9 @@ struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::Bless *body_as_Bless() const {
     return body_type() == tce::wire::CommandBody::Bless ? static_cast<const tce::wire::Bless *>(body()) : nullptr;
+  }
+  const tce::wire::SendWave *body_as_SendWave() const {
+    return body_type() == tce::wire::CommandBody::SendWave ? static_cast<const tce::wire::SendWave *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -5548,6 +5639,10 @@ template<> inline const tce::wire::SendAgitator *Command::body_as<tce::wire::Sen
 
 template<> inline const tce::wire::Bless *Command::body_as<tce::wire::Bless>() const {
   return body_as_Bless();
+}
+
+template<> inline const tce::wire::SendWave *Command::body_as<tce::wire::SendWave>() const {
+  return body_as_SendWave();
 }
 
 struct CommandBuilder {
@@ -17523,6 +17618,10 @@ inline bool VerifyCommandBody(::flatbuffers::VerifierTemplate<B> &verifier, cons
     }
     case CommandBody::Bless: {
       auto ptr = reinterpret_cast<const tce::wire::Bless *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case CommandBody::SendWave: {
+      auto ptr = reinterpret_cast<const tce::wire::SendWave *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

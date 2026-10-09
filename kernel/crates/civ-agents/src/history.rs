@@ -1064,7 +1064,10 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             {
                 Some(crate::influence::InfluenceKind::Whisper) => "whispered to ",
                 Some(crate::influence::InfluenceKind::Ideology) => "told ",
-                Some(crate::influence::InfluenceKind::Agitator) => "sent ",
+                Some(
+                    crate::influence::InfluenceKind::Agitator
+                    | crate::influence::InfluenceKind::Wave,
+                ) => "sent ",
                 Some(crate::influence::InfluenceKind::Bless) => "blessed ",
                 Some(crate::influence::InfluenceKind::Curse) => "cursed ",
                 None => "reached ",

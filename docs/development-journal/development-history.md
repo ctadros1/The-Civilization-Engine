@@ -766,6 +766,21 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** slice AN, moving between settlements and the migration wave.
 
+## 2026-10-09 — M5a slice AN: moving between settlements and the migration wave
+
+**Goal:** people should be able to leave one settlement for another for reasons of their own, the observer should be able to send a wave of newcomers, and the dashboard should say whether the moves look plausible (plan §7, ADR-0018 §3, §5; research 05-06).
+
+**What changed, in two steps:**
+
+- **Moving by choice** (`4bbe4ee`): each household reviews once a year, and when it forms, whether a settlement it knows would suit it better: kin and those it knows there, the food a member saw there and its grievances, against the harvest it would give up, the work of starting again and the walk. A place must win two reviews running. A household out of food that gives up goes to its kin elsewhere if it has any, else beyond the map. The household forms anew beside the other hearth with all it holds; what it leaves stands empty under the regime's rules.
+- **Exile's destination, the wave and the moves row:** an exile goes where kin or those they know draw them, else beyond the map. The observer can send 5 to 50 households of one band from the map's nearest edge over up to a week, carrying the months of food chosen, building alike and kin in runs of three, knowing the settlements near where they were sent; one intervention record keeps everyone it brought. The dashboard grades moves between settlements per 100 residents a year against 05-06 §5.4's range (amber outside 0.5–10, never red, exiles left out), with turnover beside net change.
+
+**Findings:** a whole settlement out of food emptied itself into its neighbour household by household, each following kin who had just gone: chain migration, without a rule for it. A wave of a hundred founding at once on a corner of the map lived on its food and then left; word of a place alone draws nobody in an emergency. Running the dashboard for the new row showed it had failed every world since slice AK: its first-month check still expected one band where two now settle. That is fixed.
+
+**Evidence:** digest comparisons with the build before each step (one settlement of 1,000 for 30 days and three of 1,000 for 10, identical but for the sections whose layout changed); integration tests for the review, chain migration, exile and the wave (its days, food, kin, knowledge, save and load mid-wave, and the accounts); the old-save tests for schemas 52 and 53; the host's command test; the observer sending a wave end to end; the whole kernel suite, clippy, the smoke and the web suites.
+
+**Open:** moves in Gate B, which needs fixtures of several settlements; slice AO, splinter founding and the M5a demo.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

@@ -6,15 +6,20 @@
 //! wild food around them, the walk to fresh water, slope and flood risk, and sampling one with a
 //! softmax; the site is theirs to choose, not the engine's.
 
+use civ_core::time::DAYS_PER_YEAR;
 use civ_core::{PermanentId, Rng64, SimTime};
 use civ_world::nav::TravelField;
 use civ_world::{WATER_LAKE, WATER_LAND, WATER_RIVER, terrain};
 
 use crate::demography;
 use crate::history::{ChronicleKind, Origin, PersonRecord, Union};
+use crate::influence::{
+    InfluenceKind, WAVE_DAYS, WAVE_HOUSEHOLDS, WAVE_MONTHS, WAVE_SIBLINGS, Wave,
+};
 use crate::needs::Sex;
 use crate::params::{GoodUse, PeopleParams, step_at};
 use crate::person::{Activity, Household, Load, Person, Repro, Target, Traits};
+use crate::places::{PlaceHow, distance_to_walk};
 use crate::population::{Ctx, Population, cell_centre, cell_of};
 use crate::{decide, farm};
 
@@ -586,8 +591,8 @@ fn choose_sites(
 }
 
 /// Adds a planned family to the world: a household of `settlement` living at `home`, carrying in
-/// provisions and seed as the founding band does. Returns the household and its people, in the
-/// family's order (the mother, the father, then the rest).
+/// `provisions_days` days of food and seed as the founding band does. Returns the household and
+/// its people, in the family's order (the mother, the father, then the rest).
 #[allow(clippy::too_many_arguments)]
 fn add_family(
     pop: &mut Population,
@@ -597,6 +602,7 @@ fn add_family(
     band: Option<PermanentId>,
     home: (f32, f32),
     origin: Origin,
+    provisions_days: f64,
     d: &mut Draws,
     used_names: &mut Vec<String>,
 ) -> (PermanentId, Vec<PermanentId>) {
@@ -612,8 +618,7 @@ fn add_family(
         && good.kcal_per_kg > 0.0
     {
         stores[params.band.provisions_good] =
-            members * params.household.daily_kcal_per_person * params.band.provisions_days
-                / good.kcal_per_kg;
+            members * params.household.daily_kcal_per_person * provisions_days / good.kcal_per_kg;
     }
     // And seed for the crop they know.
     if let Some(seed) = ctx
@@ -936,6 +941,7 @@ fn settle_band(
             Some(settlement),
             home,
             Origin::Founder,
+            params.band.provisions_days,
             d,
             &mut used_names,
         );
@@ -1053,6 +1059,14 @@ enum Sent {
     Family,
     /// One adult alone (M4c slice AJ's agitator).
     Lone,
+    /// A household of a migration wave (M5a slice AN), carrying `days` days of food, one of its
+    /// couple a child of `parents` when given (the woman when `woman`, else the man, or the other
+    /// when that one already has parents in the family).
+    Wave {
+        days: u32,
+        parents: Option<(PermanentId, PermanentId)>,
+        woman: bool,
+    },
 }
 
 /// The observer's god tool (M4c slice AJ, ADR-0016 §5): one adult newcomer, holding ideology
@@ -1102,6 +1116,212 @@ pub fn send_agitator(
         format!(", who holds to {name}, to {}.", sent.name),
     );
     Ok((sent, record))
+}
+
+/// How far from where a wave is sent its households know the settlements, told of them on the way
+/// in (M5a slice AN; a design prior: an hour and a quarter's walk, beyond the 3 km setup keeps
+/// founding groups apart).
+pub const WAVE_KNOWN_M: f32 = 5_000.0;
+
+/// The observer's god tool (M5a slice AN, ADR-0016 §5, ADR-0018 §3): a migration wave of
+/// `households` households of one band (within [`WAVE_HOUSEHOLDS`]) comes to `at` from the map's
+/// edge nearest it over `days` days (within [`WAVE_DAYS`]): those due today at once, the rest at
+/// the midnights after ([`wave_arrivals`]). Each household is made as a sent family is, carrying
+/// `months` months of food (within [`WAVE_MONTHS`]) with seed and tools; all build in the way of
+/// the first household's band; in each run of [`WAVE_SIBLINGS`] households one of each couple is a
+/// brother or sister of the others; and each knows the settlements it passed within sight of on
+/// its way in from the edge and those within [`WAVE_KNOWN_M`] of `at`. They join the settlement
+/// there or found one, as a sent family does; nothing chooses where they go next. Returns the
+/// intervention's number and the households that came at once.
+pub fn send_wave(
+    pop: &mut Population,
+    ctx: &mut Ctx,
+    at: (f32, f32),
+    households: u32,
+    days: u32,
+    months: u32,
+) -> Result<(u32, Vec<Spawned>), String> {
+    let within = |v: u32, [lo, hi]: [u32; 2]| (lo..=hi).contains(&v);
+    if !within(households, WAVE_HOUSEHOLDS) {
+        return Err(format!(
+            "a wave brings {} to {} households (asked {households})",
+            WAVE_HOUSEHOLDS[0], WAVE_HOUSEHOLDS[1]
+        ));
+    }
+    if !within(days, WAVE_DAYS) {
+        return Err(format!(
+            "a wave comes over {} to {} days (asked {days})",
+            WAVE_DAYS[0], WAVE_DAYS[1]
+        ));
+    }
+    if !within(months, WAVE_MONTHS) {
+        return Err(format!(
+            "a wave carries {} to {} months of food (asked {months})",
+            WAVE_MONTHS[0], WAVE_MONTHS[1]
+        ));
+    }
+    let (w, h) = ctx.map.extent_m();
+    let (x, y) = (f64::from(at.0), f64::from(at.1));
+    if !(x >= 0.0 && y >= 0.0 && x < w && y < h) {
+        return Err("a wave can only be sent to a point on the map".to_owned());
+    }
+    let cell = cell_of(ctx.map, at);
+    if ctx.map.water[cell] != WATER_LAND || !ctx.nav.walkable(cell) {
+        return Err("a wave can only be sent to dry land people can walk on".to_owned());
+    }
+    // The edge nearest where it was sent, and which edge that is.
+    let (w, h) = (w as f32, h as f32);
+    let (edge, side) = [
+        ((0.0, at.1), at.0, "west"),
+        ((w, at.1), w - at.0, "east"),
+        ((at.0, 0.0), at.1, "north"),
+        ((at.0, h), h - at.1, "south"),
+    ]
+    .into_iter()
+    .min_by(|a, b| a.1.total_cmp(&b.1))
+    .map(|(p, _, side)| (p, side))
+    .unwrap_or(((0.0, at.1), "west"));
+    let runs = households.div_ceil(WAVE_SIBLINGS);
+    let parents = (0..runs)
+        .map(|_| (ctx.ids.allocate(), ctx.ids.allocate()))
+        .collect();
+    let day = ctx.now.day_index();
+    // Its number, known before anyone comes, keys its households' draws apart from those of any
+    // other family sent to the same point at the same minute.
+    let record = pop.influences.list.last().map_or(0, |i| i.id) + 1;
+    let mut wave = Wave {
+        record,
+        at,
+        edge,
+        day,
+        households,
+        days,
+        provisions_days: (i64::from(months) * DAYS_PER_YEAR / 12) as u32,
+        arrived: 0,
+        came: 0,
+        next: 0,
+        settlement: None,
+        band: None,
+        parents,
+        people: Vec::new(),
+    };
+    let came = arrive(pop, ctx, &mut wave, day);
+    let (Some(first), Some(sent)) = (wave.people.first().copied(), came.first()) else {
+        return Err("no household of the wave found room to camp there".to_owned());
+    };
+    let now = ctx.now;
+    let added = pop
+        .influences
+        .add(now, InfluenceKind::Wave, first, households);
+    debug_assert_eq!(added, record);
+    pop.chronicle_push(
+        now,
+        ChronicleKind::Influence,
+        vec![first],
+        Some(sent.settlement),
+        Some(at),
+        f64::from(InfluenceKind::Wave.code()),
+        format!(
+            "'s household, the first of a wave of {households} households from the {side}, to {}.",
+            sent.name
+        ),
+    );
+    pop.influences.waves.push(wave);
+    Ok((record, came))
+}
+
+/// The households of the waves whose day has come arrive (at midnight; M5a slice AN).
+pub(crate) fn wave_arrivals(pop: &mut Population, ctx: &mut Ctx) {
+    let day = ctx.now.day_index();
+    for i in 0..pop.influences.waves.len() {
+        let w = &pop.influences.waves[i];
+        if w.done() || w.due(w.arrived) > day {
+            continue;
+        }
+        let mut wave = w.clone();
+        arrive(pop, ctx, &mut wave, day);
+        pop.influences.waves[i] = wave;
+    }
+}
+
+/// Each household of `wave` due by `day` comes: at the next point of the spiral around where it
+/// was sent that takes a home (as sent families are placed), joining the settlement its first
+/// household joined or founded while anyone lives there. One that finds no room within four
+/// points a household goes on and never comes.
+fn arrive(pop: &mut Population, ctx: &mut Ctx, wave: &mut Wave, day: i64) -> Vec<Spawned> {
+    let golden = std::f64::consts::PI * (3.0 - 5f64.sqrt());
+    let mut out = Vec::new();
+    while !wave.done() && wave.due(wave.arrived) <= day {
+        let joining = wave.settlement.and_then(|id| {
+            ctx.land
+                .settlements
+                .iter()
+                .find(|s| s.id == id && s.abandoned.is_none())
+                .map(|s| (s.id, s.name.clone()))
+        });
+        let sent = Sent::Wave {
+            days: wave.provisions_days,
+            parents: wave
+                .parents
+                .get((wave.arrived / WAVE_SIBLINGS) as usize)
+                .copied(),
+            woman: wave.arrived.is_multiple_of(2),
+        };
+        let mut placed = None;
+        while placed.is_none() && wave.next < wave.households * 4 {
+            let k = wave.next;
+            wave.next += 1;
+            let (r, angle) = (SPAWN_SPACING_M * f64::from(k).sqrt(), golden * f64::from(k));
+            let p = (
+                wave.at.0 + (r * angle.cos()) as f32,
+                wave.at.1 + (r * angle.sin()) as f32,
+            );
+            let index = (u64::from(wave.record) << 32) | u64::from(k);
+            placed = spawn_one(pop, ctx, p, index, joining.clone(), wave.band, sent).ok();
+        }
+        wave.arrived += 1;
+        let Some(spawned) = placed else {
+            continue;
+        };
+        wave.came += 1;
+        if wave.band.is_none() {
+            wave.band = Some(spawned.household);
+        }
+        if joining.is_none() {
+            wave.settlement = Some(spawned.settlement);
+        }
+        wave_knows(pop, ctx, wave, spawned.household, spawned.settlement);
+        wave.people.extend_from_slice(&spawned.people);
+        out.push(spawned);
+    }
+    out
+}
+
+/// Household `household` of `wave`, living in `home`, knows the settlements lived in that it
+/// passed within sight of on its way in from the edge, and has been told of those within
+/// [`WAVE_KNOWN_M`] of where it was sent (ADR-0018 §4).
+fn wave_knows(
+    pop: &mut Population,
+    ctx: &Ctx,
+    wave: &Wave,
+    household: PermanentId,
+    home: PermanentId,
+) {
+    let day = ctx.now.day_index();
+    let way = [wave.edge, wave.at];
+    for s in &ctx.land.settlements {
+        if s.id == home || s.abandoned.is_some() {
+            continue;
+        }
+        let how = if distance_to_walk(&way, s.hearth_m) <= ctx.params.places.sight_m {
+            PlaceHow::Seen
+        } else if (s.hearth_m.0 - wave.at.0).hypot(s.hearth_m.1 - wave.at.1) <= WAVE_KNOWN_M {
+            PlaceHow::Told
+        } else {
+            continue;
+        };
+        pop.known_places.learn(household, s.id, day, how, None);
+    }
 }
 
 /// One family sent to `at`: the `index`th of those sent together (its own draws), joining
@@ -1181,14 +1401,18 @@ fn spawn_one(
                 food_short: false,
                 harvest_kg: 0.0,
                 parent: None,
-                founding: civ_land::Founding::Sent,
+                founding: if matches!(sent, Sent::Wave { .. }) {
+                    civ_land::Founding::Wave
+                } else {
+                    civ_land::Founding::Sent
+                },
                 abandoned: None,
             });
             (id, name, true)
         }
     };
     let family = match sent {
-        Sent::Family => plan_family(params, &mut d),
+        Sent::Family | Sent::Wave { .. } => plan_family(params, &mut d),
         Sent::Lone => vec![Member {
             sex: if d.unit() < 0.5 {
                 Sex::Female
@@ -1209,13 +1433,43 @@ fn spawn_one(
         band,
         home,
         Origin::Spawned,
+        match sent {
+            Sent::Wave { days, .. } => f64::from(days),
+            Sent::Family | Sent::Lone => params.band.provisions_days,
+        },
         &mut d,
         &mut used_names,
     );
+    // A wave's households come as brothers and sisters: one of the couple is a child of the
+    // parents its run of households shares.
+    if let Sent::Wave {
+        parents: Some((mother, father)),
+        woman,
+        ..
+    } = sent
+    {
+        let couple: Vec<usize> = (0..family.len().min(2)).collect();
+        let first = if woman { 0 } else { 1 };
+        let pick = [first, 1 - first].into_iter().find(|&i| {
+            couple.contains(&i) && family[i].mother.is_none() && family[i].father.is_none()
+        });
+        if let Some(i) = pick {
+            let id = people[i];
+            if let Some(r) = pop.records.get_mut(&id) {
+                r.mother = Some(mother);
+                r.father = Some(father);
+            }
+            if let Some(p) = pop.person_mut_by_id(id) {
+                p.mother = Some(mother);
+                p.father = Some(father);
+            }
+            pop.forget_kin();
+        }
+    }
     // What the family brings that its settlement did not know is noted (ADR-0008 §2).
     pop.note_arrivals(ctx.catalog, now, settlement, &people);
     // One sent alone is told by whoever sent them.
-    if sent == Sent::Family {
+    if sent != Sent::Lone {
         pop.chronicle_push(
             now,
             ChronicleKind::FamilyArrived,

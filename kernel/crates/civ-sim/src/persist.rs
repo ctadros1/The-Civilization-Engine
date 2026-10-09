@@ -193,6 +193,9 @@ pub const SCHEMA_V51: u32 = 51;
 /// The schema version of M5a slice AM, step two: visits and marriages between settlements,
 /// before households moved between them (see [`agents`]).
 pub const SCHEMA_V52: u32 = 52;
+/// The schema version of M5a slice AN, step one: households moving between settlements, before
+/// migration waves (see [`agents`]).
+pub const SCHEMA_V53: u32 = 53;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

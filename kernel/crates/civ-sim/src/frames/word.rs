@@ -676,6 +676,61 @@ fn agitator_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
     )
 }
 
+/// What the wave of `i` that brought them was, and what came of it so far: how many of its
+/// households came, how many of the people it brought still live, and where (M5a slice AN).
+fn wave_words(sim: &Sim, i: &Influence) -> String {
+    let pop = &sim.people;
+    let Some(w) = pop.influences.wave(i.id) else {
+        return "Came with a wave the observer sent".to_owned();
+    };
+    let name = |s: PermanentId| {
+        sim.land
+            .settlements
+            .iter()
+            .find(|x| x.id == s)
+            .map_or_else(|| "a settlement".to_owned(), |x| x.name.clone())
+    };
+    let came = if w.done() {
+        format!(
+            "{} of its {} households came over {} {}",
+            w.came,
+            w.households,
+            w.days,
+            if w.days == 1 { "day" } else { "days" }
+        )
+    } else {
+        format!(
+            "{} of its {} households have come; the rest come over {} {} in all",
+            w.came,
+            w.households,
+            w.days,
+            if w.days == 1 { "day" } else { "days" }
+        )
+    };
+    let months = w.provisions_days as f64 * 12.0 / civ_core::time::DAYS_PER_YEAR as f64;
+    let mut living: std::collections::BTreeMap<String, u32> = std::collections::BTreeMap::new();
+    for &q in &w.people {
+        if let Some(s) = pop
+            .person(q)
+            .and_then(|p| pop.household(p.household))
+            .and_then(|h| h.settlement)
+        {
+            *living.entry(name(s)).or_default() += 1;
+        }
+    }
+    let now = if living.is_empty() {
+        "none of its people lives on the map now".to_owned()
+    } else {
+        let at: Vec<String> = living.iter().map(|(s, n)| format!("{n} in {s}")).collect();
+        format!(
+            "of the {} people it brought, {} live now",
+            w.people.len(),
+            at.join(", ")
+        )
+    };
+    format!("Came with a wave the observer sent, carrying {months:.0} months' food: {came}; {now}")
+}
+
 /// What a blessing or a curse in `i` is and what it turned.
 fn luck_words(sim: &Sim, i: &Influence) -> String {
     let day = |d: i64| day_words(SimTime::from_minutes(d * DAY));
@@ -741,6 +796,7 @@ pub fn influence_lines<'a>(
                 InfluenceKind::Ideology => ideology_told_words(sim, i, p.id),
                 InfluenceKind::Agitator => agitator_words(sim, i, p.id),
                 InfluenceKind::Bless | InfluenceKind::Curse => luck_words(sim, i),
+                InfluenceKind::Wave => wave_words(sim, i),
             };
             let what = fbb.create_string(&words);
             wire::InfluenceLine::create(

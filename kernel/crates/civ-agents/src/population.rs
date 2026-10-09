@@ -5114,6 +5114,10 @@ impl Population {
         self.live_day(ctx);
         // Children who have reached the age of their household's work learn it (ADR-0008 §4).
         self.bring_up(ctx);
+        // The households of a migration wave whose day it is come (M5a slice AN).
+        if !self.influences.waves.is_empty() {
+            crate::found::wave_arrivals(self, ctx);
+        }
     }
 }
 

@@ -109,7 +109,8 @@ use super::{
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
-    SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, finish, section, single_chunk, unreadable,
+    SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, finish, section, single_chunk,
+    unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -389,6 +390,8 @@ enum Schema {
     V52,
     /// Moving between settlements: leanings, reviews prompted, people moved (M5a slice AN).
     V53,
+    /// Migration waves (M5a slice AN, step two).
+    V54,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -456,7 +459,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V50 => Schema::V50,
         SCHEMA_V51 => Schema::V51,
         SCHEMA_V52 => Schema::V52,
-        SAVE_SCHEMA_VERSION => Schema::V53,
+        SCHEMA_V53 => Schema::V53,
+        SAVE_SCHEMA_VERSION => Schema::V54,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2627,7 +2631,8 @@ fn carried(
         | Schema::V50
         | Schema::V51
         | Schema::V52
-        | Schema::V53 => {
+        | Schema::V53
+        | Schema::V54 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2790,7 +2795,8 @@ fn decode_households(
             | Schema::V50
             | Schema::V51
             | Schema::V52
-            | Schema::V53 => {
+            | Schema::V53
+            | Schema::V54 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -6481,11 +6487,47 @@ fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> 
         .map(|d| fbb.create_string(&d.id))
         .collect();
     let ids = fbb.create_vector(&ids);
+    let point = |p: (f32, f32)| save::Point::new(p.0, p.1);
+    let waves: Vec<_> = inf
+        .waves
+        .iter()
+        .map(|w| {
+            let parents: Vec<u64> = w
+                .parents
+                .iter()
+                .flat_map(|(m, f)| [m.get(), f.get()])
+                .collect();
+            let parents = fbb.create_vector(&parents);
+            let people: Vec<u64> = w.people.iter().map(|p| p.get()).collect();
+            let people = fbb.create_vector(&people);
+            save::WaveSave::create(
+                &mut fbb,
+                &save::WaveSaveArgs {
+                    record: w.record,
+                    at: Some(&point(w.at)),
+                    edge: Some(&point(w.edge)),
+                    day: w.day,
+                    households: w.households,
+                    days: w.days,
+                    provisions_days: w.provisions_days,
+                    arrived: w.arrived,
+                    came: w.came,
+                    next: w.next,
+                    settlement: w.settlement.map_or(0, |s| s.get()),
+                    band: w.band.map_or(0, |b| b.get()),
+                    parents: Some(parents),
+                    people: Some(people),
+                },
+            )
+        })
+        .collect();
+    let waves = fbb.create_vector(&waves);
     let root = save::InfluencesSave::create(
         &mut fbb,
         &save::InfluencesSaveArgs {
             list: Some(list),
             ideologies: Some(ids),
+            waves: Some(waves),
         },
     );
     finish(fbb, root)
@@ -6496,7 +6538,7 @@ fn decode_influences(
     bytes: &[u8],
     rules: &Rules,
 ) -> Result<civ_agents::influence::Influences, LoadError> {
-    use civ_agents::influence::{Influence, InfluenceKind, Influences};
+    use civ_agents::influence::{Influence, InfluenceKind, Influences, Wave};
     let root = flatbuffers::root::<save::InfluencesSave>(bytes)
         .map_err(|e| unreadable(SECTION_INFLUENCE, &e))?;
     let map: Vec<Option<u32>> = read_strings(root.ideologies())
@@ -6516,7 +6558,10 @@ fn decode_influences(
             LoadError::Malformed(format!("unknown kind of influence {}", i.kind()))
         })?;
         let subject = match kind {
-            InfluenceKind::Whisper | InfluenceKind::Bless | InfluenceKind::Curse => i.subject(),
+            InfluenceKind::Whisper
+            | InfluenceKind::Bless
+            | InfluenceKind::Curse
+            | InfluenceKind::Wave => i.subject(),
             InfluenceKind::Ideology | InfluenceKind::Agitator => {
                 match map.get(i.subject() as usize) {
                     Some(Some(k)) => *k,
@@ -6543,7 +6588,53 @@ fn decode_influences(
     if list.windows(2).any(|w| w[0].id >= w[1].id) {
         return Err(LoadError::Malformed("influences out of order".to_owned()));
     }
-    Ok(Influences { list })
+    let mut waves = Vec::new();
+    for w in root.waves().iter().flatten() {
+        let point = |p: Option<&save::Point>| p.map_or((0.0, 0.0), |p| (p.x(), p.y()));
+        let ids: Vec<u64> = w.parents().map(|v| v.iter().collect()).unwrap_or_default();
+        if !ids.len().is_multiple_of(2) {
+            return Err(LoadError::Malformed(
+                "a wave's parents are not in pairs".to_owned(),
+            ));
+        }
+        let mut parents = Vec::new();
+        for pair in ids.chunks(2) {
+            parents.push((
+                required(pair[0], "a wave's parent")?,
+                required(pair[1], "a wave's parent")?,
+            ));
+        }
+        let mut people = Vec::new();
+        for id in w.people().iter().flatten() {
+            people.push(required(id, "one a wave brought")?);
+        }
+        waves.push(Wave {
+            record: w.record(),
+            at: point(w.at()),
+            edge: point(w.edge()),
+            day: w.day(),
+            households: w.households(),
+            days: w.days(),
+            provisions_days: w.provisions_days(),
+            arrived: w.arrived(),
+            came: w.came(),
+            next: w.next(),
+            settlement: PermanentId::from_raw(w.settlement()),
+            band: PermanentId::from_raw(w.band()),
+            parents,
+            people,
+        });
+    }
+    if waves.iter().any(|w| {
+        !list
+            .iter()
+            .any(|i| i.id == w.record && i.kind == InfluenceKind::Wave)
+    }) {
+        return Err(LoadError::Malformed(
+            "a wave without its influence record".to_owned(),
+        ));
+    }
+    Ok(Influences { list, waves })
 }
 
 #[cfg(test)]

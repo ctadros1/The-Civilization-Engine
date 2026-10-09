@@ -81,6 +81,11 @@ pub const MAX_FAILURES_PER_1000: f64 = 2.0;
 /// a mean share of one half has a standard error of about 0.05).
 pub const MIN_ATTEMPTS: u32 = 30;
 
+/// Moves between settlements per 100 residents a year outside which the moves row is amber: the
+/// sensitivity range 05-06 §5.4 proposes around its starting point of 2. A design choice of the
+/// report's, an output benchmark and not a quota, so the row is never red.
+pub const MOVES_BAND: (f64, f64) = (0.5, 10.0);
+
 /// What to run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DashboardOptions {
@@ -156,6 +161,53 @@ pub struct WorldRun {
     /// Visits between its settlements over the run, the hours visitors spent at the hearths they
     /// went to, and marriages between them (M5a slice AM).
     pub contacts: (u32, f64, u32),
+    /// People who came to live in another of its settlements over the run, by why (slice AN).
+    pub between: Between,
+}
+
+/// People who came to live in one settlement from another, by why: the moves 05-06 §5.4 counts,
+/// less forced displacement, and the exiles it leaves out.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct Between {
+    /// With their household, by its choice or in an emergency.
+    pub moved: u32,
+    /// On marrying someone there.
+    pub married: u32,
+    /// Taken in by kin there.
+    pub taken_in: u32,
+    /// Sent away by a finding: forced, so not counted with the others.
+    pub exiled: u32,
+}
+
+impl Between {
+    /// The residence histories' moves from one settlement to another.
+    pub fn of(sim: &Sim) -> Between {
+        use civ_agents::ResidenceWhy;
+        let mut out = Between::default();
+        for r in sim.people().records.values() {
+            for pair in r.residence.windows(2) {
+                let (Some(a), Some(b)) = (pair[0].settlement, pair[1].settlement) else {
+                    continue;
+                };
+                if a == b {
+                    continue;
+                }
+                match pair[1].why {
+                    ResidenceWhy::Moved => out.moved += 1,
+                    ResidenceWhy::Married => out.married += 1,
+                    ResidenceWhy::TakenIn => out.taken_in += 1,
+                    ResidenceWhy::Exiled => out.exiled += 1,
+                    _ => {}
+                }
+            }
+        }
+        out
+    }
+
+    /// The moves not forced.
+    pub fn peaceful(&self) -> u32 {
+        self.moved + self.married + self.taken_in
+    }
 }
 
 impl WorldRun {
@@ -562,6 +614,7 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
         .fold((0, 0.0, 0), |(v, h, m), c| {
             (v + c.visits, h + c.minutes as f64 / 60.0, m + c.marriages)
         });
+    world.between = Between::of(sim);
     world.labels = sim
         .people()
         .polities
@@ -597,6 +650,7 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
         failures(worlds),
         settlement_sizes(worlds),
         contacts(worlds, years),
+        moves(worlds),
         accounting(worlds),
         crime(worlds),
         Row::new(
@@ -642,8 +696,8 @@ fn settlement_sizes(worlds: &[WorldRun]) -> Row {
 }
 
 /// Contacts between settlements, reported and not graded (M5a slice AM): the research gives no
-/// rate of visiting between neighbouring villages to hold them to (05-06 §5.4 grades moves, which
-/// slice AN brings).
+/// rate of visiting between neighbouring villages to hold them to (05-06 §5.4 grades moves; see
+/// [`moves`]).
 fn contacts(worlds: &[WorldRun], years: u32) -> Row {
     let row = Row::new(
         "Contacts",
@@ -672,6 +726,57 @@ fn contacts(worlds: &[WorldRun], years: u32) -> Row {
         format!("reported, not graded: {}", seen.join("; "))
     };
     row.graded(Grade::Gray, text)
+}
+
+/// Moves between settlements per 100 residents a year (M5a slice AN), against 05-06 §5.4's
+/// sensitivity range: amber outside it and never red, since the report offers it as a benchmark to
+/// look at and not a target. Exiles are left out, as forced displacement; moves in an emergency
+/// cannot yet be told from chosen ones and are counted. Turnover — everyone who came or went,
+/// off the map too — is shown beside the net change, since a steady size can hide much of it
+/// (05-06 §4). Grey for a world of one settlement.
+fn moves(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Moves",
+        "moves between settlements per 100 residents a year",
+        "0.5–10",
+    )
+    .source("05-06 §4, §5.4");
+    let judged: Vec<(&WorldRun, f64)> = worlds
+        .iter()
+        .filter(|w| w.settlements.len() > 1)
+        .filter_map(|w| {
+            // Residents' years: each year's end counted for that year.
+            let lived: f64 = w.people.iter().map(|&n| n as f64).sum();
+            (lived > 0.0).then(|| (w, 100.0 * f64::from(w.between.peaceful()) / lived))
+        })
+        .collect();
+    if judged.is_empty() {
+        return row.graded(
+            Grade::Gray,
+            "no world of several settlements lived".to_owned(),
+        );
+    }
+    let seen: Vec<String> = judged
+        .iter()
+        .map(|&(w, rate)| {
+            let lived: f64 = w.people.iter().map(|&n| n as f64).sum();
+            let turnover = 100.0 * f64::from(w.moves.arrivals + w.moves.departures) / lived;
+            let net = 100.0 * (w.living() as f64 - w.founders as f64) / lived;
+            let b = &w.between;
+            format!(
+                "world {}: {rate:.1} ({} with their households, {} on marrying, {} taken in; \
+                 {} exiled not counted); turnover {turnover:.1}, net {net:+.1}",
+                w.seed, b.moved, b.married, b.taken_in, b.exiled
+            )
+        })
+        .collect();
+    let outside = judged
+        .iter()
+        .any(|&(_, rate)| rate < MOVES_BAND.0 || rate > MOVES_BAND.1);
+    row.graded(
+        if outside { Grade::Amber } else { Grade::Green },
+        seen.join("; "),
+    )
 }
 
 /// Every settlement's accounts balance every year (ADR-0018 §3): a hard check. Shown with the
@@ -1241,6 +1346,7 @@ mod tests {
             "Structural failures",
             "Settlement sizes",
             "Contacts",
+            "Moves",
             "Crime and poverty",
             "Epidemics",
             "Regimes",
@@ -1266,7 +1372,7 @@ mod tests {
         // Only population and the accounts are graded, both worlds keep their bands and no
         // settlement's accounts failed: a pass, but no grey row counts as one.
         assert!(dashboard.passed());
-        assert_eq!(dashboard.summary(), "2 passed, 9 not yet applicable");
+        assert_eq!(dashboard.summary(), "2 passed, 10 not yet applicable");
     }
 
     #[test]
@@ -1319,5 +1425,32 @@ mod tests {
         assert_eq!(food_prices(&[a.clone(), b]).grade, Grade::Red);
         a.workshops = Some((Grade::Amber, "mean = median".to_owned()));
         assert_eq!(firm_sizes(&[a]).grade, Grade::Red);
+    }
+
+    #[test]
+    fn moves_are_graded_per_100_residents_a_year_leaving_exiles_out_and_never_red() {
+        // Ten years of 100 residents: 1,000 residents' years.
+        let mut w = world(1, &[100; 10]);
+        w.founders = 100;
+        w.between = Between {
+            moved: 12,
+            married: 6,
+            taken_in: 2,
+            exiled: 40,
+        };
+        assert_eq!(moves(&[w.clone()]).grade, Grade::Gray, "one settlement");
+        w.settlements = vec![("A".to_owned(), 50), ("B".to_owned(), 50)];
+        let row = moves(&[w.clone()]);
+        assert_eq!(row.grade, Grade::Green, "{}", row.text);
+        assert!(row.text.contains("world 1: 2.0 "), "{}", row.text);
+        assert!(row.text.contains("40 exiled not counted"), "{}", row.text);
+        w.between = Between {
+            moved: 3,
+            exiled: 40,
+            ..Between::default()
+        };
+        assert_eq!(moves(&[w.clone()]).grade, Grade::Amber, "0.3 is too few");
+        w.between.moved = 150;
+        assert_eq!(moves(&[w]).grade, Grade::Amber, "15 is too many, never red");
     }
 }

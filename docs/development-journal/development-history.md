@@ -878,7 +878,9 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Evidence:** three integration tests (seven cases: exact moves for a stranger's and an esteemed owner's building, met once, the year's window, letting go, noting on a visit, saves, a world of one settlement); the schema-58 roundtrip; a digest comparison on the village of 1,000 (identical but for the content).
 
-**Open:** the demo world's measurement; awareness by sight and provenance (step two); style per settlement and the neighbours row (step three).
+**Measured:** two years of the M5a demo's world from its tenth year: with sights turned off it matches the build before in every section but the content; with them, 68 people noted 29 buildings elsewhere and 16 households came to admire one most. The two founding settlements in most contact drew together, from 89.6 to 12.4 apart in mean taste (89.8 without sights), while the third drifted from both in either run through its own new buildings. The differences are under 2° of pitch, since the groups were founded with near ways of building.
+
+**Open:** awareness by sight and provenance (step two); style per settlement and the neighbours row (step three).
 
 ## Development pattern that emerged
 

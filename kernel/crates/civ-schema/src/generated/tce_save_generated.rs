@@ -31557,6 +31557,7 @@ impl<'a> PlacesSave<'a> {
   pub const VT_GAPS: ::flatbuffers::VOffsetT = 20;
   pub const VT_CARRIED: ::flatbuffers::VOffsetT = 22;
   pub const VT_ERRANDS: ::flatbuffers::VOffsetT = 24;
+  pub const VT_SEEN: ::flatbuffers::VOffsetT = 26;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -31568,6 +31569,7 @@ impl<'a> PlacesSave<'a> {
     args: &'args PlacesSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<PlacesSave<'bldr>> {
     let mut builder = PlacesSaveBuilder::new(_fbb);
+    if let Some(x) = args.seen { builder.add_seen(x); }
     if let Some(x) = args.errands { builder.add_errands(x); }
     if let Some(x) = args.carried { builder.add_carried(x); }
     if let Some(x) = args.gaps { builder.add_gaps(x); }
@@ -31660,6 +31662,13 @@ impl<'a> PlacesSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ErrandSave>>>>(PlacesSave::VT_ERRANDS, None)}
   }
+  #[inline]
+  pub fn seen(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SeenSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SeenSave>>>>(PlacesSave::VT_SEEN, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PlacesSave<'_> {
@@ -31679,6 +31688,7 @@ impl ::flatbuffers::Verifiable for PlacesSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GapSave>>>>("gaps", Self::VT_GAPS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CarriedSave>>>>("carried", Self::VT_CARRIED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ErrandSave>>>>("errands", Self::VT_ERRANDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<SeenSave>>>>("seen", Self::VT_SEEN, false)?
      .finish();
     Ok(())
   }
@@ -31695,6 +31705,7 @@ pub struct PlacesSaveArgs<'a> {
     pub gaps: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GapSave<'a>>>>>,
     pub carried: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CarriedSave<'a>>>>>,
     pub errands: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ErrandSave<'a>>>>>,
+    pub seen: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SeenSave<'a>>>>>,
 }
 impl<'a> Default for PlacesSaveArgs<'a> {
   #[inline]
@@ -31711,6 +31722,7 @@ impl<'a> Default for PlacesSaveArgs<'a> {
       gaps: None,
       carried: None,
       errands: None,
+      seen: None,
     }
   }
 }
@@ -31765,6 +31777,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlacesSaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_ERRANDS, errands);
   }
   #[inline]
+  pub fn add_seen(&mut self, seen: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<SeenSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_SEEN, seen);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlacesSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PlacesSaveBuilder {
@@ -31793,6 +31809,120 @@ impl ::core::fmt::Debug for PlacesSave<'_> {
       ds.field("gaps", &self.gaps());
       ds.field("carried", &self.carried());
       ds.field("errands", &self.errands());
+      ds.field("seen", &self.seen());
+      ds.finish()
+  }
+}
+pub enum SeenSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SeenSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for SeenSave<'a> {
+  type Inner = SeenSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> SeenSave<'a> {
+  pub const VT_PERSON: ::flatbuffers::VOffsetT = 4;
+  pub const VT_BUILDINGS: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    SeenSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SeenSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<SeenSave<'bldr>> {
+    let mut builder = SeenSaveBuilder::new(_fbb);
+    builder.add_person(args.person);
+    if let Some(x) = args.buildings { builder.add_buildings(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SeenSave::VT_PERSON, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn buildings(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(SeenSave::VT_BUILDINGS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for SeenSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("person", Self::VT_PERSON, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("buildings", Self::VT_BUILDINGS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SeenSaveArgs<'a> {
+    pub person: u64,
+    pub buildings: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+}
+impl<'a> Default for SeenSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SeenSaveArgs {
+      person: 0,
+      buildings: None,
+    }
+  }
+}
+
+pub struct SeenSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SeenSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_person(&mut self, person: u64) {
+    self.fbb_.push_slot::<u64>(SeenSave::VT_PERSON, person, 0);
+  }
+  #[inline]
+  pub fn add_buildings(&mut self, buildings: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SeenSave::VT_BUILDINGS, buildings);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SeenSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SeenSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<SeenSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for SeenSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("SeenSave");
+      ds.field("person", &self.person());
+      ds.field("buildings", &self.buildings());
       ds.finish()
   }
 }

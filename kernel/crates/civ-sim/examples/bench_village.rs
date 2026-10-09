@@ -19,7 +19,9 @@
 //! approximations it declares (ADR-0011 §4); `--exact` with it switches them off, and `--only
 //! leisure` or `--only view` keeps one. `--digest` also prints how people spent their time.
 //! `--groups N` founds N groups of `--people` each, their sites chosen together (ADR-0018 §6);
-//! `--known` has them know where each other camped.
+//! `--known` has them know where each other camped. `--stop-trade` stops purchases between
+//! settlements (the twin harness, ADR-0019 §8), and `--no-sights` has nobody note the buildings
+//! they see in other settlements (M5b slice AR).
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -48,6 +50,7 @@ struct Args {
     groups: u32,
     known: bool,
     stop_trade: bool,
+    no_sights: bool,
 }
 
 fn args() -> Args {
@@ -69,6 +72,7 @@ fn args() -> Args {
         groups: 1,
         known: false,
         stop_trade: false,
+        no_sights: false,
     };
     let mut it = std::env::args().skip(1);
     while let Some(flag) = it.next() {
@@ -90,6 +94,11 @@ fn args() -> Args {
         }
         if flag == "--stop-trade" {
             a.stop_trade = true;
+            continue;
+        }
+        // Nobody notes buildings seen elsewhere (M5b slice AR): the content's `seen_most` 0.
+        if flag == "--no-sights" {
+            a.no_sights = true;
             continue;
         }
         let value = it.next().unwrap_or_default();
@@ -129,6 +138,9 @@ fn main() {
     let band = &mut content.people.params.band;
     band.max_size = band.max_size.max(a.people);
     band.min_size = band.min_size.min(a.people);
+    if a.no_sights {
+        content.people.params.style.seen_most = 0;
+    }
     let started = Instant::now();
     let mut sim = match &a.load {
         Some(file) => persist::load(Path::new(file), &content).expect("the save loads"),
@@ -196,6 +208,10 @@ fn main() {
     // waiting at a day's end, by household and day planned (a lower bound: one planned and run
     // within a day is not seen).
     let mut errands: BTreeMap<(u64, i64), String> = BTreeMap::new();
+    // Buildings of other settlements people saw (M5b slice AR), as held at a day's end, by person
+    // and building; and each settlement's mean taste at the start.
+    let mut sights: std::collections::BTreeSet<(u64, u64)> = Default::default();
+    let tastes_before = mean_tastes(&sim);
     for day in 1..=a.days {
         let t = Instant::now();
         if day > a.profile_after && a.profile_after > 0 {
@@ -206,6 +222,9 @@ fn main() {
         }
         let ms = t.elapsed().as_secs_f64() * 1000.0;
         if a.digest {
+            for (p, list) in &sim.people().seen_away {
+                sights.extend(list.iter().map(|b| (p.get(), b.get())));
+            }
             for (h, e) in &sim.people().reports.errands {
                 errands
                     .entry((h.get(), e.day))
@@ -339,6 +358,56 @@ fn main() {
                 .collect::<std::collections::BTreeSet<_>>()
                 .len()
         );
+        // Diffusion through contact (M5b slice AR): what was seen elsewhere, the households whose
+        // taste a building elsewhere moved most, and how far apart settlements' tastes are.
+        let admired_away = pop
+            .households
+            .iter()
+            .filter(|(_, h)| !h.members.is_empty())
+            .filter(|(_, h)| {
+                h.admired
+                    .and_then(|b| sim.land().buildings.iter().find(|x| x.id == b))
+                    .and_then(|b| pop.household(b.household))
+                    .is_some_and(|o| o.settlement != h.settlement)
+            })
+            .count();
+        println!(
+            "buildings seen elsewhere: {} sightings by {} people of {} buildings; {admired_away} \
+             households admire a building elsewhere",
+            sights.len(),
+            sights
+                .iter()
+                .map(|s| s.0)
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+            sights
+                .iter()
+                .map(|s| s.1)
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+        );
+        let tastes_after = mean_tastes(&sim);
+        let keys: Vec<u64> = tastes_after.keys().copied().collect();
+        for (i, x) in keys.iter().enumerate() {
+            for y in keys.iter().skip(i + 1) {
+                let gap = |m: &BTreeMap<u64, [f64; 3]>| {
+                    let (Some(a), Some(b)) = (m.get(x), m.get(y)) else {
+                        return f64::NAN;
+                    };
+                    a.iter()
+                        .zip(b)
+                        .map(|(p, q)| (p - q).powi(2))
+                        .sum::<f64>()
+                        .sqrt()
+                };
+                println!(
+                    "taste {x}-{y}: mean apart {:.1} at the start, {:.1} at the end \
+                     (centidegrees and centimetres)",
+                    gap(&tastes_before),
+                    gap(&tastes_after)
+                );
+            }
+        }
         // The convergence record (M5b slice AQ): per pair, the goods offered in both and the mean
         // of |log(ask there / ask here)| over them, in the first and last months recorded.
         // By pair: (month, goods offered in both, the mean gap) for each month on record.
@@ -441,4 +510,23 @@ fn main() {
         slowest_day,
         slowest
     );
+}
+
+/// Each settlement's mean taste over its households with anyone in them: pitch (centidegrees),
+/// eaves (cm) and overhang (cm).
+fn mean_tastes(sim: &Sim) -> BTreeMap<u64, [f64; 3]> {
+    let mut sum: BTreeMap<u64, ([f64; 3], f64)> = BTreeMap::new();
+    for (_, h) in sim.people().households.iter() {
+        let Some(s) = h.settlement.filter(|_| !h.members.is_empty()) else {
+            continue;
+        };
+        let e = sum.entry(s.get()).or_default();
+        for (x, t) in e.0.iter_mut().zip(h.taste.traits()) {
+            *x += f64::from(t);
+        }
+        e.1 += 1.0;
+    }
+    sum.into_iter()
+        .map(|(s, (t, n))| (s, t.map(|x| x / n)))
+        .collect()
 }

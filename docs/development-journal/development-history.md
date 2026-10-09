@@ -868,6 +868,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** errands through a firm; the demo (AS) and the weight of the walk on goods trips; diffusion through contact (AR).
 
+## 2026-10-09 — M5b slice AR, step one: buildings seen elsewhere
+
+**Goal:** let building style cross between settlements only through contact: what people see of a neighbour's new buildings on a visit or a trip to buy should move their household's taste, admired for what a stranger can know of it (the M5 diffusion brief §1.3; research 11-02 §1.1, §2.2).
+
+**What changed:** a person at another settlement's hearth, or at a seller's door there, notes its buildings finished in the past year within sight (200 m), up to 8, until their household's yearly taste review. The review meets them beside the household's own settlement's new buildings, each once, a stranger's building admired for its craft rank and for the esteem the household's people hold its owner's in (ADR-0014 §3). The style and taste readouts name the settlement a followed or admired building stands in. Saves schema 59, content API 57.
+
+**Findings:** the first build took the patron half from regard (esteem with warmth); the brief and ADR-0014 say esteem, so it was changed before measuring. The 5–20 exemplars cited for how many are kept is, in 11-02 §5.5, a storage choice and not an empirical figure, and is cited as such.
+
+**Evidence:** three integration tests (seven cases: exact moves for a stranger's and an esteemed owner's building, met once, the year's window, letting go, noting on a visit, saves, a world of one settlement); the schema-58 roundtrip; a digest comparison on the village of 1,000 (identical but for the content).
+
+**Open:** the demo world's measurement; awareness by sight and provenance (step two); style per settlement and the neighbours row (step three).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

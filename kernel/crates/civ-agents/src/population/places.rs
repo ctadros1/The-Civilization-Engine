@@ -365,5 +365,15 @@ impl Population {
         );
         self.contacts
             .visit(day.div_euclid(DAYS_PER_YEAR), home, settlement, minutes);
+        // What they see of its new buildings from its hearth (M5b slice AR).
+        if let Some(at) = ctx
+            .land
+            .settlements
+            .iter()
+            .find(|x| x.id == settlement)
+            .map(|x| x.hearth_m)
+        {
+            self.note_sights(ctx, me, settlement, at);
+        }
     }
 }

@@ -476,6 +476,9 @@ pub struct Population {
     /// The demo's twin harness (ADR-0019 §8): purchases between settlements are stopped. Set in
     /// memory by a host command or a test, never by content or a save.
     pub stop_trade_between: bool,
+    /// The buildings of other settlements each person has seen, newest first, until their
+    /// household's next taste review (M5b slice AR).
+    pub seen_away: BTreeMap<PermanentId, Vec<PermanentId>>,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -1108,6 +1111,21 @@ impl Population {
                 .problems(|h| self.household(h).map(|x| x.settlement)),
         );
         out.extend(self.convergence.problems());
+        for (&p, seen) in &self.seen_away {
+            if self.person(p).is_none() {
+                out.push(format!(
+                    "person {p} keeps buildings seen elsewhere but is no more"
+                ));
+            }
+            let mut ids = seen.clone();
+            ids.sort_unstable();
+            ids.dedup();
+            if seen.is_empty() || ids.len() != seen.len() {
+                out.push(format!(
+                    "person {p} keeps an empty or repeated list of buildings seen"
+                ));
+            }
+        }
         for &(year, from, to) in self.contacts.years.keys() {
             if from == to || year < 0 {
                 out.push(format!(

@@ -2241,6 +2241,20 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
 }
 
 #[test]
+fn a_schema_58_save_loads_with_no_building_seen_elsewhere() {
+    // A schema-58 save, from before people noted the buildings they saw in other settlements
+    // (M5b slice AR).
+    let sim = load_first();
+    assert!(sim.people().seen_away.is_empty());
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V58;
+    let path = republish("slice-aq2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-58 save loads");
+    assert!(loaded.people().seen_away.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_57_save_loads_with_no_errand_planned() {
     // A schema-57 save, from before households fetched goods to sell at home (M5b slice AQ,
     // step two).

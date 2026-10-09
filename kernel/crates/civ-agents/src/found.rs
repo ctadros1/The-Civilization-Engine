@@ -1741,6 +1741,8 @@ pub(crate) mod tests {
                     eave_cm: 3.0,
                     overhang_cm: 3.0,
                 },
+                seen_most: 8,
+                sight_m: 200.0,
             },
             names: NameParams::default(),
             midden: crate::params::MiddenParams {

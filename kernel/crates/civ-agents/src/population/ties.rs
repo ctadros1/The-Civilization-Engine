@@ -253,5 +253,7 @@ impl Population {
         self.ties.prune(|to| here.contains(&to));
         // And of failed searches for a partner by those no longer here (M5a slice AM).
         self.unmatched.retain(|id, _| here.contains(id));
+        // And of the buildings they saw elsewhere (M5b slice AR).
+        self.seen_away.retain(|id, _| here.contains(id));
     }
 }

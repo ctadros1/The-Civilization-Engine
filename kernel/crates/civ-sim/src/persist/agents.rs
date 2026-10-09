@@ -110,7 +110,7 @@ use super::{
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
-    SCHEMA_V57, finish, section, single_chunk, unreadable,
+    SCHEMA_V57, SCHEMA_V58, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -400,6 +400,8 @@ enum Schema {
     V57,
     /// Errands to fetch goods to sell at home (M5b slice AQ, step two).
     V58,
+    /// Buildings seen in other settlements (M5b slice AR).
+    V59,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -472,7 +474,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V55 => Schema::V55,
         SCHEMA_V56 => Schema::V56,
         SCHEMA_V57 => Schema::V57,
-        SAVE_SCHEMA_VERSION => Schema::V58,
+        SCHEMA_V58 => Schema::V58,
+        SAVE_SCHEMA_VERSION => Schema::V59,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -674,6 +677,7 @@ pub(super) fn decode<R: Read + Seek>(
             people.coalitions,
             people.reports,
             people.convergence,
+            people.seen_away,
         ) = (
             d.known,
             d.contacts,
@@ -683,6 +687,7 @@ pub(super) fn decode<R: Read + Seek>(
             d.coalitions,
             d.reports,
             d.convergence,
+            d.seen,
         );
     }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
@@ -2660,7 +2665,8 @@ fn carried(
         | Schema::V55
         | Schema::V56
         | Schema::V57
-        | Schema::V58 => {
+        | Schema::V58
+        | Schema::V59 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2828,7 +2834,8 @@ fn decode_households(
             | Schema::V55
             | Schema::V56
             | Schema::V57
-            | Schema::V58 => {
+            | Schema::V58
+            | Schema::V59 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -6511,6 +6518,23 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let errands = (!errands.is_empty()).then(|| fbb.create_vector(&errands));
+    // Buildings seen in other settlements (schema 59).
+    let seen: Vec<_> = people
+        .seen_away
+        .iter()
+        .map(|(&p, list)| {
+            let buildings: Vec<u64> = list.iter().map(|b| b.get()).collect();
+            let buildings = fbb.create_vector(&buildings);
+            save::SeenSave::create(
+                &mut fbb,
+                &save::SeenSaveArgs {
+                    person: p.get(),
+                    buildings: Some(buildings),
+                },
+            )
+        })
+        .collect();
+    let seen = (!seen.is_empty()).then(|| fbb.create_vector(&seen));
     let root = save::PlacesSave::create(
         &mut fbb,
         &save::PlacesSaveArgs {
@@ -6525,6 +6549,7 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
             gaps,
             carried,
             errands,
+            seen,
         },
     );
     finish(fbb, root)
@@ -6542,6 +6567,7 @@ struct PlacesDecoded {
     coalitions: Vec<civ_agents::places::Coalition>,
     reports: civ_agents::reports::PriceReports,
     convergence: civ_agents::convergence::Convergence,
+    seen: BTreeMap<PermanentId, Vec<PermanentId>>,
 }
 
 fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError> {
@@ -6774,6 +6800,23 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
             },
         );
     }
+    // Buildings seen in other settlements (schema 59).
+    let mut seen = BTreeMap::new();
+    for x in root.seen().iter().flatten() {
+        let person = required(x.person(), "a person who saw buildings elsewhere")?;
+        let mut list = Vec::new();
+        for b in x.buildings().iter().flatten() {
+            list.push(required(b, "a building seen elsewhere")?);
+        }
+        let mut ids = list.clone();
+        ids.sort_unstable();
+        ids.dedup();
+        if list.is_empty() || ids.len() != list.len() || seen.insert(person, list).is_some() {
+            return Err(LoadError::Malformed(format!(
+                "person {person} saw an empty or repeated list of buildings elsewhere"
+            )));
+        }
+    }
     Ok(PlacesDecoded {
         known: out,
         contacts,
@@ -6783,6 +6826,7 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
         coalitions,
         reports,
         convergence,
+        seen,
     })
 }
 

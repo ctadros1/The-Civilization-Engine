@@ -1320,6 +1320,12 @@ pub struct StyleParams {
     pub tradition_spread: Taste,
     /// How far each founding household's taste lies from its band's, likewise.
     pub personal_spread: Taste,
+    /// Buildings of other settlements a person keeps in mind until their household's next
+    /// review, newest first (M5b slice AR; research 11-02 §5.5: 5-20 salient exemplars).
+    pub seen_most: usize,
+    /// How far a person at another settlement's hearth or a seller's door there sees its new
+    /// buildings, metres (a design prior).
+    pub sight_m: f64,
 }
 
 /// Everything authored about people.

@@ -836,6 +836,14 @@ impl Population {
         });
         if away {
             self.convergence.trip(month, settlement, market, walk_h);
+            // What they see of its new buildings from the seller's door (M5b slice AR).
+            let door = match self.firm(seller) {
+                Some(f) => self.household(f.owner).map(|x| x.home),
+                None => self.household(seller).map(|x| x.home),
+            };
+            if let Some(at) = door {
+                self.note_sights(ctx, who, market, at);
+            }
             // An errand to this door is run, whatever came of it.
             if self
                 .reports

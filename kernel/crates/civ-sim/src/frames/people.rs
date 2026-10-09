@@ -685,8 +685,28 @@ pub(crate) fn building_name(sim: &Sim, id: PermanentId) -> String {
     )
 }
 
+/// [`building_name`], with the settlement it stands in when that is not `home` (M5b slice AR):
+/// "Bo's hut at Westford".
+pub(crate) fn building_name_from(sim: &Sim, id: PermanentId, home: Option<PermanentId>) -> String {
+    let name = building_name(sim, id);
+    let there = sim
+        .land
+        .buildings
+        .iter()
+        .find(|b| b.id == id)
+        .and_then(|b| sim.people.household(b.household))
+        .and_then(|h| h.settlement)
+        .filter(|&s| Some(s) != home)
+        .and_then(|s| sim.land.settlements.iter().find(|x| x.id == s));
+    match there {
+        Some(s) => format!("{name} at {}", s.name),
+        None => name,
+    }
+}
+
 /// How household `h` would build, in words, and the building that moved its taste most (M3b
-/// slice R): "roofs pitched 48°, walls 1.9 m to the eaves, eaves 0.5 m out; admiring Bo's hut".
+/// slice R): "roofs pitched 48°, walls 1.9 m to the eaves, eaves 0.5 m out; admiring Bo's hut",
+/// and where it stands if in another settlement (M5b slice AR).
 pub fn taste_words(sim: &Sim, h: &civ_agents::person::Household) -> String {
     let t = h.taste;
     let mut words = format!(
@@ -696,7 +716,10 @@ pub fn taste_words(sim: &Sim, h: &civ_agents::person::Household) -> String {
         t.overhang_cm / 100.0
     );
     if let Some(b) = h.admired {
-        words.push_str(&format!("; admiring {}", building_name(sim, b)));
+        words.push_str(&format!(
+            "; admiring {}",
+            building_name_from(sim, b, h.settlement)
+        ));
     }
     words
 }

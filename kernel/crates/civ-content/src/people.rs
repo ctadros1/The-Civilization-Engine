@@ -908,6 +908,11 @@ pub(crate) struct StyleFile {
     pub tradition_spread: TasteFile,
     /// How far a household's lies from its band's.
     pub personal_spread: TasteFile,
+    /// Buildings of other settlements a person keeps in mind until the household's review
+    /// (content API 57).
+    pub seen_most: u32,
+    /// How far a person in another settlement sees its new buildings, metres (content API 57).
+    pub sight_m: f64,
 }
 
 /// How people dig at a deposit (M3b slice Q, ADR-0010 §2; content API 20).
@@ -1506,6 +1511,8 @@ impl PeopleFile {
                 tradition_mean: self.style.tradition.taste(),
                 tradition_spread: self.style.tradition_spread.taste(),
                 personal_spread: self.style.personal_spread.taste(),
+                seen_most: self.style.seen_most as usize,
+                sight_m: self.style.sight_m,
             },
             midden: civ_agents::params::MiddenParams {
                 kg_per_person_day: self.midden.kg_per_person_day,
@@ -1704,6 +1711,8 @@ impl PeopleFile {
             ("style.alpha", st.alpha, 0.0, 1.0),
             ("style.prestige_most", st.prestige_most, 1.0, 10.0),
             ("style.innovation", st.innovation, 0.0, 1.0),
+            ("style.seen_most", f64::from(st.seen_most), 0.0, 64.0),
+            ("style.sight_m", st.sight_m, 0.0, 2000.0),
             (
                 "style.tradition.pitch_deg",
                 st.tradition.pitch_deg,

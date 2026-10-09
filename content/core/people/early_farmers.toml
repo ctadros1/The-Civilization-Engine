@@ -382,6 +382,17 @@ innovation = 0.01
 tradition = { pitch_deg = 48.0, eave_m = 1.9, overhang_m = 0.5 }
 tradition_spread = { pitch_deg = 2.5, eave_m = 0.1, overhang_m = 0.1 }
 personal_spread = { pitch_deg = 1.0, eave_m = 0.03, overhang_m = 0.03 }
+# Buildings seen elsewhere (M5b slice AR; content API 57): someone at another settlement's hearth,
+# or at a seller's door there, sees its buildings finished in the year past within `sight_m`
+# metres, and keeps up to `seen_most` of them in mind, newest first, until their household's next
+# review, where they are met as its own settlement's are, each once. A stranger's building is
+# admired for how well it was built among its settlement's year, and for what the household
+# thinks of its owner (its people's esteem, ADR-0014 §3; a stranger's is nothing) where at home its
+# owner's standing in goods counts. seen_most is inside 11-02 §5.5's 5-20 salient exemplars a
+# person (a storage choice there, not an empirical figure); how far a roof's pitch and eaves are
+# seen well enough to copy is a design prior. Both are design priors.
+seen_most = 8
+sight_m = 200.0
 
 # Each household's midden beside its home: ash, food waste, sweepings and dung (M3c slice V;
 # content API 29). Research 12-02 §2.3 gives 0.42 kg of nitrogen a year in a person's faeces and

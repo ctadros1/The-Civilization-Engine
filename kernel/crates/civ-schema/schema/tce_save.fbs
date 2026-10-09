@@ -1810,6 +1810,15 @@ table PlacesSave {
   // Schema 58 (M5b slice AQ, ADR-0019 §6): households' errands to fetch a good to sell at home,
   // their goods named in `goods`.
   errands: [ErrandSave] (id: 10);
+  // Schema 59 (M5b slice AR): the buildings of other settlements people have seen since their
+  // household's last taste review, by person.
+  seen: [SeenSave] (id: 11);
+}
+
+// The buildings of other settlements `person` has seen, newest first (schema 59).
+table SeenSave {
+  person: ulong (id: 0);
+  buildings: [ulong] (id: 1);
 }
 
 // A household's errand to fetch a good from another settlement to sell at home (schema 58).

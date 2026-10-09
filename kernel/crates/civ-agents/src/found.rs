@@ -6,15 +6,20 @@
 //! wild food around them, the walk to fresh water, slope and flood risk, and sampling one with a
 //! softmax; the site is theirs to choose, not the engine's.
 
+use civ_core::time::DAYS_PER_YEAR;
 use civ_core::{PermanentId, Rng64, SimTime};
 use civ_world::nav::TravelField;
 use civ_world::{WATER_LAKE, WATER_LAND, WATER_RIVER, terrain};
 
 use crate::demography;
 use crate::history::{ChronicleKind, Origin, PersonRecord, Union};
+use crate::influence::{
+    InfluenceKind, WAVE_DAYS, WAVE_HOUSEHOLDS, WAVE_MONTHS, WAVE_SIBLINGS, Wave,
+};
 use crate::needs::Sex;
 use crate::params::{GoodUse, PeopleParams, step_at};
 use crate::person::{Activity, Household, Load, Person, Repro, Target, Traits};
+use crate::places::{PlaceHow, distance_to_walk};
 use crate::population::{Ctx, Population, cell_centre, cell_of};
 use crate::{decide, farm};
 
@@ -88,7 +93,7 @@ pub struct Founded {
     pub households: Vec<PermanentId>,
 }
 
-struct Draws(Rng64);
+pub(crate) struct Draws(pub(crate) Rng64);
 
 impl Draws {
     fn unit(&mut self) -> f64 {
@@ -355,14 +360,117 @@ fn plan_band(params: &PeopleParams, d: &mut Draws, size: u32) -> Vec<Vec<Member>
     families
 }
 
-/// Scores candidate camp sites and picks one. Returns the chosen cell.
-fn choose_site(ctx: &Ctx, params: &PeopleParams, d: &mut Draws, size: u32) -> Option<usize> {
+/// The ground a site is judged on, worked out once for all the candidates.
+struct SiteGround {
+    slopes: Vec<f32>,
+    hand: Vec<f32>,
+}
+
+impl SiteGround {
+    fn of(ctx: &Ctx) -> SiteGround {
+        SiteGround {
+            slopes: terrain::slopes(ctx.map),
+            hand: terrain::height_above_drainage(
+                ctx.map,
+                (ctx.land_params.channel_area_km2 * 1.0e6) as f32,
+            ),
+        }
+    }
+}
+
+/// How far a field may lie from the hearth, metres: the content's longest walk to a field, off
+/// trail on the flat.
+pub(crate) fn field_reach_m(params: &PeopleParams) -> f32 {
+    (params.nav.tobler_ms(0.0) * params.nav.offtrail_factor * params.farm.max_walk_minutes * 60.0)
+        as f32
+}
+
+/// Up to `want` candidate camp sites: dry, walkable, gentle cells drawn at random.
+fn site_pool(
+    ctx: &Ctx,
+    params: &PeopleParams,
+    ground: &SiteGround,
+    d: &mut Draws,
+    want: usize,
+) -> Vec<usize> {
+    let map = ctx.map;
+    let n = map.cell_count();
+    let mut cells = Vec::new();
+    let mut attempts = 0usize;
+    while cells.len() < want && attempts < 50 * want {
+        attempts += 1;
+        let cell = (d.0.next_u64() % n as u64) as usize;
+        if map.water[cell] != WATER_LAND
+            || !ctx.nav.walkable(cell)
+            || f64::from(ground.slopes[cell]) > params.band.site_max_slope
+        {
+            continue;
+        }
+        cells.push(cell);
+    }
+    cells
+}
+
+/// How much of each land patch could be cropped, 0–1: its arable ground, less by the work of
+/// clearing it before it is broken (research 10-01 §1.1).
+fn cropland_weights(ctx: &Ctx, params: &PeopleParams) -> Vec<f64> {
+    let break_h = ctx
+        .catalog
+        .crops
+        .get(params.farm.crop)
+        .map_or(1.0, |c| c.break_h_per_ha);
+    ctx.land
+        .patches
+        .class
+        .iter()
+        .map(|&c| match ctx.land_params.habitats.get(usize::from(c)) {
+            Some(h) if h.arable => break_h / (break_h + h.clear_h_per_ha).max(1e-6),
+            _ => 0.0,
+        })
+        .collect()
+}
+
+/// Hectares that could be cropped within a field walk of `at`, as [`site_scores`] counts them.
+pub(crate) fn cropland_ha(ctx: &Ctx, params: &PeopleParams, at: (f32, f32)) -> f64 {
+    let patches = &ctx.land.patches;
+    let reach = field_reach_m(params);
+    cropland_weights(ctx, params)
+        .iter()
+        .enumerate()
+        .filter(|&(p, &w)| {
+            let c = patches.centre_m(p);
+            w > 0.0 && (c.0 - at.0).hypot(c.1 - at.1) <= reach
+        })
+        .map(|(p, &w)| {
+            let dry = 1.0 - f64::from(patches.water.get(p).copied().unwrap_or(0.0));
+            patches.area_ha() * dry * w
+        })
+        .sum()
+}
+
+/// A cell's slope and height above drainage, measured on their own (no map-wide rasters).
+pub(crate) fn ground_at(ctx: &Ctx, cell: usize) -> (f32, f32) {
+    (
+        terrain::slope_at(ctx.map, cell),
+        terrain::hand_at(
+            ctx.map,
+            cell,
+            (ctx.land_params.channel_area_km2 * 1.0e6) as f32,
+        ),
+    )
+}
+
+/// Each of `cells` scored as a camp for a band of `size`: wild food near, cropland within a field
+/// walk, water, slope and floods. `ground` gives a cell's slope and its height above drainage.
+pub(crate) fn site_scores(
+    ctx: &Ctx,
+    params: &PeopleParams,
+    ground: &dyn Fn(usize) -> (f32, f32),
+    cells: &[usize],
+    size: u32,
+) -> Vec<f32> {
     let map = ctx.map;
     let band = &params.band;
-    let slopes = terrain::slopes(map);
-    let hand =
-        terrain::height_above_drainage(map, (ctx.land_params.channel_area_km2 * 1.0e6) as f32);
-    let n = map.cell_count();
     let (w, h) = (map.width as i64, map.height as i64);
     let year_need = f64::from(size) * params.household.daily_kcal_per_person * 365.0;
     let patches = &ctx.land.patches;
@@ -392,32 +500,12 @@ fn choose_site(ctx: &Ctx, params: &PeopleParams, d: &mut Draws, size: u32) -> Op
     let crop = ctx.catalog.crops.get(params.farm.crop);
     let need_ha = crop.map_or(0.0, |c| {
         let kcal = ctx.catalog.goods.get(c.good).map_or(0.0, |g| g.kcal_per_kg);
-        farm::need_area_ha(size as usize, params, c, kcal)
+        farm::need_area_ha(size as usize, params, c, kcal, c.yield_kg_per_ha)
     });
-    let break_h = crop.map_or(1.0, |c| c.break_h_per_ha);
-    let field_reach_m = (params.nav.tobler_ms(0.0)
-        * params.nav.offtrail_factor
-        * params.farm.max_walk_minutes
-        * 60.0) as f32;
-    let arable: Vec<f64> = patches
-        .class
-        .iter()
-        .map(|&c| match ctx.land_params.habitats.get(usize::from(c)) {
-            Some(h) if h.arable => break_h / (break_h + h.clear_h_per_ha).max(1e-6),
-            _ => 0.0,
-        })
-        .collect();
-    let mut sites = Vec::new();
-    let mut attempts = 0u32;
-    while sites.len() < band.camp_candidates as usize && attempts < 50 * band.camp_candidates {
-        attempts += 1;
-        let cell = (d.0.next_u64() % n as u64) as usize;
-        if map.water[cell] != WATER_LAND
-            || !ctx.nav.walkable(cell)
-            || f64::from(slopes[cell]) > band.site_max_slope
-        {
-            continue;
-        }
+    let field_reach_m = field_reach_m(params);
+    let arable = cropland_weights(ctx, params);
+    let mut scores = Vec::with_capacity(cells.len());
+    for &cell in cells {
         let at = cell_centre(map, cell);
         // Wild food within the radius: what a person-hour of work would bring in each patch, in
         // kcal, summed over the food resources.
@@ -459,28 +547,97 @@ fn choose_site(ctx: &Ctx, params: &PeopleParams, d: &mut Draws, size: u32) -> Op
         }
         // Eight hours a day of one person's work for a year, against the band's yearly needs.
         let food_years = food * 8.0 * 365.0 / year_need.max(1.0);
+        let (slope, hand) = ground(cell);
         let mut score = band.site_w_food * (1.0 + food_years).ln()
             - band.site_w_water_per_100m * water_m / 100.0
-            - band.site_w_slope_per_pct * f64::from(slopes[cell]) * 100.0;
+            - band.site_w_slope_per_pct * f64::from(slope) * 100.0;
         if need_ha > 0.0 {
             score += band.site_w_arable * (1.0 + arable_ha / need_ha).ln();
         }
-        if f64::from(hand[cell]) < band.site_flood_hand_m {
+        if f64::from(hand) < band.site_flood_hand_m {
             score -= band.site_w_flood;
         }
-        sites.push((cell, score as f32));
+        scores.push(score as f32);
     }
-    if sites.is_empty() {
+    scores
+}
+
+/// Camp sites for founding groups of `sizes` people, chosen together (ADR-0018 §6): one pool of
+/// candidates, each scored for each group, and one draw over the summed scores of the
+/// assignments whose fields' reaches do not overlap, so the order the groups are listed in
+/// cannot decide who gets the best land. Groups are taken largest first (groups of a size are
+/// alike). Returns each group's cell, in the order given, or `None` when no assignment fits.
+fn choose_sites(
+    ctx: &Ctx,
+    params: &PeopleParams,
+    d: &mut Draws,
+    sizes: &[u32],
+) -> Option<Vec<usize>> {
+    let ground = SiteGround::of(ctx);
+    let groups = sizes.len().max(1);
+    let pool = site_pool(
+        ctx,
+        params,
+        &ground,
+        d,
+        params.band.camp_candidates as usize * groups,
+    );
+    if pool.is_empty() || sizes.is_empty() {
         return None;
     }
-    let totals: Vec<f32> = sites.iter().map(|s| s.1).collect();
+    let mut order: Vec<usize> = (0..sizes.len()).collect();
+    order.sort_by_key(|&g| std::cmp::Reverse(sizes[g]));
+    let scores: Vec<Vec<f32>> = order
+        .iter()
+        .map(|&g| {
+            let at = |c: usize| (ground.slopes[c], ground.hand[c]);
+            site_scores(ctx, params, &at, &pool, sizes[g])
+        })
+        .collect();
+    let apart = 2.0 * field_reach_m(params);
+    let at: Vec<(f32, f32)> = pool.iter().map(|&c| cell_centre(ctx.map, c)).collect();
+    let fits = |a: usize, b: usize| a != b && (at[a].0 - at[b].0).hypot(at[a].1 - at[b].1) >= apart;
+    let n = pool.len();
+    let mut totals: Vec<f32> = Vec::new();
+    let mut choices: Vec<[u16; 3]> = Vec::new();
+    match scores.len() {
+        1 => {
+            totals = scores[0].clone();
+            choices = (0..n).map(|a| [a as u16, 0, 0]).collect();
+        }
+        2 => {
+            for a in 0..n {
+                for b in (0..n).filter(|&b| fits(a, b)) {
+                    totals.push(scores[0][a] + scores[1][b]);
+                    choices.push([a as u16, b as u16, 0]);
+                }
+            }
+        }
+        _ => {
+            for a in 0..n {
+                for b in (0..n).filter(|&b| fits(a, b)) {
+                    for c in (0..n).filter(|&c| fits(a, c) && fits(b, c)) {
+                        totals.push(scores[0][a] + scores[1][b] + scores[2][c]);
+                        choices.push([a as u16, b as u16, c as u16]);
+                    }
+                }
+            }
+        }
+    }
+    if totals.is_empty() {
+        return None;
+    }
     let (i, _, _) = decide::choose(&totals, &params.decision, d.unit());
-    Some(sites[i].0)
+    let mut cells = vec![0; sizes.len()];
+    for (k, &g) in order.iter().enumerate().take(3) {
+        cells[g] = pool[usize::from(choices[i][k])];
+    }
+    Some(cells)
 }
 
 /// Adds a planned family to the world: a household of `settlement` living at `home`, carrying in
-/// provisions and seed as the founding band does. Returns the household and its people, in the
-/// family's order (the mother, the father, then the rest).
+/// `provisions_days` days of food and seed as the founding band does. Returns the household and
+/// its people, in the family's order (the mother, the father, then the rest).
 #[allow(clippy::too_many_arguments)]
 fn add_family(
     pop: &mut Population,
@@ -490,6 +647,7 @@ fn add_family(
     band: Option<PermanentId>,
     home: (f32, f32),
     origin: Origin,
+    provisions_days: f64,
     d: &mut Draws,
     used_names: &mut Vec<String>,
 ) -> (PermanentId, Vec<PermanentId>) {
@@ -505,8 +663,7 @@ fn add_family(
         && good.kcal_per_kg > 0.0
     {
         stores[params.band.provisions_good] =
-            members * params.household.daily_kcal_per_person * params.band.provisions_days
-                / good.kcal_per_kg;
+            members * params.household.daily_kcal_per_person * provisions_days / good.kcal_per_kg;
     }
     // And seed for the crop they know.
     if let Some(seed) = ctx
@@ -561,8 +718,10 @@ fn add_family(
         // Its band's way of building, or its own when it comes alone (M3b slice R).
         taste: crate::style::founding_taste(&params.style, ctx.seed, band.unwrap_or(hh_id), hh_id),
         admired: None,
+        midden: crate::person::Midden::begun(now),
     });
-    let couple = founding_couple(params, family, now, d);
+    // One who comes alone has no partner; a family's first two are its couple.
+    let couple = (family.len() >= 2).then(|| founding_couple(params, family, now, d));
     for (mi, m) in family.iter().enumerate() {
         let list = if m.sex == Sex::Male {
             &params.names.male
@@ -603,6 +762,15 @@ fn add_family(
                 mother,
                 father,
                 origin,
+                residence: vec![crate::history::Stay {
+                    settlement: Some(settlement),
+                    since: now,
+                    why: match origin {
+                        Origin::Founder => crate::history::ResidenceWhy::Founder,
+                        Origin::Born => crate::history::ResidenceWhy::Born,
+                        Origin::Spawned => crate::history::ResidenceWhy::Arrived,
+                    },
+                }],
             },
         );
         let traits = Traits {
@@ -645,24 +813,22 @@ fn add_family(
             carrying: Load::default(),
             draws: 0,
             receipts: Default::default(),
-            partner: match mi {
-                0 => Some(ids[1]),
-                1 => Some(ids[0]),
+            partner: match (&couple, mi) {
+                (Some(_), 0) => Some(ids[1]),
+                (Some(_), 1) => Some(ids[0]),
                 _ => None,
             },
-            repro: if mi == 0 {
-                couple.repro(&ids)
-            } else {
-                Repro::Open
+            repro: match (&couple, mi) {
+                (Some(c), 0) => c.repro(&ids),
+                _ => Repro::Open,
             },
             fecundity: match m.sex {
                 Sex::Female => demography::fecundity(&params.fertility, &mut d.0),
                 Sex::Male => 1.0,
             },
-            nursing: if mi == 0 {
-                couple.nursing.map(|i| ids[i])
-            } else {
-                None
+            nursing: match (&couple, mi) {
+                (Some(c), 0) => c.nursing.map(|i| ids[i]),
+                _ => None,
             },
             skills: founder_skills(
                 &ctx.catalog.skills,
@@ -679,15 +845,27 @@ fn add_family(
                 now,
             ),
             tried: None,
+            // Founders' objections come from the content's distribution, each by its own keyed
+            // draw (M4b slice AA): none of their parents lived here.
+            objection: crate::crime::draw_objection(
+                None,
+                None,
+                &params.crime,
+                &mut demography::life_rng(ctx.seed, id, 0, demography::Draw::Objection),
+            ),
+            risk_seen: params.crime.risk_prior as f32,
+            guarded: None,
         });
         people.push(id);
     }
-    pop.unions.push(Union {
-        woman: ids[0],
-        man: ids[1],
-        since: couple.since,
-        ended: None,
-    });
+    if let Some(c) = couple {
+        pop.unions.push(Union {
+            woman: ids[0],
+            man: ids[1],
+            since: c.since,
+            ended: None,
+        });
+    }
     (hh_id, people)
 }
 
@@ -711,27 +889,87 @@ pub fn founder_skills(
         .collect()
 }
 
+/// Most founding groups a world is made with (ADR-0018 §6).
+pub const MAX_FOUNDING_GROUPS: usize = 3;
+
 /// Brings a founding band of `size` people into the world at a site they choose, founds their
 /// settlement, records the chronicle, and has everyone decide what to do first.
 pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Founded, String> {
-    let params = ctx.params;
-    let now = ctx.now;
+    found_bands(pop, ctx, &[size]).map(|mut all| all.remove(0))
+}
+
+/// Brings founding groups of `sizes` people (at most [`MAX_FOUNDING_GROUPS`]) into the world,
+/// each a band of its own, at sites chosen together so that none counts on another's fields
+/// (ADR-0018 §6), and founds a settlement for each as [`found_band`] does. Fails when there is no
+/// ground to camp on, or no room for the groups apart.
+pub fn found_bands(
+    pop: &mut Population,
+    ctx: &mut Ctx,
+    sizes: &[u32],
+) -> Result<Vec<Founded>, String> {
+    let sizes = &sizes[..sizes.len().min(MAX_FOUNDING_GROUPS)];
     let mut d = Draws(Rng64::from_key(&[
         ctx.seed,
         PURPOSE_BAND,
-        now.minutes() as u64,
+        ctx.now.minutes() as u64,
     ]));
-    let cell = choose_site(ctx, params, &mut d, size)
-        .ok_or_else(|| "there is no dry, gentle ground to camp on".to_owned())?;
+    let cells = choose_sites(ctx, ctx.params, &mut d, sizes).ok_or_else(|| match sizes.len() {
+        0 | 1 => "there is no dry, gentle ground to camp on".to_owned(),
+        n => format!("there is no room for {n} settlements whose fields lie apart"),
+    })?;
+    Ok(sizes
+        .iter()
+        .zip(cells)
+        .map(|(&size, cell)| settle_band(pop, ctx, &mut d, cell, size))
+        .collect())
+}
+
+/// Draws to name a new settlement until the name is none of `settlements`' on record, abandoned
+/// ones too: a draw that names no other place is the one a world has always drawn. After
+/// [`NAME_TRIES`] draws that all name one, the last is told apart by a number.
+pub(crate) fn place_name(
+    params: &PeopleParams,
+    d: &mut Draws,
+    settlements: &[civ_land::Settlement],
+) -> String {
+    let taken = |n: &str| settlements.iter().any(|s| s.name == n);
+    let mut name = String::new();
+    for _ in 0..NAME_TRIES {
+        name = match (
+            d.pick(&params.names.place_first).cloned(),
+            d.pick(&params.names.place_second).cloned(),
+        ) {
+            (Some(a), Some(b)) => format!("{a}{b}"),
+            (Some(a), None) => a,
+            _ => "the camp".to_owned(),
+        };
+        if !taken(&name) {
+            return name;
+        }
+    }
+    (2..)
+        .map(|k| format!("{name} {k}"))
+        .find(|n| !taken(n))
+        .unwrap_or(name)
+}
+
+/// Draws of a name a new settlement makes before telling a taken one apart by a number.
+const NAME_TRIES: usize = 16;
+
+/// A founding band of `size` people camps at `cell`: their settlement is founded and named,
+/// their families placed around its hearth, the chronicle told, and everyone decides what to do
+/// first.
+fn settle_band(
+    pop: &mut Population,
+    ctx: &mut Ctx,
+    d: &mut Draws,
+    cell: usize,
+    size: u32,
+) -> Founded {
+    let params = ctx.params;
+    let now = ctx.now;
     let hearth = cell_centre(ctx.map, cell);
-    let name = match (
-        d.pick(&params.names.place_first).cloned(),
-        d.pick(&params.names.place_second).cloned(),
-    ) {
-        (Some(a), Some(b)) => format!("{a}{b}"),
-        (Some(a), None) => a,
-        _ => "the camp".to_owned(),
-    };
+    let name = place_name(params, d, &ctx.land.settlements);
     let settlement = ctx.ids.allocate();
     ctx.land.settlements.push(civ_land::Settlement {
         id: settlement,
@@ -740,9 +978,12 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
         hearth_m: hearth,
         food_short: false,
         harvest_kg: 0.0,
+        parent: None,
+        founding: civ_land::Founding::Setup,
+        abandoned: None,
     });
 
-    let families = plan_band(params, &mut d, size);
+    let families = plan_band(params, d, size);
     let mut people = Vec::new();
     let mut households = Vec::new();
     let mut used_names: Vec<String> = Vec::new();
@@ -770,7 +1011,8 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
             Some(settlement),
             home,
             Origin::Founder,
-            &mut d,
+            params.band.provisions_days,
+            d,
             &mut used_names,
         );
         households.push(hh_id);
@@ -801,13 +1043,13 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
     for &id in &people {
         pop.begin(ctx, id);
     }
-    Ok(Founded {
+    Founded {
         settlement,
         name,
         hearth,
         people,
         households,
-    })
+    }
 }
 
 /// Most families the observer sends at once.
@@ -830,7 +1072,7 @@ pub fn spawn_families(
     count: u32,
 ) -> Result<Vec<Spawned>, String> {
     let count = count.clamp(1, MAX_SPAWN_FAMILIES) as usize;
-    let first = spawn_one(pop, ctx, at, 0, None, None)?;
+    let first = spawn_one(pop, ctx, at, 0, None, None, Sent::Family)?;
     let joining = Some((first.settlement, first.name.clone()));
     let band = Some(first.household);
     let mut out = vec![first];
@@ -846,7 +1088,7 @@ pub fn spawn_families(
             at.0 + (r * angle.cos()) as f32,
             at.1 + (r * angle.sin()) as f32,
         );
-        if let Ok(spawned) = spawn_one(pop, ctx, p, k as u64, joining.clone(), band) {
+        if let Ok(spawned) = spawn_one(pop, ctx, p, k as u64, joining.clone(), band, Sent::Family) {
             out.push(spawned);
         }
     }
@@ -877,7 +1119,279 @@ pub fn spawn_family(
     ctx: &mut Ctx,
     at: (f32, f32),
 ) -> Result<Spawned, String> {
-    spawn_one(pop, ctx, at, 0, None, None)
+    spawn_one(pop, ctx, at, 0, None, None, Sent::Family)
+}
+
+/// Whom the observer sends.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Sent {
+    /// A family, as a founding family is made.
+    Family,
+    /// One adult alone (M4c slice AJ's agitator).
+    Lone,
+    /// A household of a migration wave (M5a slice AN), carrying `days` days of food, one of its
+    /// couple a child of `parents` when given (the woman when `woman`, else the man, or the other
+    /// when that one already has parents in the family).
+    Wave {
+        days: u32,
+        parents: Option<(PermanentId, PermanentId)>,
+        woman: bool,
+    },
+}
+
+/// The observer's god tool (M4c slice AJ, ADR-0016 §5): one adult newcomer, holding ideology
+/// `ideology` (an index in the catalog's ideologies), arrives where the observer placed them, as
+/// a family is sent, in a household of their own. They are an ordinary person, bound by every law,
+/// and start with a stranger's ties: they know nobody. Returns what arrived and the
+/// intervention's number.
+pub fn send_agitator(
+    pop: &mut Population,
+    ctx: &mut Ctx,
+    at: (f32, f32),
+    ideology: u16,
+) -> Result<(Spawned, u32), String> {
+    let name = ctx
+        .catalog
+        .ideologies
+        .get(usize::from(ideology))
+        .map(|d| d.name.to_lowercase())
+        .ok_or_else(|| format!("there is no ideology {ideology}"))?;
+    let sent = spawn_one(pop, ctx, at, 0, None, None, Sent::Lone)?;
+    let Some(&id) = sent.people.first() else {
+        return Err("nobody arrived".to_owned());
+    };
+    let (now, day) = (ctx.now, ctx.now.day_index());
+    pop.ideologies.take_up(crate::ideology::Holding {
+        holder: id,
+        ideology,
+        since: day,
+        from: None,
+    });
+    let record = pop.influences.add(
+        now,
+        crate::influence::InfluenceKind::Agitator,
+        id,
+        u32::from(ideology),
+    );
+    if let Some(r) = pop.influences.list.last_mut() {
+        r.taken = Some(day);
+    }
+    pop.chronicle_push(
+        now,
+        ChronicleKind::Influence,
+        vec![id],
+        Some(sent.settlement),
+        pop.person(id).map(|p| p.pos),
+        f64::from(crate::influence::InfluenceKind::Agitator.code()),
+        format!(", who holds to {name}, to {}.", sent.name),
+    );
+    Ok((sent, record))
+}
+
+/// How far from where a wave is sent its households know the settlements, told of them on the way
+/// in (M5a slice AN; a design prior: an hour and a quarter's walk, beyond the 3 km setup keeps
+/// founding groups apart).
+pub const WAVE_KNOWN_M: f32 = 5_000.0;
+
+/// The observer's god tool (M5a slice AN, ADR-0016 §5, ADR-0018 §3): a migration wave of
+/// `households` households of one band (within [`WAVE_HOUSEHOLDS`]) comes to `at` from the map's
+/// edge nearest it over `days` days (within [`WAVE_DAYS`]): those due today at once, the rest at
+/// the midnights after ([`wave_arrivals`]). Each household is made as a sent family is, carrying
+/// `months` months of food (within [`WAVE_MONTHS`]) with seed and tools; all build in the way of
+/// the first household's band; in each run of [`WAVE_SIBLINGS`] households one of each couple is a
+/// brother or sister of the others; and each knows the settlements it passed within sight of on
+/// its way in from the edge and those within [`WAVE_KNOWN_M`] of `at`. They join the settlement
+/// there or found one, as a sent family does; nothing chooses where they go next. Returns the
+/// intervention's number and the households that came at once.
+pub fn send_wave(
+    pop: &mut Population,
+    ctx: &mut Ctx,
+    at: (f32, f32),
+    households: u32,
+    days: u32,
+    months: u32,
+) -> Result<(u32, Vec<Spawned>), String> {
+    let within = |v: u32, [lo, hi]: [u32; 2]| (lo..=hi).contains(&v);
+    if !within(households, WAVE_HOUSEHOLDS) {
+        return Err(format!(
+            "a wave brings {} to {} households (asked {households})",
+            WAVE_HOUSEHOLDS[0], WAVE_HOUSEHOLDS[1]
+        ));
+    }
+    if !within(days, WAVE_DAYS) {
+        return Err(format!(
+            "a wave comes over {} to {} days (asked {days})",
+            WAVE_DAYS[0], WAVE_DAYS[1]
+        ));
+    }
+    if !within(months, WAVE_MONTHS) {
+        return Err(format!(
+            "a wave carries {} to {} months of food (asked {months})",
+            WAVE_MONTHS[0], WAVE_MONTHS[1]
+        ));
+    }
+    let (w, h) = ctx.map.extent_m();
+    let (x, y) = (f64::from(at.0), f64::from(at.1));
+    if !(x >= 0.0 && y >= 0.0 && x < w && y < h) {
+        return Err("a wave can only be sent to a point on the map".to_owned());
+    }
+    let cell = cell_of(ctx.map, at);
+    if ctx.map.water[cell] != WATER_LAND || !ctx.nav.walkable(cell) {
+        return Err("a wave can only be sent to dry land people can walk on".to_owned());
+    }
+    // The edge nearest where it was sent, and which edge that is.
+    let (w, h) = (w as f32, h as f32);
+    let (edge, side) = [
+        ((0.0, at.1), at.0, "west"),
+        ((w, at.1), w - at.0, "east"),
+        ((at.0, 0.0), at.1, "north"),
+        ((at.0, h), h - at.1, "south"),
+    ]
+    .into_iter()
+    .min_by(|a, b| a.1.total_cmp(&b.1))
+    .map(|(p, _, side)| (p, side))
+    .unwrap_or(((0.0, at.1), "west"));
+    let runs = households.div_ceil(WAVE_SIBLINGS);
+    let parents = (0..runs)
+        .map(|_| (ctx.ids.allocate(), ctx.ids.allocate()))
+        .collect();
+    let day = ctx.now.day_index();
+    // Its number, known before anyone comes, keys its households' draws apart from those of any
+    // other family sent to the same point at the same minute.
+    let record = pop.influences.list.last().map_or(0, |i| i.id) + 1;
+    let mut wave = Wave {
+        record,
+        at,
+        edge,
+        day,
+        households,
+        days,
+        provisions_days: (i64::from(months) * DAYS_PER_YEAR / 12) as u32,
+        arrived: 0,
+        came: 0,
+        next: 0,
+        settlement: None,
+        band: None,
+        parents,
+        people: Vec::new(),
+    };
+    let came = arrive(pop, ctx, &mut wave, day);
+    let (Some(first), Some(sent)) = (wave.people.first().copied(), came.first()) else {
+        return Err("no household of the wave found room to camp there".to_owned());
+    };
+    let now = ctx.now;
+    let added = pop
+        .influences
+        .add(now, InfluenceKind::Wave, first, households);
+    debug_assert_eq!(added, record);
+    pop.chronicle_push(
+        now,
+        ChronicleKind::Influence,
+        vec![first],
+        Some(sent.settlement),
+        Some(at),
+        f64::from(InfluenceKind::Wave.code()),
+        format!(
+            "'s household, the first of a wave of {households} households from the {side}, to {}.",
+            sent.name
+        ),
+    );
+    pop.influences.waves.push(wave);
+    Ok((record, came))
+}
+
+/// The households of the waves whose day has come arrive (at midnight; M5a slice AN).
+pub(crate) fn wave_arrivals(pop: &mut Population, ctx: &mut Ctx) {
+    let day = ctx.now.day_index();
+    for i in 0..pop.influences.waves.len() {
+        let w = &pop.influences.waves[i];
+        if w.done() || w.due(w.arrived) > day {
+            continue;
+        }
+        let mut wave = w.clone();
+        arrive(pop, ctx, &mut wave, day);
+        pop.influences.waves[i] = wave;
+    }
+}
+
+/// Each household of `wave` due by `day` comes: at the next point of the spiral around where it
+/// was sent that takes a home (as sent families are placed), joining the settlement its first
+/// household joined or founded while anyone lives there. One that finds no room within four
+/// points a household goes on and never comes.
+fn arrive(pop: &mut Population, ctx: &mut Ctx, wave: &mut Wave, day: i64) -> Vec<Spawned> {
+    let golden = std::f64::consts::PI * (3.0 - 5f64.sqrt());
+    let mut out = Vec::new();
+    while !wave.done() && wave.due(wave.arrived) <= day {
+        let joining = wave.settlement.and_then(|id| {
+            ctx.land
+                .settlements
+                .iter()
+                .find(|s| s.id == id && s.abandoned.is_none())
+                .map(|s| (s.id, s.name.clone()))
+        });
+        let sent = Sent::Wave {
+            days: wave.provisions_days,
+            parents: wave
+                .parents
+                .get((wave.arrived / WAVE_SIBLINGS) as usize)
+                .copied(),
+            woman: wave.arrived.is_multiple_of(2),
+        };
+        let mut placed = None;
+        while placed.is_none() && wave.next < wave.households * 4 {
+            let k = wave.next;
+            wave.next += 1;
+            let (r, angle) = (SPAWN_SPACING_M * f64::from(k).sqrt(), golden * f64::from(k));
+            let p = (
+                wave.at.0 + (r * angle.cos()) as f32,
+                wave.at.1 + (r * angle.sin()) as f32,
+            );
+            let index = (u64::from(wave.record) << 32) | u64::from(k);
+            placed = spawn_one(pop, ctx, p, index, joining.clone(), wave.band, sent).ok();
+        }
+        wave.arrived += 1;
+        let Some(spawned) = placed else {
+            continue;
+        };
+        wave.came += 1;
+        if wave.band.is_none() {
+            wave.band = Some(spawned.household);
+        }
+        if joining.is_none() {
+            wave.settlement = Some(spawned.settlement);
+        }
+        wave_knows(pop, ctx, wave, spawned.household, spawned.settlement);
+        wave.people.extend_from_slice(&spawned.people);
+        out.push(spawned);
+    }
+    out
+}
+
+/// Household `household` of `wave`, living in `home`, knows the settlements lived in that it
+/// passed within sight of on its way in from the edge, and has been told of those within
+/// [`WAVE_KNOWN_M`] of where it was sent (ADR-0018 §4).
+fn wave_knows(
+    pop: &mut Population,
+    ctx: &Ctx,
+    wave: &Wave,
+    household: PermanentId,
+    home: PermanentId,
+) {
+    let day = ctx.now.day_index();
+    let way = [wave.edge, wave.at];
+    for s in &ctx.land.settlements {
+        if s.id == home || s.abandoned.is_some() {
+            continue;
+        }
+        let how = if distance_to_walk(&way, s.hearth_m) <= ctx.params.places.sight_m {
+            PlaceHow::Seen
+        } else if (s.hearth_m.0 - wave.at.0).hypot(s.hearth_m.1 - wave.at.1) <= WAVE_KNOWN_M {
+            PlaceHow::Told
+        } else {
+            continue;
+        };
+        pop.known_places.learn(household, s.id, day, how, None);
+    }
 }
 
 /// One family sent to `at`: the `index`th of those sent together (its own draws), joining
@@ -890,6 +1404,7 @@ fn spawn_one(
     index: u64,
     joining: Option<(PermanentId, String)>,
     band: Option<PermanentId>,
+    sent: Sent,
 ) -> Result<Spawned, String> {
     let params = ctx.params;
     let now = ctx.now;
@@ -939,14 +1454,7 @@ fn spawn_one(
     let (settlement, name, founded) = match near {
         Some((id, name)) => (id, name, false),
         None => {
-            let name = match (
-                d.pick(&params.names.place_first).cloned(),
-                d.pick(&params.names.place_second).cloned(),
-            ) {
-                (Some(a), Some(b)) => format!("{a}{b}"),
-                (Some(a), None) => a,
-                _ => "the camp".to_owned(),
-            };
+            let name = place_name(params, &mut d, &ctx.land.settlements);
             let id = ctx.ids.allocate();
             ctx.land.settlements.push(civ_land::Settlement {
                 id,
@@ -955,11 +1463,30 @@ fn spawn_one(
                 hearth_m: home,
                 food_short: false,
                 harvest_kg: 0.0,
+                parent: None,
+                founding: if matches!(sent, Sent::Wave { .. }) {
+                    civ_land::Founding::Wave
+                } else {
+                    civ_land::Founding::Sent
+                },
+                abandoned: None,
             });
             (id, name, true)
         }
     };
-    let family = plan_family(params, &mut d);
+    let family = match sent {
+        Sent::Family | Sent::Wave { .. } => plan_family(params, &mut d),
+        Sent::Lone => vec![Member {
+            sex: if d.unit() < 0.5 {
+                Sex::Female
+            } else {
+                Sex::Male
+            },
+            age: d.range(20.0, 40.0),
+            mother: None,
+            father: None,
+        }],
+    };
     let mut used_names: Vec<String> = pop.people.iter().map(|(_, p)| p.given.clone()).collect();
     let (household, people) = add_family(
         pop,
@@ -969,20 +1496,53 @@ fn spawn_one(
         band,
         home,
         Origin::Spawned,
+        match sent {
+            Sent::Wave { days, .. } => f64::from(days),
+            Sent::Family | Sent::Lone => params.band.provisions_days,
+        },
         &mut d,
         &mut used_names,
     );
+    // A wave's households come as brothers and sisters: one of the couple is a child of the
+    // parents its run of households shares.
+    if let Sent::Wave {
+        parents: Some((mother, father)),
+        woman,
+        ..
+    } = sent
+    {
+        let couple: Vec<usize> = (0..family.len().min(2)).collect();
+        let first = if woman { 0 } else { 1 };
+        let pick = [first, 1 - first].into_iter().find(|&i| {
+            couple.contains(&i) && family[i].mother.is_none() && family[i].father.is_none()
+        });
+        if let Some(i) = pick {
+            let id = people[i];
+            if let Some(r) = pop.records.get_mut(&id) {
+                r.mother = Some(mother);
+                r.father = Some(father);
+            }
+            if let Some(p) = pop.person_mut_by_id(id) {
+                p.mother = Some(mother);
+                p.father = Some(father);
+            }
+            pop.forget_kin();
+        }
+    }
     // What the family brings that its settlement did not know is noted (ADR-0008 §2).
     pop.note_arrivals(ctx.catalog, now, settlement, &people);
-    pop.chronicle_push(
-        now,
-        ChronicleKind::FamilyArrived,
-        people.clone(),
-        Some(settlement),
-        Some(home),
-        people.len() as f64,
-        String::new(),
-    );
+    // One sent alone is told by whoever sent them.
+    if sent != Sent::Lone {
+        pop.chronicle_push(
+            now,
+            ChronicleKind::FamilyArrived,
+            people.clone(),
+            Some(settlement),
+            Some(home),
+            people.len() as f64,
+            String::new(),
+        );
+    }
     if founded {
         pop.chronicle_push(
             now,
@@ -1075,6 +1635,9 @@ pub(crate) mod tests {
                 leave_at_depletion: 0.3,
                 leave_per_day: 0.1,
                 leave_unless_ripe_within_days: 30.0,
+                leave_w_gap: 6.0,
+                leave_w_stake: 3.0,
+                leave_stay: 2.0,
                 ready_food_days: 2.0,
                 harvest_margin_days: 30.0,
                 raised_store_factor: 2.0,
@@ -1131,6 +1694,7 @@ pub(crate) mod tests {
                 review_days: 7,
                 margin: 0.25,
                 max_change: 0.05,
+                stock_response: 0.5,
                 memory_days: 30.0,
                 money_share: 0.5,
                 money_min_trades: 10.0,
@@ -1179,6 +1743,23 @@ pub(crate) mod tests {
                 },
             },
             names: NameParams::default(),
+            midden: crate::params::MiddenParams {
+                kg_per_person_day: 0.5,
+                n_kg_per_person_year: 1.0,
+                half_life_days: 365.0,
+                load_kg: 25.0,
+                spread_h_per_t: 2.0,
+            },
+            ties: crate::ties::TieParams::core(),
+            standing: crate::standing::StandingParams::default(),
+            polity: crate::polity::PolityParams::core(),
+            crime: crate::crime::CrimeParams::core(),
+            word: crate::word::WordParams::core(),
+            opinion: crate::opinion::OpinionParams::core(),
+            faction: crate::faction::FactionParams::core(),
+            places: crate::places::PlacesParams::core(),
+            moving: crate::places::MovingParams::core(),
+            founding: crate::places::FoundingParams::core(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,
@@ -1210,6 +1791,45 @@ pub(crate) mod tests {
                 },
             },
         }
+    }
+
+    #[test]
+    fn a_new_settlement_is_never_named_as_one_on_record() {
+        let mut p = params();
+        p.names.place_first = vec!["Ash".to_owned(), "Elm".to_owned()];
+        p.names.place_second = vec!["ford".to_owned()];
+        let place = |name: &str, id: u64| civ_land::Settlement {
+            id: PermanentId::from_raw(id).expect("an id"),
+            name: name.to_owned(),
+            founded: SimTime::ZERO,
+            hearth_m: (0.0, 0.0),
+            food_short: false,
+            harvest_kg: 0.0,
+            parent: None,
+            founding: civ_land::Founding::Setup,
+            abandoned: Some(SimTime::ZERO),
+        };
+        let mut d = Draws(Rng64::from_key(&[1]));
+        let first = place_name(&p, &mut d, &[]);
+        assert!(first == "Ashford" || first == "Elmford", "{first}");
+        // With one of the two taken, abandoned or not, the other is drawn.
+        let other = if first == "Ashford" {
+            "Elmford"
+        } else {
+            "Ashford"
+        };
+        for seed in 0..20 {
+            let mut d = Draws(Rng64::from_key(&[seed]));
+            assert_eq!(place_name(&p, &mut d, &[place(&first, 1)]), other);
+        }
+        // With both taken, a number tells the new one apart.
+        let both = [
+            place("Ashford", 1),
+            place("Elmford", 2),
+            place("Elmford 2", 3),
+        ];
+        let named = place_name(&p, &mut Draws(Rng64::from_key(&[3])), &both);
+        assert!(named == "Ashford 2" || named == "Elmford 3", "{named}");
     }
 
     #[test]

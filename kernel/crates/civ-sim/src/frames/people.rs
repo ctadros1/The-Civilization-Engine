@@ -9,8 +9,8 @@ use std::collections::HashSet;
 use civ_agents::history::{self, Span};
 use civ_agents::params::GoodUse;
 use civ_agents::person::{food_kcal, fuel_kg, stock_kcal};
-use civ_agents::{Cause, Origin, Person, Receipt, Repro, Scored, Sex, Step, Target, population};
-use civ_core::PermanentId;
+use civ_agents::{Origin, Person, Receipt, Repro, Scored, Sex, Step, Target, population};
+use civ_core::{PermanentId, SimTime};
 use civ_land::Building;
 use civ_schema::flatbuffers::{FlatBufferBuilder, ForwardsUOffset, Vector, WIPOffset};
 use civ_schema::wire;
@@ -101,6 +101,14 @@ pub fn settlement_briefs<'a>(
                 &sim.rules.people,
                 &sim.rules.catalog.goods,
             );
+            let founding = fbb.create_string(&founding_words(sim, s));
+            let year = fbb.create_string(&year_words(sim, s.id));
+            let contacts = fbb.create_string(&contacts_words(sim, s.id));
+            let coalitions: Vec<_> = coalition_words(sim, s.id)
+                .iter()
+                .map(|w| fbb.create_string(w))
+                .collect();
+            let coalitions = fbb.create_vector(&coalitions);
             wire::SettlementBrief::create(
                 fbb,
                 &wire::SettlementBriefArgs {
@@ -112,11 +120,265 @@ pub fn settlement_briefs<'a>(
                     food_days: food_days.unwrap_or(0.0) as f32,
                     food_short: s.food_short,
                     harvest_kg: s.harvest_kg as f32,
+                    founding: Some(founding),
+                    year: Some(year),
+                    abandoned_minute: s.abandoned.map_or(-1, |t| t.minutes()),
+                    contacts: Some(contacts),
+                    coalitions: Some(coalitions),
                 },
             )
         })
         .collect();
     fbb.create_vector(&briefs)
+}
+
+/// The coalitions of settlement `s`'s households gathered to found a settlement, still gathering
+/// or ended in the past year, each in words (M5a slice AO): "Ada's household gathers 2 more
+/// households, 14 people, to found a settlement 3.1 km north, since the spring of year 2; lacks
+/// seed"; "Ada's household and 2 more founded Birchford in the summer of year 3".
+pub fn coalition_words(sim: &Sim, s: PermanentId) -> Vec<String> {
+    use civ_agents::places::{CoalitionFate, Lacking};
+    let now = sim.now();
+    let year_ago = now.day_index() - civ_core::time::DAYS_PER_YEAR;
+    let day_words =
+        |d: i64| season_words(SimTime::from_minutes(d * civ_core::time::MINUTES_PER_DAY));
+    sim.people
+        .coalitions
+        .iter()
+        .filter(|c| c.from == s && c.ended.is_none_or(|d| d >= year_ago))
+        .map(|c| {
+            let who = c.named.map_or_else(
+                || "A household".to_owned(),
+                |p| format!("{}'s household", sim.people.name_of(p)),
+            );
+            let more = c.members.len().saturating_sub(1);
+            let them = match more {
+                0 => who.clone(),
+                1 => format!("{who} and one more household"),
+                n => format!("{who} and {n} more households"),
+            };
+            match c.fate {
+                CoalitionFate::Gathering => {
+                    let home = sim.land.settlements.iter().find(|x| x.id == s);
+                    let way = home.map_or_else(String::new, |h| {
+                        let (dx, dy) = (c.site.0 - h.hearth_m.0, c.site.1 - h.hearth_m.1);
+                        let way = match ((dy.atan2(dx).to_degrees() + 382.5) % 360.0 / 45.0) as u32
+                        {
+                            0 => "east",
+                            1 => "south-east",
+                            2 => "south",
+                            3 => "south-west",
+                            4 => "west",
+                            5 => "north-west",
+                            6 => "north",
+                            _ => "north-east",
+                        };
+                        format!(" {:.1} km {way}", dx.hypot(dy) / 1000.0)
+                    });
+                    let lack = match c.lacking {
+                        Lacking::Nothing => "",
+                        Lacking::Food => "; too little food to go yet",
+                        Lacking::Seed => "; too little seed to go yet",
+                    };
+                    format!(
+                        "{them} {} to found a settlement{way}, {} people, since {}{lack}",
+                        if more == 0 { "means" } else { "mean" },
+                        c.people,
+                        day_words(c.formed)
+                    )
+                }
+                CoalitionFate::Founded => format!(
+                    "{them} founded {} in {}",
+                    place_name(sim, c.settlement),
+                    day_words(c.ended.unwrap_or(c.formed))
+                ),
+                CoalitionFate::Dissolved => format!(
+                    "{who} gave up its plan to found a settlement in {}",
+                    day_words(c.ended.unwrap_or(c.formed))
+                ),
+            }
+        })
+        .collect()
+}
+
+/// A settlement's name, or "beyond the map" for none (ADR-0018 §3).
+fn place_name(sim: &Sim, s: Option<PermanentId>) -> String {
+    s.and_then(|s| sim.land.settlements.iter().find(|x| x.id == s))
+        .map_or_else(|| "beyond the map".to_owned(), |x| x.name.clone())
+}
+
+/// When `t` was, in words: "the spring of year 3".
+fn season_words(t: SimTime) -> String {
+    let d = t.date();
+    format!("the {} of year {}", d.season().name(), d.year)
+}
+
+/// How settlement `s` was founded, in words (ADR-0018 §1).
+pub fn founding_words(sim: &Sim, s: &civ_land::Settlement) -> String {
+    match s.founding {
+        civ_land::Founding::Setup => "one of the groups the world began with".to_owned(),
+        civ_land::Founding::Sent => "by a family the observer sent".to_owned(),
+        civ_land::Founding::Wave => "by a migration wave".to_owned(),
+        civ_land::Founding::Coalition => match s.parent {
+            Some(p) => format!("by households from {}", place_name(sim, Some(p))),
+            None => "by households already in the world".to_owned(),
+        },
+    }
+}
+
+/// Settlement `s`'s accounts over the past year, in words (ADR-0018 §3): "3 born, 1 died, 4 came
+/// from beyond the map"; empty when nothing changed.
+pub fn year_words(sim: &Sim, s: PermanentId) -> String {
+    let now = sim.now();
+    let from = now.plus_minutes(-civ_core::time::MINUTES_PER_YEAR);
+    let a = sim.people.accounts(s, from, now.plus_minutes(1));
+    let mut parts = Vec::new();
+    if a.births > 0 {
+        parts.push(format!("{} born", a.births));
+    }
+    if a.deaths > 0 {
+        parts.push(format!("{} died", a.deaths));
+    }
+    for (&origin, &n) in &a.arrivals {
+        parts.push(format!("{n} came from {}", place_name(sim, origin)));
+    }
+    for (&to, &n) in &a.departures {
+        match to {
+            None => parts.push(format!("{n} left the map")),
+            Some(_) => parts.push(format!("{n} went to {}", place_name(sim, to))),
+        }
+    }
+    parts.join(", ")
+}
+
+/// What passed between settlement `s` and others last year and this year so far, in words (M5a
+/// slices AM and AN): "in year 2: 12 visits from Ashford, 7 hours at the hearth here; 3 visits to
+/// Ashford; 5 people moved here from Ashford"; empty when nothing did.
+pub fn contacts_words(sim: &Sim, s: PermanentId) -> String {
+    let this = sim.now().date().year - 1;
+    let count = |n: u32, one: &str, many: &str| {
+        if n == 1 {
+            format!("1 {one}")
+        } else {
+            format!("{n} {many}")
+        }
+    };
+    let mut parts = Vec::new();
+    for year in [this - 1, this] {
+        let mut lines = Vec::new();
+        for (from, to, c) in sim.people.contacts.of_year(year) {
+            if to == s && c.visits > 0 {
+                lines.push(format!(
+                    "{} from {}, {:.0} hours at the hearth here",
+                    count(c.visits, "visit", "visits"),
+                    place_name(sim, Some(from)),
+                    c.minutes as f64 / 60.0
+                ));
+            }
+            if from == s && c.visits > 0 {
+                lines.push(format!(
+                    "{} to {}",
+                    count(c.visits, "visit", "visits"),
+                    place_name(sim, Some(to))
+                ));
+            }
+            if to == s && c.marriages > 0 {
+                lines.push(format!(
+                    "{} from {}",
+                    count(c.marriages, "marriage", "marriages"),
+                    place_name(sim, Some(from))
+                ));
+            }
+            if from == s && c.marriages > 0 {
+                lines.push(format!(
+                    "{} into {}",
+                    count(c.marriages, "marriage", "marriages"),
+                    place_name(sim, Some(to))
+                ));
+            }
+            // Households that moved (M5a slice AN).
+            if to == s && c.moved > 0 {
+                lines.push(format!(
+                    "{} moved here from {}",
+                    count(c.moved, "person", "people"),
+                    place_name(sim, Some(from))
+                ));
+            }
+            if from == s && c.moved > 0 {
+                lines.push(format!(
+                    "{} moved to {}",
+                    count(c.moved, "person", "people"),
+                    place_name(sim, Some(to))
+                ));
+            }
+        }
+        if !lines.is_empty() {
+            let when = if year == this {
+                format!("in year {} so far", year + 1)
+            } else {
+                format!("in year {}", year + 1)
+            };
+            parts.push(format!("{when}: {}", lines.join("; ")));
+        }
+    }
+    parts.join(". ")
+}
+
+/// Where person `id` has lived, oldest first, each in words (ADR-0018 §2): "Ashford, from the
+/// spring of year 1: came with a founding group".
+pub fn residence_words(sim: &Sim, id: PermanentId) -> Vec<String> {
+    sim.people
+        .records
+        .get(&id)
+        .map(|r| {
+            r.residence
+                .iter()
+                .map(|x| {
+                    format!(
+                        "{}, from {}: {}",
+                        place_name(sim, x.settlement),
+                        season_words(x.since),
+                        x.why.words()
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The other settlements household `household` knows, each in words (ADR-0018 §4): "Elmhollow:
+/// seen on a walk in the spring of year 1", with who told of it, if anyone.
+pub fn places_words(sim: &Sim, household: PermanentId) -> Vec<String> {
+    sim.people
+        .known_places
+        .of(household)
+        .iter()
+        .map(|k| {
+            let since = SimTime::from_minutes(k.first * civ_core::time::MINUTES_PER_DAY);
+            let by = k
+                .from
+                .filter(|_| k.how == civ_agents::places::PlaceHow::Told)
+                .map(|f| format!(" by {}", sim.people.name_of(f)))
+                .unwrap_or_default();
+            // What a member saw of its food when last there (M5a slice AM, visits).
+            let food = k.food.map_or_else(String::new, |fed| {
+                let seen = if fed >= 0.9 {
+                    "nobody they met going hungry"
+                } else if fed >= 0.5 {
+                    "some they met going hungry"
+                } else {
+                    "most they met going hungry"
+                };
+                format!("; when a member was last there, {seen}")
+            });
+            format!(
+                "{}: {}{by} in {}{food}",
+                place_name(sim, Some(k.settlement)),
+                k.how.words(),
+                season_words(since)
+            )
+        })
+        .collect()
 }
 
 /// The newest chronicle entry's sequence number (0 = none).
@@ -264,7 +526,14 @@ pub fn describe_target(
     match target {
         Target::None => String::new(),
         Target::Home => "home".to_owned(),
-        Target::Hearth => "the hearth".to_owned(),
+        // One's own settlement's hearth is "the hearth"; another's is named (ADR-0018 §2).
+        Target::Hearth(s) => {
+            let own = sim.people.household(household).and_then(|x| x.settlement) == Some(s);
+            match sim.land.settlements.iter().find(|x| x.id == s) {
+                Some(x) if !own => format!("the hearth of {}", x.name),
+                _ => "the hearth".to_owned(),
+            }
+        }
         Target::Patch(p) if (p as usize) < sim.land.patches.len() => {
             let class = sim.land.patches.class[p as usize] as usize;
             let habitat = sim
@@ -457,6 +726,12 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
                     format!("{what}, {place}")
                 }
                 Target::Household(_) | Target::Deposit(_) => format!("{what} at {place}"),
+                // Another settlement's hearth (M5a slice AM): "visiting the hearth of Ashford".
+                Target::Hearth(_)
+                    if def.is_some_and(|d| d.behavior == civ_agents::Behavior::Visit) =>
+                {
+                    format!("{what} {place}")
+                }
                 Target::Building(id) => {
                     match sim
                         .land
@@ -554,10 +829,11 @@ fn kin(sim: &Sim, id: PermanentId) -> Vec<(PermanentId, &'static str)> {
         return Vec::new();
     };
     let mut out = Vec::new();
-    if let Some(m) = me.mother {
+    // Parents who never lived on the map (a wave's, who stayed behind) have no record to show.
+    if let Some(m) = me.mother.filter(|m| records.contains_key(m)) {
         out.push((m, "mother"));
     }
-    if let Some(f) = me.father {
+    if let Some(f) = me.father.filter(|f| records.contains_key(f)) {
         out.push((f, "father"));
     }
     // Partners from the unions they were in; for a world older than unions, the other parent of
@@ -712,15 +988,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
     let mut fbb = FlatBufferBuilder::new();
     let name = fbb.create_string(&record.given);
     let (died_minute, cause) = match record.died {
-        Some((at, cause)) => (
-            at.minutes(),
-            match cause {
-                Cause::Unspecified => "illness or accident",
-                Cause::Starvation => "hunger",
-                Cause::Childbirth => "childbirth",
-                Cause::Collapse => "a building's collapse",
-            },
-        ),
+        Some((at, cause)) => (at.minutes(), cause.label()),
         None => (0, ""),
     };
     let cause = fbb.create_string(cause);
@@ -872,6 +1140,30 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.pos = Some(&pos);
         args.partner = p.partner.map_or(0, PermanentId::get);
         args.family = Some(notes);
+        args.ties = Some(super::standing::tie_lines(&mut fbb, sim, p));
+        args.standing = pop
+            .standing
+            .of(p.id)
+            .map(|r| super::standing::standing_line(&mut fbb, sim, r));
+        args.grievances = Some(super::word::grievance_lines(&mut fbb, sim, p));
+        args.heard = Some(super::word::heard_lines(&mut fbb, sim, p));
+        args.positions = Some(super::word::position_lines(&mut fbb, sim, p));
+        args.norms = Some(super::word::norm_lines(&mut fbb, sim, p));
+        args.values = Some(super::word::value_lines(&mut fbb, sim, p));
+        args.ideologies = Some(super::word::ideology_lines(&mut fbb, sim, p));
+        args.faction = super::word::faction_line(&mut fbb, sim, p);
+        args.news = Some(super::word::news_lines(&mut fbb, sim, p));
+        args.influences = Some(super::word::influence_lines(&mut fbb, sim, p));
+        let residence: Vec<_> = residence_words(sim, p.id)
+            .iter()
+            .map(|w| fbb.create_string(w))
+            .collect();
+        args.residence = Some(fbb.create_vector(&residence));
+        let places: Vec<_> = places_words(sim, p.household)
+            .iter()
+            .map(|w| fbb.create_string(w))
+            .collect();
+        args.places = Some(fbb.create_vector(&places));
     }
     let body = wire::PersonInfo::create(&mut fbb, &args);
     Ok(response(fbb, wire::ResponseBody::PersonInfo, body))

@@ -63,8 +63,39 @@ pub struct Facts {
     pub at_home: bool,
     /// Home position, metres.
     pub home: (f32, f32),
-    /// The settlement hearth, if any.
-    pub hearth: Option<(f32, f32)>,
+    /// The household's settlement and where its hearth is, if it has one.
+    pub hearth: Option<(PermanentId, (f32, f32))>,
+    /// The gathering sitting at the hearth that they may attend, if any (ADR-0013 §1).
+    pub gathering: Option<GatheringFacts>,
+    /// A petition sitting at the hearth they heard of and may join (M4c slice AH): what joining
+    /// it is worth to them and the minutes it still sits.
+    pub petition: Option<GatheringFacts>,
+    /// The round of the watch they keep, if they keep one and may walk it now (M4b slice AC).
+    pub watch: Option<WatchFacts>,
+    /// Whether a blow keeps them from work today (M4c slice AI, step four): they eat, drink, rest,
+    /// sleep and keep company, and do no work.
+    pub hurt: bool,
+}
+
+/// A round of the watch someone keeps (M4b slice AC): the homes it passes, in order, and what
+/// walking it is worth to them.
+#[derive(Clone, Debug, PartialEq)]
+pub struct WatchFacts {
+    /// Where to stand watch, in order, metres.
+    pub stops: Vec<(f32, f32)>,
+    /// Points: the duty, less for each round already walked tonight.
+    pub points: f64,
+}
+
+/// A gathering a person may attend now (ADR-0013 §1): what having a say there is worth to them,
+/// and the minutes it still sits.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GatheringFacts {
+    /// Points: the custom's pull, and what their household and their regard for the law's
+    /// sponsor have at stake.
+    pub points: f64,
+    /// Minutes it still sits.
+    pub minutes: f64,
 }
 
 /// A place a gathering trip could go: patch, walking minutes one way, expected return per
@@ -156,6 +187,42 @@ pub struct GiverOption {
     pub at: (f32, f32),
     /// Food energy it would give, kcal.
     pub kcal: f64,
+}
+
+/// Another settlement's hearth someone could visit (M5a slice AM): which, where, the walk one
+/// way and what those they would see there are worth to them.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct VisitOption {
+    /// The settlement.
+    pub settlement: PermanentId,
+    /// Its hearth, metres.
+    pub hearth: (f32, f32),
+    /// One-way walk, minutes.
+    pub walk_min: f64,
+    /// Points: kin there, those they know there, and the hope of meeting someone.
+    pub points: f64,
+}
+
+/// A household whose store someone could take from (M4b slice AA, ADR-0015 §2), with what
+/// weighs against it for this person, in points: their objection, the chance they believe they
+/// run of being seen times what that would cost them, and their household's regard for the one
+/// taken from.
+#[derive(Clone, Copy, Debug)]
+pub struct TakeOption {
+    /// The household.
+    pub household: PermanentId,
+    /// One-way walk to its home, minutes.
+    pub walk_min: f64,
+    /// Its home, metres.
+    pub at: (f32, f32),
+    /// Food energy they could carry off, kcal.
+    pub kcal: f64,
+    /// Points against, for their objection to taking.
+    pub objection: f64,
+    /// Points against, for the chance of being seen.
+    pub risk: f64,
+    /// Points against, for regard.
+    pub regard: f64,
 }
 
 /// The best purchase a household knows of (slice I): the seller, the walk to its home, the good
@@ -312,7 +379,7 @@ pub struct Limits {
 
 /// Daylight left, minutes, below which a household whose water will not last until morning
 /// fetches water before anything else of ordinary weight (a tuning value).
-const LAST_WATER_BEFORE_DARK_MIN: f64 = 180.0;
+pub(crate) const LAST_WATER_BEFORE_DARK_MIN: f64 = 180.0;
 
 fn term(terms: &mut Vec<Term>, reason: Reason, points: f64) {
     if points != 0.0 && points.is_finite() {
@@ -344,6 +411,33 @@ pub fn add_term(c: &mut Candidate, reason: Reason, points: f64) {
     term(&mut terms, reason, points);
     let steps = std::mem::take(&mut c.steps);
     *c = finish(c.scored.def, c.scored.target, terms, steps);
+}
+
+/// A leisure block (Accelerated mode, ADR-0011 §4): the minutes leisure chosen with probability
+/// `p` lasts, sessions of `session` minutes, and whether it ends by the person choosing something
+/// else, when their next decision passes it over. Detailed mode would decide again after each
+/// session and choose the same again with probability about `p` while nothing consequential
+/// changes: the block is that run of sessions, its length a geometric draw from `u` (0–1). It is
+/// cut at `until`, the minutes to the next consequential boundary, or at `longest`, where the
+/// next decision is made afresh: as the draw is memoryless, the run is the same in distribution.
+/// Never shorter than a session.
+pub fn leisure_block(session: u32, longest: u32, until: f64, p: f64, u: f64) -> (u32, bool) {
+    let session = session.max(1);
+    // Sessions more after the first, before something else is chosen.
+    let more = if p.is_nan() || p <= 0.0 {
+        0.0
+    } else if p >= 1.0 {
+        f64::INFINITY
+    } else {
+        (u.clamp(f64::MIN_POSITIVE, 1.0).ln() / p.ln()).floor()
+    };
+    let drawn = f64::from(session) * (1.0 + more);
+    let cut = until.min(f64::from(longest.max(session)));
+    if drawn < cut {
+        (drawn as u32, true)
+    } else {
+        ((cut.floor().max(0.0) as u32).max(session), false)
+    }
 }
 
 fn walk_home_first(f: &Facts) -> Vec<Step> {
@@ -423,6 +517,8 @@ pub fn candidates(
     build: Result<BuildOption, Reason>,
     shop: &Workshop,
     trying: &dyn Fn() -> Result<TryOption, Reason>,
+    take: &dyn Fn() -> Result<TakeOption, Reason>,
+    visits: &dyn Fn() -> Vec<VisitOption>,
 ) -> (Vec<Candidate>, Vec<(u16, Reason)>) {
     let mut out: Vec<Candidate> = Vec::new();
     let mut excluded = Vec::new();
@@ -453,6 +549,23 @@ pub fn candidates(
         }
         if def.daylight_only && f.dark {
             excluded.push((id, Reason::NotInDark));
+            continue;
+        }
+        // A blow keeps them from work (M4c slice AI, step four).
+        if f.hurt
+            && !matches!(
+                def.behavior,
+                Behavior::Sleep
+                    | Behavior::Eat
+                    | Behavior::FetchWater
+                    | Behavior::Socialize
+                    | Behavior::Rest
+                    | Behavior::Ask
+                    | Behavior::Attend
+                    | Behavior::Petition
+            )
+        {
+            excluded.push((id, Reason::Hurt));
             continue;
         }
         let mut terms = Vec::new();
@@ -845,6 +958,53 @@ pub fn candidates(
                 ];
                 out.push(finish(id, Target::Household(giver.household), terms, steps));
             }
+            Behavior::Take => {
+                // Take from another household's store when short (M4b slice AA, ADR-0015 §2;
+                // research 04-09 §5.3: U = G − C − M − I − p̂L). The gain is asking's, the food
+                // the household needs; against it are the walk, the person's objection, the
+                // chance they believe they run of being seen times what that would cost them, and
+                // their regard for those they would take from. The moral filter is `take`'s: above
+                // it, taking is not a candidate at all.
+                let target = f.food_target_days.max(1e-6);
+                let short = (1.0 - f.food_days / target).clamp(0.0, 1.0);
+                if short <= 0.0 {
+                    excluded.push((id, Reason::NotShort));
+                    continue;
+                }
+                let t = match take() {
+                    Ok(t) => t,
+                    Err(why) => {
+                        excluded.push((id, why));
+                        continue;
+                    }
+                };
+                if t.walk_min > f64::from(def.max_walk_minutes) {
+                    excluded.push((id, Reason::Unreachable));
+                    continue;
+                }
+                let half = w.trip_half_worth_days * f.household_kcal_day.max(1.0);
+                let worth = t.kcal / (t.kcal + half.max(1.0));
+                term(&mut terms, Reason::FoodShortage, w.w_food * short * worth);
+                if !f.has_food {
+                    term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
+                }
+                term(
+                    &mut terms,
+                    Reason::Walking,
+                    -w.w_walk_hour * 2.0 * t.walk_min / 60.0,
+                );
+                term(&mut terms, Reason::Objection, -t.objection);
+                term(&mut terms, Reason::Risk, -t.risk);
+                term(&mut terms, Reason::Regard, -t.regard);
+                let steps = vec![
+                    Step::Walk { to: t.at },
+                    Step::Work {
+                        minutes: def.min_minutes.max(1),
+                    },
+                    Step::Walk { to: f.home },
+                ];
+                out.push(finish(id, Target::Household(t.household), terms, steps));
+            }
             Behavior::Trade => {
                 // Buy what is cheaper to get from a neighbour than to make or gather (research
                 // 08-05 §1.4: a buyer compares the few sellers it knows by payment and walk).
@@ -982,7 +1142,7 @@ pub fn candidates(
                 out.push(finish(id, Target::Technique(t.technique), terms, steps));
             }
             Behavior::Socialize => {
-                let Some(hearth) = f.hearth else {
+                let Some((settlement, hearth)) = f.hearth else {
                     excluded.push((id, Reason::NoHearth));
                     continue;
                 };
@@ -997,7 +1157,100 @@ pub fn candidates(
                         minutes: def.min_minutes.max(1),
                     },
                 ];
-                out.push(finish(id, Target::Hearth, terms, steps));
+                out.push(finish(id, Target::Hearth(settlement), terms, steps));
+            }
+            Behavior::Attend => {
+                let (Some((settlement, hearth)), Some(g)) = (f.hearth, f.gathering) else {
+                    excluded.push((id, Reason::NoGathering));
+                    continue;
+                };
+                // A say in what the gathering decides, and the company of those who come.
+                term(&mut terms, Reason::Gathering, g.points);
+                term(
+                    &mut terms,
+                    Reason::Loneliness,
+                    w.w_social * f.loneliness * f.evening.max(0.25),
+                );
+                let steps = vec![
+                    Step::Walk { to: hearth },
+                    Step::Work {
+                        minutes: g.minutes.round().max(1.0) as u32,
+                    },
+                ];
+                out.push(finish(id, Target::Hearth(settlement), terms, steps));
+            }
+            Behavior::Petition => {
+                let (Some((settlement, hearth)), Some(g)) = (f.hearth, f.petition) else {
+                    excluded.push((id, Reason::NoPetition));
+                    continue;
+                };
+                // What joining the petition is worth to them, and the company of those who come.
+                term(&mut terms, Reason::Petition, g.points);
+                term(
+                    &mut terms,
+                    Reason::Loneliness,
+                    w.w_social * f.loneliness * f.evening.max(0.25),
+                );
+                let steps = vec![
+                    Step::Walk { to: hearth },
+                    Step::Work {
+                        minutes: g.minutes.round().max(1.0) as u32,
+                    },
+                ];
+                out.push(finish(id, Target::Hearth(settlement), terms, steps));
+            }
+            Behavior::Visit => {
+                // Company at another settlement's hearth (M5a slice AM): reached before dark,
+                // home again the same day. Its company is worth what being alone makes it, as
+                // at home, and what those they would see there are to them; the walk there and
+                // back is its cost.
+                let mut any = false;
+                for v in visits() {
+                    if f.daylight_left_min < v.walk_min {
+                        continue;
+                    }
+                    any = true;
+                    let mut terms = Vec::new();
+                    term(
+                        &mut terms,
+                        Reason::Loneliness,
+                        w.w_social * f.loneliness * f.evening.max(0.25),
+                    );
+                    term(&mut terms, Reason::Company, v.points);
+                    term(
+                        &mut terms,
+                        Reason::Walking,
+                        -w.w_walk_hour * 2.0 * v.walk_min / 60.0,
+                    );
+                    let steps = vec![
+                        Step::Walk { to: v.hearth },
+                        Step::Work {
+                            minutes: def.min_minutes.max(1),
+                        },
+                        Step::Walk { to: f.home },
+                    ];
+                    out.push(finish(id, Target::Hearth(v.settlement), terms, steps));
+                }
+                if !any {
+                    excluded.push((id, Reason::NoPlaceToVisit));
+                }
+            }
+            Behavior::Watch => {
+                // A round of the watch (M4b slice AC, ADR-0015 §6): a stand at each home on it,
+                // the activity's least minutes each.
+                let Some(round) = f.watch.as_ref() else {
+                    excluded.push((id, Reason::NoWatch));
+                    continue;
+                };
+                term(&mut terms, Reason::Duty, round.points);
+                let stand = def.min_minutes.max(1);
+                let mut steps = Vec::with_capacity(round.stops.len() * 2 + 1);
+                for &at in &round.stops {
+                    steps.push(Step::Walk { to: at });
+                    steps.push(Step::Work { minutes: stand });
+                }
+                steps.push(Step::Walk { to: f.home });
+                out.push(finish(id, Target::None, terms, steps));
             }
             Behavior::Rest => {
                 term(&mut terms, Reason::Rest, w.w_rest);
@@ -1261,6 +1514,8 @@ mod tests {
 
     fn facts() -> Facts {
         Facts {
+            petition: None,
+            hurt: false,
             age: 30.0,
             capacity: 1.0,
             hunger: 0.5,
@@ -1285,6 +1540,8 @@ mod tests {
             at_home: true,
             home: (0.0, 0.0),
             hearth: None,
+            gathering: None,
+            watch: None,
         }
     }
 
@@ -1365,7 +1622,76 @@ mod tests {
             Err(Reason::Built),
             &shop,
             &|| Err(Reason::NoProblem),
+            &|| Err(Reason::WouldNotTake),
+            &Vec::new,
         )
+    }
+
+    #[test]
+    fn a_visit_is_worth_those_there_less_the_walk_and_needs_daylight_to_get_there() {
+        let mut def = activity("visit", Behavior::Visit, Vec::new(), 1.0);
+        def.daylight_only = false;
+        def.min_minutes = 90;
+        let defs = vec![def];
+        let w = weights();
+        let shop = Workshop {
+            free_tools: &[],
+            held_tools: &[],
+            best_make: &|_, _| Err((Reason::NoMaterials, None)),
+            makes_tool: &|_| false,
+            knows: &|_| true,
+        };
+        let there = |walk_min: f64, points: f64| VisitOption {
+            settlement: PermanentId::from_raw(9).expect("id"),
+            hearth: (3000.0, 0.0),
+            walk_min,
+            points,
+        };
+        let run = |f: &Facts, options: Vec<VisitOption>| {
+            candidates(
+                &defs,
+                &w,
+                f,
+                &limits(),
+                &|_| None,
+                &|_| Ok(field()),
+                None,
+                &|| None,
+                &|| None,
+                &|| None,
+                Err(Reason::Built),
+                &shop,
+                &|| Err(Reason::NoProblem),
+                &|| Err(Reason::WouldNotTake),
+                &|| options.clone(),
+            )
+        };
+        let f = facts();
+        let (cands, _) = run(&f, vec![there(60.0, 6.0)]);
+        let c = &cands[0];
+        assert_eq!(c.scored.target, Target::Hearth(there(0.0, 0.0).settlement));
+        let term = |r: Reason| {
+            c.scored
+                .terms
+                .iter()
+                .find(|t| t.reason == r)
+                .map(|t| t.points)
+        };
+        assert_eq!(term(Reason::Company), Some(6.0));
+        // The walk there and back, an hour each way.
+        assert_eq!(term(Reason::Walking), Some((-2.0 * w.w_walk_hour) as f32));
+        // There, a session at the hearth, and home the same day.
+        assert!(matches!(c.steps.last(), Some(Step::Walk { to }) if *to == f.home));
+        // Not set out on when dark would fall before they got there, nor with nowhere to go.
+        let dusk = Facts {
+            daylight_left_min: 50.0,
+            ..facts()
+        };
+        let (cands, excluded) = run(&dusk, vec![there(60.0, 6.0)]);
+        assert!(cands.is_empty());
+        assert!(excluded.contains(&(0, Reason::NoPlaceToVisit)));
+        let (cands, excluded) = run(&f, Vec::new());
+        assert!(cands.is_empty() && excluded.contains(&(0, Reason::NoPlaceToVisit)));
     }
 
     #[test]
@@ -1466,6 +1792,8 @@ mod tests {
                 Err(Reason::Built),
                 &shop,
                 &|| Err(Reason::NoProblem),
+                &|| Err(Reason::WouldNotTake),
+                &Vec::new,
             )
         };
         // With an axe free, wood is cut with it and not by hand.
@@ -1608,6 +1936,8 @@ mod tests {
                 Err(Reason::Built),
                 &shop,
                 &|| Err(Reason::NoProblem),
+                &|| Err(Reason::WouldNotTake),
+                &Vec::new,
             );
             let total = |d: u16| {
                 cands
@@ -1637,5 +1967,34 @@ mod tests {
         let w = weights();
         let (_, p, _) = choose(&[3.0, 3.0, 3.0, 3.0], &w, 0.3);
         assert!((p - 0.25).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_leisure_block_is_the_run_of_sessions_detailed_mode_would_live() {
+        // 30-minute sessions, at most 180 minutes, the next turn of the day 400 minutes away.
+        let block = |p: f64, u: f64| leisure_block(30, 180, 400.0, p, u);
+        // Chosen with probability one half: another session with chance one half each time.
+        assert_eq!(block(0.5, 0.9), (30, true), "the first draw ends it");
+        assert_eq!(block(0.5, 0.4), (60, true), "one more");
+        assert_eq!(block(0.5, 0.2), (90, true), "two more");
+        // Cut at the longest, or at the next turn: then the next decision is made afresh.
+        assert_eq!(block(0.5, 1e-6), (180, false));
+        assert_eq!(leisure_block(30, 180, 75.0, 0.5, 1e-6), (75, false));
+        // Never shorter than a session; never chosen again, never more than one.
+        assert_eq!(leisure_block(30, 180, 10.0, 0.9, 0.01), (30, false));
+        assert_eq!(block(0.0, 0.01), (30, true));
+        assert_eq!(block(1.0, 0.99), (180, false));
+        // The mean run is a session over the chance of choosing something else, as in Detailed
+        // mode: 1 / (1 - 0.75) = 4 sessions.
+        let n = 10_000;
+        let mean = (0..n)
+            .map(|k| {
+                f64::from(
+                    leisure_block(30, 100_000, 1e9, 0.75, (f64::from(k) + 0.5) / f64::from(n)).0,
+                )
+            })
+            .sum::<f64>()
+            / f64::from(n);
+        assert!((mean / 30.0 - 4.0).abs() < 0.05, "{mean}");
     }
 }

@@ -210,6 +210,8 @@ impl Population {
         let learnt = self
             .person_mut_by_id(who)
             .is_some_and(|p| p.learn(t, hours, teacher, learn_h, now));
+        // The learner saw the teacher's craft at work (ADR-0014 §2).
+        self.note_tie(ctx, who, teacher, crate::ties::Act::LearnedFrom, hours, 0.0);
         if learnt {
             self.on_known(ctx, who, t, KnowSource::Taught(teacher));
         }
@@ -240,6 +242,9 @@ impl Population {
         };
         let mut found: Vec<usize> = Vec::new();
         let mut stores: Option<Vec<f64>> = None;
+        // A blessing or a curse moves their own chance of finding (M4c slice AJ).
+        let luck = self.influences.luck(who, now.day_index());
+        let mut turned: Vec<usize> = Vec::new();
         for (t, d) in catalog.techniques.iter().enumerate() {
             let share = if trying {
                 if target != Target::Technique(t as u16) {
@@ -274,11 +279,25 @@ impl Population {
                 t as u64,
                 started.minutes() as u64,
             ];
-            if Rng64::from_key(&key).next_f64() < chance {
+            let u = Rng64::from_key(&key).next_f64();
+            let mut hit = u < chance;
+            if let Some(luck) = luck {
+                let moved = u < (chance * luck.fortune()).min(1.0);
+                if moved != hit {
+                    turned.push(t);
+                }
+                hit = moved;
+            }
+            if hit {
                 found.push(t);
             }
         }
         let settlement = self.household(p.household).and_then(|x| x.settlement);
+        if let Some(luck) = luck {
+            for &t in &turned {
+                self.note_turned(ctx, who, luck, Some(t));
+            }
+        }
         for t in found {
             let kind = self.find_kind(settlement, t);
             if self

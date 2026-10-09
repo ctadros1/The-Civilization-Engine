@@ -116,11 +116,49 @@ pub enum Reason {
     SnowCover = 126,
     /// Excluded: the ground is frozen.
     FrozenGround = 127,
+    /// To have a say at the gathering called at the hearth: what it decides is worth to the
+    /// household (M4a slice Z, ADR-0013 §1).
+    Gathering = 24,
+    /// Excluded: no gathering is sitting that they belong to.
+    NoGathering = 128,
+    /// Their objection to taking what is not theirs (M4b slice AA, ADR-0015 §2).
+    Objection = 25,
+    /// The chance they believe they run of being seen, and what being seen would cost them.
+    Risk = 26,
+    /// Their regard for those they would take from.
+    Regard = 27,
+    /// Excluded: they would not take what is not theirs (a moral filter, research 04-09 §5.3).
+    WouldNotTake = 129,
+    /// Excluded: no household within reach has food to take.
+    NothingToTake = 130,
+    /// Excluded: they turned back or fled from a store lately, and wait to try again.
+    TurnedBackLately = 131,
+    /// The watch a law names them to keep (M4b slice AC, ADR-0015 §6).
+    Duty = 28,
+    /// Excluded: they keep no watch, it is not dark, or they have walked tonight's rounds.
+    NoWatch = 132,
+    /// A curfew they know of forbids being away from home now (M4b slice AD): what keeping it
+    /// weighs with them.
+    Curfew = 29,
+    /// To join a petition a faction called at the hearth (M4c slice AH): their grievance, their
+    /// identification with it and those they expect to come (research 04-10 §5.3).
+    Petition = 30,
+    /// Excluded: no petition they heard of sits now.
+    NoPetition = 133,
+    /// Excluded: a blow keeps them from work (M4c slice AI, step four).
+    Hurt = 134,
+    /// Those they would see at another settlement's hearth (M5a slice AM): kin living there,
+    /// those they know there, and, for one who found no partner at home, the hope of meeting
+    /// someone.
+    Company = 31,
+    /// Excluded: no other settlement their household knows lies within a day's walk there and
+    /// back, in daylight.
+    NoPlaceToVisit = 135,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 51] = [
+    pub const ALL: [Reason; 67] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -172,6 +210,22 @@ impl Reason {
         Reason::WetGround,
         Reason::SnowCover,
         Reason::FrozenGround,
+        Reason::Gathering,
+        Reason::NoGathering,
+        Reason::Objection,
+        Reason::Risk,
+        Reason::Regard,
+        Reason::WouldNotTake,
+        Reason::NothingToTake,
+        Reason::TurnedBackLately,
+        Reason::Duty,
+        Reason::NoWatch,
+        Reason::Curfew,
+        Reason::Petition,
+        Reason::NoPetition,
+        Reason::Hurt,
+        Reason::Company,
+        Reason::NoPlaceToVisit,
     ];
 
     /// The reason with this code.
@@ -233,6 +287,22 @@ impl Reason {
             Reason::WetGround => "the ground too wet to work",
             Reason::SnowCover => "snow on the ground",
             Reason::FrozenGround => "the ground frozen",
+            Reason::Gathering => "a say at the gathering",
+            Reason::NoGathering => "no gathering is sitting",
+            Reason::Objection => "taking what is not theirs",
+            Reason::Risk => "the chance of being seen",
+            Reason::Regard => "regard for those taken from",
+            Reason::WouldNotTake => "would not take what is not theirs",
+            Reason::NothingToTake => "no store within reach to take from",
+            Reason::TurnedBackLately => "turned back from a store lately",
+            Reason::Duty => "the watch they keep",
+            Reason::NoWatch => "no watch of theirs to keep now",
+            Reason::Curfew => "a curfew forbids being away from home now",
+            Reason::Petition => "the petition at the hearth",
+            Reason::NoPetition => "no petition they heard of sits now",
+            Reason::Hurt => "a blow keeps them from work",
+            Reason::Company => "those they would see there",
+            Reason::NoPlaceToVisit => "no settlement they know within a day's walk",
         }
     }
 }
@@ -303,15 +373,19 @@ pub enum Cause {
     Childbirth,
     /// When a building gave way around them (ADR-0009 §5).
     Collapse,
+    /// Of a blow another struck (M4c slice AI, step four; ADR-0017 §3): the encounter that
+    /// records who struck it.
+    Violence,
 }
 
 impl Cause {
     /// Every cause.
-    pub const ALL: [Cause; 4] = [
+    pub const ALL: [Cause; 5] = [
         Cause::Unspecified,
         Cause::Starvation,
         Cause::Childbirth,
         Cause::Collapse,
+        Cause::Violence,
     ];
 
     /// The key a chronicle entry keeps it as.
@@ -321,6 +395,7 @@ impl Cause {
             Cause::Starvation => "starvation",
             Cause::Childbirth => "childbirth",
             Cause::Collapse => "collapse",
+            Cause::Violence => "violence",
         }
     }
 
@@ -336,6 +411,7 @@ impl Cause {
             Cause::Starvation => "hunger",
             Cause::Childbirth => "childbirth",
             Cause::Collapse => "a building's collapse",
+            Cause::Violence => "a blow struck by another",
         }
     }
 }
@@ -361,6 +437,95 @@ pub struct PersonRecord {
     pub father: Option<PermanentId>,
     /// How they came to be here.
     pub origin: Origin,
+    /// Where they have lived, oldest first: each settlement (none: off the map), since when and
+    /// why (ADR-0018 §2). The last is where they live now, or where they last lived.
+    pub residence: Vec<Stay>,
+}
+
+impl PersonRecord {
+    /// The settlement they lived in at `t` (after everything at an earlier minute), if any.
+    pub fn residence_at(&self, t: SimTime) -> Option<PermanentId> {
+        self.residence
+            .iter()
+            .take_while(|r| r.since < t)
+            .last()
+            .and_then(|r| r.settlement)
+    }
+}
+
+/// Why someone came to live where they did, or went (ADR-0018 §2). Numeric in saves: append
+/// only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ResidenceWhy {
+    /// Born to a household there.
+    Born,
+    /// One of a founding group the world was made with.
+    Founder,
+    /// Came from off the map: a family or an agitator the observer sent, or a wave.
+    Arrived,
+    /// Their household moved there from another settlement.
+    Moved,
+    /// Joined a household there on marrying.
+    Married,
+    /// Taken in by kin there when nobody older was left in their own household.
+    TakenIn,
+    /// Sent away by a finding.
+    Exiled,
+    /// Their household gave up and left the map.
+    LeftMap,
+    /// Their household went with others to found it (M5a slice AO).
+    Founded,
+}
+
+impl ResidenceWhy {
+    /// Every reason, in code order.
+    pub const ALL: [ResidenceWhy; 9] = [
+        ResidenceWhy::Born,
+        ResidenceWhy::Founder,
+        ResidenceWhy::Arrived,
+        ResidenceWhy::Moved,
+        ResidenceWhy::Married,
+        ResidenceWhy::TakenIn,
+        ResidenceWhy::Exiled,
+        ResidenceWhy::LeftMap,
+        ResidenceWhy::Founded,
+    ];
+
+    /// Its code in saves.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The reason with a code.
+    pub fn from_code(code: u8) -> Option<ResidenceWhy> {
+        ResidenceWhy::ALL.get(usize::from(code)).copied()
+    }
+
+    /// In words, as the inspector says it.
+    pub fn words(self) -> &'static str {
+        match self {
+            ResidenceWhy::Born => "born there",
+            ResidenceWhy::Founder => "came with a founding group",
+            ResidenceWhy::Arrived => "came from beyond the map",
+            ResidenceWhy::Moved => "moved there with their household",
+            ResidenceWhy::Married => "married into a household there",
+            ResidenceWhy::TakenIn => "taken in by kin there",
+            ResidenceWhy::Exiled => "sent away by a finding",
+            ResidenceWhy::LeftMap => "left with their household",
+            ResidenceWhy::Founded => "went with others to found it",
+        }
+    }
+}
+
+/// One stay in someone's residence history (ADR-0018 §2).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Stay {
+    /// The settlement, or none: off the map.
+    pub settlement: Option<PermanentId>,
+    /// From when.
+    pub since: SimTime,
+    /// Why.
+    pub why: ResidenceWhy,
 }
 
 /// What happened, in the chronicle. Numeric in saves: append only.
@@ -391,8 +556,9 @@ pub enum ChronicleKind {
     /// Children left without an older member of their household went to live with kin or
     /// neighbours: `people` is the eldest of the household that took them in, then the children.
     TakenIn,
-    /// A household gave up and left the valley: `people` is its members, eldest first, and
-    /// `number` how many they were.
+    /// A household gave up and left the valley: `people` is its members, eldest first,
+    /// `number` how many they were, and `name` the settlement they left (empty before
+    /// 2026-10-07, and when they had none).
     Left,
     /// The first trail out of a settlement was worn in: `number` is its length, metres, and
     /// `place` its middle.
@@ -431,6 +597,114 @@ pub enum ChronicleKind {
     /// The observer laid down a deposit (the god tool, ADR-0010 §1): `place` the body, `settlement`
     /// the nearest settlement if any, and `name` what it is in words ("clay under the ground").
     DepositPlaced,
+    /// A month, a winter or a year of weather on the valley floor stood out against what it
+    /// usually brings (ADR-0012): `number` says what stood out ([`civ_land::weather::stood_out`]
+    /// flags) and `name` says it in words ("October was wet and cold on the valley floor: 168 mm
+    /// fell, 2.1 times what October usually brings; a mean of 3.5 °C, 6.0 °C below its usual.").
+    Weather,
+    /// Someone put a law to the gathering (ADR-0013 §3, stage 1): `people` is the sponsor,
+    /// `number` the levy share, and `name` what they proposed and why, in words ("a common
+    /// store, a tenth of each harvest, because food ran short").
+    LawProposed,
+    /// A gathering decided on a law (ADR-0013 §3, stage 3): `people` is the sponsor, `number`
+    /// how it went ([`crate::polity::Outcome`] as a number) and `name` the whole of it in words
+    /// ("The gathering at Ashford passed a common store, a tenth of each harvest: 14 for, 3
+    /// against; 19 of 40 adults came.").
+    LawDecided,
+    /// A law naming someone lapsed because they died or left: `people` is them, `name` it in
+    /// words ("Ada no longer keeps the common store at Ashford: they died.").
+    LawLapsed,
+    /// Someone was seen taking food from another household's store (M4b slice AA): `people` is
+    /// the taker and then those who saw, `number` the kilograms taken, and `name` the rest in
+    /// words ("took 12 kg of grain from the household of Rilla; Bram saw it.").
+    Taking,
+    /// A demand to give back what was taken ended (ADR-0015 §5): `people` is the taker, `number`
+    /// the obligation's standing ([`crate::crime::Standing`] as a number), and `name` it in words
+    /// ("The household of Tam gave back the food taken from the household of Rilla.").
+    Restitution,
+    /// Someone brought a case before the gathering (M4b slice AB, ADR-0015 §4): `people` is the
+    /// one who brought it and then the accused, `number` how many witnesses its accounts come
+    /// from, and `name` the rest in words ("brought a case before the gathering at Ashford: that
+    /// Tam took food from their household, on the word of Bram.").
+    CaseBrought,
+    /// The gathering heard a case, or it lapsed: `people` is the one who brought it and the
+    /// accused, `number` the case's stage ([`crate::crime::CaseStage`] as a number), and `name`
+    /// the whole of it in words.
+    CaseHeard,
+    /// The custom changed by its own procedure (M4c slice AF, ADR-0017 §1: an amendment, not a
+    /// replacement): `people` is the sponsor, `number` the custom's version now, and `name` the
+    /// whole of it in words ("The custom at Ashford changed by its own procedure, on Ada's
+    /// proposal: from now on, the elders of its households ...").
+    CustomAmended,
+    /// A faction called on everyone to stand with its body in place of the gathering's (M4c slice
+    /// AI): `people` is its organizer, `name` the whole of it in words.
+    RevoltCalled,
+    /// The custom was taken from the gathering, not amended (M4c slice AI, ADR-0017 §1: a
+    /// replacement): `people` is the one who called it, `number` the custom's version now, and
+    /// `name` the whole of it in words.
+    CustomTaken,
+    /// A faction's call to stand with its body came to nothing (M4c slice AI): `people` is the
+    /// one who called it, `name` the whole of it in words.
+    RevoltFailed,
+    /// One who keeps the watch called on the others to take the deciding for it (M4c slice AI,
+    /// step three): `people` is the one who called it, `name` the whole of it in words.
+    CoupCalled,
+    /// A call for the watch to take the deciding came to nothing (M4c slice AI, step three):
+    /// `people` is the one who called it, `name` the whole of it in words.
+    CoupFailed,
+    /// One who keeps the watch came to take what a refused finding owed (M4c slice AI, step four;
+    /// research 06-10 §4.C): `people` is the watcher, then the household's elder; `number` the
+    /// food taken, kcal; `name` the whole of it in words, who met them how and every blow.
+    Encounter,
+    /// One recorded influence (M4c slice AJ, ADR-0016 §5): the observer reached someone by a god
+    /// tool. `people` is whom it reached; `number` the tool, by [`crate::influence::InfluenceKind`]
+    /// code; `name` what followed their name, in words (" that a gathering meets …", " of common
+    /// provision.").
+    Influence,
+    /// A draw a blessing or a curse turned (M4c slice AJ): `people` is whose draw it was;
+    /// `number` the influence's number; `name` what followed their name, in words (" was spared
+    /// a death by illness or accident: the observer's blessing turned the draw.").
+    InfluenceTurned,
+    /// A household moved to another settlement (M5a slice AN, ADR-0018 §5): `people` are its
+    /// members, eldest first as they were; `settlement` and `name` where it went; `number` how
+    /// many.
+    Moved,
+    /// Households gathered to found a settlement (M5a slice AO): `people` are the organizing
+    /// household's members; `settlement` the one they would leave, or for a founding the one
+    /// founded; `pos` the site; `number` what happened ([`CoalitionStep`]); `name` the settlement
+    /// left, for a founding, else empty.
+    Coalition,
+}
+
+/// What happened to a coalition, in a [`ChronicleKind::Coalition`] entry. Numeric in saves:
+/// append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CoalitionStep {
+    /// It began to gather households.
+    Began = 0,
+    /// Its time came and it lacked food to go.
+    LackedFood = 1,
+    /// Its time came and it lacked seed.
+    LackedSeed = 2,
+    /// Its organizer gave the plan up.
+    GaveUp = 3,
+    /// It went and founded its settlement.
+    Founded = 4,
+}
+
+impl CoalitionStep {
+    /// The step numbered `n`.
+    pub fn from_number(n: f64) -> Option<CoalitionStep> {
+        [
+            CoalitionStep::Began,
+            CoalitionStep::LackedFood,
+            CoalitionStep::LackedSeed,
+            CoalitionStep::GaveUp,
+            CoalitionStep::Founded,
+        ]
+        .get(n.round().max(0.0) as usize)
+        .copied()
+    }
 }
 
 /// Where a new couple went to live, in a [`ChronicleKind::Paired`] entry. Numeric in saves: append
@@ -551,6 +825,7 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 Some(Cause::Starvation) => format!(" died of hunger, {age}."),
                 Some(Cause::Childbirth) => format!(" died in childbirth, {age}."),
                 Some(Cause::Collapse) => format!(" died when a building gave way, {age}."),
+                Some(Cause::Violence) => format!(" died of a blow, {age}."),
                 _ => format!(" died, {age}."),
             };
             vec![who, Span::Text(how)]
@@ -567,20 +842,83 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             ];
             match Moved::from_number(event.number) {
                 Moved::NewHousehold => spans.push(Span::Text(
-                    " and set up a household of their own.".to_owned(),
+                    " and set up a household of their own".to_owned(),
                 )),
                 Moved::HerToHis => {
                     spans.push(Span::Text("; ".to_owned()));
                     spans.push(woman);
-                    spans.push(Span::Text(" moved into his household.".to_owned()));
+                    spans.push(Span::Text(" moved into his household".to_owned()));
                 }
                 Moved::HisToHers => {
                     spans.push(Span::Text("; ".to_owned()));
                     spans.push(man);
-                    spans.push(Span::Text(" moved into her household.".to_owned()));
+                    spans.push(Span::Text(" moved into her household".to_owned()));
                 }
-                Moved::Stayed => spans.push(Span::Text(".".to_owned())),
+                Moved::Stayed => {}
             }
+            // Partners of two settlements (M5a slice AM): where they settled is named.
+            if !event.name.is_empty() {
+                spans.push(Span::Text(" in ".to_owned()));
+                spans.push(settlement(event));
+            }
+            spans.push(Span::Text(".".to_owned()));
+            spans
+        }
+        ChronicleKind::Coalition => {
+            let who = person(0).unwrap_or_else(|| Span::Text("a household".to_owned()));
+            match CoalitionStep::from_number(event.number) {
+                Some(CoalitionStep::Began) => vec![
+                    Span::Text("The household of ".to_owned()),
+                    who,
+                    Span::Text(format!(
+                        " began gathering households to found a settlement{}",
+                        event.name
+                    )),
+                    settlement(event),
+                    Span::Text(".".to_owned()),
+                ],
+                Some(step @ (CoalitionStep::LackedFood | CoalitionStep::LackedSeed)) => vec![
+                    Span::Text("The households gathered by the household of ".to_owned()),
+                    who,
+                    Span::Text(format!(
+                        " held too little {} to go and found their settlement yet.",
+                        if step == CoalitionStep::LackedFood {
+                            "food"
+                        } else {
+                            "seed"
+                        }
+                    )),
+                ],
+                Some(CoalitionStep::GaveUp) => vec![
+                    Span::Text("The household of ".to_owned()),
+                    who,
+                    Span::Text(" gave up gathering households to found a settlement.".to_owned()),
+                ],
+                Some(CoalitionStep::Founded) => vec![
+                    Span::Text("The household of ".to_owned()),
+                    who,
+                    Span::Text(event.name.clone()),
+                    settlement(event),
+                    Span::Text(".".to_owned()),
+                ],
+                None => vec![Span::Text(
+                    "Households gathered to found a settlement.".to_owned(),
+                )],
+            }
+        }
+        ChronicleKind::Moved => {
+            let Some(eldest) = person(0) else {
+                return vec![Span::Text("A household moved away.".to_owned())];
+            };
+            let n = event.number.round() as i64;
+            let mut spans = vec![Span::Text("The household of ".to_owned()), eldest];
+            spans.push(Span::Text(if n > 1 {
+                format!(" ({n} people) moved to ")
+            } else {
+                " moved to ".to_owned()
+            }));
+            spans.push(settlement(event));
+            spans.push(Span::Text(".".to_owned()));
             spans
         }
         ChronicleKind::Left => {
@@ -594,7 +932,12 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             } else {
                 " gave up and left ".to_owned()
             }));
-            spans.push(settlement(event));
+            // Entries made before 2026-10-07 kept no name: they left the valley.
+            if event.name.is_empty() {
+                spans.push(Span::Text("the valley".to_owned()));
+            } else {
+                spans.push(settlement(event));
+            }
             spans.push(Span::Text(".".to_owned()));
             spans
         }
@@ -798,6 +1141,58 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 event.name
             ))]
         }
+        ChronicleKind::Influence => {
+            let verb = match crate::influence::InfluenceKind::from_code(event.number.round() as u8)
+            {
+                Some(crate::influence::InfluenceKind::Whisper) => "whispered to ",
+                Some(crate::influence::InfluenceKind::Ideology) => "told ",
+                Some(
+                    crate::influence::InfluenceKind::Agitator
+                    | crate::influence::InfluenceKind::Wave,
+                ) => "sent ",
+                Some(crate::influence::InfluenceKind::Bless) => "blessed ",
+                Some(crate::influence::InfluenceKind::Curse) => "cursed ",
+                None => "reached ",
+            };
+            let lead = format!("One recorded influence: the observer {verb}");
+            match person(0) {
+                Some(who) => vec![Span::Text(lead), who, Span::Text(event.name.clone())],
+                None => vec![Span::Text(format!("{lead}someone{}", event.name))],
+            }
+        }
+        ChronicleKind::InfluenceTurned => {
+            let lead = "One recorded influence: ".to_owned();
+            match person(0) {
+                Some(who) => vec![Span::Text(lead), who, Span::Text(event.name.clone())],
+                None => vec![Span::Text(format!("{lead}someone{}", event.name))],
+            }
+        }
+        ChronicleKind::Weather => vec![Span::Text(event.name.clone())],
+        ChronicleKind::LawProposed => match person(0) {
+            Some(who) => vec![who, Span::Text(format!(" proposed {}.", event.name))],
+            None => vec![Span::Text(format!("Someone proposed {}.", event.name))],
+        },
+        ChronicleKind::LawDecided
+        | ChronicleKind::LawLapsed
+        | ChronicleKind::Restitution
+        | ChronicleKind::CaseHeard
+        | ChronicleKind::CustomAmended
+        | ChronicleKind::CustomTaken
+        | ChronicleKind::RevoltFailed
+        | ChronicleKind::CoupFailed
+        | ChronicleKind::Encounter => {
+            vec![Span::Text(event.name.clone())]
+        }
+        ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {
+            match person(0) {
+                Some(who) => vec![who, Span::Text(format!(" {}", event.name))],
+                None => vec![Span::Text(format!("Someone {}", event.name))],
+            }
+        }
+        ChronicleKind::Taking => match person(0) {
+            Some(who) => vec![who, Span::Text(format!(" {}", event.name))],
+            None => vec![Span::Text(format!("Someone {}", event.name))],
+        },
         ChronicleKind::FirstTrail => vec![
             Span::Text("The first trail out of ".to_owned()),
             settlement(event),
@@ -910,5 +1305,36 @@ mod tests {
         let spans = render(&e, &|_| String::new());
         assert!(spans.contains(&Span::Settlement(id, "Alder Ford".to_owned())));
         assert_eq!(plain(&spans), "They made camp at Alder Ford.");
+    }
+
+    #[test]
+    fn a_household_that_left_names_where_it_left() {
+        let (village, eldest) = (
+            PermanentId::from_raw(7).expect("non-zero"),
+            PermanentId::from_raw(9).expect("non-zero"),
+        );
+        let left = |name: &str| ChronicleEvent {
+            seq: 3,
+            at: SimTime::ZERO,
+            kind: ChronicleKind::Left,
+            people: vec![eldest, PermanentId::from_raw(10).expect("non-zero")],
+            settlement: Some(village),
+            place: None,
+            number: 2.0,
+            name: name.to_owned(),
+            firm: None,
+        };
+        let name_of = |_| "Iver".to_owned();
+        let spans = render(&left("Hazelstead"), &name_of);
+        assert!(spans.contains(&Span::Settlement(village, "Hazelstead".to_owned())));
+        assert_eq!(
+            plain(&spans),
+            "The household of Iver (2 people) gave up and left Hazelstead."
+        );
+        // An entry saved before the name was kept.
+        assert_eq!(
+            plain(&render(&left(""), &name_of)),
+            "The household of Iver (2 people) gave up and left the valley."
+        );
     }
 }

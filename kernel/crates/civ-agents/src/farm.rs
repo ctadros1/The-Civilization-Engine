@@ -43,8 +43,11 @@ pub struct FarmView<'a> {
     pub seed_kg: f64,
     /// How much more grain is worth to it, 0–1.
     pub room: f64,
-    /// The area it plans to crop for its needs, hectares.
-    pub need_ha: f64,
+    /// The grain it means to grow for its needs, kilograms ([`need_grain_kg`]).
+    pub need_kg: f64,
+    /// The share of what it expects of a field it counts on when it plans (research 10-01 §2.3:
+    /// plan on a poor harvest).
+    pub plan_yield_share: f64,
     /// The share of the days of the sowing window the ground can usually be worked (ADR-0012
     /// §5): how pressing the work left is, of the days left.
     pub workable_share: f64,
@@ -54,16 +57,65 @@ pub struct FarmView<'a> {
     /// What it knows of the weather's years, to judge a growing crop by the water its season so
     /// far has brought (ADR-0012 §4); `None` judges every crop by an average year.
     pub climatology: Option<&'a civ_land::Climatology>,
+    /// Its midden and what dung is known to bring; `None` when it has none.
+    pub manuring: Option<Manuring<'a>>,
 }
 
-/// The area a household of `members` plans to crop for its needs, hectares: the share of a
-/// year's food it means to grow, with what is lost before it is eaten, at a cautious yield less
-/// the seed (research 10-01 §2.3: plan on a poor harvest, keep seed apart).
-pub fn need_area_ha(members: usize, params: &PeopleParams, crop: &CropParams, kcal: f64) -> f64 {
+/// What a household knows of dunging its fields from its midden (M3c slice V).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Manuring<'a> {
+    /// Kilograms in its midden.
+    pub midden_kg: f64,
+    /// Grain a kilogram of dung is known to add to the next harvest of ground that gives less
+    /// than new ground of its kind, kilograms: the nitrogen in it the year's crop can draw on,
+    /// over what the crop takes up for a kilogram of grain. What people know of manuring, not of
+    /// any field's soil (ADR-0012 §4).
+    pub grain_per_kg: f64,
+    /// How the midden is carried.
+    pub midden: &'a crate::params::MiddenParams,
+}
+
+/// The grain a household of `members` means to grow in a year for its needs, kilograms: the
+/// share of a year's food it grows, with what is lost before it is eaten, of grain of `kcal` a
+/// kilogram.
+pub fn need_grain_kg(members: usize, params: &PeopleParams, kcal: f64) -> f64 {
     let year = members as f64 * params.household.daily_kcal_per_person * 365.0;
-    let grown = year * params.farm.grain_share / (1.0 - params.farm.loss_share).max(0.05);
-    let net = crop.yield_kg_per_ha * params.farm.plan_yield_share - crop.seed_kg_per_ha;
-    grown / (net.max(1.0) * kcal.max(1.0))
+    year * params.farm.grain_share / (1.0 - params.farm.loss_share).max(0.05) / kcal.max(1.0)
+}
+
+/// The area a household of `members` plans to crop for its needs, hectares: its grain
+/// ([`need_grain_kg`]) at a cautious share of the yield it expects, `yield_kg_ha`, less the seed
+/// (research 10-01 §2.3: plan on a poor harvest, keep seed apart).
+pub fn need_area_ha(
+    members: usize,
+    params: &PeopleParams,
+    crop: &CropParams,
+    kcal: f64,
+    yield_kg_ha: f64,
+) -> f64 {
+    let net = yield_kg_ha * params.farm.plan_yield_share - crop.seed_kg_per_ha;
+    need_grain_kg(members, params, kcal) / net.max(1.0)
+}
+
+/// The yield a household expects of its fields on `day`, kilograms a hectare: what each has
+/// given ([`Field::expected_kg_per_ha`]) weighted by its area, or with no fields what the crop
+/// gives on average ground (ADR-0012 §4).
+pub fn expected_yield_kg_ha<'a>(
+    fields: impl Iterator<Item = &'a Field>,
+    crop: &CropParams,
+    day: i64,
+) -> f64 {
+    let year = civ_land::calendar_year(day);
+    let (mut kg, mut ha) = (0.0, 0.0);
+    for f in fields {
+        kg += f.expected_kg_per_ha(crop, year) * f.area_ha();
+        ha += f.area_ha();
+    }
+    if ha > 0.0 {
+        kg / ha
+    } else {
+        crop.yield_kg_per_ha
+    }
 }
 
 /// Seed a household never eats, `(good, kg)`: what it takes to sow again the ground it already
@@ -165,6 +217,20 @@ fn sowing_days_left(crop: &CropParams, day: i64) -> f64 {
     (i64::from(crop.sow_until_day) - doy + 1).max(0) as f64
 }
 
+/// Days from `day` until the crop's next window for preparing ground opens (0 within it).
+fn days_to_window(crop: &CropParams, day: i64) -> f64 {
+    if crop.can_prepare(day) {
+        return 0.0;
+    }
+    let doy = day.rem_euclid(civ_core::time::DAYS_PER_YEAR);
+    (i64::from(crop.prepare_from_day) - doy).rem_euclid(civ_core::time::DAYS_PER_YEAR) as f64
+}
+
+/// Days in the crop's window for preparing and sowing ground.
+fn window_days(crop: &CropParams) -> f64 {
+    f64::from(crop.sow_until_day.saturating_sub(crop.prepare_from_day)) + 1.0
+}
+
 /// Hours a field still needs before it is sown (0 once sown).
 fn to_sow_h(f: &Field, crop: &CropParams) -> f64 {
     let left = (f.stage_work_h(crop) - f64::from(f.work_h)).max(0.0);
@@ -175,34 +241,90 @@ fn to_sow_h(f: &Field, crop: &CropParams) -> f64 {
     }
 }
 
-impl FarmView<'_> {
+impl<'a> FarmView<'a> {
+    /// The grain field `f` is expected to give a hectare beyond its seed, as the household plans
+    /// it: a cautious share of what it has given ([`Field::expected_kg_per_ha`]).
+    fn net_kg_ha(&self, f: &Field) -> f64 {
+        let expected = f.expected_kg_per_ha(self.crop, civ_land::calendar_year(self.day));
+        (expected * self.plan_yield_share - self.crop.seed_kg_per_ha).max(0.0)
+    }
+
+    /// The fields the household means to crop in the coming season (ADR-0012 §4): those
+    /// prepared, sown or begun, then the others, best first by the grain each is expected to
+    /// give for the work it needs before it is sown, until they are expected to grow what the
+    /// household needs. The fields it can spare rest (research 08-02 §6: the land a household
+    /// holds is not the land it sows).
+    pub fn cropping(&self) -> Vec<&'a Field> {
+        let crop = self.crop;
+        let mut chosen: Vec<&'a Field> = Vec::new();
+        let mut spare: Vec<(f64, &'a Field)> = Vec::new();
+        for &f in &self.fields {
+            let begun = matches!(f.stage, FieldStage::Prepared | FieldStage::Sown)
+                || (f.stage == FieldStage::Fallow && f.work_h > 0.0);
+            if begun {
+                chosen.push(f);
+            } else {
+                let kg = self.net_kg_ha(f) * f.area_ha();
+                spare.push((kg / to_sow_h(f, crop).max(1e-6), f));
+            }
+        }
+        let mut grown: f64 = chosen.iter().map(|f| self.net_kg_ha(f) * f.area_ha()).sum();
+        spare.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.id.cmp(&b.1.id)));
+        for (_, f) in spare {
+            if grown + 1e-9 >= self.need_kg {
+                break;
+            }
+            grown += self.net_kg_ha(f) * f.area_ha();
+            chosen.push(f);
+        }
+        chosen
+    }
+
     /// Whether the household would mark out a new field of `ha` hectares, needing
-    /// `clear_h_per_ha` of clearing, today: it needs more land, has the seed for it and every
-    /// field not yet sown, and can still clear, prepare and sow them all before the sowing
-    /// window closes.
+    /// `clear_h_per_ha` of clearing, today: all its fields cropped would not grow what it
+    /// needs, it has the seed for the new ground and every field it means to crop, and it can
+    /// work them all in time. In the sowing season that is clearing, breaking and sowing the new
+    /// ground and the rest before the window closes. Out of it (ADR-0012 §4: break ground outside
+    /// the sowing season) it is clearing and breaking the new ground before the next window
+    /// opens, and preparing and sowing everything in that window.
     pub fn wants_new_field(&self, ha: f64, clear_h_per_ha: f64) -> bool {
         let crop = self.crop;
-        if !crop.can_prepare(self.day) {
-            return false;
-        }
-        let total: f64 = self.fields.iter().map(|f| f.area_ha()).sum();
-        if total + 1e-9 >= self.need_ha {
-            return false;
-        }
-        let unsown: f64 = self
+        let all: f64 = self
             .fields
             .iter()
-            .filter(|f| matches!(f.stage, FieldStage::Fallow | FieldStage::Prepared))
-            .map(|f| f.area_ha())
+            .map(|f| self.net_kg_ha(f) * f.area_ha())
             .sum();
-        if self.seed_kg + 1e-9 < (unsown + ha) * crop.seed_kg_per_ha {
+        if all + 1e-9 >= self.need_kg {
             return false;
         }
-        let left: f64 = self.fields.iter().map(|f| to_sow_h(f, crop)).sum();
-        let new = ha * (crop.break_h_per_ha + clear_h_per_ha + crop.sow_h_per_ha);
-        let days =
-            sowing_days_left(crop, self.day) * plan_share(self.workable_share, self.peak_ratio);
-        left + new <= self.labour_per_day * days
+        let cropping = self.cropping();
+        let share = plan_share(self.workable_share, self.peak_ratio);
+        if crop.can_prepare(self.day) {
+            let unsown: f64 = cropping
+                .iter()
+                .filter(|f| matches!(f.stage, FieldStage::Fallow | FieldStage::Prepared))
+                .map(|f| f.area_ha())
+                .sum();
+            if self.seed_kg + 1e-9 < (unsown + ha) * crop.seed_kg_per_ha {
+                return false;
+            }
+            let left: f64 = cropping.iter().map(|f| to_sow_h(f, crop)).sum();
+            let new = ha * (crop.break_h_per_ha + clear_h_per_ha + crop.sow_h_per_ha);
+            return left + new <= self.labour_per_day * sowing_days_left(crop, self.day) * share;
+        }
+        let next: f64 = cropping.iter().map(|f| f.area_ha()).sum::<f64>() + ha;
+        if self.seed_kg + 1e-9 < next * crop.seed_kg_per_ha {
+            return false;
+        }
+        let breaking: f64 = cropping
+            .iter()
+            .filter(|f| !f.broken)
+            .map(|f| (f.stage_work_h(crop) - f64::from(f.work_h)).max(0.0))
+            .sum::<f64>()
+            + ha * (crop.break_h_per_ha + clear_h_per_ha);
+        let spring = next * (crop.prepare_h_per_ha + crop.sow_h_per_ha);
+        breaking <= self.labour_per_day * days_to_window(crop, self.day) * share
+            && spring <= self.labour_per_day * window_days(crop) * share
     }
 
     /// Of `days` of the sowing window, those the ground can usually be worked.
@@ -217,9 +339,11 @@ impl FarmView<'_> {
         let crop = self.crop;
         let day = self.day;
         let (work, days): (f64, f64) = match task {
+            // Ground broken out of the season has no deadline yet.
+            FieldTask::Prepare | FieldTask::Sow if !crop.can_prepare(day) => (0.0, f64::INFINITY),
             FieldTask::Prepare | FieldTask::Sow => {
                 let work = self
-                    .fields
+                    .cropping()
                     .iter()
                     .filter(|f| f.task(crop, day).is_some())
                     .map(|f| to_sow_h(f, crop))
@@ -252,7 +376,7 @@ impl FarmView<'_> {
                 }
                 (work, days)
             }
-            FieldTask::Thresh => (0.0, f64::INFINITY),
+            FieldTask::Thresh | FieldTask::Manure => (0.0, f64::INFINITY),
         };
         if work <= 0.0 || !days.is_finite() {
             return 0.0;
@@ -273,13 +397,69 @@ impl FarmView<'_> {
             _ => 1.0,
         };
         let expected = f.expected_kg(crop, self.day, water);
-        let remaining = f.remaining_work_h(crop, expected);
+        let remaining = f.remaining_work_h(crop, self.day, expected);
         let per_hour = expected * self.kcal_per_kg / remaining.max(1e-6);
         let left = match task {
             FieldTask::Tend => (crop.tend_h_per_ha * f.area_ha() - f64::from(f.tended_h)).max(0.0),
             _ => (f.stage_work_h(crop) - f64::from(f.work_h)).max(0.0),
         };
         (per_hour, left)
+    }
+
+    /// The best field to dung from the midden today (M3c slice V): among the fields it means to
+    /// crop that lie broken or dug for sowing and have given less than new ground of their kind
+    /// ([`Field::expected_kg_per_ha`]), the most grain an hour of the work brings, the walk there
+    /// and back with each load counted. Dung is carried while it can make up the shortfall, and
+    /// once the heap holds an hour's carrying at least.
+    fn best_to_manure(
+        &self,
+        walk_min: &dyn Fn(&Field) -> Option<f64>,
+    ) -> Result<FieldOption, Reason> {
+        let crop = self.crop;
+        let Some(m) = self.manuring else {
+            return Err(Reason::NoFieldWork);
+        };
+        if m.grain_per_kg <= 0.0 || m.midden_kg < m.midden.load_kg {
+            return Err(Reason::NoFieldWork);
+        }
+        let year = civ_land::calendar_year(self.day);
+        let mut best: Option<FieldOption> = None;
+        for f in self.cropping() {
+            let ready =
+                (f.stage == FieldStage::Fallow && f.broken) || f.stage == FieldStage::Prepared;
+            if !ready {
+                continue;
+            }
+            let new_ground = crop.yield_kg_per_ha * f64::from(f.ground);
+            let short_kg = (new_ground - f.expected_kg_per_ha(crop, year)).max(0.0) * f.area_ha();
+            let usable = m.midden_kg.min(short_kg / m.grain_per_kg);
+            let Some(walk) = walk_min(f) else {
+                continue;
+            };
+            let h_per_kg = m.midden.h_per_kg(walk).max(1e-9);
+            // A session's work is an hour at least: the heap waits until it holds that much.
+            if usable < m.midden.load_kg.max(1.0 / h_per_kg) {
+                continue;
+            }
+            let option = FieldOption {
+                field: Some(f.id),
+                walk_min: walk,
+                at: f.rect.centre_m(),
+                kcal_per_hour: m.grain_per_kg * self.kcal_per_kg / h_per_kg,
+                hours_left: usable * h_per_kg,
+                room: self.room,
+                urgency: 0.0,
+                at_home: false,
+                soon: false,
+            };
+            if best
+                .as_ref()
+                .is_none_or(|b| option.kcal_per_hour > b.kcal_per_hour)
+            {
+                best = Some(option);
+            }
+        }
+        best.ok_or(Reason::NoFieldWork)
     }
 
     /// The best field for `task` today, among the household's fields and, for preparing, new
@@ -299,6 +479,14 @@ impl FarmView<'_> {
         let mut any = false;
         let mut held_back: Option<Reason> = None;
         let mut best: Option<(f64, FieldOption)> = None;
+        if task == FieldTask::Manure {
+            return self.best_to_manure(walk_min);
+        }
+        // Ground is prepared and sown only where the household means to crop; the rest rests.
+        let cropping: Vec<PermanentId> = match task {
+            FieldTask::Prepare | FieldTask::Sow => self.cropping().iter().map(|f| f.id).collect(),
+            _ => Vec::new(),
+        };
         let consider = |option: FieldOption, best: &mut Option<(f64, FieldOption)>| {
             let walk_h = if option.at_home {
                 0.0
@@ -312,6 +500,9 @@ impl FarmView<'_> {
         };
         for f in &self.fields {
             if f.task(crop, self.day) != Some(task) {
+                continue;
+            }
+            if matches!(task, FieldTask::Prepare | FieldTask::Sow) && !cropping.contains(&f.id) {
                 continue;
             }
             any = true;
@@ -377,6 +568,7 @@ impl FarmView<'_> {
                 water_mm: 0.0,
                 need_mm: 0.0,
                 got_mm: 0.0,
+                soil: civ_land::FieldSoil::default(),
             };
             let (per_hour, left) = self.worth(&ground, task);
             consider(
@@ -476,6 +668,30 @@ pub fn breakable_in_reach(
     cells
 }
 
+/// The ground [`find_site`] looks at for a field on one of `cells`: the box around every field it
+/// could mark out there, widened by the gap kept between fields. Fields, plots and earthworks
+/// outside it cannot change what it finds (M5a slice AL). `None` when there are no cells.
+pub fn site_ground(map: &WorldMap, cells: &[(u32, f32)], params: &PeopleParams) -> Option<RectCm> {
+    let w = map.width as usize;
+    let side_cm = (params.farm.field_m * 100.0).round() as i32;
+    let cell_cm = (map.cell_size_m * 100.0).round() as i32;
+    let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
+    for &(cell, _) in cells {
+        let (cx, cy) = ((cell as usize % w) as i32, (cell as usize / w) as i32);
+        (x0, x1) = (x0.min(cx), x1.max(cx));
+        (y0, y1) = (y0.min(cy), y1.max(cy));
+    }
+    (x0 <= x1).then(|| {
+        let corner = |c: i32| c * cell_cm + cell_cm / 2 - side_cm / 2 - FIELD_GAP_CM;
+        RectCm {
+            x: corner(x0),
+            y: corner(y0),
+            w: (x1 - x0) * cell_cm + side_cm + 2 * FIELD_GAP_CM,
+            h: (y1 - y0) * cell_cm + side_cm + 2 * FIELD_GAP_CM,
+        }
+    })
+}
+
 /// Looks for new ground for a field of side `params.farm.field_m` among `cells`, the breakable
 /// cells within the farthest field walk of a home ([`breakable_in_reach`]), clear of other fields
 /// and of `homes`: samples `params.farm.site_candidates` of them with a draw keyed by `key`, and
@@ -508,34 +724,68 @@ pub fn find_site(
     let side_cm = (params.farm.field_m * 100.0).round() as i32;
     let cell_cm = (map.cell_size_m * 100.0).round() as i32;
     let (map_w_cm, map_h_cm) = (map.width as i32 * cell_cm, map.height as i32 * cell_cm);
+    // Every candidate is drawn first, one draw each as ever; then only the fields, plots,
+    // earthworks and homes that could lie near one of them are kept to check against. Whatever
+    // is near a candidate is near the box around them all, so the checks find what they would
+    // against the whole world, at the cost of the neighbourhood (M5a slice AL).
     let mut rng = Rng64::from_key(key);
+    let picks: Vec<(RectCm, f32)> = (0..params.farm.site_candidates)
+        .filter_map(|_| {
+            let (cell, secs) = cells[(rng.next_u64() % cells.len() as u64) as usize];
+            let (cx, cy) = ((cell as usize % w) as i32, (cell as usize / w) as i32);
+            let rect = RectCm {
+                x: cx * cell_cm + cell_cm / 2 - side_cm / 2,
+                y: cy * cell_cm + cell_cm / 2 - side_cm / 2,
+                w: side_cm,
+                h: side_cm,
+            };
+            let inside = rect.x >= 0
+                && rect.y >= 0
+                && rect.x + rect.w <= map_w_cm
+                && rect.y + rect.h <= map_h_cm;
+            inside.then_some((rect, secs))
+        })
+        .collect();
+    let around = picks.iter().map(|&(r, _)| r).reduce(|a, b| {
+        let (x, y) = (a.x.min(b.x), a.y.min(b.y));
+        RectCm {
+            x,
+            y,
+            w: (a.x + a.w).max(b.x + b.w) - x,
+            h: (a.y + a.h).max(b.y + b.h) - y,
+        }
+    })?;
+    let home_gap = |rect: &RectCm, (hx, hy): (f32, f32)| {
+        let x = (hx * 100.0) as i32;
+        let y = (hy * 100.0) as i32;
+        let dx = (rect.x - x).max(x - (rect.x + rect.w)).max(0) as f32 / 100.0;
+        let dy = (rect.y - y).max(y - (rect.y + rect.h)).max(0) as f32 / 100.0;
+        dx.hypot(dy)
+    };
+    let taken: Vec<RectCm> = land
+        .fields
+        .iter()
+        .map(|f| f.rect)
+        .chain(land.plots.iter().map(|p| p.rect))
+        .chain(
+            land.earthworks
+                .iter()
+                .filter(|e| e.kind != civ_land::earth::EarthKind::Platform)
+                .map(|e| e.rect),
+        )
+        .filter(|r| r.near(&around, FIELD_GAP_CM))
+        .collect();
+    let near_homes: Vec<(f32, f32)> = homes
+        .iter()
+        .copied()
+        .filter(|&h| home_gap(&around, h) < HOME_GAP_M)
+        .collect();
     let mut best: Option<(f64, Site)> = None;
-    for _ in 0..params.farm.site_candidates {
-        let (cell, secs) = cells[(rng.next_u64() % cells.len() as u64) as usize];
-        let (cx, cy) = ((cell as usize % w) as i32, (cell as usize / w) as i32);
-        let rect = RectCm {
-            x: cx * cell_cm + cell_cm / 2 - side_cm / 2,
-            y: cy * cell_cm + cell_cm / 2 - side_cm / 2,
-            w: side_cm,
-            h: side_cm,
-        };
-        if rect.x < 0 || rect.y < 0 || rect.x + rect.w > map_w_cm || rect.y + rect.h > map_h_cm {
+    for (rect, secs) in picks {
+        if taken.iter().any(|r| r.near(&rect, FIELD_GAP_CM)) {
             continue;
         }
-        if land.fields.iter().any(|f| f.rect.near(&rect, FIELD_GAP_CM))
-            || land.plots.iter().any(|p| p.rect.near(&rect, FIELD_GAP_CM))
-            || civ_land::earth::dug_near(&land.earthworks, &rect, FIELD_GAP_CM)
-        {
-            continue;
-        }
-        let clear_of_homes = homes.iter().all(|&(hx, hy)| {
-            let x = (hx * 100.0) as i32;
-            let y = (hy * 100.0) as i32;
-            let dx = (rect.x - x).max(x - (rect.x + rect.w)).max(0) as f32 / 100.0;
-            let dy = (rect.y - y).max(y - (rect.y + rect.h)).max(0) as f32 / 100.0;
-            dx.hypot(dy) >= HOME_GAP_M
-        });
-        if !clear_of_homes {
+        if !near_homes.iter().all(|&h| home_gap(&rect, h) >= HOME_GAP_M) {
             continue;
         }
         // Every cell under it must be arable dry ground; its ground is their patches' richness.
@@ -613,6 +863,9 @@ mod tests {
             kc: [0.4, 1.15, 0.4],
             kc_days: [30, 30, 40, 20],
             ky: 1.15,
+            grain_n: 0.020,
+            straw_n: 0.006,
+            crop_n: 0.035,
         }
     }
 
@@ -642,6 +895,7 @@ mod tests {
             water_mm: 0.0,
             need_mm: 0.0,
             got_mm: 0.0,
+            soil: civ_land::FieldSoil::default(),
         }
     }
 
@@ -654,10 +908,13 @@ mod tests {
             labour_per_day: 20.0,
             seed_kg: 100.0,
             room: 1.0,
-            need_ha: 1.0,
+            // A hectare's worth at full share: 800 kg less 90 of seed.
+            need_kg: 710.0,
+            plan_yield_share: 1.0,
             workable_share: 1.0,
             peak_ratio: 1.0,
             climatology: None,
+            manuring: None,
         }
     }
 
@@ -685,11 +942,149 @@ mod tests {
             "no time left to clear woodland"
         );
         let mut fed = v.clone();
-        fed.need_ha = 0.25;
+        fed.need_kg = 0.25 * 710.0;
         assert!(!fed.wants_new_field(0.25, 0.0), "enough land already");
-        let mut winter = v.clone();
-        winter.day = 200;
-        assert!(!winter.wants_new_field(0.25, 0.0), "not the season");
+        // Out of the season it breaks new ground for the next (ADR-0012 §4) with the seed for
+        // it in store, if it can break it before the window opens...
+        let mut autumn = v.clone();
+        autumn.day = 260;
+        assert!(autumn.wants_new_field(0.25, 0.0));
+        let mut spent = autumn.clone();
+        spent.seed_kg = 30.0;
+        assert!(!spent.wants_new_field(0.25, 0.0), "no seed for it");
+        // ...nine days before the window, 180 h of work against the 250 breaking needs...
+        let mut eve = autumn.clone();
+        eve.day = 50;
+        assert!(!eve.wants_new_field(0.25, 0.0), "no time to break it first");
+        // ...and prepare and sow it all in the window: 720 h a hectare against 1,340 h.
+        let mut far = autumn.clone();
+        far.need_kg = 5.0 * 710.0;
+        far.seed_kg = 1000.0;
+        assert!(far.wants_new_field(1.0, 0.0));
+        assert!(
+            !far.wants_new_field(2.0, 0.0),
+            "too much to sow in one window"
+        );
+    }
+
+    fn harvest(year: i32, kg_per_ha: f32) -> civ_land::HarvestRecord {
+        civ_land::HarvestRecord {
+            year,
+            kg_per_ha,
+            limit: civ_land::Limit::Season,
+        }
+    }
+
+    fn midden() -> crate::params::MiddenParams {
+        crate::params::MiddenParams {
+            kg_per_person_day: 0.5,
+            n_kg_per_person_year: 1.0,
+            half_life_days: 365.0,
+            load_kg: 25.0,
+            spread_h_per_t: 2.0,
+        }
+    }
+
+    #[test]
+    fn a_midden_grows_with_its_household_and_wastes() {
+        let m = midden();
+        // A person's year adds 182.5 kg, less what wastes on the heap meanwhile.
+        let year = m.after(0.0, 1, 365.0);
+        assert!(year > 0.6 * 182.5 && year < 182.5, "{year}");
+        // A steady household's heap settles where what it adds matches what wastes.
+        let steady = m.after(0.0, 4, 36_500.0);
+        assert!((steady - 4.0 * 0.5 * 365.0 / std::f64::consts::LN_2).abs() < 1e-6);
+        // However the time is split.
+        let split = m.after(m.after(100.0, 3, 40.0), 3, 60.0);
+        assert!((split - m.after(100.0, 3, 100.0)).abs() < 1e-9);
+        // A kilogram of nitrogen in each person's 182.5 kg a year.
+        assert!((m.n_per_kg() - 1.0 / 182.5).abs() < 1e-12);
+        // 2 h a tonne to dig out and spread, and 40 loads, each 6 minutes there and 6 back.
+        assert!((m.h_per_kg(6.0) - (2.0 + 40.0 * 2.0 * 0.1) / 1000.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn a_household_dungs_the_nearest_field_that_has_given_less_than_new_ground() {
+        let c = crop();
+        let m = midden();
+        // Two fields that gave 500 kg/ha against new ground's 800, one near and one far, and one
+        // that gave what new ground does.
+        let mut near = field(2, FieldStage::Fallow);
+        near.soil.record = vec![harvest(1, 500.0)];
+        let mut far = field(3, FieldStage::Fallow);
+        far.soil.record = vec![harvest(1, 500.0)];
+        let mut good = field(4, FieldStage::Fallow);
+        good.soil.record = vec![harvest(1, 800.0)];
+        let mut v = view(&c, vec![&near, &far, &good], 300);
+        v.need_kg = 10_000.0;
+        v.manuring = Some(Manuring {
+            midden_kg: 500.0,
+            grain_per_kg: 0.01,
+            midden: &m,
+        });
+        let walk = |f: &Field| Some(if f.id.get() == 3 { 20.0 } else { 3.0 });
+        let none = |_: &RectCm| None;
+        let dung = v
+            .best(FieldTask::Manure, 4.0, None, &walk, &none)
+            .expect("a field to dung");
+        assert_eq!(dung.field, Some(near.id));
+        // It may make up 300 kg/ha over 0.25 ha, 75 kg of grain: 7,500 kg of dung, more than
+        // the 500 kg in the heap, all of which goes.
+        assert!((dung.hours_left - 500.0 * m.h_per_kg(3.0)).abs() < 1e-9);
+        assert_eq!(dung.urgency, 0.0, "nothing presses on it");
+        // Not with less than a load in the heap...
+        let mut empty = v.clone();
+        empty.manuring = Some(Manuring {
+            midden_kg: 10.0,
+            grain_per_kg: 0.01,
+            midden: &m,
+        });
+        assert!(
+            empty
+                .best(FieldTask::Manure, 4.0, None, &walk, &none)
+                .is_err()
+        );
+        // ...nor on ground that gives what new ground does, nor on ground under a crop.
+        let mut sown = near.clone();
+        sown.stage = FieldStage::Sown;
+        v.fields = vec![&good, &sown];
+        assert!(v.best(FieldTask::Manure, 4.0, None, &walk, &none).is_err());
+    }
+
+    #[test]
+    fn a_household_crops_its_best_fields_for_its_need_and_rests_the_rest() {
+        let c = crop();
+        let mut good = field(2, FieldStage::Fallow);
+        good.soil.record = vec![harvest(1, 800.0)];
+        let mut worn = field(3, FieldStage::Fallow);
+        worn.soil.record = vec![harvest(1, 300.0)];
+        // No record: what the crop gives on its ground, 800 kg/ha.
+        let fresh = field(4, FieldStage::Fallow);
+        // 300 kg to grow: two of the three fields' worth (177.5 kg each at full share).
+        let mut v = view(&c, vec![&good, &worn, &fresh], 300);
+        v.need_kg = 300.0;
+        let ids = |v: &FarmView| -> Vec<u64> { v.cropping().iter().map(|f| f.id.get()).collect() };
+        assert_eq!(ids(&v), vec![2, 4], "the worn field rests");
+        // A field already begun is kept, whatever it gave.
+        let mut begun = worn.clone();
+        begun.stage = FieldStage::Prepared;
+        v.fields = vec![&good, &begun, &fresh];
+        assert_eq!(ids(&v), vec![3, 2, 4]);
+        // In the window, with the good fields prepared, the worn one is not dug: it rests.
+        let (mut a, mut b) = (good.clone(), fresh.clone());
+        a.stage = FieldStage::Prepared;
+        b.stage = FieldStage::Prepared;
+        let mut spring = view(&c, vec![&a, &worn, &b], 70);
+        spring.need_kg = 300.0;
+        assert_eq!(spring.urgency(FieldTask::Prepare), 0.0);
+        let dig = spring.best(FieldTask::Prepare, 4.0, None, &|_| Some(5.0), &|_| None);
+        assert_eq!(dig.err(), Some(Reason::NoFieldWork));
+        // Short of grain, it digs the worn field too.
+        spring.need_kg = 400.0;
+        let dig = spring.best(FieldTask::Prepare, 4.0, None, &|_| Some(5.0), &|_| None);
+        assert_eq!(dig.expect("the worn field").field, Some(worn.id));
+        // Out of the season nothing presses.
+        assert_eq!(v.urgency(FieldTask::Prepare), 0.0);
     }
 
     #[test]

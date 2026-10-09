@@ -4,7 +4,7 @@
 //! buyer arrives.
 
 use civ_core::PermanentId;
-use civ_core::time::SimTime;
+use civ_core::time::{DAYS_PER_YEAR, SimTime};
 use civ_land::LandParams;
 use civ_world::nav::TravelField;
 
@@ -34,11 +34,13 @@ const MAX_PAYMENTS: usize = 4;
 const OFFER_FOOD_HALF_LIFE_DAYS: f64 = 365.0;
 
 /// What a household keeps of each good, and how much more of each it wants, 0–1: 1 when it is
-/// short of it, less as it holds more than it keeps, 0 for what it has no use for.
+/// short of it, less as it holds more than it keeps, 0 for what it has no use for; and the food
+/// it can spare beyond what it keeps, in years of its own need.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Holding {
     pub keep: Vec<f64>,
     pub want: Vec<f64>,
+    pub spare_years: f64,
 }
 
 /// A seller a buyer could go to: its id, where it is, its offers, and whether it is a workshop.
@@ -75,6 +77,15 @@ fn reviewed_ask(prev: f64, anchor: f64, unmet: bool, unsold: bool, max_change: f
         step -= max_change / 2.0;
     }
     prev * step.clamp(-max_change, max_change).exp()
+}
+
+/// A seller's anchor for a good, its cost and margin `anchor`, when it can spare `spare_years`
+/// of its own need of it: lower the more it can spare, by `exp(-response × s)` with `s` at most
+/// one year (research 08-04 §1.2: modest inventory feedback; 08-05 §1.5: a seasonal producer's
+/// stock against its trajectory to the next harvest, here measured in years of need so that a
+/// store drawn down as planned does not move it).
+fn stock_anchor(anchor: f64, spare_years: f64, response: f64) -> f64 {
+    anchor * (-response.max(0.0) * spare_years.clamp(0.0, 1.0)).exp()
 }
 
 /// Whether a household offers what it holds of good `d` beyond what it keeps: a tool that can be
@@ -191,11 +202,8 @@ impl Population {
         let members = hh.members.len().max(1);
         let kcal_day = members as f64 * params.household.daily_kcal_per_person;
         let outlook = catalog.crops.get(params.farm.crop).map_or(0.0, |c| {
-            farm::days_to_harvest(
-                c,
-                ctx.land.fields.iter().filter(|f| f.household == hh.id),
-                ctx.now.day_index(),
-            ) + params.household.harvest_margin_days
+            farm::days_to_harvest(c, self.fields_of(ctx.land, hh.id), ctx.now.day_index())
+                + params.household.harvest_margin_days
         });
         let food_keep = outlook * kcal_day * (1.0 + FOOD_KEEP_MARGIN);
         let food = stock_kcal(stores, goods);
@@ -205,6 +213,7 @@ impl Population {
             food_keep / food
         };
         let mut spare_kcal = (food - food_keep).max(0.0);
+        let spare_years = spare_kcal / (DAYS_PER_YEAR as f64 * kcal_day).max(1e-9);
         for (g, d) in goods.iter().enumerate() {
             if d.purpose == GoodUse::Food && d.kcal_per_kg > 0.0 && !d.kept_back() {
                 want[g] = want_food;
@@ -276,7 +285,11 @@ impl Population {
                 };
             }
         }
-        Holding { keep, want }
+        Holding {
+            keep,
+            want,
+            spare_years,
+        }
     }
 
     /// Each household whose day it is reviews what it offers and on what terms (ADR-0006 §4):
@@ -447,11 +460,18 @@ impl Population {
         };
         let mut rows = Vec::new();
         for &(g, units) in offered {
+            // Food is asked for less the more of it the seller can spare (ADR-0006 §4's stock
+            // term), so asks answer the harvest.
+            let stock = if goods[g].purpose == GoodUse::Food {
+                holding.spare_years
+            } else {
+                0.0
+            };
             let anchor = costs
                 .get(g)
                 .copied()
                 .flatten()
-                .map(|c| c * (1.0 + mp.margin));
+                .map(|c| stock_anchor(c * (1.0 + mp.margin), stock, mp.stock_response));
             let prev = old
                 .iter()
                 .find(|o| usize::from(o.good) == g)
@@ -549,7 +569,9 @@ impl Population {
         if sellers.is_empty() {
             return None;
         }
-        let costs = self.own_costs_of(ctx, hh);
+        // Its own costs, worked out only once an offer is worth pricing (most are not).
+        let own_costs = std::cell::OnceCell::new();
+        let costs = || own_costs.get_or_init(|| self.own_costs_of(ctx, hh));
         let holding = self.holding_of(ctx, hh, stores);
         // Food it is short of: what it keeps less what it has, by energy.
         let food = stock_kcal(stores, goods);
@@ -585,7 +607,7 @@ impl Population {
                     if need <= 0.0 || units < MIN_OFFER_TOOL - 1e-6 {
                         continue;
                     }
-                    let own = costs[g].unwrap_or(f64::INFINITY) * units;
+                    let own = costs()[g].unwrap_or(f64::INFINITY) * units;
                     (units, TradeWorth::Tool { need }, own)
                 } else if d.purpose == GoodUse::Food && d.kcal_per_kg > 0.0 {
                     if short_kcal <= 0.0 {
@@ -599,7 +621,7 @@ impl Population {
                     }
                     // Short of food before the harvest, growing more is no help now: food is
                     // worth more the shorter the household is.
-                    let own = costs[g].unwrap_or(f64::INFINITY) * (1.0 + lean) * units;
+                    let own = costs()[g].unwrap_or(f64::INFINITY) * (1.0 + lean) * units;
                     let kcal = units * d.kcal_per_kg;
                     (units, TradeWorth::Food { kcal }, own)
                 } else {
@@ -620,7 +642,7 @@ impl Population {
                 {
                     continue;
                 }
-                let Some(pay_cost) = costs.get(p).copied().flatten() else {
+                let Some(pay_cost) = costs().get(p).copied().flatten() else {
                     continue;
                 };
                 let pay_h = paid * pay_cost * holding.want.get(p).copied().unwrap_or(0.0);
@@ -693,7 +715,13 @@ impl Population {
     /// A buyer of household `buyer` at the door of `seller`: the best deal it can make there now
     /// settles through the ledger, as barter or, paid in the settlement's money, a sale; the
     /// seller's offer shrinks by what it sold, and the market remembers the trade.
-    pub(super) fn settle_trade(&mut self, ctx: &Ctx, buyer: PermanentId, seller: PermanentId) {
+    pub(super) fn settle_trade(
+        &mut self,
+        ctx: &Ctx,
+        buyer: PermanentId,
+        seller: PermanentId,
+        who: PermanentId,
+    ) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let Some(hh) = self.household(buyer) else {
             return;
@@ -726,6 +754,16 @@ impl Population {
         };
         if !self.transfer(now, params, goods, &legs, channel) {
             return;
+        }
+        // Buyer and seller each saw the other keep to the terms (ADR-0014 §2).
+        let seller_household = if d.firm {
+            self.firm(seller).map(|f| f.owner)
+        } else {
+            Some(seller)
+        };
+        if let Some(sh) = seller_household.filter(|&sh| sh != buyer) {
+            let traded = crate::ties::Act::Traded;
+            self.note_between(ctx, Some(who), buyer, sh, traded, traded, 0.0);
         }
         let shrink = |offers: &mut Vec<Offer>| {
             for o in offers.iter_mut().filter(|o| usize::from(o.good) == d.good) {
@@ -880,5 +918,21 @@ mod tests {
         assert!(reviewed_ask(1.0, 1.0, true, false, 0.05) > 1.0);
         assert!(reviewed_ask(1.0, 1.0, false, true, 0.05) < 1.0);
         assert_eq!(reviewed_ask(1.0, 1.0, true, true, 0.05), 1.0);
+    }
+
+    #[test]
+    fn a_seller_asks_less_for_food_the_more_of_it_it_can_spare() {
+        // Nothing to spare beyond its needs: its cost and margin.
+        assert_eq!(stock_anchor(2.0, 0.0, 0.5), 2.0);
+        // Half a year's need to spare, and a whole year's: lower, and lower still...
+        let half = stock_anchor(2.0, 0.5, 0.5);
+        let year = stock_anchor(2.0, 1.0, 0.5);
+        assert!((half - 2.0 * (-0.25f64).exp()).abs() < 1e-12);
+        assert!((year - 2.0 * (-0.5f64).exp()).abs() < 1e-12);
+        // ...but no lower for more than a year's.
+        assert_eq!(stock_anchor(2.0, 3.0, 0.5), year);
+        assert_eq!(stock_anchor(2.0, -1.0, 0.5), 2.0);
+        // With no response, the stock does not move it.
+        assert_eq!(stock_anchor(2.0, 1.0, 0.0), 2.0);
     }
 }

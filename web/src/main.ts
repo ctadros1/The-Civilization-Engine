@@ -6,7 +6,7 @@ import "./styles.css";
 
 import { buildingWords } from "./buildings.js";
 import { depositWords } from "./deposits.js";
-import { formatDistance } from "./format.js";
+import { formatDistance, simDate } from "./format.js";
 import { MapView, type PointerInfo } from "./map/view.js";
 import { tenureText } from "./fields.js";
 import { pathWords } from "./paths.js";
@@ -14,6 +14,7 @@ import { HostClient, HostError } from "./net/client.js";
 import * as M from "./net/messages.js";
 import { Store, initialState, mergeEvents } from "./state.js";
 import { bindUi } from "./ui.js";
+import { seasonOf } from "./weather.js";
 
 /**
  * The observer socket: this page's host, or `?host=` in its address. A `?token=` in the address
@@ -63,6 +64,7 @@ const client = new HostClient(socketUrl(), {
     store.update({ snapshot, epoch });
     syncMap();
     map.setPeople(snapshot.people, snapshot.settlements, snapshot.clock);
+    map.setSeason(seasonOf(snapshot.clock));
     void syncChronicle();
     void syncFields();
     void syncBuildings();
@@ -72,6 +74,9 @@ const client = new HostClient(socketUrl(), {
     void syncWealth();
     void syncWeather();
     void syncKnowledge();
+    void syncStanding();
+    void syncGovernment();
+    void syncOrder();
     void syncDeposits();
     void syncEarthworks();
     void refreshPerson(false);
@@ -538,6 +543,117 @@ async function syncWeather(): Promise<void> {
   if (ok) void syncWeather();
 }
 
+/** `world:year-month` of the standing shown, and the world it belongs to. */
+let standingKey = "";
+let standingWorld = "";
+let standingBusy = false;
+
+/**
+ * Fetches each settlement's standing once a month: the kernel works it out on the first of each
+ * month (ADR-0014 §3), so a new month is when it can have changed.
+ */
+async function syncStanding(): Promise<void> {
+  const s = store.state;
+  const world = s.snapshot?.world;
+  const clock = s.snapshot?.clock;
+  if (!world || !clock) return;
+  const worldKey = world.worldId;
+  if (worldKey !== standingWorld) {
+    standingWorld = worldKey;
+    standingKey = "";
+    store.update({ standing: null, standingError: null });
+  }
+  const d = simDate(clock.minute);
+  const key = `${worldKey}:${d.year}-${d.month}`;
+  if (key === standingKey || standingBusy) return;
+  standingBusy = true;
+  try {
+    const standing = await client.standing();
+    if (standingWorld === worldKey) {
+      standingKey = key;
+      store.update({ standing, standingError: null });
+    }
+  } catch (e) {
+    if (standingWorld === worldKey) store.update({ standingError: errorText(e) });
+  } finally {
+    standingBusy = false;
+  }
+}
+
+/** `world:year-month-day` of the government shown, and the world it belongs to. */
+let governmentKey = "";
+let governmentWorld = "";
+let governmentBusy = false;
+
+/**
+ * Fetches each settlement's polity once a day: proposals, gatherings and their decisions happen
+ * at midnight (ADR-0013), and levies and asks during the day are tallied in the next fetch.
+ */
+async function syncGovernment(): Promise<void> {
+  const s = store.state;
+  const world = s.snapshot?.world;
+  const clock = s.snapshot?.clock;
+  if (!world || !clock) return;
+  const worldKey = world.worldId;
+  if (worldKey !== governmentWorld) {
+    governmentWorld = worldKey;
+    governmentKey = "";
+    store.update({ government: null, governmentError: null });
+  }
+  const d = simDate(clock.minute);
+  const key = `${worldKey}:${d.year}-${d.month}-${d.day}`;
+  if (key === governmentKey || governmentBusy) return;
+  governmentBusy = true;
+  try {
+    const government = await client.government();
+    if (governmentWorld === worldKey) {
+      governmentKey = key;
+      store.update({ government, governmentError: null });
+    }
+  } catch (e) {
+    if (governmentWorld === worldKey) store.update({ governmentError: errorText(e) });
+  } finally {
+    governmentBusy = false;
+  }
+}
+
+/** `world:year-month-day` of the takings shown, and the world they belong to. */
+let orderKey = "";
+let orderWorld = "";
+let orderBusy = false;
+
+/**
+ * Fetches the takings once a day: losses are found, word goes round and households choose at
+ * midnight (ADR-0015); the day's takings are in the next fetch.
+ */
+async function syncOrder(): Promise<void> {
+  const s = store.state;
+  const world = s.snapshot?.world;
+  const clock = s.snapshot?.clock;
+  if (!world || !clock) return;
+  const worldKey = world.worldId;
+  if (worldKey !== orderWorld) {
+    orderWorld = worldKey;
+    orderKey = "";
+    store.update({ order: null, orderError: null });
+  }
+  const d = simDate(clock.minute);
+  const key = `${worldKey}:${d.year}-${d.month}-${d.day}`;
+  if (key === orderKey || orderBusy) return;
+  orderBusy = true;
+  try {
+    const order = await client.order();
+    if (orderWorld === worldKey) {
+      orderKey = key;
+      store.update({ order, orderError: null });
+    }
+  } catch (e) {
+    if (orderWorld === worldKey) store.update({ orderError: errorText(e) });
+  } finally {
+    orderBusy = false;
+  }
+}
+
 /** `world:revision` of the knowledge shown, the world it belongs to, and when it was asked for. */
 let knowledgeKey = "";
 let knowledgeWorld = "";
@@ -613,6 +729,28 @@ async function introduceTechnique(
   }
   void refreshPerson(true);
 }
+
+/**
+ * The observer whispers a true claim to someone, or tells them of an ideology (god tools, M4c
+ * slice AJ, ADR-0016 §5). The kernel's reply says what reached them; the inspector is asked again.
+ */
+async function influence(payload: Uint8Array, fallback: string): Promise<void> {
+  try {
+    const body = await client.command(payload);
+    const text = body.kind === "ack" && body.message ? body.message : fallback;
+    store.update({ notice: { kind: "info", text } });
+  } catch (e) {
+    store.update({ notice: { kind: "error", text: errorText(e) } });
+  }
+  void refreshPerson(true);
+}
+
+const whisper = (person: number, claim: number): Promise<void> =>
+  influence(M.whisper(person, claim), "Whispered");
+const bless = (person: number, curse: boolean, days: number, share: number): Promise<void> =>
+  influence(M.bless(person, curse, days, share), curse ? "Cursed" : "Blessed");
+const tellOfIdeology = (person: number, ideology: number): Promise<void> =>
+  influence(M.tellOfIdeology(person, ideology), "Told");
 
 /** Opens workshop `id`'s page in the workshops panel, or goes back to the list. */
 function openFirm(id: number | null): void {
@@ -768,6 +906,11 @@ bindUi(store, {
   setPlacing,
   setPlacingDeposit,
   introduceTechnique,
+  whisper,
+  tellOfIdeology,
+  bless,
+  setPlacingAgitator,
+  setPlacingWave,
 });
 
 /**
@@ -775,7 +918,33 @@ bindUi(store, {
  * come together.
  */
 function setPlacing(on: boolean, families = store.state.placeFamilies): void {
-  store.update({ placing: on, placeFamilies: families, placingDeposit: false });
+  store.update({ placing: on, placeFamilies: families, placingDeposit: false, placingAgitator: false, placingWave: false });
+  map.setPlacing(on);
+}
+
+/**
+ * Arms or disarms the map tool that sends an agitator holding `ideology` (an index into
+ * Welcome.ideologies) where the map is clicked (M4c slice AJ).
+ */
+function setPlacingAgitator(on: boolean, ideology: number): void {
+  store.update({ placingAgitator: on, agitatorIdeology: ideology, placing: false, placingDeposit: false, placingWave: false });
+  map.setPlacing(on);
+}
+
+/**
+ * Arms or disarms the map tool that sends a migration wave where the map is clicked (M5a slice
+ * AN): `households` households over `days` days, each carrying `months` months of food.
+ */
+function setPlacingWave(on: boolean, households: number, days: number, months: number): void {
+  store.update({
+    placingWave: on,
+    waveHouseholds: households,
+    waveDays: days,
+    waveMonths: months,
+    placing: false,
+    placingDeposit: false,
+    placingAgitator: false,
+  });
   map.setPlacing(on);
 }
 
@@ -784,7 +953,14 @@ function setPlacing(on: boolean, families = store.state.placeFamilies): void {
  * clicked, showing at the surface or buried (M3b slice Q).
  */
 function setPlacingDeposit(on: boolean, good: string, exposed: boolean): void {
-  store.update({ placingDeposit: on, depositGood: good, depositExposed: exposed, placing: false });
+  store.update({
+    placingDeposit: on,
+    depositGood: good,
+    depositExposed: exposed,
+    placing: false,
+    placingAgitator: false,
+    placingWave: false,
+  });
   map.setPlacing(on);
 }
 
@@ -792,6 +968,18 @@ function setPlacingDeposit(on: boolean, good: string, exposed: boolean): void {
 const PLACED_DEPOSIT_RADIUS_M = 10;
 
 map.onPlace = (xM, yM) => {
+  if (store.state.placingWave) {
+    const { waveHouseholds, waveDays, waveMonths } = store.state;
+    setPlacingWave(false, waveHouseholds, waveDays, waveMonths);
+    void influence(M.sendWave(xM, yM, waveHouseholds, waveDays, waveMonths), "A wave was sent");
+    return;
+  }
+  if (store.state.placingAgitator) {
+    const ideology = store.state.agitatorIdeology;
+    setPlacingAgitator(false, ideology);
+    void influence(M.sendAgitator(xM, yM, ideology), "An agitator was sent");
+    return;
+  }
   if (store.state.placingDeposit) {
     const { depositGood, depositExposed } = store.state;
     setPlacingDeposit(false, depositGood, depositExposed);
@@ -827,6 +1015,13 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && store.state.placingDeposit) {
     setPlacingDeposit(false, store.state.depositGood, store.state.depositExposed);
   }
+  if (event.key === "Escape" && store.state.placingAgitator) {
+    setPlacingAgitator(false, store.state.agitatorIdeology);
+  }
+  if (event.key === "Escape" && store.state.placingWave) {
+    const { waveHouseholds, waveDays, waveMonths } = store.state;
+    setPlacingWave(false, waveHouseholds, waveDays, waveMonths);
+  }
 });
 
 /** Test and debugging hooks (mirrors Genesis's window.__OBS__). Plain data only. */
@@ -845,7 +1040,16 @@ const hooks = {
       lastError: s.snapshot?.lastError ?? null,
       events: s.events.map((e) => ({ kind: e.kind, text: e.text })),
       people: s.snapshot?.people.length ?? 0,
-      settlements: s.snapshot?.settlements.map((x) => ({ name: x.name, population: x.population })) ?? [],
+      settlements:
+        s.snapshot?.settlements.map((x) => ({
+          name: x.name,
+          population: x.population,
+          founding: x.founding,
+          abandoned: x.abandonedMinute >= 0,
+          year: x.year,
+          contacts: x.contacts,
+          coalitions: x.coalitions,
+        })) ?? [],
       fieldsRev: s.snapshot?.fieldsRev ?? 0,
       buildingsRev: s.snapshot?.buildingsRev ?? 0,
       marketsRev: s.snapshot?.marketsRev ?? 0,
@@ -859,7 +1063,78 @@ const hooks = {
         ? {
             months: s.weather.months.length,
             today: s.weather.today?.words ?? null,
+            snowLineM: s.weather.today?.snowLineM ?? null,
             annualMm: s.weather.annualMm,
+          }
+        : null,
+      government: s.government
+        ? {
+            minute: s.government.minute,
+            polities: s.government.polities.map((p) => ({
+              name: p.name,
+              members: p.members,
+              custom: p.custom,
+              store: p.store,
+              offices: p.offices,
+              label: p.label,
+              labelWhy: p.labelWhy,
+              gatheringLaw: p.gatheringLaw,
+              gatheringCases: p.gatheringCases,
+              customHistory: p.customHistory,
+              revolts: p.revolts,
+              coups: p.coups,
+              petitions: p.petitions,
+              refusals: p.refusals,
+              laws: p.laws.map((l) => ({
+                what: l.what,
+                status: l.status,
+                outcome: l.outcome,
+                decision: l.decision,
+                stances: l.stances.length,
+                known: l.known,
+              })),
+            })),
+          }
+        : null,
+      order: s.order
+        ? {
+            minute: s.order.minute,
+            attempts: s.order.attempts,
+            takings: s.order.takings,
+            seen: s.order.seen,
+            demands: s.order.demands,
+            refusals: s.order.refusals,
+            cases: s.order.cases,
+            found: s.order.found,
+            incidents: s.order.incidents.map((i) => ({
+              id: i.id,
+              outcome: i.outcome,
+              actor: i.actorName,
+              target: i.targetName,
+              seenBy: i.seenBy.length,
+              watch: i.watch,
+            })),
+            known: s.order.known.map((k) => ({
+              incident: k.incident,
+              knowTaker: k.knowTaker,
+              sources: k.sources,
+              response: k.response,
+              owed: k.owed,
+              case: k.case,
+            })),
+          }
+        : null,
+      standing: s.standing
+        ? {
+            minute: s.standing.minute,
+            ties: s.standing.ties,
+            letGo: s.standing.letGo,
+            settlements: s.standing.settlements.map((x) => ({
+              name: x.name,
+              adults: x.adults,
+              notables: x.rows.filter((r) => r.notable).map((r) => r.name),
+              rows: x.rows.length,
+            })),
           }
         : null,
       knowledge: s.knowledge
@@ -922,6 +1197,8 @@ const hooks = {
             name: s.selected.info?.name ?? null,
             doing: s.selected.info?.doing ?? null,
             untilMinute: s.selected.info?.untilMinute ?? null,
+            residence: s.selected.info?.residence ?? null,
+            error: s.selected.error,
             knows:
               s.selected.info?.knows.map((k) => ({
                 id: s.welcome?.techniques[k.technique]?.id ?? "",
@@ -942,6 +1219,15 @@ const hooks = {
     const technique = store.state.welcome?.techniques.findIndex((t) => t.id === id) ?? -1;
     return introduceTechnique(person, technique < 0 ? 0xffff : technique, awareOnly);
   },
+  /** Tells a person of an ideology, by content id (god tool). */
+  tellOfIdeology: (person: number, id: string) => {
+    const k = store.state.welcome?.ideologies.findIndex((d) => d.id === id) ?? -1;
+    return tellOfIdeology(person, k < 0 ? 0xffff : k);
+  },
+  /** Whispers a claim to a person (god tool). */
+  whisper: (person: number, claim: number) => whisper(person, claim),
+  /** Blesses or curses a person (god tool). */
+  bless: (person: number, curse: boolean, days: number, share: number) => bless(person, curse, days, share),
   map: () => map.debugState(),
   pointerAt: (x: number, y: number) => map.pointerInfo(x, y),
   panBy: (dx: number, dy: number) => map.panBy(dx, dy),

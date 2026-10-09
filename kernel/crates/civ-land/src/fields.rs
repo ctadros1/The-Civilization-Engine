@@ -6,12 +6,25 @@
 //! §2.1–2.2: spare labour later cannot make up for a crop left unweeded or standing). Nothing
 //! here decides who works which field or when.
 //!
-//! Soil fertility does not fall by a share per crop and return by a share per fallow year
-//! (research 03-04 warns against exactly that shortcut; unmanured continuous wheat holds about
-//! 1 t/ha): a field keeps the quality of its ground. A nutrient budget arrives with soils.
+//! A harvest is the least of what its season and its soil allow (ADR-0012 §3): each field keeps
+//! its soil's nitrogen and the record of its harvests ([`crate::soil`]).
 
 use civ_core::time::DAYS_PER_YEAR;
 use civ_core::{PermanentId, SimTime};
+
+use crate::soil::{FieldSoil, Limit};
+
+/// Harvests of a field people recall when they plan its next crop, and the most years back they
+/// trust them: ground rested longer is expected to give what new ground of its quality does
+/// (ADR-0012 §4; tuning values).
+pub const RECALL_HARVESTS: usize = 3;
+/// See [`RECALL_HARVESTS`].
+pub const RECALL_YEARS: i32 = 5;
+
+/// The calendar year, from 1, of day index `day`.
+pub fn calendar_year(day: i64) -> i32 {
+    i32::try_from(day.div_euclid(DAYS_PER_YEAR) + 1).unwrap_or(i32::MAX)
+}
 
 /// A crop and how it is grown by hand (content kind `crop`).
 #[derive(Clone, Debug, PartialEq)]
@@ -65,6 +78,13 @@ pub struct CropParams {
     pub kc_days: [u16; 4],
     /// The share of its yield lost per share of its water need unmet (FAO's `Ky`).
     pub ky: f64,
+    /// Nitrogen in its grain, kilograms per kilogram (ADR-0012 §3).
+    pub grain_n: f64,
+    /// Nitrogen in its straw, kilograms per kilogram.
+    pub straw_n: f64,
+    /// Nitrogen the whole crop takes up for each kilogram of grain it grows: grain, straw,
+    /// stubble and roots.
+    pub crop_n: f64,
 }
 
 impl CropParams {
@@ -106,6 +126,9 @@ pub enum FieldTask {
     Reap,
     /// Thresh and clean the grain at home.
     Thresh,
+    /// Carry manure from the household's midden and spread it on the field (content API 29).
+    /// No stage of the field needs it: households choose it ([`crate::soil`]).
+    Manure,
 }
 
 impl FieldTask {
@@ -117,12 +140,13 @@ impl FieldTask {
     }
 
     /// Every task, in order (part of the boundary: never reorder).
-    pub const ALL: [FieldTask; 5] = [
+    pub const ALL: [FieldTask; 6] = [
         FieldTask::Prepare,
         FieldTask::Sow,
         FieldTask::Tend,
         FieldTask::Reap,
         FieldTask::Thresh,
+        FieldTask::Manure,
     ];
 
     /// The authored name.
@@ -133,6 +157,7 @@ impl FieldTask {
             FieldTask::Tend => "tend",
             FieldTask::Reap => "reap",
             FieldTask::Thresh => "thresh",
+            FieldTask::Manure => "manure",
         }
     }
 
@@ -274,6 +299,27 @@ pub struct Field {
     pub need_mm: f32,
     /// The water its crop has had of that, mm.
     pub got_mm: f32,
+    /// Its soil's nitrogen and the record of its harvests (ADR-0012 §3).
+    pub soil: FieldSoil,
+}
+
+/// What a field's season and soil allow its harvest (ADR-0012 §2-3).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Allowance {
+    /// The share of its yield its season's water allows: 1 in a season of average water.
+    pub water: f64,
+    /// The grain its soil's nitrogen allows this year, kilograms per hectare.
+    pub soil_kg_per_ha: f64,
+}
+
+impl Allowance {
+    /// A season whose water allows a share `water` of the yield, on soil that holds nothing back.
+    pub fn season(water: f64) -> Allowance {
+        Allowance {
+            water,
+            soil_kg_per_ha: f64::INFINITY,
+        }
+    }
 }
 
 /// What a piece of field work did.
@@ -298,9 +344,12 @@ impl Field {
         self.sown_day + i64::from(crop.grow_days)
     }
 
-    /// The task the field needs on `day`, if any.
+    /// The task the field needs on `day`, if any. New ground, or ground grown over in a long
+    /// rest, can be broken on any day, out of the sowing season too, for the next crop; broken
+    /// ground is prepared only in the season.
     pub fn task(&self, crop: &CropParams, day: i64) -> Option<FieldTask> {
         match self.stage {
+            FieldStage::Fallow if !self.broken => Some(FieldTask::Prepare),
             FieldStage::Fallow => crop.can_prepare(day).then_some(FieldTask::Prepare),
             FieldStage::Prepared => crop.can_sow(day).then_some(FieldTask::Sow),
             FieldStage::Sown if day >= self.ripe_day(crop) => Some(FieldTask::Reap),
@@ -335,33 +384,85 @@ impl Field {
         1.0 - crop.untended_loss * (1.0 - done)
     }
 
-    /// The grain the field would give if reaped on `day`, kilograms, when its season's water
-    /// allows a share `water` of the yield (1 in a year of average water): its area and ground,
-    /// the timeliness of its sowing, its tending, and what the ripe crop has lost standing.
-    pub fn yield_kg(&self, crop: &CropParams, day: i64, water: f64) -> f64 {
-        let standing = (day - self.ripe_day(crop)).max(0) as f64;
-        let kept = (1.0 - crop.standing_loss_per_day * standing).clamp(0.0, 1.0);
+    /// The grain the season lets the crop grow, kilograms, when its water allows a share `water`
+    /// of the yield (1 in a year of average water): its area and ground, the timeliness of its
+    /// sowing and its tending.
+    fn season_kg(&self, crop: &CropParams, water: f64) -> f64 {
         self.area_ha()
             * crop.yield_kg_per_ha
             * f64::from(self.ground)
             * water.max(0.0)
             * crop.timeliness(self.sown_day)
             * self.tending(crop)
-            * kept
+    }
+
+    /// The share of the ripe crop still standing on `day`.
+    fn kept(&self, crop: &CropParams, day: i64) -> f64 {
+        let standing = (day - self.ripe_day(crop)).max(0) as f64;
+        (1.0 - crop.standing_loss_per_day * standing).clamp(0.0, 1.0)
+    }
+
+    /// The grain the field would give if reaped on `day`, kilograms, when its season's water
+    /// allows a share `water` of the yield and the soil holds nothing back: what the season lets
+    /// it grow, less what the ripe crop has lost standing.
+    pub fn yield_kg(&self, crop: &CropParams, day: i64, water: f64) -> f64 {
+        self.season_kg(crop, water) * self.kept(crop, day)
+    }
+
+    /// The harvest if reaped on `day` under `allow`, kilograms: what the crop grew, the least of
+    /// what its season and its soil allow (research 03-04 §5.2); what is left of it after
+    /// standing ripe; and which of the two held it back.
+    pub fn harvest_kg(&self, crop: &CropParams, day: i64, allow: Allowance) -> (f64, f64, Limit) {
+        let season = self.season_kg(crop, allow.water);
+        let soil = allow.soil_kg_per_ha.max(0.0) * self.area_ha();
+        let (grown, limit) = if soil < season {
+            (soil, Limit::Soil)
+        } else {
+            (season, Limit::Season)
+        };
+        (grown, grown * self.kept(crop, day), limit)
+    }
+
+    /// What people expect a crop on the field to give a hectare in calendar year `year`, from
+    /// what they can see (ADR-0012 §4): the mean of its last [`RECALL_HARVESTS`] harvests within
+    /// [`RECALL_YEARS`], or with none, what the crop gives on ground of its quality in an average
+    /// year. They never see its soil.
+    pub fn expected_kg_per_ha(&self, crop: &CropParams, year: i32) -> f64 {
+        let (mut sum, mut n) = (0.0, 0usize);
+        for r in self
+            .soil
+            .record
+            .iter()
+            .rev()
+            .filter(|r| year - r.year <= RECALL_YEARS)
+            .take(RECALL_HARVESTS)
+        {
+            sum += f64::from(r.kg_per_ha);
+            n += 1;
+        }
+        if n == 0 {
+            crop.yield_kg_per_ha * f64::from(self.ground)
+        } else {
+            sum / n as f64
+        }
     }
 
     /// What people expect the field to give in all if the remaining work is done in time,
-    /// kilograms of grain, from what they know on `day`: sowing finishing today (or when the
-    /// window opens), the tending still to do done, reaping at ripeness, and a growing crop's
-    /// water expected to allow a share `water` of its yield (an average year's, 1, before it is
-    /// sown; ADR-0012 §4).
+    /// kilograms of grain, from what they know on `day`: what it has given
+    /// ([`Field::expected_kg_per_ha`]), sown today (or when the window opens; ground broken out of
+    /// season, when the next one does), the tending still to do done, reaping at ripeness, and a
+    /// growing crop's water expected to allow a share `water` of its yield (an average year's, 1,
+    /// before it is sown; ADR-0012 §4).
     pub fn expected_kg(&self, crop: &CropParams, day: i64, water: f64) -> f64 {
         let ha = self.area_ha();
-        let base = ha * crop.yield_kg_per_ha * f64::from(self.ground);
+        let base = ha * self.expected_kg_per_ha(crop, calendar_year(day));
         match self.stage {
             FieldStage::Fallow | FieldStage::Prepared => {
                 if crop.can_prepare(day) {
                     base * crop.timeliness(self.first_sowing_day(crop, day))
+                } else if self.stage == FieldStage::Fallow && !self.broken {
+                    // Broken now, it is sown as the next window opens.
+                    base
                 } else {
                     0.0
                 }
@@ -382,16 +483,22 @@ impl Field {
         day + (i64::from(crop.sow_from_day) - doy).max(0)
     }
 
-    /// Person-hours still needed to bring the field's crop into store, for a harvest of
-    /// `expected_kg`.
-    pub fn remaining_work_h(&self, crop: &CropParams, expected_kg: f64) -> f64 {
+    /// Person-hours still needed from `day` to bring the field's crop into store, for a harvest
+    /// of `expected_kg`.
+    pub fn remaining_work_h(&self, crop: &CropParams, day: i64, expected_kg: f64) -> f64 {
         let ha = self.area_ha();
         let this = (self.stage_work_h(crop) - f64::from(self.work_h)).max(0.0);
         let thresh = crop.thresh_h_per_kg * expected_kg;
         let tend = (crop.tend_h_per_ha * ha - f64::from(self.tended_h)).max(0.0);
+        // Ground broken out of season is prepared again when the window opens.
+        let again = if self.stage == FieldStage::Fallow && !self.broken && !crop.can_prepare(day) {
+            crop.prepare_h_per_ha * ha
+        } else {
+            0.0
+        };
         match self.stage {
             FieldStage::Fallow => {
-                this + crop.sow_h_per_ha * ha + tend + crop.reap_h_per_ha * ha + thresh
+                this + again + crop.sow_h_per_ha * ha + tend + crop.reap_h_per_ha * ha + thresh
             }
             FieldStage::Prepared => this + tend + crop.reap_h_per_ha * ha + thresh,
             FieldStage::Sown => this + tend + thresh,
@@ -399,9 +506,9 @@ impl Field {
         }
     }
 
-    /// Does `hours` of a capable adult's `task` on `day`, its season's water allowing a share
-    /// `water` of the yield, with `seed_kg` of seed at hand for sowing. Work beyond what the
-    /// stage needs is not counted; sowing stops when the seed runs out.
+    /// Does `hours` of a capable adult's `task` on `day`, its season and soil allowing `allow`,
+    /// with `seed_kg` of seed at hand for sowing. Work beyond what the stage needs is not
+    /// counted; sowing stops when the seed runs out.
     #[allow(clippy::too_many_arguments)]
     pub fn work(
         &mut self,
@@ -409,7 +516,7 @@ impl Field {
         task: FieldTask,
         hours: f64,
         day: i64,
-        water: f64,
+        allow: Allowance,
         seed_kg: f64,
         now: SimTime,
     ) -> WorkDone {
@@ -430,7 +537,7 @@ impl Field {
             self.sheaves_kg = left.max(0.0) as f32;
             if left <= 1e-6 {
                 done.finished = true;
-                self.finish_stage(crop, day, water, now);
+                self.finish_stage(crop, day, allow, now);
             }
             return done;
         }
@@ -447,18 +554,24 @@ impl Field {
         self.work_h = after as f32;
         if after + 1e-6 >= needed {
             done.finished = true;
-            self.finish_stage(crop, day, water, now);
+            self.finish_stage(crop, day, allow, now);
         }
         done
     }
 
-    fn finish_stage(&mut self, crop: &CropParams, day: i64, water: f64, now: SimTime) {
+    fn finish_stage(&mut self, crop: &CropParams, day: i64, allow: Allowance, now: SimTime) {
         self.work_h = 0.0;
         self.stage_since = now;
         self.stage = match self.stage {
+            // Broken in the season, the ground is ready to sow; broken out of it, it lies
+            // broken until the next window, when it is prepared like any cropped ground.
             FieldStage::Fallow => {
                 self.broken = true;
-                FieldStage::Prepared
+                if crop.can_prepare(day) {
+                    FieldStage::Prepared
+                } else {
+                    FieldStage::Fallow
+                }
             }
             FieldStage::Prepared => {
                 self.sown_day = day;
@@ -467,8 +580,15 @@ impl Field {
                 FieldStage::Sown
             }
             FieldStage::Sown => {
-                self.sheaves_kg = self.yield_kg(crop, day, water) as f32;
+                let (grown, taken, limit) = self.harvest_kg(crop, day, allow);
+                self.sheaves_kg = taken as f32;
                 self.harvests = self.harvests.saturating_add(1);
+                let ha = self.area_ha();
+                if ha > 0.0 {
+                    let year = i32::try_from(now.date().year).unwrap_or(i32::MAX);
+                    self.soil
+                        .harvested(crop, grown / ha, taken / ha, limit, year);
+                }
                 FieldStage::Reaped
             }
             FieldStage::Reaped => {
@@ -476,6 +596,24 @@ impl Field {
                 FieldStage::Fallow
             }
         };
+    }
+
+    /// At the turn of calendar year `year`: broken ground that has lain unsown `years` whole
+    /// years or more has grown over and must be broken again, though not cleared again (plan §7:
+    /// households break long-rested fields again). Returns whether it grew over.
+    pub fn regrow(&mut self, years: u32, year: i32) -> bool {
+        if years == 0 || self.stage != FieldStage::Fallow || !self.broken {
+            return false;
+        }
+        let since = calendar_year(self.stage_since.day_index())
+            .max(self.soil.last_harvest_year().unwrap_or(i32::MIN));
+        if i64::from(year) - 1 - i64::from(since) < i64::from(years) {
+            return false;
+        }
+        self.broken = false;
+        self.clear_h_per_ha = 0.0;
+        self.work_h = 0.0;
+        true
     }
 
     /// The turn of the day: a prepared field whose sowing window has passed, or a ripe crop
@@ -503,6 +641,7 @@ impl Field {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use crate::soil::HarvestRecord;
 
     pub(crate) fn crop() -> CropParams {
         CropParams {
@@ -529,6 +668,9 @@ pub(crate) mod tests {
             kc: [0.4, 1.15, 0.4],
             kc_days: [30, 30, 40, 20],
             ky: 1.15,
+            grain_n: 0.020,
+            straw_n: 0.006,
+            crop_n: 0.035,
         }
     }
 
@@ -559,6 +701,7 @@ pub(crate) mod tests {
             water_mm: 0.0,
             need_mm: 0.0,
             got_mm: 0.0,
+            soil: FieldSoil::default(),
         }
     }
 
@@ -570,8 +713,16 @@ pub(crate) mod tests {
         // 0.1 ha: 80 h to break and 120 h to clear.
         assert!((f.stage_work_h(&c) - 200.0).abs() < 1e-9);
         assert!(
-            f.work(&c, FieldTask::Prepare, 200.0, 60, 1.0, 0.0, SimTime::ZERO)
-                .finished
+            f.work(
+                &c,
+                FieldTask::Prepare,
+                200.0,
+                60,
+                Allowance::season(1.0),
+                0.0,
+                SimTime::ZERO
+            )
+            .finished
         );
         assert!(f.broken);
         // Prepared but never sown, it lies fallow again: still broken ground.
@@ -584,37 +735,103 @@ pub(crate) mod tests {
         let c = crop();
         let mut f = field();
         let t = SimTime::ZERO;
-        assert_eq!(f.task(&c, 40), None, "too early to prepare");
-        assert_eq!(f.task(&c, 60), Some(FieldTask::Prepare));
+        let mut cropped = field();
+        cropped.broken = true;
+        assert_eq!(cropped.task(&c, 40), None, "too early to prepare");
+        assert_eq!(cropped.task(&c, 60), Some(FieldTask::Prepare));
+        assert_eq!(
+            f.task(&c, 40),
+            Some(FieldTask::Prepare),
+            "new ground, any day"
+        );
         // Breaking new ground: 80 h for 0.1 ha.
-        let done = f.work(&c, FieldTask::Prepare, 50.0, 60, 1.0, 0.0, t);
+        let done = f.work(
+            &c,
+            FieldTask::Prepare,
+            50.0,
+            60,
+            Allowance::season(1.0),
+            0.0,
+            t,
+        );
         assert!(!done.finished && f.stage == FieldStage::Fallow);
         assert!(
-            f.work(&c, FieldTask::Prepare, 50.0, 61, 1.0, 0.0, t)
-                .finished
+            f.work(
+                &c,
+                FieldTask::Prepare,
+                50.0,
+                61,
+                Allowance::season(1.0),
+                0.0,
+                t
+            )
+            .finished
         );
         assert_eq!(f.stage, FieldStage::Prepared);
         assert_eq!(f.task(&c, 70), None, "not yet time to sow");
         // Sowing needs 10 kg of seed; with 4 kg at hand it goes 40 % of the way.
-        let done = f.work(&c, FieldTask::Sow, 10.0, 80, 1.0, 4.0, t);
+        let done = f.work(&c, FieldTask::Sow, 10.0, 80, Allowance::season(1.0), 4.0, t);
         assert!((done.seed_kg - 4.0).abs() < 1e-9 && !done.finished);
-        let done = f.work(&c, FieldTask::Sow, 10.0, 80, 1.0, 50.0, t);
+        let done = f.work(
+            &c,
+            FieldTask::Sow,
+            10.0,
+            80,
+            Allowance::season(1.0),
+            50.0,
+            t,
+        );
         assert!((done.seed_kg - 6.0).abs() < 1e-9 && done.finished);
         assert_eq!((f.stage, f.sown_day), (FieldStage::Sown, 80));
         // Tend fully, then reap at ripeness: the full yield of 100 kg.
         assert_eq!(f.task(&c, 100), Some(FieldTask::Tend));
-        f.work(&c, FieldTask::Tend, 100.0, 100, 1.0, 0.0, t);
+        f.work(
+            &c,
+            FieldTask::Tend,
+            100.0,
+            100,
+            Allowance::season(1.0),
+            0.0,
+            t,
+        );
         assert_eq!(f.task(&c, 150), None, "tended; not ripe yet");
         assert_eq!(f.task(&c, 200), Some(FieldTask::Reap));
         assert!((f.expected_kg(&c, 200, 1.0) - 100.0).abs() < 1e-6);
         // A season short of water is expected to give less.
         assert!((f.expected_kg(&c, 200, 0.8) - 80.0).abs() < 1e-6);
-        assert!(f.work(&c, FieldTask::Reap, 25.0, 200, 1.0, 0.0, t).finished);
+        assert!(
+            f.work(
+                &c,
+                FieldTask::Reap,
+                25.0,
+                200,
+                Allowance::season(1.0),
+                0.0,
+                t
+            )
+            .finished
+        );
         assert!((f64::from(f.sheaves_kg) - 100.0).abs() < 1e-4);
         // Threshing: half an hour a kilogram.
-        let done = f.work(&c, FieldTask::Thresh, 20.0, 205, 1.0, 0.0, t);
+        let done = f.work(
+            &c,
+            FieldTask::Thresh,
+            20.0,
+            205,
+            Allowance::season(1.0),
+            0.0,
+            t,
+        );
         assert!((done.grain_kg - 40.0).abs() < 1e-4);
-        let done = f.work(&c, FieldTask::Thresh, 100.0, 206, 1.0, 0.0, t);
+        let done = f.work(
+            &c,
+            FieldTask::Thresh,
+            100.0,
+            206,
+            Allowance::season(1.0),
+            0.0,
+            t,
+        );
         assert!((done.grain_kg - 60.0).abs() < 1e-3 && done.finished);
         assert_eq!(f.stage, FieldStage::Fallow);
         // Next year it is prepared again, at the lighter work of cropped ground.
@@ -644,6 +861,133 @@ pub(crate) mod tests {
         assert!(!f.new_day(&c, ripe + 10, SimTime::ZERO));
         assert!(f.new_day(&c, ripe + 50, SimTime::ZERO));
         assert_eq!(f.stage, FieldStage::Fallow);
+    }
+
+    #[test]
+    fn a_harvest_is_the_least_of_what_season_and_soil_allow_and_the_field_remembers_it() {
+        let c = crop();
+        let mut f = field();
+        f.stage = FieldStage::Sown;
+        f.sown_day = 80;
+        f.tended_h = 20.0; // 200 h/ha over 0.1 ha: fully tended
+        let ripe = f.ripe_day(&c);
+        // The season allows 100 kg; a soil that allows 600 kg/ha holds it to 60.
+        let poor = Allowance {
+            water: 1.0,
+            soil_kg_per_ha: 600.0,
+        };
+        let (grown, taken, limit) = f.harvest_kg(&c, ripe, poor);
+        assert!((grown - 60.0).abs() < 1e-9 && (taken - 60.0).abs() < 1e-9);
+        assert_eq!(limit, Limit::Soil);
+        let rich = Allowance {
+            water: 0.8,
+            soil_kg_per_ha: 2000.0,
+        };
+        assert_eq!(f.harvest_kg(&c, ripe, rich).2, Limit::Season);
+        // Reaped, the field remembers the harvest per hectare and what held it back, and the
+        // soil keeps what the crop took up and did not carry off.
+        let t = SimTime::from_date(3, 7, 30, 12, 0).expect("a date");
+        let fast = f.soil.fast_n;
+        assert!(
+            f.work(&c, FieldTask::Reap, 25.0, ripe, poor, 0.0, t)
+                .finished
+        );
+        assert_eq!(
+            f.soil.record,
+            vec![HarvestRecord {
+                year: 3,
+                kg_per_ha: 600.0,
+                limit: Limit::Soil,
+            }]
+        );
+        // 600 kg/ha took up 21 kg of nitrogen, 12 of it in the grain; no straw is carried home.
+        let back = f64::from(f.soil.fast_n - fast);
+        assert!((back - 600.0 * (0.035 - 0.020)).abs() < 1e-3, "{back}");
+    }
+
+    #[test]
+    fn new_ground_can_be_broken_out_of_season_and_is_prepared_in_it() {
+        let c = crop();
+        let mut f = field();
+        let t = SimTime::ZERO;
+        // After the harvest, new ground can be broken for next year's crop...
+        assert_eq!(f.task(&c, 250), Some(FieldTask::Prepare));
+        assert!((f.expected_kg(&c, 250, 1.0) - 100.0).abs() < 1e-9);
+        // ...counting the preparing it needs again in the spring: 80 h to break, 40 to prepare,
+        // 5 to sow, 20 to tend, 25 to reap and 50 to thresh.
+        assert!((f.remaining_work_h(&c, 250, 100.0) - 220.0).abs() < 1e-9);
+        let done = f.work(
+            &c,
+            FieldTask::Prepare,
+            80.0,
+            250,
+            Allowance::season(1.0),
+            0.0,
+            t,
+        );
+        assert!(done.finished && f.broken && f.stage == FieldStage::Fallow);
+        assert_eq!(f.task(&c, 300), None, "broken ground waits for the window");
+        assert_eq!(f.task(&c, 365 + 60), Some(FieldTask::Prepare));
+        assert!(
+            (f.stage_work_h(&c) - 40.0).abs() < 1e-9,
+            "dug like cropped ground"
+        );
+    }
+
+    #[test]
+    fn ground_rested_three_whole_years_grows_over_and_is_broken_again() {
+        let c = crop();
+        let mut f = field();
+        f.broken = true;
+        f.clear_h_per_ha = 1200.0;
+        f.harvests = 1;
+        f.soil.record = vec![HarvestRecord {
+            year: 4,
+            kg_per_ha: 700.0,
+            limit: Limit::Season,
+        }];
+        f.stage_since = SimTime::from_date(4, 9, 1, 0, 0).expect("a date");
+        assert!(!f.regrow(3, 5) && !f.regrow(3, 7));
+        // Unsown in years 5, 6 and 7.
+        assert!(f.regrow(3, 8));
+        assert!(!f.broken);
+        assert!(
+            (f.stage_work_h(&c) - 80.0).abs() < 1e-9,
+            "broken, not cleared"
+        );
+        // Ground under a crop never grows over, and with no years given nothing does.
+        let mut sown = field();
+        sown.broken = true;
+        sown.stage = FieldStage::Sown;
+        assert!(!sown.regrow(3, 50));
+        let mut kept = field();
+        kept.broken = true;
+        assert!(!kept.regrow(0, 50));
+    }
+
+    #[test]
+    fn people_expect_a_field_to_give_what_it_has_lately_given() {
+        let c = crop();
+        let mut f = field();
+        f.ground = 1.2;
+        assert!(
+            (f.expected_kg_per_ha(&c, 3) - 1200.0).abs() < 1e-3,
+            "the crop on its ground"
+        );
+        f.soil.record = [(1, 900.0), (2, 600.0), (3, 700.0), (4, 800.0)]
+            .into_iter()
+            .map(|(year, kg_per_ha)| HarvestRecord {
+                year,
+                kg_per_ha,
+                limit: Limit::Season,
+            })
+            .collect();
+        // The last three...
+        assert!((f.expected_kg_per_ha(&c, 5) - 700.0).abs() < 1e-9);
+        // ...those within five years...
+        assert!((f.expected_kg_per_ha(&c, 8) - 750.0).abs() < 1e-9);
+        // ...and once all are older, new ground's.
+        assert!((f.expected_kg_per_ha(&c, 10) - 1200.0).abs() < 1e-3);
     }
 
     #[test]

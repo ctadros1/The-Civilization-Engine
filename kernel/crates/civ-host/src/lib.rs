@@ -11,9 +11,12 @@
 #![forbid(unsafe_code)]
 
 pub mod commands;
+pub mod consistency;
 pub mod dashboard;
 pub mod economy;
 pub mod engine;
+pub mod neighbours;
+pub mod notables;
 pub mod paths;
 pub mod protocol;
 pub mod report;

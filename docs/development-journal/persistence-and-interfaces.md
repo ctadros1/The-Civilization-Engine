@@ -1,6 +1,6 @@
 # Persistence and Interfaces
 
-TCE treats boundary messages and durable saves as long-lived contracts. Their versioning, ownership and error behavior are deliberate parts of the architecture, not implementation details to change casually.
+TCE treats boundary messages and durable saves as long-lived contracts. Their versioning, ownership and error behavior are deliberate parts of the architecture, not implementation details to change casually. At the [source baseline](README.md#source-baseline) they stand at wire schema TCE 1.25, saves schema 27 and content API 29.
 
 ## Content loading
 
@@ -31,7 +31,7 @@ The schema is append-only within a major version. New fields and enum values are
 
 `civ-sim` maps authoritative world state into sections such as metadata, clock/scheduler, terrain and water, land, agents, buildings, economy and knowledge. State that can be derived from saved records (for example terrain indexes and certain presentation summaries) is rebuilt rather than independently persisted. Save code owns migration from supported older schemas; a meaning change requires a schema version change and an explicit migration.
 
-Each manual save or autosave publishes a new immutable generation in `saves/<world>/`. A save is not an event-log replay: it is a snapshot of current state. TCE does not promise deterministic simulation replay from a seed. World generation is reproducible for a given build and input; the subsequent simulation is not required to reproduce bit for bit.
+Each manual save or autosave publishes a new immutable generation in `saves/<world>/`. A save is not an event-log replay: it is a snapshot of current state. TCE does not promise deterministic simulation replay from a seed. World generation is reproducible for a given build and input, but two worlds made from one seed draw their own identities and live different lives. Continuing from a save is exact: since saves schema 23, a world saved at a midnight, loaded and lived on ends in the same bytes as one lived straight through, and Gate A's tests check it ([ADR-0011](../../decisions/0011-execution-modes.md) §5).
 
 The host autosaves changed worlds at the configured cadence and before replacement/exit. It prunes old autosave generations according to policy and keeps a session marker pointing at the last good save. On restart, an interrupted session can offer recovery from that save. Crash snapshots used for diagnosis are not offered as normal recovery saves.
 

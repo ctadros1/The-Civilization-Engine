@@ -17,6 +17,8 @@ import {
   classes,
   contourInterval,
   elevations,
+  seasonKey,
+  seasonal,
   shade,
 } from "../src/map/shade.js";
 import {
@@ -110,6 +112,34 @@ describe("map shading", () => {
     const rising = shade(new Float32Array([0, 0, 40, 80, 120]), new Uint8Array(5), w, h, opts);
     const falling = shade(new Float32Array([120, 80, 40, 0, 0]), new Uint8Array(5), w, h, opts);
     expect(rising[12]! / falling[12]!).toBeGreaterThan(1);
+  });
+
+  it("tints the land by the season and whitens it above the snow line", () => {
+    const green: [number, number, number] = [104, 133, 88];
+    const may = { month: 4, soil: 0.9, snowLineM: Infinity };
+    // A moist May is the land as drawn; without a season, too.
+    expect(seasonal(green, 100, may)).toEqual(green);
+    expect(seasonal(green, 100, undefined)).toEqual(green);
+    // January's land is duller and browner: less green against red.
+    const jan = seasonal(green, 100, { ...may, month: 0 });
+    expect(jan[1] / jan[0]).toBeLessThan(green[1] / green[0]);
+    // A dry July yellows it.
+    const july = seasonal(green, 100, { ...may, month: 6, soil: 0.1 });
+    expect(july[0]).toBeGreaterThan(green[0] + 20);
+    // Snow lies above its line: near white, and whiter higher up; below, nothing changes.
+    const snowy = { ...may, month: 1, snowLineM: 300 };
+    const below = seasonal(green, 290, snowy);
+    const at = seasonal(green, 300, snowy);
+    const above = seasonal(green, 400, snowy);
+    expect(below).toEqual(seasonal(green, 290, { ...snowy, snowLineM: Infinity }));
+    expect(at[2]).toBeGreaterThan(180);
+    expect(above[0]).toBeGreaterThan(at[0]);
+    expect(Math.min(...above)).toBeGreaterThan(230);
+    // The map is shaded again only when what shows changes.
+    expect(seasonKey(may)).toBe(seasonKey({ ...may, soil: 0.91 }));
+    expect(seasonKey(may)).not.toBe(seasonKey({ ...may, month: 5 }));
+    expect(seasonKey(snowy)).not.toBe(seasonKey({ ...snowy, snowLineM: 400 }));
+    expect(seasonKey(null)).toBe("");
   });
 });
 

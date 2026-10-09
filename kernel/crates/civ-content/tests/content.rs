@@ -64,7 +64,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 24
+kernel_content_api = 55
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -168,14 +168,35 @@ fn the_repository_content_is_clean() {
     let emmer = c
         .technique_index("core:technique/emmer_growing")
         .expect("growing emmer");
+    // Field work needs growing emmer, except dunging, which needs manuring (M3c slice V).
+    let manuring = c
+        .technique_index("core:technique/manuring")
+        .expect("manuring");
     for a in c.activities.iter().filter(|a| a.task.is_some()) {
+        let needs = if a.id == "core:activity/manure_field" {
+            manuring
+        } else {
+            emmer
+        };
         assert_eq!(
             c.technique_of(a),
-            Some(emmer),
-            "{} needs emmer growing",
+            Some(needs),
+            "{} needs its technique",
             a.id
         );
     }
+    // A midden returns to the fields part of the nitrogen its people's grain took off them,
+    // never more (research 03-04 §5.5: no nutrient-creating manure loops): a person's share of
+    // the heap holds less than the grain they would eat in a year if it were all their food.
+    let people = &reg.people.params;
+    let crop = &c.crops[people.farm.crop];
+    let grain_kg = people.household.daily_kcal_per_person * 365.0 / c.goods[crop.good].kcal_per_kg;
+    assert!(
+        people.midden.n_kg_per_person_year < grain_kg * crop.grain_n,
+        "a midden's {} kg of nitrogen a person against {} kg in a year's grain",
+        people.midden.n_kg_per_person_year,
+        grain_kg * crop.grain_n
+    );
     let grind = &c.activities[c.index_of("core:activity/grind_grain").expect("grinding")];
     assert_eq!(
         c.technique_of(grind).map(|t| c.techniques[t].id.as_str()),
@@ -206,9 +227,10 @@ fn the_repository_content_is_clean() {
         .iter()
         .map(|&(t, _)| c.techniques[t].id.as_str())
         .collect();
-    assert_eq!(founders.len(), 10);
+    assert_eq!(founders.len(), 11);
     assert!(founders.contains(&"core:technique/pottery"));
     assert!(founders.contains(&"core:technique/oven_baking"));
+    assert!(founders.contains(&"core:technique/manuring"));
     for later in ["core:technique/drying", "core:technique/rotary_quern"] {
         assert!(!founders.contains(&later), "{later}");
     }
@@ -965,6 +987,176 @@ fn activities_check_their_behavior() {
 }
 
 #[test]
+fn norms_check_their_numbers_and_what_they_do() {
+    let preset = real_preset();
+    let binds = real("norm/gathering_binds.toml");
+    for (body, needle) in [
+        (
+            binds.replace("does = \"abide_by_laws\"", "does = \"obey\""),
+            "`does`",
+        ),
+        (
+            binds.replace("learn_rate = 0.1", "learn_rate = 1.5"),
+            "`expect.learn_rate`",
+        ),
+        (binds.replace("low = 0.2", "low = 0.95"), "`threshold.low`"),
+        (
+            binds.replace(
+                "statement = \"what the gathering decides binds everyone\"",
+                "statement = \" \"",
+            ),
+            "`statement`",
+        ),
+    ] {
+        assert_ne!(body, binds, "{needle}: the edit applies");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("norm/gathering_binds.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(
+            report.diagnostics[0].message.contains(needle),
+            "{needle}: {}",
+            report.diagnostics[0].message
+        );
+    }
+    // The core pack's norm compiles into the catalog.
+    let ok = registry(load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("norm/gathering_binds.toml", &binds),
+    ]));
+    let n = &ok.catalog.norms;
+    assert_eq!(n.len(), 1);
+    assert_eq!(n[0].kind, civ_agents::norm::NormKind::AbideByLaws);
+    assert!((n[0].expect_prior - 0.85).abs() < 1e-12);
+}
+
+#[test]
+fn values_check_their_numbers_and_policies_bear_on_values_that_exist() {
+    let preset = real_preset();
+    let security = real("value/security.toml");
+    for (body, needle) in [
+        (security.replace("sd = 0.8", "sd = 9.0"), "`sd`"),
+        (
+            security.replace("weight = 1.0", "weight = -1.0"),
+            "`weight`",
+        ),
+        (
+            security.replace(
+                "high = \"holds safety from want and harm dear\"",
+                "high = \" \"",
+            ),
+            "`high`",
+        ),
+    ] {
+        assert_ne!(body, security, "{needle}: the edit applies");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("value/security.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(
+            report.diagnostics[0].message.contains(needle),
+            "{needle}: {}",
+            report.diagnostics[0].message
+        );
+    }
+    // A template's `bears` must name values that exist, each between -1 and 1.
+    let store = real("policy/common_store.toml");
+    let values = [
+        ("value/security.toml", real("value/security.toml")),
+        ("value/autonomy.toml", real("value/autonomy.toml")),
+        ("value/reciprocity.toml", real("value/reciprocity.toml")),
+    ];
+    let alone = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("policy/common_store.toml", &store),
+    ]);
+    assert_eq!(codes(&alone), vec!["E2006", "E2006", "E2006"]);
+    let mut files: Vec<(&str, &str)> = values.iter().map(|(p, b)| (*p, b.as_str())).collect();
+    files.push(("worldgen/river_valley.toml", &preset));
+    let too_much = store.replace(
+        "\"core:value/security\" = 1.0",
+        "\"core:value/security\" = 1.5",
+    );
+    assert_ne!(too_much, store);
+    let mut bad = files.clone();
+    bad.push(("policy/common_store.toml", &too_much));
+    let report = load_fixture(&bad);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(report.diagnostics[0].message.contains("`bears`"));
+    files.push(("policy/common_store.toml", &store));
+    let ok = registry(load_fixture(&files));
+    assert_eq!(ok.catalog.values.len(), 3);
+    let def = &ok.catalog.policies[0];
+    assert_eq!(def.bears.len(), 3, "{:?}", def.bears);
+    let security = ok
+        .catalog
+        .values
+        .iter()
+        .position(|v| v.id == "core:value/security")
+        .expect("defined") as u16;
+    assert!(def.bears.contains(&(security, 1.0)));
+}
+
+#[test]
+fn ideologies_check_their_numbers_and_name_values_and_templates_that_exist() {
+    let preset = real_preset();
+    let provision = real("ideology/common_provision.toml");
+    let mut base: Vec<(String, String)> = [
+        "value/security.toml",
+        "value/autonomy.toml",
+        "value/reciprocity.toml",
+        "policy/common_store.toml",
+        "policy/keep_store.toml",
+    ]
+    .iter()
+    .map(|p| (p.to_string(), real(p)))
+    .collect();
+    base.push(("worldgen/river_valley.toml".to_owned(), preset.clone()));
+    let with = |body: &str| {
+        let mut files: Vec<(&str, &str)> =
+            base.iter().map(|(p, b)| (p.as_str(), b.as_str())).collect();
+        files.push(("ideology/common_provision.toml", body));
+        load_fixture(&files)
+    };
+    for (body, needle) in [
+        (
+            provision.replace("explains = \"food_short\"", "explains = \"famine\""),
+            "`explains`",
+        ),
+        (
+            provision.replace("adopt = 0.3", "adopt = 3.0"),
+            "`spread.adopt`",
+        ),
+        (
+            provision.replace(
+                "\"core:value/security\" = 0.5",
+                "\"core:value/security\" = 2.0",
+            ),
+            "`commitments`",
+        ),
+    ] {
+        assert_ne!(body, provision, "{needle}: the edit applies");
+        let report = with(&body);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(
+            report.diagnostics[0].message.contains(needle),
+            "{needle}: {}",
+            report.diagnostics[0].message
+        );
+    }
+    // Its commitments and program must name values and templates that exist.
+    let unknown = provision.replace("core:policy/keep_store", "core:policy/keep_granary");
+    assert_eq!(codes(&with(&unknown)), vec!["E2006"]);
+    let ok = registry(with(&provision));
+    let def = &ok.catalog.ideologies[0];
+    assert_eq!(def.program.len(), 2);
+    assert_eq!(def.commitments.len(), 2);
+    assert_eq!(def.explains, civ_agents::polity::IssueKind::FoodShort);
+}
+
+#[test]
 fn profiles_check_their_ranges_and_fields() {
     let preset = real_preset();
     let land = real("land/temperate_valley.toml").replace(
@@ -998,8 +1190,9 @@ fn profiles_check_their_ranges_and_fields() {
     ]);
     assert_eq!(codes(&report), vec!["E3001"]);
 
-    // The month's peak load on roofs (ADR-0009 §5) stays in range.
-    let land = real("land/temperate_valley.toml").replace("median_kpa = 0.25", "median_kpa = -1.0");
+    // The month's storm on roofs (ADR-0012 §5) stays in range, and so does the snow they keep.
+    let land = real("land/temperate_valley.toml")
+        .replace("storm_median_kpa = 0.25", "storm_median_kpa = -1.0");
     assert_ne!(land, real("land/temperate_valley.toml"), "the edit applies");
     let report = load_fixture(&[
         ("worldgen/river_valley.toml", &preset),
@@ -1009,7 +1202,22 @@ fn profiles_check_their_ranges_and_fields() {
     assert!(
         report.diagnostics[0]
             .message
-            .contains("`peak_load.median_kpa`")
+            .contains("`weather.storm_median_kpa`")
+    );
+    let land = real("land/temperate_valley.toml")
+        .replace("roof_snow_shed_deg = 60.0", "roof_snow_shed_deg = 20.0");
+    assert_ne!(land, real("land/temperate_valley.toml"), "the edit applies");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("`weather.roof_snow_shed_deg` must be above"),
+        "{}",
+        report.diagnostics[0].message
     );
 
     // Builders never build weaker for what they have seen (ADR-0009 §6).
@@ -1101,6 +1309,12 @@ fn the_fingerprint_covers_every_kind() {
             "learn_h = 20.0",
             "learn_h = 21.0",
         ),
+        (
+            "norm/gathering_binds.toml",
+            "learn_rate = 0.1",
+            "learn_rate = 0.12",
+        ),
+        ("value/autonomy.toml", "sd = 0.8", "sd = 0.9"),
     ] {
         let body = real(path).replace(from, to);
         assert_ne!(body, real(path), "{path}: the edit applies");
@@ -1555,4 +1769,48 @@ fn deposits_say_how_hard_their_bodies_are_to_dig_and_what_a_working_is_called() 
             report.diagnostics
         );
     }
+}
+
+#[test]
+fn ties_name_the_acts_the_engine_records_and_say_what_each_writes() {
+    let preset = real_preset();
+    let check = |from: &str, to: &str, says: &str| {
+        let people = real("people/early_farmers.toml").replace(from, to);
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("people/early_farmers.toml", &people),
+        ]);
+        let found = codes(&report);
+        assert!(
+            !found.is_empty() && found.iter().all(|&c| c == "E3001"),
+            "{to}: {found:?}"
+        );
+        assert!(
+            report.diagnostics.iter().any(|d| d.message.contains(says)),
+            "{to}: {:?}",
+            report.diagnostics
+        );
+    };
+    // An act the engine does not record, which also leaves one unsaid.
+    check(
+        "act = \"traded\"",
+        "act = \"bartered\"",
+        "does not record: `bartered`",
+    );
+    check(
+        "act = \"traded\"",
+        "act = \"bartered\"",
+        "what act `traded` writes",
+    );
+    check(
+        "domain = \"provision\"",
+        "domain = \"bounty\"",
+        "unknown domain `bounty`",
+    );
+    check("room = 48", "room = 0", "`ties.room`");
+    check(
+        "act = \"hearth\", familiarity = 0.1",
+        "act = \"hearth\", familiarity = 1.5",
+        "`familiarity` must be between 0 and 1",
+    );
 }

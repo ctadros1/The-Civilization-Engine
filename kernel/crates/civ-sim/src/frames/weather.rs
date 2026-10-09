@@ -80,6 +80,7 @@ pub fn day_weather<'a>(
             snow_mm: w.snow_at(params.normals_at_m) as f32,
             soil: (w.soil_mm / params.soil_water_mm.max(1e-9)) as f32,
             words: Some(words),
+            snow_line_m: w.snow_line_m() as f32,
         },
     )
 }
@@ -162,6 +163,11 @@ mod tests {
             cover_kc: 0.9,
             wet_ground_mm: 5.0,
             frozen_below_c: 0.0,
+            storm_median_pa: 250.0,
+            storm_spread: 0.6,
+            roof_snow_share: 0.8,
+            roof_snow_full_deg: 30.0,
+            roof_snow_shed_deg: 60.0,
         }
     }
 

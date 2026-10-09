@@ -18,6 +18,15 @@
 //!   hours above the median.
 //! - **Structural failures:** failures of buildings lived in, per 1,000 years they stood lived
 //!   in, at most [`MAX_FAILURES_PER_1000`]. Those of buildings nobody lives in are counted apart.
+//! - **Regimes** (M4c slice AJ): whether two worlds' polities ended under labels that differ in
+//!   who may decide or who leads, by the label's principal name, which its reasons name (the M4
+//!   observer brief: "differ" only where the why names a structural difference). Fewer than two is
+//!   amber, reported and never forced; the classifier does not read the property regime.
+//! - **Crime and poverty** (M4b slice AD): over all the worlds' attempts to take, where each
+//!   taker's household stood among its settlement's by food when they came, graded by direction
+//!   only: more of their neighbours held more than held less, once there are [`MIN_ATTEMPTS`].
+//!   Takings, those seen and those brought as cases (recorded crime, which is not crime: research
+//!   12-04 §4.B) are shown beside the attempts and not graded.
 //!
 //! The rest of §4.7 is grey, each with its reason, and never counts as a pass. Five worlds and fifty
 //! years are fixed, so the dashboard cannot grow into a campaign, and a failing run is not rerun
@@ -68,6 +77,14 @@ pub const GINI_FLOOR: f64 = 0.1;
 /// Most failures of buildings lived in, per 1,000 years they stood lived in (research 11-06
 /// §2.4's top scenario, one, doubled to allow for chance: tuning).
 pub const MAX_FAILURES_PER_1000: f64 = 2.0;
+/// Least attempts to take, all worlds together, for the crime row to be graded (tuning: at 30,
+/// a mean share of one half has a standard error of about 0.05).
+pub const MIN_ATTEMPTS: u32 = 30;
+
+/// Moves between settlements per 100 residents a year outside which the moves row is amber: the
+/// sensitivity range 05-06 §5.4 proposes around its starting point of 2. A design choice of the
+/// report's, an output benchmark and not a quota, so the row is never red.
+pub const MOVES_BAND: (f64, f64) = (0.5, 10.0);
 
 /// What to run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -77,7 +94,14 @@ pub struct DashboardOptions {
     /// Years each world lives after its first month: [`YEARS`] for the dashboard itself, fewer
     /// only for a quick look, which grades the rows over what it saw.
     pub years: u32,
+    /// Founding groups each world is made with, each a band of the content's default size placed
+    /// together with the others (ADR-0018 §6): [`GROUPS`] from M5a; 1 is the dashboard of M3c to
+    /// M4.
+    pub groups: u32,
 }
+
+/// Founding groups a dashboard world is made with (M5a slice AK).
+pub const GROUPS: u32 = 2;
 
 /// A graded check and what was seen, in words.
 pub type Seen = (Grade, String);
@@ -102,6 +126,8 @@ pub struct WorldRun {
     pub lived_building_months: u64,
     /// Failures of buildings lived in.
     pub lived_failures: u32,
+    /// What gave way in buildings lived in, in the chronicle's words, by calendar year.
+    pub lived_failed: Vec<(i64, String)>,
     /// Failures of buildings nobody lived in.
     pub empty_failures: u32,
     /// Food stocks after the harvest, as graded.
@@ -116,12 +142,187 @@ pub struct WorldRun {
     pub ended: Option<String>,
     /// The saves kept at each tenth year's end.
     pub saves: Vec<PathBuf>,
+    /// What each settlement's polity would be called at the end, with what qualifies it
+    /// (ADR-0013 §6).
+    pub labels: Vec<String>,
+    /// Each polity's regime at the end, by its label's principal name without the person it names
+    /// ("Council community — led by its proposer"), with the reason its body is what it is.
+    pub regimes: Vec<(String, String)>,
+    /// The same at each tenth year's end: (year, each polity's principal name).
+    pub regimes_by_decade: Vec<(u32, Vec<String>)>,
+    /// Its attempts to take, by where the taker's household stood by food.
+    pub crime: CrimeSeen,
+    /// Each settlement at the end: its name and its residents (ADR-0018).
+    pub settlements: Vec<(String, u32)>,
+    /// Where a settlement's accounts did not balance in some year (ADR-0018 §3's hard check).
+    pub accounting: Vec<String>,
+    /// Its settlements' accounts over the run, summed.
+    pub moves: smoke::Moves,
+    /// Visits between its settlements over the run, the hours visitors spent at the hearths they
+    /// went to, and marriages between them (M5a slice AM).
+    pub contacts: (u32, f64, u32),
+    /// People who came to live in another of its settlements over the run, by why (slice AN).
+    pub between: Between,
+}
+
+/// People who came to live in one settlement from another, by why: the moves 05-06 §5.4 counts,
+/// less forced displacement, and the exiles it leaves out.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct Between {
+    /// With their household, by its choice or in an emergency.
+    pub moved: u32,
+    /// With their household and others, to found a settlement (M5a slice AO).
+    pub founded: u32,
+    /// On marrying someone there.
+    pub married: u32,
+    /// Taken in by kin there.
+    pub taken_in: u32,
+    /// Sent away by a finding: forced, so not counted with the others.
+    pub exiled: u32,
+}
+
+impl Between {
+    /// The residence histories' moves from one settlement to another.
+    pub fn of(sim: &Sim) -> Between {
+        use civ_agents::ResidenceWhy;
+        let mut out = Between::default();
+        for r in sim.people().records.values() {
+            for pair in r.residence.windows(2) {
+                let (Some(a), Some(b)) = (pair[0].settlement, pair[1].settlement) else {
+                    continue;
+                };
+                if a == b {
+                    continue;
+                }
+                match pair[1].why {
+                    ResidenceWhy::Moved => out.moved += 1,
+                    ResidenceWhy::Founded => out.founded += 1,
+                    ResidenceWhy::Married => out.married += 1,
+                    ResidenceWhy::TakenIn => out.taken_in += 1,
+                    ResidenceWhy::Exiled => out.exiled += 1,
+                    _ => {}
+                }
+            }
+        }
+        out
+    }
+
+    /// The moves not forced.
+    pub fn peaceful(&self) -> u32 {
+        self.moved + self.founded + self.married + self.taken_in
+    }
 }
 
 impl WorldRun {
     /// People at the end of the run.
     pub fn living(&self) -> usize {
         self.people.last().copied().unwrap_or(0)
+    }
+}
+
+/// Attempts to take of one kind, counted with where each taker's household stood among its
+/// settlement's by food: the sum of the shares of its neighbours that held more
+/// ([`civ_agents::crime::Incident::richer`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct Ranked {
+    /// Attempts whose household could be compared with its neighbours.
+    pub n: u32,
+    /// The sum of the shares of their neighbours that held more.
+    pub richer: f64,
+}
+
+impl Ranked {
+    fn add(&mut self, richer: f32) {
+        if richer.is_finite() {
+            self.n += 1;
+            self.richer += f64::from(richer);
+        }
+    }
+
+    fn join(&mut self, other: Ranked) {
+        self.n += other.n;
+        self.richer += other.richer;
+    }
+
+    /// The mean share of their neighbours that held more: about one half if takers came from any
+    /// household alike, more if from the poorer.
+    pub fn mean(&self) -> Option<f64> {
+        (self.n > 0).then(|| self.richer / f64::from(self.n))
+    }
+}
+
+/// A world's attempts to take, the truth, with what came to be known of them beside it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct CrimeSeen {
+    /// Every attempt.
+    pub attempts: Ranked,
+    /// Those that carried food off.
+    pub takings: Ranked,
+    /// Those someone saw.
+    pub seen: Ranked,
+    /// Those brought before a gathering.
+    pub cases: Ranked,
+}
+
+impl CrimeSeen {
+    /// The tally of `order`'s incidents.
+    pub fn of(order: &civ_agents::crime::Order) -> CrimeSeen {
+        let mut c = CrimeSeen::default();
+        for i in &order.incidents {
+            c.attempts.add(i.richer);
+            if i.outcome == civ_agents::crime::Outcome::Taken {
+                c.takings.add(i.richer);
+            }
+            if !i.seen_by.is_empty() {
+                c.seen.add(i.richer);
+            }
+            if order.cases.iter().any(|k| k.incident == i.id) {
+                c.cases.add(i.richer);
+            }
+        }
+        c
+    }
+
+    fn join(&mut self, other: &CrimeSeen) {
+        self.attempts.join(other.attempts);
+        self.takings.join(other.takings);
+        self.seen.join(other.seen);
+        self.cases.join(other.cases);
+    }
+
+    /// In words: "34 attempts, 0.71 of their neighbours richer on average; 12 takings (0.68), 8
+    /// seen (0.70), 3 brought as cases (0.80)".
+    pub fn words(&self) -> String {
+        let one = |r: &Ranked, one: &str, many: &str, none: &str| {
+            let what = if r.n == 1 { one } else { many };
+            match r.mean() {
+                Some(m) => format!("{} {what} ({m:.2})", r.n),
+                None => none.to_owned(),
+            }
+        };
+        let attempts = match self.attempts.mean() {
+            Some(m) => format!(
+                "{} {}, {m:.2} of the takers' neighbours richer on average",
+                self.attempts.n,
+                if self.attempts.n == 1 {
+                    "attempt"
+                } else {
+                    "attempts"
+                }
+            ),
+            None => "no attempts".to_owned(),
+        };
+        format!(
+            "{attempts}; {}, {}, {}",
+            one(&self.takings, "taking", "takings", "no takings"),
+            one(&self.seen, "seen", "seen", "none seen"),
+            one(
+                &self.cases,
+                "brought as a case",
+                "brought as cases",
+                "none brought as cases"
+            ),
+        )
     }
 }
 
@@ -301,6 +502,8 @@ fn run_one(
             preset_id: PRESET.to_owned(),
             size_cells: options.size,
             band_size: 0,
+            neighbours: vec![0; options.groups.saturating_sub(1) as usize],
+            neighbours_known: false,
             regime_id: regime.0,
         },
         content,
@@ -352,6 +555,12 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
         if living < KEEP && world.ended.is_none() {
             world.ended = Some(format!("fell to {living} in year {y}, from {most} at most"));
         }
+        if y % 10 == 0 {
+            world.regimes_by_decade.push((
+                y,
+                regimes_of(sim).into_iter().map(|(name, _)| name).collect(),
+            ));
+        }
         if y % 10 == 0
             && let Some(dir) = &dir
         {
@@ -375,6 +584,9 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
                 world.empty_failures += 1;
             } else {
                 world.lived_failures += 1;
+                world
+                    .lived_failed
+                    .push((e.at.date().year, format!("{}, {} killed", e.name, e.number)));
             }
         }
     }
@@ -388,6 +600,38 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
         }
     }
     world.gini = by_year.into_iter().map(|(y, (g, p))| (y, g, p)).collect();
+    world.crime = CrimeSeen::of(&sim.people().order);
+    world.settlements = sim
+        .land()
+        .settlements
+        .iter()
+        .map(|s| (s.name.clone(), sim.people().residents(s.id)))
+        .collect();
+    world.accounting = run.accounting.clone();
+    world.moves = run.moves;
+    world.contacts = sim
+        .people()
+        .contacts
+        .years
+        .values()
+        .fold((0, 0.0, 0), |(v, h, m), c| {
+            (v + c.visits, h + c.minutes as f64 / 60.0, m + c.marriages)
+        });
+    world.between = Between::of(sim);
+    world.labels = sim
+        .people()
+        .polities
+        .iter()
+        .map(|p| {
+            let l = civ_sim::labels::label_of(sim, p);
+            if l.modifiers.is_empty() {
+                l.in_prose()
+            } else {
+                format!("{} ({})", l.in_prose(), l.modifiers.join("; "))
+            }
+        })
+        .collect();
+    world.regimes = regimes_of(sim);
     for c in run.economy.grade(sim) {
         let seen = Some((c.grade, c.text.clone()));
         match c.name {
@@ -407,37 +651,296 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
         gini(worlds),
         firm_sizes(worlds),
         failures(worlds),
-        Row::new(
-            "Settlement sizes",
-            "the spread of settlements' sizes",
-            "right-skewed",
-        )
-        .graded(
-            Grade::Gray,
-            "one settlement a world until regions (M5)".to_owned(),
-        ),
-        Row::new("Crime and poverty", "crime against poverty", "correlated").graded(
-            Grade::Gray,
-            "no crime until councils and law (M4)".to_owned(),
-        ),
+        settlement_sizes(worlds),
+        contacts(worlds, years),
+        moves(worlds),
+        accounting(worlds),
+        crime(worlds),
         Row::new(
             "Epidemics",
             "waterborne cases against contaminated sources",
             "clustered",
         )
         .graded(Grade::Gray, "no disease until M6".to_owned()),
-        Row::new(
-            "Regimes",
-            "labels inferred from how worlds are run",
-            "two seeds differ",
-        )
-        .graded(
-            Grade::Gray,
-            "regimes are given by seed, so differing would pass by construction; no labels are \
-             inferred until M4"
-                .to_owned(),
-        ),
+        regimes(worlds),
     ]
+}
+
+/// Settlements' sizes at the end, reported and not graded: 10-01 §4 and 10-02 §5 warn against
+/// fitting a distribution to a few settlements, so the row stays grey until there are many (M9).
+fn settlement_sizes(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Settlement sizes",
+        "the spread of settlements' sizes",
+        "right-skewed",
+    )
+    .source("10-01 §4; 10-02 §5");
+    let seen: Vec<String> = worlds
+        .iter()
+        .filter(|w| !w.settlements.is_empty())
+        .map(|w| {
+            let sizes: Vec<String> = w
+                .settlements
+                .iter()
+                .map(|(name, n)| format!("{name} {n}"))
+                .collect();
+            format!("world {}: {}", w.seed, sizes.join(", "))
+        })
+        .collect();
+    let text = if seen.is_empty() {
+        "no world lived".to_owned()
+    } else {
+        format!(
+            "reported, not graded until there are many (M9): {}",
+            seen.join("; ")
+        )
+    };
+    row.graded(Grade::Gray, text)
+}
+
+/// Contacts between settlements, reported and not graded (M5a slice AM): the research gives no
+/// rate of visiting between neighbouring villages to hold them to (05-06 §5.4 grades moves; see
+/// [`moves`]).
+fn contacts(worlds: &[WorldRun], years: u32) -> Row {
+    let row = Row::new(
+        "Contacts",
+        "visits and marriages between settlements a year",
+        "reported",
+    )
+    .source("ADR-0018 §4");
+    let years = f64::from(years.max(1));
+    let seen: Vec<String> = worlds
+        .iter()
+        .filter(|w| w.settlements.len() > 1)
+        .map(|w| {
+            let (visits, hours, marriages) = w.contacts;
+            format!(
+                "world {}: {:.1} visits a year ({:.0} hours at others' hearths), {:.1} marriages",
+                w.seed,
+                f64::from(visits) / years,
+                hours / years,
+                f64::from(marriages) / years
+            )
+        })
+        .collect();
+    let text = if seen.is_empty() {
+        "no world of several settlements lived".to_owned()
+    } else {
+        format!("reported, not graded: {}", seen.join("; "))
+    };
+    row.graded(Grade::Gray, text)
+}
+
+/// Moves between settlements per 100 residents a year (M5a slice AN), against 05-06 §5.4's
+/// sensitivity range: amber outside it and never red, since the report offers it as a benchmark to
+/// look at and not a target. Exiles are left out, as forced displacement; moves in an emergency
+/// cannot yet be told from chosen ones and are counted. Turnover — everyone who came or went,
+/// off the map too — is shown beside the net change, since a steady size can hide much of it
+/// (05-06 §4). Grey for a world of one settlement.
+fn moves(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Moves",
+        "moves between settlements per 100 residents a year",
+        "0.5–10",
+    )
+    .source("05-06 §4, §5.4");
+    let judged: Vec<(&WorldRun, f64)> = worlds
+        .iter()
+        .filter(|w| w.settlements.len() > 1)
+        .filter_map(|w| {
+            // Residents' years: each year's end counted for that year.
+            let lived: f64 = w.people.iter().map(|&n| n as f64).sum();
+            (lived > 0.0).then(|| (w, 100.0 * f64::from(w.between.peaceful()) / lived))
+        })
+        .collect();
+    if judged.is_empty() {
+        return row.graded(
+            Grade::Gray,
+            "no world of several settlements lived".to_owned(),
+        );
+    }
+    let seen: Vec<String> = judged
+        .iter()
+        .map(|&(w, rate)| {
+            let lived: f64 = w.people.iter().map(|&n| n as f64).sum();
+            let turnover = 100.0 * f64::from(w.moves.arrivals + w.moves.departures) / lived;
+            let net = 100.0 * (w.living() as f64 - w.founders as f64) / lived;
+            let b = &w.between;
+            format!(
+                "world {}: {rate:.1} ({} with their households, {} founding, {} on marrying, {} \
+                 taken in; {} exiled not counted); turnover {turnover:.1}, net {net:+.1}",
+                w.seed, b.moved, b.founded, b.married, b.taken_in, b.exiled
+            )
+        })
+        .collect();
+    let outside = judged
+        .iter()
+        .any(|&(_, rate)| rate < MOVES_BAND.0 || rate > MOVES_BAND.1);
+    row.graded(
+        if outside { Grade::Amber } else { Grade::Green },
+        seen.join("; "),
+    )
+}
+
+/// Every settlement's accounts balance every year (ADR-0018 §3): a hard check. Shown with the
+/// moves the runs saw.
+fn accounting(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Population accounting",
+        "each settlement's births − deaths + arrivals − departures against its change in residents, \
+         every year",
+        "every one balances",
+    )
+    .source("05-06 §1.1; ADR-0018 §3");
+    let lived: Vec<&WorldRun> = worlds.iter().filter(|w| !w.people.is_empty()).collect();
+    if lived.is_empty() {
+        return row.graded(Grade::Gray, "no world lived".to_owned());
+    }
+    let mut sum = smoke::Moves::default();
+    for w in &lived {
+        sum.births += w.moves.births;
+        sum.deaths += w.moves.deaths;
+        sum.arrivals += w.moves.arrivals;
+        sum.from_off_map += w.moves.from_off_map;
+        sum.departures += w.moves.departures;
+        sum.off_map += w.moves.off_map;
+    }
+    let between = sum.departures - sum.off_map;
+    let moves = format!(
+        "{} born, {} died, {} came from off the map, {} left it, {between} moved between \
+         settlements",
+        sum.births, sum.deaths, sum.from_off_map, sum.off_map
+    );
+    match lived
+        .iter()
+        .find_map(|w| w.accounting.first().map(|f| (w.seed, f)))
+    {
+        None => row.graded(
+            Grade::Green,
+            format!(
+                "every settlement of {} worlds, every year; {moves}",
+                lived.len()
+            ),
+        ),
+        Some((seed, first)) => row.graded(Grade::Red, format!("world {seed}: {first}; {moves}")),
+    }
+}
+
+/// Each polity of `sim`'s regime now: its label's principal name without the person it names
+/// ("Council community — big-man leadership"), and the first of its reasons, which says who may
+/// decide (ADR-0013 §6; the classifier is frozen for M4's demo, research 16-03 §2.2).
+fn regimes_of(sim: &Sim) -> Vec<(String, String)> {
+    sim.people()
+        .polities
+        .iter()
+        .map(|p| {
+            let l = civ_sim::labels::label_of(sim, p);
+            let name = l.name.split(" (").next().unwrap_or(&l.name).to_owned();
+            (name, l.why.first().cloned().unwrap_or_default())
+        })
+        .collect()
+}
+
+/// The regimes the worlds' polities ended under (M4c slice AJ; plan §4.7: "two seeds differ").
+/// Two worlds differ only where their labels' principal names do, and those name who may decide
+/// and who leads, as their reasons say. Fewer than two regimes is amber: reported, never forced
+/// (research 16-03 §2.2: no reference rate of divergence is known, and none is tuned toward).
+fn regimes(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Regimes",
+        "each world's polity at the end, by its label's principal name",
+        "two worlds differ in who may decide or who leads",
+    )
+    .source("the M4 observer brief; ADR-0013 §6");
+    let labelled: Vec<&WorldRun> = worlds.iter().filter(|w| !w.regimes.is_empty()).collect();
+    let seen: Vec<String> = labelled
+        .iter()
+        .map(|w| {
+            let mut s = format!(
+                "world {}: {}",
+                w.seed,
+                w.regimes
+                    .iter()
+                    .map(|(name, why)| format!("{} ({})", name.to_lowercase(), why))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            );
+            let changes: Vec<String> = w
+                .regimes_by_decade
+                .windows(2)
+                .filter(|p| p[0].1 != p[1].1)
+                .map(|p| format!("by year {}: {}", p[1].0, p[1].1.join(", ").to_lowercase()))
+                .collect();
+            if !changes.is_empty() {
+                s.push_str(&format!(" [{}]", changes.join("; ")));
+            }
+            s
+        })
+        .collect();
+    if labelled.len() < 2 {
+        return row.graded(
+            Grade::Gray,
+            format!(
+                "fewer than two worlds with a polity to label{}",
+                if seen.is_empty() {
+                    String::new()
+                } else {
+                    format!(": {}", seen.join(" / "))
+                }
+            ),
+        );
+    }
+    let mut kinds: Vec<&str> = labelled
+        .iter()
+        .flat_map(|w| w.regimes.iter().map(|(name, _)| name.as_str()))
+        .collect();
+    kinds.sort_unstable();
+    kinds.dedup();
+    let note = "the classifier does not read the property regime";
+    if kinds.len() >= 2 {
+        row.graded(
+            Grade::Green,
+            format!("{} regimes: {} / {note}", kinds.len(), seen.join(" / ")),
+        )
+    } else {
+        row.graded(
+            Grade::Amber,
+            format!(
+                "every world ended as a {}: fewer than two regimes arose, reported and not forced: \
+                 {} / {note}",
+                kinds.first().map_or("polity", |k| k).to_lowercase(),
+                seen.join(" / ")
+            ),
+        )
+    }
+}
+
+/// Crime against poverty (plan §4.7; M4b slice AD): every attempt to take, all worlds together,
+/// by the share of the taker's settlement's other households that held more food when they came,
+/// graded by its direction only. What was recorded is shown beside it, ungraded: better detection
+/// raises recorded crime (research 12-04 §4.B).
+fn crime(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Crime and poverty",
+        "every attempt to take, by the share of the taker's neighbours holding more food, \
+         all worlds together; takings, those seen and cases beside",
+        "with 30 attempts or more, more than half of the neighbours richer on average",
+    )
+    .source("plan §4.7; research 04-09 §5.10 (attempts as well as completions); 30 is tuning");
+    let mut all = CrimeSeen::default();
+    for w in worlds {
+        all.join(&w.crime);
+    }
+    let words = all.words();
+    match all.attempts.mean() {
+        Some(m) if all.attempts.n >= MIN_ATTEMPTS => {
+            row.graded(if m > 0.5 { Grade::Green } else { Grade::Red }, words)
+        }
+        _ => row.graded(
+            Grade::Gray,
+            format!("too few attempts to take to judge, {MIN_ATTEMPTS} needed: {words}"),
+        ),
+    }
 }
 
 /// The most a band may have grown by the end of year `y`, as a multiple of its founders.
@@ -804,6 +1307,33 @@ mod tests {
     }
 
     #[test]
+    fn regimes_differ_only_by_who_decides_or_leads_and_one_regime_is_reported_not_failed() {
+        let mut a = world(1, &[40]);
+        let mut b = world(2, &[40]);
+        let council = (
+            "Council community".to_owned(),
+            "All its adults may come and decide.".to_owned(),
+        );
+        a.regimes = vec![council.clone()];
+        b.regimes = vec![council.clone()];
+        let one = regimes(&[a.clone(), b.clone()]);
+        assert_eq!(one.grade, Grade::Amber, "{}", one.text);
+        assert!(one.text.contains("fewer than two regimes arose"));
+        b.regimes = vec![(
+            "Oligarchy".to_owned(),
+            "Only 20 % of its adults may decide.".to_owned(),
+        )];
+        b.regimes_by_decade = vec![
+            (10, vec!["Council community".to_owned()]),
+            (20, vec!["Oligarchy".to_owned()]),
+        ];
+        let two = regimes(&[a.clone(), b]);
+        assert_eq!(two.grade, Grade::Green, "{}", two.text);
+        assert!(two.text.contains("by year 20: oligarchy"), "{}", two.text);
+        assert_eq!(regimes(&[a]).grade, Grade::Gray, "one world cannot differ");
+    }
+
+    #[test]
     fn rows_without_enough_to_judge_are_grey_say_why_and_never_pass() {
         let worlds = vec![world(1, &[40]), world(2, &[40])];
         let rows = grade(&worlds, 1);
@@ -818,6 +1348,8 @@ mod tests {
             "Firm sizes",
             "Structural failures",
             "Settlement sizes",
+            "Contacts",
+            "Moves",
             "Crime and poverty",
             "Epidemics",
             "Regimes",
@@ -840,10 +1372,48 @@ mod tests {
             worlds,
             rows,
         };
-        // Only population is graded, and both worlds keep their bands: a pass, but no grey row
-        // counts as one.
+        // Only population and the accounts are graded, both worlds keep their bands and no
+        // settlement's accounts failed: a pass, but no grey row counts as one.
         assert!(dashboard.passed());
-        assert_eq!(dashboard.summary(), "1 passed, 8 not yet applicable");
+        assert_eq!(dashboard.summary(), "2 passed, 10 not yet applicable");
+    }
+
+    #[test]
+    fn crime_is_graded_by_its_direction_over_attempts_and_needs_enough() {
+        let ranked = |n: u32, mean: f64| Ranked {
+            n,
+            richer: f64::from(n) * mean,
+        };
+        let mut a = world(1, &[40]);
+        a.crime.attempts = ranked(20, 0.7);
+        a.crime.takings = ranked(5, 0.8);
+        // Twenty attempts: too few, and the row says why.
+        let row = crime(&[a.clone()]);
+        assert_eq!(row.grade, Grade::Gray);
+        assert!(row.text.starts_with("too few"), "{}", row.text);
+        // Two worlds' together are enough; the takers came from the poorer.
+        let mut b = a.clone();
+        b.seed = 2;
+        b.crime.attempts = ranked(10, 0.6);
+        let row = crime(&[a.clone(), b.clone()]);
+        assert_eq!(row.grade, Grade::Green, "{}", row.text);
+        assert!(
+            row.text
+                .starts_with("30 attempts, 0.67 of the takers' neighbours richer"),
+            "{}",
+            row.text
+        );
+        assert!(row.text.contains("10 takings (0.80)"), "{}", row.text);
+        assert!(
+            row.text.contains("none seen, none brought as cases"),
+            "{}",
+            row.text
+        );
+        // From the richer, or from any household alike: the wrong direction.
+        b.crime.attempts = ranked(40, 0.2);
+        assert_eq!(crime(&[a.clone(), b.clone()]).grade, Grade::Red);
+        a.crime.attempts = ranked(30, 0.5);
+        assert_eq!(crime(&[a]).grade, Grade::Red, "one half is no direction");
     }
 
     #[test]
@@ -858,5 +1428,33 @@ mod tests {
         assert_eq!(food_prices(&[a.clone(), b]).grade, Grade::Red);
         a.workshops = Some((Grade::Amber, "mean = median".to_owned()));
         assert_eq!(firm_sizes(&[a]).grade, Grade::Red);
+    }
+
+    #[test]
+    fn moves_are_graded_per_100_residents_a_year_leaving_exiles_out_and_never_red() {
+        // Ten years of 100 residents: 1,000 residents' years.
+        let mut w = world(1, &[100; 10]);
+        w.founders = 100;
+        w.between = Between {
+            moved: 8,
+            founded: 4,
+            married: 6,
+            taken_in: 2,
+            exiled: 40,
+        };
+        assert_eq!(moves(&[w.clone()]).grade, Grade::Gray, "one settlement");
+        w.settlements = vec![("A".to_owned(), 50), ("B".to_owned(), 50)];
+        let row = moves(&[w.clone()]);
+        assert_eq!(row.grade, Grade::Green, "{}", row.text);
+        assert!(row.text.contains("world 1: 2.0 "), "{}", row.text);
+        assert!(row.text.contains("40 exiled not counted"), "{}", row.text);
+        w.between = Between {
+            moved: 3,
+            exiled: 40,
+            ..Between::default()
+        };
+        assert_eq!(moves(&[w.clone()]).grade, Grade::Amber, "0.3 is too few");
+        w.between.moved = 150;
+        assert_eq!(moves(&[w]).grade, Grade::Amber, "15 is too many, never red");
     }
 }

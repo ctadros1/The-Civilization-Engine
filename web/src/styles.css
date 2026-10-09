@@ -1114,6 +1114,51 @@ ul.rules li {
   margin-top: 8px;
 }
 
+/* What a person holds against whom, what they have heard, and where they stand (M4c) */
+.word,
+.opinions {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+.word ul,
+.opinions ul {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+  font-size: 12px;
+}
+
+.word li,
+.opinions li {
+  padding: 1px 0;
+}
+
+.word .aside,
+.opinions .aside {
+  color: var(--muted);
+}
+
+/* What they hold dear, the norms they hold and the faction they belong to, set apart from the
+   questions of the day (M4c slices AG and AH) */
+.opinions ul.norms,
+.opinions ul.ideologies,
+.opinions p.ideologies,
+.opinions p.faction,
+.opinions p.values {
+  margin-top: 6px;
+}
+
+.opinions p.faction.empty {
+  color: var(--muted);
+}
+
+.opinions p.values {
+  font-size: 12px;
+  margin-bottom: 0;
+}
+
 /* What a person knows, and the observer's introduce form (M3b slice M) */
 .knows {
   border-top: 1px solid var(--line);
@@ -1156,6 +1201,47 @@ ul.rules li {
 
 .introduce select {
   max-width: 180px;
+}
+
+/* The observer's hand on one person: recorded influences and the whisper and ideology tools
+   (M4c slice AJ) */
+.observer-hand {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+.observer-hand ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+}
+
+.observer-hand li {
+  padding: 1px 0;
+}
+
+.observer-hand .aside,
+.observer-hand .empty {
+  color: var(--muted);
+}
+
+.observer-hand form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.observer-hand form label {
+  color: var(--muted);
+}
+
+.observer-hand form select {
+  max-width: 220px;
 }
 
 button.link {
@@ -1334,6 +1420,83 @@ button.link:hover {
   color: var(--muted);
 }
 
+/* Government (wire 1.27, M4a slice Z): each polity's custom, store and laws with their histories. */
+.polity {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.polity .custom,
+.polity .gathering {
+  font-size: 12px;
+  margin: 2px 0;
+}
+
+.polity .gathering {
+  font-weight: 600;
+}
+
+.polity .offices,
+.polity .factions,
+.polity .petitions,
+.polity .refusals,
+.polity .revolts,
+.polity .coups {
+  margin: 2px 0;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
+.polity details.label {
+  margin: 2px 0;
+  font-size: 12px;
+}
+
+.polity details.label ul {
+  margin: 2px 0;
+  padding-left: 18px;
+}
+
+.polity details.law {
+  border-bottom: 1px solid var(--line);
+  padding: 3px 0;
+}
+
+.polity details.law summary {
+  cursor: pointer;
+}
+
+.polity details.law summary .status {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.polity details.rejected .law-what {
+  color: var(--muted);
+}
+
+.polity .law-history {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 2px 8px;
+  margin: 4px 0;
+  font-size: 12px;
+}
+
+.polity .law-history dt {
+  color: var(--muted);
+}
+
+.polity .law-history dd {
+  margin: 0;
+}
+
+.polity .stances {
+  margin: 4px 0 2px;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
 /* Weather (wire 1.24, M3c slice U): today's in words, then months and years against the usual. */
 .weather-today {
   margin: 0 0 6px;
@@ -1367,4 +1530,36 @@ button.link:hover {
 .weather-months tr.partial td,
 .weather-years tr.partial td {
   font-style: italic;
+}
+
+/* Takings (wire 1.30): what happened beside what people believe, each labelled; from 1.31 the
+   case the gathering heard. */
+.order-panel .order-totals {
+  margin: 0.4rem 0;
+}
+.order-panel .takings {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+/* Wire 1.46: watchers come to take what a refused finding owed, each told plainly. */
+.order-panel .encounters {
+  margin: 0.4rem 0;
+  padding-left: 1.2rem;
+  font-size: 0.9em;
+}
+.order-panel .taking {
+  margin-bottom: 0.5rem;
+}
+.order-panel .layer {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+.order-panel .believed {
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--line);
+}
+/* Wire 1.31: what the gathering was told and decided, the third layer. */
+.order-panel .case {
+  padding-left: 0.6rem;
+  border-left: 2px dashed var(--line);
 }

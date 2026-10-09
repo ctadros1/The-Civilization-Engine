@@ -53,6 +53,8 @@ pub fn run(
             preset_id: preset.clone(),
             size_cells: options.size,
             band_size: options.band,
+            neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: options.regime.clone().unwrap_or_default(),
         },
         content,
@@ -668,6 +670,145 @@ fn report_weather(sim: &Sim, held: &[&civ_land::Field], out: &mut dyn Write) -> 
     Ok(())
 }
 
+/// The soil under the fields held (ADR-0012 §3): the last calendar year's harvests per hectare
+/// and how many of them the soil held back, and the nitrogen the soil supplies this year against
+/// what native ground of the same richness would.
+fn report_soil(sim: &Sim, held: &[&civ_land::Field], out: &mut dyn Write) -> anyhow::Result<()> {
+    if held.is_empty() {
+        return Ok(());
+    }
+    let soil = &sim.rules().land.soil;
+    let last = i32::try_from(sim.now().date().year - 1).unwrap_or(i32::MIN);
+    let (mut reaped, mut kg, mut ha, mut by_soil) = (0usize, 0.0, 0.0, 0usize);
+    for f in held {
+        if let Some(r) = f.soil.record.iter().rev().find(|r| r.year == last) {
+            reaped += 1;
+            kg += f64::from(r.kg_per_ha) * f.area_ha();
+            ha += f.area_ha();
+            by_soil += usize::from(r.limit == civ_land::Limit::Soil);
+        }
+    }
+    let area: f64 = held.iter().map(|f| f.area_ha()).sum();
+    let supply: f64 = held
+        .iter()
+        .map(|f| f64::from(f.soil.supply_n) * f.area_ha())
+        .sum();
+    let native: f64 = held
+        .iter()
+        .map(|f| {
+            f64::from(civ_land::FieldSoil::native(soil, f64::from(f.ground)).supply_n) * f.area_ha()
+        })
+        .sum();
+    // Cropped ground grown over in a long rest, to be broken again (ADR-0012 §4).
+    let grown = held.iter().filter(|f| !f.broken && f.harvests > 0).count();
+    // What the households' middens hold, against what they would hold if none were carried out:
+    // a steady household's heap settles where what it adds matches what wastes.
+    let midden = &sim.rules().people.midden;
+    let now = sim.now();
+    let (mut heaped, mut members) = (0.0, 0usize);
+    for (_, h) in sim.people().households.iter() {
+        heaped += h.midden.at_time(now, h.members.len(), midden);
+        members += h.members.len();
+    }
+    let steady = midden.after(0.0, members, 365.0 * 100.0);
+    writeln!(
+        out,
+        "  soil: {reaped} of {} fields reaped in year {last} gave {:.0} kg/ha, {by_soil} held \
+         back by the soil; {grown} grown over; it supplies {:.0} kg N/ha this year, {:.0}% of \
+         native ground's; middens hold {:.1} t ({:.1} t if none were carried out)",
+        held.len(),
+        kg / ha.max(1e-9),
+        supply / area.max(1e-9),
+        100.0 * supply / native.max(1e-9),
+        heaped / 1000.0,
+        steady / 1000.0
+    )?;
+    Ok(())
+}
+
+/// What each settlement's gathering heard and decided this year, and what its laws in force asked
+/// and gave (ADR-0013): the chronicle's words, then the store and each law's tallies.
+fn report_polity(sim: &Sim, from: i64, out: &mut dyn Write) -> anyhow::Result<()> {
+    use civ_agents::polity::LawStatus;
+    let pop = sim.people();
+    let names = |id| pop.name_of(id);
+    for e in pop.chronicle.iter().filter(|e| {
+        e.at.minutes() >= from
+            && matches!(
+                e.kind,
+                civ_agents::ChronicleKind::LawProposed | civ_agents::ChronicleKind::LawDecided
+            )
+    }) {
+        let words: String = civ_agents::history::render(e, &names)
+            .into_iter()
+            .map(|s| match s {
+                civ_agents::history::Span::Text(t)
+                | civ_agents::history::Span::Person(_, t)
+                | civ_agents::history::Span::Settlement(_, t)
+                | civ_agents::history::Span::Firm(_, t) => t,
+            })
+            .collect();
+        writeln!(out, "  {}: {words}", e.at.date())?;
+    }
+    let goods = &sim.rules().catalog.goods;
+    for p in &pop.polities {
+        // What it would be called, worked out from its history (ADR-0013 §6).
+        let label = civ_sim::labels::label_of(sim, p);
+        let place = sim
+            .land()
+            .settlements
+            .iter()
+            .find(|s| s.id == p.settlement)
+            .map_or("", |s| s.name.as_str());
+        let qualified = if label.modifiers.is_empty() {
+            String::new()
+        } else {
+            format!(": {}", label.modifiers.join("; "))
+        };
+        writeln!(
+            out,
+            "  {place} would be called {}{qualified} (confidence {:.2})",
+            label.in_prose(),
+            label.confidence
+        )?;
+        if p.laws.iter().all(|l| l.status != LawStatus::InForce) {
+            continue;
+        }
+        let held: Vec<String> = goods
+            .iter()
+            .zip(&p.stores)
+            .filter(|(_, kg)| **kg > 0.5)
+            .map(|(g, kg)| format!("{} {kg:.0} kg", g.name.to_lowercase()))
+            .collect();
+        let held = if held.is_empty() {
+            "nothing".to_owned()
+        } else {
+            held.join(", ")
+        };
+        writeln!(out, "  the common store holds {held}")?;
+        for l in p.laws.iter().filter(|l| l.status == LawStatus::InForce) {
+            let c = &l.compliance;
+            writeln!(
+                out,
+                "  law {}: {} know it; paid {} times ({:.0} kg), could not {}, kept back {}, \
+                 unaware {} ({:.0} kg withheld); relief {} times ({:.0} kg), {} unanswered",
+                l.id,
+                l.known.len(),
+                c.complied,
+                c.levied_kg,
+                c.could_not,
+                c.evaded,
+                c.unaware,
+                c.withheld_kg,
+                c.relieved,
+                c.relief_kg,
+                c.unanswered
+            )?;
+        }
+    }
+    Ok(())
+}
+
 fn report_year(
     sim: &Sim,
     year: u32,
@@ -734,6 +875,8 @@ fn report_year(
         short.len()
     )?;
     report_weather(sim, &held, out)?;
+    report_soil(sim, &held, out)?;
+    report_polity(sim, from, out)?;
     // Stores, summed over households.
     let mut totals = vec![0.0; goods.len()];
     for h in &households {

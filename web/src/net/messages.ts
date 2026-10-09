@@ -131,6 +131,15 @@ export interface Welcome {
   regimes: RegimeInfo[];
   /** The techniques, in the order people's knowledge refers to. */
   techniques: TechniqueInfo[];
+  /** Wire 1.47 (M4c slice AJ): the ideologies, which the observer may tell someone of. */
+  ideologies: IdeologyInfo[];
+}
+
+/** An ideology content names (wire 1.47). */
+export interface IdeologyInfo {
+  id: string;
+  name: string;
+  legitimacy: string;
 }
 
 export interface WorldInfo {
@@ -191,6 +200,9 @@ export interface DayWeather {
   soil: number;
   /** Rendered by the kernel: "6 °C, light rain; snow lying". */
   words: string;
+  /** The lowest height at which snow lies, metres; Infinity when it lies nowhere, or from a
+   * host before wire 1.25. */
+  snowLineM: number;
 }
 
 /** One month's weather on the valley floor, beside what the month usually brings (wire 1.24). */
@@ -275,6 +287,18 @@ export interface SettlementBrief {
   foodShort: boolean;
   /** Grain threshed from its fields this harvest, kilograms. */
   harvestKg: number;
+  /** How it was founded, in the kernel's words (wire 1.49, ADR-0018 §1). */
+  founding: string;
+  /** Its accounts over the past year, in the kernel's words; empty when nothing changed. */
+  year: string;
+  /** When its last resident died or left; -1 while it is lived in. */
+  abandonedMinute: number;
+  /** Wire 1.51 (M5a slice AM): visits and marriages between it and other settlements last
+   * year and this year so far, in the kernel's words; empty when there were none. */
+  contacts: string;
+  /** Wire 1.53 (M5a slice AO): households of it gathered to found a settlement, still gathering
+   * or ended in the past year, each in the kernel's words. */
+  coalitions: string[];
 }
 
 export interface Snapshot {
@@ -697,6 +721,403 @@ export interface PersonInfo {
    * the dead), and the building that moved its taste most (0 for none). */
   householdTaste: string;
   householdAdmired: number;
+  /** Wire 1.26 (M4a slice Y): their strongest ties, the most salient first (the living only). */
+  ties: TieLine[];
+  /** Their standing in their settlement as last worked out (null before the first time). */
+  standing: StandingLine | null;
+  /** Wire 1.34 (M4c slice AE, ADR-0016): the grievances they hold, the most keenly felt first,
+   * and what they have heard that is still news, the latest first (the living only). */
+  grievances: GrievanceLine[];
+  heard: HeardLine[];
+  /** Wire 1.36 (M4c slice AG): where they stand on each question content names. */
+  positions: PositionLine[];
+  /** Wire 1.37 (M4c slice AG): what they hold of each norm content names. */
+  norms: NormLine[];
+  /** Wire 1.38 (M4c slice AG): what they hold of each value content names. */
+  values: ValueLine[];
+  /** Wire 1.39 (M4c slice AG): the ideologies they hold. */
+  ideologies: IdeologyLine[];
+  /** Wire 1.40 (M4c slice AH): the faction they belong to, if any. */
+  faction: FactionLine | null;
+  /** Wire 1.47 (M4c slice AJ, ADR-0016 §5): true claims their settlement's word holds that they
+   * have not heard, which the observer may whisper to them, newest first. */
+  news: NewsLine[];
+  /** Wire 1.47: the observer's interventions that reached them, newest first, with what came of
+   * each, in the kernel's words. */
+  influences: InfluenceLine[];
+  /** Wire 1.49 (ADR-0018 §2): where they have lived, oldest first, in the kernel's words. */
+  residence: string[];
+  /** Wire 1.50 (ADR-0018 §4): the other settlements their household knows, and how, in the
+   * kernel's words ("Ashford: told of it by Wren in spring of year 2"). */
+  places: string[];
+}
+
+/** A claim the observer may whisper (wire 1.47). */
+export interface NewsLine {
+  claim: number;
+  what: string;
+}
+
+/** One recorded influence and what came of it (wire 1.47, research 15-05 §6). */
+export interface InfluenceLine {
+  id: number;
+  /** 0 a whisper, 1 an ideology told of, 2 an agitator, 3 a blessing, 4 a curse, 5 a migration
+   * wave they came with (wire 1.52). */
+  kind: number;
+  minute: number;
+  what: string;
+}
+
+/** The faction someone belongs to (wire 1.40, ADR-0017 §2, §6). */
+export interface FactionLine {
+  faction: number;
+  /** "Mira's faction", and what it stands against ("the gathering"). */
+  name: string;
+  against: string;
+  organizer: number;
+  organizerName: string;
+  /** The start of the day they joined. */
+  sinceMinute: number;
+  /** Why they belong, as they last reviewed it, in the kernel's words. */
+  why: string;
+}
+
+/** An ideology someone holds (wire 1.39, ADR-0016 §4). */
+export interface IdeologyLine {
+  /** What it is called and its legitimacy story, in the kernel's words. */
+  name: string;
+  legitimacy: string;
+  /** When they took it up, and from whom (0 and "": they brought it with them). */
+  sinceMinute: number;
+  from: number;
+  fromName: string;
+  /** Wire 1.47: the observer's intervention they took it up by (0: none). */
+  influence: number;
+}
+
+/** What someone holds of a value (wire 1.38, ADR-0016 §4). */
+export interface ValueLine {
+  /** The value, and what they hold of it, in the kernel's words. */
+  name: string;
+  words: string;
+  /** -1 (less than most) to 1 (more than most). */
+  v: number;
+}
+
+/** What someone holds of a norm (wire 1.37, ADR-0016 §4). */
+export interface NormLine {
+  /** What it says, how far they hold it and what they believe others do, in the kernel's words. */
+  statement: string;
+  holds: string;
+  believes: string;
+  /** 0-1: their endorsement; the share of households they believe abide; where others' doing it
+   * starts to move them; how far it moves them now. */
+  endorse: number;
+  expect: number;
+  threshold: number;
+  activation: number;
+  /** Accounts of what households did that they have taken in. */
+  heard: number;
+}
+
+/** Where someone stands on a question (wire 1.36, ADR-0016 §4). */
+export interface PositionLine {
+  /** The question and where they stand, in the kernel's words. */
+  question: string;
+  lean: string;
+  /** 0 against to 1 for; what their household's own lot makes of it; how much it matters now. */
+  x: number;
+  anchor: number;
+  salience: number;
+  /** What they have heard said of it at the hearth and taken in. */
+  heard: number;
+}
+
+/** A grievance someone holds (wire 1.34, ADR-0016 §2). */
+export interface GrievanceLine {
+  /** 0 subsistence, 1 extraction, 2 treatment, 3 a collective claim. */
+  issue: number;
+  /** What it is over and whom it is held against, in words rendered by the kernel ("food when
+   * their household was short"; "the gathering"). */
+  over: string;
+  blamed: string;
+  /** The law whose terms it broke (0 = none). */
+  law: number;
+  /** The harm, and what of it nothing has yet made good, days of their household's food. */
+  harmDays: number;
+  unresolvedDays: number;
+  /** How keenly it is felt now, 0-1: it fades, and only a reminder raises it. */
+  activation: number;
+  madeMinute: number;
+  raisedMinute: number;
+  /** What last raised it, in words rendered by the kernel. */
+  reason: string;
+}
+
+/** A claim someone has heard (wire 1.34, ADR-0016 §3). */
+export interface HeardLine {
+  /** 0 a gathering called, 1 a grievance told. */
+  kind: number;
+  /** What it says, in words rendered by the kernel. */
+  what: string;
+  /** Who told them (0 = nobody: it began with them), and the one the account began with. */
+  from: number;
+  fromName: string;
+  origin: number;
+  firstMinute: number;
+  lastMinute: number;
+  /** Wire 1.47: the observer's intervention that placed it in their hearing (0: none). */
+  influence: number;
+}
+
+/** One person's view of another (wire 1.26, ADR-0014). */
+export interface TieLine {
+  person: number;
+  name: string;
+  /** 0-1 each. */
+  familiarity: number;
+  warmth: number;
+  /** Esteem by domain, in StandingInfo.domains' order: good acts remembered less bad ones. */
+  esteem: number[];
+  /** Hours of help received from them less help given to them. */
+  helpH: number;
+  /** Why, in words rendered by the kernel ("gave their household food 3 times, last in May of
+   * year 4"). */
+  reason: string;
+  /** Whether they hold a tie back. */
+  mutual: boolean;
+}
+
+/** An adult's standing in their settlement (wire 1.26). */
+export interface StandingLine {
+  person: number;
+  name: string;
+  household: number;
+  /** The esteem the settlement's other adults hold for them, summed, by domain. */
+  esteem: number[];
+  /** How many of the settlement's adults count them among those they esteem most. */
+  influence: number;
+  /** Considers the settlement's affairs weekly; it grants nothing. */
+  notable: boolean;
+}
+
+/** A settlement's standing: its notables first, then those most esteemed. */
+export interface SettlementStanding {
+  settlement: number;
+  name: string;
+  adults: number;
+  rows: StandingLine[];
+}
+
+/** Every settlement's standing as worked out on `minute` (0 before the first time). */
+export interface StandingInfo {
+  minute: number;
+  /** The domains' names, in the order of every `esteem`. */
+  domains: string[];
+  settlements: SettlementStanding[];
+  /** Ties kept across the world, and how many were let go for want of room. */
+  ties: number;
+  letGo: number;
+}
+
+/** Where a member stood at a gathering (wire 1.27, ADR-0013 §3). */
+export type StanceKind = "for" | "against" | "abstained";
+
+/** One member's stance at a gathering, with what moved it and why in the kernel's words. */
+export interface StanceLine {
+  person: number;
+  name: string;
+  stance: StanceKind;
+  /** Their household's forecast of the law, and what their regard for its sponsor added, points. */
+  gain: number;
+  regard: number;
+  why: string;
+  /** Wire 1.36: what talk at the hearth had moved them from their household's lot, points. */
+  opinion: number;
+  /** Wire 1.38: what the law does to what they hold dear, points. */
+  values: number;
+}
+
+/**
+ * Where a law stands ("lapsed", wire 1.28: the one it named died or left; "carried", wire 1.44: a
+ * repeal that passed, ending the law it named).
+ */
+export type LawStatus = "proposed" | "in force" | "rejected" | "lapsed" | "superseded" | "carried";
+
+/** How a gathering decided. */
+export type LawOutcome = "passed" | "failed" | "tied" | "no quorum";
+
+/** A law and its whole history (wire 1.27, ADR-0013 §3). Sentences are the kernel's. */
+export interface LawLine {
+  id: number;
+  /** "a common store, taking a tenth of each harvest". */
+  what: string;
+  policy: string;
+  levyShare: number;
+  reliefDays: number;
+  status: LawStatus;
+  sponsor: number;
+  sponsorName: string;
+  proposedMinute: number;
+  /** The issue it answered: "food would not last until the harvest". */
+  issue: string;
+  /** The start of the day the gathering meets. */
+  meetsMinute: number;
+  /** 0 before it was decided. */
+  decidedMinute: number;
+  outcome: LawOutcome | null;
+  /** "agreed: 20 for, 3 against; 23 of 24 adults came, 6 needed" ("" before). */
+  decision: string;
+  eligible: number;
+  quorum: number;
+  stances: StanceLine[];
+  /** Living people who know it. */
+  known: number;
+  complied: number;
+  couldNot: number;
+  /** Levies kept back unannounced; `refused` (wire 1.42) counts those kept back openly in a
+   * faction's refusal. */
+  evaded: number;
+  refused: number;
+  unaware: number;
+  leviedKg: number;
+  withheldKg: number;
+  relieved: number;
+  reliefKg: number;
+  unanswered: number;
+  /** Wire 1.28: the one it names (who keeps the store; 0 for none), and their name. */
+  holder: number;
+  holderName: string;
+  /** Wire 1.33: for a curfew, the times someone broke it knowing of it, and not. */
+  broken: number;
+  brokenUnaware: number;
+}
+
+/** A settlement's polity (wire 1.27): its custom, members, store, gathering called and laws. */
+export interface PolityLine {
+  polity: number;
+  settlement: number;
+  name: string;
+  foundedMinute: number;
+  /** The body in the kernel's words. */
+  custom: string;
+  members: number;
+  /** What the store holds in words ("grain 322 kg", "nothing"), and its food in kilograms. */
+  store: string;
+  storeKg: number;
+  /** Every law proposed there, newest first. */
+  laws: LawLine[];
+  /** The gathering called: its law (0 for none), the day it meets and those come so far. */
+  gatheringLaw: number;
+  gatheringMinute: number;
+  gatheringPresent: number;
+  /** Wire 1.28: its offices and who holds them, in the kernel's words. */
+  offices: string[];
+  /**
+   * Wire 1.29: what it would be called, worked out afterwards from its history and read by
+   * nothing in the world (ADR-0013 §6): a name, what qualifies it, why, and how much evidence
+   * stands behind it (0-1, uncalibrated).
+   */
+  label: string;
+  labelModifiers: string[];
+  labelWhy: string[];
+  labelConfidence: number;
+  /** Wire 1.31: the cases the gathering called is to hear, in the kernel's words. */
+  gatheringCases: string[];
+  /** Wire 1.35 (M4c slice AF): every version of its custom, oldest first, in the kernel's
+   * words, and how many its body admits now (`members` counts every adult). */
+  customHistory: string[];
+  bodyMembers: number;
+  /** Wire 1.40 (M4c slice AH): its factions, those with members first, in the kernel's words. */
+  factions: string[];
+  /** Wire 1.41 (M4c slice AH): its petitions, newest first, in the kernel's words. */
+  petitions: string[];
+  /** Wire 1.42 (M4c slice AH): its refusals of a levy, newest first, in the kernel's words. */
+  refusals: string[];
+  /** Wire 1.43 (M4c slice AI): its revolts, newest first, in the kernel's words. */
+  revolts: string[];
+  /** Wire 1.45 (M4c slice AI, step three): its coups, newest first, in the kernel's words. */
+  coups: string[];
+}
+
+/** Every settlement's polity at `minute` (wire 1.27). */
+export interface GovernmentInfo {
+  minute: number;
+  polities: PolityLine[];
+}
+
+/** How an attempt to take ended (wire 1.30). */
+export type TakingOutcome = "taken" | "turned back" | "fled";
+
+/**
+ * What happened (the truth layer, ADR-0015 §1): one attempt to take from a household's store.
+ * Kept apart from what anyone believes of it, which is a {@link KnownLine} with the same number.
+ */
+export interface IncidentLine {
+  id: number;
+  minute: number;
+  /** 0 when the household taken from has none. */
+  settlement: number;
+  actor: number;
+  actorName: string;
+  /** The household taken from, and its name for the one who stands for it. */
+  target: number;
+  targetName: string;
+  outcome: TakingOutcome;
+  /** What was carried off ("12 kg of grain"), or how it ended, in the kernel's words. */
+  what: string;
+  kcal: number;
+  /** Who saw the taker at it. */
+  seenBy: string[];
+  /**
+   * Wire 1.32: what the one who keeps the watch did with it, if they saw it, in the kernel's
+   * words, or "". The truth: nobody in the world reads it.
+   */
+  watch: string;
+}
+
+/** What the living believe of one incident, and what was chosen (the knowledge layer). */
+export interface KnownLine {
+  incident: number;
+  /** People who believe they know who took, and people who know only of a loss. */
+  knowTaker: number;
+  knowLoss: number;
+  /** Distinct first-hand accounts behind what they believe. */
+  sources: number;
+  /** Someone of the household taken from knows who took. */
+  victimKnows: boolean;
+  /** What the household taken from chose, in words, or "". */
+  response: string;
+  /** Where what is owed stands, in words, or "". */
+  owed: string;
+  /** Wire 1.31: the case brought for it and how the gathering decided, in words, or "". */
+  case: string;
+}
+
+/** Takings at `minute` (wire 1.30): the most recent, newest first, and totals over all. */
+export interface OrderInfo {
+  minute: number;
+  incidents: IncidentLine[];
+  known: KnownLine[];
+  attempts: number;
+  takings: number;
+  seen: number;
+  knownToVictims: number;
+  demands: number;
+  met: number;
+  refused: number;
+  /** Asks refused because the giver believed the asker took, since the world was loaded. */
+  refusals: number;
+  /** Wire 1.31: cases brought before the gathering, and how they ended. */
+  cases: number;
+  found: number;
+  notFound: number;
+  unheard: number;
+  /**
+   * Wire 1.46 (M4c slice AI, step four): watchers come to take what a refused finding owed,
+   * newest first, in the kernel's words.
+   */
+  encounters: string[];
 }
 
 /** One good in a settlement's market (M3a slice I). Tallies fade by half every memory. */
@@ -1077,7 +1498,10 @@ export type ResponseBody =
   | { kind: "knowledge"; knowledge: KnowledgeInfo }
   | { kind: "deposits"; deposits: DepositsInfo }
   | { kind: "earthworks"; earthworks: EarthworksInfo }
-  | { kind: "weather"; weather: WeatherReport };
+  | { kind: "weather"; weather: WeatherReport }
+  | { kind: "standing"; standing: StandingInfo }
+  | { kind: "government"; government: GovernmentInfo }
+  | { kind: "order"; order: OrderInfo };
 
 export type ErrorCode =
   | "unknown"
@@ -1127,11 +1551,16 @@ export function newWorld(args: {
   bandSize?: number;
   /** The property regime, by content id; empty or absent = the content's default. */
   regimeId?: string;
+  /** People in each further founding group (wire 1.49); 0 = the content's default. */
+  neighbours?: number[];
+  /** The founding groups know where each other camped (wire 1.50, ADR-0018 §6). */
+  neighboursKnown?: boolean;
 }): Uint8Array {
   const b = new flatbuffers.Builder(128);
   const preset = b.createString(args.presetId);
   const name = b.createString(args.name);
   const regime = b.createString(args.regimeId ?? "");
+  const neighbours = W.NewWorld.createNeighboursVector(b, args.neighbours ?? []);
   const body = W.NewWorld.createNewWorld(
     b,
     args.seed,
@@ -1140,6 +1569,8 @@ export function newWorld(args: {
     name,
     args.bandSize ?? 0,
     regime,
+    neighbours,
+    args.neighboursKnown ?? false,
   );
   return command(b, W.CommandBody.NewWorld, body);
 }
@@ -1192,6 +1623,64 @@ export function introduceTechnique(person: number, technique: number, awareOnly:
     awareOnly,
   );
   return command(b, W.CommandBody.IntroduceTechnique, body);
+}
+
+/**
+ * The observer whispers a true claim to a living adult (god tool, M4c slice AJ, ADR-0016 §5):
+ * `claim` is a number from their PersonInfo.news. A repeat refreshes it and adds nothing.
+ */
+export function whisper(person: number, claim: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  const body = W.Whisper.createWhisper(b, BigInt(person), claim);
+  return command(b, W.CommandBody.Whisper, body);
+}
+
+/**
+ * The observer tells a living adult of an ideology (god tool, M4c slice AJ, ADR-0016 §5):
+ * `ideology` is an index into Welcome.ideologies. They weigh it as one heard of from no one.
+ */
+export function tellOfIdeology(person: number, ideology: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  const body = W.TellOfIdeology.createTellOfIdeology(b, BigInt(person), ideology);
+  return command(b, W.CommandBody.TellOfIdeology, body);
+}
+
+/**
+ * The observer sends an agitator (god tool, M4c slice AJ, ADR-0016 §5): one adult newcomer
+ * holding an ideology (an index into Welcome.ideologies) arrives where a family would.
+ */
+export function sendAgitator(xM: number, yM: number, ideology: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  W.SendAgitator.startSendAgitator(b);
+  W.SendAgitator.addAt(b, W.Vec2.createVec2(b, xM, yM));
+  W.SendAgitator.addIdeology(b, ideology);
+  return command(b, W.CommandBody.SendAgitator, W.SendAgitator.endSendAgitator(b));
+}
+
+/**
+ * The observer sends a migration wave (god tool, M5a slice AN, ADR-0016 §5): `households`
+ * households (5–50) of one band come to where the map was clicked from its nearest edge over `days`
+ * days (1–7), each carrying `months` months of food (0–12).
+ */
+export function sendWave(xM: number, yM: number, households: number, days: number, months: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  W.SendWave.startSendWave(b);
+  W.SendWave.addAt(b, W.Vec2.createVec2(b, xM, yM));
+  W.SendWave.addHouseholds(b, households);
+  W.SendWave.addDays(b, days);
+  W.SendWave.addMonths(b, months);
+  return command(b, W.CommandBody.SendWave, W.SendWave.endSendWave(b));
+}
+
+/**
+ * The observer blesses a living person, or with `curse` curses them, for `days` days, moving
+ * their own draws for illness or accident and for finding things out by `share` of their way
+ * (god tool, M4c slice AJ, ADR-0016 §5).
+ */
+export function bless(person: number, curse: boolean, days: number, share: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  const body = W.Bless.createBless(b, BigInt(person), curse, days, share);
+  return command(b, W.CommandBody.Bless, body);
 }
 
 /** Runs ahead to a simulation minute, unpaced and in full detail. */
@@ -1310,6 +1799,24 @@ export function getKnowledge(): Uint8Array {
   return query(b, W.QueryBody.GetKnowledge, W.GetKnowledge.endGetKnowledge(b));
 }
 
+export function getStanding(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetStanding.startGetStanding(b);
+  return query(b, W.QueryBody.GetStanding, W.GetStanding.endGetStanding(b));
+}
+
+export function getGovernment(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetGovernment.startGetGovernment(b);
+  return query(b, W.QueryBody.GetGovernment, W.GetGovernment.endGetGovernment(b));
+}
+
+export function getOrder(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetOrder.startGetOrder(b);
+  return query(b, W.QueryBody.GetOrder, W.GetOrder.endGetOrder(b));
+}
+
 export function getWeather(): Uint8Array {
   const b = new flatbuffers.Builder(16);
   W.GetWeather.startGetWeather(b);
@@ -1406,6 +1913,12 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
       upbringing: t.upbringing(),
     });
   }
+  const ideologies: IdeologyInfo[] = [];
+  for (let i = 0; i < w.ideologiesLength(); i++) {
+    const d = w.ideologies(i);
+    if (!d) continue;
+    ideologies.push({ id: d.id() ?? "", name: d.name() ?? "", legitimacy: d.legitimacy() ?? "" });
+  }
   const reasons: Record<number, string> = {};
   for (let i = 0; i < w.reasonsLength(); i++) {
     const r = w.reasons(i);
@@ -1432,6 +1945,7 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
     skills,
     regimes,
     techniques,
+    ideologies,
   };
 }
 
@@ -1619,6 +2133,11 @@ function settlementBriefs(s: W.Snapshot): SettlementBrief[] {
       foodDays: t.foodDays(),
       foodShort: t.foodShort(),
       harvestKg: t.harvestKg(),
+      founding: t.founding() ?? "",
+      year: t.year() ?? "",
+      abandonedMinute: Number(t.abandonedMinute()),
+      contacts: t.contacts() ?? "",
+      coalitions: Array.from({ length: t.coalitionsLength() }, (_, k) => t.coalitions(k) ?? ""),
     });
   }
   return out;
@@ -1855,6 +2374,7 @@ function dayWeather(w: W.DayWeather | null): DayWeather | null {
     snowMm: w.snowMm(),
     soil: w.soil(),
     words: w.words() ?? "",
+    snowLineM: w.snowLineM(),
   };
 }
 
@@ -2416,6 +2936,138 @@ function personInfo(p: W.PersonInfo): PersonInfo {
       usedMinute: Number(line.usedMinute()),
     });
   }
+  const ties: TieLine[] = [];
+  for (let k = 0; k < p.tiesLength(); k++) {
+    const t = p.ties(k);
+    if (!t) continue;
+    ties.push({
+      person: Number(t.person()),
+      name: t.name() ?? "",
+      familiarity: t.familiarity(),
+      warmth: t.warmth(),
+      esteem: Array.from(t.esteemArray() ?? []),
+      helpH: t.helpH(),
+      reason: t.reason() ?? "",
+      mutual: t.mutual(),
+    });
+  }
+  const grievances: GrievanceLine[] = [];
+  for (let k = 0; k < p.grievancesLength(); k++) {
+    const g = p.grievances(k);
+    if (!g) continue;
+    grievances.push({
+      issue: g.issue(),
+      over: g.over() ?? "",
+      blamed: g.blamed() ?? "",
+      law: Number(g.law()),
+      harmDays: g.harmDays(),
+      unresolvedDays: g.unresolvedDays(),
+      activation: g.activation(),
+      madeMinute: Number(g.madeMinute()),
+      raisedMinute: Number(g.raisedMinute()),
+      reason: g.reason() ?? "",
+    });
+  }
+  const heard: HeardLine[] = [];
+  for (let k = 0; k < p.heardLength(); k++) {
+    const h = p.heard(k);
+    if (!h) continue;
+    heard.push({
+      kind: h.kind(),
+      what: h.what() ?? "",
+      from: Number(h.from()),
+      fromName: h.fromName() ?? "",
+      origin: Number(h.origin()),
+      firstMinute: Number(h.firstMinute()),
+      lastMinute: Number(h.lastMinute()),
+      influence: h.influence(),
+    });
+  }
+  const positions: PositionLine[] = [];
+  for (let k = 0; k < p.positionsLength(); k++) {
+    const q = p.positions(k);
+    if (!q) continue;
+    positions.push({
+      question: q.question() ?? "",
+      lean: q.lean() ?? "",
+      x: q.x(),
+      anchor: q.anchor(),
+      salience: q.salience(),
+      heard: q.heard(),
+    });
+  }
+  const norms: NormLine[] = [];
+  for (let k = 0; k < p.normsLength(); k++) {
+    const n = p.norms(k);
+    if (!n) continue;
+    norms.push({
+      statement: n.statement() ?? "",
+      holds: n.holds() ?? "",
+      believes: n.believes() ?? "",
+      endorse: n.endorse(),
+      expect: n.expect(),
+      threshold: n.threshold(),
+      activation: n.activation(),
+      heard: n.heard(),
+    });
+  }
+  const values: ValueLine[] = [];
+  for (let k = 0; k < p.valuesLength(); k++) {
+    const v = p.values(k);
+    if (!v) continue;
+    values.push({ name: v.name() ?? "", words: v.words() ?? "", v: v.v() });
+  }
+  const ideologies: IdeologyLine[] = [];
+  for (let k = 0; k < p.ideologiesLength(); k++) {
+    const d = p.ideologies(k);
+    if (!d) continue;
+    ideologies.push({
+      name: d.name() ?? "",
+      legitimacy: d.legitimacy() ?? "",
+      sinceMinute: Number(d.sinceMinute()),
+      from: Number(d.from()),
+      fromName: d.fromName() ?? "",
+      influence: d.influence(),
+    });
+  }
+  const news: NewsLine[] = [];
+  for (let k = 0; k < p.newsLength(); k++) {
+    const n = p.news(k);
+    if (!n) continue;
+    news.push({ claim: n.claim(), what: n.what() ?? "" });
+  }
+  const influences: InfluenceLine[] = [];
+  for (let k = 0; k < p.influencesLength(); k++) {
+    const i = p.influences(k);
+    if (!i) continue;
+    influences.push({
+      id: i.id(),
+      kind: i.kind(),
+      minute: Number(i.minute()),
+      what: i.what() ?? "",
+    });
+  }
+  const residence: string[] = [];
+  for (let k = 0; k < p.residenceLength(); k++) {
+    residence.push(p.residence(k) ?? "");
+  }
+  const places: string[] = [];
+  for (let k = 0; k < p.placesLength(); k++) {
+    places.push(p.places(k) ?? "");
+  }
+  const f = p.faction();
+  const faction: FactionLine | null = f
+    ? {
+        faction: Number(f.faction()),
+        name: f.name() ?? "",
+        against: f.against() ?? "",
+        organizer: Number(f.organizer()),
+        organizerName: f.organizerName() ?? "",
+        sinceMinute: Number(f.sinceMinute()),
+        why: f.why() ?? "",
+      }
+    : null;
+  const standing = p.standing();
   const pos = p.pos();
   return {
     id: Number(p.id()),
@@ -2459,6 +3111,227 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     leftMinute: Number(p.leftMinute()),
     householdTaste: p.householdTaste() ?? "",
     householdAdmired: Number(p.householdAdmired()),
+    ties,
+    standing: standing ? standingLine(standing) : null,
+    grievances,
+    heard,
+    positions,
+    norms,
+    values,
+    ideologies,
+    faction,
+    news,
+    influences,
+    residence,
+    places,
+  };
+}
+
+function standingLine(l: W.StandingLine): StandingLine {
+  return {
+    person: Number(l.person()),
+    name: l.name() ?? "",
+    household: Number(l.household()),
+    esteem: Array.from(l.esteemArray() ?? []),
+    influence: l.influence(),
+    notable: l.notable(),
+  };
+}
+
+const STANCES: StanceKind[] = ["for", "against", "abstained"];
+const LAW_STATUSES: LawStatus[] = [
+  "proposed",
+  "in force",
+  "rejected",
+  "lapsed",
+  "superseded",
+  "carried",
+];
+const OUTCOMES: LawOutcome[] = ["passed", "failed", "tied", "no quorum"];
+
+function lawLine(l: W.LawLine): LawLine {
+  const stances: StanceLine[] = [];
+  for (let k = 0; k < l.stancesLength(); k++) {
+    const r = l.stances(k);
+    if (!r) continue;
+    stances.push({
+      person: Number(r.person()),
+      name: r.name() ?? "",
+      stance: STANCES[r.stance()] ?? "abstained",
+      gain: r.gain(),
+      regard: r.regard(),
+      why: r.why() ?? "",
+      opinion: r.opinion(),
+      values: r.values(),
+    });
+  }
+  return {
+    id: Number(l.id()),
+    what: l.what() ?? "",
+    policy: l.policy() ?? "",
+    levyShare: l.levyShare(),
+    reliefDays: l.reliefDays(),
+    status: LAW_STATUSES[l.status()] ?? "proposed",
+    sponsor: Number(l.sponsor()),
+    sponsorName: l.sponsorName() ?? "",
+    proposedMinute: Number(l.proposedMinute()),
+    issue: l.issue() ?? "",
+    meetsMinute: Number(l.meetsMinute()),
+    decidedMinute: Number(l.decidedMinute()),
+    outcome: OUTCOMES[l.outcome()] ?? null,
+    decision: l.decision() ?? "",
+    eligible: l.eligible(),
+    quorum: l.quorum(),
+    stances,
+    known: l.known(),
+    complied: l.complied(),
+    couldNot: l.couldNot(),
+    evaded: l.evaded(),
+    refused: l.refused(),
+    unaware: l.unaware(),
+    leviedKg: l.leviedKg(),
+    withheldKg: l.withheldKg(),
+    relieved: l.relieved(),
+    reliefKg: l.reliefKg(),
+    unanswered: l.unanswered(),
+    holder: Number(l.holder()),
+    holderName: l.holderName() ?? "",
+    broken: l.broken(),
+    brokenUnaware: l.brokenUnaware(),
+  };
+}
+
+function governmentInfo(w: W.Government): GovernmentInfo {
+  const polities: PolityLine[] = [];
+  for (let k = 0; k < w.politiesLength(); k++) {
+    const p = w.polities(k);
+    if (!p) continue;
+    const laws: LawLine[] = [];
+    for (let j = 0; j < p.lawsLength(); j++) {
+      const l = p.laws(j);
+      if (l) laws.push(lawLine(l));
+    }
+    polities.push({
+      polity: Number(p.polity()),
+      settlement: Number(p.settlement()),
+      name: p.name() ?? "",
+      foundedMinute: Number(p.foundedMinute()),
+      custom: p.custom() ?? "",
+      members: p.members(),
+      store: p.store() ?? "",
+      storeKg: p.storeKg(),
+      laws,
+      gatheringLaw: Number(p.gatheringLaw()),
+      gatheringMinute: Number(p.gatheringMinute()),
+      gatheringPresent: p.gatheringPresent(),
+      offices: Array.from({ length: p.officesLength() }, (_, k) => p.offices(k) ?? ""),
+      label: p.label() ?? "",
+      labelModifiers: Array.from(
+        { length: p.labelModifiersLength() },
+        (_, k) => p.labelModifiers(k) ?? "",
+      ),
+      labelWhy: Array.from({ length: p.labelWhyLength() }, (_, k) => p.labelWhy(k) ?? ""),
+      labelConfidence: p.labelConfidence(),
+      gatheringCases: Array.from(
+        { length: p.gatheringCasesLength() },
+        (_, k) => p.gatheringCases(k) ?? "",
+      ),
+      customHistory: Array.from(
+        { length: p.customHistoryLength() },
+        (_, k) => p.customHistory(k) ?? "",
+      ),
+      bodyMembers: p.bodyMembers(),
+      factions: Array.from({ length: p.factionsLength() }, (_, k) => p.factions(k) ?? ""),
+      petitions: Array.from({ length: p.petitionsLength() }, (_, k) => p.petitions(k) ?? ""),
+      refusals: Array.from({ length: p.refusalsLength() }, (_, k) => p.refusals(k) ?? ""),
+      revolts: Array.from({ length: p.revoltsLength() }, (_, k) => p.revolts(k) ?? ""),
+      coups: Array.from({ length: p.coupsLength() }, (_, k) => p.coups(k) ?? ""),
+    });
+  }
+  return { minute: Number(w.minute()), polities };
+}
+
+const TAKING_OUTCOMES: TakingOutcome[] = ["taken", "turned back", "fled"];
+
+/** Takings, the truth and what is believed kept in their own lists (wire 1.30). */
+export function orderInfo(w: W.Order): OrderInfo {
+  const incidents: IncidentLine[] = [];
+  for (let k = 0; k < w.incidentsLength(); k++) {
+    const i = w.incidents(k);
+    if (!i) continue;
+    incidents.push({
+      id: i.id(),
+      minute: Number(i.minute()),
+      settlement: Number(i.settlement()),
+      actor: Number(i.actor()),
+      actorName: i.actorName() ?? "",
+      target: Number(i.target()),
+      targetName: i.targetName() ?? "",
+      outcome: TAKING_OUTCOMES[i.outcome()] ?? "taken",
+      what: i.what() ?? "",
+      kcal: i.kcal(),
+      seenBy: Array.from({ length: i.seenByLength() }, (_, j) => i.seenBy(j) ?? ""),
+      watch: i.watch() ?? "",
+    });
+  }
+  const known: KnownLine[] = [];
+  for (let k = 0; k < w.knownLength(); k++) {
+    const l = w.known(k);
+    if (!l) continue;
+    known.push({
+      incident: l.incident(),
+      knowTaker: l.knowTaker(),
+      knowLoss: l.knowLoss(),
+      sources: l.sources(),
+      victimKnows: l.victimKnows(),
+      response: l.response() ?? "",
+      owed: l.owed() ?? "",
+      case: l.case_() ?? "",
+    });
+  }
+  return {
+    minute: Number(w.minute()),
+    incidents,
+    known,
+    attempts: w.attempts(),
+    takings: w.takings(),
+    seen: w.seen(),
+    knownToVictims: w.knownToVictims(),
+    demands: w.demands(),
+    met: w.met(),
+    refused: w.refused(),
+    refusals: Number(w.refusals()),
+    cases: w.cases(),
+    found: w.found(),
+    notFound: w.notFound(),
+    unheard: w.unheard(),
+    encounters: Array.from({ length: w.encountersLength() }, (_, k) => w.encounters(k) ?? ""),
+  };
+}
+
+function standingInfo(w: W.Standing): StandingInfo {
+  const settlements: SettlementStanding[] = [];
+  for (let k = 0; k < w.settlementsLength(); k++) {
+    const s = w.settlements(k);
+    if (!s) continue;
+    const rows: StandingLine[] = [];
+    for (let j = 0; j < s.rowsLength(); j++) {
+      const l = s.rows(j);
+      if (l) rows.push(standingLine(l));
+    }
+    settlements.push({
+      settlement: Number(s.settlement()),
+      name: s.name() ?? "",
+      adults: s.adults(),
+      rows,
+    });
+  }
+  return {
+    minute: Number(w.minute()),
+    domains: Array.from({ length: w.domainsLength() }, (_, k) => w.domains(k) ?? ""),
+    settlements,
+    ties: w.ties(),
+    letGo: Number(w.letGo()),
   };
 }
 
@@ -2551,6 +3424,21 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.WeatherReport()) as W.WeatherReport | null;
       if (!f) break;
       return { kind: "weather", weather: weatherReport(f) };
+    }
+    case W.ResponseBody.Standing: {
+      const f = r.body(new W.Standing()) as W.Standing | null;
+      if (!f) break;
+      return { kind: "standing", standing: standingInfo(f) };
+    }
+    case W.ResponseBody.Government: {
+      const f = r.body(new W.Government()) as W.Government | null;
+      if (!f) break;
+      return { kind: "government", government: governmentInfo(f) };
+    }
+    case W.ResponseBody.Order: {
+      const f = r.body(new W.Order()) as W.Order | null;
+      if (!f) break;
+      return { kind: "order", order: orderInfo(f) };
     }
     default:
       break;

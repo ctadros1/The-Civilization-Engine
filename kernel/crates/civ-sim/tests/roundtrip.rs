@@ -101,6 +101,8 @@ fn fixture() -> &'static Fixture {
                 preset_id: PRESET.to_owned(),
                 size_cells: SIDE,
                 band_size: 0,
+                neighbours: Vec::new(),
+                neighbours_known: false,
                 regime_id: String::new(),
             },
             content(),
@@ -182,9 +184,10 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 17 land, field, plot, building,
-    // wear, market, firm, wealth, knowledge, deposits, earth and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 17);
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 28 land, field, plot, building,
+    // wear, market, firm, wealth, knowledge, deposits, earth, ties, polity, order, word, opinion,
+    // norms, values, creeds, factions, influence, places and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 28);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -207,6 +210,8 @@ fn a_loaded_map_equals_a_regenerated_one() {
             preset_id: PRESET.to_owned(),
             size_cells: SIDE,
             band_size: 0,
+            neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: String::new(),
         },
         content(),
@@ -1176,6 +1181,8 @@ fn worn_ground_and_its_trails_survive_a_save_and_load() {
             preset_id: PRESET.to_owned(),
             size_cells: SIDE,
             band_size: 0,
+            neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: String::new(),
         },
         content(),
@@ -1752,6 +1759,8 @@ fn unknown_presets_are_refused() {
             preset_id: "core:worldgen/nowhere".to_owned(),
             size_cells: 256,
             band_size: 0,
+            neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: String::new(),
         },
         content(),
@@ -2038,6 +2047,297 @@ fn a_new_world_has_deposits_and_an_older_save_gains_the_same_on_loading() {
     let saved = persist::save(&mut sim, &dir, SaveKind::Manual, "deposits").expect("saves");
     let again = persist::load(&saved.path, content()).expect("loads");
     assert_eq!(again.land().deposits, sim.land().deposits);
+}
+
+#[test]
+fn a_schema_39_save_loads_and_its_people_take_their_ideologies_the_next_midnight() {
+    let sim = load_first();
+    // A schema-39 save, from before ideologies (M4c slice AG, step four): nobody holds one when
+    // it loads.
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_IDEOLOGIES)
+        .collect();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V39;
+    let path = republish("slice-ag3", &info, &sections);
+    let mut loaded = persist::load(&path, content()).expect("a schema-39 save loads");
+    assert!(loaded.people().ideologies.held.is_empty());
+    // The next midnight everyone takes their start, as on the world's first night: each founder
+    // brings what they brought then, by the same draw.
+    loaded.advance_minutes(24 * 60).expect("advances");
+    let brought = |s: &Sim| -> Vec<(civ_core::PermanentId, u16)> {
+        s.people()
+            .ideologies
+            .held
+            .iter()
+            .filter(|h| h.from.is_none())
+            .map(|h| (h.holder, h.ideology))
+            .collect()
+    };
+    assert!(!brought(&sim).is_empty(), "some founders bring one");
+    assert_eq!(brought(&loaded), brought(&sim));
+    let last = loaded.people().people.iter().map(|(_, p)| p.id.get()).max();
+    assert_eq!(Some(loaded.people().ideologies.seen), last);
+}
+
+#[test]
+fn a_schema_40_save_loads_with_no_factions() {
+    let sim = load_first();
+    // A schema-40 save, from before factions (M4c slice AH): none have been founded.
+    let sections: Vec<SectionData> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != agents::SECTION_FACTIONS)
+        .collect();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V40;
+    let path = republish("slice-ag4", &info, &sections);
+    let mut loaded = persist::load(&path, content()).expect("a schema-40 save loads");
+    assert!(loaded.people().factions.list.is_empty());
+    assert!(loaded.people().factions.members.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_41_save_loads_with_no_petitions_and_no_law_replacing_another() {
+    let sim = load_first();
+    // A schema-41 save, from before petitions (M4c slice AH, step two): its factions section
+    // carries none, and its laws name no law they replace.
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V41;
+    let path = republish("slice-ah1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-41 save loads");
+    assert!(loaded.people().factions.petitions.is_empty());
+    assert!(
+        loaded
+            .people()
+            .polities
+            .iter()
+            .flat_map(|p| &p.laws)
+            .all(|l| l.ends.is_none())
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_42_save_loads_with_no_refusals() {
+    let sim = load_first();
+    // A schema-42 save, from before refusals of a levy (M4c slice AH, step three): none were
+    // called and no levy was kept back in one.
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V42;
+    let path = republish("slice-ah2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-42 save loads");
+    assert!(loaded.people().factions.refusals.is_empty());
+    assert!(
+        loaded
+            .people()
+            .polities
+            .iter()
+            .flat_map(|p| &p.laws)
+            .all(|l| l.compliance.refused == 0)
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_43_save_loads_with_no_revolts() {
+    let sim = load_first();
+    // A schema-43 save, from before revolts (M4c slice AI, step one): none were called and no
+    // version of a custom was taken outside its procedure.
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V43;
+    let path = republish("slice-ah3", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-43 save loads");
+    assert!(loaded.people().factions.revolts.is_empty());
+    assert!(
+        loaded
+            .people()
+            .polities
+            .iter()
+            .flat_map(|p| &p.versions)
+            .all(|v| v.seized_by.is_none())
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_44_save_loads_with_no_law_put_to_a_founding() {
+    let sim = load_first();
+    // A schema-44 save, from before repeals (M4c slice AI, step two): no law was put to a body
+    // that took the deciding, and none was carried.
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V44;
+    let path = republish("slice-ai1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-44 save loads");
+    assert!(
+        loaded
+            .people()
+            .polities
+            .iter()
+            .flat_map(|p| &p.laws)
+            .all(|l| {
+                l.issue != civ_agents::polity::IssueKind::Founding
+                    && l.status != civ_agents::polity::LawStatus::Carried
+            })
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_45_save_loads_with_no_coups() {
+    let sim = load_first();
+    // A schema-45 save, from before coups (M4c slice AI, step three): none was called.
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V45;
+    let path = republish("slice-ai2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-45 save loads");
+    assert!(loaded.people().factions.coups.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_46_save_loads_with_no_encounters() {
+    let sim = load_first();
+    // A schema-46 save, from before force (M4c slice AI, step four): no watcher came to take what
+    // a finding owed, and nobody was struck.
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V46;
+    let path = republish("slice-ai3", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-46 save loads");
+    assert!(loaded.people().order.encounters.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_47_save_loads_with_no_influences() {
+    let sim = load_first();
+    // A schema-47 save, from before the observer's interventions (M4c slice AJ): the observer had
+    // whispered to nobody and told nobody of an ideology.
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V47;
+    let path = republish("slice-ai4", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-47 save loads");
+    assert!(loaded.people().influences.list.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_48_save_loads_with_no_one_blessed() {
+    let sim = load_first();
+    // A schema-48 save, from before agitators, blessings and curses (M4c slice AJ, step two).
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V48;
+    let path = republish("slice-aj1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-48 save loads");
+    let day = loaded.now().day_index();
+    let pop = loaded.people();
+    assert!(
+        pop.people
+            .iter()
+            .all(|(_, p)| pop.influences.luck(p.id, day).is_none())
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_54_save_loads_with_no_coalition_gathered() {
+    // A schema-54 save, from before households gathered to found settlements (M5a slice AO).
+    let sim = load_first();
+    assert!(sim.people().coalitions.is_empty());
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V54;
+    let path = republish("slice-an2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-54 save loads");
+    assert!(loaded.people().coalitions.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_53_save_loads_with_no_wave_sent() {
+    // A schema-53 save, from before migration waves (M5a slice AN, step two).
+    let sim = load_first();
+    assert!(sim.people().influences.waves.is_empty());
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V53;
+    let path = republish("slice-an1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-53 save loads");
+    assert!(loaded.people().influences.waves.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_52_save_loads_with_no_household_leaning_to_move() {
+    // A schema-52 save, from before households moved between settlements (M5a slice AN): no
+    // leanings and no reviews prompted were kept.
+    let mut sim = load_first();
+    sim.people_mut_for_tests().review_due.clear();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V52;
+    let path = republish("slice-am3", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-52 save loads");
+    assert!(loaded.people().leanings.is_empty());
+    assert!(loaded.people().review_due.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_51_save_loads_with_no_visit_or_search_on_record() {
+    // A schema-51 save, from before visits (M5a slice AM, step two): no contacts between
+    // settlements and no failed search for a partner were kept.
+    let mut sim = load_first();
+    sim.people_mut_for_tests().unmatched.clear();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V51;
+    let path = republish("slice-am1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-51 save loads");
+    assert!(loaded.people().contacts.years.is_empty());
+    assert!(loaded.people().unmatched.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_50_save_loads_knowing_no_other_place() {
+    // A schema-50 save, from before the places households know (M5a slice AM, ADR-0018 §4).
+    let sim = load_first();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V50;
+    let path = republish("slice-ak", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-50 save loads");
+    assert!(loaded.people().known_places.known.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_49_save_loads_with_everyone_s_residence_inferred() {
+    let mut sim = load_first();
+    // A schema-49 save, from before residence histories (M5a slice AK, ADR-0018 §2): nobody's
+    // stays were kept.
+    for r in sim.people_mut_for_tests().records.values_mut() {
+        r.residence.clear();
+    }
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V49;
+    let path = republish("slice-aj2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-49 save loads");
+    let pop = loaded.people();
+    assert!(
+        pop.residence_problems().is_empty(),
+        "{:?}",
+        pop.residence_problems()
+    );
+    let village = loaded.land().settlements[0].id;
+    for r in pop.records.values() {
+        let first = r.residence.first().expect("a stay inferred");
+        assert_eq!(first.settlement, Some(village));
+        let why = match r.origin {
+            civ_agents::Origin::Founder => civ_agents::ResidenceWhy::Founder,
+            civ_agents::Origin::Born => civ_agents::ResidenceWhy::Born,
+            civ_agents::Origin::Spawned => civ_agents::ResidenceWhy::Arrived,
+        };
+        assert_eq!(first.why, why);
+    }
+    loaded.advance_minutes(24 * 60).expect("goes on");
 }
 
 #[test]

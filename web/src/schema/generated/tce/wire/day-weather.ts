@@ -59,8 +59,13 @@ words(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+snowLineM():number {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : Infinity;
+}
+
 static startDayWeather(builder:flatbuffers.Builder) {
-  builder.startObject(7);
+  builder.startObject(8);
 }
 
 static addPrecipMm(builder:flatbuffers.Builder, precipMm:number) {
@@ -91,12 +96,16 @@ static addWords(builder:flatbuffers.Builder, wordsOffset:flatbuffers.Offset) {
   builder.addFieldOffset(6, wordsOffset, 0);
 }
 
+static addSnowLineM(builder:flatbuffers.Builder, snowLineM:number) {
+  builder.addFieldFloat32(7, snowLineM, Infinity);
+}
+
 static endDayWeather(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createDayWeather(builder:flatbuffers.Builder, precipMm:number, meanC:number, minC:number, maxC:number, snowMm:number, soil:number, wordsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createDayWeather(builder:flatbuffers.Builder, precipMm:number, meanC:number, minC:number, maxC:number, snowMm:number, soil:number, wordsOffset:flatbuffers.Offset, snowLineM:number):flatbuffers.Offset {
   DayWeather.startDayWeather(builder);
   DayWeather.addPrecipMm(builder, precipMm);
   DayWeather.addMeanC(builder, meanC);
@@ -105,6 +114,7 @@ static createDayWeather(builder:flatbuffers.Builder, precipMm:number, meanC:numb
   DayWeather.addSnowMm(builder, snowMm);
   DayWeather.addSoil(builder, soil);
   DayWeather.addWords(builder, wordsOffset);
+  DayWeather.addSnowLineM(builder, snowLineM);
   return DayWeather.endDayWeather(builder);
 }
 }

@@ -7,25 +7,44 @@ use crate::{WATER_LAND, WorldMap};
 
 /// Steepest slope from each cell to any neighbour, rise over run (0 for flat ground).
 pub fn slopes(map: &WorldMap) -> Vec<f32> {
+    (0..map.cell_count()).map(|i| slope_at(map, i)).collect()
+}
+
+/// [`slopes`] of one cell.
+pub fn slope_at(map: &WorldMap, i: usize) -> f32 {
     let (w, h) = (map.width as usize, map.height as usize);
     let c = f64::from(map.cell_size_m);
-    let mut out = vec![0.0f32; w * h];
-    for (i, s) in out.iter_mut().enumerate() {
-        let (x, y) = ((i % w) as i64, (i / w) as i64);
-        let z = f64::from(map.elevation[i]);
-        let mut best = 0.0f64;
-        for (&(dx, dy), dist) in D8.iter().zip(D8_DIST) {
-            let (nx, ny) = (x + i64::from(dx), y + i64::from(dy));
-            if nx < 0 || ny < 0 || nx >= w as i64 || ny >= h as i64 {
-                continue;
-            }
-            let j = (ny * w as i64 + nx) as usize;
-            let rise = (f64::from(map.elevation[j]) - z).abs();
-            best = best.max(rise / (dist * c));
+    let (x, y) = ((i % w) as i64, (i / w) as i64);
+    let z = f64::from(map.elevation[i]);
+    let mut best = 0.0f64;
+    for (&(dx, dy), dist) in D8.iter().zip(D8_DIST) {
+        let (nx, ny) = (x + i64::from(dx), y + i64::from(dy));
+        if nx < 0 || ny < 0 || nx >= w as i64 || ny >= h as i64 {
+            continue;
         }
-        *s = best as f32;
+        let j = (ny * w as i64 + nx) as usize;
+        let rise = (f64::from(map.elevation[j]) - z).abs();
+        best = best.max(rise / (dist * c));
     }
-    out
+    best as f32
+}
+
+/// [`height_above_drainage`] of one cell, by walking downstream from it.
+pub fn hand_at(map: &WorldMap, start: usize, channel_area_m2: f32) -> f32 {
+    let mut cur = start;
+    for _ in 0..map.cell_count() {
+        let is_drain = map.water[cur] != WATER_LAND
+            || map
+                .drainage_area_m2
+                .get(cur)
+                .is_some_and(|&a| a >= channel_area_m2);
+        let next = map.receiver_index(cur);
+        if is_drain || next == cur {
+            break;
+        }
+        cur = next;
+    }
+    (map.elevation[start] - map.elevation[cur]).max(0.0)
 }
 
 /// Height of each cell above the drainage it flows to (HAND), metres: follow the D8 receivers
@@ -132,5 +151,16 @@ mod tests {
         // A smaller channel threshold makes every cell a channel.
         let all = height_above_drainage(&map, 1.0);
         assert!(all.iter().all(|&h| h == 0.0));
+    }
+
+    #[test]
+    fn one_cell_measures_as_the_whole_map_does() {
+        let map = ramp(8, 4);
+        let (s, hand) = (slopes(&map), height_above_drainage(&map, f32::MAX));
+        for i in 0..map.cell_count() {
+            assert_eq!(slope_at(&map, i), s[i]);
+            assert_eq!(hand_at(&map, i, f32::MAX), hand[i]);
+            assert_eq!(hand_at(&map, i, 1.0), 0.0);
+        }
     }
 }

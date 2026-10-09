@@ -25,14 +25,19 @@ pub mod deposits;
 pub mod earth;
 pub mod fields;
 pub mod paths;
+pub mod soil;
 pub mod weather;
 
 pub use buildings::{
     BuildWork, Building, BuildingState, GroupCondition, GroupState, MATERIAL_SLACK_KG, MendWork,
     Plot, PlotUse, Repair, STAGE_DONE_SLACK_H, workable_h,
 };
-pub use fields::{CropParams, Field, FieldStage, FieldTask, Lease, Party, RectCm, WorkDone};
+pub use fields::{
+    Allowance, CropParams, Field, FieldStage, FieldTask, Lease, Party, RectCm, WorkDone,
+    calendar_year,
+};
 pub use paths::{PathParams, Trail, ViewTile, Wear, WearTile};
+pub use soil::{FieldSoil, HarvestRecord, Limit, SoilParams};
 pub use weather::{Climatology, MonthRecord, Unworkable, Weather, WeatherDay, WeatherParams};
 
 use civ_core::time::{DAYS_PER_YEAR, MONTH_STARTS};
@@ -149,23 +154,12 @@ pub struct LandParams {
     pub resources: Vec<ResourceParams>,
     /// How the weather is drawn (ADR-0012 §1).
     pub weather: WeatherParams,
+    /// How the soils hold nitrogen (ADR-0012 §3).
+    pub soil: SoilParams,
     /// How walking wears the ground.
     pub paths: PathParams,
-    /// The heaviest load weather puts on a roof in a month (ADR-0009 §5).
-    pub peak_load: PeakLoad,
     /// Where deposits of clay, stone and flint lie, by kind (ADR-0010 §1).
     pub deposits: Vec<deposits::DepositRule>,
-}
-
-/// The heaviest load wind and snow put on a roof in a month, on its plan, drawn once a month for
-/// each settlement: log-normal, `median_pa` its median and `spread` the spread of its logarithm.
-/// It stands in for weather until weather exists (M3c), and is then replaced by it (ADR-0009 §5).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct PeakLoad {
-    /// Median, pascals.
-    pub median_pa: f64,
-    /// Standard deviation of its natural logarithm.
-    pub spread: f64,
 }
 
 impl ResourceParams {
@@ -287,7 +281,41 @@ impl Patches {
     }
 }
 
-/// A place people founded.
+/// How a settlement came to be founded (ADR-0018 §1). Numeric in saves: append only.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Founding {
+    /// By one of the founding groups the world was made with.
+    #[default]
+    Setup,
+    /// By a family, or an agitator, the observer sent.
+    Sent,
+    /// By households of a migration wave.
+    Wave,
+    /// By a coalition of households already in the world.
+    Coalition,
+}
+
+impl Founding {
+    /// Every way of founding, in code order.
+    pub const ALL: [Founding; 4] = [
+        Founding::Setup,
+        Founding::Sent,
+        Founding::Wave,
+        Founding::Coalition,
+    ];
+
+    /// Its code in saves.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The way of founding with a code.
+    pub fn from_code(code: u8) -> Option<Founding> {
+        Founding::ALL.get(usize::from(code)).copied()
+    }
+}
+
+/// A place people founded. Its record is kept for good, abandoned or not (ADR-0018 §1).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Settlement {
     /// Permanent id.
@@ -302,6 +330,12 @@ pub struct Settlement {
     pub food_short: bool,
     /// Grain threshed from its fields since its last harvest was noted, kilograms.
     pub harvest_kg: f64,
+    /// The settlement its founders came from, if they came from one.
+    pub parent: Option<PermanentId>,
+    /// How it was founded.
+    pub founding: Founding,
+    /// When its last resident died or left, if they have.
+    pub abandoned: Option<SimTime>,
 }
 
 /// All land state of one world.
@@ -831,6 +865,14 @@ impl Land {
         )
     }
 
+    /// What field `f`'s season and soil allow its harvest of `crop` this year (ADR-0012 §2-3).
+    pub fn allowance(&self, params: &LandParams, f: &Field, crop: &CropParams) -> Allowance {
+        Allowance {
+            water: self.water_factor(f),
+            soil_kg_per_ha: f.soil.allows_kg_ha(&params.soil, crop),
+        }
+    }
+
     /// The share of its yield field `f`'s season's water allows: 1 in a season of average water
     /// (ADR-0012 §2).
     pub fn water_factor(&self, f: &Field) -> f64 {
@@ -934,14 +976,22 @@ impl Land {
     }
 
     /// Lives every day up to and including `day`: each day's weather (snow, the soil under the
-    /// wild cover, the growing fields' water), then growth and loss of the stocks. Each day's step
-    /// is exact for constant rates over the day, so splitting an advance changes nothing. Animals
-    /// spread on the first day of each month.
+    /// wild cover, the growing fields' water), on the first of January the fields' soils (ADR-0012
+    /// §3), then growth and loss of the stocks. Each day's step is exact for constant rates over
+    /// the day, so splitting an advance changes nothing. Animals spread on the first day of each
+    /// month.
     pub fn advance_to_day(&mut self, params: &LandParams, map: &WorldMap, day: i64) {
         while self.stock_day < day {
             let d = self.stock_day + 1;
             let water = self.weather.live(&params.weather, &self.climatology);
             self.water_fields(&params.weather, map, &water, d);
+            if day_of_year(d) == soil::TURN_DAY {
+                let year = i32::try_from(d.div_euclid(DAYS_PER_YEAR) + 1).unwrap_or(i32::MAX);
+                for f in &mut self.fields {
+                    f.soil.turn(&params.soil, f64::from(f.ground), year);
+                    f.regrow(params.soil.regrown_years, year);
+                }
+            }
             let month_start = MONTH_STARTS[..12].contains(&day_of_year(d));
             for (r, res) in params.resources.iter().enumerate() {
                 match &res.growth {
@@ -1292,15 +1342,12 @@ mod tests {
                 },
             ],
             weather: weather::tests::params(),
+            soil: soil::tests::params(),
             paths: PathParams {
                 wear_per_walk: 0.01,
                 half_life_days: 120.0,
                 trail_at: 0.3,
                 trail_until: 0.15,
-            },
-            peak_load: PeakLoad {
-                median_pa: 250.0,
-                spread: 0.6,
             },
             deposits: Vec::new(),
         }

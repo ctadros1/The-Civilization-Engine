@@ -16,6 +16,9 @@
 //! - [`history`]: person records, unions, decision receipts and the chronicle.
 //! - [`demography`]: births, deaths and couples as pure rules, applied by the population daily.
 //! - [`wealth`]: what households have, measured several ways, and how it spreads (ADR-0007 §4).
+//! - [`ties`]: what people remember of one another, written by the acts they see (ADR-0014).
+//! - [`standing`]: what a settlement's adults think of one another, summed monthly, and notables.
+//! - [`crime`]: takings as the kernel's truth, what people believe of them, and what is owed.
 //!
 //! The engine authors the vocabulary, never the plot (plan §1): activities, needs and their
 //! weights are content; what people do, and where, follows from their circumstances.
@@ -25,29 +28,44 @@
 pub mod build;
 pub mod caution;
 pub mod condition;
+pub mod crime;
 pub mod decide;
 pub mod demography;
+pub mod faction;
 pub mod farm;
 pub mod firm;
 pub mod found;
 pub mod history;
+pub mod ideology;
+pub mod influence;
 pub mod knowledge;
 pub mod ledger;
 pub mod make;
 pub mod market;
 pub mod needs;
+pub mod norm;
+pub mod opinion;
 pub mod params;
 pub mod person;
+pub mod places;
+pub mod polity;
 pub mod population;
+pub mod standing;
 pub mod structure;
 pub mod style;
+pub mod ties;
 pub mod value;
+pub mod values;
 pub mod wealth;
+pub mod word;
 
-pub use found::{Founded, MAX_SPAWN_FAMILIES, Spawned, found_band, spawn_families, spawn_family};
+pub use found::{
+    Founded, MAX_FOUNDING_GROUPS, MAX_SPAWN_FAMILIES, Spawned, WAVE_KNOWN_M, found_band,
+    found_bands, send_agitator, send_wave, spawn_families, spawn_family,
+};
 pub use history::{
-    Cause, ChronicleEvent, ChronicleKind, Moved, Origin, PersonRecord, Reason, Receipt, Scored,
-    Span, Term, Union,
+    Cause, ChronicleEvent, ChronicleKind, CoalitionStep, Moved, Origin, PersonRecord, Reason,
+    Receipt, ResidenceWhy, Scored, Span, Stay, Term, Union,
 };
 pub use ledger::Channel;
 pub use needs::Sex;
@@ -55,4 +73,4 @@ pub use params::{ActivityDef, Behavior, Catalog, PeopleParams, RecipeDef, SkillD
 pub use person::{
     Activity, Household, KnownPatch, Load, Person, Repro, Step, Target, Traits, Trip,
 };
-pub use population::{AgentEvent, Ctx, Population};
+pub use population::{AgentEvent, Approximations, Ctx, Population, TimeUse};

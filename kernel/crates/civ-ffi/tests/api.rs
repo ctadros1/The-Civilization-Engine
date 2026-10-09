@@ -208,6 +208,8 @@ fn new_world_command(preset: &str) -> Vec<u8> {
             size_cells: 256,
             name: Some(name),
             band_size: 32,
+            neighbours: None,
+            neighbours_known: false,
             regime_id: None,
         },
     )

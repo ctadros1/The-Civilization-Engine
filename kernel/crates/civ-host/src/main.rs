@@ -45,10 +45,58 @@ enum Command {
     Smoke(SmokeArgs),
     /// Live the sanity dashboard's five river-valley worlds fifty years and grade plan §4.7.
     Dashboard(DashboardArgs),
+    /// Gate B (ADR-0011 §5): a year from two fixture worlds, several times in each mode, and
+    /// Accelerated mode's aggregates against Detailed mode's.
+    Consistency(ConsistencyArgs),
+    /// The notables' gate (ADR-0014 §4): two fixture worlds lived three years several times with
+    /// the notables' tier and without it, and their polities' aggregates compared.
+    Notables(NotablesArgs),
     /// Live one world for some years and report how its people live at each year's end.
     Run(RunArgs),
     /// Report a world's weather on the valley floor, year by year, as its seed draws it.
     Weather(WeatherArgs),
+    /// The M5a demo: founding groups that know of one another live thirty years, a migration
+    /// wave comes among them, and the moves, accounts, wave and coalitions are reported.
+    Neighbours(NeighboursArgs),
+}
+
+#[derive(Args, Clone)]
+struct NeighboursArgs {
+    #[command(flatten)]
+    folders: Folders,
+    /// World seed.
+    #[arg(long, default_value_t = 1)]
+    seed: u64,
+    /// World-generation preset id [default: the dashboard's river valley].
+    #[arg(long)]
+    preset: Option<String>,
+    /// Map side, cells.
+    #[arg(long, default_value_t = 1024)]
+    size: u32,
+    /// Founding groups, each a band of the content's default size.
+    #[arg(long, default_value_t = civ_host::neighbours::GROUPS)]
+    groups: u32,
+    /// The groups do not know where one another camped.
+    #[arg(long)]
+    unknown: bool,
+    /// Years to live after the first month.
+    #[arg(long, default_value_t = civ_host::neighbours::YEARS)]
+    years: u32,
+    /// The year at whose end the wave is sent (0: none).
+    #[arg(long, default_value_t = civ_host::neighbours::WAVE_YEAR)]
+    wave_year: u32,
+    /// The wave's households.
+    #[arg(long, default_value_t = civ_host::neighbours::WAVE_HOUSEHOLDS)]
+    wave_households: u32,
+    /// The days over which the wave's households come.
+    #[arg(long, default_value_t = civ_host::neighbours::WAVE_DAYS)]
+    wave_days: u32,
+    /// The months of food each of the wave's households carries.
+    #[arg(long, default_value_t = civ_host::neighbours::WAVE_MONTHS)]
+    wave_months: u32,
+    /// Keep the world's saves at every tenth year's end, and the last, in this folder.
+    #[arg(long)]
+    keep_saves: Option<PathBuf>,
 }
 
 #[derive(Args, Clone)]
@@ -196,6 +244,44 @@ enum ContentCommand {
 }
 
 #[derive(Args)]
+struct ConsistencyArgs {
+    #[command(flatten)]
+    folders: Folders,
+    /// Only Detailed runs, to see the spread the tolerances are set from (PROJECT_PLAN §9).
+    #[arg(long)]
+    calibrate: bool,
+    /// Runs at a time [default: the cores, at most four].
+    #[arg(long)]
+    threads: Option<usize>,
+    /// Accelerated runs without leisure blocks: to see what the approximation changes, not the
+    /// gate.
+    #[arg(long)]
+    without_leisure_blocks: bool,
+    /// Accelerated runs without the household view: to see what the approximation changes, not
+    /// the gate.
+    #[arg(long)]
+    without_household_view: bool,
+    /// Also write the report as JSON to this file.
+    #[arg(long)]
+    json: Option<PathBuf>,
+}
+
+#[derive(Args)]
+struct NotablesArgs {
+    #[command(flatten)]
+    folders: Folders,
+    /// Only runs with the tier, to see the spread the tolerances are set from (PROJECT_PLAN §9).
+    #[arg(long)]
+    calibrate: bool,
+    /// Runs at a time [default: the cores, at most four].
+    #[arg(long)]
+    threads: Option<usize>,
+    /// Also write the report as JSON to this file.
+    #[arg(long)]
+    json: Option<PathBuf>,
+}
+
+#[derive(Args)]
 struct DashboardArgs {
     #[command(flatten)]
     folders: Folders,
@@ -212,6 +298,10 @@ struct DashboardArgs {
     /// Keep each world's saves at every tenth year's end in this folder.
     #[arg(long)]
     keep_saves: Option<PathBuf>,
+    /// Founding groups each world is made with, placed together (ADR-0018 §6); 1 is the
+    /// dashboard of M3c to M4.
+    #[arg(long, default_value_t = civ_host::dashboard::GROUPS)]
+    groups: u32,
 }
 
 #[derive(Args)]
@@ -253,8 +343,11 @@ fn main() -> ExitCode {
         }
         Command::Smoke(args) => run_smoke(args),
         Command::Dashboard(args) => run_dashboard(args),
+        Command::Consistency(args) => run_consistency(args),
+        Command::Notables(args) => run_notables(args),
         Command::Run(args) => run_world(args),
         Command::Weather(args) => weather(args),
+        Command::Neighbours(args) => run_neighbours(args),
     };
     match result {
         Ok(code) => code,
@@ -280,6 +373,30 @@ fn run_world(args: RunArgs) -> anyhow::Result<ExitCode> {
     };
     civ_host::report::run(&content, &options, &mut std::io::stdout().lock())?;
     Ok(ExitCode::SUCCESS)
+}
+
+fn run_neighbours(args: NeighboursArgs) -> anyhow::Result<ExitCode> {
+    let layout = paths::locate(args.folders.content, None, None)?;
+    let content = commands::load_content(&layout.content)?;
+    let options = civ_host::neighbours::NeighboursOptions {
+        preset: args.preset,
+        seed: args.seed,
+        size: args.size,
+        groups: args.groups,
+        known: !args.unknown,
+        years: args.years,
+        wave_year: args.wave_year,
+        wave_households: args.wave_households,
+        wave_days: args.wave_days,
+        wave_months: args.wave_months,
+        keep_saves: args.keep_saves,
+    };
+    let outcome = civ_host::neighbours::run(&content, &options, &mut std::io::stdout().lock())?;
+    Ok(if outcome.failures.is_empty() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    })
 }
 
 fn weather(args: WeatherArgs) -> anyhow::Result<ExitCode> {
@@ -450,6 +567,110 @@ fn save_verify(args: SaveArgs) -> anyhow::Result<ExitCode> {
     Ok(commands::save_verify(&args.file, &content))
 }
 
+fn run_notables(args: NotablesArgs) -> anyhow::Result<ExitCode> {
+    use civ_host::{consistency, notables};
+    let layout = paths::locate(args.folders.content, None, None)?;
+    let content = commands::load_content(&layout.content)?;
+    let threads = args.threads.unwrap_or_else(|| {
+        std::thread::available_parallelism()
+            .map_or(1, std::num::NonZero::get)
+            .min(4)
+    });
+    let runs = if args.calibrate {
+        notables::CALIBRATION_RUNS
+    } else {
+        notables::RUNS
+    };
+    println!(
+        "The notables' gate (ADR-0014 §4): {} fixture worlds at {}² cells, each lived its first \
+         month by the minute and saved; from each, {runs} runs {} at Max to the end of year {}, \
+         each with its own tie-break stream, on {threads} threads",
+        consistency::FIXTURES.len(),
+        consistency::SIZE,
+        if args.calibrate {
+            "with the tier only (calibration)"
+        } else {
+            "with the notables' tier and as many with every adult deliberating"
+        },
+        notables::LAST_YEAR,
+    );
+    let dir = tempfile::tempdir().map_err(|e| anyhow::anyhow!("no temporary folder: {e}"))?;
+    let report = notables::run_gate(
+        &content,
+        notables::NotablesOptions {
+            calibrate: args.calibrate,
+        },
+        dir.path(),
+        threads,
+    )
+    .map_err(|e| anyhow::anyhow!(e))?;
+    notables::print(&report);
+    if let Some(path) = &args.json {
+        let json = serde_json::to_string_pretty(&report)?;
+        std::fs::write(path, json)
+            .map_err(|e| anyhow::anyhow!("cannot write {}: {e}", path.display()))?;
+    }
+    Ok(if report.passed() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    })
+}
+
+fn run_consistency(args: ConsistencyArgs) -> anyhow::Result<ExitCode> {
+    use civ_host::consistency;
+    let layout = paths::locate(args.folders.content, None, None)?;
+    let content = commands::load_content(&layout.content)?;
+    let threads = args.threads.unwrap_or_else(|| {
+        std::thread::available_parallelism()
+            .map_or(1, std::num::NonZero::get)
+            .min(4)
+    });
+    let runs = if args.calibrate {
+        consistency::CALIBRATION_RUNS
+    } else {
+        consistency::RUNS
+    };
+    println!(
+        "Gate B (ADR-0011 §5): {} fixture worlds at {}² cells, each lived by the minute to 1 \
+         January of year {} and saved; from each, {runs} runs {} of that year, each with its own \
+         tie-break stream, on {threads} threads",
+        consistency::FIXTURES.len(),
+        consistency::SIZE,
+        consistency::RUN_YEAR,
+        if args.calibrate {
+            "in Detailed mode only (calibration)"
+        } else {
+            "in each mode"
+        },
+    );
+    let dir = tempfile::tempdir().map_err(|e| anyhow::anyhow!("no temporary folder: {e}"))?;
+    let report = consistency::run_gate(
+        &content,
+        consistency::ConsistencyOptions {
+            calibrate: args.calibrate,
+            approximations: civ_sim::Approximations {
+                leisure_blocks: !args.without_leisure_blocks,
+                household_view: !args.without_household_view,
+            },
+        },
+        dir.path(),
+        threads,
+    )
+    .map_err(|e| anyhow::anyhow!(e))?;
+    consistency::print(&report);
+    if let Some(path) = &args.json {
+        let json = serde_json::to_string_pretty(&report)?;
+        std::fs::write(path, json)
+            .map_err(|e| anyhow::anyhow!("cannot write {}: {e}", path.display()))?;
+    }
+    Ok(if report.passed() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    })
+}
+
 fn run_dashboard(args: DashboardArgs) -> anyhow::Result<ExitCode> {
     use civ_host::dashboard;
     let layout = paths::locate(args.folders.content, None, None)?;
@@ -475,6 +696,7 @@ fn run_dashboard(args: DashboardArgs) -> anyhow::Result<ExitCode> {
         dashboard::DashboardOptions {
             size: args.size,
             years: args.years,
+            groups: args.groups,
         },
         args.keep_saves.as_deref(),
         &|world| println!("{}", dashboard::format_world(world)),

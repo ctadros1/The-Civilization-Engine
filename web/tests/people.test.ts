@@ -144,6 +144,12 @@ describe("people payloads", () => {
     const person = W.PersonBrief.endPersonBrief(b);
     const people = W.Snapshot.createPeopleVector(b, [person]);
     const name = b.createString("Alderford");
+    const founding = b.createString("one of the groups the world began with");
+    const year = b.createString("2 born, 1 died");
+    const contacts = b.createString("in year 2: 3 visits from Brook, 4 hours at the hearth here");
+    const coalitions = W.SettlementBrief.createCoalitionsVector(b, [
+      b.createString("Ada's household and one more household mean to found a settlement 3.1 km north"),
+    ]);
     W.SettlementBrief.startSettlementBrief(b);
     W.SettlementBrief.addId(b, 3n);
     W.SettlementBrief.addName(b, name);
@@ -152,6 +158,10 @@ describe("people payloads", () => {
     W.SettlementBrief.addPopulation(b, 40);
     W.SettlementBrief.addFoodDays(b, 1.5);
     W.SettlementBrief.addFoodShort(b, true);
+    W.SettlementBrief.addFounding(b, founding);
+    W.SettlementBrief.addYear(b, year);
+    W.SettlementBrief.addContacts(b, contacts);
+    W.SettlementBrief.addCoalitions(b, coalitions);
     const settlement = W.SettlementBrief.endSettlementBrief(b);
     const settlements = W.Snapshot.createSettlementsVector(b, [settlement]);
     W.Snapshot.startSnapshot(b);
@@ -185,6 +195,11 @@ describe("people payloads", () => {
         foodDays: 1.5,
         foodShort: true,
         harvestKg: 0,
+        founding: "one of the groups the world began with",
+        year: "2 born, 1 died",
+        abandonedMinute: -1,
+        contacts: "in year 2: 3 visits from Brook, 4 hours at the hearth here",
+        coalitions: ["Ada's household and one more household mean to found a settlement 3.1 km north"],
       },
     ]);
     expect(s.chronicleHead).toBe(2);
@@ -261,6 +276,27 @@ describe("people payloads", () => {
     ]);
     expect([nobody.person.partner, nobody.person.family]).toEqual([0, []]);
     expect([nobody.person.householdTaste, nobody.person.householdAdmired]).toEqual(["", 0]);
+    expect(nobody.person.places).toEqual([]);
+  });
+
+  it("decode the places a person's household knows, in the kernel's words", () => {
+    const b = new flatbuffers.Builder(256);
+    const lines = [
+      "Ashford: seen on a walk in spring of year 1",
+      "Brook: told of it by Wren in summer of year 1",
+    ];
+    const places = W.PersonInfo.createPlacesVector(
+      b,
+      lines.map((l) => b.createString(l)),
+    );
+    W.PersonInfo.startPersonInfo(b);
+    W.PersonInfo.addId(b, 14n);
+    W.PersonInfo.addPlaces(b, places);
+    const body = W.PersonInfo.endPersonInfo(b);
+    b.finish(W.Response.createResponse(b, W.ResponseBody.PersonInfo, body));
+    const r = M.decodeResponse(b.asUint8Array());
+    if (r.kind !== "person") throw new Error(r.kind);
+    expect(r.person.places).toEqual(lines);
   });
 
   it("decode a person's partner and the kernel's sentences about their family", () => {

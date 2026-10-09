@@ -1,0 +1,19 @@
+# Taking food from another household's store, when one's own runs short (M4b slice AA, ADR-0015
+# §2): weighed like asking, against the taker's objection, the chance they believe they run of
+# being seen and their regard for those taken from. Whether anyone is home or in sight is settled
+# on arrival (research 04-09 §1.1: routine activity; 12-04 §1.4).
+kind = "activity"
+id = "core:activity/take_food"
+name = "Take food"
+doing = "taking food"
+behavior = "take"
+par = 1.5
+min_age_years = 12.0
+max_age_years = 90.0
+min_minutes = 10                 # in and out with a load
+max_minutes = 10
+daylight_only = false
+max_walk_minutes = 20
+technique = ""
+tools = []
+rate = 1.0

@@ -3,6 +3,9 @@
 Status: Accepted
 Date: 2026-10-05
 Milestone: M3c
+Amended: 2026-10-07, to match what was built. Slice W: §4's household view (built at a
+household's first decision of the day) and leisure blocks (a drawn run of sessions, not a fixed
+stretch), §5's Gate B as `civ-host consistency`
 
 ## Context
 
@@ -75,12 +78,25 @@ A probe measured the kernel on 2026-10-05 (a band of 40, one simulated year in a
   - **Approximate within a declared domain:** it can be switched off in tests and is covered
     by the statistical test.
 - M3c's approximations, used in Accelerated mode only:
-  - **A household view** built at midnight and rebuilt after the household's own consequential
-    steps (a deposit, a field or building stage, a trade, a birth, a death). Detailed mode
-    rebuilds it at every decision.
-  - **Leisure blocks:** rest, the hearth and play last until the next consequential boundary
-    (a meal, the sleep threshold, water before dark, sunrise or sunset), capped at a tuned
-    length.
+  - **A household view:** the options that do not depend on who decides (the purchase, the
+    household to ask, paid work, the best place for each gathering, digging and field activity),
+    each worked out when a member first needs it after midnight and kept until midnight or the
+    household's own consequential step: a deposit, work on a field or a building, making,
+    trying, or a choice that lays claim to something (new ground, a building or a workshop
+    begun, goods to buy or ask for, paid work). A gift, a trade or paid work done refreshes every
+    household's view, as goods move between them. Births and deaths come at midnight. Detailed mode works them out at every decision.
+  - **Leisure blocks:** rest, the hearth and play last the run of sessions Detailed mode would
+    live before choosing something else: a geometric number drawn from the chance with which the
+    leisure was chosen. A block that ends so makes the next decision pass that leisure over, as
+    Detailed mode's switch would. A block is cut at the next consequential boundary (when hunger
+    begins, the sleep threshold, sunrise, the last light for water, the evening's start, sunset,
+    the evening's end) or at the activity's longest session (`max_minutes`, a tuning value). The
+    next decision is then made afresh, which leaves the run the same in distribution, as the
+    draw is memoryless. As first built, a block lasted until the boundary. Gate B's first
+    evaluation showed this kept people at home: 8 % less time at the hearth and 11 % less
+    walking (§9, 2026-10-07).
+  - Neither is saved. Both are set aside at midnight, so a save at an Accelerated midnight lives
+    on as if never saved.
 - Statistical samplers that replace per-event machinery come later, one subsystem at a time
   after profiling: company from co-location pools, crime (M4), fire (M6). Each passes the same
   test.
@@ -92,13 +108,20 @@ A probe measured the kernel on 2026-10-05 (a band of 40, one simulated year in a
   - Detailed, then Accelerated, then Detailed again reproduces exactly.
   - A save at an Accelerated midnight, loaded and continued, matches an uninterrupted run.
   - Each exact optimisation leaves Detailed histories byte-identical.
-- **Gate B, nightly.**
+- **Gate B, nightly and on pull requests into main** (`civ-host consistency`).
   - Fixtures from at least two worlds, run several times in each mode for a year from the same
     midnight save. A test hook redraws the tie-break stream for each run.
+    - As built, a river valley and a ria coast at 768² cells, with fixed identities.
+    - Each lives by the minute to 1 January of its third year.
+    - Five runs in each mode follow from there.
   - Aggregates of time use, food, harvest, materials, roofs, population, the Gini of goods and
     walks are compared against tolerances.
   - Tolerances are set once, before evaluation, from the spread of Detailed calibration runs,
     and recorded in §9. Widening one needs its own §9 entry.
+    - As built, each aggregate's tolerance bounds the difference of the two modes' means.
+    - It is the larger fixture's three standard errors of that difference at the Detailed
+      spread, with a floor.
+    - `--calibrate` runs eight Detailed runs from each fixture to find them.
   - The ledger, `problems()` and "nobody stuck" are checked exactly in every run.
 
 ### 6. The boundary

@@ -1,0 +1,16 @@
+# A value (M4c slice AG, ADR-0016 §4): research 06-04 §1.1 names security, autonomy and
+# reciprocity among the values that weigh outcomes not reducible to a household's own food. Each
+# person holds it somewhere between less than most (-1) and more than most (1), drawn at birth
+# and pulled toward their parents'. A mean of 0 tilts nobody one way; the spread and heritability
+# are design priors, and weight is a tuning value. Policy templates say in `[bears]` how a law
+# of their kind bears on it.
+kind = "value"
+id = "core:value/reciprocity"
+name = "giving back what was given or taken"
+description = "That what one household gives or takes from another is given back in time."
+high = "holds dear that what is given or taken is given back"
+low = "cares little whether what is given or taken is given back"
+mean = 0.0
+sd = 0.8
+heritability = 0.5
+weight = 1.0

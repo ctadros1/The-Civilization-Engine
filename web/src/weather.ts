@@ -2,7 +2,8 @@
 // Pure functions. The kernel draws the weather and keeps each month's record on the valley floor;
 // the observer only shows it, beside what each month usually brings.
 
-import type { WeatherMonth, WeatherReport } from "./net/messages.js";
+import type { Season } from "./map/shade.js";
+import type { Clock, WeatherMonth, WeatherReport } from "./net/messages.js";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS_IN = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -168,4 +169,12 @@ export function yearRows(report: WeatherReport, shown = YEARS_SHOWN): YearRow[] 
         partial,
       };
     });
+}
+
+/** What the map shows of the season the clock tells (wire 1.25): the month, the soil water and
+ * the snow line; null from a host without the weather. */
+export function seasonOf(clock: Clock | null): Season | null {
+  const w = clock?.weather;
+  if (!clock || !w) return null;
+  return { month: clock.month - 1, soil: w.soil, snowLineM: w.snowLineM };
 }

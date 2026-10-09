@@ -58,7 +58,9 @@ import {
   classes,
   contourInterval,
   elevations,
+  seasonKey,
   shade,
+  type Season,
   type ShadeOptions,
 } from "./shade.js";
 
@@ -99,11 +101,32 @@ interface Patch {
   elev: Float32Array;
   water: Uint8Array;
   sprite: Sprite;
+  /** Metres per sample, for shading it again. */
+  cellM: number;
+  /** The samples the sprite shows, inside a margin kept for slopes; null for all of them. */
+  crop: { x: number; y: number; w: number; h: number } | null;
 }
 
 interface TileSlot {
   patch: Patch | null;
   used: number;
+}
+
+/** Least time between shading the map again for a change of season, milliseconds. */
+const RESHADE_MS = 2000;
+
+/** The `crop` of `w`-wide RGBA pixels. */
+function cropPixels(
+  rgba: Uint8ClampedArray,
+  w: number,
+  crop: { x: number; y: number; w: number; h: number },
+): Uint8ClampedArray {
+  const out = new Uint8ClampedArray(crop.w * crop.h * 4);
+  for (let y = 0; y < crop.h; y++) {
+    const from = ((y + crop.y) * w + crop.x) * 4;
+    out.set(rgba.subarray(from, from + crop.w * 4), y * crop.w * 4);
+  }
+  return out;
 }
 
 /** Closest zoom, screen pixels per metre. */
@@ -176,6 +199,11 @@ export class MapView {
   private riversVisible = true;
   private lastPointer: { x: number; y: number } | null = null;
   private shadeOptions: ShadeOptions | null = null;
+  private season: Season | null = null;
+  /** The season the map was last shaded for, and when. */
+  private seasonShown = "";
+  private seasonShownAt = -Infinity;
+  private seasonTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly fieldsLayer = new Graphics();
   private fields: FieldInfo[] = [];
   private readonly buildingsLayer = new Graphics();
@@ -576,9 +604,11 @@ export class MapView {
       };
       const elev = elevations(elevTile);
       const water = classes(waterTile);
+      const cellM = info.cellSizeM * 2 ** level;
       const rgba = shade(elev, water, elevTile.width, elevTile.height, {
         ...this.shadeOptions,
-        cellM: info.cellSizeM * 2 ** level,
+        cellM,
+        season: this.season ?? undefined,
       });
       const sprite = new Sprite(texture(rgba, elevTile.width, elevTile.height));
       const sampleM = info.cellSizeM * 2 ** level;
@@ -594,7 +624,10 @@ export class MapView {
         elev,
         water,
         sprite,
+        cellM,
+        crop: null,
       };
+      this.seasonShown = seasonKey(this.season);
       this.hydro = hydro;
       this.riverScale = 0;
       this.fit();
@@ -602,6 +635,42 @@ export class MapView {
     } catch (e) {
       if (generation !== this.generation) return;
       this.setStatus("error", e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  /** The season the clock tells (null for none): the land is tinted by it and whitened above the
+   * snow line. The map is shaded again when what shows has changed, at most every two seconds. */
+  setSeason(season: Season | null): void {
+    this.season = season;
+    const key = seasonKey(season);
+    if (key === this.seasonShown) return;
+    const wait = this.seasonShownAt + RESHADE_MS - performance.now();
+    if (wait > 0) {
+      // Too soon: shade for whatever the season is then.
+      this.seasonTimer ??= setTimeout(() => {
+        this.seasonTimer = null;
+        this.setSeason(this.season);
+      }, wait);
+      return;
+    }
+    this.seasonShown = key;
+    this.seasonShownAt = performance.now();
+    this.reshade();
+  }
+
+  /** Shades the base map and every detail tile again from the samples they keep. */
+  private reshade(): void {
+    const opts = this.shadeOptions;
+    if (!opts) return;
+    const season = this.season ?? undefined;
+    const patches = [this.base, ...[...this.tiles.values()].map((t) => t.patch)];
+    for (const p of patches) {
+      if (!p) continue;
+      const full = shade(p.elev, p.water, p.sw, p.sh, { ...opts, cellM: p.cellM, season });
+      const rgba = p.crop ? cropPixels(full, p.sw, p.crop) : full;
+      const old = p.sprite.texture;
+      p.sprite.texture = texture(rgba, p.crop?.w ?? p.sw, p.crop?.h ?? p.sh);
+      old.destroy(true);
     }
   }
 
@@ -900,14 +969,13 @@ export class MapView {
       if (generation !== this.generation) return;
       const elev = elevations(elevTile);
       const water = classes(waterTile);
-      const full = shade(elev, water, elevTile.width, elevTile.height, opts);
-      const rgba = new Uint8ClampedArray(w * h * 4);
+      const full = shade(elev, water, elevTile.width, elevTile.height, {
+        ...opts,
+        season: this.season ?? undefined,
+      });
       const ox = x0 - mx0;
       const oy = y0 - my0;
-      for (let y = 0; y < h; y++) {
-        const from = ((y + oy) * elevTile.width + ox) * 4;
-        rgba.set(full.subarray(from, from + w * 4), y * w * 4);
-      }
+      const rgba = cropPixels(full, elevTile.width, { x: ox, y: oy, w, h });
       const sprite = new Sprite(texture(rgba, w, h));
       sprite.position.set(x0 * info.cellSizeM, y0 * info.cellSizeM);
       sprite.width = w * info.cellSizeM;
@@ -923,6 +991,8 @@ export class MapView {
           elev,
           water,
           sprite,
+          cellM: opts.cellM,
+          crop: { x: ox, y: oy, w, h },
         };
       } else {
         sprite.destroy({ texture: true, textureSource: true });
@@ -972,6 +1042,8 @@ export class MapView {
       selected: this.selected,
       camera: { x: this.world.x, y: this.world.y, scale: this.scale },
       screen: this.app ? [this.app.screen.width, this.app.screen.height] : null,
+      // M3c slice U: the season the land was last shaded for ("" for none).
+      season: this.seasonShown,
     };
   }
 }

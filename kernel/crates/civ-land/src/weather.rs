@@ -37,6 +37,8 @@ const PURPOSE_WEATHER: u64 = 0x7765_6174_6865_7231; // "weather1"
 const PURPOSE_CLIMATOLOGY: u64 = 0x636c_696d_6174_6f6c; // "climatol"
 /// Purpose tag for the state a world's weather starts from.
 const PURPOSE_START: u64 = 0x7773_7461_7274_3031; // "wstart01"
+/// Purpose tag for a world's storms.
+const PURPOSE_STORM: u64 = 0x7374_6f72_6d73_3031; // "storms01"
 
 /// Height of a snow band, metres.
 pub const SNOW_BAND_M: f64 = 100.0;
@@ -48,6 +50,76 @@ pub const SNOW_COVER_MM: f64 = 5.0;
 pub const EASE_DAYS: f64 = 30.0;
 /// Years of weather a [`Climatology`] is drawn from, after one year to settle.
 pub const CLIMATOLOGY_YEARS: usize = 300;
+
+/// The months' names, January first, for the kernel's words.
+pub const MONTH_NAMES: [&str; 12] = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+];
+
+/// What stands out in the weather on the valley floor, for the chronicle (tuning values; the
+/// shares are of 500 years of the valley). A month with this many times its usual rain and snow
+/// or more is wet: 3 % of months.
+pub const WET_MONTH: f64 = 2.0;
+/// A month with this share of its usual rain and snow or less is dry: 2 % of months.
+pub const DRY_MONTH: f64 = 0.25;
+/// A month whose mean is this far below its normal or more is cold, and this far above it warm,
+/// °C: 2 % and 3 % of months.
+pub const ODD_MONTH_C: f64 = 3.0;
+/// A calendar year with this many times its usual rain and snow or more is wet: 10 % of years.
+pub const WET_YEAR: f64 = 1.3;
+/// A year with this share of its usual or less is dry: 6 % of years.
+pub const DRY_YEAR: f64 = 0.7;
+/// A winter, October to April, with snow lying on this many times the days a winter usually has
+/// or more is long: 10 % of winters.
+pub const LONG_WINTER: f64 = 1.75;
+/// A winter with this share of those days or fewer is mild: 4 % of winters.
+pub const MILD_WINTER: f64 = 0.25;
+/// A long or mild winter's days of snow lying also differ from the usual by this many days or
+/// more, so a landscape where snow seldom lies has no mild winters, nor long ones of a few days.
+pub const WINTER_DAYS_APART: f64 = 10.0;
+/// The months of a winter, October first.
+const WINTER_MONTHS: [usize; 7] = [9, 10, 11, 0, 1, 2, 3];
+
+/// What stood out in a [`WeatherNote`], as flags: the number of a weather entry in the
+/// chronicle. Append only.
+pub mod stood_out {
+    /// Rain and snow well above the usual.
+    pub const WET: u32 = 1;
+    /// Rain and snow well below the usual.
+    pub const DRY: u32 = 2;
+    /// A month's mean well below its normal.
+    pub const COLD: u32 = 4;
+    /// A month's mean well above its normal.
+    pub const WARM: u32 = 8;
+    /// The note is of a calendar year, not a month.
+    pub const YEAR: u32 = 16;
+    /// A winter with snow lying on many more days than usual.
+    pub const LONG_WINTER: u32 = 32;
+    /// A winter with snow lying on many fewer days than usual.
+    pub const MILD_WINTER: u32 = 64;
+}
+
+/// What stood out in a month, a winter or a year of weather on the valley floor against what it
+/// usually brings (ADR-0012), for the chronicle.
+#[derive(Clone, Debug, PartialEq)]
+pub struct WeatherNote {
+    /// What stood out: [`stood_out`] flags.
+    pub flags: u32,
+    /// In the kernel's words: "October was wet and cold on the valley floor: 168 mm fell, 2.1
+    /// times what October usually brings; a mean of 3.5 °C, 6.0 °C below its usual."
+    pub words: String,
+}
 
 /// How a landscape's weather is drawn: the land profile's `[weather]`. Monthly values are for
 /// January first; temperatures are interpolated between mid-month values.
@@ -102,6 +174,33 @@ pub struct WeatherParams {
     pub wet_ground_mm: f64,
     /// The ground is frozen, and cannot be dug or sown, when the day's mean is below this, °C.
     pub frozen_below_c: f64,
+    /// The median load the month's storm puts on a roof, pascals on its plan (ADR-0012 §5).
+    pub storm_median_pa: f64,
+    /// The spread of the natural logarithm of that load.
+    pub storm_spread: f64,
+    /// The share of the snow lying on the ground that a roof keeps when pitched at
+    /// `roof_snow_full_deg` or less (ADR-0012 §5).
+    pub roof_snow_share: f64,
+    /// The pitch up to which a roof keeps `roof_snow_share` of the snow, degrees.
+    pub roof_snow_full_deg: f64,
+    /// The pitch from which a roof keeps no snow, degrees: between the two, the share falls
+    /// in proportion.
+    pub roof_snow_shed_deg: f64,
+}
+
+impl WeatherParams {
+    /// The share of the snow lying on the ground that a roof pitched `pitch_deg` keeps.
+    pub fn roof_snow_share_at(&self, pitch_deg: f64) -> f64 {
+        let (full, shed) = (self.roof_snow_full_deg, self.roof_snow_shed_deg);
+        let kept = if pitch_deg <= full {
+            1.0
+        } else if pitch_deg >= shed {
+            0.0
+        } else {
+            (shed - pitch_deg) / (shed - full)
+        };
+        self.roof_snow_share.max(0.0) * kept
+    }
 }
 
 /// Why field work cannot be done somewhere today (ADR-0012 §5).
@@ -271,6 +370,8 @@ pub struct Climatology {
     pub season_need_mm: Vec<f64>,
     /// The long-run mean precipitation by month, mm.
     pub month_precip_mm: [f64; 12],
+    /// The long-run mean of the days by month that end with snow lying on the valley floor.
+    pub month_snow_days: [f64; 12],
 }
 
 /// The key of a landscape: its preset's id, hashed (FNV-1a).
@@ -423,6 +524,7 @@ impl Climatology {
             workable_share: vec![1.0; crops.len()],
             season_need_mm: vec![0.0; crops.len()],
             month_precip_mm: [0.0; 12],
+            month_snow_days: [0.0; 12],
         };
         c.measure(params, landscape);
         c
@@ -481,7 +583,9 @@ impl Climatology {
         }
         self.stream = world;
         for r in w.months.iter().filter(|r| r.year > 1) {
-            self.month_precip_mm[usize::from(r.month)] += f64::from(r.precip_mm) / years as f64;
+            let m = usize::from(r.month);
+            self.month_precip_mm[m] += f64::from(r.precip_mm) / years as f64;
+            self.month_snow_days[m] += f64::from(r.snow_days) / years as f64;
         }
         for (mean, sum) in self.crop_mean.iter_mut().zip(&crop_sum) {
             *mean = (sum / years as f64).max(0.05);
@@ -501,6 +605,21 @@ impl Climatology {
                 self.cover_mean[m] = (cover_sum[m] / cover_days[m]).max(0.05);
             }
         }
+    }
+
+    /// The storm of month `month` (0 for January) of year `year` over the world (ADR-0012 §5):
+    /// the day of the month it comes, 1 to 28, and the load its gusts put on a roof, pascals on
+    /// its plan, log-normal about `storm_median_pa`. One draw for each month of a world's
+    /// landscape, from its weather's key, the same for every roof under it.
+    pub fn storm(&self, params: &WeatherParams, year: i64, month: usize) -> (u8, f64) {
+        let index = year.wrapping_mul(12).wrapping_add(month.min(11) as i64) as u64;
+        let mut rng = Rng64::from_key(&[self.stream, PURPOSE_STORM, index]);
+        let z = normal(&mut rng);
+        let day = 1 + (rng.next_f64() * 28.0).floor().clamp(0.0, 27.0) as u8;
+        (
+            day,
+            params.storm_median_pa.max(0.0) * (params.storm_spread.max(0.0) * z).exp(),
+        )
     }
 
     /// The share of its yield a crop of kind `crop` gives for a season that needed `need_mm` of
@@ -534,6 +653,92 @@ impl Climatology {
     fn normals(&self, day: i64) -> &DayNormals {
         &self.days[day_of_year(day) as usize]
     }
+}
+
+/// Whether a month's record holds all its days.
+fn whole(m: &MonthRecord) -> bool {
+    i64::from(m.days) >= MONTH_LENGTHS[usize::from(m.month.min(11))]
+}
+
+/// What stood out in the whole month `m` against its usual, if anything.
+fn month_note(
+    m: &MonthRecord,
+    params: &WeatherParams,
+    climate: &Climatology,
+) -> Option<WeatherNote> {
+    let i = usize::from(m.month.min(11));
+    let name = MONTH_NAMES[i];
+    let (mut flags, mut said, mut facts) = (0, Vec::new(), Vec::new());
+    let (mm, usual) = (f64::from(m.precip_mm), climate.month_precip_mm[i]);
+    if usual > 0.0 {
+        let r = mm / usual;
+        if r >= WET_MONTH || r <= DRY_MONTH {
+            let (flag, word) = if r >= WET_MONTH {
+                (stood_out::WET, "wet")
+            } else {
+                (stood_out::DRY, "dry")
+            };
+            flags |= flag;
+            said.push(word);
+            facts.push(fell(mm, usual, name));
+        }
+    }
+    let (mean, normal) = (m.mean_c(), params.mean_c[i]);
+    let odd = mean - normal;
+    if odd.abs() >= ODD_MONTH_C {
+        let (flag, word, side) = if odd < 0.0 {
+            (stood_out::COLD, "cold", "below")
+        } else {
+            (stood_out::WARM, "warm", "above")
+        };
+        flags |= flag;
+        said.push(word);
+        facts.push(format!(
+            "a mean of {} °C, {} °C {side} its usual",
+            tenths(mean),
+            tenths(odd.abs())
+        ));
+    }
+    (flags != 0).then(|| WeatherNote {
+        flags,
+        words: format!(
+            "{name} was {} on the valley floor: {}.",
+            said.join(" and "),
+            facts.join("; ")
+        ),
+    })
+}
+
+/// What fell, `mm`, against the `usual` of `what`: "168 mm fell, 2.1 times what October usually
+/// brings", "9 mm fell, 14% of what July usually brings".
+fn fell(mm: f64, usual: f64, what: &str) -> String {
+    let r = mm / usual;
+    if mm < 0.5 {
+        format!("nothing fell, where {what} usually brings {usual:.0} mm")
+    } else if r >= 1.0 {
+        let t = (r * 10.0).round() as i64;
+        let times = match t {
+            20 => "twice".to_owned(),
+            30 => "three times".to_owned(),
+            _ => format!("{}.{} times", t / 10, t % 10),
+        };
+        format!("{mm:.0} mm fell, {times} what {what} usually brings")
+    } else {
+        format!(
+            "{mm:.0} mm fell, {:.0}% of what {what} usually brings",
+            r * 100.0
+        )
+    }
+}
+
+/// `x` to a tenth, never "-0.0".
+fn tenths(x: f64) -> String {
+    format!("{:.1}", (x * 10.0).round() / 10.0 + 0.0)
+}
+
+/// "s" unless `n` is one.
+fn plural(n: u32) -> &'static str {
+    if n == 1 { "" } else { "s" }
 }
 
 /// What reached the ground on a day, by snow band.
@@ -633,6 +838,17 @@ impl Weather {
         f64::from(self.snow_base_m) + (band as f64 + 0.5) * SNOW_BAND_M
     }
 
+    /// The lowest height at which snow lies, metres: the foot of the lowest band with
+    /// [`SNOW_COVER_MM`] of water or more lying, or infinity when it lies nowhere.
+    pub fn snow_line_m(&self) -> f64 {
+        self.snow_mm
+            .iter()
+            .position(|&s| f64::from(s) >= SNOW_COVER_MM)
+            .map_or(f64::INFINITY, |b| {
+                f64::from(self.snow_base_m) + b as f64 * SNOW_BAND_M
+            })
+    }
+
     /// The band the normals are for.
     pub fn reference_band(&self, params: &WeatherParams) -> usize {
         self.band_of(params.normals_at_m)
@@ -658,6 +874,92 @@ impl Weather {
         }
         let usual = climate.month_precip_mm[month];
         (usual > 0.0).then(|| f64::from(m.precip_mm) / usual)
+    }
+
+    /// What stood out in the weather just lived, for the chronicle on the first of a month: the
+    /// month, if the record ends with it whole; on the first of January also the year, and on the
+    /// first of May the winter from October, if all their months are in the record, whole.
+    pub fn notes(&self, params: &WeatherParams, climate: &Climatology) -> Vec<WeatherNote> {
+        let mut out = Vec::new();
+        let Some(last) = self.months.last().filter(|m| whole(m)) else {
+            return out;
+        };
+        out.extend(month_note(last, params, climate));
+        match last.month {
+            11 => out.extend(self.year_note(climate, last.year)),
+            3 => out.extend(self.winter_note(climate, last.year)),
+            _ => {}
+        }
+        out
+    }
+
+    /// The calendar year `year`, if its twelve months end the record, whole.
+    fn year_note(&self, climate: &Climatology, year: i64) -> Option<WeatherNote> {
+        let months = self.months.get(self.months.len().checked_sub(12)?..)?;
+        let complete = months
+            .iter()
+            .enumerate()
+            .all(|(i, m)| m.year == year && usize::from(m.month) == i && whole(m));
+        let usual: f64 = climate.month_precip_mm.iter().sum();
+        if !complete || usual <= 0.0 {
+            return None;
+        }
+        let mm: f64 = months.iter().map(|m| f64::from(m.precip_mm)).sum();
+        let (flag, word) = match mm / usual {
+            r if r >= WET_YEAR => (stood_out::WET, "wet"),
+            r if r <= DRY_YEAR => (stood_out::DRY, "dry"),
+            _ => return None,
+        };
+        Some(WeatherNote {
+            flags: stood_out::YEAR | flag,
+            words: format!(
+                "Year {year} was {word} on the valley floor: {}.",
+                fell(mm, usual, "a year")
+            ),
+        })
+    }
+
+    /// The winter from the October before `year` to its April, if its seven months end the
+    /// record, whole.
+    fn winter_note(&self, climate: &Climatology, year: i64) -> Option<WeatherNote> {
+        let months = self.months.get(self.months.len().checked_sub(7)?..)?;
+        let complete = months.iter().zip(WINTER_MONTHS).all(|(r, m)| {
+            let y = if m >= 9 { year - 1 } else { year };
+            r.year == y && usize::from(r.month) == m && whole(r)
+        });
+        if !complete {
+            return None;
+        }
+        let days: u32 = months.iter().map(|r| u32::from(r.snow_days)).sum();
+        let usual: f64 = WINTER_MONTHS
+            .iter()
+            .map(|&m| climate.month_snow_days[m])
+            .sum();
+        let (d, u) = (f64::from(days), usual.round());
+        let words = if days == 0 {
+            format!(
+                "no snow lay on the valley floor, where a winter usually has it on {u:.0} days."
+            )
+        } else {
+            format!(
+                "snow lay on the valley floor on {days} day{}, where a winter usually has it on \
+                 {u:.0}.",
+                plural(days)
+            )
+        };
+        if d >= LONG_WINTER * usual && d - usual >= WINTER_DAYS_APART {
+            Some(WeatherNote {
+                flags: stood_out::LONG_WINTER,
+                words: format!("The winter was long: {words}"),
+            })
+        } else if d <= MILD_WINTER * usual && usual - d >= WINTER_DAYS_APART {
+            Some(WeatherNote {
+                flags: stood_out::MILD_WINTER,
+                words: format!("The winter was mild: {words}"),
+            })
+        } else {
+            None
+        }
     }
 
     /// Why the ground at height `z_m` cannot be worked today, if it cannot (ADR-0012 §5): snow
@@ -879,6 +1181,11 @@ pub(crate) mod tests {
             cover_kc: 0.9,
             wet_ground_mm: 5.0,
             frozen_below_c: 0.0,
+            storm_median_pa: 250.0,
+            storm_spread: 0.6,
+            roof_snow_share: 0.8,
+            roof_snow_full_deg: 30.0,
+            roof_snow_shed_deg: 60.0,
         }
     }
 
@@ -1005,6 +1312,15 @@ pub(crate) mod tests {
         );
         // A day 10 °C above freezing melts 30 mm of water.
         assert!((p.melt_mm_per_c * 10.0 - 30.0).abs() < 1e-9);
+        // The snow line is the foot of the lowest band with snow lying; none lies anywhere,
+        // and it is infinitely high.
+        w.snow_mm.iter_mut().for_each(|s| *s = 0.0);
+        assert_eq!(w.snow_line_m(), f64::INFINITY);
+        w.snow_mm[high] = 40.0;
+        w.snow_mm[high - 1] = 2.0;
+        assert!((w.snow_line_m() - (w.band_mid_m(high) - SNOW_BAND_M / 2.0)).abs() < 1e-9);
+        w.snow_mm[high - 1] = 8.0;
+        assert!((w.snow_line_m() - (w.band_mid_m(high - 1) - SNOW_BAND_M / 2.0)).abs() < 1e-9);
     }
 
     #[test]
@@ -1111,5 +1427,180 @@ pub(crate) mod tests {
         assert!((cw.kc_on(119) - (1.15 - 0.75 * 19.0 / 20.0)).abs() < 1e-12);
         // Ky: a fifth of the need unmet costs 23 % of the yield (08-02 §7.2).
         assert!((cw.raw_factor(100.0, 80.0) - 0.77).abs() < 1e-12);
+    }
+
+    #[test]
+    fn months_winters_and_years_stand_out_about_as_seldom_as_measured() {
+        let p = params();
+        let c = climate(7, landscape_key("core:worldgen/river_valley"));
+        let mut w = Weather::new(&p, &c, 100.0, 1100.0, 0);
+        let mut notes = Vec::new();
+        for day in 0..500 * DAYS_PER_YEAR {
+            w.live(&p, &c);
+            let found = w.notes(&p, &c);
+            // Only the first of a month, the month before whole, has anything to note.
+            if !MONTH_STARTS[..12].contains(&day_of_year(day + 1)) {
+                assert!(found.is_empty(), "day {day}: {found:?}");
+            }
+            notes.extend(found);
+        }
+        let count = |f: u32| notes.iter().filter(|n| n.flags & f != 0).count();
+        let not_months = stood_out::YEAR | stood_out::LONG_WINTER | stood_out::MILD_WINTER;
+        let months = notes.iter().filter(|n| n.flags & not_months == 0).count();
+        let years = count(stood_out::YEAR);
+        let winters = count(stood_out::LONG_WINTER) + count(stood_out::MILD_WINTER);
+        // About one month in eleven, one year in six and one winter in seven stand out.
+        assert!((350..=750).contains(&months), "{months} months of 6,000");
+        assert!((50..=120).contains(&years), "{years} years of 500");
+        assert!((40..=110).contains(&winters), "{winters} winters of 499");
+        for f in [
+            stood_out::WET,
+            stood_out::DRY,
+            stood_out::COLD,
+            stood_out::WARM,
+            stood_out::LONG_WINTER,
+            stood_out::MILD_WINTER,
+        ] {
+            assert!(count(f) > 0, "flag {f}");
+        }
+        for n in &notes {
+            assert!(
+                n.words.ends_with('.') && n.words.contains(" the valley floor"),
+                "{}",
+                n.words
+            );
+        }
+    }
+
+    #[test]
+    fn a_note_says_what_stood_out_against_the_usual() {
+        let p = params();
+        let mut c = climate(7, landscape_key("core:worldgen/river_valley"));
+        c.month_precip_mm = [80.0; 12];
+        // A winter usually has snow lying on 30 days.
+        c.month_snow_days = [10.0, 8.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 8.0];
+        let month = |year: i64, month: u8, precip: f32, mean: f64, snow: u8| {
+            let days = MONTH_LENGTHS[usize::from(month)] as u8;
+            MonthRecord {
+                year,
+                month,
+                days,
+                precip_mm: precip,
+                temp_sum_c: (mean * f64::from(days)) as f32,
+                snow_days: snow,
+                ..MonthRecord::default()
+            }
+        };
+        let usual = |m: u8| p.mean_c[usize::from(m)];
+        // October's normal is 9.5 °C.
+        let n = month_note(&month(3, 9, 168.0, 3.5, 0), &p, &c).expect("stands out");
+        assert_eq!(n.flags, stood_out::WET | stood_out::COLD);
+        assert_eq!(
+            n.words,
+            "October was wet and cold on the valley floor: 168 mm fell, 2.1 times what October \
+             usually brings; a mean of 3.5 °C, 6.0 °C below its usual."
+        );
+        // July's is 19 °C.
+        let n = month_note(&month(3, 6, 0.0, 22.5, 0), &p, &c).expect("stands out");
+        assert_eq!(n.flags, stood_out::DRY | stood_out::WARM);
+        assert_eq!(
+            n.words,
+            "July was dry and warm on the valley floor: nothing fell, where July usually brings \
+             80 mm; a mean of 22.5 °C, 3.5 °C above its usual."
+        );
+        let n = month_note(&month(3, 1, 160.0, usual(1), 0), &p, &c).expect("stands out");
+        assert_eq!(
+            n.words,
+            "February was wet on the valley floor: 160 mm fell, twice what February usually \
+             brings."
+        );
+        assert_eq!(month_note(&month(3, 4, 100.0, 15.0, 0), &p, &c), None);
+        // A whole year, each month of it ordinary, ends dry; a year begun in March has no note.
+        let mut w = Weather::new(&p, &c, 100.0, 1100.0, 0);
+        w.months = (0..12).map(|m| month(4, m, 48.0, usual(m), 0)).collect();
+        assert_eq!(
+            w.notes(&p, &c),
+            vec![WeatherNote {
+                flags: stood_out::YEAR | stood_out::DRY,
+                words: "Year 4 was dry on the valley floor: 576 mm fell, 60% of what a year \
+                        usually brings."
+                    .to_owned(),
+            }]
+        );
+        w.months.drain(..2);
+        assert!(w.notes(&p, &c).is_empty());
+        // A winter from October to April, noted on the first of May.
+        let winter = [(4, 9), (4, 10), (4, 11), (5, 0), (5, 1), (5, 2), (5, 3)];
+        let lying = |snow: [u8; 7]| -> Vec<MonthRecord> {
+            winter
+                .iter()
+                .zip(snow)
+                .map(|(&(y, m), s)| month(y, m, 80.0, usual(m), s))
+                .collect()
+        };
+        w.months = lying([0, 10, 31, 31, 28, 20, 0]);
+        assert_eq!(
+            w.notes(&p, &c),
+            vec![WeatherNote {
+                flags: stood_out::LONG_WINTER,
+                words: "The winter was long: snow lay on the valley floor on 120 days, where a \
+                        winter usually has it on 30."
+                    .to_owned(),
+            }]
+        );
+        w.months = lying([0, 0, 0, 1, 0, 0, 0]);
+        let n = w.notes(&p, &c);
+        assert_eq!(n.len(), 1);
+        assert_eq!(n[0].flags, stood_out::MILD_WINTER);
+        assert!(n[0].words.contains("on 1 day,"), "{}", n[0].words);
+        w.months = lying([0; 7]);
+        assert_eq!(
+            w.notes(&p, &c)[0].words,
+            "The winter was mild: no snow lay on the valley floor, where a winter usually has it \
+             on 30 days."
+        );
+        // A winter within its usual says nothing, nor one whose record is not all there.
+        w.months = lying([0, 2, 8, 10, 8, 2, 0]);
+        assert!(w.notes(&p, &c).is_empty());
+        w.months = lying([0, 10, 31, 31, 28, 20, 0]);
+        w.months.remove(0);
+        assert!(w.notes(&p, &c).is_empty());
+    }
+
+    #[test]
+    fn a_month_has_one_storm_for_the_whole_world_and_steep_roofs_shed_snow() {
+        let p = params();
+        let key = landscape_key("core:worldgen/river_valley");
+        let (c, other_seed, coast) = (
+            climate(7, key),
+            climate(8, key),
+            climate(7, landscape_key("core:worldgen/coast")),
+        );
+        let mut loads = Vec::new();
+        for year in 1..=100 {
+            for month in 0..12 {
+                let (day, pa) = c.storm(&p, year, month);
+                assert!((1..=28).contains(&day), "{day}");
+                assert!(pa > 0.0);
+                // The same storm whenever it is asked for, and a world's own.
+                assert_eq!(c.storm(&p, year, month), (day, pa));
+                assert_eq!(climate(7, key).storm(&p, year, month), (day, pa));
+                loads.push(pa);
+            }
+        }
+        assert_ne!(c.storm(&p, 3, 4), other_seed.storm(&p, 3, 4));
+        assert_ne!(c.storm(&p, 3, 4), coast.storm(&p, 3, 4));
+        loads.sort_by(f64::total_cmp);
+        let median = loads[loads.len() / 2];
+        assert!((median - 250.0).abs() < 25.0, "{median}");
+        // One month in twenty above about 0.7 kPa (the stand-in's figures).
+        let over = loads.iter().filter(|&&l| l > 700.0).count() as f64 / loads.len() as f64;
+        assert!((0.03..0.08).contains(&over), "{over}");
+        // A roof keeps less of the snow the steeper it is.
+        assert_eq!(p.roof_snow_share_at(20.0), 0.8);
+        assert_eq!(p.roof_snow_share_at(30.0), 0.8);
+        assert!((p.roof_snow_share_at(45.0) - 0.4).abs() < 1e-12);
+        assert_eq!(p.roof_snow_share_at(60.0), 0.0);
+        assert_eq!(p.roof_snow_share_at(75.0), 0.0);
     }
 }

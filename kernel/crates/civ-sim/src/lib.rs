@@ -13,12 +13,14 @@
 #![forbid(unsafe_code)]
 
 pub mod frames;
+pub mod labels;
 pub mod persist;
 
 use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
+pub use civ_agents::Approximations;
 use civ_agents::params::{Catalog, PeopleParams, RegimeDef};
 use civ_agents::{AgentEvent, Ctx, Founded, Population, Spawned};
 use civ_content::ContentRegistry;
@@ -56,7 +58,7 @@ pub enum Mode {
     #[default]
     Detailed,
     /// 60x, 600x and Max: a day at a time, the clock stopping, publishing and saving only at
-    /// midnight (ADR-0011 §2). As yet it lives each day exactly as Detailed mode does.
+    /// midnight (ADR-0011 §2), with the approximations it declares (§4).
     Accelerated,
 }
 
@@ -68,6 +70,14 @@ impl Mode {
         } else {
             Mode::Detailed
         }
+    }
+}
+
+/// The approximations made in `mode`: those set, in Accelerated mode; none in Detailed mode.
+fn in_mode(set: Approximations, mode: Mode) -> Approximations {
+    match mode {
+        Mode::Accelerated => set,
+        Mode::Detailed => Approximations::NONE,
     }
 }
 /// Longest world name kept, in bytes.
@@ -88,6 +98,13 @@ pub struct NewWorld {
     pub size_cells: u32,
     /// People in the founding band; 0 means the people profile's default.
     pub band_size: u32,
+    /// People in each further founding group, each a band of its own whose site is chosen
+    /// together with the first's (ADR-0018 §6); 0 means the default. At most
+    /// [`civ_agents::MAX_FOUNDING_GROUPS`] groups in all.
+    pub neighbours: Vec<u32>,
+    /// Whether the founding groups know where each other camped when they arrive (ADR-0018 §6,
+    /// M5a slice AM); otherwise each finds the others only by contact.
+    pub neighbours_known: bool,
     /// Content id of the property regime (ADR-0007); empty means the content's default.
     pub regime_id: String,
 }
@@ -251,6 +268,8 @@ pub enum SimError {
     UnknownPreset(String),
     /// The content has no property regime with this id.
     UnknownRegime(String),
+    /// A world is made with at most [`civ_agents::MAX_FOUNDING_GROUPS`] founding groups.
+    TooManyGroups(usize),
     /// A founding band must have between the people profile's smallest and largest size.
     InvalidBandSize {
         /// What was asked for.
@@ -273,6 +292,11 @@ impl fmt::Display for SimError {
         match self {
             SimError::UnknownPreset(id) => write!(f, "there is no world preset `{id}`"),
             SimError::UnknownRegime(id) => write!(f, "there is no property regime `{id}`"),
+            SimError::TooManyGroups(n) => write!(
+                f,
+                "{n} founding groups is too many (at most {})",
+                civ_agents::MAX_FOUNDING_GROUPS
+            ),
             SimError::InvalidBandSize { size, min, max } => write!(
                 f,
                 "a founding band of {size} is out of range ({min} to {max} people)"
@@ -303,6 +327,9 @@ pub struct Sim {
     /// How the kernel advances now, and a change of mode held for the next midnight.
     mode: Mode,
     mode_next: Option<Mode>,
+    /// The approximations Accelerated mode makes (ADR-0011 §4): all it declares, unless a test
+    /// has switched some off. Detailed mode makes none. A setting, never saved.
+    approximations: Approximations,
     /// Simulated seconds owed: not yet a whole minute in Detailed mode, not yet a whole day in
     /// Accelerated mode.
     carry_seconds: f64,
@@ -394,17 +421,23 @@ impl Sim {
             .preset(&request.preset_id)
             .ok_or_else(|| SimError::UnknownPreset(request.preset_id.clone()))?;
         let band = &content.people.params.band;
-        let band_size = match request.band_size {
-            0 => band.default_size,
-            size if (band.min_size..=band.max_size).contains(&size) => size,
-            size => {
-                return Err(SimError::InvalidBandSize {
-                    size,
-                    min: band.min_size,
-                    max: band.max_size,
-                });
-            }
+        let size_of = |size: u32| match size {
+            0 => Ok(band.default_size),
+            size if (band.min_size..=band.max_size).contains(&size) => Ok(size),
+            size => Err(SimError::InvalidBandSize {
+                size,
+                min: band.min_size,
+                max: band.max_size,
+            }),
         };
+        let groups = 1 + request.neighbours.len();
+        if groups > civ_agents::MAX_FOUNDING_GROUPS {
+            return Err(SimError::TooManyGroups(groups));
+        }
+        let mut sizes = vec![size_of(request.band_size)?];
+        for &size in &request.neighbours {
+            sizes.push(size_of(size)?);
+        }
         let generate = GenerateRequest {
             seed: request.seed,
             width_cells: request.size_cells,
@@ -483,8 +516,35 @@ impl Sim {
             stage: "The first people arrive",
             fraction: 1.0,
         });
-        if let Err(why) = sim.found_band(band_size) {
-            sim.founding_problem = Some(why);
+        // Groups that find no room apart are left out, the last listed first, and the problem
+        // kept to tell.
+        let mut placed = sizes.len();
+        while placed > 0 {
+            match sim.found_bands(&sizes[..placed]) {
+                Ok(founded) if placed == sizes.len() => {
+                    if request.neighbours_known {
+                        let day = sim.now().day_index();
+                        sim.people.know_each_other(&founded, day);
+                    }
+                    break;
+                }
+                Ok(founded) => {
+                    if request.neighbours_known {
+                        let day = sim.now().day_index();
+                        sim.people.know_each_other(&founded, day);
+                    }
+                    sim.founding_problem = Some(format!(
+                        "only {placed} of {} founding groups found room for fields apart",
+                        sizes.len()
+                    ));
+                    break;
+                }
+                Err(why) if placed == 1 => {
+                    sim.founding_problem = Some(why);
+                    break;
+                }
+                Err(_) => placed -= 1,
+            }
         }
         // Deposits are laid down once, after the band arrives so its founding draws are as they
         // were before deposits existed (ADR-0010 §1).
@@ -495,7 +555,14 @@ impl Sim {
 
     /// Brings a founding band of `size` people to the world now. They choose where to camp.
     pub fn found_band(&mut self, size: u32) -> Result<Founded, String> {
+        self.found_bands(&[size]).map(|mut all| all.remove(0))
+    }
+
+    /// Brings founding groups of `sizes` people to the world now, each a band of its own, their
+    /// sites chosen together (ADR-0018 §6).
+    pub fn found_bands(&mut self, sizes: &[u32]) -> Result<Vec<Founded>, String> {
         let now = self.now();
+        let approx = self.approximations_now();
         let mut pending = Vec::new();
         let founded = {
             let mut ctx = Ctx {
@@ -510,8 +577,9 @@ impl Sim {
                 regime: &self.regime,
                 ids: &mut self.ids,
                 schedule: &mut pending,
+                approx,
             };
-            civ_agents::found_band(&mut self.people, &mut ctx, size)
+            civ_agents::found_bands(&mut self.people, &mut ctx, sizes)
         };
         for (at, event) in pending {
             // Agent events are never scheduled before the next minute.
@@ -649,6 +717,7 @@ impl Sim {
     /// [`civ_agents::spawn_families`]).
     pub fn spawn_families(&mut self, at: (f32, f32), count: u32) -> Result<Vec<Spawned>, String> {
         let now = self.now();
+        let approx = self.approximations_now();
         let mut pending = Vec::new();
         let spawned = {
             let mut ctx = Ctx {
@@ -663,6 +732,7 @@ impl Sim {
                 regime: &self.regime,
                 ids: &mut self.ids,
                 schedule: &mut pending,
+                approx,
             };
             civ_agents::spawn_families(&mut self.people, &mut ctx, at, count)
         };
@@ -672,6 +742,7 @@ impl Sim {
                 .schedule(when, PHASE_AGENT, SimEvent::Agent(event));
         }
         if spawned.is_ok() {
+            self.people.forget_views();
             self.dirty = true;
         }
         spawned
@@ -692,6 +763,7 @@ impl Sim {
             .technique_index(technique)
             .ok_or_else(|| format!("there is no technique `{technique}`"))?;
         let now = self.now();
+        let approx = self.approximations_now();
         let mut pending = Vec::new();
         let done = {
             let mut ctx = Ctx {
@@ -706,6 +778,7 @@ impl Sim {
                 regime: &self.regime,
                 ids: &mut self.ids,
                 schedule: &mut pending,
+                approx,
             };
             self.people
                 .introduce_technique(&mut ctx, person, t, aware_only)
@@ -716,6 +789,128 @@ impl Sim {
                 .schedule(when, PHASE_AGENT, SimEvent::Agent(event));
         }
         if done.is_ok() {
+            self.people.forget_views();
+            self.dirty = true;
+        }
+        done
+    }
+
+    /// The observer whispers claim `claim` to `person` (god tool, M4c slice AJ, ADR-0016 §5): a
+    /// true claim their settlement's word holds, placed in their hearing as if heard. The
+    /// chronicle records it as one recorded influence.
+    pub fn whisper(
+        &mut self,
+        person: civ_core::PermanentId,
+        claim: u32,
+    ) -> Result<civ_agents::population::Reached, String> {
+        let words = self
+            .people
+            .word
+            .claim(claim)
+            .map(|c| frames::word::claim_words(self, c))
+            .ok_or_else(|| format!("there is no news {claim} to whisper"))?;
+        self.influence(|people, ctx| people.whisper(ctx, person, claim, &words))
+    }
+
+    /// The observer tells `person` of ideology `ideology` (by content id; god tool, M4c slice AJ,
+    /// ADR-0016 §5): they weigh it as one heard of from no one. The chronicle records it as one
+    /// recorded influence.
+    pub fn tell_of_ideology(
+        &mut self,
+        person: civ_core::PermanentId,
+        ideology: &str,
+    ) -> Result<civ_agents::population::Reached, String> {
+        let k = self
+            .rules
+            .catalog
+            .ideologies
+            .iter()
+            .position(|d| d.id == ideology)
+            .and_then(|k| u16::try_from(k).ok())
+            .ok_or_else(|| format!("there is no ideology `{ideology}`"))?;
+        self.influence(|people, ctx| people.tell_of_ideology(ctx, person, k))
+    }
+
+    /// The observer sends an agitator (god tool, M4c slice AJ, ADR-0016 §5): one adult newcomer
+    /// holding ideology `ideology` (by content id) arrives at `at`, metres, as a family is sent.
+    /// Returns what arrived and the intervention's number.
+    pub fn send_agitator(
+        &mut self,
+        at: (f32, f32),
+        ideology: &str,
+    ) -> Result<(Spawned, u32), String> {
+        let k = self
+            .rules
+            .catalog
+            .ideologies
+            .iter()
+            .position(|d| d.id == ideology)
+            .and_then(|k| u16::try_from(k).ok())
+            .ok_or_else(|| format!("there is no ideology `{ideology}`"))?;
+        self.influence(|people, ctx| civ_agents::send_agitator(people, ctx, at, k))
+    }
+
+    /// The observer sends a migration wave (god tool, M5a slice AN, ADR-0016 §5): `households`
+    /// households of one band come to `at`, metres, from the map's edge nearest it over `days`
+    /// days, each carrying `months` months of food (see [`civ_agents::send_wave`]). Returns the
+    /// intervention's number and the households that came at once.
+    pub fn send_wave(
+        &mut self,
+        at: (f32, f32),
+        households: u32,
+        days: u32,
+        months: u32,
+    ) -> Result<(u32, Vec<Spawned>), String> {
+        self.influence(|people, ctx| {
+            civ_agents::send_wave(people, ctx, at, households, days, months)
+        })
+    }
+
+    /// The observer blesses `person`, or with `curse` curses them, for `days` days moving their
+    /// own draws for illness or accident and for finding things out by `share` of their way (god
+    /// tool, M4c slice AJ, ADR-0016 §5).
+    pub fn bless(
+        &mut self,
+        person: civ_core::PermanentId,
+        curse: bool,
+        days: u32,
+        share: f32,
+    ) -> Result<civ_agents::population::Reached, String> {
+        self.influence(|people, ctx| people.bless(ctx, person, curse, days, share))
+    }
+
+    /// Runs god tool `tool` on the people with a context for now, then schedules what it planned.
+    fn influence<T>(
+        &mut self,
+        tool: impl FnOnce(&mut Population, &mut Ctx) -> Result<T, String>,
+    ) -> Result<T, String> {
+        let now = self.now();
+        let approx = self.approximations_now();
+        let mut pending = Vec::new();
+        let done = {
+            let mut ctx = Ctx {
+                now,
+                seed: self.meta.seed,
+                map: &self.map,
+                nav: &self.nav,
+                land: &mut self.land,
+                land_params: &self.rules.land,
+                params: &self.rules.people,
+                catalog: &self.rules.catalog,
+                regime: &self.regime,
+                ids: &mut self.ids,
+                schedule: &mut pending,
+                approx,
+            };
+            tool(&mut self.people, &mut ctx)
+        };
+        for (when, event) in pending {
+            let _ = self
+                .scheduler
+                .schedule(when, PHASE_AGENT, SimEvent::Agent(event));
+        }
+        if done.is_ok() {
+            self.people.forget_views();
             self.dirty = true;
         }
         done
@@ -765,6 +960,7 @@ impl Sim {
             speed: SPEED_1X,
             mode: Mode::Detailed,
             mode_next: None,
+            approximations: Approximations::ACCELERATED,
             carry_seconds: 0.0,
             content,
             content_changed: false,
@@ -826,6 +1022,48 @@ impl Sim {
         self.mode
     }
 
+    /// The approximations Accelerated mode makes (ADR-0011 §4).
+    pub fn approximations(&self) -> Approximations {
+        self.approximations
+    }
+
+    /// Switches Accelerated mode's approximations on or off, each on its own: for the tests that
+    /// show what each changes (ADR-0011 §5). A setting, never saved: a loaded world makes them all.
+    pub fn set_approximations(&mut self, approximations: Approximations) {
+        self.approximations = approximations;
+        self.people.forget_views();
+    }
+
+    /// Whether the notables' tier is on (ADR-0014 §4): only the notables and those an issue
+    /// reaches weigh institutional moves at the weekly review.
+    pub fn notable_tier(&self) -> bool {
+        !self.people.every_adult_deliberates
+    }
+
+    /// Switches the notables' tier on or off; off, every adult weighs institutional moves at the
+    /// weekly review: for the gate that checks the tier (ADR-0014 §4). A setting, never saved: a
+    /// loaded world has the tier on.
+    pub fn set_notable_tier(&mut self, on: bool) {
+        self.people.every_adult_deliberates = !on;
+    }
+
+    /// Redraws the scheduler's tie-break stream from `seed` (with the world's seed), so that the
+    /// events of an instant from now on fall in another order: a test's hook for several lives of
+    /// one world from one save (ADR-0011 §5, Gate B). A world never does it.
+    #[doc(hidden)]
+    pub fn redraw_tiebreak_for_tests(&mut self, seed: u64) {
+        self.scheduler.redraw_tiebreak(civ_core::rng::key(&[
+            self.meta.seed,
+            seed,
+            0x6761_7465_6221,
+        ]));
+    }
+
+    /// The approximations made now, in the mode in force.
+    fn approximations_now(&self) -> Approximations {
+        in_mode(self.approximations, self.mode)
+    }
+
     /// The permanent-id counter.
     pub fn ids(&self) -> &IdAllocator {
         &self.ids
@@ -865,12 +1103,14 @@ impl Sim {
     /// commands.
     #[doc(hidden)]
     pub fn people_mut_for_tests(&mut self) -> &mut Population {
+        self.people.forget_derived();
         &mut self.people
     }
 
     /// Land, to set up a situation in a test.
     #[doc(hidden)]
     pub fn land_mut_for_tests(&mut self) -> &mut Land {
+        self.people.forget_derived();
         &mut self.land
     }
 
@@ -949,6 +1189,7 @@ impl Sim {
     #[doc(hidden)]
     pub fn die_for_tests(&mut self, person: civ_core::PermanentId) {
         let now = self.now();
+        let approx = self.approximations_now();
         let mut pending = Vec::new();
         {
             let mut ctx = Ctx {
@@ -963,6 +1204,7 @@ impl Sim {
                 regime: &self.regime,
                 ids: &mut self.ids,
                 schedule: &mut pending,
+                approx,
             };
             self.people.die_for_tests(&mut ctx, person);
         }
@@ -972,6 +1214,45 @@ impl Sim {
                 .schedule(at, PHASE_AGENT, SimEvent::Agent(event));
         }
         self.dirty = true;
+    }
+
+    /// Someone is exiled now (for a test that needs an exile on a given day; see
+    /// [`Population::exile_for_tests`]).
+    #[doc(hidden)]
+    pub fn exile_for_tests(&mut self, person: civ_core::PermanentId) {
+        let now = self.now();
+        let approx = self.approximations_now();
+        let mut pending = Vec::new();
+        {
+            let mut ctx = Ctx {
+                now,
+                seed: self.meta.seed,
+                map: &self.map,
+                nav: &self.nav,
+                land: &mut self.land,
+                land_params: &self.rules.land,
+                params: &self.rules.people,
+                catalog: &self.rules.catalog,
+                regime: &self.regime,
+                ids: &mut self.ids,
+                schedule: &mut pending,
+                approx,
+            };
+            self.people.exile_for_tests(&mut ctx, person);
+        }
+        for (at, event) in pending {
+            let _ = self
+                .scheduler
+                .schedule(at, PHASE_AGENT, SimEvent::Agent(event));
+        }
+        self.dirty = true;
+    }
+
+    /// The world's rules, to set up a situation in a test (a tuning value pushed to an extreme,
+    /// say); `None` once they are shared. A world's rules otherwise come only from its content.
+    #[doc(hidden)]
+    pub fn rules_mut_for_tests(&mut self) -> Option<&mut Rules> {
+        Arc::get_mut(&mut self.rules)
     }
 
     /// The world's regime, to set up a situation in a test (a review sooner, say). A world's
@@ -1102,6 +1383,7 @@ impl Sim {
             people,
             mode,
             mode_next,
+            approximations,
             ..
         } = self;
         let mut pending = Vec::new();
@@ -1124,6 +1406,7 @@ impl Sim {
                             regime,
                             ids,
                             schedule: &mut pending,
+                            approx: in_mode(*approximations, *mode),
                         };
                         people.on_day(&mut ctx);
                         // Newborns decide what to do first.
@@ -1175,6 +1458,7 @@ impl Sim {
                         regime,
                         ids,
                         schedule: &mut pending,
+                        approx: in_mode(*approximations, *mode),
                     };
                     people.on_event(&mut ctx, event);
                     for (t, e) in pending.drain(..) {

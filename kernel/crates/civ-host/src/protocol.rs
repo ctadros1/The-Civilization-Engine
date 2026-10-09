@@ -65,6 +65,49 @@ pub enum Request {
         /// They only hear of it.
         aware_only: bool,
     },
+    /// Whisper a true claim to a living adult (god tool, M4c slice AJ, ADR-0016 §5).
+    Whisper {
+        /// Permanent id.
+        person: u64,
+        /// The claim's number.
+        claim: u32,
+    },
+    /// Tell a living adult of an ideology (god tool, M4c slice AJ, ADR-0016 §5).
+    TellOfIdeology {
+        /// Permanent id.
+        person: u64,
+        /// Index into the welcome's ideologies.
+        ideology: u32,
+    },
+    /// Send one adult newcomer holding an ideology (god tool, M4c slice AJ, ADR-0016 §5).
+    SendAgitator {
+        /// Metres from the map's north-west corner.
+        at: (f32, f32),
+        /// Index into the welcome's ideologies.
+        ideology: u32,
+    },
+    /// Send a migration wave (god tool, M5a slice AN, ADR-0016 §5).
+    SendWave {
+        /// Metres from the map's north-west corner.
+        at: (f32, f32),
+        /// Households it brings (5–50).
+        households: u32,
+        /// Days over which they come (1–7).
+        days: u32,
+        /// Months of food each carries (0–12).
+        months: u32,
+    },
+    /// Bless or curse a living person for a while (god tool, M4c slice AJ, ADR-0016 §5).
+    Bless {
+        /// Permanent id.
+        person: u64,
+        /// A curse, not a blessing.
+        curse: bool,
+        /// How many days it holds.
+        days: u32,
+        /// The share of their way it moves a draw.
+        share: f32,
+    },
     /// Lay down a deposit (god tool, ADR-0010 §1).
     PlaceDeposit {
         /// Metres from the map's north-west corner.
@@ -129,6 +172,12 @@ pub enum Request {
     GetEarthworks,
     /// Read every month's weather (wire 1.24).
     GetWeather,
+    /// Every settlement's standing (wire 1.26).
+    GetStanding,
+    /// Every settlement's polity, its laws and their histories (wire 1.27).
+    GetGovernment,
+    /// Takings: what happened, and what people believe and chose (wire 1.30).
+    GetOrder,
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -318,6 +367,11 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         preset_id: b.preset_id().unwrap_or_default().to_owned(),
                         size_cells: b.size_cells(),
                         band_size: b.band_size(),
+                        neighbours: b
+                            .neighbours()
+                            .map(|v| v.iter().collect())
+                            .unwrap_or_default(),
+                        neighbours_known: b.neighbours_known(),
                         regime_id: b.regime_id().unwrap_or_default().to_owned(),
                     }))
                 }
@@ -394,6 +448,55 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         exposed: b.exposed(),
                     })
                 }
+                wire::CommandBody::Whisper => {
+                    let b = command
+                        .body_as_whisper()
+                        .ok_or_else(|| missing("command"))?;
+                    Ok(Request::Whisper {
+                        person: b.person(),
+                        claim: b.claim(),
+                    })
+                }
+                wire::CommandBody::TellOfIdeology => {
+                    let b = command
+                        .body_as_tell_of_ideology()
+                        .ok_or_else(|| missing("command"))?;
+                    Ok(Request::TellOfIdeology {
+                        person: b.person(),
+                        ideology: b.ideology(),
+                    })
+                }
+                wire::CommandBody::SendAgitator => {
+                    let b = command
+                        .body_as_send_agitator()
+                        .ok_or_else(|| missing("command"))?;
+                    let at = b.at().ok_or_else(|| missing("where to send them"))?;
+                    Ok(Request::SendAgitator {
+                        at: (at.x(), at.y()),
+                        ideology: b.ideology(),
+                    })
+                }
+                wire::CommandBody::SendWave => {
+                    let b = command
+                        .body_as_send_wave()
+                        .ok_or_else(|| missing("command"))?;
+                    let at = b.at().ok_or_else(|| missing("where to send it"))?;
+                    Ok(Request::SendWave {
+                        at: (at.x(), at.y()),
+                        households: b.households(),
+                        days: b.days(),
+                        months: b.months(),
+                    })
+                }
+                wire::CommandBody::Bless => {
+                    let b = command.body_as_bless().ok_or_else(|| missing("command"))?;
+                    Ok(Request::Bless {
+                        person: b.person(),
+                        curse: b.curse(),
+                        days: b.days(),
+                        share: b.share(),
+                    })
+                }
                 other => Err(format!("unknown command {}", other.0)),
             }
         }
@@ -450,6 +553,9 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                 wire::QueryBody::GetDeposits => Ok(Request::GetDeposits),
                 wire::QueryBody::GetEarthworks => Ok(Request::GetEarthworks),
                 wire::QueryBody::GetWeather => Ok(Request::GetWeather),
+                wire::QueryBody::GetStanding => Ok(Request::GetStanding),
+                wire::QueryBody::GetGovernment => Ok(Request::GetGovernment),
+                wire::QueryBody::GetOrder => Ok(Request::GetOrder),
                 other => Err(format!("unknown query {}", other.0)),
             }
         }
@@ -544,6 +650,7 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
         .collect();
     let skills = fbb.create_vector(&skills);
     let techniques = civ_sim::frames::knowledge::technique_infos(&mut fbb, &content.catalog);
+    let ideologies = civ_sim::frames::word::ideology_infos(&mut fbb, &content.catalog);
     let regimes: Vec<_> = content
         .catalog
         .regimes
@@ -633,6 +740,7 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
             regimes: Some(regimes),
             techniques: Some(techniques),
             accelerated_multipliers: Some(accelerated),
+            ideologies: Some(ideologies),
         },
     );
     finish(fbb, root)
@@ -931,6 +1039,125 @@ mod tests {
         assert_eq!(
             decode_request(FrameKind::Command, &finish(fbb, root)),
             Ok(Request::RunUntil { minute: 525_600 })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::Whisper::create(
+            &mut fbb,
+            &wire::WhisperArgs {
+                person: 12,
+                claim: 3,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::Whisper,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::Whisper {
+                person: 12,
+                claim: 3
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::TellOfIdeology::create(
+            &mut fbb,
+            &wire::TellOfIdeologyArgs {
+                person: 12,
+                ideology: 1,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::TellOfIdeology,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::TellOfIdeology {
+                person: 12,
+                ideology: 1
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let at = wire::Vec2::new(40.0, 50.0);
+        let body = wire::SendAgitator::create(
+            &mut fbb,
+            &wire::SendAgitatorArgs {
+                at: Some(&at),
+                ideology: 2,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::SendAgitator,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::SendAgitator {
+                at: (40.0, 50.0),
+                ideology: 2
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::SendWave::create(
+            &mut fbb,
+            &wire::SendWaveArgs {
+                at: Some(&at),
+                households: 12,
+                days: 3,
+                months: 6,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::SendWave,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::SendWave {
+                at: (40.0, 50.0),
+                households: 12,
+                days: 3,
+                months: 6
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::Bless::create(
+            &mut fbb,
+            &wire::BlessArgs {
+                person: 12,
+                curse: true,
+                days: 365,
+                share: 0.25,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::Bless,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::Bless {
+                person: 12,
+                curse: true,
+                days: 365,
+                share: 0.25
+            })
         );
     }
 

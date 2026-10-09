@@ -90,12 +90,20 @@ short_food_days = 2.0
 recovered_food_days = 5.0
 daily_kcal_per_person = 2100.0   # band average (research 05-02 §2.2)
 # A household out of food whose members have drawn on average this share of their bodies' reserve,
-# with no crop of its own ripening within a month, may give up and leave the valley, with this
-# chance a day (research 05-06 §1.4: famine migration follows expected access to food; §5.2: a
-# founding can fail, and its households withdraw). Tuning values.
+# with no crop of its own ripening within a month, may give up and leave the valley, with at most
+# this chance a day (research 05-06 §1.4: famine migration follows expected access to food; §5.2:
+# a founding can fail, and its households withdraw). Tuning values.
 leave_at_depletion = 0.3
 leave_per_day = 0.1
 leave_unless_ripe_within_days = 30.0
+# The day's chance weighs going against staying (M4a slice Z): points toward going for the whole
+# of the wait to its next harvest that its food, what others could spare and any relief it may ask
+# the store for would not cover; toward staying for a whole year's food its fields should bring,
+# which leaving gives up, and before either. Tuning values: a household with nothing to wait for
+# goes at nearly the full rate, one others could carry to its harvest at about a tenth of it.
+leave_w_gap = 6.0
+leave_w_stake = 3.0
+leave_stay = 2.0
 
 [decision]                       # utility points; softmax over each activity's best target (research 01-09 §4.3)
 temperature_sd_fraction = 0.35
@@ -313,6 +321,12 @@ review_days = 7
 margin = 0.25
 # The largest change of an ask in one review (08-04 §4.3: 1-5 %; 08-05 §3.2: 5-15 %).
 max_change = 0.05
+# A seller asks less for food the more of it it can spare (content API 26): its cost and margin
+# times exp(-this x s), s the years of its own need it holds beyond what it keeps, at most one
+# (08-04 §1.2: a cost anchor with modest inventory feedback, no figure given; 08-05 §1.5: a grain
+# holder's stock is judged against its way to the next harvest, measured here in years of need
+# so a store drawn down as planned does not move it). A year to spare asks 0.61 of the anchor.
+stock_response = 0.5
 # A market's tallies of sales, payments and demand halve in this many days (08-04 §4.3: demand
 # memory 14-56 days).
 memory_days = 30.0
@@ -369,6 +383,21 @@ tradition = { pitch_deg = 48.0, eave_m = 1.9, overhang_m = 0.5 }
 tradition_spread = { pitch_deg = 2.5, eave_m = 0.1, overhang_m = 0.1 }
 personal_spread = { pitch_deg = 1.0, eave_m = 0.03, overhang_m = 0.03 }
 
+# Each household's midden beside its home: ash, food waste, sweepings and dung (M3c slice V;
+# content API 29). Research 12-02 §2.3 gives 0.42 kg of nitrogen a year in a person's faeces and
+# 3.56 in their urine, most of which soaks away from a heap; with food waste and a little of the
+# urine a person's share of the heap holds about 1 kg a year (a tuning value), below the 4 to 5 kg
+# in the grain they eat, so a midden returns to the fields part of what their harvests took, never
+# more. Its material is a tuning value too (12-02 gives modern refuse 0.43-0.98 kg a person a day),
+# as is how fast the heap loses itself and its nitrogen to the air and the rain. Carrying it goes
+# a load at a time there and back (research 08-12: a porter carries 15-30 kg).
+[midden]
+kg_per_person_day = 0.5
+n_kg_per_person_year = 1.0
+half_life_days = 365.0
+load_kg = 25.0
+spread_h_per_t = 2.0             # digging a tonne out of the heap and spreading it (tuning)
+
 [knowledge]                      # what founders know and how people learn (ADR-0008); tuning values
 # The share of founders old enough for each technique's work who know it. Founders arrive with
 # substantial practical knowledge (research 06-08 §3): every technique of today's work.
@@ -383,6 +412,8 @@ founders = [
   { technique = "core:technique/roundhouse", share = 1.0 },
   { technique = "core:technique/pottery", share = 1.0 },
   { technique = "core:technique/oven_baking", share = 1.0 },
+  # Research 07-04 §4.4: manuring is documented in Neolithic Europe by the sixth millennium BCE.
+  { technique = "core:technique/manuring", share = 1.0 },
 ]
 # Learners one person teaches at once (research 07-02 §2.3: 1-3 a teacher).
 max_learners = 2
@@ -401,3 +432,453 @@ w_try = 2.0
 # Least days between one person's sessions of trying: an hour a week at most, about 2 % of
 # working time (07-01 §2.3 tests 0-5 %; 07-11 §2.2 finds 0-10 % protected time for craft workers).
 try_gap_days = 7.0
+
+[ties]                           # what people remember of one another (ADR-0014); tuning values
+# Ties a person keeps (research 04-06 §2.2: 32-128 directed records; 04-11 §2.4: 16-64). When a
+# new one needs room, the least salient without a debt over `hold_help_h` is let go.
+room = 48
+# People at the hearth a session's company touches: never everyone present (04-04 §1.5, §5.3).
+companions = 3
+# Good and bad evidence a stranger starts from, each in every domain (04-06 §5.2's prior counts).
+prior = 1.0
+# Routine evidence fades halfway back to the prior in half a year (04-06 §2.2: sweep 30-365 days).
+evidence_half_life_days = 180.0
+# Familiarity without meeting (04-04 §2.2: 90-365 days).
+familiarity_half_life_days = 180.0
+# Warmth without reinforcement (04-04 §2.2: 1-5 years).
+warmth_half_life_days = 730.0
+# Fear, written from M4b (04-06 §2.2: severe events 7-90 days of activation; durable memory is
+# longer, and no figure is settled).
+fear_half_life_days = 365.0
+# Help owed or owing (04-11 §2.4: personal obligations remembered 1-10 years).
+help_half_life_days = 1095.0
+hold_help_h = 4.0
+# Salience of a unit of evidence beyond the prior, beside familiarity and warmth (0-1 each).
+salience_per_evidence = 0.1
+# The share of a session's company drawn from those present one does not yet know; the rest comes
+# from those one knows, the better known the likelier (04-04 §1.5: people keep up the ties that
+# matter; §2.2 proposes 5-20 % of new encounters come by introduction).
+new_share = 0.15
+# Minutes further a household short of food walks to ask someone its members regard (esteem and
+# warmth together, up to 1) than a stranger, among those who could give it as much (04-06 §1.6:
+# kin, community and strangers start from different priors; the figure is a tuning value).
+ask_known_min = 30.0
+# What each act writes into its holder's tie, for each act or, at the hearth and in learning, each
+# hour. `familiarity` and `warmth` close that share of the gap to 1; `good` and `bad` add evidence
+# in `domain` (04-04 §1.6: help gives trust and obligation, skilled work respect, repeated
+# encounters familiarity; enjoyable company warmth at 0.005-0.02 an hour, 04-04 §2.2).
+acts = [
+  { act = "gift_received", familiarity = 0.2, warmth = 0.1, domain = "provision", good = 1.0, bad = 0.0 },
+  { act = "gift_given", familiarity = 0.1, warmth = 0.02, domain = "none", good = 0.0, bad = 0.0 },
+  { act = "wages_paid", familiarity = 0.05, warmth = 0.0, domain = "word", good = 1.0, bad = 0.0 },
+  { act = "work_seen", familiarity = 0.05, warmth = 0.0, domain = "craft", good = 0.5, bad = 0.0 },
+  { act = "rent_paid", familiarity = 0.05, warmth = 0.0, domain = "word", good = 1.0, bad = 0.0 },
+  { act = "land_lent", familiarity = 0.05, warmth = 0.0, domain = "word", good = 1.0, bad = 0.0 },
+  { act = "traded", familiarity = 0.1, warmth = 0.0, domain = "word", good = 0.5, bad = 0.0 },
+  { act = "learned_from", familiarity = 0.02, warmth = 0.005, domain = "craft", good = 0.1, bad = 0.0 },
+  { act = "hearth", familiarity = 0.1, warmth = 0.01, domain = "none", good = 0.0, bad = 0.0 },
+  # M4b slice AA (content API 35): coming to believe the other took food weighs against them in
+  # provision, three times a gift's weight when it was from one's own household (04-06 §1.6:
+  # negative evidence weighs more than positive; the figures are tuning values); giving back what
+  # was taken keeps one's word, refusing breaks it.
+  { act = "took_from_us", familiarity = 0.0, warmth = 0.0, domain = "provision", good = 0.0, bad = 3.0 },
+  { act = "took_from_others", familiarity = 0.0, warmth = 0.0, domain = "provision", good = 0.0, bad = 1.0 },
+  { act = "restored", familiarity = 0.0, warmth = 0.0, domain = "word", good = 1.0, bad = 0.0 },
+  { act = "refused_restitution", familiarity = 0.0, warmth = 0.0, domain = "word", good = 0.0, bad = 2.0 },
+  # M4c slice AI, step four (content API 51): being struck weighs against the one who struck, as
+  # heavily as their taking from one's own household.
+  { act = "struck", familiarity = 0.0, warmth = 0.0, domain = "provision", good = 0.0, bad = 3.0 },
+]
+
+[standing]                       # standing and notables (ADR-0014 §3-4); tuning values
+# How many people each adult counts among those they esteem most (04-11 §2.4: 4-12 candidates).
+candidates = 8
+# Notables: the share of a settlement's adults who deliberate weekly (plan §4.2: about 1 %), at
+# least `notable_floor` of them, each keeping the place while ranked within `notable_keep` times
+# their number (04-11 §5.7: display hysteresis). A compute tier only: being one grants nothing.
+notable_share = 0.01
+notable_floor = 3
+notable_keep = 1.5
+
+[polity]                         # the polity, its gathering and its laws (ADR-0013); tuning values
+# Notables, the elders of households short of food, and whoever came to a gathering or learnt a
+# law since the last review weigh what to propose once a week (ADR-0014 §4: notables deliberate
+# weekly, others when something reaches them; research 09-01 §3.3 gives 7-30 days for review).
+review_days = 7
+notice_days = 1                  # a proposal goes to the gathering the next evening
+gathering_minutes = 120          # the gathering sits from an hour before sunset, for two hours
+# The founding custom (ADR-0013 §1): the adults who come to the hearth decide by acclamation, more
+# for than against, a tie failing. A quarter of the adults must come (no figure in the reports).
+quorum_share = 0.25
+# Forecasts are the change in the log of a year's food above subsistence, so food near the edge is
+# worth the most (research 09-17 §1.2: households insure one another, and a store pools that).
+# Points per unit of it, for proposing and for a stance.
+w_gain = 10.0
+w_regard = 1.0                   # points for full regard for a law's sponsor
+stance_margin = 0.25             # points either way within which a member abstains
+attend_base = 1.0                # the custom's own pull to the gathering, points
+w_attend = 0.5                   # points per point at stake in what it decides
+w_followers = 0.5                # a sponsor weighs those who regard them at half their household
+propose_cost = 0.5               # points a proposal costs its sponsor
+temperature = 0.5                # of the choice among moves, points
+# Content API 34: one who came to a gathering expects no more support for the same proposal than
+# they saw it get there, for a year (research 09-05 §1.2: a sponsor weighs expected success; the
+# year is a tuning value).
+vote_memory_days = 365
+# The lean years people believe in before they have seen any: one in four (a prior, no figure in
+# the reports). Lean years seen are those the settlement's food ran short in.
+prior_lean = 1.0
+prior_years = 4.0
+lean_harvest = 0.5               # a lean year's harvest, as a share of an ordinary one
+# Below half a year's food a household cannot live through the year: food there is worth the most,
+# and a household that would fall below it by paying a levy cannot pay (09-01 §6.4).
+subsistence_share = 0.5
+# Paying a levy is the payer's choice: the norms they hold that what the gathering decides binds
+# (`core:norm/gathering_binds`, each person their own way; content API 42), and where they stood
+# on the law, against what paying costs their household. Before the norm, the custom was this flat
+# base, 1.5 for everyone; now the norm carries it and the base is 0.
+comply_base = 0.0
+w_stance = 1.0
+# Content API 49 (M4c slice AI): for this many days after the custom is taken from the gathering,
+# every member of the body that took it weighs ending each law the old custom made, as any move
+# (research 09-11 §1.6: provisional authority over what survives, unless actors dismantle it; its
+# founding processes run 3 to 36 months, and none is forced to finish). What they leave stands. A
+# design prior.
+founding_days = 90
+
+[crime]                          # taking, what is seen of it and what is owed (ADR-0015); tuning values
+# Research 04-09 §5.4 finds no established figures for moral-cost weights, belief-update rates or
+# the conversion of hunger into offending: every value here is a tuning value, to be tested.
+# A person's objection to taking what is not theirs, 0-1: the log-odds of a founder's is drawn
+# from a normal of this mean and spread, and a child's is pulled toward its parents' with this
+# heritability (04-09 §1.1: social learning; §5.1: an offence-specific objection, kept apart from
+# personality and self-control). With these, about one person in six falls below the filter.
+objection_mean = 2.5
+objection_sd = 1.2
+objection_heritability = 0.5
+# At or above this objection, taking is not weighed at all (04-09 §5.3: a moral filter first, or
+# a noisy chooser "may eventually make almost everyone offend").
+objection_filter = 0.8
+# Points against taking: for a full objection; for a certainty of being seen (what the taker
+# believes being seen would cost them with those who would hear, scaled by exp(-w_risk_trait *
+# risk) for their risk-taking); and for full regard for the one taken from. A household out of
+# food weighs a load of grain at up to about 30 points (`[decision]` w_food and w_hunger), so only
+# real need outweighs these (04-09 §5.3: U = G - C - M - I - p̂L, on one scale).
+w_objection = 20.0
+w_seen = 10.0
+w_risk_trait = 0.3
+w_regard = 5.0
+# The chance of being seen someone believes before they have taken or heard of a taking, and the
+# share of the gap their own attempt, or a taking they hear of, closes (04-09 §5.4: p̂ ← (1 - α)p̂ +
+# αs; word comes only of takers who were seen, a selected sample).
+risk_prior = 0.5
+risk_alpha = 0.3
+risk_alpha_told = 0.1
+# Guardianship is settled on arrival (12-04 §1.4, 04-09 §1.1: routine activity, which turns on
+# capable guardians): a member of at least `guardian_age` home and awake and the taker turns back;
+# anyone else of that age awake within `sight_m` metres the taker notices with `notice_chance`
+# each, and turns back for; those they miss, and younger children, see them at it; a grown
+# sleeper at home wakes with `wake_chance`. One who turned back or fled waits between half and one
+# and a half times `retry_hours` before weighing taking again (12-04 §1.4: an offender may change
+# their timing).
+sight_m = 30.0
+notice_chance = 0.7
+retry_hours = 12.0
+guardian_age = 10.0
+wake_chance = 0.25
+# Days a person keeps what they believe of a taking; within them a household refuses the asks of
+# someone it believes took from it, or from a household whose elder one of its members regards at
+# least this much (12-04 §1.2: exclusion is credible when enough people will back it).
+remember_days = 730
+refuse_regard = 0.5
+# A household that learns who took from it demands the food back, or lets it go (09-07 §4.1: U =
+# p̂(success) p̂(enforcement) V - C): points toward demanding, per day of its food taken, and
+# against, for full regard for the taker. The taker's household answers once: points toward
+# paying, for the share of its settlement's households that believe the taker took and for
+# regard for the household owed, against the days of its own food paying would cost. It pays from
+# food beyond `keep_days` of its need, until `due_days` after the demand; what it cannot pay is an
+# arrear (09-07 §1.2: an award creates no goods).
+demand_base = 0.0
+w_demand_loss = 1.0
+w_forgive = 3.0
+due_days = 30
+comply_base = 0.0
+w_comply_known = 4.0
+w_comply_regard = 2.0
+w_comply_cost = 0.5
+keep_days = 3.0
+# Where a law against taking is in force and the chooser knows of it, a case before the gathering
+# is a third choice (M4b slice AB; 09-07 §4.1: U = p̂(success) V - C): what it would recover (the
+# food and the bundle's compensation, `w_demand_loss` a day), times the chance the household
+# believes a gathering would find against the taker from its distinct accounts (1 - 0.5^accounts;
+# 12-04 §1.5: several people repeating one witness are one), less `report_cost` points and the
+# same `w_forgive` for regard. A household whose demand was refused, or not met when due, may then
+# bring a case (09-07 §1.1). At the hearing each who came weighs `w_case_belief` points toward a
+# finding if they believe the accused took (otherwise the accounts told there, either side of an
+# even chance; with none, that much against), what their household stands to gain or lose, and
+# the polity's `w_regard` for the one who brought it less that for the accused. What a finding
+# imposes is answered once, whole, with `w_comply_found` points toward paying: the custom that the
+# gathering binds.
+report_cost = 1.0
+w_case_belief = 1.0
+w_comply_found = 2.0
+# A law whose bundle exiles weighs on a taker's household, and puts at stake at a hearing, this
+# many days of its food for the grown member it would lose (a tuning value: about two months of
+# what a member brings in).
+exile_days = 60.0
+# The watch (M4b slice AC, ADR-0015 §6): a household weighs a law naming a watch by `watch_guard`
+# of all it found missing (whoever took it) back to it, and as much of what its own members took
+# from it (the share of takings it believes a watch would stop or see; a tuning value). The one
+# named walks rounds at night as a choice, worth `w_watch` points for the night's first and less
+# for each walked since, up to `rounds_per_night` (12-04 §2.1: one account of three a night, at
+# about 21:00, 00:00 and 03:00; medium-low confidence) of `round_stops` homes each, standing
+# watch at each for the activity's minutes (12-04 §2.3: 11-15 minute visits, a modern patrol
+# finding, here only a scale).
+watch_guard = 0.5
+w_watch = 6.0
+rounds_per_night = 3
+round_stops = 6
+# One who keeps the watch and sees a taking chooses once what to do with it (09-09 §1.3: ΔU = B +
+# K - C - M - p̂(F + V)): saying nothing is 0 points; bringing it before the gathering (or telling
+# those taken from, with no law against taking) `w_watch_report` points, and `w_forgive` for full
+# regard for the household taken from less as much for regard for the taker; and, under a law
+# against taking, asking the taker's household for `ask_days` of its food (at most what it can
+# spare) to say nothing, worth `w_demand_loss` a day of the watcher's own household's food, less
+# `w_objection` for their objection to taking what is not theirs (never weighed above its filter)
+# and `w_seen` for the chance they believe they run of being found out. The household asked pays
+# with `w_comply_known` points against `w_comply_cost` a day of its food; one that refuses is
+# brought before the gathering. All tuning values: 09-09 §2.3 gives no estimable figures.
+w_watch_report = 2.0
+ask_days = 3.0
+# A curfew (M4b slice AD; the M4 crime brief §1.6: nobody may be away from home in set hours): a
+# household weighs one by `curfew_guard` of all it found missing back to it, and as much of what
+# its own members took from it, as it would a watch (the share of takings it believes a curfew
+# keeps off, smaller than a watch's: nobody stands at the stores), less `curfew_cost_days` of its
+# food a year for each hour the curfew runs and each grown member it keeps at home. Both tuning
+# values: the research gives no figure for what a curfew costs or stops.
+curfew_guard = 0.3
+curfew_cost_days = 0.25
+# Force (content API 51, M4c slice AI, step four; ADR-0017 §3-4). One who keeps the watch weighs, at
+# their monthly review, going to take what a gathering's finding owed and the household refused
+# (research 09-06 §1.3: an order's execution is a stage of its own), at `w_collect` and the norms
+# they hold (the gathering binds), with their regard for the household owed over their regard for
+# the household owing, against their threshold. Each adult of the household meets them: letting it
+# be taken is worth the norms they hold and their regard for the one who came; resisting, how
+# strongly their household refused it and their grievances against the watch and the gathering. One
+# whose will to resist passes their reluctance to strike, drawn for each person between the two
+# `strike_threshold` points (04-10 §1.8: people differ over violence), strikes; one short of it
+# stands in the way. Where any resisted, the watcher takes it by force only if it is still worth
+# it less `w_harm` for each who did; each who struck strikes them, and they strike back. A blow
+# keeps the one struck from work for `hurt_days` (a range) and kills at `kill_share`. All design
+# priors: the research gives no figure for how hard a blow falls in a village quarrel.
+w_collect = 0.5
+w_harm = 1.0
+strike_threshold = [1.0, 4.0]
+hurt_days = [3, 21]
+kill_share = 0.02
+
+[word]                           # word of mouth and grievances (M4c slice AE, ADR-0016); tuning values
+# A gathering is heard of by contact, never broadcast (research 09-16 §1.3: attendance and timing
+# decide who hears): its sponsor (or whoever brought its case) knows first; at midnight each member
+# of a household tells each other member with `share_home`, and companions at the hearth tell
+# each other with `share_urgent` (09-16 §2.2: 0.4-0.9 for urgent news). Only those who heard may
+# come. A grievance held keenly enough (`tell_floor`) is told to a companion with `share_routine`
+# (09-16 §2.2: 0.05-0.25) and stays news `news_days` without being told again (30-180).
+share_home = 0.8
+share_urgent = 0.6
+share_routine = 0.15
+news_days = 60
+# A grievance (ADR-0016 §2; research 04-06 §1.7, §5.3): its activation fades by its issue's
+# half-life, days, for subsistence, extraction, treatment and a collective claim (04-06 §2.2: 1-7
+# for minor events, 7-90 for severe ones); a harm of `full_harm_days` of the household's food is
+# felt fully (twice the store's five days of relief), less in proportion; hearing it told raises
+# it by `reminder`. A person holds at most `max_grievances`, the least keenly felt giving way.
+max_grievances = 8
+half_life_days = [30.0, 30.0, 90.0, 60.0]
+full_harm_days = 10.0
+reminder = 0.1
+tell_floor = 0.2
+# A harm that goes on (a store still empty while the household is short) raises its grievance
+# again only after `remind_days`: a reminder, never re-added each day (04-06 §5.3).
+remind_days = 7
+
+[opinion]                        # where people stand on the questions content names (M4c slice AG, ADR-0016 §4)
+# Each adult holds a position, 0 against to 1 for, on each question a policy template asks. Its
+# anchor is what their household's own lot makes of the policy, worked out on the first of each
+# month from the forecast a sponsor would weigh (`anchor_points` of gain lean it to 0.73), and the
+# position is pulled toward it with a half-life of `anchor_half_life_days` (research 06-04 §3.2:
+# 2 years, 0.25-10). At the hearth a companion says where they stand with `share` times its
+# salience (06-04 §3.2: 0.5 exposures a person a week, 0.05-5); a listener moves `eta` of the way
+# at full salience and trust (η 0.03, 0.005-0.15), less the further apart (`epsilon`, 0.25,
+# 0.10-0.60), twice as far below `youth_until` (doubled between 12 and 30). How far talk has moved
+# someone from their household's lot adds `w_position` points to their stance at a gathering.
+# Salience is `salience_live` while a law on the question is in force or before the gathering.
+# Every value is a design prior, not a historical estimate; there is no negative influence.
+# `share` was set once from the ten-year smoke (M4c slice AG): at 0.05 people told 14-36 positions
+# a week, as company at the hearth is frequent; 0.0015 brings it near the prior's 0.5.
+share = 0.0015
+eta = 0.03
+epsilon = 0.25
+anchor_half_life_days = 730.0
+anchor_points = 1.0
+w_position = 2.0
+salience_live = 1.0
+salience_idle = 0.3
+youth_until = 30.0
+youth_factor = 2.0
+
+[faction]                        # who gathers others over a grievance, who joins, who stays (M4c slice AH, ADR-0017 §2)
+# Each adult reviews where they belong every `review_days` on a day of their own (research 09-12
+# §2.2: one to three months). Belonging is worth `w_grievance` points for a grievance against the
+# faction's party felt fully, `w_organizer` for full regard for its organizer and `w_belong` for
+# everyone they know belonging, less `w_dues` times the share of each threshing a member's
+# household gives its store (`dues_share`, while the store holds less than `reserve_days` of its
+# members' households' food); they join when that beats a threshold of their own, drawn evenly
+# from `threshold` (04-10 §1.3), and leave when it falls `leave_margin` below it (04-10 §5.4). One
+# who feels a grievance against the gathering or an office at `found_floor` or more, and has heard
+# that others they regard at `trust_floor` or more hold one against it too (`shared_full` of them
+# fully), weighs founding one at `w_grievance` and `w_shared` less `found_cost` (04-10 §1.1, §1.5),
+# unless a faction they founded ended within `retry_days` (04-10 §3: a failed attempt lowers what
+# one expects of the next). A member's household short of food may ask the faction's store
+# for up to `aid_days` of its food (04-10 §1.2: mutual assistance). Every value is a design prior;
+# no report gives a founding size or a joining rate.
+review_days = 30
+found_floor = 0.3
+trust_floor = 0.25
+shared_full = 3.0
+w_grievance = 1.0
+w_shared = 1.0
+w_organizer = 0.5
+w_belong = 1.0
+w_dues = 5.0
+found_cost = 0.5
+retry_days = 365
+threshold = [0.5, 2.0]
+leave_margin = 0.5
+dues_share = 0.05
+reserve_days = 20.0
+aid_days = 5.0
+# A faction may petition the gathering (ADR-0017 §3; research 04-10 §3, 09-05 §1.2) for what
+# answers the party its members blame: a store at another share, or none, against the gathering;
+# another holder, against an office. Its organizer weighs calling one, once it has
+# `petition_members` members, none of its petitions is waiting and its last was `petition_days`
+# ago or more, at `w_grievance` times its members' mean grievance and `w_belong` times how many of
+# those they know belong, less `petition_cost`, against their threshold. Word goes out from the organizer; anyone who has heard weighs coming at
+# `w_grievance` for their grievance, `w_member` for belonging (else `w_organizer` times their
+# regard for the organizer) and `w_expect` for the share of those they know who belong: for the
+# `free_ride_share` of people a keyed draw makes free riders, more others coming adds less once
+# half do (04-10 §1.4, §5.3). A petition the gathering turns down is felt by each who came as a
+# wrong of `refused_days` of a household's food. Every value is a design prior.
+petition_members = 3
+petition_days = 180
+petition_cost = 0.5
+w_member = 1.0
+w_expect = 1.0
+free_ride_share = 0.2
+refused_days = 5.0
+# Where no petition can be called (one waits, or the last was within `petition_days`, or nothing
+# answers), an organizer whose members blame the gathering or the store's keeper may instead call
+# on them to keep back the store's levy together, openly, for `refusal_days` (ADR-0017 §3; research
+# 09-04 §5.5, 04-10 §1.9): worth what a petition is less `refusal_cost` (as calling a petition
+# costs: what sets the two apart is the norm a refusal breaks) and less what the norms the
+# organizer holds weigh for abiding by what the gathering decided. Each who heard of it weighs
+# joining it at their threshing as they weigh coming to a petition. Design priors.
+refusal_cost = 0.5
+refusal_days = 365
+# A faction whose members blame the gathering holds a program: of the bodies the content's
+# amendments offer, the one under which the decisions its members saw would have gone most their
+# way (M4c slice AI; ADR-0017 §4). Where it can call neither a petition nor a refusal, its organizer
+# may call on everyone to stand with that body in place of the gathering's, worth what a petition
+# is less `revolt_cost` and less what the norms they hold weigh. Each adult who heard of it weighs
+# daily where they stand (research 09-11 §2.5), as they weigh coming to a petition, less those
+# norms and `w_exclusion` if the new body would leave them out (09-11 §1.6). It holds once the
+# store's keeper and the watch stand with it and more adults stand with it than with the gathering
+# for `hold_days` (09-11 §2.2's seven days), and fails after `revolt_days`. Design priors:
+# `revolt_cost` sits above a refusal's (1.0 kept even an organizer all of whose members held the
+# grievance fully, where nobody held the norm, from calling one).
+revolt_cost = 0.75
+revolt_days = 60
+hold_days = 7
+w_exclusion = 1.0
+# Content API 50 (M4c slice AI, step three): where the watch is several, one who keeps it and holds
+# a grievance against the gathering may call on the others to take the deciding for the watch
+# (ADR-0017 §4: a coup is open only to those holding an office that commands force), worth their
+# grievance and how well the other watchers regard them (research 09-11 §1.4: officers act on what
+# they believe the others will do), less `coup_cost` and the norms they hold. Each watcher weighs
+# each day where they stand, as anyone weighs standing with a revolt, from where the others stood
+# the day before; it holds once more stand with it than with the gathering for `hold_days`, and
+# fails after `revolt_days`. A design prior, as a revolt's.
+coup_cost = 0.75
+
+[places]                         # knowing other settlements (M5a slice AM, ADR-0018 §4); design priors
+# Another settlement is known only by contact (research 13-01 §1.1; 09-16 §1.2): founded alongside
+# it (a new-world choice), seen when a walk passes within `sight_m` metres of its hearth, kin
+# there, visited, or told of at the hearth. Someone from elsewhere always says where they are
+# from; a place one's household knows is told to a companion whose household does not with
+# `share_told` (09-16 §2.2: 0.05-0.25 for routine news). The research gives no distance at which a
+# village of huts and hearth smoke is seen; 500 m is a design prior.
+sight_m = 500.0
+share_told = 0.15
+# What a visit to another settlement's hearth is worth (content API 53), beside the company it
+# gives as any hearth does and against the walk there and back (`decision.w_walk_hour`, 2 points
+# an hour): points for each parent, child, brother or sister living there; at most `w_ties` for
+# those the visitor knows there (half of it for familiarity and warmth summing to 1); and
+# `w_seek` for an unpartnered adult who looked for a partner at home within `seek_days` and found
+# nobody (research 04-08 §1.1: partners come from those one meets, neighbouring settlements among
+# them; 04-04 §3.1: visitors, marriage partners and kin are the ties that bridge villages). After
+# a member of the household was there, the wish to go again grows back over `revisit_days`. The
+# research gives no values; all are design priors. Hearths lie at least about 3 km apart (the
+# founding groups' fields do not overlap), an hour or so each way, so the walk costs about 4
+# points: one close kin there or a failed search at home outweighs it; loneliness alone does not.
+w_kin = 6.0
+w_ties = 4.0
+w_seek = 6.0
+seek_days = 180
+revisit_days = 30.0
+
+[moving]                         # moving to another settlement (M5a slice AN, ADR-0018 §5); design priors
+# Once a year on a day of its own, and when it forms, a household weighs joining each settlement it
+# knows against staying (research 05-06 §5.1: expected livelihood, support, safety and the cost of
+# switching; no values). In points: `w_kin` for each close kin of a member living there less each
+# at home (outside the household); `w_ties` at most for those its members know there less those
+# they know at home (half of it for familiarity and warmth summing to 1); `w_fed` for the share of
+# a place's people a member last saw not going hungry less the share at home now (no impression,
+# no difference); `w_grievance` for the most keenly felt grievance a member holds (0-1); against
+# `w_stake` for the harvest its fields here should bring over a year's need (0-1), `cost` for the
+# work of a new home and new ground before the first harvest, and the walk there once at
+# `decision.w_walk_hour`. A place must win `reviews` reviews running before it moves there
+# (10-01 §2.3: 1-3 seasonal reviews; a year apart here). A household out of food that gives up goes
+# to the known place whose kin, ties and fed look draw it most, if any does, and beyond the map
+# otherwise. With these values, to a place an hour's walk away (2 points), a household whose fields
+# will bring nothing moves for three close kin more there, or for one and a grievance felt fully;
+# one with a full harvest coming needs three more points besides.
+w_kin = 2.0
+w_ties = 2.0
+w_fed = 4.0
+w_grievance = 3.0
+w_stake = 3.0
+cost = 2.0
+reviews = 2
+
+[founding]                       # founding a settlement of their own (M5a slice AO); design priors
+# At the same review, a household also weighs founding a settlement with others at a site a member
+# has walked (one of `candidates` drawn from the patches its people know, research 10-01 §2.3:
+# 16-64 bundles), on dry, gentle ground two field walks from every settlement lived in (so no field
+# counts for two) and at most `walk_hours` from home (05-06 §1.3: a daughter near its parent can
+# rely on it). In moving's points: `w_stake` for the share of the coalition's yearly need its
+# cropland there would bring at `yield_share` of the believed yield (10-01 §2.3: a 10th-30th
+# percentile forecast) less the share its own fields and the vacant cropland of home would bring;
+# `w_grievance` for its most keenly felt grievance; `w_kin` for each close kin of a member among
+# the households going; against moving's `cost` and `cost` here besides (breaking every field and
+# building where there is no hearth or neighbour) and the walk once. It recruits its kin's
+# households and those its members regard, each going only if founding with them beats its own
+# best plan, and goes when the plan has won moving's `reviews` reviews running, if the coalition
+# holds food for every member to its first harvest and `buffer_months` beyond (10-01 §2.3: 1-3
+# months) besides seed for the ground it needs; the first harvest is this year's if its adults,
+# at `work_h_per_day` each, can break that ground before sowing ends, else next year's.
+cost = 1.0
+yield_share = 0.7
+walk_hours = 2.0
+candidates = 16
+buffer_months = 2.0
+work_h_per_day = 6.0

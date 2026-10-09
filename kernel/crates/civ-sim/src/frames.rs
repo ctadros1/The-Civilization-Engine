@@ -31,12 +31,16 @@ pub mod deposits;
 pub mod earthworks;
 pub mod fields;
 pub mod firms;
+pub mod government;
 pub mod knowledge;
 pub mod markets;
+pub mod order;
 pub mod paths;
 pub mod people;
+pub mod standing;
 pub mod wealth;
 pub mod weather;
+pub mod word;
 
 /// Largest region one raster query may ask for, in cells of its level.
 pub const MAX_QUERY_CELLS: u64 = 1024 * 1024;

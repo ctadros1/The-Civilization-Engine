@@ -1,5 +1,5 @@
-//! The ledger's one operation (ADR-0006 §3): goods move between households and firms in exact
-//! quantities, by a channel, all legs or none.
+//! The ledger's one operation (ADR-0006 §3): goods move between households, firms and polities
+//! (ADR-0013 §4) in exact quantities, by a channel, all legs or none.
 
 use std::collections::BTreeMap;
 
@@ -14,11 +14,14 @@ use crate::person::Flow;
 /// a shortfall.
 const COVER_SLACK: f64 = 1e-9;
 
-/// A holder of goods the ledger moves between: a household or an open firm.
+/// A holder of goods the ledger moves between: a household, an open firm, a polity's store or a
+/// faction's (M4c slice AH).
 #[derive(Clone, Copy, Debug)]
 enum Holder {
     Household(civ_core::Handle<crate::person::Household>),
     Firm(usize),
+    Polity(usize),
+    Faction(usize),
 }
 
 impl Population {
@@ -26,14 +29,21 @@ impl Population {
         if let Some(&hd) = self.hh_index.get(&id) {
             return Some(Holder::Household(hd));
         }
-        self.firms
+        if let Some(i) = self.firms.iter().position(|f| f.id == id && f.is_open()) {
+            return Some(Holder::Firm(i));
+        }
+        if let Some(i) = self.polities.iter().position(|p| p.id == id) {
+            return Some(Holder::Polity(i));
+        }
+        self.factions
+            .list
             .iter()
-            .position(|f| f.id == id && f.is_open())
-            .map(Holder::Firm)
+            .position(|f| f.id == id)
+            .map(Holder::Faction)
     }
 
     /// Brings a holder's stores up to `now`: a household's spoil and burn, a firm's spoil (under
-    /// its owners' roof when they have one).
+    /// its owners' roof when they have one), a polity's spoil (under no roof).
     fn settle_holder(&mut self, h: Holder, now: SimTime, params: &PeopleParams, goods: &[GoodDef]) {
         match h {
             Holder::Household(hd) => {
@@ -54,6 +64,20 @@ impl Population {
                     f.stores.resize(goods.len(), 0.0);
                 }
             }
+            Holder::Polity(i) => {
+                let sheltered = self.polity_sheltered(i);
+                if let Some(p) = self.polities.get_mut(i) {
+                    p.settle_stores(now, goods, sheltered);
+                    p.stores.resize(goods.len(), 0.0);
+                }
+            }
+            Holder::Faction(i) => {
+                let sheltered = self.faction_sheltered(i);
+                if let Some(f) = self.factions.list.get_mut(i) {
+                    f.settle_stores(now, goods, sheltered);
+                    f.stores.resize(goods.len(), 0.0);
+                }
+            }
         }
     }
 
@@ -64,11 +88,20 @@ impl Population {
                 .get_mut(hd)
                 .map(|x| (&mut x.stores, &mut x.flows)),
             Holder::Firm(i) => self.firms.get_mut(i).map(|f| (&mut f.stores, &mut f.flows)),
+            Holder::Polity(i) => self
+                .polities
+                .get_mut(i)
+                .map(|p| (&mut p.stores, &mut p.flows)),
+            Holder::Faction(i) => self
+                .factions
+                .list
+                .get_mut(i)
+                .map(|f| (&mut f.stores, &mut f.flows)),
         }
     }
 
     /// Moves goods between holders in one operation (ADR-0006 §3): each leg moves `amount` of a
-    /// good from one household or open firm to another. Every holder touched has its stores
+    /// good from one household, open firm or polity to another. Every holder touched has its stores
     /// brought up to `now` first; if any cannot cover all it gives, or a leg is malformed, nothing
     /// moves and `false` comes back. Each leg counts as given by one holder and received by the
     /// other, so goods are conserved, and as moved by `channel`.
@@ -107,6 +140,8 @@ impl Population {
                 .and_then(|h| match h {
                     Holder::Household(hd) => self.households.get(hd).map(|x| &x.stores),
                     Holder::Firm(i) => self.firms.get(i).map(|f| &f.stores),
+                    Holder::Polity(i) => self.polities.get(i).map(|p| &p.stores),
+                    Holder::Faction(i) => self.factions.list.get(i).map(|f| &f.stores),
                 })
                 .and_then(|s| s.get(good))
                 .copied()
@@ -186,6 +221,7 @@ mod tests {
                 offers: Vec::new(),
                 taste: Default::default(),
                 admired: None,
+                midden: Default::default(),
             });
         }
         pop

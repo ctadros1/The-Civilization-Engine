@@ -1,3 +1,6 @@
+# Children's play, in daylight. A session is `min_minutes`; in Accelerated mode's leisure blocks
+# (ADR-0011 §4) play lasts until the next turn of the day, a meal or sleep, at most `max_minutes` (a
+# tuning value; Detailed mode never uses it).
 kind = "activity"
 id = "core:activity/play"
 name = "Play"
@@ -7,7 +10,7 @@ par = 2.5
 min_age_years = 2.0
 max_age_years = 12.0
 min_minutes = 45
-max_minutes = 45
+max_minutes = 180
 daylight_only = true
 max_walk_minutes = 0
 technique = ""

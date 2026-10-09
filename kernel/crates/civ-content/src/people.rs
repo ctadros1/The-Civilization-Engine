@@ -42,6 +42,823 @@ pub(crate) struct PeopleFile {
     pub knowledge: Knowledge,
     pub digging: DiggingFile,
     pub style: StyleFile,
+    /// The midden and carrying it to the fields (M3c slice V; content API 29).
+    pub midden: MiddenFile,
+    /// Ties between people (M4a slice Y; content API 30).
+    pub ties: TiesFile,
+    /// Standing and notables (M4a slice Y; content API 30).
+    pub standing: StandingFile,
+    /// The polity: its gathering, forecasts and compliance (M4a slice Z; content API 31).
+    pub polity: PolityFile,
+    /// Taking, what is seen of it and what is owed for it (M4b slice AA; content API 35).
+    pub crime: CrimeFile,
+    /// How word travels and grievances are held (M4c slice AE; content API 39).
+    pub word: WordFile,
+    /// How opinion moves (M4c slice AG; content API 41).
+    pub opinion: OpinionFile,
+    /// How factions are founded, joined and kept (M4c slice AH; content API 45).
+    pub faction: FactionFile,
+    /// How households come to know other places (M5a slice AM; content API 52).
+    pub places: PlacesFile,
+    pub moving: MovingFile,
+    /// What founding a settlement is worth, and what a coalition must hold (M5a slice AO; content
+    /// API 55).
+    pub founding: FoundingFile,
+}
+
+/// Factions, their petitions, refusals and revolts (M4c slices AH-AI, ADR-0017 §2-4; content API
+/// 45-48). See
+/// [`civ_agents::faction::FactionParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct FactionFile {
+    pub review_days: u32,
+    pub found_floor: f64,
+    pub trust_floor: f64,
+    pub shared_full: f64,
+    pub w_grievance: f64,
+    pub w_shared: f64,
+    pub w_organizer: f64,
+    pub w_belong: f64,
+    pub w_dues: f64,
+    pub found_cost: f64,
+    pub retry_days: u32,
+    pub threshold: [f64; 2],
+    pub leave_margin: f64,
+    pub dues_share: f64,
+    pub reserve_days: f64,
+    pub aid_days: f64,
+    pub petition_members: u32,
+    pub petition_days: u32,
+    pub petition_cost: f64,
+    pub w_member: f64,
+    pub w_expect: f64,
+    pub free_ride_share: f64,
+    pub refused_days: f64,
+    pub refusal_cost: f64,
+    pub refusal_days: u32,
+    pub revolt_cost: f64,
+    pub revolt_days: u32,
+    pub hold_days: u32,
+    pub w_exclusion: f64,
+    /// Content API 50 (M4c slice AI, step three): what calling a coup costs a watcher, points.
+    pub coup_cost: f64,
+}
+
+impl FactionFile {
+    fn params(&self) -> civ_agents::faction::FactionParams {
+        civ_agents::faction::FactionParams {
+            review_days: self.review_days,
+            found_floor: self.found_floor,
+            trust_floor: self.trust_floor,
+            shared_full: self.shared_full,
+            w_grievance: self.w_grievance,
+            w_shared: self.w_shared,
+            w_organizer: self.w_organizer,
+            w_belong: self.w_belong,
+            w_dues: self.w_dues,
+            found_cost: self.found_cost,
+            retry_days: self.retry_days,
+            threshold: self.threshold,
+            leave_margin: self.leave_margin,
+            dues_share: self.dues_share,
+            reserve_days: self.reserve_days,
+            aid_days: self.aid_days,
+            petition_members: self.petition_members,
+            petition_days: self.petition_days,
+            petition_cost: self.petition_cost,
+            w_member: self.w_member,
+            w_expect: self.w_expect,
+            free_ride_share: self.free_ride_share,
+            refused_days: self.refused_days,
+            refusal_cost: self.refusal_cost,
+            refusal_days: self.refusal_days,
+            revolt_cost: self.revolt_cost,
+            revolt_days: self.revolt_days,
+            hold_days: self.hold_days,
+            w_exclusion: self.w_exclusion,
+            coup_cost: self.coup_cost,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        if self.retry_days > 36500 {
+            p.push(format!(
+                "`faction.retry_days` must be at most 36500 (got {})",
+                self.retry_days
+            ));
+        }
+        if !(1..=365).contains(&self.review_days) {
+            p.push(format!(
+                "`faction.review_days` must be between 1 and 365 (got {})",
+                self.review_days
+            ));
+        }
+        if !(2..=1000).contains(&self.petition_members) {
+            p.push(format!(
+                "`faction.petition_members` must be between 2 and 1000 (got {})",
+                self.petition_members
+            ));
+        }
+        for (name, v) in [
+            ("faction.revolt_days", self.revolt_days),
+            ("faction.hold_days", self.hold_days),
+        ] {
+            if !(1..=3650).contains(&v) {
+                p.push(format!("`{name}` must be between 1 and 3650 (got {v})"));
+            }
+        }
+        if !(1..=3650).contains(&self.refusal_days) {
+            p.push(format!(
+                "`faction.refusal_days` must be between 1 and 3650 (got {})",
+                self.refusal_days
+            ));
+        }
+        if self.petition_days > 36500 {
+            p.push(format!(
+                "`faction.petition_days` must be at most 36500 (got {})",
+                self.petition_days
+            ));
+        }
+        for (name, v, lo, hi) in [
+            ("faction.found_floor", self.found_floor, 0.0, 1.0),
+            ("faction.trust_floor", self.trust_floor, 0.0, 1.0),
+            ("faction.shared_full", self.shared_full, 0.0, 100.0),
+            ("faction.w_grievance", self.w_grievance, 0.0, 100.0),
+            ("faction.w_shared", self.w_shared, 0.0, 100.0),
+            ("faction.w_organizer", self.w_organizer, 0.0, 100.0),
+            ("faction.w_belong", self.w_belong, 0.0, 100.0),
+            ("faction.w_dues", self.w_dues, 0.0, 1000.0),
+            ("faction.found_cost", self.found_cost, 0.0, 100.0),
+            ("faction.threshold[0]", self.threshold[0], 0.0, 100.0),
+            ("faction.threshold[1]", self.threshold[1], 0.0, 100.0),
+            ("faction.leave_margin", self.leave_margin, 0.0, 100.0),
+            ("faction.dues_share", self.dues_share, 0.0, 1.0),
+            ("faction.reserve_days", self.reserve_days, 0.0, 3650.0),
+            ("faction.aid_days", self.aid_days, 0.0, 365.0),
+            ("faction.petition_cost", self.petition_cost, 0.0, 100.0),
+            ("faction.w_member", self.w_member, 0.0, 100.0),
+            ("faction.w_expect", self.w_expect, 0.0, 100.0),
+            ("faction.free_ride_share", self.free_ride_share, 0.0, 1.0),
+            ("faction.refused_days", self.refused_days, 0.0, 365.0),
+            ("faction.refusal_cost", self.refusal_cost, 0.0, 100.0),
+            ("faction.revolt_cost", self.revolt_cost, 0.0, 100.0),
+            ("faction.w_exclusion", self.w_exclusion, 0.0, 100.0),
+            ("faction.coup_cost", self.coup_cost, 0.0, 100.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        if self.threshold[0] > self.threshold[1] {
+            p.push("`faction.threshold` must run from low to high".to_owned());
+        }
+    }
+}
+
+/// Opinion (M4c slice AG, ADR-0016 §4; content API 41). See
+/// [`civ_agents::opinion::OpinionParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct OpinionFile {
+    pub share: f64,
+    pub eta: f64,
+    pub epsilon: f64,
+    pub anchor_half_life_days: f64,
+    pub anchor_points: f64,
+    pub w_position: f64,
+    pub salience_live: f64,
+    pub salience_idle: f64,
+    pub youth_until: f64,
+    pub youth_factor: f64,
+}
+
+impl OpinionFile {
+    fn params(&self) -> civ_agents::opinion::OpinionParams {
+        civ_agents::opinion::OpinionParams {
+            share: self.share,
+            eta: self.eta,
+            epsilon: self.epsilon,
+            anchor_half_life_days: self.anchor_half_life_days,
+            anchor_points: self.anchor_points,
+            w_position: self.w_position,
+            salience_live: self.salience_live,
+            salience_idle: self.salience_idle,
+            youth_until: self.youth_until,
+            youth_factor: self.youth_factor,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            ("opinion.share", self.share, 0.0, 1.0),
+            ("opinion.eta", self.eta, 0.0, 1.0),
+            ("opinion.epsilon", self.epsilon, 0.01, 10.0),
+            (
+                "opinion.anchor_half_life_days",
+                self.anchor_half_life_days,
+                1.0,
+                36500.0,
+            ),
+            ("opinion.anchor_points", self.anchor_points, 0.01, 100.0),
+            ("opinion.w_position", self.w_position, 0.0, 100.0),
+            ("opinion.salience_live", self.salience_live, 0.0, 1.0),
+            ("opinion.salience_idle", self.salience_idle, 0.0, 1.0),
+            ("opinion.youth_until", self.youth_until, 0.0, 120.0),
+            ("opinion.youth_factor", self.youth_factor, 0.0, 10.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+    }
+}
+
+/// How households come to know other places (M5a slice AM, ADR-0018 §4; content API 52), and
+/// what a visit to one is worth (content API 53). See [`civ_agents::places::PlacesParams`] for
+/// what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PlacesFile {
+    pub sight_m: f32,
+    pub share_told: f64,
+    pub w_kin: f64,
+    pub w_ties: f64,
+    pub w_seek: f64,
+    pub seek_days: i64,
+    pub revisit_days: f64,
+}
+
+/// What moving to another settlement is worth to a household (M5a slice AN, ADR-0018 §5; content
+/// API 54). See [`civ_agents::places::MovingParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct MovingFile {
+    pub w_kin: f64,
+    pub w_ties: f64,
+    pub w_fed: f64,
+    pub w_grievance: f64,
+    pub w_stake: f64,
+    pub cost: f64,
+    pub reviews: u32,
+}
+
+/// What founding a settlement of its own is worth to a household, and what a coalition must hold
+/// to go (M5a slice AO; content API 55). See [`civ_agents::places::FoundingParams`] for what each
+/// means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct FoundingFile {
+    pub cost: f64,
+    pub yield_share: f64,
+    pub walk_hours: f64,
+    pub candidates: u32,
+    pub buffer_months: f64,
+    pub work_h_per_day: f64,
+}
+
+/// Word of mouth and grievances (M4c slice AE, ADR-0016; content API 39). See
+/// [`civ_agents::word::WordParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct WordFile {
+    pub share_home: f64,
+    pub share_urgent: f64,
+    pub share_routine: f64,
+    pub news_days: u32,
+    pub max_grievances: u32,
+    pub half_life_days: [f64; 4],
+    pub full_harm_days: f64,
+    pub reminder: f64,
+    pub tell_floor: f64,
+    pub remind_days: u32,
+}
+
+impl WordFile {
+    fn params(&self) -> civ_agents::word::WordParams {
+        civ_agents::word::WordParams {
+            share_home: self.share_home,
+            share_urgent: self.share_urgent,
+            share_routine: self.share_routine,
+            news_days: self.news_days,
+            max_grievances: self.max_grievances,
+            half_life_days: self.half_life_days,
+            full_harm_days: self.full_harm_days,
+            reminder: self.reminder,
+            tell_floor: self.tell_floor,
+            remind_days: self.remind_days,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            ("word.share_home", self.share_home, 0.0, 1.0),
+            ("word.share_urgent", self.share_urgent, 0.0, 1.0),
+            ("word.share_routine", self.share_routine, 0.0, 1.0),
+            ("word.full_harm_days", self.full_harm_days, 0.01, 3650.0),
+            ("word.reminder", self.reminder, 0.0, 1.0),
+            ("word.tell_floor", self.tell_floor, 0.0, 1.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        for &h in &self.half_life_days {
+            if !(h.is_finite() && h > 0.0 && h <= 3650.0) {
+                p.push(format!(
+                    "`word.half_life_days` must each be above 0 and at most 3650 (got {h})"
+                ));
+            }
+        }
+        if !(1..=3650).contains(&self.news_days) {
+            p.push(format!(
+                "`word.news_days` must be 1 to 3650 (got {})",
+                self.news_days
+            ));
+        }
+        if !(1..=365).contains(&self.remind_days) {
+            p.push(format!(
+                "`word.remind_days` must be 1 to 365 (got {})",
+                self.remind_days
+            ));
+        }
+        if !(1..=64).contains(&self.max_grievances) {
+            p.push(format!(
+                "`word.max_grievances` must be 1 to 64 (got {})",
+                self.max_grievances
+            ));
+        }
+    }
+}
+
+/// Taking and what follows it (M4b slice AA, ADR-0015; content API 35; cases from content API 36). See
+/// [`civ_agents::crime::CrimeParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct CrimeFile {
+    pub objection_mean: f64,
+    pub objection_sd: f64,
+    pub objection_heritability: f64,
+    pub objection_filter: f64,
+    pub w_objection: f64,
+    pub w_seen: f64,
+    pub w_risk_trait: f64,
+    pub w_regard: f64,
+    pub risk_prior: f64,
+    pub risk_alpha: f64,
+    pub risk_alpha_told: f64,
+    pub sight_m: f64,
+    pub notice_chance: f64,
+    pub retry_hours: f64,
+    pub guardian_age: f64,
+    pub wake_chance: f64,
+    pub remember_days: u32,
+    pub refuse_regard: f64,
+    pub demand_base: f64,
+    pub w_demand_loss: f64,
+    pub w_forgive: f64,
+    pub due_days: u32,
+    pub comply_base: f64,
+    pub w_comply_known: f64,
+    pub w_comply_regard: f64,
+    pub w_comply_cost: f64,
+    pub keep_days: f64,
+    pub report_cost: f64,
+    pub w_case_belief: f64,
+    pub w_comply_found: f64,
+    pub exile_days: f64,
+    pub watch_guard: f64,
+    pub w_watch: f64,
+    pub rounds_per_night: u32,
+    pub round_stops: u32,
+    pub w_watch_report: f64,
+    pub ask_days: f64,
+    pub curfew_guard: f64,
+    pub curfew_cost_days: f64,
+    /// Content API 51 (M4c slice AI, step four): force.
+    pub w_collect: f64,
+    pub w_harm: f64,
+    pub strike_threshold: [f64; 2],
+    pub hurt_days: [u16; 2],
+    pub kill_share: f64,
+}
+
+impl CrimeFile {
+    fn params(&self) -> civ_agents::crime::CrimeParams {
+        civ_agents::crime::CrimeParams {
+            objection_mean: self.objection_mean,
+            objection_sd: self.objection_sd,
+            objection_heritability: self.objection_heritability,
+            objection_filter: self.objection_filter,
+            w_objection: self.w_objection,
+            w_seen: self.w_seen,
+            w_risk_trait: self.w_risk_trait,
+            w_regard: self.w_regard,
+            risk_prior: self.risk_prior,
+            risk_alpha: self.risk_alpha,
+            risk_alpha_told: self.risk_alpha_told,
+            sight_m: self.sight_m,
+            notice_chance: self.notice_chance,
+            retry_hours: self.retry_hours,
+            guardian_age: self.guardian_age,
+            wake_chance: self.wake_chance,
+            remember_days: self.remember_days,
+            refuse_regard: self.refuse_regard,
+            demand_base: self.demand_base,
+            w_demand_loss: self.w_demand_loss,
+            w_forgive: self.w_forgive,
+            due_days: self.due_days,
+            comply_base: self.comply_base,
+            w_comply_known: self.w_comply_known,
+            w_comply_regard: self.w_comply_regard,
+            w_comply_cost: self.w_comply_cost,
+            keep_days: self.keep_days,
+            report_cost: self.report_cost,
+            w_case_belief: self.w_case_belief,
+            w_comply_found: self.w_comply_found,
+            exile_days: self.exile_days,
+            watch_guard: self.watch_guard,
+            w_watch: self.w_watch,
+            rounds_per_night: self.rounds_per_night,
+            round_stops: self.round_stops,
+            w_watch_report: self.w_watch_report,
+            ask_days: self.ask_days,
+            curfew_guard: self.curfew_guard,
+            curfew_cost_days: self.curfew_cost_days,
+            w_collect: self.w_collect,
+            w_harm: self.w_harm,
+            strike_threshold: self.strike_threshold,
+            hurt_days: self.hurt_days,
+            kill_share: self.kill_share,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            ("crime.remember_days", self.remember_days, 0, 36_500),
+            ("crime.due_days", self.due_days, 1, 3650),
+            ("crime.rounds_per_night", self.rounds_per_night, 1, 24),
+            ("crime.round_stops", self.round_stops, 1, 1000),
+        ] {
+            if !(lo..=hi).contains(&v) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        for (name, v, lo, hi) in [
+            ("crime.objection_mean", self.objection_mean, -20.0, 20.0),
+            ("crime.objection_sd", self.objection_sd, 0.0, 20.0),
+            (
+                "crime.objection_heritability",
+                self.objection_heritability,
+                0.0,
+                1.0,
+            ),
+            ("crime.objection_filter", self.objection_filter, 0.0, 1.0),
+            ("crime.w_objection", self.w_objection, 0.0, 1000.0),
+            ("crime.w_seen", self.w_seen, 0.0, 1000.0),
+            ("crime.w_risk_trait", self.w_risk_trait, 0.0, 10.0),
+            ("crime.w_regard", self.w_regard, 0.0, 1000.0),
+            ("crime.risk_prior", self.risk_prior, 0.0, 1.0),
+            ("crime.risk_alpha", self.risk_alpha, 0.0, 1.0),
+            ("crime.risk_alpha_told", self.risk_alpha_told, 0.0, 1.0),
+            ("crime.sight_m", self.sight_m, 0.0, 10_000.0),
+            ("crime.notice_chance", self.notice_chance, 0.0, 1.0),
+            ("crime.retry_hours", self.retry_hours, 0.0, 87_600.0),
+            ("crime.guardian_age", self.guardian_age, 0.0, 130.0),
+            ("crime.wake_chance", self.wake_chance, 0.0, 1.0),
+            ("crime.refuse_regard", self.refuse_regard, 0.0, 100.0),
+            ("crime.demand_base", self.demand_base, -100.0, 100.0),
+            ("crime.w_demand_loss", self.w_demand_loss, 0.0, 100.0),
+            ("crime.w_forgive", self.w_forgive, 0.0, 100.0),
+            ("crime.comply_base", self.comply_base, -100.0, 100.0),
+            ("crime.w_comply_known", self.w_comply_known, 0.0, 100.0),
+            ("crime.w_comply_regard", self.w_comply_regard, 0.0, 100.0),
+            ("crime.w_comply_cost", self.w_comply_cost, 0.0, 100.0),
+            ("crime.keep_days", self.keep_days, 0.0, 3650.0),
+            ("crime.report_cost", self.report_cost, 0.0, 100.0),
+            ("crime.w_case_belief", self.w_case_belief, 0.0, 100.0),
+            ("crime.w_comply_found", self.w_comply_found, -100.0, 100.0),
+            ("crime.exile_days", self.exile_days, 0.0, 3650.0),
+            ("crime.watch_guard", self.watch_guard, 0.0, 1.0),
+            ("crime.w_watch", self.w_watch, 0.0, 100.0),
+            ("crime.w_watch_report", self.w_watch_report, -100.0, 100.0),
+            ("crime.ask_days", self.ask_days, 0.0, 365.0),
+            ("crime.curfew_guard", self.curfew_guard, 0.0, 1.0),
+            ("crime.curfew_cost_days", self.curfew_cost_days, 0.0, 365.0),
+            ("crime.w_collect", self.w_collect, -100.0, 100.0),
+            ("crime.w_harm", self.w_harm, 0.0, 100.0),
+            ("crime.kill_share", self.kill_share, 0.0, 1.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        let [lo, hi] = self.strike_threshold;
+        if !(lo.is_finite() && hi.is_finite() && 0.0 <= lo && lo <= hi && hi <= 100.0) {
+            p.push(format!(
+                "`crime.strike_threshold` must be two points from 0 to 100, the first at most \
+                 the second (got [{lo}, {hi}])"
+            ));
+        }
+        let [lo, hi] = self.hurt_days;
+        if !(1 <= lo && lo <= hi && hi <= 365) {
+            p.push(format!(
+                "`crime.hurt_days` must be two days from 1 to 365, the first at most the second \
+                 (got [{lo}, {hi}])"
+            ));
+        }
+    }
+}
+
+/// The polity (M4a slice Z, ADR-0013; content API 31). See
+/// [`civ_agents::polity::PolityParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PolityFile {
+    pub review_days: u32,
+    pub notice_days: u32,
+    pub gathering_minutes: u32,
+    pub quorum_share: f64,
+    pub w_gain: f64,
+    pub w_regard: f64,
+    pub stance_margin: f64,
+    pub attend_base: f64,
+    pub w_attend: f64,
+    pub w_followers: f64,
+    pub propose_cost: f64,
+    pub temperature: f64,
+    pub vote_memory_days: u32,
+    pub prior_lean: f64,
+    pub prior_years: f64,
+    pub lean_harvest: f64,
+    pub subsistence_share: f64,
+    pub comply_base: f64,
+    pub w_stance: f64,
+    /// Content API 49 (M4c slice AI): days after the custom is taken in which its new body weighs
+    /// ending the laws the old one made.
+    pub founding_days: u32,
+}
+
+impl PolityFile {
+    fn params(&self) -> civ_agents::polity::PolityParams {
+        civ_agents::polity::PolityParams {
+            review_days: self.review_days,
+            notice_days: self.notice_days,
+            gathering_minutes: self.gathering_minutes,
+            quorum_share: self.quorum_share,
+            w_gain: self.w_gain,
+            w_regard: self.w_regard,
+            stance_margin: self.stance_margin,
+            attend_base: self.attend_base,
+            w_attend: self.w_attend,
+            w_followers: self.w_followers,
+            propose_cost: self.propose_cost,
+            temperature: self.temperature,
+            vote_memory_days: self.vote_memory_days,
+            prior_lean: self.prior_lean,
+            prior_years: self.prior_years,
+            lean_harvest: self.lean_harvest,
+            subsistence_share: self.subsistence_share,
+            comply_base: self.comply_base,
+            w_stance: self.w_stance,
+            founding_days: self.founding_days,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            ("polity.review_days", self.review_days, 1, 365),
+            ("polity.notice_days", self.notice_days, 1, 30),
+            ("polity.gathering_minutes", self.gathering_minutes, 15, 600),
+            ("polity.vote_memory_days", self.vote_memory_days, 0, 3650),
+            ("polity.founding_days", self.founding_days, 1, 3650),
+        ] {
+            if !(lo..=hi).contains(&v) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        for (name, v, lo, hi) in [
+            ("polity.quorum_share", self.quorum_share, 0.0, 1.0),
+            ("polity.w_gain", self.w_gain, 0.0, 100.0),
+            ("polity.w_regard", self.w_regard, 0.0, 100.0),
+            ("polity.stance_margin", self.stance_margin, 0.0, 100.0),
+            ("polity.attend_base", self.attend_base, -100.0, 100.0),
+            ("polity.w_attend", self.w_attend, 0.0, 100.0),
+            ("polity.w_followers", self.w_followers, 0.0, 10.0),
+            ("polity.propose_cost", self.propose_cost, 0.0, 100.0),
+            ("polity.temperature", self.temperature, 0.01, 100.0),
+            ("polity.prior_lean", self.prior_lean, 0.0, 100.0),
+            ("polity.prior_years", self.prior_years, 0.01, 100.0),
+            ("polity.lean_harvest", self.lean_harvest, 0.0, 1.0),
+            ("polity.subsistence_share", self.subsistence_share, 0.0, 1.0),
+            ("polity.comply_base", self.comply_base, -100.0, 100.0),
+            ("polity.w_stance", self.w_stance, 0.0, 100.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        if self.prior_lean > self.prior_years {
+            p.push(format!(
+                "`polity.prior_lean` must be at most `polity.prior_years` (got {} of {})",
+                self.prior_lean, self.prior_years
+            ));
+        }
+    }
+}
+
+/// Standing and notables (M4a slice Y, ADR-0014 §3-4; content API 30). See
+/// [`civ_agents::standing::StandingParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct StandingFile {
+    pub candidates: u32,
+    pub notable_share: f64,
+    pub notable_floor: u32,
+    pub notable_keep: f64,
+}
+
+/// Ties between people (M4a slice Y, ADR-0014; content API 30). See
+/// [`civ_agents::ties::TieParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TiesFile {
+    pub room: u32,
+    pub companions: u32,
+    pub prior: f64,
+    pub evidence_half_life_days: f64,
+    pub familiarity_half_life_days: f64,
+    pub warmth_half_life_days: f64,
+    pub fear_half_life_days: f64,
+    pub help_half_life_days: f64,
+    pub hold_help_h: f64,
+    pub salience_per_evidence: f64,
+    pub new_share: f64,
+    pub ask_known_min: f64,
+    /// What each act the engine records writes into its holder's tie.
+    pub acts: Vec<TieActFile>,
+}
+
+/// What one act writes, for each unit of it ([`civ_agents::ties::ActWeights`]). `domain` is
+/// `"none"` for an act that is evidence of nothing.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TieActFile {
+    pub act: String,
+    pub familiarity: f64,
+    pub warmth: f64,
+    pub domain: String,
+    pub good: f64,
+    pub bad: f64,
+}
+
+impl TiesFile {
+    fn params(&self) -> civ_agents::ties::TieParams {
+        use civ_agents::ties::{Act, ActWeights, Domain, TieParams};
+        let mut acts = [ActWeights::default(); civ_agents::ties::ACTS];
+        for a in &self.acts {
+            if let Some(act) = Act::from_name(&a.act) {
+                acts[act as usize] = ActWeights {
+                    familiarity: a.familiarity,
+                    warmth: a.warmth,
+                    domain: Domain::from_name(&a.domain),
+                    good: a.good,
+                    bad: a.bad,
+                };
+            }
+        }
+        TieParams {
+            room: self.room as usize,
+            companions: self.companions as usize,
+            prior: self.prior,
+            evidence_half_life_days: self.evidence_half_life_days,
+            familiarity_half_life_days: self.familiarity_half_life_days,
+            warmth_half_life_days: self.warmth_half_life_days,
+            fear_half_life_days: self.fear_half_life_days,
+            help_half_life_days: self.help_half_life_days,
+            hold_help_h: self.hold_help_h,
+            salience_per_evidence: self.salience_per_evidence,
+            new_share: self.new_share,
+            ask_known_min: self.ask_known_min,
+            acts,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        use civ_agents::ties::{Act, Domain};
+        if !(1..=1000).contains(&self.room) {
+            p.push(format!(
+                "`ties.room` must be between 1 and 1000 (got {})",
+                self.room
+            ));
+        }
+        if self.companions > 100 {
+            p.push(format!(
+                "`ties.companions` must be at most 100 (got {})",
+                self.companions
+            ));
+        }
+        for (name, v, lo, hi) in [
+            ("ties.prior", self.prior, 0.01, 100.0),
+            (
+                "ties.evidence_half_life_days",
+                self.evidence_half_life_days,
+                1.0,
+                36_500.0,
+            ),
+            (
+                "ties.familiarity_half_life_days",
+                self.familiarity_half_life_days,
+                1.0,
+                36_500.0,
+            ),
+            (
+                "ties.warmth_half_life_days",
+                self.warmth_half_life_days,
+                1.0,
+                36_500.0,
+            ),
+            (
+                "ties.fear_half_life_days",
+                self.fear_half_life_days,
+                1.0,
+                36_500.0,
+            ),
+            (
+                "ties.help_half_life_days",
+                self.help_half_life_days,
+                1.0,
+                36_500.0,
+            ),
+            ("ties.hold_help_h", self.hold_help_h, 0.0, 10_000.0),
+            (
+                "ties.salience_per_evidence",
+                self.salience_per_evidence,
+                0.0,
+                10.0,
+            ),
+            ("ties.new_share", self.new_share, 0.0, 1.0),
+            ("ties.ask_known_min", self.ask_known_min, 0.0, 1440.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        let mut seen = std::collections::HashSet::new();
+        for a in &self.acts {
+            if Act::from_name(&a.act).is_none() {
+                p.push(format!(
+                    "`ties.acts` names an act the engine does not record: `{}`",
+                    a.act
+                ));
+            } else if !seen.insert(a.act.as_str()) {
+                p.push(format!("`ties.acts` gives act `{}` twice", a.act));
+            }
+            if a.domain != "none" && Domain::from_name(&a.domain).is_none() {
+                p.push(format!(
+                    "`ties.acts` act `{}` names an unknown domain `{}` (provision, craft, word, \
+                     counsel or none)",
+                    a.act, a.domain
+                ));
+            }
+            for (what, v) in [("familiarity", a.familiarity), ("warmth", a.warmth)] {
+                if !(v.is_finite() && (0.0..=1.0).contains(&v)) {
+                    p.push(format!(
+                        "`ties.acts` act `{}`: `{what}` must be between 0 and 1 (got {v})",
+                        a.act
+                    ));
+                }
+            }
+            for (what, v) in [("good", a.good), ("bad", a.bad)] {
+                if !(v.is_finite() && (0.0..=100.0).contains(&v)) {
+                    p.push(format!(
+                        "`ties.acts` act `{}`: `{what}` must be between 0 and 100 (got {v})",
+                        a.act
+                    ));
+                }
+            }
+        }
+        for act in Act::ALL {
+            if !seen.contains(act.name()) {
+                p.push(format!(
+                    "`ties.acts` must say what act `{}` writes",
+                    act.name()
+                ));
+            }
+        }
+    }
+}
+
+/// A household's midden and carrying it to the fields (M3c slice V; content API 29). See
+/// [`civ_agents::params::MiddenParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct MiddenFile {
+    pub kg_per_person_day: f64,
+    pub n_kg_per_person_year: f64,
+    pub half_life_days: f64,
+    pub load_kg: f64,
+    pub spread_h_per_t: f64,
 }
 
 /// Taste in building, as authored: roof pitch in degrees, eaves and overhang in metres.
@@ -263,6 +1080,10 @@ pub(crate) struct Household {
     pub leave_at_depletion: f64,
     pub leave_per_day: f64,
     pub leave_unless_ripe_within_days: f64,
+    /// Leaving weighed (M4a slice Z; content API 32).
+    pub leave_w_gap: f64,
+    pub leave_w_stake: f64,
+    pub leave_stay: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -357,6 +1178,9 @@ pub(crate) struct Market {
     pub review_days: u32,
     pub margin: f64,
     pub max_change: f64,
+    /// Content API 26: how strongly a seller's ask for food answers what it can spare (ADR-0006
+    /// §4's stock term).
+    pub stock_response: f64,
     pub memory_days: f64,
     pub money_share: f64,
     pub money_min_trades: f64,
@@ -500,6 +1324,9 @@ impl PeopleFile {
                 leave_at_depletion: h.leave_at_depletion,
                 leave_per_day: h.leave_per_day,
                 leave_unless_ripe_within_days: h.leave_unless_ripe_within_days,
+                leave_w_gap: h.leave_w_gap,
+                leave_w_stake: h.leave_w_stake,
+                leave_stay: h.leave_stay,
             },
             decision: DecisionParams {
                 temperature_sd_fraction: d.temperature_sd_fraction,
@@ -631,6 +1458,7 @@ impl PeopleFile {
                     review_days: k.review_days,
                     margin: k.margin,
                     max_change: k.max_change,
+                    stock_response: k.stock_response,
                     memory_days: k.memory_days,
                     money_share: k.money_share,
                     money_min_trades: k.money_min_trades,
@@ -667,6 +1495,51 @@ impl PeopleFile {
                 tradition_spread: self.style.tradition_spread.taste(),
                 personal_spread: self.style.personal_spread.taste(),
             },
+            midden: civ_agents::params::MiddenParams {
+                kg_per_person_day: self.midden.kg_per_person_day,
+                n_kg_per_person_year: self.midden.n_kg_per_person_year,
+                half_life_days: self.midden.half_life_days,
+                load_kg: self.midden.load_kg,
+                spread_h_per_t: self.midden.spread_h_per_t,
+            },
+            ties: self.ties.params(),
+            standing: civ_agents::standing::StandingParams {
+                candidates: self.standing.candidates as usize,
+                notable_share: self.standing.notable_share,
+                notable_floor: self.standing.notable_floor as usize,
+                notable_keep: self.standing.notable_keep,
+            },
+            polity: self.polity.params(),
+            crime: self.crime.params(),
+            word: self.word.params(),
+            opinion: self.opinion.params(),
+            faction: self.faction.params(),
+            places: civ_agents::places::PlacesParams {
+                sight_m: self.places.sight_m,
+                share_told: self.places.share_told,
+                w_kin: self.places.w_kin,
+                w_ties: self.places.w_ties,
+                w_seek: self.places.w_seek,
+                seek_days: self.places.seek_days,
+                revisit_days: self.places.revisit_days,
+            },
+            moving: civ_agents::places::MovingParams {
+                w_kin: self.moving.w_kin,
+                w_ties: self.moving.w_ties,
+                w_fed: self.moving.w_fed,
+                w_grievance: self.moving.w_grievance,
+                w_stake: self.moving.w_stake,
+                cost: self.moving.cost,
+                reviews: self.moving.reviews,
+            },
+            founding: civ_agents::places::FoundingParams {
+                cost: self.founding.cost,
+                yield_share: self.founding.yield_share,
+                walk_hours: self.founding.walk_hours,
+                candidates: self.founding.candidates,
+                buffer_months: self.founding.buffer_months,
+                work_h_per_day: self.founding.work_h_per_day,
+            },
             names,
         }
     }
@@ -675,6 +1548,121 @@ impl PeopleFile {
     pub fn problems(&self) -> Vec<String> {
         let mut p = Vec::new();
         positive("digging.h_per_m3", self.digging.h_per_m3, &mut p);
+        self.ties.problems(&mut p);
+        self.polity.problems(&mut p);
+        self.crime.problems(&mut p);
+        self.word.problems(&mut p);
+        if !(self.places.sight_m.is_finite() && (0.0..=10_000.0).contains(&self.places.sight_m)) {
+            p.push(format!(
+                "`places.sight_m` must be between 0 and 10000 (got {})",
+                self.places.sight_m
+            ));
+        }
+        if !(self.places.share_told.is_finite() && (0.0..=1.0).contains(&self.places.share_told)) {
+            p.push(format!(
+                "`places.share_told` must be between 0 and 1 (got {})",
+                self.places.share_told
+            ));
+        }
+        for (key, v) in [
+            ("places.w_kin", self.places.w_kin),
+            ("places.w_ties", self.places.w_ties),
+            ("places.w_seek", self.places.w_seek),
+        ] {
+            if !(v.is_finite() && (0.0..=100.0).contains(&v)) {
+                p.push(format!("`{key}` must be between 0 and 100 (got {v})"));
+            }
+        }
+        if !(self.places.revisit_days.is_finite()
+            && (1.0..=3650.0).contains(&self.places.revisit_days))
+        {
+            p.push(format!(
+                "`places.revisit_days` must be between 1 and 3650 (got {})",
+                self.places.revisit_days
+            ));
+        }
+        for (key, v) in [
+            ("moving.w_kin", self.moving.w_kin),
+            ("moving.w_ties", self.moving.w_ties),
+            ("moving.w_fed", self.moving.w_fed),
+            ("moving.w_grievance", self.moving.w_grievance),
+            ("moving.w_stake", self.moving.w_stake),
+            ("moving.cost", self.moving.cost),
+        ] {
+            if !(v.is_finite() && (0.0..=100.0).contains(&v)) {
+                p.push(format!("`{key}` must be between 0 and 100 (got {v})"));
+            }
+        }
+        let f = &self.founding;
+        for (key, v, lo, hi) in [
+            ("founding.cost", f.cost, 0.0, 100.0),
+            ("founding.yield_share", f.yield_share, 0.05, 1.0),
+            ("founding.walk_hours", f.walk_hours, 0.25, 24.0),
+            ("founding.buffer_months", f.buffer_months, 0.0, 24.0),
+            ("founding.work_h_per_day", f.work_h_per_day, 0.5, 16.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{key}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        if !(1..=256).contains(&f.candidates) {
+            p.push(format!(
+                "`founding.candidates` must be between 1 and 256 (got {})",
+                f.candidates
+            ));
+        }
+        if !(1..=10).contains(&self.moving.reviews) {
+            p.push(format!(
+                "`moving.reviews` must be between 1 and 10 (got {})",
+                self.moving.reviews
+            ));
+        }
+        if !(0..=3650).contains(&self.places.seek_days) {
+            p.push(format!(
+                "`places.seek_days` must be between 0 and 3650 (got {})",
+                self.places.seek_days
+            ));
+        }
+        self.opinion.problems(&mut p);
+        self.faction.problems(&mut p);
+        let st = &self.standing;
+        if !(1..=100).contains(&st.candidates) {
+            p.push(format!(
+                "`standing.candidates` must be between 1 and 100 (got {})",
+                st.candidates
+            ));
+        }
+        if st.notable_floor > 1000 {
+            p.push(format!(
+                "`standing.notable_floor` must be at most 1000 (got {})",
+                st.notable_floor
+            ));
+        }
+        for (name, v, lo, hi) in [
+            ("standing.notable_share", st.notable_share, 0.0, 1.0),
+            ("standing.notable_keep", st.notable_keep, 1.0, 10.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        let m = &self.midden;
+        for (name, v, lo, hi) in [
+            ("midden.kg_per_person_day", m.kg_per_person_day, 0.0, 10.0),
+            (
+                "midden.n_kg_per_person_year",
+                m.n_kg_per_person_year,
+                0.0,
+                20.0,
+            ),
+            ("midden.half_life_days", m.half_life_days, 0.0, 36_500.0),
+            ("midden.load_kg", m.load_kg, 1.0, 200.0),
+            ("midden.spread_h_per_t", m.spread_h_per_t, 0.0, 100.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
         let st = &self.style;
         for (name, v, lo, hi) in [
             ("style.alpha", st.alpha, 0.0, 1.0),
@@ -964,6 +1952,15 @@ impl PeopleFile {
             h.leave_unless_ripe_within_days,
             &mut p,
         );
+        for (name, v, lo, hi) in [
+            ("household.leave_w_gap", h.leave_w_gap, 0.0, 100.0),
+            ("household.leave_w_stake", h.leave_w_stake, 0.0, 100.0),
+            ("household.leave_stay", h.leave_stay, -100.0, 100.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
         let d = &self.decision;
         positive(
             "decision.temperature_sd_fraction",
@@ -1072,6 +2069,12 @@ impl PeopleFile {
         }
         non_negative("market.margin", k.margin, &mut p);
         unit("market.max_change", k.max_change, &mut p);
+        if !(k.stock_response.is_finite() && (0.0..=3.0).contains(&k.stock_response)) {
+            p.push(format!(
+                "`market.stock_response` must be between 0 and 3 (got {})",
+                k.stock_response
+            ));
+        }
         positive("market.memory_days", k.memory_days, &mut p);
         unit("market.money_share", k.money_share, &mut p);
         non_negative("market.money_min_trades", k.money_min_trades, &mut p);

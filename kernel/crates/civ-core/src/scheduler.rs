@@ -270,6 +270,13 @@ impl<E> Scheduler<E> {
         self.now
     }
 
+    /// Starts the tie-break stream again from `seed`: events scheduled from now on order among
+    /// those of their instant by the new stream. For tests that need several lives of one world
+    /// (ADR-0011 §5, Gate B); a world never does it.
+    pub fn redraw_tiebreak(&mut self, seed: u64) {
+        self.tiebreak = Rng64::seed_from_u64(seed);
+    }
+
     /// Number of pending events.
     pub fn pending(&self) -> usize {
         self.queue.len()

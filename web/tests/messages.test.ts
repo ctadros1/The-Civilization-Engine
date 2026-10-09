@@ -34,6 +34,33 @@ describe("builders", () => {
       ),
     );
     expect((village.body(new W.NewWorld()) as W.NewWorld).regimeId()).toBe("core:regime/village");
+    expect(body.neighboursLength()).toBe(0);
+    const neighbours = W.Command.getRootAsCommand(
+      bb(
+        M.newWorld({
+          seed: 1n,
+          presetId: "core:worldgen/river_valley",
+          sizeCells: 768,
+          name: "",
+          neighbours: [40, 30],
+        }),
+      ),
+    ).body(new W.NewWorld()) as W.NewWorld;
+    expect(Array.from(neighbours.neighboursArray() ?? [])).toEqual([40, 30]);
+    expect(neighbours.neighboursKnown()).toBe(false);
+    const known = W.Command.getRootAsCommand(
+      bb(
+        M.newWorld({
+          seed: 1n,
+          presetId: "core:worldgen/river_valley",
+          sizeCells: 768,
+          name: "",
+          neighbours: [40],
+          neighboursKnown: true,
+        }),
+      ),
+    ).body(new W.NewWorld()) as W.NewWorld;
+    expect(known.neighboursKnown()).toBe(true);
   });
 
   it("builds clock and raster requests", () => {
@@ -75,6 +102,35 @@ describe("builders", () => {
     const body = command.body(new W.IntroduceTechnique()) as W.IntroduceTechnique;
     expect([body.person(), body.technique(), body.awareOnly()]).toEqual([42n, 3, true]);
   });
+
+  it("builds the observer's whisper and an ideology told of", () => {
+    const whisper = W.Command.getRootAsCommand(bb(M.whisper(42, 7)));
+    expect(whisper.bodyType()).toBe(W.CommandBody.Whisper);
+    const w = whisper.body(new W.Whisper()) as W.Whisper;
+    expect([w.person(), w.claim()]).toEqual([42n, 7]);
+    const tell = W.Command.getRootAsCommand(bb(M.tellOfIdeology(42, 2)));
+    expect(tell.bodyType()).toBe(W.CommandBody.TellOfIdeology);
+    const t = tell.body(new W.TellOfIdeology()) as W.TellOfIdeology;
+    expect([t.person(), t.ideology()]).toEqual([42n, 2]);
+  });
+
+  it("builds the observer's agitator and a blessing or curse", () => {
+    const sent = W.Command.getRootAsCommand(bb(M.sendAgitator(120, 340, 1)));
+    expect(sent.bodyType()).toBe(W.CommandBody.SendAgitator);
+    const a = sent.body(new W.SendAgitator()) as W.SendAgitator;
+    expect([a.at()?.x(), a.at()?.y(), a.ideology()]).toEqual([120, 340, 1]);
+    const cursed = W.Command.getRootAsCommand(bb(M.bless(42, true, 365, 0.25)));
+    expect(cursed.bodyType()).toBe(W.CommandBody.Bless);
+    const c = cursed.body(new W.Bless()) as W.Bless;
+    expect([c.person(), c.curse(), c.days(), c.share()]).toEqual([42n, true, 365, 0.25]);
+  });
+
+  it("builds the observer's migration wave", () => {
+    const sent = W.Command.getRootAsCommand(bb(M.sendWave(120, 340, 20, 3, 6)));
+    expect(sent.bodyType()).toBe(W.CommandBody.SendWave);
+    const w = sent.body(new W.SendWave()) as W.SendWave;
+    expect([w.at()?.x(), w.at()?.y(), w.households(), w.days(), w.months()]).toEqual([120, 340, 20, 3, 6]);
+  });
 });
 
 function finish(b: flatbuffers.Builder, root: flatbuffers.Offset): Uint8Array {
@@ -114,6 +170,8 @@ describe("decoders", () => {
     W.DayWeather.addSnowMm(b, 12);
     W.DayWeather.addSoil(b, 0.75);
     W.DayWeather.addWords(b, words);
+    // Wire 1.25: the snow line.
+    W.DayWeather.addSnowLineM(b, 420);
     const weather = W.DayWeather.endDayWeather(b);
     W.Clock.startClock(b);
     W.Clock.addMinute(b, 85_320n);
@@ -170,6 +228,7 @@ describe("decoders", () => {
         snowMm: 12,
         soil: 0.75,
         words: "6 °C, light rain; snow lying",
+        snowLineM: 420,
       },
     });
     expect(snapshot.task).toEqual({

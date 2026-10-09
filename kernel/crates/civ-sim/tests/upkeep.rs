@@ -13,6 +13,7 @@ use civ_agents::condition;
 use civ_agents::history::{Cause, ChronicleKind};
 use civ_agents::params::BuildingDef;
 use civ_agents::person::Flow;
+use civ_agents::structure;
 use civ_content::ContentRegistry;
 use civ_core::PermanentId;
 use civ_core::time::MONTH_LENGTHS;
@@ -39,6 +40,8 @@ fn world(seed: u64) -> Sim {
             preset_id: "core:worldgen/river_valley".to_owned(),
             size_cells: 512,
             band_size: 0,
+            neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: String::new(),
         },
         content(),
@@ -564,31 +567,26 @@ fn posts_rotted_through_bring_a_hut_down_and_those_it_kills_die_of_its_collapse(
 }
 
 #[test]
-fn the_months_peak_is_one_storm_on_one_day_for_a_whole_settlement() {
-    use civ_agents::population::{month_peak, peak_pa};
+fn the_months_storm_comes_on_one_day_for_every_roof_in_the_world() {
+    use civ_agents::population::storm_pa;
     use civ_core::SimTime;
-    let peak = civ_land::PeakLoad {
-        median_pa: 250.0,
-        spread: 0.6,
-    };
-    let place = PermanentId::from_raw(7).expect("nonzero");
+    let sim = world(11);
+    let (climate, params) = (&sim.land().climatology, &sim.rules().land.weather);
     let day =
         |year: i64, month: u8, day: u8| SimTime::from_date(year, month, day, 0, 0).expect("a date");
     let mut loads = Vec::new();
     for year in 1..=50 {
         for month in 1..=12u8 {
-            // One draw a month: the same storm on whatever day of the month it is asked for...
-            let (on, pa) = month_peak(11, place, day(year, month, 3), &peak);
-            assert_eq!((on, pa), month_peak(11, place, day(year, month, 20), &peak));
+            // One storm a month from the world's weather (ADR-0012 §5), striking every roof on its
+            // day alone, so a roof mended after it does not meet it again.
+            let (on, pa) = climate.storm(params, year, usize::from(month) - 1);
             assert!((1..=28).contains(&on), "{on}");
-            // ...striking the roofs on that day alone, so a roof mended after it does not meet
-            // it again.
             let length = civ_core::time::MONTH_LENGTHS[usize::from(month) - 1] as u8;
             let struck: Vec<u8> = (1..=length)
-                .filter(|&d| peak_pa(11, place, day(year, month, d), &peak) > 0.0)
+                .filter(|&d| storm_pa(climate, params, day(year, month, d)) > 0.0)
                 .collect();
             assert_eq!(struck, vec![on]);
-            assert_eq!(peak_pa(11, place, day(year, month, on), &peak), pa);
+            assert_eq!(storm_pa(climate, params, day(year, month, on)), pa);
             loads.push(pa);
         }
     }
@@ -597,6 +595,63 @@ fn the_months_peak_is_one_storm_on_one_day_for_a_whole_settlement() {
     let median = loads[loads.len() / 2];
     assert!((median - 250.0).abs() < 40.0, "{median}");
     assert!(loads.iter().all(|&p| p > 0.0));
+    // The same storms over a world made again from its seed: they are its weather's.
+    let again = world(11);
+    for month in 0..12 {
+        assert_eq!(
+            again.land().climatology.storm(params, 3, month),
+            climate.storm(params, 3, month)
+        );
+    }
+}
+
+#[test]
+fn snow_lying_loads_a_roof_and_a_rotten_one_gives_way_under_it() {
+    use civ_agents::population::snow_on_roof_pa;
+    let (mut sim, _household, hut) = housed(3);
+    let b = building(&sim, hut).clone();
+    let e = expansion(&b);
+    let (x, y) = build::centre_m(&b.spec);
+    let z = civ_land::height_at(sim.map(), x, y);
+    let params = sim.rules().land.weather.clone();
+    // No snow lies on it in the season the world begins.
+    assert_eq!(snow_on_roof_pa(&sim.land().weather, &params, z, &e), 0.0);
+    // Snow lying presses its water's weight on the roof's plan, less the more steeply pitched it
+    // is (a hut's 45-55°: about a third of it or less).
+    let deep = 400.0;
+    let mut w = sim.land().weather.clone();
+    w.snow_mm.iter_mut().for_each(|s| *s = deep);
+    let pa = snow_on_roof_pa(&w, &params, z, &e);
+    let ground = deep as f64 * structure::G;
+    assert!(pa > 0.0 && pa < 0.45 * ground, "{pa} of {ground}");
+    // Rafters rotted through give way under it, and the chronicle says so.
+    let rafters = group_of(&b, GroupKind::RoofFrame);
+    for b in sim.land_mut_for_tests().buildings.iter_mut() {
+        if b.id == hut {
+            for c in &mut b.condition {
+                if c.group == rafters {
+                    c.loss = 0.8;
+                    c.state = GroupState::Symptom;
+                }
+            }
+        }
+    }
+    sim.land_mut_for_tests()
+        .weather
+        .snow_mm
+        .iter_mut()
+        .for_each(|s| *s = 3_000.0);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let entry = sim
+        .people()
+        .chronicle
+        .iter()
+        .rev()
+        .find(|e| e.kind == ChronicleKind::BuildingFailed)
+        .expect("in the chronicle")
+        .clone();
+    assert!(entry.name.contains(" under snow"), "{}", entry.name);
+    assert!(entry.name.ends_with("they had rotted"), "{}", entry.name);
 }
 
 #[test]

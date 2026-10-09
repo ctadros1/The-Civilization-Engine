@@ -56,6 +56,63 @@ export interface ShadeOptions {
   zFactor?: number;
   /** Contour interval, metres (0 = none). */
   contourM?: number;
+  /** The season, to tint the land and whiten it above the snow line (none: as in spring). */
+  season?: Season;
+}
+
+/** What the clock says of the season, for the map (M3c slice U, ADR-0012). */
+export interface Season {
+  /** The month, 0 for January. */
+  month: number;
+  /** The soil water under the wild cover on the valley floor, as a share of what it holds. */
+  soil: number;
+  /** The lowest height at which snow lies, metres; Infinity when it lies nowhere. */
+  snowLineM: number;
+}
+
+/** What of a season shows on the map: the month, the soil water by tenths and the snow line by
+ * 50 m (it moves in 100 m bands). Shading again is worth it only when this changes. */
+export function seasonKey(s: Season | null): string {
+  if (!s) return "";
+  const line = Number.isFinite(s.snowLineM) ? Math.round(s.snowLineM / 50) : "none";
+  return `${s.month}|${Math.round(s.soil * 10)}|${line}`;
+}
+
+/** Land with the growing season over it, grey-brown. */
+const DORMANT: Rgb = [148, 138, 122];
+/** How far toward `DORMANT` the land is in each month, January first: the growing season's
+ * green fades in autumn and returns in spring. */
+const DORMANCY = [0.35, 0.3, 0.15, 0.05, 0, 0, 0, 0, 0.05, 0.15, 0.22, 0.32];
+/** Ground parched by a dry spell, straw yellow. */
+const PARCHED: Rgb = [196, 176, 108];
+const SNOW: Rgb = [240, 243, 247];
+/** Metres above the snow line over which snow covers the ground completely. */
+const SNOW_EDGE_M = 30;
+
+/** The land's colour `c` in season `s` at height `e`: dulled by the month, yellowed by dry soil
+ * in the growing months, and whitened above the snow line. */
+export function seasonal(c: Rgb, e: number, s: Season | undefined): Rgb {
+  if (!s) return c;
+  let [r, g, b] = c;
+  const month = ((Math.round(s.month) % 12) + 12) % 12;
+  const dull = DORMANCY[month] ?? 0;
+  r += (DORMANT[0] - r) * dull;
+  g += (DORMANT[1] - g) * dull;
+  b += (DORMANT[2] - b) * dull;
+  if (month >= 3 && month <= 9) {
+    // Below 60 % of what the soil holds, the wild cover yellows.
+    const dry = Math.min(1, Math.max(0, (0.6 - s.soil) / 0.6)) * 0.45;
+    r += (PARCHED[0] - r) * dry;
+    g += (PARCHED[1] - g) * dry;
+    b += (PARCHED[2] - b) * dry;
+  }
+  if (e >= s.snowLineM) {
+    const cover = Math.min(1, 0.55 + (0.45 * (e - s.snowLineM)) / SNOW_EDGE_M);
+    r += (SNOW[0] - r) * cover;
+    g += (SNOW[1] - g) * cover;
+    b += (SNOW[2] - b) * cover;
+  }
+  return [r, g, b];
 }
 
 type Rgb = [number, number, number];
@@ -147,7 +204,7 @@ export function shade(
         const dzdy = (gg + 2 * hh + ii - (a + 2 * bb + c)) * inv8c;
         const lit = ((dzdx + dzdy) * LIGHT_H + SIN_ALT) / Math.sqrt(dzdx * dzdx + dzdy * dzdy + 1);
         const light = Math.min(1.35, Math.max(0.3, lit / SIN_ALT));
-        const base = landColour((e - landMin) / span);
+        const base = seasonal(landColour((e - landMin) / span), e, opts.season);
         let k = 0.35 + 0.65 * light;
         if (contour > 0) {
           const band = Math.floor(e / contour);

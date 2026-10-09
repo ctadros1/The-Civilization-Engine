@@ -41,7 +41,32 @@ import {
 } from "./firm.js";
 import { materialGoods } from "./deposits.js";
 import { introducible, knowRows, summaryText, techniqueRows } from "./knowledge.js";
+import { standingText, tieText } from "./standing.js";
+import {
+  claimText,
+  grievanceFacts,
+  grievanceHead,
+  heardHow,
+  heardWhen,
+  factionText,
+  ideologyText,
+  normText,
+  positionText,
+  valuesText,
+} from "./word.js";
+import {
+  brokenText,
+  labelText,
+  lawDayText,
+  levyText,
+  membersText,
+  reliefText,
+  stanceText,
+  statusText,
+} from "./government.js";
+import { believedText, caseText, choiceText, happenedRest, seenText, totalsText } from "./order.js";
 import { PATH_LEGEND } from "./paths.js";
+import { neighbourSizes } from "./settlements.js";
 import {
   HOUSEHOLDS_SHOWN,
   giniLines,
@@ -79,6 +104,10 @@ export interface Actions {
     bandSize: number;
     /** The property regime, by content id; empty = the content's default. */
     regimeId: string;
+    /** People in each further founding group, placed together with the first (ADR-0018). */
+    neighbours: number[];
+    /** The founding groups know where each other camped (ADR-0018 §6). */
+    neighboursKnown: boolean;
   }): Promise<void>;
   save(label: string): Promise<void>;
   listSaves(): Promise<SaveEntry[]>;
@@ -109,6 +138,19 @@ export interface Actions {
    * `awareOnly` only hear of it. `technique` is an index into Welcome.techniques.
    */
   introduceTechnique(person: number, technique: number, awareOnly: boolean): Promise<void>;
+  /** Whisper a true claim to a living adult (god tool, M4c slice AJ): a number from their news. */
+  whisper(person: number, claim: number): Promise<void>;
+  /** Tell a living adult of an ideology (god tool, M4c slice AJ): an index into
+   * Welcome.ideologies. */
+  tellOfIdeology(person: number, ideology: number): Promise<void>;
+  /** Bless a living person, or with `curse` curse them, for `days` days by `share` (god tool). */
+  bless(person: number, curse: boolean, days: number, share: number): Promise<void>;
+  /** Arms or disarms the tool that sends an agitator holding ideology `ideology` where the map is
+   * clicked (M4c slice AJ). */
+  setPlacingAgitator(on: boolean, ideology: number): void;
+  /** Arms or disarms the tool that sends a migration wave of `households` households over `days`
+   * days, each carrying `months` months of food, where the map is clicked (M5a slice AN). */
+  setPlacingWave(on: boolean, households: number, days: number, months: number): void;
 }
 
 const MAX_SEED = (1n << 64n) - 1n;
@@ -182,6 +224,12 @@ export function bindUi(store: Store, actions: Actions): void {
   const nwSize = $<HTMLSelectElement>("nw-size");
   const nwSeed = $<HTMLInputElement>("nw-seed");
   const nwBand = $<HTMLInputElement>("nw-band");
+  const nwNeighbours = $<HTMLInputElement>("nw-neighbours");
+  const nwKnown = $<HTMLInputElement>("nw-neighbours-known");
+  const knownApplies = () => {
+    nwKnown.disabled = nwNeighbours.value.trim() === "";
+  };
+  nwNeighbours.addEventListener("input", knownApplies);
   const nwRegime = $<HTMLSelectElement>("nw-regime");
   const nwError = $("nw-error");
   const nwCreate = $<HTMLButtonElement>("nw-create");
@@ -232,6 +280,11 @@ export function bindUi(store: Store, actions: Actions): void {
       $("nw-band-hint"),
       `People in the first band, ${welcome.bandSizeMin} to ${welcome.bandSizeMax}. They choose where to camp.`,
     );
+    setText(
+      $("nw-neighbours-hint"),
+      `Up to two more bands, each with its own people and way of building, camping where their ` +
+        `fields lie apart from the others'. Their sizes, separated by commas; blank for none.`,
+    );
     describePreset();
     describeRegime();
   };
@@ -246,6 +299,9 @@ export function bindUi(store: Store, actions: Actions): void {
     fillNewWorld(welcome);
     nwSeed.value = randomSeed().toString();
     nwBand.value = String(welcome.bandSizeDefault);
+    nwNeighbours.value = "";
+    nwKnown.checked = false;
+    knownApplies();
     nwError.hidden = true;
     nwCreate.disabled = false;
     nwDialog.showModal();
@@ -270,6 +326,12 @@ export function bindUi(store: Store, actions: Actions): void {
       nwError.hidden = false;
       return;
     }
+    const neighbours = neighbourSizes(nwNeighbours.value, welcome);
+    if (typeof neighbours === "string") {
+      nwError.textContent = neighbours;
+      nwError.hidden = false;
+      return;
+    }
     nwCreate.disabled = true;
     actions
       .newWorld({
@@ -279,6 +341,8 @@ export function bindUi(store: Store, actions: Actions): void {
         seed: BigInt(text),
         bandSize: welcome ? band : 0,
         regimeId: nwRegime.value,
+        neighbours,
+        neighboursKnown: neighbours.length > 0 && nwKnown.checked,
       })
       .then(() => nwDialog.close())
       .catch((e: unknown) => {
@@ -456,6 +520,21 @@ export function bindUi(store: Store, actions: Actions): void {
   addDeposit.addEventListener("click", () => armDeposit(addDeposit.getAttribute("aria-pressed") !== "true"));
   depositGood.addEventListener("change", () => armDeposit(addDeposit.getAttribute("aria-pressed") === "true"));
   depositExposed.addEventListener("change", () => armDeposit(addDeposit.getAttribute("aria-pressed") === "true"));
+  const addAgitator = $<HTMLButtonElement>("add-agitator");
+  const agitatorIdeology = $<HTMLSelectElement>("agitator-ideology");
+  const armAgitator = (on: boolean): void => actions.setPlacingAgitator(on, Number(agitatorIdeology.value) || 0);
+  addAgitator.addEventListener("click", () => armAgitator(addAgitator.getAttribute("aria-pressed") !== "true"));
+  agitatorIdeology.addEventListener("change", () => armAgitator(addAgitator.getAttribute("aria-pressed") === "true"));
+  const addWave = $<HTMLButtonElement>("add-wave");
+  const waveChoices = ["wave-households", "wave-days", "wave-months"].map((id) => $<HTMLSelectElement>(id));
+  const armWave = (on: boolean): void => {
+    const [households, days, months] = waveChoices.map((s) => Number(s.value));
+    actions.setPlacingWave(on, households || 10, days || 1, months || 0);
+  };
+  addWave.addEventListener("click", () => armWave(addWave.getAttribute("aria-pressed") !== "true"));
+  for (const s of waveChoices) {
+    s.addEventListener("change", () => armWave(addWave.getAttribute("aria-pressed") === "true"));
+  }
   document.addEventListener("keydown", (event) => {
     if (event.key !== " " || isTyping(event.target)) return;
     if (document.querySelector("dialog[open]")) return;
@@ -764,6 +843,158 @@ export function bindUi(store: Store, actions: Actions): void {
     }
     return box;
   };
+  /** The domains standing is kept in, as the host names them (wire 1.26). */
+  const domainsOf = (state: AppState): string[] =>
+    state.standing?.domains ?? ["provision", "craft", "word", "counsel"];
+  /** Whom a person knows best, and why; and their standing in their settlement (ADR-0014). */
+  const tiesBlock = (state: AppState, p: PersonInfo): Node => {
+    const domains = domainsOf(state);
+    const box = el("div", { className: "ties" }, el("h4", { text: "Knows people" }));
+    if (p.standing) {
+      box.append(el("p", { className: "standing-line", text: `Standing: ${standingText(p.standing, domains)}.` }));
+    }
+    if (p.ties.length === 0) {
+      box.append(el("p", { className: "empty", text: "Nobody yet beyond their household." }));
+      return box;
+    }
+    box.append(
+      el(
+        "ul",
+        {},
+        ...p.ties.map((t) =>
+          el(
+            "li",
+            {},
+            link(t.name, () => actions.focusPerson(t.person)),
+            el("span", { className: "aside", text: ` ${t.reason}` }),
+            el("span", { className: "tie-facts", text: ` (${tieText(t, domains)})` }),
+          ),
+        ),
+      ),
+    );
+    return box;
+  };
+  /** What a person holds against whom and why, and what they have heard that is still news,
+   * with who told them (wire 1.34, ADR-0016). */
+  const wordBlock = (p: PersonInfo): Node => {
+    const box = el("div", { className: "word" }, el("h4", { text: "Grievances and news" }));
+    if (p.grievances.length === 0) {
+      box.append(el("p", { className: "empty", text: "Holds no grievance." }));
+    } else {
+      box.append(
+        el(
+          "ul",
+          { className: "grievances" },
+          ...p.grievances.map((g) =>
+            el(
+              "li",
+              {},
+              el("span", { text: `Holds a grievance ${grievanceHead(g)}` }),
+              el("span", { className: "aside", text: ` (${grievanceFacts(g)})` }),
+            ),
+          ),
+        ),
+      );
+    }
+    if (p.heard.length === 0) {
+      box.append(el("p", { className: "empty", text: "Has heard no news." }));
+    } else {
+      box.append(
+        el(
+          "ul",
+          { className: "heard" },
+          ...p.heard.map((h) =>
+            el(
+              "li",
+              {},
+              el("span", { text: `${claimText(h)} ` }),
+              h.from !== 0
+                ? el(
+                    "span",
+                    { className: "aside" },
+                    "(told by ",
+                    link(h.fromName, () => actions.focusPerson(h.from)),
+                    ` ${heardWhen(h)})`,
+                  )
+                : el("span", { className: "aside", text: `(${heardHow(h)})` }),
+            ),
+          ),
+        ),
+      );
+    }
+    return box;
+  };
+  /** Where a person stands on the questions of the day, and what moved them (wire 1.36). */
+  const opinionBlock = (p: PersonInfo): Node => {
+    const box = el("div", { className: "opinions" }, el("h4", { text: "Where they stand" }));
+    if (p.positions.length === 0) {
+      box.append(el("p", { className: "empty", text: "Holds no position yet: one is first held on the first of a month." }));
+    } else {
+      box.append(
+        el(
+          "ul",
+          {},
+          ...p.positions.map((q) =>
+            el(
+              "li",
+              {},
+              el("span", { text: `On ${q.question}: ` }),
+              el("span", { className: "aside", text: positionText(q) }),
+            ),
+          ),
+        ),
+      );
+    }
+    if (p.values.length > 0) {
+      box.append(
+        el(
+          "p",
+          { className: "values" },
+          el("span", { text: "What they hold dear: " }),
+          el("span", { className: "aside", text: valuesText(p.values) }),
+        ),
+      );
+    }
+    box.append(
+      p.ideologies.length === 0
+        ? el("p", { className: "ideologies empty", text: "Holds to no ideology." })
+        : el(
+            "ul",
+            { className: "ideologies" },
+            ...p.ideologies.map((d) =>
+              el(
+                "li",
+                {},
+                el("span", { text: `Holds to ${d.name}: ` }),
+                el("span", { className: "aside", text: ideologyText(d) }),
+              ),
+            ),
+          ),
+    );
+    // The faction they belong to (wire 1.40, ADR-0017 §2).
+    box.append(
+      p.faction
+        ? el("p", { className: "faction", text: factionText(p.faction) })
+        : el("p", { className: "faction empty", text: "Belongs to no faction." }),
+    );
+    if (p.norms.length > 0) {
+      box.append(
+        el(
+          "ul",
+          { className: "norms" },
+          ...p.norms.map((n) =>
+            el(
+              "li",
+              {},
+              el("span", { text: `That ${n.statement}: ` }),
+              el("span", { className: "aside", text: normText(n) }),
+            ),
+          ),
+        ),
+      );
+    }
+    return box;
+  };
   /** The technique chosen in the inspector's introduce form, kept while the inspector is redrawn. */
   let introChoice: { person: number; technique: number } | null = null;
   let introSelect: HTMLSelectElement | null = null;
@@ -829,6 +1060,133 @@ export function bindUi(store: Store, actions: Actions): void {
     tell.addEventListener("click", () => go(true));
     introSelect = select;
     box.append(form);
+    return box;
+  };
+  /** The observer's hand on one person (M4c slice AJ, ADR-0016 §5): what the observer has done
+   * to them and what came of it, and the two god tools that reach them, a whisper of news they
+   * have not heard and an ideology to hear of. Nothing here chooses for them. */
+  let observerSelects: HTMLSelectElement[] = [];
+  const observerBlock = (welcome: Welcome | null, p: PersonInfo): Node => {
+    const box = el("div", { className: "observer-hand" }, el("h4", { text: "The observer's hand" }));
+    observerSelects = [];
+    if (p.influences.length === 0) {
+      box.append(el("p", { className: "empty", text: "The observer has not reached them." }));
+    } else {
+      box.append(
+        el(
+          "ul",
+          { className: "influences" },
+          ...p.influences.map((i) =>
+            el(
+              "li",
+              {},
+              el("span", { text: `${i.what}. ` }),
+              el("span", { className: "aside", text: `(${lawDayText(i.minute)}; one recorded influence)` }),
+            ),
+          ),
+        ),
+      );
+    }
+    if (p.news.length > 0) {
+      const select = el("select");
+      select.id = "whisper-claim";
+      for (const n of p.news) {
+        const option = el("option", { text: claimText(n) });
+        option.value = String(n.claim);
+        select.append(option);
+      }
+      const label = el("label", { text: "Whisper" });
+      label.htmlFor = select.id;
+      const go = el("button", { text: "Whisper" });
+      go.type = "submit";
+      go.id = "whisper-go";
+      go.title = "They hear it, from no one; what they do with it is theirs (god tool)";
+      const form = el("form", { className: "whisper" }, label, select, go);
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        go.disabled = true;
+        void actions.whisper(p.id, Number(select.value));
+      });
+      observerSelects.push(select);
+      box.append(form);
+    }
+    const ideologies = welcome?.ideologies ?? [];
+    if (ideologies.length > 0) {
+      const select = el("select");
+      select.id = "tell-ideology";
+      ideologies.forEach((d, k) => {
+        const option = el("option", { text: d.name });
+        option.value = String(k);
+        option.title = d.legitimacy;
+        select.append(option);
+      });
+      const label = el("label", { text: "Tell of" });
+      label.htmlFor = select.id;
+      const go = el("button", { text: "Tell them" });
+      go.type = "submit";
+      go.id = "tell-ideology-go";
+      go.title = "They hear of it from no one and weigh it by what they hold dear (god tool)";
+      const form = el("form", { className: "tell-ideology" }, label, select, go);
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        go.disabled = true;
+        void actions.tellOfIdeology(p.id, Number(select.value));
+      });
+      observerSelects.push(select);
+      box.append(form);
+    }
+    // A blessing or a curse on their own luck in material things (M4c slice AJ).
+    {
+      const period = el("select");
+      period.id = "bless-days";
+      for (const [days, text] of [
+        [30, "a month"],
+        [90, "a season"],
+        [365, "a year"],
+        [1825, "five years"],
+      ] as const) {
+        const option = el("option", { text });
+        option.value = String(days);
+        period.append(option);
+      }
+      period.value = "365";
+      const strength = el("select");
+      strength.id = "bless-share";
+      strength.setAttribute("aria-label", "How far it moves their draws");
+      for (const [share, text] of [
+        [0.1, "a little"],
+        [0.25, "a quarter of the way"],
+        [0.5, "half the way"],
+      ] as const) {
+        const option = el("option", { text });
+        option.value = String(share);
+        strength.append(option);
+      }
+      strength.value = "0.25";
+      const label = el("label", { text: "For" });
+      label.htmlFor = period.id;
+      const blessButton = el("button", { text: "Bless" });
+      blessButton.type = "submit";
+      blessButton.id = "bless-go";
+      blessButton.title = "Their own chances of illness or accident fall, and of finding things out rise (god tool)";
+      const curseButton = el("button", { text: "Curse" });
+      curseButton.type = "button";
+      curseButton.id = "curse-go";
+      curseButton.title = "Their own chances of illness or accident rise, and of finding things out fall (god tool)";
+      const form = el("form", { className: "bless" }, label, period, strength, blessButton, curseButton);
+      const go = (curse: boolean) => {
+        blessButton.disabled = true;
+        curseButton.disabled = true;
+        void actions.bless(p.id, curse, Number(period.value), Number(strength.value));
+      };
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        go(false);
+      });
+      curseButton.addEventListener("click", () => go(true));
+      observerSelects.push(period, strength);
+      box.append(form);
+    }
     return box;
   };
   const inspector = (state: AppState, sel: Selection): Node[] => {
@@ -951,6 +1309,28 @@ export function bindUi(store: Store, actions: Actions): void {
       }
     }
     nodes.push(knowsBlock(welcome, p));
+    if (p.residence.length > 0) {
+      nodes.push(
+        el(
+          "div",
+          { className: "residence" },
+          el("h4", { text: p.residence.length > 1 ? "Where they have lived" : "Where they live" }),
+          el("ul", {}, ...p.residence.map((line) => el("li", { text: line }))),
+        ),
+      );
+    }
+    if (p.alive && p.places.length > 0) {
+      nodes.push(
+        el(
+          "div",
+          { className: "places" },
+          el("h4", { text: "Places their household knows" }),
+          el("ul", {}, ...p.places.map((line) => el("li", { text: line }))),
+        ),
+      );
+    }
+    if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p), opinionBlock(p));
+    if (p.alive) nodes.push(observerBlock(welcome, p));
     if (p.kin.length > 0 || p.family.length > 0) {
       nodes.push(
         el(
@@ -982,6 +1362,7 @@ export function bindUi(store: Store, actions: Actions): void {
       if (renderedSelection === sel) return;
       // Not while a technique is being chosen: the list would be replaced under the pointer.
       if (introSelect?.isConnected && document.activeElement === introSelect) return;
+      if (observerSelects.some((x) => x.isConnected && document.activeElement === x)) return;
       renderedSelection = sel;
       peopleKey = "";
       peopleBody.replaceChildren(...inspector(state, sel));
@@ -999,6 +1380,10 @@ export function bindUi(store: Store, actions: Actions): void {
         Math.floor(s.foodDays),
         s.foodShort,
         Math.round(s.harvestKg / 100),
+        s.year,
+        s.abandonedMinute,
+        s.contacts,
+        s.coalitions,
       ]),
       state.welcome?.activities.length ?? 0,
     ]);
@@ -1024,8 +1409,24 @@ export function bindUi(store: Store, actions: Actions): void {
         link(s.name, () => actions.focusSettlement(s.id)),
         ` · ${s.population} people · food for ${formatDays(s.foodDays)}`,
         s.harvestKg > 0 ? ` · harvest so far ${formatKg(s.harvestKg)}` : "",
-        s.foodShort ? el("span", { className: "badge warn", text: "short of food" }) : "",
-        el("span", { className: "since", text: `founded ${formatSimMinute(s.foundedMinute)}` }),
+        s.foodShort && s.abandonedMinute < 0
+          ? el("span", { className: "badge warn", text: "short of food" })
+          : "",
+        s.abandonedMinute >= 0
+          ? el("span", {
+              className: "badge",
+              text: `abandoned ${formatSimMinute(s.abandonedMinute)}`,
+            })
+          : "",
+        el("span", {
+          className: "since",
+          text: `founded ${formatSimMinute(s.foundedMinute)}${s.founding ? `, ${s.founding}` : ""}`,
+        }),
+        s.year ? el("span", { className: "since", text: `In the past year: ${s.year}.` }) : "",
+        s.contacts
+          ? el("span", { className: "since contacts", text: `Between settlements, ${s.contacts}.` })
+          : "",
+        ...s.coalitions.map((c) => el("span", { className: "since coalition", text: `${c}.` })),
       ),
     );
     nodes.push(
@@ -1711,6 +2112,345 @@ export function bindUi(store: Store, actions: Actions): void {
     weatherBody.replaceChildren(...nodes);
   };
 
+  // ---- Standing ----------------------------------------------------------------------------
+  const standingBody = $("standing-body");
+  let standingRenderKey: unknown[] = [];
+  const renderStanding = (state: AppState) => {
+    const world = state.snapshot?.world ?? null;
+    const key = [world?.worldId ?? null, state.standing, state.standingError];
+    if (key.length === standingRenderKey.length && key.every((k, i) => k === standingRenderKey[i]))
+      return;
+    standingRenderKey = key;
+    if (!world) {
+      standingBody.replaceChildren(el("p", { className: "empty", text: "No world loaded." }));
+      return;
+    }
+    const st = state.standing;
+    if (st === null) {
+      standingBody.replaceChildren(
+        state.standingError
+          ? el("p", {
+              className: "form-error",
+              text: `Standing could not be read: ${state.standingError}`,
+            })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      );
+      return;
+    }
+    const nodes: Node[] = [
+      el("p", {
+        className: "aside",
+        text: "What a settlement's adults think of one another, summed from what each saw the others do: gifts, wages, rent, trades, teaching. Notables, the few counted most often among those esteemed most, consider the settlement's affairs weekly; being one grants nothing. Worked out on the first of each month.",
+      }),
+    ];
+    if (st.minute === 0) {
+      nodes.push(el("p", { className: "empty", text: "Not worked out yet: it is, on the first of the month." }));
+    }
+    for (const s of st.settlements) {
+      const block = el("div", { className: "standing-settlement" });
+      const notables = s.rows.filter((r) => r.notable);
+      block.append(
+        el("h3", { text: s.name || "A settlement" }),
+        el("p", {
+          className: "since",
+          text: `${s.adults} adults; notables: ${notables.length === 0 ? "none" : notables.map((r) => r.name).join(", ")}.`,
+        }),
+        el(
+          "ol",
+          { className: "standing-rows" },
+          ...s.rows.map((r) =>
+            el(
+              "li",
+              { className: r.notable ? "notable" : "" },
+              link(r.name, () => actions.focusPerson(r.person)),
+              el("span", { className: "aside", text: ` ${standingText(r, st.domains)}` }),
+            ),
+          ),
+        ),
+      );
+      nodes.push(block);
+    }
+    nodes.push(
+      el("p", {
+        className: "note",
+        text: `${st.ties} ties kept across the world; ${st.letGo} let go for want of room.`,
+      }),
+    );
+    if (state.standingError) {
+      nodes.push(el("p", { className: "note", text: `Not up to date: ${state.standingError}` }));
+    }
+    standingBody.replaceChildren(...nodes);
+  };
+
+  // ---- Government --------------------------------------------------------------------------
+  const governmentBody = $("government-body");
+  let governmentRenderKey: unknown[] = [];
+  /** The laws opened to their histories, by id, kept across redraws. */
+  const lawsOpen = new Set<number>();
+  const renderGovernment = (state: AppState) => {
+    const world = state.snapshot?.world ?? null;
+    const key = [world?.worldId ?? null, state.government, state.governmentError];
+    if (
+      key.length === governmentRenderKey.length &&
+      key.every((k, i) => k === governmentRenderKey[i])
+    )
+      return;
+    governmentRenderKey = key;
+    if (!world) {
+      governmentBody.replaceChildren(el("p", { className: "empty", text: "No world loaded." }));
+      return;
+    }
+    const g = state.government;
+    if (g === null) {
+      governmentBody.replaceChildren(
+        state.governmentError
+          ? el("p", {
+              className: "form-error",
+              text: `The government could not be read: ${state.governmentError}`,
+            })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      );
+      return;
+    }
+    const nodes: Node[] = [
+      el("p", {
+        className: "aside",
+        text: "Each settlement decides by the custom every world starts from. A law exists only if someone proposed it and a gathering passed it; each is kept with its whole history: who proposed it and why, who came and where each stood, what was paid, kept back and given.",
+      }),
+    ];
+    if (g.polities.length === 0) {
+      nodes.push(el("p", { className: "empty", text: "No settlement has a polity yet: each is founded at the first midnight." }));
+    }
+    for (const p of g.polities) {
+      const block = el("div", { className: "polity" });
+      block.append(
+        el("h3", { text: p.name || "A settlement" }),
+        el("p", { className: "custom", text: p.custom }),
+        el("p", {
+          className: "since",
+          text: `${membersText(p)}; the common store holds ${p.store}.`,
+        }),
+      );
+      // Its custom's versions, once it has been amended (wire 1.35, ADR-0017 §1).
+      if (p.customHistory.length > 1) {
+        block.append(
+          el(
+            "details",
+            { className: "custom-history" },
+            el("summary", { text: `The custom has changed ${p.customHistory.length - 1} time${p.customHistory.length === 2 ? "" : "s"}` }),
+            el("ol", {}, ...p.customHistory.map((v) => el("li", { text: v }))),
+          ),
+        );
+      }
+      if (p.offices.length > 0) {
+        block.append(
+          el("ul", { className: "offices" }, ...p.offices.map((o) => el("li", { text: o }))),
+        );
+      }
+      // Its factions (wire 1.40, ADR-0017 §2).
+      if (p.factions.length > 0) {
+        block.append(
+          el("ul", { className: "factions" }, ...p.factions.map((v) => el("li", { text: v }))),
+        );
+      }
+      // Its petitions (wire 1.41, ADR-0017 §3), refusals of a levy (1.42), revolts (1.43) and
+      // coups (1.45).
+      if (p.petitions.length > 0) {
+        block.append(
+          el("ul", { className: "petitions" }, ...p.petitions.map((v) => el("li", { text: v }))),
+        );
+      }
+      if (p.refusals.length > 0) {
+        block.append(
+          el("ul", { className: "refusals" }, ...p.refusals.map((v) => el("li", { text: v }))),
+        );
+      }
+      if (p.revolts.length > 0) {
+        block.append(
+          el("ul", { className: "revolts" }, ...p.revolts.map((v) => el("li", { text: v }))),
+        );
+      }
+      if (p.coups.length > 0) {
+        block.append(el("ul", { className: "coups" }, ...p.coups.map((v) => el("li", { text: v }))));
+      }
+      const label = labelText(p);
+      if (label !== "") {
+        block.append(
+          el(
+            "details",
+            { className: "label" },
+            el("summary", { text: `Would be called: ${label}` }),
+            el("p", {
+              className: "aside",
+              text: "Worked out afterwards from its history over the last two years; nothing in the world reads it.",
+            }),
+            el("ul", {}, ...p.labelWhy.map((w) => el("li", { text: w }))),
+          ),
+        );
+      }
+      if (p.gatheringLaw !== 0 || p.gatheringCases.length > 0) {
+        const hears =
+          p.gatheringCases.length > 0 ? ` It is to hear ${p.gatheringCases.join("; ")}.` : "";
+        block.append(
+          el("p", {
+            className: "gathering",
+            text: `A gathering is called for ${lawDayText(p.gatheringMinute)}${p.gatheringPresent > 0 ? `; ${p.gatheringPresent} have come so far` : ""}.${hears}`,
+          }),
+        );
+      }
+      if (p.laws.length === 0) {
+        block.append(el("p", { className: "empty", text: "Nothing has been proposed here." }));
+      }
+      for (const l of p.laws) {
+        const facts = el("dl", { className: "law-history" });
+        facts.append(
+          el("dt", { text: "Proposed" }),
+          el(
+            "dd",
+            {},
+            link(l.sponsorName, () => actions.focusPerson(l.sponsor)),
+            ` on ${lawDayText(l.proposedMinute)}, because ${l.issue}`,
+          ),
+        );
+        if (l.decision) {
+          facts.append(
+            el("dt", { text: "Decided" }),
+            el("dd", { text: `${lawDayText(l.decidedMinute)}: ${l.decision}` }),
+          );
+        }
+        if (l.status === "in force" || l.status === "lapsed") {
+          facts.append(el("dt", { text: "Known by" }), el("dd", { text: `${l.known} living` }));
+          const levy = levyText(l);
+          if (levy) facts.append(el("dt", { text: "Levy" }), el("dd", { text: levy }));
+          const relief = reliefText(l);
+          if (relief) facts.append(el("dt", { text: "Relief" }), el("dd", { text: relief }));
+          const broken = brokenText(l);
+          if (broken) facts.append(el("dt", { text: "Kept" }), el("dd", { text: broken }));
+        }
+        const details = el(
+          "details",
+          { className: `law ${l.status.replace(" ", "-")}` },
+          el(
+            "summary",
+            {},
+            el("span", { className: "law-what", text: l.what }),
+            el("span", { className: "status", text: ` (${statusText(l)})` }),
+          ),
+          facts,
+        );
+        if (l.stances.length > 0) {
+          details.append(
+            el(
+              "ol",
+              { className: "stances" },
+              ...l.stances.map((st) =>
+                el(
+                  "li",
+                  { className: `stance-${st.stance}` },
+                  link(st.name, () => actions.focusPerson(st.person)),
+                  el("span", { className: "aside", text: ` ${stanceText(st)}` }),
+                ),
+              ),
+            ),
+          );
+        }
+        details.open = lawsOpen.has(l.id);
+        details.addEventListener("toggle", () => {
+          if (details.open) lawsOpen.add(l.id);
+          else lawsOpen.delete(l.id);
+        });
+        block.append(details);
+      }
+      nodes.push(block);
+    }
+    if (state.governmentError) {
+      nodes.push(el("p", { className: "note", text: `Not up to date: ${state.governmentError}` }));
+    }
+    governmentBody.replaceChildren(...nodes);
+  };
+
+  // ---- Order (takings) ---------------------------------------------------------------------
+  const orderBody = $("order-body");
+  let orderRenderKey: unknown[] = [];
+  const renderOrder = (state: AppState) => {
+    const world = state.snapshot?.world ?? null;
+    const key = [world?.worldId ?? null, state.order, state.orderError];
+    if (key.length === orderRenderKey.length && key.every((k, i) => k === orderRenderKey[i])) return;
+    orderRenderKey = key;
+    if (!world) {
+      orderBody.replaceChildren(el("p", { className: "empty", text: "No world loaded." }));
+      return;
+    }
+    const o = state.order;
+    if (o === null) {
+      orderBody.replaceChildren(
+        state.orderError
+          ? el("p", {
+              className: "form-error",
+              text: `The takings could not be read: ${state.orderError}`,
+            })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      );
+      return;
+    }
+    const nodes: Node[] = [
+      el("p", {
+        className: "aside",
+        text: "Each taking is shown twice: what happened, which nobody in the world reads, and what the living believe of it and chose. They differ: a taking nobody saw is known only as a loss, and word of a taker travels only along ties.",
+      }),
+      el("p", { className: "order-totals", text: totalsText(o) }),
+    ];
+    // Watchers come to take what a refused finding owed (wire 1.46).
+    if (o.encounters.length > 0) {
+      nodes.push(
+        el("ul", { className: "encounters" }, ...o.encounters.map((v) => el("li", { text: v }))),
+      );
+    }
+    const known = new Map(o.known.map((k) => [k.incident, k]));
+    if (o.incidents.length > 0) {
+      const list = el("ol", { className: "takings" });
+      for (const i of o.incidents) {
+        const k = known.get(i.id);
+        const choice = choiceText(k);
+        list.append(
+          el(
+            "li",
+            { className: `taking taking-${i.outcome.replace(" ", "-")}` },
+            el(
+              "div",
+              { className: "happened" },
+              el("span", { className: "layer", text: "What happened: " }),
+              link(i.actorName, () => actions.focusPerson(i.actor)),
+              ` ${happenedRest(i)} ${seenText(i)}.${i.watch ? ` ${i.watch}.` : ""}`,
+            ),
+            el(
+              "div",
+              { className: "believed" },
+              el("span", { className: "layer", text: "What people believe: " }),
+              `${believedText(k)}.${choice ? ` ${choice}.` : ""}`,
+            ),
+          ),
+        );
+        const brought = caseText(k);
+        if (brought !== "") {
+          list.lastElementChild?.append(
+            el(
+              "div",
+              { className: "case" },
+              el("span", { className: "layer", text: "What the gathering was told: " }),
+              `${brought}.`,
+            ),
+          );
+        }
+      }
+      nodes.push(list);
+    }
+    if (state.orderError) {
+      nodes.push(el("p", { className: "note", text: `Not up to date: ${state.orderError}` }));
+    }
+    orderBody.replaceChildren(...nodes);
+  };
+
   // ---- Knowledge ---------------------------------------------------------------------------
   const knowledgeBody = $("knowledge-body");
   let knowledgeKey: unknown[] = [];
@@ -1893,6 +2633,35 @@ export function bindUi(store: Store, actions: Actions): void {
     $<HTMLInputElement>("deposit-exposed").disabled = deposit.disabled;
     deposit.setAttribute("aria-pressed", String(state.placingDeposit));
     deposit.classList.toggle("active", state.placingDeposit);
+    // The agitator tool (M4c slice AJ): one newcomer holding the ideology chosen.
+    const agitator = $<HTMLButtonElement>("add-agitator");
+    const ideaSelect = $<HTMLSelectElement>("agitator-ideology");
+    const ideas = state.welcome?.ideologies ?? [];
+    const ideasKey = ideas.map((d) => d.id).join(",");
+    if (ideaSelect.dataset.ideas !== ideasKey) {
+      ideaSelect.dataset.ideas = ideasKey;
+      ideaSelect.replaceChildren(
+        ...ideas.map((d, k) => {
+          const option = el("option", { text: d.name });
+          option.value = String(k);
+          option.title = d.legitimacy;
+          return option;
+        }),
+      );
+    }
+    if (ideaSelect.value !== String(state.agitatorIdeology) && ideas.length > state.agitatorIdeology) {
+      ideaSelect.value = String(state.agitatorIdeology);
+    }
+    agitator.disabled = !open || !world || ideas.length === 0;
+    ideaSelect.disabled = agitator.disabled;
+    agitator.setAttribute("aria-pressed", String(state.placingAgitator));
+    agitator.classList.toggle("active", state.placingAgitator);
+    // The migration wave (M5a slice AN).
+    const wave = $<HTMLButtonElement>("add-wave");
+    wave.disabled = !open || !world;
+    for (const id of ["wave-households", "wave-days", "wave-months"]) $<HTMLSelectElement>(id).disabled = wave.disabled;
+    wave.setAttribute("aria-pressed", String(state.placingWave));
+    wave.classList.toggle("active", state.placingWave);
     renderSpeeds(state);
     renderConnection(state);
     renderBanner(state);
@@ -1904,6 +2673,9 @@ export function bindUi(store: Store, actions: Actions): void {
     renderWealth(state);
     renderWeather(state);
     renderKnowledge(state);
+    renderStanding(state);
+    renderGovernment(state);
+    renderOrder(state);
     renderWorld(state);
     renderEvents(state);
     renderTask(state);

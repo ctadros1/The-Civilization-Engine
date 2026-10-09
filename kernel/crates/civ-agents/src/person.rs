@@ -19,8 +19,9 @@ pub enum Target {
     None,
     /// The household's home.
     Home,
-    /// The settlement's hearth.
-    Hearth,
+    /// A settlement's hearth, by the settlement's permanent id (ADR-0018 §2: company there is
+    /// whoever is present, residents or not).
+    Hearth(PermanentId),
     /// A land patch, by index.
     Patch(u32),
     /// A terrain cell next to drinkable water.
@@ -257,6 +258,15 @@ pub struct Person {
     pub knows: Vec<Know>,
     /// When their last session of trying toward a technique ended (ADR-0008 §3), if ever.
     pub tried: Option<SimTime>,
+    /// Their objection to taking what is not theirs, 0–1 (M4b slice AA, ADR-0015 §2): drawn at
+    /// birth, pulled toward their parents'.
+    pub objection: f32,
+    /// The chance they believe someone taking from another household's store runs of being seen,
+    /// 0–1, from what they have lived and heard (research 04-09 §5.4).
+    pub risk_seen: f32,
+    /// The household whose store they last turned back or fled from, and until when they wait
+    /// before weighing taking again (M4b slice AA).
+    pub guarded: Option<(PermanentId, SimTime)>,
 }
 
 /// How a person came to know of a technique (ADR-0008 §2). Numeric in saves: append only.
@@ -675,6 +685,40 @@ pub struct Household {
     /// The building that moved their taste most at its last review, which their next building
     /// follows (M3b slice R).
     pub admired: Option<PermanentId>,
+    /// Their midden (M3c slice V).
+    pub midden: Midden,
+}
+
+/// A household's midden beside its home: the heap of ash, food waste, sweepings and dung (research
+/// 12-02 §3: early farming middens mixed domestic waste, ash and fecal material), kilograms as it
+/// stood at `at` ([`crate::params::MiddenParams::after`] brings it up to date).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Midden {
+    /// Kilograms in the heap.
+    pub kg: f64,
+    /// When it was last brought up to date.
+    pub at: SimTime,
+}
+
+impl Midden {
+    /// An empty heap begun at `t`.
+    pub fn begun(t: SimTime) -> Midden {
+        Midden { kg: 0.0, at: t }
+    }
+
+    /// The heap at `t` for `members` people.
+    pub fn at_time(&self, t: SimTime, members: usize, params: &crate::params::MiddenParams) -> f64 {
+        let days = (t.minutes() - self.at.minutes()).max(0) as f64 / MINUTES_PER_DAY as f64;
+        params.after(self.kg, members, days)
+    }
+
+    /// Brings the heap up to `t` for `members` people.
+    pub fn settle(&mut self, t: SimTime, members: usize, params: &crate::params::MiddenParams) {
+        if t > self.at {
+            self.kg = self.at_time(t, members, params);
+            self.at = t;
+        }
+    }
 }
 
 /// Room for a household's goods under its roofs (ADR-0009 §5), from its roofed buildings: on
@@ -1005,6 +1049,7 @@ mod tests {
             offers: Vec::new(),
             taste: Default::default(),
             admired: None,
+            midden: Midden::default(),
         }
     }
 

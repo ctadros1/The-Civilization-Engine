@@ -116,6 +116,89 @@ pub const SCHEMA_V21: u32 = 21;
 pub const SCHEMA_V22: u32 = 22;
 /// The schema version of M3c slice S: worn ground kept exactly, before weather (see [`agents`]).
 pub const SCHEMA_V23: u32 = 23;
+/// The schema version of M3c slice U's first steps: weather, before the chronicle noted what
+/// stood out in it (see [`agents`]).
+pub const SCHEMA_V24: u32 = 24;
+/// The schema version of M3c slice U complete: the weather in the chronicle, before soils (see
+/// [`agents`]).
+pub const SCHEMA_V25: u32 = 25;
+/// The schema version of M3c slice V's first steps: soils, before middens (see [`agents`]).
+pub const SCHEMA_V26: u32 = 26;
+/// The schema version of M3c complete: middens, before ties between people (see [`agents`]).
+pub const SCHEMA_V27: u32 = 27;
+/// The schema version of M4a slice Y: ties between people, before polities (see [`agents`]).
+pub const SCHEMA_V28: u32 = 28;
+/// The schema version of M4a slice Z's first steps: polities, before laws that name anyone (see
+/// [`agents`]).
+pub const SCHEMA_V29: u32 = 29;
+/// The schema version of M4a slice Z's last steps: laws that name someone, before takings (see
+/// [`agents`]).
+pub const SCHEMA_V30: u32 = 30;
+/// The schema version of M4b slice AA: takings and what was seen, before laws against them (see
+/// [`agents`]).
+pub const SCHEMA_V31: u32 = 31;
+/// The schema version of M4b slice AB: cases and their decision, before the watch (see
+/// [`agents`]).
+pub const SCHEMA_V32: u32 = 32;
+/// The schema version of M4b slice AC: the watch, before incidents said where a taker's household
+/// stood by food (see [`agents`]).
+pub const SCHEMA_V33: u32 = 33;
+/// The schema version of M4b slice AD: curfews and where a taker stood by food, before word and
+/// grievances (see [`agents`]).
+pub const SCHEMA_V34: u32 = 34;
+/// The schema version of M4c slice AE: word of mouth and grievances, before the custom could be
+/// amended (see [`agents`]).
+pub const SCHEMA_V35: u32 = 35;
+/// The schema version of M4c slice AF: amendments of the custom, before opinion (see
+/// [`agents`]).
+pub const SCHEMA_V36: u32 = 36;
+/// The schema version of M4c slice AG's first step: opinion, before norms (see [`agents`]).
+pub const SCHEMA_V37: u32 = 37;
+/// The schema version of M4c slice AG's second step: norms, before values (see [`agents`]).
+pub const SCHEMA_V38: u32 = 38;
+/// The schema version of M4c slice AG's third step: values, before ideologies (see [`agents`]).
+pub const SCHEMA_V39: u32 = 39;
+/// The schema version of M4c slice AG's fourth step: ideologies, before factions (see
+/// [`agents`]).
+pub const SCHEMA_V40: u32 = 40;
+/// The schema version of M4c slice AH's first step: factions, before petitions (see [`agents`]).
+pub const SCHEMA_V41: u32 = 41;
+/// The schema version of M4c slice AH's second step: petitions, before refusals (see
+/// [`agents`]).
+pub const SCHEMA_V42: u32 = 42;
+/// The schema version of M4c slice AH's third step: refusals, before revolts (see [`agents`]).
+pub const SCHEMA_V43: u32 = 43;
+/// The schema version of M4c slice AI's first step: revolts, before repeals at a founding (see
+/// [`agents`]).
+pub const SCHEMA_V44: u32 = 44;
+/// The schema version of M4c slice AI's second step: founding, before coups (see [`agents`]).
+pub const SCHEMA_V45: u32 = 45;
+/// The schema version of M4c slice AI's third step: coups, before force (see [`agents`]).
+pub const SCHEMA_V46: u32 = 46;
+/// The schema version of M4c slice AI's fourth step: force, before the observer's interventions
+/// (see [`agents`]).
+pub const SCHEMA_V47: u32 = 47;
+/// The schema version of M4c slice AJ's first step: whispers and ideologies told of, before
+/// agitators, blessings and curses (see [`agents`]).
+pub const SCHEMA_V48: u32 = 48;
+/// The schema version of M4c slice AJ's second step: agitators, blessings and curses, before
+/// several settlements (see [`agents`]).
+pub const SCHEMA_V49: u32 = 49;
+/// The schema version of M5a slice AK: several settlements, before the places households know
+/// (see [`agents`]).
+pub const SCHEMA_V50: u32 = 50;
+/// The schema version of M5a slice AM, step one: the places households know, before visits and
+/// the contacts between settlements (see [`agents`]).
+pub const SCHEMA_V51: u32 = 51;
+/// The schema version of M5a slice AM, step two: visits and marriages between settlements,
+/// before households moved between them (see [`agents`]).
+pub const SCHEMA_V52: u32 = 52;
+/// The schema version of M5a slice AN, step one: households moving between settlements, before
+/// migration waves (see [`agents`]).
+pub const SCHEMA_V53: u32 = 53;
+/// The schema version of M5a slice AN, step two: migration waves, before coalitions to found
+/// settlements (see [`agents`]).
+pub const SCHEMA_V54: u32 = 54;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

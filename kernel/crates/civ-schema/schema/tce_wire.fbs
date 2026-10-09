@@ -101,6 +101,15 @@ table CropInfo {
 
 // A technique people know, learn and can lose (M3b slice M; ADR-0008). PersonInfo.knows and
 // Knowledge refer to techniques by their index in Welcome.techniques.
+// Wire 1.47 (M4c slice AJ): an ideology content names, for the observer's god tool.
+table IdeologyInfo {
+  id: string (id: 0);
+  // "Common provision".
+  name: string (id: 1);
+  // Its legitimacy story in words.
+  legitimacy: string (id: 2);
+}
+
 table TechniqueInfo {
   id: string (id: 0);
   // "Shaping stone".
@@ -168,6 +177,8 @@ table Welcome {
   // Wire 1.23 (M3c slice S): the Accelerated speeds as multiples of 1x, after the Detailed ones in
   // speed_multipliers: 60, 600 and Max, which is infinite.
   accelerated_multipliers: [float] (id: 19);
+  // Wire 1.47 (M4c slice AJ): the ideologies, which the observer may tell someone of.
+  ideologies: [IdeologyInfo] (id: 20);
 }
 
 // ---- Snapshot: replaceable host and world state --------------------------------------------
@@ -205,6 +216,9 @@ table DayWeather {
   soil: float (id: 5);
   // In words, rendered by the kernel: "6 °C, light rain; snow lying".
   words: string (id: 6);
+  // Wire 1.25: the lowest height at which snow lies, metres (the foot of the lowest 100 m band
+  // with 5 mm of water or more lying); infinite when it lies nowhere.
+  snow_line_m: float = inf (id: 7);
 }
 
 table WorldInfo {
@@ -282,6 +296,22 @@ table SettlementBrief {
   food_short: bool (id: 6);
   // Grain threshed from its fields this harvest, kilograms (M1 slice C).
   harvest_kg: float (id: 7);
+  // How it was founded, in words (wire 1.49, ADR-0018 §1): "one of the groups the world began
+  // with", "by a family the observer sent".
+  founding: string (id: 8);
+  // Its accounts over the past year, in words (ADR-0018 §3): "3 born, 1 died, 4 came from beyond
+  // the map"; empty when nothing changed.
+  year: string (id: 9);
+  // When its last resident died or left (-1: it is lived in).
+  abandoned_minute: long = -1 (id: 10);
+  // Wire 1.51 (M5a slice AM): visits and marriages between it and other settlements last year
+  // and this year so far, in words ("in year 2: 12 visits from Ashford, 7 hours at the hearth
+  // here; 3 visits to Ashford"); empty when there were none.
+  contacts: string (id: 11);
+  // Wire 1.53 (M5a slice AO): households of it gathered to found a settlement, still gathering or
+  // ended in the past year, each in words ("Ada's household gathers 2 more households, 14
+  // people, to found a settlement 3.1 km north, since the spring of year 2; lacks seed").
+  coalitions: [string] (id: 12);
 }
 
 table Snapshot {
@@ -357,6 +387,12 @@ table NewWorld {
   band_size: uint (id: 4);
   // The property regime, by content id; empty = the content's default (M3a slice K).
   regime_id: string (id: 5);
+  // People in each further founding group, a band of its own placed together with the first
+  // (wire 1.49, ADR-0018 §6); 0 = the content's default. At most two.
+  neighbours: [uint] (id: 6);
+  // Whether the founding groups know where each other camped when they arrive (wire 1.50,
+  // ADR-0018 §6); otherwise each finds the others only by contact.
+  neighbours_known: bool (id: 7);
 }
 
 table SaveWorld {
@@ -415,7 +451,48 @@ table PlaceDeposit {
   exposed: bool (id: 3);
 }
 
-union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit }
+// Wire 1.47 (M4c slice AJ, ADR-0016 §5): the observer whispers a true claim to a person: one
+// their settlement's word holds and they have not heard (PersonInfo.news). A repeat refreshes it.
+table Whisper {
+  person: ulong (id: 0);
+  claim: uint (id: 1);
+}
+
+// Wire 1.47 (M4c slice AJ, ADR-0016 §5): the observer tells a person of an ideology (an index
+// into Welcome.ideologies); they weigh it as one heard of from no one. A repeat draws nothing new.
+table TellOfIdeology {
+  person: ulong (id: 0);
+  ideology: uint (id: 1);
+}
+
+// Wire 1.48 (M4c slice AJ, step two; ADR-0016 §5): the observer sends one adult newcomer holding
+// an ideology (an index into Welcome.ideologies), placed as a family is (SpawnFamily).
+table SendAgitator {
+  at: Vec2 (id: 0);
+  ideology: uint (id: 1);
+}
+
+// Wire 1.48: the observer blesses a living person, or curses them, for `days` days (1-3650),
+// moving their own draws for illness or accident and for finding things out by `share` of their
+// way (0.05-0.5). One of the same kind in force is refreshed; one of the other kind ends.
+table Bless {
+  person: ulong (id: 0);
+  curse: bool (id: 1);
+  days: uint (id: 2);
+  share: float (id: 3);
+}
+
+// Wire 1.52 (M5a slice AN, ADR-0016 §5): the observer sends a migration wave: `households`
+// households (5-50) of one band come to `at` from the map's edge nearest it over `days` days (1-7),
+// each carrying `months` months of food (0-12).
+table SendWave {
+  at: Vec2 (id: 0);
+  households: uint (id: 1);
+  days: uint (id: 2);
+  months: uint (id: 3);
+}
+
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave }
 
 table Command {
   body: CommandBody (id: 1);
@@ -497,7 +574,17 @@ table GetEarthworks {}
 // slice U).
 table GetWeather {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather }
+// Wire 1.26 (M4a slice Y): each settlement's standing as last worked out.
+table GetStanding {}
+
+// Every settlement's polity, its laws and their histories (wire 1.27, ADR-0013).
+table GetGovernment {}
+
+// Wire 1.30 (M4b slice AA, ADR-0015 §7): takings, with what happened and what people believe in
+// separate tables, joined only by an incident's number.
+table GetOrder {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder }
 
 table Query {
   body: QueryBody (id: 1);
@@ -719,6 +806,204 @@ table PersonInfo {
   // 0.5 m out; admiring Bo's hut"); and that building (0 for none).
   household_taste: string (id: 38);
   household_admired: ulong (id: 39);
+  // Wire 1.26 (M4a slice Y, ADR-0014): the living only: their strongest ties, the most salient
+  // first, and their standing in their settlement (absent until it is first worked out, on the
+  // first of a month).
+  ties: [TieLine] (id: 40);
+  standing: StandingLine (id: 41);
+  // Wire 1.34 (M4c slice AE, ADR-0016 §2-3): the living only: the grievances they hold, the
+  // most keenly felt first, and what they have heard that is still news, the latest first.
+  grievances: [GrievanceLine] (id: 42);
+  heard: [HeardLine] (id: 43);
+  // Wire 1.36 (M4c slice AG, ADR-0016 §4): where they stand on each question content names.
+  positions: [PositionLine] (id: 44);
+  // Wire 1.37 (M4c slice AG, ADR-0016 §4): what they hold of each norm content names.
+  norms: [NormLine] (id: 45);
+  // Wire 1.38 (M4c slice AG, ADR-0016 §4): what they hold of each value content names.
+  values: [ValueLine] (id: 46);
+  // Wire 1.39 (M4c slice AG, ADR-0016 §4): the ideologies they hold.
+  ideologies: [IdeologyLine] (id: 47);
+  // Wire 1.40 (M4c slice AH, ADR-0017 §2): the faction they belong to, if any.
+  faction: FactionLine (id: 48);
+  // Wire 1.47 (M4c slice AJ, ADR-0016 §5): the true claims their settlement's word holds that
+  // they have not heard, which the observer may whisper to them, newest first.
+  news: [NewsLine] (id: 49);
+  // Wire 1.47: the observer's interventions that reached them, newest first, with what came of
+  // each.
+  influences: [InfluenceLine] (id: 50);
+  // Where they have lived, oldest first, each in words (wire 1.49, ADR-0018 §2): "Ashford, from
+  // the spring of year 1: came with a founding group".
+  residence: [string] (id: 51);
+  // The other settlements their household knows, each in words (wire 1.50, ADR-0018 §4):
+  // "Elmhollow: seen on a walk in the spring of year 1".
+  places: [string] (id: 52);
+}
+
+// Wire 1.47 (M4c slice AJ): a claim that may be whispered.
+table NewsLine {
+  claim: uint (id: 0);
+  // What it says, in the kernel's words.
+  what: string (id: 1);
+}
+
+// Wire 1.47 (M4c slice AJ, ADR-0016 §5; research 15-05 §6): one recorded influence and what came
+// of it, read from the records people keep.
+table InfluenceLine {
+  id: uint (id: 0);
+  // 0 a whisper, 1 an ideology told of; wire 1.48: 2 an agitator sent, 3 a blessing, 4 a curse;
+  // wire 1.52: 5 a migration wave they came with.
+  kind: ubyte (id: 1);
+  // When it was first used.
+  minute: long (id: 2);
+  // What it submitted and what came of it, in the kernel's words ("Whispered that Bo holds a
+  // grievance against the gathering over a levy: heard; told no one since").
+  what: string (id: 3);
+}
+
+// The faction someone belongs to (wire 1.40, ADR-0017 §2, §6).
+table FactionLine {
+  faction: ulong (id: 0);
+  // "Mira's faction", and what it stands against ("the gathering").
+  name: string (id: 1);
+  against: string (id: 2);
+  organizer: ulong (id: 3);
+  organizer_name: string (id: 4);
+  // The start of the day they joined.
+  since_minute: long (id: 5);
+  // Why they belong, as they last reviewed it, in words rendered by the kernel.
+  why: string (id: 6);
+}
+
+// An ideology someone holds (wire 1.39, ADR-0016 §4).
+table IdeologyLine {
+  // What it is called and its legitimacy story, in words ("common provision"; "what the village
+  // gathers, the village keeps against a lean year").
+  name: string (id: 0);
+  legitimacy: string (id: 1);
+  // When they took it up, and from whom (0 and empty: they brought it with them).
+  since_minute: long (id: 2);
+  from: ulong (id: 3);
+  from_name: string (id: 4);
+  // Wire 1.47 (M4c slice AJ): the observer's intervention they took it up by, having heard of it
+  // from no one (0: none).
+  influence: uint (id: 5);
+}
+
+// What someone holds of a value (wire 1.38, ADR-0016 §4; research 06-04 §1.1).
+table ValueLine {
+  // The value and what they hold of it, in words rendered by the kernel ("safety from want and
+  // harm"; "holds safety from want and harm dear").
+  name: string (id: 0);
+  words: string (id: 1);
+  // -1 (less than most) to 1 (more than most).
+  v: float (id: 2);
+}
+
+// What someone holds of a norm (wire 1.37, ADR-0016 §4; research 06-05 §1.1): how far they hold
+// it themselves, what they believe others do, and how far that moves them.
+table NormLine {
+  // What it says, how far they hold it, and what they believe others do, in words rendered by
+  // the kernel ("what the gathering decides binds everyone"; "holds firmly"; "most households
+  // pay what the gathering asks").
+  statement: string (id: 0);
+  holds: string (id: 1);
+  believes: string (id: 2);
+  // 0-1: their endorsement; the share of households they believe abide by it; where others'
+  // doing it starts to move them; how far it moves them now.
+  endorse: float (id: 3);
+  expect: float (id: 4);
+  threshold: float (id: 5);
+  activation: float (id: 6);
+  // Accounts of what households did that they have taken in.
+  heard: uint (id: 7);
+}
+
+// Where someone stands on a question (wire 1.36, ADR-0016 §4).
+table PositionLine {
+  // The question and where they stand, in words rendered by the kernel ("whether to keep a
+  // common store"; "leaning for").
+  question: string (id: 0);
+  lean: string (id: 1);
+  // 0 against to 1 for; what their household's own lot makes of it; and how much it matters to
+  // them now, 0-1.
+  x: float (id: 2);
+  anchor: float (id: 3);
+  salience: float (id: 4);
+  // What they have heard said of it at the hearth and taken in.
+  heard: uint (id: 5);
+}
+
+// A grievance a person holds (wire 1.34, ADR-0016 §2).
+table GrievanceLine {
+  // 0 subsistence, 1 extraction, 2 treatment, 3 a collective claim (codes of saves).
+  issue: ubyte (id: 0);
+  // What it is over, and whom it is held against, in words rendered by the kernel ("food when
+  // their household was short"; "the gathering", "Ada as keeper of the common store").
+  over: string (id: 1);
+  blamed: string (id: 2);
+  // The law whose terms it broke (0 = none).
+  law: ulong (id: 3);
+  // The harm, and what of it nothing has yet made good, days of their household's food.
+  harm_days: float (id: 4);
+  unresolved_days: float (id: 5);
+  // How keenly it is felt now, 0-1 (it fades, and is raised only by a reminder), and the day it
+  // was first held and last raised, as minutes.
+  activation: float (id: 6);
+  made_minute: long (id: 7);
+  raised_minute: long (id: 8);
+  // What last raised it, in words rendered by the kernel ("the common store was empty when
+  // their household was short").
+  reason: string (id: 9);
+}
+
+// A claim a person has heard (wire 1.34, ADR-0016 §3).
+table HeardLine {
+  // 0 a gathering called, 1 a grievance told.
+  kind: ubyte (id: 0);
+  // What it says, in words rendered by the kernel ("a gathering meets on 3 May of year 2 on a
+  // common store, taking a tenth of each harvest"; "Bo holds a grievance against the gathering
+  // over food when their household was short").
+  what: string (id: 1);
+  // Who told them (0 = nobody: it began with them), and the one the account began with.
+  from: ulong (id: 2);
+  from_name: string (id: 3);
+  origin: ulong (id: 4);
+  first_minute: long (id: 5);
+  last_minute: long (id: 6);
+  // Wire 1.47 (M4c slice AJ): the observer's intervention that placed it in their hearing (0:
+  // none).
+  influence: uint (id: 7);
+}
+
+// One person's view of another (wire 1.26, ADR-0014 §1).
+table TieLine {
+  person: ulong (id: 0);
+  name: string (id: 1);
+  // 0-1 each.
+  familiarity: float (id: 2);
+  warmth: float (id: 3);
+  // Esteem by domain, in Standing.domains' order: good acts remembered less bad ones.
+  esteem: [float] (id: 4);
+  // Hours of help received from them less help given to them.
+  help_h: float (id: 5);
+  // Why the tie stands as it does, in words rendered by the kernel ("gave their household food
+  // 3 times, last in May of year 4").
+  reason: string (id: 6);
+  // Whether they hold a tie back.
+  mutual: bool (id: 7);
+}
+
+// An adult's standing in their settlement (wire 1.26, ADR-0014 §3-4).
+table StandingLine {
+  person: ulong (id: 0);
+  name: string (id: 1);
+  household: ulong (id: 2);
+  // The esteem the settlement's other adults hold for them, summed, by domain.
+  esteem: [float] (id: 3);
+  // How many of the settlement's adults count them among those they esteem most.
+  influence: uint (id: 4);
+  // A notable: someone who considers the settlement's affairs weekly. It grants nothing.
+  notable: bool (id: 5);
 }
 
 // What a person knows of a technique (M3b slice M).
@@ -1368,7 +1653,239 @@ table WeatherReport {
   month: ubyte (id: 5);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport }
+// A settlement's standing (wire 1.26): its notables first, then those most esteemed, at most
+// Standing's limit of rows besides the notables.
+table SettlementStanding {
+  settlement: ulong (id: 0);
+  name: string (id: 1);
+  adults: uint (id: 2);
+  rows: [StandingLine] (id: 3);
+}
+
+// Every settlement's standing as worked out on `minute` (0 before the first time), and how ties
+// stand across the world: how many there are and how many have been let go for want of room
+// since the counters began.
+table Standing {
+  minute: long (id: 0);
+  // The domains' names, in the order of every `esteem`.
+  domains: [string] (id: 1);
+  settlements: [SettlementStanding] (id: 2);
+  ties: uint (id: 3);
+  let_go: ulong (id: 4);
+}
+
+// One member's stance at a gathering (wire 1.27, ADR-0013 §3, stage 2): where they stood, what
+// moved them in points, and why in the kernel's words.
+table StanceLine {
+  person: ulong (id: 0);
+  name: string (id: 1);
+  // 0 for, 1 against, 2 abstained.
+  stance: ubyte (id: 2);
+  // Their household's forecast of the law, points, and what their regard for its sponsor added.
+  gain: float (id: 3);
+  regard: float (id: 4);
+  // "their household stands to gain, and they think well of the sponsor".
+  why: string (id: 5);
+  // Wire 1.36 (M4c slice AG): what talk at the hearth had moved them from their household's
+  // lot, points.
+  opinion: float (id: 6);
+  // Wire 1.38 (M4c slice AG): what the law does to what they hold dear, points.
+  values: float (id: 7);
+}
+
+// A law and its whole history (wire 1.27, ADR-0013 §3): proposal, stances, decision, who knows
+// it, and what it asked and gave. The kernel renders every sentence.
+table LawLine {
+  id: ulong (id: 0);
+  // What it is: "a common store, taking a tenth of each harvest".
+  what: string (id: 1);
+  // Its template's content id.
+  policy: string (id: 2);
+  levy_share: float (id: 3);
+  relief_days: float (id: 4);
+  // 0 before the gathering, 1 in force, 2 rejected, 3 lapsed (wire 1.28: the one it named died or
+  // left), 4 superseded (wire 1.35: an amendment of the custom a later one replaced; 1.41: any law
+  // a later one ended or changed), 5 carried (wire 1.44: a repeal that passed, ending the law it
+  // named).
+  status: ubyte (id: 5);
+  sponsor: ulong (id: 6);
+  sponsor_name: string (id: 7);
+  proposed_minute: long (id: 8);
+  // The issue it answered: "food would not last until the harvest".
+  issue: string (id: 9);
+  // The start of the day the gathering meets.
+  meets_minute: long (id: 10);
+  // When it was decided (0 before), how (0 passed, 1 failed, 2 tied, 3 too few came; 255 not
+  // yet), and that in words: "agreed: 20 for, 3 against; 23 of 24 adults came, 6 needed".
+  decided_minute: long (id: 11);
+  outcome: ubyte = 255 (id: 12);
+  decision: string (id: 13);
+  eligible: uint (id: 14);
+  quorum: uint (id: 15);
+  stances: [StanceLine] (id: 16);
+  // How many living people know it.
+  known: uint (id: 17);
+  // Levies paid, unpayable, kept back and owed by someone who did not know the law; kilograms
+  // paid and withheld; asks the store answered and could not, and kilograms given.
+  complied: uint (id: 18);
+  could_not: uint (id: 19);
+  evaded: uint (id: 20);
+  unaware: uint (id: 21);
+  levied_kg: float (id: 22);
+  withheld_kg: float (id: 23);
+  relieved: uint (id: 24);
+  relief_kg: float (id: 25);
+  unanswered: uint (id: 26);
+  // Wire 1.28: the one it names (who keeps the store; 0 for none), and their name.
+  holder: ulong (id: 27);
+  holder_name: string (id: 28);
+  // Wire 1.33: for a prohibition (a curfew), the times someone broke it knowing of it, and not.
+  broken: uint (id: 29);
+  broken_unaware: uint (id: 30);
+  // Wire 1.42 (M4c slice AH): levies kept back openly in a faction's refusal (counted in
+  // `withheld_kg`; `evaded` counts only those kept back unannounced).
+  refused: uint (id: 31);
+}
+
+// A settlement's polity (wire 1.27, ADR-0013): its custom in words, its members, its common
+// store, the gathering called if any, and every law proposed there, newest first.
+table PolityLine {
+  polity: ulong (id: 0);
+  settlement: ulong (id: 1);
+  name: string (id: 2);
+  founded_minute: long (id: 3);
+  // "The adults who come to the hearth decide by acclamation: …".
+  custom: string (id: 4);
+  // Adults living there now.
+  members: uint (id: 5);
+  // What the store holds in words ("grain 322 kg", "nothing"), and its food in kilograms.
+  store: string (id: 6);
+  store_kg: float (id: 7);
+  laws: [LawLine] (id: 8);
+  // The gathering called: its law (0 for none), the start of the day it meets and how many
+  // have come so far.
+  gathering_law: ulong (id: 9);
+  gathering_minute: long (id: 10);
+  gathering_present: uint (id: 11);
+  // Wire 1.28: its offices and who holds them, in words ("Storekeeper: Ada, since 3 May of year
+  // 2"), and those vacant ("Storekeeper: vacant since 9 June of year 5, when Ada died").
+  offices: [string] (id: 12);
+  // Wire 1.29: what it would be called, worked out afterwards from its history and read by
+  // nothing in the world (ADR-0013 §6): a name ("Council community"), what qualifies it ("a
+  // storekeeper's office", "its levy mostly paid"), the reasons in sentences, and how much
+  // evidence stands behind it (0-1, uncalibrated).
+  label: string (id: 13);
+  label_modifiers: [string] (id: 14);
+  label_why: [string] (id: 15);
+  label_confidence: float (id: 16);
+  // Wire 1.31: the cases the gathering called is to hear, in words ("the household of Rilla's
+  // case against Tam"); a gathering may be called on cases alone (`gathering_law` 0).
+  gathering_cases: [string] (id: 17);
+  // Wire 1.35 (M4c slice AF, ADR-0017 §1): every version of its custom, oldest first, in words
+  // rendered by the kernel ("Since 3 May of year 2, the founding custom: …"; "Since 9 June of
+  // year 5, by the amendment Ada proposed: the elders of its households …"), and how many its
+  // body admits now (`members` counts every adult).
+  custom_history: [string] (id: 18);
+  body_members: uint (id: 19);
+  // Wire 1.40 (M4c slice AH, ADR-0017 §2): its factions, live first, in words rendered by the
+  // kernel ("Mira's faction, against the gathering, since 3 May of year 2: 5 members, organized
+  // by Mira; its store holds grain 40 kg").
+  factions: [string] (id: 20);
+  // Wire 1.41 (M4c slice AH, ADR-0017 §3): its petitions, newest first, in words rendered by the
+  // kernel ("Mira's faction petitioned the gathering on 3 May of year 2 for an end to the common
+  // store's levy: 9 came; the gathering turned it down").
+  petitions: [string] (id: 21);
+  // Wire 1.42 (M4c slice AH, ADR-0017 §3): its refusals of a levy, newest first, in words rendered
+  // by the kernel ("Mira's faction called on its members on 3 May of year 2 to keep back the levy
+  // of a common store, taking a tenth of each harvest, until 3 May of year 3: 6 kept back 240 kg").
+  refusals: [string] (id: 22);
+  // Wire 1.43 (M4c slice AI, ADR-0017 §4): its revolts, newest first, in words rendered by the
+  // kernel ("Mira's faction called on everyone on 3 May of year 2 to stand with it: from now on,
+  // the elders of its households decide ...; it held on 20 May of year 2, 14 standing with it, 9
+  // with the gathering, 2 with neither").
+  revolts: [string] (id: 23);
+  // Wire 1.45 (M4c slice AI, step three; ADR-0017 §4): its coups, newest first, in words rendered
+  // by the kernel ("Bo called on those who keep the watch on 3 May of year 2 to take the deciding
+  // with them; it held on 11 May of year 2, 2 of 3 watchers with it, none with the gathering").
+  coups: [string] (id: 24);
+}
+
+table Government {
+  minute: long (id: 0);
+  polities: [PolityLine] (id: 1);
+}
+
+// What happened (the truth layer, ADR-0015 §1): one attempt to take from a household's store.
+table IncidentLine {
+  id: uint (id: 0);
+  minute: long (id: 1);
+  // 0 when the household taken from has none.
+  settlement: ulong (id: 2);
+  actor: ulong (id: 3);
+  actor_name: string (id: 4);
+  // The household taken from, named for the one who stands for it ("the household of Rilla").
+  target: ulong (id: 5);
+  target_name: string (id: 6);
+  // 0 taken, 1 turned back (someone was home), 2 fled when a sleeper woke.
+  outcome: ubyte (id: 7);
+  // In words: what was carried off ("12 kg of grain"), or how it ended.
+  what: string (id: 8);
+  kcal: float (id: 9);
+  // Who saw the taker at it.
+  seen_by: [string] (id: 10);
+  // Wire 1.32: what the one who keeps the watch did with it, if they saw it, in words ("Bram,
+  // keeping watch, saw it and said nothing for 9 kg of grain"), or empty. The truth: nobody in
+  // the world reads it.
+  watch: string (id: 11);
+}
+
+// What people believe of one incident, and what was chosen (the knowledge layer).
+table KnownLine {
+  incident: uint (id: 0);
+  // Living people who believe they know who took, and who know only of a loss.
+  know_taker: uint (id: 1);
+  know_loss: uint (id: 2);
+  // Distinct first-hand accounts behind what they believe (one witness repeated is one).
+  sources: uint (id: 3);
+  // Someone of the household taken from knows who took.
+  victim_knows: bool (id: 4);
+  // What the household taken from chose, in words, or empty.
+  response: string (id: 5);
+  // Where what is owed for it stands, in words, or empty.
+  owed: string (id: 6);
+  // Wire 1.31: the case brought for it and how the gathering decided, in words, or empty
+  // ("Rilla brought it before the gathering on 4 May, on the word of 1 witness; the gathering
+  // found that Tam took: 12 for, 3 against, 20 of 41 adults came"). What the polity knows.
+  case: string (id: 7);
+}
+
+table Order {
+  minute: long (id: 0);
+  // The most recent incidents, newest first (at most 60), and what is believed of each.
+  incidents: [IncidentLine] (id: 1);
+  known: [KnownLine] (id: 2);
+  // Totals over every incident there has been.
+  attempts: uint (id: 3);
+  takings: uint (id: 4);
+  seen: uint (id: 5);
+  known_to_victims: uint (id: 6);
+  demands: uint (id: 7);
+  met: uint (id: 8);
+  refused: uint (id: 9);
+  // Asks refused because the giver believed the asker took, since the world was loaded.
+  refusals: ulong (id: 10);
+  // Wire 1.31: cases brought before the gathering, and how they ended.
+  cases: uint (id: 11);
+  found: uint (id: 12);
+  not_found: uint (id: 13);
+  unheard: uint (id: 14);
+  // Wire 1.46 (M4c slice AI, step four): watchers come to take what a refused finding owed,
+  // newest first, each in words rendered by the kernel: who came, who met them how, what was taken
+  // and every blow struck, by whom, to whom, and what it did (research 06-10 §4.C).
+  encounters: [string] (id: 15);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order }
 
 table Response {
   body: ResponseBody (id: 1);

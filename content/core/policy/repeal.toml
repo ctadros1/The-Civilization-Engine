@@ -1,0 +1,15 @@
+# Ending a law (M4c slice AI, step two; ADR-0017 §5: founding is bargaining from what was
+# inherited). For `founding_days` after the custom is taken from the gathering, every member of the
+# body that took it may propose an end to any law the old custom made: a store's levy ends as a
+# petition would end it (the store gives what it holds), and any other law is repealed, carried
+# rather than in force. Each household weighs an end by what the law, kept, would bring it, turned
+# about, and what the law does to what its people hold dear, turned about too. The new body
+# decides it as any law; what it leaves stands (research 09-11 §1.6: provisional authority over
+# what survives, unless actors dismantle it). Whether anyone proposes one, and whether it passes,
+# is people's choice.
+kind = "policy"
+id = "core:policy/repeal"
+name = "Repeal"
+description = "Ends a law the custom that was taken had made."
+does = "repeal"
+answers = ["founding"]

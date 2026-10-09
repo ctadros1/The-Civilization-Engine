@@ -15,13 +15,18 @@
 //! `--digest` prints a digest of every section a save would hold, to check that a change meant
 //! to make the engine faster leaves what happens exactly as it was. `--families N` sends N
 //! families to the village once it is founded, in groups as the observer's god tool sends them.
+//! `--max` lives the days at Max, in Accelerated mode from the first midnight with the
+//! approximations it declares (ADR-0011 §4); `--exact` with it switches them off, and `--only
+//! leisure` or `--only view` keeps one. `--digest` also prints how people spent their time.
+//! `--groups N` founds N groups of `--people` each, their sites chosen together (ADR-0018 §6);
+//! `--known` has them know where each other camped.
 
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
 use civ_core::time::MINUTES_PER_DAY;
-use civ_sim::{NewWorld, Sim, persist};
+use civ_sim::{NewWorld, SPEED_MAX, Sim, persist};
 use commons_persist::{SaveDir, SaveKind};
 
 struct Args {
@@ -36,6 +41,11 @@ struct Args {
     profile_after: u32,
     digest: bool,
     families: u32,
+    max: bool,
+    exact: bool,
+    only: String,
+    groups: u32,
+    known: bool,
 }
 
 fn args() -> Args {
@@ -51,11 +61,28 @@ fn args() -> Args {
         profile_after: 0,
         digest: false,
         families: 0,
+        max: false,
+        exact: false,
+        only: String::new(),
+        groups: 1,
+        known: false,
     };
     let mut it = std::env::args().skip(1);
     while let Some(flag) = it.next() {
         if flag == "--digest" {
             a.digest = true;
+            continue;
+        }
+        if flag == "--max" {
+            a.max = true;
+            continue;
+        }
+        if flag == "--exact" {
+            a.exact = true;
+            continue;
+        }
+        if flag == "--known" {
+            a.known = true;
             continue;
         }
         let value = it.next().unwrap_or_default();
@@ -70,6 +97,8 @@ fn args() -> Args {
             "--load" => a.load = Some(value),
             "--profile-after" => a.profile_after = value.parse().expect("--profile-after DAYS"),
             "--families" => a.families = value.parse().expect("--families N"),
+            "--only" => a.only = value,
+            "--groups" => a.groups = value.parse().expect("--groups N"),
             other => panic!("unknown flag {other}"),
         }
     }
@@ -103,6 +132,8 @@ fn main() {
                 preset_id: content.default_preset().id.clone(),
                 size_cells: a.size,
                 band_size: a.people,
+                neighbours: vec![a.people; a.groups.saturating_sub(1) as usize],
+                neighbours_known: a.known,
                 regime_id: a.regime.clone(),
             },
             &content,
@@ -113,6 +144,24 @@ fn main() {
     };
     if let Some(problem) = sim.founding_problem() {
         panic!("the band could not settle: {problem}");
+    }
+    if a.max {
+        sim.set_speed(SPEED_MAX).expect("Max is a speed");
+    }
+    if a.exact {
+        sim.set_approximations(civ_sim::Approximations::NONE);
+    }
+    match a.only.as_str() {
+        "" => {}
+        "leisure" => sim.set_approximations(civ_sim::Approximations {
+            leisure_blocks: true,
+            household_view: false,
+        }),
+        "view" => sim.set_approximations(civ_sim::Approximations {
+            leisure_blocks: false,
+            household_view: true,
+        }),
+        other => panic!("--only leisure or view, not {other}"),
     }
     if a.families > 0 {
         let people = sim.send_families_to_hearth(a.families);
@@ -170,6 +219,94 @@ fn main() {
                 section.tag,
                 section.index,
                 h.finish()
+            );
+        }
+    }
+    if a.digest {
+        // Hours a person-day by what people did (every finished step's minutes).
+        let t = &sim.people().time_use;
+        let total: f64 = t.work.iter().sum::<f64>() + t.walking + t.waiting;
+        let h = |m: f64| 24.0 * m / total.max(1.0);
+        let mut line = String::from("time use, hours a person-day:");
+        for (b, m) in civ_agents::Behavior::ALL.iter().zip(&t.work) {
+            if *m > 0.0 {
+                line.push_str(&format!(" {} {:.3}", b.name(), h(*m)));
+            }
+        }
+        println!(
+            "{line} walking {:.3} waiting {:.3}",
+            h(t.walking),
+            h(t.waiting)
+        );
+        // Visits between settlements (M5a slice AM).
+        let (visits, minutes, marriages, moved) = sim
+            .people()
+            .contacts
+            .years
+            .values()
+            .fold((0u32, 0u64, 0u32, 0u32), |(v, m, w, d), c| {
+                (v + c.visits, m + c.minutes, w + c.marriages, d + c.moved)
+            });
+        let left = sim
+            .people()
+            .records
+            .values()
+            .filter(|r| r.left.is_some())
+            .count();
+        println!(
+            "contacts: {visits} visits, {:.0} hours at others' hearths, {marriages} marriages, \
+             {moved} people moved between settlements, {left} left the map",
+            minutes as f64 / 60.0
+        );
+        // Ties (ADR-0014): how many, and what last moved them.
+        let ties = &sim.people().ties;
+        let holders = ties.holders();
+        let most = holders.iter().map(|x| ties.of(*x).len()).max().unwrap_or(0);
+        let mut by_act = [0usize; civ_agents::ties::ACTS];
+        for x in &holders {
+            for t in ties.of(*x) {
+                if let Some(r) = t.reason {
+                    by_act[r.act as usize] += 1;
+                }
+            }
+        }
+        let mut line = format!(
+            "ties: {} held by {} of {} people ({:.1} each, most {most}), {} let go; reasons:",
+            ties.len(),
+            holders.len(),
+            sim.people().living(),
+            ties.len() as f64 / holders.len().max(1) as f64,
+            ties.let_go,
+        );
+        for (act, n) in civ_agents::ties::Act::ALL.iter().zip(by_act) {
+            if n > 0 {
+                line.push_str(&format!(" {} {n}", act.name()));
+            }
+        }
+        println!("{line}");
+        // Standing (ADR-0014 §3-4), as last worked out.
+        let table = &sim.people().standing;
+        for s in &sim.land().settlements {
+            let rows: Vec<_> = table.in_settlement(s.id).collect();
+            let esteemed = rows.iter().filter(|r| r.total() > 0.05).count();
+            let most = rows.iter().map(|r| r.influence).max().unwrap_or(0);
+            let notables: Vec<String> = rows
+                .iter()
+                .filter(|r| r.notable)
+                .map(|r| {
+                    format!(
+                        "{} (influence {}, esteem {:.1})",
+                        sim.people().name_of(r.person),
+                        r.influence,
+                        r.total()
+                    )
+                })
+                .collect();
+            println!(
+                "standing of {}: {} adults, {esteemed} esteemed by others, most influence {most}; notables: {}",
+                s.name,
+                rows.len(),
+                notables.join(", ")
             );
         }
     }

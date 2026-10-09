@@ -1,6 +1,7 @@
 //! The kernel's advance is the same however it is cut (ADR-0011 §5, Gate A): a world lived in one
-//! stretch, in days, or saved at a midnight, loaded and lived on, ends in the same bytes; and an
-//! Accelerated clock stops only at midnight, where a change of mode takes effect.
+//! stretch, in days, or saved at a midnight, loaded and lived on, ends in the same bytes; an
+//! Accelerated clock stops only at midnight, where a change of mode takes effect; and Accelerated
+//! mode without its declared approximations lives as Detailed mode does.
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -8,7 +9,7 @@ use std::sync::OnceLock;
 use civ_content::ContentRegistry;
 use civ_core::time::MINUTES_PER_DAY;
 use civ_sim::persist::{self, SECTION_META};
-use civ_sim::{Mode, NewWorld, SPEED_1X, SPEED_MAX, Sim};
+use civ_sim::{Approximations, Mode, NewWorld, SPEED_1X, SPEED_MAX, Sim};
 use commons_persist::{SaveDir, SaveKind, SectionData};
 
 fn content() -> &'static ContentRegistry {
@@ -32,6 +33,8 @@ fn new_world(seed: u64) -> Sim {
             preset_id: "core:worldgen/river_valley".to_owned(),
             size_cells: 512,
             band_size: 0,
+            neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: String::new(),
         },
         content(),
@@ -97,6 +100,57 @@ fn a_world_saved_at_midnight_lives_on_as_if_never_saved() {
         .advance_minutes(29 * MINUTES_PER_DAY)
         .expect("advances");
     assert_same("saved and loaded at a midnight", &straight, &resumed);
+}
+
+#[test]
+fn two_settlements_live_the_same_however_saved_or_cut() {
+    // Two founding groups (ADR-0018 §6): the second settlement is lived as exactly as the first.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let mut sim = Sim::create_for_tests(
+        &NewWorld {
+            name: "Neighbours".to_owned(),
+            seed: 3,
+            preset_id: "core:worldgen/river_valley".to_owned(),
+            size_cells: 768,
+            band_size: 0,
+            neighbours: vec![0],
+            neighbours_known: true,
+            regime_id: String::new(),
+        },
+        content(),
+        [7; 16],
+    )
+    .expect("generates");
+    assert_eq!(sim.land().settlements.len(), 2);
+    assert!(
+        !sim.people().known_places.known.is_empty(),
+        "each knows the other"
+    );
+    sim.advance_minutes(10 * MINUTES_PER_DAY).expect("advances");
+    sim.advance_to_midnight().expect("advances");
+    let start = save(&mut sim, dir.path(), "founded");
+    let mut straight = load(&start);
+    straight
+        .advance_minutes(20 * MINUTES_PER_DAY)
+        .expect("advances");
+    let mut saved = load(&start);
+    saved
+        .advance_minutes(7 * MINUTES_PER_DAY)
+        .expect("advances");
+    let mid = save(&mut saved, dir.path(), "midnight");
+    let mut resumed = load(&mid);
+    resumed
+        .advance_minutes(13 * MINUTES_PER_DAY)
+        .expect("advances");
+    assert_same("saved and loaded at a midnight", &straight, &resumed);
+    let mut cut = load(&start);
+    let (total, mut done) = (20 * MINUTES_PER_DAY, 0);
+    while done < total {
+        let step = 433.min(total - done);
+        cut.advance_minutes(step).expect("advances");
+        done += step;
+    }
+    assert_same("twenty days cut every 433 minutes", &straight, &cut);
 }
 
 #[test]
@@ -166,14 +220,17 @@ fn live_at(sim: &mut Sim, speed: f32, days: i64) {
 }
 
 #[test]
-fn detailed_then_accelerated_then_detailed_lives_as_detailed_throughout() {
-    // While Accelerated mode makes no approximation (none is declared yet, ADR-0011 §4), a day
-    // lived a day at a time is the same as one lived by the minute: three days at 10x, ten at
-    // Max, three at 10x end where sixteen at 10x do, and so does a second such run.
+fn detailed_then_accelerated_then_detailed_reproduces_exactly() {
+    // Three days at 10x, ten at Max, three at 10x. Two such runs end in the same bytes, with
+    // Accelerated mode's approximations (ADR-0011 §4) and without them; without them they end
+    // where sixteen days at 10x do, so Accelerated mode is otherwise Detailed mode a day at a
+    // time; and with them they do not, so the approximations are made.
     let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
     let start = founded(dir.path());
-    let mixed = || {
+    let mixed = |approximations: Approximations| {
         let mut sim = load(&start);
+        assert_eq!(sim.approximations(), Approximations::ACCELERATED);
+        sim.set_approximations(approximations);
         sim.set_paused(false);
         live_at(&mut sim, 10.0 * SPEED_1X, 3);
         live_at(&mut sim, SPEED_MAX, 10);
@@ -182,12 +239,28 @@ fn detailed_then_accelerated_then_detailed_lives_as_detailed_throughout() {
         assert_eq!(sim.mode(), Mode::Detailed);
         sim
     };
-    let (a, b) = (mixed(), mixed());
+    let (a, b) = (
+        mixed(Approximations::ACCELERATED),
+        mixed(Approximations::ACCELERATED),
+    );
     assert_same("two runs of Detailed, Accelerated, Detailed", &a, &b);
+    let exact = mixed(Approximations::NONE);
     let mut detailed = load(&start);
     detailed.set_paused(false);
     live_at(&mut detailed, 10.0 * SPEED_1X, 16);
-    assert_same("with Detailed throughout", &a, &detailed);
+    assert_same(
+        "without approximations, with Detailed throughout",
+        &exact,
+        &detailed,
+    );
+    assert!(
+        !differing(
+            &persist::encode_sections(&a),
+            &persist::encode_sections(&exact)
+        )
+        .is_empty(),
+        "leisure blocks change how the ten days are lived"
+    );
 }
 
 #[test]

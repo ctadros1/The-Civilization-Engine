@@ -40,11 +40,26 @@ pub enum Behavior {
     /// Walk to a deposit the settlement knows, dig its good from a pit there and carry it home
     /// (M3b slice Q, ADR-0010 §2): the activity names the good.
     Dig,
+    /// Go to the hearth for the gathering called there, and have a say (M4a slice Z, ADR-0013
+    /// §1).
+    Attend,
+    /// Go to another household's home and take food from its store, when short (M4b slice AA,
+    /// ADR-0015 §2).
+    Take,
+    /// Walk a round of the settlement's homes at night and stand watch at each (M4b slice AC,
+    /// ADR-0015 §6): only for the one a law names to keep watch.
+    Watch,
+    /// Go to the hearth to join a petition a faction has called there (M4c slice AH, ADR-0017
+    /// §3): only for those who heard of it.
+    Petition,
+    /// Walk to the hearth of another settlement the household knows, keep company there and
+    /// walk home within the day (M5a slice AM, ADR-0018 §2: presence, never residence).
+    Visit,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 15] = [
+    pub const ALL: [Behavior; 20] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -60,6 +75,11 @@ impl Behavior {
         Behavior::Hire,
         Behavior::Try,
         Behavior::Dig,
+        Behavior::Attend,
+        Behavior::Take,
+        Behavior::Watch,
+        Behavior::Petition,
+        Behavior::Visit,
     ];
 
     /// The authored name of a behavior.
@@ -80,6 +100,11 @@ impl Behavior {
             Behavior::Hire => "hire",
             Behavior::Try => "try",
             Behavior::Dig => "dig",
+            Behavior::Attend => "attend",
+            Behavior::Take => "take",
+            Behavior::Watch => "watch",
+            Behavior::Petition => "petition",
+            Behavior::Visit => "visit",
         }
     }
 
@@ -493,6 +518,18 @@ pub struct Catalog {
     /// Techniques, in content id order (ADR-0008). Their index is how people's knowledge
     /// refers to them.
     pub techniques: Vec<TechniqueDef>,
+    /// Policy templates, in content id order (ADR-0013 §3). Laws refer to them by index, saves
+    /// by content id.
+    pub policies: Vec<crate::polity::PolicyDef>,
+    /// Norm templates, in content id order (ADR-0016 §4). People's states refer to them by
+    /// index, saves by content id.
+    pub norms: Vec<crate::norm::NormDef>,
+    /// Values, in content id order (M4c slice AG, ADR-0016 §4). What people hold refers to them
+    /// by index, saves by content id.
+    pub values: Vec<crate::values::ValueDef>,
+    /// Ideologies, in content id order (M4c slice AG, ADR-0016 §4). Holdings refer to them by
+    /// index, saves by content id.
+    pub ideologies: Vec<crate::ideology::IdeologyDef>,
 }
 
 impl Catalog {
@@ -790,10 +827,20 @@ pub struct HouseholdParams {
     /// A household out of food whose members have drawn on average this share of their bodies'
     /// reserve may give up and leave the valley...
     pub leave_at_depletion: f64,
-    /// ...with this chance a day...
+    /// ...with at most this chance a day...
     pub leave_per_day: f64,
     /// ...unless a crop of theirs ripens within this many days.
     pub leave_unless_ripe_within_days: f64,
+    /// The day's chance is weighed (M4a slice Z): points toward going for the whole of the wait to
+    /// its next harvest that its food, what others could spare it and any relief it may ask for
+    /// would not cover...
+    pub leave_w_gap: f64,
+    /// ...points toward staying for a whole year's food its fields should bring, what leaving
+    /// gives up...
+    pub leave_w_stake: f64,
+    /// ...and points toward staying before either; the day's chance is `leave_per_day` times the
+    /// logistic of going's points less staying's.
+    pub leave_stay: f64,
 }
 
 /// How choices are scored and sampled (research 01-09 §4.3, 04-07 §2.3).
@@ -1140,6 +1187,10 @@ pub struct MarketParams {
     pub margin: f64,
     /// The largest change of an ask in one review, a share of it.
     pub max_change: f64,
+    /// How strongly a seller's ask for food answers what it holds beyond its needs: its anchor
+    /// is its cost and margin times `exp(-this × s)`, `s` the years of its own need it can spare,
+    /// at most one (research 08-04 §1.2: a cost anchor with modest inventory feedback).
+    pub stock_response: f64,
     /// Half-life of what a market remembers of sales, payments and demand, days.
     pub memory_days: f64,
     /// The share of the payments' worth one good must settle for it to be the settlement's
@@ -1309,8 +1360,80 @@ pub struct PeopleParams {
     pub digging: Digging,
     /// Taste in building and how it moves (M3b slice R).
     pub style: StyleParams,
+    /// The midden and carrying it to the fields (M3c slice V).
+    pub midden: MiddenParams,
+    /// Ties between people (M4a slice Y, ADR-0014).
+    pub ties: crate::ties::TieParams,
+    /// Standing and notables (M4a slice Y, ADR-0014 §3-4).
+    pub standing: crate::standing::StandingParams,
+    /// The polity: its gathering, forecasts and compliance (M4a slice Z, ADR-0013).
+    pub polity: crate::polity::PolityParams,
+    /// Taking, what is seen of it and what is owed for it (M4b slice AA, ADR-0015).
+    pub crime: crate::crime::CrimeParams,
+    /// How word travels and grievances are held (M4c slice AE, ADR-0016).
+    pub word: crate::word::WordParams,
+    /// How opinion moves (M4c slice AG, ADR-0016 §4).
+    pub opinion: crate::opinion::OpinionParams,
+    /// How factions are founded, joined and kept (M4c slice AH, ADR-0017 §2).
+    pub faction: crate::faction::FactionParams,
+    /// How households come to know other places (M5a slice AM, ADR-0018 §4).
+    pub places: crate::places::PlacesParams,
+    /// What moving to another settlement is worth to a household (M5a slice AN, ADR-0018 §5).
+    pub moving: crate::places::MovingParams,
+    /// What founding a settlement of its own is worth to a household, and what a coalition must
+    /// hold to go (M5a slice AO).
+    pub founding: crate::places::FoundingParams,
     /// Names.
     pub names: NameParams,
+}
+
+/// A household's midden, the heap of ash, food waste, sweepings and dung beside its home, and
+/// carrying it to the fields (M3c slice V; the people profile's `[midden]`, content API 29).
+#[derive(Clone, Debug, PartialEq)]
+pub struct MiddenParams {
+    /// Kilograms a member adds to the heap a day.
+    pub kg_per_person_day: f64,
+    /// Kilograms of nitrogen a member's share of the heap holds a year.
+    pub n_kg_per_person_year: f64,
+    /// Days the heap takes to lose half of itself, and of its nitrogen, to the air and the rain.
+    pub half_life_days: f64,
+    /// Kilograms carried to a field in one load.
+    pub load_kg: f64,
+    /// Hours a capable adult takes to dig a tonne out of the heap and spread it, besides carrying
+    /// it.
+    pub spread_h_per_t: f64,
+}
+
+impl MiddenParams {
+    /// Kilograms of nitrogen in a kilogram of the heap.
+    pub fn n_per_kg(&self) -> f64 {
+        let kg_year = self.kg_per_person_day * 365.0;
+        if kg_year > 0.0 {
+            self.n_kg_per_person_year / kg_year
+        } else {
+            0.0
+        }
+    }
+
+    /// Hours of a capable adult's work to dig out, carry and spread a kilogram on a field
+    /// `walk_min` minutes' walk from home, a load at a time there and back.
+    pub fn h_per_kg(&self, walk_min: f64) -> f64 {
+        let trips = 1000.0 / self.load_kg.max(1.0);
+        (self.spread_h_per_t.max(0.0) + trips * 2.0 * walk_min.max(0.0) / 60.0) / 1000.0
+    }
+
+    /// The heap of `members` people `days` after it held `kg`: what they add, less what it loses
+    /// at its half-life (exact for a steady household).
+    pub fn after(&self, kg: f64, members: usize, days: f64) -> f64 {
+        let (kg, days) = (kg.max(0.0), days.max(0.0));
+        let added = members as f64 * self.kg_per_person_day.max(0.0);
+        if self.half_life_days <= 0.0 {
+            return kg + added * days;
+        }
+        let rate = std::f64::consts::LN_2 / self.half_life_days;
+        let keep = (-rate * days).exp();
+        kg * keep + added / rate * (1.0 - keep)
+    }
 }
 
 /// What founders know and how people learn from one another (ADR-0008).

@@ -34,6 +34,8 @@ fn new_world(seed: u64, band_size: u32) -> Sim {
             preset_id: PRESET.to_owned(),
             size_cells: 512,
             band_size,
+            neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: String::new(),
         },
         content(),
@@ -142,6 +144,8 @@ fn a_band_of_any_allowed_size_can_be_asked_for() {
             preset_id: PRESET.to_owned(),
             size_cells: 256,
             band_size: band.max_size + 1,
+            neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: String::new(),
         },
         content(),
@@ -280,6 +284,8 @@ fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
             preset_id: PRESET.to_owned(),
             size_cells: 512,
             band_size: 0,
+            neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: String::new(),
         },
         content,
@@ -382,24 +388,32 @@ fn a_band_sows_reaps_and_threshes_its_first_harvest() {
         kg > 0.3 * crop.yield_kg_per_ha * ha && kg < 1.6 * crop.yield_kg_per_ha * ha,
         "{kg:.0} kg from {ha:.2} ha"
     );
-    // Every household keeps the seed to sow its fields again, and has grain.
+    // The village keeps the seed to sow again the ground it cropped (research 08-02 §10: seed is
+    // set aside before anything is eaten), and has grain. Seed moves with those who leave a
+    // household for another, and ground broken after the harvest for next year is planned against
+    // the seed a household means to crop with (it may rest some), so the claim is the village's,
+    // not each household's.
     let now = sim.now();
-    for (_, h) in sim.people().households.iter() {
-        let stores = population::stores_now(h, now, &rules.people, &rules.catalog.goods);
-        let own: f64 = sim
-            .land()
-            .fields
-            .iter()
-            .filter(|f| f.household == h.id)
-            .map(|f| f.area_ha())
-            .sum();
-        assert!(
-            stores[crop.seed_good] + 1e-6 >= own * crop.seed_kg_per_ha,
-            "household {} keeps {:.0} kg of seed for {own:.2} ha",
-            h.id,
-            stores[crop.seed_good]
-        );
-    }
+    let seed: f64 = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| {
+            population::stores_now(h, now, &rules.people, &rules.catalog.goods)[crop.seed_good]
+        })
+        .sum();
+    let cropped: f64 = sim
+        .land()
+        .fields
+        .iter()
+        .filter(|f| f.harvests > 0)
+        .map(|f| f.area_ha())
+        .sum();
+    assert!(cropped > 0.0, "some ground was cropped");
+    assert!(
+        seed + 1e-6 >= cropped * crop.seed_kg_per_ha,
+        "the village keeps {seed:.0} kg of seed for the {cropped:.2} ha it cropped"
+    );
     let grain: f64 = sim
         .people()
         .households
@@ -1031,4 +1045,84 @@ fn a_settlement_running_short_of_food_is_noted_in_the_chronicle() {
     assert!(settlement.food_short);
     assert_eq!(short[0].settlement, Some(settlement.id));
     assert!(short[0].number < scarce.people.params.household.short_food_days);
+}
+
+#[test]
+fn people_who_keep_company_at_the_hearth_come_to_know_one_another() {
+    let sim = first_season();
+    let people = sim.people();
+    let rules = sim.rules();
+    let tp = &rules.people.ties;
+    let day = sim.now().day_index();
+    let holders = people.ties.holders();
+    assert!(
+        holders.len() * 2 > people.living(),
+        "most people hold ties: {} of {}",
+        holders.len(),
+        people.living()
+    );
+    let mut from_hearth = 0;
+    for h in &holders {
+        let ties = people.ties.of(*h);
+        assert!(ties.len() <= tp.room, "no more than the room for ties");
+        assert!(ties.windows(2).all(|w| w[0].to < w[1].to), "kept in order");
+        for t in ties {
+            assert_ne!(t.to, *h, "nobody holds a tie to themselves");
+            let now = t.at(day, tp);
+            assert!((0.0..=1.0).contains(&now.familiarity));
+            assert!((0.0..=1.0).contains(&now.warmth));
+            if t.reason.map(|r| r.act) == Some(civ_agents::ties::Act::Hearth) {
+                from_hearth += 1;
+                // Company alone is evidence of nothing.
+                for d in civ_agents::ties::Domain::ALL {
+                    assert!(now.esteem(d, tp).abs() < 1e-6);
+                }
+            }
+        }
+    }
+    assert!(from_hearth > 0, "company at the hearth made ties");
+}
+
+#[test]
+fn company_at_the_hearth_is_kept_only_with_those_of_ones_own_settlement() {
+    let mut sim = new_world(3, 0);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let village = sim.land().settlements[0].clone();
+    let far = land_near(&sim, village.hearth_m, 1500.0).expect("dry ground far away");
+    let camp = sim.spawn_families(far, 10).expect("the families arrive");
+    assert_eq!(
+        sim.land().settlements.len(),
+        2,
+        "a camp apart from the village"
+    );
+    sim.advance_minutes(20 * 24 * 60)
+        .expect("the world goes on");
+
+    let people = sim.people();
+    let settlement_of = |id: PermanentId| {
+        let household = people.person(id)?.household;
+        people.household(household)?.settlement
+    };
+    let (mut at_home, mut across) = (0, Vec::new());
+    for h in people.ties.holders() {
+        let Some(mine) = settlement_of(h) else {
+            continue;
+        };
+        for t in people.ties.of(h) {
+            if t.reason.map(|r| r.act) != Some(civ_agents::ties::Act::Hearth) {
+                continue;
+            }
+            match settlement_of(t.to) {
+                Some(theirs) if theirs == mine => at_home += 1,
+                Some(theirs) => across.push((h, t.to, mine, theirs)),
+                None => {}
+            }
+        }
+    }
+    assert!(at_home > 0, "company at each hearth made ties");
+    assert!(
+        across.is_empty(),
+        "nobody keeps company at another settlement's hearth: {across:?} (camp {})",
+        camp[0].settlement
+    );
 }

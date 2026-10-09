@@ -1,0 +1,18 @@
+# Going to the hearth for the gathering called there, and having a say (ADR-0013 §1): only while a
+# gathering sits, and only for its members, the settlement's adults. It lasts until the gathering
+# rises; whoever else comes is company, as at the hearth any evening.
+kind = "activity"
+id = "core:activity/attend_gathering"
+name = "Attend the gathering"
+doing = "at the gathering"
+behavior = "attend"
+par = 1.5
+min_age_years = 15.0
+max_age_years = 130.0
+min_minutes = 15
+max_minutes = 600
+daylight_only = false
+max_walk_minutes = 20
+technique = ""
+tools = []
+rate = 1.0

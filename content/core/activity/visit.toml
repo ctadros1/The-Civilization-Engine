@@ -1,0 +1,22 @@
+# Going to the hearth of another settlement the household knows, keeping company there and walking
+# home the same day (M5a slice AM; ADR-0018 §2: presence, never residence). Worth what being alone
+# makes any company worth, and what kin, those known there and the hope of meeting someone make it
+# (`[places]` in the people profile), against the walk there and back. It is chosen only in
+# daylight that lasts the walk there. `max_walk_minutes` is a day's range there and back with time
+# at the hearth (research 09-16 §2.1: about 25 km a day on foot; two hours each way is about
+# 10 km), a design prior. A session is `min_minutes`.
+kind = "activity"
+id = "core:activity/visit"
+name = "Visit another settlement"
+doing = "visiting"
+behavior = "visit"
+par = 1.5
+min_age_years = 14.0
+max_age_years = 130.0
+min_minutes = 90
+max_minutes = 90
+daylight_only = false
+max_walk_minutes = 120
+technique = ""
+tools = []
+rate = 1.0

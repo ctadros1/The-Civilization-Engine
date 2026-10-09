@@ -15,6 +15,7 @@
 use std::cell::RefCell;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use civ_core::FastMap;
 
@@ -57,11 +58,121 @@ impl NavParams {
 /// cells, 0 where people cannot walk. Rebuilt on load.
 #[derive(Clone, Debug)]
 pub struct NavGrid {
+    /// Unique to the grid (a copy shares it, as it shares the ground): what [`StepSpeeds`] are
+    /// kept for.
+    id: u64,
     width: usize,
     height: usize,
     cell_m: f64,
     params: NavParams,
     ground: Vec<f32>,
+}
+
+/// Cells the route searches on this thread have expanded, summed: what a benchmark reads to
+/// see how hard searches work.
+pub fn cells_searched() -> u64 {
+    CELLS_SEARCHED.with(std::cell::Cell::get)
+}
+
+/// Adds a search's expanded cells to [`cells_searched`].
+fn count_searched(cells: usize) {
+    CELLS_SEARCHED.with(|c| c.set(c.get() + cells as u64));
+}
+
+/// Landmarks round the area people walk ([`NavGrid::landmarks`]).
+pub const LANDMARKS: usize = 8;
+
+/// Most threads the landmarks' searches run on side by side.
+const LANDMARK_THREADS: usize = 4;
+
+/// Fastest walking times between a few landmark cells and every cell of an area, built on the
+/// paths as surveyed: by the triangle inequality, the time from a cell `v` to a cell `t` is at
+/// least the time from a landmark to `t` less that to `v`, and at least the time from `v` to a
+/// landmark less that from `t` (research 01-08 §2A, "ALT"). Searches between cells of the area
+/// are bounded by them; elsewhere by the straight line alone.
+#[derive(Clone)]
+pub struct Landmarks {
+    /// Cells of the grid they were built for.
+    cells: usize,
+    map_width: usize,
+    /// The area, in cells: its north-west corner and size.
+    x0: usize,
+    y0: usize,
+    w: usize,
+    h: usize,
+    /// Landmarks.
+    count: usize,
+    /// Per cell of the area row by row, for each landmark the seconds from it to the cell and
+    /// from the cell to it, side by side so a cell's are read together. A time is exact when
+    /// not negative (infinite where there is no way); a negative one was not worked out, and
+    /// the time is at least its magnitude.
+    seconds: Vec<f32>,
+}
+
+impl std::fmt::Debug for Landmarks {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Landmarks({} over {}x{} cells at ({}, {}))",
+            self.count, self.w, self.h, self.x0, self.y0
+        )
+    }
+}
+
+impl Landmarks {
+    /// Share of the triangle bounds used: the times are sums of many steps in single
+    /// precision, each a little off, and a bound must never exceed the time a search adds up.
+    const SURE: f32 = 1.0 - 4e-4;
+
+    /// A cell's times, from and to each landmark in turn, if it lies in the area.
+    fn at(&self, cell: usize) -> Option<&[f32]> {
+        let (x, y) = (cell % self.map_width, cell / self.map_width);
+        self.at_xy(x as i64, y as i64)
+    }
+
+    /// [`Landmarks::at`] by the cell's column and row.
+    #[inline]
+    fn at_xy(&self, x: i64, y: i64) -> Option<&[f32]> {
+        let (cx, cy) = (x - self.x0 as i64, y - self.y0 as i64);
+        if cx < 0 || cy < 0 || cx >= self.w as i64 || cy >= self.h as i64 {
+            return None;
+        }
+        let k = cy as usize * self.w + cx as usize;
+        Some(&self.seconds[k * 2 * self.count..(k + 1) * 2 * self.count])
+    }
+
+    /// A target's times, `t`, as what a search compares each cell with: for each landmark, at
+    /// least the time from it to the target (a time's magnitude, in the share that is sure),
+    /// and at most the time from the target to it (a time worked out, or no limit).
+    fn aim(t: &[f32]) -> Vec<(f32, f32)> {
+        t.chunks_exact(2)
+            .map(|t| {
+                let most = if t[1] < 0.0 { f32::INFINITY } else { t[1] };
+                (t[0].abs() * Self::SURE, most)
+            })
+            .collect()
+    }
+
+    /// The least time from the cell whose times are `v` to the target `aim` was made for
+    /// (infinite when a landmark shows there is no way; 0 when none says more).
+    #[inline]
+    fn bound(v: &[f32], aim: &[(f32, f32)]) -> f32 {
+        let mut out = 0.0f32;
+        for (v, &(to_target, from_target)) in v.chunks_exact(2).zip(aim) {
+            // From the landmark, d(L,t) - d(L,v); to it, d(v,L) - d(t,L). Infinite less
+            // infinite says nothing: NaN, never greater.
+            let to_v = if v[0] < 0.0 { f32::INFINITY } else { v[0] };
+            let from = to_target - to_v;
+            let to = v[1].abs() * Self::SURE - from_target;
+            if from > out {
+                out = from;
+            }
+            if to > out {
+                out = to;
+            }
+        }
+        out
+    }
 }
 
 /// How a route search ended.
@@ -161,29 +272,34 @@ impl Scores for FastMap<u32, (f32, u32)> {
     }
 }
 
-/// [`Scores`] over the whole grid in flat arrays, kept on a thread between searches and cleared
-/// lazily by a generation stamp, so a search allocates nothing (research 01-08 §7: reusable
-/// search scratch).
+/// One cell's entry in [`DenseScores`]: the search that wrote it, its best time and the cell it
+/// came from, side by side so a look-up touches one place in memory.
+#[derive(Clone, Copy, Default)]
+struct Score {
+    stamp: u32,
+    g: f32,
+    parent: u32,
+}
+
+/// [`Scores`] over the whole grid in one flat array, kept on a thread between searches and
+/// cleared lazily by a generation stamp, so a search allocates nothing (research 01-08 §7:
+/// reusable search scratch).
 #[derive(Default)]
 struct DenseScores {
     generation: u32,
-    stamp: Vec<u32>,
-    g: Vec<f32>,
-    parent: Vec<u32>,
+    cells: Vec<Score>,
 }
 
 impl DenseScores {
-    /// Readies the arrays for a new search over `cells` cells.
+    /// Readies the array for a new search over `cells` cells.
     fn begin(&mut self, cells: usize) {
-        if self.stamp.len() != cells {
-            self.stamp = vec![0; cells];
-            self.g = vec![0.0; cells];
-            self.parent = vec![0; cells];
+        if self.cells.len() != cells {
+            self.cells = vec![Score::default(); cells];
             self.generation = 0;
         }
         self.generation = self.generation.wrapping_add(1);
         if self.generation == 0 {
-            self.stamp.fill(0);
+            self.cells.fill(Score::default());
             self.generation = 1;
         }
     }
@@ -191,24 +307,58 @@ impl DenseScores {
 
 impl Scores for DenseScores {
     fn get(&self, cell: u32) -> Option<(f32, u32)> {
-        let i = cell as usize;
-        (self.stamp[i] == self.generation).then(|| (self.g[i], self.parent[i]))
+        let s = self.cells[cell as usize];
+        (s.stamp == self.generation).then_some((s.g, s.parent))
     }
 
     fn set(&mut self, cell: u32, g: f32, parent: u32) {
-        let i = cell as usize;
-        self.stamp[i] = self.generation;
-        self.g[i] = g;
-        self.parent[i] = parent;
+        self.cells[cell as usize] = Score {
+            stamp: self.generation,
+            g,
+            parent,
+        };
     }
 }
+
+/// Tobler's speed on each step from a cell to its eight neighbours, m/s on a trail, worked out
+/// the first time a search or travel field takes the step and kept: the ground under a grid does
+/// not change, and the value is the same arithmetic [`NavGrid::step_seconds`] does, so routes and
+/// travel times come out bit for bit as without it. 0 marks a step not yet worked out (no
+/// walkable step is that slow) and a negative value one that cannot be walked. Kept per thread
+/// for the grid and the elevation it was filled from; its pages are only committed where
+/// searches go.
+#[derive(Default)]
+struct StepSpeeds {
+    grid: u64,
+    elevation: usize,
+    cells: usize,
+    speed: Vec<f64>,
+}
+
+impl StepSpeeds {
+    /// Readies the table for `grid` over `elevation`, emptying it if it was another's.
+    fn ready(&mut self, grid: &NavGrid, elevation: &[f32]) {
+        let cells = grid.width * grid.height;
+        let key = (grid.id, elevation.as_ptr() as usize, cells);
+        if (self.grid, self.elevation, self.cells) != key || self.speed.len() != cells * 8 {
+            (self.grid, self.elevation, self.cells) = key;
+            self.speed = vec![0.0; cells * 8];
+        }
+    }
+}
+
+/// Each grid's id, for [`StepSpeeds`].
+static NEXT_GRID_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Grids up to this many cells (a 2048² map) search with [`DenseScores`], about 12 bytes a cell;
 /// larger ones with a map of the cells reached.
 const DENSE_SCORES_MAX_CELLS: usize = 1 << 22;
 
 thread_local! {
+    /// Cells route searches on this thread have looked at ([`cells_searched`]).
+    static CELLS_SEARCHED: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
     static DENSE_SCORES: RefCell<DenseScores> = RefCell::new(DenseScores::default());
+    static STEP_SPEEDS: RefCell<StepSpeeds> = RefCell::new(StepSpeeds::default());
 }
 
 /// A cell on the open list with its scores, packed into one integer that orders as the list
@@ -256,6 +406,7 @@ impl NavGrid {
             }
         }
         NavGrid {
+            id: NEXT_GRID_ID.fetch_add(1, Ordering::Relaxed),
             width: map.width as usize,
             height: map.height as usize,
             cell_m: f64::from(map.cell_size_m),
@@ -284,8 +435,20 @@ impl NavGrid {
         dist_cells: f64,
         trail: f32,
     ) -> Option<f32> {
-        let ground = f64::from(self.ground[to]);
-        if ground <= 0.0 {
+        let tobler = self.step_speed(elevation, from, to, dist_cells)?;
+        Some(self.seconds_at(tobler, to, dist_cells, trail))
+    }
+
+    /// Tobler's speed on the step from `from` to its neighbour `to`, m/s on a trail; `None` if
+    /// the step cannot be walked.
+    fn step_speed(
+        &self,
+        elevation: &[f32],
+        from: usize,
+        to: usize,
+        dist_cells: f64,
+    ) -> Option<f64> {
+        if f64::from(self.ground[to]) <= 0.0 {
             return None;
         }
         let run = dist_cells * self.cell_m;
@@ -294,32 +457,99 @@ impl NavGrid {
         if slope.abs() > self.params.max_slope {
             return None;
         }
+        Some(self.params.tobler_ms(slope))
+    }
+
+    /// Seconds for a walkable step into `to` at Tobler's speed `tobler` (from
+    /// [`NavGrid::step_speed`]), given the trail factor of `to`.
+    #[inline]
+    fn seconds_at(&self, tobler: f64, to: usize, dist_cells: f64, trail: f32) -> f32 {
+        let run = dist_cells * self.cell_m;
         let surface = self.params.offtrail_factor
             + (1.0 - self.params.offtrail_factor) * f64::from(trail.clamp(0.0, 1.0));
-        let speed = self.params.tobler_ms(slope) * surface * ground;
-        Some((run / speed) as f32)
+        let speed = tobler * surface * f64::from(self.ground[to]);
+        (run / speed) as f32
+    }
+
+    /// [`NavGrid::step_speed`] for the step from `from` in direction `k` of [`D8`] to `to`, kept
+    /// in `speeds` (a [`StepSpeeds`] table, or empty to work it out each time).
+    #[inline]
+    fn kept_speed(
+        &self,
+        speeds: &mut [f64],
+        elevation: &[f32],
+        (from, k, to): (usize, usize, usize),
+        dist_cells: f64,
+    ) -> Option<f64> {
+        match speeds.get_mut(from * 8 + k) {
+            Some(kept) => {
+                if *kept == 0.0 {
+                    *kept = self
+                        .step_speed(elevation, from, to, dist_cells)
+                        .unwrap_or(-1.0);
+                }
+                (*kept > 0.0).then_some(*kept)
+            }
+            None => self.step_speed(elevation, from, to, dist_cells),
+        }
+    }
+
+    /// [`NavGrid::kept_speed`] from a table another thread keeps: a step not yet in it is worked
+    /// out (the same arithmetic) and not kept.
+    #[inline]
+    fn shared_speed(
+        &self,
+        speeds: &[f64],
+        elevation: &[f32],
+        (from, k, to): (usize, usize, usize),
+        dist_cells: f64,
+    ) -> Option<f64> {
+        match speeds.get(from * 8 + k) {
+            Some(&kept) if kept != 0.0 => (kept > 0.0).then_some(kept),
+            _ => self.step_speed(elevation, from, to, dist_cells),
+        }
+    }
+
+    /// Works out and keeps in `speeds` the steps out of `cell` to each neighbour.
+    fn step_speeds_out(&self, speeds: &mut [f64], elevation: &[f32], cell: usize) {
+        let (x, y) = ((cell % self.width) as i64, (cell / self.width) as i64);
+        for (k, (&(dx, dy), dist)) in D8.iter().zip(D8_DIST).enumerate() {
+            let (nx, ny) = (x + i64::from(dx), y + i64::from(dy));
+            if nx < 0 || ny < 0 || nx >= self.width as i64 || ny >= self.height as i64 {
+                continue;
+            }
+            let j = ny as usize * self.width + nx as usize;
+            let _ = self.kept_speed(speeds, elevation, (cell, k, j), dist);
+        }
+    }
+
+    /// Runs `f` with the thread's [`StepSpeeds`] for this grid over `elevation`, or with no
+    /// table on a grid too large for one or from inside another search.
+    fn with_speeds<R>(&self, elevation: &[f32], f: impl FnOnce(&mut [f64]) -> R) -> R {
+        let n = self.width * self.height;
+        if n > DENSE_SCORES_MAX_CELLS || elevation.len() < n {
+            return f(&mut []);
+        }
+        let mut f = Some(f);
+        let kept = STEP_SPEEDS.with(|t| {
+            t.try_borrow_mut().ok().map(|mut t| {
+                t.ready(self, elevation);
+                (f.take().expect("not yet run"))(&mut t.speed)
+            })
+        });
+        match kept {
+            Some(r) => r,
+            None => (f.take().expect("not yet run"))(&mut []),
+        }
     }
 
     /// Seconds to walk straight from `from` to `to` at `speed`, an underestimate of any route
     /// when `speed` is the fastest any step can be walked.
-    fn heuristic(&self, from: usize, to: usize, speed: f64) -> f32 {
-        let (fx, fy) = ((from % self.width) as f64, (from / self.width) as f64);
-        let (tx, ty) = ((to % self.width) as f64, (to / self.width) as f64);
-        let dist = ((fx - tx).powi(2) + (fy - ty).powi(2)).sqrt() * self.cell_m;
+    #[inline]
+    fn heuristic(&self, (fx, fy): (i64, i64), (tx, ty): (i64, i64), speed: f64) -> f32 {
+        let (dx, dy) = ((fx - tx) as f64, (fy - ty) as f64);
+        let dist = (dx.powi(2) + dy.powi(2)).sqrt() * self.cell_m;
         (dist / speed) as f32
-    }
-
-    fn neighbours(&self, i: usize) -> impl Iterator<Item = (usize, f64)> + '_ {
-        let (w, h) = (self.width as i64, self.height as i64);
-        let (x, y) = ((i % self.width) as i64, (i / self.width) as i64);
-        D8.iter().zip(D8_DIST).filter_map(move |(&(dx, dy), dist)| {
-            let (nx, ny) = (x + i64::from(dx), y + i64::from(dy));
-            if nx < 0 || ny < 0 || nx >= w || ny >= h {
-                None
-            } else {
-                Some(((ny * w + nx) as usize, dist))
-            }
-        })
     }
 
     /// The fastest route from `from` to `to` (A*). `trail` gives the trail factor (0–1) of a
@@ -329,7 +559,7 @@ impl NavGrid {
         elevation: &[f32],
         from: usize,
         to: usize,
-        trail: &dyn Fn(usize) -> f32,
+        trail: &(impl Fn(usize) -> f32 + ?Sized),
         budget: usize,
     ) -> RouteResult {
         self.route_bounded(elevation, from, to, trail, 1.0, budget)
@@ -343,9 +573,25 @@ impl NavGrid {
         elevation: &[f32],
         from: usize,
         to: usize,
-        trail: &dyn Fn(usize) -> f32,
+        trail: &(impl Fn(usize) -> f32 + ?Sized),
         trail_max: f32,
         budget: usize,
+    ) -> RouteResult {
+        self.route_with(elevation, (from, to), trail, trail_max, budget, None)
+    }
+
+    /// [`NavGrid::route_bounded`] from `from` to `to`, its search also bounded below by
+    /// `landmarks` ([`NavGrid::landmarks`], built on the same `trail`) when given: the same
+    /// fastest time, found expanding far fewer cells. Where two routes are equally fast, which
+    /// one is found can differ with the bounds.
+    pub fn route_with(
+        &self,
+        elevation: &[f32],
+        (from, to): (usize, usize),
+        trail: &(impl Fn(usize) -> f32 + ?Sized),
+        trail_max: f32,
+        budget: usize,
+        landmarks: Option<&Landmarks>,
     ) -> RouteResult {
         let p = &self.params;
         let fastest = p.top_speed_ms()
@@ -361,46 +607,66 @@ impl NavGrid {
                 seconds: vec![0.0],
             });
         }
-        let search =
-            |best: &mut dyn Scores| self.search(elevation, from, to, trail, fastest, budget, best);
-        if n <= DENSE_SCORES_MAX_CELLS {
-            // A search started from inside another on this thread (none does today) gets its
-            // own arrays.
-            let shared = DENSE_SCORES.with(|d| {
-                d.try_borrow_mut().ok().map(|mut d| {
-                    d.begin(n);
-                    search(&mut *d)
-                })
-            });
-            if let Some(found) = shared {
-                return found;
+        // The search is compiled for each kind of score table and trail, so that their look-ups
+        // are inlined into its inner loop.
+        self.with_speeds(elevation, |speeds| {
+            let landmarks = landmarks.filter(|l| l.cells == n);
+            let search = (elevation, from, to, fastest, budget, landmarks);
+            if n <= DENSE_SCORES_MAX_CELLS {
+                // A search started from inside another on this thread (none does today) gets
+                // its own arrays.
+                let shared = DENSE_SCORES.with(|d| {
+                    d.try_borrow_mut().ok().map(|mut d| {
+                        d.begin(n);
+                        self.search(search, trail, &mut *d, speeds)
+                    })
+                });
+                if let Some(found) = shared {
+                    return found;
+                }
+                let mut own = DenseScores::default();
+                own.begin(n);
+                return self.search(search, trail, &mut own, speeds);
             }
-            let mut own = DenseScores::default();
-            own.begin(n);
-            return search(&mut own);
-        }
-        search(&mut FastMap::default())
+            self.search(search, trail, &mut FastMap::default(), speeds)
+        })
     }
 
-    /// The A* search of [`NavGrid::route_bounded`], keeping its scores in `best`.
-    #[allow(clippy::too_many_arguments)]
+    /// The A* search of [`NavGrid::route_bounded`], keeping its scores in `best` and Tobler's
+    /// speeds in `speeds` ([`NavGrid::kept_speed`]).
     fn search(
         &self,
-        elevation: &[f32],
-        from: usize,
-        to: usize,
-        trail: &dyn Fn(usize) -> f32,
-        fastest: f64,
-        budget: usize,
-        best: &mut dyn Scores,
+        (elevation, from, to, fastest, budget, landmarks): (
+            &[f32],
+            usize,
+            usize,
+            f64,
+            usize,
+            Option<&Landmarks>,
+        ),
+        trail: &(impl Fn(usize) -> f32 + ?Sized),
+        best: &mut impl Scores,
+        speeds: &mut [f64],
     ) -> RouteResult {
+        let (w, h) = (self.width as i64, self.height as i64);
+        // The least time from a cell to `to`: the straight line at the top speed, or what the
+        // landmarks show, whichever is more.
+        let target = landmarks.and_then(|l| Some((l, Landmarks::aim(l.at(to)?))));
+        let (tx, ty) = ((to % self.width) as i64, (to / self.width) as i64);
+        let bound = |x: i64, y: i64| {
+            let line = self.heuristic((x, y), (tx, ty), fastest);
+            match target
+                .as_ref()
+                .and_then(|(l, aim)| Some((l.at_xy(x, y)?, aim)))
+            {
+                Some((v, aim)) => line.max(Landmarks::bound(v, aim)),
+                None => line,
+            }
+        };
         let mut open = BinaryHeap::new();
         best.set(from as u32, 0.0, u32::MAX);
-        open.push(Open::new(
-            self.heuristic(from, to, fastest),
-            0.0,
-            from as u32,
-        ));
+        let (fx, fy) = ((from % self.width) as i64, (from / self.width) as i64);
+        open.push(Open::new(bound(fx, fy), 0.0, from as u32));
         let mut expanded = 0usize;
         while let Some(next) = open.pop() {
             let (g, cell) = (next.g(), next.cell());
@@ -409,25 +675,251 @@ impl NavGrid {
                 continue;
             }
             if i == to {
+                count_searched(expanded);
                 return RouteResult::Found(reconstruct(best, from, to));
             }
             expanded += 1;
             if expanded > budget {
+                count_searched(expanded);
                 return RouteResult::BudgetExhausted;
             }
-            for (j, dist) in self.neighbours(i) {
-                let Some(step) = self.step_seconds(elevation, i, j, dist, trail(j)) else {
+            let (x, y) = ((i % self.width) as i64, (i / self.width) as i64);
+            for (k, (&(dx, dy), dist)) in D8.iter().zip(D8_DIST).enumerate() {
+                let (nx, ny) = (x + i64::from(dx), y + i64::from(dy));
+                if nx < 0 || ny < 0 || nx >= w || ny >= h {
+                    continue;
+                }
+                let j = (ny * w + nx) as usize;
+                let Some(tobler) = self.kept_speed(speeds, elevation, (i, k, j), dist) else {
                     continue;
                 };
-                let ng = g + step;
+                let ng = g + self.seconds_at(tobler, j, dist, trail(j));
                 let better = best.get(j as u32).is_none_or(|(bg, _)| ng < bg);
                 if better {
                     best.set(j as u32, ng, cell);
-                    open.push(Open::new(ng + self.heuristic(j, to, fastest), ng, j as u32));
+                    let f = ng + bound(nx, ny);
+                    // A cell the landmarks show cannot reach `to` is not worth a visit.
+                    if f.is_finite() {
+                        open.push(Open::new(f, ng, j as u32));
+                    }
                 }
             }
         }
+        count_searched(expanded);
         RouteResult::Unreachable
+    }
+
+    /// Lower bounds on walking times for route searches on `trail` between cells of `area`
+    /// (research 01-08 §2A, "ALT"): the fastest times from and to [`LANDMARKS`] cells round its
+    /// edge, to and from each of its cells. `area` is the north-west and south-east corner cells,
+    /// clipped to the grid. Each landmark's two searches go out until every walkable cell of
+    /// the area is reached, or as far as walking three times across it takes; they hold until
+    /// walking costs change (the paths are surveyed again).
+    pub fn landmarks(
+        &self,
+        elevation: &[f32],
+        trail: &(impl Fn(usize) -> f32 + Sync + ?Sized),
+        area: ((usize, usize), (usize, usize)),
+    ) -> Landmarks {
+        let n = self.width * self.height;
+        let ((ax, ay), (bx, by)) = area;
+        let (x0, y0) = (ax.min(self.width - 1), ay.min(self.height - 1));
+        let (x1, y1) = (bx.clamp(x0, self.width - 1), by.clamp(y0, self.height - 1));
+        let (w, h) = (x1 - x0 + 1, y1 - y0 + 1);
+        let sites = self.landmark_cells((x0, y0), (x1, y1));
+        let k = sites.len();
+        let mut seconds = vec![f32::INFINITY; w * h * 2 * k];
+        // As far as walking three times across the area off the trails takes.
+        let across = (w as f64).hypot(h as f64) * self.cell_m;
+        let slow = self.params.tobler_ms(0.0) * self.params.offtrail_factor;
+        let cap = (3.0 * across / slow.max(1e-6)) as f32;
+        let area = (x0, y0, w, h);
+        let jobs: Vec<(usize, bool)> = sites
+            .iter()
+            .flat_map(|&site| [(site, false), (site, true)])
+            .collect();
+        self.with_speeds(elevation, |speeds| {
+            // The steps out of the area's cells are worked out here and shared; the searches
+            // run side by side, each the same whichever thread runs it.
+            if !speeds.is_empty() {
+                for c in (y0..=y1).flat_map(|y| (x0..=x1).map(move |x| y * self.width + x)) {
+                    self.step_speeds_out(speeds, elevation, c);
+                }
+            }
+            let speeds: &[f64] = speeds;
+            let next = std::sync::atomic::AtomicUsize::new(0);
+            let threads = std::thread::available_parallelism()
+                .map_or(1, |t| t.get())
+                .clamp(1, LANDMARK_THREADS)
+                .min(jobs.len());
+            let done: Vec<(usize, Vec<f32>)> = std::thread::scope(|scope| {
+                let workers: Vec<_> = (0..threads)
+                    .map(|_| {
+                        scope.spawn(|| {
+                            let mut out = Vec::new();
+                            let mut scores = DenseScores::default();
+                            loop {
+                                let j = next.fetch_add(1, Ordering::Relaxed);
+                                let Some(&job) = jobs.get(j) else {
+                                    break out;
+                                };
+                                let mut times = vec![f32::INFINITY; w * h];
+                                let into = (&mut times[..], &mut scores);
+                                self.fill_area(elevation, job, trail, area, cap, into, speeds);
+                                out.push((j, times));
+                            }
+                        })
+                    })
+                    .collect();
+                workers
+                    .into_iter()
+                    .flat_map(|t| t.join().expect("a landmark search ends"))
+                    .collect()
+            });
+            for (j, times) in done {
+                // Job j is landmark j / 2, from it (even) or to it (odd).
+                for (c, &t) in times.iter().enumerate() {
+                    seconds[c * 2 * k + j] = t;
+                }
+            }
+        });
+        Landmarks {
+            cells: n,
+            map_width: self.width,
+            x0,
+            y0,
+            w,
+            h,
+            count: k,
+            seconds,
+        }
+    }
+
+    /// Where the landmarks stand: for each corner of the area and the middle of each side, the
+    /// walkable cell of the area nearest it (the least index among equals), each once.
+    fn landmark_cells(&self, (x0, y0): (usize, usize), (x1, y1): (usize, usize)) -> Vec<usize> {
+        let (mx, my) = ((x0 + x1) / 2, (y0 + y1) / 2);
+        let anchors = [
+            (x0, y0),
+            (mx, y0),
+            (x1, y0),
+            (x1, my),
+            (x1, y1),
+            (mx, y1),
+            (x0, y1),
+            (x0, my),
+        ];
+        let mut out: Vec<usize> = Vec::new();
+        for (ax, ay) in anchors {
+            let nearest = (y0..=y1)
+                .flat_map(|y| (x0..=x1).map(move |x| (x, y)))
+                .map(|(x, y)| y * self.width + x)
+                .filter(|&c| self.walkable(c))
+                .min_by_key(|&c| {
+                    let (x, y) = ((c % self.width) as i64, (c / self.width) as i64);
+                    ((x - ax as i64).pow(2) + (y - ay as i64).pow(2), c)
+                });
+            if let Some(c) = nearest
+                && !out.contains(&c)
+            {
+                out.push(c);
+            }
+        }
+        out
+    }
+
+    /// Fastest times from `source` to each cell of `area` (its corner and size), or with
+    /// `reverse` from each to `source`, into `out` row by row; Dijkstra over the grid, until
+    /// every walkable cell of the area has its time or the times reach `cap`. A time not
+    /// worked out is written as the negative of what it is at least; one with no way, infinite.
+    /// `scores` is scratch for the search.
+    #[allow(clippy::too_many_arguments)]
+    fn fill_area(
+        &self,
+        elevation: &[f32],
+        (source, reverse): (usize, bool),
+        trail: &(impl Fn(usize) -> f32 + ?Sized),
+        (x0, y0, aw, ah): (usize, usize, usize, usize),
+        cap: f32,
+        (out, scores): (&mut [f32], &mut DenseScores),
+        speeds: &[f64],
+    ) {
+        let (w, h) = (self.width as i64, self.height as i64);
+        let inside = |c: usize| {
+            let (x, y) = (c % self.width, c / self.width);
+            (x >= x0 && y >= y0 && x < x0 + aw && y < y0 + ah).then(|| (y - y0) * aw + (x - x0))
+        };
+        let mut left = (y0..y0 + ah)
+            .flat_map(|y| (x0..x0 + aw).map(move |x| y * self.width + x))
+            .filter(|&c| self.walkable(c))
+            .count();
+        out.fill(f32::INFINITY);
+        // Best times so far and whether final, cleared lazily as for route searches.
+        const FINAL: u32 = 1;
+        scores.begin(self.width * self.height);
+        let key = |g: f32, cell: u32| Reverse((u64::from(g.to_bits()) << 32) | u64::from(cell));
+        let mut open = BinaryHeap::new();
+        scores.set(source as u32, 0.0, 0);
+        open.push(key(0.0, source as u32));
+        let mut stopped_at = None;
+        while let Some(Reverse(packed)) = open.pop() {
+            let (g, cell) = (f32::from_bits((packed >> 32) as u32), packed as u32);
+            let i = cell as usize;
+            match scores.get(cell) {
+                Some((bg, done)) if done == FINAL || g > bg => continue,
+                _ => {}
+            }
+            if g > cap {
+                stopped_at = Some(g);
+                break;
+            }
+            scores.set(cell, g, FINAL);
+            if let Some(k) = inside(i) {
+                out[k] = g;
+                // In reverse a cell people cannot walk is reached too, as where a walk might
+                // start; only walkable cells are waited for.
+                if self.walkable(i) {
+                    left -= 1;
+                    if left == 0 {
+                        break;
+                    }
+                }
+            }
+            let (x, y) = ((i % self.width) as i64, (i / self.width) as i64);
+            for (k, (&(dx, dy), dist)) in D8.iter().zip(D8_DIST).enumerate() {
+                let (nx, ny) = (x + i64::from(dx), y + i64::from(dy));
+                if nx < 0 || ny < 0 || nx >= w || ny >= h {
+                    continue;
+                }
+                let j = (ny * w + nx) as usize;
+                if scores.get(j as u32).is_some_and(|(_, done)| done == FINAL) {
+                    continue;
+                }
+                // Forward, the step from `i` to `j`; in reverse, the step from `j` to `i`.
+                let (a, d, b) = if reverse {
+                    (j, (k + 4) % 8, i)
+                } else {
+                    (i, k, j)
+                };
+                let Some(tobler) = self.shared_speed(speeds, elevation, (a, d, b), dist) else {
+                    continue;
+                };
+                let ng = g + self.seconds_at(tobler, b, dist, trail(b));
+                if scores.get(j as u32).is_none_or(|(bg, _)| ng < bg) {
+                    scores.set(j as u32, ng, 0);
+                    open.push(key(ng, j as u32));
+                }
+            }
+        }
+        // Stopped at the cap: every cell not yet final takes at least that long.
+        if let Some(g) = stopped_at {
+            for (k, t) in out.iter_mut().enumerate() {
+                let c = (y0 + k / aw) * self.width + x0 + k % aw;
+                if t.is_infinite() && self.walkable(c) {
+                    *t = -g;
+                }
+            }
+        }
     }
 
     /// Fastest travel times from `from` to every cell reachable within `max_seconds` (Dijkstra).
@@ -460,8 +952,27 @@ impl NavGrid {
             seconds: Vec::new(),
             reached: Vec::new(),
         };
-        let bw = field.w;
-        field.seconds = vec![f32::INFINITY; bw * field.h];
+        field.seconds = vec![f32::INFINITY; field.w * field.h];
+        self.with_speeds(elevation, |speeds| {
+            self.fill_field(elevation, from, max_seconds, trail, &mut field, speeds);
+        });
+        field
+    }
+
+    /// The Dijkstra search of [`NavGrid::travel_field`] over `field`'s box, keeping Tobler's
+    /// speeds in `speeds` ([`NavGrid::kept_speed`]).
+    fn fill_field(
+        &self,
+        elevation: &[f32],
+        from: usize,
+        max_seconds: f32,
+        trail: &dyn Fn(usize) -> f32,
+        field: &mut TravelField,
+        speeds: &mut [f64],
+    ) {
+        let (x0, y0, bw) = (field.x0, field.y0, field.w);
+        let (x1, y1) = (x0 + field.w - 1, y0 + field.h - 1);
+        let (fx, fy) = (from % self.width, from / self.width);
         // Each cell's trail factor, asked once.
         let mut trails = vec![f32::NAN; bw * field.h];
         // Cells whose time is final: none is reached sooner from a cell reached later.
@@ -482,7 +993,7 @@ impl NavGrid {
             }
             done[si] = true;
             field.reached.push(cell);
-            for (&(dx, dy), dist) in D8.iter().zip(D8_DIST) {
+            for (d, (&(dx, dy), dist)) in D8.iter().zip(D8_DIST).enumerate() {
                 let (nx, ny) = (x as i64 + i64::from(dx), y as i64 + i64::from(dy));
                 if nx < x0 as i64 || ny < y0 as i64 || nx > x1 as i64 || ny > y1 as i64 {
                     continue;
@@ -494,13 +1005,13 @@ impl NavGrid {
                 if done[sj] {
                     continue;
                 }
+                let Some(tobler) = self.kept_speed(speeds, elevation, (i, d, j), dist) else {
+                    continue;
+                };
                 if trails[sj].is_nan() {
                     trails[sj] = trail(j);
                 }
-                let Some(step) = self.step_seconds(elevation, i, j, dist, trails[sj]) else {
-                    continue;
-                };
-                let ng = g + step;
+                let ng = g + self.seconds_at(tobler, j, dist, trails[sj]);
                 if ng > max_seconds || ng >= field.seconds[sj] {
                     continue;
                 }
@@ -508,7 +1019,6 @@ impl NavGrid {
                 open.push(key(ng, j as u32));
             }
         }
-        field
     }
 
     /// Ground height at a point, metres: bilinear between cell centres.
@@ -914,6 +1424,135 @@ mod tests {
             }
         }
         assert!(checked > 20);
+    }
+
+    #[test]
+    fn landmarks_bound_searches_without_changing_route_times() {
+        // Hills (uphill and downhill differ), lakes, an island and trails; landmarks over part
+        // of the map only, with a time cap short enough that some cells are not worked out.
+        let mut map = flat(64, 64);
+        let mut rng = Rng64::seed_from_u64(11);
+        for (c, z) in map.elevation.iter_mut().enumerate() {
+            let (x, y) = ((c % 64) as f32, (c / 64) as f32);
+            *z = 100.0 + 8.0 * (x / 9.0).sin() * (y / 7.0).cos() + (rng.next_f64() * 2.0) as f32;
+        }
+        for _ in 0..300 {
+            let c = (rng.next_u64() % 4096) as usize;
+            map.water[c] = WATER_LAKE;
+        }
+        // A ring of water round an island at (50, 50).
+        for y in 44..57usize {
+            for x in 44..57usize {
+                let ring = x == 44 || x == 56 || y == 44 || y == 56;
+                if ring {
+                    map.water[y * 64 + x] = WATER_LAKE;
+                } else {
+                    map.water[y * 64 + x] = WATER_LAND;
+                }
+            }
+        }
+        let nav = NavGrid::new(&map, params());
+        let trail = |c: usize| if (c / 64) % 9 == 3 { 1.0 } else { 0.0 };
+        let whole = nav.landmarks(&map.elevation, &trail, ((0, 0), (63, 63)));
+        let part = nav.landmarks(&map.elevation, &trail, ((10, 5), (60, 58)));
+        let mut capped = part.clone();
+        // Pretend the far cells were never worked out: at least their time's half.
+        for t in &mut capped.seconds {
+            if t.is_finite() && *t > 200.0 {
+                *t = -*t * 0.5;
+            }
+        }
+        let (mut checked, mut unreachable) = (0, 0);
+        for _ in 0..400 {
+            let a = (rng.next_u64() % 4096) as usize;
+            let b = (rng.next_u64() % 4096) as usize;
+            if !nav.walkable(b) {
+                continue;
+            }
+            let plain = nav.route(&map.elevation, a, b, &trail, 1_000_000);
+            for lm in [&whole, &part, &capped] {
+                let bounded =
+                    nav.route_with(&map.elevation, (a, b), &trail, 1.0, 1_000_000, Some(lm));
+                match (&plain, &bounded) {
+                    (RouteResult::Found(p), RouteResult::Found(q)) => {
+                        assert_eq!(
+                            p.total_seconds(),
+                            q.total_seconds(),
+                            "{a} to {b} with {lm:?}"
+                        );
+                        assert_eq!(q.cells.first(), Some(&(a as u32)));
+                        assert_eq!(q.cells.last(), Some(&(b as u32)));
+                    }
+                    (RouteResult::Unreachable, RouteResult::Unreachable) => {}
+                    (p, q) => panic!("{a} to {b} with {lm:?}: {p:?} against {q:?}"),
+                }
+            }
+            match plain {
+                RouteResult::Found(_) => checked += 1,
+                _ => unreachable += 1,
+            }
+        }
+        assert!(
+            checked > 100 && unreachable > 5,
+            "{checked} found, {unreachable} not"
+        );
+        // The bounds pay: fewer cells looked at for the same route.
+        let before = cells_searched();
+        let _ = nav.route(&map.elevation, 64 + 1, 62 * 64 + 2, &trail, 1_000_000);
+        let plain = cells_searched() - before;
+        let before = cells_searched();
+        let _ = nav.route_with(
+            &map.elevation,
+            (64 + 1, 62 * 64 + 2),
+            &trail,
+            1.0,
+            1_000_000,
+            Some(&whole),
+        );
+        let bounded = cells_searched() - before;
+        assert!(
+            bounded < plain,
+            "{bounded} cells with landmarks, {plain} without"
+        );
+    }
+
+    #[test]
+    fn kept_step_speeds_give_the_times_each_step_takes() {
+        let mut map = flat(48, 48);
+        let mut rng = civ_core::Rng64::seed_from_u64(5);
+        for (i, z) in map.elevation.iter_mut().enumerate() {
+            *z = (i % 48) as f32 * 0.9 + (rng.next_f64() as f32) * 4.0;
+        }
+        let trail = |c: usize| ((c * 7) % 11) as f32 / 10.0;
+        let (a, b) = (3 * 48 + 2, 44 * 48 + 45);
+        // A fresh grid fills its table; the second search reads it; a second grid starts anew.
+        let nav = NavGrid::new(&map, params());
+        let first = nav.route(&map.elevation, a, b, &trail, 1_000_000);
+        let again = nav.route(&map.elevation, a, b, &trail, 1_000_000);
+        let other = NavGrid::new(&map, params()).route(&map.elevation, a, b, &trail, 1_000_000);
+        assert_eq!(first, again);
+        assert_eq!(first, other);
+        let RouteResult::Found(r) = first else {
+            panic!("a route across open ground");
+        };
+        // Each time is the one before plus the step as `step_seconds` works it out, exactly.
+        for k in 1..r.cells.len() {
+            let (i, j) = (r.cells[k - 1] as usize, r.cells[k] as usize);
+            let diagonal = i % 48 != j % 48 && i / 48 != j / 48;
+            let dist = if diagonal {
+                std::f64::consts::SQRT_2
+            } else {
+                1.0
+            };
+            let step = nav
+                .step_seconds(&map.elevation, i, j, dist, trail(j))
+                .expect("a walked step can be walked");
+            assert_eq!(r.seconds[k].to_bits(), (r.seconds[k - 1] + step).to_bits());
+        }
+        // A travel field gives the same time to the goal.
+        let field = nav.travel_field(&map.elevation, a, f32::MAX, &trail);
+        let exact = field.seconds_to(b).expect("reached");
+        assert!((r.total_seconds() - exact).abs() <= 1e-3 * exact);
     }
 
     #[test]

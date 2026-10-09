@@ -8,6 +8,15 @@
 # grades the rows of §4.7 that apply. It takes too long for pull requests until Accelerated mode is
 # faster than Detailed (ADR-0011), so it runs nightly and on demand only; its JSON report is kept.
 #
+# Gate B (ADR-0011 §5, M3c slice W) lives a year from two fixture worlds five times in each mode
+# and compares Accelerated mode's aggregates with Detailed mode's against tolerances fixed in
+# PROJECT_PLAN §9. It takes a few minutes, so it runs nightly and on pull requests into main.
+#
+# The notables' gate (ADR-0014 §4, M4a slice Z) lives two fixture worlds three years five times
+# with the notables' tier and five times with every adult deliberating, and compares their polities'
+# aggregates against tolerances fixed in PROJECT_PLAN §9. It takes about two minutes, so it runs
+# beside Gate B.
+#
 # The run checks the model, not the platform, so it uses Linux. Actions are pinned as in ci.yml.
 name: Ten-year smoke
 
@@ -62,6 +71,61 @@ jobs:
           if [ -f "$RUNNER_TEMP/smoke.txt" ]; then
             { echo '```'; cat "$RUNNER_TEMP/smoke.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           fi
+
+  consistency:
+    name: Gate B (Accelerated against Detailed)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Toolchain (from rust-toolchain.toml)
+        run: rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: kernel -> target
+
+      - name: Build civ-host
+        working-directory: kernel
+        run: cargo build --locked --release -p civ-host
+
+      - name: A year from two fixtures in each mode
+        working-directory: kernel
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo run --locked --release -p civ-host -- consistency \
+            --json "$RUNNER_TEMP/consistency.json" | tee "$RUNNER_TEMP/consistency.txt"
+
+      - name: The notables' tier against every adult deliberating
+        if: always()
+        working-directory: kernel
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo run --locked --release -p civ-host -- notables \
+            --json "$RUNNER_TEMP/notables.json" | tee "$RUNNER_TEMP/notables.txt"
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          for f in consistency notables; do
+            if [ -f "$RUNNER_TEMP/$f.txt" ]; then
+              { echo '```'; cat "$RUNNER_TEMP/$f.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+      - name: Keep the reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: consistency
+          path: |
+            ${{ runner.temp }}/consistency.json
+            ${{ runner.temp }}/notables.json
+          if-no-files-found: ignore
 
   dashboard:
     name: Sanity dashboard (five worlds, fifty years)

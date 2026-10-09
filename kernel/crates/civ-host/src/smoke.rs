@@ -189,7 +189,15 @@ pub(crate) fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<Stri
     if let Some(why) = sim.founding_problem() {
         return vec![format!("the founding band could not settle: {why}")];
     }
-    let band = content.people.params.band.default_size as usize;
+    // A band of the content's default size for each founding group that settled (ADR-0018 §6).
+    let groups = sim
+        .land()
+        .settlements
+        .iter()
+        .filter(|s| s.founding == civ_land::Founding::Setup)
+        .count()
+        .max(1);
+    let band = content.people.params.band.default_size as usize * groups;
     if sim.people().living() != band {
         failures.push(format!(
             "{} people arrived instead of {band}",
@@ -340,6 +348,31 @@ pub struct LongRun {
     /// Months lived-in buildings have stood, counted as each month begins: their standing
     /// buildings, finished, of households with someone living.
     pub lived_building_months: u64,
+    /// When the year being lived began: each settlement's accounts are checked from here.
+    year_from: civ_core::SimTime,
+    /// Where a settlement's accounts did not balance, or disagreed with who lives there, by year
+    /// (ADR-0018 §3's hard check).
+    pub accounting: Vec<String>,
+    /// Each settlement's accounts over the run, summed: births, deaths, arrivals and departures,
+    /// and of those, arrivals from off the map and departures off it.
+    pub moves: Moves,
+}
+
+/// Each settlement's accounts over a run, summed over its settlements (ADR-0018 §3).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
+pub struct Moves {
+    /// Children born.
+    pub births: u32,
+    /// Residents who died.
+    pub deaths: u32,
+    /// People who came to live in a settlement, from another or from off the map.
+    pub arrivals: u32,
+    /// Of those, from off the map.
+    pub from_off_map: u32,
+    /// Residents who went to live elsewhere, in another settlement or off the map.
+    pub departures: u32,
+    /// Of those, off the map.
+    pub off_map: u32,
 }
 
 impl LongRun {
@@ -350,7 +383,45 @@ impl LongRun {
             books: (sim.people().goods_held(), sim.people().flows()),
             economy: Economy::default(),
             lived_building_months: 0,
+            year_from: sim.now(),
+            accounting: Vec::new(),
+            moves: Moves::default(),
         }
+    }
+
+    /// Checks each settlement's accounts for the year just lived (ADR-0018 §3): births less
+    /// deaths plus arrivals less departures is its change in residents, which is who lives there
+    /// now. Adds them to the run's sums.
+    fn check_accounts(&mut self, sim: &Sim, y: u32) -> Vec<String> {
+        let pop = sim.people();
+        let (from, to) = (self.year_from, sim.now().plus_minutes(1));
+        let mut failures = Vec::new();
+        for s in &sim.land().settlements {
+            let a = pop.accounts(s.id, from, to);
+            if !a.balance() || a.end != pop.residents(s.id) {
+                failures.push(format!(
+                    "{}'s accounts in year {y} do not balance: {} at the start, {} born, {} died, \
+                     {} came, {} went, {} at the end, {} living there",
+                    s.name,
+                    a.start,
+                    a.births,
+                    a.deaths,
+                    a.arrived(),
+                    a.departed(),
+                    a.end,
+                    pop.residents(s.id)
+                ));
+            }
+            self.moves.births += a.births;
+            self.moves.deaths += a.deaths;
+            self.moves.arrivals += a.arrived();
+            self.moves.from_off_map += a.arrivals.get(&None).copied().unwrap_or(0);
+            self.moves.departures += a.departed();
+            self.moves.off_map += a.departures.get(&None).copied().unwrap_or(0);
+        }
+        self.year_from = to;
+        self.accounting.extend(failures.iter().cloned());
+        failures
     }
 
     /// Lives `sim` to `end` month by month, sampling the economy as each month begins.
@@ -392,6 +463,7 @@ impl LongRun {
     /// claims, fields and wealth measures in order. Growth is the caller's to judge.
     pub fn year_end(&mut self, sim: &Sim, y: u32) -> Vec<String> {
         let mut failures = self.economy.year_end(sim, y);
+        failures.extend(self.check_accounts(sim, y));
         let now = sim.now();
         let living = sim.people().living();
         let stuck = sim
@@ -515,6 +587,735 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
     result.notes.extend(earthworks(sim));
     result.notes.extend(kept_and_fixed(sim));
     result.notes.extend(style(sim));
+    result.failures.extend(polity_problems(sim));
+    result.notes.extend(polity(sim));
+    result.notes.extend(takings(sim));
+}
+
+/// What a polity's history must hold to (ADR-0013): one polity a settlement; every law decided by
+/// the rule of the custom's version in force when it was decided (M4c slice AF), over the stances
+/// recorded, no more present than eligible; a law in force passed (an amendment later replaced
+/// stands superseded); at most one law before the gathering, and a gathering only for it.
+fn polity_problems(sim: &Sim) -> Vec<String> {
+    use civ_agents::polity::{LawStatus, Outcome};
+    let mut out = Vec::new();
+    let pop = sim.people();
+    for s in &sim.land().settlements {
+        let n = pop.polities.iter().filter(|p| p.settlement == s.id).count();
+        if n != 1 {
+            out.push(format!("{} has {n} polities", s.name));
+        }
+    }
+    for p in &pop.polities {
+        for l in &p.laws {
+            let (present, support, oppose) = l.counts();
+            // The custom as it stood when the law was decided: the last version begun before then
+            // (an amendment is decided by the custom it replaces).
+            let body_then = l.decided.map_or(p.body, |t| {
+                p.versions
+                    .iter()
+                    .rfind(|v| v.since < t || (v.since == t && v.law != Some(l.id)))
+                    .map_or(p.body, |v| v.body)
+            });
+            match l.outcome {
+                Some(o) => {
+                    if o != body_then.decide(l.eligible, present, support, oppose)
+                        || present > l.eligible
+                    {
+                        out.push(format!("law {} was not decided by its body's rule", l.id));
+                    }
+                    let passed = o == Outcome::Passed;
+                    let held = matches!(
+                        l.status,
+                        LawStatus::InForce | LawStatus::Lapsed | LawStatus::Superseded
+                    );
+                    if passed != held {
+                        out.push(format!("law {} stands {:?} after {o:?}", l.id, l.status));
+                    }
+                }
+                None if l.status != LawStatus::Proposed => {
+                    out.push(format!("law {} is {:?} undecided", l.id, l.status));
+                }
+                None => {}
+            }
+        }
+        let proposed = p
+            .laws
+            .iter()
+            .filter(|l| l.status == LawStatus::Proposed)
+            .count();
+        // A gathering may sit on cases alone; one called on a law carries the proposal.
+        let called = p.gathering.as_ref().and_then(|g| g.law);
+        if proposed > 1 || called != p.agenda().map(|l| l.id) {
+            out.push(format!("polity {} has {proposed} laws before it", p.id));
+        }
+    }
+    out
+}
+
+/// What the polities did, in words: "3 laws proposed, 3 decided, 2 passed; a common store at a
+/// twentieth: 1114 kg levied, 80 kg kept back, 0 kg given in relief, 1278 kg held; 1 storekeeper
+/// named, 0 gone, 0 replaced, one keeping it now". `None` when nothing was proposed.
+fn polity(sim: &Sim) -> Option<String> {
+    use civ_agents::polity::{Law, LawStatus, Outcome, PolicyKind};
+    let pop = sim.people();
+    let policies = &sim.rules().catalog.policies;
+    let kind = |l: &Law| policies.get(usize::from(l.policy)).map(|d| d.kind);
+    let laws: Vec<_> = pop.polities.iter().flat_map(|p| &p.laws).collect();
+    if laws.is_empty() {
+        return None;
+    }
+    let decided = laws.iter().filter(|l| l.outcome.is_some()).count();
+    let passed = laws
+        .iter()
+        .filter(|l| l.outcome == Some(Outcome::Passed))
+        .count();
+    // Who came (M4c slice AE: only those who heard a gathering was called may come).
+    let sat: Vec<_> = laws
+        .iter()
+        .filter(|l| l.outcome.is_some() && l.eligible > 0)
+        .collect();
+    let came = if sat.is_empty() {
+        String::new()
+    } else {
+        let share = sat
+            .iter()
+            .map(|l| l.stances.len() as f64 / f64::from(l.eligible))
+            .sum::<f64>()
+            / sat.len() as f64;
+        let short = sat
+            .iter()
+            .filter(|l| l.outcome == Some(Outcome::NoQuorum))
+            .count();
+        format!(
+            " ({:.0}\u{a0}% of the members came on average; {short} without a quorum)",
+            100.0 * share
+        )
+    };
+    let mut parts = vec![format!(
+        "{} laws proposed, {decided} decided{came}, {passed} passed",
+        laws.len()
+    )];
+    for p in &pop.polities {
+        let stores = p
+            .laws
+            .iter()
+            .filter(|l| l.status == LawStatus::InForce && kind(l) == Some(PolicyKind::CommonStore));
+        for l in stores {
+            let c = &l.compliance;
+            let at = if l.levy_share > 0.0 {
+                format!(
+                    "at {}",
+                    civ_agents::polity::share_text(f64::from(l.levy_share))
+                )
+            } else {
+                "levying nothing".to_owned()
+            };
+            parts.push(format!(
+                "a common store {at}: {:.0} kg levied, {:.0} kg kept back, {:.0} kg given in \
+                 relief, {:.0} kg held",
+                c.levied_kg,
+                c.withheld_kg,
+                c.relief_kg,
+                p.stores.iter().sum::<f64>()
+            ));
+        }
+        let named: Vec<_> = p
+            .laws
+            .iter()
+            .filter(|l| kind(l) == Some(PolicyKind::KeepStore))
+            .filter(|l| {
+                matches!(
+                    l.status,
+                    LawStatus::InForce | LawStatus::Lapsed | LawStatus::Superseded
+                )
+            })
+            .collect();
+        if !named.is_empty() {
+            let count = |s: LawStatus| named.iter().filter(|l| l.status == s).count();
+            parts.push(format!(
+                "{} storekeeper{} named, {} gone, {} replaced, {} keeping it now",
+                named.len(),
+                if named.len() == 1 { "" } else { "s" },
+                count(LawStatus::Lapsed),
+                count(LawStatus::Superseded),
+                if p.keeper().is_some() { "one" } else { "none" }
+            ));
+        }
+        // The watch (M4b slice AC): what anyone could see of it, and what it did with takings it
+        // saw (the truth).
+        let watches: Vec<_> = p
+            .laws
+            .iter()
+            .filter(|l| kind(l) == Some(PolicyKind::KeepWatch))
+            .filter(|l| matches!(l.status, LawStatus::InForce | LawStatus::Lapsed))
+            .collect();
+        if !watches.is_empty() {
+            let rounds: u32 = watches.iter().map(|l| l.watch.rounds).sum();
+            let hours: f64 = watches.iter().map(|l| l.watch.minutes).sum::<f64>() / 60.0;
+            let cases: u32 = watches.iter().map(|l| l.watch.cases).sum();
+            let order = &pop.order;
+            let kept =
+                |k: civ_agents::crime::Kept| order.sightings.iter().filter(|s| s.kept == k).count();
+            use civ_agents::crime::Kept;
+            parts.push(format!(
+                "{} watch{} named, {} keeping it now: {rounds} rounds, {hours:.0} hours, {cases} \
+                 case{} brought; of {} takings it saw, {} reported or told, {} let go, {} paid to \
+                 say nothing",
+                watches.len(),
+                if watches.len() == 1 { "" } else { "es" },
+                match p.watchers().count() {
+                    0 => "none".to_owned(),
+                    1 => "one".to_owned(),
+                    n => n.to_string(),
+                },
+                if cases == 1 { "" } else { "s" },
+                order.sightings.len(),
+                kept(Kept::Reported) + kept(Kept::Told) + kept(Kept::Refused),
+                kept(Kept::LookedAway),
+                kept(Kept::Paid),
+            ));
+        }
+        // Laws against taking (M4b slice AB): how many were put, and the one in force.
+        let against: Vec<_> = p
+            .laws
+            .iter()
+            .filter(|l| kind(l) == Some(PolicyKind::AgainstTaking))
+            .collect();
+        if !against.is_empty() {
+            let n = against.len();
+            let now = against
+                .iter()
+                .find(|l| l.status == LawStatus::InForce)
+                .map_or_else(
+                    || "none in force".to_owned(),
+                    |l| format!("in force: what was taken given back{}", l.sanction.words()),
+                );
+            parts.push(format!(
+                "{n} law{} against taking proposed, {now}",
+                if n == 1 { "" } else { "s" }
+            ));
+        }
+        // Amendments of the custom (M4c slice AF): how many were put and passed, and the custom
+        // now when it changed.
+        let amendments: Vec<_> = p
+            .laws
+            .iter()
+            .filter(|l| kind(l) == Some(PolicyKind::AmendBody))
+            .collect();
+        if !amendments.is_empty() {
+            let passed = amendments
+                .iter()
+                .filter(|l| l.outcome == Some(Outcome::Passed))
+                .count();
+            let now = if p.versions.len() > 1 {
+                format!("; the custom now: {}", p.body.clause())
+            } else {
+                String::new()
+            };
+            parts.push(format!(
+                "{} amendment{} of the custom proposed, {passed} passed{now}",
+                amendments.len(),
+                if amendments.len() == 1 { "" } else { "s" },
+            ));
+        }
+        // Curfews (M4b slice AD): how many were put, the one in force, and how it was kept.
+        let curfews: Vec<_> = p
+            .laws
+            .iter()
+            .filter(|l| kind(l) == Some(PolicyKind::Curfew))
+            .collect();
+        if !curfews.is_empty() {
+            let n = curfews.len();
+            let now = curfews
+                .iter()
+                .find(|l| l.status == LawStatus::InForce)
+                .map_or_else(
+                    || "none in force".to_owned(),
+                    |l| {
+                        format!(
+                            "in force from {}:00 to {}:00, broken {} times knowingly and {} not",
+                            l.hours.0, l.hours.1, l.compliance.broken, l.compliance.broken_unaware
+                        )
+                    },
+                );
+            parts.push(format!(
+                "{n} curfew{} proposed, {now}",
+                if n == 1 { "" } else { "s" }
+            ));
+        }
+    }
+    // Opinion (M4c slice AG): positions held, how often a person took in what a companion said
+    // (research 06-04 §3.2 gives 0.5 exposures a person a week as a prior), and how far talk
+    // has moved positions from each household's lot on average.
+    let op = &pop.opinion;
+    if !op.positions.is_empty() {
+        let weeks = (sim.now().minutes() as f64 / (7.0 * 1440.0)).max(1.0);
+        let adults = {
+            let mut h: Vec<_> = op.positions.iter().map(|p| p.holder).collect();
+            h.dedup();
+            h.len().max(1) as f64
+        };
+        let drift = op
+            .positions
+            .iter()
+            .map(|p| f64::from((p.x - p.anchor).abs()))
+            .sum::<f64>()
+            / op.positions.len() as f64;
+        parts.push(format!(
+            "{} positions held; {:.2} told and {:.2} taken in a person a week; talk had moved \
+             them {drift:.3} from their household's lot on average",
+            op.positions.len(),
+            op.told as f64 / adults / weeks,
+            op.taken as f64 / adults / weeks,
+        ));
+    }
+    // Values (M4c slice AG): how widely each is held one way or the other, and how often what
+    // someone holds dear weighed in a stance at a gathering (more than the stance margin).
+    let vs = &pop.values;
+    if !vs.held.is_empty() {
+        let defs = &sim.rules().catalog.values;
+        let spread: Vec<String> = defs
+            .iter()
+            .enumerate()
+            .map(|(k, d)| {
+                let held: Vec<f64> = vs
+                    .held
+                    .iter()
+                    .filter(|h| usize::from(h.value) == k)
+                    .map(|h| f64::from(h.v))
+                    .collect();
+                let n = held.len().max(1) as f64;
+                let mean = held.iter().sum::<f64>() / n;
+                let strong = held.iter().filter(|v| v.abs() >= 0.5).count() as f64 / n;
+                format!("{} {mean:+.2} ({:.0} % strongly)", d.name, 100.0 * strong)
+            })
+            .collect();
+        let margin = sim.rules().people.polity.stance_margin as f32;
+        let (weighed, stances) = pop
+            .polities
+            .iter()
+            .flat_map(|p| &p.laws)
+            .flat_map(|l| &l.stances)
+            .fold((0usize, 0usize), |(w, n), r| {
+                (w + usize::from(r.values.abs() > margin), n + 1)
+            });
+        parts.push(format!(
+            "values held on average: {}; what they hold dear weighed in {weighed} of {stances} \
+             stances",
+            spread.join(", ")
+        ));
+    }
+    // Ideologies (M4c slice AG): how many hold each now, how often one was spoken of and taken up
+    // at the hearth, and the laws proposed under each and how many of them passed.
+    let ideas = &pop.ideologies;
+    let defs = &sim.rules().catalog.ideologies;
+    if !defs.is_empty() {
+        let weeks = (sim.now().minutes() as f64 / (7.0 * 1440.0)).max(1.0);
+        let people = pop.people.len().max(1) as f64;
+        let each: Vec<String> = defs
+            .iter()
+            .enumerate()
+            .map(|(k, d)| {
+                let holders = ideas
+                    .held
+                    .iter()
+                    .filter(|h| usize::from(h.ideology) == k)
+                    .count();
+                let laws: Vec<_> = pop
+                    .polities
+                    .iter()
+                    .flat_map(|p| &p.laws)
+                    .filter(|l| ideas.creed_of(l.id) == Some(k as u16))
+                    .collect();
+                let passed = laws
+                    .iter()
+                    .filter(|l| l.outcome == Some(civ_agents::polity::Outcome::Passed))
+                    .count();
+                format!(
+                    "{} held by {holders} ({} law{} proposed under it, {passed} passed)",
+                    d.name,
+                    laws.len(),
+                    if laws.len() == 1 { "" } else { "s" }
+                )
+            })
+            .collect();
+        parts.push(format!(
+            "ideologies: {}; {:.3} spoken of and {:.3} taken up a person a week",
+            each.join(", "),
+            ideas.told as f64 / people / weeks,
+            ideas.taken as f64 / people / weeks,
+        ));
+    }
+    // Factions (M4c slice AH): how many were founded and how many have members now, their
+    // sizes, how often people joined and left, and the food members' households gave their
+    // stores and the stores gave back.
+    let fs = &pop.factions;
+    let live: Vec<usize> = fs
+        .list
+        .iter()
+        .filter(|f| f.is_live())
+        .map(|f| fs.members_of(f.id).count())
+        .collect();
+    let food_kg = |flow: civ_agents::person::Flow| -> f64 {
+        let goods = &sim.rules().catalog.goods;
+        fs.list
+            .iter()
+            .map(|f| {
+                (0..goods.len())
+                    .filter(|&g| goods[g].kcal_per_kg > 0.0)
+                    .map(|g| f.flows.get(flow, g))
+                    .sum::<f64>()
+            })
+            .sum()
+    };
+    parts.push(format!(
+        "factions: {} founded, {} with members now{}; {} joinings and {} leavings; {:.0} kg given \
+         in dues, {:.0} kg given out",
+        fs.list.len(),
+        live.len(),
+        if live.is_empty() {
+            String::new()
+        } else {
+            format!(
+                " ({} members)",
+                live.iter()
+                    .map(usize::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        },
+        fs.joined,
+        fs.left,
+        food_kg(civ_agents::person::Flow::Received).max(0.0),
+        food_kg(civ_agents::person::Flow::Given).max(0.0),
+    ));
+    // Petitions (M4c slice AH, step two): how many were called, how many came to each, and what
+    // the gathering made of those put to it.
+    if !fs.petitions.is_empty() {
+        let laws: Vec<&civ_agents::polity::Law> =
+            pop.polities.iter().flat_map(|p| &p.laws).collect();
+        let outcome = |p: &civ_agents::faction::Petition| {
+            p.law
+                .and_then(|id| laws.iter().find(|l| l.id == id))
+                .and_then(|l| l.outcome)
+        };
+        let count = |o: civ_agents::polity::Outcome| {
+            fs.petitions
+                .iter()
+                .filter(|p| outcome(p) == Some(o))
+                .count()
+        };
+        let came: Vec<String> = fs
+            .petitions
+            .iter()
+            .map(|p| p.came.len().to_string())
+            .collect();
+        let offices = fs.petitions.iter().filter(|p| p.nominee.is_some()).count();
+        parts.push(format!(
+            "petitions: {} called ({} came; {} for another officeholder, {} for a store's share); \
+             {} granted, {} turned down, {} split, {} without a quorum, {} never put",
+            fs.petitions.len(),
+            came.join(", "),
+            offices,
+            fs.petitions.len() - offices,
+            count(civ_agents::polity::Outcome::Passed),
+            count(civ_agents::polity::Outcome::Failed),
+            count(civ_agents::polity::Outcome::Tied),
+            count(civ_agents::polity::Outcome::NoQuorum),
+            fs.petitions
+                .iter()
+                .filter(|p| p.answered && p.law.is_none())
+                .count(),
+        ));
+    }
+    // Refusals of a levy (M4c slice AH, step three): how many were called, and how many kept
+    // back what under them.
+    if !fs.refusals.is_empty() {
+        let kept: Vec<String> = fs
+            .refusals
+            .iter()
+            .map(|r| format!("{} kept back {:.0} kg", r.kept.len(), r.kept_kg))
+            .collect();
+        parts.push(format!(
+            "refusals of a levy: {} called ({})",
+            fs.refusals.len(),
+            kept.join("; ")
+        ));
+    }
+    // Revolts (M4c slice AI, step one): how many were called, how each ended, and the sides
+    // people took when it ended (or today, if it is still open).
+    if !fs.revolts.is_empty() {
+        use civ_agents::faction::{RevoltEnd, Side};
+        let ended = |e: RevoltEnd| {
+            fs.revolts
+                .iter()
+                .filter(|r| r.ended.map(|(x, _)| x) == Some(e))
+                .count()
+        };
+        let sides: Vec<String> = fs
+            .revolts
+            .iter()
+            .map(|r| {
+                format!(
+                    "{} with, {} with the gathering, {} neither",
+                    r.count(Side::With),
+                    r.count(Side::Gathering),
+                    r.count(Side::Neither)
+                )
+            })
+            .collect();
+        parts.push(format!(
+            "revolts: {} called ({}); {} held, {} came to nothing, {} open",
+            fs.revolts.len(),
+            sides.join("; "),
+            ended(RevoltEnd::Held),
+            ended(RevoltEnd::Failed),
+            fs.revolts.iter().filter(|r| r.ended.is_none()).count(),
+        ));
+    }
+    // Founding (M4c slice AI, step two): the ends of inherited laws a body that took the deciding
+    // put, after a revolt or a coup, and those it passed.
+    let put: Vec<&civ_agents::polity::Law> = pop
+        .polities
+        .iter()
+        .flat_map(|p| &p.laws)
+        .filter(|l| l.issue == civ_agents::polity::IssueKind::Founding)
+        .collect();
+    if !put.is_empty() {
+        parts.push(format!(
+            "founding: {} ends of inherited laws put, {} passed",
+            put.len(),
+            put.iter()
+                .filter(|l| l.outcome == Some(civ_agents::polity::Outcome::Passed))
+                .count()
+        ));
+    }
+    // Coups (M4c slice AI, step three): how many were called, how each ended, and the watchers'
+    // sides when it ended (or today).
+    if !fs.coups.is_empty() {
+        use civ_agents::faction::{RevoltEnd, Side};
+        let ended = |e: RevoltEnd| {
+            fs.coups
+                .iter()
+                .filter(|c| c.ended.map(|(x, _)| x) == Some(e))
+                .count()
+        };
+        let sides: Vec<String> = fs
+            .coups
+            .iter()
+            .map(|c| {
+                format!(
+                    "{} of {} watchers with, {} with the gathering",
+                    c.count(Side::With),
+                    c.sides.len(),
+                    c.count(Side::Gathering)
+                )
+            })
+            .collect();
+        parts.push(format!(
+            "coups: {} called ({}); {} held, {} came to nothing, {} open",
+            fs.coups.len(),
+            sides.join("; "),
+            ended(RevoltEnd::Held),
+            ended(RevoltEnd::Failed),
+            fs.coups.iter().filter(|c| c.ended.is_none()).count(),
+        ));
+    }
+    // Force (M4c slice AI, step four): watchers come to take what refused findings owed, how
+    // they were met, and every blow, with the deaths among them.
+    let encounters = &pop.order.encounters;
+    if !encounters.is_empty() {
+        let forced = encounters.iter().filter(|e| e.forced).count();
+        let turned = encounters
+            .iter()
+            .filter(|e| e.resisted() && !e.forced)
+            .count();
+        let blows: usize = encounters.iter().map(|e| e.harms.len()).sum();
+        let killed: usize = encounters
+            .iter()
+            .flat_map(|e| &e.harms)
+            .filter(|h| h.killed)
+            .count();
+        parts.push(format!(
+            "force: {} encounters ({} yielded, {forced} taken by force, {turned} turned back); \
+             {blows} blows, {killed} killing",
+            encounters.len(),
+            encounters.len() - forced - turned,
+        ));
+    }
+    // Norms (M4c slice AG): for each, how far it is held on average, what people believe of
+    // others against what households did at their last levy, how many it moves, and how often an
+    // account was told and taken in.
+    let nm = &pop.norms;
+    for (k, def) in sim.rules().catalog.norms.iter().enumerate() {
+        let held: Vec<_> = nm
+            .states
+            .iter()
+            .filter(|s| usize::from(s.norm) == k)
+            .collect();
+        if held.is_empty() {
+            continue;
+        }
+        let n = held.len() as f64;
+        let mean = |f: &dyn Fn(&civ_agents::norm::NormState) -> f64| {
+            held.iter().map(|s| f(s)).sum::<f64>() / n
+        };
+        let endorse = mean(&|s| f64::from(s.endorse));
+        let expect = mean(&|s| f64::from(s.expect));
+        let moved = mean(&|s| {
+            civ_agents::norm::activation(f64::from(s.expect), f64::from(s.threshold), def.width)
+        });
+        let day = sim.now().day_index();
+        let recent: Vec<f64> = nm
+            .acts
+            .iter()
+            .filter(|a| day - a.day <= def.tell_days)
+            .filter_map(civ_agents::norm::LevyAct::share_paid)
+            .collect();
+        let did = if recent.is_empty() {
+            "no household paid or kept back a levy within the year".to_owned()
+        } else {
+            format!(
+                "{:.2} paid by the {} households at their last levy",
+                recent.iter().sum::<f64>() / recent.len() as f64,
+                recent.len()
+            )
+        };
+        let weeks = (sim.now().minutes() as f64 / (7.0 * 1440.0)).max(1.0);
+        parts.push(format!(
+            "{}: held {endorse:.2} on average; they believe {expect:.2} of households abide \
+             ({did}); {moved:.2} moved by others' doing it; {:.2} accounts told and {:.2} taken \
+             in a person a week",
+            def.name,
+            nm.told as f64 / n / weeks,
+            nm.taken as f64 / n / weeks,
+        ));
+    }
+    // Grievances (M4c slice AE): what is held now, by issue, and how many are told and still news.
+    let word = &pop.word;
+    if !word.grievances.is_empty() {
+        use civ_agents::word::{ClaimKind, Grieved};
+        let of = |i: Grieved| word.grievances.iter().filter(|g| g.issue == i).count();
+        let mut holders: Vec<_> = word.grievances.iter().map(|g| g.holder).collect();
+        holders.dedup();
+        let told = word
+            .claims
+            .iter()
+            .filter(|c| c.kind == ClaimKind::Grievance)
+            .count();
+        parts.push(format!(
+            "{} grievances held now by {} people ({} over food, {} over a levy, {} over how they \
+             were treated, {} over a wrong unanswered), {told} told and still news",
+            word.grievances.len(),
+            holders.len(),
+            of(Grieved::Subsistence),
+            of(Grieved::Extraction),
+            of(Grieved::Treatment),
+            of(Grieved::Collective),
+        ));
+    }
+    for p in &pop.polities {
+        let label = civ_sim::labels::label_of(sim, p);
+        parts.push(format!(
+            "labelled {} ({:.2})",
+            label.in_prose(),
+            label.confidence
+        ));
+    }
+    Some(parts.join("; "))
+}
+
+/// What was taken and what followed (M4b slice AA), in words: "7 attempts to take by 3 people
+/// (of 214 adults now), 4 takings (190 kg), 2 seen; 2 known to the household taken from, 1 demand
+/// to give back (1 met, 0 refused); 3 asks refused; 0.71 of the takers' neighbours held more food".
+/// `None` when nobody went to take.
+fn takings(sim: &Sim) -> Option<String> {
+    use civ_agents::crime::{Outcome, Standing};
+    let pop = sim.people();
+    let order = &pop.order;
+    if order.incidents.is_empty() {
+        return None;
+    }
+    let taken: Vec<_> = order
+        .incidents
+        .iter()
+        .filter(|i| i.outcome == Outcome::Taken)
+        .collect();
+    let kg = taken
+        .iter()
+        .flat_map(|i| &i.goods)
+        .map(|&(_, kg)| f64::from(kg))
+        .sum::<f64>()
+        .max(0.0);
+    let seen = order
+        .incidents
+        .iter()
+        .filter(|i| !i.seen_by.is_empty())
+        .count();
+    let known: std::collections::BTreeSet<u32> =
+        order.responses.iter().map(|r| r.incident).collect();
+    let demands = order
+        .responses
+        .iter()
+        .filter(|r| r.choice == civ_agents::crime::Choice::Demand)
+        .count();
+    let standing = |s: Standing| {
+        order
+            .obligations
+            .iter()
+            .filter(|o| o.kind == civ_agents::crime::Owed::Demanded && o.standing == s)
+            .count()
+    };
+    let stage =
+        |s: civ_agents::crime::CaseStage| order.cases.iter().filter(|c| c.stage == s).count();
+    let takers: std::collections::BTreeSet<_> = order.incidents.iter().map(|i| i.actor).collect();
+    let adult = sim.rules().people.family.independent_age;
+    let adults = pop
+        .people
+        .iter()
+        .filter(|(_, p)| p.age_years(sim.now()) >= adult)
+        .count();
+    let n = |count: usize, one: &str, many: &str| {
+        format!("{count} {}", if count == 1 { one } else { many })
+    };
+    let cases = if order.cases.is_empty() {
+        String::new()
+    } else {
+        use civ_agents::crime::CaseStage;
+        let imposed = order.obligations.iter().filter(|o| o.case.is_some());
+        let paid = imposed
+            .clone()
+            .filter(|o| o.standing == Standing::Met)
+            .count();
+        format!(
+            "; {} before the gathering ({} found, {} not found, {} unheard; {paid} of {} \
+             imposed obligations paid)",
+            n(order.cases.len(), "case", "cases"),
+            stage(CaseStage::Found),
+            stage(CaseStage::NotFound),
+            stage(CaseStage::Unheard),
+            imposed.count(),
+        )
+    };
+    let richer = crate::dashboard::CrimeSeen::of(order)
+        .attempts
+        .mean()
+        .map_or_else(String::new, |m| {
+            format!("; {m:.2} of the takers' neighbours held more food")
+        });
+    Some(format!(
+        "{} to take by {} (of {adults} adults now), {} ({kg:.0} kg), {seen} seen; {} known to \
+         the household taken from, {} to give back ({} met, {} refused); {} refused{cases}{richer}",
+        n(order.incidents.len(), "attempt", "attempts"),
+        n(takers.len(), "person", "people"),
+        n(taken.len(), "taking", "takings"),
+        known.len(),
+        n(demands, "demand", "demands"),
+        standing(Standing::Met),
+        standing(Standing::Refused),
+        n(order.refusals as usize, "ask", "asks"),
+    ))
 }
 
 /// What households hold of goods that keep others or stay where they are made (M3b slice Q), in
@@ -831,6 +1632,8 @@ fn run_one(
             preset_id: preset.to_owned(),
             size_cells: options.size,
             band_size: 0,
+            neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: regime.0,
         },
         content,

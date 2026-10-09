@@ -1,7 +1,8 @@
-//! The ledger (ADR-0006 §3): every movement of goods between holders (households and firms) is
-//! one operation that moves exact quantities and carries its channel. A transfer that cannot be covered does not happen,
-//! so stores are never driven below zero, and over all holders goods are conserved: a transfer
-//! counts as given by one holder and received by the other (see `Population::transfer`).
+//! The ledger (ADR-0006 §3): every movement of goods between holders (households, firms and
+//! polities, ADR-0013 §4) is one operation that moves exact quantities and carries its channel. A
+//! transfer that cannot be covered does not happen, so stores are never driven below zero, and
+//! over all holders goods are conserved: a transfer counts as given by one holder and received by
+//! the other (see `Population::transfer`).
 
 use civ_core::{PermanentId, SimTime};
 
@@ -28,11 +29,30 @@ pub enum Channel {
     Wage = 8,
     /// A tenant's share of a let field's grain to its holder (slice K, ADR-0007 §3).
     Rent = 9,
+    /// A household's share of its threshed grain into its polity's common store (ADR-0013 §4).
+    Levy = 10,
+    /// Food from a polity's common store to a household that asked (ADR-0013 §4).
+    Relief = 11,
+    /// Food taken from a household's store without its leave (M4b slice AA, ADR-0015 §2).
+    Take = 12,
+    /// Food given back to a household that was taken from, as it demanded or a gathering found
+    /// (ADR-0015 §5).
+    Restitution = 13,
+    /// Food to a household taken from beyond what was taken, as a gathering's finding imposed
+    /// (M4b slice AB; research 09-07 §1.2).
+    Compensation = 14,
+    /// Food to the polity's common store, as a gathering's finding imposed (M4b slice AB).
+    Fine = 15,
+    /// Food a taker's household paid a watcher to say nothing (M4b slice AC, ADR-0015 §6).
+    Bribe = 16,
+    /// A member's household's share of its threshing to its faction's store (M4c slice AH,
+    /// ADR-0017 §2).
+    Dues = 17,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 9] = [
+    pub const ALL: [Channel; 17] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -42,6 +62,14 @@ impl Channel {
         Channel::Owner,
         Channel::Wage,
         Channel::Rent,
+        Channel::Levy,
+        Channel::Relief,
+        Channel::Take,
+        Channel::Restitution,
+        Channel::Compensation,
+        Channel::Fine,
+        Channel::Bribe,
+        Channel::Dues,
     ];
 
     /// The channel with this code.
@@ -61,6 +89,14 @@ impl Channel {
             Channel::Owner => "owner",
             Channel::Wage => "wage",
             Channel::Rent => "rent",
+            Channel::Levy => "levy",
+            Channel::Relief => "relief",
+            Channel::Take => "taking",
+            Channel::Restitution => "restitution",
+            Channel::Compensation => "compensation",
+            Channel::Fine => "fine",
+            Channel::Bribe => "payment to say nothing",
+            Channel::Dues => "dues",
         }
     }
 }

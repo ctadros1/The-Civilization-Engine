@@ -1,6 +1,6 @@
 //! Buildings weighed against what they carry, each day (ADR-0009 §5; M3b slice P): the goods in
-//! their lofts and on their floors, people on floors off the ground, their roofs' covering and the
-//! heaviest wind and snow of the month. A group shows when its margin runs low or it sags, and
+//! their lofts and on their floors, people on floors off the ground, their roofs' covering, the
+//! month's storm on its day and the snow lying on their roofs (ADR-0012 §5). A group shows when its margin runs low or it sags, and
 //! gives way below a margin of 1: a loft or a floor drops what it holds, a broken tie beam brings
 //! its lofts down, rafters that break bring the roof in, and posts that give way leave a ruin.
 //! Those inside may die. Nothing here decides what anyone stores, builds or mends.
@@ -10,10 +10,7 @@ use crate::history::Cause;
 use crate::person::Keeping;
 use crate::structure::{self, G, Loads};
 use civ_grammar::{Group, GroupKind, Level, storage};
-use civ_land::{BuildingState, GroupState};
-
-/// Keyed-randomness purpose of a settlement's heaviest wind and snow in a month.
-const PURPOSE_PEAK: u64 = 0x7065_616b_6c6f_6164; // "peakload"
+use civ_land::{BuildingState, Climatology, GroupState, Weather, WeatherParams};
 
 /// Keyed-randomness purpose of who dies when a building gives way.
 const PURPOSE_COLLAPSE: u64 = 0x636f_6c6c_6170_7365; // "collapse"
@@ -35,35 +32,25 @@ pub const DIES_UNDER_ROOF: f64 = 0.15;
 /// See [`DIES_IN_RUIN`].
 pub const DIES_UNDER_FLOOR: f64 = 0.05;
 
-/// The heaviest wind and snow on the roofs of settlement (or lone household) `key` in the month
-/// of `now`: the day of the month it comes (1 to 28) and its load, pascals on their plan. One
-/// draw a month, the same for every roof there (ADR-0009 §5: a shared event, evaluated once and
-/// never rerolled).
-pub fn month_peak(
-    seed: u64,
-    key: PermanentId,
-    now: SimTime,
-    peak: &civ_land::PeakLoad,
-) -> (u8, f64) {
+/// Snow on a roof that gave way heavy enough to be told of, pascals on its plan: about 10 cm of
+/// new snow (a tuning value).
+pub const SNOW_TOLD_PA: f64 = 100.0;
+
+/// The month's storm on the day of `now`, pascals on a roof's plan: [`Climatology::storm`]'s
+/// load on its day, and none on the others (ADR-0012 §5). Every roof under the world's weather
+/// meets the same storm, and a roof mended after it does not meet it again.
+pub fn storm_pa(climate: &Climatology, params: &WeatherParams, now: SimTime) -> f64 {
     let d = now.date();
-    let month = (d.year * 12 + i64::from(d.month)) as u64;
-    let mut rng = Rng64::from_key(&[seed, PURPOSE_PEAK, key.get(), month]);
-    let u1 = rng.next_f64().max(f64::MIN_POSITIVE);
-    let u2 = rng.next_f64();
-    let z = (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos();
-    let day = 1 + (rng.next_f64() * 28.0).floor().clamp(0.0, 27.0) as u8;
-    (
-        day,
-        peak.median_pa.max(0.0) * (peak.spread.max(0.0) * z).exp(),
-    )
+    let (day, pa) = climate.storm(params, d.year, usize::from(d.month.saturating_sub(1)));
+    if d.day == day { pa } else { 0.0 }
 }
 
-/// The month's heaviest wind and snow on the roofs of settlement (or lone household) `key` on
-/// the day of `now`, pascals on their plan: [`month_peak`]'s load on its day, and none on the
-/// others. A roof mended after a storm does not meet the same storm again.
-pub fn peak_pa(seed: u64, key: PermanentId, now: SimTime, peak: &civ_land::PeakLoad) -> f64 {
-    let (day, pa) = month_peak(seed, key, now, peak);
-    if now.date().day == day { pa } else { 0.0 }
+/// The snow lying on the roof of building `e` at height `z_m`, pascals on its plan: its water's
+/// weight (research 11-05 §2.4: p = ρgd from the snow lying), the share of what lies on the ground
+/// there that a roof of its pitch keeps (ADR-0012 §5).
+pub fn snow_on_roof_pa(weather: &Weather, params: &WeatherParams, z_m: f64, e: &Expansion) -> f64 {
+    let pitch = structure::roof_cos(e).clamp(0.0, 1.0).acos().to_degrees();
+    weather.snow_at(z_m).max(0.0) * G * params.roof_snow_share_at(pitch)
 }
 
 /// A mass in words: "850 kg", "1.2 t".
@@ -111,13 +98,15 @@ impl Population {
             .collect();
         owners.sort_unstable();
         owners.dedup();
+        let storm = storm_pa(&ctx.land.climatology, &ctx.land_params.weather, ctx.now);
         for household in owners {
-            self.check_household(ctx, household);
+            self.check_household(ctx, household, storm);
         }
     }
 
-    /// Weighs household `household`'s buildings against what they carry now.
-    fn check_household(&mut self, ctx: &mut Ctx, household: PermanentId) {
+    /// Weighs household `household`'s buildings against what they carry now, with the month's
+    /// storm `storm` pascals on their roofs' plan today.
+    fn check_household(&mut self, ctx: &mut Ctx, household: PermanentId, storm: f64) {
         let (now, catalog, params) = (ctx.now, ctx.catalog, ctx.params);
         let goods = &catalog.goods;
         // Its goods as they lie now, by kind of room, across its roofs.
@@ -154,17 +143,12 @@ impl Population {
             .map(|x| x.stores.clone())
             .unwrap_or_default();
         let fill = Keeping::fill(&stores, goods, room_all);
-        let settlement = hd
-            .and_then(|hd| self.households.get(hd))
-            .and_then(|x| x.settlement)
-            .unwrap_or(household);
-        let peak = peak_pa(ctx.seed, settlement, now, &ctx.land_params.peak_load);
         let mut changed = false;
         for (&i, &room) in mine.iter().zip(&rooms) {
             let kept = kept_in(&fill, room_all, room);
-            if let Some(fell) = self.weigh(ctx, i, &kept, peak) {
+            if let Some((fell, snow)) = self.weigh(ctx, i, &kept, storm) {
                 changed = true;
-                self.give_way(ctx, i, &kept, &fell, peak);
+                self.give_way(ctx, i, &kept, &fell, storm, snow);
             }
         }
         if changed {
@@ -172,16 +156,17 @@ impl Population {
         }
     }
 
-    /// Weighs building `i`, which holds `kept` of its household's goods, under the month's peak
-    /// `peak` pascals: each group's state follows its wear and its margin. What gave way today,
-    /// the gravest first; `None` if nothing did.
+    /// Weighs building `i`, which holds `kept` of its household's goods, under the month's storm
+    /// `storm` pascals and the snow lying on its roof: each group's state follows its wear and its
+    /// margin. What gave way today, the gravest first, and the snow on its roof, pascals on its
+    /// plan; `None` if nothing did.
     fn weigh(
         &mut self,
         ctx: &mut Ctx,
         i: usize,
         kept: &[Vec<f64>; 3],
-        peak: f64,
-    ) -> Option<Vec<Fell>> {
+        storm: f64,
+    ) -> Option<(Vec<Fell>, f64)> {
         let catalog = ctx.catalog;
         let b = &ctx.land.buildings[i];
         if b.condition.is_empty() || !b.standing() {
@@ -191,9 +176,16 @@ impl Population {
             .building_index(&b.spec.program)
             .and_then(|d| catalog.buildings.get(d))?;
         let e = self.expansion_of(b, def)?;
+        let (x, y) = build::centre_m(&b.spec);
+        let z = civ_land::height_at(ctx.map, x, y);
+        let snow = snow_on_roof_pa(&ctx.land.weather, &ctx.land_params.weather, z, &e);
         let loads = loads_on(b, &e, kept);
         let loads = Loads {
-            peak_pa: if loads.covering_pa > 0.0 { peak } else { 0.0 },
+            peak_pa: if loads.covering_pa > 0.0 {
+                storm + snow
+            } else {
+                0.0
+            },
             ..loads
         };
         let timber = |g: &Group| {
@@ -249,19 +241,21 @@ impl Population {
         }
         condition::settle_state(b);
         fell.sort_by_key(|f| gravity(f.kind));
-        Some(fell)
+        Some((fell, snow))
     }
 
     /// What follows when parts of building `i`, which held `kept` of its household's goods, gave
-    /// way (`fell`, the gravest first) under the month's peak `peak`: the goods on what fell are
-    /// spilled and part lost, those inside may die, and the chronicle tells of it.
+    /// way (`fell`, the gravest first) under the month's storm `storm` and the snow `snow` on its
+    /// roof, pascals on its plan: the goods on what fell are spilled and part lost, those inside
+    /// may die, and the chronicle tells of it.
     fn give_way(
         &mut self,
         ctx: &mut Ctx,
         i: usize,
         kept: &[Vec<f64>; 3],
         fell: &[Fell],
-        peak: f64,
+        storm: f64,
+        snow: f64,
     ) {
         let (now, catalog) = (ctx.now, ctx.catalog);
         let goods = &catalog.goods;
@@ -381,8 +375,13 @@ impl Population {
             if let Some(m) = mostly {
                 words.push_str(&format!(" of {m}"));
             }
-        } else if peak > 0.0 && peak >= 2.0 * ctx.land_params.peak_load.median_pa {
+        } else if storm > 0.0
+            && storm >= snow
+            && storm >= 2.0 * ctx.land_params.weather.storm_median_pa
+        {
             words.push_str(" in a storm");
+        } else if snow >= SNOW_TOLD_PA && snow > storm {
+            words.push_str(" under snow");
         }
         if let Some(f) = fell.first() {
             match (f.quality < 0.6, f.loss >= 0.25) {

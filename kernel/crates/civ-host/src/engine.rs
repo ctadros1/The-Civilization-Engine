@@ -414,6 +414,21 @@ impl Engine {
                 radius_m,
                 exposed,
             } => self.place_deposit(at, &good, radius_m, exposed),
+            Request::Whisper { person, claim } => self.whisper(person, claim),
+            Request::TellOfIdeology { person, ideology } => self.tell_of_ideology(person, ideology),
+            Request::SendAgitator { at, ideology } => self.send_agitator(at, ideology),
+            Request::SendWave {
+                at,
+                households,
+                days,
+                months,
+            } => self.send_wave(at, households, days, months),
+            Request::Bless {
+                person,
+                curse,
+                days,
+                share,
+            } => self.bless(person, curse, days, share),
             Request::GetRaster(query) => match &self.world {
                 None => no_world(),
                 Some(w) => match frames::raster_response(
@@ -484,6 +499,18 @@ impl Engine {
             Request::GetKnowledge => match &self.world {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::knowledge::knowledge_response(&w.sim)),
+            },
+            Request::GetStanding => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::standing::standing_response(&w.sim)),
+            },
+            Request::GetGovernment => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::government::government_response(&w.sim)),
+            },
+            Request::GetOrder => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::order::order_response(&w.sim)),
             },
             Request::GetDeposits => match &self.world {
                 None => no_world(),
@@ -1008,6 +1035,200 @@ impl Engine {
         }
     }
 
+    /// The observer whispers claim `claim` to `person` (M4c slice AJ, ADR-0016 §5).
+    fn whisper(&mut self, person: u64, claim: u32) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        let Some(id) = civ_core::PermanentId::from_raw(person) else {
+            return Reply::Error(wire::ErrorCode::NotFound, "nobody has id 0".to_owned());
+        };
+        let name = world.sim.people().name_of(id);
+        match world.sim.whisper(id, claim) {
+            Ok(r) => {
+                let text = if r.repeat {
+                    format!("{name} heard it again; it is fresh to them, and nothing more")
+                } else {
+                    format!("{name} heard it, from no one")
+                };
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
+    /// The observer tells `person` of ideology `ideology` (M4c slice AJ, ADR-0016 §5).
+    fn tell_of_ideology(&mut self, person: u64, ideology: u32) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        let Some(def) = world
+            .sim
+            .rules()
+            .catalog
+            .ideologies
+            .get(ideology as usize)
+            .cloned()
+        else {
+            return Reply::Error(
+                wire::ErrorCode::BadRequest,
+                format!("there is no ideology {ideology}"),
+            );
+        };
+        let Some(id) = civ_core::PermanentId::from_raw(person) else {
+            return Reply::Error(wire::ErrorCode::NotFound, "nobody has id 0".to_owned());
+        };
+        let name = world.sim.people().name_of(id);
+        match world.sim.tell_of_ideology(id, &def.id) {
+            Ok(r) => {
+                let what = def.name.to_lowercase();
+                let came = if r.holds {
+                    "and holds to it".to_owned()
+                } else {
+                    format!(
+                        "and did not take it up: it fits what they hold dear by {:+.2}",
+                        r.fit
+                    )
+                };
+                let text = if r.repeat {
+                    format!("{name} had heard of {what} from the observer already, {came}")
+                } else {
+                    format!("{name} heard of {what}, {came}")
+                };
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
+    /// The observer sends an agitator holding ideology `ideology` to `at` (M4c slice AJ).
+    fn send_agitator(&mut self, at: (f32, f32), ideology: u32) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        let Some(def) = world
+            .sim
+            .rules()
+            .catalog
+            .ideologies
+            .get(ideology as usize)
+            .cloned()
+        else {
+            return Reply::Error(
+                wire::ErrorCode::BadRequest,
+                format!("there is no ideology {ideology}"),
+            );
+        };
+        match world.sim.send_agitator(at, &def.id) {
+            Ok((sent, _)) => {
+                let name = sent
+                    .people
+                    .first()
+                    .map_or_else(String::new, |&p| world.sim.people().name_of(p));
+                let text = format!(
+                    "{name}, who holds to {}, {} {}",
+                    def.name.to_lowercase(),
+                    if sent.founded {
+                        "made camp at"
+                    } else {
+                        "came to"
+                    },
+                    sent.name
+                );
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
+    /// The observer sends a migration wave to `at` (M5a slice AN).
+    fn send_wave(&mut self, at: (f32, f32), households: u32, days: u32, months: u32) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        match world.sim.send_wave(at, households, days, months) {
+            Ok((_, came)) => {
+                let Some(first) = came.first() else {
+                    return Reply::Error(
+                        wire::ErrorCode::BadRequest,
+                        "no household of the wave came".to_owned(),
+                    );
+                };
+                let people: usize = came.iter().map(|s| s.people.len()).sum();
+                let rest = households as usize - came.len();
+                let text = format!(
+                    "A wave of {households} households: {} ({people} people) {} {}{}",
+                    came.len(),
+                    if first.founded {
+                        "made camp at"
+                    } else {
+                        "came to"
+                    },
+                    first.name,
+                    match rest {
+                        0 => String::new(),
+                        n => format!(", {n} more to come in the days after"),
+                    }
+                );
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
+    /// The observer blesses or curses `person` (M4c slice AJ).
+    fn bless(&mut self, person: u64, curse: bool, days: u32, share: f32) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        let Some(id) = civ_core::PermanentId::from_raw(person) else {
+            return Reply::Error(wire::ErrorCode::NotFound, "nobody has id 0".to_owned());
+        };
+        let name = world.sim.people().name_of(id);
+        match world.sim.bless(id, curse, days, share) {
+            Ok(r) => {
+                let what = if curse { "cursed" } else { "blessed" };
+                let text = if r.repeat {
+                    format!("{name} was {what} already; it holds at least {days} days from now")
+                } else {
+                    format!("{name} is {what} for {days} days")
+                };
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
     fn place_deposit(&mut self, at: (f32, f32), good: &str, radius_m: f32, exposed: bool) -> Reply {
         if let Some(busy) = self.busy() {
             return busy;
@@ -1310,6 +1531,8 @@ mod tests {
                 preset_id: PRESET.to_owned(),
                 size_cells: 256,
                 band_size: 0,
+                neighbours: Vec::new(),
+                neighbours_known: false,
                 regime_id: String::new(),
             }));
             assert!(matches!(reply, Reply::Response(_)), "{reply:?}");
@@ -1522,6 +1745,17 @@ mod tests {
         assert!(listed.iter().all(|m| m.usual_mm() > 0.0 && m.days() > 0));
         let today = report.today().expect("today");
         assert!(today.words().unwrap_or_default().contains("°C"));
+        // Wire 1.25: the snow line, infinitely high when snow lies nowhere.
+        let line = h
+            .engine
+            .world
+            .as_ref()
+            .expect("a world")
+            .sim
+            .land()
+            .weather
+            .snow_line_m();
+        assert_eq!(f64::from(today.snow_line_m()), line as f32 as f64);
     }
 
     #[test]
@@ -1576,6 +1810,131 @@ mod tests {
         assert!((laid.x() - hearth.0).abs() < 0.01 && (laid.y() - hearth.1).abs() < 0.01);
         assert!(laid.left_kg() > 0.0);
         assert_ne!(deposits.rev(), 0);
+    }
+
+    #[test]
+    fn the_observer_can_tell_someone_of_an_ideology_but_not_whisper_what_is_not_news() {
+        let mut h = Harness::new(None, None);
+        h.create("Influences");
+        let person = {
+            let sim = &h.engine.world.as_ref().expect("a world").sim;
+            let now = sim.now();
+            let grown = sim.rules().people.family.independent_age;
+            sim.people()
+                .people
+                .iter()
+                .map(|(_, p)| p)
+                .filter(|p| p.age_years(now) >= grown)
+                .filter(|p| !sim.people().ideologies.holds(p.id, 0))
+                .map(|p| p.id.get())
+                .min()
+                .expect("an adult")
+        };
+        let reply = h.ask(Request::TellOfIdeology {
+            person,
+            ideology: 0,
+        });
+        let Reply::Response(ack) = reply else {
+            panic!("told: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert!(message.contains("heard of"), "{message}");
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        assert_eq!(sim.people().influences.list.len(), 1);
+        assert_eq!(
+            error_code(&h.ask(Request::Whisper {
+                person,
+                claim: 9_999,
+            })),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        assert_eq!(
+            error_code(&h.ask(Request::TellOfIdeology {
+                person,
+                ideology: 999,
+            })),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        // A blessing, and an agitator sent to the hearth.
+        let Reply::Response(_) = h.ask(Request::Bless {
+            person,
+            curse: false,
+            days: 30,
+            share: 0.25,
+        }) else {
+            panic!("blessed");
+        };
+        assert_eq!(
+            error_code(&h.ask(Request::Bless {
+                person,
+                curse: true,
+                days: 30,
+                share: 0.75,
+            })),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        let hearth = h
+            .engine
+            .world
+            .as_ref()
+            .expect("a world")
+            .sim
+            .land()
+            .settlements[0]
+            .hearth_m;
+        let reply = h.ask(Request::SendAgitator {
+            at: hearth,
+            ideology: 0,
+        });
+        let Reply::Response(ack) = reply else {
+            panic!("sent: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert!(message.contains("who holds to"), "{message}");
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        assert_eq!(sim.people().influences.list.len(), 3);
+        // A migration wave to the hearth: refused outside its ranges, else the first come at once.
+        assert_eq!(
+            error_code(&h.ask(Request::SendWave {
+                at: hearth,
+                households: 51,
+                days: 1,
+                months: 6,
+            })),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        let reply = h.ask(Request::SendWave {
+            at: hearth,
+            households: 6,
+            days: 2,
+            months: 6,
+        });
+        let Reply::Response(ack) = reply else {
+            panic!("sent: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert!(
+            message.starts_with("A wave of 6 households: 3 ") && message.contains("3 more"),
+            "{message}"
+        );
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        assert_eq!(sim.people().influences.list.len(), 4);
+        assert_eq!(sim.people().influences.waves.len(), 1);
     }
 
     #[test]
@@ -1655,6 +2014,8 @@ mod tests {
             preset_id: PRESET.to_owned(),
             size_cells: 300,
             band_size: 0,
+            neighbours: Vec::new(),
+            neighbours_known: false,
             regime_id: String::new(),
         };
         assert_eq!(
@@ -1702,6 +2063,8 @@ mod tests {
                 preset_id: PRESET.to_owned(),
                 size_cells: 2048,
                 band_size: 0,
+                neighbours: Vec::new(),
+                neighbours_known: false,
                 regime_id: String::new(),
             })),
             Reply::Response(_)

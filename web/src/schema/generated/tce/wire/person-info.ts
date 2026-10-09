@@ -5,11 +5,22 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { Decision } from '../../tce/wire/decision.js';
+import { FactionLine } from '../../tce/wire/faction-line.js';
+import { GrievanceLine } from '../../tce/wire/grievance-line.js';
+import { HeardLine } from '../../tce/wire/heard-line.js';
+import { IdeologyLine } from '../../tce/wire/ideology-line.js';
+import { InfluenceLine } from '../../tce/wire/influence-line.js';
 import { KinLink } from '../../tce/wire/kin-link.js';
 import { KnowLine } from '../../tce/wire/know-line.js';
+import { NewsLine } from '../../tce/wire/news-line.js';
+import { NormLine } from '../../tce/wire/norm-line.js';
+import { PositionLine } from '../../tce/wire/position-line.js';
 import { Sex } from '../../tce/wire/sex.js';
 import { SkillLine } from '../../tce/wire/skill-line.js';
+import { StandingLine } from '../../tce/wire/standing-line.js';
 import { StoreLine } from '../../tce/wire/store-line.js';
+import { TieLine } from '../../tce/wire/tie-line.js';
+import { ValueLine } from '../../tce/wire/value-line.js';
 import { Vec2 } from '../../tce/wire/vec2.js';
 
 
@@ -285,8 +296,132 @@ householdAdmired():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+ties(index: number, obj?:TieLine):TieLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 84);
+  return offset ? (obj || new TieLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+tiesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 84);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+standing(obj?:StandingLine):StandingLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 86);
+  return offset ? (obj || new StandingLine()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
+}
+
+grievances(index: number, obj?:GrievanceLine):GrievanceLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 88);
+  return offset ? (obj || new GrievanceLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+grievancesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 88);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+heard(index: number, obj?:HeardLine):HeardLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 90);
+  return offset ? (obj || new HeardLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+heardLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 90);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+positions(index: number, obj?:PositionLine):PositionLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 92);
+  return offset ? (obj || new PositionLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+positionsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 92);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+norms(index: number, obj?:NormLine):NormLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 94);
+  return offset ? (obj || new NormLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+normsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 94);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+values(index: number, obj?:ValueLine):ValueLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 96);
+  return offset ? (obj || new ValueLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+valuesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 96);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+ideologies(index: number, obj?:IdeologyLine):IdeologyLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 98);
+  return offset ? (obj || new IdeologyLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+ideologiesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 98);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+faction(obj?:FactionLine):FactionLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 100);
+  return offset ? (obj || new FactionLine()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
+}
+
+news(index: number, obj?:NewsLine):NewsLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 102);
+  return offset ? (obj || new NewsLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+newsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 102);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+influences(index: number, obj?:InfluenceLine):InfluenceLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 104);
+  return offset ? (obj || new InfluenceLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+influencesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 104);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+residence(index: number):string
+residence(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+residence(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 106);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+residenceLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 106);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+places(index: number):string
+places(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+places(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 108);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+placesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 108);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(40);
+  builder.startObject(53);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -520,6 +655,190 @@ static addHouseholdTaste(builder:flatbuffers.Builder, householdTasteOffset:flatb
 
 static addHouseholdAdmired(builder:flatbuffers.Builder, householdAdmired:bigint) {
   builder.addFieldInt64(39, householdAdmired, BigInt('0'));
+}
+
+static addTies(builder:flatbuffers.Builder, tiesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(40, tiesOffset, 0);
+}
+
+static createTiesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startTiesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addStanding(builder:flatbuffers.Builder, standingOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(41, standingOffset, 0);
+}
+
+static addGrievances(builder:flatbuffers.Builder, grievancesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(42, grievancesOffset, 0);
+}
+
+static createGrievancesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startGrievancesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addHeard(builder:flatbuffers.Builder, heardOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(43, heardOffset, 0);
+}
+
+static createHeardVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startHeardVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addPositions(builder:flatbuffers.Builder, positionsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(44, positionsOffset, 0);
+}
+
+static createPositionsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startPositionsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addNorms(builder:flatbuffers.Builder, normsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(45, normsOffset, 0);
+}
+
+static createNormsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startNormsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addValues(builder:flatbuffers.Builder, valuesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(46, valuesOffset, 0);
+}
+
+static createValuesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startValuesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addIdeologies(builder:flatbuffers.Builder, ideologiesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(47, ideologiesOffset, 0);
+}
+
+static createIdeologiesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startIdeologiesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addFaction(builder:flatbuffers.Builder, factionOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(48, factionOffset, 0);
+}
+
+static addNews(builder:flatbuffers.Builder, newsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(49, newsOffset, 0);
+}
+
+static createNewsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startNewsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addInfluences(builder:flatbuffers.Builder, influencesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(50, influencesOffset, 0);
+}
+
+static createInfluencesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startInfluencesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addResidence(builder:flatbuffers.Builder, residenceOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(51, residenceOffset, 0);
+}
+
+static createResidenceVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startResidenceVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addPlaces(builder:flatbuffers.Builder, placesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(52, placesOffset, 0);
+}
+
+static createPlacesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startPlacesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
 }
 
 static endPersonInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

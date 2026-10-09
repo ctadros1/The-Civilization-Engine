@@ -19,7 +19,7 @@ use crate::demography::{
     fecundity, inherit_traits, life_rng, minutes_of_days, pick_name, pick_softmax,
     pregnancy_course, recovery_days, too_close,
 };
-use crate::history::{Cause, Moved, Origin, Union};
+use crate::history::{Cause, Moved, Origin, ResidenceWhy, Stay, Union};
 use crate::ledger::{Channel, Leg};
 use crate::needs::Sex;
 use crate::params::{FamilyParams, Residence};
@@ -136,9 +136,11 @@ impl Population {
         self.mortality(ctx, day);
         self.care_for_households(ctx);
         self.departures(ctx, day);
+        self.residence_reviews(ctx, day);
         self.conceptions(ctx, day);
         self.partnering(ctx, day);
         self.emptied.clear();
+        self.note_abandoned(ctx);
     }
 
     /// Living people by permanent id: a fixed order, however the table is laid out.
@@ -148,19 +150,19 @@ impl Population {
         ids
     }
 
-    fn person_mut(&mut self, id: PermanentId) -> Option<&mut Person> {
+    pub(super) fn person_mut(&mut self, id: PermanentId) -> Option<&mut Person> {
         let h = *self.index.get(&id)?;
         self.people.get_mut(h)
     }
 
-    fn household_mut(&mut self, id: PermanentId) -> Option<&mut Household> {
+    pub(super) fn household_mut(&mut self, id: PermanentId) -> Option<&mut Household> {
         let h = *self.hh_index.get(&id)?;
         self.households.get_mut(h)
     }
 
     /// Brings a household's stores and water up to now at its present number of members (before
     /// that number changes).
-    fn settle_household(&mut self, ctx: &Ctx, id: PermanentId) {
+    pub(super) fn settle_household(&mut self, ctx: &Ctx, id: PermanentId) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         if let Some(x) = self.household_mut(id) {
             let members = x.members.len();
@@ -175,7 +177,7 @@ impl Population {
     }
 
     /// Keeps a household's members oldest first.
-    fn sort_members(&mut self, id: PermanentId) {
+    pub(super) fn sort_members(&mut self, id: PermanentId) {
         let Some(&hd) = self.hh_index.get(&id) else {
             return;
         };
@@ -264,6 +266,11 @@ impl Population {
             params.family.trait_heritability,
             &mut rng,
         );
+        // The child's objection to taking, pulled toward its parents' (M4b slice AA), by a draw
+        // of its own so the birth's other draws are as they were.
+        let parent_objection =
+            |p: Option<PermanentId>| p.and_then(|p| self.person(p)).map(|q| q.objection);
+        let objection_parents = (parent_objection(Some(mother)), parent_objection(father));
         let recovery = recovery_days(f, &mut rng);
         let dies = rng.next_f64() < params.mortality.maternal_death_per_birth;
         let id = ctx.ids.allocate();
@@ -284,6 +291,11 @@ impl Population {
                 mother: Some(mother),
                 father,
                 origin: Origin::Born,
+                residence: vec![Stay {
+                    settlement,
+                    since: now,
+                    why: crate::history::ResidenceWhy::Born,
+                }],
             },
         );
         self.insert_person(Person {
@@ -325,6 +337,14 @@ impl Population {
             skills: Vec::new(),
             knows: Vec::new(),
             tried: None,
+            objection: crate::crime::draw_objection(
+                objection_parents.0,
+                objection_parents.1,
+                &params.crime,
+                &mut life_rng(ctx.seed, id, day, Draw::Objection),
+            ),
+            risk_seen: params.crime.risk_prior as f32,
+            guarded: None,
         });
         if let Some(x) = self.household_mut(household) {
             x.members.push(id);
@@ -361,7 +381,26 @@ impl Population {
             };
             let (age, d) = (p.age_years(now), depleted(p, now, params));
             let u = life_rng(ctx.seed, id, day, Draw::Death).next_f64();
-            if let Some(cause) = death_today(&params.mortality, age, d, u) {
+            let natural = death_today(&params.mortality, age, d, u);
+            // A blessing or a curse moves their own chance of illness or accident (M4c slice AJ):
+            // the same draw against it, and what it turned is noted.
+            let cause = match self.influences.luck(id, day) {
+                None => natural,
+                Some(luck) => {
+                    let moved = crate::demography::death_today_scaled(
+                        &params.mortality,
+                        age,
+                        d,
+                        u,
+                        luck.harm(),
+                    );
+                    if moved.is_some() != natural.is_some() {
+                        self.note_turned(ctx, id, luck, None);
+                    }
+                    moved
+                }
+            };
+            if let Some(cause) = cause {
                 self.die(ctx, id, cause);
             }
         }
@@ -372,6 +411,15 @@ impl Population {
     #[doc(hidden)]
     pub fn die_for_tests(&mut self, ctx: &mut Ctx, id: PermanentId) {
         self.die(ctx, id, Cause::Unspecified);
+        self.care_for_households(ctx);
+        self.emptied.clear();
+    }
+
+    /// Someone is exiled now, as a gathering's finding would send them: for tests that need an
+    /// exile on a given day. Exiles in a world come from cases (M4b slice AB).
+    #[doc(hidden)]
+    pub fn exile_for_tests(&mut self, ctx: &mut Ctx, id: PermanentId) {
+        self.exile(ctx, id);
         self.care_for_households(ctx);
         self.emptied.clear();
     }
@@ -452,6 +500,83 @@ impl Population {
         self.check_loss(ctx, settlement, &[(id, p.knows)], None);
     }
 
+    /// `id` is sent from the valley by a gathering's finding (M4b slice AB, ADR-0015 §5): they
+    /// leave their household as the dead do (what they carried stays with it; their partner is
+    /// left without them), their record says when they left, and the chronicle notes it as a
+    /// leaving. A household left with no one is cared for at the day's end.
+    pub(crate) fn exile(&mut self, ctx: &mut Ctx, id: PermanentId) {
+        let now = ctx.now;
+        let Some(household) = self.person(id).map(|p| p.household) else {
+            return;
+        };
+        self.settle_household(ctx, household);
+        let Some(h) = self.index.remove(&id) else {
+            return;
+        };
+        let Some(p) = self.people.remove(h) else {
+            return;
+        };
+        let at = p.position_at(now.minutes() as f64);
+        let mut settlement = None;
+        let mut emptied = false;
+        if let Some(x) = self.household_mut(household) {
+            x.members.retain(|m| *m != id);
+            if let Some(g) = p.carrying.good.map(usize::from)
+                && let Some(kg) = x.stores.get_mut(g)
+            {
+                *kg += f64::from(p.carrying.kg);
+                x.flows.add(Flow::Got, g, f64::from(p.carrying.kg));
+            }
+            x.water_l += f64::from(p.carrying.water_l);
+            settlement = x.settlement;
+            emptied = x.members.is_empty();
+        }
+        if emptied {
+            self.emptied.push((household, id));
+        }
+        // Where they go is theirs to choose (M5a slice AN): a settlement their household knows
+        // where kin or those they know live, or that a member saw fed, and else beyond the map
+        // (ADR-0018 §3).
+        self.refresh_kin();
+        let refuge = settlement.and_then(|s| self.exile_refuge(ctx, id, household, s));
+        match refuge {
+            Some(to) => self.exile_to(ctx, id, &p, household, to),
+            None => {
+                if let Some(r) = self.records.get_mut(&id) {
+                    r.left = Some(now);
+                }
+                self.note_residence(id, None, now, ResidenceWhy::Exiled);
+            }
+        }
+        if let Some(q) = p.partner {
+            if let Some(partner) = self.person_mut(q) {
+                partner.partner = None;
+            }
+            for u in self.unions.iter_mut().filter(|u| u.ended.is_none()) {
+                if (u.woman == id && u.man == q) || (u.man == id && u.woman == q) {
+                    u.ended = Some(now);
+                }
+            }
+        }
+        if refuge.is_none() {
+            let left = settlement
+                .and_then(|s| ctx.land.settlements.iter().find(|x| x.id == s))
+                .map(|x| x.name.clone())
+                .unwrap_or_default();
+            self.chronicle_push(
+                now,
+                ChronicleKind::Left,
+                vec![id],
+                settlement,
+                Some(at),
+                1.0,
+                left,
+            );
+        }
+        // What only they knew there leaves with them (ADR-0008 §5).
+        self.check_loss(ctx, settlement, &[(id, p.knows)], None);
+    }
+
     /// Households no one is left in pass to the nearest kin of whoever lived there last; children
     /// left without an older member go, with what their household held, to the household of
     /// their nearest adult kin, or failing kin to the neighbours best able to feed them.
@@ -487,7 +612,7 @@ impl Population {
                 continue;
             };
             let taker = self.household(to).and_then(|x| x.members.first().copied());
-            self.merge_household(ctx, household, to, true);
+            self.merge_household(ctx, household, to, true, ResidenceWhy::TakenIn);
             let settlement = self.household(to).and_then(|x| x.settlement);
             let place = self.household(to).map(|x| x.home);
             let mut people: Vec<PermanentId> = taker.into_iter().collect();
@@ -505,16 +630,22 @@ impl Population {
     }
 
     /// Households out of food whose members are worn down, with no crop of theirs ripening or
-    /// waiting to be threshed, may give up and leave the valley (research 05-06 §1.4: famine
-    /// migration follows expected access to food, not only hunger; §5.2: a founding can fail,
-    /// and its households withdraw). They go together and take what they carry; their fields and
-    /// huts stand abandoned.
+    /// waiting to be threshed, weigh leaving the valley (research 05-06 §1.4: famine migration
+    /// follows expected access to food, not only hunger; §5.2: a founding can fail, and its
+    /// households withdraw). Each day such a household goes with a chance that weighs the wait to
+    /// its next harvest that its food, what others could spare and any relief it may ask for would
+    /// not cover, against what its fields should bring, which leaving gives up ([`leave_chance`];
+    /// M4a slice Z). They go together and take what they carry; their fields and huts stand
+    /// abandoned.
     fn departures(&mut self, ctx: &mut Ctx, day: i64) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let h = &params.household;
         let crop = ctx.catalog.crops.get(params.farm.crop);
         let mut ids: Vec<PermanentId> = self.households.iter().map(|(_, x)| x.id).collect();
         ids.sort_unstable();
+        // Per settlement, what its households could spare and how many are out of food, worked
+        // out when first needed today.
+        let mut villages: Vec<(PermanentId, f64, usize)> = Vec::new();
         for household in ids {
             let Some(x) = self.household(household) else {
                 continue;
@@ -537,25 +668,91 @@ impl Population {
             if worn < h.leave_at_depletion {
                 continue;
             }
+            let fields = || self.fields_of(ctx.land, household);
             let coming = crop.is_some_and(|c| {
-                ctx.land.fields.iter().any(|f| {
-                    f.household == household
-                        && match f.stage {
-                            FieldStage::Sown => {
-                                (f.ripe_day(c) - day) as f64 <= h.leave_unless_ripe_within_days
-                            }
-                            FieldStage::Reaped => true,
-                            _ => false,
-                        }
+                fields().any(|f| match f.stage {
+                    FieldStage::Sown => {
+                        (f.ripe_day(c) - day) as f64 <= h.leave_unless_ripe_within_days
+                    }
+                    FieldStage::Reaped => true,
+                    _ => false,
                 })
             });
-            if coming
-                || life_rng(ctx.seed, household, day, Draw::Leave).next_f64() >= h.leave_per_day
-            {
+            if coming {
                 continue;
             }
-            self.leave(ctx, household);
+            // What staying offers: its own food, its share of what others could spare those out of
+            // food, and its share of the common store if a law its members know keeps one,
+            // against the wait to its next harvest.
+            let settlement = x.settlement;
+            let (spare, short) = match settlement {
+                Some(s) => match villages.iter().find(|v| v.0 == s) {
+                    Some(v) => (v.1, v.2),
+                    None => {
+                        let (spare, short) = self.village_food(ctx, s);
+                        villages.push((s, spare, short));
+                        (spare, short)
+                    }
+                },
+                None => (0.0, 1),
+            };
+            let short = short.max(1) as f64;
+            let relief = settlement
+                .and_then(|s| self.polity_of(s))
+                .map_or(0.0, |pi| {
+                    let p = &self.polities[pi];
+                    let knows = p
+                        .in_force(
+                            &ctx.catalog.policies,
+                            crate::polity::PolicyKind::CommonStore,
+                        )
+                        .any(|l| x.members.iter().any(|&m| l.knows(m)));
+                    if knows {
+                        stock_kcal(&p.stores, goods)
+                    } else {
+                        0.0
+                    }
+                });
+            let wait = crop.map_or(365.0, |c| farm::days_to_harvest(c, fields(), day));
+            let reach = (food + (spare + relief) / short) / need.max(1.0);
+            let gap = 1.0 - reach / wait.max(1.0);
+            let stake = self
+                .outlook(ctx, household)
+                .map_or(0.0, |o| o.harvest / o.year_need.max(1.0));
+            let chance = leave_chance(gap, stake, h);
+            if life_rng(ctx.seed, household, day, Draw::Leave).next_f64() >= chance {
+                continue;
+            }
+            // They go to a settlement they know that draws them, if one does (M5a slice AN),
+            // and else beyond the map.
+            self.refresh_kin();
+            match self.refuge(ctx, household) {
+                Some(to) => self.relocate(ctx, household, to),
+                None => self.leave(ctx, household),
+            }
         }
+    }
+
+    /// What settlement `settlement`'s households could spare a household in need, kcal, and how
+    /// many of its households are out of food.
+    fn village_food(&self, ctx: &Ctx, settlement: PermanentId) -> (f64, usize) {
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let mut out = (0.0, 0);
+        let mut homes: Vec<&Household> = self
+            .households
+            .iter()
+            .map(|(_, x)| x)
+            .filter(|x| x.settlement == Some(settlement) && !x.members.is_empty())
+            .collect();
+        homes.sort_by_key(|x| x.id);
+        for x in homes {
+            out.0 += spare_food_kcal(x, now, params, goods);
+            let need = x.members.len() as f64 * params.household.daily_kcal_per_person;
+            if stock_kcal(&stores_now(x, now, params, goods), goods) < need {
+                out.1 += 1;
+            }
+        }
+        out
     }
 
     /// Household `household` leaves the world: its people are no longer simulated, their
@@ -578,6 +775,7 @@ impl Population {
             if let Some(r) = self.records.get_mut(m) {
                 r.left = Some(now);
             }
+            self.note_residence(*m, None, now, ResidenceWhy::LeftMap);
             if let Some(q) = p.partner.filter(|q| !members.contains(q))
                 && let Some(partner) = self.person_mut(q)
             {
@@ -593,6 +791,8 @@ impl Population {
         if let Some(hd) = self.hh_index.remove(&household)
             && let Some(mut gone) = self.households.remove(hd)
         {
+            self.homes_moved += 1;
+            self.known_places.forget(household);
             for (g, kg) in gone.stores.iter().enumerate() {
                 gone.flows.add(Flow::Departed, g, kg.max(0.0));
             }
@@ -604,6 +804,11 @@ impl Population {
             self.review_land(ctx, s);
         }
         let count = members.len() as f64;
+        // The settlement they left, by name.
+        let left = settlement
+            .and_then(|s| ctx.land.settlements.iter().find(|x| x.id == s))
+            .map(|x| x.name.clone())
+            .unwrap_or_default();
         self.chronicle_push(
             now,
             ChronicleKind::Left,
@@ -611,7 +816,7 @@ impl Population {
             settlement,
             Some(home),
             count,
-            String::new(),
+            left,
         );
         // What only they knew there leaves with them (ADR-0008 §5); the buildings they leave
         // standing still count as made with it.
@@ -779,7 +984,14 @@ impl Population {
     /// land, and its plots and buildings, and with `fields` its fields too (when its people move
     /// with them; the fields of a household that is no more go by the regime's succession rule
     /// instead). `from` is no more.
-    fn merge_household(&mut self, ctx: &mut Ctx, from: PermanentId, to: PermanentId, fields: bool) {
+    fn merge_household(
+        &mut self,
+        ctx: &mut Ctx,
+        from: PermanentId,
+        to: PermanentId,
+        fields: bool,
+        why: ResidenceWhy,
+    ) {
         if from == to || self.household(to).is_none() {
             return;
         }
@@ -809,18 +1021,26 @@ impl Population {
             &legs,
             Channel::Inherit,
         );
+        // What its people knew of other places goes with them (ADR-0018 §4).
+        let home = self.household(to).and_then(|x| x.settlement);
+        self.known_places.bring(from, to, home);
+        self.known_places.forget(from);
         let Some(hd) = self.hh_index.remove(&from) else {
             return;
         };
         let Some(gone) = self.households.remove(hd) else {
             return;
         };
+        self.homes_moved += 1;
         self.flows_gone.absorb(&gone.flows);
+        let settlement = self.household(to).and_then(|x| x.settlement);
         for m in &gone.members {
             if let Some(p) = self.person_mut(*m) {
                 p.household = to;
             }
+            self.note_residence(*m, settlement, ctx.now, why);
         }
+        self.known_pruned.retain(|&(h, _), _| h != to);
         if let Some(x) = self.household_mut(to) {
             x.members.extend(gone.members.iter().copied());
             x.water_l += gone.water_l;
@@ -843,7 +1063,7 @@ impl Population {
     /// The land of household `from` passes to `to`, or, with no one to take it, stays as it is
     /// (fields fall fallow, huts stand empty): its plots and buildings, and with `fields` the
     /// fields it holds and works.
-    fn hand_over_land(
+    pub(super) fn hand_over_land(
         &mut self,
         ctx: &mut Ctx,
         from: PermanentId,
@@ -862,6 +1082,7 @@ impl Population {
             for f in &mut ctx.land.fields {
                 if f.household == from {
                     f.household = to;
+                    self.fields_moved();
                 }
                 if f.holder == Party::Household(from) {
                     f.holder = Party::Household(to);
@@ -904,12 +1125,14 @@ impl Population {
         let settlement = self.household(household).and_then(|x| x.settlement);
         self.succeed(ctx, household, heirs);
         match heir {
-            Some(to) => self.merge_household(ctx, household, to, false),
+            Some(to) => self.merge_household(ctx, household, to, false, ResidenceWhy::TakenIn),
             None => {
                 self.settle_household(ctx, household);
                 if let Some(hd) = self.hh_index.remove(&household)
                     && let Some(mut gone) = self.households.remove(hd)
                 {
+                    self.homes_moved += 1;
+                    self.known_places.forget(household);
                     // What nobody is left to keep is left behind.
                     for (g, kg) in gone.stores.iter().enumerate() {
                         gone.flows.add(Flow::Departed, g, kg.max(0.0));
@@ -982,8 +1205,12 @@ impl Population {
                 continue;
             }
             let Some(other) = self.find_partner(ctx, id, &mut rng) else {
+                // They looked and found nobody (M5a slice AM): a reason to look elsewhere.
+                self.unmatched.insert(id, day);
                 continue;
             };
+            self.unmatched.remove(&id);
+            self.unmatched.remove(&other);
             let (woman, man) = if sex == Sex::Female {
                 (id, other)
             } else {
@@ -993,22 +1220,30 @@ impl Population {
         }
     }
 
-    /// Whom `id` finds: an unpartnered adult of the other sex in their settlement, of an age
-    /// either would accept and not close kin (research 04-08 §1.1: eligibility, then
-    /// acceptance; 06-01 §2.4), weighed by the age gap people look for.
+    /// Whom `id` finds: an unpartnered adult of the other sex in their settlement, or in another
+    /// whom they hold a tie with, of an age either would accept and not close kin (research 04-08
+    /// §1.1: eligibility, then acceptance; 06-01 §2.4), weighed by the age gap people look for.
     fn find_partner(&self, ctx: &Ctx, id: PermanentId, rng: &mut Rng64) -> Option<PermanentId> {
         let (now, fam) = (ctx.now, &ctx.params.family);
         let me = self.person(id)?;
         let settlement = self.household(me.household)?.settlement;
         let my_age = me.age_years(now);
+        let day = now.day_index();
         let mut candidates: Vec<(PermanentId, f64)> = Vec::new();
         for (_, q) in self.people.iter() {
             if q.sex == me.sex || q.partner.is_some() {
                 continue;
             }
             let age = q.age_years(now);
-            if !fam.seeks_at(q.sex, age)
-                || self.household(q.household).map(|x| x.settlement) != Some(settlement)
+            if !fam.seeks_at(q.sex, age) {
+                continue;
+            }
+            // Those of their own settlement, and of another the one they hold a tie with (M5a
+            // slice AM; research 04-08 §1.1: the pool is those one has met).
+            let theirs = self.household(q.household).map(|x| x.settlement);
+            if theirs != Some(settlement)
+                && (theirs.flatten().is_none()
+                    || self.ties.known(id, q.id, day, &ctx.params.ties) <= 0.0)
             {
                 continue;
             }
@@ -1104,8 +1339,66 @@ impl Population {
             return;
         };
         let rule = ctx.params.family.residence;
+        // Partners of two settlements (M5a slice AM; ADR-0018 §5): they settle with or beside
+        // the household with more land worked per member, then the better housed, then by lot,
+        // never by who is the woman or the man.
+        let settlement_of =
+            |p: &Population, h: PermanentId| p.household(h).and_then(|x| x.settlement);
+        let before = (settlement_of(self, hw), settlement_of(self, hm));
+        let across = matches!(before, (Some(a), Some(b)) if a != b);
+        let to_hers_across = across.then(|| {
+            let side = |h: PermanentId| {
+                let members = self.household(h).map_or(1, |x| x.members.len().max(1));
+                let ha: f64 = self.fields_of(ctx.land, h).map(|f| f.area_ha()).sum();
+                (ha / members as f64, self.home_built(ctx, h))
+            };
+            let (first, second) = if hw < hm { (hw, hm) } else { (hm, hw) };
+            let draw = life_rng(ctx.seed, woman.min(man), now.day_index(), Draw::Settle).next_f64();
+            let first_wins = crate::places::settles_with_first(side(first), side(second), draw);
+            (first == hw) == first_wins
+        });
         let moved = if hw == hm {
             Moved::Stayed
+        } else if let Some(to_hers) = to_hers_across {
+            match (
+                self.keeps_household(ctx, woman),
+                self.keeps_household(ctx, man),
+            ) {
+                (true, true) if to_hers => {
+                    self.merge_household(ctx, hm, hw, true, ResidenceWhy::Married);
+                    Moved::HisToHers
+                }
+                (true, true) => {
+                    self.merge_household(ctx, hw, hm, true, ResidenceWhy::Married);
+                    Moved::HerToHis
+                }
+                (true, false) => {
+                    let group = self.with_dependants(ctx, man);
+                    self.move_people(ctx, &group, hm, hw, ResidenceWhy::Married);
+                    Moved::HisToHers
+                }
+                (false, true) => {
+                    let group = self.with_dependants(ctx, woman);
+                    self.move_people(ctx, &group, hw, hm, ResidenceWhy::Married);
+                    Moved::HerToHis
+                }
+                (false, false) => match rule {
+                    Residence::NewHousehold => {
+                        self.new_household(ctx, woman, man, if to_hers { hw } else { hm });
+                        Moved::NewHousehold
+                    }
+                    Residence::HisHousehold | Residence::HerHousehold if to_hers => {
+                        let group = self.with_dependants(ctx, man);
+                        self.move_people(ctx, &group, hm, hw, ResidenceWhy::Married);
+                        Moved::HisToHers
+                    }
+                    Residence::HisHousehold | Residence::HerHousehold => {
+                        let group = self.with_dependants(ctx, woman);
+                        self.move_people(ctx, &group, hw, hm, ResidenceWhy::Married);
+                        Moved::HerToHis
+                    }
+                },
+            }
         } else {
             match (
                 self.keeps_household(ctx, woman),
@@ -1120,36 +1413,36 @@ impl Population {
                         }
                     };
                     if to_his {
-                        self.merge_household(ctx, hw, hm, true);
+                        self.merge_household(ctx, hw, hm, true, ResidenceWhy::Married);
                         Moved::HerToHis
                     } else {
-                        self.merge_household(ctx, hm, hw, true);
+                        self.merge_household(ctx, hm, hw, true, ResidenceWhy::Married);
                         Moved::HisToHers
                     }
                 }
                 (true, false) => {
                     let group = self.with_dependants(ctx, man);
-                    self.move_people(ctx, &group, hm, hw);
+                    self.move_people(ctx, &group, hm, hw, ResidenceWhy::Married);
                     Moved::HisToHers
                 }
                 (false, true) => {
                     let group = self.with_dependants(ctx, woman);
-                    self.move_people(ctx, &group, hw, hm);
+                    self.move_people(ctx, &group, hw, hm, ResidenceWhy::Married);
                     Moved::HerToHis
                 }
                 (false, false) => match rule {
                     Residence::NewHousehold => {
-                        self.new_household(ctx, woman, man);
+                        self.new_household(ctx, woman, man, hw);
                         Moved::NewHousehold
                     }
                     Residence::HisHousehold => {
                         let group = self.with_dependants(ctx, woman);
-                        self.move_people(ctx, &group, hw, hm);
+                        self.move_people(ctx, &group, hw, hm, ResidenceWhy::Married);
                         Moved::HerToHis
                     }
                     Residence::HerHousehold => {
                         let group = self.with_dependants(ctx, man);
-                        self.move_people(ctx, &group, hm, hw);
+                        self.move_people(ctx, &group, hm, hw, ResidenceWhy::Married);
                         Moved::HisToHers
                     }
                 },
@@ -1160,6 +1453,37 @@ impl Population {
         let settlement = household
             .and_then(|h| self.household(h))
             .and_then(|x| x.settlement);
+        // A marriage between settlements (M5a slice AM): counted, and each household knows the
+        // other's settlement as where kin live (ADR-0018 §4); the chronicle names where they
+        // settled.
+        let named = if across {
+            settlement
+                .and_then(|s| ctx.land.settlements.iter().find(|x| x.id == s))
+                .map_or_else(String::new, |s| s.name.clone())
+        } else {
+            String::new()
+        };
+        if let (true, Some(couple), Some(after)) = (across, household, settlement) {
+            let day = now.day_index();
+            for (who, natal, from) in [(woman, hw, before.0), (man, hm, before.1)] {
+                let Some(from) = from.filter(|&f| f != after) else {
+                    continue;
+                };
+                self.contacts
+                    .marriage(day.div_euclid(civ_core::time::DAYS_PER_YEAR), from, after);
+                if self.household(natal).is_some() {
+                    self.known_places.learn(
+                        natal,
+                        after,
+                        day,
+                        crate::places::PlaceHow::Kin,
+                        Some(who),
+                    );
+                }
+                self.known_places
+                    .learn(couple, from, day, crate::places::PlaceHow::Kin, None);
+            }
+        }
         self.chronicle_push(
             now,
             ChronicleKind::Paired,
@@ -1167,7 +1491,7 @@ impl Population {
             settlement,
             place,
             f64::from(moved as u8),
-            String::new(),
+            named,
         );
     }
 
@@ -1180,6 +1504,7 @@ impl Population {
         people: &[PermanentId],
         from: PermanentId,
         to: PermanentId,
+        why: ResidenceWhy,
     ) {
         if from == to || people.is_empty() || self.household(to).is_none() {
             return;
@@ -1187,8 +1512,11 @@ impl Population {
         let Some(before) = self.household(from).map(|x| x.members.len()) else {
             return;
         };
+        // What they knew of other places goes with them (ADR-0018 §4).
+        let home = self.household(to).and_then(|x| x.settlement);
+        self.known_places.bring(from, to, home);
         if people.len() >= before {
-            self.merge_household(ctx, from, to, true);
+            self.merge_household(ctx, from, to, true, why);
             return;
         }
         self.settle_household(ctx, from);
@@ -1229,6 +1557,7 @@ impl Population {
             x.members.retain(|m| !people.contains(m));
             known = x.known.clone();
         }
+        self.known_pruned.retain(|&(h, _), _| h != to);
         if let Some(x) = self.household_mut(to) {
             x.water_l += water;
             x.members.extend(people.iter().copied());
@@ -1236,10 +1565,12 @@ impl Population {
                 x.known = known;
             }
         }
+        let settlement = self.household(to).and_then(|x| x.settlement);
         for m in people {
             if let Some(p) = self.person_mut(*m) {
                 p.household = to;
             }
+            self.note_residence(*m, settlement, ctx.now, why);
         }
         self.sort_members(to);
     }
@@ -1247,11 +1578,16 @@ impl Population {
     /// A couple sets up a household of their own: near the woman's household, a little farther
     /// from the hearth, each bringing a member's share of what their household holds and any
     /// children too young to stay behind.
-    fn new_household(&mut self, ctx: &mut Ctx, woman: PermanentId, man: PermanentId) {
-        let Some(hw) = self.person(woman).map(|p| p.household) else {
-            return;
-        };
-        let Some(natal) = self.household(hw).cloned() else {
+    /// A couple sets up a household of its own beside household `beside`, one of theirs (its
+    /// settlement's, and its home's neighbour).
+    fn new_household(
+        &mut self,
+        ctx: &mut Ctx,
+        woman: PermanentId,
+        man: PermanentId,
+        beside: PermanentId,
+    ) {
+        let Some(natal) = self.household(beside).cloned() else {
             return;
         };
         let hearth = natal.settlement.and_then(|s| {
@@ -1265,12 +1601,13 @@ impl Population {
         let home = self.new_home_site(ctx, natal.home, hearth, id);
         // They build as the households they grew up in did, halfway between the two, and after
         // the building that had moved hers most, else his (M3b slice R).
-        let his = self
-            .person(man)
-            .and_then(|p| self.household(p.household))
-            .map_or((natal.taste, natal.admired), |h| (h.taste, h.admired));
-        let (taste, admired) =
-            crate::style::couple_taste((&natal.taste, natal.admired), (&his.0, his.1));
+        let of = |who: PermanentId| {
+            self.person(who)
+                .and_then(|p| self.household(p.household))
+                .map_or((natal.taste, natal.admired), |h| (h.taste, h.admired))
+        };
+        let (hers, his) = (of(woman), of(man));
+        let (taste, admired) = crate::style::couple_taste((&hers.0, hers.1), (&his.0, his.1));
         self.insert_household(Household {
             id,
             members: Vec::new(),
@@ -1287,6 +1624,7 @@ impl Population {
             offers: Vec::new(),
             taste,
             admired,
+            midden: crate::person::Midden::begun(ctx.now),
         });
         for who in [woman, man] {
             let Some(from) = self.person(who).map(|p| p.household) else {
@@ -1294,7 +1632,7 @@ impl Population {
             };
             let group = self.with_dependants(ctx, who);
             let before = self.household(from).map_or(0, |x| x.members.len());
-            self.move_people(ctx, &group, from, id);
+            self.move_people(ctx, &group, from, id, ResidenceWhy::Married);
             // A share of the family's fields, as of its stores, where the regime says so
             // (ADR-0007 §2); a whole household that moves brings all of them.
             if ctx.regime.union_share && before > group.len() && self.household(from).is_some() {
@@ -1304,12 +1642,14 @@ impl Population {
         if let Some(s) = natal.settlement {
             self.review_land(ctx, s);
         }
+        // A household formed reviews where to live (M5a slice AN, ADR-0018 §5).
+        self.review_due.insert(id);
     }
 
     /// Where a new household's home goes: `near`, moved a little away from the hearth, on dry
     /// ground a short walk from it (the hut is then sited on clear ground nearby, as every
     /// household's is).
-    fn new_home_site(
+    pub(super) fn new_home_site(
         &self,
         ctx: &Ctx,
         near: (f32, f32),
@@ -1337,5 +1677,33 @@ impl Population {
             &|_| 0.0,
         );
         crate::found::home_site(ctx.map, &field, wanted).unwrap_or(near)
+    }
+}
+
+/// The chance a household out of food and worn down leaves today (M4a slice Z): `leave_per_day`
+/// times the logistic of the points for going, `leave_w_gap` for the whole of the wait to its next
+/// harvest uncovered (`gap`, 0-1), less those for staying, `leave_w_stake` for a whole year's food
+/// its fields should bring (`stake`, 0-1) and `leave_stay`. A household that others or a store
+/// could carry to its harvest seldom goes; one with nothing to wait for goes at nearly the full
+/// rate.
+pub(crate) fn leave_chance(gap: f64, stake: f64, h: &HouseholdParams) -> f64 {
+    let points = h.leave_w_gap * gap.clamp(0.0, 1.0)
+        - h.leave_w_stake * stake.clamp(0.0, 1.0)
+        - h.leave_stay;
+    h.leave_per_day / (1.0 + (-points).exp())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_household_others_could_carry_seldom_leaves_and_one_with_nothing_goes() {
+        let h = crate::found::tests::params().household;
+        let nothing = super::leave_chance(1.0, 0.0, &h);
+        let carried = super::leave_chance(0.0, 0.0, &h);
+        let fields = super::leave_chance(1.0, 1.0, &h);
+        assert!(nothing > 0.9 * h.leave_per_day, "{nothing}");
+        assert!(carried < 0.2 * h.leave_per_day, "{carried}");
+        assert!(fields < nothing, "fields to lose hold some back");
+        assert!(super::leave_chance(5.0, -1.0, &h) <= h.leave_per_day);
     }
 }

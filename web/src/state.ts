@@ -8,10 +8,13 @@ import type {
   EventItem,
   FirmBrief,
   FirmInfo,
+  GovernmentInfo,
+  OrderInfo,
   KnowledgeInfo,
   MarketInfo,
   PersonInfo,
   Snapshot,
+  StandingInfo,
   WealthInfo,
   WeatherReport,
   Welcome,
@@ -63,6 +66,17 @@ export interface AppState {
    * shows at the surface. */
   depositGood: string;
   depositExposed: boolean;
+  /** The map tool that sends an agitator where the map is clicked is armed (M4c slice AJ), and
+   * the ideology they hold: an index into Welcome.ideologies. */
+  placingAgitator: boolean;
+  agitatorIdeology: number;
+  /** The map tool that sends a migration wave where the map is clicked is armed (M5a slice AN),
+   * with the households it brings, the days over which they come and the months of food each
+   * carries. */
+  placingWave: boolean;
+  waveHouseholds: number;
+  waveDays: number;
+  waveMonths: number;
   /** The chronicle of the world on show, oldest first. */
   chronicle: ChronicleEntry[];
   /** The markets of the world on show (null = not read yet). */
@@ -87,6 +101,18 @@ export interface AppState {
   weather: WeatherReport | null;
   /** Why the weather could not be read. */
   weatherError: string | null;
+  /** Every settlement's standing in the world on show (null = not read yet; wire 1.26). */
+  standing: StandingInfo | null;
+  /** Why the standing could not be read. */
+  standingError: string | null;
+  /** Every settlement's polity in the world on show (null = not read yet; wire 1.27). */
+  government: GovernmentInfo | null;
+  /** Why the government could not be read. */
+  governmentError: string | null;
+  /** Takings in the world on show (null = not read yet; wire 1.30). */
+  order: OrderInfo | null;
+  /** Why the takings could not be read. */
+  orderError: string | null;
 }
 
 export const MAX_EVENTS = 300;
@@ -108,6 +134,12 @@ export function initialState(): AppState {
     placingDeposit: false,
     depositGood: "",
     depositExposed: true,
+    placingAgitator: false,
+    agitatorIdeology: 0,
+    placingWave: false,
+    waveHouseholds: 10,
+    waveDays: 3,
+    waveMonths: 6,
     chronicle: [],
     markets: null,
     marketsError: null,
@@ -120,6 +152,12 @@ export function initialState(): AppState {
     knowledgeError: null,
     weather: null,
     weatherError: null,
+    standing: null,
+    standingError: null,
+    government: null,
+    governmentError: null,
+    order: null,
+    orderError: null,
   };
 }
 

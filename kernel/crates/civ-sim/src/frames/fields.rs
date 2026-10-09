@@ -85,6 +85,16 @@ pub fn status(f: &Field, crop: &CropParams, day: i64) -> String {
             s.push_str(&format!("; had {had} of the water it needed"));
         }
     }
+    // Its last harvest, and whether its soil held it back (ADR-0012 §3).
+    if let Some(r) = f.soil.record.last() {
+        s.push_str(&format!(
+            "; last gave {:.0} kg/ha in year {}",
+            r.kg_per_ha, r.year
+        ));
+        if r.limit == civ_land::Limit::Soil {
+            s.push_str(", held back by its soil");
+        }
+    }
     s
 }
 
@@ -93,6 +103,14 @@ fn stage_words(f: &Field, crop: &CropParams, day: i64) -> String {
     let done = progress(f, crop, day);
     let doy = day.rem_euclid(civ_core::time::DAYS_PER_YEAR);
     match f.stage {
+        // Ground cropped before has grown over in a long rest (ADR-0012 §4).
+        FieldStage::Fallow if !f.broken && f.harvests > 0 => {
+            if f.work_h > 0.0 {
+                format!("grown over, being broken again, {} done", percent(done))
+            } else {
+                "grown over, to be broken again".to_owned()
+            }
+        }
         FieldStage::Fallow if !f.broken => {
             let woodland = f.clear_h_per_ha > 0.0;
             match (woodland, f.work_h > 0.0) {
@@ -235,6 +253,9 @@ mod tests {
             kc: [0.4, 1.15, 0.4],
             kc_days: [30, 30, 40, 20],
             ky: 1.15,
+            grain_n: 0.020,
+            straw_n: 0.006,
+            crop_n: 0.035,
         }
     }
 
@@ -264,6 +285,7 @@ mod tests {
             water_mm: 0.0,
             need_mm: 0.0,
             got_mm: 0.0,
+            soil: civ_land::FieldSoil::default(),
         }
     }
 
@@ -272,8 +294,24 @@ mod tests {
         let c = crop();
         let mut wood = field(FieldStage::Fallow);
         wood.broken = false;
+        wood.harvests = 0;
         wood.clear_h_per_ha = 1000.0;
         assert_eq!(status(&wood, &c, 60), "woodland marked out to clear");
+        // Cropped ground left to grow over in a long rest (ADR-0012 §4).
+        let mut grown = field(FieldStage::Fallow);
+        grown.broken = false;
+        assert_eq!(status(&grown, &c, 200), "grown over, to be broken again");
+        // Its last harvest, and whether its soil held it back.
+        let mut worn = field(FieldStage::Fallow);
+        worn.soil.record = vec![civ_land::HarvestRecord {
+            year: 7,
+            kg_per_ha: 512.4,
+            limit: civ_land::Limit::Soil,
+        }];
+        assert_eq!(
+            status(&worn, &c, 200),
+            "fallow; last gave 512 kg/ha in year 7, held back by its soil"
+        );
         wood.work_h = 250.0; // of 500 h for 0.25 ha
         assert_eq!(status(&wood, &c, 60), "woodland being cleared, 50% done");
         assert_eq!(status(&field(FieldStage::Fallow), &c, 200), "fallow");

@@ -310,6 +310,27 @@ export class HostClient {
     return body.earthworks;
   }
 
+  /** Every settlement's standing as last worked out (wire 1.26). */
+  async standing(): Promise<M.StandingInfo> {
+    const body = await this.query(M.getStanding());
+    if (body.kind !== "standing") throw new HostError("internal", "expected standing");
+    return body.standing;
+  }
+
+  /** Every settlement's polity, its laws and their histories (wire 1.27). */
+  async government(): Promise<M.GovernmentInfo> {
+    const body = await this.query(M.getGovernment());
+    if (body.kind !== "government") throw new HostError("internal", "expected government");
+    return body.government;
+  }
+
+  /** Takings: what happened, and what people believe and chose (wire 1.30). */
+  async order(): Promise<M.OrderInfo> {
+    const body = await this.query(M.getOrder());
+    if (body.kind !== "order") throw new HostError("internal", "expected order");
+    return body.order;
+  }
+
   /** What each settlement knows, is learning and has lost (M3b slice M). */
   async knowledge(): Promise<M.KnowledgeInfo> {
     const body = await this.query(M.getKnowledge());

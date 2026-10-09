@@ -339,6 +339,8 @@ async fn an_observer_creates_saves_and_loads_a_world() {
                     name: Some(name),
                     band_size: 32,
                     regime_id: Some(regime_id),
+                    neighbours: None,
+                    neighbours_known: false,
                 },
             )
             .as_union_value()

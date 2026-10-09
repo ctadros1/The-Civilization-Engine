@@ -46,6 +46,11 @@ pub(crate) struct CropFile {
     pub kc_days: [u16; 4],
     /// Yield lost per share of the water need unmet.
     pub ky: f64,
+    /// Content API 27 (ADR-0012 §3): nitrogen in its grain and its straw, kilograms per
+    /// kilogram, and what the whole crop takes up for each kilogram of grain it grows.
+    pub grain_n_kg_per_kg: f64,
+    pub straw_n_kg_per_kg: f64,
+    pub crop_n_kg_per_kg: f64,
 }
 
 impl CropFile {
@@ -80,6 +85,9 @@ impl CropFile {
             kc: self.kc,
             kc_days: self.kc_days,
             ky: self.ky,
+            grain_n: self.grain_n_kg_per_kg,
+            straw_n: self.straw_n_kg_per_kg,
+            crop_n: self.crop_n_kg_per_kg,
         })
     }
 
@@ -153,6 +161,24 @@ impl CropFile {
         }
         if !(self.ky.is_finite() && (0.0..=3.0).contains(&self.ky)) {
             p.push(format!("`ky` must be between 0 and 3 (got {})", self.ky));
+        }
+        for (name, v) in [
+            ("grain_n_kg_per_kg", self.grain_n_kg_per_kg),
+            ("straw_n_kg_per_kg", self.straw_n_kg_per_kg),
+            ("crop_n_kg_per_kg", self.crop_n_kg_per_kg),
+        ] {
+            if !(v.is_finite() && (0.0..=0.2).contains(&v)) {
+                p.push(format!("`{name}` must be between 0 and 0.2 (got {v})"));
+            }
+        }
+        // What the grain and the straw carried home hold cannot be more than the crop took up.
+        let carried = self.grain_n_kg_per_kg
+            + self.straw_kg_per_kg.unwrap_or(0.0).max(0.0) * self.straw_n_kg_per_kg;
+        if carried > self.crop_n_kg_per_kg + 1e-9 {
+            p.push(format!(
+                "`crop_n_kg_per_kg` ({}) must cover the grain's and the straw's nitrogen ({carried})",
+                self.crop_n_kg_per_kg
+            ));
         }
         if self.grow_days == 0 || u32::from(self.sow_until_day) + u32::from(self.grow_days) >= 365 {
             p.push(

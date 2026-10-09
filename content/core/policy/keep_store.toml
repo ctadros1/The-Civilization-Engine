@@ -1,0 +1,13 @@
+# Keeping the common store (ADR-0013 §2: an office in its first form): the one the gathering names
+# keeps the store under their own roof, where it spoils as a roofed store does, and a household
+# short of food asks for relief at their home. The law names its keeper; when they die or leave it
+# lapses, and the store lies unkept again until a gathering names another (research 09-17 §1.5:
+# a store has deterioration and delivery to reckon with; 09-03 §3.1: early farming leadership can
+# be task-specific; §5.1: an office has a holder and a vacancy state). Whether anyone proposes a
+# keeper, whom, and whether the gathering agrees, is people's choice.
+kind = "policy"
+id = "core:policy/keep_store"
+name = "Storekeeper"
+description = "The one the gathering names keeps the common store under their roof and gives from it at their home."
+does = "keep_store"
+answers = ["store_unkept"]

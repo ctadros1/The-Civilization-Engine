@@ -1,34 +1,18 @@
 # The Civilization Engine: Project Plan
 
 Status: plan of record, written 2026-09-27 from the planning interview.
-Implementation (2026-10-05): **M0 Foundations and M1 A band settles are implemented** (people,
-foraging, farming, huts, births, deaths and families, worn trails, the first god tool and running
-ahead). **M2 is in progress:** its kernel side (the kernel as a library with a C interface, the
-panels alone) is implemented; its Unreal work needs the Windows PC. **M3a Village economy is
-implemented** ahead of it (§9), with the web observer, in five slices: H (goods in units, recipes,
-tools that wear, skills, the bread chain), I (one ledger, exchange at posted terms, barter and an
-inferred money, the market panel), J (household workshops with books, hired labour at posted
-wages, the workshops panel), K (property regimes, claims, leases, wealth measures, the wealth
-panel) and L (villages of hundreds, house size by wealth, the smoke checks of the economy, the
-demo). **M3b Knowledge and building is implemented** in six slices: M (knowledge carried by
-people), N (discovery and the first new crafts), O (the frame grammar, storehouses and
-workshops), P (wear, upkeep, loads, failures and caution), Q (deposits, levelled plots, pits and
-quarries, pots and ovens) and R (style copied from admired buildings, and the demo). **M3c Seasons
-and time is implemented** in five slices: S (the speeds and the day step), T (the fifty-year
-dashboard and its baseline), U (weather and seasons), V (soils and fertility) and W
-(Accelerated mode's approximations, Gate B and the demo); the dashboard passes (§7, §9). **M4
-Councils, law and crime** is split in three (§7, §9): M4a (standing and the first council, slices
-X to Z), M4b (crime and order, slices AA to AD) and M4c (factions and unrest, slices AE to AJ,
-with the god tools, the regimes row and the M4 demo) are implemented (2026-10-09). The fifty-year
-dashboard after M4c failed one row, food prices in one world (§9). **M5 Neighbors** is split in
-three (§7, §9): M5a (several settlements, slices AK to AO), M5b (trade and diffusion) and M5c
-(relations and works). **M5a is implemented** (2026-10-09) in five slices: AK (several
-settlements at setup), AL (scale for several settlements), AM (known places, visits and marriage
-between settlements), AN (moving between settlements, the migration wave and the dashboard's
-moves row) and AO (splinter founding, a faction's "leave together" and the M5a demo); AL's
-ten-minute budget is not met and Gate B's moves are not built (§9). M5b (trade and diffusion) is
-designed (2026-10-09; [ADR-0019](decisions/0019-exchange-between-settlements.md), slices AP to AS)
-and in progress.
+Implementation status (2026-10-09; public `main` at `eb00281`): **M0–M3c are implemented**:
+world and village life, the early economy, knowledge and building, daily weather, soils and
+fertility, and the Detailed/Accelerated time modes. **M2's kernel library and C interface are
+implemented; its Unreal client remains future work.** **M4, Councils, law and crime, is
+implemented** in M4a (standing and the first council), M4b (crime and order) and M4c (factions,
+unrest and political change). The last fifty-year dashboard after M4c failed the food-price row
+in one world; see §9. **M5, Neighbors, is in progress:** M5a (several settlements, movement and
+founding) is implemented; its 3,000-person, three-settlement run takes about 19.6 minutes at Max,
+above its ten-minute design budget, and Gate B does not yet grade cross-settlement moves. M5b
+(trade and diffusion) has a design and ADR-0019, with implementation work remaining. M5c
+(relations and works) is planned after M5b. See §7 for scope and §9 for implementation evidence
+and known limits.
 The README lists what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
 (i9 13th gen, RTX 4070 Ti with 12 GB VRAM, 64 GB DDR5).

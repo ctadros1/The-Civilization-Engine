@@ -882,6 +882,20 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** awareness by sight and provenance (step two); style per settlement and the neighbours row (step three).
 
+## 2026-10-09 — M5b slice AR, step two: techniques seen elsewhere, and knowledge that moves
+
+**Goal:** let contact carry awareness of techniques but never the techniques themselves, and keep each settlement's record of its knowledge true when people move between settlements (the M5 diffusion brief §1.2; research 07-02 §1.2, §5.4; ADR-0008 §2, §5).
+
+**What changed:** a person source "seen at" a settlement: someone at another settlement's hearth or a seller's door there comes to know of a technique they watch its people working with within 100 m, or one that alone makes a good they bought there. Awareness only raises how fruitful trying toward it is. A household, spouse or exile coming from another settlement now carries the record with it: what only they knew is lost where they lived, the loss naming a settlement where it is still known that those left have kin or friends in, and what they know is recorded where they come as brought from where they lived. Saves schema 60, content API 58.
+
+**Findings:** M5a had moved households, spouses and exiles between settlements without the knowledge record following them; nothing was lost where they left or noted where they came. That is fixed here. Every founder knows ten of the thirteen techniques, so awareness by sight matters only for drying, the rotary quern and jointed framing; and since no work tries toward jointed framing, awareness of it does nothing yet.
+
+**Measured:** in two years of the M5a demo's world, behaviour matched step one exactly (every section but the content, the knowledge record and the chronicle): nobody there knows drying or the rotary quern, and every settlement already knew what each mover brought. The wave's settlement, emptied in year 12, now records its eleven techniques as lost instead of still known.
+
+**Evidence:** two integration tests (awareness by watching and by buying, with the cases that give none; a move's loss and arrival with the settlements named, in the record, the chronicle and a save), four mutations of the rules each caught; the schema-59 roundtrip; digest comparisons with step one; the full suite.
+
+**Open:** style per settlement and the neighbours row (step three).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

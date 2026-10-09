@@ -23882,6 +23882,7 @@ impl<'a> Knowledge<'a> {
   pub const VT_TECHNIQUES: ::flatbuffers::VOffsetT = 4;
   pub const VT_ENTRIES: ::flatbuffers::VOffsetT = 6;
   pub const VT_TRUST: ::flatbuffers::VOffsetT = 8;
+  pub const VT_ELSEWHERE: ::flatbuffers::VOffsetT = 10;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -23893,6 +23894,7 @@ impl<'a> Knowledge<'a> {
     args: &'args KnowledgeArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Knowledge<'bldr>> {
     let mut builder = KnowledgeBuilder::new(_fbb);
+    if let Some(x) = args.elsewhere { builder.add_elsewhere(x); }
     if let Some(x) = args.trust { builder.add_trust(x); }
     if let Some(x) = args.entries { builder.add_entries(x); }
     if let Some(x) = args.techniques { builder.add_techniques(x); }
@@ -23921,6 +23923,13 @@ impl<'a> Knowledge<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TrustEntry>>>(Knowledge::VT_TRUST, None)}
   }
+  #[inline]
+  pub fn elsewhere(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(Knowledge::VT_ELSEWHERE, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Knowledge<'_> {
@@ -23932,6 +23941,7 @@ impl ::flatbuffers::Verifiable for Knowledge<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("techniques", Self::VT_TECHNIQUES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, KnowledgeEntry>>>("entries", Self::VT_ENTRIES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TrustEntry>>>("trust", Self::VT_TRUST, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("elsewhere", Self::VT_ELSEWHERE, false)?
      .finish();
     Ok(())
   }
@@ -23940,6 +23950,7 @@ pub struct KnowledgeArgs<'a> {
     pub techniques: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub entries: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, KnowledgeEntry>>>,
     pub trust: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TrustEntry>>>,
+    pub elsewhere: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
 }
 impl<'a> Default for KnowledgeArgs<'a> {
   #[inline]
@@ -23948,6 +23959,7 @@ impl<'a> Default for KnowledgeArgs<'a> {
       techniques: None,
       entries: None,
       trust: None,
+      elsewhere: None,
     }
   }
 }
@@ -23970,6 +23982,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> KnowledgeBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Knowledge::VT_TRUST, trust);
   }
   #[inline]
+  pub fn add_elsewhere(&mut self, elsewhere: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Knowledge::VT_ELSEWHERE, elsewhere);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> KnowledgeBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     KnowledgeBuilder {
@@ -23990,6 +24006,7 @@ impl ::core::fmt::Debug for Knowledge<'_> {
       ds.field("techniques", &self.techniques());
       ds.field("entries", &self.entries());
       ds.field("trust", &self.trust());
+      ds.field("elsewhere", &self.elsewhere());
       ds.finish()
   }
 }

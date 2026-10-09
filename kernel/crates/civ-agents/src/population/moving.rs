@@ -290,6 +290,12 @@ impl Population {
         self.relocate_as(ctx, from, to, ResidenceWhy::Moved);
     }
 
+    /// [`Population::relocate`], for tests that need a household to move on a given day.
+    #[doc(hidden)]
+    pub fn relocate_for_tests(&mut self, ctx: &mut Ctx, from: PermanentId, to: PermanentId) {
+        self.relocate(ctx, from, to);
+    }
+
     /// [`Population::relocate`], its people's residence histories saying `why`; a household that
     /// goes to found a settlement (M5a slice AO) is told of in the coalition's entry, not its own.
     pub(super) fn relocate_as(
@@ -372,6 +378,9 @@ impl Population {
         let people = old.members.len() as u32;
         self.contacts
             .moved(day.div_euclid(DAYS_PER_YEAR), left, to, people);
+        // What only they knew is lost where they lived, and what they know comes with them
+        // (M5b slice AR).
+        self.knowledge_crossed(ctx, &old.members, Some(left), Some(to), Some(from), true);
         if why != ResidenceWhy::Moved {
             return;
         }
@@ -497,6 +506,9 @@ impl Population {
         person.trip = None;
         self.insert_person(person);
         self.note_residence(id, Some(to), now, ResidenceWhy::Exiled);
+        // What they know comes with them (M5b slice AR); its loss where they lived was noted as
+        // they were sent away.
+        self.knowledge_crossed(ctx, &[id], left, Some(to), None, false);
         self.known_places.bring(from, hh, Some(to));
         self.reports.bring(from, hh, Some(to));
         let day = now.day_index();

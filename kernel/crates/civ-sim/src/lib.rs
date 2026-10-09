@@ -1229,6 +1229,39 @@ impl Sim {
         self.dirty = true;
     }
 
+    /// Runs `f` on the people with a context for now, as a day's events would (for a test that
+    /// calls a population's test hook; what it schedules is scheduled).
+    #[doc(hidden)]
+    pub fn with_ctx_for_tests<R>(&mut self, f: impl FnOnce(&mut Population, &mut Ctx) -> R) -> R {
+        let now = self.now();
+        let approx = self.approximations_now();
+        let mut pending = Vec::new();
+        let out = {
+            let mut ctx = Ctx {
+                now,
+                seed: self.meta.seed,
+                map: &self.map,
+                nav: &self.nav,
+                land: &mut self.land,
+                land_params: &self.rules.land,
+                params: &self.rules.people,
+                catalog: &self.rules.catalog,
+                regime: &self.regime,
+                ids: &mut self.ids,
+                schedule: &mut pending,
+                approx,
+            };
+            f(&mut self.people, &mut ctx)
+        };
+        for (at, event) in pending {
+            let _ = self
+                .scheduler
+                .schedule(at, PHASE_AGENT, SimEvent::Agent(event));
+        }
+        self.dirty = true;
+        out
+    }
+
     /// Someone is exiled now (for a test that needs an exile on a given day; see
     /// [`Population::exile_for_tests`]).
     #[doc(hidden)]

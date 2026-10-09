@@ -943,6 +943,8 @@ pub(crate) struct Knowledge {
     pub w_try: f64,
     /// Least days between one person's sessions of trying.
     pub try_gap_days: f64,
+    /// How far, metres, someone in another settlement sees work done there (content API 58).
+    pub watch_m: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1499,6 +1501,7 @@ impl PeopleFile {
                 aware_try_factor: self.knowledge.aware_try_factor,
                 w_try: self.knowledge.w_try,
                 try_gap_days: self.knowledge.try_gap_days,
+                watch_m: self.knowledge.watch_m,
             },
             digging: civ_agents::params::Digging {
                 h_per_m3: self.digging.h_per_m3,
@@ -1779,6 +1782,12 @@ impl PeopleFile {
             p.push(format!(
                 "`knowledge.experiment_share` must be between 0 and 1 (got {})",
                 k.experiment_share
+            ));
+        }
+        if !(k.watch_m.is_finite() && (0.0..=1_000.0).contains(&k.watch_m)) {
+            p.push(format!(
+                "`knowledge.watch_m` must be between 0 and 1000 (got {})",
+                k.watch_m
             ));
         }
         if !(k.aware_try_factor.is_finite() && k.aware_try_factor >= 1.0) {

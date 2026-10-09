@@ -913,7 +913,8 @@ table Wealth {
 
 // Section "knowledge" (schema 13): each settlement's record of when it came to know a technique
 // and when it lost one, oldest first (ADR-0008 §2). `kind`: 0 known (by `person`, `source` as in
-// Knowing, from `source_person`), 1 lost (`person` knew it last).
+// Knowing, from `source_person`), 1 lost (`person` knew it last). From schema 60 a person's source
+// 5 is "seen" (M5b slice AR), its `source_person` the settlement it was seen in.
 struct KnowledgeEntry {
   at: long;
   settlement: ulong;
@@ -941,6 +942,11 @@ table Knowledge {
   entries: [KnowledgeEntry] (id: 1);
   // Schema 18: each settlement's trust in each technique's buildings, in the order first seen.
   trust: [TrustEntry] (id: 2);
+  // Schema 60 (M5b slice AR): for each entry, in order, another settlement it concerns (0 for
+  // none): for a known entry, the settlement its knower came from; for a lost one, a settlement
+  // where it is still known that someone left there has kin or a tie in. Written only when an
+  // entry has one.
+  elsewhere: [ulong] (id: 3);
 }
 
 // Section "deposits" (schema 19): bodies in the ground (ADR-0010 §1), in the order they were

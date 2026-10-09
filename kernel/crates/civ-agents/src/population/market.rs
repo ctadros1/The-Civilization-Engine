@@ -843,6 +843,8 @@ impl Population {
             };
             if let Some(at) = door {
                 self.note_sights(ctx, who, market, at);
+                // And the work its people are doing about it.
+                self.watch_work(ctx, who, market, at);
             }
             // An errand to this door is run, whatever came of it.
             if self
@@ -934,6 +936,10 @@ impl Population {
         if let Some(sh) = seller_household.filter(|&sh| sh != buyer) {
             let traded = crate::ties::Act::Traded;
             self.note_between(ctx, Some(who), buyer, sh, traded, traded, 0.0);
+        }
+        // What one from elsewhere bought may show a technique it was made with (M5b slice AR).
+        if away {
+            self.see_made_with(ctx, who, market, d.good);
         }
         let shrink = |offers: &mut Vec<Offer>| {
             for o in offers.iter_mut().filter(|o| usize::from(o.good) == d.good) {

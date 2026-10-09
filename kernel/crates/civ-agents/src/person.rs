@@ -282,6 +282,9 @@ pub enum KnowSource {
     Found,
     /// The observer introduced it (the god tool).
     Observer,
+    /// They saw its work done, or bought what was made with it, in this settlement, not their
+    /// own (M5b slice AR): awareness only, never knowing (research 07-02 §1.2).
+    Seen(PermanentId),
 }
 
 impl KnowSource {
@@ -293,7 +296,21 @@ impl KnowSource {
             KnowSource::Taught(_) => 2,
             KnowSource::Found => 3,
             KnowSource::Observer => 4,
+            KnowSource::Seen(_) => 5,
         }
+    }
+
+    /// The settlement it was seen in, if it was.
+    pub fn settlement(self) -> Option<PermanentId> {
+        match self {
+            KnowSource::Seen(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    /// The id saved with it: the person it came from, or the settlement it was seen in.
+    pub fn saved_id(self) -> Option<PermanentId> {
+        self.person().or(self.settlement())
     }
 
     /// The person it came from, if any.
@@ -304,14 +321,15 @@ impl KnowSource {
         }
     }
 
-    /// The source with number `code` and person `person` (a missing person reads as a founder's
-    /// knowledge).
+    /// The source with number `code` and saved id `person` (the person it came from, or the
+    /// settlement it was seen in; a missing one reads as a founder's knowledge).
     pub fn from_code(code: u8, person: Option<PermanentId>) -> KnowSource {
         match (code, person) {
             (1, Some(p)) => KnowSource::Upbringing(p),
             (2, Some(p)) => KnowSource::Taught(p),
             (3, _) => KnowSource::Found,
             (4, _) => KnowSource::Observer,
+            (5, Some(s)) => KnowSource::Seen(s),
             _ => KnowSource::Founder,
         }
     }

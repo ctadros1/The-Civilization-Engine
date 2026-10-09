@@ -1717,6 +1717,7 @@ pub(crate) mod tests {
                 aware_try_factor: 3.0,
                 w_try: 2.0,
                 try_gap_days: 7.0,
+                watch_m: 100.0,
             },
             digging: crate::params::Digging {
                 h_per_m3: 8.0,

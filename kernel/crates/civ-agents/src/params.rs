@@ -1473,6 +1473,9 @@ pub struct KnowledgeParams {
     /// Least days between one person's sessions of trying: what keeps trying to a small share of
     /// their time (research 07-01 §2.3; 07-11 §2.2).
     pub try_gap_days: f64,
+    /// How far, metres, someone at another settlement's hearth or a seller's door there sees its
+    /// people at work well enough to know of a technique the work needs (M5b slice AR; 0: never).
+    pub watch_m: f64,
 }
 
 /// Linear interpolation in an ascending `(x, y)` table, clamped at its ends.

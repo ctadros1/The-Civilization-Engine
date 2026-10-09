@@ -374,6 +374,8 @@ impl Population {
             .map(|x| x.hearth_m)
         {
             self.note_sights(ctx, me, settlement, at);
+            // And the work its people are doing about it.
+            self.watch_work(ctx, me, settlement, at);
         }
     }
 }

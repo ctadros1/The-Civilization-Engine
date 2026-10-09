@@ -2241,6 +2241,21 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
 }
 
 #[test]
+fn a_schema_59_save_loads_with_no_technique_seen_elsewhere_or_brought_from_another_settlement() {
+    // A schema-59 save, from before people learnt of techniques by what they saw in other
+    // settlements, and before the record said where a technique came from or is still known
+    // (M5b slice AR, step two).
+    let sim = load_first();
+    assert!(sim.people().knowledge.iter().all(|e| e.elsewhere.is_none()));
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V59;
+    let path = republish("slice-ar1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-59 save loads");
+    assert_eq!(loaded.people().knowledge, sim.people().knowledge);
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_58_save_loads_with_no_building_seen_elsewhere() {
     // A schema-58 save, from before people noted the buildings they saw in other settlements
     // (M5b slice AR).

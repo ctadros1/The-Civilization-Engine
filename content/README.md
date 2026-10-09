@@ -500,6 +500,7 @@ The people profile's `[knowledge]` table (every value a tuning value):
 | `aware_try_factor` | How many times its hours trying counts for someone already aware of the technique. |
 | `w_try` | Utility points for trying at a problem at home, times the share of the household's food the problem would cost. |
 | `try_gap_days` | Least days between one person's sessions of trying. |
+| `watch_m` | How far, metres (0 to 1,000; 0, never), someone at another settlement's hearth or a seller's door there sees its people at work well enough to come to know of a technique the work needs (content API 58, M5b slice AR). Awareness only. |
 
 The core pack has thirteen techniques. Ten are the founders' repertoire of today's work, known by
 every founder and learnt in upbringing (research 06-08 §1.1, §3): growing emmer, grinding at a
@@ -714,6 +715,12 @@ norms they hold weigh), `revolt_days` (how long the call stands), `hold_days` (h
 officeholder, and more adults than stand with the gathering, must stand with it before it holds)
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
+
+Content API 58 (M5b slice AR, step two) brings the `[knowledge]` key `watch_m` (0 to 1,000 m;
+0, never): how far from where they stand, at another settlement's hearth or a seller's door
+there, someone sees its people at work well enough to come to know of a technique the work
+needs (a design prior). Seeing gives awareness only, never knowing (research 07-02 §1.2); a
+good bought there that only one technique makes shows it too.
 
 Content API 57 (M5b slice AR) brings buildings seen in other settlements: the `[style]` keys
 `seen_most` (the most a person keeps in mind until their household's next taste review, newest

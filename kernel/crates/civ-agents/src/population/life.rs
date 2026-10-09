@@ -1057,6 +1057,16 @@ impl Population {
             }
             self.note_residence(*m, settlement, ctx.now, why);
         }
+        // Joining a household of another settlement: what only they knew is lost where they
+        // lived, and what they know comes with them (M5b slice AR).
+        self.knowledge_crossed(
+            ctx,
+            &gone.members,
+            gone.settlement,
+            settlement,
+            Some(from),
+            true,
+        );
         self.known_pruned.retain(|&(h, _), _| h != to);
         if let Some(x) = self.household_mut(to) {
             x.members.extend(gone.members.iter().copied());
@@ -1530,6 +1540,7 @@ impl Population {
         let Some(before) = self.household(from).map(|x| x.members.len()) else {
             return;
         };
+        let left = self.household(from).and_then(|x| x.settlement);
         // What they knew of other places goes with them (ADR-0018 §4).
         let home = self.household(to).and_then(|x| x.settlement);
         self.known_places.bring(from, to, home);
@@ -1592,6 +1603,8 @@ impl Population {
             self.note_residence(*m, settlement, ctx.now, why);
         }
         self.sort_members(to);
+        // Joining a household of another settlement (M5b slice AR), as in a merge.
+        self.knowledge_crossed(ctx, people, left, settlement, None, true);
     }
 
     /// A couple sets up a household of their own: near the woman's household, a little farther

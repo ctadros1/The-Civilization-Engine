@@ -211,6 +211,10 @@ pub const SCHEMA_V57: u32 = 57;
 /// The schema version of M5b slice AQ, step two: errands to fetch goods to sell at home, before
 /// buildings seen in other settlements (see [`agents`]).
 pub const SCHEMA_V58: u32 = 58;
+/// The schema version of M5b slice AR, step one: buildings seen in other settlements, before
+/// techniques seen there and the settlements a technique's arrival and loss concern (see
+/// [`agents`]).
+pub const SCHEMA_V59: u32 = 59;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

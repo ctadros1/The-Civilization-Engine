@@ -1103,6 +1103,9 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             if flags & 2 != 0 {
                 tail.push_str(" What was made with it remains.");
             }
+            if flags & 4 != 0 {
+                tail.push_str(" It is still known where some here have kin or friends.");
+            }
             match person(0) {
                 Some(last) => vec![
                     Span::Text(format!("{} was lost with ", event.name)),

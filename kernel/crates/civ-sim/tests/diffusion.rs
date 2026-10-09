@@ -3,11 +3,20 @@
 //! household's next taste review meets those too, each once: a stranger's building is admired for
 //! how well it was built and for what the household thinks of its owner, which for a stranger is
 //! nothing. What was seen is let go at the review, and saves keep it until then.
+//!
+//! Step two (the M5 diffusion brief §1.2; research 07-02 §1.2, §5.4): work seen done there, or a
+//! good bought there that only one technique makes, gives awareness of the technique and never
+//! knowledge of it; a household that moves brings what it knows, which the settlement it comes
+//! to records as brought from where it lived, and what only it knew is lost there, with where it
+//! is still known among those left's kin and friends.
 
 use std::path::Path;
 use std::sync::OnceLock;
 
+use civ_agents::history::Span;
+use civ_agents::knowledge::KnowledgeEventKind;
 use civ_agents::params::{BuildingDef, Taste};
+use civ_agents::person::{KnowSource, Person, Step, Target};
 use civ_agents::style;
 use civ_agents::ties::Act;
 use civ_content::ContentRegistry;
@@ -398,4 +407,262 @@ fn in_a_world_of_one_settlement_nobody_sees_a_building_elsewhere() {
     until_housed(&mut sim);
     sim.advance_minutes(30 * DAY).expect("advances");
     assert!(sim.people().seen_away.is_empty());
+}
+
+fn person(sim: &mut Sim, id: PermanentId) -> &mut Person {
+    sim.people_mut_for_tests()
+        .people
+        .iter_mut()
+        .map(|(_, p)| p)
+        .find(|p| p.id == id)
+        .expect("the person")
+}
+
+fn technique(sim: &Sim, id: &str) -> usize {
+    sim.rules().catalog.technique_index(id).expect(id)
+}
+
+fn good(sim: &Sim, id: &str) -> usize {
+    sim.rules().catalog.good_index(id).expect(id)
+}
+
+fn hearth(sim: &Sim, s: PermanentId) -> (f32, f32) {
+    sim.land()
+        .settlements
+        .iter()
+        .find(|x| x.id == s)
+        .expect("the settlement")
+        .hearth_m
+}
+
+/// `id` stands at `at` doing the work of activity `def` (step: working, not walking).
+fn at_work(sim: &mut Sim, id: PermanentId, def: usize, at: (f32, f32), working: bool) {
+    let now = sim.now();
+    let p = person(sim, id);
+    p.trip = None;
+    p.pos = at;
+    p.act.def = def as u16;
+    p.act.target = Target::None;
+    p.act.steps = vec![if working {
+        Step::Work { minutes: 120 }
+    } else {
+        Step::Walk { to: at }
+    }];
+    p.act.step = 0;
+    p.act.started = now;
+    p.act.step_started = now;
+}
+
+#[test]
+fn work_seen_or_a_good_bought_elsewhere_gives_awareness_and_never_knowledge() {
+    let mut sim = world(3, 30, &[30]);
+    sim.advance_minutes(DAY).expect("advances");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let (drying, rotary, quern) = (
+        technique(&sim, "core:technique/drying"),
+        technique(&sim, "core:technique/rotary_quern"),
+        technique(&sim, "core:technique/quern_grinding"),
+    );
+    let dry_meat = {
+        let catalog = &sim.rules().catalog;
+        let r = catalog
+            .recipes
+            .iter()
+            .position(|r| r.id == "core:recipe/dry_meat")
+            .expect("the recipe");
+        catalog
+            .activities
+            .iter()
+            .position(|x| x.recipe == Some(r))
+            .expect("its activity")
+    };
+    let here = hearth(&sim, b);
+    // Someone of the second settlement dries meat by its hearth; nobody of the first knows how.
+    let worker = members(&sim, households_of(&sim, b)[0])[0];
+    let now = sim.now();
+    person(&mut sim, worker).come_to_know(drying, KnowSource::Found, now);
+    at_work(&mut sim, worker, dry_meat, (here.0 + 30.0, here.1), true);
+    let firsts: Vec<PermanentId> = households_of(&sim, a)
+        .into_iter()
+        .take(4)
+        .map(|h| members(&sim, h)[0])
+        .collect();
+    let (near, far, buyer, flour) = (firsts[0], firsts[1], firsts[2], firsts[3]);
+    let watch_m = sim.rules().people.knowledge.watch_m as f32;
+    let (near_at, far_at) = (here, (here.0 + 30.0 + watch_m + 20.0, here.1));
+    assert!(watch_m > 30.0);
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.watch_work_for_tests(ctx, near, b, near_at);
+        pop.watch_work_for_tests(ctx, far, b, far_at);
+    });
+    let know = |sim: &Sim, p: PermanentId, t: usize| {
+        sim.people().person(p).and_then(|q| q.know(t)).copied()
+    };
+    // One within sight of the work knows of it, seen at the second settlement; not how to do it.
+    let k = know(&sim, near, drying).expect("aware of drying");
+    assert!(!k.known && k.hours == 0.0, "{k:?}");
+    assert_eq!(k.source, KnowSource::Seen(b));
+    assert!(!sim.people().person(near).expect("them").knows(drying));
+    // One farther off saw nothing of it.
+    assert!(know(&sim, far, drying).is_none());
+    // Nor does anyone of the second settlement learn of it by watching at home, nor from one
+    // walking rather than working.
+    let neighbour = members(&sim, households_of(&sim, b)[1])[0];
+    at_work(&mut sim, worker, dry_meat, (here.0 + 30.0, here.1), false);
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.watch_work_for_tests(ctx, neighbour, b, near_at);
+        pop.watch_work_for_tests(ctx, far, b, near_at);
+    });
+    assert!(know(&sim, neighbour, drying).is_none());
+    assert!(know(&sim, far, drying).is_none());
+
+    // Dried meat bought there shows drying, the only way it is made; a rotary quern shows its
+    // craft. Flour shows nothing: it is ground at either quern.
+    let (dried, rquern, meal) = (
+        good(&sim, "core:good/dried_meat"),
+        good(&sim, "core:good/rotary_quern"),
+        good(&sim, "core:good/flour"),
+    );
+    // The one buying flour has never ground at either quern.
+    person(&mut sim, flour)
+        .knows
+        .retain(|k| ![quern, rotary].contains(&usize::from(k.technique)));
+    let before = know(&sim, near, drying);
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.bought_for_tests(ctx, buyer, b, dried);
+        pop.bought_for_tests(ctx, buyer, b, rquern);
+        pop.bought_for_tests(ctx, flour, b, meal);
+        pop.bought_for_tests(ctx, near, b, dried);
+    });
+    assert_eq!(
+        know(&sim, buyer, drying).map(|k| (k.known, k.source)),
+        Some((false, KnowSource::Seen(b)))
+    );
+    assert_eq!(
+        know(&sim, buyer, rotary).map(|k| (k.known, k.source)),
+        Some((false, KnowSource::Seen(b)))
+    );
+    assert!(know(&sim, flour, rotary).is_none());
+    assert!(know(&sim, flour, quern).is_none());
+    // What they knew of already is as it was.
+    assert_eq!(know(&sim, near, drying), before);
+
+    // The inspector says where they saw it, and a save keeps it.
+    let words = civ_sim::frames::knowledge::source_words(&sim, KnowSource::Seen(b));
+    let name = sim.land().settlements[1].name.clone();
+    assert_eq!(words, format!("saw it at {name}"));
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION).expect("save dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "seen").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    for p in [near, buyer] {
+        assert_eq!(
+            loaded.people().person(p).expect("them").knows,
+            sim.people().person(p).expect("them").knows
+        );
+    }
+}
+
+/// Text of a chronicle entry, links as their names.
+fn text(sim: &Sim, e: &civ_agents::history::ChronicleEvent) -> String {
+    let name = |id: PermanentId| {
+        sim.people()
+            .records
+            .get(&id)
+            .map_or_else(|| "someone".to_owned(), |r| r.given.clone())
+    };
+    civ_agents::history::render(e, &name)
+        .into_iter()
+        .map(|s| match s {
+            Span::Text(t) | Span::Person(_, t) | Span::Settlement(_, t) | Span::Firm(_, t) => t,
+        })
+        .collect()
+}
+
+#[test]
+fn a_household_that_moves_brings_what_it_knows_and_its_loss_says_where_it_is_still_known() {
+    let mut sim = world(3, 30, &[30]);
+    sim.advance_minutes(DAY).expect("advances");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let drying = technique(&sim, "core:technique/drying");
+    // One household of the first settlement alone knows drying there, as its record says.
+    let movers = households_of(&sim, a)[0];
+    let people = members(&sim, movers);
+    let now = sim.now();
+    for &m in &people {
+        person(&mut sim, m).come_to_know(drying, KnowSource::Found, now);
+    }
+    sim.people_mut_for_tests()
+        .knowledge
+        .push(civ_agents::knowledge::KnowledgeEvent {
+            at: now,
+            settlement: a,
+            technique: drying as u16,
+            person: people[0],
+            kind: KnowledgeEventKind::Known(KnowSource::Found),
+            elsewhere: None,
+        });
+    // Someone who stays behind thinks well of one of them.
+    let stays = members(&sim, households_of(&sim, a)[1])[0];
+    let day = now.day_index();
+    let ties = sim.rules().people.ties.clone();
+    sim.people_mut_for_tests().ties.record(
+        stays,
+        people[0],
+        Act::GiftReceived,
+        2.0,
+        0.0,
+        day,
+        &ties,
+    );
+    let entries = sim.people().chronicle.len();
+    sim.with_ctx_for_tests(|pop, ctx| pop.relocate_for_tests(ctx, movers, b));
+    let record: Vec<_> = sim
+        .people()
+        .knowledge
+        .iter()
+        .filter(|e| usize::from(e.technique) == drying)
+        .cloned()
+        .collect();
+    // Lost where they lived, still known where one left behind has a friend; brought to where
+    // they went, from where they lived.
+    let lost = record
+        .iter()
+        .find(|e| e.settlement == a && e.kind == KnowledgeEventKind::Lost)
+        .expect("lost where they lived");
+    assert_eq!(lost.elsewhere, Some(b));
+    let brought = record
+        .iter()
+        .find(|e| e.settlement == b && matches!(e.kind, KnowledgeEventKind::Known(_)))
+        .expect("known where they went");
+    assert_eq!(brought.elsewhere, Some(a));
+    assert!(people.contains(&brought.person));
+    // The chronicle says so; techniques everyone knows were neither lost nor brought.
+    let words: Vec<String> = sim.people().chronicle[entries..]
+        .iter()
+        .filter(|e| e.kind == civ_agents::history::ChronicleKind::TechniqueLost)
+        .map(|e| text(&sim, e))
+        .collect();
+    assert_eq!(words.len(), 1, "{words:?}");
+    assert!(
+        words[0].contains("still known where some here have kin or friends"),
+        "{}",
+        words[0]
+    );
+    let new_known = sim
+        .people()
+        .knowledge
+        .iter()
+        .filter(|e| e.settlement == b && e.elsewhere == Some(a))
+        .count();
+    assert_eq!(new_known, 1, "only drying was new to the second settlement");
+    // A save keeps the record as it is.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION).expect("save dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "moved").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().knowledge, sim.people().knowledge);
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
 }

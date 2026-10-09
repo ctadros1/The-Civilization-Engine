@@ -110,7 +110,7 @@ use super::{
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
-    SCHEMA_V57, SCHEMA_V58, finish, section, single_chunk, unreadable,
+    SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -402,6 +402,9 @@ enum Schema {
     V58,
     /// Buildings seen in other settlements (M5b slice AR).
     V59,
+    /// Techniques seen in other settlements; the settlements an arrival or a loss concerns (M5b
+    /// slice AR, step two).
+    V60,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -475,7 +478,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V56 => Schema::V56,
         SCHEMA_V57 => Schema::V57,
         SCHEMA_V58 => Schema::V58,
-        SAVE_SCHEMA_VERSION => Schema::V59,
+        SCHEMA_V59 => Schema::V59,
+        SAVE_SCHEMA_VERSION => Schema::V60,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2255,7 +2259,7 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
             save::Knowing::new(
                 k.since.minutes(),
                 k.used.minutes(),
-                raw(k.source.person()),
+                raw(k.source.saved_id()),
                 k.hours,
                 k.technique,
                 k.known,
@@ -2666,7 +2670,8 @@ fn carried(
         | Schema::V56
         | Schema::V57
         | Schema::V58
-        | Schema::V59 => {
+        | Schema::V59
+        | Schema::V60 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2835,7 +2840,8 @@ fn decode_households(
             | Schema::V56
             | Schema::V57
             | Schema::V58
-            | Schema::V59 => {
+            | Schema::V59
+            | Schema::V60 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5148,7 +5154,7 @@ fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
                 e.at.minutes(),
                 e.settlement.get(),
                 e.person.get(),
-                raw(source.person()),
+                raw(source.saved_id()),
                 e.technique,
                 kind,
                 source.code(),
@@ -5156,6 +5162,15 @@ fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
         })
         .collect();
     let entries = fbb.create_vector(&entries);
+    // The other settlement each entry concerns (schema 60), only when one does.
+    let elsewhere = pop
+        .knowledge
+        .iter()
+        .any(|e| e.elsewhere.is_some())
+        .then(|| {
+            let ids: Vec<u64> = pop.knowledge.iter().map(|e| raw(e.elsewhere)).collect();
+            fbb.create_vector(&ids)
+        });
     let trust: Vec<save::TrustEntry> = pop
         .trust
         .iter()
@@ -5176,6 +5191,7 @@ fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
             techniques: Some(dictionary),
             entries: Some(entries),
             trust: Some(trust),
+            elsewhere,
         },
     );
     finish(fbb, root)
@@ -5237,7 +5253,20 @@ fn decode_knowledge(bytes: &[u8], rules: &Rules) -> Result<Vec<KnowledgeEvent>, 
         .map(|id| rules.catalog.technique_index(id))
         .collect();
     let mut out = Vec::new();
-    for e in root.entries().iter().flatten() {
+    // The other settlement each entry concerns (schema 60), by entry.
+    let elsewhere: Vec<u64> = root
+        .elsewhere()
+        .map(|v| v.iter().collect())
+        .unwrap_or_default();
+    let entries = root.entries().map_or(0, |v| v.len());
+    if !elsewhere.is_empty() && elsewhere.len() != entries {
+        return Err(LoadError::Malformed(format!(
+            "{} knowledge entries with {} settlements elsewhere",
+            entries,
+            elsewhere.len()
+        )));
+    }
+    for (i, e) in root.entries().iter().flatten().enumerate() {
         let t = ids.get(usize::from(e.technique())).ok_or_else(|| {
             LoadError::Malformed(format!(
                 "a knowledge entry names technique {} of {}",
@@ -5266,6 +5295,7 @@ fn decode_knowledge(bytes: &[u8], rules: &Rules) -> Result<Vec<KnowledgeEvent>, 
             technique: *t as u16,
             person: required(e.person(), "a knowledge entry")?,
             kind,
+            elsewhere: elsewhere.get(i).copied().and_then(PermanentId::from_raw),
         });
     }
     Ok(out)

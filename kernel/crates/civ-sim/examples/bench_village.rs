@@ -212,6 +212,7 @@ fn main() {
     // and building; and each settlement's mean taste at the start.
     let mut sights: std::collections::BTreeSet<(u64, u64)> = Default::default();
     let tastes_before = mean_tastes(&sim);
+    let lived_from = sim.now().minutes();
     for day in 1..=a.days {
         let t = Instant::now();
         if day > a.profile_after && a.profile_after > 0 {
@@ -386,6 +387,55 @@ fn main() {
                 .collect::<std::collections::BTreeSet<_>>()
                 .len(),
         );
+        // Techniques known of by sight elsewhere, and the record's arrivals from and losses with
+        // another settlement (M5b slice AR, step two).
+        let mut seen_of: BTreeMap<&str, usize> = BTreeMap::new();
+        for (_, p) in pop.people.iter() {
+            for k in &p.knows {
+                if matches!(k.source, civ_agents::person::KnowSource::Seen(_)) && !k.known {
+                    let id = &sim.rules().catalog.techniques[usize::from(k.technique)].id;
+                    *seen_of.entry(id.as_str()).or_default() += 1;
+                }
+            }
+        }
+        let (brought, lost_near) = pop.knowledge.iter().filter(|e| e.elsewhere.is_some()).fold(
+            (0, 0),
+            |(b, l), e| match e.kind {
+                civ_agents::knowledge::KnowledgeEventKind::Lost => (b, l + 1),
+                _ => (b + 1, l),
+            },
+        );
+        println!(
+            "techniques known of by sight elsewhere, people: {seen_of:?}; the record: {brought} \
+             brought from another settlement, {lost_near} lost while known where kin or friends live"
+        );
+        // The record's entries made while the days were lived, by kind and technique.
+        let mut made: BTreeMap<String, usize> = BTreeMap::new();
+        for e in pop.knowledge.iter().filter(|e| e.at.minutes() > lived_from) {
+            let what = match e.kind {
+                civ_agents::knowledge::KnowledgeEventKind::Lost => "lost",
+                _ => "known",
+            };
+            let t = &sim.rules().catalog.techniques[usize::from(e.technique)].id;
+            let key = format!(
+                "{what} {t}{}",
+                if e.elsewhere.is_some() {
+                    " (elsewhere)"
+                } else {
+                    ""
+                }
+            );
+            *made.entry(key).or_default() += 1;
+        }
+        println!("knowledge record entries made: {made:?}");
+        if std::env::var_os("BENCH_KNOWLEDGE").is_some() {
+            for e in pop.knowledge.iter().filter(|e| e.at.minutes() > lived_from) {
+                println!(
+                    "  {} settlement {} technique {} person {} {:?} elsewhere {:?}",
+                    e.at, e.settlement, e.technique, e.person, e.kind, e.elsewhere
+                );
+            }
+        }
         let tastes_after = mean_tastes(&sim);
         let keys: Vec<u64> = tastes_after.keys().copied().collect();
         for (i, x) in keys.iter().enumerate() {

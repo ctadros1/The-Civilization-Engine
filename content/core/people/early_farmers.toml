@@ -440,6 +440,11 @@ aware_try_factor = 3.0
 # Utility points for trying at a problem at home, times the share of the household's food it
 # would cost (a tuning value, about what useful work is worth).
 w_try = 2.0
+# How far, metres, someone at another settlement's hearth, or at a seller's door there, sees its
+# people at work well enough to know of a technique the work needs (M5b slice AR; content API 58).
+# Seeing gives awareness only: buying a tool does not teach toolmaking (research 07-02 §1.2). A
+# design prior: close enough to watch hands at work, not just to see a roof.
+watch_m = 100.0
 # Least days between one person's sessions of trying: an hour a week at most, about 2 % of
 # working time (07-01 §2.3 tests 0-5 %; 07-11 §2.2 finds 0-10 % protected time for craft workers).
 try_gap_days = 7.0

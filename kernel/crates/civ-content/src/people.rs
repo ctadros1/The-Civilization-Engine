@@ -64,6 +64,8 @@ pub(crate) struct PeopleFile {
     /// What founding a settlement is worth, and what a coalition must hold (M5a slice AO; content
     /// API 55).
     pub founding: FoundingFile,
+    /// How price reports of other markets are held and passed on (M5b slice AP; content API 56).
+    pub reports: ReportsFile,
 }
 
 /// Factions, their petitions, refusals and revolts (M4c slices AH-AI, ADR-0017 §2-4; content API
@@ -315,6 +317,16 @@ pub(crate) struct FoundingFile {
     pub candidates: u32,
     pub buffer_months: f64,
     pub work_h_per_day: f64,
+}
+
+/// How price reports of other settlements' markets are held and passed on (M5b slice AP; content
+/// API 56). See [`civ_agents::reports::ReportParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ReportsFile {
+    pub half_life_days: f64,
+    pub max_age_days: i64,
+    pub share_told: f64,
 }
 
 /// Word of mouth and grievances (M4c slice AE, ADR-0016; content API 39). See
@@ -1540,6 +1552,11 @@ impl PeopleFile {
                 buffer_months: self.founding.buffer_months,
                 work_h_per_day: self.founding.work_h_per_day,
             },
+            reports: civ_agents::reports::ReportParams {
+                half_life_days: self.reports.half_life_days,
+                max_age_days: self.reports.max_age_days,
+                share_told: self.reports.share_told,
+            },
             names,
         }
     }
@@ -1604,6 +1621,25 @@ impl PeopleFile {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{key}` must be between {lo} and {hi} (got {v})"));
             }
+        }
+        let r = &self.reports;
+        if !(r.half_life_days.is_finite() && (1.0..=3650.0).contains(&r.half_life_days)) {
+            p.push(format!(
+                "`reports.half_life_days` must be between 1 and 3650 (got {})",
+                r.half_life_days
+            ));
+        }
+        if !(1..=3650).contains(&r.max_age_days) {
+            p.push(format!(
+                "`reports.max_age_days` must be between 1 and 3650 (got {})",
+                r.max_age_days
+            ));
+        }
+        if !(r.share_told.is_finite() && (0.0..=1.0).contains(&r.share_told)) {
+            p.push(format!(
+                "`reports.share_told` must be between 0 and 1 (got {})",
+                r.share_told
+            ));
         }
         if !(1..=256).contains(&f.candidates) {
             p.push(format!(

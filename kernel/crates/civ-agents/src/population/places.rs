@@ -11,6 +11,8 @@ use civ_core::time::DAYS_PER_YEAR;
 
 /// Purpose tag for the draw of whether a place is told at the hearth.
 pub const PURPOSE_PLACE: u64 = 0x706c_6163_6530_3031; // "place001"
+/// Purpose tag for the draw of whether a price report is told at the hearth (M5b slice AP).
+pub const PURPOSE_REPORT: u64 = 0x7072_6963_6530_3031; // "price001"
 
 impl Population {
     /// `a` and `b` keep company at the hearth: each learns where the other is from, if it is
@@ -54,6 +56,96 @@ impl Population {
         for (household, settlement, from) in learnt {
             self.known_places
                 .learn(household, settlement, day, PlaceHow::Told, Some(from));
+        }
+    }
+
+    /// `a` and `b` keep company at the hearth (M5b slice AP, ADR-0019 §1): someone from another
+    /// settlement says what their household and its workshops offer, and the listener's household
+    /// holds it as a report told by them; and each tells the other, with the content's chance, of
+    /// an offer elsewhere their household holds a newer report of than the other's does, dated
+    /// as it was seen (telling never makes a price fresher). Nobody hears of offers in their own
+    /// settlement this way: those they know as they stand.
+    pub(crate) fn share_reports(&mut self, ctx: &Ctx, a: PermanentId, b: PermanentId) {
+        use crate::reports::{PriceReport, ReportHow};
+        let home_of = |p: PermanentId| {
+            let q = self.person(p)?;
+            Some((q.household, self.household(q.household)?.settlement?))
+        };
+        let (Some(ha), Some(hb)) = (home_of(a), home_of(b)) else {
+            return;
+        };
+        let day = ctx.now.day_index();
+        let mut learnt: Vec<(PermanentId, PriceReport)> = Vec::new();
+        for ((teller, (th, ts)), (listener, (lh, ls))) in [((a, ha), (b, hb)), ((b, hb), (a, ha))] {
+            if ts != ls {
+                // What their own household and its workshops offer.
+                let own = self
+                    .household(th)
+                    .map(|x| (x.id, false, x.offers.as_slice()))
+                    .into_iter()
+                    .chain(
+                        self.firms
+                            .iter()
+                            .filter(|f| f.owner == th && f.is_open())
+                            .map(|f| (f.id, true, f.offers.as_slice())),
+                    );
+                for (seller, firm, offers) in own {
+                    for o in offers {
+                        learnt.push((
+                            lh,
+                            PriceReport {
+                                market: ts,
+                                seller,
+                                firm,
+                                good: o.good,
+                                payment: o.payment,
+                                price: o.price,
+                                ask_h: o.ask_h,
+                                units: o.units,
+                                day,
+                                how: ReportHow::Told,
+                                from: Some(teller),
+                            },
+                        ));
+                    }
+                }
+            }
+            for r in self.reports.of(th) {
+                if r.market == ls {
+                    continue;
+                }
+                let held = self.reports.of(lh);
+                let theirs = held
+                    .binary_search_by_key(&r.key(), PriceReport::key)
+                    .ok()
+                    .map(|i| &held[i]);
+                if theirs.is_some_and(|x| x.day >= r.day) {
+                    continue;
+                }
+                // Keyed by market and good, not payment: a good's terms are told together.
+                let key = [
+                    ctx.seed,
+                    PURPOSE_REPORT,
+                    teller.get(),
+                    listener.get(),
+                    r.market.get(),
+                    u64::from(r.good),
+                    ctx.now.minutes() as u64,
+                ];
+                if Rng64::from_key(&key).next_f64() < ctx.params.reports.share_told {
+                    learnt.push((
+                        lh,
+                        PriceReport {
+                            how: ReportHow::Told,
+                            from: Some(teller),
+                            ..*r
+                        },
+                    ));
+                }
+            }
+        }
+        for (household, report) in learnt {
+            self.reports.note(household, report);
         }
     }
 

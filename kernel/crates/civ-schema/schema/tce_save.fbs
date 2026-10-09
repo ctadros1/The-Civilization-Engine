@@ -768,6 +768,9 @@ table TradeRecord {
   payment: uint (id: 5);
   paid: float (id: 6);
   channel: TradeChannel = Barter (id: 7);
+  // Schema 56 (M5b slice AP, ADR-0019 §4): the buyer's settlement when it is not the market's
+  // own (0 when it is).
+  from: ulong (id: 8);
 }
 
 // A month of trade in one good: a line of the price history. `month` counts months from the
@@ -1746,6 +1749,28 @@ table ContactSave {
   marriages: uint (id: 5);
   // Schema 53 (M5a slice AN): people who moved from `from` to live in `to` with their household.
   moved: uint (id: 6);
+  // Schema 56 (M5b slice AP): purchases people of `from` made at sellers' doors in `to`, and
+  // their trips there that bought nothing, by why (sold out, terms, payment).
+  bought: uint (id: 7);
+  missed: [uint] (id: 8);
+}
+
+// Schema 56 (M5b slice AP, ADR-0019 §1): what `household` believes `seller` (a workshop if
+// `firm`) of `market` offers of `good`, asked in `payment` at `price` a unit, as seen or told on
+// `day`. `good` and `payment` index PlacesSave.goods; `how`: 0 seen, 1 told; `from` 0 when seen.
+table PriceReportSave {
+  household: ulong (id: 0);
+  market: ulong (id: 1);
+  seller: ulong (id: 2);
+  firm: bool (id: 3);
+  good: uint (id: 4);
+  payment: uint (id: 5);
+  price: float (id: 6);
+  ask_h: float (id: 7);
+  units: float (id: 8);
+  day: long (id: 9);
+  how: ubyte (id: 10);
+  from: ulong (id: 11);
 }
 
 // Schema 53 (M5a slice AN, ADR-0018 §5): a household's leaning toward moving to `settlement`,
@@ -1775,6 +1800,10 @@ table PlacesSave {
   review_due: [ulong] (id: 4);
   // Schema 55 (M5a slice AO): every coalition gathered to found a settlement, in order.
   coalitions: [CoalitionSave] (id: 5);
+  // Schema 56 (M5b slice AP): every household's price reports, by household, market and good,
+  // and the goods they name, by content id.
+  reports: [PriceReportSave] (id: 6);
+  goods: [string] (id: 7);
 }
 
 // Schema 55 (M5a slice AO): households gathered to found a settlement. `lacking`: 0 nothing,

@@ -836,6 +836,18 @@ w_seek = 6.0
 seek_days = 180
 revisit_days = 30.0
 
+[reports]                        # prices heard of elsewhere (M5b slice AP, ADR-0019 §1); design priors
+# A household knows another settlement's offers only by report: what a member saw at a seller's
+# door there, or heard at a hearth from that seller's people or from someone who held the report
+# (research 08-12 §1.6: merchants know dated observations, not today's prices elsewhere). How
+# much a report is still believed halves every `half_life_days`, and it is let go after
+# `max_age_days`. Someone tells a companion at the hearth of an offer elsewhere their household
+# holds a newer report of with `share_told` (09-16 §2.2: 0.05-0.25 for routine news). The
+# research gives no half-life for a price heard of; a month is a design prior.
+half_life_days = 30.0
+max_age_days = 120
+share_told = 0.15
+
 [moving]                         # moving to another settlement (M5a slice AN, ADR-0018 §5); design priors
 # Once a year on a day of its own, and when it forms, a household weighs joining each settlement it
 # knows against staying (research 05-06 §5.1: expected livelihood, support, safety and the cost of

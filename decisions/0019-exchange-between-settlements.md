@@ -45,17 +45,20 @@ brief (`docs/briefs/m5-trade.md`). Their main points:
 ### 1. A household buys elsewhere only by report
 
 - A household reads its own settlement's offers as they stand, as today. Another settlement's it
-  knows only by **price reports**: per household, per market and good, the latest terms it holds
-  (payment good and price a unit, the seller and its ask in hours, the units offered), the day
-  they were seen, and how (seen by a member, or told by whom).
+  knows only by **price reports**: per household, per market, good and payment good (a seller
+  takes several goods for one, and a buyer goes by terms in what it holds), the latest terms it
+  holds (price a unit, the seller and its ask in hours, the units offered), the day they were
+  seen, and how (seen by a member, or told by whom). Of two as new, one seen beats one told.
 - Reports start with a member who was there: one who buys at a seller's door sees that seller's
   offers; one who keeps company at another settlement's hearth hears the offers of the
   households of those they keep company with. They pass between companions at the hearth at a
   keyed chance, as routine news does (09-16 §2.2's 0.05–0.25), and a member's report is the
   household's at once. A report's weight halves with its age, by a half-life that is a tuning
   value.
-- Reports are kept per household, like the places it knows (ADR-0018 §4), not per person: at
-  8,000 people that is about 4 MB, and a household chooses its purchases together.
+- Reports are kept per household, like the places it knows (ADR-0018 §4), not per person: some
+  5 KB a household that holds them (slice AP measured about 114 reports a household among three
+  settlements), so several megabytes at 8,000 people, and a household chooses its purchases
+  together.
 - No household reads another market's truth, and nothing names one settlement's price in
   another's rules.
 
@@ -67,7 +70,9 @@ brief (`docs/briefs/m5-trade.md`). Their main points:
   own walk limit and daylight rule; `trade` within a settlement is unchanged.
 - At the door the seller's terms as they stand decide. A stale report can fail (sold out, the
   terms changed, nothing the buyer holds is accepted), and the failure is recorded with its
-  reason; the buyer's report is corrected by what it saw.
+  reason (or that the household no longer needed what it went for); the buyer's report is
+  corrected by what it saw. What the seller no longer offers is held as none left, dated, so that
+  older word of it is not believed again. One of a household goes at a time (slice AP).
 
 ### 3. Goods change hands at the seller's door
 

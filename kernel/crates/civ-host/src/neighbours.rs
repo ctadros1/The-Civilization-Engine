@@ -98,7 +98,9 @@ pub struct Outcome {
 }
 
 /// Visits, hours, marriages and people moved from one settlement to another.
-type Totals = BTreeMap<(PermanentId, PermanentId), (u32, f64, u32, u32)>;
+/// Per pair of settlements: visits, hours at the hearth, marriages, people moved, purchases and
+/// trips to buy that bought nothing.
+type Totals = BTreeMap<(PermanentId, PermanentId), (u32, f64, u32, u32, u32, u32)>;
 
 /// Makes and lives the world, writing the report to `out`.
 pub fn run(
@@ -290,7 +292,8 @@ fn wave_point(sim: &Sim, apart_m: f32) -> Option<(f32, f32)> {
         .min_by(|a, b| d(a).total_cmp(&d(b)))
 }
 
-/// Visits, hours, marriages and people moved between each pair of settlements, all years.
+/// Visits, hours, marriages, people moved, purchases and trips that bought nothing between each
+/// pair of settlements, all years.
 fn contact_totals(sim: &Sim) -> Totals {
     let mut out = Totals::new();
     for (&(_, a, b), c) in &sim.people().contacts.years {
@@ -299,6 +302,8 @@ fn contact_totals(sim: &Sim) -> Totals {
         e.1 += c.minutes as f64 / 60.0;
         e.2 += c.marriages;
         e.3 += c.moved;
+        e.4 += c.bought;
+        e.5 += c.missed.iter().sum::<u32>();
     }
     out
 }
@@ -391,12 +396,14 @@ fn report_year(
     for (&(a, b), now) in &contact_totals(sim) {
         let was = contact_before.get(&(a, b)).copied().unwrap_or_default();
         let (v, h, m, mv) = (now.0 - was.0, now.1 - was.1, now.2 - was.2, now.3 - was.3);
-        if v + m + mv == 0 {
+        let (bought, missed) = (now.4 - was.4, now.5 - was.5);
+        if v + m + mv + bought + missed == 0 {
             continue;
         }
         writeln!(
             out,
-            "  {} → {}: {v} visits ({h:.0} h), {m} marriages, {mv} moved",
+            "  {} → {}: {v} visits ({h:.0} h), {m} marriages, {mv} moved, {bought} purchases, \
+             {missed} trips that bought nothing",
             place(sim, Some(a)),
             place(sim, Some(b))
         )?;
@@ -510,15 +517,33 @@ fn report_end(sim: &Sim, outcome: &Outcome, out: &mut dyn Write) -> anyhow::Resu
     for ((a, c), t) in contact_totals(sim) {
         writeln!(
             out,
-            "  {} → {}: {} visits ({:.0} h), {} marriages, {} moved",
+            "  {} → {}: {} visits ({:.0} h), {} marriages, {} moved, {} purchases, {} trips that \
+             bought nothing",
             place(sim, Some(a)),
             place(sim, Some(c)),
             t.0,
             t.1,
             t.2,
-            t.3
+            t.3,
+            t.4,
+            t.5
         )?;
     }
+    // What households believe of other settlements' offers (M5b slice AP).
+    let held = pop.reports.held.values().map(Vec::len).sum::<usize>();
+    let none_left = pop
+        .reports
+        .held
+        .values()
+        .flatten()
+        .filter(|r| r.units <= 0.0)
+        .count();
+    writeln!(
+        out,
+        "price reports: {held} held by {} households, {none_left} of them that a seller had none \
+         left",
+        pop.reports.held.len()
+    )?;
     if pop.influences.waves.is_empty() {
         writeln!(out, "no wave was sent")?;
     }

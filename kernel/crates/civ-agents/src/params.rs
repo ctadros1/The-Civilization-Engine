@@ -55,11 +55,14 @@ pub enum Behavior {
     /// Walk to the hearth of another settlement the household knows, keep company there and
     /// walk home within the day (M5a slice AM, ADR-0018 §2: presence, never residence).
     Visit,
+    /// Walk to a seller's door in another settlement the household holds a price report of, buy
+    /// there if its terms still serve, and walk home within the day (M5b slice AP, ADR-0019 §2).
+    Fetch,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 20] = [
+    pub const ALL: [Behavior; 21] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -80,6 +83,7 @@ impl Behavior {
         Behavior::Watch,
         Behavior::Petition,
         Behavior::Visit,
+        Behavior::Fetch,
     ];
 
     /// The authored name of a behavior.
@@ -105,6 +109,7 @@ impl Behavior {
             Behavior::Watch => "watch",
             Behavior::Petition => "petition",
             Behavior::Visit => "visit",
+            Behavior::Fetch => "fetch",
         }
     }
 
@@ -1383,6 +1388,9 @@ pub struct PeopleParams {
     /// What founding a settlement of its own is worth to a household, and what a coalition must
     /// hold to go (M5a slice AO).
     pub founding: crate::places::FoundingParams,
+    /// How price reports of other settlements' markets are held and passed on (M5b slice AP,
+    /// ADR-0019 §1).
+    pub reports: crate::reports::ReportParams,
     /// Names.
     pub names: NameParams,
 }

@@ -248,6 +248,7 @@ struct HomeField {
 #[derive(Debug, Default)]
 struct HouseholdView {
     trade: Option<Option<decide::TradeOption>>,
+    fetch: Option<Option<decide::TradeOption>>,
     giver: Option<Option<GiverOption>>,
     job: Option<Option<decide::JobOption>>,
     take: Option<Option<crime::TakeTarget>>,
@@ -260,6 +261,7 @@ struct HouseholdView {
 /// A [`HouseholdView`] during one decision, filled as its options are first needed.
 struct ViewCells {
     trade: OnceCell<Option<decide::TradeOption>>,
+    fetch: OnceCell<Option<decide::TradeOption>>,
     giver: OnceCell<Option<GiverOption>>,
     job: OnceCell<Option<decide::JobOption>>,
     take: OnceCell<Option<crime::TakeTarget>>,
@@ -286,6 +288,7 @@ impl HouseholdView {
         };
         ViewCells {
             trade: cell(self.trade),
+            fetch: cell(self.fetch),
             giver: cell(self.giver),
             job: cell(self.job),
             take: cell(self.take),
@@ -300,6 +303,7 @@ impl ViewCells {
     fn kept(self) -> HouseholdView {
         HouseholdView {
             trade: self.trade.into_inner(),
+            fetch: self.fetch.into_inner(),
             giver: self.giver.into_inner(),
             job: self.job.into_inner(),
             take: self.take.into_inner(),
@@ -463,6 +467,9 @@ pub struct Population {
     pub review_due: BTreeSet<PermanentId>,
     /// Every coalition gathered to found a settlement, in the order gathered (M5a slice AO).
     pub coalitions: Vec<crate::places::Coalition>,
+    /// What each household believes other settlements' sellers offer (M5b slice AP, ADR-0019
+    /// §1).
+    pub reports: crate::reports::PriceReports,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -1090,6 +1097,10 @@ impl Population {
         let mut out = self
             .known_places
             .problems(|h| self.household(h).map(|x| x.settlement), |_| true);
+        out.extend(
+            self.reports
+                .problems(|h| self.household(h).map(|x| x.settlement)),
+        );
         for &(year, from, to) in self.contacts.years.keys() {
             if from == to || year < 0 {
                 out.push(format!(
@@ -2955,6 +2966,29 @@ impl Population {
                 .trade
                 .get_or_init(|| self.best_purchase(ctx, &hh, &stores, reach))
         };
+        // One in another settlement, by a report (M5b slice AP, ADR-0019 §2). One of a household
+        // goes at a time: what another is on the way to buy is not home yet, and two would walk
+        // for the same thing.
+        let fetch = || {
+            let another = hh
+                .members
+                .iter()
+                .filter(|&&m| Some(m) != me)
+                .filter_map(|&m| self.person(m))
+                .any(|q| {
+                    catalog
+                        .activities
+                        .get(q.act.def as usize)
+                        .is_some_and(|a| a.behavior == Behavior::Fetch)
+                });
+            if another {
+                return Err(Reason::AnotherGoes);
+            }
+            hh_view
+                .fetch
+                .get_or_init(|| self.best_fetch(ctx, &hh, &stores, reach))
+                .ok_or(Reason::NoReport)
+        };
         // Paid work at a workshop of another household (slice J).
         let session_min = catalog
             .activities
@@ -3269,6 +3303,7 @@ impl Population {
             water,
             &giver,
             &trade,
+            &fetch,
             &job,
             build,
             &shop,
@@ -3383,7 +3418,11 @@ impl Population {
             .is_some_and(|a| {
                 matches!(
                     a.behavior,
-                    Behavior::Trade | Behavior::Ask | Behavior::Hire | Behavior::Take
+                    Behavior::Trade
+                        | Behavior::Fetch
+                        | Behavior::Ask
+                        | Behavior::Hire
+                        | Behavior::Take
                 )
             });
         if claims {
@@ -3825,6 +3864,7 @@ impl Population {
                 | Behavior::Farm
                 | Behavior::Ask
                 | Behavior::Trade
+                | Behavior::Fetch
                 | Behavior::Hire
                 | Behavior::Build
                 | Behavior::Take
@@ -3963,7 +4003,7 @@ impl Population {
                     let who = p.id;
                     self.stood_watch(who, minutes);
                 }
-                Some(Behavior::Trade) => {
+                Some(Behavior::Trade | Behavior::Fetch) => {
                     if let Target::Household(seller) | Target::Firm(seller) = p.act.target {
                         let (who, household) = (p.id, p.household);
                         self.settle_trade(ctx, household, seller, who);
@@ -4018,7 +4058,11 @@ impl Population {
                 Behavior::Farm | Behavior::Build | Behavior::Make | Behavior::Try => {
                     self.changed(household);
                 }
-                Behavior::Ask | Behavior::Trade | Behavior::Hire | Behavior::Take => {
+                Behavior::Ask
+                | Behavior::Trade
+                | Behavior::Fetch
+                | Behavior::Hire
+                | Behavior::Take => {
                     self.views.clear();
                 }
                 _ => {}

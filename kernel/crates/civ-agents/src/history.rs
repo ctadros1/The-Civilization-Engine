@@ -154,11 +154,15 @@ pub enum Reason {
     /// Excluded: no other settlement their household knows lies within a day's walk there and
     /// back, in daylight.
     NoPlaceToVisit = 135,
+    NoReport = 136,
+    /// Excluded: someone of their household is already on the way to buy elsewhere (M5b slice
+    /// AP).
+    AnotherGoes = 137,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 67] = [
+    pub const ALL: [Reason; 69] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -226,6 +230,8 @@ impl Reason {
         Reason::Hurt,
         Reason::Company,
         Reason::NoPlaceToVisit,
+        Reason::NoReport,
+        Reason::AnotherGoes,
     ];
 
     /// The reason with this code.
@@ -303,6 +309,10 @@ impl Reason {
             Reason::Hurt => "a blow keeps them from work",
             Reason::Company => "those they would see there",
             Reason::NoPlaceToVisit => "no settlement they know within a day's walk",
+            Reason::NoReport => "no offer elsewhere they know of is worth the walk",
+            Reason::AnotherGoes => {
+                "someone of their household is already on the way to buy elsewhere"
+            }
         }
     }
 }

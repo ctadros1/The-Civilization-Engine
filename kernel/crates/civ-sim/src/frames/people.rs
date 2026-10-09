@@ -311,6 +311,36 @@ pub fn contacts_words(sim: &Sim, s: PermanentId) -> String {
                     place_name(sim, Some(to))
                 ));
             }
+            // Purchases at sellers' doors elsewhere, by report (M5b slice AP).
+            if to == s && c.bought > 0 {
+                lines.push(format!(
+                    "{} here by people of {}",
+                    count(c.bought, "purchase", "purchases"),
+                    place_name(sim, Some(from))
+                ));
+            }
+            if from == s && c.bought > 0 {
+                lines.push(format!(
+                    "{} at {}",
+                    count(c.bought, "purchase", "purchases"),
+                    place_name(sim, Some(to))
+                ));
+            }
+            let missed: u32 = c.missed.iter().sum();
+            if from == s && missed > 0 {
+                let why: Vec<String> = civ_agents::reports::Missed::ALL
+                    .iter()
+                    .zip(c.missed)
+                    .filter(|&(_, n)| n > 0)
+                    .map(|(m, n)| format!("{n} where {}", m.words()))
+                    .collect();
+                lines.push(format!(
+                    "{} to buy at {} that bought nothing ({})",
+                    count(missed, "trip", "trips"),
+                    place_name(sim, Some(to)),
+                    why.join(", ")
+                ));
+            }
         }
         if !lines.is_empty() {
             let when = if year == this {

@@ -1,0 +1,23 @@
+# Going to a seller's door in another settlement, by a price report the household holds, to
+# exchange goods at the terms it posts there now, and walking home the same day (M5b slice AP,
+# ADR-0019 §2). Chosen as a purchase at home is, the offer that saves the household the most of
+# its own hours, the walk there and back counted and what it saves believed as far as the report
+# still is (research 08-12 §1.6: dated observations, not today's prices elsewhere). At the door
+# the seller's terms as they stand decide; a report gone stale buys nothing. Reached in daylight;
+# `max_walk_minutes` is a day's range there and back (research 09-16 §2.1: about 25 km a day on
+# foot; two hours each way is about 10 km), a design prior as a visit's.
+kind = "activity"
+id = "core:activity/fetch"
+name = "Fetch"
+doing = "fetching from another settlement"
+behavior = "fetch"
+par = 1.5
+min_age_years = 14.0
+max_age_years = 90.0
+min_minutes = 15                 # looking the goods over, settling, loading them for home
+max_minutes = 15
+daylight_only = true
+max_walk_minutes = 120
+technique = ""
+tools = []
+rate = 1.0

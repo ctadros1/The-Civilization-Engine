@@ -109,8 +109,8 @@ use super::{
     SCHEMA_V25, SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31, SCHEMA_V32,
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
-    SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, finish, section,
-    single_chunk, unreadable,
+    SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, finish,
+    section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -263,7 +263,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             0,
             encode_influences(&sim.people.influences, rules),
         ),
-        section(SECTION_PLACES, 0, encode_places(&sim.people)),
+        section(SECTION_PLACES, 0, encode_places(&sim.people, &goods)),
     ]
 }
 
@@ -394,6 +394,8 @@ enum Schema {
     V54,
     /// Coalitions gathered to found settlements (M5a slice AO).
     V55,
+    /// Price reports and purchases between settlements (M5b slice AP).
+    V56,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -463,7 +465,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V52 => Schema::V52,
         SCHEMA_V53 => Schema::V53,
         SCHEMA_V54 => Schema::V54,
-        SAVE_SCHEMA_VERSION => Schema::V55,
+        SCHEMA_V55 => Schema::V55,
+        SAVE_SCHEMA_VERSION => Schema::V56,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -655,7 +658,7 @@ pub(super) fn decode<R: Read + Seek>(
     // The places households know (schema 51); before them a household knew none but its own.
     if schema >= Schema::V51 {
         let bytes = single_chunk(reader, SECTION_PLACES)?;
-        let d = decode_places(&bytes)?;
+        let d = decode_places(&bytes, rules)?;
         (
             people.known_places,
             people.contacts,
@@ -663,6 +666,7 @@ pub(super) fn decode<R: Read + Seek>(
             people.leanings,
             people.review_due,
             people.coalitions,
+            people.reports,
         ) = (
             d.known,
             d.contacts,
@@ -670,6 +674,7 @@ pub(super) fn decode<R: Read + Seek>(
             d.leanings,
             d.due,
             d.coalitions,
+            d.reports,
         );
     }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
@@ -2644,7 +2649,8 @@ fn carried(
         | Schema::V52
         | Schema::V53
         | Schema::V54
-        | Schema::V55 => {
+        | Schema::V55
+        | Schema::V56 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2809,7 +2815,8 @@ fn decode_households(
             | Schema::V52
             | Schema::V53
             | Schema::V54
-            | Schema::V55 => {
+            | Schema::V55
+            | Schema::V56 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -4637,6 +4644,7 @@ fn encode_markets(pop: &Population, goods: &[&str]) -> Vec<u8> {
                             paid: t.paid,
                             // The ledger's channel codes.
                             channel: save::TradeChannel(t.channel as u8),
+                            from: t.from.map_or(0, PermanentId::get),
                         },
                     )
                 })
@@ -4744,6 +4752,7 @@ fn decode_markets(bytes: &[u8], rules: &Rules) -> Result<Vec<Market>, LoadError>
                 payment,
                 paid: r.paid(),
                 channel,
+                from: PermanentId::from_raw(r.from()),
             });
         }
         for h in m.history().iter().flatten() {
@@ -6277,8 +6286,11 @@ fn decode_factions(
 
 // ---- the observer's interventions (M4c slice AJ, ADR-0016 §5) -----------------------------------
 
-fn encode_places(people: &Population) -> Vec<u8> {
+fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
+    // The goods the price reports name, written only with reports to read them by (a world with
+    // none saves its places as before schema 56).
+    let good_dictionary = (!people.reports.held.is_empty()).then(|| strings(&mut fbb, goods));
     let list: Vec<_> = people
         .known_places
         .known
@@ -6306,6 +6318,11 @@ fn encode_places(people: &Population) -> Vec<u8> {
         .years
         .iter()
         .map(|(&(year, from, to), c)| {
+            let missed = c
+                .missed
+                .iter()
+                .any(|&n| n > 0)
+                .then(|| fbb.create_vector(&c.missed));
             save::ContactSave::create(
                 &mut fbb,
                 &save::ContactSaveArgs {
@@ -6316,6 +6333,8 @@ fn encode_places(people: &Population) -> Vec<u8> {
                     minutes: c.minutes,
                     marriages: c.marriages,
                     moved: c.moved,
+                    bought: c.bought,
+                    missed,
                 },
             )
         })
@@ -6380,6 +6399,32 @@ fn encode_places(people: &Population) -> Vec<u8> {
         })
         .collect();
     let coalitions = fbb.create_vector(&coalitions);
+    let reports: Vec<_> = people
+        .reports
+        .held
+        .iter()
+        .flat_map(|(&h, list)| list.iter().map(move |r| (h, r)))
+        .map(|(h, r)| {
+            save::PriceReportSave::create(
+                &mut fbb,
+                &save::PriceReportSaveArgs {
+                    household: h.get(),
+                    market: r.market.get(),
+                    seller: r.seller.get(),
+                    firm: r.firm,
+                    good: u32::from(r.good),
+                    payment: u32::from(r.payment),
+                    price: r.price,
+                    ask_h: r.ask_h,
+                    units: r.units,
+                    day: r.day,
+                    how: r.how.code(),
+                    from: r.from.map_or(0, PermanentId::get),
+                },
+            )
+        })
+        .collect();
+    let reports = (!reports.is_empty()).then(|| fbb.create_vector(&reports));
     let root = save::PlacesSave::create(
         &mut fbb,
         &save::PlacesSaveArgs {
@@ -6389,6 +6434,8 @@ fn encode_places(people: &Population) -> Vec<u8> {
             leanings: Some(leanings),
             review_due: Some(due),
             coalitions: Some(coalitions),
+            reports,
+            goods: good_dictionary,
         },
     );
     finish(fbb, root)
@@ -6404,9 +6451,10 @@ struct PlacesDecoded {
     leanings: BTreeMap<PermanentId, civ_agents::places::Leaning>,
     due: std::collections::BTreeSet<PermanentId>,
     coalitions: Vec<civ_agents::places::Coalition>,
+    reports: civ_agents::reports::PriceReports,
 }
 
-fn decode_places(bytes: &[u8]) -> Result<PlacesDecoded, LoadError> {
+fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError> {
     use civ_agents::places::{Contact, Contacts, KnownPlace, PlaceHow, Places};
     let root =
         flatbuffers::root::<save::PlacesSave>(bytes).map_err(|e| unreadable(SECTION_PLACES, &e))?;
@@ -6427,6 +6475,15 @@ fn decode_places(bytes: &[u8]) -> Result<PlacesDecoded, LoadError> {
                 minutes: c.minutes(),
                 marriages: c.marriages(),
                 moved: c.moved(),
+                bought: c.bought(),
+                missed: {
+                    use civ_agents::reports::Missed;
+                    let mut m = [0u32; Missed::COUNT];
+                    for (i, n) in c.missed().iter().flatten().take(Missed::COUNT).enumerate() {
+                        m[i] = n;
+                    }
+                    m
+                },
             },
         );
     }
@@ -6491,6 +6548,37 @@ fn decode_places(bytes: &[u8]) -> Result<PlacesDecoded, LoadError> {
     if coalitions.windows(2).any(|w| w[0].id >= w[1].id) {
         return Err(LoadError::Malformed("coalitions out of order".to_owned()));
     }
+    // Price reports (schema 56): a report of a good the content no longer has is forgotten.
+    let mut reports = civ_agents::reports::PriceReports::default();
+    let report_goods = good_map(&read_strings(root.goods()), rules);
+    for r in root.reports().iter().flatten() {
+        use civ_agents::reports::{PriceReport, ReportHow};
+        let household = required(r.household(), "a price report's household")?;
+        let what = || format!("a price report of household {household}");
+        let good = saved_good(&report_goods, r.good(), what)?;
+        let payment = saved_good(&report_goods, r.payment(), what)?;
+        let (Some(good), Some(payment)) = (good, payment) else {
+            continue;
+        };
+        reports.note(
+            household,
+            PriceReport {
+                market: required(r.market(), "a price report's market")?,
+                seller: required(r.seller(), "a price report's seller")?,
+                firm: r.firm(),
+                good,
+                payment,
+                price: r.price(),
+                ask_h: r.ask_h(),
+                units: r.units(),
+                day: r.day(),
+                how: ReportHow::from_code(r.how()).ok_or_else(|| {
+                    LoadError::Malformed(format!("unknown way of a price report {}", r.how()))
+                })?,
+                from: PermanentId::from_raw(r.from()),
+            },
+        );
+    }
     let mut out = Places::default();
     for k in root.list().iter().flatten() {
         let id = |raw: u64, what: &str| {
@@ -6525,6 +6613,7 @@ fn decode_places(bytes: &[u8]) -> Result<PlacesDecoded, LoadError> {
         leanings,
         due,
         coalitions,
+        reports,
     })
 }
 

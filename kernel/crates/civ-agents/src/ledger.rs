@@ -135,6 +135,8 @@ pub struct Trade {
     pub paid: f32,
     /// Barter, or a sale for the settlement's money.
     pub channel: Channel,
+    /// The buyer's settlement, when it is not the market's own (M5b slice AP, ADR-0019 §4).
+    pub from: Option<PermanentId>,
 }
 
 /// Amounts of each good moved between households, by channel, since the counters began:

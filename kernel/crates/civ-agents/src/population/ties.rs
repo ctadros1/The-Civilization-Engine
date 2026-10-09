@@ -216,6 +216,8 @@ impl Population {
             self.share_ideologies(ctx, me, q);
             // And of the other settlements they know (M5a slice AM, ADR-0018 §4).
             self.share_places(ctx, me, q);
+            // And of what is offered elsewhere (M5b slice AP, ADR-0019 §1).
+            self.share_reports(ctx, me, q);
         }
     }
 

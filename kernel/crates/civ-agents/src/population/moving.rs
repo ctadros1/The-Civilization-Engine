@@ -352,7 +352,9 @@ impl Population {
         }
         self.sort_members(id);
         self.known_places.bring(from, id, Some(to));
+        self.reports.bring(from, id, Some(to));
         self.known_places.forget(from);
+        self.reports.forget(from);
         let day = now.day_index();
         self.known_places
             .learn(id, left, day, PlaceHow::Lived, None);
@@ -496,6 +498,7 @@ impl Population {
         self.insert_person(person);
         self.note_residence(id, Some(to), now, ResidenceWhy::Exiled);
         self.known_places.bring(from, hh, Some(to));
+        self.reports.bring(from, hh, Some(to));
         let day = now.day_index();
         if let Some(left) = left {
             self.known_places

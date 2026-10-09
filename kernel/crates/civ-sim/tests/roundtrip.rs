@@ -2241,6 +2241,27 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
 }
 
 #[test]
+fn a_schema_55_save_loads_with_no_price_report_or_purchase_between_settlements() {
+    // A schema-55 save, from before households bought from other settlements (M5b slice AP).
+    let sim = load_first();
+    assert!(sim.people().reports.held.is_empty());
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V55;
+    let path = republish("slice-ao", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-55 save loads");
+    assert!(loaded.people().reports.held.is_empty());
+    assert!(
+        loaded
+            .people()
+            .contacts
+            .years
+            .values()
+            .all(|c| c.bought == 0 && c.missed.iter().all(|&n| n == 0))
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_54_save_loads_with_no_coalition_gathered() {
     // A schema-54 save, from before households gathered to found settlements (M5a slice AO).
     let sim = load_first();

@@ -796,6 +796,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** moves in Gate B, which the demo's worlds can now calibrate; scouting and moving in stages; bargaining within a coalition. M5a is complete; M5b, trade and diffusion, is next.
 
+## 2026-10-09 — M5b slice AP, step one: buying from a neighbour by report
+
+**Goal:** a household should be able to buy from another settlement's sellers, but only by what its people saw there or were told, dated and believed less with age, with the trade settling at the seller's door on the terms posted there now (plan §7, ADR-0019 §1–§4; research 08-12 §1.6, 08-05 §1.7, 09-16 §2.2).
+
+**What changed:** price reports per household by market, good and payment, heard at another settlement's hearth from its people, passed between companions as old as they are, and seen at a seller's door; a `fetch` activity that takes the purchase choice to the reported offers within two hours' walk, one of a household at a time; trips that buy nothing counted with why; the trade's settlement recorded and tallied in the seller's market; purchases and missed trips counted per pair of settlements, in the contact words and the neighbours report. Saves schema 56, content API 56.
+
+**Findings:** the first probe's buyer never went: its one report of a seller said "sickles for hoes", which it could not spare, though the seller took grain too, so reports are now held per payment. A buyer who found a seller sold out was told the older report again that evening, so what a seller no longer has is now remembered, dated. In the demo world two members of one household walked to the same seller on the same day, so one of a household goes at a time. Nearly every miss was first counted as "terms" because the seller still offered other goods; judged by what the household wanted, they were sold out. At the content's walking weight a missing tool is worth an hour's walk each way, so the tests weigh the walk lower rather than tuning the content.
+
+**Evidence:** digest comparisons with the build before (a village of 1,000 for 30 days and the M5a demo's year-10 world for 90 days, with the content less `fetch.toml`: identical but the content's own section and, in the demo world, the reports people heard); four integration tests and the report unit tests, each rule checked by mutation; the demo world lived two more years with the full content (18 purchases between settlements, all the remembered ones sickles; 12 trips that bought nothing, 10 of them to sellers sold out); the whole kernel suite, clippy, the smoke and the schema check.
+
+**Open:** step two: the inspector's reports, the market panel's outside buyers and wire 1.54. Then fetching to resell, the replacement anchor and the convergence record (AQ).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

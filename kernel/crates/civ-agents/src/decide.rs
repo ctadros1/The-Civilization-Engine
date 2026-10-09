@@ -513,6 +513,7 @@ pub fn candidates(
     water: Option<WaterOption>,
     giver: &dyn Fn() -> Option<GiverOption>,
     trade: &dyn Fn() -> Option<TradeOption>,
+    fetch: &dyn Fn() -> Result<TradeOption, Reason>,
     job: &dyn Fn() -> Option<JobOption>,
     build: Result<BuildOption, Reason>,
     shop: &Workshop,
@@ -1005,15 +1006,30 @@ pub fn candidates(
                 ];
                 out.push(finish(id, Target::Household(t.household), terms, steps));
             }
-            Behavior::Trade => {
+            Behavior::Trade | Behavior::Fetch => {
                 // Buy what is cheaper to get from a neighbour than to make or gather (research
-                // 08-05 §1.4: a buyer compares the few sellers it knows by payment and walk).
-                let Some(t) = trade() else {
-                    excluded.push((id, Reason::NoOffer));
-                    continue;
+                // 08-05 §1.4: a buyer compares the few sellers it knows by payment and walk), or,
+                // by a report, from a seller in another settlement (M5b slice AP, ADR-0019 §2):
+                // reached in daylight, home within the day.
+                let fetching = def.behavior == Behavior::Fetch;
+                let found = if fetching {
+                    fetch()
+                } else {
+                    trade().ok_or(Reason::NoOffer)
+                };
+                let t = match found {
+                    Ok(t) => t,
+                    Err(why) => {
+                        excluded.push((id, why));
+                        continue;
+                    }
                 };
                 if t.walk_min > f64::from(def.max_walk_minutes) {
                     excluded.push((id, Reason::Unreachable));
+                    continue;
+                }
+                if fetching && f.daylight_left_min < t.walk_min {
+                    excluded.push((id, Reason::NotInDark));
                     continue;
                 }
                 match t.worth {
@@ -1618,6 +1634,7 @@ mod tests {
             None,
             &|| None,
             &|| None,
+            &|| Err(Reason::NoReport),
             &|| None,
             Err(Reason::Built),
             &shop,
@@ -1658,6 +1675,7 @@ mod tests {
                 None,
                 &|| None,
                 &|| None,
+                &|| Err(Reason::NoReport),
                 &|| None,
                 Err(Reason::Built),
                 &shop,
@@ -1788,6 +1806,7 @@ mod tests {
                 None,
                 &|| None,
                 &|| None,
+                &|| Err(Reason::NoReport),
                 &|| None,
                 Err(Reason::Built),
                 &shop,
@@ -1932,6 +1951,7 @@ mod tests {
                 Some(water),
                 &|| None,
                 &|| None,
+                &|| Err(Reason::NoReport),
                 &|| None,
                 Err(Reason::Built),
                 &shop,

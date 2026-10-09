@@ -1760,6 +1760,7 @@ pub(crate) mod tests {
             places: crate::places::PlacesParams::core(),
             moving: crate::places::MovingParams::core(),
             founding: crate::places::FoundingParams::core(),
+            reports: crate::reports::ReportParams::core(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

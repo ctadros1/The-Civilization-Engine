@@ -21,6 +21,7 @@
 //! `--groups N` founds N groups of `--people` each, their sites chosen together (ADR-0018 §6);
 //! `--known` has them know where each other camped.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 use std::time::Instant;
@@ -258,6 +259,39 @@ fn main() {
              {moved} people moved between settlements, {left} left the map",
             minutes as f64 / 60.0
         );
+        // Buying between settlements by report (M5b slice AP).
+        let pop = sim.people();
+        let (bought, missed) = pop.contacts.years.values().fold(
+            (0u32, [0u32; civ_agents::reports::Missed::COUNT]),
+            |(b, mut m), c| {
+                for (x, n) in m.iter_mut().zip(c.missed) {
+                    *x += n;
+                }
+                (b + c.bought, m)
+            },
+        );
+        println!(
+            "reports: {} held by {} households; {bought} purchases between settlements, trips \
+             that bought nothing: {} sold out, {} terms, {} payment, {} no longer needed",
+            pop.reports.held.values().map(Vec::len).sum::<usize>(),
+            pop.reports.held.len(),
+            missed[0],
+            missed[1],
+            missed[2],
+            missed[3]
+        );
+        // What the latest trades each market remembers sold to buyers from elsewhere.
+        let mut from_elsewhere: BTreeMap<&str, usize> = BTreeMap::new();
+        for t in pop
+            .markets
+            .iter()
+            .flat_map(|m| m.recent.iter())
+            .filter(|t| t.from.is_some())
+        {
+            let id = &sim.rules().catalog.goods[usize::from(t.good)].id;
+            *from_elsewhere.entry(id.as_str()).or_default() += 1;
+        }
+        println!("bought by people of other settlements, latest trades: {from_elsewhere:?}");
         // Ties (ADR-0014): how many, and what last moved them.
         let ties = &sim.people().ties;
         let holders = ties.holders();

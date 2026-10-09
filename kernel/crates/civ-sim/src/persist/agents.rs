@@ -110,7 +110,7 @@ use super::{
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
-    finish, section, single_chunk, unreadable,
+    SCHEMA_V57, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -398,6 +398,8 @@ enum Schema {
     V56,
     /// The convergence record (M5b slice AQ).
     V57,
+    /// Errands to fetch goods to sell at home (M5b slice AQ, step two).
+    V58,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -469,7 +471,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V54 => Schema::V54,
         SCHEMA_V55 => Schema::V55,
         SCHEMA_V56 => Schema::V56,
-        SAVE_SCHEMA_VERSION => Schema::V57,
+        SCHEMA_V57 => Schema::V57,
+        SAVE_SCHEMA_VERSION => Schema::V58,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2656,7 +2659,8 @@ fn carried(
         | Schema::V54
         | Schema::V55
         | Schema::V56
-        | Schema::V57 => {
+        | Schema::V57
+        | Schema::V58 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2823,7 +2827,8 @@ fn decode_households(
             | Schema::V54
             | Schema::V55
             | Schema::V56
-            | Schema::V57 => {
+            | Schema::V57
+            | Schema::V58 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -6298,9 +6303,11 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
     // The goods the price reports and the convergence record name, written only with those to
     // read them by (a world with none saves its places as before schema 56).
     let conv = &people.convergence;
-    let good_dictionary =
-        (!people.reports.held.is_empty() || !conv.gaps.is_empty() || !conv.carried.is_empty())
-            .then(|| strings(&mut fbb, goods));
+    let good_dictionary = (!people.reports.held.is_empty()
+        || !people.reports.errands.is_empty()
+        || !conv.gaps.is_empty()
+        || !conv.carried.is_empty())
+    .then(|| strings(&mut fbb, goods));
     let list: Vec<_> = people
         .known_places
         .known
@@ -6480,6 +6487,30 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let carried = (!carried.is_empty()).then(|| fbb.create_vector(&carried));
+    // Errands to fetch goods to sell at home (schema 58).
+    let errands: Vec<_> = people
+        .reports
+        .errands
+        .iter()
+        .map(|(&h, e)| {
+            save::ErrandSave::create(
+                &mut fbb,
+                &save::ErrandSaveArgs {
+                    household: h.get(),
+                    market: e.market.get(),
+                    seller: e.seller.get(),
+                    firm: e.firm,
+                    good: u32::from(e.good),
+                    payment: u32::from(e.payment),
+                    units: e.units,
+                    home_h: e.home_h,
+                    share: e.share,
+                    day: e.day,
+                },
+            )
+        })
+        .collect();
+    let errands = (!errands.is_empty()).then(|| fbb.create_vector(&errands));
     let root = save::PlacesSave::create(
         &mut fbb,
         &save::PlacesSaveArgs {
@@ -6493,6 +6524,7 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
             goods: good_dictionary,
             gaps,
             carried,
+            errands,
         },
     );
     finish(fbb, root)
@@ -6634,6 +6666,30 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
                     LoadError::Malformed(format!("unknown way of a price report {}", r.how()))
                 })?,
                 from: PermanentId::from_raw(r.from()),
+            },
+        );
+    }
+    // Errands (schema 58): one for a good the content no longer has is let go.
+    for e in root.errands().iter().flatten() {
+        let household = required(e.household(), "an errand's household")?;
+        let what = || format!("an errand of household {household}");
+        let good = saved_good(&report_goods, e.good(), what)?;
+        let payment = saved_good(&report_goods, e.payment(), what)?;
+        let (Some(good), Some(payment)) = (good, payment) else {
+            continue;
+        };
+        reports.errands.insert(
+            household,
+            civ_agents::reports::Errand {
+                market: required(e.market(), "an errand's market")?,
+                seller: required(e.seller(), "an errand's seller")?,
+                firm: e.firm(),
+                good,
+                payment,
+                units: e.units(),
+                home_h: e.home_h(),
+                share: e.share(),
+                day: e.day(),
             },
         );
     }

@@ -20,7 +20,7 @@ use crate::make;
 use crate::market::{Market, Offer};
 use crate::params::{Catalog, GoodDef, GoodUse, MarketParams, PeopleParams, RecipeDef};
 use crate::person::{Household, Person, stock_kcal};
-use crate::reports::{Missed, PriceReport, ReportHow};
+use crate::reports::{Errand, Missed, PriceReport, ReportHow};
 use crate::value;
 
 /// Food a household keeps beyond what sees it to its next harvest before it offers any, a share
@@ -408,8 +408,18 @@ impl Population {
                     wanted.push((t, need, c));
                 }
             }
+            // What it might fetch from elsewhere to sell at home (M5b slice AQ, ADR-0019 §6).
+            let errand = self.plan_errand(ctx, hh, &stores, &costs, &holding, &offered);
             if let Some(x) = self.household_mut_by_id(id) {
                 x.offers = rows;
+            }
+            match errand {
+                Some(e) => {
+                    self.reports.errands.insert(id, e);
+                }
+                None => {
+                    self.reports.errands.remove(&id);
+                }
             }
             let weight = 1.0 - 0.5f64.powf(review_days as f64 / mp.memory_days.max(1e-6));
             let m = self.market_mut(settlement, goods.len(), day, mp.memory_days);
@@ -807,7 +817,17 @@ impl Population {
         };
         let away = market != settlement;
         let stores = stores_now(hh, now, params, goods);
-        let deal = self.find_deal(ctx, hh, &stores, &|_| Some(0.0), Some(seller));
+        let mut deal = self.find_deal(ctx, hh, &stores, &|_| Some(0.0), Some(seller));
+        // Nothing for its own need: one on an errand buys to sell at home (M5b slice AQ,
+        // ADR-0019 §6), or says why it could not.
+        let mut missed = None;
+        if away && deal.is_none() && !self.stop_trade_between {
+            match self.resale_at(ctx, hh, &stores, seller) {
+                Some(Ok(d)) => deal = Some(d),
+                Some(Err(why)) => missed = Some(why),
+                None => {}
+            }
+        }
         let year = now.day_index().div_euclid(DAYS_PER_YEAR);
         // The walk there, by when the buyer set off; the walk home is as long (ADR-0019 §7).
         let month = crate::market::month_of(now);
@@ -816,6 +836,15 @@ impl Population {
         });
         if away {
             self.convergence.trip(month, settlement, market, walk_h);
+            // An errand to this door is run, whatever came of it.
+            if self
+                .reports
+                .errands
+                .get(&buyer)
+                .is_some_and(|e| e.seller == seller)
+            {
+                self.reports.errands.remove(&buyer);
+            }
             // The demo's twin: purchases between settlements are stopped (ADR-0019 §8), here
             // for one who set out before they were.
             if self.stop_trade_between {
@@ -824,7 +853,8 @@ impl Population {
         }
         let Some(d) = deal else {
             if away {
-                let why = self.missed_why(ctx, buyer, market, seller, &stores);
+                let why =
+                    missed.unwrap_or_else(|| self.missed_why(ctx, buyer, market, seller, &stores));
                 self.contacts.missed(year, settlement, market, why);
                 self.note_seen(buyer, market, seller, now.day_index());
             }
@@ -850,6 +880,41 @@ impl Population {
             Channel::Barter
         };
         if !self.transfer(now, params, goods, &legs, channel) {
+            // One who came from elsewhere bought nothing and says why (ADR-0019 §2): the seller
+            // had less than its terms said, or the buyer less to pay with; and holds what it
+            // saw, so that it does not come again for what is not there.
+            if away {
+                let stock = |id: PermanentId, g: usize| {
+                    self.firm(id)
+                        .map(|f| f.stores.get(g).copied().unwrap_or(0.0))
+                        .or_else(|| {
+                            self.household(id)
+                                .map(|x| x.stores.get(g).copied().unwrap_or(0.0))
+                        })
+                        .unwrap_or(0.0)
+                };
+                let why = if stock(seller, d.good) < d.units {
+                    Missed::SoldOut
+                } else {
+                    Missed::Payment
+                };
+                self.contacts.missed(year, settlement, market, why);
+                self.note_seen(buyer, market, seller, now.day_index());
+                if why == Missed::SoldOut {
+                    let gone: Vec<(u16, u16)> = self
+                        .reports
+                        .of(buyer)
+                        .iter()
+                        .filter(|r| r.market == market && r.seller == seller)
+                        .filter(|r| usize::from(r.good) == d.good)
+                        .map(|r| (r.good, r.payment))
+                        .collect();
+                    for key in gone {
+                        self.reports
+                            .sold_out(buyer, market, seller, key, now.day_index());
+                    }
+                }
+            }
             return;
         }
         // Buyer and seller each saw the other keep to the terms (ADR-0014 §2).
@@ -1221,17 +1286,7 @@ impl Population {
         let (day, rp) = (ctx.now.day_index(), &ctx.params.reports);
         let mut sellers: Vec<Seller> = Vec::new();
         for r in reports.iter().filter(|r| r.market != home && r.units > 0.0) {
-            let at = if r.firm {
-                self.firm(r.seller)
-                    .filter(|f| f.is_open() && f.settlement == Some(r.market))
-                    .and_then(|f| self.household(f.owner))
-                    .map(|x| x.home)
-            } else {
-                self.household(r.seller)
-                    .filter(|x| x.settlement == Some(r.market))
-                    .map(|x| x.home)
-            };
-            let Some(at) = at else {
+            let Some(at) = self.seller_home(r.seller, r.firm, r.market) else {
                 continue;
             };
             let Some(secs) = reach.seconds_to(cell_of(ctx.map, at)) else {
@@ -1260,6 +1315,314 @@ impl Population {
             at: d.at,
             good: d.good,
             worth: d.worth,
+        })
+    }
+
+    /// Where `seller`, a household or workshop (`firm`) reported in `market`'s, now sells: its
+    /// home, or its owners'. None if it no longer lives there, or the workshop closed.
+    fn seller_home(
+        &self,
+        seller: PermanentId,
+        firm: bool,
+        market: PermanentId,
+    ) -> Option<(f32, f32)> {
+        if firm {
+            self.firm(seller)
+                .filter(|f| f.is_open() && f.settlement == Some(market))
+                .and_then(|f| self.household(f.owner))
+                .map(|x| x.home)
+        } else {
+            self.household(seller)
+                .filter(|x| x.settlement == Some(market))
+                .map(|x| x.home)
+        }
+    }
+
+    /// The errand household `hh` would run, weighed at its review with its `stores`, own `costs`
+    /// and `holding`, and what it now `offered` (M5b slice AQ, ADR-0019 §6; research 08-12 §1.6:
+    /// a trader weighs depth as well as price): of the goods it holds reports of in other
+    /// settlements' markets, and is not short of itself, those its own market wants (buyers found
+    /// none, or one sold lately) for more than a unit would cost it, as making to sell is weighed
+    /// ([`Population::for_sale`]). A unit's cost there is the reported price in what it pays
+    /// with, valued at its own cost, with the walk there and back (from the distance at its pace
+    /// off the trails, a belief) and the trading spread over the units, and its usual margin.
+    /// The units are the least of a load, the units reported, those it can pay for out of what
+    /// it can spare (and carry) and those it expects to sell at home over a review: its market's
+    /// sales over one and the demand nobody met, less what is on offer there already, its own
+    /// included. The best is the one it keeps the largest share of, the walk paid for; the trip
+    /// is worth that share without the walk, which the decision weighs as on any trip. None
+    /// without a `fetch` activity or a report.
+    fn plan_errand(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        stores: &[f64],
+        costs: &[Option<f64>],
+        holding: &Holding,
+        offered: &[(usize, f64)],
+    ) -> Option<Errand> {
+        let reports = self.reports.of(hh.id);
+        if reports.is_empty() {
+            return None;
+        }
+        let fetch = ctx
+            .catalog
+            .activities
+            .iter()
+            .find(|a| a.behavior == crate::params::Behavior::Fetch)?;
+        let home = hh.settlement?;
+        let market = self.market(home)?;
+        let (params, goods, day) = (ctx.params, &ctx.catalog.goods, ctx.now.day_index());
+        let mp = &params.market;
+        let pace = params.nav.tobler_ms(0.0) * params.nav.offtrail_factor;
+        if pace <= 0.0 {
+            return None;
+        }
+        let trade_h = f64::from(fetch.min_minutes) / 60.0;
+        let memory = mp.memory_days.max(1e-6);
+        let fade = 0.5f64.powf((day - market.day).max(0) as f64 / memory);
+        let over_review = 1.0 - 0.5f64.powf(f64::from(mp.review_days.max(1)) / memory);
+        let held = |g: usize| stores.get(g).copied().unwrap_or(0.0).max(0.0);
+        let keep = |g: usize| holding.keep.get(g).copied().unwrap_or(0.0);
+        let carry = params.household.carry_kg;
+        // What is on offer at home of each good, worked out once a report is worth it.
+        let on_offer = std::cell::OnceCell::new();
+        let on_offer = || {
+            on_offer.get_or_init(|| {
+                let mut units = vec![0.0; goods.len()];
+                for &(g, u) in offered {
+                    units[g] += u;
+                }
+                let mut add = |offers: &[Offer]| {
+                    let mut seen: Vec<(u16, f32)> = Vec::new();
+                    for o in offers {
+                        match seen.iter_mut().find(|(g, _)| *g == o.good) {
+                            Some(x) => x.1 = x.1.max(o.units),
+                            None => seen.push((o.good, o.units)),
+                        }
+                    }
+                    for (g, u) in seen {
+                        if let Some(x) = units.get_mut(usize::from(g)) {
+                            *x += f64::from(u);
+                        }
+                    }
+                };
+                for (_, x) in self.households.iter() {
+                    if x.id != hh.id && x.settlement == Some(home) {
+                        add(&x.offers);
+                    }
+                }
+                for f in self.firms.iter() {
+                    if f.is_open() && f.settlement == Some(home) {
+                        add(&f.offers);
+                    }
+                }
+                units
+            })
+        };
+        let (mut best, mut best_net): (Option<Errand>, Option<f64>) = (None, None);
+        for r in reports.iter().filter(|r| r.market != home && r.units > 0.0) {
+            let (g, p) = (usize::from(r.good), usize::from(r.payment));
+            let (Some(d), Some(pd)) = (goods.get(g), goods.get(p)) else {
+                continue;
+            };
+            // Something it can sell, and is not short of itself (that it buys for itself).
+            if !can_offer(d) || held(g) < keep(g) {
+                continue;
+            }
+            let Some(home_h) = market.unmet_worth(g).or_else(|| market.price_h(g)) else {
+                continue;
+            };
+            let Some(pay_cost) = costs.get(p).copied().flatten() else {
+                continue;
+            };
+            let price = f64::from(r.price);
+            if !(price > 0.0 && home_h > 0.0) {
+                continue;
+            }
+            let Some(at) = self.seller_home(r.seller, r.firm, r.market) else {
+                continue;
+            };
+            let walk_h = f64::from((at.0 - hh.home.0).hypot(at.1 - hh.home.1)) / pace / 3600.0;
+            if walk_h * 60.0 > f64::from(fetch.max_walk_minutes) {
+                continue;
+            }
+            let sold = market.sold.get(g).copied().unwrap_or(0.0);
+            let unmet = market.unmet.get(g).copied().unwrap_or(0.0);
+            let depth = (sold * over_review + unmet) * fade - on_offer()[g];
+            let tool = d.tool.is_some();
+            let spare = held(p) - keep(p);
+            let mut units = f64::from(r.units).min(depth).min(spare / price);
+            if !tool {
+                units = units.min(carry);
+            }
+            if pd.tool.is_none() {
+                units = units.min(carry / price);
+            }
+            let least = if tool { MIN_OFFER_TOOL } else { MIN_OFFER_KG };
+            if units.is_nan()
+                || units < least
+                || (pd.tool.is_some() && units * price < MIN_OFFER_TOOL)
+            {
+                continue;
+            }
+            let pay_h = price * pay_cost * holding.want.get(p).copied().unwrap_or(0.0);
+            // Worth the walk: what it keeps of a unit when the walk is paid for too.
+            let cost = (pay_h + (2.0 * walk_h + trade_h) / units) * (1.0 + mp.margin);
+            let net = 1.0 - cost / home_h;
+            if net.is_nan() || net <= 0.0 {
+                continue;
+            }
+            // What the trip is worth, as making to sell is; the walk is weighed as on any trip
+            // (as a purchase for itself is, ADR-0019 §2).
+            let share =
+                (1.0 - (pay_h + trade_h / units) * (1.0 + mp.margin) / home_h) * units.min(1.0);
+            if best_net.is_none_or(|b| net > b + 1e-9) {
+                best_net = Some(net);
+                best = Some(Errand {
+                    market: r.market,
+                    seller: r.seller,
+                    firm: r.firm,
+                    good: r.good,
+                    payment: r.payment,
+                    units: units as f32,
+                    home_h: home_h as f32,
+                    share: share as f32,
+                    day,
+                });
+            }
+        }
+        best
+    }
+
+    /// The trip on household `hh`'s errand, for the decision (M5b slice AQ, ADR-0019 §6): planned
+    /// at its last review, and to a seller who still sells where it was reported to, the walk
+    /// from the household's hearth (`reach`).
+    pub(crate) fn errand_trip(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        reach: Option<&TravelField>,
+    ) -> Option<TradeOption> {
+        let e = self.reports.errands.get(&hh.id)?;
+        let reach = reach?;
+        let review_days = i64::from(ctx.params.market.review_days.max(1));
+        if hh.settlement == Some(e.market) || ctx.now.day_index() - e.day >= review_days {
+            return None;
+        }
+        let at = self.seller_home(e.seller, e.firm, e.market)?;
+        let secs = reach.seconds_to(cell_of(ctx.map, at))?;
+        Some(TradeOption {
+            seller: e.seller,
+            firm: e.firm,
+            walk_min: f64::from(secs) / 60.0,
+            at,
+            good: usize::from(e.good),
+            worth: TradeWorth::Sale {
+                share: f64::from(e.share),
+            },
+        })
+    }
+
+    /// What a buyer of household `hh`, with its `stores`, on its errand to the door of `seller`,
+    /// buys there to sell at home (M5b slice AQ, ADR-0019 §6): the good it came for on the terms
+    /// that cost it least, as much as it meant to, the seller offers, it can pay out of what it
+    /// can spare and one person carries, so long as a unit still costs it less, with its usual
+    /// margin, than it expects one to fetch at home (the walk is behind it). Or why it bought
+    /// nothing. None if it is on no errand to this seller.
+    fn resale_at(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        stores: &[f64],
+        seller: PermanentId,
+    ) -> Option<Result<Deal, Missed>> {
+        let e = *self
+            .reports
+            .errands
+            .get(&hh.id)
+            .filter(|e| e.seller == seller)?;
+        let (params, goods) = (ctx.params, &ctx.catalog.goods);
+        let g = usize::from(e.good);
+        let d = goods.get(g)?;
+        let (offers, at) = if e.firm {
+            let f = self.firm(seller)?;
+            (f.offers.as_slice(), self.household(f.owner)?.home)
+        } else {
+            let x = self.household(seller)?;
+            (x.offers.as_slice(), x.home)
+        };
+        let tool = d.tool.is_some();
+        let least = if tool { MIN_OFFER_TOOL } else { MIN_OFFER_KG };
+        let carry = params.household.carry_kg;
+        let held = |g: usize| stores.get(g).copied().unwrap_or(0.0).max(0.0);
+        let mut found = false;
+        let mut payable = false;
+        let mut best: Option<Deal> = None;
+        let mut known: Option<(Vec<Option<f64>>, Holding)> = None;
+        for o in offers
+            .iter()
+            .filter(|o| o.good == e.good && f64::from(o.units) + 1e-6 >= least)
+        {
+            found = true;
+            let p = usize::from(o.payment);
+            let (Some(pd), price) = (goods.get(p), f64::from(o.price)) else {
+                continue;
+            };
+            if price.is_nan() || price <= 0.0 {
+                continue;
+            }
+            let (costs, holding) = known.get_or_insert_with(|| {
+                (self.own_costs_of(ctx, hh), self.holding_of(ctx, hh, stores))
+            });
+            let spare = held(p) - holding.keep.get(p).copied().unwrap_or(0.0);
+            let mut units = f64::from(e.units)
+                .min(f64::from(o.units))
+                .min(spare / price);
+            if !tool {
+                units = units.min(carry);
+            }
+            if pd.tool.is_none() {
+                units = units.min(carry / price);
+            }
+            if units.is_nan()
+                || units < least
+                || (pd.tool.is_some() && units * price < MIN_OFFER_TOOL)
+            {
+                continue;
+            }
+            payable = true;
+            let Some(pay_cost) = costs.get(p).copied().flatten() else {
+                continue;
+            };
+            let pay_h = price * pay_cost * holding.want.get(p).copied().unwrap_or(0.0);
+            if pay_h * (1.0 + params.market.margin) >= f64::from(e.home_h) {
+                continue;
+            }
+            let gain = units * (f64::from(e.home_h) - pay_h);
+            if best.is_none_or(|b| gain > b.saving_h + 1e-9) {
+                best = Some(Deal {
+                    seller,
+                    firm: e.firm,
+                    at,
+                    walk_min: 0.0,
+                    good: g,
+                    units,
+                    payment: p,
+                    paid: price * units,
+                    ask_h: f64::from(o.ask_h),
+                    saving_h: gain,
+                    worth: TradeWorth::Sale {
+                        share: f64::from(e.share),
+                    },
+                });
+            }
+        }
+        Some(match best {
+            Some(d) => Ok(d),
+            None if !found => Err(Missed::SoldOut),
+            None if payable => Err(Missed::Terms),
+            None => Err(Missed::Payment),
         })
     }
 

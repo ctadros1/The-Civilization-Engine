@@ -31556,6 +31556,7 @@ impl<'a> PlacesSave<'a> {
   pub const VT_GOODS: ::flatbuffers::VOffsetT = 18;
   pub const VT_GAPS: ::flatbuffers::VOffsetT = 20;
   pub const VT_CARRIED: ::flatbuffers::VOffsetT = 22;
+  pub const VT_ERRANDS: ::flatbuffers::VOffsetT = 24;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -31567,6 +31568,7 @@ impl<'a> PlacesSave<'a> {
     args: &'args PlacesSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<PlacesSave<'bldr>> {
     let mut builder = PlacesSaveBuilder::new(_fbb);
+    if let Some(x) = args.errands { builder.add_errands(x); }
     if let Some(x) = args.carried { builder.add_carried(x); }
     if let Some(x) = args.gaps { builder.add_gaps(x); }
     if let Some(x) = args.goods { builder.add_goods(x); }
@@ -31651,6 +31653,13 @@ impl<'a> PlacesSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CarriedSave>>>>(PlacesSave::VT_CARRIED, None)}
   }
+  #[inline]
+  pub fn errands(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ErrandSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ErrandSave>>>>(PlacesSave::VT_ERRANDS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PlacesSave<'_> {
@@ -31669,6 +31678,7 @@ impl ::flatbuffers::Verifiable for PlacesSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("goods", Self::VT_GOODS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GapSave>>>>("gaps", Self::VT_GAPS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CarriedSave>>>>("carried", Self::VT_CARRIED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ErrandSave>>>>("errands", Self::VT_ERRANDS, false)?
      .finish();
     Ok(())
   }
@@ -31684,6 +31694,7 @@ pub struct PlacesSaveArgs<'a> {
     pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub gaps: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GapSave<'a>>>>>,
     pub carried: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CarriedSave<'a>>>>>,
+    pub errands: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ErrandSave<'a>>>>>,
 }
 impl<'a> Default for PlacesSaveArgs<'a> {
   #[inline]
@@ -31699,6 +31710,7 @@ impl<'a> Default for PlacesSaveArgs<'a> {
       goods: None,
       gaps: None,
       carried: None,
+      errands: None,
     }
   }
 }
@@ -31749,6 +31761,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlacesSaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_CARRIED, carried);
   }
   #[inline]
+  pub fn add_errands(&mut self, errands: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<ErrandSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_ERRANDS, errands);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlacesSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PlacesSaveBuilder {
@@ -31776,6 +31792,256 @@ impl ::core::fmt::Debug for PlacesSave<'_> {
       ds.field("goods", &self.goods());
       ds.field("gaps", &self.gaps());
       ds.field("carried", &self.carried());
+      ds.field("errands", &self.errands());
+      ds.finish()
+  }
+}
+pub enum ErrandSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ErrandSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for ErrandSave<'a> {
+  type Inner = ErrandSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> ErrandSave<'a> {
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 4;
+  pub const VT_MARKET: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SELLER: ::flatbuffers::VOffsetT = 8;
+  pub const VT_FIRM: ::flatbuffers::VOffsetT = 10;
+  pub const VT_GOOD: ::flatbuffers::VOffsetT = 12;
+  pub const VT_PAYMENT: ::flatbuffers::VOffsetT = 14;
+  pub const VT_UNITS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_HOME_H: ::flatbuffers::VOffsetT = 18;
+  pub const VT_SHARE: ::flatbuffers::VOffsetT = 20;
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 22;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    ErrandSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ErrandSaveArgs
+  ) -> ::flatbuffers::WIPOffset<ErrandSave<'bldr>> {
+    let mut builder = ErrandSaveBuilder::new(_fbb);
+    builder.add_day(args.day);
+    builder.add_seller(args.seller);
+    builder.add_market(args.market);
+    builder.add_household(args.household);
+    builder.add_share(args.share);
+    builder.add_home_h(args.home_h);
+    builder.add_units(args.units);
+    builder.add_payment(args.payment);
+    builder.add_good(args.good);
+    builder.add_firm(args.firm);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ErrandSave::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn market(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ErrandSave::VT_MARKET, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn seller(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ErrandSave::VT_SELLER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn firm(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(ErrandSave::VT_FIRM, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn good(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ErrandSave::VT_GOOD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn payment(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ErrandSave::VT_PAYMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn units(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(ErrandSave::VT_UNITS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn home_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(ErrandSave::VT_HOME_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn share(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(ErrandSave::VT_SHARE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(ErrandSave::VT_DAY, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for ErrandSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<u64>("market", Self::VT_MARKET, false)?
+     .visit_field::<u64>("seller", Self::VT_SELLER, false)?
+     .visit_field::<bool>("firm", Self::VT_FIRM, false)?
+     .visit_field::<u32>("good", Self::VT_GOOD, false)?
+     .visit_field::<u32>("payment", Self::VT_PAYMENT, false)?
+     .visit_field::<f32>("units", Self::VT_UNITS, false)?
+     .visit_field::<f32>("home_h", Self::VT_HOME_H, false)?
+     .visit_field::<f32>("share", Self::VT_SHARE, false)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ErrandSaveArgs {
+    pub household: u64,
+    pub market: u64,
+    pub seller: u64,
+    pub firm: bool,
+    pub good: u32,
+    pub payment: u32,
+    pub units: f32,
+    pub home_h: f32,
+    pub share: f32,
+    pub day: i64,
+}
+impl<'a> Default for ErrandSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    ErrandSaveArgs {
+      household: 0,
+      market: 0,
+      seller: 0,
+      firm: false,
+      good: 0,
+      payment: 0,
+      units: 0.0,
+      home_h: 0.0,
+      share: 0.0,
+      day: 0,
+    }
+  }
+}
+
+pub struct ErrandSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ErrandSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(ErrandSave::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_market(&mut self, market: u64) {
+    self.fbb_.push_slot::<u64>(ErrandSave::VT_MARKET, market, 0);
+  }
+  #[inline]
+  pub fn add_seller(&mut self, seller: u64) {
+    self.fbb_.push_slot::<u64>(ErrandSave::VT_SELLER, seller, 0);
+  }
+  #[inline]
+  pub fn add_firm(&mut self, firm: bool) {
+    self.fbb_.push_slot::<bool>(ErrandSave::VT_FIRM, firm, false);
+  }
+  #[inline]
+  pub fn add_good(&mut self, good: u32) {
+    self.fbb_.push_slot::<u32>(ErrandSave::VT_GOOD, good, 0);
+  }
+  #[inline]
+  pub fn add_payment(&mut self, payment: u32) {
+    self.fbb_.push_slot::<u32>(ErrandSave::VT_PAYMENT, payment, 0);
+  }
+  #[inline]
+  pub fn add_units(&mut self, units: f32) {
+    self.fbb_.push_slot::<f32>(ErrandSave::VT_UNITS, units, 0.0);
+  }
+  #[inline]
+  pub fn add_home_h(&mut self, home_h: f32) {
+    self.fbb_.push_slot::<f32>(ErrandSave::VT_HOME_H, home_h, 0.0);
+  }
+  #[inline]
+  pub fn add_share(&mut self, share: f32) {
+    self.fbb_.push_slot::<f32>(ErrandSave::VT_SHARE, share, 0.0);
+  }
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(ErrandSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ErrandSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ErrandSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<ErrandSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for ErrandSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("ErrandSave");
+      ds.field("household", &self.household());
+      ds.field("market", &self.market());
+      ds.field("seller", &self.seller());
+      ds.field("firm", &self.firm());
+      ds.field("good", &self.good());
+      ds.field("payment", &self.payment());
+      ds.field("units", &self.units());
+      ds.field("home_h", &self.home_h());
+      ds.field("share", &self.share());
+      ds.field("day", &self.day());
       ds.finish()
   }
 }

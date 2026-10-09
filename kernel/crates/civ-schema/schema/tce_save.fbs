@@ -1807,6 +1807,25 @@ table PlacesSave {
   // Schema 57 (M5b slice AQ, ADR-0019 §7): the convergence record, its goods named in `goods`.
   gaps: [GapSave] (id: 8);
   carried: [CarriedSave] (id: 9);
+  // Schema 58 (M5b slice AQ, ADR-0019 §6): households' errands to fetch a good to sell at home,
+  // their goods named in `goods`.
+  errands: [ErrandSave] (id: 10);
+}
+
+// A household's errand to fetch a good from another settlement to sell at home (schema 58).
+table ErrandSave {
+  household: ulong (id: 0);
+  market: ulong (id: 1);
+  seller: ulong (id: 2);
+  firm: bool (id: 3);
+  // Indices into PlacesSave.goods.
+  good: uint (id: 4);
+  payment: uint (id: 5);
+  // Units it means to buy; what it expects one to fetch at home, hours; the share it keeps.
+  units: float (id: 6);
+  home_h: float (id: 7);
+  share: float (id: 8);
+  day: long (id: 9);
 }
 
 // A good offered in both of a pair of settlements at a month's end (schema 57).

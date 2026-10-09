@@ -2994,9 +2994,13 @@ impl Population {
             if another {
                 return Err(Reason::AnotherGoes);
             }
+            // For its own need first; else an errand, to sell at home (M5b slice AQ).
             hh_view
                 .fetch
-                .get_or_init(|| self.best_fetch(ctx, &hh, &stores, reach))
+                .get_or_init(|| {
+                    self.best_fetch(ctx, &hh, &stores, reach)
+                        .or_else(|| self.errand_trip(ctx, &hh, reach))
+                })
                 .ok_or(Reason::NoReport)
         };
         // Paid work at a workshop of another household (slice J).

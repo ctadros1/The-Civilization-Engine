@@ -115,6 +115,22 @@ brief (`docs/briefs/m5-trade.md`). Their main points:
   sale does; the goods are offered at its door on its usual terms.
 - A household that fetches repeatedly may run it through a firm, by the existing firm rules
   (ADR-0006 §5).
+- As built (slice AQ, step two): the plan (an errand) is made at the review of what the household
+  offers and kept until its next review or the trip. Only goods it can offer and is not short of
+  itself, that its own market wants: buyers found none (at what they would have given), or one
+  sold lately (at what it fetched). The units are also bounded by what it can pay out of what it
+  can spare, and a load is the carrying limit for goods other than tools and for a payment that is
+  not a tool; what is on offer at home, its own included, comes off the depth. A unit costs the
+  reported price at its own cost of the payment (valued by how much it wants that good, as a buyer
+  pays), with the walk there and back (estimated as for the anchor, §5) and the trading spread over
+  the units, and its usual margin; the plan is the one that keeps the largest share of the home
+  worth with the walk paid for. The trip is worth that share without the walk, times how much of
+  a unit it is (up to one), scored as making to sell is (`w_tools` times the share); the walk is
+  charged once, by the scorer, as on any trip (as a purchase for its own need is, §2, which goes
+  first). At the door it buys the good on the terms that cost it least, up to the units planned,
+  while a unit still costs it less, with its margin, than it expects at home; else the trip is
+  counted as sold out, terms or payment. Under the twin (§8) errands are planned and never run.
+  Running errands through a firm is not built.
 
 ### 7. Convergence is recorded as it happens
 

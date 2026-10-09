@@ -1,7 +1,9 @@
 //! Buying from a neighbour by report (M5b slice AP, ADR-0019 §1–§4): a household knows another
 //! settlement's offers only by price reports its members saw or were told, goes to a seller's
 //! door by one, buys at the terms the seller posts there now, and the trade is tallied in the
-//! seller's market with the buyer's settlement.
+//! seller's market with the buyer's settlement. And fetching to resell (M5b slice AQ, ADR-0019
+//! §6): an errand planned at a household's review, run as making to sell is weighed, and the
+//! goods offered at home.
 
 use std::path::Path;
 use std::sync::OnceLock;
@@ -596,6 +598,57 @@ fn a_trip_by_a_report_gone_stale_buys_nothing_and_is_counted_with_why() {
     assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
 }
 
+#[test]
+fn a_trip_to_a_seller_who_holds_less_than_its_terms_say_is_counted_and_not_made_again() {
+    // ADR-0019 §2: the seller's terms still offer sickles, but it holds almost none (they wore,
+    // or went, since its review). The buyer walks there, buys nothing, says why, and holds what
+    // it saw: none to be had there.
+    let Scene {
+        mut sim,
+        a,
+        b,
+        seller,
+        buyer,
+        sickle,
+        ..
+    } = scene();
+    // Only the buyer's household has heard of the seller.
+    sim.rules_mut_for_tests()
+        .expect("rules of its own")
+        .people
+        .reports
+        .share_told = 0.0;
+    plant_reports(&mut sim, buyer, seller, sickle);
+    set(&mut sim, seller, &[("core:good/sickle", 0.2)]);
+    let mut missed = [0; Missed::COUNT];
+    for _ in 0..10 * 48 {
+        sim.advance_minutes(30).expect("advances");
+        missed = contact(&sim, a, b).1;
+        if missed.iter().any(|&n| n > 0) {
+            break;
+        }
+        // The seller's review would post its terms afresh: it is kept from holding any again.
+        set(&mut sim, seller, &[("core:good/sickle", 0.2)]);
+    }
+    assert_eq!(
+        missed,
+        [1, 0, 0, 0],
+        "a trip for nothing, the seller had none to sell"
+    );
+    assert!(bought_by(&sim, b, a).is_empty());
+    let held = held_of(&sim, buyer, seller, sickle);
+    assert!(
+        !held.is_empty()
+            && held
+                .iter()
+                .all(|r| r.units == 0.0 && r.how == ReportHow::Seen),
+        "{held:?}"
+    );
+    // Nobody of the household goes back for what is not there.
+    sim.advance_minutes(3 * DAY).expect("advances");
+    assert_eq!(contact(&sim, a, b).1, [1, 0, 0, 0]);
+}
+
 /// A report `household` is told today of `seller`'s sickles at the terms it took for provisions
 /// as the scene began.
 fn plant_reports_as_they_were(
@@ -846,4 +899,331 @@ fn the_twin_harness_stops_purchases_between_settlements() {
     assert_eq!(contact(&sim, a, b).0, 0);
     // Nobody even set out: the trip is left out of the choice, not cut short at the door.
     assert!(sim.people().convergence.carried.is_empty(), "nobody went");
+}
+
+/// Advances to a minute past the next midnight on which `household` reviews its offers.
+fn past_review(sim: &mut Sim, household: PermanentId) {
+    let review_days = i64::from(sim.rules().people.market.review_days.max(1));
+    for _ in 0..review_days {
+        past_midnight(sim);
+        if (household.get() as i64 + sim.now().day_index()).rem_euclid(review_days) == 0 {
+            return;
+        }
+    }
+    panic!("no review within {review_days} days");
+}
+
+/// Sets `household`'s sickles to `units` a minute before its next review (tools wear as they are
+/// used), and advances to a minute past it.
+fn review_holding(sim: &mut Sim, household: PermanentId, units: f64) {
+    review_holding_with(sim, household, units, |_| {});
+}
+
+/// [`review_holding`], `before` done to the world in the same minute.
+fn review_holding_with(
+    sim: &mut Sim,
+    household: PermanentId,
+    units: f64,
+    before: impl FnOnce(&mut Sim),
+) {
+    let review_days = i64::from(sim.rules().people.market.review_days.max(1));
+    for _ in 0..=review_days {
+        let into = sim.now().minutes().rem_euclid(DAY);
+        let next = sim.now().day_index() + 1;
+        if (household.get() as i64 + next).rem_euclid(review_days) == 0 {
+            if into < DAY - 1 {
+                sim.advance_minutes(DAY - 1 - into).expect("advances");
+            }
+            set(sim, household, &[("core:good/sickle", units)]);
+            before(sim);
+            sim.advance_minutes(2).expect("advances");
+            return;
+        }
+        sim.advance_minutes(DAY - into + 1).expect("advances");
+    }
+    panic!("no review within {review_days} days");
+}
+
+/// `seller` offers `units` sickles again on the terms `household` holds reports of (its own
+/// neighbours buy them too).
+fn restock(sim: &mut Sim, seller: PermanentId, household: PermanentId, sickle: usize, units: f32) {
+    let terms = held_of(sim, household, seller, sickle);
+    set(sim, seller, &[("core:good/sickle", 2.0 * f64::from(units))]);
+    let h = sim
+        .people_mut_for_tests()
+        .households
+        .iter_mut()
+        .map(|(_, h)| h)
+        .find(|h| h.id == seller)
+        .expect("seller");
+    h.offers.retain(|o| usize::from(o.good) != sickle);
+    for r in terms {
+        h.offers.push(civ_agents::market::Offer {
+            good: r.good,
+            payment: r.payment,
+            price: r.price,
+            units,
+            ask_h: r.ask_h,
+        });
+    }
+}
+
+/// Units of good `g` household `h` offers.
+fn offered(sim: &Sim, h: PermanentId, g: usize) -> f32 {
+    sim.people()
+        .household(h)
+        .expect("household")
+        .offers
+        .iter()
+        .filter(|o| usize::from(o.good) == g)
+        .map(|o| o.units)
+        .fold(0.0, f32::max)
+}
+
+/// The scene's buyer as a household that would fetch sickles to sell at home (ADR-0019 §6): it
+/// has heard of the seller's terms, and nobody it tells at the hearth passes them on; its
+/// settlement's buyers are on record as wanting `wanted` sickles nobody offers, at `worth_h`
+/// hours each. The walk is weighed at half a point an hour: the errand is the matter. What it
+/// keeps of sickles, learnt from what it offers of plenty at a review (it cannot make one, so it
+/// asks what replacing one from the seller would cost).
+fn reseller(sc: &mut Scene, wanted: f64, worth_h: f64) -> f32 {
+    let (a, buyer, seller, sickle) = (sc.a, sc.buyer, sc.seller, sc.sickle);
+    let sim = &mut sc.sim;
+    let rules = sim.rules_mut_for_tests().expect("rules of its own");
+    rules.people.decision.w_walk_hour = 0.5;
+    rules.people.reports.share_told = 0.0;
+    plant_reports(sim, buyer, seller, sickle);
+    let plenty = 20.0;
+    review_holding(sim, buyer, plenty);
+    let spare = offered(sim, buyer, sickle);
+    assert!(spare > 1.0, "it offers what it holds beyond its keep");
+    let keep = plenty as f32 - spare;
+    let day = sim.now().day_index();
+    let pop = sim.people_mut_for_tests();
+    if let Some(h) = pop
+        .households
+        .iter_mut()
+        .map(|(_, h)| h)
+        .find(|h| h.id == buyer)
+    {
+        h.offers.retain(|o| usize::from(o.good) != sickle);
+    }
+    let goods = pop
+        .markets
+        .first()
+        .map_or(0, |m| m.sold.len())
+        .max(sickle + 1);
+    if !pop.markets.iter().any(|m| m.settlement == a) {
+        pop.markets
+            .push(civ_agents::market::Market::new(a, goods, day));
+    }
+    let m = pop
+        .markets
+        .iter_mut()
+        .find(|m| m.settlement == a)
+        .expect("the buyer's market");
+    m.record_unmet(sickle, wanted, wanted * worth_h);
+    keep
+}
+
+#[test]
+fn a_household_fetches_to_sell_at_home_what_its_neighbours_want_and_nobody_offers() {
+    let mut sc = scene();
+    let keep = reseller(&mut sc, 4.0, 60.0);
+    let Scene {
+        mut sim,
+        a,
+        b,
+        seller,
+        buyer,
+        sickle,
+        ..
+    } = sc;
+    // At its review, holding what it keeps of sickles and a little (too little to offer), it
+    // weighs the trip: a few sickles, as many as its neighbours want and the seller offers,
+    // worth carrying home.
+    review_holding(&mut sim, buyer, f64::from(keep) + 0.3);
+    // (Before, lacking any, it fetched sickles for itself.)
+    let since = sim.now();
+    let errand = *sim
+        .people()
+        .reports
+        .errands
+        .get(&buyer)
+        .expect("an errand is planned");
+    assert_eq!((errand.seller, errand.market), (seller, b));
+    assert_eq!(usize::from(errand.good), sickle);
+    assert!(
+        errand.units >= 1.0 && errand.units <= 4.0 + 1e-3,
+        "{errand:?}"
+    );
+    assert!(errand.share > 0.0 && errand.share <= 1.0, "{errand:?}");
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+    restock(&mut sim, seller, buyer, sickle, 20.0);
+    // Saved and loaded, it is the same errand, and the world goes on alike.
+    saves_and_goes_on_alike(&mut sim, 60);
+
+    // Someone goes, buys more than one sickle and carries them home: the trade is tallied in the
+    // seller's market with the buyer's settlement, as any purchase between them is.
+    let mut trade = None;
+    for _ in 0..7 * 48 {
+        sim.advance_minutes(30).expect("advances");
+        trade = bought_by(&sim, b, a)
+            .into_iter()
+            .find(|t| t.buyer == buyer && t.at > since);
+        if trade.is_some() {
+            break;
+        }
+    }
+    let trade = trade.expect("the errand was run");
+    assert_eq!((trade.seller, usize::from(trade.good)), (seller, sickle));
+    assert!(trade.units > 1.0, "{trade:?}");
+    assert!(
+        !sim.people().reports.errands.contains_key(&buyer),
+        "an errand run is done"
+    );
+    let held = sim.people().household(buyer).expect("buyer").stores[sickle];
+    assert!(
+        held > f64::from(keep) + 1.0,
+        "{held} against a keep of {keep}"
+    );
+    let (purchases, _) = contact(&sim, a, b);
+    assert!(purchases >= 1);
+
+    // At its next review it offers at its door what it fetched beyond its keep.
+    past_review(&mut sim, buyer);
+    assert!(
+        offered(&sim, buyer, sickle) >= 1.0,
+        "the sickles fetched are offered at home"
+    );
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+}
+
+#[test]
+fn an_errand_to_a_seller_who_sold_out_buys_nothing_and_is_counted_with_why() {
+    let mut sc = scene();
+    let keep = reseller(&mut sc, 4.0, 60.0);
+    let Scene {
+        mut sim,
+        a,
+        b,
+        seller,
+        buyer,
+        sickle,
+        ..
+    } = sc;
+    review_holding(&mut sim, buyer, f64::from(keep) + 0.3);
+    assert!(sim.people().reports.errands.contains_key(&buyer));
+    let since = sim.now();
+    // The seller has none left, which the buyer's household has not heard.
+    set(&mut sim, seller, &[("core:good/sickle", 0.0)]);
+    if let Some(h) = sim
+        .people_mut_for_tests()
+        .households
+        .iter_mut()
+        .map(|(_, h)| h)
+        .find(|h| h.id == seller)
+    {
+        h.offers.retain(|o| usize::from(o.good) != sickle);
+    }
+    let mut missed = [0; Missed::COUNT];
+    for _ in 0..7 * 48 {
+        sim.advance_minutes(30).expect("advances");
+        missed = contact(&sim, a, b).1;
+        if missed.iter().any(|&n| n > 0) {
+            break;
+        }
+    }
+    assert_eq!(missed, [1, 0, 0, 0], "a trip for nothing, sold out");
+    assert!(bought_by(&sim, b, a).iter().all(|t| t.at < since));
+    assert!(!sim.people().reports.errands.contains_key(&buyer));
+    // What it saw at the door it now holds: none left.
+    let held = held_of(&sim, buyer, seller, sickle);
+    assert!(
+        !held.is_empty()
+            && held
+                .iter()
+                .all(|r| r.units == 0.0 && r.how == ReportHow::Seen),
+        "{held:?}"
+    );
+    // And with nothing reported to be had, it plans no errand there again.
+    past_review(&mut sim, buyer);
+    assert!(!sim.people().reports.errands.contains_key(&buyer));
+}
+
+#[test]
+fn nobody_fetches_to_sell_what_their_neighbours_do_not_want_or_the_twin_stops() {
+    // Wanted for less than it would cost to fetch: no errand.
+    let mut sc = scene();
+    let keep = reseller(&mut sc, 4.0, 0.5);
+    review_holding(&mut sc.sim, sc.buyer, f64::from(keep) + 0.3);
+    assert!(!sc.sim.people().reports.errands.contains_key(&sc.buyer));
+
+    // Wanted for more than the sickles and the trading cost, but not enough to pay for the walk
+    // too (there, a unit costs it about 2.2 hours without the walk and 3.0 with it, its margin
+    // included): no errand.
+    let mut sc = scene();
+    let keep = reseller(&mut sc, 4.0, 2.6);
+    review_holding(&mut sc.sim, sc.buyer, f64::from(keep) + 0.3);
+    assert!(!sc.sim.people().reports.errands.contains_key(&sc.buyer));
+
+    // Wanted, but a neighbour at home already offers as many as are wanted: no errand (research
+    // 08-12 §1.6: depth, not price alone). The neighbour reviews on another day, so its offer
+    // stands at the reseller's review.
+    let mut sc = scene();
+    let keep = reseller(&mut sc, 4.0, 60.0);
+    let (buyer, sickle) = (sc.buyer, sc.sickle);
+    let review_days = i64::from(sc.sim.rules().people.market.review_days.max(1));
+    let neighbour = households_of(&sc.sim, sc.a)
+        .into_iter()
+        .find(|&h| h != buyer && (h.get() as i64 - buyer.get() as i64).rem_euclid(review_days) != 0)
+        .expect("a neighbour who reviews on another day");
+    review_holding_with(&mut sc.sim, buyer, f64::from(keep) + 0.3, |sim| {
+        let h = sim
+            .people_mut_for_tests()
+            .households
+            .iter_mut()
+            .map(|(_, h)| h)
+            .find(|h| h.id == neighbour)
+            .expect("neighbour");
+        h.offers.push(civ_agents::market::Offer {
+            good: sickle as u16,
+            payment: 0,
+            price: 1.0,
+            units: 6.0,
+            ask_h: 4.0,
+        });
+    });
+    assert!(!sc.sim.people().reports.errands.contains_key(&buyer));
+
+    // Wanted, but under the demo's twin (ADR-0019 §8): planned, never run.
+    let mut sc = scene();
+    let keep = reseller(&mut sc, 4.0, 60.0);
+    let Scene {
+        mut sim,
+        a,
+        b,
+        buyer,
+        ..
+    } = sc;
+    sim.people_mut_for_tests().stop_trade_between = true;
+    review_holding(&mut sim, buyer, f64::from(keep) + 0.3);
+    assert!(sim.people().reports.errands.contains_key(&buyer));
+    let since = sim.now();
+    let went = |sim: &Sim| -> u32 {
+        sim.people()
+            .convergence
+            .carried
+            .iter()
+            .filter(|((_, from, _), _)| *from == a)
+            .map(|(_, c)| c.trips)
+            .sum()
+    };
+    let trips = went(&sim);
+    sim.advance_minutes(6 * DAY).expect("advances");
+    assert!(
+        bought_by(&sim, b, a).iter().all(|t| t.at < since),
+        "nothing was bought"
+    );
+    assert_eq!(went(&sim), trips, "nobody went");
 }

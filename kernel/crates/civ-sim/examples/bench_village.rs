@@ -192,6 +192,10 @@ fn main() {
     let lived = Instant::now();
     let mut window = Instant::now();
     let (mut slowest, mut slowest_day) = (0.0f64, 0);
+    // Errands to fetch goods to sell at home (M5b slice AQ, step two), as planned: those still
+    // waiting at a day's end, by household and day planned (a lower bound: one planned and run
+    // within a day is not seen).
+    let mut errands: BTreeMap<(u64, i64), String> = BTreeMap::new();
     for day in 1..=a.days {
         let t = Instant::now();
         if day > a.profile_after && a.profile_after > 0 {
@@ -201,6 +205,13 @@ fn main() {
                 .expect("the world lives on");
         }
         let ms = t.elapsed().as_secs_f64() * 1000.0;
+        if a.digest {
+            for (h, e) in &sim.people().reports.errands {
+                errands
+                    .entry((h.get(), e.day))
+                    .or_insert_with(|| sim.rules().catalog.goods[usize::from(e.good)].id.clone());
+            }
+        }
         if ms > slowest {
             (slowest, slowest_day) = (ms, day);
         }
@@ -301,6 +312,33 @@ fn main() {
             *from_elsewhere.entry(id.as_str()).or_default() += 1;
         }
         println!("bought by people of other settlements, latest trades: {from_elsewhere:?}");
+        // What people carried home from other settlements' markets, all months (ADR-0019 §7).
+        let (mut trips, mut walk_h) = (0u32, 0.0f64);
+        let mut carried: BTreeMap<&str, f64> = BTreeMap::new();
+        for c in pop.convergence.carried.values() {
+            trips += c.trips;
+            walk_h += f64::from(c.walk_h);
+            for &(g, u) in &c.goods {
+                let id = &sim.rules().catalog.goods[usize::from(g)].id;
+                *carried.entry(id.as_str()).or_default() += f64::from(u);
+            }
+        }
+        println!(
+            "carried between settlements: {trips} trips, {walk_h:.0} hours walked, units {carried:?}"
+        );
+        let mut planned: BTreeMap<&str, usize> = BTreeMap::new();
+        for g in errands.values() {
+            *planned.entry(g.as_str()).or_default() += 1;
+        }
+        println!(
+            "errands to sell at home seen planned: {} by {} households: {planned:?}",
+            errands.len(),
+            errands
+                .keys()
+                .map(|k| k.0)
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+        );
         // The convergence record (M5b slice AQ): per pair, the goods offered in both and the mean
         // of |log(ask there / ask here)| over them, in the first and last months recorded.
         // By pair: (month, goods offered in both, the mean gap) for each month on record.

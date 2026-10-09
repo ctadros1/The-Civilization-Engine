@@ -822,6 +822,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** fetching to resell (step two); the convergence row, caravans and the wire (step three).
 
+## 2026-10-09 — M5b slice AQ, step two: fetching to resell
+
+**Goal:** a household whose neighbours want a good nobody offers, and that has heard where it can be had cheaper, should be able to fetch it to sell at home, sized by what its market would take rather than by price alone, so that every reseller does not answer the same gap (ADR-0019 §6; research 08-12 §1.6, 08-05 §1.7).
+
+**What changed:** an errand planned at the household's weekly review (one a household, saved in schema 58), a `fetch` option for it after any purchase for its own need, scored as making to sell is, the purchase at the door while the terms still pay, and the goods offered at home at the next review. A trip between settlements whose door trade fails is now counted with why, and the household no longer goes back for the same offer.
+
+**Findings:** the first version charged the walk twice (in the errand's share and in the scorer), and no errand trip ever entered the draw; charging it once, as for a purchase for one's own need, let them compete. In the M5a demo world over two years, errands were planned but only two trips were made and nothing was resold: at the content's weights an hour's walk counts as half a tool's worth, so trips of 31–105 minutes each way rarely beat what people do instead, though the plan, counting the walk in the household's own hours, finds them worth it. The gaps between settlements' asks did not close. That weighting is left to slice AS's time-boxed demo. Measuring also found that workshops offering their whole stock post units rounded past what they hold, so trades at their door fail and the offer never shrinks (1,973 failed trades in two years); it is fixed as a step of its own.
+
+**Evidence:** digest comparisons without `fetch` (identical to the build before trade but for the content and the inert price reports, and to step one's in every section); four integration tests (seven cases), three of their rules checked by mutation; the roundtrip of a schema-57 save.
+
+**Open:** running errands through a firm; the weight of the walk on goods trips (AS); the convergence row, caravans and the wire (step three).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

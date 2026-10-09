@@ -133,6 +133,33 @@ impl PriceReport {
     }
 }
 
+/// A trip a household means to make to buy a good elsewhere to sell at home (M5b slice AQ,
+/// ADR-0019 §6), planned at its weekly review from a report: making to sell, by fetching.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Errand {
+    /// The settlement whose market it is.
+    pub market: PermanentId,
+    /// The selling household, or workshop.
+    pub seller: PermanentId,
+    pub firm: bool,
+    /// The good to fetch and what it was reported to be asked in, by index in the catalog's goods.
+    pub good: u16,
+    pub payment: u16,
+    /// Units it means to buy: the least of a load, the units reported, those it can pay for and
+    /// those it expects to sell at home over a review.
+    pub units: f32,
+    /// What it expects a unit to fetch at home, hours (what buyers who found none would have
+    /// given, or what one fetched lately).
+    pub home_h: f32,
+    /// The share of that it keeps over what a unit costs it there, the trading spread over the
+    /// units, and its usual margin, times how much of a unit it is (up to one): what the trip is
+    /// worth, as making to sell is (0–1). The walk is weighed as on any trip (it was paid for
+    /// when the errand was planned).
+    pub share: f32,
+    /// The day it was planned.
+    pub day: i64,
+}
+
 /// Every household's price reports, each household's by market, good and payment: at most one
 /// each, the latest seen or told. A seller may take several goods for one; a buyer goes by the
 /// terms in what it holds to pay with.
@@ -140,6 +167,8 @@ impl PriceReport {
 pub struct PriceReports {
     /// By household.
     pub held: BTreeMap<PermanentId, Vec<PriceReport>>,
+    /// The errand each household means to run, if any (M5b slice AQ).
+    pub errands: BTreeMap<PermanentId, Errand>,
 }
 
 impl PriceReports {
@@ -210,11 +239,12 @@ impl PriceReports {
     /// `household` is no more.
     pub fn forget(&mut self, household: PermanentId) {
         self.held.remove(&household);
+        self.errands.remove(&household);
     }
 
     /// Reports older than `max_age_days` on `day` are let go, and so are those of markets that
     /// are now a household's own (`home`; none for a household that is no more, whose reports
-    /// all go).
+    /// all go). Errands go with the household, or once their market is its own.
     pub fn prune(
         &mut self,
         day: i64,
@@ -228,6 +258,8 @@ impl PriceReports {
             list.retain(|r| day - r.day <= max_age_days && Some(r.market) != home);
             !list.is_empty()
         });
+        self.errands
+            .retain(|&h, e| home(h).is_some_and(|home| home != Some(e.market)));
     }
 
     /// What is wrong with these records, given the settlement a household lives in (none for a
@@ -254,6 +286,18 @@ impl PriceReports {
                 .any(|r| !(r.price.is_finite() && r.price > 0.0 && r.units >= 0.0))
             {
                 out.push(format!("household {h} holds a price report without terms"));
+            }
+        }
+        for (&h, e) in &self.errands {
+            if household(h).is_none() {
+                out.push(format!(
+                    "household {h} means to run an errand but is no more"
+                ));
+            }
+            if !(e.units > 0.0 && e.home_h.is_finite() && e.home_h > 0.0)
+                || !(e.share > 0.0 && e.share <= 1.0)
+            {
+                out.push(format!("household {h} means to run an errand for nothing"));
             }
         }
         out

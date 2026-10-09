@@ -205,6 +205,9 @@ pub const SCHEMA_V55: u32 = 55;
 /// The schema version of M5b slice AP: price reports and purchases between settlements, before
 /// the convergence record (see [`agents`]).
 pub const SCHEMA_V56: u32 = 56;
+/// The schema version of M5b slice AQ, step one: the convergence record, before errands to
+/// fetch goods to sell at home (see [`agents`]).
+pub const SCHEMA_V57: u32 = 57;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

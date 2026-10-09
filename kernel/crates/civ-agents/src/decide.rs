@@ -252,6 +252,9 @@ pub enum TradeWorth {
     Food { kcal: f64 },
     /// Other goods, worth so many hours of the household's own work to it (slice J: a wage).
     Goods { hours: f64 },
+    /// Goods fetched from another settlement to sell at home (M5b slice AQ, ADR-0019 §6): the
+    /// share of what they fetch there that the household keeps, 0–1, as for making to sell.
+    Sale { share: f64 },
 }
 
 /// Paid work at a workshop of another household (slice J): where, for how long, and what the
@@ -1056,6 +1059,13 @@ pub fn candidates(
                         let worth = hours / (hours + WAGE_HALF_WORTH_H);
                         term(&mut terms, Reason::UsefulWork, w.w_work * worth);
                     }
+                    TradeWorth::Sale { share } => {
+                        term(
+                            &mut terms,
+                            Reason::ForSale,
+                            w.w_tools * share.clamp(0.0, 1.0),
+                        );
+                    }
                 }
                 term(
                     &mut terms,
@@ -1113,6 +1123,9 @@ pub fn candidates(
                     TradeWorth::Goods { hours } => {
                         let worth = hours / (hours + WAGE_HALF_WORTH_H);
                         term(&mut terms, Reason::Wages, w.w_work * worth);
+                    }
+                    TradeWorth::Sale { share } => {
+                        term(&mut terms, Reason::Wages, w.w_tools * share.clamp(0.0, 1.0));
                     }
                 }
                 term(

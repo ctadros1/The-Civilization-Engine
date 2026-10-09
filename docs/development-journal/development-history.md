@@ -834,6 +834,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** running errands through a firm; the weight of the walk on goods trips (AS); the convergence row, caravans and the wire (step three).
 
+## 2026-10-09 — Fix: workshops could not sell their whole stock
+
+**Goal:** a seller's terms should be honoured to the precision they are posted in.
+
+**What changed:** offers keep their units as `f32`; a workshop offering all it held posted, about half the time, a hair more than it held, and the ledger refused the leg. The buyer walked to the door for nothing and came back, since the offer never shrank. The ledger's cover check now allows a shortfall of a millionth of the leg (rounding), and still moves no more than the giver holds.
+
+**Findings:** in two years of the M5a demo's world, 1,973 trades had failed this way, all at workshops, unseen because a failed trade counted nothing; with the fix none fails, and time spent trading falls from 0.005 to 0.001 hours a person-day. Every world with a workshop that sells its whole stock changes from that sale on.
+
+**Evidence:** a unit test of the ledger (a whole stock given as its `f32` posting reads it; a real shortfall refused); the full test suite; the ten-year smoke (all ten worlds passed).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

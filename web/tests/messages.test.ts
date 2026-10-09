@@ -242,6 +242,29 @@ describe("decoders", () => {
     expect(snapshot.lastAutosaveUnixMs).toBe(1_700_000_000_000);
   });
 
+  it("decodes a settlement's way of building on the three clocks (wire 1.56)", () => {
+    const b = new flatbuffers.Builder(256);
+    const name = b.createString("Westford");
+    const style = b.createString(
+      "founded to build 48° roofs, 1.9 m to the eaves, 0.5 m out; its 12 households would build 47.6° (±1.1°) roofs, 1.9 m to the eaves, 0.5 m out",
+    );
+    W.SettlementBrief.startSettlementBrief(b);
+    W.SettlementBrief.addId(b, 7n);
+    W.SettlementBrief.addName(b, name);
+    W.SettlementBrief.addStyle(b, style);
+    const brief = W.SettlementBrief.endSettlementBrief(b);
+    const list = W.Snapshot.createSettlementsVector(b, [brief]);
+    W.Snapshot.startSnapshot(b);
+    W.Snapshot.addSettlements(b, list);
+    const snapshot = M.decodeSnapshot(finish(b, W.Snapshot.endSnapshot(b)));
+    expect(snapshot.settlements.map((s) => [s.name, s.style])).toEqual([
+      [
+        "Westford",
+        "founded to build 48° roofs, 1.9 m to the eaves, 0.5 m out; its 12 households would build 47.6° (±1.1°) roofs, 1.9 m to the eaves, 0.5 m out",
+      ],
+    ]);
+  });
+
   it("decodes an empty snapshot", () => {
     const b = new flatbuffers.Builder(16);
     W.Snapshot.startSnapshot(b);

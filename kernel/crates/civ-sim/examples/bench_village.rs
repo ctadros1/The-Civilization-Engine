@@ -436,6 +436,13 @@ fn main() {
                 );
             }
         }
+        // Each settlement's way of building on the three clocks (M5b slice AR, step three).
+        for x in &sim.land().settlements {
+            let words = civ_sim::frames::people::style_clock_words(&sim, x.id);
+            if !words.is_empty() {
+                println!("style {} ({}): {words}", x.name, x.id);
+            }
+        }
         let tastes_after = mean_tastes(&sim);
         let keys: Vec<u64> = tastes_after.keys().copied().collect();
         for (i, x) in keys.iter().enumerate() {

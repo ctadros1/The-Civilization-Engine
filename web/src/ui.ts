@@ -1344,6 +1344,10 @@ export function bindUi(store: Store, actions: Actions): void {
     if (p.alive && p.errand) {
       nodes.push(el("p", { className: "errand", text: `${p.errand}.` }));
     }
+    // The buildings of other settlements they have seen (wire 1.56, M5b slice AR).
+    if (p.alive && p.seenAway) {
+      nodes.push(el("p", { className: "seen-away", text: `Seen elsewhere: ${p.seenAway}.` }));
+    }
     if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p), opinionBlock(p));
     if (p.alive) nodes.push(observerBlock(welcome, p));
     if (p.kin.length > 0 || p.family.length > 0) {
@@ -1399,6 +1403,7 @@ export function bindUi(store: Store, actions: Actions): void {
         s.abandonedMinute,
         s.contacts,
         s.coalitions,
+        s.style,
       ]),
       state.welcome?.activities.length ?? 0,
     ]);
@@ -1442,6 +1447,8 @@ export function bindUi(store: Store, actions: Actions): void {
           ? el("span", { className: "since contacts", text: `Between settlements, ${s.contacts}.` })
           : "",
         ...s.coalitions.map((c) => el("span", { className: "since coalition", text: `${c}.` })),
+        // Its way of building on the three clocks (wire 1.56, M5b slice AR).
+        s.style ? el("span", { className: "since style", text: `Building: ${s.style}.` }) : "",
       ),
     );
     nodes.push(

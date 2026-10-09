@@ -166,6 +166,9 @@ pub struct WorldRun {
     /// Each pair of its settlements, by name, as the price convergence row judges it (M5b slice
     /// AQ, ADR-0019 §7).
     pub trade: Vec<(String, String, crate::trade::PairSeen)>,
+    /// Each pair of its settlements, by name, with what crossed each way and the contact that
+    /// could carry it (M5b slice AR).
+    pub neighbours: Vec<(String, String, crate::crossings::PairSeen)>,
 }
 
 /// People who came to live in one settlement from another, by why: the moves 05-06 §5.4 counts,
@@ -632,6 +635,10 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
         .into_iter()
         .map(|p| (name(p.a), name(p.b), p))
         .collect();
+    world.neighbours = crate::crossings::pairs(sim)
+        .into_iter()
+        .map(|p| (name(p.a), name(p.b), p))
+        .collect();
     world.labels = sim
         .people()
         .polities
@@ -669,6 +676,7 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
         contacts(worlds, years),
         moves(worlds),
         convergence(worlds),
+        neighbours(worlds),
         accounting(worlds),
         crime(worlds),
         Row::new(
@@ -834,6 +842,49 @@ fn convergence(worlds: &[WorldRun]) -> Row {
                 } else {
                     format!("; {}", judged.join(", "))
                 }
+            ));
+        }
+    }
+    let text = if seen.is_empty() {
+        "no world of several settlements lived".to_owned()
+    } else {
+        seen.join("; ")
+    };
+    row.graded(grade.unwrap_or(Grade::Gray), text)
+}
+
+/// Neighbours (M5b slice AR; see [`crate::crossings`]): per pair of settlements, a way of
+/// building or a technique crossing a way no contact could carry it is red; contact with nothing
+/// crossing is amber; a pair with no contact is grey. Graded by direction, never by rate.
+fn neighbours(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Neighbours",
+        "what crossed between settlements each way, against the contact that could carry it",
+        "nothing without contact; something with it",
+    )
+    .source("the M5 diffusion brief §3.1; 07-02 §1.2; 11-02 §1.1");
+    let mut grade: Option<Grade> = None;
+    let mut seen = Vec::new();
+    for w in worlds {
+        for (a, b, p) in &w.neighbours {
+            let (g, why) = p.grade();
+            if g != Grade::Gray {
+                grade = Some(grade.map_or(g, |x| x.max(g)));
+            }
+            let way = |x: &crate::crossings::Way| {
+                let c = x.crossed;
+                format!(
+                    "{} contacts, {} buildings after one there, {} households admiring one there, \
+                     {} techniques brought, {} people knowing of one seen there",
+                    x.contact, c.buildings, c.admired, c.brought, c.seen
+                )
+            };
+            seen.push(format!(
+                "world {} {a}–{b}: {} ({why}); to {b}: {}; to {a}: {}",
+                w.seed,
+                g.word(),
+                way(&p.to_b),
+                way(&p.to_a)
             ));
         }
     }
@@ -1462,6 +1513,7 @@ mod tests {
             "Contacts",
             "Moves",
             "Price convergence",
+            "Neighbours",
             "Crime and poverty",
             "Epidemics",
             "Regimes",
@@ -1487,7 +1539,7 @@ mod tests {
         // Only population and the accounts are graded, both worlds keep their bands and no
         // settlement's accounts failed: a pass, but no grey row counts as one.
         assert!(dashboard.passed());
-        assert_eq!(dashboard.summary(), "2 passed, 11 not yet applicable");
+        assert_eq!(dashboard.summary(), "2 passed, 12 not yet applicable");
     }
 
     #[test]

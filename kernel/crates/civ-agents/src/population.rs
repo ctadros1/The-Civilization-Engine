@@ -479,6 +479,10 @@ pub struct Population {
     /// The buildings of other settlements each person has seen, newest first, until their
     /// household's next taste review (M5b slice AR).
     pub seen_away: BTreeMap<PermanentId, Vec<PermanentId>>,
+    /// Each settlement's way of building when it was founded (M5b slice AR; the first of the
+    /// three clocks, research 11-02 §4): a founding band's drawn way, else the mean taste of the
+    /// households that founded it.
+    pub founding_ways: BTreeMap<PermanentId, crate::params::Taste>,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage

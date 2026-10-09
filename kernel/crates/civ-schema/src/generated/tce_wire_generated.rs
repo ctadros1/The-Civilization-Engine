@@ -6034,6 +6034,7 @@ impl<'a> SettlementBrief<'a> {
   pub const VT_ABANDONED_MINUTE: ::flatbuffers::VOffsetT = 24;
   pub const VT_CONTACTS: ::flatbuffers::VOffsetT = 26;
   pub const VT_COALITIONS: ::flatbuffers::VOffsetT = 28;
+  pub const VT_STYLE: ::flatbuffers::VOffsetT = 30;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6048,6 +6049,7 @@ impl<'a> SettlementBrief<'a> {
     builder.add_abandoned_minute(args.abandoned_minute);
     builder.add_founded_minute(args.founded_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.style { builder.add_style(x); }
     if let Some(x) = args.coalitions { builder.add_coalitions(x); }
     if let Some(x) = args.contacts { builder.add_contacts(x); }
     if let Some(x) = args.year { builder.add_year(x); }
@@ -6153,6 +6155,13 @@ impl<'a> SettlementBrief<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(SettlementBrief::VT_COALITIONS, None)}
   }
+  #[inline]
+  pub fn style(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(SettlementBrief::VT_STYLE, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for SettlementBrief<'_> {
@@ -6174,6 +6183,7 @@ impl ::flatbuffers::Verifiable for SettlementBrief<'_> {
      .visit_field::<i64>("abandoned_minute", Self::VT_ABANDONED_MINUTE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("contacts", Self::VT_CONTACTS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("coalitions", Self::VT_COALITIONS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("style", Self::VT_STYLE, false)?
      .finish();
     Ok(())
   }
@@ -6192,6 +6202,7 @@ pub struct SettlementBriefArgs<'a> {
     pub abandoned_minute: i64,
     pub contacts: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub coalitions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub style: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for SettlementBriefArgs<'a> {
   #[inline]
@@ -6210,6 +6221,7 @@ impl<'a> Default for SettlementBriefArgs<'a> {
       abandoned_minute: -1,
       contacts: None,
       coalitions: None,
+      style: None,
     }
   }
 }
@@ -6272,6 +6284,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SettlementBriefBuilder<'a, 'b
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SettlementBrief::VT_COALITIONS, coalitions);
   }
   #[inline]
+  pub fn add_style(&mut self, style: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SettlementBrief::VT_STYLE, style);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SettlementBriefBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SettlementBriefBuilder {
@@ -6302,6 +6318,7 @@ impl ::core::fmt::Debug for SettlementBrief<'_> {
       ds.field("abandoned_minute", &self.abandoned_minute());
       ds.field("contacts", &self.contacts());
       ds.field("coalitions", &self.coalitions());
+      ds.field("style", &self.style());
       ds.finish()
   }
 }
@@ -14077,6 +14094,7 @@ impl<'a> PersonInfo<'a> {
   pub const VT_PLACES: ::flatbuffers::VOffsetT = 108;
   pub const VT_REPORTS: ::flatbuffers::VOffsetT = 110;
   pub const VT_ERRAND: ::flatbuffers::VOffsetT = 112;
+  pub const VT_SEEN_AWAY: ::flatbuffers::VOffsetT = 114;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -14098,6 +14116,7 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.seen_away { builder.add_seen_away(x); }
     if let Some(x) = args.errand { builder.add_errand(x); }
     if let Some(x) = args.reports { builder.add_reports(x); }
     if let Some(x) = args.places { builder.add_places(x); }
@@ -14532,6 +14551,13 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PersonInfo::VT_ERRAND, None)}
   }
+  #[inline]
+  pub fn seen_away(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PersonInfo::VT_SEEN_AWAY, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -14595,6 +14621,7 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("places", Self::VT_PLACES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("reports", Self::VT_REPORTS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("errand", Self::VT_ERRAND, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("seen_away", Self::VT_SEEN_AWAY, false)?
      .finish();
     Ok(())
   }
@@ -14655,6 +14682,7 @@ pub struct PersonInfoArgs<'a> {
     pub places: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub reports: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub errand: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub seen_away: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -14715,6 +14743,7 @@ impl<'a> Default for PersonInfoArgs<'a> {
       places: None,
       reports: None,
       errand: None,
+      seen_away: None,
     }
   }
 }
@@ -14945,6 +14974,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_ERRAND, errand);
   }
   #[inline]
+  pub fn add_seen_away(&mut self, seen_away: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_SEEN_AWAY, seen_away);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -15017,6 +15050,7 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("places", &self.places());
       ds.field("reports", &self.reports());
       ds.field("errand", &self.errand());
+      ds.field("seen_away", &self.seen_away());
       ds.finish()
   }
 }

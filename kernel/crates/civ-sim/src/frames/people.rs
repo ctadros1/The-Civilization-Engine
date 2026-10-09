@@ -104,6 +104,7 @@ pub fn settlement_briefs<'a>(
             let founding = fbb.create_string(&founding_words(sim, s));
             let year = fbb.create_string(&year_words(sim, s.id));
             let contacts = fbb.create_string(&contacts_words(sim, s.id));
+            let style = fbb.create_string(&style_clock_words(sim, s.id));
             let coalitions: Vec<_> = coalition_words(sim, s.id)
                 .iter()
                 .map(|w| fbb.create_string(w))
@@ -125,6 +126,7 @@ pub fn settlement_briefs<'a>(
                     abandoned_minute: s.abandoned.map_or(-1, |t| t.minutes()),
                     contacts: Some(contacts),
                     coalitions: Some(coalitions),
+                    style: Some(style),
                 },
             )
         })
@@ -249,6 +251,105 @@ pub fn year_words(sim: &Sim, s: PermanentId) -> String {
         }
     }
     parts.join(", ")
+}
+
+/// A taste's three traits in words: "48° roofs, 1.9 m to the eaves, 0.5 m out".
+fn traits_words(mean: [f64; 3]) -> String {
+    format!(
+        "{:.0}° roofs, {:.1} m to the eaves, {:.1} m out",
+        mean[0] / 100.0,
+        mean[1] / 100.0,
+        mean[2] / 100.0
+    )
+}
+
+/// A spread's mean in words, with how far the pitch spreads: "47.6° (±1.1°) roofs, 1.9 m to the
+/// eaves, 0.5 m out".
+fn spread_words(s: &civ_agents::style::Spread) -> String {
+    format!(
+        "{:.1}° (±{:.1}°) roofs, {:.1} m to the eaves, {:.1} m out",
+        s.mean[0] / 100.0,
+        s.sd[0] / 100.0,
+        s.mean[1] / 100.0,
+        s.mean[2] / 100.0
+    )
+}
+
+/// Settlement `s`'s way of building on the three clocks, in words (M5b slice AR; research 11-02
+/// §4): "founded to build 48° roofs, 1.9 m to the eaves, 0.5 m out; its 12 households would build
+/// 47.6° (±1.1°) roofs, …; the year's 3 new buildings: 48.1° (±0.4°) roofs, …, 1 after a
+/// building elsewhere; its 31 standing buildings: 47.9° (±1.0°) roofs, …"; empty with no people,
+/// buildings or founding way.
+pub fn style_clock_words(sim: &Sim, s: PermanentId) -> String {
+    let c = sim
+        .people
+        .style_clocks(&sim.rules.catalog, &sim.land, sim.now(), s);
+    let mut parts = Vec::new();
+    if let Some(way) = c.way {
+        parts.push(format!(
+            "founded to build {}",
+            traits_words(way.traits().map(f64::from))
+        ));
+    }
+    if c.taste.n > 0 {
+        let who = if c.taste.n == 1 {
+            "its one household".to_owned()
+        } else {
+            format!("its {} households", c.taste.n)
+        };
+        parts.push(format!("{who} would build {}", spread_words(&c.taste)));
+    }
+    if c.new.n > 0 {
+        let what = if c.new.n == 1 {
+            "the year's one new building".to_owned()
+        } else {
+            format!("the year's {} new buildings", c.new.n)
+        };
+        let after = match c.new_after_elsewhere {
+            0 => String::new(),
+            n => format!(", {n} after a building elsewhere"),
+        };
+        parts.push(format!("{what}: {}{after}", spread_words(&c.new)));
+    } else if c.stock.n > 0 {
+        parts.push("no new building this year".to_owned());
+    }
+    if c.stock.n > 0 {
+        let what = if c.stock.n == 1 {
+            "its one standing building".to_owned()
+        } else {
+            format!("its {} standing buildings", c.stock.n)
+        };
+        parts.push(format!("{what}: {}", spread_words(&c.stock)));
+    }
+    parts.join("; ")
+}
+
+/// The buildings of other settlements `p` has seen since their household's last taste review, by
+/// settlement, in words (M5b slice AR): "At Westford: Cal's hut, Bo's longhouse"; empty when none.
+pub fn seen_away_words(sim: &Sim, p: PermanentId) -> String {
+    let Some(list) = sim.people.seen_away.get(&p) else {
+        return String::new();
+    };
+    let mut by: Vec<(String, Vec<String>)> = Vec::new();
+    for &b in list {
+        let Some(x) = sim.land.buildings.iter().find(|x| x.id == b) else {
+            continue;
+        };
+        let at = sim
+            .people
+            .building_settlement(&sim.land, x)
+            .and_then(|s| sim.land.settlements.iter().find(|y| y.id == s))
+            .map_or_else(|| "another settlement".to_owned(), |y| y.name.clone());
+        let name = whose_building(sim, x);
+        match by.iter_mut().find(|(s, _)| *s == at) {
+            Some((_, names)) => names.push(name),
+            None => by.push((at, vec![name])),
+        }
+    }
+    by.iter()
+        .map(|(at, names)| format!("At {at}: {}", names.join(", ")))
+        .collect::<Vec<_>>()
+        .join("; ")
 }
 
 /// What passed between settlement `s` and others last year and this year so far, in words (M5a
@@ -1223,6 +1324,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
             .collect();
         args.reports = Some(fbb.create_vector(&reports));
         args.errand = Some(fbb.create_string(&super::markets::errand_words(sim, p.household)));
+        args.seen_away = Some(fbb.create_string(&seen_away_words(sim, p.id)));
     }
     let body = wire::PersonInfo::create(&mut fbb, &args);
     Ok(response(fbb, wire::ResponseBody::PersonInfo, body))

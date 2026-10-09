@@ -3883,7 +3883,8 @@ struct SettlementBrief FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_YEAR = 22,
     VT_ABANDONED_MINUTE = 24,
     VT_CONTACTS = 26,
-    VT_COALITIONS = 28
+    VT_COALITIONS = 28,
+    VT_STYLE = 30
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -3924,6 +3925,9 @@ struct SettlementBrief FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *coalitions() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_COALITIONS);
   }
+  const ::flatbuffers::String *style() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_STYLE);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -3946,6 +3950,8 @@ struct SettlementBrief FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_COALITIONS) &&
            verifier.VerifyVector(coalitions()) &&
            verifier.VerifyVectorOfStrings(coalitions()) &&
+           VerifyOffset(verifier, VT_STYLE) &&
+           verifier.VerifyString(style()) &&
            verifier.EndTable();
   }
 };
@@ -3993,6 +3999,9 @@ struct SettlementBriefBuilder {
   void add_coalitions(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coalitions) {
     fbb_.AddOffset(SettlementBrief::VT_COALITIONS, coalitions);
   }
+  void add_style(::flatbuffers::Offset<::flatbuffers::String> style) {
+    fbb_.AddOffset(SettlementBrief::VT_STYLE, style);
+  }
   explicit SettlementBriefBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -4018,11 +4027,13 @@ inline ::flatbuffers::Offset<SettlementBrief> CreateSettlementBrief(
     ::flatbuffers::Offset<::flatbuffers::String> year = 0,
     int64_t abandoned_minute = -1LL,
     ::flatbuffers::Offset<::flatbuffers::String> contacts = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coalitions = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coalitions = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> style = 0) {
   SettlementBriefBuilder builder_(_fbb);
   builder_.add_abandoned_minute(abandoned_minute);
   builder_.add_founded_minute(founded_minute);
   builder_.add_id(id);
+  builder_.add_style(style);
   builder_.add_coalitions(coalitions);
   builder_.add_contacts(contacts);
   builder_.add_year(year);
@@ -4055,12 +4066,14 @@ inline ::flatbuffers::Offset<SettlementBrief> CreateSettlementBriefDirect(
     const char *year = nullptr,
     int64_t abandoned_minute = -1LL,
     const char *contacts = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *coalitions = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *coalitions = nullptr,
+    const char *style = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto founding__ = founding ? _fbb.CreateString(founding) : 0;
   auto year__ = year ? _fbb.CreateString(year) : 0;
   auto contacts__ = contacts ? _fbb.CreateString(contacts) : 0;
   auto coalitions__ = coalitions ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*coalitions) : 0;
+  auto style__ = style ? _fbb.CreateString(style) : 0;
   return tce::wire::CreateSettlementBrief(
       _fbb,
       id,
@@ -4075,7 +4088,8 @@ inline ::flatbuffers::Offset<SettlementBrief> CreateSettlementBriefDirect(
       year__,
       abandoned_minute,
       contacts__,
-      coalitions__);
+      coalitions__,
+      style__);
 }
 
 struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -8381,7 +8395,8 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_RESIDENCE = 106,
     VT_PLACES = 108,
     VT_REPORTS = 110,
-    VT_ERRAND = 112
+    VT_ERRAND = 112,
+    VT_SEEN_AWAY = 114
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -8548,6 +8563,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *errand() const {
     return GetPointer<const ::flatbuffers::String *>(VT_ERRAND);
   }
+  const ::flatbuffers::String *seen_away() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_SEEN_AWAY);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -8650,6 +8668,8 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVectorOfStrings(reports()) &&
            VerifyOffset(verifier, VT_ERRAND) &&
            verifier.VerifyString(errand()) &&
+           VerifyOffset(verifier, VT_SEEN_AWAY) &&
+           verifier.VerifyString(seen_away()) &&
            verifier.EndTable();
   }
 };
@@ -8823,6 +8843,9 @@ struct PersonInfoBuilder {
   void add_errand(::flatbuffers::Offset<::flatbuffers::String> errand) {
     fbb_.AddOffset(PersonInfo::VT_ERRAND, errand);
   }
+  void add_seen_away(::flatbuffers::Offset<::flatbuffers::String> seen_away) {
+    fbb_.AddOffset(PersonInfo::VT_SEEN_AWAY, seen_away);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8890,7 +8913,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> residence = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> places = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> reports = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> errand = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> errand = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> seen_away = 0) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
@@ -8902,6 +8926,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_seen_away(seen_away);
   builder_.add_errand(errand);
   builder_.add_reports(reports);
   builder_.add_places(places);
@@ -9011,7 +9036,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *residence = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *places = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *reports = nullptr,
-    const char *errand = nullptr) {
+    const char *errand = nullptr,
+    const char *seen_away = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -9038,6 +9064,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto places__ = places ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*places) : 0;
   auto reports__ = reports ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*reports) : 0;
   auto errand__ = errand ? _fbb.CreateString(errand) : 0;
+  auto seen_away__ = seen_away ? _fbb.CreateString(seen_away) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -9094,7 +9121,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       residence__,
       places__,
       reports__,
-      errand__);
+      errand__,
+      seen_away__);
 }
 
 struct NewsLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

@@ -8,7 +8,7 @@
 //!
 //! The long run's checks fail it (every settlement's accounts balance, the books, residence
 //! histories: [`LongRun`]); the convergence row is reported, and red in it fails the run, as on the
-//! dashboard. Nothing here steers either life: the switch only leaves the trip to buy elsewhere
+//! dashboard; so is the neighbours row for each life (M5b slice AR). Nothing here steers either life: the switch only leaves the trip to buy elsewhere
 //! out of every choice.
 
 use std::collections::BTreeMap;
@@ -201,6 +201,44 @@ pub fn run(
     }
     let row = trade::grade(&outcome.trade);
     writeln!(out, "the row with trade: {}", row.word())?;
+    // What crossed between the settlements each way, against the contact that could carry it
+    // (M5b slice AR): red in either life is a leak, and fails the run.
+    for (life, sim) in [
+        ("with trade", &trade_life.sim),
+        ("the twin", &twin_life.sim),
+    ] {
+        for p in crate::crossings::pairs(sim) {
+            let (g, why) = p.grade();
+            let c = |w: &crate::crossings::Way| {
+                format!(
+                    "{} contacts, {} buildings, {} admiring, {} brought, {} seen",
+                    w.contact,
+                    w.crossed.buildings,
+                    w.crossed.admired,
+                    w.crossed.brought,
+                    w.crossed.seen
+                )
+            };
+            writeln!(
+                out,
+                "neighbours {life}, {}–{}: {} ({why}); to {}: {}; to {}: {}",
+                name(p.a),
+                name(p.b),
+                g.word(),
+                name(p.b),
+                c(&p.to_b),
+                name(p.a),
+                c(&p.to_a)
+            )?;
+            if g == Grade::Red {
+                outcome.failures.push(format!(
+                    "neighbours {life}: {}–{} crossed without contact",
+                    name(p.a),
+                    name(p.b)
+                ));
+            }
+        }
+    }
     outcome.failures.extend(trade_life.failures);
     outcome
         .failures

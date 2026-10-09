@@ -1022,6 +1022,11 @@ fn settle_band(
     // the settlement's record begins with what they brought.
     pop.ensure_knowers(ctx.catalog, params, now, &people);
     pop.note_arrivals(ctx.catalog, now, settlement, &people);
+    // Its way of building as it was founded (M5b slice AR): the band's.
+    pop.founding_ways.insert(
+        settlement,
+        crate::style::band_way(&params.style, ctx.seed, settlement),
+    );
     pop.chronicle_push(
         now,
         ChronicleKind::BandArrived,
@@ -1503,6 +1508,10 @@ fn spawn_one(
         &mut d,
         &mut used_names,
     );
+    // A settlement this family founds builds as it does (M5b slice AR).
+    if founded && let Some(t) = pop.household(household).map(|x| x.taste) {
+        pop.founding_ways.insert(settlement, t);
+    }
     // A wave's households come as brothers and sisters: one of the couple is a child of the
     // parents its run of households shares.
     if let Sent::Wave {

@@ -2241,6 +2241,20 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
 }
 
 #[test]
+fn a_schema_60_save_loads_with_its_founding_bands_ways_drawn_again() {
+    // A schema-60 save, from before settlements' founding ways were kept (M5b slice AR, step
+    // three): a founding band's is drawn again from its key, so it comes back as it was.
+    let sim = load_first();
+    assert!(!sim.people().founding_ways.is_empty());
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V60;
+    let path = republish("slice-ar2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-60 save loads");
+    assert_eq!(loaded.people().founding_ways, sim.people().founding_ways);
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_59_save_loads_with_no_technique_seen_elsewhere_or_brought_from_another_settlement() {
     // A schema-59 save, from before people learnt of techniques by what they saw in other
     // settlements, and before the record said where a technique came from or is still known

@@ -1049,6 +1049,7 @@ const hooks = {
           year: x.year,
           contacts: x.contacts,
           coalitions: x.coalitions,
+          style: x.style,
         })) ?? [],
       fieldsRev: s.snapshot?.fieldsRev ?? 0,
       buildingsRev: s.snapshot?.buildingsRev ?? 0,
@@ -1204,6 +1205,7 @@ const hooks = {
             residence: s.selected.info?.residence ?? null,
             reports: s.selected.info?.reports ?? null,
             errand: s.selected.info?.errand ?? null,
+            seenAway: s.selected.info?.seenAway ?? null,
             error: s.selected.error,
             knows:
               s.selected.info?.knows.map((k) => ({

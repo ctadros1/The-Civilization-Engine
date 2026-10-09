@@ -439,8 +439,15 @@ errand(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+seenAway():string|null
+seenAway(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+seenAway(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 114);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(55);
+  builder.startObject(56);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -878,6 +885,10 @@ static startReportsVector(builder:flatbuffers.Builder, numElems:number) {
 
 static addErrand(builder:flatbuffers.Builder, errandOffset:flatbuffers.Offset) {
   builder.addFieldOffset(54, errandOffset, 0);
+}
+
+static addSeenAway(builder:flatbuffers.Builder, seenAwayOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(55, seenAwayOffset, 0);
 }
 
 static endPersonInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

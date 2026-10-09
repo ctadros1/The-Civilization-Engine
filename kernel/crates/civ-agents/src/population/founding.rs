@@ -567,6 +567,17 @@ impl Population {
             }
         }
         self.polities.push(polity);
+        // Its way of building as founded (M5b slice AR): its households' taste, on average.
+        let tastes: Vec<crate::params::Taste> = c
+            .members
+            .iter()
+            .filter_map(|&h| self.household(h))
+            .filter(|x| x.settlement == Some(c.from))
+            .map(|x| x.taste)
+            .collect();
+        if let Some(way) = crate::style::mean_taste(&tastes) {
+            self.founding_ways.insert(id, way);
+        }
         let first = self
             .household(c.organizer)
             .and_then(|x| x.members.first().copied());

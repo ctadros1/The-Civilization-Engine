@@ -1,6 +1,7 @@
 // M5a slices AK and AM end to end (ADR-0018): a world made with a neighbouring group has two
 // settlements, each founded by one of the groups the world began with, and the inspector says
-// where a person lives, how they came there, and the other places their household knows.
+// where a person lives, how they came there, and the other places their household knows; and
+// each settlement's way of building (M5b slice AR).
 
 import { expect, test } from "@playwright/test";
 
@@ -40,7 +41,12 @@ test("a world made with neighbours has a settlement for each group", async ({ pa
     await expect(body).toContainText("one of the groups the world began with");
     for (const settlement of s.settlements) {
       expect(settlement.population).toBe(30);
+      // Its way of building on the three clocks (wire 1.56, M5b slice AR): how it was founded
+      // to build and how its households would build now; nothing is built yet.
+      expect(settlement.style).toMatch(/^founded to build \d+° roofs/);
+      expect(settlement.style).toContain("households would build");
     }
+    await expect(body).toContainText("Building: founded to build");
 
     const someone = (await page.evaluate(() => window.__TCE__.briefs()))[0]?.id ?? 0;
     await page.evaluate((x) => window.__TCE__.select(x), someone);

@@ -299,6 +299,10 @@ export interface SettlementBrief {
   /** Wire 1.53 (M5a slice AO): households of it gathered to found a settlement, still gathering
    * or ended in the past year, each in the kernel's words. */
   coalitions: string[];
+  /** Wire 1.56 (M5b slice AR): its way of building on the three clocks (how it was founded to
+   * build, its households' taste now, the year's new buildings and its standing ones), in the
+   * kernel's words; empty with nothing to say. */
+  style: string;
 }
 
 export interface Snapshot {
@@ -758,6 +762,10 @@ export interface PersonInfo {
    * kernel's words ("Their household means to fetch 3.6 sickles from Bran's household at
    * Elmhollow to sell at home; planned 2 days ago"); empty when it means none. */
   errand: string;
+  /** Wire 1.56 (M5b slice AR): the buildings of other settlements they have seen since their
+   * household's last taste review, in the kernel's words ("At Westford: Cal's hut"); empty when
+   * none. */
+  seenAway: string;
 }
 
 /** A claim the observer may whisper (wire 1.47). */
@@ -2159,6 +2167,7 @@ function settlementBriefs(s: W.Snapshot): SettlementBrief[] {
       abandonedMinute: Number(t.abandonedMinute()),
       contacts: t.contacts() ?? "",
       coalitions: Array.from({ length: t.coalitionsLength() }, (_, k) => t.coalitions(k) ?? ""),
+      style: t.style() ?? "",
     });
   }
   return out;
@@ -3155,6 +3164,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     places,
     reports,
     errand: p.errand() ?? "",
+    seenAway: p.seenAway() ?? "",
   };
 }
 

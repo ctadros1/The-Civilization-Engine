@@ -312,6 +312,10 @@ table SettlementBrief {
   // ended in the past year, each in words ("Ada's household gathers 2 more households, 14
   // people, to found a settlement 3.1 km north, since the spring of year 2; lacks seed").
   coalitions: [string] (id: 12);
+  // Wire 1.56 (M5b slice AR): its way of building on the three clocks, in words: how it was
+  // founded to build, how its households would build now, how the year's new buildings and its
+  // standing buildings were built, and how many of the new follow a building elsewhere.
+  style: string (id: 13);
 }
 
 table Snapshot {
@@ -845,6 +849,9 @@ table PersonInfo {
   // "Their household means to fetch 3.6 sickles from Bran's household at Elmhollow to sell at
   // home; planned 2 days ago"; empty when it means none.
   errand: string (id: 54);
+  // The buildings of other settlements they have seen since their household's last taste review,
+  // in words (wire 1.56, M5b slice AR): "At Westford: Cal's hut, Bo's longhouse"; empty when none.
+  seen_away: string (id: 55);
 }
 
 // Wire 1.47 (M4c slice AJ): a claim that may be whispered.

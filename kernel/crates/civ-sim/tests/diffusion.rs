@@ -666,3 +666,80 @@ fn a_household_that_moves_brings_what_it_knows_and_its_loss_says_where_it_is_sti
     assert_eq!(loaded.people().knowledge, sim.people().knowledge);
     assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
 }
+
+#[test]
+fn each_settlement_s_way_of_building_is_shown_on_three_clocks_and_chains_name_where_they_cross() {
+    let mut sim = world(3, 30, &[30]);
+    until_housed(&mut sim);
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    // Each founding band's way is its drawn one, and a save keeps it.
+    let seed = sim.meta().seed;
+    for s in [a, b] {
+        let drawn = style::band_way(&sim.rules().people.style, seed, s);
+        assert_eq!(sim.people().founding_ways.get(&s), Some(&drawn));
+    }
+    // The clocks: every household's taste, and every finished building, new this first year.
+    let (catalog, land, now) = (sim.rules().catalog.clone(), sim.land().clone(), sim.now());
+    let clocks = sim.people().style_clocks(&catalog, &land, now, a);
+    assert_eq!(clocks.taste.n, households_of(&sim, a).len());
+    let homes: Vec<PermanentId> = land
+        .buildings
+        .iter()
+        .filter(|x| x.finished() && sim.people().building_settlement(&land, x) == Some(a))
+        .map(|x| x.id)
+        .collect();
+    assert!(homes.len() >= 2);
+    assert_eq!((clocks.stock.n, clocks.new.n), (homes.len(), homes.len()));
+    assert_eq!(clocks.new_after_elsewhere, 0);
+    let way = clocks.way.expect("its founding way");
+    assert!((clocks.taste.mean[0] - f64::from(way.pitch_centideg)).abs() < 300.0);
+    // A home here that followed one here that followed one there: its chain crosses.
+    let there = land
+        .buildings
+        .iter()
+        .find(|x| x.finished() && sim.people().building_settlement(&land, x) == Some(b))
+        .map(|x| x.id)
+        .expect("a home there");
+    for x in sim.land_mut_for_tests().buildings.iter_mut() {
+        if x.id == homes[1] {
+            x.style_from = Some(there);
+        } else if x.id == homes[0] {
+            x.style_from = Some(homes[1]);
+        }
+    }
+    let land = sim.land().clone();
+    let first = land
+        .buildings
+        .iter()
+        .find(|x| x.id == homes[0])
+        .expect("it");
+    assert_eq!(sim.people().crossing_of(&land, first), Some(there));
+    let clocks = sim.people().style_clocks(&catalog, &land, now, a);
+    assert_eq!(clocks.new_after_elsewhere, 2);
+    // The observer's words: the settlement's clocks, the chain back to where it crossed, and what
+    // someone saw elsewhere.
+    let name = sim.land().settlements[1].name.clone();
+    let words = civ_sim::frames::people::style_clock_words(&sim, a);
+    assert!(words.starts_with("founded to build "), "{words}");
+    assert!(words.contains(" households would build "), "{words}");
+    assert!(words.contains(", 2 after a building elsewhere"), "{words}");
+    assert!(words.contains(" standing buildings: "), "{words}");
+    let readout = civ_sim::frames::buildings::style_words(&sim, first, Some(def(&sim, first)));
+    assert!(
+        readout.contains(", which goes back to ") && readout.ends_with(&format!(" at {name}")),
+        "{readout}"
+    );
+    let viewer = members(&sim, households_of(&sim, a)[0])[0];
+    sim.people_mut_for_tests()
+        .seen_away
+        .insert(viewer, vec![there]);
+    let seen = civ_sim::frames::people::seen_away_words(&sim, viewer);
+    assert!(seen.starts_with(&format!("At {name}: ")), "{seen}");
+    // A save keeps the founding ways.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION).expect("save dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "ways").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().founding_ways, sim.people().founding_ways);
+}

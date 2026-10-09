@@ -100,10 +100,19 @@ pub fn style_words(sim: &Sim, b: &Building, def: Option<&BuildingDef>) -> String
     if let Some(from) = b.style_from {
         // Where the building followed stands, if not where this one does (M5b slice AR).
         let here = sim.people.household(b.household).and_then(|h| h.settlement);
-        words.push(format!(
+        let mut after = format!(
             "after {}",
             super::people::building_name_from(sim, from, here)
-        ));
+        );
+        // And the first building elsewhere its chain of followed buildings goes back to, if the
+        // one it followed stands here (M5b slice AR; the M5 diffusion brief §1.7).
+        if let Some(first) = sim.people.crossing_of(&sim.land, b).filter(|&x| x != from) {
+            after.push_str(&format!(
+                ", which goes back to {}",
+                super::people::building_name_from(sim, first, here)
+            ));
+        }
+        words.push(after);
     }
     words.join(", ")
 }

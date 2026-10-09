@@ -896,6 +896,20 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** style per settlement and the neighbours row (step three).
 
+## 2026-10-09 — M5b slice AR, step three: style per settlement and the neighbours row
+
+**Goal:** make a settlement's way of building visible on the three clocks the research separates (taste, new buildings, standing stock; 11-02 §4), against the way it was founded with, and check on the dashboard that nothing crosses between settlements without contact (the M5 diffusion brief §1.7, §3.1).
+
+**What changed:** each settlement keeps its founding way (saves schema 61): a founding band's drawn way, else the mean taste of the households that founded it. The settlements panel shows the clocks in words, the building readout names where a followed chain first crosses, and the inspector what someone has seen elsewhere (wire 1.56). The dashboard gains a neighbours row, graded per pair and direction: red for anything that crossed with no contact that could carry it, grey with no contact, amber with contact and nothing crossed.
+
+**Findings:** in writing the row, a new module was written over the M5a demo's `neighbours.rs` in `civ-host` (the file existed under the name chosen); it was caught at once by the build, restored from git unchanged, and the row's module named `crossings.rs`. Slice AR is complete.
+
+**Measured:** behaviour matches step two in the village of 1,000 and in two years of the M5a demo's world (only the places section, now holding the founding ways, differs). There Oakholt, founded to build 46° roofs, has households at 47.7° and standing buildings at 46.6°; all 11 of Sedgebrook's new buildings follow one elsewhere, brought by the wave's households that moved in. In `civ-host twin`'s two lives nothing crossed without contact.
+
+**Evidence:** an integration test of the founding ways, the clocks and the three readouts, with a save; the roundtrip of a schema-60 save; a unit test of the row's grades; a unit test that founding tastes draw exactly as before; digest comparisons with step two; the settlements end-to-end test.
+
+**Open:** the M5b demo (AS), time-boxed: whether a roof's way crosses where the founding ways differ, and the walk's weight on goods trips.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

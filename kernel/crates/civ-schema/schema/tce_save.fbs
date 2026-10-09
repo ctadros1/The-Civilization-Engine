@@ -1819,6 +1819,17 @@ table PlacesSave {
   // Schema 59 (M5b slice AR): the buildings of other settlements people have seen since their
   // household's last taste review, by person.
   seen: [SeenSave] (id: 11);
+  // Schema 61 (M5b slice AR, step three): each settlement's way of building when it was founded.
+  ways: [WaySave] (id: 12);
+}
+
+// A settlement's way of building when it was founded (schema 61): roof pitch in hundredths of a
+// degree, height to the eaves and the roof's overhang in centimetres.
+table WaySave {
+  settlement: ulong (id: 0);
+  pitch_centideg: float (id: 1);
+  eave_cm: float (id: 2);
+  overhang_cm: float (id: 3);
 }
 
 // The buildings of other settlements `person` has seen, newest first (schema 59).

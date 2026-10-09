@@ -215,6 +215,9 @@ pub const SCHEMA_V58: u32 = 58;
 /// techniques seen there and the settlements a technique's arrival and loss concern (see
 /// [`agents`]).
 pub const SCHEMA_V59: u32 = 59;
+/// The schema version of M5b slice AR, step two: techniques seen in other settlements and the
+/// settlements an arrival or a loss concerns, before settlements' founding ways (see [`agents`]).
+pub const SCHEMA_V60: u32 = 60;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

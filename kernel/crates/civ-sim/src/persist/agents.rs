@@ -110,7 +110,7 @@ use super::{
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
-    SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, finish, section, single_chunk, unreadable,
+    SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -405,6 +405,8 @@ enum Schema {
     /// Techniques seen in other settlements; the settlements an arrival or a loss concerns (M5b
     /// slice AR, step two).
     V60,
+    /// Settlements' founding ways (M5b slice AR, step three).
+    V61,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -479,7 +481,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V57 => Schema::V57,
         SCHEMA_V58 => Schema::V58,
         SCHEMA_V59 => Schema::V59,
-        SAVE_SCHEMA_VERSION => Schema::V60,
+        SCHEMA_V60 => Schema::V60,
+        SAVE_SCHEMA_VERSION => Schema::V61,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -682,6 +685,7 @@ pub(super) fn decode<R: Read + Seek>(
             people.reports,
             people.convergence,
             people.seen_away,
+            people.founding_ways,
         ) = (
             d.known,
             d.contacts,
@@ -692,7 +696,13 @@ pub(super) fn decode<R: Read + Seek>(
             d.reports,
             d.convergence,
             d.seen,
+            d.ways,
         );
+    }
+    // Settlements' founding ways (schema 61); before them a founding band's is drawn again from
+    // its key, and any other settlement's taken as its households' now.
+    if schema < Schema::V61 {
+        people.derive_founding_ways(&land, &rules.people.style, seed);
     }
     people.derive_shelter(&land, &rules.catalog, &rules.people);
     match standing {
@@ -2671,7 +2681,8 @@ fn carried(
         | Schema::V57
         | Schema::V58
         | Schema::V59
-        | Schema::V60 => {
+        | Schema::V60
+        | Schema::V61 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2841,7 +2852,8 @@ fn decode_households(
             | Schema::V57
             | Schema::V58
             | Schema::V59
-            | Schema::V60 => {
+            | Schema::V60
+            | Schema::V61 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -6565,6 +6577,23 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let seen = (!seen.is_empty()).then(|| fbb.create_vector(&seen));
+    // Settlements' founding ways (schema 61).
+    let ways: Vec<_> = people
+        .founding_ways
+        .iter()
+        .map(|(&id, t)| {
+            save::WaySave::create(
+                &mut fbb,
+                &save::WaySaveArgs {
+                    settlement: id.get(),
+                    pitch_centideg: t.pitch_centideg,
+                    eave_cm: t.eave_cm,
+                    overhang_cm: t.overhang_cm,
+                },
+            )
+        })
+        .collect();
+    let ways = (!ways.is_empty()).then(|| fbb.create_vector(&ways));
     let root = save::PlacesSave::create(
         &mut fbb,
         &save::PlacesSaveArgs {
@@ -6580,6 +6609,7 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
             carried,
             errands,
             seen,
+            ways,
         },
     );
     finish(fbb, root)
@@ -6598,6 +6628,7 @@ struct PlacesDecoded {
     reports: civ_agents::reports::PriceReports,
     convergence: civ_agents::convergence::Convergence,
     seen: BTreeMap<PermanentId, Vec<PermanentId>>,
+    ways: BTreeMap<PermanentId, civ_agents::params::Taste>,
 }
 
 fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError> {
@@ -6847,6 +6878,19 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
             )));
         }
     }
+    // Settlements' founding ways (schema 61).
+    let mut ways = BTreeMap::new();
+    for w in root.ways().iter().flatten() {
+        let id = required(w.settlement(), "a founding way's settlement")?;
+        ways.insert(
+            id,
+            civ_agents::params::Taste {
+                pitch_centideg: w.pitch_centideg(),
+                eave_cm: w.eave_cm(),
+                overhang_cm: w.overhang_cm(),
+            },
+        );
+    }
     Ok(PlacesDecoded {
         known: out,
         contacts,
@@ -6857,6 +6901,7 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
         reports,
         convergence,
         seen,
+        ways,
     })
 }
 

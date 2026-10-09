@@ -12,6 +12,7 @@
 
 pub mod commands;
 pub mod consistency;
+pub mod crossings;
 pub mod dashboard;
 pub mod economy;
 pub mod engine;

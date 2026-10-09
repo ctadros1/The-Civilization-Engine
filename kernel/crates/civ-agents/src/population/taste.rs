@@ -5,7 +5,7 @@
 
 use super::*;
 
-use crate::params::Taste;
+use crate::params::{StyleParams, Taste};
 use crate::style;
 
 /// Each of `items` (a score and an id) ranked from 0, the lowest, to 1, the highest, ties by id;
@@ -38,6 +38,112 @@ struct Met {
 }
 
 impl Population {
+    /// For a world saved before settlements' founding ways were kept (schema 60 and earlier): a
+    /// settlement a founding band made at setup has its band's way, drawn again from its key; any
+    /// other its households' taste as it is now, on average (an approximation), or none.
+    pub fn derive_founding_ways(&mut self, land: &Land, rules: &StyleParams, seed: u64) {
+        for s in &land.settlements {
+            let way = if s.founding == civ_land::Founding::Setup {
+                Some(style::band_way(rules, seed, s.id))
+            } else {
+                style::mean_taste(
+                    self.households
+                        .iter()
+                        .filter(|(_, h)| h.settlement == Some(s.id) && !h.members.is_empty())
+                        .map(|(_, h)| &h.taste),
+                )
+            };
+            if let Some(way) = way {
+                self.founding_ways.insert(s.id, way);
+            }
+        }
+    }
+
+    /// The settlement building `b` stands in: its household's, or once that household is gone,
+    /// the one whose hearth is nearest (M5b slice AR).
+    pub fn building_settlement(&self, land: &Land, b: &Building) -> Option<PermanentId> {
+        self.household(b.household)
+            .and_then(|h| h.settlement)
+            .or_else(|| {
+                let c = crate::build::centre_m(&b.spec);
+                land.settlements
+                    .iter()
+                    .min_by(|x, y| {
+                        let d = |p: (f32, f32)| (p.0 - c.0).hypot(p.1 - c.1);
+                        d(x.hearth_m)
+                            .total_cmp(&d(y.hearth_m))
+                            .then(x.id.cmp(&y.id))
+                    })
+                    .map(|x| x.id)
+            })
+    }
+
+    /// The first building in another settlement than `b`'s along `b`'s chain of followed
+    /// buildings (the building it followed, the one that followed, and so on), if the chain
+    /// crosses (M5b slice AR; the M5 diffusion brief §1.7).
+    pub fn crossing_of(&self, land: &Land, b: &Building) -> Option<PermanentId> {
+        let home = self.building_settlement(land, b);
+        let mut at = b.style_from;
+        // A chain is short; the bound keeps a cycle from running on.
+        for _ in 0..64 {
+            let x = land.buildings.iter().find(|x| Some(x.id) == at)?;
+            if self.building_settlement(land, x) != home {
+                return Some(x.id);
+            }
+            at = x.style_from;
+        }
+        None
+    }
+
+    /// Settlement `s`'s style on the three clocks (M5b slice AR; [`style::Clocks`]).
+    pub fn style_clocks(
+        &self,
+        catalog: &Catalog,
+        land: &Land,
+        now: SimTime,
+        s: PermanentId,
+    ) -> style::Clocks {
+        let since = now.minutes() - DAYS_PER_YEAR * MINUTES_PER_DAY;
+        let taste = style::Spread::of(
+            self.households
+                .iter()
+                .filter(|(_, h)| h.settlement == Some(s) && !h.members.is_empty())
+                .map(|(_, h)| h.taste),
+        );
+        let mut new = Vec::new();
+        let mut stock = Vec::new();
+        let mut after = 0;
+        for b in &land.buildings {
+            if !(b.finished() && b.state == civ_land::BuildingState::Standing) {
+                continue;
+            }
+            if self.building_settlement(land, b) != Some(s) {
+                continue;
+            }
+            let Some(def) = catalog
+                .building_index(&b.spec.program)
+                .and_then(|i| catalog.buildings.get(i))
+            else {
+                continue;
+            };
+            let t = style::traits_of(&b.spec, def);
+            stock.push(t);
+            if b.stage_since.minutes() >= since {
+                new.push(t);
+                if self.crossing_of(land, b).is_some() {
+                    after += 1;
+                }
+            }
+        }
+        style::Clocks {
+            way: self.founding_ways.get(&s).copied(),
+            taste,
+            new: style::Spread::of(new),
+            stock: style::Spread::of(stock),
+            new_after_elsewhere: after,
+        }
+    }
+
     /// `me` stands at `at` in `settlement`, not their own, on a visit or a trip to buy (M5b slice
     /// AR; research 11-02 §1.1: exposure through travel and observed buildings): they see its
     /// buildings finished in the year past that stand whole within the content's `sight_m`, and
